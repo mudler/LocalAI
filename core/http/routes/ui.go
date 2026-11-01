@@ -6,7 +6,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 )
 
@@ -18,12 +17,6 @@ func RegisterUIRoutes(app *echo.Echo,
 
 	// SPA routes are handled by the 404 fallback in app.go which serves
 	// index.html for any unmatched HTML request, enabling client-side routing.
-
-	// Canvas HTML previews: served from their own route so the response can
-	// carry a CSP that allows CDN scripts (see localai.canvasPreviewCSP).
-	canvasPreviews := localai.NewCanvasPreviewStore()
-	app.POST("/api/canvas/preview", localai.CreateCanvasPreviewEndpoint(canvasPreviews))
-	app.GET("/api/canvas/preview/:id", localai.GetCanvasPreviewEndpoint(canvasPreviews))
 
 	// Pipeline models API (for the Talk page WebRTC interface).
 	// A model qualifies when it either declares an explicit STT+LLM+TTS (the VAD is optional)

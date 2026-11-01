@@ -4,13 +4,13 @@
   "newPlaceholder": "Nom de la nouvelle collection...",
   "actions": {
     "create": "Créer",
-    "creating": "Création...",
     "details": "Détails",
     "reset": "Réinitialiser",
     "delete": "Supprimer",
     "viewDetails": "Voir les détails",
     "resetCollection": "Réinitialiser la collection",
-    "deleteCollection": "Supprimer la collection"
+    "deleteCollection": "Supprimer la collection",
+    "cancel": "Annuler"
   },
   "sections": {
     "yourCollections": "Vos collections",
@@ -19,7 +19,8 @@
   "empty": {
     "title": "Aucune collection pour l'instant",
     "text": "Les collections permettent d'organiser des documents en bases de connaissances que les agents peuvent interroger via RAG (génération augmentée par recherche). Créez une collection ci-dessus pour commencer.",
-    "noPersonal": "Vous n'avez encore aucune collection."
+    "noPersonal": "Vous n'avez encore aucune collection.",
+    "learn": "Fonctionnement de la mémoire"
   },
   "deleteDialog": {
     "title": "Supprimer la collection",
@@ -32,12 +33,29 @@
     "confirm": "Réinitialiser"
   },
   "toasts": {
-    "loadFailed": "Échec du chargement des collections : {{message}}",
     "created": "Collection « {{name}} » créée",
     "createFailed": "Échec de la création de la collection : {{message}}",
     "deleted": "Collection « {{name}} » supprimée",
     "deleteFailed": "Échec de la suppression de la collection : {{message}}",
     "reset": "Collection « {{name}} » réinitialisée",
     "resetFailed": "Échec de la réinitialisation de la collection : {{message}}"
+  },
+  "loadFailed": "Impossible de charger vos collections.",
+  "sources": {
+    "loadFailed": "Impossible de charger les sources web."
+  },
+  "entries": {
+    "loadFailed": "Impossible de charger les fichiers."
+  },
+  "starting": {
+    "title": "La mémoire démarre.",
+    "text": "Le serveur prépare encore le service de mémoire. Cette page réessaie toute seule."
+  },
+  "embedding": {
+    "missingTitle": "Aucun modèle d'embedding installé.",
+    "missingText": "Les collections utilisent {{model}} pour indexer les fichiers et y chercher. Tant qu'il n'est pas installé, l'ajout de fichiers et la recherche échouent.",
+    "noneSet": "Aucun modèle d'embedding n'est défini pour les collections (collections_embedding_model) : l'ajout de fichiers et la recherche échouent.",
+    "install": "Le trouver dans Modèles",
+    "askAdmin": "Demandez à un administrateur de l'installer."
   }
 }

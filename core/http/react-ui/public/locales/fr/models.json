@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "supporting": "Trouvez un modèle adapté à cette machine, installez-le et gérez ceux que vous avez.",
     "title": "Modèles",
     "navLabel": "Cycle de vie des modèles",
     "views": {
@@ -153,6 +154,10 @@
     "delete": "Supprimer"
   },
   "filters": {
+    "sheetDone": "Afficher les modèles",
+    "sheetTitle": "Filtres",
+    "sheetButtonCount": "Filtres ({{count}})",
+    "sheetButton": "Filtres",
     "all": "Tous",
     "llm": "Chat",
     "image": "Image",

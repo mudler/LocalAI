@@ -79,14 +79,14 @@ to keep the fit status and install buttons visible.
 
 ## Method 1.5: Import Models via WebUI
 
-The WebUI import page (**Build → Import**) takes either a source to resolve or a
+The WebUI import page (**Models → Import Model**, or **Import Model** when you add a model) takes either a source to resolve or a
 configuration to write. Both live on the same page, behind the two tabs in its
 header. From a source, it is a short guided flow: source, review, import, done.
 
 ### From a source
 
 1. Open the LocalAI WebUI at `http://localhost:8080`
-2. Open **Build**, then **Import**
+2. Open **Models**, then **Import Model** (the page that adds a model, **Add Model**, has the same button)
 3. Paste the source into the **Source** field (e.g. `https://huggingface.co/Qwen/Qwen3-VL-8B-Instruct-GGUF`), or start from one of the examples
 4. Review what the page says, then press Enter or click **Import**
 

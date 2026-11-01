@@ -1,0 +1,141 @@
+/* The Shared tab of Files: the shared folders and their members. Same list
+   shape as the Pages screen (hairline rows, a chip, a mono path), so a folder
+   and its pages read as one thing. */
+
+.sf { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+
+.sf-head { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-3); }
+.sf-head__text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.sf-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.sf-count { font-size: var(--text-sm); font-weight: 400; color: var(--color-text-muted); font-variant-numeric: tabular-nums; }
+.sf-lede { margin: 0; max-width: 64ch; font-size: var(--text-sm); color: var(--color-text-secondary); }
+
+.sf-layout { align-items: flex-start; }
+.sf-body { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+
+.sf-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.sf-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+}
+.sf-row + .sf-row { border-top: 1px solid var(--color-border-divider); }
+.sf-row__chip { width: 36px; height: 36px; }
+.sf-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.sf-row__title {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.sf-row__title:hover { color: var(--color-primary); }
+.sf-row__title:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.sf-row__title--static { cursor: default; }
+.sf-row__title--static:hover { color: var(--color-text-primary); }
+
+.sf-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--sp-1);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.sf-row__path { font-family: var(--font-mono); overflow-wrap: anywhere; }
+.sf-row__actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-1); }
+
+.sf-link { color: var(--color-primary); text-decoration: none; }
+.sf-link:hover { text-decoration: underline; }
+
+.sf-nameform { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.sf-nameform__input { flex: 1 1 220px; max-width: 360px; }
+.sf-hint { flex-basis: 100%; margin: 0; font-size: var(--text-xs); color: var(--color-text-muted); }
+
+/* Members pane */
+.sf-pane { display: flex; flex-direction: column; gap: var(--sp-4); }
+.sf-pane__meta { font-size: var(--text-xs); color: var(--color-text-muted); }
+.sf-pane__meta code { font-family: var(--font-mono); }
+.sf-pane__heading {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.sf-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--color-border-divider);
+}
+/* The person takes the whole row; the access and Add share the next one. */
+.sf-add__fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--sp-2);
+}
+.sf-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.sf-field:first-child { grid-column: 1 / -1; }
+.sf-field__label { font-size: var(--text-xs); color: var(--color-text-secondary); }
+.sf-field .input { width: 100%; }
+
+.sf-members { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.sf-member {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+}
+.sf-member + .sf-member { border-top: 1px solid var(--color-border-divider); }
+.sf-member__chip { width: 28px; height: 28px; }
+.sf-member__name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+}
+.sf-member__note { font-size: var(--text-xs); color: var(--color-text-muted); }
+.sf-member__mode { width: auto; min-width: 104px; height: var(--ctl-h-sm); padding-top: 0; padding-bottom: 0; }
+
+.sf-sr {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .sf-row { grid-template-columns: auto minmax(0, 1fr); padding: var(--sp-3); }
+  .sf-row__actions { grid-column: 2; justify-content: flex-start; }
+}

@@ -65,7 +65,7 @@ func (k *UserAPIKey) IsPaused(now time.Time) bool {
 }
 
 // PermissionMap is a flexible map of feature -> enabled, stored as JSON text.
-// Known features: "agents", "skills", "collections", "mcp_jobs".
+// Known features: see AllFeatures. A stored key that is no longer known is ignored.
 // New features can be added without schema changes.
 type PermissionMap map[string]bool
 

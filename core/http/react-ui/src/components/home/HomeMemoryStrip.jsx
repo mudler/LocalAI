@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next'
 import { hostMemory, memoryFigure, fillStyle, percent } from './memory'
 import Icon from '../Icon'
+// eslint-disable-next-line no-unused-vars
+import Button from '../ui/Button'
 
 // eslint-disable-next-line no-unused-vars
 function Bar({ pct, thin = false, label }) {
@@ -168,7 +170,7 @@ export default function HomeMemoryStrip({
 
           {count > 1 && (
             <div className="home-strip__foot">
-              <button type="button" className="home-ghost" onClick={onStopAll}>{t('loadedModels.stopAll')}</button>
+              <Button size="sm" variant="ghost" onClick={onStopAll}>{t('loadedModels.stopAll')}</Button>
             </div>
           )}
         </div>

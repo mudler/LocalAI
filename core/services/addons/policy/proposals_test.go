@@ -39,7 +39,9 @@ type fixtureRuntime struct {
 	failFirst   bool // fail without committing
 	// applyErr, when set, is returned by the next Apply before the request is
 	// recorded, as a client that answers without the add-on seeing it.
-	applyErr    error
+	applyErr error
+	// previewErr, when set, is returned by every Preview.
+	previewErr  error
 	holdReply   func(ctx context.Context)
 	receiptMode string // "", "pending", "unavailable", "block"
 	lookups     int
@@ -67,6 +69,9 @@ func (r *fixtureRuntime) Preview(_ context.Context, e contract.Envelope) (contra
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.previews++
+	if r.previewErr != nil {
+		return contract.Preview{}, r.previewErr
+	}
 	return contract.Preview{
 		OperationID: e.Request.OperationID,
 		Revision:    contract.Revision{Schema: 1, Data: r.data},

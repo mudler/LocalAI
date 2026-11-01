@@ -80,14 +80,16 @@ export function highlightAll(element) {
 // the same DOM (e.g. while streaming) only touches new blocks. Copy clicks are
 // handled by a single delegated document listener (registered below).
 //
-// options.copyLabel puts a word next to the copy icon, and options.canvasLabel
-// adds a second button that asks the page to open the block in its canvas. The
-// page owns what that button does: it listens for clicks on .code-canvas-btn.
+// options.copyLabel puts a word next to the copy icon. options.downloadLabel
+// adds a Download button, and options.previewLabel an "Open preview" button
+// on the blocks for which options.canPreview(pre, lang, text) says yes. The
+// page owns what those buttons do: it listens for clicks on
+// .code-download-btn and .code-preview-btn.
 // options.selector limits which blocks count (the chat page leaves out the
 // plain output boxes of tool results).
 export function enhanceCodeBlocks(element, options = {}) {
   if (!element) return
-  const { copyLabel, canvasLabel, selector = 'pre:not([data-enhanced])' } = options
+  const { copyLabel, downloadLabel, previewLabel, canPreview, selector = 'pre:not([data-enhanced])' } = options
   const withLabel = (btn, icon, label) => {
     btn.innerHTML = iconHtml(icon)
     if (!label) return
@@ -95,10 +97,18 @@ export function enhanceCodeBlocks(element, options = {}) {
     span.textContent = label
     btn.appendChild(span)
   }
+  const button = (className, icon, label, text) => {
+    const b = document.createElement('button')
+    b.type = 'button'
+    b.className = className
+    b.setAttribute('aria-label', label)
+    withLabel(b, icon, text)
+    return b
+  }
   element.querySelectorAll(selector).forEach((pre) => {
     pre.setAttribute('data-enhanced', '1')
     const code = pre.querySelector('code')
-    const langMatch = code && code.className.match(/language-(\w+)/)
+    const langMatch = code && code.className.match(/language-([\w+#.-]+)/)
     const lang = langMatch ? langMatch[1] : 'text'
     const wrap = document.createElement('div')
     wrap.className = 'code-block'
@@ -108,19 +118,10 @@ export function enhanceCodeBlocks(element, options = {}) {
     label.className = 'code-block__lang'
     label.textContent = lang
     head.appendChild(label)
-    const btn = document.createElement('button')
-    btn.type = 'button'
-    btn.className = 'code-copy-btn'
-    btn.setAttribute('aria-label', 'Copy code')
-    withLabel(btn, 'copy', copyLabel)
-    head.appendChild(btn)
-    if (canvasLabel) {
-      const open = document.createElement('button')
-      open.type = 'button'
-      open.className = 'code-canvas-btn'
-      open.setAttribute('aria-label', canvasLabel)
-      withLabel(open, 'columns', canvasLabel)
-      head.appendChild(open)
+    head.appendChild(button('code-copy-btn', 'copy', 'Copy code', copyLabel))
+    if (downloadLabel) head.appendChild(button('code-download-btn', 'download', downloadLabel))
+    if (previewLabel && canPreview?.(pre, langMatch ? lang : '', code ? code.textContent : '')) {
+      head.appendChild(button('code-preview-btn', 'eye', previewLabel, previewLabel))
     }
     pre.parentNode.insertBefore(wrap, pre)
     wrap.appendChild(head)

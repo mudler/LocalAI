@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "Update verfügbar",
+    "availableVersion": "Update verfügbar: {{version}}"
+  },
+  "trigger": {
+    "all": "Alle aktualisieren ({{count}})",
+    "running": "Aktualisiere {{current}} von {{total}}",
+    "summary": "{{done}} aktualisiert, {{failed}} fehlgeschlagen, {{skipped}} übersprungen",
+    "summaryOk": "{{done}} aktualisiert",
+    "review": "Ansehen"
+  },
+  "dialog": {
+    "title": "Alle aktualisieren",
+    "intro": "Wählen Sie aus, was aktualisiert werden soll. Jedes Element wird einzeln nacheinander aktualisiert. Ein Fehler stoppt die anderen nicht.",
+    "selection": "Auswahl",
+    "selectAll": "Alle auswählen",
+    "selectNone": "Keine auswählen",
+    "selectedCount_one": "{{count}} ausgewählt",
+    "selectedCount_other": "{{count}} ausgewählt",
+    "item": "{{name}} aktualisieren",
+    "versions": "{{from}} auf {{to}}",
+    "blocked": "Kann nicht starten",
+    "start": "Auswahl aktualisieren",
+    "starting": "Aktualisiere...",
+    "retry": "Fehlgeschlagene wiederholen ({{count}})",
+    "again": "Neue Auswahl",
+    "close": "Schließen",
+    "closeRunning": "Schließen (läuft weiter)",
+    "runningNote": "Das Schließen dieses Fensters stoppt die Updates nicht.",
+    "progress": "Aktualisiere {{current}} von {{total}}",
+    "summary": "{{done}} aktualisiert, {{failed}} fehlgeschlagen, {{skipped}} übersprungen",
+    "empty": "Nichts zu aktualisieren."
+  },
+  "item": {
+    "queued": "Wartend",
+    "upgrading": "Wird aktualisiert",
+    "done": "Fertig",
+    "failed": "Fehlgeschlagen",
+    "skipped": "Übersprungen"
+  },
+  "reason": {
+    "checkAgain": "Erneut prüfen",
+    "checking": "Prüfe..."
+  }
+}

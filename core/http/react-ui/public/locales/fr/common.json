@@ -112,26 +112,22 @@
     "gigabytes": "Go",
     "terabytes": "To"
   },
-  "updateReview": {
-    "title": "Vérifier les mises à jour",
-    "description": "Rien n'est mis à jour tant que vous ne choisissez pas ici.",
-    "close": "Fermer",
-    "done": "Terminé",
-    "selectAll": "Tout sélectionner",
-    "select": "Sélectionner {{name}}",
-    "unknownVersion": "inconnue",
-    "latest": "dernière",
-    "blocked": "Mise à jour impossible ici :",
-    "upgradeSelected": "Mettre à jour la sélection ({{count}})",
-    "upgradeAll": "Tout mettre à jour ({{count}})",
-    "running": "Mise à jour...",
-    "queued": "En attente",
-    "statusRunning": "Mise à jour",
-    "statusDone": "Mis à jour",
-    "statusFailed": "Échec",
-    "summary": "{{succeeded}} mis à jour, {{failed}} en échec.",
-    "empty": "Rien à mettre à jour.",
-    "statusStarted": "Lancé",
-    "summaryStarted": "{{succeeded}} lancés, {{failed}} en échec."
+  "ui": {
+    "tryAgain": "Réessayer",
+    "undo": "Annuler",
+    "loadError": {
+      "title": "Le chargement a échoué.",
+      "serverSaid": "Le serveur a répondu « {{message}} ».",
+      "nothingChanged": "Rien n’a été modifié."
+    }
+  },
+  "chip": {
+    "running": "En cours",
+    "starting": "Démarrage",
+    "stopped": "Arrêté",
+    "failed": "Échec",
+    "updateAvailable": "Mise à jour disponible",
+    "ready": "Prêt",
+    "noRunsYet": "Aucune exécution"
   }
 }

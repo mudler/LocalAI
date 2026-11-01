@@ -50,17 +50,6 @@ export function isActive(job, stages) {
   return !!job && stages.includes(job.status)
 }
 
-// The newest job that is running, else the newest job when it failed. Used by the
-// Build landing to put one line above the list.
-export function jobToSurface(jobs, stages) {
-  const list = Array.isArray(jobs) ? jobs : []
-  const byNewest = [...list].sort((a, b) => Date.parse(b.created_at || 0) - Date.parse(a.created_at || 0))
-  const running = byNewest.find(j => stages.includes(j.status))
-  if (running) return { job: running, kind: 'running' }
-  if (byNewest[0]?.status === 'failed') return { job: byNewest[0], kind: 'failed' }
-  return null
-}
-
 // The phase a log line belongs to: info, warn or err.
 export function logLevel(event) {
   const text = `${event?.message || ''}`
@@ -118,58 +107,6 @@ export function looksLikeMemoryFailure(message) {
 // ---- The tool landing --------------------------------------------------------------
 
 const names = (list) => (Array.isArray(list) ? list.map(b => b?.name || b).filter(Boolean) : [])
-
-// What one tool needs from this machine, read from real data. `state` is
-// 'ready' or 'needs-backend'; `needs` lists lines for the card, each with a tone
-// ('ok', 'warn' or 'info') and a translation key.
-//
-//   facts      machineFacts(resources), or null
-//   backends   { fineTune: [...] | null, quantize: [...] | null }; null when the
-//              list could not be read
-export function toolStatus(tool, { facts, backends }) {
-  if (tool === 'import') {
-    const needs = [{ tone: 'info', key: 'import.noSetup' }]
-    if (facts?.diskFree != null) needs.push({ tone: 'ok', key: 'import.disk', vals: { free: facts.diskFree } })
-    return { state: 'ready', needs }
-  }
-  if (tool === 'quantize') {
-    const list = names(backends?.quantize)
-    const needs = []
-    if (backends?.quantize == null) {
-      needs.push({ tone: 'info', key: 'quantize.backendUnknown' })
-      return { state: 'ready', needs }
-    }
-    if (list.length === 0) {
-      needs.push({ tone: 'warn', key: 'quantize.backendMissing' })
-      return { state: 'needs-backend', needs }
-    }
-    needs.push({ tone: 'ok', key: 'quantize.backend', vals: { name: list[0] } })
-    needs.push({ tone: 'info', key: 'quantize.cpu' })
-    return { state: 'ready', needs }
-  }
-  if (tool === 'fine-tune') {
-    const list = names(backends?.fineTune)
-    const needs = []
-    let state = 'ready'
-    if (backends?.fineTune == null) {
-      needs.push({ tone: 'info', key: 'fineTune.backendUnknown' })
-    } else if (list.length === 0) {
-      needs.push({ tone: 'warn', key: 'fineTune.backendMissing' })
-      state = 'needs-backend'
-    } else {
-      needs.push({ tone: 'ok', key: 'fineTune.backend', vals: { name: list[0] } })
-    }
-    if (facts?.cluster) {
-      needs.push({ tone: 'info', key: 'fineTune.cluster', vals: { total: facts.cluster.total, node: facts.cluster.node } })
-    } else if (facts?.hasGpu) {
-      needs.push({ tone: 'ok', key: 'fineTune.gpu', vals: { name: facts.gpuName, free: facts.vramFree, total: facts.vramTotal } })
-    } else if (facts) {
-      needs.push({ tone: 'warn', key: 'fineTune.noGpu' })
-    }
-    return { state, needs }
-  }
-  return { state: 'ready', needs: [] }
-}
 
 // ---- Pre-flight checks -------------------------------------------------------------
 

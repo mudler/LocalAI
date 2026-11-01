@@ -1,0 +1,84 @@
+/* Home: the console. One command bar first, the memory strip, the widgets
+   and the conversations worth resuming. Flat surfaces; colours are the kit
+   roles (--dk-*). The command bar itself is in components/home/composer.css. */
+.home-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  padding: var(--sp-8) var(--sp-8) 96px;
+}
+.home-col {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  min-width: 0;
+}
+.home-col button:focus-visible,
+.home-col a:focus-visible,
+.home-col summary:focus-visible { outline: 2px solid var(--dk-accent-text); outline-offset: 2px; }
+
+/* The greeting is the one display line of the app; the date is meta text,
+   not code. */
+.home-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
+  padding: 0 0 var(--sp-5);
+}
+.home-greeting {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.home-date {
+  font-size: var(--fs-small);
+  line-height: var(--lh-small);
+  color: var(--dk-muted);
+}
+
+/* Under the command bar: notices (Callout), the memory strip. */
+.home-below { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.home-staging__details { margin-top: var(--sp-2); font-size: var(--fs-small); color: var(--color-text-secondary); }
+.home-staging__details summary { width: max-content; border-radius: var(--r-xs); cursor: pointer; }
+.home-staging__details pre {
+  margin: var(--sp-2) 0 0;
+  padding: 10px var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .home-page { padding: var(--sp-2) var(--sp-4) 64px; }
+  .home-header { padding-bottom: var(--sp-4); }
+  .home-cmd { padding: 10px; }
+  /* Home's bar has the chat chips (model, Tools, Skills, agent): on a phone
+     they wrap to a second row instead of squeezing the model chip away. */
+  .home-col .home-cmd__top { flex-wrap: wrap; }
+}
+
+/* Send: everything but the composer fades and drifts up while the message
+   goes (useComposerTransition), so the composer is what the eye follows into
+   the chat. After a failure it all comes back the same way. Less motion:
+   nothing fades, the page stays as it is until the chat opens. */
+@media (prefers-reduced-motion: no-preference) {
+  .home-page[data-depart] .home-col > :not(.home-compose),
+  .home-page[data-depart] .home-compose > :not(.home-cmd) {
+    transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out);
+  }
+  .home-page[data-depart='out'] .home-col > :not(.home-compose),
+  .home-page[data-depart='out'] .home-compose > :not(.home-cmd) {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--sp-2)));
+    pointer-events: none;
+  }
+}

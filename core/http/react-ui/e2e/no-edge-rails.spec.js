@@ -9,9 +9,9 @@ import { installStudioAddons } from './studio-addon.js'
 //   4. a narrow, tall child pinned to the left edge of its parent.
 // Selection and status use a surface step, a check or a dot instead.
 const ROUTES = [
-  '/app', '/app/chat', '/app/models', '/app/models?view=installed', '/app/studio',
-  '/app/talk', '/app/agents', '/app/skills', '/app/collections', '/app/agent-jobs',
-  '/app/backends', '/app/activity', '/app/operate', '/app/build', '/app/settings',
+  '/app', '/app/chats/all', '/app/models', '/app/models?view=installed', '/app/studio',
+  '/app/talk', '/app/agents', '/app/skills', '/app/collections', '/app/triggers',
+  '/app/backends', '/app/activity', '/app/operate', '/app/mcp-connectors', '/app/settings',
   '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
   '/app/account',
 ]

@@ -41,6 +41,8 @@ type MCPToolInfo struct {
 	ToolName   string
 	Function   functions.Function
 	Session    *mcp.ClientSession
+	// Meta is the _meta of the tool, where MCP Apps declare their view.
+	Meta map[string]any
 }
 
 // MCPServerInfo describes an MCP server and its available tools, prompts, and resources.
@@ -425,6 +427,11 @@ func NamedSessionsFromMCPConfig(
 	return filtered, nil
 }
 
+// IsAddonToolName reports whether a tool name is in the add-on namespace, which
+// belongs to the broker. A consumer of shared MCP sessions uses it to drop such
+// a tool, so only the adapter's own importers name the namespace.
+func IsAddonToolName(name string) bool { return addontools.IsToolName(name) }
+
 // DiscoverMCPTools queries each session for its tools and converts them to functions.Function.
 // Deduplicates by tool name (first server wins).
 func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolInfo, error) {
@@ -482,32 +489,34 @@ func DiscoverMCPTools(ctx context.Context, sessions []NamedSession) ([]MCPToolIn
 				ToolName:   tool.Name,
 				Function:   f,
 				Session:    ns.Session,
+				Meta:       tool.Meta,
 			})
 		}
 	}
 	return result, nil
 }
 
-// ExecuteMCPToolCall finds the matching tool and executes it.
-func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName string, arguments string) (string, error) {
+// callMCPTool finds the tool of a server (any server when server is empty) and
+// calls it. The add-on namespace is refused here, so no caller can reach it.
+func callMCPTool(ctx context.Context, tools []MCPToolInfo, server, toolName string, arguments string) (*mcp.CallToolResult, error) {
 	if addontools.IsToolName(toolName) {
-		return "", ErrAddonToolsUnsupported
+		return nil, ErrAddonToolsUnsupported
 	}
 	var toolInfo *MCPToolInfo
 	for i := range tools {
-		if tools[i].ToolName == toolName {
+		if tools[i].ToolName == toolName && (server == "" || tools[i].ServerName == server) {
 			toolInfo = &tools[i]
 			break
 		}
 	}
 	if toolInfo == nil {
-		return "", fmt.Errorf("MCP tool %q not found", toolName)
+		return nil, fmt.Errorf("MCP tool %q not found", toolName)
 	}
 
 	var args map[string]any
 	if arguments != "" {
 		if err := json.Unmarshal([]byte(arguments), &args); err != nil {
-			return "", fmt.Errorf("failed to parse arguments for tool %q: %w", toolName, err)
+			return nil, fmt.Errorf("failed to parse arguments for tool %q: %w", toolName, err)
 		}
 	}
 
@@ -516,10 +525,13 @@ func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName strin
 		Arguments: args,
 	})
 	if err != nil {
-		return "", fmt.Errorf("MCP tool %q call failed: %w", toolName, err)
+		return nil, fmt.Errorf("MCP tool %q call failed: %w", toolName, err)
 	}
+	return result, nil
+}
 
-	// Extract text content from result
+// resultText is the text a model sees for a tool result.
+func resultText(result *mcp.CallToolResult) string {
 	var texts []string
 	for _, content := range result.Content {
 		if tc, ok := content.(*mcp.TextContent); ok {
@@ -529,13 +541,22 @@ func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName strin
 	if len(texts) == 0 {
 		// Fallback: marshal the whole result
 		data, _ := json.Marshal(result.Content)
-		return string(data), nil
+		return string(data)
 	}
 	if len(texts) == 1 {
-		return texts[0], nil
+		return texts[0]
 	}
 	combined, _ := json.Marshal(texts)
-	return string(combined), nil
+	return string(combined)
+}
+
+// ExecuteMCPToolCall finds the matching tool and executes it.
+func ExecuteMCPToolCall(ctx context.Context, tools []MCPToolInfo, toolName string, arguments string) (string, error) {
+	result, err := callMCPTool(ctx, tools, "", toolName, arguments)
+	if err != nil {
+		return "", err
+	}
+	return resultText(result), nil
 }
 
 // ExecuteMCPToolCallRemote routes an MCP tool execution request to an agent worker.

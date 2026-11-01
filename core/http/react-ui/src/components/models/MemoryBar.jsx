@@ -35,7 +35,7 @@ export default function MemoryBar({ capacity, segments, ariaLabel, testId, legen
           {segments.filter(seg => seg.bytes > 0).map(seg => (
             <li key={seg.key}>
               <span className={`dk-swatch memorybar__swatch memorybar__swatch--${seg.tone}`} aria-hidden="true" />
-              {seg.label} <span className="dk-mono">{gbLabel(seg.bytes)}</span>
+              {seg.label} <span className="memorybar__fig">{gbLabel(seg.bytes)}</span>
             </li>
           ))}
         </ul>

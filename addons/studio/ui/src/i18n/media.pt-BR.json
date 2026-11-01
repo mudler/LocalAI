@@ -246,7 +246,7 @@
     "api": {
       "title": "Uso da API e modelos compatíveis",
       "summary": "Use esta voz fora do navegador ou verifique o suporte do modelo",
-      "body": "Envie a URI de voz estável do perfil com cada requisição de fala. O LocalAI resolve o áudio de referência privado e a transcrição no momento da geração; o YAML do modelo não é modificado.",
+      "body": "Envie a URI de voz estável do perfil com cada requisição de fala. O LocalAI resolve o áudio de referência privado e a transcrição no momento da geração; as configurações dos seus modelos não são alteradas.",
       "compatibleModels": "Modelos compatíveis instalados",
       "noInstalledModels": "Nenhum ainda. Instale um dos modelos verificados pelo servidor acima antes de enviar esta requisição.",
       "curlExample": "Exemplo com cURL",
@@ -265,7 +265,7 @@
     },
     "deleteDialog": {
       "title": "Excluir esta voz?",
-      "message": "“{{name}}” e seu áudio de referência serão removidos permanentemente. O YAML dos modelos existentes não é alterado.",
+      "message": "“{{name}}” e seu áudio de referência serão removidos permanentemente. Os modelos configurados com esta voz não são alterados.",
       "deleting": "Excluindo…"
     },
     "toasts": {

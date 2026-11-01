@@ -10,7 +10,7 @@ var StudioHistoryTypes = []string{"image", "video", "tts", "sound", "audio-trans
 
 // StudioHistoryEntry is one Studio generation (a picture, a clip, a voice
 // line...) persisted server-side, so the Studio's history survives a browser
-// change or a cleared cache like chat history does (issue #9432).
+// change or a cleared cache.
 //
 // Entry is the record exactly as the Studio writes it (prompt, model,
 // params, results, lineage); it is stored opaquely so the server stays

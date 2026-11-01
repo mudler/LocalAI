@@ -1,0 +1,542 @@
+/* ==========================================================================
+   Chats: conversations the server keeps. A list on the left, one conversation
+   on the right with its waiting messages folded into the composer.
+   Flat surfaces, hairlines, no coloured rails. Streaming text sits in a live
+   region; motion is the kit's and reduced motion switches it off there.
+   ========================================================================== */
+
+.ch-page {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ch-list {
+  width: 260px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-4) var(--dk-space-3);
+  background: var(--color-bg-secondary);
+  border-right: 1px solid var(--color-border-subtle);
+  min-height: 0;
+}
+
+.ch-list__items {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.ch-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--dk-radius-2);
+}
+
+.ch-list__item[aria-current='true'] {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-subtle);
+  font-weight: 600;
+}
+
+.ch-list__open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-2) var(--dk-space-3);
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ch-list__title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ch-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--dk-radius-pill);
+  background: var(--color-warning);
+}
+
+/* An unread result of a trigger: the color of an action, not of a warning. */
+.ch-dot--unread { background: var(--color-primary); }
+
+.ch-list__empty {
+  color: var(--color-text-muted);
+  padding: var(--dk-space-2) var(--dk-space-3);
+}
+
+.ch-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ch-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-3) var(--dk-space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ch-head__title {
+  margin: 0;
+  font-size: var(--dk-text-15);
+  font-weight: 600;
+}
+
+.ch-head__meta {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-12);
+}
+
+.ch-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--dk-space-5);
+}
+
+.ch-flow {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-4);
+}
+
+.ch-msg {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+
+.ch-msg--user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-radius: var(--dk-radius-3);
+  background: var(--color-primary-light);
+}
+
+.ch-tools {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--color-border-subtle);
+  font-family: var(--dk-font-mono);
+  font-size: var(--dk-text-12);
+}
+
+.ch-tool {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-1) 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.ch-tool__change {
+  padding: var(--dk-space-1) 0;
+  color: var(--color-text-muted);
+}
+
+.ch-tool__state {
+  color: var(--color-text-muted);
+  flex: none;
+}
+
+.ch-tool--failed .ch-tool__state {
+  color: var(--color-error);
+}
+
+.ch-thought {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-13);
+}
+
+.ch-thought__text {
+  white-space: pre-wrap;
+  margin-top: var(--dk-space-2);
+}
+
+.ch-note {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-12);
+}
+
+.ch-status {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-13);
+}
+
+.ch-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-radius: var(--dk-radius-2);
+  background: var(--color-error-light);
+  color: var(--color-error);
+}
+
+.ch-notice {
+  padding: var(--dk-space-2) var(--dk-space-4);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.ch-empty {
+  margin: auto;
+  max-width: 420px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-6);
+}
+
+.ch-empty__title {
+  margin: 0;
+  font-size: var(--dk-text-17);
+}
+
+.ch-empty__body {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.ch-composer-wrap {
+  padding: 0 var(--dk-space-5) var(--dk-space-5);
+}
+
+.ch-composer {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--dk-radius-3);
+}
+
+.ch-pending {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-1);
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: var(--dk-text-13);
+}
+
+.ch-pending__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-12);
+}
+
+.ch-pending__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+}
+
+.ch-pending__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ch-pending__edit {
+  flex: 1;
+}
+
+.ch-pending__actions {
+  flex: none;
+  display: flex;
+  gap: var(--dk-space-3);
+}
+
+.ch-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--dk-text-12);
+  cursor: pointer;
+}
+
+.ch-link--danger {
+  color: var(--color-error);
+}
+
+.ch-input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  max-height: 200px;
+  resize: vertical;
+  padding: var(--dk-space-3) var(--dk-space-4);
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.ch-input:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: -2px;
+}
+
+.ch-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-3) var(--dk-space-3) var(--dk-space-4);
+}
+
+.ch-actions__right {
+  display: flex;
+  gap: var(--dk-space-2);
+}
+
+/* The button that opens the list of chats exists only where the list does not
+   fit beside the thread. The rule needs the .btn prefix: .btn sets display too,
+   and which of the two wins would otherwise depend on the bundle order. */
+.btn.ch-railbtn { display: none; }
+
+@media (max-width: 720px) {
+  .ch-page { flex-direction: column; }
+  .btn.ch-railbtn { display: inline-flex; align-self: center; }
+  .ch-head { flex-wrap: wrap; align-items: center; padding: var(--dk-space-3); }
+  /* Closed, the list is out of the way; open, it stacks above the thread. */
+  .ch-list { display: none; }
+  .ch-page--rail .ch-list {
+    display: flex;
+    width: auto;
+    max-height: 45%;
+    overflow-y: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  /* The panel scrolls as a whole, so no part of it is squeezed. */
+  .ch-page--rail .ch-list > * { flex: none; }
+  .ch-page--rail .ch-list__items { overflow: visible; }
+}
+
+.ch-attached {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dk-space-2);
+}
+
+.ch-attached__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-1) var(--dk-space-2);
+  border-radius: var(--dk-radius-1);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.ch-attached__name { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ch-skills {
+  padding: var(--dk-space-2) var(--dk-space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+
+.ch-skills > summary { cursor: pointer; }
+
+.ch-skills__list {
+  list-style: none;
+  margin: var(--dk-space-2) 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dk-space-2) var(--dk-space-4);
+}
+
+.ch-skills__list label { display: inline-flex; align-items: center; gap: var(--dk-space-1); cursor: pointer; }
+
+.ch-tools__group { margin: var(--dk-space-2) 0 0; color: var(--color-text-muted); font-size: 0.75rem; }
+.ch-tools__reason { margin-left: var(--dk-space-5); color: var(--color-text-muted); }
+
+.ch-list__skills { margin-top: auto; padding: var(--dk-space-2) var(--dk-space-3); }
+
+/* MCP Apps: the interactive view of a tool, under its tool line. */
+.ch-app {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-2);
+  min-width: 0;
+  max-width: 100%;
+  margin: var(--dk-space-2) 0;
+}
+
+.ch-app__frame {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: 200px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color-scheme: normal;
+}
+
+.ch-app__frame--bordered {
+  border: 1px solid var(--color-border-subtle);
+}
+
+.ch-app__state {
+  color: var(--color-text-muted);
+  font-size: var(--dk-text-13);
+}
+
+.ch-app__text {
+  margin: var(--dk-space-1) 0 0;
+  max-height: 240px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--color-text-primary);
+}
+
+.ch-app__ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--dk-space-2);
+  padding: var(--dk-space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--dk-text-13);
+}
+
+.ch-app__ask-label {
+  color: var(--color-text-muted);
+}
+
+.ch-app__ask-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ---- Notes under a tool line: an add-on change, a refusal, a trigger proposal ---- */
+.cx-change {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.cx-change--refused {
+  padding: 8px 12px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-warn-wash);
+  color: var(--dk-text);
+}
+.cx-proposal {
+  margin: 8px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.cx-proposal__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; font-size: 14px; }
+.cx-proposal__when { color: var(--dk-muted); font-family: var(--font-mono); font-size: 12.5px; }
+.cx-proposal .cx-help { margin: 4px 0 10px; }
+.cx-proposal__edit { display: grid; gap: 6px; margin-bottom: 4px; }
+/* What a proposed trigger will do, before Create trigger (mockup 20). */
+.cx-plan { margin: 0 0 12px; display: grid; font-size: var(--text-sm); }
+.cx-plan__row { display: grid; grid-template-columns: minmax(84px, 118px) 1fr; gap: 4px 12px; padding: 7px 0; border-top: 1px solid var(--dk-edge); }
+.cx-plan__row:last-child { border-bottom: 1px solid var(--dk-edge); }
+.cx-plan dt { color: var(--dk-muted); }
+.cx-plan dd { margin: 0; min-width: 0; overflow-wrap: anywhere; color: var(--dk-text); }
+.cx-plan code { font-family: var(--font-mono); font-size: var(--text-xs); }
+@media (max-width: 420px) {
+  .cx-plan__row { grid-template-columns: 1fr; gap: 2px; }
+}
+.cx-proposal__edit .cx-pending__acts { margin-top: 6px; }
+/* The answer to a proposal: a compact receipt in place of the card. It keeps
+   the card's edge so the eye finds the same spot, and wraps its buttons under
+   the text on a phone. */
+.cx-receipt {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+  margin: 8px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--dk-radius-2);
+  background: var(--dk-card);
+  box-shadow: inset 0 0 0 1px var(--dk-edge);
+}
+.cx-receipt__icon { flex: none; margin-top: 2px; color: var(--dk-ok); }
+.cx-receipt__main { flex: 1 1 220px; min-width: 0; }
+.cx-receipt__line,
+.cx-receipt__sub { margin: 0; overflow-wrap: anywhere; }
+.cx-receipt__line { font-size: var(--text-sm); color: var(--dk-text); }
+.cx-receipt__sub { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-top: 2px; font-size: var(--text-xs); color: var(--dk-muted); }
+.cx-receipt .cx-help { margin: 4px 0 0; }
+.cx-receipt__acts { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.cx-receipt--quiet { padding: 6px 12px; background: transparent; align-items: center; }
+.cx-receipt--quiet .cx-receipt__line { color: var(--dk-muted); }
+@media (max-width: 520px) {
+  .cx-receipt__acts { margin-left: 0; width: 100%; }
+}
+/* A change of a trigger the model asked for: the fields before and after,
+   on the plan rows of a proposal, before Apply (or the trigger, before Delete). */
+.cx-change-card__diff { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.cx-change-card__before { color: var(--dk-muted); text-decoration: line-through; overflow-wrap: anywhere; }
+.cx-change-card__after { color: var(--dk-text); font-weight: 600; overflow-wrap: anywhere; }
+.cx-change-card__arrow { flex: none; color: var(--dk-muted); align-self: center; }
+.cx-change-card__none { font-style: italic; text-decoration: none; }
+.cx-bubble--edit { width: min(600px, 88%); }
+.cx-bubble--edit .cx-help { margin: 6px 0 8px; }
+
+/* ---- Composer foot: the context meter, the sub-agents ---- */
+.cx-foot .cx-ctx { height: auto; padding: 0; font-weight: 500; }
+.cx-subagents__list { display: grid; gap: 2px; max-height: 320px; overflow-y: auto; }
+.cx-subagents__row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 8px 10px; border-radius: var(--dk-radius-1); }
+.cx-subagents__row:hover { background: var(--dk-hover); }
+.cx-subagents__title { min-width: 0; overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.cx-subagents__state { color: var(--dk-muted); font-family: var(--font-mono); font-size: 11.5px; }
+.cx-subagents__acts { display: flex; gap: 10px; grid-row: span 2; align-items: center; }
+.cx-subagents__log { grid-column: 1 / -1; margin: 4px 0 0; padding: 8px 10px; max-height: 180px; overflow-y: auto; border-radius: var(--dk-radius-1); background: var(--dk-inset); font-size: 12.5px; white-space: pre-wrap; }

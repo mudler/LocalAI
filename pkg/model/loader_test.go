@@ -3,6 +3,7 @@ package model_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -531,6 +532,20 @@ var _ = Describe("ModelLoader", func() {
 	})
 
 	Context("Load failure cooldown", func() {
+		It("records a missing backend as the cause of the cooldown", func() {
+			modelLoader.SetLoadFailureCooldown(time.Minute, time.Minute)
+			missing := func(modelID, modelName, modelFile string) (*model.Model, error) {
+				return nil, fmt.Errorf("%w: default", model.ErrBackendNotFound)
+			}
+			_, err := modelLoader.LoadModel("nobackend", "test.model", missing)
+			Expect(errors.Is(err, model.ErrBackendNotFound)).To(BeTrue())
+
+			_, err = modelLoader.LoadModel("nobackend", "test.model", missing)
+			var coolErr *model.ModelLoadCooldownError
+			Expect(errors.As(err, &coolErr)).To(BeTrue())
+			Expect(coolErr.BackendMissing).To(BeTrue())
+		})
+
 		It("refuses a fresh load within the cooldown window without re-invoking the loader", func() {
 			modelLoader.SetLoadFailureCooldown(60*time.Millisecond, 240*time.Millisecond)
 

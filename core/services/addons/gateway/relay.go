@@ -80,7 +80,10 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		admit = func(run func(context.Context) error) error { return aa.AdmitAddon(ctx, a, r.AddonID, run) }
 	} else {
 		key, e := g.Resolver.Resolve(ctx, a, r)
-		if e != nil || key.AddonID != r.AddonID || key.ResourceID == "" {
+		if e != nil {
+			return out, unreachableOrDenied(e)
+		}
+		if key.AddonID != r.AddonID || key.ResourceID == "" {
 			return out, ErrForbidden
 		}
 		r.ResourceID = key.ResourceID

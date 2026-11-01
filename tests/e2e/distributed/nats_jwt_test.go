@@ -61,7 +61,7 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 
 		claims, err := natsauth.DecodeUserClaims(token)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(claims.Permissions.Sub.Allow).To(ContainElement("agent.execute"))
+		Expect(claims.Permissions.Sub.Allow).To(ContainElement("mcp.tools.execute"))
 		for _, subj := range claims.Permissions.Sub.Allow {
 			Expect(subj).NotTo(ContainSubstring("backend.install"))
 		}
@@ -90,9 +90,6 @@ var _ = Describe("NATS JWT Auth", Label("Distributed", "NatsJWT"), func() {
 
 		_, err = nc.QueueSubscribeReply(messaging.SubjectMCPDiscovery, messaging.QueueAgentWorkers, func([]byte, func([]byte)) {})
 		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s", messaging.SubjectMCPDiscovery)
-
-		_, err = nc.QueueSubscribe(messaging.SubjectMCPCIJobsNew, messaging.QueueWorkers, func([]byte) {})
-		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP CI jobs)", messaging.SubjectMCPCIJobsNew)
 
 		_, err = nc.Subscribe(messaging.SubjectNodeBackendStop(nodeID), func([]byte) {})
 		Expect(err).ToNot(HaveOccurred(), "agent JWT must allow %s (MCP session cleanup)", messaging.SubjectNodeBackendStop(nodeID))

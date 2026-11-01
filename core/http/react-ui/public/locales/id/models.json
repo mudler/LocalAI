@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "supporting": "Temukan model yang muat di mesin ini, pasang, dan kelola model yang sudah ada.",
     "title": "Models",
     "navLabel": "Model lifecycle",
     "views": { "explore": "Explore", "installed": "Installed" },
@@ -82,6 +83,10 @@
     "delete": "Hapus"
   },
   "filters": {
+    "sheetDone": "Tampilkan model",
+    "sheetTitle": "Filter",
+    "sheetButtonCount": "Filter ({{count}})",
+    "sheetButton": "Filter",
     "all": "Semua",
     "llm": "Obrolan",
     "image": "Gambar",

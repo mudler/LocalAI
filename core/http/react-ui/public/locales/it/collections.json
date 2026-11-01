@@ -4,13 +4,13 @@
   "newPlaceholder": "Nome della nuova raccolta...",
   "actions": {
     "create": "Crea",
-    "creating": "Creazione...",
     "details": "Dettagli",
     "reset": "Reimposta",
     "delete": "Elimina",
     "viewDetails": "Visualizza dettagli",
     "resetCollection": "Reimposta raccolta",
-    "deleteCollection": "Elimina raccolta"
+    "deleteCollection": "Elimina raccolta",
+    "cancel": "Annulla"
   },
   "sections": {
     "yourCollections": "Le tue raccolte",
@@ -19,7 +19,8 @@
   "empty": {
     "title": "Nessuna raccolta ancora",
     "text": "Le raccolte ti permettono di organizzare i documenti in basi di conoscenza che gli agenti possono consultare con RAG (Retrieval-Augmented Generation). Crea una raccolta sopra per iniziare.",
-    "noPersonal": "Non hai ancora raccolte."
+    "noPersonal": "Non hai ancora raccolte.",
+    "learn": "Come funziona la memoria"
   },
   "deleteDialog": {
     "title": "Elimina raccolta",
@@ -32,12 +33,29 @@
     "confirm": "Reimposta"
   },
   "toasts": {
-    "loadFailed": "Caricamento raccolte fallito: {{message}}",
     "created": "Raccolta \"{{name}}\" creata",
     "createFailed": "Creazione raccolta fallita: {{message}}",
     "deleted": "Raccolta \"{{name}}\" eliminata",
     "deleteFailed": "Eliminazione raccolta fallita: {{message}}",
     "reset": "Raccolta \"{{name}}\" reimpostata",
     "resetFailed": "Reimpostazione raccolta fallita: {{message}}"
+  },
+  "loadFailed": "Impossibile caricare le tue raccolte.",
+  "sources": {
+    "loadFailed": "Impossibile caricare le fonti web."
+  },
+  "entries": {
+    "loadFailed": "Impossibile caricare i file."
+  },
+  "starting": {
+    "title": "La memoria si sta avviando.",
+    "text": "Il server sta ancora preparando il servizio di memoria. Questa pagina riprova da sola."
+  },
+  "embedding": {
+    "missingTitle": "Nessun modello di embedding installato.",
+    "missingText": "Le raccolte usano {{model}} per indicizzare i file e per cercarli. Finché non è installato, l'aggiunta di file e la ricerca non funzionano.",
+    "noneSet": "Nessun modello di embedding è impostato per le raccolte (collections_embedding_model), quindi l'aggiunta di file e la ricerca non funzionano.",
+    "install": "Trovalo in Modelli",
+    "askAdmin": "Chiedi a un amministratore di installarlo."
   }
 }

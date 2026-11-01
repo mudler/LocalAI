@@ -92,7 +92,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			Expect(client.IsConnected()).To(BeTrue())
 
 			received := make(chan []byte, 1)
-			sub, err := client.Subscribe(messaging.SubjectJobProgress("e2e-pubsub"), func(data []byte) {
+			sub, err := client.Subscribe(messaging.SubjectGalleryProgress("e2e-pubsub"), func(data []byte) {
 				received <- data
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -101,7 +101,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 			// Small delay to ensure subscription is active
 			FlushNATS(client)
 
-			err = client.Publish(messaging.SubjectJobProgress("e2e-pubsub"), map[string]string{"msg": "hello"})
+			err = client.Publish(messaging.SubjectGalleryProgress("e2e-pubsub"), map[string]string{"msg": "hello"})
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(received, "5s").Should(Receive())
@@ -114,13 +114,13 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 
 			var worker1Count, worker2Count atomic.Int32
 
-			sub1, err := client.QueueSubscribe(messaging.SubjectJobProgress("e2e-queue"), "workers", func(data []byte) {
+			sub1, err := client.QueueSubscribe(messaging.SubjectGalleryProgress("e2e-queue"), "workers", func(data []byte) {
 				worker1Count.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
 			defer sub1.Unsubscribe()
 
-			sub2, err := client.QueueSubscribe(messaging.SubjectJobProgress("e2e-queue"), "workers", func(data []byte) {
+			sub2, err := client.QueueSubscribe(messaging.SubjectGalleryProgress("e2e-queue"), "workers", func(data []byte) {
 				worker2Count.Add(1)
 			})
 			Expect(err).ToNot(HaveOccurred())
@@ -130,7 +130,7 @@ var _ = Describe("Phase 0: Foundation", Label("Distributed"), func() {
 
 			// Publish multiple messages
 			for i := range 10 {
-				err = client.Publish(messaging.SubjectJobProgress("e2e-queue"), map[string]int{"n": i})
+				err = client.Publish(messaging.SubjectGalleryProgress("e2e-queue"), map[string]int{"n": i})
 				Expect(err).ToNot(HaveOccurred())
 			}
 

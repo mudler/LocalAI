@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"unsafe"
 
@@ -19,9 +20,27 @@ import (
 	"github.com/mudler/LocalAI/core/http/routes"
 	"github.com/mudler/LocalAI/core/services/galleryop"
 	"github.com/mudler/LocalAI/core/services/nodes"
-	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 	"github.com/mudler/LocalAI/pkg/system"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
+
+// operationsDB is the database of the specs that read durable operations: a
+// SQLite file of the spec, opened as LocalAI opens its own. The node registry
+// and the gallery store migrate and query it as they do PostgreSQL, and no
+// container is needed.
+func operationsDB() *gorm.DB {
+	GinkgoHelper()
+	db, err := sqlitedb.Open(filepath.Join(GinkgoT().TempDir(), "operations.db"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() {
+		if raw, err := db.DB(); err == nil {
+			_ = raw.Close()
+		}
+	})
+	return db
+}
 
 // parkedModelManager parks inside the operation the worker is running so a
 // spec can read /api/operations while that operation is genuinely in flight.
@@ -88,7 +107,7 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 	}
 
 	It("includes database-only staging jobs and excludes other load phases", func() {
-		db := testutil.SetupTestDB()
+		db := operationsDB()
 		registry, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
@@ -121,7 +140,7 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 	})
 
 	It("overlays a matching tracker snapshot without duplicating the durable job", func() {
-		db := testutil.SetupTestDB()
+		db := operationsDB()
 		registry, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})
@@ -151,7 +170,7 @@ var _ = Describe("/api/operations with durable staging jobs", func() {
 	})
 
 	It("retains tracker-only operations when the database read fails", func() {
-		db := testutil.SetupTestDB()
+		db := operationsDB()
 		registry, err := nodes.NewNodeRegistry(db)
 		Expect(err).ToNot(HaveOccurred())
 		router := nodes.NewSmartRouter(registry, nodes.SmartRouterOptions{})

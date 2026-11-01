@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import LoadingSpinner from '../LoadingSpinner'
+import LoadError from '../ui/LoadError'
 import ConfirmDialog from '../ConfirmDialog'
 import { newOperationId } from '../catalog/catalogState.js'
 import { Fact } from './AddonBits'
@@ -77,11 +78,7 @@ export default function RecoveryPanel({ api, addon }) {
   if (state.status === 'loading') return <div className="op-loading" role="status" aria-label={t('recovery.loading')}><LoadingSpinner size="sm" /></div>
   if (state.status === 'error') {
     return (
-      <div className="op-error" role="alert">
-        <Icon name="alert-circle" />
-        <span>{t(`recovery.errors.${recoveryErrorKey(state.error)}`)}</span>
-        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" onClick={refresh}><Icon name="refresh" /> {t('catalog.retry')}</button>
-      </div>
+      <LoadError title={t(`recovery.errors.${recoveryErrorKey(state.error)}`)} testId="recovery-error" onRetry={refresh} />
     )
   }
   const backups = Array.isArray(data.backups) ? data.backups : []
@@ -96,7 +93,7 @@ export default function RecoveryPanel({ api, addon }) {
           <div>
             <strong>{t(`recovery.banner.${banner}.title`)}</strong>
             <p>{t(`recovery.banner.${banner}.body`)}</p>
-            {data.reason && <p className="dk-mono ad-wrap" data-testid="recovery-reason">{data.reason}</p>}
+            {data.reason && <p className="ad-mono ad-wrap" data-testid="recovery-reason">{data.reason}</p>}
             {progress && <p data-testid="recovery-phase">{t('recovery.phase', { step: t(`recovery.steps.${progress.step}`), index: progress.index, total: progress.total })}</p>}
             {banner === 'needs-recovery' && (
               <p>{data.recoveryBackup ? t('recovery.banner.needs-recovery.hint') : t('recovery.banner.needs-recovery.hintNone')}</p>
@@ -117,7 +114,7 @@ export default function RecoveryPanel({ api, addon }) {
       )}
 
       <div className="ad-recovery__bar">
-        <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" data-testid="recovery-backup"
+        <button type="button" className="dk-btn dk-btn--sm" data-testid="recovery-backup"
           disabled={Boolean(working) || banner === 'restoring' || banner === 'upgrading'}
           onClick={() => run('backup', (operationId) => api.recovery.backup(addon.id, { operationId }), (b) => t('recovery.backedUp', { id: b.id }))}>
           <Icon name="save" aria-hidden="true" /> {working === 'backup' ? t('recovery.backingUp') : t('recovery.backup')}
@@ -176,7 +173,7 @@ export default function RecoveryPanel({ api, addon }) {
 
       <div className="ad-recovery__purge">
         <p>{t('recovery.purgeLead')}</p>
-        <button type="button" className="dk-btn dk-btn--danger dk-btn--sm" data-testid="recovery-purge" disabled={Boolean(working)}
+        <button type="button" className="dk-btn dk-btn--danger-ghost dk-btn--sm" data-testid="recovery-purge" disabled={Boolean(working)}
           onClick={() => setDialog({ kind: 'purge' })}>
           <Icon name="trash" aria-hidden="true" /> {t('recovery.purge')}
         </button>

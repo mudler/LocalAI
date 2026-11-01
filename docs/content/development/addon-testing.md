@@ -258,6 +258,37 @@ the set. A suite that is added to `suites.json` must be named in the script.
 The report of the parent review is this inventory plus the case list of
 `foundation-acceptance` in `scripts/addons/suites.json`.
 
+## Library sources suite
+
+`sh scripts/addons/verify.sh library-sources` runs the library sources spec
+(`core/http/react-ui/e2e/library-sources.spec.js`) in a real browser, against a
+real UI test server that starts like a normal install: the default galleries,
+the default library sources of the add-on, backend and model kinds, and add-ons
+on with nothing installed. `playwright.library.config.js` starts that server
+itself on a free port. The spec adds, turns off, removes and restores sources,
+checks that each page lists only its own kind, and checks the "Use official
+libraries" setting.
+
+## Continuous integration
+
+Each part of the add-on tests has a job that runs it, so a pull request cannot
+skip them:
+
+| What | Where |
+| --- | --- |
+| Go tests under `addons/` and the self-contained `tests/addons/actione2e` suite (real Sandbox and Office executables under the real supervisor) | `make test` and the coverage run, job `tests-linux` in `test.yml` |
+| Every suite of `suites.json` except `packaging`, in five groups | `addons-tests.yml` |
+| `packaging` | `addons-package.yml` |
+| UI unit tests of every add-on, the host UI unit tests, eslint and the locale ratchet | `tests-ui-unit.yml` (`make test-ui-unit`) |
+| Add-on pages in the browser against stubbed routes, and the shipped bundle | `tests-ui-e2e.yml` |
+
+The suites of `addons-tests.yml` need the integration build, so each group runs
+`prepare.sh --prepare` and `--integration` once, then `verify.sh` for each of
+its suites. Run the same way locally with
+`make test-addons-suites ADDON_SUITES='gallery-ui library-sources'`.
+A suite added to `suites.json` must be named in a group of the workflow and in
+`foundation_gate.sh` or `tables_gate.sh`.
+
 ## Packaging suite
 
 `sh scripts/addons/verify.sh packaging` checks the first-party OCI package, its release

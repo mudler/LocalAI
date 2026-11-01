@@ -51,6 +51,7 @@ func main() {
 	foundationPath := flag.String("foundation", "", "cluster.json of the add-ons foundation fixture; enables authentication and the add-on carrier")
 	foundationRole := flag.String("foundation-role", "", "instance of the foundation cluster: owner, front-a or front-b")
 	librarySources := flag.Bool("library-sources", false, "start like a normal install for the library sources: default galleries and default sources of every kind")
+	sharedPagesFixture := flag.Bool("shared-pages-fixture", false, "seed shared folders with pages for the shared pages specs (see shared_fixture.go)")
 	flag.Parse()
 
 	if *mockBackend == "" {
@@ -165,6 +166,10 @@ func main() {
 		config.WithDataPath(dataDir),
 		config.WithDynamicConfigDir(dataDir),
 		config.WithGeneratedContentDir(generatedDir),
+		// The mock model calls the first tool it is offered, which is the
+		// built-in bash: with the default "ask" (no accounts) every turn would
+		// wait for a card nobody answers. The UI specs stub the host commands.
+		config.WithChatsHostExec("off"),
 		config.EnableTracing,
 		config.EnableBackendLogging,
 	}
@@ -191,9 +196,17 @@ func main() {
 		// the store the library routes read, the default sources of the three
 		// kinds. It stays off by default so the other specs never reach for a
 		// remote gallery.
+		// Add-ons are on, with no package installed, so the Add-ons page and
+		// its Libraries tab exist.
+		owner, err := localOwnerAddons(dataDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error preparing the add-on owner: %v\n", err)
+			os.Exit(1)
+		}
 		appOptions = append(appOptions,
 			config.WithStringGalleries(config.DefaultGalleriesJSON),
 			config.WithBackendGalleries(config.DefaultBackendGalleriesJSON),
+			config.WithAddons(owner),
 			library.Option(dataDir, true, false, true))
 	}
 	app, err := application.New(appOptions...)
@@ -225,6 +238,13 @@ func main() {
 			os.Exit(1)
 		}
 		defer func() { _ = control.Close() }()
+	}
+
+	if *sharedPagesFixture {
+		if err := seedSharedPages(ctx, app); err != nil {
+			fmt.Fprintf(os.Stderr, "error seeding the shared pages fixture: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Register mock backend

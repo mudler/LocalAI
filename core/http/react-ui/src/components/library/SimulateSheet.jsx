@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 // eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+// eslint-disable-next-line no-unused-vars
+import { Button, Callout } from '../ui'
 import Icon from '../Icon'
 import { agentCollectionsApi } from '../../utils/api'
 import {
-  agentSkills, estimateTokens, kbResults, kbSearchesEveryMessage, passageText, skillLoadTokens, skillsMode,
+  agentSkills, estimateTokens, kbResults, passageText, skillLoadTokens, skillsMode,
 } from '../../utils/library'
 // eslint-disable-next-line no-unused-vars
 import { PassageList } from './LibraryBits'
@@ -69,7 +71,6 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
     return () => document.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const allSkillNames = useMemo(() => skills.map(s => s.name), [skills])
   const agent = agents.find(a => a.name === context) || null
   const isCollection = context === COLLECTION
 
@@ -88,10 +89,10 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
     if (isCollection) {
       if (collection) targets.push({ name: collection, why: 'alone' })
     } else if (agent) {
-      if (kbSearchesEveryMessage(agent.config) && collections.includes(agent.name)) targets.push({ name: agent.name, why: 'agent' })
+      for (const name of agent.config?.collections || []) if (collections.includes(name)) targets.push({ name, why: 'agent' })
       for (const name of extraCollections) if (!targets.some(x => x.name === name)) targets.push({ name, why: 'test' })
     }
-    const limit = isCollection ? maxResults : (agent ? kbResults(agent.config) : maxResults)
+    const limit = isCollection ? maxResults : (agent ? kbResults() : maxResults)
     try {
       const groups = await Promise.all(targets.map(async target => {
         const data = await agentCollectionsApi.search(target.name, text, limit)
@@ -107,18 +108,18 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
   // What the agent keeps around a message, estimated.
   const budget = useMemo(() => {
     if (!agent || state.phase !== 'done') return null
-    const sk = agentSkills(agent.config, allSkillNames)
+    const sk = agentSkills(agent.config)
     const names = [...sk.names, ...extraSkills.filter(n => !sk.names.includes(n))]
     const loaded = names.map(name => {
       const skill = skills.find(s => s.name === name)
-      return { name, missing: !skill, tokens: skill ? skillLoadTokens(skill, agent.config) : 0, test: extraSkills.includes(name) && !sk.names.includes(name) }
+      return { name, missing: !skill, tokens: skill ? skillLoadTokens() : 0, test: extraSkills.includes(name) && !sk.names.includes(name) }
     })
-    const instructions = estimateTokens(agent.config?.system_prompt || '')
+    const instructions = estimateTokens(agent.config?.instructions || '')
     const skillTokens = loaded.reduce((n, s) => n + s.tokens, 0)
     const memoryTokens = state.groups.reduce((n, g) => n + g.results.reduce((m, r) => m + estimateTokens(passageText(r)), 0), 0)
     const total = instructions + skillTokens + memoryTokens
     return { loaded, instructions, skillTokens, memoryTokens, total, message: estimateTokens(state.text), allOn: sk.all }
-  }, [agent, state, skills, allSkillNames, extraSkills])
+  }, [agent, state, skills, extraSkills])
 
   const addExtra = item => setExtras(prev => (prev.some(e => e.kind === item.kind && e.name === item.name) ? prev : [...prev, item]))
   const dropExtra = item => { setExtras(prev => prev.filter(e => !(e.kind === item.kind && e.name === item.name))); setState({ phase: 'idle' }) }
@@ -143,9 +144,7 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
             <h2 className="dk-sheet-title" id="simulate-title">{t('simulate.title')}</h2>
             <p className="dk-sheet-desc">{t('simulate.desc')}</p>
           </div>
-          <button ref={closeRef} type="button" className="dk-btn dk-btn--ghost dk-btn--icon dk-btn--sm" aria-label={t('simulate.close')} onClick={onClose}>
-            <Icon name="close" />
-          </button>
+          <Button ref={closeRef} variant="ghost" size="sm" icon="close" aria-label={t('simulate.close')} onClick={onClose} />
         </div>
 
         <div className="dk-sheet-body lib-sheet__body">
@@ -241,14 +240,14 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
           )}
 
           <div className="lib-sim-actions">
-            <button type="button" className="dk-btn dk-btn--primary" onClick={run} disabled={state.phase === 'running'} aria-busy={state.phase === 'running' || undefined} data-testid="simulate-run">
-              <Icon name={state.phase === 'running' ? 'spinner' : 'play'} spin={state.phase === 'running'} /> {state.phase === 'running' ? t('simulate.running') : t('simulate.run')}
-            </button>
+            <Button variant="primary" icon="play" busy={state.phase === 'running'} onClick={run} data-testid="simulate-run">
+              {t('simulate.run')}
+            </Button>
             <span className="lib-muted lib-sim-note">{t('simulate.backendNote')}</span>
           </div>
 
           <div aria-live="polite">
-            {state.phase === 'error' && <p className="lib-note lib-note--error" role="alert">{state.message}</p>}
+            {state.phase === 'error' && <Callout tone="error" role="alert">{state.message}</Callout>}
           </div>
 
           {state.phase === 'done' && (
@@ -284,7 +283,7 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
                     <>
                       <p className="lib-muted lib-sim-fine">
                         {budget.allOn && `${t('simulate.skillsAll')} `}
-                        {t(`simulate.skills${skillsMode(agent.config) === 'tools' ? 'Tools' : skillsMode(agent.config) === 'both' ? 'Both' : 'Prompt'}`)}
+                        {t(`simulate.skills${skillsMode() === 'tools' ? 'Tools' : skillsMode() === 'both' ? 'Both' : 'Prompt'}`)}
                       </p>
                       <ul className="lib-sim-list">
                         {budget.loaded.map(s => (
@@ -292,7 +291,7 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
                             <span className="lib-mono">{s.name}</span>
                             {s.test && <span className="dk-badge dk-badge--accent">{t('simulate.onlyForTest')}</span>}
                             <span className="lib-sim-item__end">
-                              {s.missing ? t('simulate.skillMissing', { name: s.name }) : (skillsMode(agent.config) === 'tools' ? t('simulate.skillTokensTools') : t('simulate.skillTokens', { count: s.tokens }))}
+                              {s.missing ? t('simulate.skillMissing', { name: s.name }) : (skillsMode() === 'tools' ? t('simulate.skillTokensTools') : t('simulate.skillTokens', { count: s.tokens }))}
                             </span>
                           </li>
                         ))}
@@ -304,11 +303,8 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
 
               <section className="lib-sim-block" aria-labelledby="sim-memory-h">
                 <h3 className="lib-eyebrow" id="sim-memory-h">{t('simulate.memoryTitle')}</h3>
-                {!isCollection && agent && !agent.config?.enable_kb && extraCollections.length === 0 && <p className="lib-muted">{t('simulate.memoryNone')}</p>}
-                {!isCollection && agent && agent.config?.enable_kb && !collections.includes(agent.name) && (
-                  <p className="lib-muted">{t('simulate.memoryNoCollection', { name: agent.name })}</p>
-                )}
-                {!isCollection && agent && agent.config?.enable_kb && collections.includes(agent.name) && !kbSearchesEveryMessage(agent.config) && (
+                {!isCollection && agent && !(agent.config?.collections || []).length && extraCollections.length === 0 && <p className="lib-muted">{t('simulate.memoryNone')}</p>}
+                {!isCollection && agent && (agent.config?.collections || []).length > 0 && (
                   <p className="lib-muted">{t('simulate.memoryTools')}</p>
                 )}
                 {state.groups.map(group => (
@@ -328,7 +324,7 @@ function Sheet({ onClose, agents, agentsStatus, skills, collections, seed }) {
               </section>
 
               {!isCollection && agent && (
-                <p className="lib-sim-fine"><Link className="dk-link" to={agentHref(agent.name)}>{agent.name}</Link></p>
+                <p className="lib-sim-fine"><Link className="dk-link" to={agentHref(agent)}>{agent.name}</Link></p>
               )}
             </div>
           )}

@@ -388,14 +388,10 @@ export async function mockLedger(page, options = {}) {
   await page.route('**/api/operations', route => route.fulfill({ json: { operations: state.operations } }))
   await page.route('**/api/failover', route => route.fulfill({ json: { chains } }))
   await page.route('**/api/failover/events', route => route.abort())
-  await page.route('**/api/agents*', route => (state.agentsStatus !== 200
-    ? route.fulfill({ status: state.agentsStatus, json: { error: 'agent pool unavailable' } })
-    : route.fulfill({ json: { agents: Object.keys(state.agents), agentCount: Object.keys(state.agents).length } })))
-  await page.route('**/api/agents/*/config', route => {
-    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/').slice(-2)[0])
-    return route.fulfill({ json: state.agents[name] || {} })
-  })
-  await page.route('**/api/agent/tasks*', route => route.fulfill({ json: state.tasks }))
+  await page.route('**/api/chats/agents', route => (state.agentsStatus !== 200
+    ? route.fulfill({ status: state.agentsStatus, json: { error: 'agents unavailable' } })
+    : route.fulfill({ json: { agents: Object.entries(state.agents).map(([name, cfg]) => ({ id: `id-${name}`, name, ...cfg })) } })))
+  await page.route('**/api/chats/triggers', route => route.fulfill({ json: { triggers: state.tasks } }))
   await page.route('**/api/operations/*/dismiss', route => {
     state.dismissed.push(new URL(route.request().url()).pathname.split('/').slice(-2)[0])
     state.operations = state.operations.filter(op => op.jobID !== state.dismissed[state.dismissed.length - 1])

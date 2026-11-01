@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://localai.io/schemas/workspace/persona.json",
+  "title": "LocalAI/persona.json",
+  "description": "The name and instructions the assistant uses in every chat of this user.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Name",
+      "description": "What the assistant calls itself.",
+      "maxLength": 80
+    },
+    "system_prompt": {
+      "type": "string",
+      "title": "System prompt",
+      "description": "Added to every chat, after the chat's own system prompt and the agent's instructions.",
+      "maxLength": 8000,
+      "x-ui": { "widget": "textarea" }
+    },
+    "version": {
+      "type": "integer",
+      "description": "Format version. Leave it at 1.",
+      "minimum": 1,
+      "x-ui": { "hidden": true }
+    }
+  }
+}

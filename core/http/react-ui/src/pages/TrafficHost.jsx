@@ -13,7 +13,7 @@ import { nodeState, isDown } from '../utils/swarm'
 import CapacityChart from '../components/operate/CapacityChart'
 import PercentChart from '../components/traffic/PercentChart'
 import Icon from '../components/Icon'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { LoadError, SkeletonRows } from '../components/ui'
 import './traffic.css'
 
 function Meter({ label, used, total, tail }) {
@@ -86,12 +86,9 @@ export default function TrafficHost() {
       <p className="tf-source">{t('host.sources')}</p>
 
       {loading && !resources ? (
-        <div className="tf-loading"><LoadingSpinner size="lg" /></div>
+        <SkeletonRows />
       ) : !resources ? (
-        <div className="tf-error" role="alert" data-testid="host-error">
-          <Icon name="alert-circle" />
-          <span>{t('host.error', { message: String(error || '') })}</span>
-        </div>
+        <LoadError testId="host-error" title={t('host.errorTitle')} error={error} />
       ) : (
         <>
           <section className="tf-section" data-testid="host-snapshot">

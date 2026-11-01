@@ -4,7 +4,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
-	localai "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -72,9 +71,6 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 // chain in front of a stub handler.
 func openResponsesMiddleware(re *middleware.RequestExtractor, application *application.Application) []echo.MiddlewareFunc {
 	return []echo.MiddlewareFunc{
-		// Intercept requests where the model name matches an agent — route directly
-		// to the agent pool without going through the model config resolution pipeline.
-		localai.AgentResponsesInterceptor(application),
 		middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser()),
 		middleware.TraceMiddleware(application),
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),

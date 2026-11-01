@@ -7,7 +7,7 @@ import {
 
 const meta = {
   api_features: [{ key: 'chat', default: true }, { key: 'images', default: true }],
-  agent_features: [{ key: 'agents', default: false }, { key: 'skills', default: false }],
+  agent_features: [{ key: 'collections', default: false }, { key: 'localai_assistant', default: false }],
   general_features: [{ key: 'fine_tuning', default: false }],
 }
 const users = [
@@ -34,8 +34,8 @@ test('filters combine with the search', () => {
 
 test('access summary says what differs from the defaults', () => {
   assert.equal(accessSummary(users[0], meta), 'All access')
-  assert.equal(accessSummary({ role: 'user', permissions: { chat: true, images: true, agents: false } }, meta), 'Default access')
-  assert.equal(accessSummary({ role: 'user', permissions: { chat: true, images: true, agents: true, skills: true } }, meta), '2 more features')
+  assert.equal(accessSummary({ role: 'user', permissions: { chat: true, images: true, collections: false } }, meta), 'Default access')
+  assert.equal(accessSummary({ role: 'user', permissions: { chat: true, images: true, collections: true, localai_assistant: true } }, meta), '2 more features')
   assert.equal(accessSummary({ role: 'user', permissions: { chat: false, images: true } }, meta), '1 fewer feature')
   assert.equal(
     accessSummary({ role: 'user', permissions: {}, allowed_models: { enabled: true, models: ['a', 'b'] }, quotas: [{ id: 'q' }] }, meta),

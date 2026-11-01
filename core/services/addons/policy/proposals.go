@@ -811,10 +811,10 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			if rctx.Err() != nil {
 				return rctx.Err()
 			}
-			if errors.Is(e, contract.ErrRefused) {
+			if refusal := previewRefusal(e); refusal != nil {
 				// The add-on judged the request invalid. A preview changes
 				// nothing, so nothing is stored and the ID stays free.
-				return gateway.Refused(e)
+				return refusal
 			}
 			return ErrUnavailable
 		}
@@ -843,6 +843,23 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		return e
 	})
 	return out, err
+}
+
+// previewRefusal types a failed preview that is the add-on's definite answer
+// as a refusal: an invalid request, or a conflict with what it holds (a table
+// that exists), or as a denial of the person. A preview changes nothing, so neither is an outage and a
+// repeat of the same call is refused again. Any other failure returns nil.
+func previewRefusal(err error) error {
+	switch {
+	case errors.Is(err, contract.ErrRefused), errors.Is(err, contract.ErrDenied):
+		return gateway.Refused(err)
+	case errors.Is(err, addonruntime.ErrConflict):
+		// The conflict error itself stays out of the chain: it is an ErrRuntime
+		// for callers that do not tell it apart, and the gateway would then
+		// read the refusal as an outage again.
+		return gateway.Refused(fmt.Errorf("%w: the add-on found a conflict with what it holds", contract.ErrRefused))
+	}
+	return nil
 }
 
 // proposeCreate stores a request to create a resource. The resource does not
@@ -922,8 +939,8 @@ func (b *Broker) proposeCreate(ctx context.Context, p *Policy, actor contract.Ac
 		if ctx.Err() != nil {
 			return Proposal{}, ctx.Err()
 		}
-		if errors.Is(err, contract.ErrRefused) {
-			return Proposal{}, gateway.Refused(err)
+		if refusal := previewRefusal(err); refusal != nil {
+			return Proposal{}, refusal
 		}
 		return Proposal{}, ErrUnavailable
 	}
@@ -1393,8 +1410,8 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		b.hooks.afterApply(id)
 	}
 	unknown := &gateway.OutcomeUnknown{OperationID: id}
-	if errors.Is(err, contract.ErrRefused) {
-		// The add-on refused the apply before it began: it is deterministic
+	if errors.Is(err, contract.ErrRefused) || errors.Is(err, contract.ErrDenied) {
+		// The add-on refused or denied the apply before it began: it is deterministic
 		// and nothing was applied, so the proposal ends as rejected and the
 		// resource is not blocked by an unresolved outcome.
 		b.settle(id, gateway.ProposalRejected, nil, "refused by the addon as invalid")

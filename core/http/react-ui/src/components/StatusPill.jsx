@@ -1,28 +1,17 @@
-// Single source for status visuals. Maps a semantic status to a token-driven
-// dot + label. Replaces per-page hex status maps over time.
-const STATUS = {
-  healthy: 'success',
-  online: 'success',
-  warning: 'warning',
-  draining: 'warning',
-  error: 'error',
-  unhealthy: 'error',
-  loading: 'info',
-  idle: 'muted',
-  // Failover chain and target states.
-  primary: 'success',
-  fallback: 'warning',
-  recovering: 'warning',
-  degraded: 'error',
-  down: 'error',
-  missing: 'muted',
-}
+import StatusChip from './ui/StatusChip'
+import { resolveStatus, legacyPillTone } from './ui/status'
+
+// The old name of StatusChip, kept for its callers (failover, the add-on
+// SDK's Badge). It draws a StatusChip and keeps the old classes on the root
+// (status-pill, status-pill--success|warning|error|info|muted), so selectors
+// that read them still match. New code uses StatusChip.
 export default function StatusPill({ status, label, className = '' }) {
-  const tone = STATUS[status] || 'muted'
+  const { tone } = resolveStatus({ status })
   return (
-    <span className={`status-pill status-pill--${tone} ${className}`.trim()}>
-      <span className="status-pill__dot" aria-hidden="true" />
-      {label != null ? label : status}
-    </span>
+    <StatusChip
+      status={status}
+      label={label != null ? label : status}
+      className={`status-pill status-pill--${legacyPillTone(tone)} ${className}`.trim()}
+    />
   )
 }

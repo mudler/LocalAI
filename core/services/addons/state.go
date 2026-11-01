@@ -11,7 +11,11 @@ type Status struct {
 	AddonID, Identity, DataDirectory, GrantsPath string
 	Installed, DesiredEnabled                    bool
 	Generation                                   uint64
-	Generations                                  []Generation
+	// InstalledAt is when the add-on was first installed, RFC 3339 in UTC. An
+	// upgrade keeps it; an uninstall followed by an install sets it again. A
+	// record from before the field has none.
+	InstalledAt string `json:",omitempty"`
+	Generations []Generation
 	// Observation is deliberately not part of durable intent.
 	ObservedHealth string `json:"-"`
 	StartEligible  bool   `json:"-"`

@@ -9,18 +9,20 @@
    scoped to [data-addon="<id>"], so it reaches only this element. */
 
 .ad-host { min-width: 0; color: var(--dk-text); }
+/* The shell's own row over an add-on page: the link to its Settings tab. */
+.ad-shellbar { display: flex; justify-content: flex-end; margin-bottom: calc(var(--dk-space-2) * -1); }
 .ad-host--frozen { opacity: 0.72; }
-.ad-shell-actions { display: inline-flex; flex-wrap: wrap; gap: var(--dk-space-2, 8px); justify-content: center; margin-top: var(--dk-space-3); }
+.ad-shell-actions { display: inline-flex; flex-wrap: wrap; gap: var(--dk-space-2); justify-content: center; margin-top: var(--dk-space-3); }
 .ad-banner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--dk-space-3);
   padding: var(--dk-space-3) var(--dk-space-4);
-  border-radius: var(--dk-radius-1);
+  border-radius: var(--r-md);
   background: var(--dk-warn-wash);
   color: var(--dk-warn-text);
-  font-size: var(--dk-text-13);
+  font-size: var(--fs-small);
 }
 .ad-banner > span { flex: 1 1 240px; min-width: 0; }
 .ad-boundary {
@@ -29,17 +31,17 @@
   align-items: flex-start;
   gap: var(--dk-space-2);
   padding: var(--dk-space-4);
-  border-radius: var(--dk-radius-1);
+  border-radius: var(--r-lg);
   background: var(--dk-error-wash);
   color: var(--dk-error-text);
 }
-.ad-boundary__title { margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-semibold); }
-.ad-boundary__text { margin: 0; font-size: var(--dk-text-13); }
+.ad-boundary__title { margin: 0; font-size: var(--fs-body); font-weight: var(--dk-weight-semibold); }
+.ad-boundary__text { margin: 0; font-size: var(--fs-small); }
 .ad-stack { display: flex; flex-direction: column; align-items: flex-start; }
 .ad-stack--sm { gap: var(--dk-space-1); }
 .ad-stack--md { gap: var(--dk-space-3); }
 .ad-stack--lg { gap: var(--dk-space-5); }
-.ad-text { margin: 0; font-size: var(--dk-text-13); }
+.ad-text { margin: 0; font-size: var(--fs-small); }
 .ad-text--muted { color: var(--dk-muted); }
 
 /* ---- Host slots ------------------------------------------------------------
@@ -47,15 +49,17 @@
    its own; nothing here styles a host node. */
 
 .ad-slot { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+/* A settings section is a block: its form keeps its own layout. */
+.ad-slot--block { display: block; width: 100%; }
 .ad-slot-unavailable {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
   padding: 0 var(--dk-space-2);
-  border-radius: var(--dk-radius-1);
+  border-radius: var(--r-md);
   background: var(--dk-inset);
   color: var(--dk-muted);
-  font-size: var(--dk-text-12, 12px);
+  font-size: var(--fs-meta);
 }
 .ad-action-img { width: 1em; height: 1em; object-fit: contain; flex: 0 0 auto; }
 .ad-menu { position: relative; display: inline-flex; }
@@ -71,7 +75,7 @@
   max-width: min(320px, calc(100vw - 2 * var(--dk-space-4)));
   padding: var(--dk-space-1);
   border: 1px solid var(--dk-edge);
-  border-radius: var(--dk-radius-1);
+  border-radius: var(--r-lg);
   background: var(--dk-surface, var(--dk-inset));
   box-shadow: var(--dk-shadow-pop, 0 8px 24px rgb(0 0 0 / 0.24));
 }
@@ -82,34 +86,35 @@
   min-height: 36px;
   padding: 0 var(--dk-space-2);
   border: 0;
-  border-radius: var(--dk-radius-1);
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--dk-text);
   font: inherit;
-  font-size: var(--dk-text-13);
+  font-size: var(--fs-small);
   text-align: left;
   cursor: pointer;
 }
 .ad-menu__item:hover, .ad-menu__item:focus-visible { background: var(--dk-hover); }
 .ad-menu__item:disabled { opacity: 0.55; cursor: default; }
 .ad-menu__slot { padding: 0 var(--dk-space-2); min-width: 0; }
-.ad-sections { display: flex; flex-direction: column; gap: var(--dk-space-5, 24px); margin-top: var(--dk-space-5, 24px); }
+.ad-sections { display: flex; flex-direction: column; gap: var(--dk-space-5); margin-top: var(--dk-space-5); }
+.ad-sections.ad-sections--own { margin-top: 0; }
 .ad-section { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
 .ad-section__head { display: flex; align-items: center; gap: var(--dk-space-2); padding-bottom: var(--dk-space-2); border-bottom: 1px solid var(--dk-edge); }
-.ad-section__title { margin: 0; font-size: var(--dk-text-15); font-weight: var(--dk-weight-semibold); }
+.ad-section__title { margin: 0; font-size: var(--fs-body); font-weight: var(--dk-weight-semibold); }
 .hub-subnav__slot { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
 
 /* ---- Approval frame ------------------------------------------------------- */
 
 .ad-approval { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
-.ad-approval__from { margin: 0; color: var(--dk-muted); font-size: var(--dk-text-13); }
+.ad-approval__from { margin: 0; color: var(--dk-muted); font-size: var(--fs-small); }
 .ad-approval__facts { display: flex; flex-wrap: wrap; gap: var(--dk-space-4); margin: 0; }
-.ad-approval__facts dt { color: var(--dk-muted); font-size: var(--dk-text-12, 12px); }
-.ad-approval__facts dd { margin: 0; font-size: var(--dk-text-13); }
-.ad-approval__body { min-width: 0; padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-inset); overflow-x: auto; }
+.ad-approval__facts dt { color: var(--dk-muted); font-size: var(--fs-meta); }
+.ad-approval__facts dd { margin: 0; font-size: var(--fs-small); }
+.ad-approval__body { min-width: 0; padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-inset); overflow-x: auto; }
 .ad-approval__foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--dk-space-2); }
 /* The proposal card drawn inline in a chat thread. */
-.ad-pcard { padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--dk-radius-1); background: var(--dk-surface, transparent); max-width: 40rem; }
+.ad-pcard { padding: var(--dk-space-3); border: 1px solid var(--dk-edge); border-radius: var(--r-lg); background: var(--dk-surface, transparent); max-width: 40rem; }
 .ad-pcard[data-state="applied"] { border-color: var(--dk-ok, var(--dk-edge)); }
 .ad-pcard__facts dd code { overflow-wrap: anywhere; }
 .ad-pcard .ad-result { max-height: 12rem; }
@@ -118,4 +123,78 @@
 .ad-artifact a.dk-btn--primary,
 .ad-artifact a.dk-btn--primary:hover,
 .ad-artifact a.dk-btn--primary:focus-visible { color: var(--dk-on-accent); text-decoration: none; }
-.ad-result { margin: 0; max-height: 40vh; overflow: auto; font-size: var(--dk-text-12, 12px); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ad-result { margin: 0; max-height: 40vh; overflow: auto; font-size: var(--fs-meta); white-space: pre-wrap; overflow-wrap: anywhere; }
+.ad-preview { margin: var(--dk-space-3) 0; }
+
+/* ---- The SDK settings kit ---------------------------------------------------
+   sdk.ui.Section, Field, Select, TextInput, Choice, List/ListRow, Code,
+   Actions and ExternalLink (hostComponents.jsx). Host tokens only, so an
+   add-on's settings look like the host's in both themes. */
+
+.ad-kit-section { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
+.ad-kit-section + .ad-kit-section { padding-top: var(--dk-space-4); border-top: 1px solid var(--dk-edge); }
+.ad-kit-section__head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--dk-space-2) var(--dk-space-4); }
+.ad-kit-section__words { display: flex; flex-direction: column; gap: var(--dk-space-1); min-width: 0; flex: 1 1 240px; }
+.ad-kit-section__title { margin: 0; font: var(--dk-weight-semibold) var(--fs-body) / 1.3 var(--dk-font-body); color: var(--dk-text); }
+.ad-kit-section__desc { margin: 0; max-width: 72ch; font-size: var(--fs-small); line-height: 1.5; color: var(--dk-muted); }
+.ad-kit-section__body { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
+.ad-kit-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
+
+.ad-kit-field { display: flex; flex-direction: column; gap: var(--dk-space-1); min-width: 0; max-width: 40rem; }
+.ad-kit-field__label { padding: 0; font: var(--dk-weight-semibold) var(--fs-small) / 1.3 var(--dk-font-body); color: var(--dk-text); }
+.ad-kit-field__control { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); min-width: 0; }
+.ad-kit-field__control > .dk-input, .ad-kit-field__control > .dk-select { flex: 1 1 12rem; min-width: 0; }
+.ad-kit-field__unit { flex: none; font-size: var(--fs-small); color: var(--dk-muted); }
+.ad-kit-field__help { font-size: var(--fs-meta); line-height: 1.5; color: var(--dk-muted); }
+.ad-kit-field__error { font-size: var(--fs-meta); color: var(--dk-error-text); }
+
+.ad-kit-choice { display: flex; flex-direction: column; gap: var(--dk-space-1); min-width: 0; margin: 0; padding: 0; border: 0; }
+.ad-kit-choice > legend { margin-bottom: var(--dk-space-2); }
+.ad-kit-choice__option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-2) var(--dk-space-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) ease, background-color var(--dur-fast) ease;
+}
+.ad-kit-choice__option:hover { background: var(--dk-hover); }
+.ad-kit-choice__option[data-selected] { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
+.ad-kit-choice__option[data-disabled] { cursor: default; opacity: .62; }
+.ad-kit-choice__option[data-disabled]:hover { background: var(--dk-card); }
+.ad-kit-choice__option input { margin: var(--dk-space-1) 0 0; accent-color: var(--dk-accent); }
+.ad-kit-choice__option:has(input:focus-visible) { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+.ad-kit-choice__words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ad-kit-choice__label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); font: var(--dk-weight-semibold) var(--fs-small) / 1.4 var(--dk-font-body); color: var(--dk-text); }
+.ad-kit-choice__desc { font-size: var(--fs-meta); line-height: 1.5; color: var(--dk-muted); }
+
+.ad-kit-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-card); }
+.ad-kit-row { padding: var(--dk-space-3); min-width: 0; }
+.ad-kit-row + .ad-kit-row { border-top: 1px solid var(--dk-edge); }
+.ad-kit-row__main { display: flex; flex-direction: column; gap: var(--dk-space-2); min-width: 0; }
+.ad-kit-row__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--dk-space-2); }
+.ad-kit-row__title { font: var(--dk-weight-semibold) var(--fs-small) / 1.4 var(--dk-font-mono); color: var(--dk-text); }
+.ad-kit-row__meta { font-size: var(--fs-meta); line-height: 1.5; color: var(--dk-muted); }
+.ad-kit-details { min-width: 0; }
+.ad-kit-details__summary { width: fit-content; font-size: var(--fs-meta); color: var(--dk-accent-text); cursor: pointer; }
+.ad-kit-details__summary:focus-visible { outline: 2px solid var(--dk-accent); outline-offset: 2px; border-radius: var(--r-xs); }
+.ad-kit-details__body { margin-top: var(--dk-space-2); }
+.ad-kit-code {
+  margin: 0;
+  max-height: 16rem;
+  overflow: auto;
+  padding: var(--dk-space-3);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-inset);
+  color: var(--dk-text);
+  font: var(--fs-meta) / 1.55 var(--dk-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ad-kit-link { display: inline-flex; align-items: center; gap: var(--dk-space-1); color: var(--dk-accent-text); }
+.ad-kit-link__icon { width: 12px; height: 12px; flex: none; }

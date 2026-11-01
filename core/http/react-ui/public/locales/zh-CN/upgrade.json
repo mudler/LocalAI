@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "有可用更新",
+    "availableVersion": "有可用更新:{{version}}"
+  },
+  "trigger": {
+    "all": "全部升级({{count}})",
+    "running": "正在升级 {{current}}/{{total}}",
+    "summary": "已升级 {{done}} 个,失败 {{failed}} 个,跳过 {{skipped}} 个",
+    "summaryOk": "已升级 {{done}} 个",
+    "review": "查看"
+  },
+  "dialog": {
+    "title": "全部升级",
+    "intro": "选择要升级的项目。每个项目会单独、依次升级。某一项失败不会中断其他项目。",
+    "selection": "选择",
+    "selectAll": "全选",
+    "selectNone": "全不选",
+    "selectedCount_one": "已选 {{count}} 项",
+    "selectedCount_other": "已选 {{count}} 项",
+    "item": "升级 {{name}}",
+    "versions": "{{from}} → {{to}}",
+    "blocked": "无法开始",
+    "start": "升级所选",
+    "starting": "正在升级...",
+    "retry": "重试失败项({{count}})",
+    "again": "重新选择",
+    "close": "关闭",
+    "closeRunning": "关闭(继续运行)",
+    "runningNote": "关闭此窗口不会停止升级。",
+    "progress": "正在升级 {{current}}/{{total}}",
+    "summary": "已升级 {{done}} 个,失败 {{failed}} 个,跳过 {{skipped}} 个",
+    "empty": "没有可升级的项目。"
+  },
+  "item": {
+    "queued": "排队中",
+    "upgrading": "升级中",
+    "done": "完成",
+    "failed": "失败",
+    "skipped": "已跳过"
+  },
+  "reason": {
+    "checkAgain": "重新检查",
+    "checking": "检查中..."
+  }
+}

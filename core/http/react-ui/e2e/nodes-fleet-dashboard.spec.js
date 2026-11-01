@@ -47,7 +47,7 @@ test.describe('Swarm nodes: navigation', () => {
     await mockNodes(page, [baseNodes[0]])
     await page.goto('/app/nodes')
 
-    const primaryOperate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })
+    const primaryOperate = page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })
     await expect(primaryOperate).toBeVisible({ timeout: 15_000 })
     await expect(primaryOperate).toHaveClass(/active/)
 
@@ -80,7 +80,7 @@ test.describe('Swarm nodes: navigation', () => {
     await page.goto('/app/nodes')
 
     await page.getByRole('button', { name: 'Open menu' }).click()
-    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Operate' })).toBeVisible()
+    await expect(page.locator('.sidebar-nav a.nav-item', { hasText: 'Administration' })).toBeVisible()
     await page.getByRole('button', { name: 'Close menu' }).click()
 
     const bar = page.locator('.hub-layout > .hub-bar .dk-hubtabs')

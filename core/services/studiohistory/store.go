@@ -1,7 +1,6 @@
 // Package studiohistory implements server-side persistence of the Studio
 // add-on's generation history (pictures, clips, voice lines, sounds, audio
-// transforms, diarizations, 3D meshes). It follows the chat history store
-// (core/services/chathistory): entries live in the shared GORM database
+// transforms, diarizations, 3D meshes). Entries live in the shared GORM database
 // (Application.authDB), partitioned by user, with tombstones so a deletion
 // reaches every browser. When auth is disabled the store is not initialised
 // and the Studio keeps its history in localStorage as before.
@@ -96,7 +95,7 @@ type Store struct {
 }
 
 // New creates a Store backed by db and auto-migrates the schema. The caller
-// passes the shared authDB, so Studio history sits next to chat history.
+// passes the shared authDB, so Studio history sits next to the accounts.
 func New(db *gorm.DB) (*Store, error) {
 	if db == nil {
 		return nil, errors.New("studiohistory: nil *gorm.DB")

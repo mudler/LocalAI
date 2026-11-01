@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { addonPageAddress, STUDIO_TABS, studioAddress, studioRedirect, talkAddress, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
+import { addonPageAddress, bareChatsRedirect, chatsRedirect, STUDIO_TABS, studioAddress, studioRedirect, talkAddress, MIGRATION_ROUTES } from '../../src/utils/legacyRoutes.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const router = readFileSync(join(here, '../../src/router.jsx'), 'utf8')
@@ -95,11 +95,6 @@ test('the face route and the face model route both open the Face add-on, the mod
   assert.ok(withModel?.includes('<AddonRedirect addon="face" page="recognition" withModel />'), 'face/:model does not redirect with withModel')
 })
 
-test('the Build hub has no Faces tab', async () => {
-  const { buildHub } = await import('../../src/components/hub/hubConfig.js')
-  assert.ok(!buildHub.tabs.some(t => t.id === 'faces' || t.id === 'voices'))
-})
-
 test('the fine-tune and quantize routes redirect to their add-on pages', () => {
   const lines = router.split('\n')
   const rows = [
@@ -113,14 +108,11 @@ test('the fine-tune and quantize routes redirect to their add-on pages', () => {
   }
 })
 
-test('the Build hub has no fine-tune or quantize tab', async () => {
-  const { buildHub } = await import('../../src/components/hub/hubConfig.js')
-  assert.ok(!buildHub.tabs.some(t => t.id === 'fine-tune' || t.id === 'quantize'))
-})
-
-test('the Build overview keeps the fine-tune and quantize cards, linked to the old routes', async () => {
-  const { buildOverviewTools } = await import('../../src/components/hub/hubConfig.js')
-  assert.deepEqual(buildOverviewTools.map(t => [t.id, t.items[0].path]), [['fine-tune', '/app/fine-tune'], ['quantize', '/app/quantize']])
+test('the Build hub is gone and its address opens the models', async () => {
+  const { hubs } = await import('../../src/components/hub/hubConfig.js')
+  assert.ok(!hubs.some(h => h.id === 'build'))
+  const entry = router.split('\n').find(l => l.includes("{ path: 'build', element:"))
+  assert.ok(entry?.includes('<Navigate to="/app/models" replace />'))
 })
 
 test('the voice routes open the tabs of the one Voice page', () => {
@@ -128,4 +120,49 @@ test('the voice routes open the tabs of the one Voice page', () => {
   assert.equal(to('/app/voice'), '/app/addons/voice/voice/recognition')
   assert.equal(to('/app/voice-library'), '/app/addons/voice/voice/library')
   assert.equal(to('/app/voice-library/new'), '/app/addons/voice/voice/library/new')
+})
+
+test('chatsRedirect opens the matching page and keeps the query and the hash; the old chat page opens Home', () => {
+  assert.equal(chatsRedirect('/app/chat'), '/app')
+  assert.equal(chatsRedirect('/app/chat/'), '/app')
+  assert.equal(chatsRedirect('/app/chat/llama', '?x=1', '#top'), '/app?x=1&model=llama#top')
+  // A model id may hold "/" or ":", so it travels as ?model= and is decoded first.
+  assert.equal(chatsRedirect('/app/chat/org%2Fname%3Aq4'), '/app?model=org%2Fname%3Aq4')
+  assert.equal(chatsRedirect('/app/chats/agents'), '/app/agents')
+  assert.equal(chatsRedirect('/app/chats/agents', '?a=b'), '/app/agents?a=b')
+  assert.equal(chatsRedirect('/app/chats/triggers'), '/app/triggers')
+  assert.equal(chatsRedirect('/app/agent-jobs'), '/app/triggers')
+  assert.equal(chatsRedirect('/app/agent-jobs/jobs/j1'), '/app/triggers')
+  assert.equal(chatsRedirect('/app/agent-jobs/tasks/new', '?x=1'), '/app/triggers?x=1')
+  assert.equal(chatsRedirect('/app/chats/skills'), '/app/skills')
+  assert.equal(chatsRedirect('/app/chats/skills/', '', '#a'), '/app/skills#a')
+})
+
+test('every old chat, agent, job and skill route redirects, and no built-in page is left behind', () => {
+  for (const r of MIGRATION_ROUTES.filter(x => x.kind === 'chats')) {
+    assert.equal(chatsRedirect(r.from), r.to, r.from)
+  }
+  for (const path of ["'chat'", "'chat/:model'", "'chats/agents'", "'chats/skills'", "'chats/triggers'", "'agent-jobs'", "'agent-jobs/*'"]) {
+    const entry = router.split('\n').find(l => l.includes(`{ path: ${path}, element:`))
+    assert.ok(entry?.includes('<ChatsRedirect />'), `no ChatsRedirect for ${path}`)
+  }
+  assert.ok(!/pages\/(Chats|AgentRun|AgentStatus|AgentJobDetails|ChatAgents|ChatSkills|ChatTriggers)'/.test(router))
+})
+
+test('chatsRedirect keeps a model name that is not valid percent-encoding as typed', () => {
+  assert.equal(chatsRedirect('/app/chat/100%'), '/app?model=100%25')
+  assert.equal(chatsRedirect('/app/chat/a%zzb'), '/app?model=a%25zzb')
+})
+
+test('/app/chats as an address opens Home with its query; a hand-off with state stays on the empty chat', () => {
+  assert.equal(bareChatsRedirect('/app/chats'), '/app')
+  assert.equal(bareChatsRedirect('/app/chats/'), '/app')
+  assert.equal(bareChatsRedirect('/app/chats', '?model=llama', '#x'), '/app?model=llama#x')
+  assert.equal(bareChatsRedirect('/app/chats', '?model=llama', '', null), '/app?model=llama')
+  // Home's first message, an agent, a draft or the page's own marker.
+  for (const state of [{ start: 'hi' }, { agentId: 'a1' }, { draft: 'x' }, { newChat: true }]) {
+    assert.equal(bareChatsRedirect('/app/chats', '?model=llama', '', state), '', JSON.stringify(state))
+  }
+  // A transcript and the other chats pages are not touched.
+  for (const p of ['/app/chats/c1', '/app/chats/all', '/app/chats/connectors']) assert.equal(bareChatsRedirect(p), '', p)
 })

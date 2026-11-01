@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
+	managerpkg "github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -31,7 +33,9 @@ type AddonError struct {
 	// invalid_request (400, for
 	// example a missing deletion confirmation or an unsupported operation),
 	// quota_reached (403) and not_selected (404, no resource is selected for
-	// the conversation).
+	// the conversation). The undo of a change says why it was refused in
+	// the type: stale (409, with the words of what changed), not_found (404),
+	// expired (410), already_undone (409) or cannot_undo (409).
 	Type string `json:"type" example:"outcome_unknown"`
 	// Message describes the failure and never carries owner details.
 	Message string `json:"message"`
@@ -173,6 +177,42 @@ func decode(c echo.Context, v any) error {
 	}
 	return nil
 }
+
+// undoStatus is the status and the default message of a refused undo, by its
+// code. The code is the type of the error, so a client tells the refusals
+// apart without reading the message.
+func undoStatus(code string) (int, string) {
+	switch code {
+	case contract.UndoNotFound:
+		return 404, "No change set with this ID: it was never kept, was too large to keep or was dropped"
+	case contract.UndoExpired:
+		return 410, "The change set expired and the change can no longer be undone"
+	case contract.UndoAlreadyUndone:
+		return 409, "The change was undone already"
+	case contract.UndoCannot:
+		return 409, "The change cannot be undone"
+	}
+	return 409, "The data changed after this change, so it cannot be undone without overwriting later work"
+}
+
+// operationCauseMessage is the text for the cause of a failed install or
+// upgrade. The type tells the causes apart; the server log has the detail.
+func operationCauseMessage(code string) string {
+	switch code {
+	case managerpkg.CauseLibraryUnavailable:
+		return "The library could not be read. Check that it is reachable and refresh it, then try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseLibraryConflict:
+		return "Two enabled libraries list this add-on. Disable one of them, then try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseReleaseNotFound:
+		return "The library does not list this add-on or version for this platform. Nothing was installed"
+	case managerpkg.CausePackageFetch:
+		return "The package could not be downloaded. Try again with a new operation ID. Nothing was installed"
+	case managerpkg.CauseInstallStorage:
+		return "The package could not be written to the add-on storage. Check the free space and the permissions of the add-on folder. Nothing was installed"
+	}
+	return "The operation failed"
+}
+
 func resultError(c echo.Context, e error) error {
 	// The add-on's own refusal of a request is a typed 400 from every path,
 	// never an outage banner.
@@ -198,12 +238,27 @@ func resultError(c echo.Context, e error) error {
 	if errors.As(e, &refusal) {
 		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: "sdk_incompatible", Code: 403, Message: refusal.Error()}})
 	}
+	var failed *managerpkg.FailureCause
+	if errors.As(e, &failed) && gateway.IsOperationCause(failed.Code) {
+		return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: failed.Code, Code: 403, Message: operationCauseMessage(failed.Code)}})
+	}
+	var refused *gateway.UndoRefused
+	if errors.As(e, &refused) {
+		status, msg := undoStatus(refused.Code)
+		if refused.Detail != "" {
+			msg = refused.Detail
+		}
+		return c.JSON(status, AddonErrorResponse{Error: AddonError{Type: refused.Code, Code: status, Message: msg}})
+	}
 	for _, t := range []struct {
 		err     error
 		status  int
 		kind    string
 		message string
 	}{
+		{gateway.ErrNotPermitted, 403, "not_permitted", "You do not have the permission this needs. An administrator can grant it"},
+		{gateway.ErrResourceUnreachable, 403, "resource_unreachable", "That resource does not exist or you have no access to it"},
+		{packages.ErrPackage, 403, "package_unverified", "The package could not be verified: it does not match its library entry, or it is not a valid add-on package. Nothing was installed"},
 		{gateway.ErrSharingDisabled, 409, "sharing_disabled", "Sharing is disabled: this installation has no named users to share with"},
 		{gateway.ErrStale, 409, "stale", "The view is out of date; reload it and repeat the action"},
 		{gateway.ErrOperationConflict, 409, "operation_conflict", "The operation ID was used for another request; nothing was applied. Repeat the change under a new operation ID"},
@@ -229,7 +284,7 @@ func resultError(c echo.Context, e error) error {
 // @Success 200 {object} contract.Result "Operation accepted or read result"
 // @Failure 400 {object} AddonErrorResponse "Malformed or unknown request fields, or type invalid_request when the add-on refused the request as invalid: nothing was applied and the same call is refused again"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
-// @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request, or type sdk_incompatible when an install is refused because the add-on needs another SDK version: the message names the range the add-on needs and the SDK version the host provides"
+// @Failure 403 {object} AddonErrorResponse "Feature, administration or owner policy denied the request, or type sdk_incompatible when an install is refused because the add-on needs another SDK version: the message names the range the add-on needs and the SDK version the host provides. An install or upgrade that failed before anything was installed has the type of its cause: library_unavailable (the library could not be read), library_conflict (two enabled libraries list the add-on), release_not_found (the library does not list the release for this platform), package_fetch_failed (the package could not be downloaded) or install_storage_failed (the verified package could not be written to the add-on storage). Repeat it with a new operationId after you correct the cause"
 // @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the outcome of a mutation is unknown (type outcome_unknown, with operationId)"
 // @Router /api/addons/dispatch [post]
 func Dispatch(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {

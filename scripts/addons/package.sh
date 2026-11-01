@@ -18,6 +18,13 @@
 # other platform: a package is never made from a binary of another platform.
 # --local-check allows a platform that the platform matrix has not enabled yet;
 # the receipt then says publishable=false and the publish steps refuse it.
+#
+# The Sandbox add-on needs the reference of its guest image, built into the
+# executable with -X main.guestImage. Set SANDBOX_GUEST_IMAGE to
+# <repository>@sha256:<digest> (the output of the sandbox-images workflow).
+# Without it the script refuses to build or accept a Sandbox executable, unless
+# --local-check is given: the build then uses a stand-in reference that no
+# registry serves, and the receipt is not publishable anyway.
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root"
@@ -57,6 +64,22 @@ for v in "$addon" "$exe_name"; do
     '' | *[!a-z0-9-]*) echo "package.sh: $config needs a plain addon and executable name" >&2; exit 2 ;;
     esac
 done
+ldflags=
+if [ "$addon" = sandbox ]; then
+    guest=${SANDBOX_GUEST_IMAGE-}
+    if [ -z "$guest" ]; then
+        [ -n "$local_check" ] || {
+            echo 'package.sh: the sandbox add-on needs SANDBOX_GUEST_IMAGE=<repository>@sha256:<digest> (see .github/workflows/sandbox-images.yml)' >&2
+            exit 2
+        }
+        guest=localcheck.invalid/sandbox-guest@sha256:0000000000000000000000000000000000000000000000000000000000000000
+    fi
+    printf '%s\n' "$guest" | grep -E '^[A-Za-z0-9._/:-]+@sha256:[0-9a-f]{64}$' >/dev/null || {
+        echo 'package.sh: SANDBOX_GUEST_IMAGE must be <repository>@sha256:<64 hex digits>' >&2
+        exit 2
+    }
+    ldflags="-X main.guestImage=$guest"
+fi
 if [ -z "$executable" ]; then
     host="$(go env GOOS)/$(go env GOARCH)"
     [ "$platform" = "$host" ] || {
@@ -67,8 +90,20 @@ if [ -z "$executable" ]; then
     # executable needs no C toolchain on any platform.
     cgo=0
     [ "$addon" != tables ] || cgo=1
-    CGO_ENABLED=$cgo go build -trimpath -o "$scratch/$exe_name" "./addons/$addon/cmd/$exe_name"
+    if [ -n "$ldflags" ]; then
+        CGO_ENABLED=$cgo go build -trimpath -ldflags "$ldflags" -o "$scratch/$exe_name" "./addons/$addon/cmd/$exe_name"
+    else
+        CGO_ENABLED=$cgo go build -trimpath -o "$scratch/$exe_name" "./addons/$addon/cmd/$exe_name"
+    fi
     executable="$scratch/$exe_name"
+elif [ -n "$ldflags" ] && [ -z "$local_check" ]; then
+    # A binary built elsewhere must carry the guest image too. Its build info
+    # cannot show it (with -trimpath, Go leaves -ldflags out), so look for
+    # the reference in the executable.
+    grep -aqF -- "$guest" "$executable" || {
+        echo "package.sh: $executable was not built with -X main.guestImage" >&2
+        exit 2
+    }
 fi
 # The UI is a build output. Build it only when it is absent.
 if [ -n "$ui_dir" ] && [ ! -f "$ui_dir/ui/$addon.js" ]; then

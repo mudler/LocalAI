@@ -2,7 +2,7 @@
 import { Fragment, forwardRef, useCallback, useEffect, useImperativeHandle, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useModels } from '../../hooks/useModels'
-import { readLastModel, writeLastModel } from '../../utils/lastModel'
+import { readLastModel, writeLastModel, readPreferredModel } from '../../utils/lastModel'
 import Icon from '../Icon'
 
 // How many models before the list gets a filter box.
@@ -53,7 +53,8 @@ const HomeModelPicker = forwardRef(function HomeModelPicker(
   // not written back.
   useEffect(() => {
     if (autoSelect && !defaultSelected && names.length > 0 && (!value || !names.includes(value))) {
-      const remembered = readLastModel(capability)
+      const preferred = readPreferredModel(capability)
+      const remembered = preferred && names.includes(preferred) ? preferred : readLastModel(capability)
       onChange(remembered && names.includes(remembered) ? remembered : names[0])
     }
   }, [names, value, onChange, capability, autoSelect, defaultSelected])

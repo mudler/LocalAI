@@ -10,12 +10,13 @@
   "changeLanguage": "Cambiar idioma",
   "logout": "Cerrar sesión",
   "accountSettings": "Configuración de la cuenta",
+  "yourSettings": "Tu configuración",
   "account": "Cuenta",
   "accountFor": "Cuenta: {{name}}",
   "sections": {
     "recognition": "Reconocimiento",
     "build": "Construir",
-    "operate": "Operar",
+    "operate": "Administración",
     "workspace": "Espacio de trabajo"
   },
   "operate": {
@@ -66,7 +67,14 @@
     "logs": "Logs",
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
-    "prometheus": "Prometheus"
+    "prometheus": "Prometheus",
+    "chats": "Chats",
+    "files": "Archivos",
+    "triggers": "Disparadores",
+    "mcpConnectors": "Conectores MCP",
+    "chatsAdmin": "Chats de todos los usuarios",
+    "pages": "Páginas",
+    "allChats": "Todos los chats"
   },
   "footer": {
     "github": "GitHub",
@@ -99,7 +107,15 @@
       "import": "Añade un modelo desde un archivo, una URL o un repositorio de Hugging Face.",
       "voices": "Identifica hablantes y mantén una biblioteca de perfiles de voz.",
       "faces": "Detecta, compara y empareja rostros.",
-      "addons": "Instala complementos y abre las apps que ofrecen."
-    }
-  }
+      "addons": "Instala complementos y abre las apps que ofrecen.",
+      "triggers": "Inicia un chat por sí solo, con una programación o cuando llega un archivo."
+    },
+    "operateSupporting": "Qué se ejecuta en este servidor, cómo se usa y cómo está configurado."
+  },
+  "pinnedPages": "Páginas fijadas",
+  "new": "Nuevo",
+  "recentChats": "Chats recientes",
+  "newChat": "Nuevo chat",
+  "untitledChat": "Chat sin título",
+  "chatRunning": "En curso"
 }

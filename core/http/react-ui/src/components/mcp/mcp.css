@@ -1,0 +1,199 @@
+/* ==========================================================================
+   MCP connectors. The frame, the toolbar and the rows are the Add-ons ones
+   (addons.css: ad-toolbar, ad-search, ad-seg, ad-tiles, ad-tile, ad-meta),
+   the details are the shared SidePane and add/edit is the shared SideSheet.
+   This file holds only what a connector has and an add-on does not: the
+   switch on the row, the tools, the secret fields and the test step. Tokens
+   only; motion moves transform and opacity.
+   ========================================================================== */
+
+.mcp-page { display: flex; flex-direction: column; min-width: 0; }
+.mcp-body { display: flex; flex-direction: column; gap: var(--sp-6); min-width: 0; }
+.mcp-body > .page-header { margin-bottom: 0; }
+.mcp-body > .ui-callout { margin: 0; }
+.mcp-list-col { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.mcp-mono { font-family: var(--font-mono); font-size: var(--fs-meta); }
+.mcp-quiet { color: var(--dk-muted); }
+
+/* ---- Toolbar: the kit's SearchField and Segmented (ui.css) ---------------- */
+.mcp-toolbar .ui-seg__item[aria-pressed="true"] .ui-seg__count { color: var(--dk-text); }
+
+/* ---- Rows ------------------------------------------------------------------ */
+.mcp-row { transition: background-color var(--dur-instant) var(--ease-out), opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+@starting-style { .mcp-row { opacity: 0; transform: translateY(4px); } }
+.mcp-row__line--off,
+.mcp-row__line--unchecked { color: var(--dk-muted); }
+.mcp-row__host { max-width: 100%; }
+.mcp-row__hosttext { display: inline-block; max-width: 36ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+.mcp-row__side { gap: var(--sp-2); }
+/* The switch is 26 px tall; its hit area grows to the 44 px of a touch target. */
+.mcp-row__switch { display: inline-flex; align-items: center; }
+.mcp-row__switch .dk-switch::before { content: ""; position: absolute; inset: -9px -4px; }
+.mcp-state .ui-chip { transition: opacity var(--dur-fast) var(--ease-out); }
+
+/* ---- Details pane ------------------------------------------------------------ */
+/* Docked under the page header, the pane is capped so its foot (Test, Edit,
+   Remove) is on screen without scrolling on a laptop. */
+@media (min-width: 1280px) { .mcp-details.ui-pane { max-height: min(calc(100dvh - var(--sp-8)), 720px); } }
+.mcp-details__host {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+}
+.mcp-details__body { display: flex; flex-direction: column; gap: var(--sp-6); min-width: 0; }
+.mcp-details__foot { display: flex; align-items: center; gap: var(--sp-2); width: 100%; }
+.mcp-details__grow { flex: 1 1 auto; }
+.mcp-use {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-inset);
+}
+.mcp-use__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mcp-use__label { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; color: var(--dk-text); }
+.mcp-use__help { font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
+.mcp-section { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.mcp-section__title,
+.mcp-group__title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--dk-muted);
+}
+.mcp-section__text { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+.mcp-check-ok { display: flex; align-items: center; gap: var(--sp-2); color: var(--dk-ok-text); }
+.mcp-check-ok .lai-icon { flex: none; width: 16px; height: 16px; }
+.mcp-reason { overflow-wrap: anywhere; }
+.mcp-kv { display: grid; grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); gap: var(--sp-2) var(--sp-4); margin: 0; }
+.mcp-kv dt { color: var(--dk-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
+.mcp-kv dd { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-text); overflow-wrap: anywhere; }
+.mcp-kv dd.mcp-mono { font-size: var(--fs-meta); }
+.mcp-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  color: var(--dk-muted);
+}
+.mcp-note .lai-icon { flex: none; width: 13px; height: 13px; margin-top: 2px; }
+.mcp-tools-search { flex: none; width: 100%; }
+
+/* ---- Tools ----------------------------------------------------------------- */
+.mcp-tools {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  overflow: hidden;
+}
+.mcp-tool { display: flex; flex-direction: column; gap: 2px; padding: var(--sp-2) var(--sp-3); min-width: 0; }
+.mcp-tool + .mcp-tool { border-top: 1px solid var(--dk-edge); }
+.mcp-tool__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  font-weight: 500;
+  color: var(--dk-text);
+  overflow-wrap: anywhere;
+}
+.mcp-tool__name .lai-icon { flex: none; width: 13px; height: 13px; color: var(--dk-muted); }
+.mcp-tool__desc { padding-left: calc(13px + var(--sp-2)); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); overflow-wrap: anywhere; }
+.mcp-tool__desc--none { font-style: italic; }
+
+/* ---- Add and edit sheet ------------------------------------------------------- */
+.mcp-form { display: flex; flex-direction: column; gap: var(--sp-6); min-width: 0; }
+.mcp-group { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; margin: 0; padding: 0; border: 0; }
+.mcp-group__help { margin: calc(var(--sp-2) * -1) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+.mcp-group + .mcp-group { padding-top: var(--sp-5); border-top: 1px solid var(--dk-edge); }
+.mcp-sheet__error { margin-bottom: var(--sp-4); }
+
+.mcp-kinds { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.mcp-kind {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  cursor: pointer;
+  transition: border-color var(--dur-instant) var(--ease-out), background-color var(--dur-instant) var(--ease-out);
+}
+.mcp-kind:hover { background: var(--dk-hover); }
+.mcp-kind[data-checked="true"] { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
+.mcp-kind:has(:focus-visible) { box-shadow: var(--focus-ring); }
+.mcp-kind .dk-radio { margin-top: 1px; }
+.mcp-kind .dk-radio:focus-visible { outline: none; }
+.mcp-kind__icon { width: 18px; height: 18px; margin-top: 1px; color: var(--dk-muted); }
+.mcp-kind[data-checked="true"] .mcp-kind__icon { color: var(--dk-accent-text); }
+.mcp-kind__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mcp-kind__name { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; color: var(--dk-text); }
+.mcp-kind__help { font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
+
+.mcp-secret { position: relative; display: block; min-width: 0; }
+.mcp-secret__input { width: 100%; padding-right: calc(var(--ctl-h-sm) + var(--sp-2)); }
+.mcp-secret__toggle { position: absolute; right: var(--sp-1); top: calc((100% - var(--ctl-h-sm)) / 2); }
+.mcp-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: var(--sp-2); align-items: center; }
+.mcp-choice { align-self: flex-start; min-height: var(--ctl-h-sm); font-size: var(--fs-small); }
+
+.mcp-test { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
+.mcp-test > .ui-callout { margin: 0; }
+.mcp-test__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-4); }
+.mcp-test__name { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; overflow-wrap: anywhere; }
+.mcp-test__saved { display: inline-flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-meta); line-height: var(--lh-meta); color: var(--dk-muted); }
+.mcp-test__saved .lai-icon { width: 13px; height: 13px; color: var(--dk-ok-text); }
+.mcp-test__wait {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-4);
+  border: 1px dashed var(--dk-edge);
+  border-radius: var(--r-md);
+  font-size: var(--fs-small);
+  color: var(--dk-muted);
+}
+.mcp-test .mcp-tools { transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+@starting-style { .mcp-test .mcp-tools, .mcp-test > .ui-callout { opacity: 0; transform: translateY(4px); } }
+
+/* ---- Import banner ------------------------------------------------------------ */
+.mcp-import__list { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.mcp-import__list li { display: flex; flex-wrap: wrap; gap: 0 var(--sp-2); color: var(--color-text-secondary); }
+.mcp-import__name { font-weight: 600; color: var(--dk-text); }
+
+@media (max-width: 639px) {
+  .mcp-row__hosttext { max-width: 22ch; }
+  .mcp-row .action-menu__trigger { min-width: 44px; min-height: 44px; }
+  /* The row's button keeps its look; its hit area grows to 44 px. */
+  .mcp-row__act .dk-btn { position: relative; }
+  .mcp-row__act .dk-btn::before { content: ""; position: absolute; inset: -6px 0; }
+  .mcp-row__side { justify-content: flex-start; }
+  .mcp-toolbar .ui-seg__item { min-height: 44px; }
+  .mcp-toolbar .ui-seg { align-self: stretch; overflow-x: auto; scrollbar-width: none; }
+  .mcp-kinds { grid-template-columns: minmax(0, 1fr); }
+  .mcp-pair { grid-template-columns: minmax(0, 1fr) auto; }
+  .mcp-pair > .mcp-secret { grid-column: 1; grid-row: 2; }
+  .mcp-pair__remove { grid-row: 1 / span 2; align-self: center; }
+  .mcp-details__foot { flex-wrap: wrap; }
+}

@@ -436,7 +436,9 @@ test.describe('Models ledger - states', () => {
 })
 
 test.describe('Models ledger - phone', () => {
-  test.use({ viewport: { width: 390, height: 844 } })
+  // A phone has a touch screen: controls size for a finger on a coarse
+  // pointer, not for the width of the window.
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
   test('rows collapse to name, fit and action, and the page does not scroll sideways', async ({ page }) => {
     await open(page)

@@ -117,4 +117,14 @@ func registerStoreContract(open func() Store) {
 		slices.Sort(d)
 		Expect(d).To(Equal([]string{"a", "b", "c"}))
 	})
+
+	It("records once that a seeded add-on was installed, apart from the seed run", func() {
+		Expect(s.Installed(ctx)).To(BeEmpty())
+		Expect(s.MarkInstalled(ctx, []string{"talk", "studio"})).To(Succeed())
+		Expect(s.MarkInstalled(ctx, []string{"studio"})).To(Succeed())
+		Expect(s.Installed(ctx)).To(Equal([]string{"studio", "talk"}))
+		ran, err := s.SeedExisting(ctx, []string{"u1"}, SeedIDs)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(ran).To(BeTrue(), "an install record is not the seed run")
+	})
 }

@@ -176,7 +176,7 @@ func (ml *ModelLoader) spawnGRPCModel(backend, uri string, o *Options, modelID, 
 		}
 	} else {
 		xlog.Error("Backend not found", "backend", backend)
-		return nil, fmt.Errorf("backend not found: %s", backend)
+		return nil, fmt.Errorf("%w: %s", ErrBackendNotFound, backend)
 	}
 
 	xlog.Debug("Wait for the service to start up")

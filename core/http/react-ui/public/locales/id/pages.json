@@ -1,0 +1,138 @@
+{
+  "subtitle": "Alat kecil yang dibuat asisten untukmu. Dibuka di sini, dalam sandbox, dan menyimpan datanya di file-mu.",
+  "card": {
+    "pin": "Sematkan ke bilah sisi",
+    "unpin": "Lepas dari bilah sisi",
+    "changedBy": {
+      "you": "Diubah {{when}} oleh kamu",
+      "assistant": "Diubah {{when}} oleh asisten"
+    },
+    "menu": "Lainnya untuk {{title}}",
+    "files": "Tampilkan filenya",
+    "rename": "Ganti nama",
+    "renameLabel": "Nama folder baru",
+    "renameHint": "Huruf kecil, angka, dan tanda hubung.",
+    "renameSave": "Simpan",
+    "renameCancel": "Batal",
+    "renameFailed": "Halaman tidak diganti namanya: {{message}}",
+    "delete": "Hapus halaman",
+    "deleteTitle": "Hapus “{{title}}”?",
+    "deleteMessage": "Folder {{folder}} masuk ke Sampah. Kamu bisa memulihkannya dari File.",
+    "deleted": "{{title}} ada di Sampah.",
+    "deleteFailed": "Halaman tidak dihapus: {{message}}"
+  },
+  "empty": {
+    "text": "Halaman adalah alat kecil, seperti papan tugas atau daftar bacaan. Minta satu ke asisten di chat, atau mulai dari halaman siap pakai.",
+    "starting": "Menyalin halaman",
+    "starterFailed": "Halaman tidak disalin: {{message}}",
+    "ask": "Minta halaman",
+    "askPrompt": "Buatkan aku halaman yang ",
+    "starterReading": "Mulai dari daftar bacaan",
+    "note": "Entri ini hilang dari bilah sisi saat kamu tidak punya halaman. Entri ini muncul lagi dengan halaman berikutnya.",
+    "learn": "Cara kerja halaman"
+  },
+  "askNew": "Minta halaman baru",
+  "yours": "Milikmu",
+  "filter": "Saring halaman",
+  "shared": {
+    "yours": "Milik Anda",
+    "group": "Dibagikan dengan Anda",
+    "note": "Halaman bersama hanya berjalan setelah Anda mengizinkannya. Jika pembuatnya mengubahnya, Anda ditanya lagi.",
+    "offNotice": "Halaman bersama dimatikan di server ini. Seorang administrator mematikannya.",
+    "off": "Halaman bersama dimatikan di server ini. Seorang administrator mematikannya.",
+    "gone": "Halaman ini sudah tidak ada di folder bersama, atau Anda tidak lagi memiliki akses.",
+    "review": "Tinjau",
+    "from": "Dari {{author}}",
+    "menu": "Menu halaman",
+    "badge": {
+      "notAllowed": "Belum diizinkan",
+      "changed": "Berubah sejak Anda mengizinkannya",
+      "allowed": "Diizinkan"
+    }
+  },
+  "viewer": {
+    "stopAllowing": "Berhenti mengizinkan halaman ini",
+    "authorChanged": "{{author}} mengubah halaman ini. Versi yang Anda izinkan tetap berjalan sampai Anda meninjau perubahannya.",
+    "sandboxShared": "Dalam sandbox. Berjalan sebagai Anda, hanya di {{folder}}, dan tidak dapat menjangkau jaringan."
+  },
+  "trust": {
+    "title": "Buka \"{{title}}\"?",
+    "desc": "Halaman ini berasal dari folder bersama. Halaman berjalan sebagai Anda, jadi periksa dulu sebelum berjalan.",
+    "who": "Ditulis oleh {{author}}",
+    "whereLabel": "Folder bersama",
+    "whereWhen": ", diubah {{when}}",
+    "someone": "seseorang",
+    "close": "Tutup",
+    "canTitle": "Halaman ini dapat",
+    "canStillTitle": "Halaman ini masih dapat",
+    "cannotTitle": "Halaman ini tidak dapat",
+    "items": {
+      "files": "Membaca dan menulis file di foldernya sendiri",
+      "readOnly": "Anda hanya dapat membaca folder bersama ini, jadi halaman tidak dapat menyimpan perubahannya.",
+      "chat": "Menulis pesan ke obrolan",
+      "chatNote": "Anda melihat pesan di obrolan sebelum asisten menjawabnya.",
+      "noFiles": "Membaca file atau obrolan Anda yang lain",
+      "noNet": "Menjangkau jaringan atau situs lain",
+      "noNetNote": "Satu batasan: halaman dapat memuat alamat lain di bingkainya sendiri. Itu mengirim satu permintaan keluar, lalu halaman berhenti.",
+      "noTools": "Memakai alat atau mengubah pengaturan Anda"
+    },
+    "warn": "Halaman ini bertindak sebagai Anda di dalam foldernya. Jika {{author}} mengubahnya, Anda ditanya lagi.",
+    "viewSource": "Lihat sumber",
+    "cancel": "Batal",
+    "allowOnce": "Izinkan sekali",
+    "allow": "Izinkan",
+    "changed": {
+      "title": "\"{{title}}\" telah berubah",
+      "desc": "Anda mengizinkan versi sebelumnya. Periksa apa yang berubah sebelum berjalan lagi.",
+      "who": "Diubah oleh {{author}} {{when}}",
+      "allowed": "Anda mengizinkan versi {{date}}",
+      "what": "Yang berubah",
+      "same": "Yang dapat dilakukannya sama seperti sebelumnya.",
+      "warn": "Jika Anda mengizinkannya, versi ini berjalan setiap kali Anda membukanya, sampai {{author}} mengubahnya lagi.",
+      "view": "Lihat perubahan",
+      "lines": "{{before}} → {{after}} baris",
+      "code": "Sebuah skrip, lembar gaya, atau modul halaman berubah: {{files}}"
+    },
+    "pill": {
+      "notYet": "Belum diizinkan",
+      "not": "Tidak diizinkan",
+      "once": "Diizinkan untuk kunjungan ini",
+      "allowed": "Diizinkan",
+      "changed": "Berubah sejak Anda mengizinkannya"
+    },
+    "from": "Dari {{author}}",
+    "frame": {
+      "chrome": "Halaman bersama dari {{folder}}. Belum berjalan."
+    },
+    "blocked": {
+      "title": "Halaman ini belum berjalan",
+      "body": "Anda memilih untuk tidak menjalankannya. Halaman ini berasal dari folder bersama {{folder}} milik {{author}}. Tidak ada yang berjalan dan tidak ada yang disimpan.",
+      "review": "Tinjau dan izinkan"
+    },
+    "waiting": {
+      "title": "Menunggu Anda",
+      "body": "Tidak ada yang berjalan di halaman ini sampai Anda mengizinkannya."
+    },
+    "stopped": {
+      "revoked": "Anda berhenti mengizinkan halaman ini. Halaman berhenti dan tidak ada yang berjalan sampai Anda mengizinkannya lagi.",
+      "refused": "Halaman ini tidak lagi diizinkan, jadi dihentikan. Tinjau untuk mengizinkannya lagi.",
+      "off": "Halaman bersama dimatikan di server ini, jadi halaman ini dihentikan."
+    },
+    "changedMeanwhile": "Halaman berubah saat Anda meninjaunya. Ini versi barunya.",
+    "sourceTitle": "Sumber \"{{title}}\"",
+    "sourceLines_one": "{{count}} baris",
+    "sourceLines_other": "{{count}} baris",
+    "sourceNote": "Sumber ditampilkan sebagai teks. Tidak ada yang berjalan di sini."
+  },
+  "frame": {
+    "filesFailed": "Berkas di samping halaman ini tidak dimuat: {{files}}. Konsol browser menjelaskan alasannya.",
+    "tooLarge": "Halaman ini memuat lebih dari {{limit}} berkas dari foldernya, jadi sebagian dilewati. Muat data dengan fetch().",
+    "dismiss": "Tutup"
+  },
+  "link": {
+    "label": "Halaman ingin membuka tautan",
+    "open": "Buka {{site}}",
+    "cancel": "Batal",
+    "lookalike": "Alamat ini memakai huruf dari alfabet lain dan terbaca sebagai {{display}}. Alamat ini bisa meniru situs lain: periksa sebelum membukanya."
+  }
+}

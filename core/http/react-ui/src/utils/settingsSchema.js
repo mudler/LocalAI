@@ -29,7 +29,8 @@ export const GROUPS = [
   { id: 'backends', label: 'Backends and galleries', hint: 'Upgrades, gallery sources, start-up loading', icon: 'boxes' },
   { id: 'access', label: 'Access and security', hint: 'Cross-origin rules, CSRF, legacy API keys', icon: 'shield' },
   { id: 'debug', label: 'Debugging and traces', hint: 'Verbose logs, request traces, backend output', icon: 'bug' },
-  { id: 'agents', label: 'Agents and responses', hint: 'Agent pool, job history, assistant, stored responses', icon: 'robot' },
+  { id: 'agents', label: 'Chats and collections', hint: 'Chat media models, collections, assistant, stored responses', icon: 'robot' },
+  { id: 'tools', label: 'Tools', hint: 'Built-in chat tools, commands on this machine, add-ons that replace them', icon: 'wrench' },
   { id: 'swarm', label: 'Swarm and sharing', hint: 'Peer-to-peer network, scheduling checks', icon: 'network' },
   { id: 'look', label: 'Look and feel', hint: 'Instance name, tagline, logos', icon: 'palette' },
 ]
@@ -47,8 +48,8 @@ export const OLD_SECTIONS = {
   p2p: 'P2P Network',
   galleries: 'Galleries',
   apikeys: 'API Keys',
-  agents: 'Agent Jobs',
-  agentpool: 'Agent Pool',
+  chats: 'Chats',
+  collections: 'Collections',
   assistant: 'LocalAI Assistant',
   distributed: 'Distributed',
   responses: 'Open Responses',
@@ -58,7 +59,7 @@ const AGENT_RESTART = { apply: 'restart' }
 const WATCHDOG_LIVE = { apply: 'live', note: 'The watchdog restarts with the new values.' }
 
 // One row per real setting. `kind` picks the control:
-//   bool, text, int, duration, percent, select, model, json, lines, token,
+//   bool, text, int, duration, percent, select, model, json, lines, hosts, token,
 //   asset (the three branding images, saved at once by their own endpoint).
 export const FIELDS = [
   // ---- Memory and models ---------------------------------------------------
@@ -153,6 +154,9 @@ export const FIELDS = [
   { key: 'api_keys', group: 'access', was: 'apikeys', kind: 'lines', label: 'Shared API keys', sensitive: true, apply: 'live',
     desc: 'Keys that any client may use, one per line or separated by commas. Keys set in the environment stay and cannot be removed here. Per-user keys live under Users and keys.',
     placeholder: 'sk-key-1\nsk-key-2' },
+  { key: 'mcp_connectors_allow_private', group: 'access', was: 'chats', kind: 'bool', label: 'MCP connectors may reach private networks',
+    desc: 'Let the MCP servers that users add as connectors in the chats use addresses on private networks: this machine, link-local, private ranges and cloud metadata. Off, a connector can only reach public hosts, and every connection and redirect is checked at connect time. Turn it on only if your users are trusted: a connector can then probe your internal network through this server.',
+    default: false, fallback: false, apply: 'live' },
 
   // ---- Debugging and traces ------------------------------------------------
   { key: 'debug', group: 'debug', was: 'performance', kind: 'bool', label: 'Verbose debug logging',
@@ -168,35 +172,137 @@ export const FIELDS = [
     desc: 'Capture backend process output per model, without needing debug mode.', apply: 'live' },
 
   // ---- Agents and responses ------------------------------------------------
-  { key: 'agent_job_retention_days', group: 'agents', was: 'agents', kind: 'int', label: 'Job history kept (days)',
-    desc: 'Number of days to keep agent job history.', placeholder: '30', default: 30, min: 0, apply: 'live',
-    note: 'The job service restarts.' },
-  { key: 'agent_pool_enabled', group: 'agents', was: 'agentpool', kind: 'bool', label: 'Agent pool',
-    desc: 'Turn the agent pool feature on or off.', default: true, ...AGENT_RESTART, fallback: true },
-  { key: 'agent_pool_default_model', group: 'agents', was: 'agentpool', kind: 'model', label: 'Default agent model',
-    desc: 'Default language model for agents.', placeholder: 'e.g. gpt-4', default: '', ...AGENT_RESTART },
-  { key: 'agent_pool_embedding_model', group: 'agents', was: 'agentpool', kind: 'model', label: 'Embedding model',
+  { key: 'collections_enabled', group: 'agents', was: 'collections', kind: 'bool', label: 'Collections',
+    desc: 'Turn the collections (the knowledge base) on or off.', default: true, ...AGENT_RESTART, fallback: true },
+  { key: 'collections_default_model', group: 'agents', was: 'collections', kind: 'model', label: 'Default model for collections',
+    desc: 'Default language model of the collections service.', placeholder: 'e.g. gpt-4', default: '', ...AGENT_RESTART },
+  { key: 'collections_embedding_model', group: 'agents', was: 'collections', kind: 'model', label: 'Embedding model',
     desc: 'Model used for knowledge base embeddings.', placeholder: 'granite-embedding-107m-multilingual',
     default: 'granite-embedding-107m-multilingual', ...AGENT_RESTART },
-  { key: 'agent_pool_max_chunking_size', group: 'agents', was: 'agentpool', kind: 'int', label: 'Max Chunking Size',
+  { key: 'collections_max_chunking_size', group: 'agents', was: 'collections', kind: 'int', label: 'Max Chunking Size',
     desc: 'Maximum chunk size for knowledge base documents.', default: 400, min: 0, fallback: 400, ...AGENT_RESTART },
-  { key: 'agent_pool_chunk_overlap', group: 'agents', was: 'agentpool', kind: 'int', label: 'Chunk Overlap',
+  { key: 'collections_chunk_overlap', group: 'agents', was: 'collections', kind: 'int', label: 'Chunk Overlap',
     desc: 'Overlap between chunks of knowledge base documents.', default: 0, min: 0, fallback: 0, ...AGENT_RESTART },
-  { key: 'agent_pool_enable_logs', group: 'agents', was: 'agentpool', kind: 'bool', label: 'Agent logs',
-    desc: 'Write agent logs.', default: false, fallback: false, ...AGENT_RESTART },
-  { key: 'agent_pool_collection_db_path', group: 'agents', was: 'agentpool', kind: 'text', label: 'Collection DB Path',
-    desc: 'Database path for agent collections. Empty uses the default.', placeholder: 'Leave empty for default', default: '', ...AGENT_RESTART },
-  { key: 'agent_pool_vector_engine', group: 'agents', was: 'agentpool', kind: 'select', label: 'Vector Engine',
+  { key: 'collections_db_path', group: 'agents', was: 'collections', kind: 'text', label: 'Collection DB Path',
+    desc: 'Database path for the collections. Empty uses the default.', placeholder: 'Leave empty for default', default: '', ...AGENT_RESTART },
+  { key: 'collections_vector_engine', group: 'agents', was: 'collections', kind: 'select', label: 'Vector Engine',
     desc: 'Store for collection embeddings. chromem is in memory; postgres uses pgvector and needs a database URL.',
     options: ['chromem', 'postgres'], default: 'chromem', fallback: 'chromem', ...AGENT_RESTART },
-  { key: 'agent_pool_database_url', group: 'agents', was: 'agentpool', kind: 'text', label: 'Database URL', sensitive: true,
+  { key: 'collections_database_url', group: 'agents', was: 'collections', kind: 'text', label: 'Database URL', sensitive: true,
     desc: 'PostgreSQL connection string used when the vector engine is postgres.', placeholder: 'postgres://...', default: '',
-    ...AGENT_RESTART, needsValue: ['agent_pool_vector_engine', 'postgres'] },
-  { key: 'agent_pool_agent_hub_url', group: 'agents', was: 'agentpool', kind: 'text', label: 'Agent Hub URL',
-    desc: 'Override the default agent hub address for a custom or self-hosted hub.', placeholder: 'https://agenthub.localai.io',
-    default: 'https://agenthub.localai.io', ...AGENT_RESTART },
+    ...AGENT_RESTART, needsValue: ['collections_vector_engine', 'postgres'] },
+  { key: 'chats_vision_model', group: 'agents', was: 'chats', kind: 'model', label: 'Chat image model',
+    desc: 'Model the chats use to describe images. Empty uses the first installed model that can see images.',
+    placeholder: 'e.g. qwen2.5-vl', default: '', apply: 'live' },
+  { key: 'chats_transcription_model', group: 'agents', was: 'chats', kind: 'model', label: 'Chat transcription model',
+    desc: 'Model the chats use to turn audio into text. Empty uses the first installed transcription model.',
+    placeholder: 'e.g. whisper-base', default: '', apply: 'live' },
+  { key: 'chats_suggestions', group: 'agents', was: 'chats', kind: 'bool', label: 'Offers from the assistant',
+    desc: 'Let the assistant offer, at most once a day and never during a task, to remember something a user said, make a shortcut or update a Home widget on a schedule. This is the default for users who did not choose; each user can switch it in Account, About you and the assistant.',
+    default: true, fallback: true, apply: 'live' },
+  // ---- Tools (the Tools tab draws these two with its own controls) ----------
+  { key: 'chats_host_exec', group: 'tools', was: 'chats', kind: 'select', options: ['', 'off', 'ask', 'on'], label: 'Commands on this machine',
+    desc: 'Who gets the chats\' built-in bash, which runs commands directly on this machine with no isolation and with its network, when no Sandbox add-on serves bash: off, ask (administrators, who allow each command) or on (every user, no card). Empty is the default: off with accounts, ask without.',
+    default: '', apply: 'live', custom: 'tools' },
+  { key: 'chats_tool_providers', group: 'tools', was: 'chats', kind: 'json', label: 'Add-ons that replace a built-in tool or skill',
+    desc: 'When several add-ons replace one built-in tool or skill, the one that serves it: a map from the tool (bash, web_search, web_fetch) or skill (xlsx, docx, pptx, pdf) to the add-on ID. With none chosen, the first by add-on ID serves.',
+    placeholder: '{ "bash": "sandbox" }', apply: 'live', custom: 'tools' },
+  // The Tools tab draws the switches of the web tools on their rows.
+  { key: 'chats_web_search', group: 'tools', was: 'chats', kind: 'bool', label: 'Web search',
+    desc: 'Offer the chats the built-in web_search, which searches the web without a key (DuckDuckGo, then Brave Search, then Bing) or with your SearXNG instance.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  { key: 'chats_web_fetch', group: 'tools', was: 'chats', kind: 'bool', label: 'Read web pages',
+    desc: 'Offer the chats the built-in web_fetch, which reads a public web page or file by its address.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The Tools tab draws this switch on the list_agents row.
+  { key: 'chats_saved_agents', group: 'tools', was: 'chats', kind: 'bool', label: 'Saved agents in chats',
+    desc: 'Let a chat list the user\'s saved agents and start one as a sub-agent. Each chat must still switch it on in its Tools menu, and the user needs the agents feature.',
+    default: true, fallback: true, apply: 'live', custom: 'tools' },
+  // The work folder of each chat (read at each turn, so live).
+  { key: 'chats_work_folder', group: 'tools', was: 'chats', kind: 'bool', label: 'Work folder for helper files',
+    desc: 'Tell the chats to put the scripts, logs and drafts they make in a work folder of each chat (Chats/<chat>/work in the user\'s files), so they do not mix with the user\'s own files. The Files pane of a chat lists them apart in either case.',
+    default: true, fallback: true, apply: 'live' },
+  // The text index of the documents in the files (read at each pass of the
+  // indexer, so live).
+  { key: 'chats_index_files', group: 'tools', was: 'chats', kind: 'bool', label: 'Search inside documents',
+    desc: 'Read the text of PDF, Word, Excel and PowerPoint files when they are uploaded or written, so file search and the chats find a document by what it says. The text stays on this server, in its own store, and only users who can read a file find it. Scanned PDFs have no text to read.',
+    default: true, fallback: true, apply: 'live' },
+  { key: 'chats_index_max_text_bytes', group: 'tools', was: 'chats', kind: 'int', label: 'Text kept per document',
+    desc: 'The most text kept for one document, from 65536 to 16777216 bytes. Text past it is not searched; reading the document in a chat still reads past it.',
+    default: 2097152, fallback: 2097152, emptyIsDefault: true, min: 65536, max: 16777216, unit: 'bytes', apply: 'live' },
+  { key: 'chats_web_searxng_url', group: 'tools', was: 'chats', kind: 'text', label: 'SearXNG instance',
+    desc: 'The address of your SearXNG instance (it must allow the JSON format). When it is set and the provider order is empty, web search uses SearXNG alone.',
+    placeholder: 'https://searx.example.org', default: '', apply: 'live' },
+  { key: 'chats_web_search_providers', group: 'tools', was: 'chats', kind: 'text', label: 'Search providers',
+    desc: 'The providers of web search in the order they are tried, comma separated: searxng, duckduckgo, brave_html, bing_html. Leave one out to never use it. Empty: searxng when an instance is set, else duckduckgo, brave_html, bing_html. Test search on the web_search row says what each one did.',
+    placeholder: 'duckduckgo,brave_html,bing_html', default: '', apply: 'live' },
+  { key: 'chats_web_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Web pages may be on private networks',
+    desc: 'Let web_fetch reach addresses inside your network. Any user of the chats can then read an internal web service the server can reach. The cloud metadata addresses stay refused.',
+    default: false, fallback: false, apply: 'live' },
+  { key: 'chats_web_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Ports for web pages', emptyIsDefault: true,
+    desc: 'The ports web_fetch may use, comma separated.',
+    placeholder: '80,443', default: '80,443', apply: 'live' },
+  // The network of the Sandbox commands (core/config/runtime_settings_registry.go;
+  // read at each check of the proxy, so live). The Tools tab draws the
+  // private switch itself, with its typed phrase. emptyIsDefault: the server
+  // stores '' (or 0) for a setting never set and reads it as the default, so
+  // that value is not "changed" and a select or number shows the default.
+  { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network limit', fallback: 'off', emptyIsDefault: true,
+    desc: 'The widest network any chat\'s Sandbox commands may use: off, the package registries only, or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
+    default: 'off', apply: 'live' },
+  { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network of a new chat', fallback: 'off', emptyIsDefault: true,
+    desc: 'The network preset a new chat starts with, capped by the limit above.',
+    default: 'off', apply: 'live' },
+  { key: 'chats_egress_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Sandbox network ports', emptyIsDefault: true,
+    desc: 'The ports Sandbox commands may reach, comma separated. 22 and 25 are always refused.',
+    placeholder: '80,443', default: '80,443', apply: 'live' },
+  { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
+    desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Package registries choice (HTTPS only). To allow a host for any request, use Always allowed hosts. No patterns.',
+    placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
+  { key: 'chats_egress_allowed_hosts', group: 'tools', was: 'chats', kind: 'hosts', max: 64, label: 'Always allowed hosts',
+    desc: 'Exact hosts (or host:port) that every chat with the network on may reach without asking, over any protocol. Unlike extra package registries, they are not tied to the Package registries list. They do nothing with the network off or above the limit, and private addresses stay refused unless the private switch below allows them.',
+    placeholder: 'api.example.org', default: '', apply: 'live' },
+  // The step limit of a chat turn (core/config/runtime_settings_registry.go;
+  // read when a turn starts, so live). A model's agent.max_iterations wins.
+  { key: 'chats_max_iterations', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per chat turn',
+    desc: 'How many rounds of tool calls the model may make in one turn before it must answer (1 to 500). A turn that reaches the limit shows as paused, with a Continue button. A model whose configuration sets agent.max_iterations uses its own limit.',
+    placeholder: '40', default: 40, min: 1, max: 500, apply: 'live' },
+  // The limits of a chat's goal (core/config/runtime_settings_registry.go;
+  // read when a turn ends, so live).
+  { key: 'chats_goal_max_turns', group: 'tools', was: 'chats', kind: 'int', label: 'Automatic turns per goal',
+    desc: 'How many turns a chat with a goal may start by itself before the goal pauses (1 to 200). The person can resume it, which starts a new count.',
+    placeholder: '20', default: 20, min: 1, max: 200, apply: 'live' },
+  { key: 'chats_goal_max_steps', group: 'tools', was: 'chats', kind: 'int', label: 'Steps per goal',
+    desc: 'How many rounds of tool calls all the turns of one goal may make together before the goal pauses (1 to 10000).',
+    placeholder: '400', default: 400, min: 1, max: 10000, apply: 'live' },
+  // The loops of the chats (core/config/runtime_settings_registry.go; read at
+  // each use, so live).
+  { key: 'chats_loop_min_interval', group: 'tools', was: 'chats', kind: 'duration', label: 'Shortest loop interval',
+    desc: 'How often a loop of a chat may run at most, for example 1m. It is also the shortest wait a loop that sets its own pace may ask for. From 30s to 24h.',
+    placeholder: '1m', default: '1m', apply: 'live' },
+  { key: 'chats_loop_max_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Runs per loop',
+    desc: 'A loop ends by itself after this many runs (1 to 10000).',
+    placeholder: '100', default: 100, min: 1, max: 10000, apply: 'live' },
+  { key: 'chats_loop_max_per_chat', group: 'tools', was: 'chats', kind: 'int', label: 'Loops per chat',
+    desc: 'How many loops one chat may have at once (1 to 20). Loops that ended do not count.',
+    placeholder: '3', default: 3, min: 1, max: 20, apply: 'live' },
+  { key: 'chats_loop_max_per_user', group: 'tools', was: 'chats', kind: 'int', label: 'Loops per user',
+    desc: 'How many loops one user may have at once, over all their chats (1 to 200).',
+    placeholder: '10', default: 10, min: 1, max: 200, apply: 'live' },
+  { key: 'chats_loop_daily_runs', group: 'tools', was: 'chats', kind: 'int', label: 'Loop runs per day',
+    desc: 'How many loop runs one user may start in a day (UTC), over all their loops. After that the loops wait for the next day.',
+    placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
+  { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
+    desc: 'How many days the audit of the Sandbox network requests and the audit of the commands run on this machine keep a line, from 1 to 365.',
+    default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },
+  { key: 'chats_egress_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Sandbox commands may reach private networks',
+    desc: 'Let a host that an administrator allowed reach addresses inside your network. A preset alone never does; the metadata and server addresses stay refused.',
+    default: false, fallback: false, apply: 'live', custom: 'tools' },
+  { key: 'shared_pages_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Shared pages',
+    desc: 'Let users open the pages of the shared folders they have access to. Each user still allows each page before it runs. Turning it off stops open shared pages at their next action; the files are kept.',
+    default: true, fallback: true, apply: 'live' },
   { key: 'localai_assistant_enabled', group: 'agents', was: 'assistant', kind: 'bool', label: 'LocalAI Assistant',
-    desc: 'Let admins opt chat sessions into the in-process admin tools. Turning it off refuses new requests that ask for them.',
+    desc: 'Let admins start a chat from the Home page that has the tools to manage this instance (install models and backends, change settings). Turning it off hides the entry and ends the tools in existing assistant chats.',
     default: true, fallback: true, apply: 'live' },
   { key: 'open_responses_store_ttl', group: 'agents', was: 'responses', kind: 'duration', label: 'Response Store TTL', allowZero: true,
     desc: 'How long stored responses are kept, for example 1h or 30m. 0 means they never expire.', placeholder: '1h', default: '0', apply: 'live' },
@@ -247,11 +353,13 @@ export function getValue(field, s) {
       return s.backend_galleries_json ?? (s.backend_galleries ? JSON.stringify(s.backend_galleries, null, 2) : '')
     case 'api_keys':
       return s.api_keys_text ?? (s.api_keys || []).join('\n')
+    case 'chats_tool_providers':
+      return s.chats_tool_providers_json ?? (s.chats_tool_providers && Object.keys(s.chats_tool_providers).length ? JSON.stringify(s.chats_tool_providers, null, 2) : '')
     case 'memory_reclaimer_threshold':
       return s.memory_reclaimer_threshold || field.fallback
     default: {
       const v = s[field.key]
-      if (v === undefined || v === null) return 'fallback' in field ? field.fallback : emptyOf(field)
+      if (v === undefined || v === null || (field.emptyIsDefault && field.kind !== 'text' && (v === 0 || v === ''))) return 'fallback' in field ? field.fallback : emptyOf(field)
       return v
     }
   }
@@ -275,6 +383,8 @@ export function setValue(field, s, value) {
       return { ...s, backend_galleries_json: value }
     case 'api_keys':
       return { ...s, api_keys_text: value }
+    case 'chats_tool_providers':
+      return { ...s, chats_tool_providers_json: value }
     default:
       return { ...s, [field.key]: value }
   }
@@ -401,6 +511,7 @@ export function hasDefault(field) { return Object.prototype.hasOwnProperty.call(
 
 export function isChanged(field, s) {
   if (!hasDefault(field)) return false
+  if (field.emptyIsDefault && [undefined, null, '', 0].includes(s?.[field.key])) return false
   return !sameValue(field, getValue(field, s), field.default)
 }
 

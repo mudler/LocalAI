@@ -1,47 +1,67 @@
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { addedByEntry, stateChip } from './addonState'
+import StatusChip from '../ui/StatusChip'
+import Button from '../ui/Button'
+import { addedByEntry, hueOf, monogram, stateChip, versionLabel } from './addonState'
 import { installSteps } from './installSteps'
 import './addons.css'
 
-// The process state of an add-on as a chip. The colour is never the only
-// signal: the text says it and the label names what it is the state of.
-export function StateChip({ app }) {
+// The process state of an add-on as a chip: one state, in words, with the
+// tone and the glyph of the shared vocabulary. The colour is never the only
+// signal, and the label names what it is the state of.
+const CHIP_STATUS = { running: 'running', starting: 'starting', failed: 'failed', stopped: 'stopped', 'update-pending': 'update-available' }
+
+export function StateChip({ app, className = '' }) {
   const { t } = useTranslation('addons')
   const chip = stateChip(app)
   const text = t(`state.${chip.key}`)
   return (
-    <span className="ad-chip" data-tone={chip.tone} data-state={chip.key} role="img" aria-label={t('state.label', { state: text })}>
-      <span className="ad-chip__dot" aria-hidden="true" />
-      <span aria-hidden="true">{text}</span>
+    <span className={`ad-state ${className}`.trim()} data-tone={chip.tone} data-state={chip.key} role="img" aria-label={t('state.label', { state: text })}>
+      <StatusChip status={CHIP_STATUS[chip.key]} label={text} dot />
     </span>
   )
 }
 
 // The mark of an update the owner's check found. It is a separate chip from the
-// process state: an add-on can be running and have an update pending.
-export function UpdateChip() {
+// process state: an add-on can be running and have an update pending. With the
+// version known (administrators), the chip names it.
+export function UpdateChip({ version }) {
   const { t } = useTranslation('addons')
-  const text = t('state.update-pending')
+  const text = version ? t('state.updateTo', { version }) : t('state.update-pending')
   return (
-    <span className="ad-chip" data-tone="warn" data-state="update-pending" data-testid="update-chip" role="img" aria-label={t('state.label', { state: text })}>
-      <span className="ad-chip__dot" aria-hidden="true" />
-      <span aria-hidden="true">{text}</span>
+    <span className="ad-state" data-tone="warn" data-state="update-pending" data-testid="update-chip" role="img" aria-label={t('state.label', { state: text })}>
+      <StatusChip status="update-available" label={text} />
     </span>
   )
 }
 
-// The icon of an add-on from the host's own icon route, or a placeholder.
-// Never a remote address: the server sends only a same-origin path.
-export function AppIcon({ src, size = 40 }) {
+// The identity tile of an add-on: its icon from the host's own icon route, or
+// its first letter on a colour of its own (a hue from its id), so two add-ons
+// in the sidebar or the list never look the same. Never a remote address: the
+// server sends only a same-origin path.
+export function AppIcon({ src, id, name, size = 36 }) {
   if (src && src.startsWith('/')) {
-    return <img className="ad-icon" src={src} alt="" width={size} height={size} loading="lazy" decoding="async" />
+    return <img className="ad-icon" data-size={size} src={src} alt="" width={size} height={size} loading="lazy" decoding="async" />
   }
   return (
-    <span className="ad-icon ad-icon--empty" aria-hidden="true">
-      <Icon name="puzzle" />
+    <span className="ad-icon ad-icon--mark" data-size={size} data-hue={hueOf(id || name)} aria-hidden="true">
+      {monogram(name || id)}
     </span>
   )
+}
+
+// A built-in page add-on: its own glyph on the neutral tile.
+export function BuiltinIcon({ name, size = 36 }) {
+  return <span className="ad-icon ad-icon--glyph" data-size={size} aria-hidden="true"><Icon name={name} /></span>
+}
+
+// A version as a meta item: "v1.2.0", or a quiet "Development build" chip.
+export function VersionText({ version }) {
+  const { t } = useTranslation('addons')
+  const v = versionLabel(version)
+  if (!v.text) return null
+  if (v.dev) return <span className="ad-dev" title={v.text}>{t('meta.devBuild')}</span>
+  return <span className="ad-version">{v.text}</span>
 }
 
 // What a library entry adds, before it is installed: "Adds a page" when it has
@@ -52,9 +72,9 @@ export function EntryAdds({ entry }) {
   const adds = addedByEntry(entry)
   if (!adds.page && adds.tools === 0) return null
   return (
-    <p className="ad-tile__adds" data-testid="entry-adds-line">
-      {adds.page && <span className="ad-tile__add"><Icon name="file" aria-hidden="true" /> {t('card.addsPage')}</span>}
-      {adds.tools > 0 && <span className="ad-tile__add" data-testid="entry-tools"><Icon name="wrench" aria-hidden="true" /> {t('card.addsTools', { count: adds.tools })}</span>}
+    <p className="ad-meta" data-testid="entry-adds-line">
+      {adds.page && <span className="ad-meta__item"><Icon name="file" aria-hidden="true" /> {t('card.addsPage')}</span>}
+      {adds.tools > 0 && <span className="ad-meta__item" data-testid="entry-tools"><Icon name="wrench" aria-hidden="true" /> {t('card.addsTools', { count: adds.tools })}</span>}
     </p>
   )
 }
@@ -80,12 +100,8 @@ export function UnknownNotice({ addonId, actions, className = 'ad-entry__note' }
     <div className={`${className} ad-unknown`} data-tone="error" role="alert" data-testid="unknown-outcome">
       <span>{t('actions.unknown')}</span>
       <span className="ad-unknown__acts">
-        <button type="button" className="dk-btn dk-btn--sm" disabled={checking} onClick={() => actions.checkStatus(addonId)}>
-          <Icon name="refresh" /> {t('actions.checkStatus')}
-        </button>
-        <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={checking} onClick={() => actions.dismiss(addonId)}>
-          {t('actions.dismiss')}
-        </button>
+        <Button size="sm" icon="refresh" busy={checking} disabled={checking} onClick={() => actions.checkStatus(addonId)}>{t('actions.checkStatus')}</Button>
+        <Button size="sm" variant="ghost" disabled={checking} onClick={() => actions.dismiss(addonId)}>{t('actions.dismiss')}</Button>
       </span>
     </div>
   )

@@ -10,6 +10,7 @@
   "changeLanguage": "Changer de langue",
   "logout": "Déconnexion",
   "accountSettings": "Paramètres du compte",
+  "yourSettings": "Vos paramètres",
   "account": "Compte",
   "accountFor": "Compte : {{name}}",
   "sections": {
@@ -38,8 +39,10 @@
       "quantize": "Réduisez un modèle pour l'exécuter sur du matériel plus modeste.",
       "skills": "Instructions réutilisables que les agents chargent à la demande.",
       "voices": "Identifiez les locuteurs et conservez une bibliothèque de profils vocaux.",
-      "addons": "Install, turn on and open add-ons."
-    }
+      "addons": "Install, turn on and open add-ons.",
+      "triggers": "Démarrez un chat automatiquement, selon un calendrier ou à l'arrivée d'un fichier."
+    },
+    "operateSupporting": "Ce qui tourne sur ce serveur, comment il est utilisé et comment il est configuré."
   },
   "operate": {
     "inference": "Inférence",
@@ -91,7 +94,14 @@
     "p2p": "P2P",
     "prometheus": "Prometheus",
     "trafficModels": "Modèles",
-    "addons": "Add-ons"
+    "addons": "Add-ons",
+    "chats": "Chats",
+    "files": "Fichiers",
+    "triggers": "Déclencheurs",
+    "mcpConnectors": "Connecteurs MCP",
+    "chatsAdmin": "Chats de tous les utilisateurs",
+    "pages": "Pages",
+    "allChats": "Toutes les conversations"
   },
   "footer": {
     "github": "GitHub",
@@ -104,5 +114,11 @@
     "training": "Entraînement",
     "expandNavigation": "Développer la navigation {{section}}",
     "collapseNavigation": "Réduire la navigation {{section}}"
-  }
+  },
+  "pinnedPages": "Pages épinglées",
+  "new": "Nouveau",
+  "recentChats": "Conversations récentes",
+  "newChat": "Nouvelle conversation",
+  "untitledChat": "Conversation sans titre",
+  "chatRunning": "En cours"
 }

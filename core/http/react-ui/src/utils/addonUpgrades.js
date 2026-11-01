@@ -27,11 +27,26 @@ export function phaseProgress(phase) {
   return PHASE_PROGRESS[phase] || 5
 }
 
-export function createUpgradeStore({ now = Date.now, waits, book = createActionBook() } = {}) {
+export function createUpgradeStore({ now = Date.now, waits, sleep, book = createActionBook() } = {}) {
   let snapshot = { live: [], records: [] }
   const listeners = new Set()
   const controllers = new Map()
   const cancelled = new Set()
+  // The wait of each followed upgrade, so "check now" can end it early.
+  const wakers = new Map()
+  const sleepOf = (jobID) => sleep || wakeableSleep(jobID)
+  const wakeableSleep = (jobID) => (ms, signal) => new Promise((resolve, reject) => {
+    const done = () => { clearTimeout(timer); wakers.delete(jobID); resolve() }
+    const timer = setTimeout(done, ms)
+    wakers.set(jobID, done)
+    if (signal) {
+      signal.addEventListener('abort', () => {
+        clearTimeout(timer)
+        wakers.delete(jobID)
+        reject(new DOMException('Aborted', 'AbortError'))
+      }, { once: true })
+    }
+  })
   const pollWaits = waits || Array.from({ length: POLL_ATTEMPTS }, () => POLL_MS)
 
   const emit = (next) => {
@@ -107,9 +122,15 @@ export function createUpgradeStore({ now = Date.now, waits, book = createActionB
       const tracked = trackPhases(api, jobID)
       try {
         let outcome
+        // While the add-on service does not answer, the entry says that it
+        // waits for it and when it asks again, instead of looking stuck.
+        const onWait = ({ unavailable, waitMs }) => {
+          const waiting = unavailable ? { since: snapshot.live.find(op => op.jobID === jobID)?.waiting?.since || now(), nextMs: waitMs } : null
+          patch(jobID, { waiting })
+        }
         if (submit) {
           const out = await runLifecycle(tracked, {
-            operationId, addonId: addon.id, signal, waits: pollWaits, sleep: undefined,
+            operationId, addonId: addon.id, signal, waits: pollWaits, sleep: sleepOf(jobID), onWait,
             submit: () => {
               const body = upgradeBody(addon, operationId)
               if (!body) return Promise.reject(new AddonsError({ kind: 'invalid' }))
@@ -118,7 +139,7 @@ export function createUpgradeStore({ now = Date.now, waits, book = createActionB
           })
           outcome = out.outcome
         } else {
-          outcome = (await settleOperation(tracked, { operationId, addonId: addon.id, signal, waits: pollWaits })).outcome
+          outcome = (await settleOperation(tracked, { operationId, addonId: addon.id, signal, waits: pollWaits, sleep: sleepOf(jobID), onWait })).outcome
         }
         let verified
         if (outcome === 'completed') {
@@ -182,6 +203,15 @@ export function createUpgradeStore({ now = Date.now, waits, book = createActionB
       book.markUnknown(addon.id, key)
       patch(jobID, { state: 'failed', cancellable: false, unknown: true, error: 'unknownOutcome', errorKey: 'unknownOutcome' })
       return { ok: false, outcome: 'unknown', message: 'unknownOutcome' }
+    },
+
+    // Ends the wait of a followed upgrade, so its operation is read now. False
+    // when it is not waiting.
+    checkNow(jobID) {
+      const wake = wakers.get(jobID)
+      if (!wake) return false
+      wake()
+      return true
     },
 
     cancel(jobID) {

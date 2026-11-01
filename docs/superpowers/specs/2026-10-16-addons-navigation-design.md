@@ -2,11 +2,21 @@
 
 ## Status
 
-- Status: approved for implementation planning. One question stays open (see "Open questions and decisions"). Questions (a) and (b) and the rulings (d) to (j) were decided on 2026-10-16. The changelog at the end lists every change of that day.
+- Status: implemented, with the amendments of 2026-10-31 below, which win over the text that follows. One question stays open (see "Open questions and decisions"). Questions (a) and (b) and the rulings (d) to (j) were decided on 2026-10-16. The changelog at the end lists every change of that day.
 - Date: 2026-10-16.
 - Owners: Ettore Di Giacinto (maintainer) and the AI agent that drafted this spec.
 - Branch: `feat/addons-tables` (PR 12702).
 - Scope: documents only. This change adds no source code.
+
+### Amendments (2026-10-31)
+
+What shipped differs from this spec in these points. The owner decided each one; the user docs (`docs/content/features/addons.md`) describe the shipped behaviour.
+
+- **Studio and Talk are packaged add-ons, not built in** (replaces decisions 4 and 10 and "Built-in add-ons and packaged add-ons"). They are add-on packages like Voice and Face, listed in the official library and installed by an administrator. The built-in catalog is empty. Nothing is preinstalled, also not at upgrade.
+- **The core pages are removed** (replaces the redirect rule "Otherwise the old route opens the core page"). An old route always opens the add-on page; while the add-on is not installed, that page says it is not available.
+- **Users need the `addons` feature** (replaces "no user loses access" and the Studio and Talk rows of the gate table). Every add-on page is behind `addons`, which is off by default for a user and is not granted at upgrade. An administrator grants it in Settings → Users and keys. The upgrade notes say so.
+- **Sidebar.** Studio and Talk appear only once installed; the upgrade seed pins them for existing accounts, and a seeded pin does not expire before its add-on was installed once.
+- **Browse add-ons is for administrators only**; a user with `addons` sees the installed add-ons.
 
 ### Approved decisions
 

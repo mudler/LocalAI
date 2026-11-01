@@ -23,6 +23,8 @@ var (
 	// ErrModelNotFound reports that a model is not loaded. Exported so HTTP
 	// handlers can map it to 404 instead of a blanket 500.
 	ErrModelNotFound = errors.New("model not found")
+	// ErrBackendNotFound means the backend to load is not installed.
+	ErrBackendNotFound = errors.New("backend not found")
 	// ErrModelBusy indicates that a graceful shutdown context ended while
 	// requests were still in flight.
 	ErrModelBusy = errors.New("model is still busy")
@@ -253,7 +255,7 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	if fi, err := os.Stat(grpcProcess); err == nil {
 		if fi.Mode()&0111 == 0 {
 			xlog.Debug("Process is not executable. Making it executable.", "process", grpcProcess)
-			if err := os.Chmod(grpcProcess, 0700); err != nil {
+			if err := os.Chmod(grpcProcess, 0700); err != nil { // #nosec G302 -- the backend binary must be executable; 0700 gives it to the owner only
 				return nil, err
 			}
 		}

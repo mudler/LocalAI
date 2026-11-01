@@ -166,7 +166,7 @@ func (m *Manager) Installed(ctx context.Context, actor contract.Actor) ([]apps.I
 		if !ok || !st.Installed {
 			continue
 		}
-		snap := apps.Snapshot{AddonID: id, Installed: true, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
+		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: true, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
 		}

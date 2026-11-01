@@ -4,13 +4,13 @@
   "newPlaceholder": "Name der neuen Sammlung...",
   "actions": {
     "create": "Erstellen",
-    "creating": "Wird erstellt...",
     "details": "Details",
     "reset": "Zurücksetzen",
     "delete": "Löschen",
     "viewDetails": "Details anzeigen",
     "resetCollection": "Sammlung zurücksetzen",
-    "deleteCollection": "Sammlung löschen"
+    "deleteCollection": "Sammlung löschen",
+    "cancel": "Abbrechen"
   },
   "sections": {
     "yourCollections": "Ihre Sammlungen",
@@ -19,7 +19,8 @@
   "empty": {
     "title": "Noch keine Sammlungen",
     "text": "Mit Sammlungen organisieren Sie Dokumente in Wissensdatenbanken, die Agenten mit RAG (Retrieval-Augmented Generation) durchsuchen können. Erstellen Sie oben eine Sammlung, um zu beginnen.",
-    "noPersonal": "Sie haben noch keine Sammlungen."
+    "noPersonal": "Sie haben noch keine Sammlungen.",
+    "learn": "So funktioniert der Speicher"
   },
   "deleteDialog": {
     "title": "Sammlung löschen",
@@ -32,12 +33,29 @@
     "confirm": "Zurücksetzen"
   },
   "toasts": {
-    "loadFailed": "Laden der Sammlungen fehlgeschlagen: {{message}}",
     "created": "Sammlung \"{{name}}\" erstellt",
     "createFailed": "Erstellen der Sammlung fehlgeschlagen: {{message}}",
     "deleted": "Sammlung \"{{name}}\" gelöscht",
     "deleteFailed": "Löschen der Sammlung fehlgeschlagen: {{message}}",
     "reset": "Sammlung \"{{name}}\" zurückgesetzt",
     "resetFailed": "Zurücksetzen der Sammlung fehlgeschlagen: {{message}}"
+  },
+  "loadFailed": "Ihre Sammlungen konnten nicht geladen werden.",
+  "sources": {
+    "loadFailed": "Die Webquellen konnten nicht geladen werden."
+  },
+  "entries": {
+    "loadFailed": "Die Dateien konnten nicht geladen werden."
+  },
+  "starting": {
+    "title": "Der Speicher startet.",
+    "text": "Der Server bereitet den Speicherdienst noch vor. Diese Seite fragt von selbst erneut."
+  },
+  "embedding": {
+    "missingTitle": "Kein Embedding-Modell installiert.",
+    "missingText": "Sammlungen nutzen {{model}}, um Dateien zu indexieren und zu durchsuchen. Bis es installiert ist, schlagen das Hinzufügen von Dateien und die Suche fehl.",
+    "noneSet": "Für Sammlungen ist kein Embedding-Modell festgelegt (collections_embedding_model), daher schlagen das Hinzufügen von Dateien und die Suche fehl.",
+    "install": "In Modelle suchen",
+    "askAdmin": "Bitte eine Administratorin oder einen Administrator, es zu installieren."
   }
 }

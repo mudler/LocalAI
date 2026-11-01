@@ -115,7 +115,7 @@ export default function VariantsTab({ view }) {
                         <span className="dk-table-name dk-mono">{v.quantization || t('variants.unknownQuantization')}</span>
                         <span className="dk-table-sub">
                           {v.model !== v.quantization ? v.model : ''}
-                          <span className="modelpage-variants__size dk-mono"> · {v.memory_bytes ? formatBytes(v.memory_bytes) : t('variants.unknownSize')}</span>
+                          <span className="modelpage-variants__size"> · {v.memory_bytes ? formatBytes(v.memory_bytes) : t('variants.unknownSize')}</span>
                           {v.model === autoBuild && <span className="dk-badge dk-badge--ok modelpage-inline-badge"><Icon name="check-circle" /> {t('variants.autoSelected')}</span>}
                           {v.is_base && v.model !== autoBuild && <span className="dk-badge modelpage-inline-badge">{t('variants.base')}</span>}
                           {(v.features || []).map(f => (
@@ -124,7 +124,7 @@ export default function VariantsTab({ view }) {
                         </span>
                       </td>
                       <td className="dk-hide-phone dk-mono">{v.backend || t('variants.unknownBackend')}</td>
-                      <td className="dk-num dk-mono dk-hide-phone">{v.memory_bytes ? formatBytes(v.memory_bytes) : t('variants.unknownSize')}</td>
+                      <td className="dk-num dk-hide-phone">{v.memory_bytes ? formatBytes(v.memory_bytes) : t('variants.unknownSize')}</td>
                       <td>
                         <span className="modelpage-fitcell" data-fit={fit.state}>
                           <span className={`dk-dot${fit.state === 'fits' ? ' dk-dot--ok' : fit.state === 'spill' ? ' dk-dot--warn' : fit.state === 'over' ? ' dk-dot--error' : ''}`} />

@@ -1,0 +1,58 @@
+# Pinned with hashes for the guest image: Debian trixie, Python 3.13, x86_64 and aarch64.
+# Wheels only. Edit a version, then run: python3 gen-python-requirements.py python-requirements.txt
+# The top-level packages are in python-requirements.in.
+cffi==2.1.1 \
+    --hash=sha256:a931079504ecc49efed7744c476a5c343a92fabf66dec2db95edb1b2fdc770e2 \
+    --hash=sha256:f16c709686a78c727bbbf059f92b0bf41c6fc60deec706d2dc19f529175a6125
+charset-normalizer==3.5.2 \
+    --hash=sha256:1c50fe28bbc2ced33386f298650d91218076c05420e6cbd790b913adc41659e7 \
+    --hash=sha256:7218e8f32b0956cfcd048fd42d9d5779809745ca1d86113ca56f66e7ae1549c4 \
+    --hash=sha256:849df64e889b2e17230d58410a03dba311a65b163508fd33679b2b737d4b7858 \
+    --hash=sha256:b6b751274acb69d77b3323d6b7dbaa3c7fdfc1eb829b7eb61d262f32e1af9685 \
+    --hash=sha256:d19fbd981a488e22cd04883659ca6b08f50b5974f9fd7c95655ef6a043e5893f
+cryptography==50.0.2 \
+    --hash=sha256:0ddc924c04591c2811ca024d62ecad4f7f6f08af8939c211438f48a16bd23602 \
+    --hash=sha256:1981f1db4630889b9ef7803fadef12b056f428cb6b85c27ba57b774793b6093c \
+    --hash=sha256:4061c0079120205fb760c58acab6443e217307dcf05e3702cf970e0689972856 \
+    --hash=sha256:630ebfea3bf689d075f82316324ff7433dc447fe6bc1bfc76524b74b4a9567d2 \
+    --hash=sha256:79def8d059362e7831389ed3be0ecdf58a89386e1271e35dd9f5af84e81bffd0 \
+    --hash=sha256:87e9ce85beb6b328ba370cc6e6aea483c92617b4c95b1d33a49297eb662bfb04 \
+    --hash=sha256:9dab55f57c74c3cad24c323bacbbd04be4705ba6eb0d92e920b1fc4837ed5079 \
+    --hash=sha256:c5e67125c7dca78d199ec4e116aa93dbb83494808ecbb8211a2cb09b1bf41dbd \
+    --hash=sha256:dfe9763530994147d9af1def057a5b9658b00e8f8fe8743d144d1e0911c2e454 \
+    --hash=sha256:ee247f5c245c9a2fe7c8e2214e295918838e44e00a45a6718451e4004219e767 \
+    --hash=sha256:f21e8a22c8605750c7af886bab299a363721264061b4ac0a30efb73cfd58efc5 \
+    --hash=sha256:f9f6143a8c75945eb960d9eb98905a441394abfa24afaae239d514ffb2586480
+et-xmlfile==2.0.0 \
+    --hash=sha256:7a91720bc756843502c3b7504c77b8fe44217c85c537d85037f0f536151b2caa
+lxml==6.1.3 \
+    --hash=sha256:5cffe18571ccc51d742cd08cbb3f8b756de9311d18c7ea98f5d92f37b8fb60c2 \
+    --hash=sha256:611a51e61c92f62345a50b0035df6fc0d678f9299f33728826d831598862f59d \
+    --hash=sha256:b477912f42c5c33405a10c759d22f80cf5af043ae02d95b9d8e5e5bc555739ed \
+    --hash=sha256:d85dfab42dd672f87a7f76e9de7172962aee69fa12044f0d6e1a23cbd53fb80e
+paper-docx==0.2.0 \
+    --hash=sha256:d61b6c1e23c2e50364ca9ebf913b08121bba12dc9119ffd0047ad927ff29ace0
+paper-pptx==0.2.0 \
+    --hash=sha256:8fc5fe9a52f37448aba8304cf2e2b8952dda6e1a1a2154d9c1f95651c6e9f9d0
+paper-xlsx==0.2.1 \
+    --hash=sha256:aa53327bbc9540fe638a1fc4e2f30910a29666917013a9a18a1ff4abca534824
+pdf2image==1.17.0 \
+    --hash=sha256:ecdd58d7afb810dffe21ef2b1bbc057ef434dabbac6c33778a38a3f7744a27e2
+pdfminer-six==20260107 \
+    --hash=sha256:366585ba97e80dffa8f00cebe303d2f381884d8637af4ce422f1df3ef38111a9
+pdfplumber==0.11.10 \
+    --hash=sha256:7741ea81bf165b474b153e6789d10d18e06b6ddcf3ec84289c3ef2fed6802580
+pillow==12.3.0 \
+    --hash=sha256:0847a763afefb695bc912d7c131e7e0632d4edc1d8698f58ddabec8e46b8b6d3 \
+    --hash=sha256:f7401aebd7f581d7f83a439d87d474999317ee099218e5ad25d125290990ba65
+pycparser==3.11 \
+    --hash=sha256:51d5a8ba2be0bbe440b99d2112604c95bbbc3c2748a64260186c541e1729cd80
+pypdfium2==5.13.0 \
+    --hash=sha256:81df25c1ab4c13ff773102d3cbea1967511d079123b067fc077bd0c4d57d91d8 \
+    --hash=sha256:9ee8c2bb2e68b396ab4a763215ac100dacb6b96d0da5bebeb239a021aecc3a7e
+reportlab==4.5.1 \
+    --hash=sha256:06fce8cb56c83307cfa4909cdf4e6a2ddbb44e5d6ef4d2edca896d7e9769f091
+typing-extensions==4.16.0 \
+    --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8
+xlsxwriter==3.2.9 \
+    --hash=sha256:9a5db42bc5dff014806c58a20b9eae7322a134abb6fce3c92c181bfb275ec5b3

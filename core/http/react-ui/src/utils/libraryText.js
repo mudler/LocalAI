@@ -11,6 +11,7 @@ export function usedByLine(t, users, status) {
   return t('library:usedBy.lineMore', { name: users[0].name, count: users.length - 1 })
 }
 
-export function agentHref(name) {
-  return `/app/agents/${encodeURIComponent(name)}`
+// The page of an agent from a "used by" entry ({ id, name }).
+export function agentHref(user) {
+  return user?.id ? `/app/agents/${encodeURIComponent(user.id)}` : '/app/agents'
 }

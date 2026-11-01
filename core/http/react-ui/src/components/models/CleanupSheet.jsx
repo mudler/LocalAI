@@ -358,10 +358,10 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
                 {freedFraction > 0 && <span className="dk-meter-seg ledger-space__freed" style={wStyle(freedFraction)} />}
               </div>
               <ul className="dk-meter-legend">
-                <li><span className="dk-swatch ledger-space__other-swatch" />{t('cleanup.legend.other')} <span className="dk-mono">{gbLabel(disk.other)}</span></li>
-                <li><span className="dk-swatch" />{t('cleanup.legend.models')} <span className="dk-mono">{gbLabel(disk.models)}</span></li>
-                {freedFraction > 0 && <li><span className="dk-swatch ledger-space__freed-swatch" />{t('cleanup.legend.frees')} <span className="dk-mono">{gbLabel(frees.bytes)}</span></li>}
-                <li><span className="dk-swatch ledger-space__free-swatch" />{t('cleanup.legend.free')} <span className="dk-mono">{gbLabel(disk.free)}</span></li>
+                <li><span className="dk-swatch ledger-space__other-swatch" />{t('cleanup.legend.other')} <span className="ledger-space__fig">{gbLabel(disk.other)}</span></li>
+                <li><span className="dk-swatch" />{t('cleanup.legend.models')} <span className="ledger-space__fig">{gbLabel(disk.models)}</span></li>
+                {freedFraction > 0 && <li><span className="dk-swatch ledger-space__freed-swatch" />{t('cleanup.legend.frees')} <span className="ledger-space__fig">{gbLabel(frees.bytes)}</span></li>}
+                <li><span className="dk-swatch ledger-space__free-swatch" />{t('cleanup.legend.free')} <span className="ledger-space__fig">{gbLabel(disk.free)}</span></li>
               </ul>
             </div>
           )}
@@ -444,7 +444,7 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
                           <span className="ledger-cr__why">{reasonText(t, item.reason)}</span>
                           <FactLines t={t} item={item} />
                         </span>
-                        <span className="ledger-cr__size dk-mono">{sizeText(t, item)}</span>
+                        <span className="ledger-cr__size">{sizeText(t, item)}</span>
                       </label>
                     </li>
                   ))}
@@ -478,7 +478,7 @@ function Sheet({ onClose, disk, hiddenIds, removalPending, refreshToken, onRemov
                         <span className="ledger-cr__why">{protectedText(t, item.reasons)}</span>
                         <FactLines t={t} item={item} />
                       </span>
-                      <span className="ledger-cr__size dk-mono">{item.sizeSource === 'disk' || item.size ? sizeText(t, item) : ''}</span>
+                      <span className="ledger-cr__size">{item.sizeSource === 'disk' || item.size ? sizeText(t, item) : ''}</span>
                     </li>
                   ))}
                 </ul>

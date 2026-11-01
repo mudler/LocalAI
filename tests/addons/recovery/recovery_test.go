@@ -4,6 +4,7 @@ package recovery_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -362,15 +363,30 @@ var _ = Describe("Add-on data recovery over the real owner", func() {
 		Expect(e).NotTo(HaveOccurred())
 		_ = st
 		// The same library under another source ID is another trusted
-		// identity: the data stays where it is.
+		// identity: the data stays where it is. Two enabled libraries that
+		// list one add-on are a conflict, so the original one is switched off
+		// while the mirror is tried, and the mirror is switched off after.
 		lib := h.libraryURL
-		Expect(h.app.AddonSources().Save(ctx, h.actor("alice"), catalog.Source{ID: "mirror", Name: "Mirror", URL: lib, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
-		_, e = h.app.AddonSources().Refresh(ctx, "mirror")
-		Expect(e).NotTo(HaveOccurred())
+		source := func(id, name string, on bool) {
+			GinkgoHelper()
+			Expect(h.app.AddonSources().Save(ctx, h.actor("alice"), catalog.Source{ID: id, Name: name, URL: lib, Enabled: on, AllowLoopbackHTTP: true})).To(Succeed())
+			if on {
+				_, err := h.app.AddonSources().Refresh(ctx, id)
+				Expect(err).NotTo(HaveOccurred())
+			}
+		}
+		source("local", "Local", false)
+		source("mirror", "Mirror", true)
 		_, e = h.app.AddonManager().Submit(ctx, h.actor("alice"), addonsvc.LifecycleCommand{OperationID: "install-other", AddonID: "tables", Action: "install", SourceID: "mirror", Version: "0.1.0"})
 		Expect(e).To(HaveOccurred())
+		var cause *addonsvc.FailureCause
+		if errors.As(e, &cause) {
+			Expect(cause.Code).NotTo(Equal(addonsvc.CauseLibraryConflict), "refused for the trusted identity, not for two libraries")
+		}
 		Expect(h.dbFile(id)).To(BeAnExistingFile())
 		// The original source is accepted and the data is served again.
+		source("mirror", "Mirror", false)
+		source("local", "Local", true)
 		_, e = h.app.AddonManager().Submit(ctx, h.actor("alice"), addonsvc.LifecycleCommand{OperationID: "install-same", AddonID: "tables", Action: "install", SourceID: "local", Version: "0.1.0"})
 		Expect(e).NotTo(HaveOccurred())
 		sts, e := h.app.AddonManager().Status(ctx, "tables")

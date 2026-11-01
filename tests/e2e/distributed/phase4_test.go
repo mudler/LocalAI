@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-var _ = Describe("Phase 4: MCP, Skills, Gallery, Fine-Tuning", Label("Distributed"), func() {
+var _ = Describe("Phase 4: Gallery, Fine-Tuning", Label("Distributed"), func() {
 	var (
 		infra  *TestInfra
 		db     *gorm.DB
@@ -29,55 +29,6 @@ var _ = Describe("Phase 4: MCP, Skills, Gallery, Fine-Tuning", Label("Distribute
 
 		stores, err = distributed.InitStores(db)
 		Expect(err).ToNot(HaveOccurred())
-	})
-
-	Context("Skills Metadata", func() {
-		It("should store skills metadata in PostgreSQL", func() {
-			rec := &distributed.SkillMetadataRecord{
-				UserID:     "u1",
-				Name:       "web-search",
-				Definition: "# Web Search\nSearches the web.",
-				SourceType: "inline",
-				Enabled:    true,
-			}
-			Expect(stores.Skills.Save(rec)).To(Succeed())
-			Expect(rec.ID).ToNot(BeEmpty())
-
-			retrieved, err := stores.Skills.Get("u1", "web-search")
-			Expect(err).ToNot(HaveOccurred())
-			Expect(retrieved.Definition).To(ContainSubstring("Web Search"))
-		})
-
-		It("should list skills for a user", func() {
-			stores.Skills.Save(&distributed.SkillMetadataRecord{UserID: "u1", Name: "skill-a", SourceType: "inline"})
-			stores.Skills.Save(&distributed.SkillMetadataRecord{UserID: "u1", Name: "skill-b", SourceType: "git", SourceURL: "https://github.com/example/skill"})
-			stores.Skills.Save(&distributed.SkillMetadataRecord{UserID: "u2", Name: "skill-c", SourceType: "inline"})
-
-			u1Skills, _ := stores.Skills.List("u1")
-			Expect(u1Skills).To(HaveLen(2))
-
-			allSkills, _ := stores.Skills.List("")
-			Expect(allSkills).To(HaveLen(3))
-		})
-
-		It("should list git skills for sync", func() {
-			stores.Skills.Save(&distributed.SkillMetadataRecord{UserID: "u1", Name: "git-skill", SourceType: "git", SourceURL: "https://github.com/example", Enabled: true})
-			stores.Skills.Save(&distributed.SkillMetadataRecord{UserID: "u1", Name: "inline-skill", SourceType: "inline", Enabled: true})
-
-			gitSkills, err := stores.Skills.ListGitSkills()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(gitSkills).To(HaveLen(1))
-			Expect(gitSkills[0].Name).To(Equal("git-skill"))
-		})
-
-		It("should delete skill", func() {
-			stores.Skills.Save(&distributed.SkillMetadataRecord{UserID: "u1", Name: "deleteme", SourceType: "inline"})
-
-			Expect(stores.Skills.Delete("u1", "deleteme")).To(Succeed())
-
-			_, err := stores.Skills.Get("u1", "deleteme")
-			Expect(err).To(HaveOccurred())
-		})
 	})
 
 	Context("Gallery Operations", func() {

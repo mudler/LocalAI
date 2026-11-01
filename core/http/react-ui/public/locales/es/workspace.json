@@ -1,0 +1,671 @@
+{
+  "wellKnown": {
+    "revert": "Volver a la versión anterior",
+    "view": "Vista",
+    "form": "Formulario",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "notSet": "No definido",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "remove": "Quitar",
+    "savedAt": "Guardado a las {{time}}",
+    "notSaved": "Aún no guardado.",
+    "notSavedPrefilled": "Aún no guardado. Algunos valores ya están rellenados; Guardar los conserva.",
+    "loadFailed": "No se pudieron cargar estos ajustes. Recarga la página para intentarlo de nuevo.",
+    "invalid": "Estos ajustes tienen errores y no hay una versión válida anterior.",
+    "invalidFallback": "Estos ajustes tienen errores. Aquí se muestra su última versión válida.",
+    "conflict": "Estos ajustes cambiaron mientras los editabas, probablemente por el asistente o en otra pestaña. Los valores más recientes son:",
+    "useTheirs": "Usar los valores más recientes",
+    "keepMine": "Mantener mis cambios",
+    "editWithAssistant": "Editar con el asistente",
+    "from": {
+      "account": "Desde tu cuenta",
+      "browser": "Desde tu navegador"
+    },
+    "check": {
+      "required": "Obligatorio.",
+      "tooLong": "Como máximo {{max}} caracteres.",
+      "format": "Este valor tiene un formato incorrecto."
+    },
+    "source": {
+      "label": "Fuente",
+      "hint": "Los ajustes como texto. Se comprueban de la misma forma al guardar.",
+      "notJson": "El texto tiene un error de sintaxis. Revisa las comillas, las comas y las llaves.",
+      "notObject": "El texto debe empezar con { y terminar con }."
+    },
+    "persona": {
+      "title": "Asistente",
+      "lede": "Nombre e instrucciones que el asistente usa en cada chat."
+    },
+    "user": {
+      "title": "Tú",
+      "lede": "El asistente lee esto para saber con quién habla. Llega al modelo en cada chat."
+    },
+    "ui": {
+      "title": "Apariencia",
+      "lede": "Cómo se ve LocalAI para ti. Los cambios se muestran al momento; Guardar los conserva."
+    },
+    "shortcuts": {
+      "title": "Atajos",
+      "lede": "Las sugerencias encima del cuadro de texto de cada chat.",
+      "edit": "Editar atajos",
+      "defaults": "Atajos predeterminados",
+      "none": "No hay atajos. Añade uno o guarda una lista vacía para ocultarlos.",
+      "label": "Etiqueta",
+      "prompt": "Prompt",
+      "send": "Enviar al momento",
+      "add": "Añadir atajo",
+      "invalid": "Algunos atajos tienen errores.",
+      "assistantPrompt": "Cambia mis atajos: "
+    },
+    "home": {
+      "editLayout": "Editar diseño",
+      "ask": "Preguntar al asistente",
+      "askPrompt": "Cambia mi página Home: ",
+      "add": "Añadir widget",
+      "newTitle": "Nuevo widget",
+      "noWidgets": "Aún no hay widgets.",
+      "type": "Tipo",
+      "title": "Título",
+      "source": "Archivo de datos",
+      "noSourceNeeded": "No hace falta archivo de datos",
+      "types": {
+        "list": "Lista",
+        "metric": "Métrica",
+        "chats": "Últimos chats",
+        "page": "Página"
+      },
+      "left": "{{count}} restantes",
+      "fromChats": "de los chats",
+      "noChats": "Aún no hay chats.",
+      "noData": "Aún no hay datos. El asistente puede escribir",
+      "nothing": "No hay nada aquí.",
+      "noSource": "Este widget no tiene archivo de datos. Elige uno en Editar diseño.",
+      "broken": "Los datos de este widget tienen errores y no hay una versión válida anterior.",
+      "stale": "Se muestran los últimos datos válidos. Los datos más recientes tienen errores.",
+      "updated": "Actualizado {{when}}",
+      "footer": {
+        "noData": "Aún no hay datos.",
+        "invalid": "Los datos tienen un error. Se muestra la última versión correcta.",
+        "revert": "Revertir",
+        "missing": "Faltan los datos de este widget.",
+        "fix": "Pedir al asistente que lo arregle",
+        "fixPrompt": "El widget de Inicio lee {{file}}, que falta o está dañado. Arréglalo: ",
+        "waiting": "Esperando a que crees su disparador en el chat.",
+        "openChat": "Abrir el chat",
+        "running": "Actualizando…",
+        "openRun": "Abrir la ejecución",
+        "paused": "En pausa · era {{schedule}}",
+        "resume": "Reanudar",
+        "failedEmpty": "La actualización falló y aún no hay datos.",
+        "details": "Detalles",
+        "retry": "Reintentar",
+        "stale": "La última actualización falló. Se muestran los datos de {{when}}.",
+        "staleToday": "La última actualización falló. Se muestran datos anteriores de hoy.",
+        "earlier": "antes",
+        "firstRun": "Primera ejecución {{when}}",
+        "firstRunFile": "Se ejecuta cuando llega un archivo",
+        "runNow": "Ejecutar ahora",
+        "fresh": "{{schedule}} · actualizado {{time}}",
+        "pause": "Pausar",
+        "fromPage": "De la página {{title}}",
+        "fromFile": "De tus archivos",
+        "next": "Próxima ejecución {{when}}",
+        "cost": "unos {{tokens}} tokens por ejecución",
+        "costRemote": "unos {{tokens}} tokens por ejecución en un modelo remoto",
+        "cadence": {
+          "paused": "En pausa",
+          "hourly": "Cada hora",
+          "daily": "Diario",
+          "weekdays": "Laborables",
+          "weekly": "Semanal",
+          "monthly": "Mensual",
+          "file": "Con archivos nuevos"
+        },
+        "scheduleNote_one": "{{count}} widget se actualiza según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso.",
+        "scheduleNote_other": "{{count}} widgets se actualizan según un horario. Sus ejecuciones usan tus modelos y cuentan para tu uso."
+      },
+      "opensSite": "{{host}}: se abre en una pestaña nueva",
+      "linkAsk": "Este widget quiere abrir un enlace",
+      "invalid": "El diseño de tu Home tiene errores y no hay una versión válida anterior.",
+      "invalidFallback": "El diseño de tu Home tiene errores. Home muestra su última versión válida.",
+      "page": {
+        "gone": "Esta página ya no está disponible",
+        "goneHint": "La página \"{{name}}\" se movió o se eliminó, o ya no puedes abrirla.",
+        "noWidget": "Esta página no tiene vista de widget",
+        "noWidgetHint": "Pide al asistente que dé a la página \"{{name}}\" una vista compacta para Inicio.",
+        "off": "Las páginas compartidas están desactivadas",
+        "offHint": "Un administrador desactivó las páginas compartidas en este servidor.",
+        "fix": "Personalizar Inicio",
+        "failed": "La página no se cargó",
+        "retry": "Reintentar",
+        "changed": "Esta página cambió desde que la permitiste",
+        "notAllowed": "Aún no has permitido esta página",
+        "allowHint": "Viene de una carpeta compartida. Revísala antes de que se ejecute en tu nombre.",
+        "allow": "Permitir esta página",
+        "frameTitle": "{{title}} (página en Inicio)",
+        "refresh": "Actualizar",
+        "open": "Abrir página",
+        "add": "Añadir una página",
+        "limit": "Inicio muestra como máximo {{max}} páginas; quita una para añadir otra.",
+        "noneEligible": "Ninguna página tiene todavía una vista compacta para Inicio. Pide al asistente que añada una a una página.",
+        "pick": "Página",
+        "unavailable": "{{name}} (no disponible)",
+        "sharedLabel": "compartida",
+        "sizes": {
+          "small": "Pequeño",
+          "medium": "Mediano",
+          "large": "Grande"
+        }
+      }
+    },
+    "fields": {
+      "persona": {
+        "name": {
+          "label": "Nombre",
+          "help": "Cómo se llama el asistente a sí mismo."
+        },
+        "system_prompt": {
+          "label": "Prompt del sistema",
+          "help": "Se añade a cada chat, después del prompt del chat y de las instrucciones del agente."
+        }
+      },
+      "user": {
+        "name": {
+          "label": "Nombre",
+          "help": "Cómo te llama el asistente."
+        },
+        "language": {
+          "label": "Idioma",
+          "help": "El idioma en el que responde el asistente."
+        },
+        "bio": {
+          "label": "Sobre ti",
+          "help": "Algunas líneas que el asistente lee en cada chat."
+        },
+        "timezone": {
+          "label": "Zona horaria",
+          "help": "Para fechas y horas en las respuestas."
+        }
+      },
+      "ui": {
+        "theme": {
+          "label": "Tema",
+          "help": "Sistema sigue la configuración de tu dispositivo.",
+          "options": {
+            "dark": "Oscuro",
+            "light": "Claro",
+            "system": "Sistema"
+          }
+        },
+        "accent": {
+          "label": "Color de acento",
+          "help": "Para botones y enlaces. Vacío mantiene el predeterminado."
+        },
+        "density": {
+          "label": "Densidad",
+          "help": "Compacta muestra más en una pantalla.",
+          "options": {
+            "comfortable": "Cómoda",
+            "compact": "Compacta"
+          }
+        },
+        "defaultModel": {
+          "label": "Modelo predeterminado",
+          "help": "El modelo con el que empieza un chat nuevo."
+        }
+      }
+    },
+    "saveInvalid": "Algunos valores no son válidos. Revísalos y guarda de nuevo.",
+    "saveTooLarge": "Estos ajustes son demasiado grandes para guardarlos. Quita algunas entradas e inténtalo de nuevo.",
+    "saveFailed": "No se pudo guardar. Inténtalo de nuevo.",
+    "details": "Detalles"
+  },
+  "discovery": {
+    "ex": {
+      "title": "Haz LocalAI tuyo",
+      "lede": "Dilo en un chat. El asistente lo guarda, y puedes cambiarlo o deshacerlo.",
+      "hide": "Ocultar",
+      "hiddenToast": "Ejemplos ocultos.",
+      "saveFailed": "No guardado: {{message}}",
+      "card1": {
+        "kicker": "Tú y el asistente",
+        "prompt": "Llámame {{firstName}} y responde con brevedad",
+        "promptNoName": "Recuerda mi nombre y responde con brevedad",
+        "what": "Guarda tu nombre y cómo responde el asistente"
+      },
+      "card2": {
+        "kicker": "Una página",
+        "prompt": "Crea un tablero de tareas para mí",
+        "what": "Añade una página que abres desde la barra lateral"
+      },
+      "card3": {
+        "kicker": "Cada mañana",
+        "prompt": "Cada mañana, resume aquí mi bandeja de entrada",
+        "promptNoMail": "Cada mañana, enumera aquí los chats de ayer",
+        "what": "Añade un widget en Home y un disparador que confirmas"
+      },
+      "quote": "«{{text}}»",
+      "donePrefix": "Hecho.",
+      "doneLink": "Cámbialo en Account",
+      "ready": "O empieza con una página lista:",
+      "readyTasks": "Tablero de tareas",
+      "readyReading": "Lista de lectura",
+      "readyFailed": "La página no se copió: {{message}}",
+      "learn": "Cómo funciona",
+      "inComposer": "Edítalo si quieres y pulsa Enter. No se guarda nada hasta que lo envíes.",
+      "live": "Texto añadido al cuadro de mensaje."
+    },
+    "home": {
+      "customise": "Personalizar Home"
+    },
+    "action": {
+      "undo": "Deshacer",
+      "openAccount": "Abrir en Account",
+      "openPage": "Abrir página",
+      "openHome": "Abrir Home",
+      "turnBackOn": "Vuelve a activarlos en Account"
+    },
+    "change": {
+      "profilePersona": "Se guardaron tu nombre y tus instrucciones para el asistente. Cada chat los usa desde tu próximo mensaje.",
+      "profile": "Se guardó en tu perfil.",
+      "persona": "Se guardaron las instrucciones del asistente. Cada chat las usa desde tu próximo mensaje.",
+      "shortcuts": "Se guardaron tus atajos.",
+      "home": "Se guardó tu página Home. Home muestra el cambio.",
+      "ui": "Se guardaron tus ajustes de apariencia.",
+      "pageCreated": "Se creó la página {{title}}.",
+      "pageChanged": "Se cambió la página {{title}}.",
+      "offersOff": "Las sugerencias del asistente están desactivadas.",
+      "undoing": "Deshaciendo…",
+      "undone": "Deshecho.",
+      "undoFailed": "No se deshizo: {{message}}"
+    },
+    "toast": {
+      "shortcutAdded": "Añadido a tu cuadro de mensaje: {{label}}",
+      "pageCreated": "{{title}} está en Pages, en la barra lateral",
+      "open": "Abrir",
+      "homeChanged": "Home actualizado.",
+      "themeChanged": "Tema cambiado."
+    },
+    "files": {
+      "learn": "Estos archivos cambian cómo funciona LocalAI para ti.",
+      "tag": {
+        "profile": "Tu perfil",
+        "persona": "Asistente",
+        "shortcuts": "Atajos",
+        "home": "Diseño de Home",
+        "ui": "Aspecto",
+        "page": "Página"
+      }
+    },
+    "privacy": "El asistente recibe tu nombre, este texto, tu idioma y tu zona horaria al inicio de cada chat. Deja un campo vacío para no enviarlo.",
+    "versions": {
+      "label": "Versiones",
+      "title": "Versiones anteriores",
+      "loading": "Leyendo el historial…",
+      "none": "Aún no hay versiones anteriores.",
+      "current": "actual",
+      "invalid": "tiene un error",
+      "byAssistant": "Del asistente",
+      "byAssistantIn": "Del asistente en «{{chat}}»",
+      "byYou": "Tuya",
+      "undo": "Un deshacer",
+      "upload": "Subida",
+      "revert": "Revertir",
+      "note": "Revertir conserva la versión más reciente en esta lista.",
+      "invalidBadge": "No válida",
+      "revertGood": "Revertir a la última versión correcta"
+    },
+    "help": {
+      "title": "Ayuda y sugerencias",
+      "sub": "Formas en que LocalAI te muestra lo que puede hacer. Desactiva lo que no necesites.",
+      "offers": "Propuestas del asistente",
+      "offersHint": "Como mucho una al día, nunca durante una tarea: por ejemplo, para recordar algo que le dijiste.",
+      "new": "Avisos de novedades",
+      "newHint": "Una breve etiqueta «Nuevo» en la barra lateral la primera vez que aparece algo.",
+      "examples": "Ejemplos en Home",
+      "examplesShown": "Las tarjetas «Haz LocalAI tuyo» se muestran en Home mientras te quede algo por probar.",
+      "examplesHidden": "Ocultaste las tarjetas «Haz LocalAI tuyo».",
+      "showExamples": "Mostrar los ejemplos de nuevo",
+      "examplesBack": "Los ejemplos han vuelto a Home.",
+      "dismissed": "Lo que el asistente aprendió",
+      "dismissedHint_one": "Rechazaste {{count}} propuesta. Sigue oculta hasta que la restablezcas.",
+      "dismissedHint_other": "Rechazaste {{count}} propuestas. Siguen ocultas hasta que las restablezcas.",
+      "forget": "Olvidar lo que el asistente aprendió sobre mis sugerencias",
+      "forgotten": "Hecho. El asistente puede volver a proponer.",
+      "learn": "Descubre qué puedes cambiar:",
+      "dismissedNone": "Nada todavía. Cuando respondas a una propuesta, el asistente lo recordará aquí."
+    }
+  },
+  "tabs": {
+    "shared": "Compartido",
+    "trashCount_one": "{{count}} elemento en la papelera",
+    "trashCount_other": "{{count}} elementos en la papelera"
+  },
+  "trash": {
+    "empty": "La papelera está vacía.",
+    "restore": "Restaurar",
+    "emptyAll": "Vaciar la papelera",
+    "purge": "Eliminar definitivamente",
+    "purgeNamed": "Eliminar {{name}} definitivamente",
+    "files_one": "{{count}} archivo",
+    "files_other": "{{count}} archivos",
+    "folders_one": "{{count}} carpeta",
+    "folders_other": "{{count}} carpetas",
+    "listJoin": ", ",
+    "summary": "En la papelera: {{what}}.",
+    "removed": "Eliminado definitivamente: {{what}}.",
+    "confirmAll": {
+      "title": "¿Vaciar la papelera?",
+      "message": "Se eliminarán definitivamente {{what}}, con sus versiones anteriores. No se puede deshacer."
+    },
+    "confirmOne": {
+      "title": "¿Eliminar definitivamente?",
+      "message": "{{path}}: se eliminarán definitivamente {{what}}, con sus versiones anteriores. No se puede deshacer."
+    }
+  },
+  "shared": {
+    "adminTitle": "Carpetas compartidas",
+    "adminLede": "Carpetas que usan varias personas. Los miembros abren sus páginas y sus chats pueden leer o editar los archivos.",
+    "userTitle": "Compartido contigo",
+    "userLede": "Carpetas que un administrador compartió contigo. Sus páginas están en Páginas y tus chats pueden usar los archivos.",
+    "new": "Nueva carpeta compartida",
+    "nameLabel": "Nombre de la carpeta",
+    "nameHint": "Hasta 64 letras, dígitos, espacios, puntos, guiones o guiones bajos. Empieza con una letra o un dígito.",
+    "create": "Crear",
+    "cancel": "Cancelar",
+    "rename": "Cambiar nombre",
+    "renameSave": "Guardar",
+    "remove": "Quitar",
+    "manage": "Miembros",
+    "menu": "Más acciones para {{name}}",
+    "pages_one": "{{count}} página",
+    "pages_other": "{{count}} páginas",
+    "pagesNone": "Sin páginas",
+    "people_one": "{{count}} persona",
+    "people_other": "{{count}} personas",
+    "membersNone": "Sin miembros",
+    "everyone": "Todos",
+    "everyoneOption": "Todos (todos los usuarios)",
+    "everyoneHint": "Todos los usuarios, también los que lleguen después",
+    "everyoneCan": {
+      "read": "Todos pueden leer",
+      "write": "Todos pueden editar"
+    },
+    "mode": {
+      "read": "Puede leer",
+      "write": "Puede editar"
+    },
+    "addTitle": "Añadir un miembro",
+    "person": "Persona",
+    "access": "Acceso",
+    "accessFor": "Acceso de {{name}}",
+    "add": "Añadir",
+    "allAdded": "Todos ya son miembros.",
+    "usersUnavailable": "No se pudo cargar la lista de usuarios. Aun así puedes añadir a Todos.",
+    "membersTitle": "Miembros",
+    "noMembers": "Nadie puede usar esta carpeta todavía. Añade una persona o a Todos.",
+    "removeMember": "Quitar a {{name}}",
+    "paneNote": "El cambio se aplica al instante. Un chat abierto lo verá la próxima vez que se abra.",
+    "created": "Se creó «{{name}}». Añade a las personas que pueden usarla.",
+    "removed": "Se quitó «{{name}}». Sus páginas vuelven a pedir permiso antes de ejecutarse.",
+    "restored": "«{{name}}» ha vuelto, con sus miembros.",
+    "memberAdded": "{{name}}: {{mode}}.",
+    "memberRemoved": "{{name}} ya no puede usar «{{folder}}».",
+    "failed": "No se hizo: {{message}}",
+    "loadFailed": "No se pudieron cargar las carpetas compartidas.",
+    "emptyAdminTitle": "Aún no hay carpetas compartidas",
+    "emptyAdminBody": "Una carpeta compartida guarda archivos y páginas que otras personas pueden leer o editar. Crea una y luego añade miembros.",
+    "factMembers": "Da acceso de lectura o edición a una persona o a todos",
+    "factChats": "Los chats de los miembros ven los archivos de la carpeta",
+    "factUndo": "Quitar una carpeta se puede deshacer",
+    "emptyUserTitle": "Todavía no se ha compartido nada contigo",
+    "emptyUserBody": "Cuando un administrador comparta una carpeta contigo, aparecerá aquí y sus páginas en Páginas."
+  },
+  "preview": {
+    "label": "Vista previa",
+    "failed": "No se pudo mostrar este archivo.",
+    "loading": "Cargando la vista previa de {{name}}",
+    "failedTitle": "No se pudo mostrar {{name}}.",
+    "tooLarge": "Este archivo es demasiado grande para la vista previa. Descárgalo para abrirlo.",
+    "none": "No hay vista previa para este tipo de archivo.",
+    "typeFile": "Archivo {{ext}}",
+    "typeUnknown": "Archivo",
+    "sheets": "Hojas",
+    "sheetLabel": "Hoja {{name}}",
+    "sheetEmpty": "Esta hoja está vacía.",
+    "row": "Fila",
+    "showingRows": "Se muestran {{rows}} de {{total}} filas",
+    "showingCols": "y {{cols}} de {{total}} columnas.",
+    "downloadRest": "Descarga el archivo para ver el resto.",
+    "textOnly": "Vista previa del texto, sin formato.",
+    "truncated": "El texto está recortado.",
+    "noText": "Este archivo no tiene texto para mostrar.",
+    "slide": "Diapositiva {{n}}",
+    "notes": "Notas del orador",
+    "pdfTitle": "PDF {{name}}",
+    "pdfFallback": "Si el PDF no se muestra aquí, descárgalo.",
+    "htmlTitle": "Vista previa de {{name}}",
+    "imageFailed": "No se pudo mostrar la imagen.",
+    "zoomIn": "Ver a tamaño completo",
+    "zoomOut": "Ajustar al panel",
+    "items_one": "{{count}} elemento",
+    "items_other": "{{count}} elementos",
+    "textCut": "Se muestran los primeros {{size}}.",
+    "actions": "Acciones del archivo"
+  },
+  "managed": {
+    "group": "Gestionado por LocalAI",
+    "marker": "gestionado por LocalAI",
+    "about": {
+      "localai": "Ajustes que LocalAI lee: persona, perfil, atajos, Inicio, tema.",
+      "chats": "Una carpeta por chat, con los archivos del chat."
+    },
+    "confirm": {
+      "deleteTitle": "¿Mover {{name}} a la Papelera?",
+      "renameTitle": "¿Cambiar el nombre de {{name}}?",
+      "delete": "Mover a la Papelera",
+      "rename": "Cambiar nombre",
+      "restore": "Puedes restaurarlo desde la Papelera.",
+      "renameNote": "LocalAI solo lo lee con este nombre; después de cambiarlo, es como si no existiera."
+    },
+    "loses": {
+      "settings": "LocalAI olvida tu persona, tu perfil, tus atajos, el diseño de tu Inicio y tu tema.",
+      "chats": "Cada chat pierde sus archivos: lo que adjuntaste y lo que el asistente escribió allí.",
+      "persona": "El asistente pierde su nombre y sus instrucciones.",
+      "user": "El asistente olvida lo que le contaste sobre ti y tus respuestas a sus ofertas.",
+      "shortcuts": "El cuadro de mensaje vuelve a mostrar los atajos predeterminados.",
+      "home": "Inicio pierde sus widgets.",
+      "ui": "Tu tema, color de acento, densidad, modelo predeterminado y páginas fijadas vuelven a los valores predeterminados."
+    }
+  },
+  "newFile": "Archivo nuevo",
+  "newFolderName": "Carpeta nueva",
+  "newFileName": "Sin título.md",
+  "fileName": "Nombre del archivo",
+  "downloadOne": "Descargar {{name}}",
+  "moveTo": "Mover a…",
+  "uploadMenu": "Más opciones de subida",
+  "uploadFiles": "Subir archivos",
+  "uploadFolder": "Subir una carpeta",
+  "loading": "Cargando la carpeta",
+  "loadFailed": "No se pudo abrir {{folder}}.",
+  "types": {
+    "folder": "Carpeta",
+    "image": "Imagen",
+    "pdf": "PDF",
+    "sheet": "Hoja de cálculo",
+    "doc": "Documento",
+    "slides": "Presentación",
+    "archive": "Archivo comprimido",
+    "audio": "Audio",
+    "video": "Vídeo",
+    "code": "Código",
+    "text": "Texto",
+    "file": "Archivo"
+  },
+  "columns": {
+    "name": "Nombre",
+    "modified": "Modificado",
+    "type": "Tipo",
+    "size": "Tamaño",
+    "actions": "Acciones"
+  },
+  "view": {
+    "label": "Vista",
+    "list": "Lista",
+    "grid": "Miniaturas"
+  },
+  "select": {
+    "one": "Seleccionar {{name}}",
+    "all": "Seleccionar todo",
+    "bar": "Elementos seleccionados",
+    "clear": "Borrar la selección",
+    "count_one": "{{count}} seleccionado",
+    "count_other": "{{count}} seleccionados",
+    "start": "Seleccionar"
+  },
+  "menu": {
+    "label": "Acciones para {{name}}",
+    "more": "Más acciones para {{name}}",
+    "openFolder": "Abrir",
+    "preview": "Vista previa",
+    "downloadMany_one": "Descargar {{count}} archivo",
+    "downloadMany_other": "Descargar {{count}} archivos",
+    "moveMany_one": "Mover {{count}} elemento a…",
+    "moveMany_other": "Mover {{count}} elementos a…",
+    "deleteMany_one": "Mover {{count}} elemento a la papelera",
+    "deleteMany_other": "Mover {{count}} elementos a la papelera"
+  },
+  "keys": {
+    "delete": "Supr"
+  },
+  "crumbs": {
+    "hidden": "Mostrar las carpetas superiores"
+  },
+  "naming": {
+    "empty": "Escribe un nombre.",
+    "slash": "Un nombre no puede contener / ni \\.",
+    "taken": "Ya hay algo con ese nombre en esta carpeta."
+  },
+  "toast": {
+    "undo": "Deshacer",
+    "deletedOne": "{{name}} se movió a la papelera.",
+    "deleted_one": "{{count}} elemento se movió a la papelera.",
+    "deleted_other": "{{count}} elementos se movieron a la papelera.",
+    "restored": "Restaurado.",
+    "renamed": "Renombrado a {{name}}.",
+    "renameUndone": "Se restauró el nombre anterior.",
+    "movedOne": "{{name}} se movió a {{folder}}.",
+    "moved_one": "{{count}} elemento se movió a {{folder}}.",
+    "moved_other": "{{count}} elementos se movieron a {{folder}}.",
+    "moveUndone": "Devuelto a su sitio."
+  },
+  "search": {
+    "placeholder": "Filtrar esta carpeta",
+    "resultsFor": "Archivos que contienen “{{query}}”",
+    "back": "Volver a la carpeta",
+    "noneBody": "Ningún nombre ni texto de tus archivos coincide. Prueba con otras palabras.",
+    "page": "página {{n}}",
+    "sheet": "hoja «{{name}}»",
+    "slide": "diapositiva {{n}}",
+    "indexing_one": "{{count}} documento aún se está indexando: vuelve a buscar en un momento para incluirlo.",
+    "indexing_other": "{{count}} documentos aún se están indexando: vuelve a buscar en un momento para incluirlos.",
+    "limited": "Resultados limitados: la búsqueda se detuvo en sus límites antes de revisar todos los archivos. Busca en una carpeta o usa otras palabras para ver el resto.",
+    "filtering_one": "{{count}} elemento de esta carpeta coincide con “{{query}}”.",
+    "filtering_other": "{{count}} elementos de esta carpeta coinciden con “{{query}}”.",
+    "everywhere": "Buscar “{{query}}” en todos los archivos",
+    "everywhereShort": "Buscar en todos los archivos",
+    "noMatch": "Nada en esta carpeta coincide con “{{query}}”.",
+    "clear": "Borrar el filtro"
+  },
+  "emptyHome": {
+    "title": "Tus archivos están aquí"
+  },
+  "emptyFolder": {
+    "title": "Esta carpeta está vacía",
+    "body": "Suelta archivos o carpetas en cualquier parte de esta página, pégalos con Ctrl+V o súbelos desde tu ordenador. El asistente también puede guardar archivos aquí desde un chat.",
+    "bodyTouch": "Sube archivos desde tu dispositivo. El asistente también puede guardar archivos aquí desde un chat.",
+    "ask": "Pedírselo al asistente"
+  },
+  "drop": {
+    "title": "Suelta para subir a {{folder}}",
+    "body": "Se admiten archivos y carpetas completas.",
+    "limit": "Archivos y carpetas completas, de hasta {{size}} cada uno."
+  },
+  "conflict": {
+    "title_one": "Ya existe un archivo con este nombre",
+    "title_other": "Ya existen {{count}} archivos con estos nombres",
+    "body_one": "{{folder}} ya tiene un archivo con este nombre.",
+    "body_other": "{{folder}} ya tiene archivos con estos nombres.",
+    "skip_one": "Omitir",
+    "skip_other": "Omitir todos",
+    "keep": "Conservar ambos",
+    "replace_one": "Reemplazar",
+    "replace_other": "Reemplazar todos",
+    "more_one": "y {{count}} más",
+    "more_other": "y {{count}} más",
+    "note": "Conservar ambos le da un nombre nuevo al archivo nuevo. Un archivo reemplazado se puede recuperar desde el historial.",
+    "cancel": "Cancelar la subida"
+  },
+  "move": {
+    "title_one": "Mover {{count}} elemento",
+    "title_other": "Mover {{count}} elementos",
+    "items_one": "{{count}} elemento",
+    "items_other": "{{count}} elementos",
+    "cancel": "Cancelar",
+    "here": "Mover a {{folder}}",
+    "failed": "No se pudo leer esta carpeta.",
+    "noFolders": "No hay carpetas aquí. Mueve aquí o sube un nivel."
+  },
+  "uploads": {
+    "waiting": "En espera",
+    "progress": "{{loaded}} de {{total}}",
+    "rate": "{{rate}}/s",
+    "left": "quedan {{time}}",
+    "renamed": "Guardado como {{name}}",
+    "done": "Subido",
+    "canceled": "Cancelado",
+    "cancel": "Cancelar",
+    "cancelOne": "Cancelar la subida de {{name}}",
+    "retry": "Reintentar",
+    "retryOne": "Reintentar {{name}}",
+    "dismiss": "Descartar",
+    "dismissOne": "Descartar {{name}}",
+    "show": "Mostrar",
+    "showOne": "Mostrar {{name}}",
+    "meterOne": "{{name}}: {{percent}} %",
+    "meterAll": "Todas las subidas: {{percent}} %",
+    "cancelAll": "Cancelar todo",
+    "retryAll": "Reintentar todo",
+    "fold": "Ocultar la lista",
+    "unfold": "Mostrar la lista",
+    "close": "Cerrar",
+    "head": {
+      "sending_one": "Subiendo {{count}} archivo",
+      "sending_other": "Subiendo {{count}} archivos",
+      "failed_one": "Falló {{count}} subida",
+      "failed_other": "Fallaron {{count}} subidas",
+      "done_one": "{{count}} archivo subido",
+      "done_other": "{{count}} archivos subidos"
+    },
+    "say": {
+      "start_one": "Subiendo {{count}} archivo.",
+      "start_other": "Subiendo {{count}} archivos.",
+      "done_one": "Subida completada: {{count}} archivo.",
+      "done_other": "Subidas completadas: {{count}} archivos.",
+      "doneFailed": "Subidas completadas: {{count}} subidos, {{failed}} con error.",
+      "failed": "No se pudo subir {{name}}."
+    },
+    "errors": {
+      "tooBig": "Supera el límite de {{limit}} de este servidor.",
+      "tooLarge": "El servidor lo rechazó por ser demasiado grande.",
+      "off": "Los archivos están desactivados en este servidor.",
+      "invalid": "El servidor rechazó este archivo.",
+      "network": "Se perdió la conexión.",
+      "server": "El servidor no pudo guardarlo."
+    },
+    "said": "El servidor respondió: {{reason}}."
+  }
+}

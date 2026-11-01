@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -64,8 +65,26 @@ func newProjectFor(id string, enabled map[string][]string) *project {
 	write("dist/ui/"+id+".js", []byte("export default function mount() {}\n"))
 	write("dist/ui/"+id+".css", []byte(".x{}\n"))
 	write("dist/ui/icon.png", pngBytes)
+	// The skills of the add-on, when it ships some, as the repository has them.
+	skillsLine := ""
+	src := "../../../addons/" + id + "/skills"
+	if _, err := os.Stat(src); err == nil {
+		Expect(filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			rel, _ := filepath.Rel(src, p)
+			b, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			write("addons/"+id+"/skills/"+filepath.ToSlash(rel), b)
+			return nil
+		})).To(Succeed())
+		skillsLine = "skills: addons/" + id + "/skills\n"
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "schema: 1\naddon: %s\nexecutable: %s\nmanifest: addons/%s/manifest.json\nui: dist\nplatforms:\n", id, id, id)
+	fmt.Fprintf(&b, "schema: 1\naddon: %s\nexecutable: %s\nmanifest: addons/%s/manifest.json\nui: dist\n%splatforms:\n", id, id, id, skillsLine)
 	for _, p := range []string{"linux/amd64", "linux/arm64", "darwin/arm64"} {
 		rt, on := enabled[p]
 		fmt.Fprintf(&b, "  - platform: %s\n    enabled: %t\n    runner: runner-%s\n    native_check: executable-start\n", p, on, strings.ReplaceAll(p, "/", "-"))

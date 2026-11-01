@@ -14,7 +14,7 @@ cd "$root"
 cache="$root/.cache/addons"
 mkdir -p "$cache/logs" "$cache/tmp"
 . "$root/scripts/addons/leaks.sh"
-suites='prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps gallery-ui esm-ui host-slots recovery updates foundation-acceptance packaging'
+suites='prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps gallery-ui esm-ui host-slots library-sources recovery updates foundation-acceptance packaging'
 # Tables suites are not foundation suites: scripts/addons/tables_gate.sh runs
 # them. They are named here only so the inventory check does not report them
 # as missing from the foundation gate.

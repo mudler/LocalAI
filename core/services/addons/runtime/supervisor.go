@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -48,6 +47,11 @@ var ErrNotSent = fmt.Errorf("addon request was not sent: %w", ErrRuntime)
 // It is not an ErrRuntime.
 var ErrRefused = fmt.Errorf("addon refused the request: %w", contract.ErrRefused)
 
+// ErrDenied is the add-on's own 403 "forbidden": the person lacks a permission
+// the request needs. Nothing was changed and it is deterministic, so it is
+// neither an outage nor an unknown outcome. It is not an ErrRuntime.
+var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
+
 // Refusal is the typed form of ErrRefused. Reason is a short printable class
 // taken from the add-on's answer and bounded, so it is safe to log.
 type Refusal struct {
@@ -71,6 +75,10 @@ type Config struct {
 	// HostOps, when set, gives each add-on that its Allowed map names a
 	// host operation endpoint. Nil means no add-on gets one.
 	HostOps *HostOps
+	// Output receives each line an add-on writes to its standard output
+	// (stream "stdout") or error ("stderr"). Nil sends the lines to the LocalAI
+	// log with the add-on ID as a prefix.
+	Output func(addonID, stream, line string)
 }
 
 // HostOps wires the host operation channel into the supervisor. Allowed maps
@@ -366,17 +374,49 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	cmd.Dir = pkg.Directory
 	cmd.Env = []string{"LANG=C", "TZ=UTC"}
 	cmd.ExtraFiles = []*os.File{socket, child}
-	cmd.Stdout = io.Discard
-	cmd.Stderr = io.Discard
+	// The streams are pipes the supervisor owns, not an io.Writer on the
+	// command: with a writer, Wait would block while a child of the add-on
+	// still holds the pipe open.
+	sink := s.config.Output
+	if sink == nil {
+		sink = defaultOutput
+	}
+	outR, outW, e := os.Pipe()
+	if e != nil {
+		_ = parent.Close()
+		return nil, ErrRuntime
+	}
+	errR, errW, e := os.Pipe()
+	if e != nil {
+		_ = outR.Close()
+		_ = outW.Close()
+		_ = parent.Close()
+		return nil, ErrRuntime
+	}
+	cmd.Stdout, cmd.Stderr = outW, errW
+	closeOutput := func() {
+		_ = outW.Close()
+		_ = errW.Close()
+		_ = outR.Close()
+		_ = errR.Close()
+	}
 	if e = s.ledger.put(pkg.Manifest.ID, processIdentity{Incarnation: r.Incarnation, Pending: true}); e != nil {
+		closeOutput()
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
 	if e = cmd.Start(); e != nil {
+		closeOutput()
 		_ = s.ledger.remove(pkg.Manifest.ID, r.Incarnation)
 		_ = parent.Close()
 		return nil, ErrRuntime
 	}
+	// The child has its own ends; the readers stop when it and its children
+	// close theirs.
+	_ = outW.Close()
+	_ = errW.Close()
+	go func() { logOutput(outR, pkg.Manifest.ID, "stdout", sink); _ = outR.Close() }()
+	go func() { logOutput(errR, pkg.Manifest.ID, "stderr", sink); _ = errR.Close() }()
 	p := &process{cmd: cmd, parent: parent, done: make(chan struct{}), registration: r}
 	c, e := newClient(r, hex.EncodeToString(credential), s.config.Limits)
 	if e != nil {
@@ -462,7 +502,17 @@ func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential str
 
 func (s *Supervisor) terminate(p *process) {
 	p.client.withdraw()
+	// Closing the startup channel is the add-on's signal to release what it
+	// owns outside its process (a sandbox add-on stops its sandboxes) and
+	// exit. Give it the shutdown period; SIGKILL cannot be caught, so a kill
+	// first would leak those resources.
 	_ = p.parent.Close()
+	grace := time.NewTimer(s.config.Limits.ShutdownTimeout)
+	select {
+	case <-p.done:
+	case <-grace.C:
+	}
+	grace.Stop()
 	// os.Process owns the OS process handle (pidfd on supported Linux). Never
 	// reconstruct a Process from a recorded numeric PID, which may be reused.
 	_ = p.cmd.Process.Kill()

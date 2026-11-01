@@ -112,26 +112,22 @@
     "gigabytes": "GB",
     "terabytes": "TB"
   },
-  "updateReview": {
-    "title": "Revisar atualizações",
-    "description": "Nada é atualizado até você escolher aqui.",
-    "close": "Fechar",
-    "done": "Concluído",
-    "selectAll": "Selecionar tudo",
-    "select": "Selecionar {{name}}",
-    "unknownVersion": "desconhecida",
-    "latest": "mais recente",
-    "blocked": "Não pode ser atualizado aqui:",
-    "upgradeSelected": "Atualizar selecionados ({{count}})",
-    "upgradeAll": "Atualizar todos ({{count}})",
-    "running": "Atualizando...",
-    "queued": "Aguardando",
-    "statusRunning": "Atualizando",
-    "statusDone": "Atualizado",
-    "statusFailed": "Falhou",
-    "summary": "{{succeeded}} atualizados, {{failed}} com falha.",
-    "empty": "Nada para atualizar.",
-    "statusStarted": "Iniciado",
-    "summaryStarted": "{{succeeded}} iniciados, {{failed}} com falha."
+  "ui": {
+    "tryAgain": "Tentar novamente",
+    "undo": "Desfazer",
+    "loadError": {
+      "title": "Não foi possível carregar.",
+      "serverSaid": "O servidor respondeu “{{message}}”.",
+      "nothingChanged": "Nada foi alterado."
+    }
+  },
+  "chip": {
+    "running": "Em execução",
+    "starting": "Iniciando",
+    "stopped": "Parado",
+    "failed": "Falhou",
+    "updateAvailable": "Atualização disponível",
+    "ready": "Pronto",
+    "noRunsYet": "Nenhuma execução"
   }
 }

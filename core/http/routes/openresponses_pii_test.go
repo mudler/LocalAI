@@ -92,6 +92,14 @@ pii:
 		return rec
 	}
 
+	It("treats a model named like a former agent as a model name, never as an agent", func() {
+		rec := post(`{"model":"former-agent","input":"hello"}`)
+		Expect(rec.Code).To(SatisfyAny(Equal(http.StatusNoContent), Equal(http.StatusNotFound)), rec.Body.String())
+		if reached {
+			Expect(received.Model).To(Equal("former-agent"))
+		}
+	})
+
 	It("blocks a secret in a string input with pii_blocked", func() {
 		rec := post(`{"model":"guarded","input":"my key is sk-test-ABC123"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))

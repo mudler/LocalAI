@@ -20,12 +20,25 @@ export function ThemeProvider({ children }) {
     localStorage.setItem('localai-theme', theme)
   }, [theme])
 
+  // Cross-fade the switch where the View Transitions API exists. The
+  // attribute changes inside the transition callback, so the browser
+  // snapshots the old theme and fades to the new one with no flash. Without
+  // the API, or when the person asks for less motion, the switch is instant.
   const toggleTheme = () => {
-    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+    const next = theme === 'dark' ? 'light' : 'dark'
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (typeof document.startViewTransition !== 'function' || reduce) {
+      setTheme(next)
+      return
+    }
+    document.startViewTransition(() => {
+      document.documentElement.setAttribute('data-theme', next)
+      setTheme(next)
+    })
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   )

@@ -27,10 +27,13 @@ const FALLBACK_FEATURES = {
     { key: 'sound', label: 'Sound Generation', default: true },
   ],
   agent_features: [
-    { key: 'agents', label: 'Agents', default: false },
-    { key: 'skills', label: 'Skills', default: false },
     { key: 'collections', label: 'Collections', default: false },
-    { key: 'mcp_jobs', label: 'MCP CI Jobs', default: false },
+    { key: 'localai_assistant', label: 'LocalAI Assistant', default: false },
+    { key: 'agents', label: 'Saved agents', default: false },
+    { key: 'triggers', label: 'Scheduled triggers', default: false },
+    { key: 'connectors', label: 'Chat connectors (Telegram bots)', default: false },
+    { key: 'mcp_jobs', label: 'Agent tasks and jobs', default: false },
+    { key: 'pages', label: 'Pages (HTML pages in the workspace)', default: false },
   ],
   general_features: [{ key: 'fine_tuning', label: 'Fine-Tuning', default: false }],
 }

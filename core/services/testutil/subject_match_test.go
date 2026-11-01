@@ -12,10 +12,10 @@ var _ = Describe("FakeBus subject matching", func() {
 		func(filter, subject string, want bool) {
 			Expect(testutil.SubjectMatches(filter, subject)).To(Equal(want))
 		},
-		Entry("exact", "jobs.new", "jobs.new", true),
-		Entry("wildcard hit", "jobs.*.cancel", "jobs.abc.cancel", true),
-		Entry("wildcard wrong tail", "jobs.*.cancel", "jobs.abc.result", false),
-		Entry("wildcard does not span tokens", "jobs.*", "jobs.a.b", false),
-		Entry("length mismatch", "jobs.new", "jobs.new.extra", false),
+		Entry("exact", "gallery.new", "gallery.new", true),
+		Entry("wildcard hit", "gallery.*.cancel", "gallery.abc.cancel", true),
+		Entry("wildcard wrong tail", "gallery.*.cancel", "gallery.abc.result", false),
+		Entry("wildcard does not span tokens", "gallery.*", "gallery.a.b", false),
+		Entry("length mismatch", "gallery.new", "jobs.new.extra", false),
 	)
 })

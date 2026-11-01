@@ -69,23 +69,20 @@ type RuntimeSettings struct {
 	// API keys - No omitempty as we need to save empty arrays to clear keys
 	ApiKeys *[]string `json:"api_keys"`
 
-	// Agent settings
-	AgentJobRetentionDays *int `json:"agent_job_retention_days,omitempty"`
-
 	// Open Responses settings
 	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
 
-	// Agent Pool settings
-	AgentPoolEnabled          *bool   `json:"agent_pool_enabled,omitempty"`
-	AgentPoolDefaultModel     *string `json:"agent_pool_default_model,omitempty"`
-	AgentPoolEmbeddingModel   *string `json:"agent_pool_embedding_model,omitempty"`
-	AgentPoolMaxChunkingSize  *int    `json:"agent_pool_max_chunking_size,omitempty"`
-	AgentPoolChunkOverlap     *int    `json:"agent_pool_chunk_overlap,omitempty"`
-	AgentPoolEnableLogs       *bool   `json:"agent_pool_enable_logs,omitempty"`
-	AgentPoolCollectionDBPath *string `json:"agent_pool_collection_db_path,omitempty"`
-	AgentPoolVectorEngine     *string `json:"agent_pool_vector_engine,omitempty"` // chromem | postgres
-	AgentPoolDatabaseURL      *string `json:"agent_pool_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
-	AgentPoolAgentHubURL      *string `json:"agent_pool_agent_hub_url,omitempty"` // override the agenthub.localai.io endpoint
+	// Collections settings
+	CollectionsEnabled         *bool   `json:"collections_enabled,omitempty"`
+	CollectionsDefaultModel    *string `json:"collections_default_model,omitempty"`
+	ChatsVisionModel           *string `json:"chats_vision_model,omitempty"`        // model that describes images for the chats
+	ChatsTranscriptionModel    *string `json:"chats_transcription_model,omitempty"` // model that transcribes audio for the chats
+	CollectionsEmbeddingModel  *string `json:"collections_embedding_model,omitempty"`
+	CollectionsMaxChunkingSize *int    `json:"collections_max_chunking_size,omitempty"`
+	CollectionsChunkOverlap    *int    `json:"collections_chunk_overlap,omitempty"`
+	CollectionsDBPath          *string `json:"collections_db_path,omitempty"`
+	CollectionsVectorEngine    *string `json:"collections_vector_engine,omitempty"` // chromem | postgres
+	CollectionsDatabaseURL     *string `json:"collections_database_url,omitempty"`  // PostgreSQL DSN when vector engine is postgres
 
 	// Distributed-mode settings. Read LIVE by the SmartRouter on each
 	// scheduling decision, so toggling takes effect on the next placement
@@ -93,9 +90,80 @@ type RuntimeSettings struct {
 	// DistributedConfig.DiskHeadroomDisabled for UI clarity.
 	DistributedDiskHeadroomCheck *bool `json:"distributed_disk_headroom_check,omitempty"` // Reject nodes without room to store the model (default: true)
 
+	// MCP connectors that users define in the chats. Read at each connection, so
+	// flipping it takes effect without a restart.
+	MCPConnectorsAllowPrivate *bool `json:"mcp_connectors_allow_private,omitempty"` // let them reach private network addresses (default: false)
+
+	// The built-in web tools of the chats. Read at each turn, so a change
+	// applies at the next turn.
+	ChatsWebSearch     *bool   `json:"chats_web_search,omitempty"`      // offer web_search (default: true)
+	ChatsWebFetch      *bool   `json:"chats_web_fetch,omitempty"`       // offer web_fetch (default: true)
+	ChatsWebSearXNGURL *string `json:"chats_web_searxng_url,omitempty"` // the address of a SearXNG instance; see ChatsWebSearchProviders
+	// ChatsWebSearchProviders is the order of the search providers, comma
+	// separated: searxng, duckduckgo, brave_html, bing_html. Empty: searxng
+	// alone when an instance is set, else duckduckgo,brave_html,bing_html.
+	ChatsWebSearchProviders *string `json:"chats_web_search_providers,omitempty"`
+	ChatsWebAllowPrivate    *bool   `json:"chats_web_allow_private,omitempty"` // let web_fetch reach private network addresses (default: false)
+	ChatsWebPorts           *string `json:"chats_web_ports,omitempty"`         // ports web_fetch may use, comma separated (default: 80,443)
+	// The network of the commands the chats run in the Sandbox. Read at each
+	// check of the host proxy, so a change applies at once (a cached allow
+	// lives at most 30 seconds).
+	ChatsEgressCeiling         *string `json:"chats_egress_ceiling,omitempty"`          // widest preset a chat may use: off, registries, all (default: off)
+	ChatsEgressDefault         *string `json:"chats_egress_default,omitempty"`          // preset of a new chat, capped by the ceiling (default: off)
+	ChatsEgressAllowPrivate    *bool   `json:"chats_egress_allow_private,omitempty"`    // let an administrator's rule reach private addresses (default: false)
+	ChatsEgressPorts           *string `json:"chats_egress_ports,omitempty"`            // ports a command may reach, comma separated (default: 80,443)
+	ChatsEgressExtraRegistries *string `json:"chats_egress_extra_registries,omitempty"` // host names added to the package registries, comma separated
+	ChatsEgressAllowedHosts    *string `json:"chats_egress_allowed_hosts,omitempty"`    // exact hosts (host or host:port) always allowed with the network on, comma separated
+	ChatsEgressAuditDays       *int    `json:"chats_egress_audit_days,omitempty"`       // days the network and host-command audits keep a line, 1 to 365 (default: 30)
+	// The step limit of the tool loop of one chat turn, 1 to 500 (default:
+	// 40). Read at each turn.
+	ChatsMaxIterations *int `json:"chats_max_iterations,omitempty"`
+	// The most turns the server starts by itself for one goal of a chat, 1 to
+	// 200 (default: 20), and the most model requests of one goal's turns, 1 to
+	// 10000 (default: 400). Read when a turn ends.
+	ChatsGoalMaxTurns *int `json:"chats_goal_max_turns,omitempty"`
+	ChatsGoalMaxSteps *int `json:"chats_goal_max_steps,omitempty"`
+	// The loops of the chats: the shortest interval (a duration, 30s to 24h,
+	// default 1m), the runs after which a loop ends (default 100), the loops
+	// one chat and one user may have (defaults 3 and 10), and the loop runs
+	// one user may start in a UTC day (default 200). Read at each use.
+	ChatsLoopMinInterval *string `json:"chats_loop_min_interval,omitempty"`
+	ChatsLoopMaxRuns     *int    `json:"chats_loop_max_runs,omitempty"`
+	ChatsLoopMaxPerChat  *int    `json:"chats_loop_max_per_chat,omitempty"`
+	ChatsLoopMaxPerUser  *int    `json:"chats_loop_max_per_user,omitempty"`
+	ChatsLoopDailyRuns   *int    `json:"chats_loop_daily_runs,omitempty"`
+	// Let a chat that switches it on call the user's saved agents as
+	// sub-agents (default: true). Read at each turn.
+	ChatsSavedAgents *bool `json:"chats_saved_agents,omitempty"`
+	// Name each chat's work folder in its prompt, so scripts, logs and drafts
+	// go there and not next to the user's files (default: true). Read at
+	// each turn.
+	ChatsWorkFolder *bool `json:"chats_work_folder,omitempty"`
+	// Read the text of PDF and Office files in the chats' files so that
+	// search finds them by what they say (default: true), and the most text
+	// kept for one file, 65536 to 16777216 bytes (default: 2097152).
+	ChatsIndexFiles        *bool `json:"chats_index_files,omitempty"`
+	ChatsIndexMaxTextBytes *int  `json:"chats_index_max_text_bytes,omitempty"`
+
+	// Offers from the assistant in the chats, for users who did not choose.
+	// Read at each turn, so a change applies at once.
+	ChatsSuggestions *bool `json:"chats_suggestions,omitempty"` // negation of DisableChatSuggestions (default: true)
+
 	// LocalAI Assistant settings — read live by the chat handler at request
 	// entry, so flipping the toggle takes effect on the next request.
 	LocalAIAssistantEnabled *bool `json:"localai_assistant_enabled,omitempty"` // negation of DisableLocalAIAssistant for UI clarity
+
+	// Pages of shared folders — read live by the pages handlers on every
+	// request, so switching them off stops open pages at their next call.
+	SharedPagesEnabled *bool `json:"shared_pages_enabled,omitempty"` // negation of DisableSharedPages
+
+	// Built-in chat tools (Settings > Tools) — read live at every turn.
+	// ChatsHostExec is who gets the built-in bash that runs commands on this
+	// machine with no isolation: off, ask or on; empty is the default (off
+	// with accounts, ask without). ChatsToolProviders pins, for a built-in tool
+	// or skill that several add-ons replace, the add-on that serves it.
+	ChatsHostExec      *string            `json:"chats_host_exec,omitempty"`
+	ChatsToolProviders *map[string]string `json:"chats_tool_providers,omitempty"`
 
 	// Branding / whitelabeling. Text fields are user-facing; *File fields hold
 	// just the basename of an uploaded asset under {DynamicConfigsDir}/branding/.

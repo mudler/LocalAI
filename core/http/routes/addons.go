@@ -57,6 +57,9 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	group.POST("/resources/:resourceId/delete", endpoints.DeleteResource(gw, db, mode))
 	// One data or schema change by the person's own action, with no card.
 	group.POST("/resources/:resourceId/apply", endpoints.ApplyResource(gw, db, mode))
+	// Undo of one change a chat made at once. The person's own browser session
+	// only, so no model, agent, key or MCP session can undo anything.
+	group.POST("/resources/:resourceId/changes/:changeId/undo", endpoints.UndoResourceChange(gw, db, mode))
 	group.GET("/resources/:resourceId/operations/:operationId", endpoints.GetResourceOperation(gw, db, mode))
 	// The resource a conversation works on. The stored reference is never a
 	// credential: the owner authorizes it again on every use.

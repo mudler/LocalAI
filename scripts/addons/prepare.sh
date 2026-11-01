@@ -17,7 +17,7 @@ node --version 2>/dev/null | grep -Eq '^v22\.([1-9][2-9]|[2-9][0-9]|[1-9][0-9]{2
 [ "$(protoc --version 2>/dev/null)" = 'libprotoc 26.1' ] || fail 'protoc 26.1 required; provision explicitly (Makefile downloader uses a different version)'
 if [ "$mode" = --check ]; then
     # Fail before invoking compilers or package managers if generated inputs are absent.
-    for file in pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go core/http/react-ui/dist/index.html; do
+    for file in pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go pkg/motion/proto/motion.pb.go core/http/react-ui/dist/index.html; do
         [ -s "$file" ] || fail "missing generated file: $file; run --integration explicitly"
     done
 fi
@@ -68,6 +68,8 @@ if [ "$mode" = --integration ]; then
     mkdir -p pkg/grpc/proto "$root/.cache/addons/tmp"
     export TMPDIR="$root/.cache/addons/tmp"
     protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative backend/backend.proto
+    # Same command as the protogen-go target of the Makefile.
+    protoc -Ipkg/motion/proto --go_out=pkg/motion/proto --go_opt=paths=source_relative pkg/motion/proto/motion.proto
     space
     (cd core/http/react-ui && npm run build)
     space

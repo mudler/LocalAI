@@ -7,7 +7,6 @@
 package tools
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,6 +18,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/addons/internal/hostclient"
+	"github.com/mudler/LocalAI/addons/internal/jobundo"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -135,56 +135,6 @@ type exportArgs struct {
 	Name         string `json:"name"`
 }
 
-// decode reads the arguments into a closed struct: an unknown field or
-// trailing data is a bad request.
-func decode(raw json.RawMessage, v any) error {
-	if len(raw) == 0 {
-		raw = json.RawMessage(`{}`)
-	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(v); err != nil {
-		return protocol.ErrBadRequest
-	}
-	if _, err := dec.Token(); err != io.EOF {
-		return protocol.ErrBadRequest
-	}
-	return nil
-}
-
-func toolOf(env contract.Envelope) (string, error) {
-	var a struct {
-		Tool string `json:"tool"`
-	}
-	if json.Unmarshal(env.Request.Arguments, &a) != nil || a.Tool == "" {
-		return "", protocol.ErrBadRequest
-	}
-	return a.Tool, nil
-}
-
-func payload(v any) json.RawMessage { b, _ := json.Marshal(v); return b }
-
-// mapErr turns the refusal of a host operation into the protocol error that
-// tells the owner what happened. A failure that does not say the request was
-// wrong stays as it is, and the owner reads it as uncertain.
-func mapErr(err error) error {
-	var he *contract.HostError
-	if !errors.As(err, &he) {
-		return err
-	}
-	switch he.Code {
-	case contract.HostBadRequest, contract.HostTooLarge:
-		return fmt.Errorf("%w: %s", protocol.ErrBadRequest, he.Message)
-	case contract.HostNotFound:
-		return fmt.Errorf("%w: %s", protocol.ErrNotFound, he.Message)
-	case contract.HostConflict:
-		return fmt.Errorf("%w: %s", protocol.ErrConflict, he.Message)
-	case contract.HostFeature, contract.HostScope:
-		return fmt.Errorf("%w: %s", protocol.ErrForbidden, he.Message)
-	}
-	return err
-}
-
 // jobOf is the job of the resource. A dataset resource is not a job.
 func (r *runtime) jobOf(env contract.Envelope) (job, error) {
 	j, ok := r.entryOf(env)
@@ -202,29 +152,31 @@ func (r *runtime) entryOf(env contract.Envelope) (job, bool) {
 }
 
 func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Result, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Result{}, err
 	}
 	op := env.Request.OperationID
 	switch tool {
+	case contract.ToolChangesGet:
+		return r.readChange(ctx, env)
 	case ToolResourceExists:
 		j, ok := r.j.job(env.Request.ResourceID)
 		if !ok {
-			return contract.Result{Payload: payload(map[string]bool{"exists": false})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": false})}, nil
 		}
 		if j.Dataset {
 			// The reference lives in the host and the journal; there is no
 			// engine job to ask.
-			return contract.Result{Payload: payload(map[string]bool{"exists": true})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": true})}, nil
 		}
 		err := r.eng.Do(ctx, op, "finetune.get", map[string]string{"jobId": j.JobID}, nil)
 		var he *contract.HostError
 		switch {
 		case err == nil:
-			return contract.Result{Payload: payload(map[string]bool{"exists": true})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": true})}, nil
 		case errors.As(err, &he) && he.Code == contract.HostNotFound:
-			return contract.Result{Payload: payload(map[string]bool{"exists": false})}, nil
+			return contract.Result{Payload: protocol.Payload(map[string]bool{"exists": false})}, nil
 		}
 		// The engine could not answer. The host settles a creation only on an
 		// explicit answer, so this is an error and never "does not exist".
@@ -235,12 +187,12 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		var a struct {
 			Tool string `json:"tool"`
 		}
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return contract.Result{}, err
 		}
 		var got json.RawMessage
 		if err := r.eng.Do(ctx, op, "finetune.list", nil, &got); err != nil {
-			return contract.Result{}, mapErr(err)
+			return contract.Result{}, protocol.FromHostError(err)
 		}
 		return contract.Result{Payload: got}, nil
 	case ToolStatus:
@@ -249,20 +201,20 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 			return contract.Result{}, protocol.ErrNotFound
 		}
 		if j.Dataset {
-			return contract.Result{Payload: payload(map[string]any{
+			return contract.Result{Payload: protocol.Payload(map[string]any{
 				"name": j.Name, "revision": contract.Revision{Schema: schema, Data: j.Revision}, "kind": "dataset", "datasetRef": j.Ref,
 			})}, nil
 		}
 		var got map[string]any
 		if err := r.eng.Do(ctx, op, "finetune.get", map[string]string{"jobId": j.JobID}, &got); err != nil {
-			return contract.Result{}, mapErr(err)
+			return contract.Result{}, protocol.FromHostError(err)
 		}
 		// The engine job ID stays in the add-on. The name and the revision
 		// are what the host reads to label and track the resource.
 		delete(got, "id")
 		got["name"] = j.Name
 		got["revision"] = contract.Revision{Schema: schema, Data: j.Revision}
-		return contract.Result{Payload: payload(got)}, nil
+		return contract.Result{Payload: protocol.Payload(got)}, nil
 	case ToolCheckpoints:
 		j, err := r.jobOf(env)
 		if err != nil {
@@ -270,7 +222,7 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 		}
 		var got json.RawMessage
 		if err := r.eng.Do(ctx, op, "finetune.checkpoints", map[string]string{"jobId": j.JobID}, &got); err != nil {
-			return contract.Result{}, mapErr(err)
+			return contract.Result{}, protocol.FromHostError(err)
 		}
 		return contract.Result{Payload: got}, nil
 	}
@@ -296,7 +248,7 @@ func checkExport(a exportArgs) error {
 }
 
 func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Preview, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Preview{}, err
 	}
@@ -304,7 +256,7 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 	switch tool {
 	case ToolStart:
 		var a startArgs
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return out, err
 		}
 		if err := r.checkStart(a); err != nil {
@@ -318,11 +270,11 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 			}
 		}
 		out.Revision = contract.Revision{Schema: schema, Data: 0}
-		out.Summary = payload(map[string]any{"count": 1, "sample": map[string]string{"action": "start fine-tuning job", "name": nameOf(a), "model": a.Model}})
+		out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": map[string]string{"action": "start fine-tuning job", "name": nameOf(a), "model": a.Model}})
 		return out, nil
 	case ToolDataset:
 		var a datasetArgs
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return out, err
 		}
 		if err := checkDataset(a); err != nil {
@@ -335,7 +287,7 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 		}
 		out.Revision = contract.Revision{Schema: schema, Data: 0}
 		// The card shows the name and the size, never the content.
-		out.Summary = payload(map[string]any{"count": 1, "sample": map[string]any{"action": "send dataset", "name": a.Name, "bytes": len(a.Content)}})
+		out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": map[string]any{"action": "send dataset", "name": a.Name, "bytes": len(a.Content)}})
 		return out, nil
 	case ToolStop, ToolExport:
 		j, err := r.jobOf(env)
@@ -345,13 +297,13 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 		sample := map[string]any{"name": j.Name}
 		if tool == ToolStop {
 			var a stopArgs
-			if err := decode(env.Request.Arguments, &a); err != nil {
+			if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 				return out, err
 			}
 			sample["action"], sample["saveCheckpoint"] = "stop fine-tuning job", a.SaveCheckpoint
 		} else {
 			var a exportArgs
-			if err := decode(env.Request.Arguments, &a); err != nil {
+			if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 				return out, err
 			}
 			if err := checkExport(a); err != nil {
@@ -360,7 +312,7 @@ func (r *runtime) Preview(_ context.Context, env contract.Envelope) (contract.Pr
 			sample["action"], sample["exportFormat"] = "export fine-tuned model", a.ExportFormat
 		}
 		out.Revision = contract.Revision{Schema: schema, Data: j.Revision}
-		out.Summary = payload(map[string]any{"count": 1, "sample": sample})
+		out.Summary = protocol.Payload(map[string]any{"count": 1, "sample": sample})
 		return out, nil
 	}
 	return out, protocol.ErrBadRequest
@@ -388,9 +340,12 @@ func nameOf(a startArgs) string {
 }
 
 func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract.Revision) (contract.Receipt, error) {
-	tool, err := toolOf(env)
+	tool, err := protocol.ToolOf(env)
 	if err != nil {
 		return contract.Receipt{}, err
+	}
+	if tool == contract.ToolChangesUndo {
+		return r.applyUndo(ctx, env, rev)
 	}
 	// An operation that already committed is answered from its receipt: the
 	// engine ran once and runs no more.
@@ -404,7 +359,7 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		return r.applyDataset(ctx, env)
 	case ToolStop:
 		var a stopArgs
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return contract.Receipt{}, err
 		}
 		return r.mutate(ctx, env, rev, "finetune.stop", func(id string) any {
@@ -412,7 +367,7 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 		})
 	case ToolExport:
 		var a exportArgs
-		if err := decode(env.Request.Arguments, &a); err != nil {
+		if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 			return contract.Receipt{}, err
 		}
 		if err := checkExport(a); err != nil {
@@ -434,7 +389,7 @@ func (r *runtime) Apply(ctx context.Context, env contract.Envelope, rev contract
 
 func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contract.Receipt, error) {
 	var a startArgs
-	if err := decode(env.Request.Arguments, &a); err != nil {
+	if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 		return contract.Receipt{}, err
 	}
 	if err := r.checkStart(a); err != nil {
@@ -458,19 +413,20 @@ func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contra
 		NumEpochs: a.NumEpochs, BatchSize: a.BatchSize, MaxSteps: a.MaxSteps, AdapterRank: a.AdapterRank, AdapterAlpha: a.AdapterAlpha,
 	}, &started)
 	if err != nil {
-		return contract.Receipt{}, mapErr(err)
+		return contract.Receipt{}, protocol.FromHostError(err)
 	}
 	if started.ID == "" {
 		return contract.Receipt{}, errors.New("the engine started a job and returned no ID")
 	}
 	rec := contract.Receipt{
 		OperationID: op, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: schema, Data: 1},
-		Result: contract.Result{Payload: payload(map[string]string{"status": started.Status, "message": started.Message})},
+		Result: contract.Result{Payload: jobundo.Merge(protocol.Payload(map[string]string{"status": started.Status, "message": started.Message}),
+			contract.UndoNote{ID: op, Available: true, Summary: contract.CleanUndoText(fmt.Sprintf("Stop the fine-tuning job %s while it runs", nameOf(a)))})},
 	}
 	// If this write fails the job runs without a mapping. The error is
 	// uncertain, so the host asks again with the same operation ID and the
 	// engine answers it with the same job.
-	if err := r.j.commit(res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1}, rec); err != nil {
+	if err := r.j.commit(res, &job{JobID: started.ID, Name: nameOf(a), Revision: 1, StartOp: op, StartedNS: r.now().UnixNano()}, rec); err != nil {
 		return contract.Receipt{}, err
 	}
 	return rec, nil
@@ -482,7 +438,7 @@ func (r *runtime) applyStart(ctx context.Context, env contract.Envelope) (contra
 // of the resource, which only the owner of the resource can read.
 func (r *runtime) applyDataset(ctx context.Context, env contract.Envelope) (contract.Receipt, error) {
 	var a datasetArgs
-	if err := decode(env.Request.Arguments, &a); err != nil {
+	if err := protocol.DecodeArgs(env.Request.Arguments, &a); err != nil {
 		return contract.Receipt{}, err
 	}
 	if err := checkDataset(a); err != nil {
@@ -499,14 +455,14 @@ func (r *runtime) applyDataset(ctx context.Context, env contract.Envelope) (cont
 		DatasetRef string `json:"datasetRef"`
 	}
 	if err := r.eng.Do(ctx, op, "finetune.dataset", map[string]string{"name": a.Name, "content": a.Content}, &stored); err != nil {
-		return contract.Receipt{}, mapErr(err)
+		return contract.Receipt{}, protocol.FromHostError(err)
 	}
 	if stored.DatasetRef == "" {
 		return contract.Receipt{}, errors.New("the engine stored a dataset and returned no reference")
 	}
 	rec := contract.Receipt{
 		OperationID: op, State: contract.ReceiptCommitted, Revision: contract.Revision{Schema: schema, Data: 1},
-		Result: contract.Result{Payload: payload(map[string]string{"datasetRef": stored.DatasetRef})},
+		Result: contract.Result{Payload: jobundo.Merge(protocol.Payload(map[string]string{"datasetRef": stored.DatasetRef}), contract.UndoNote{Reason: jobundo.ReasonDataset})},
 	}
 	if err := r.j.commit(res, &job{Name: a.Name, Dataset: true, Ref: stored.DatasetRef, Revision: 1}, rec); err != nil {
 		return contract.Receipt{}, err
@@ -524,11 +480,11 @@ func (r *runtime) mutate(ctx context.Context, env contract.Envelope, rev contrac
 	id := env.Request.OperationID
 	if rev.Schema != schema || rev.Data != j.Revision {
 		return contract.Receipt{OperationID: id, State: contract.ReceiptRejected,
-			Result: contract.Result{Payload: payload(map[string]any{"error": "stale", "revision": contract.Revision{Schema: schema, Data: j.Revision}})}}, nil
+			Result: contract.Result{Payload: protocol.Payload(map[string]any{"error": "stale", "revision": contract.Revision{Schema: schema, Data: j.Revision}})}}, nil
 	}
 	var out json.RawMessage
 	if err := r.eng.Do(ctx, id, op, args(j.JobID), &out); err != nil {
-		return contract.Receipt{}, mapErr(err)
+		return contract.Receipt{}, protocol.FromHostError(err)
 	}
 	next := j
 	next.Revision++
@@ -536,8 +492,13 @@ func (r *runtime) mutate(ctx context.Context, env contract.Envelope, rev contrac
 	if len(out) > 0 && json.Valid(out) {
 		rec.Result.Payload = out
 	} else {
-		rec.Result.Payload = payload(map[string]any{})
+		rec.Result.Payload = protocol.Payload(map[string]any{})
 	}
+	reason := jobundo.ReasonStop
+	if op == "finetune.export" {
+		reason = jobundo.ReasonExport
+	}
+	rec.Result.Payload = jobundo.Merge(rec.Result.Payload, contract.UndoNote{Reason: reason})
 	if err := r.j.commit(env.Request.ResourceID, &next, rec); err != nil {
 		return contract.Receipt{}, err
 	}

@@ -57,31 +57,30 @@ export const API_CONFIG = {
     p2pStats: '/api/p2p/stats',
     p2pToken: '/api/p2p/token',
 
-    // Chat history (server-side persistence, #9432)
-    conversations: '/api/conversations',
-    conversation: (id) => `/api/conversations/${encodeURIComponent(id)}`,
-    conversationsBulk: '/api/conversations/bulk',
-
-    // Agent jobs
-    agentTasks: '/api/agent/tasks',
-    agentTask: (id) => `/api/agent/tasks/${id}`,
-    executeAgentTask: (name) => `/api/agent/tasks/${name}/execute`,
-    agentJobs: '/api/agent/jobs',
-    agentJob: (id) => `/api/agent/jobs/${id}`,
-    cancelAgentJob: (id) => `/api/agent/jobs/${id}/cancel`,
-    executeAgentJob: '/api/agent/jobs/execute',
+    // Chats the server keeps: steering, sub-agents and live events
+    chats: '/api/chats',
+    chat: (id) => `/api/chats/${encodeURIComponent(id)}`,
+    chatMessages: (id) => `/api/chats/${encodeURIComponent(id)}/messages`,
+    chatPending: (id, pid) => `/api/chats/${encodeURIComponent(id)}/pending/${encodeURIComponent(pid)}`,
+    chatSendNow: (id) => `/api/chats/${encodeURIComponent(id)}/send-now`,
+    chatStop: (id) => `/api/chats/${encodeURIComponent(id)}/stop`,
+    chatGoal: (id) => `/api/chats/${encodeURIComponent(id)}/goal`,
+    chatGoalResume: (id) => `/api/chats/${encodeURIComponent(id)}/goal/resume`,
+    chatEvents: (id) => `/api/chats/${encodeURIComponent(id)}/events`,
+    files: '/api/chats/files',
+    filesContent: '/api/chats/files/content',
+    filesPreview: '/api/chats/files/preview',
+    filesFolders: '/api/chats/files/folders',
+    filesMove: '/api/chats/files/move',
+    filesTrash: '/api/chats/files/trash',
+    filesUndo: '/api/chats/files/undo',
+    filesHistory: '/api/chats/files/history',
+    filesSearch: '/api/chats/files/search',
 
     // Progress of a cold load still staging a model onto a worker
     modelLoadStatus: (id) => `/api/models/${encodeURIComponent(id)}/load-status`,
 
     // OpenAI-compatible endpoints
-    chatCompletions: '/v1/chat/completions',
-    mcpChatCompletions: '/v1/mcp/chat/completions',
-    mcpServers: (model) => `/v1/mcp/servers/${model}`,
-    mcpPrompts: (model) => `/v1/mcp/prompts/${model}`,
-    mcpGetPrompt: (model, prompt) => `/v1/mcp/prompts/${model}/${encodeURIComponent(prompt)}`,
-    mcpResources: (model) => `/v1/mcp/resources/${model}`,
-    mcpReadResource: (model) => `/v1/mcp/resources/${model}/read`,
     completions: '/v1/completions',
     imageGenerations: '/v1/images/generations',
     audioSpeech: '/v1/audio/speech',

@@ -1,0 +1,224 @@
+---
+name: 'sandbox tests'
+
+# Runs what the other workflows leave out for the Sandbox add-on:
+#   unit      the Go tests of addons/sandbox, the real-add-on end to end suite
+#             (tests/addons/actione2e), the UI unit tests of the add-on and the
+#             check of the privilege drop in entrypoint.sh
+#   gvisor    the gVisor integration suite, on amd64 and arm64, with the pinned
+#             runsc, its AppArmor profile loaded and the guest image built on
+#             the runner; then the release smoke test with the host required to
+#             run commands in gVisor
+#   kvm       the KVM integration suite, on a runner that has /dev/kvm. It
+#             skips cleanly, and says so, when the runner has none.
+#
+# The integration suites need SANDBOX_TEST_RUNSC and SANDBOX_TEST_IMAGE (gVisor)
+# or SANDBOX_TEST_IMAGE (KVM). When these are set, a backend that cannot start
+# fails the test: the suites must not pass by skipping.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'addons/sandbox/**'
+      - 'tests/addons/actione2e/**'
+      - 'scripts/addons/sandbox_smoke.sh'
+      - 'scripts/build/entrypoint-privileges_test.sh'
+      - 'entrypoint.sh'
+      - '.github/workflows/sandbox-tests.yml'
+  pull_request:
+    paths:
+      - 'addons/sandbox/**'
+      - 'tests/addons/actione2e/**'
+      - 'scripts/addons/sandbox_smoke.sh'
+      - 'scripts/build/entrypoint-privileges_test.sh'
+      - 'entrypoint.sh'
+      - '.github/workflows/sandbox-tests.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sandbox-tests-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    name: unit and end to end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Generate the gRPC stubs the host packages import
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Go tests of the add-on
+        run: go test -tags auth -count=1 ./addons/sandbox/...
+      - name: End to end with the real add-on process and the real supervisor
+        run: go test -tags auth -count=1 ./tests/addons/actione2e/...
+      - name: UI unit tests
+        run: |
+          npm ci --prefix core/http/react-ui
+          node addons/sandbox/ui/test/run.mjs
+      - name: Privilege drop of the image entrypoint
+        run: bash scripts/build/entrypoint-privileges_test.sh
+
+  gvisor:
+    name: gvisor ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Generate the gRPC stubs the host packages import
+        run: |
+          case "$(uname -m)" in aarch64) pb=aarch_64 ;; *) pb=x86_64 ;; esac
+          curl -L -s "https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-$pb.zip" -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Fetch the pinned runtime files
+        run: sh addons/sandbox/package/fetch-runtime.sh "linux/${{ matrix.arch }}" "$RUNNER_TEMP/runtime"
+      - name: Install runsc where its AppArmor profile names it
+        run: |
+          set -eu
+          mkdir -p "$HOME/gvisor"
+          cp "$RUNNER_TEMP/runtime/runsc" "$HOME/gvisor/runsc"
+          cp -r "$RUNNER_TEMP/runtime/gvisor-bin" "$HOME/gvisor/gvisor-bin"
+          chmod -R a+rx "$HOME/gvisor"
+          # The administrator step of the documentation: print the profile of
+          # this runsc and load it.
+          "$RUNNER_TEMP/runtime/gvisor-profile" "$HOME/gvisor/runsc" | sudo tee /etc/apparmor.d/localai-runsc
+          sudo apparmor_parser -r /etc/apparmor.d/localai-runsc
+      - uses: docker/setup-buildx-action@master
+      - name: Build the guest image as an OCI layout
+        id: image
+        run: |
+          set -eu
+          docker buildx build --provenance=false -f addons/sandbox/images/guest/Dockerfile \
+            --platform "linux/${{ matrix.arch }}" --output "type=oci,dest=$RUNNER_TEMP/guest.tar" .
+          mkdir -p "$RUNNER_TEMP/guest-layout"
+          tar -xf "$RUNNER_TEMP/guest.tar" -C "$RUNNER_TEMP/guest-layout"
+          digest=$(jq -r '.manifests[0].digest' "$RUNNER_TEMP/guest-layout/index.json")
+          case "$digest" in sha256:*) ;; *) echo "no manifest digest in the layout: $digest" >&2; exit 1 ;; esac
+          echo "ref=oci-layout:$RUNNER_TEMP/guest-layout@$digest" >> "$GITHUB_OUTPUT"
+      - name: gVisor integration suite
+        env:
+          SANDBOX_TEST_IMAGE: ${{ steps.image.outputs.ref }}
+        run: |
+          export SANDBOX_TEST_RUNSC="$HOME/gvisor/runsc"
+          go test -tags auth -count=1 -timeout 45m ./addons/sandbox/internal/sandbox/gvisor/
+      - name: Install the host UI build tools
+        # The smoke test packages the add-on, and the package build bundles
+        # the add-on UI with the bundler the host UI installs.
+        run: npm ci --prefix core/http/react-ui
+      - name: Release smoke test
+        env:
+          SANDBOX_GUEST_IMAGE: ${{ steps.image.outputs.ref }}
+          # The backends keep unix sockets under the test's data folder, and
+          # a socket path has at most 107 bytes: the default scratch folder in
+          # the checkout leaves too little room for it.
+          SANDBOX_SMOKE_WORK: /tmp/sandbox-smoke
+        run: |
+          set -eu
+          # The add-on copies runsc to its data folder, whose path changes with
+          # each run, so the profile of the fixed path does not apply to it.
+          # The runner allows the user namespaces instead.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sh scripts/addons/sandbox_smoke.sh --runtime-dir "$RUNNER_TEMP/runtime" --require isolated
+
+  kvm:
+    name: kvm amd64
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Look for /dev/kvm
+        id: kvm
+        run: |
+          set -u
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules || true
+          sudo udevadm trigger --name-match=kvm || true
+          if [ -w /dev/kvm ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::This runner has no usable /dev/kvm; the KVM suite is skipped."
+          fi
+      - uses: actions/setup-go@v6
+        if: steps.kvm.outputs.available == 'true'
+        with:
+          go-version-file: go.mod
+      - name: Generate the gRPC stubs the host packages import
+        if: steps.kvm.outputs.available == 'true'
+        run: |
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip
+          sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Install the pinned host programs
+        if: steps.kvm.outputs.available == 'true'
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap e2fsprogs zstd
+          sh addons/sandbox/package/fetch-runtime.sh linux/amd64 "$RUNNER_TEMP/runtime"
+          # The backend looks in the system folders; the add-on itself finds
+          # the copies in its package.
+          sudo install -m 0755 "$RUNNER_TEMP/runtime/cloud-hypervisor" "$RUNNER_TEMP/runtime/virtiofsd" /usr/local/bin/
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - uses: docker/setup-buildx-action@master
+        if: steps.kvm.outputs.available == 'true'
+      - name: Build the guest image as an OCI layout
+        id: image
+        if: steps.kvm.outputs.available == 'true'
+        run: |
+          set -eu
+          docker buildx build --provenance=false -f addons/sandbox/images/guest/Dockerfile \
+            --platform linux/amd64 --output "type=oci,dest=$RUNNER_TEMP/guest.tar" .
+          mkdir -p "$RUNNER_TEMP/guest-layout"
+          tar -xf "$RUNNER_TEMP/guest.tar" -C "$RUNNER_TEMP/guest-layout"
+          digest=$(jq -r '.manifests[0].digest' "$RUNNER_TEMP/guest-layout/index.json")
+          case "$digest" in sha256:*) ;; *) echo "no manifest digest in the layout: $digest" >&2; exit 1 ;; esac
+          echo "ref=oci-layout:$RUNNER_TEMP/guest-layout@$digest" >> "$GITHUB_OUTPUT"
+      - name: KVM integration suite
+        if: steps.kvm.outputs.available == 'true'
+        env:
+          SANDBOX_TEST_IMAGE: ${{ steps.image.outputs.ref }}
+        run: go test -tags auth -count=1 -timeout 45m ./addons/sandbox/internal/sandbox/chv/

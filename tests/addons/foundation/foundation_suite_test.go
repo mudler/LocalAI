@@ -135,6 +135,20 @@ func apps(c cluster.Client) (int, []app) {
 	return r.Status, out.Apps
 }
 
+// addonsOn is the add-on switch the frontend reports in /api/features: false
+// while it cannot reach the owner.
+func addonsOn(c cluster.Client) bool {
+	GinkgoHelper()
+	r, err := c.Do("GET", "/api/features", nil, nil)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(r.Status).To(Equal(200), r.String())
+	var out struct {
+		Addons bool `json:"addons"`
+	}
+	Expect(r.JSON(&out)).To(Succeed(), r.String())
+	return out.Addons
+}
+
 func appOf(c cluster.Client, id string) *app {
 	status, list := apps(c)
 	Expect(status).To(Equal(200))

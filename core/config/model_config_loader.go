@@ -249,7 +249,7 @@ func readModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*Model
 
 func readModelConfigsFromFileMeasured(file string, timing *loaderTimings, opts ...ConfigLoaderOption) (_ []*ModelConfig, resultErr error) {
 	start := timing.start()
-	f, err := os.ReadFile(file)
+	f, err := os.ReadFile(file) // #nosec G304 -- the path is a model config file the operator configured or one of the models directory
 	timing.add(diagnostics.PhaseReloadYAMLRead, start, err, 1)
 	if err != nil {
 		return nil, fmt.Errorf("readModelConfigsFromFile cannot read config file %q: %w", file, err)
@@ -262,6 +262,7 @@ func readModelConfigsFromFileMeasured(file string, timing *loaderTimings, opts .
 	if err := yaml.Unmarshal(f, &configs); err == nil && len(configs) > 0 {
 		for _, cc := range configs {
 			cc.modelConfigFile = file
+			cc.warnRemovedAgentOptions()
 			// Stamp before SetDefaults: the revision describes what is on disk.
 			// SetDefaults folds in the GGUF guess, hardware defaults and
 			// app-level options, none of which are persisted configuration, and
@@ -283,6 +284,7 @@ func readModelConfigsFromFileMeasured(file string, timing *loaderTimings, opts .
 	}
 
 	c.modelConfigFile = file
+	c.warnRemovedAgentOptions()
 	c.syncKnownUsecasesFromString()
 	if err := c.StampPersistedConfigRevision(); err != nil {
 		return nil, fmt.Errorf("stamping config revision for %q: %w", c.Name, err)

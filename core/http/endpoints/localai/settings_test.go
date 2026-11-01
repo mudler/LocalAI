@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
@@ -97,6 +98,162 @@ var _ = Describe("Settings endpoints", func() {
 		rec := post(`{"watchdog_idle_timeout":"notaduration"}`)
 		Expect(rec.Code).To(Equal(http.StatusBadRequest))
 		Expect(rec.Body.String()).To(ContainSubstring("Invalid watchdog_idle_timeout"))
+	})
+
+	It("rejects bad ports and a bad SearXNG address for the chats' web tools", func() {
+		rec := post(`{"chats_web_ports":"80,http"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_web_ports"))
+		rec = post(`{"chats_web_searxng_url":"file:///etc/passwd"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_web_searxng_url"))
+		rec = post(`{"chats_web_searxng_url":"https://u:p@searx.example.org"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		rec = post(`{"chats_web_search_providers":"duckduckgo,altavista"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_web_search_providers"))
+	})
+
+	It("switches the chats' web tools and keeps them on by default", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.DisableChatsWebSearch || cfg.DisableChatsWebFetch).To(BeFalse())
+		rec := post(`{"chats_web_search":false,"chats_web_ports":"80, 443, 8080","chats_web_searxng_url":"https://searx.example.org","chats_web_search_providers":"searxng,brave_html"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.DisableChatsWebSearch).To(BeTrue())
+		Expect(cfg.DisableChatsWebFetch).To(BeFalse())
+		Expect(cfg.ChatsWebPorts).To(Equal("80, 443, 8080"))
+		Expect(cfg.ChatsWebSearXNGURL).To(Equal("https://searx.example.org"))
+		Expect(cfg.ChatsWebSearchProviders).To(Equal("searxng,brave_html"))
+	})
+
+	It("rejects a host-commands mode and pins the chats do not understand", func() {
+		rec := post(`{"chats_host_exec":"always"}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_host_exec"))
+		rec = post(`{"chats_tool_providers":{"write_file":"files"}}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_tool_providers"))
+		rec = post(`{"chats_tool_providers":{"bash":"Not An ID"}}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest))
+		rec = post(`{"chats_tool_providers":{"writing-skills":"office"}}`)
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), "a built-in skill an add-on may not replace")
+	})
+
+	It("saves a pin for a built-in skill in the same map as the tools", func() {
+		rec := post(`{"chats_tool_providers":{"bash":"sandbox","xlsx":"office"}}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(app.ApplicationConfig().ChatsToolProviders).To(Equal(map[string]string{"bash": "sandbox", "xlsx": "office"}))
+	})
+
+	It("saves the host-commands mode and a pin", func() {
+		rec := post(`{"chats_host_exec":"ask","chats_tool_providers":{"bash":"sandbox"}}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(app.ApplicationConfig().ChatsHostExec).To(Equal("ask"))
+		Expect(app.ApplicationConfig().ChatsToolProviders).To(Equal(map[string]string{"bash": "sandbox"}))
+	})
+
+	It("checks the Sandbox network settings and asks for the phrase to reach private addresses", func() {
+		for body, want := range map[string]string{
+			`{"chats_egress_ceiling":"wide"}`:                                          "Invalid chats_egress_ceiling",
+			`{"chats_egress_default":"everything"}`:                                    "Invalid chats_egress_default",
+			`{"chats_egress_ports":"443,22"}`:                                          "Invalid chats_egress_ports",
+			`{"chats_egress_ports":"443,25"}`:                                          "Invalid chats_egress_ports",
+			`{"chats_egress_extra_registries":"*.example.com"}`:                        "Invalid chats_egress_extra_registries",
+			`{"chats_egress_extra_registries":"0x7f.1"}`:                               "Invalid chats_egress_extra_registries",
+			`{"chats_egress_allowed_hosts":"*.example.com"}`:                           "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"https://example.com"}`:                     "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"example.com:22"}`:                          "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_allowed_hosts":"10.0.0.5"}`:                                "Invalid chats_egress_allowed_hosts",
+			`{"chats_egress_audit_days":0}`:                                            "Invalid chats_egress_audit_days",
+			`{"chats_egress_audit_days":366}`:                                          "Invalid chats_egress_audit_days",
+			`{"chats_index_max_text_bytes":1024}`:                                      "Invalid chats_index_max_text_bytes",
+			`{"chats_index_max_text_bytes":33554432}`:                                  "Invalid chats_index_max_text_bytes",
+			`{"chats_egress_allow_private":true}`:                                      "chats_egress_private_confirm",
+			`{"chats_egress_allow_private":true,"chats_egress_private_confirm":"yes"}`: "chats_egress_private_confirm",
+		} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring(want), body)
+		}
+		cfg := app.ApplicationConfig()
+		Expect(cfg.ChatsEgressAllowPrivate).To(BeFalse())
+		rec := post(`{"chats_egress_ceiling":"registries","chats_egress_default":"registries","chats_egress_ports":"443","chats_egress_extra_registries":"Mirror.Example.org, pypi.internal.example","chats_egress_allowed_hosts":"API.example.com, git.example.org:8443, 10.0.0.5","chats_egress_audit_days":7,` +
+			`"chats_egress_allow_private":true,"chats_egress_private_confirm":"` + config.EgressPrivatePhrase + `"}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.ChatsEgressCeiling).To(Equal("registries"))
+		Expect(cfg.ChatsEgressDefault).To(Equal("registries"))
+		Expect(cfg.ChatsEgressPorts).To(Equal("443"))
+		Expect(cfg.ChatsEgressAllowedHosts).To(Equal("API.example.com, git.example.org:8443, 10.0.0.5"), "an IP literal is accepted in the same request that turns the private switch on")
+		Expect(cfg.ChatsEgressAuditDays).To(Equal(7))
+		Expect(cfg.ChatsEgressAllowPrivate).To(BeTrue())
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring(config.EgressPrivatePhrase), "the phrase is not stored")
+		// Already on: saving it again needs no phrase.
+		rec = post(`{"chats_egress_allow_private":true}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+	})
+
+	It("checks and saves the step limit of a chat turn", func() {
+		Expect(app.ApplicationConfig().EffectiveChatsMaxIterations()).To(Equal(config.DefaultChatsMaxIterations), "unset: the default")
+		for _, body := range []string{`{"chats_max_iterations":0}`, `{"chats_max_iterations":501}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_max_iterations"), body)
+		}
+		rec := post(`{"chats_max_iterations":80}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(app.ApplicationConfig().ChatsMaxIterations).To(Equal(80))
+		Expect(app.ApplicationConfig().EffectiveChatsMaxIterations()).To(Equal(80))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_max_iterations": 80`))
+	})
+
+	It("checks and saves the limits of a chat's goal", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsGoalMaxTurns()).To(Equal(config.DefaultChatsGoalMaxTurns), "unset: the default")
+		Expect(cfg.EffectiveChatsGoalMaxSteps()).To(Equal(config.DefaultChatsGoalMaxSteps), "unset: the default")
+		for body, msg := range map[string]string{
+			`{"chats_goal_max_turns":0}`:     "Invalid chats_goal_max_turns",
+			`{"chats_goal_max_turns":201}`:   "Invalid chats_goal_max_turns",
+			`{"chats_goal_max_steps":0}`:     "Invalid chats_goal_max_steps",
+			`{"chats_goal_max_steps":10001}`: "Invalid chats_goal_max_steps",
+		} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring(msg), body)
+		}
+		rec := post(`{"chats_goal_max_turns":5,"chats_goal_max_steps":90}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsGoalMaxTurns()).To(Equal(5))
+		Expect(cfg.EffectiveChatsGoalMaxSteps()).To(Equal(90))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_goal_max_turns": 5`))
+		Expect(string(raw)).To(ContainSubstring(`"chats_goal_max_steps": 90`))
+	})
+
+	It("checks and saves the limits of the loops of the chats", func() {
+		cfg := app.ApplicationConfig()
+		Expect(cfg.EffectiveChatsLoopMinInterval()).To(Equal(config.DefaultChatsLoopMinInterval), "unset: the default")
+		Expect(cfg.EffectiveChatsLoopMaxPerChat()).To(Equal(config.DefaultChatsLoopMaxPerChat))
+		for _, body := range []string{`{"chats_loop_min_interval":"10s"}`, `{"chats_loop_min_interval":"soon"}`,
+			`{"chats_loop_max_runs":0}`, `{"chats_loop_max_per_chat":21}`, `{"chats_loop_max_per_user":0}`, `{"chats_loop_daily_runs":100001}`} {
+			rec := post(body)
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), body)
+			Expect(rec.Body.String()).To(ContainSubstring("Invalid chats_loop_"), body)
+		}
+		rec := post(`{"chats_loop_min_interval":"2m","chats_loop_max_runs":50,"chats_loop_max_per_chat":2,"chats_loop_max_per_user":5,"chats_loop_daily_runs":40}`)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(cfg.EffectiveChatsLoopMinInterval()).To(Equal(2 * time.Minute))
+		Expect(cfg.EffectiveChatsLoopMaxRuns()).To(Equal(50))
+		Expect(cfg.EffectiveChatsLoopMaxPerChat()).To(Equal(2))
+		Expect(cfg.EffectiveChatsLoopMaxPerUser()).To(Equal(5))
+		Expect(cfg.EffectiveChatsLoopDailyRuns()).To(Equal(40))
+		raw, err := os.ReadFile(filepath.Join(tmp, "runtime_settings.json"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"chats_loop_min_interval": "2m`))
 	})
 
 	It("errors when DynamicConfigsDir is unset", func() {

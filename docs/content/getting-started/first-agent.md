@@ -5,66 +5,36 @@ weight = 7
 icon = "smart_toy"
 +++
 
-LocalAGI is embedded in LocalAI. There is nothing separate to install or run.
-
-The agent platform ships inside the LocalAI binary and container image, and it is enabled by default. If you already have LocalAI running and a model installed, you have everything you need to build an agent. This page walks you from an empty Agents page to an agent that answers a message and uses one tool.
+A saved agent is a set of instructions and exact lists of what a chat may use. It ships inside LocalAI and is on by default. If LocalAI runs and a model is installed, you have everything you need.
 
 ## Before you start: install a tool-calling model
 
-An agent is a loop around a chat model, so it needs a model that supports tool (function) calling. This guide uses `qwen3-4b`, a small CPU-friendly Qwen3 model that supports tool calling. It is the same model used in the [Quickstart]({{% relref "getting-started/quickstart" %}}), so if you followed that page you already have it.
+An agent that uses tools needs a model that can call them. Open **Models**, install a model that lists tool calling, and check that it answers a plain chat first.
 
-Install it either from the web interface or from the CLI:
+## Make the agent
 
-- **Web interface:** open the **Models** page at `http://localhost:8080`, search for `qwen3-4b`, and click **Install**.
-- **CLI:**
+1. Open **Agents** in the sidebar.
+2. Choose **New agent**. Give it a name and the instructions it should always follow, for example: `Answer in French. Cite the file you used.`
+3. Leave the lists empty for an agent that only talks. Add an MCP server of the model, an add-on, a collection or a skill to give it more. An empty list grants nothing: an agent never has more than you put in it.
+4. Save it.
 
-```bash
-local-ai run qwen3-4b
-```
+## Talk to it
 
-For other ways to install models (Hugging Face, OCI, local files), see the [model gallery]({{% relref "features/model-gallery" %}}).
+On the Agents page, choose **Chat** on the agent's row and write a message. The chat uses the agent's model when it has one. If you remove something the agent lists, for example by deleting a collection, the chat still starts without it and tells the model what is missing.
 
-## Give the agent a model
+## Let it work by itself
 
-An agent with no model set cannot answer. The agent has nothing to send your message to, so it will fail to respond until you assign it a model. You can set the model in two ways:
+Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the agent and a prompt. Each run is an ordinary chat of yours, and the result arrives in your **Inbox**. Add a [Telegram connector](/features/chats-connectors/) to talk to the agent from your phone.
 
-- **Per agent:** choose `qwen3-4b` in the agent's **Model** field when you create or edit it (covered below). This is the usual choice.
-- **As a default for every new agent:** start LocalAI with an environment variable so new agents are created with that model already selected:
+## If your agent will not run
 
-```bash
-LOCALAI_AGENT_POOL_DEFAULT_MODEL=qwen3-4b
-```
-
-Setting a per-agent model always overrides the default.
-
-## Create the agent
-
-1. Open the **Agents** page in the web interface.
-2. Click **Create Agent**.
-3. Fill in the form:
-   - **Name:** for example `helper`.
-   - **Model:** select `qwen3-4b`.
-   - **System prompt:** a short instruction that sets the agent's behavior, for example `You are a concise, helpful assistant.`
-   - **Action:** add one simple action so the agent has a tool to call. A search action is a good first choice. Some actions need credentials (for example an API key); pick one whose requirements you can satisfy, or start with an action that needs none.
-4. Save the agent.
-
-## Send a message
-
-Open the new agent from the Agents page, type a task in its task box, for example `Hello, what can you do?`, and press **Start run**. The run page shows the agent working and then its answer, within a few seconds. When the agent decides to use the action you configured, the step count and the tool in use show live, and the report lists what the tool returned.
-
-That is a complete agent: a model, a system prompt, and one tool, all running inside your LocalAI process.
-
-## If your imported agent will not run
-
-If you imported an agent from the [Agent Hub](https://agenthub.localai.io) or a JSON file and it does not respond, work through this checklist. Each symptom maps to a fix:
-
-- **The agent does not answer at all:** the model it references is not installed. Open the **Models** page and install the model named in the agent's configuration (or change the agent's model to one you have, such as `qwen3-4b`).
-- **An action always fails:** the action is missing its API keys or other credentials. Open the agent's action configuration and supply the required keys.
-- **A tool times out or is unavailable:** the MCP server that provides it is unreachable. Confirm the MCP server is running and that the agent points at the correct address.
-- **A skill the agent expects is not available:** skills are disabled by default. Start LocalAI with `LOCALAI_AGENT_POOL_ENABLE_SKILLS=true` to turn the skills service on (the default is `LOCALAI_AGENT_POOL_ENABLE_SKILLS=false`).
+- **No model.** An agent without a model needs one when you start the chat. A trigger or a connector needs an agent that names a model.
+- **A tool is missing.** The chat lists what was unavailable at the start of the turn. Check that the MCP server is configured on the model, the add-on is enabled, and the collection or skill still exists.
+- **A server of the model is unreachable.** An MCP server that does not answer makes its tools time out. Open the model's `mcp:` configuration and test the server.
+- **A trigger did not start.** Open it on the **Triggers** page: it shows why a run was skipped or failed.
 
 ## Next steps
 
-- [Model gallery]({{% relref "features/model-gallery" %}}) - install more models, including larger tool-calling models for more capable agents.
-- [Agent actions catalog]({{% relref "features/agent-actions" %}}) - the full list of built-in actions an agent can use and how to configure them.
-- [Agent-scoped MCP]({{% relref "features/mcp" %}}) - connect an agent to external Model Context Protocol servers to give it more tools.
+- [Saved agents, triggers and inbox](/features/chats-agents/)
+- [Telegram connector](/features/chats-connectors/)
+- [Moving from the old chat and agents](/features/chats-migration/)

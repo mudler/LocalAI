@@ -72,12 +72,12 @@ test.describe('Editorial design system', () => {
     await expect(btn.locator('svg[data-icon]')).toHaveCount(1)
   })
 
-  test('page reveal animation is defined on .page-transition', async ({ page }) => {
+  test('the page reveal rises in with the shared homeRise keyframes on .page-transition', async ({ page }) => {
     await page.goto('/app/settings')
     const pt = page.locator('.page-transition').first()
     await expect(pt).toBeVisible({ timeout: 15_000 })
     const name = await pt.evaluate(el => getComputedStyle(el).animationName)
-    expect(name).toBe('pageReveal')
+    expect(name).toBe('homeRise')
   })
 })
 
@@ -123,12 +123,12 @@ test.describe('Shared UI kit theme', () => {
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
   })
 
-  test('the page reveal is a 250ms fade', async ({ page }) => {
+  test('the page reveal lasts the page duration token, 180ms', async ({ page }) => {
     await page.goto('/app/settings')
     const pt = page.locator('.page-transition').first()
     await expect(pt).toBeVisible({ timeout: 15_000 })
     const duration = await pt.evaluate((el) => getComputedStyle(el).animationDuration)
-    expect(duration).toBe('0.25s')
+    expect(duration).toBe('0.18s')
   })
 
   test('the current sidebar row lifts onto a card', async ({ page }) => {

@@ -1,0 +1,151 @@
+/* The page of a connector add-on. Flat lists and hairlines, like the chats
+   pages of the host. Controls come from the kit (dk-*); this sheet only lays
+   them out, and uses tokens only. */
+
+.cn-page {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-4);
+  padding: var(--dk-space-5) var(--dk-space-6);
+  overflow-y: auto;
+}
+
+.cn-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
+
+.cn-title { margin: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--font-weight-semibold); }
+
+.cn-muted { margin: 0; color: var(--color-text-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
+
+.cn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+
+.cn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dk-space-3);
+  padding: var(--dk-space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.cn-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.cn-row__name { font-weight: var(--font-weight-semibold); }
+
+.cn-row__actions { display: flex; align-items: center; gap: var(--dk-space-2); flex: none; }
+
+/* Fields on the left, a sticky aside on the right from 1024 px. */
+.cn-formgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--dk-space-5); align-items: start; }
+
+.cn-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-4);
+  max-width: 640px;
+  padding: var(--dk-space-5);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+}
+
+.cn-aside { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-aside__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.cn-aside__steps { margin: 0 0 var(--dk-space-3); padding-left: var(--dk-space-5); display: flex; flex-direction: column; gap: var(--dk-space-1); color: var(--color-text-muted); font-size: var(--fs-small); line-height: var(--lh-small); }
+
+@media (min-width: 1024px) {
+  .cn-formgrid { grid-template-columns: minmax(0, 640px) minmax(240px, 320px); }
+  .cn-aside { position: sticky; top: var(--dk-space-4); padding-left: var(--dk-space-5); border-left: 1px solid var(--color-border-subtle); }
+}
+
+/* Sections of the form: a quiet heading and a hairline, not a bordered box. */
+fieldset.cn-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dk-space-3);
+  min-width: 0;
+  margin: 0;
+  padding: var(--dk-space-4) 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.cn-group legend { float: left; width: 100%; margin: 0; padding: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.cn-group legend + * { clear: both; }
+
+.cn-actions { display: flex; gap: var(--dk-space-2); }
+
+.cn-link { background: none; border: 0; padding: 0 var(--dk-space-1); color: inherit; cursor: pointer; font: inherit; }
+.ui-callout__text .cn-link { margin-left: var(--dk-space-2); }
+.ui-callout__text .cn-notice__text { margin: 0 0 var(--dk-space-2); }
+
+@media (max-width: 900px) {
+  .cn-page { padding: var(--dk-space-4); }
+  .cn-row { flex-wrap: wrap; align-items: flex-start; }
+  .cn-row__actions { flex-wrap: wrap; }
+  .cn-form { padding: var(--dk-space-4); }
+}
+
+/* Help text: two lines, then a "More" control. */
+.cn-hint { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.cn-hint__text:not(.is-open) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.cn-hint__more { padding: 0; border: 0; background: none; cursor: pointer; font: inherit; font-size: var(--fs-meta); color: var(--dk-accent-text); }
+.cn-hint__more:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Allowlists: chips and an input with an Add button, all 36 px. */
+.cn-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
+.cn-add { display: flex; gap: var(--dk-space-2); }
+.cn-add .dk-input { flex: 1; min-width: 0; }
+
+/* Radio cards: one real radio per card. */
+.cn-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--dk-space-2); }
+.cn-card {
+  display: flex;
+  align-items: center;
+  gap: var(--dk-space-3);
+  min-height: var(--ctl-h);
+  padding: var(--dk-space-2) var(--dk-space-3);
+  border: 1px solid var(--dk-control-edge);
+  border-radius: var(--r-md);
+  background: var(--dk-card);
+  cursor: pointer;
+  font-size: var(--fs-body);
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.cn-card:hover { border-color: color-mix(in srgb, var(--dk-control-edge) 70%, var(--dk-text)); }
+.cn-card.is-on { border-color: var(--dk-accent); background: var(--dk-accent-wash); }
+.cn-card:has(:focus-visible) { outline: 2px solid var(--dk-accent); outline-offset: 2px; }
+
+/* A switch with its label and help. */
+.cn-switchrow { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); min-height: var(--ctl-h); font-size: var(--fs-body); }
+.cn-switchfield { display: flex; flex-direction: column; gap: var(--dk-space-1); }
+
+.cn-status { font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.cn-status--done { color: var(--color-success, var(--color-text-secondary)); }
+.cn-status--failed { color: var(--color-error, var(--color-text-secondary)); }
+.cn-status--skipped { color: var(--color-warning, var(--color-text-secondary)); }
+
+.cn-runs { margin: var(--dk-space-2) 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--dk-space-1); font-size: var(--fs-small); }
+.cn-runs li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
+
+.cn-help { max-width: 640px; }
+.cn-help summary { cursor: pointer; color: var(--color-text-secondary); font-size: var(--fs-small); }
+.cn-help ol { margin: var(--dk-space-2) 0; padding-left: var(--dk-space-5); display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.cn-code {
+  margin: var(--dk-space-2) 0 0;
+  padding: var(--dk-space-3);
+  max-height: 320px;
+  overflow: auto;
+  border-radius: var(--r-md);
+  background: var(--color-bg-secondary);
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-meta);
+  white-space: pre;
+}
+
+.cn-answer__window .dk-input { max-width: 10rem; }

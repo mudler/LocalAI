@@ -1,20 +1,50 @@
 // eslint-disable-next-line no-unused-vars
-import { Link } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { recordStats, stripOf, STRIP_LENGTH } from '../../utils/agentRuns'
+import { useAuth } from '../../context/AuthContext'
+import { useHubAuth } from '../hub/useHubAuth'
+// eslint-disable-next-line no-unused-vars
+import StatusChip from '../ui/StatusChip'
 import Icon from '../Icon'
 
-// A state in words with its dot. The dot never carries the meaning alone.
-const STATUS_DOT = { running: 'accent', done: 'ok', failed: 'error', stopped: '', ready: '', paused: 'warn' }
+// The Agents area's states drawn with the product's status chip: a tone, an
+// icon and the words. A run in flight spins; amber is kept for decisions, so
+// a paused trigger is idle, not a warning.
+const STATUS_TONE = { running: 'accent', done: 'ok', failed: 'error', stopped: 'idle', ready: 'idle', paused: 'idle' }
 
 export function StatusMark({ status, label }) {
   const { t } = useTranslation('agents')
-  const dot = STATUS_DOT[status]
+  const tone = STATUS_TONE[status] || 'idle'
   return (
-    <span className="ag-state" data-state={status}>
-      <span className={`dk-dot${dot ? ` dk-dot--${dot}` : ''}`} aria-hidden="true" />
-      {label || t(`state.${status}`)}
-    </span>
+    <StatusChip
+      className="ag-state"
+      status={status === 'running' ? 'starting' : undefined}
+      tone={tone}
+      label={label || t(`state.${status}`)}
+    />
+  )
+}
+
+// The views of the Agents area, as one underline row: the agents, their
+// triggers and the background tasks. A view the server or the account does
+// not offer is left out; with only one view left the row is not drawn.
+export function AgentViews() {
+  const { t } = useTranslation('agents')
+  const { hasFeature } = useAuth()
+  const { features } = useHubAuth()
+  const views = [
+    { to: '/app/agents', label: t('views.agents'), end: true },
+    hasFeature('triggers') && features.triggers !== false && { to: '/app/triggers', label: t('actions.triggers') },
+    hasFeature('mcp_jobs') && features.agent_jobs !== false && { to: '/app/agent-tasks', label: t('actions.tasks') },
+  ].filter(Boolean)
+  if (views.length < 2) return null
+  return (
+    <nav className="ag-views" aria-label={t('views.label')}>
+      {views.map(v => (
+        <NavLink key={v.to} to={v.to} end={v.end} className="ag-view">{v.label}</NavLink>
+      ))}
+    </nav>
   )
 }
 
@@ -62,20 +92,16 @@ export function Chip({ to, icon, children, mono = false, count, title }) {
     : <span className={cls} title={title}>{body}</span>
 }
 
-// Memory and skills an agent has switched on, as chips that open the shared
-// Library pages. An agent with none says so.
+// The collections and skills an agent may use, as chips that open the shared
+// Library and the skills page. An agent with none says so.
 export function LibraryChips({ info, kind }) {
   const { t } = useTranslation('agents')
   if (kind === 'memory') {
     if (info.memory.length === 0) return <span className="ag-muted">{t('chips.none')}</span>
-    return info.memory.map(m => (
-      <Chip key={m} to="/app/collections" icon="database">{t(`chips.memory.${m === 'knowledge' ? 'knowledge' : 'longTerm'}`)}</Chip>
-    ))
+    return info.memory.map(m => <Chip key={m} to="/app/collections" icon="database">{m}</Chip>)
   }
   if (info.skills.length === 0) return <span className="ag-muted">{t('chips.none')}</span>
-  return info.skills.map(s => (
-    <Chip key={s} to="/app/skills" icon="sparkles">{s === 'all' ? t('chips.allSkills') : s}</Chip>
-  ))
+  return info.skills.map(s => <Chip key={s} to="/app/skills" icon="sparkles">{s}</Chip>)
 }
 
 export function formatWhen(ts, now = Date.now()) {
@@ -98,10 +124,6 @@ function yesterdayWord() {
   }
 }
 
-export function userQuery(userId) {
-  return userId ? `?user_id=${encodeURIComponent(userId)}` : ''
-}
-
-export function agentPath(name, userId, tail = '') {
-  return `/app/agents/${encodeURIComponent(name)}${tail}${userQuery(userId)}`
+export function agentPath(id, tail = '') {
+  return `/app/agents/${encodeURIComponent(id)}${tail}`
 }

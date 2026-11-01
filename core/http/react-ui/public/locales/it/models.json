@@ -1,5 +1,6 @@
 {
   "lifecycle": {
+    "supporting": "Trova un modello adatto a questa macchina, installalo e gestisci quelli che hai.",
     "title": "Models",
     "navLabel": "Model lifecycle",
     "views": { "explore": "Explore", "installed": "Installed" },
@@ -81,6 +82,10 @@
     "delete": "Elimina"
   },
   "filters": {
+    "sheetDone": "Mostra modelli",
+    "sheetTitle": "Filtri",
+    "sheetButtonCount": "Filtri ({{count}})",
+    "sheetButton": "Filtri",
     "all": "Tutti",
     "llm": "LLM",
     "image": "Immagine",

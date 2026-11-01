@@ -31,8 +31,8 @@ import {
 import Icon from '../components/Icon'
 
 const USE_CASES = [
-  { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chat/${encodeURIComponent(id)}` },
-  { cap: CAP_COMPLETION, labelKey: 'completion', route: id => `/app/chat/${encodeURIComponent(id)}`, hideIf: CAP_CHAT },
+  { cap: CAP_CHAT, labelKey: 'chat', route: id => `/app/chats?model=${encodeURIComponent(id)}` },
+  { cap: CAP_COMPLETION, labelKey: 'completion', route: id => `/app/chats?model=${encodeURIComponent(id)}`, hideIf: CAP_CHAT },
   { cap: CAP_IMAGE, labelKey: 'image', route: id => `/app/image/${encodeURIComponent(id)}` },
   { cap: CAP_VIDEO, labelKey: 'video', route: id => `/app/video/${encodeURIComponent(id)}` },
   { cap: CAP_TTS, labelKey: 'tts', route: id => `/app/tts/${encodeURIComponent(id)}` },

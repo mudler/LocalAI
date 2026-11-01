@@ -1,0 +1,57 @@
+{
+  "backends": {
+    "filterLabel": "Filtra i backend",
+    "check": "Cerca aggiornamenti",
+    "reinstallBackend": "Reinstalla il backend",
+    "deleteBackend": "Elimina il backend",
+    "updateAllTitle": "Aggiorna tutti i backend",
+    "updateAllIntro": "Scegli quali backend aggiornare. Ognuno viene aggiornato da solo, uno dopo l'altro. Un errore non ferma gli altri.",
+    "updateSelected": "Aggiorna selezione",
+    "loadFailedTitle": "Impossibile caricare il catalogo dei backend.",
+    "filtersButton": "Filtri",
+    "filtersDone": "Fatto",
+    "filterGroups": {
+      "state": "Stato",
+      "type": "Tipo",
+      "show": "Mostra",
+      "library": "Libreria"
+    },
+    "showVariants": "Varianti",
+    "showDevelopment": "Build di sviluppo",
+    "allLibraries": "Tutte le librerie",
+    "moreActions": "Altre azioni sui backend",
+    "installFromUrl": "Installa da URL…",
+    "manageLibraries": "Gestisci librerie…",
+    "count_one": "{{count}} backend",
+    "count_other": "{{count}} backend",
+    "countOf": "{{shown}} di {{total}} backend",
+    "activeFilters": "Filtri attivi",
+    "removeFilter": "Rimuovi filtro: {{name}}",
+    "checking": "Ricerca aggiornamenti…",
+    "updatesAvailable_one": "{{count}} aggiornamento disponibile",
+    "updatesAvailable_other": "{{count}} aggiornamenti disponibili",
+    "reviewUpdates": "Rivedi",
+    "close": "Chiudi",
+    "installedLoadFailedTitle": "Impossibile caricare i backend installati."
+  },
+  "capacity": {
+    "diskChip": "Disco quasi pieno"
+  },
+  "activity": {
+    "kind": {
+      "addon": "add-on"
+    },
+    "verb": {
+      "upgrading": "Aggiornamento {{kind}}",
+      "failedUpgrade": "Impossibile aggiornare {{kind}}"
+    },
+    "filter": {
+      "addons": "Add-on"
+    },
+    "upgradeVersions": "da {{from}} a {{to}}",
+    "rowUpgraded": "Aggiornato in {{duration}}",
+    "rowUpgradedPlain": "Aggiornato",
+    "viewInAddons": "Vedi in Add-on",
+    "upgradeWaiting": "In attesa dell'avvio del servizio dei componenti aggiuntivi. Prossimo controllo tra {{seconds}} s."
+  }
+}

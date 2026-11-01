@@ -119,8 +119,8 @@ func fineTuneSpecs(b *Broker, ft FineTuner, backends BackendLister) []Spec {
 			if backend == "" {
 				backend = "trl"
 			}
-			if !contains(backends.FineTune(), backend) {
-				return nil, fmt.Errorf("%w: backend is not a fine-tuning backend", ErrBadRequest)
+			if err := requireEngine("fine-tuning", backend, backends.FineTune()); err != nil {
+				return nil, err
 			}
 			resp, err := ft.Start(ctx, userKey(c), schema.FineTuneJobRequest{
 				Model: a.Model, Backend: backend, TrainingType: a.TrainingType, TrainingMethod: a.TrainingMethod,
@@ -202,8 +202,8 @@ func quantizeSpecs(q Quantizer, backends BackendLister) []Spec {
 			if backend == "" {
 				backend = "llama-cpp-quantization"
 			}
-			if !contains(backends.Quantization(), backend) {
-				return nil, fmt.Errorf("%w: backend is not a quantization backend", ErrBadRequest)
+			if err := requireEngine("quantization", backend, backends.Quantization()); err != nil {
+				return nil, err
 			}
 			resp, err := q.Start(ctx, userKey(c), schema.QuantizationJobRequest{
 				Model: a.Model, Backend: backend, QuantizationType: a.QuantizationType,
@@ -309,6 +309,23 @@ func jobIDArg(raw json.RawMessage) (string, error) {
 func validRef(s string) bool {
 	return s != "" && len(s) <= maxRefBytes && s[0] != '/' && s[0] != '.' &&
 		!strings.Contains(s, "..") && !strings.Contains(s, `\`)
+}
+
+// engineName is the shape of a backend name. The name is echoed in the refusal
+// below, so it must not carry anything but a name.
+var engineName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+
+// requireEngine refuses a start whose engine is not installed. The answer names
+// the engine, in a short fixed sentence that the add-on can pass on to the
+// person, so a missing engine is not mistaken for a bad argument.
+func requireEngine(kind, backend string, installed []string) error {
+	if !engineName.MatchString(backend) {
+		return refusedField("backend")
+	}
+	if !contains(installed, backend) {
+		return fmt.Errorf("%w: %s engine %s is not installed", ErrBadRequest, kind, backend)
+	}
+	return nil
 }
 
 // refusedField is the 400 answer for a reference field that is not an id. It

@@ -33,6 +33,9 @@ type PackageReceipt struct {
 	// Icon is set only when the manifest declares one and the package holds a
 	// valid immutable file of the declared type.
 	Icon *PackageIcon `json:"icon,omitempty"`
+	// Skills lists the files of each skill the manifest declares, with their
+	// digests, so the copy into the chats' skill layer checks them again.
+	Skills []PackageSkill `json:"skills,omitempty"`
 }
 
 // StagedPackage is an opaque, single-use capability bound to the creating installer.

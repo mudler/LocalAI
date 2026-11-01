@@ -1,0 +1,57 @@
+{
+  "brand": "{{name}} Explorer",
+  "openApp": "Abrir LocalAI",
+  "close": "Cerrar",
+  "copy": "Copiar",
+  "copied": "Copiado",
+  "loading": "Cargando swarms",
+  "title": "Swarms públicos",
+  "lede": "Un swarm es un grupo de máquinas que comparten la inferencia de modelos a través de una red peer-to-peer. Esta lista muestra los swarms cuyos dueños han decidido hacerlos públicos. Cualquiera que tenga el token de un swarm puede unirse.",
+  "count_one": "{{count}} swarm en línea",
+  "count_other": "{{count}} swarms en línea",
+  "sorted": "Primero los que tienen más workers",
+  "workers_one": "worker",
+  "workers_other": "workers",
+  "tokenTitle": "El inicio y el final del token. Cópialo desde Cómo unirse.",
+  "warning": "Explorer es una lista comunitaria de tokens de swarms. Cualquiera puede usar un token para enviar trabajo a un swarm o compartir recursos con él. Úsalo bajo tu propio riesgo.",
+  "listed": "El swarm está en la lista.",
+  "empty": {
+    "title": "Ningún swarm tiene workers en línea",
+    "text": "Solo se muestran los swarms con al menos un worker en línea. Añade el tuyo a la lista para hacerlo público."
+  },
+  "off": {
+    "title": "Este servidor no es un explorer",
+    "text": "La página Explorer necesita un servidor LocalAI iniciado en modo explorer. Este no tiene una lista de swarms que mostrar."
+  },
+  "error": {
+    "title": "No se pudieron cargar los swarms",
+    "text": "El servidor explorer no respondió. Comprueba que esté en marcha y vuelve a intentarlo.",
+    "retry": "Reintentar"
+  },
+  "join": {
+    "open": "Cómo unirse",
+    "title": "Unirse a {{name}}",
+    "text": "Inicia un worker de LocalAI con el token de este swarm.",
+    "token": "Token",
+    "federated": "Clúster federado {{id}}. Inicia un nodo en él con cualquiera de los dos comandos.",
+    "docker": "Con Docker",
+    "cli": "Con la línea de comandos",
+    "noCommands": "Los workers de este swarm comparten cómputo a través de su token. El token de arriba es lo que necesita un nodo para unirse.",
+    "docs": "Lee cómo funcionan los swarms"
+  },
+  "list": {
+    "open": "Listar un swarm",
+    "title": "Listar un swarm",
+    "text": "Añade un swarm a la lista pública. Aparece cuando tiene un worker en línea.",
+    "name": "Nombre",
+    "description": "Descripción",
+    "token": "Token",
+    "tokenHint": "El token de red del swarm, tal como lo mostró el servidor.",
+    "public": "Listar publica el token. Cualquiera que vea la lista puede usar los workers de tu swarm.",
+    "understood": "Entiendo que el token se hará público.",
+    "cancel": "Cancelar",
+    "add": "Listar este swarm",
+    "adding": "Listando...",
+    "failed": "No se pudo listar el swarm."
+  }
+}

@@ -9,9 +9,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/studiohistory"
 )
 
-// studioHistoryError maps store errors onto HTTP status codes, like
-// chatHistoryError: a deleted entry is 410 Gone, so a browser holding a stale
-// copy drops it instead of retrying.
+// studioHistoryError maps store errors onto HTTP status codes: a deleted
+// entry is 410 Gone, so a browser holding a stale copy drops it instead of
+// retrying.
 func studioHistoryError(c echo.Context, err error) error {
 	switch {
 	case errors.Is(err, studiohistory.ErrInvalidID), errors.Is(err, studiohistory.ErrInvalidUserID),

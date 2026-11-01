@@ -12,7 +12,6 @@ type Stores struct {
 	Gallery  *GalleryStore
 	FineTune *FineTuneStore
 	Quant    *QuantStore
-	Skills   *SkillStore
 }
 
 // InitStores creates and migrates all Phase 4 distributed stores.
@@ -32,16 +31,10 @@ func InitStores(db *gorm.DB) (*Stores, error) {
 		return nil, fmt.Errorf("quantization store: %w", err)
 	}
 
-	skills, err := NewSkillStore(db)
-	if err != nil {
-		return nil, fmt.Errorf("skills store: %w", err)
-	}
-
-	xlog.Info("Distributed stores initialized (Gallery, FineTune, Quant, Skills)")
+	xlog.Info("Distributed stores initialized (Gallery, FineTune, Quant)")
 	return &Stores{
 		Gallery:  gallery,
 		FineTune: ft,
 		Quant:    quant,
-		Skills:   skills,
 	}, nil
 }

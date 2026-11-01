@@ -84,7 +84,6 @@ var _ = Describe("DistributedConfig flag-name constants", func() {
 		Entry("health check interval", config.FlagHealthCheckInterval, "health-check-interval"),
 		Entry("stale node threshold", config.FlagStaleNodeThreshold, "stale-node-threshold"),
 		Entry("node heartbeat checkpoint", config.FlagNodeHeartbeatCheckpoint, "node-heartbeat-checkpoint"),
-		Entry("MCP CI job timeout", config.FlagMCPCIJobTimeout, "mcp-ci-job-timeout"),
 		Entry("backend install timeout", config.FlagBackendInstallTimeout, "backend-install-timeout"),
 		Entry("backend upgrade timeout", config.FlagBackendUpgradeTimeout, "backend-upgrade-timeout"),
 		Entry("model load timeout", config.FlagModelLoadTimeout, "model-load-timeout"),
@@ -142,6 +141,30 @@ var _ = Describe("DistributedConfig.Validate negative-duration errors", func() {
 		err := c.Validate()
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).To(ContainSubstring(config.FlagModelLoadTimeout))
+		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
+	It("rejects a negative ChatWorkerMaxTurns with the flag name in the error", func() {
+		c := config.DistributedConfig{
+			Enabled:            true,
+			NatsURL:            "nats://localhost:4222",
+			ChatWorkerMaxTurns: -1,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagChatWorkerMaxTurns))
+		Expect(err.Error()).To(ContainSubstring("must not be negative"))
+	})
+
+	It("rejects a negative ChatStartTimeout with the flag name in the error", func() {
+		c := config.DistributedConfig{
+			Enabled:          true,
+			NatsURL:          "nats://localhost:4222",
+			ChatStartTimeout: -1 * time.Second,
+		}
+		err := c.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring(config.FlagChatStartTimeout))
 		Expect(err.Error()).To(ContainSubstring("must not be negative"))
 	})
 

@@ -43,6 +43,20 @@ type DistributedConfig struct {
 	// false preserves the historical per-node staging behavior.
 	SharedModels bool // --distributed-shared-models / LOCALAI_DISTRIBUTED_SHARED_MODELS
 
+	// ChatWorkers sends the turns of the unattended chat runs (triggers, jobs,
+	// connector messages) to chat workers. With none listening a turn runs on
+	// this frontend.
+	ChatWorkers bool // --distributed-chat-workers / LOCALAI_DISTRIBUTED_CHAT_WORKERS
+	// ChatWorker makes this instance a chat worker: it runs the turns that
+	// frontends send it and starts no triggers, connectors or jobs.
+	ChatWorker bool // --chat-worker / LOCALAI_CHAT_WORKER
+	// ChatStartTimeout is the budget of a chat start that a frontend sends to a
+	// chat worker. Zero means the default (30s, nodes.DefaultChatStartTimeout).
+	ChatStartTimeout time.Duration // --chat-start-timeout / LOCALAI_CHAT_START_TIMEOUT
+	// ChatWorkerMaxTurns is, on a chat worker, the most turns it runs at once.
+	// A start beyond it is refused and its run fails. Zero: no cap.
+	ChatWorkerMaxTurns int // --chat-worker-max-turns / LOCALAI_CHAT_WORKER_MAX_TURNS
+
 	// NATS JWT auth (optional; see pkg/natsauth and docs/features/distributed-mode.md)
 	NatsAccountSeed  string        // LOCALAI_NATS_ACCOUNT_SEED — account signing seed to mint per-node worker JWTs
 	NatsServiceJWT   string        // LOCALAI_NATS_SERVICE_JWT — user JWT for frontends / agent workers
@@ -80,8 +94,6 @@ type DistributedConfig struct {
 	// model-row cleanup on MarkUnhealthy / MarkDraining).
 	DisablePerModelHealthCheck bool
 
-	MCPCIJobTimeout time.Duration // MCP CI job execution timeout (default 10m)
-
 	BackendInstallTimeout time.Duration // NATS round-trip timeout for backend.install (default 15m)
 	BackendUpgradeTimeout time.Duration // NATS round-trip timeout for backend.upgrade (default 15m)
 	// ModelLoadTimeout is the gRPC deadline for the remote LoadModel call the
@@ -102,8 +114,6 @@ type DistributedConfig struct {
 	ModelLoadWait time.Duration
 
 	MaxUploadSize int64 // Maximum upload body size in bytes (default 50 GB)
-
-	AgentWorkerConcurrency int `yaml:"agent_worker_concurrency" json:"agent_worker_concurrency" env:"LOCALAI_AGENT_WORKER_CONCURRENCY"`
 
 	// DiskHeadroomDisabled turns off the scheduler's free-disk admission check,
 	// restoring the pre-#11054 behaviour where node selection ignores whether a
@@ -179,14 +189,17 @@ func (c DistributedConfig) Validate() error {
 		FlagHealthCheckInterval:     c.HealthCheckInterval,
 		FlagStaleNodeThreshold:      c.StaleNodeThreshold,
 		FlagNodeHeartbeatCheckpoint: c.NodeHeartbeatCheckpoint,
-		FlagMCPCIJobTimeout:         c.MCPCIJobTimeout,
 		FlagBackendInstallTimeout:   c.BackendInstallTimeout,
 		FlagBackendUpgradeTimeout:   c.BackendUpgradeTimeout,
 		FlagModelLoadTimeout:        c.ModelLoadTimeout,
+		FlagChatStartTimeout:        c.ChatStartTimeout,
 	} {
 		if d < 0 {
 			return fmt.Errorf("%s must not be negative", name)
 		}
+	}
+	if c.ChatWorkerMaxTurns < 0 {
+		return fmt.Errorf("%s must not be negative", FlagChatWorkerMaxTurns)
 	}
 	if c.ModelConfigResyncInterval < 0 {
 		return fmt.Errorf("%s must not be negative", FlagModelConfigResyncInterval)
@@ -388,6 +401,37 @@ var EnableDistributedSharedModels = func(o *ApplicationConfig) {
 	o.Distributed.SharedModels = true
 }
 
+// EnableDistributedChatWorkers sends unattended chat turns to chat workers
+// (see DistributedConfig.ChatWorkers).
+var EnableDistributedChatWorkers = func(o *ApplicationConfig) {
+	o.Distributed.ChatWorkers = true
+}
+
+// WithChatStartTimeout sets the budget of a chat start sent to a chat worker
+// (see DistributedConfig.ChatStartTimeout). Zero keeps the default.
+func WithChatStartTimeout(d time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ChatStartTimeout = d
+	}
+}
+
+// DefaultChatWorkerMaxTurns is the default of --chat-worker-max-turns.
+const DefaultChatWorkerMaxTurns = 32
+
+// WithChatWorkerMaxTurns sets the most turns a chat worker runs at once (see
+// DistributedConfig.ChatWorkerMaxTurns). Zero means no cap.
+func WithChatWorkerMaxTurns(n int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.Distributed.ChatWorkerMaxTurns = n
+	}
+}
+
+// EnableChatWorker makes this instance a chat worker (see
+// DistributedConfig.ChatWorker).
+var EnableChatWorker = func(o *ApplicationConfig) {
+	o.Distributed.ChatWorker = true
+}
+
 // DisableDiskHeadroomCheck turns off the scheduler's free-disk admission
 // check (see DistributedConfig.DiskHeadroomDisabled). The check is enabled by
 // default in distributed mode.
@@ -438,11 +482,12 @@ const (
 	FlagHealthCheckInterval     = "health-check-interval"
 	FlagStaleNodeThreshold      = "stale-node-threshold"
 	FlagNodeHeartbeatCheckpoint = "node-heartbeat-checkpoint"
-	FlagMCPCIJobTimeout         = "mcp-ci-job-timeout"
 	FlagBackendInstallTimeout   = "backend-install-timeout"
 	FlagBackendUpgradeTimeout   = "backend-upgrade-timeout"
 	FlagModelLoadTimeout        = "model-load-timeout"
 	FlagModelLoadWait           = "model-load-wait"
+	FlagChatStartTimeout        = "chat-start-timeout"
+	FlagChatWorkerMaxTurns      = "chat-worker-max-turns"
 	// FlagDiskHeadroomCheck names the disk-headroom toggle. It is quoted in
 	// the warning the check emits while disabled, so the operator reading a
 	// log line knows exactly which knob produced it.
@@ -471,7 +516,6 @@ const (
 	// health check and by request-time failure, neither of which reads this.
 	DefaultStaleNodeThreshold      = 5 * time.Minute
 	DefaultNodeHeartbeatCheckpoint = 60 * time.Second
-	DefaultMCPCIJobTimeout         = 10 * time.Minute
 	DefaultBackendInstallTimeout   = 15 * time.Minute
 	DefaultBackendUpgradeTimeout   = 15 * time.Minute
 	DefaultModelLoadTimeout        = 5 * time.Minute
@@ -586,11 +630,6 @@ func (c DistributedConfig) StaleNodeThresholdOrDefault() time.Duration {
 // write per beat sets a value below the heartbeat interval instead.
 func (c DistributedConfig) NodeHeartbeatCheckpointOrDefault() time.Duration {
 	return cmp.Or(c.NodeHeartbeatCheckpoint, DefaultNodeHeartbeatCheckpoint)
-}
-
-// MCPCIJobTimeoutOrDefault returns the configured MCP CI job timeout or the default.
-func (c DistributedConfig) MCPCIJobTimeoutOrDefault() time.Duration {
-	return cmp.Or(c.MCPCIJobTimeout, DefaultMCPCIJobTimeout)
 }
 
 // MaxUploadSizeOrDefault returns the configured max upload size or the default.

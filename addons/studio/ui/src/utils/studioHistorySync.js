@@ -1,5 +1,4 @@
-// Server-side Studio history (/api/studio/history), modeled on the chat
-// history sync of the host (core/http/react-ui/src/hooks/useChat.js).
+// Server-side Studio history (/api/studio/history).
 //
 // The server is the record when it answers: LocalAI runs with accounts (the
 // store exists only then) and the user has the studio_history feature. The
@@ -9,7 +8,7 @@
 // server does not answer (no accounts: 404; feature revoked: 403; offline)
 // the Studio keeps using the plain localStorage keys, as before.
 //
-// Merge rules, as for chats: a server tombstone always wins; an entry on both
+// Merge rules: a server tombstone always wins; an entry on both
 // sides takes the server's copy; an entry only in the browser is uploaded if
 // it was never synced (no serverVersion) and dropped if it was (deleted or
 // trimmed elsewhere); an entry only on the server is added.

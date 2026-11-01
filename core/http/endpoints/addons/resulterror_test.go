@@ -188,6 +188,24 @@ var _ = Describe("dispatch failure responses on the registered route", func() {
 			}
 		}
 	})
+	It("names every typed cause of a failed install in the 403 of the dispatch route", func() {
+		spec, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "swagger", "swagger.json"))
+		Expect(e).NotTo(HaveOccurred())
+		var doc struct {
+			Paths map[string]map[string]struct {
+				Responses map[string]struct {
+					Description string `json:"description"`
+				} `json:"responses"`
+			} `json:"paths"`
+		}
+		Expect(json.Unmarshal(spec, &doc)).To(Succeed())
+		forbidden := doc.Paths["/api/addons/dispatch"]["post"].Responses["403"].Description
+		for _, cause := range []string{managerpkg.CauseLibraryUnavailable, managerpkg.CauseLibraryConflict, managerpkg.CauseReleaseNotFound,
+			managerpkg.CausePackageFetch, managerpkg.CauseInstallStorage} {
+			Expect(gateway.IsOperationCause(cause)).To(BeTrue(), cause)
+			Expect(forbidden).To(ContainSubstring(cause))
+		}
+	})
 	It("reports an unavailable read as plain unavailability", func() {
 		call := serve(&gateway.Gateway{Revalidate: allow, Admission: openAdmission{}, Resolver: boundResolver{}, Runtime: deadRuntime{}})
 		code, body := call("read-op", "read")

@@ -2,7 +2,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { isAddonToolName, proposalReference, storedResult } from '../../src/addons/proposalResult.js'
 import { approvalState, confirmCall, proposalFacts } from '../../src/addons/approval.js'
-import { availableChatActions } from '../../src/components/chat/chatActions.js'
 
 const proposal = (over = {}) => ({
   id: 'tabc123', addonId: 'tables', resourceId: 'db-one', generation: 1, action: 'write',
@@ -95,11 +94,4 @@ test('tools: a confirmation names the displayed proposal and its digest and noth
   assert.deepEqual(call.body, { digest: 'ab'.repeat(32) })
   assert.equal(confirmCall(proposal({ digest: '' })), null)
   assert.equal(confirmCall(proposal({ id: 'a/../b' })), null)
-})
-
-test('tools: the add-on tools switch is offered only when an add-on offers tools', () => {
-  const ids = (ctx) => availableChatActions(ctx).map(a => a.id)
-  assert.equal(ids({ isAdmin: false, hasModels: true, hasThread: false }).includes('addon-tools'), false)
-  assert.equal(ids({ isAdmin: false, hasModels: true, hasThread: false, hasAddonTools: true }).includes('addon-tools'), true)
-  assert.equal(ids({ isAdmin: false, hasModels: true, hasThread: false, hasAddonTools: true }).includes('assistant'), false)
 })

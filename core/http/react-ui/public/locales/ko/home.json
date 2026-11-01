@@ -25,7 +25,10 @@
     "title": "채팅으로 LocalAI 관리",
     "description": "LocalAI와 대화하여 모델을 설치하고, 백엔드를 전환하고, 구성을 편집하고, 상태를 확인하세요.",
     "open": "어시스턴트 열기",
-    "tooltip": "채팅으로 LocalAI 관리"
+    "tooltip": "채팅으로 LocalAI 관리",
+    "noModel": "먼저 채팅 모델을 선택하세요.",
+    "startFailed": "어시스턴트 채팅을 시작할 수 없습니다: {{message}}",
+    "chatTitle": "LocalAI 어시스턴트"
   },
   "input": {
     "placeholder": "메시지...",
@@ -79,13 +82,17 @@
       "step2Title": "모델 설치",
       "step2Body": "설치를 클릭하면 자동으로 다운로드되고 구성됩니다.",
       "step3Title": "채팅 시작",
-      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요."
+      "step3Body": "브라우저에서 바로 모델과 채팅하거나 API를 사용하세요.",
+      "sandboxTitle": "코드를 안전하게 실행 (선택)",
+      "sandboxBody": "Sandbox 애드온을 설치하면 모델이 코드와 명령을 격리된 환경에서 실행합니다. 설치하지 않으면 명령이 이 컴퓨터에서 바로 실행되며, 네트워크에 완전히 접근하고 격리가 없습니다."
     },
     "browseGallery": "모델 갤러리 둘러보기",
     "importModel": "모델 가져오기",
     "docs": "문서",
     "noModelsTitle": "사용 가능한 모델 없음",
-    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요."
+    "noModelsBody": "아직 설치된 모델이 없습니다. 채팅을 시작할 수 있도록 관리자에게 모델 설정을 요청하세요.",
+    "sandboxInstall": "Sandbox 설치",
+    "sandboxSkip": "건너뛰기"
   },
   "connect": {
     "title": "하나의 엔드포인트, 모든 API",
@@ -105,7 +112,23 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operate": "관리",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "모든 채팅"
+  },
+  "slash": {
+    "agents": {
+      "label": "에이전트",
+      "desc": "저장된 에이전트, 트리거, 스킬"
+    },
+    "mcp": {
+      "label": "MCP 커넥터",
+      "desc": "채팅이 쓸 수 있는 MCP 서버"
+    },
+    "memory": {
+      "label": "메모리",
+      "desc": "채팅이 검색할 수 있는 컬렉션"
+    },
+    "complete": "완성"
   }
 }

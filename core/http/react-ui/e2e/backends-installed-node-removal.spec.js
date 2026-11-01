@@ -185,10 +185,12 @@ test('catalog target uses the same confirmed exact-node flow', async ({ page }) 
 test('cold installed failure is not empty success, and retry recovers', async ({ page }) => {
   const s = await setup(page, { failRefresh: true })
   await page.goto('/app/backends?view=installed&show_all=1&development=1')
-  await expect(page.getByRole('button', { name: 'Retry backend refresh' })).toBeVisible()
+  // A list that never loaded is the page's load error, the same as the catalog's.
+  const loadError = page.getByTestId('load-error')
+  await expect(loadError).toContainText('Could not load the installed backends')
   await expect(page.getByText('No backends installed', { exact: true })).toHaveCount(0)
   s.failRefresh = false
-  await page.getByRole('button', { name: 'Retry backend refresh' }).click()
+  await loadError.getByRole('button', { name: 'Try again' }).click()
   await expect(page.locator(`[data-entity="${BUILD}"]`)).toBeVisible()
 })
 
@@ -227,7 +229,11 @@ for (const initial of [true, false]) test(`unsuccessful ${initial ? 'initial' : 
     s.failRefresh = true
     await page.route('**/api/operations', route => route.fulfill({ json: { operations: [{ name: SIBLING, jobID: 'synthetic-job', isQueued: true }] } }))
   }
-  const retry = page.getByRole('button', { name: 'Retry backend refresh' })
+  // A list that never loaded shows the load error; a list on screen keeps its
+  // rows and offers the refresh.
+  const retry = initial
+    ? page.getByTestId('load-error').getByRole('button', { name: 'Try again' })
+    : page.getByRole('button', { name: 'Retry backend refresh' })
   await expect(retry).toBeVisible({ timeout: 15000 })
   const before = s.installedCalls
   await retry.click()
@@ -322,7 +328,10 @@ const clearTarget = page => page.evaluate(() => {
   history.pushState({}, '', url)
   dispatchEvent(new PopStateEvent('popstate'))
 })
-const genericRemove = page => page.locator('.bk-remove')
+// Generic catalog removal is "Delete backend" in the row menu, so the menu is
+// opened before the item is checked or clicked.
+const genericRemove = page => page.getByRole('menuitem', { name: 'Delete backend' })
+const openRowMenu = page => page.locator(`[data-entity="${BUILD}"]`).getByRole('button', { name: `Actions for ${BUILD}` }).click()
 
 // A synthetic click must not bypass the disabled control.
 const dispatchClick = locator => locator.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
@@ -339,6 +348,7 @@ test('generic removal stays blocked during scoped postdelete refresh after targe
   await expect(page.getByRole('alertdialog')).toBeHidden()
   await expect.poll(() => s.installedCalls).toBeGreaterThan(1)
   await clearTarget(page)
+  await openRowMenu(page)
   await expect(genericRemove(page)).toBeDisabled()
   await dispatchClick(genericRemove(page))
   await expect(page.getByRole('alertdialog')).toBeHidden()
@@ -360,6 +370,7 @@ test('generic removal rechecks scoped conflict after dependency lookup', async (
   })
   await catalogTarget(page)
   await clearTarget(page)
+  await openRowMenu(page)
   await genericRemove(page).click()
   await expect.poll(() => capabilitiesStarted).toBe(true)
   // The generic lookup is pending, so a scoped confirmation can start first.
@@ -385,7 +396,7 @@ test('generic confirmation rechecks current row conflict', async ({ page }) => {
     globalDeletes.push(route.request().url())
     return route.fulfill({ json: { message: 'removed' } })
   })
-  await catalogTarget(page); await clearTarget(page); await genericRemove(page).click()
+  await catalogTarget(page); await clearTarget(page); await openRowMenu(page); await genericRemove(page).click()
   await expect(page.getByRole('alertdialog')).toBeVisible()
   await page.route('**/api/operations', route => route.fulfill({ json: { operations: [{ name: BUILD, jobID: 'synthetic-job', isQueued: true }] } }))
   await expect(page.locator(`[data-entity="${BUILD}"]`)).toContainText('Queued', { timeout: 15000 })
@@ -405,7 +416,7 @@ for (const beforeConfirm of [false, true]) test(`generic deletion blocks targete
   })
   await catalogTarget(page)
   if (beforeConfirm) {
-    await clearTarget(page); await genericRemove(page).click()
+    await clearTarget(page); await openRowMenu(page); await genericRemove(page).click()
     await expect(page.getByRole('alertdialog')).toBeVisible()
     // Restore the target while the existing generic confirmation remains open.
     await page.evaluate(id => {
@@ -425,6 +436,7 @@ for (const beforeConfirm of [false, true]) test(`generic deletion blocks targete
     await expect(page.getByRole('alertdialog')).toBeHidden()
   } else {
     await clearTarget(page)
+    await openRowMenu(page)
     await expect(genericRemove(page)).toBeDisabled()
     await dispatchClick(genericRemove(page))
     await expect(page.getByRole('alertdialog')).toBeHidden()

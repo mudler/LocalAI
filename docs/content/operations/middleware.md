@@ -65,8 +65,6 @@ The Responses WebSocket mode (`GET /v1/responses`) is not HTTP middleware
 either, so it cannot filter: a `response.create` for a model with PII
 filtering enabled is refused with the error type `pii_unsupported_transport`
 instead of being served unfiltered. Use `POST /v1/responses` for those models.
-Requests whose `model` names an agent are handed to the agent pool before
-model resolution and are not filtered by the per-model policy.
 
 Stored history loaded through `previous_response_id` or `item_reference`
 is resolved after filtering and is not scanned against the current model's

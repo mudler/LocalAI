@@ -1,0 +1,10 @@
+# The Python libraries that the guest image installs with pip. Debian packages
+# the others (pypdf, pandas, Pillow). The Paper packages import as docx,
+# openpyxl and pptx and replace python-docx, openpyxl and python-pptx: never
+# install the upstream packages next to them.
+paper-docx==0.2.0
+paper-xlsx==0.2.1
+paper-pptx==0.2.0
+reportlab==4.5.1
+pdfplumber==0.11.10
+pdf2image==1.17.0

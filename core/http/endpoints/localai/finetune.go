@@ -42,9 +42,7 @@ func StartFineTuneJobEndpoint(ftService *finetune.FineTuneService) echo.HandlerF
 
 		resp, err := ftService.StartJob(c.Request().Context(), userID, req)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"error": err.Error(),
-			})
+			return jobStartFailure(c, "fine-tuning", err)
 		}
 
 		return c.JSON(http.StatusCreated, resp)

@@ -87,6 +87,18 @@ func register(ft FineTuner, q Quantizer) map[string]Spec {
 	return b.specs
 }
 
+// registerWithout is register with a host that has no engine installed.
+func registerWithout(ft FineTuner, q Quantizer) map[string]Spec {
+	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
+	Expect(RegisterEngineJobs(b, ft, q, noBackends{})).To(Succeed())
+	return b.specs
+}
+
+type noBackends struct{}
+
+func (noBackends) FineTune() []string     { return nil }
+func (noBackends) Quantization() []string { return nil }
+
 func specs(ft FineTuner) map[string]Spec {
 	return register(ft, nil)
 }
@@ -144,6 +156,16 @@ var _ = Describe("Fine-tuning and quantization job operations", func() {
 			s := specs(&fakeFT{})
 			_, err := call(s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data","backend":"llama-cpp"}`)
 			Expect(err).To(MatchError(ErrBadRequest))
+		})
+
+		It("start names the missing fine-tuning engine, the default one included", func() {
+			s := registerWithout(&fakeFT{}, nil)
+			_, err := call(s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data"}`)
+			Expect(err).To(MatchError(ErrBadRequest))
+			Expect(err.Error()).To(ContainSubstring("fine-tuning engine trl is not installed"))
+			_, err = call(s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data","backend":"../x"}`)
+			Expect(err).To(MatchError(ErrBadRequest))
+			Expect(err.Error()).NotTo(ContainSubstring(".."))
 		})
 
 		It("start refuses a field that is not in the tool schema", func() {
@@ -233,6 +255,13 @@ var _ = Describe("Fine-tuning and quantization job operations", func() {
 			s := register(nil, &fakeQ{})
 			_, err := call(s["quantize.start"], "named-user", "u1", `{"model":"org/base","backend":"trl"}`)
 			Expect(err).To(MatchError(ErrBadRequest))
+		})
+
+		It("start names the missing quantization engine, the default one included", func() {
+			s := registerWithout(nil, &fakeQ{})
+			_, err := call(s["quantize.start"], "named-user", "u1", `{"model":"org/base"}`)
+			Expect(err).To(MatchError(ErrBadRequest))
+			Expect(err.Error()).To(ContainSubstring("quantization engine llama-cpp-quantization is not installed"))
 		})
 
 		It("start refuses a field that is not in the tool schema", func() {

@@ -3,6 +3,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'r
 import { useTranslation } from 'react-i18next'
 import Icon from '../components/Icon'
 import { RegistryContext } from './registryContext'
+import { useAuth } from '../context/AuthContext'
 import { useSlotContributions } from './useAddonRegistry'
 import SlotBoundary from './SlotBoundary'
 import { SLOTS, slotProps } from './slots'
@@ -22,14 +23,16 @@ import { SLOTS, slotProps } from './slots'
 
 // A component contribution in its own root. The add-on's scoped style sheet
 // reaches only this element (see cssScope.js).
-function Contributed({ c, props, label }) {
+// A section is a block: an inline-flex root would lay a form out in a row.
+function Contributed({ c, props, label, block = false }) {
   const View = c.Component
+  const Root = block ? 'div' : 'span'
   return (
-    <span className="ad-slot" data-addon={c.addonId} data-contribution={c.id} data-testid="addon-contribution">
+    <Root className={block ? 'ad-slot ad-slot--block' : 'ad-slot'} data-addon={c.addonId} data-contribution={c.id} data-testid="addon-contribution">
       <SlotBoundary label={label}>
         <View {...props} />
       </SlotBoundary>
-    </span>
+    </Root>
   )
 }
 
@@ -154,20 +157,32 @@ function ComposerMenu({ items, props, label, openLabel }) {
   )
 }
 
-// settings.sections: one titled section per contribution, under a heading the
-// host draws with the add-on's own title and icon.
-function Sections({ items, props, label }) {
+// settings.sections: one section per contribution, drawn on the add-on's own
+// page (the Settings tab of its details, see AddonSettings.jsx), where the
+// page already names the add-on. Drawn for several add-ons at once, each
+// section has a heading with the add-on's title and icon.
+function Sections({ items, props, label, own }) {
   return (
-    <div className="ad-sections" data-testid="addon-settings-sections">
+    <div className={own ? 'ad-sections ad-sections--own' : 'ad-sections'} data-testid="addon-settings-sections">
       {items.filter(c => c.kind === 'component').map(c => (
-        <section key={c.key} className="ad-section" aria-labelledby={`ad-section-${c.addonId}-${c.id}`} data-testid="addon-settings-section">
-          <header className="ad-section__head">
-            {c.appIcon
-              ? <img className="ad-action-img" src={c.appIcon} alt="" width="20" height="20" />
-              : <Icon name="puzzle" />}
-            <h2 className="ad-section__title" id={`ad-section-${c.addonId}-${c.id}`}>{c.addonTitle}</h2>
-          </header>
-          <Contributed c={c} props={props} label={label} />
+        <section
+          key={c.key}
+          id={`ad-section-${c.addonId}-${c.id}`}
+          className="ad-section"
+          aria-labelledby={own ? undefined : `ad-section-title-${c.addonId}-${c.id}`}
+          aria-label={own ? c.addonTitle : undefined}
+          data-testid="addon-settings-section"
+          data-addon-section={c.addonId}
+        >
+          {!own && (
+            <header className="ad-section__head">
+              {c.appIcon
+                ? <img className="ad-action-img" src={c.appIcon} alt="" width="20" height="20" />
+                : <Icon name="puzzle" />}
+              <h2 className="ad-section__title" id={`ad-section-title-${c.addonId}-${c.id}`}>{c.addonTitle}</h2>
+            </header>
+          )}
+          <Contributed c={c} props={props} label={label} block />
         </section>
       ))}
     </div>
@@ -183,17 +198,37 @@ function NavEntries({ items, props, label }) {
   )
 }
 
+// files.preview: the first contribution that handles the file's extension
+// draws it, in a frame the host owns. The host's own view stays below it.
+function Preview({ items, props, label }) {
+  const c = items.find(x => x.kind === 'component')
+  if (!c) return null
+  return (
+    <div className="ad-preview" data-testid="addon-preview" data-addon={c.addonId}>
+      <Contributed c={c} props={props} label={label} />
+    </div>
+  )
+}
+
+// settings.sections is drawn for administrators only, as it was when the
+// sections were part of the Settings page; context.addonId narrows it to one
+// add-on. The id is the host's filter, never a prop of the contribution.
 export default function AddonSlot({ slot, context, enabled = true }) {
   const { t } = useTranslation('addons')
-  const items = useSlotContributions(slot, enabled)
+  const { isAdmin } = useAuth()
+  const sections = slot === 'settings.sections'
+  const on = enabled && (!sections || isAdmin)
+  const only = sections && typeof context?.addonId === 'string' && context.addonId !== '' ? context.addonId : undefined
+  const items = useSlotContributions(slot, on, slot === 'files.preview' ? context?.extension : undefined, only)
   const props = useMemo(() => slotProps(slot, context), [slot, context])
-  if (!enabled || items.length === 0 || props === null) return null
+  if (!on || items.length === 0 || props === null) return null
   const label = t('slots.unavailable')
   switch (SLOTS[slot].render) {
     case 'inline': return <InlineActions items={items} props={props} label={label} />
     case 'menu-item': return <ComposerMenu items={items} props={props} label={label} openLabel={t('slots.composerMore')} />
-    case 'section': return <Sections items={items} props={props} label={label} />
+    case 'section': return <Sections items={items} props={props} label={label} own={Boolean(only)} />
     case 'nav': return <NavEntries items={items} props={props} label={label} />
+    case 'preview': return <Preview items={items} props={props} label={label} />
     default: return null
   }
 }

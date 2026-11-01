@@ -52,7 +52,7 @@
 .placement__bar { display: grid; gap: var(--dk-space-2); }
 .placement__bar-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--dk-space-3); flex-wrap: wrap; }
 .placement__bar-name { font-weight: var(--dk-weight-semibold); font-size: var(--dk-text-13); }
-.placement__bar-free { font: var(--dk-weight-regular) var(--dk-text-12) / 1.2 var(--dk-font-mono); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.placement__bar-free { font: var(--dk-weight-regular) var(--dk-text-12) / 1.2 var(--font-sans); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
 .placement__bar-free--over { color: var(--dk-error-text); font-weight: var(--dk-weight-semibold); }
 .placement__legend { margin-top: var(--dk-space-1); }
 

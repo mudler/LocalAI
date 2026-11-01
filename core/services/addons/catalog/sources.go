@@ -450,7 +450,7 @@ func (s *Sources) SeedDefaults(srcs ...Source) (bool, error) {
 	for id, v := range s.sources {
 		next[id] = v
 	}
-	added := false
+	added, moved := false, false
 	for _, src := range srcs {
 		src.Default, src.Removed, src.Suspended = true, false, s.officialOff
 		if src.Kind == "" {
@@ -459,13 +459,23 @@ func (s *Sources) SeedDefaults(srcs ...Source) (bool, error) {
 		if !idPattern.MatchString(src.ID) || !validSource(src) {
 			return false, ErrInvalid
 		}
-		if _, ok := next[src.ID]; ok {
+		if have, ok := next[src.ID]; ok {
+			// The official add-on library follows the build: after an upgrade
+			// to a release, or to the next one, its record names the index and
+			// the signer of the new build. A library the admin pointed at
+			// another URL is left alone.
+			if src.ID == OfficialLibraryID && have.Default && !have.Removed && isOfficialAddonURL(have.URL) &&
+				(have.URL != src.URL || have.Policy != src.Policy) {
+				have.URL, have.Policy = src.URL, src.Policy
+				next[src.ID] = have
+				moved = true
+			}
 			continue
 		}
 		next[src.ID] = src
 		added = true
 	}
-	if !added && !s.fresh {
+	if !added && !moved && !s.fresh {
 		return false, nil
 	}
 	if e := s.persist(next); e != nil {

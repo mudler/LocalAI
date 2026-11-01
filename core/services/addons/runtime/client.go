@@ -111,6 +111,11 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict
 		}
+		if resp.StatusCode == http.StatusForbidden && reason == "forbidden" {
+			// The answer of an add-on runtime to a permission it checked. A 403
+			// with another body is the envelope check, a host fault.
+			return nil, ErrDenied
+		}
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
 			return nil, &Refusal{Status: resp.StatusCode, Reason: reason}
 		}
@@ -204,6 +209,42 @@ func (c *Client) Read(ctx context.Context, v contract.Envelope) (contract.Result
 	if e == nil {
 		e = r.Validate(c.limits)
 	}
+	return r, e
+}
+
+var _ contract.ActRuntime = (*Client)(nil)
+
+// Act runs an action tool. It is sent only to an add-on that declared actions,
+// with the act action and the act scope, and it may run up to
+// contract.ActTimeout. It is never retried here: a call that may have run is
+// the caller's to report as an unknown outcome.
+func (c *Client) Act(ctx context.Context, v contract.Envelope) (contract.Result, error) {
+	var r contract.Result
+	if v.Request.Action != "act" || !c.registration.Capabilities.Actions {
+		return r, ErrNotSent
+	}
+	if e := c.valid(v, "act"); e != nil {
+		return r, e
+	}
+	e := c.call(ctx, "/act", &v, v, &r, contract.ActTimeout)
+	if e == nil {
+		e = r.Validate(c.limits)
+	}
+	return r, e
+}
+
+var _ contract.ConnectorRuntime = (*Client)(nil)
+
+// Connector calls the connector route of an add-on that declared the
+// connector capability. The call carries no envelope: it is the host's own,
+// made for a binding, and the add-on authenticates the host by the credential
+// of the incarnation. A call that may have run (a send) is not retried here.
+func (c *Client) Connector(ctx context.Context, v contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	var r contract.ConnectorResponse
+	if c.registration.Capabilities.Connector == nil {
+		return r, ErrNotSent
+	}
+	e := c.call(ctx, "/connector", nil, v, &r, contract.ConnectorTimeout)
 	return r, e
 }
 func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {

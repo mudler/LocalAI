@@ -268,11 +268,47 @@ func (s *FineTuneService) StartJob(ctx context.Context, userID string, req schem
 	}
 	s.saveJobState(job)
 
+	// Consume the backend's progress stream for the lifetime of the job, not
+	// for the lifetime of a client's SSE connection: a job that a chat or an
+	// add-on started has nobody attached, and must still leave "queued". The
+	// request ctx ends with the handler, so the watcher rides the application
+	// context.
+	go s.watchProgress(s.appConfig.Context, userID, jobID)
+
 	return &schema.FineTuneJobResponse{
 		ID:      jobID,
 		Status:  "queued",
 		Message: result.Message,
 	}, nil
+}
+
+// watchProgress follows a job's progress stream until it ends, so the store
+// holds the status the backend reports whether or not a client watches. A
+// stream that ends before a terminal update means the backend is gone, and the
+// job is recorded as failed rather than left running forever.
+func (s *FineTuneService) watchProgress(ctx context.Context, userID, jobID string) {
+	if err := s.StreamProgress(ctx, userID, jobID, func(*schema.FineTuneProgressEvent) {}); err != nil {
+		xlog.Warn("Fine-tuning progress stream ended with an error", "job_id", jobID, "error", err)
+	}
+	// On shutdown leave the job alone: loadJobsFromDisk reports jobs that were
+	// running at exit as stopped.
+	if ctx.Err() != nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	j, ok := s.jobs.Get(jobID)
+	if !ok || j.Status == "stopped" || j.Status == "completed" || j.Status == "failed" {
+		return
+	}
+	j.Status = "failed"
+	if j.Message == "" {
+		j.Message = "Backend progress stream ended before the job reported a result"
+	}
+	if err := s.jobs.Set(ctx, j); err != nil {
+		xlog.Warn("Failed to persist orphaned job state", "job_id", jobID, "error", err)
+	}
+	s.saveJobState(j)
 }
 
 // GetJob returns a fine-tuning job by ID.

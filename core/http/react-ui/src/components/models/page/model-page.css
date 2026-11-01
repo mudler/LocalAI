@@ -30,7 +30,7 @@
 .modelpage-walk__count {
   min-width: 64px;
   text-align: center;
-  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--dk-font-mono);
+  font: var(--dk-weight-regular) var(--dk-text-12) / 1 var(--font-sans);
   font-variant-numeric: tabular-nums;
   color: var(--dk-muted);
 }
@@ -47,10 +47,10 @@
 .modelpage-title { min-width: 0; display: grid; gap: var(--dk-space-2); }
 .modelpage-name {
   margin: 0;
-  font-size: 26px;
-  font-weight: var(--dk-weight-bold);
+  font-size: var(--fs-title);
+  font-weight: 600;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: var(--lh-title);
   overflow-wrap: anywhere;
 }
 .modelpage-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--dk-space-2); }
@@ -89,7 +89,7 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
 .modelpage-install { display: grid; gap: var(--dk-space-2); width: min(340px, 100%); }
 .modelpage-install__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--dk-space-3); font-size: var(--dk-text-13); }
 .modelpage-install__foot { display: flex; justify-content: space-between; align-items: center; gap: var(--dk-space-3); }
-.modelpage-install__foot .modelpage-primary__sub { text-align: left; font-family: var(--dk-font-mono); }
+.modelpage-install__foot .modelpage-primary__sub { text-align: left; font-variant-numeric: tabular-nums; }
 
 .modelpage-callout { margin: var(--dk-space-3) 0 0; }
 
@@ -151,7 +151,7 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
 .modelpage-glance__link { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; cursor: pointer; font-size: var(--dk-text-13); }
 .modelpage-glance__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--dk-space-3); flex-wrap: wrap; }
 .modelpage-glance__pool { font-weight: var(--dk-weight-semibold); font-size: var(--dk-text-13); }
-.modelpage-glance__free { font: var(--dk-weight-regular) var(--dk-text-12) / 1.2 var(--dk-font-mono); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
+.modelpage-glance__free { font: var(--dk-weight-regular) var(--dk-text-12) / 1.2 var(--font-sans); color: var(--dk-muted); font-variant-numeric: tabular-nums; }
 .modelpage-glance__free--over { color: var(--dk-error-text); font-weight: var(--dk-weight-semibold); }
 
 .modelpage-usedby__list { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -249,7 +249,6 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
 
 @media (max-width: 640px) {
   .modelpage-head { flex-direction: column; gap: var(--dk-space-4); }
-  .modelpage-name { font-size: 22px; }
   .modelpage-primary { justify-items: stretch; max-width: none; width: 100%; }
   .modelpage-primary__row { width: 100%; }
   .modelpage-primary__row .dk-btn:not(.dk-btn--icon) { flex: 1; }
@@ -279,3 +278,8 @@ a.modelpage-chip { cursor: pointer; text-decoration: none; color: inherit; }
 /* The more menu is a tap target of its own beside Load or Stop. */
 .modelpage-primary .action-menu__trigger { width: 40px; height: 40px; opacity: 1; color: var(--dk-text); border-color: var(--dk-edge); border-radius: var(--dk-radius-2); }
 .modelpage-primary .action-menu__trigger:hover { background: var(--dk-hover); }
+
+/* Tables here: a sentence-case header, and sizes in the sans face with
+   tabular figures. File names, paths and digests stay mono. */
+.modelpage .dk-table thead th { text-transform: none; letter-spacing: 0; }
+.modelpage .dk-table td.dk-num { font-family: var(--font-sans); }

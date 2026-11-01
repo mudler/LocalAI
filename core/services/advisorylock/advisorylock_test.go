@@ -100,15 +100,12 @@ var _ = Describe("AdvisoryLock", func() {
 
 		It("all advisory lock keys are unique", func() {
 			keys := map[int64]string{
-				KeyCronScheduler:    "KeyCronScheduler",
-				KeyStaleNodeCleanup: "KeyStaleNodeCleanup",
-				KeyGalleryDedup:     "KeyGalleryDedup",
-				KeyAgentScheduler:   "KeyAgentScheduler",
-				KeyHealthCheck:      "KeyHealthCheck",
-				KeySchemaMigrate:    "KeySchemaMigrate",
+				KeyAgentScheduler: "KeyAgentScheduler",
+				KeyHealthCheck:    "KeyHealthCheck",
+				KeySchemaMigrate:  "KeySchemaMigrate",
 			}
 
-			Expect(keys).To(HaveLen(6), "some advisory lock keys have the same value")
+			Expect(keys).To(HaveLen(3), "some advisory lock keys have the same value")
 		})
 
 		It("KeyFromString is deterministic", func() {

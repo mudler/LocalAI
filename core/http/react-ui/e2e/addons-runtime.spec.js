@@ -293,7 +293,13 @@ test.describe('Add-on UI runtime', () => {
     await page.getByRole('button', { name: 'Go to dialog' }).click()
     await expect(page).toHaveURL(/\/app\/addons\/uifixture\/dialog\/opened\?from=home$/)
     await expect(page.getByTestId('fx-where')).toHaveText('page=dialog path=opened')
-    // The Add-ons tab lists the pages that usable add-ons declared in navigation.
+    // The Add-ons tab lists the pages that usable add-ons declared in
+    // navigation. That tab belongs to the legacy layout, so the page gets the
+    // server's flags with the legacy switch on.
+    await page.route('**/api/features', async route => {
+      const real = await (await route.fetch()).json()
+      return route.fulfill({ json: { ...real, addon_navigation: false } })
+    })
     await page.goto('/app/addons')
     const subnav = page.locator('.hub-subnav')
     await expect(subnav.getByRole('link', { name: 'UI fixture: home' })).toHaveAttribute('href', '/app/addons/uifixture/home')
@@ -343,7 +349,9 @@ test.describe('Add-on UI runtime', () => {
     await page.goto('/app/addons/uifixture/home')
     await expect(surface(page)).toBeVisible({ timeout: 20_000 })
     await page.getByTestId('fx-draft').fill('half a thought')
-    await page.getByRole('link', { name: 'Chat', exact: true }).first().click()
+    // Any host link leaves the page; the sidebar starts with Home.
+    const leave = page.getByRole('complementary', { name: 'Primary navigation' }).getByRole('link', { name: 'Home', exact: true })
+    await leave.click()
     const guard = page.getByRole('alertdialog')
     await expect(guard).toContainText('Leave this page?')
     await guard.getByRole('button', { name: 'Stay' }).click()
@@ -351,8 +359,8 @@ test.describe('Add-on UI runtime', () => {
     await expect(page.getByTestId('fx-draft')).toHaveValue('half a thought')
     // Saving clears the guard: leaving is then free.
     await page.getByRole('button', { name: 'Save draft' }).click()
-    await page.getByRole('link', { name: 'Chat', exact: true }).first().click()
-    await expect(page).toHaveURL(/\/app\/chat/)
+    await leave.click()
+    await expect(page).toHaveURL(/\/app$/)
     await context.close()
   })
 
@@ -375,8 +383,14 @@ test.describe('Add-on UI runtime', () => {
     const { context, page } = await browserAs(browser, 'outsider')
     const assets = []
     page.on('request', r => { if (isAddonAsset(r.url())) assets.push(r.url()) })
+    // The shell keeps a notification stream open, so the network is never
+    // idle. The page has decided once it has the server's switches and the
+    // account and has drawn the shell.
+    const features = page.waitForResponse(r => new URL(r.url()).pathname === '/api/features')
+    const account = page.waitForResponse(r => new URL(r.url()).pathname === '/api/auth/status')
     await page.goto('/app/addons/uifixture/home')
-    await page.waitForLoadState('networkidle')
+    await Promise.all([features, account])
+    await expect(page.getByRole('complementary', { name: 'Primary navigation' })).toBeVisible()
     await expect(page.locator('[data-testid="addon-surface"]')).toHaveCount(0)
     expect(assets).toEqual([])
     expect(await events(page)).toEqual([])

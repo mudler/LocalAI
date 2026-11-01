@@ -1,5 +1,6 @@
 import { API_CONFIG } from './config'
 import { apiUrl } from './basePath'
+import { chatsListPath } from './chatsQuery'
 
 const enc = encodeURIComponent
 const userQ = (userId) => userId ? `?user_id=${enc(userId)}` : ''
@@ -56,27 +57,6 @@ async function postJSON(endpoint, body, options = {}) {
     body: JSON.stringify(body),
     ...options,
   })
-}
-
-// SSE streaming for chat completions
-export async function streamChat(body, signal) {
-  const response = await fetch(apiUrl(API_CONFIG.endpoints.chatCompletions), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...body, stream: true }),
-    signal,
-  })
-
-  if (!response.ok) {
-    let errorMessage = `HTTP ${response.status}`
-    try {
-      const data = await response.json()
-      if (data?.error?.message) errorMessage = data.error.message
-    } catch (_e) { /* not JSON */ }
-    throw new Error(errorMessage)
-  }
-
-  return response.body
 }
 
 // Models API
@@ -151,38 +131,428 @@ export const backendsApi = {
   upgrade: (name) => postJSON(API_CONFIG.endpoints.upgradeBackend(name), {}),
 }
 
-// Chat API (non-streaming)
-export const chatApi = {
-  complete: (body) => postJSON(API_CONFIG.endpoints.chatCompletions, body),
-  mcpComplete: (body) => postJSON(API_CONFIG.endpoints.mcpChatCompletions, body),
+// Chats API: conversations the server keeps. A message sent while a turn runs
+// waits and reaches the model, with any others, at its next request.
+export const chatsApi = {
+  list: (limit, kind) => fetchJSON(chatsListPath(API_CONFIG.endpoints.chats, limit, kind)),
+  // With an agent, its model (when it has one) replaces model. With assistant,
+  // the chat gets the LocalAI management tools (admin only, setting on).
+  // switches are the drafted switches of a new chat (useChatSwitches): the
+  // chat is stored with them.
+  create: (model, title, agentId, assistant, switches) => postJSON(API_CONFIG.endpoints.chats, {
+    ...(model ? { model } : {}), ...(title ? { title } : {}), ...(agentId ? { agent_id: agentId } : {}),
+    ...(assistant ? { assistant: true } : {}), ...(switches ? { switches } : {}),
+  }),
+  get: (id) => fetchJSON(API_CONFIG.endpoints.chat(id)),
+  delete: (id) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'DELETE' }),
+  rename: (id, title) => chatsApi.update(id, { title }),
+  // Changes the title, the model or the settings (system prompt, sampling,
+  // reasoning effort, context size). A title or a model answers 409 while a
+  // turn runs; settings apply from the next turn.
+  update: (id, fields) => fetchJSON(API_CONFIG.endpoints.chat(id), { method: 'PATCH', body: JSON.stringify(fields) }),
+  // Regenerate and edit start a new turn; both answer 409 while one runs.
+  regenerate: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/regenerate`, {}),
+  editMessage: (id, seq, text) => postJSON(`${API_CONFIG.endpoints.chat(id)}/messages/${Number(seq)}/edit`, { text }),
+  fork: (id, fromSeq, title) => postJSON(`${API_CONFIG.endpoints.chat(id)}/fork`, {
+    ...(fromSeq ? { from_seq: Number(fromSeq) } : {}), ...(title ? { title } : {}),
+  }),
+  search: (text, limit) => fetchJSON(`${API_CONFIG.endpoints.chats}/search${q({ q: text, limit })}`),
+  exportUrl: (id, format) => apiUrl(`${API_CONFIG.endpoints.chat(id)}/export${q({ format })}`),
+  // chat is the JSON export (GET .../export?format=json); model replaces its model.
+  importChat: (chat, model) => postJSON(`${API_CONFIG.endpoints.chats}/import`, { chat, ...(model ? { model } : {}) }),
+  // The raw localStorage value of the old chat page, sent as it is.
+  importBrowser: (raw) => fetchJSON(`${API_CONFIG.endpoints.chats}/import/browser`, { method: 'POST', body: raw }),
+  // The files of a chat: attached, written by the model or a tool, changed.
+  // Paths are the current ones; a files event says the list may have changed.
+  files: (id) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/files`),
+  subAgents: (id) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/agents`),
+  subAgentMessages: (id, agentId) => fetchJSON(`${API_CONFIG.endpoints.chat(id)}/agents/${encodeURIComponent(agentId)}/messages`),
+  stopSubAgent: (id, agentId) => postJSON(`${API_CONFIG.endpoints.chat(id)}/agents/${encodeURIComponent(agentId)}/stop`, {}),
+  // The server returns at most 1000 entries a call, oldest first, so a long
+  // chat is read page by page: the newest messages are on the last page.
+  messages: async (id, after = 0) => {
+    let all = []
+    for (;;) {
+      const page = await fetchJSON(`${API_CONFIG.endpoints.chatMessages(id)}?after=${after}&limit=1000`)
+      const got = page.messages || []
+      all = all.concat(got)
+      if (got.length < 1000) return { ...page, messages: all }
+      after = got[got.length - 1].seq
+    }
+  },
+  // One line of the transcript, by its seq: the card of a live tool call. The same
+  // route and checks as the whole transcript, so it is the chat owner's only.
+  card: async (id, seq) => (await fetchJSON(`${API_CONFIG.endpoints.chatMessages(id)}?after=${Number(seq) - 1}&limit=1`)).messages || [],
+  // With files the message goes as a form: the server saves the files in the
+  // chat's folder of the user's workspace and the model gets their paths.
+  // command: { skill } or { agent } of a message typed as a slash command.
+  send: async (id, text, files = [], command) => {
+    const cmd = {}
+    if (command?.skill) cmd.skill = command.skill
+    if (command?.agent) cmd.agent = command.agent.id || command.agent
+    if (!files.length) return postJSON(API_CONFIG.endpoints.chatMessages(id), { text, ...cmd })
+    const form = new FormData()
+    form.append('text', text)
+    Object.entries(cmd).forEach(([k, v]) => form.append(k, v))
+    files.forEach(f => form.append('files', f, f.name))
+    const res = await fetch(apiUrl(API_CONFIG.endpoints.chatMessages(id)), { method: 'POST', body: form })
+    return handleResponse(res)
+  },
+  editPending: (id, pid, text) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'PATCH', body: JSON.stringify({ text }) }),
+  cancelPending: (id, pid) => fetchJSON(API_CONFIG.endpoints.chatPending(id, pid), { method: 'DELETE' }),
+  sendNow: (id) => postJSON(API_CONFIG.endpoints.chatSendNow(id), {}),
+  stop: (id) => postJSON(API_CONFIG.endpoints.chatStop(id), {}),
+  // The context commands: compact answers the sizes { before, after } in tokens.
+  compact: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/compact`, {}),
+  clear: (id) => postJSON(`${API_CONFIG.endpoints.chat(id)}/clear`, {}),
+  // The chat's goal: { goal, replaced }. Stop pauses it.
+  goal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id)),
+  setGoal: (id, text) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'PUT', body: JSON.stringify({ text }) }),
+  clearGoal: (id) => fetchJSON(API_CONFIG.endpoints.chatGoal(id), { method: 'DELETE' }),
+  resumeGoal: (id) => postJSON(API_CONFIG.endpoints.chatGoalResume(id), {}),
+  eventsUrl: (id) => apiUrl(API_CONFIG.endpoints.chatEvents(id)),
 }
 
-// Chat History API — server-side conversation persistence (#9432).
-// Endpoints return 404 when the WebUI's chat history feature is disabled, so
-// every call here is best-effort: callers should fall back to localStorage on
-// failure rather than surfacing a user-visible error.
-export const chatHistoryApi = {
-  list: () => fetchJSON(API_CONFIG.endpoints.conversations),
-  get: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id)),
-  save: (conv) => fetchJSON(API_CONFIG.endpoints.conversation(conv.id), {
-    method: 'PUT',
-    body: JSON.stringify(conv),
-  }),
-  bulkReplace: (conversations) => fetchJSON(API_CONFIG.endpoints.conversationsBulk, {
-    method: 'PUT',
-    body: JSON.stringify({ conversations }),
-  }),
-  delete: (id) => fetchJSON(API_CONFIG.endpoints.conversation(id), { method: 'DELETE' }),
-  deleteAll: () => fetchJSON(API_CONFIG.endpoints.conversations, { method: 'DELETE' }),
+// The loops of a chat: a prompt the chat sends to itself again, at an interval
+// (interval such as "5m") or, with no interval, when the model asks.
+export const chatLoopsApi = {
+  list: (chat) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops`),
+  start: (chat, interval, prompt) => postJSON(`/api/chats/${encodeURIComponent(chat)}/loops`, { ...(interval ? { interval } : {}), prompt }),
+  setState: (chat, id, state) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify({ state }) }),
+  stop: (chat, id) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  stopAll: (chat) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/loops`, { method: 'DELETE' }),
 }
 
-// MCP API
-export const mcpApi = {
-  listServers: (model) => fetchJSON(API_CONFIG.endpoints.mcpServers(model)),
-  listPrompts: (model) => fetchJSON(API_CONFIG.endpoints.mcpPrompts(model)),
-  getPrompt: (model, name, args) => postJSON(API_CONFIG.endpoints.mcpGetPrompt(model, name), { arguments: args }),
-  listResources: (model) => fetchJSON(API_CONFIG.endpoints.mcpResources(model)),
-  readResource: (model, uri) => postJSON(API_CONFIG.endpoints.mcpReadResource(model), { uri }),
+// MCP Apps of a chat: the page that a tool's MCP server offers, and the tool
+// calls of that page. The server holds the MCP connection and checks that the
+// chat may use the server on every call.
+export const chatAppsApi = {
+  resource: (chat, server, uri) => fetchJSON(`/api/chats/${encodeURIComponent(chat)}/mcp-apps/resource?server=${encodeURIComponent(server)}&uri=${encodeURIComponent(uri)}`),
+  call: (chat, server, tool, args) => postJSON(`/api/chats/${encodeURIComponent(chat)}/mcp-apps/call`, { server, tool, arguments: args || {} }),
+}
+
+// Files API: the user's own workspace. Paths are inside the user's home, "/".
+const q = (params) => {
+  const sp = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') sp.set(k, String(v)) })
+  const s = sp.toString()
+  return s ? `?${s}` : ''
+}
+export const filesApi = {
+  list: (path = '/') => fetchJSON(API_CONFIG.endpoints.files + q({ path })),
+  // The address that downloads a file, or with inline shows a safe type.
+  contentUrl: (path, inline = false) => apiUrl(API_CONFIG.endpoints.filesContent) + q({ path, inline: inline ? 1 : undefined }),
+  readText: async (path, limit = 64 * 1024) => {
+    const res = await fetch(filesApi.contentUrl(path), { headers: { Range: `bytes=0-${limit - 1}` } })
+    if (!res.ok) { await handleResponse(res) }
+    return res.text()
+  },
+  // What the server reads out of a spreadsheet, a CSV or TSV file, a Word
+  // document or a presentation: { kind: table | document | slides, ... }.
+  preview: (path) => fetchJSON(API_CONFIG.endpoints.filesPreview + q({ path })),
+  // Sends the file as the request body. Without base, a file that exists is
+  // kept and the new one gets a conflict name (see conflict_of in the answer).
+  upload: async (path, file, { base } = {}) => {
+    const res = await fetch(apiUrl(API_CONFIG.endpoints.filesContent) + q({ path, base }), {
+      method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: file,
+    })
+    return handleResponse(res)
+  },
+  // The same upload with progress: fetch cannot report how much of a request
+  // body went out, an XMLHttpRequest can. replace overwrites a file that
+  // exists; without it the server keeps both. Rejects like handleResponse
+  // (an Error with status, body and the error type), or with status 0 when
+  // the network failed or signal aborted it.
+  uploadWithProgress: (path, file, { replace = false, onProgress, signal } = {}) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', apiUrl(API_CONFIG.endpoints.filesContent) + q({ path, overwrite: replace ? 1 : undefined }))
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream')
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(e.loaded) }
+    const fail = (status, body, message) => {
+      const err = new Error(message || `HTTP ${status}`)
+      err.status = status
+      err.body = body
+      err.type = body?.error?.type
+      reject(err)
+    }
+    xhr.onload = () => {
+      let body = null
+      try { body = JSON.parse(xhr.responseText) } catch { body = null }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body)
+      else fail(xhr.status, body, body?.error?.message || (typeof body?.error === 'string' ? body.error : ''))
+    }
+    xhr.onerror = () => fail(0, null, 'network')
+    xhr.onabort = () => fail(0, null, 'aborted')
+    if (signal) {
+      if (signal.aborted) { xhr.abort(); return }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true })
+    }
+    xhr.send(file)
+  }),
+  mkdir: (path) => postJSON(API_CONFIG.endpoints.filesFolders, { path }),
+  move: (from, to) => postJSON(API_CONFIG.endpoints.filesMove, { from, to }),
+  remove: (path) => fetchJSON(API_CONFIG.endpoints.files + q({ path }), { method: 'DELETE' }),
+  trash: () => fetchJSON(API_CONFIG.endpoints.filesTrash),
+  // Deletes for good: everything in the Trash, or the one entry of a revision.
+  // Neither can be undone. Both answer { files, folders, bytes }.
+  emptyTrash: () => fetchJSON(API_CONFIG.endpoints.filesTrash, { method: 'DELETE' }),
+  purgeTrash: (rev) => fetchJSON(`${API_CONFIG.endpoints.filesTrash}/${enc(rev)}`, { method: 'DELETE' }),
+  undo: (rev, skipConflicts = false) => postJSON(API_CONFIG.endpoints.filesUndo, { rev, skip_conflicts: skipConflicts }),
+  history: (path = '/') => fetchJSON(API_CONFIG.endpoints.filesHistory + q({ path })),
+  search: (query, path = '/') => fetchJSON(API_CONFIG.endpoints.filesSearch + q({ q: query, path })),
+}
+
+// Pages of the workspace: pages/<name>/index.html in the user's home, and the
+// bridge a page uses from its sandboxed frame. Paths of the bridge are relative
+// to the page's folder; the server keeps them inside it.
+const pageUrl = (name) => `/api/chats/pages/${encodeURIComponent(name)}`
+export const pagesApi = {
+  list: () => fetchJSON('/api/chats/pages'),
+  get: (name) => fetchJSON(pageUrl(name)),
+  read: (name, path) => fetchJSON(`${pageUrl(name)}/file${q({ path })}`),
+  // An image of the page as base64, for the UI to put into the page.
+  readImage: (name, path) => fetchJSON(`${pageUrl(name)}/file${q({ path, encoding: 'base64' })}`),
+  write: (name, path, content, base) => fetchJSON(`${pageUrl(name)}/file`, {
+    method: 'PUT', body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
+  }),
+  files: (name, dir) => fetchJSON(`${pageUrl(name)}/files${q({ dir })}`),
+  // chatId empty: the page's own chat; model is used when that chat is new.
+  send: (name, text, chatId, model) => postJSON(`${pageUrl(name)}/chat`, {
+    text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}),
+  }),
+  starters: () => fetchJSON('/api/chats/page-starters'),
+  copyStarter: (id) => postJSON(`/api/chats/page-starters/${encodeURIComponent(id)}/copy`, {}),
+}
+
+// The pages of the user's shared folders. A shared page runs only after the
+// user allowed its version; every bridge call names the version that runs
+// (hash) and, for a visit allowed once, the visit token.
+const sharedUrl = (folder, name) => `/api/chats/shared-pages/${encodeURIComponent(folder)}/${encodeURIComponent(name)}`
+const frameHeaders = ({ hash, token }) => ({
+  'Content-Type': 'application/json',
+  'X-LocalAI-Page-Hash': hash || '',
+  ...(token ? { 'X-LocalAI-Page-Visit': token } : {}),
+})
+export const sharedPagesApi = {
+  list: () => fetchJSON('/api/chats/shared-pages'),
+  get: (folder, name) => fetchJSON(sharedUrl(folder, name)),
+  allow: (folder, name, hash, once) => fetchJSON(`${sharedUrl(folder, name)}/consent`, {
+    method: 'PUT', body: JSON.stringify({ hash, ...(once ? { once: true } : {}) }),
+  }),
+  revoke: (folder, name) => fetchJSON(`${sharedUrl(folder, name)}/consent`, { method: 'DELETE' }),
+  // frame is {hash, token}: the version the frame runs and its visit token.
+  read: (folder, name, frame, path) => fetchJSON(`${sharedUrl(folder, name)}/file${q({ path })}`, { headers: frameHeaders(frame) }),
+  readImage: (folder, name, frame, path) => fetchJSON(`${sharedUrl(folder, name)}/file${q({ path, encoding: 'base64' })}`, { headers: frameHeaders(frame) }),
+  write: (folder, name, frame, path, content, base) => fetchJSON(`${sharedUrl(folder, name)}/file`, {
+    method: 'PUT', headers: frameHeaders(frame), body: JSON.stringify({ path, content, ...(base ? { base } : {}) }),
+  }),
+  files: (folder, name, frame, dir) => fetchJSON(`${sharedUrl(folder, name)}/files${q({ dir })}`, { headers: frameHeaders(frame) }),
+  send: (folder, name, frame, text, chatId, model) => fetchJSON(`${sharedUrl(folder, name)}/chat`, {
+    method: 'POST', headers: frameHeaders(frame), body: JSON.stringify({ text, ...(chatId ? { chat_id: chatId } : {}), ...(model ? { model } : {}) }),
+  }),
+}
+
+// Shared folders: /shared/<name> folders an administrator shares with users
+// (or @everyone), each member with the mode read or write.
+const sharedFolderUrl = (id) => `/api/chats/admin/shared-folders/${encodeURIComponent(id)}`
+export const sharedFoldersApi = {
+  mine: () => fetchJSON('/api/chats/shared-folders'),
+  list: () => fetchJSON('/api/chats/admin/shared-folders'),
+  create: (name) => fetchJSON('/api/chats/admin/shared-folders', { method: 'POST', body: JSON.stringify({ name }) }),
+  rename: (id, name) => fetchJSON(sharedFolderUrl(id), { method: 'PATCH', body: JSON.stringify({ name }) }),
+  remove: (id) => fetchJSON(sharedFolderUrl(id), { method: 'DELETE' }),
+  restore: (rev) => fetchJSON('/api/chats/admin/shared-folders/restore', { method: 'POST', body: JSON.stringify({ rev }) }),
+  setMember: (id, principal, mode) => fetchJSON(`${sharedFolderUrl(id)}/members/${encodeURIComponent(principal)}`, {
+    method: 'PUT', body: JSON.stringify({ mode }),
+  }),
+  removeMember: (id, principal) => fetchJSON(`${sharedFolderUrl(id)}/members/${encodeURIComponent(principal)}`, { method: 'DELETE' }),
+}
+
+// Chat skills: folders with a SKILL.md in four layers, switched per chat.
+const enc2 = encodeURIComponent
+// The query of the draft lists: the model and the agent of the new chat.
+function draftQuery(model, agentId) {
+  const q = new URLSearchParams()
+  if (model) q.set('model', model)
+  if (agentId) q.set('agent_id', agentId)
+  const s = q.toString()
+  return s ? `?${s}` : ''
+}
+
+export const chatSkillsApi = {
+  list: (chat) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : ''}`),
+  // addon names the add-on of a skill of the addon layer.
+  get: (layer, name, addon) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${addon ? `?addon=${enc2(addon)}` : ''}`),
+  create: (body) => postJSON('/api/chats/skills', body),
+  update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (layer, name) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'DELETE' }),
+  setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),
+}
+
+// Chat add-ons: the add-ons whose tools a chat may use, switched per chat.
+export const chatAddonsApi = {
+  list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/addons`),
+  // The add-ons of a chat that does not exist yet, on model with the agent.
+  draft: (model, agentId) => fetchJSON(`/api/chats/draft/addons${draftQuery(model, agentId)}`),
+  setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
+}
+
+// The built-in bash on this machine: the answer to the card that asks before a
+// command runs (decision once or deny).
+export const chatHostExecApi = {
+  consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/host-exec/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),
+}
+
+// The network of a chat's Sandbox commands: its preset, rules and cards, for
+// the chat's owner; the settings and the audit, for administrators.
+export const chatEgressApi = {
+  get: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/egress`),
+  setPreset: (chat, preset) => fetchJSON(`/api/chats/${enc2(chat)}/egress`, { method: 'PUT', body: JSON.stringify({ preset }) }),
+  deleteRule: (chat, host, port) => fetchJSON(`/api/chats/${enc2(chat)}/egress/rules/${enc2(host)}/${enc2(String(port))}`, { method: 'DELETE' }),
+  consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/egress/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),
+  admin: () => fetchJSON('/api/chats/admin/egress'),
+  events: (params = {}) => fetchJSON(`/api/chats/admin/egress/events${q(params)}`),
+}
+
+// The built-in chat tools an add-on may replace (Settings > Tools) and the
+// audit of the commands run on this machine. Administrators only.
+export const chatBuiltinToolsApi = {
+  list: () => fetchJSON('/api/chats/admin/tools'),
+  events: (limit = 100) => fetchJSON(`/api/chats/admin/host-exec/events?limit=${limit}`),
+  // Runs the query with each search provider of the saved settings.
+  testWebSearch: (query) => fetchJSON('/api/chats/admin/web/test', { method: 'POST', body: JSON.stringify({ query }) }),
+}
+
+// The MCP servers that a model's own configuration names (it connects to them to
+// list their tools, through the sessions the chat reuses).
+export const modelMCPServersApi = {
+  list: (model) => fetchJSON(`/v1/mcp/servers/${enc2(model)}`),
+}
+
+// MCP connectors: the MCP servers a user defines for their chats. Tokens,
+// headers and environments only go in; the server never returns them.
+export const chatMCPConnectorsApi = {
+  list: () => fetchJSON('/api/chats/mcp-connectors'),
+  create: (body) => postJSON('/api/chats/mcp-connectors', body),
+  update: (id, body) => fetchJSON(`/api/chats/mcp-connectors/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/mcp-connectors/${enc2(id)}`, { method: 'DELETE' }),
+  enable: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/enable`, {}),
+  disable: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/disable`, {}),
+  test: (id) => postJSON(`/api/chats/mcp-connectors/${enc2(id)}/test`, {}),
+}
+
+// The built-in tool groups (such as web), the MCP servers and the connectors of
+// a chat, with their switches. The add-ons have their own calls above.
+export const chatToolsApi = {
+  list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/tools`),
+  // The tools of a chat that does not exist yet, on model with the agent.
+  draft: (model, agentId) => fetchJSON(`/api/chats/draft/tools${draftQuery(model, agentId)}`),
+  setMcpOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/mcp`, { method: 'PUT', body: JSON.stringify({ off }) }),
+  // on lists the opt-in groups that are on (saved_agents); omit it to keep them.
+  setBuiltinsOff: (chat, off, on) => fetchJSON(`/api/chats/${enc2(chat)}/builtins`, { method: 'PUT', body: JSON.stringify(on ? { off, on } : { off }) }),
+}
+
+// Saved agents: instructions and exact lists of what a chat may use.
+export const chatAgentsApi = {
+  list: () => fetchJSON('/api/chats/agents'),
+  get: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`),
+  create: (body) => postJSON('/api/chats/agents', body),
+  update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),
+  // The agent file of the server (kind localai-agent). Import takes it, the
+  // body of a create, or an export of the old agents; it always makes a new
+  // agent and says in `warnings` what it changed.
+  exportFile: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/export`),
+  importFile: (data) => postJSON('/api/chats/agents/import', data),
+  templates: () => fetchJSON('/api/chats/agents/templates'),
+  fromTemplate: (id, name) => postJSON(`/api/chats/agents/templates/${enc2(id)}/create`, name ? { name } : {}),
+  runs: (id, limit) => fetchJSON(`/api/chats/agents/${enc2(id)}/runs${q({ limit })}`),
+}
+
+// The administrator's view of every user's agents, triggers and connectors.
+export const chatAdminApi = {
+  agents: () => fetchJSON('/api/chats/admin/agents'),
+  deleteAgent: (id) => fetchJSON(`/api/chats/admin/agents/${enc2(id)}`, { method: 'DELETE' }),
+  triggers: () => fetchJSON('/api/chats/admin/triggers'),
+  triggerRuns: (id) => fetchJSON(`/api/chats/admin/triggers/${enc2(id)}/runs`),
+  disableTrigger: (id) => postJSON(`/api/chats/admin/triggers/${enc2(id)}/disable`, {}),
+  deleteTrigger: (id) => fetchJSON(`/api/chats/admin/triggers/${enc2(id)}`, { method: 'DELETE' }),
+  connectors: () => fetchJSON('/api/chats/admin/connectors'),
+  disableConnector: (id) => postJSON(`/api/chats/admin/connectors/${enc2(id)}/disable`, {}),
+  deleteConnector: (id) => fetchJSON(`/api/chats/admin/connectors/${enc2(id)}`, { method: 'DELETE' }),
+}
+
+// Agent tasks and their jobs (the mcp_jobs feature): a prompt template run in
+// the background by a model or a saved agent, from the page or over the API.
+export const agentJobsApi = {
+  tasks: (allUsers) => fetchJSON(`/api/agent/tasks${q({ all_users: allUsers ? 'true' : undefined })}`),
+  task: (id) => fetchJSON(`/api/agent/tasks/${enc2(id)}`),
+  createTask: (task) => postJSON('/api/agent/tasks', task),
+  updateTask: (id, task) => fetchJSON(`/api/agent/tasks/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(task) }),
+  deleteTask: (id) => fetchJSON(`/api/agent/tasks/${enc2(id)}`, { method: 'DELETE' }),
+  run: (taskId, parameters) => postJSON('/api/agent/jobs/execute', { task_id: taskId, parameters: parameters || {} }),
+  jobs: ({ taskId, status, limit, allUsers } = {}) => fetchJSON(`/api/agent/jobs${q({ task_id: taskId, status, limit, all_users: allUsers ? 'true' : undefined })}`),
+  job: (id) => fetchJSON(`/api/agent/jobs/${enc2(id)}`),
+  cancel: (id) => postJSON(`/api/agent/jobs/${enc2(id)}/cancel`, {}),
+  rerun: (id) => postJSON(`/api/agent/jobs/${enc2(id)}/rerun`, {}),
+  deleteJob: (id) => fetchJSON(`/api/agent/jobs/${enc2(id)}`, { method: 'DELETE' }),
+}
+
+// The messaging connectors. The add-on of a platform adds and edits bindings
+// through the same routes; this page only lists them and switches them on or off.
+export const chatConnectorsApi = {
+  list: () => fetchJSON('/api/chats/connectors'),
+  kinds: () => fetchJSON('/api/chats/connectors/kinds'),
+  enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
+  disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
+}
+
+// Triggers: work that starts by itself, as the user, in a new chat.
+export const chatTriggersApi = {
+  list: () => fetchJSON('/api/chats/triggers'),
+  create: (body) => postJSON('/api/chats/triggers', body),
+  update: (id, body) => fetchJSON(`/api/chats/triggers/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  remove: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}`, { method: 'DELETE' }),
+  enable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/enable`, {}),
+  disable: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/disable`, {}),
+  run: (id) => postJSON(`/api/chats/triggers/${enc2(id)}/run`, {}),
+  runs: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/runs`),
+  preview: (when, tz) => fetchJSON(`/api/chats/triggers/preview${q({ when, tz, n: 3 })}`),
+  proposals: (chat) => fetchJSON(`/api/chats/triggers/proposals${q({ chat })}`),
+  // One proposal and what became of it: { state: pending|accepted|declined|undone, trigger, answered_at, can_undo, undo_blocked }.
+  proposal: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`),
+  undoProposal: (id) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/undo`, {}),
+  reopenProposal: (id) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/reopen`, {}),
+  confirm: (id, timeZone) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/confirm`, timeZone ? { time_zone: timeZone } : {}),
+  dismiss: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`, { method: 'DELETE' }),
+  editProposal: (id, body) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  // A change a model asked for in a chat and what became of it: { id, op, state, before, after, fields, can_undo, undo_blocked, stale, last_run }.
+  change: (id) => fetchJSON(`/api/chats/triggers/changes/${enc2(id)}`),
+  applyChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/apply`, {}),
+  undoChange: (id) => postJSON(`/api/chats/triggers/changes/${enc2(id)}/undo`, {}),
+  dismissChange: (id) => fetchJSON(`/api/chats/triggers/changes/${enc2(id)}`, { method: 'DELETE' }),
+}
+
+// The inbox: what ended while the user was elsewhere.
+export const chatNotificationsApi = {
+  list: (unread, limit = 50) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit })}`),
+  read: (body) => postJSON('/api/chats/notifications/read', body),
+  remove: (ids) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+  // Every notification of the user, or with readOnly only the read ones.
+  clear: (readOnly) => fetchJSON('/api/chats/notifications', { method: 'DELETE', body: JSON.stringify({ all: true, read_only: readOnly || undefined }) }),
+  eventsUrl: () => apiUrl('/api/chats/notifications/events'),
+}
+
+// What the conversion of the old chat, agents and skills did, for the viewer.
+export const chatConversionApi = {
+  get: () => fetchJSON('/api/chats/conversion'),
+}
+
+// Browser push for the inbox.
+export const chatPushApi = {
+  key: () => fetchJSON('/api/chats/push/key'),
+  subscribe: (subscription) => postJSON('/api/chats/push/subscribe', subscription),
+  unsubscribe: (endpoint) => fetchJSON('/api/chats/push/subscribe', { method: 'DELETE', body: JSON.stringify({ endpoint }) }),
 }
 
 // Resources API
@@ -287,30 +657,6 @@ export const p2pApi = {
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     return response.text()
   },
-}
-
-// Agent Jobs API
-export const agentJobsApi = {
-  listTasks: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentTasks}${allUsers ? '?all_users=true' : ''}`),
-  getTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id)),
-  createTask: (body) => postJSON(API_CONFIG.endpoints.agentTasks, body),
-  updateTask: (id, body) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'PUT', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } }),
-  deleteTask: (id) => fetchJSON(API_CONFIG.endpoints.agentTask(id), { method: 'DELETE' }),
-  executeTask: (name, body = {}) => postJSON(API_CONFIG.endpoints.executeAgentTask(name), body),
-  listJobs: (allUsers) => fetchJSON(`${API_CONFIG.endpoints.agentJobs}${allUsers ? '?all_users=true' : ''}`),
-  getJob: (id) => fetchJSON(API_CONFIG.endpoints.agentJob(id)),
-  cancelJob: (id) => postJSON(API_CONFIG.endpoints.cancelAgentJob(id), {}),
-  executeJob: (body) => postJSON(API_CONFIG.endpoints.executeAgentJob, body),
-  // Run a finished job's task again with the parameters and media it had. There
-  // is no retry call, so this is a new job.
-  rerunJob: (job) => postJSON(API_CONFIG.endpoints.executeAgentJob, {
-    task_id: job.task_id,
-    parameters: job.parameters || {},
-    ...(job.images?.length ? { images: job.images } : {}),
-    ...(job.videos?.length ? { videos: job.videos } : {}),
-    ...(job.audios?.length ? { audios: job.audios } : {}),
-    ...(job.files?.length ? { files: job.files } : {}),
-  }),
 }
 
 // Image generation
@@ -482,62 +828,21 @@ export const systemApi = {
   info: () => fetchJSON(API_CONFIG.endpoints.system),
 }
 
-export const agentsApi = {
-  list: (allUsers) => fetchJSON(`/api/agents${allUsers ? '?all_users=true' : ''}`),
-  create: (config) => postJSON('/api/agents', config),
-  get: (name, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`),
-  getConfig: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/config${userQ(userId)}`),
-  update: (name, config, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`, { method: 'PUT', body: JSON.stringify(config), headers: { 'Content-Type': 'application/json' } }),
-  delete: (name, userId) => fetchJSON(`/api/agents/${enc(name)}${userQ(userId)}`, { method: 'DELETE' }),
-  pause: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/pause${userQ(userId)}`, { method: 'PUT' }),
-  resume: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/resume${userQ(userId)}`, { method: 'PUT' }),
-  status: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/status${userQ(userId)}`),
-  observables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`),
-  clearObservables: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/observables${userQ(userId)}`, { method: 'DELETE' }),
-  chat: (name, message, userId, history = []) => postJSON(`/api/agents/${enc(name)}/chat${userQ(userId)}`, { message, history }),
-  export: (name, userId) => fetchJSON(`/api/agents/${enc(name)}/export${userQ(userId)}`),
-  import: (formData) => fetch(apiUrl('/api/agents/import'), { method: 'POST', body: formData }).then(handleResponse),
-  configMeta: () => fetchJSON('/api/agents/config/metadata'),
-  sseUrl: (name, userId) => `/api/agents/${enc(name)}/sse${userQ(userId)}`,
-}
-
 export const agentCollectionsApi = {
-  list: (allUsers) => fetchJSON(`/api/agents/collections${allUsers ? '?all_users=true' : ''}`),
-  create: (name) => postJSON('/api/agents/collections', { name }),
-  upload: (name, formData, userId) => fetch(apiUrl(`/api/agents/collections/${enc(name)}/upload${userQ(userId)}`), { method: 'POST', body: formData }).then(handleResponse),
-  entries: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entries${userQ(userId)}`),
-  entryContent: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entries/${encodeURIComponent(entry)}${userQ(userId)}`),
-  search: (name, query, maxResults, userId) => postJSON(`/api/agents/collections/${enc(name)}/search${userQ(userId)}`, { query, max_results: maxResults }),
-  reset: (name, userId) => postJSON(`/api/agents/collections/${enc(name)}/reset${userQ(userId)}`),
-  deleteEntry: (name, entry, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
-  sources: (name, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`),
-  addSource: (name, url, interval, userId) => postJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, {
+  list: (allUsers) => fetchJSON(`/api/collections${allUsers ? '?all_users=true' : ''}`),
+  create: (name) => postJSON('/api/collections', { name }),
+  upload: (name, formData, userId) => fetch(apiUrl(`/api/collections/${enc(name)}/upload${userQ(userId)}`), { method: 'POST', body: formData }).then(handleResponse),
+  entries: (name, userId) => fetchJSON(`/api/collections/${enc(name)}/entries${userQ(userId)}`),
+  entryContent: (name, entry, userId) => fetchJSON(`/api/collections/${enc(name)}/entries/${encodeURIComponent(entry)}${userQ(userId)}`),
+  search: (name, query, maxResults, userId) => postJSON(`/api/collections/${enc(name)}/search${userQ(userId)}`, { query, max_results: maxResults }),
+  reset: (name, userId) => postJSON(`/api/collections/${enc(name)}/reset${userQ(userId)}`),
+  deleteEntry: (name, entry, userId) => fetchJSON(`/api/collections/${enc(name)}/entry/delete${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ entry }), headers: { 'Content-Type': 'application/json' } }),
+  sources: (name, userId) => fetchJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`),
+  addSource: (name, url, interval, userId) => postJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`, {
     url,
     update_interval: interval === undefined ? undefined : Number(interval),
   }),
-  removeSource: (name, url, userId) => fetchJSON(`/api/agents/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
-}
-
-// Skills API
-export const skillsApi = {
-  list: (allUsers) => fetchJSON(`/api/agents/skills${allUsers ? '?all_users=true' : ''}`),
-  search: (q) => fetchJSON(`/api/agents/skills/search?q=${enc(q)}`),
-  get: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`),
-  create: (data) => postJSON('/api/agents/skills', data),
-  update: (name, data, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`, { method: 'PUT', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } }),
-  delete: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}${userQ(userId)}`, { method: 'DELETE' }),
-  import: (file) => { const fd = new FormData(); fd.append('file', file); return fetch(apiUrl('/api/agents/skills/import'), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
-  exportUrl: (name, userId) => apiUrl(`/api/agents/skills/export/${enc(name)}${userQ(userId)}`),
-  listResources: (name, userId) => fetchJSON(`/api/agents/skills/${enc(name)}/resources${userQ(userId)}`),
-  getResource: (name, path, opts, userId) => fetchJSON(`/api/agents/skills/${enc(name)}/resources/${path}${opts?.json ? '?encoding=base64' : ''}${userId ? `${opts?.json ? '&' : '?'}user_id=${enc(userId)}` : ''}`),
-  createResource: (name, path, file) => { const fd = new FormData(); fd.append('file', file); fd.append('path', path); return fetch(apiUrl(`/api/agents/skills/${enc(name)}/resources`), { method: 'POST', body: fd }).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }); },
-  updateResource: (name, path, content) => postJSON(`/api/agents/skills/${enc(name)}/resources/${path}`, { content }),
-  deleteResource: (name, path) => fetchJSON(`/api/agents/skills/${enc(name)}/resources/${path}`, { method: 'DELETE' }),
-  listGitRepos: () => fetchJSON('/api/agents/git-repos'),
-  addGitRepo: (url) => postJSON('/api/agents/git-repos', { url }),
-  syncGitRepo: (id) => postJSON(`/api/agents/git-repos/${enc(id)}/sync`, {}),
-  toggleGitRepo: (id) => postJSON(`/api/agents/git-repos/${enc(id)}/toggle`, {}),
-  deleteGitRepo: (id) => fetchJSON(`/api/agents/git-repos/${enc(id)}`, { method: 'DELETE' }),
+  removeSource: (name, url, userId) => fetchJSON(`/api/collections/${enc(name)}/sources${userQ(userId)}`, { method: 'DELETE', body: JSON.stringify({ url }), headers: { 'Content-Type': 'application/json' } }),
 }
 
 // Usage API

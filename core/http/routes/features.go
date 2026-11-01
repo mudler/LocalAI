@@ -16,8 +16,17 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 		addons := app.AddonsFeature(c.Request().Context())
 		// model_exports is false only when this instance does not see the
 		// owner's models path; an unknown check leaves it true.
+		// The chats keys say what runs on this server, not what a user may use:
+		// the permissions of a user come from /api/auth/me. A part that was
+		// switched off, or that failed to start, reads false.
+		chats := app.StudioService() != nil
 		return c.JSON(200, map[string]bool{
-			"agents":            appConfig.AgentPool.Enabled,
+			"chats":             chats,
+			"agents":            chats,
+			"triggers":          chats && app.StudioTriggers() != nil,
+			"connectors":        chats && app.StudioConnectors() != nil,
+			"agent_jobs":        chats && app.StudioJobs() != nil,
+			"collections":       appConfig.Collections.Enabled,
 			"mcp":               !appConfig.DisableMCP,
 			"addons":            addons,
 			"fine_tuning":       addons,
@@ -27,6 +36,9 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 			"backend_install":   !appConfig.DisableBackendInstall,
 			"localai_assistant": !appConfig.DisableLocalAIAssistant && app.LocalAIAssistant() != nil,
 			"addon_navigation":  !appConfig.LegacyNavigation,
+			// The server's default for offers from the assistant; a user's own
+			// choice in user.json wins.
+			"chats_suggestions": chats && !appConfig.DisableChatSuggestions,
 		})
 	})
 }

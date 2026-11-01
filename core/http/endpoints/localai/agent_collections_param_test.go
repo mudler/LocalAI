@@ -26,7 +26,7 @@ var _ = Describe("decodedParam", func() {
 	// value the handler would observe.
 	route := func(rawPath string) string {
 		var got string
-		e.GET("/api/agents/collections/:name/upload", func(c echo.Context) error {
+		e.GET("/api/collections/:name/upload", func(c echo.Context) error {
 			got = decodedParam(c, "name")
 			return c.NoContent(http.StatusOK)
 		})
@@ -38,12 +38,12 @@ var _ = Describe("decodedParam", func() {
 	}
 
 	It("decodes a percent-encoded colon in the collection name", func() {
-		got := route("/api/agents/collections/legacy-api-key%3ALiteraryResearch/upload")
+		got := route("/api/collections/legacy-api-key%3ALiteraryResearch/upload")
 		Expect(got).To(Equal("legacy-api-key:LiteraryResearch"))
 	})
 
 	It("leaves an unencoded name untouched", func() {
-		got := route("/api/agents/collections/PlainCollection/upload")
+		got := route("/api/collections/PlainCollection/upload")
 		Expect(got).To(Equal("PlainCollection"))
 	})
 })

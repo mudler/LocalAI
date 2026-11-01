@@ -1,0 +1,46 @@
+---
+name: 'UI Unit Tests'
+
+# The checks that need only Node: eslint (errors), the inline-style ratchet,
+# the host UI unit tests, the UI unit tests of every add-on and the locale
+# completeness ratchet. They take seconds, so they run on every change to the
+# UI or to an add-on UI package, ahead of the browser suites.
+on:
+  pull_request:
+    paths:
+      - 'core/http/react-ui/**'
+      - 'addons/*/ui/**'
+      - 'addons/internal/**'
+      - 'Makefile'
+      - '.github/workflows/tests-ui-unit.yml'
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ci-tests-ui-unit-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  tests-ui-unit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Clone
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      # The add-on UI tests render with the host's React and bundle with the
+      # host's bundler (addons/internal/uibuild), so they read the host's
+      # node_modules.
+      - name: Install the host UI dependencies
+        run: npm ci --no-audit --no-fund --prefix core/http/react-ui
+      - name: Run the UI unit checks
+        run: make test-ui-unit

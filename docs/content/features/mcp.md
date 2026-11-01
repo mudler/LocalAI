@@ -191,20 +191,15 @@ different tools share one loaded model.
 #### Agent Configuration (`agent`)
 
 - **`max_iterations`**: Maximum number of MCP tool execution loop iterations (default: 10). Each iteration allows the model to call tools and receive results before generating the next response.
-- **`max_generation_tokens`**: Output-token cap for each completion of an MCP agent job (default: the client default, 16384). `max_iterations` bounds the number of turns, not the length of one; this bounds a single completion that keeps generating. Raise it for reasoning models that think at length, lower it for models that should only pick a tool and answer briefly. It applies to agent jobs (`/api/agent/jobs`, also when run on a distributed agent worker); an MCP tool loop on `/v1/chat/completions` uses the request's own `max_tokens`.
+- **`max_attempts`**: How often a failed tool call is retried (chats and saved agents).
+- **`force_reasoning_tool`**: Make the model reason before it picks a tool (chats and saved agents).
+- **`max_generation_tokens`**: Accepted and ignored. It capped the completions of the old agent jobs.
+
+The planning, plan re-evaluation, loop detection and reasoning switches of the old agent loop (`enable_planning`, `enable_plan_re_evaluator`, `enable_reasoning`, `enable_mcp_prompts`, `disable_sink_state`, `loop_detection`, `max_adjustment_attempts`) are ignored; a model file that sets one still loads and the server logs a warning. See [Model configuration]({{% relref "advanced/model-configuration" %}}).
 
 ## Agent-scoped MCP servers
 
-The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. LocalAI's [agents]({{% relref "features/agents" %}}) can also attach MCP servers to a single **agent**, independent of the model it runs on. This is the mechanism the Agents feature advertises as "MCP Servers".
-
-Use model-scoped MCP (the `mcp:` block in a model YAML) when the tools belong to the model itself and every caller of that model should get them. Use agent-scoped MCP when only one agent should have a given tool, or when different agents sharing the same model need different tools.
-
-Agent-scoped MCP servers are configured per agent, not in a model YAML:
-
-- **In the web UI:** open the **Agents** page, edit an agent, and fill in its **MCP Servers** (remote HTTP servers) and **MCP STDIO Servers** (local command servers) fields. The JSON shape is the same `mcpServers` map used above.
-- **In an agent config (JSON):** the agent stores remote servers under `mcp_servers` and local command servers under `mcp_stdio_servers`, so an exported/imported agent carries its MCP servers with it.
-
-An agent-scoped MCP server that is unreachable is a common reason an imported agent's tool "times out or is unavailable"; see the checklist in {{% relref "getting-started/first-agent" %}}.
+The `mcp:` block above attaches MCP servers to a **model**: every request that uses that model config can reach those tools. A [saved agent]({{% relref "features/chats-agents" %}}) of the chats can limit a chat to some of them: its `mcp_servers` list names the servers of the model's `mcp:` block that the chat may use. The agent cannot add a server of its own.
 
 ## Usage
 
@@ -654,57 +649,20 @@ mcp:
 
 ## Client-Side MCP (Browser)
 
+> The chats no longer connect to MCP servers from the browser. This section
+> describes the browser-side connection that the add-on host still offers to
+> add-ons. For the chats, define the server as a connector (it is stored per user
+> and connects from the server): see [Chats connectors](/features/chats-connectors/#mcp-servers).
+> A server on your own computer or a private network is refused unless an
+> administrator allows private addresses.
+
 In addition to server-side MCP (where the backend connects to MCP servers), LocalAI supports **client-side MCP** where the browser connects directly to MCP servers. This is inspired by llama.cpp's WebUI and works alongside server-side MCP.
 
-### How It Works
+The browser keeps one MCP client, for the pages that add-ons add to the interface. An add-on page can ask it to connect to an MCP server and call its tools. Those server configurations are stored in the browser's localStorage and are not shared with the server; custom headers (for example API keys) are stored there too, so use them with care on shared machines.
 
-1. **Add servers in the UI**: Click the **MCP** chip above the message box, open the **Client** tab, and add MCP server URLs
-2. **Browser connects directly**: The browser uses the MCP TypeScript SDK (`StreamableHTTPClientTransport` or `SSEClientTransport`) to connect to MCP servers
-3. **Tool discovery**: Connected servers' tools are sent as `tools` in the chat request body
-4. **Browser-side execution**: When the LLM calls a client-side tool, the browser executes it against the MCP server and sends the result back in a follow-up request
-5. **Agentic loop**: This continues (up to 10 turns) until the LLM produces a final response
+Because browsers enforce CORS, LocalAI provides a proxy at `/api/cors-proxy`. It forwards the method, headers and body of a request to the target URL and streams the response back with CORS headers. It can forward requests to any HTTP or HTTPS URL, and it is only available while MCP is on (`LOCALAI_DISABLE_MCP` is not set).
 
-### CORS Proxy
-
-Since browsers enforce CORS restrictions, LocalAI provides a built-in proxy at `/api/cors-proxy`. When "Use CORS proxy" is enabled (default), requests to external MCP servers are routed through:
-
-```
-/api/cors-proxy?url=https://remote-mcp-server.example.com/sse
-```
-
-The proxy forwards the request method, headers, and body to the target URL and streams the response back with appropriate CORS headers.
-
-### MCP Apps (Interactive Tool UIs)
-
-LocalAI supports the [MCP Apps extension](https://modelcontextprotocol.io/extensions/apps/overview), which allows MCP tools to declare interactive HTML UIs. When a tool has `_meta.ui.resourceUri` in its definition, calling that tool renders the app's HTML inline in the chat as a sandboxed iframe.
-
-**How it works:**
-
-- When the LLM calls a tool with `_meta.ui.resourceUri`, the browser fetches the HTML resource from the MCP server and renders it in an iframe
-- The iframe is sandboxed (`allow-scripts allow-forms`, no `allow-same-origin`) for security
-- The app can call server tools, send messages, and update context via the `AppBridge` protocol (JSON-RPC over `postMessage`)
-- Tools marked as app-only (`_meta.ui.visibility: "app-only"`) are hidden from the LLM and only callable by the app iframe
-- On page reload, apps render statically until the MCP connection is re-established
-
-**Requirements:**
-
-- Only works with **client-side MCP** connections (the browser must be connected to the MCP server)
-- The MCP server must implement the Apps extension (`_meta.ui.resourceUri` on tools, resource serving)
-
-### Coexistence with Server-Side MCP
-
-Both modes work simultaneously in the same chat:
-
-- **Server-side MCP tools** are configured in model YAML files and executed by the backend. The backend handles these in its own agentic loop.
-- **Client-side MCP tools** are configured per-user in the browser and sent as `tools` in the request. When the LLM calls them, the browser executes them.
-
-If both sides have a tool with the same name, the server-side tool takes priority.
-
-### Security Considerations
-
-- The CORS proxy can forward requests to any HTTP/HTTPS URL. It is only available when MCP is enabled (`LOCALAI_DISABLE_MCP` is not set).
-- Client-side MCP server configurations are stored in the browser's localStorage and are not shared with the server.
-- Custom headers (e.g., API keys) for MCP servers are stored in localStorage. Use with caution on shared machines.
+For interactive tool pages (MCP Apps) in the chats, see [Interactive tool pages]({{% relref "features/chats" %}}).
 
 ## Disabling MCP Support
 
