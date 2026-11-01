@@ -156,6 +156,16 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
   the [connectors page](/features/chats-connectors/#what-a-message-gets).
 
+In the web interface, the **Files** section of the agent form sets the folder:
+**All my files**, or **One folder** with **Choose folder**, which opens a folder
+picker of your files (`LocalAI`, `Chats` and shared folders cannot be chosen),
+and the access, **Can read** or **Can read and change**. The agents list and the
+agent's page show the folder and its access, with a lock for read only, or
+**Folder missing** with a link to the form. The Files page marks a folder that
+an agent uses. A chat with the agent shows the folder next to the agent in the
+message box and in the Tools menu. A chat that cannot start because the folder
+is missing says so and offers **Edit agent**.
+
 The folder is read from the stores at every request and at the start of every
 turn, and nothing is kept in memory between turns, so every frontend and chat
 worker of a cluster answers the same.
