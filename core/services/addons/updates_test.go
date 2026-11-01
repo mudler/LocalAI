@@ -8,10 +8,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -61,7 +63,14 @@ func (l *updateLibrary) publish(version, channel, content string, requires catal
 	files["manifest.json"] = manifest
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
-	for name, data := range files {
+	// Stable entry order keeps identical package contents at the same digest.
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		data := files[name]
 		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
 		_, e = tw.Write(data)
 		Expect(e).NotTo(HaveOccurred())
@@ -172,6 +181,44 @@ func (r *updateRig) journalOps() int {
 	defer r.m.mu.Unlock()
 	return len(r.m.journal.Operations)
 }
+
+var _ = Describe("update library archive fixtures", func() {
+	It("publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms", func() {
+		for _, transformed := range []bool{false, true} {
+			lib := &updateLibrary{archives: map[string][]byte{}, server: &httptest.Server{URL: "http://fixture.invalid"}}
+			wantNames := []string{"bin/sample", "manifest.json"}
+			if transformed {
+				lib.transform = func(m map[string]any) map[string][]byte {
+					m["description"] = "unchanged transform"
+					return map[string][]byte{"z-last.txt": []byte("last"), "a-first.txt": []byte("first"), "ui/main.js": []byte("export default {};")}
+				}
+				wantNames = []string{"a-first.txt", "bin/sample", "manifest.json", "ui/main.js", "z-last.txt"}
+			}
+			var archives [][]byte
+			digests := map[string]bool{}
+			for attempt := 0; attempt < 100; attempt++ {
+				release := lib.publish("1.2.3", "", "unchanged content", catalog.Requirements{})
+				digests[release.Digest] = true
+				archives = append(archives, lib.archives[strings.TrimPrefix(release.Artifact, lib.server.URL)])
+			}
+			Expect(digests).To(HaveLen(1), "unchanged publishes must not change the digest; transformed=%t", transformed)
+			for _, archive := range archives {
+				Expect(archive).To(Equal(archives[0]))
+				tr := tar.NewReader(bytes.NewReader(archive))
+				var names []string
+				for {
+					header, err := tr.Next()
+					if err == io.EOF {
+						break
+					}
+					Expect(err).NotTo(HaveOccurred())
+					names = append(names, header.Name)
+				}
+				Expect(names).To(Equal(wantNames), "archive entries must use lexical order")
+			}
+		}
+	})
+})
 
 var _ = Describe("explicit upgrade from an authoritative update check", func() {
 	It("reports a digest-only change of a moving channel, applies nothing and offers the pinned upgrade", func() {

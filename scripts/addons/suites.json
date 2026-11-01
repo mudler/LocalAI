@@ -4751,6 +4751,7 @@
       ]
     ],
     "cases": [
+      "go: publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms",
       "unit: updates: a failed, unknown or unreadable check is never current",
       "unit: updates: an upgrade is offered only for a candidate the owner confirmed, with a digest to pin",
       "unit: updates: the owner's typed refusals keep their type and are final answers",

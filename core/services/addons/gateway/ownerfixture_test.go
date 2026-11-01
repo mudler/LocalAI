@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
@@ -44,7 +45,14 @@ func ownerManagerPackage(actor contract.Actor, install bool, manifest string, fi
 	for name, data := range files {
 		contents[name] = data
 	}
-	for name, data := range contents {
+	// Stable entry order keeps identical package contents at the same digest.
+	names := make([]string, 0, len(contents))
+	for name := range contents {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		data := contents[name]
 		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
 		_, e := tw.Write([]byte(data))
 		Expect(e).NotTo(HaveOccurred())
