@@ -220,6 +220,37 @@ var _ = Describe("connector owner routing", func() {
 			}
 			Expect(source.calls[len(source.calls)-1].Token).To(Equal(expected))
 		}
+		// Discovery can succeed before the owner's connector service is initialized.
+		// Unlike the explicit owner denial above, this outage must allow complete saves.
+		authority := ownerApp.studioConnectors
+		ownerApp.studioConnectors = nil
+		before = len(source.calls)
+		input.Token = "authority-outage-create"
+		created, createErr = client.CreateConnector(ctx, "named", input)
+		input.Token = "authority-outage-replacement"
+		_, updateErr = client.UpdateConnector(ctx, "named", original.ID, input)
+		ownerApp.studioConnectors = authority
+		Expect(createErr).NotTo(HaveOccurred(), "authority service outage must preserve permissive create")
+		Expect(updateErr).NotTo(HaveOccurred(), "authority service outage must preserve permissive token replacement")
+		Expect(source.calls).To(HaveLen(before))
+		authorityOutageStore, e := connectors.NewJSON(dir)
+		Expect(e).NotTo(HaveOccurred())
+		authorityOutageBindings, e := authorityOutageStore.ListBindings(ctx, "named")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(authorityOutageBindings).To(HaveLen(3))
+		for _, id := range []string{created.ID, original.ID} {
+			b, e := authorityOutageStore.GetBinding(ctx, id)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(b.Token).NotTo(BeEmpty())
+			Expect(b.AgentID).To(Equal(agentID))
+			_, e = tr.Call(ctx, studio.BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: "slack"})
+			Expect(e).NotTo(HaveOccurred())
+			expected := "authority-outage-create"
+			if id == original.ID {
+				expected = "authority-outage-replacement"
+			}
+			Expect(source.calls[len(source.calls)-1].Token).To(Equal(expected))
+		}
 		// Unknown named users are refused during both prospective and replacement
 		// validation, even when an agent or stored binding exists for that identity.
 		ag, e := svc.SaveAgent(ctx, "missing-user", agents.Agent{Name: "Orphan", Model: "fake"})

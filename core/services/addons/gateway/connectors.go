@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"time"
@@ -101,6 +102,11 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 	}
 	req, err = g.ConnectorAuthority.AuthorizeConnector(ctx, s, req)
 	if err != nil {
+		// An authority service that has not started is an outage, not a denial.
+		// Return only gateway sentinels so authority details never reach the carrier.
+		if errors.Is(err, ErrUnavailable) {
+			return contract.ConnectorResponse{}, ErrUnavailable
+		}
 		return contract.ConnectorResponse{}, ErrForbidden
 	}
 	out, err := source.Connector(ctx, s.AddonID, req)
