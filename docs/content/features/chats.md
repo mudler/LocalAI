@@ -756,7 +756,10 @@ is off for every chat until you switch **Saved agents** on in the chat's
 **Tools** menu. The chat then has two more things:
 
 - `list_agents` lists your saved agents: `id`, `name`, `description` and
-  `model`, at most 100. It lists only your own agents.
+  `model`, at most 100, and for an agent that works in a folder the folder's
+  name (`folder`) and its mode (`folder_mode`, `read` or `write`). It lists only
+  your own agents. In a chat whose agent has a folder it lists only the agents
+  that can start there (see [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}})).
 - `spawn_agent` takes an `agent` argument, the id or the name (ignoring case) of
   one of them. The sub-agent runs with the agent's instructions, its model (or
   the chat's model when the agent names none) and only what the agent grants,

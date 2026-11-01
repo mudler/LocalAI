@@ -377,20 +377,21 @@ func (s *Service) agentFitsChat(ctx context.Context, chat session.ChatRecord, ag
 	if err != nil {
 		return err
 	}
-	if outer == nil || !ag.HasFolder() {
-		return nil
-	}
-	inner, err := s.liveFolder(ctx, chat.Principal, ag)
-	if errors.Is(err, ErrAgentFolderMissing) {
-		return ErrAgentOutsideFolder
-	}
-	if err != nil {
-		return err
-	}
-	if !workspace.Within(inner.path, outer.path) {
+	if !s.agentFitsScope(ctx, chat.Principal, outer, ag) {
 		return ErrAgentOutsideFolder
 	}
 	return nil
+}
+
+// agentFitsScope says whether ag may work under outer, the folder of the
+// chat's agent (nil for a chat with none). An agent whose folder cannot be
+// found does not fit a folder: nothing says it is inside.
+func (s *Service) agentFitsScope(ctx context.Context, p string, outer *folderScope, ag agents.Agent) bool {
+	if outer == nil || !ag.HasFolder() {
+		return true
+	}
+	inner, err := s.liveFolder(ctx, p, ag)
+	return err == nil && workspace.Within(inner.path, outer.path)
 }
 
 // subset picks the tools a sub-agent gets from the parent's host tools and

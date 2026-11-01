@@ -132,6 +132,13 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   shared folders are at `/workspace/shared-<name>`. The file tools, the image
   and document tools, the file search and the system prompt use this layout,
   and a sub-agent of the chat gets the same folders.
+- A sub-agent never reaches more than the chat that started it, in folder or
+  in mode. A plain sub-agent and a saved agent without a folder work in the
+  chat's folder, at the chat's mode. A saved agent with a folder can start from
+  the chat only when its folder is the chat's folder or inside it; it then works
+  in its own folder at the lower of the two modes. Any other agent is refused
+  with "this agent works in another folder than this chat", and `list_agents`
+  does not list it.
 - A `PUT` without `folder` keeps the folder the agent has, so a client that
   does not know the field cannot give the agent more files by editing it.
   `"folder": {"path": ""}` clears the folder.
