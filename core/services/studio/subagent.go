@@ -84,9 +84,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		fa.ChatID = rec.ParentID
 	}
 	nudge := s.newRulesNudge(ctx, a, rec)
-	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(fa), hidden)))))...)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(s.turnAccess(ctx, fa)), hidden)))))...)
 	if s.d.Media != nil {
-		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, a, rec.Model), hidden))...)
+		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, s.turnAccess(ctx, a), rec.Model), hidden))...)
 	}
 	// What the prompt may tell the model to do with the files follows the
 	// tools it has now: a chat with the file tools switched off hears of none.
@@ -355,7 +355,7 @@ func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
 	parent, perr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
-	fileTools := s.d.Files.Tools(a)
+	fileTools := s.d.Files.Tools(s.turnAccess(ctx, a))
 	if perr == nil {
 		// A sub-agent never gets a tool its parent switched off.
 		fileTools = dropHidden(fileTools, s.hiddenFor(ctx, parent))

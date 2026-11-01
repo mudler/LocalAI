@@ -186,7 +186,7 @@ func (r *Runner) mounts(ctx context.Context, a workspace.Actor) ([]workspace.Mou
 			return nil, err
 		}
 	}
-	v, err := session.BuildView(ctx, r.o.Store, a, shared, slog.New(slog.DiscardHandler))
+	v, err := session.BuildView(ctx, r.o.Store, a, session.HomePath(a.Principal), "", shared, slog.New(slog.DiscardHandler))
 	if err != nil {
 		return nil, err
 	}

@@ -124,7 +124,14 @@ func (fx *fixture) tool(name string) session.Tool {
 
 // toolIn is a tool of a chat whose own model is chatModel.
 func (fx *fixture) toolIn(name, chatModel string) session.Tool {
-	for _, tl := range fx.svc.Tools(fx.f, workspace.Actor{Principal: "alice", ChatID: "c1"}, chatModel) {
+	x, err := fx.f.UnscopedAccess(context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"})
+	Expect(err).NotTo(HaveOccurred())
+	return fx.toolOf(name, x, chatModel)
+}
+
+// toolOf is a tool of a chat with the access x.
+func (fx *fixture) toolOf(name string, x session.Access, chatModel string) session.Tool {
+	for _, tl := range fx.svc.Tools(fx.f, x, chatModel) {
 		if tl.Name == name {
 			return tl
 		}

@@ -73,6 +73,12 @@ func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord) stri
 	if err != nil || parent.Folder == "" {
 		return ""
 	}
+	if parent.ScopedAgent {
+		// The parent's chat folder is a mount of its own. Whether the
+		// agent's folder may be written is not known here, so the
+		// deliverables go to the chat folder, which always may be.
+		return workfiles.ScopedPrompt(false)
+	}
 	return workfiles.Prompt(workfiles.GuestFolder(parent.Folder))
 }
 
@@ -112,6 +118,9 @@ func (s *Service) nudgeLine(ctx context.Context, a workspace.Actor, paths []stri
 	}
 	if !strings.HasPrefix(stray, session.GuestRoot+"/") {
 		stray = session.GuestRoot + "/" + session.GuestHome + stray
+	}
+	if s.turnAccess(ctx, a).Place().Scoped() {
+		return workfiles.Nudge(workfiles.ChatGuestFolder, stray)
 	}
 	return workfiles.Nudge(workfiles.GuestFolder(folder), stray)
 }
