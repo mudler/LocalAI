@@ -216,6 +216,22 @@ func Reduce(state State, event Event) Transition {
 	if !knownEvent(event) {
 		return ignored(state, "invalid event; fail closed")
 	}
+	// A previously issued run can still produce quarantined resources after its
+	// stage has released. It can never supply a new result or restart work.
+	if v, ok := event.(TaskCompleted); ok && v.Request == s.Request.ID && v.ID == "run" && v.Stage >= transcribe && v.Stage <= generate && s.Runs&(1<<v.Stage) != 0 {
+		_, runningNow := s.Phase.(running)
+		if terminal || v.Stage != s.Stage || !runningNow {
+			if v.Artifact > 0 && v.Artifact <= 8 {
+				bit := uint16(1) << v.Artifact
+				if s.Cleaned[v.Stage]&bit == 0 {
+					s.Cleaned[v.Stage] |= bit
+					c := command{s.Request.ID, v.Stage, "late-" + strconv.Itoa(int(v.Artifact))}
+					return transition(withSession(state, s), "R9", "late owned artifact; idempotent quarantine cleanup", CleanArtifact{c, v.Artifact})
+				}
+			}
+			return ignored(state, "duplicate owned completion; result authority already consumed")
+		}
+	}
 	if c, ok := correlationOf(event); ok && (c.Request != s.Request.ID || c.Stage != s.Stage) {
 		return ignored(state, "foreign request or stage ownership")
 	}
@@ -257,6 +273,7 @@ func Reduce(state State, event Event) Transition {
 		if _, ok := s.Phase.(admitting); ok && s.Ownership == admissionPending {
 			s.Phase = running{}
 			s.Ownership = laneOwned
+			s.Runs |= 1 << s.Stage
 			rule := "R1"
 			if s.Stage == generate {
 				rule = "R2"
@@ -270,6 +287,10 @@ func Reduce(state State, event Event) Transition {
 		}
 	case TaskCompleted:
 		if _, ok := s.Phase.(running); ok {
+			// The accepted artifact remains under Stop/fetch cleanup authority.
+			if v.Artifact > 0 && v.Artifact <= 8 {
+				s.Cleaned[s.Stage] |= uint16(1) << v.Artifact
+			}
 			good := v.Valid
 			if s.Stage == transcribe {
 				good = good && validABC(v.ABC)
@@ -359,7 +380,7 @@ func Reduce(state State, event Event) Transition {
 	return ignored(state, "event not enabled in current tagged phase")
 }
 func terminalEvent(state State, s session, event Event) Transition {
-	switch v := event.(type) {
+	switch event.(type) {
 	case AdmissionDenied:
 		if s.Ownership == admissionStopPending {
 			s.Ownership = unowned
@@ -374,19 +395,11 @@ func terminalEvent(state State, s session, event Event) Transition {
 		// Stop was already issued for pending admission. The runner must honor it
 		// even if acquisition completes after cancellation.
 		return ignored(state, "terminal admission cannot start inference; stop already requested")
-	case TaskCompleted:
-		if v.Artifact > 0 && v.Artifact <= 8 {
-			bit := uint64(1) << v.Artifact
-			if s.Cleaned&bit == 0 {
-				s.Cleaned |= bit
-				return transition(withSession(state, s), "R9", "late owned artifact; idempotent quarantine cleanup", CleanArtifact{cmd(s, "late-"+strconv.Itoa(int(v.Artifact))), v.Artifact})
-			}
-		}
 	case OutputPublished, OutputPrepared, OutputFetched:
 		// Revoke is issued by terminal entry; repeating a message cannot issue a
 		// second commit or response, or revoke an already committed success.
 		return ignored(state, "terminal publication cannot supersede commit authority")
-	case Start, TaskFailed, InputCleaned, GenerationChecked, EffectFailed, Cancel, DeadlineExpired, CleanupAcknowledged:
+	case Start, TaskCompleted, TaskFailed, InputCleaned, GenerationChecked, EffectFailed, Cancel, DeadlineExpired, CleanupAcknowledged:
 	}
 	return ignored(state, "terminal duplicate or late acknowledgement")
 }

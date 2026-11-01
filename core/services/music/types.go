@@ -92,7 +92,10 @@ type session struct {
 	Stage          stage
 	Phase          phase
 	Ownership      ownership
-	Cleaned        uint64
+	// Runs retains issued-run authority across the two stages. Artifact IDs
+	// are runner-assigned bounded handles, scoped to their issuing stage.
+	Runs    uint8
+	Cleaned [3]uint16
 }
 type State interface{ isState() }
 type Validated struct{ Session session }
@@ -258,6 +261,9 @@ type CommitPublication struct{ command }
 
 func (CommitPublication) isEffect() {}
 
+// Revoke installs a persistent request-scoped tombstone before acknowledging.
+// Outstanding fetch/prepare operations must discard late resources under that
+// authority; it is not a one-shot deletion of currently visible files.
 type Revoke struct{ command }
 
 func (Revoke) isEffect() {}

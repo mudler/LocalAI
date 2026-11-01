@@ -69,7 +69,7 @@ func runSteps(g Gomega, op operation, steps []step) State {
 		before := s
 		tr := Reduce(s, w.Event)
 		g.Expect(tr.Rule).To(Equal(w.Rule), fmt.Sprint(i))
-		g.Expect(tr.Guard).NotTo(BeEmpty())
+		g.Expect(tr.Guard).To(Equal(expectedTraceGuard(w)))
 		g.Expect(names(tr.Effects)).To(Equal(w.Effects), fmt.Sprint(i))
 		g.Expect(phaseName(tr.State)).To(Equal(w.Phase), fmt.Sprint(i))
 		x, terminal := stateSession(tr.State)
@@ -166,7 +166,21 @@ var _ = Describe("pure workflow", func() {
 func events(s State) []Event {
 	x, _ := stateSession(s)
 	c := correlation{x.Request.ID, x.Stage, ""}
-	return []Event{Start{}, Admitted{identified(c, "admit")}, AdmissionDenied{identified(c, "admit")}, TaskCompleted{identified(c, "run"), "X:1\r\nK:C\nC D|\n", true, 1}, TaskCompleted{identified(c, "run"), "bad", false, 2}, TaskFailed{identified(c, "run")}, StageSettled{identified(c, "stop")}, InputCleaned{identified(c, "input")}, GenerationChecked{identified(c, "recheck"), fixture(cover).Generation}, GenerationChecked{identified(c, "recheck"), facts{}}, OutputFetched{identified(c, "fetch"), true}, OutputFetched{identified(c, "fetch"), false}, OutputPrepared{identified(c, "prepare"), true}, OutputPrepared{identified(c, "prepare"), false}, OutputPublished{identified(c, "commit"), "output-a"}, EffectFailed{identified(c, phaseID(x.Phase))}, Cancel{}, DeadlineExpired{100}, DeadlineExpired{2}, CleanupAcknowledged{identified(c, "cleanup")}}
+	out := []Event{Start{}, Admitted{identified(c, "admit")}, AdmissionDenied{identified(c, "admit")}, TaskCompleted{identified(c, "run"), "X:1\r\nK:C\nC D|\n", true, 1}, TaskCompleted{identified(c, "run"), "bad", false, 2}, TaskFailed{identified(c, "run")}, StageSettled{identified(c, "stop")}, InputCleaned{identified(c, "input")}, GenerationChecked{identified(c, "recheck"), fixture(cover).Generation}, GenerationChecked{identified(c, "recheck"), facts{}}, OutputFetched{identified(c, "fetch"), true}, OutputFetched{identified(c, "fetch"), false}, OutputPrepared{identified(c, "prepare"), true}, OutputPrepared{identified(c, "prepare"), false}, OutputPublished{identified(c, "commit"), "output-a"}, EffectFailed{identified(c, phaseID(x.Phase))}, Cancel{}, DeadlineExpired{100}, DeadlineExpired{2}, CleanupAcknowledged{identified(c, "cleanup")}}
+	base := append([]Event{}, out...)
+	for _, e := range base {
+		if c, ok := correlationOf(e); ok {
+			for _, st := range []stage{transcribe, generate} {
+				c.Stage = st
+				out = append(out, replaceCorrelation(e, c))
+			}
+			for _, bad := range []correlation{{"foreign", c.Stage, c.ID}, {c.Request, 9, c.ID}, {c.Request, c.Stage, "stale"}, {c.Request, c.Stage, ""}} {
+				out = append(out, replaceCorrelation(e, bad))
+			}
+		}
+	}
+	out = append(out, nil, unknownEvent{})
+	return out
 }
 func key(s State) string { return fmt.Sprintf("%#v", s) }
 func checkInvariants(g Gomega) {
@@ -178,6 +192,7 @@ func checkInvariants(g Gomega) {
 	nodeKey := func(n node) string { b, _ := json.Marshal(n.issued); return key(n.s) + string(b) }
 	seen := map[string]node{}
 	edges := map[string][]string{}
+	fair := map[string][]string{}
 	queue := []node{}
 	for _, op := range []operation{transcription, generation, cover} {
 		s, _ := Preflight(fixture(op))
@@ -187,18 +202,50 @@ func checkInvariants(g Gomega) {
 	}
 	transitions := 0
 	rules := map[string]bool{}
+	tags := map[string]bool{}
+	cleanups, releases, malformed := 0, 0, 0
 	responses := 0
 	commits := 0
 	for i := 0; i < len(queue); i++ {
 		n := queue[i]
 		x, terminal := stateSession(n.s)
-		g.Expect(len(queue)).To(BeNumerically("<", 10000), fmt.Sprint(n.path))
+		tags[typeName(n.s)+"/"+phaseName(n.s)] = true
+		g.Expect(len(queue)).To(BeNumerically("<", 30000), fmt.Sprint(n.path))
 		for _, e := range events(n.s) {
 			tr := Reduce(n.s, e)
 			transitions++
 			rules[tr.Rule] = true
 			y, nextTerminal := stateSession(tr.State)
-			g.Expect(tr.Guard).NotTo(BeEmpty())
+			g.Expect(tr.Guard).NotTo(BeEmpty(), fmt.Sprint(append(n.path, fmt.Sprintf("%#v", e))))
+			if c, ok := correlationOf(e); ok && (c.Request != x.Request.ID || c.Stage < transcribe || c.Stage > generate || c.ID == "" || c.ID == "stale") {
+				malformed++
+				g.Expect(tr.State).To(Equal(n.s), fmt.Sprint(n.path))
+				g.Expect(tr.Effects).To(BeEmpty(), fmt.Sprint(n.path))
+			}
+			if v, ok := e.(TaskCompleted); ok && v.Request == x.Request.ID && v.ID == "run" && v.Stage >= transcribe && v.Stage <= generate && x.Runs&(1<<v.Stage) != 0 {
+				_, runningNow := x.Phase.(running)
+				if (terminal || v.Stage != x.Stage || !runningNow) && v.Artifact > 0 && v.Artifact <= 8 && x.Cleaned[v.Stage]&(1<<v.Artifact) == 0 {
+					g.Expect(names(tr.Effects)).To(Equal([]string{"music.CleanArtifact"}), fmt.Sprint(n.path))
+					g.Expect(y.ABC).To(Equal(x.ABC))
+					g.Expect(y.Ownership).To(Equal(x.Ownership))
+				}
+			}
+			if x.Ownership != unowned && y.Ownership == unowned {
+				releases++
+				switch e.(type) {
+				case StageSettled, AdmissionDenied:
+				default:
+					g.Expect(false).To(BeTrue(), fmt.Sprint(n.path))
+				}
+			}
+			if !terminal && nextTerminal {
+				if _, failed := tr.State.(Failed); failed {
+					g.Expect(names(tr.Effects)).To(ContainElements("music.Revoke", "music.CleanInput", "music.Respond"))
+				}
+				if _, cancelled := tr.State.(Cancelled); cancelled {
+					g.Expect(names(tr.Effects)).To(ContainElements("music.Revoke", "music.CleanInput", "music.Respond"))
+				}
+			}
 			g.Expect(y.ABC == x.ABC || x.ABC == "").To(BeTrue(), fmt.Sprint(n.path))
 			issued := map[string]bool{}
 			for k, v := range n.issued {
@@ -209,6 +256,8 @@ func checkInvariants(g Gomega) {
 				g.Expect(issued[effectKey]).To(BeFalse(), fmt.Sprint(append(n.path, typeName(e))))
 				issued[effectKey] = true
 				switch eff.(type) {
+				case CleanArtifact:
+					cleanups++
 				case Admit:
 					g.Expect(x.Ownership).To(Equal(unowned))
 					g.Expect(terminal).To(BeFalse())
@@ -249,8 +298,16 @@ func checkInvariants(g Gomega) {
 			candidate := node{tr.State, nil, issued}
 			k := nodeKey(candidate)
 			edges[nodeKey(n)] = append(edges[nodeKey(n)], k)
+			// Successful progress cannot use cancellation or failure as an escape.
+			switch e.(type) {
+			case Cancel, DeadlineExpired, EffectFailed, TaskFailed, AdmissionDenied:
+			default:
+				if _, bad := tr.State.(Failed); !bad {
+					fair[nodeKey(n)] = append(fair[nodeKey(n)], k)
+				}
+			}
 			if _, ok := seen[k]; !ok {
-				path := append(append([]string{}, n.path...), typeName(e))
+				path := append(append([]string{}, n.path...), fmt.Sprintf("%#v", e))
 				child := node{tr.State, path, issued}
 				seen[k] = child
 				queue = append(queue, child)
@@ -284,12 +341,50 @@ func checkInvariants(g Gomega) {
 	for k, n := range seen {
 		g.Expect(live[k]).To(BeTrue(), fmt.Sprint(n.path))
 	}
+	// A distinct backward graph must reach success under fair successful acks.
+	success := map[string]bool{}
+	for k, n := range seen {
+		if _, ok := n.s.(Succeeded); ok {
+			success[k] = true
+		}
+	}
+	for changed := true; changed; {
+		changed = false
+		for k, es := range fair {
+			if !success[k] {
+				for _, to := range es {
+					if success[to] {
+						success[k] = true
+						changed = true
+						break
+					}
+				}
+			}
+		}
+	}
+	eligible := 0
+	for k, n := range seen {
+		x, terminal := stateSession(n.s)
+		if terminal {
+			continue
+		}
+		if p, ok := x.Phase.(settling); ok && p.Outcome.Failed {
+			continue
+		}
+		eligible++
+		g.Expect(success[k]).To(BeTrue(), "no successful fair-ack path: "+fmt.Sprint(n.path))
+	}
+	g.Expect(eligible).To(BeNumerically(">", 20))
+	g.Expect(tags).To(HaveLen(15))
+	g.Expect(cleanups).To(BeNumerically(">", 20))
+	g.Expect(releases).To(BeNumerically(">", 20))
+	g.Expect(malformed).To(BeNumerically(">", 100))
 	g.Expect(rules).To(HaveLen(10))
 	g.Expect(len(seen)).To(BeNumerically(">", 100))
 	g.Expect(responses).To(BeNumerically(">", 10))
 	g.Expect(commits).To(BeNumerically(">", 0))
 	g.Expect(transitions).To(BeNumerically(">", 1000))
-	fmt.Printf("BFS states=%d transitions=%d responses=%d commits=%d\n", len(seen), transitions, responses, commits)
+	fmt.Printf("BFS states=%d transitions=%d responses=%d commits=%d tags=%d cleanups=%d releases=%d malformed=%d successEligible=%d\n", len(seen), transitions, responses, commits, len(tags), cleanups, releases, malformed, eligible)
 }
 func checkCoverage(g Gomega) {
 	states := []State{Validated{}, Transcribing{}, Generating{}, Succeeded{}, Failed{}, Cancelled{}}
@@ -369,7 +464,12 @@ func TestMusicWorkflowAdversarial(t *testing.T) {
 						g.Expect(tr.State).To(Equal(s))
 						g.Expect(tr.Effects).To(BeEmpty())
 						g.Expect(tr.Rule).To(Equal("R9"))
-						g.Expect(tr.Guard).NotTo(BeEmpty())
+						want := "stale or mismatched effect ID"
+						x, _ := stateSession(s)
+						if bad.Request != x.Request.ID || bad.Stage != x.Stage {
+							want = "foreign request or stage ownership"
+						}
+						g.Expect(tr.Guard).To(Equal(want))
 					}
 				}
 			}
@@ -559,7 +659,7 @@ var _ = Describe("conditioning and lane topology", func() {
 				Expect(tr.Rule).To(Equal(w.Rule), fmt.Sprint(i))
 				Expect(names(tr.Effects)).To(Equal(w.Effects))
 				Expect(phaseName(tr.State)).To(Equal(w.Phase))
-				Expect(tr.Guard).NotTo(BeEmpty())
+				Expect(tr.Guard).To(Equal(expectedTraceGuard(w)))
 				x, _ := stateSession(tr.State)
 				Expect(x.ABC).To(Equal(abc))
 				s = tr.State
@@ -584,7 +684,7 @@ var _ = Describe("conditioning and lane topology", func() {
 				Expect(tr.Rule).To(Equal(w.Rule))
 				Expect(names(tr.Effects)).To(Equal(w.Effects))
 				Expect(phaseName(tr.State)).To(Equal(w.Phase))
-				Expect(tr.Guard).NotTo(BeEmpty())
+				Expect(tr.Guard).To(Equal(expectedTraceGuard(w)))
 				for _, eff := range tr.Effects {
 					if _, ok := eff.(Admit); ok {
 						Expect(before.Ownership).To(Equal(unowned))
@@ -611,3 +711,67 @@ func TestMusicWorkflowInvalidEvent(t *testing.T) {
 		g.Expect(tr.Guard).NotTo(BeEmpty())
 	}
 }
+
+// Expected explanations are test-owned, not copied from transition output.
+func expectedTraceGuard(w step) string {
+	switch w.Rule {
+	case "R7":
+		return "stage failed; retain exact captured ABC"
+	case "R8":
+		return "cancellation precedes serialized success commit"
+	case "R9":
+		if _, ok := w.Event.(TaskCompleted); ok {
+			if len(w.Effects) > 0 {
+				return "late owned artifact; idempotent quarantine cleanup"
+			}
+			return "duplicate owned completion; result authority already consumed"
+		}
+		return "terminal duplicate or late acknowledgement"
+	case "R10":
+		return "live request; private audio and durable manifest committed"
+	}
+	switch w.Event.(type) {
+	case Start, GenerationChecked:
+		return "authorized preflight; immediate admission only"
+	case Admitted:
+		return "matching immediate admission granted"
+	case TaskCompleted:
+		return "result captured; quiescence and release still required"
+	case TaskFailed:
+		return "failure captured; wait for actual quiescence"
+	case StageSettled:
+		if w.Rule == "R6" {
+			return "generation released; fetch and validate bounded audio"
+		}
+		return "quiescence and slot release acknowledged; clean source"
+	case InputCleaned:
+		if w.Rule == "R4" {
+			return "released stage and source cleanup acknowledged"
+		}
+		return "first-stage resources gone; recheck generation facts"
+	case OutputFetched:
+		return "bounded audio validated; prepare private audio and manifest"
+	case OutputPrepared:
+		return "prepared only; serialized commit still required"
+	}
+	panic("missing expected trace guard")
+}
+
+var _ = Describe("issued-stage history traces", func() {
+	It("cleans distinct prior-stage artifacts and ignores duplicate handles", func() {
+		ws := successSteps(cover)
+		prefix := append([]step{}, ws[:6]...)
+		e := TaskCompleted{identified(corr(transcribe), "run"), "not accepted", true, 2}
+		prefix = append(prefix, step{e, "R9", "music.admitting", []string{"music.CleanArtifact"}}, step{e, "R9", "music.admitting", []string{}})
+		prefix = append(prefix, ws[6:]...)
+		Expect(runSteps(Default, cover, prefix)).To(BeAssignableToTypeOf(Succeeded{}))
+	})
+	It("cleans distinct duplicate artifacts while generation settles", func() {
+		ws := successSteps(generation)
+		prefix := append([]step{}, ws[:3]...)
+		e := TaskCompleted{identified(corr(generate), "run"), "not accepted", true, 2}
+		prefix = append(prefix, step{e, "R9", "music.settling", []string{"music.CleanArtifact"}}, step{e, "R9", "music.settling", []string{}})
+		prefix = append(prefix, ws[3:]...)
+		Expect(runSteps(Default, generation, prefix)).To(BeAssignableToTypeOf(Succeeded{}))
+	})
+})
