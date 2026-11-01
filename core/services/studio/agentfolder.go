@@ -10,7 +10,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
-	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -65,23 +64,6 @@ type FolderResolver interface {
 	PathOf(ctx context.Context, principal string, node int64) (path string, ok bool)
 }
 
-// nodeFinder is a workspace store that finds a live node by its ID for an
-// actor. The stores do not have it yet; when one does, PathOf uses it instead
-// of searching.
-type nodeFinder interface {
-	NodeByID(ctx context.Context, a workspace.Actor, id int64) (workspace.Node, error)
-}
-
-// Bounds of the search for a folder by node.
-const (
-	// folderJournalScan is how many of the newest change sets of the home
-	// are read to find where a node is now.
-	folderJournalScan = 1000
-	// maxFolderWalk is how many folders the search lists, at most, when the
-	// journal did not say where the node is.
-	maxFolderWalk = 20000
-)
-
 // FolderResolver returns the resolver of agent folders on the user's files.
 func (s *Service) FolderResolver() FolderResolver { return folderResolver{f: s.d.Files} }
 
@@ -135,87 +117,22 @@ func (r folderResolver) PathOf(ctx context.Context, principal string, node int64
 	return p, ok
 }
 
-// pathsOf finds where each node is now, as the user sees it, in one search.
-// A node that is missing from the result is deleted, unreadable or not a
-// folder. The search reads the store at every call: nothing is cached, so
-// every frontend gives the same answer.
+// pathsOf finds where each node is now, as the user sees it. A node that is
+// missing from the result is deleted, unreadable or not a folder. It reads
+// the store at every call: nothing is cached, so every frontend gives the
+// same answer.
 func (r folderResolver) pathsOf(ctx context.Context, principal string, nodes []int64) map[int64]string {
 	out := map[int64]string{}
 	if !r.f.Available() || len(nodes) == 0 {
 		return out
 	}
 	ws, actor := r.f.Store(), r.f.Actor(principal)
-	want := map[int64]bool{}
-	for _, n := range nodes {
-		if n > 0 {
-			want[n] = true
-		}
-	}
-	found := func(n workspace.Node) {
-		if want[n.ID] && n.Kind == workspace.KindDir {
-			out[n.ID] = n.Path
-			delete(want, n.ID)
-		}
-	}
-	if nf, ok := ws.(nodeFinder); ok {
-		for id := range want {
-			if n, err := nf.NodeByID(ctx, actor, id); err == nil {
-				found(n)
-			}
-		}
-		return out
-	}
-	// The journal names the newest path of a node that changed lately. The
-	// path is checked with Stat, because a move or a delete of a parent
-	// changes the node without a row of its own.
-	home := session.HomePath(principal)
-	if hist, err := ws.History(ctx, actor, workspace.HistoryQuery{Path: home, Limit: folderJournalScan}); err == nil {
-		seen := map[int64]bool{}
-		for _, cs := range hist {
-			for _, op := range cs.Ops {
-				if !want[op.NodeID] || seen[op.NodeID] {
-					continue
-				}
-				seen[op.NodeID] = true
-				if op.Kind == workspace.OpDelete || op.NewPath == "" {
-					continue
-				}
-				if n, err := ws.Stat(ctx, actor, op.NewPath); err == nil && n.ID == op.NodeID {
-					found(n)
-				}
-			}
-		}
-	}
-	if len(want) == 0 {
-		return out
-	}
-	// Last, list the folders the user can read: the home and the shared
-	// folders, breadth first.
-	queue := []string{home}
-	if prefixes, err := ws.ReadablePrefixes(ctx, actor); err == nil {
-		for _, p := range prefixes {
-			if strings.HasPrefix(p, sharedfolders.Root+"/") {
-				queue = append(queue, p)
-			}
-		}
-	}
-	for _, root := range queue {
-		if n, err := ws.Stat(ctx, actor, root); err == nil {
-			found(n)
-		}
-	}
-	for listed := 0; len(queue) > 0 && len(want) > 0 && listed < maxFolderWalk; listed++ {
-		dir := queue[0]
-		queue = queue[1:]
-		children, err := ws.List(ctx, actor, dir)
-		if err != nil {
+	for _, id := range nodes {
+		if _, done := out[id]; done || id <= 0 {
 			continue
 		}
-		for _, c := range children {
-			if c.Kind == workspace.KindDir {
-				found(c)
-				queue = append(queue, c.Path)
-			}
+		if n, err := ws.NodeByID(ctx, actor, id); err == nil && n.Kind == workspace.KindDir {
+			out[id] = n.Path
 		}
 	}
 	return out
@@ -244,8 +161,8 @@ func (s *Service) AgentFolder(ctx context.Context, user string, a agents.Agent) 
 	return st, ok
 }
 
-// AgentFolders returns the folders of the agents, by agent ID, with one search
-// of the user's files. An agent without a folder is not in the result.
+// AgentFolders returns the folders of the agents, by agent ID. An agent
+// without a folder is not in the result.
 func (s *Service) AgentFolders(ctx context.Context, user string, list []agents.Agent) map[string]AgentFolderState {
 	p := principal(user)
 	out := map[string]AgentFolderState{}
