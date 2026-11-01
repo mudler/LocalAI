@@ -315,6 +315,10 @@ func (*Store) List(context.Context, workspace.Actor, string) ([]workspace.Node, 
 	return nil, refused("list a folder")
 }
 
+func (*Store) NodeByID(context.Context, workspace.Actor, int64) (workspace.Node, error) {
+	return workspace.Node{}, refused("look up a node")
+}
+
 func (*Store) Begin(context.Context, workspace.Actor, string) (workspace.Tx, error) {
 	return nil, refused("open a change set")
 }

@@ -130,6 +130,39 @@ func (s *Workspace) Stat(ctx context.Context, a Actor, p string) (Node, error) {
 	return s.toNode(ctx, s.db, n)
 }
 
+func (s *Workspace) NodeByID(ctx context.Context, a Actor, id int64) (Node, error) {
+	if err := CheckFence(a); err != nil {
+		return Node{}, err
+	}
+	if id <= 0 {
+		return Node{}, ErrNotFound
+	}
+	ancs, live, err := liveAncestors(ctx, s.db, id)
+	if err != nil {
+		return Node{}, err
+	}
+	if len(ancs) == 0 {
+		return Node{}, ErrNotFound
+	}
+	for _, anc := range ancs {
+		if !live[anc] {
+			return Node{}, ErrNotFound
+		}
+	}
+	m, err := s.access(ctx, s.db, a, id)
+	if err != nil {
+		return Node{}, err
+	}
+	if m < ModeRead {
+		return Node{}, ErrNotFound
+	}
+	n, err := getNode(ctx, s.db, id)
+	if err != nil {
+		return Node{}, err
+	}
+	return s.toNode(ctx, s.db, n)
+}
+
 func (s *Workspace) List(ctx context.Context, a Actor, p string) ([]Node, error) {
 	n, err := s.find(ctx, s.db, a, p, ModeRead)
 	if err != nil {

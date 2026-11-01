@@ -377,6 +377,11 @@ type Store interface {
 	Stat(ctx context.Context, a Actor, p string) (Node, error)
 	// List returns the live children of a folder, sorted by name.
 	List(ctx context.Context, a Actor, p string) ([]Node, error)
+	// NodeByID returns a live node by its ID, at its current path, so a
+	// caller that keeps a node ID follows a rename or a move. It returns
+	// ErrNotFound when the node, or a folder above it, is deleted, or when the
+	// actor cannot read it.
+	NodeByID(ctx context.Context, a Actor, id int64) (Node, error)
 
 	// Begin groups several calls into one change set with one title.
 	Begin(ctx context.Context, a Actor, title string) (Tx, error)
