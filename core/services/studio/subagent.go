@@ -187,7 +187,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// its end, and this block must reach the model.
 	// What the chat can see follows it, for the same reason. Images reach a
 	// chat only as files, so a chat without files has no such block.
-	head := commandsBlock(cmds, hasTool(tools, "write_file"), hasTool(tools, "read_file"), skillsOff > 0)
+	head := commandsBlock(cmds, hasTool(tools, "write_file"), hasTool(tools, "read_file"), skillsOff > 0, x.Place())
 	if s.d.Files.Available() {
 		sees := s.d.Modalities != nil && s.d.Modalities(rec.Model).Vision
 		head += "\n\n" + imagesBlock(sees, s.d.Media.VisionModel(rec.Model), hasTool(tools, "describe_image"))

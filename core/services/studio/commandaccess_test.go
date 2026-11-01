@@ -129,6 +129,30 @@ var _ = Describe("commands of a scoped chat", func() {
 		Expect(cmds.State).NotTo(Equal(studio.CommandsAvailable))
 	})
 
+	It("tells a scoped chat with the Sandbox where its commands start and what they keep", func() {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: shadowingSandbox()}}
+		r := newCommandRig(func(d *studio.Deps) { d.AddonTools = fa })
+		plain := create(r.svc, alice)
+		sent(r.svc, alice, plain, "hi")
+		idle(r.svc, alice, plain)
+		Expect(r.h.TurnPrompt(plain)).To(ContainSubstring("It starts in /workspace/home, the user's home"))
+
+		for mode, kept := range map[string]string{agents.FolderWrite: "/workspace/home or /workspace/chat is kept", agents.FolderRead: "under /workspace/chat is kept"} {
+			a, err := r.svc.SaveAgentWithFolder(r.ctx, alice, agents.Agent{Name: "Acme " + mode, Addons: []string{"sandbox"}}, &studio.AgentFolderWrite{Path: "/Projects/Acme", Mode: mode})
+			Expect(err).NotTo(HaveOccurred())
+			rec, err := r.svc.Create(r.ctx, alice, studio.CreateInput{Model: "m", AgentID: a.ID})
+			Expect(err).NotTo(HaveOccurred())
+			sent(r.svc, alice, rec.ID, "run")
+			idle(r.svc, alice, rec.ID)
+			Expect(r.fx.commands()).To(BeEmpty(), "the built-in bash ran")
+			prompt := r.h.TurnPrompt(rec.ID)
+			Expect(prompt).To(ContainSubstring("It starts in /workspace/home, the agent's folder"), mode)
+			Expect(prompt).To(ContainSubstring("the chat's own folder is /workspace/chat, and shared folders are read only"), mode)
+			Expect(prompt).To(ContainSubstring(kept), mode)
+			Expect(prompt).NotTo(ContainSubstring("the user's home"), mode)
+		}
+	})
+
 	It("runs a real command that sees and writes only the chat's mounts", func() {
 		r := newCommandRig()
 		rec := r.scopedChat(agents.FolderWrite)
