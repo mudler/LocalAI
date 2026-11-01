@@ -186,6 +186,16 @@ func (c *Chat) access() (actor, user workspace.Actor, view workspace.View) {
 	return c.acc.Actor(), c.acc.Owner(), c.acc.View()
 }
 
+// place is the place of the chat's access: how its tools name its files.
+func (c *Chat) place() Place {
+	c.accMu.RLock()
+	defer c.accMu.RUnlock()
+	return c.acc.Place()
+}
+
+// modelText is the text the model of this chat gets for an entry.
+func (c *Chat) modelText(e Entry) string { return ModelTextIn(e, c.place()) }
+
 func (c *Chat) principal() string {
 	c.accMu.RLock()
 	defer c.accMu.RUnlock()
@@ -371,7 +381,7 @@ func (c *Chat) summary(ctx context.Context) string {
 		if !ModelRole(e.Role) && (e.Role != RoleGoal || e.Note != GoalLineContinue) {
 			continue
 		}
-		l := e.Role + ": " + CapText(ModelText(e), 1000)
+		l := e.Role + ": " + CapText(c.modelText(e), 1000)
 		if size += len(l) + 1; size > 8<<10 {
 			break
 		}
@@ -689,7 +699,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				entry.Turn = turn
 				c.appendEntry(ctx, entry)
 			}
-			return c.queuePending(ctx, msg, withDirective(msg.Directive, ModelText(entry)))
+			return c.queuePending(ctx, msg, withDirective(msg.Directive, c.modelText(entry)))
 		}
 		// Taken under mu, so a swap that starts later waits for this inject.
 		c.injectMu.RLock()
@@ -702,7 +712,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 			entry.Turn = turn
 			c.appendEntry(ctx, entry)
 		}
-		err := hs.Inject(withDirective(msg.Directive, ModelText(entry)))
+		err := hs.Inject(withDirective(msg.Directive, c.modelText(entry)))
 		c.injectMu.RUnlock()
 		if !errors.Is(err, ErrNoTurn) {
 			return err
@@ -715,7 +725,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				c.mu.Unlock()
 				return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
 			}
-			c.pending = append(c.pending, withDirective(msg.Directive, ModelText(entry)))
+			c.pending = append(c.pending, withDirective(msg.Directive, c.modelText(entry)))
 			c.mu.Unlock()
 			return nil
 		}
@@ -741,7 +751,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
-	full := withDirective(msg.Directive, ModelText(entry))
+	full := withDirective(msg.Directive, c.modelText(entry))
 	if !logged {
 		entry.Turn = c.turnNow() + 1
 		c.appendEntry(ctx, entry)

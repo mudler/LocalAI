@@ -181,6 +181,29 @@ var _ = Describe("commands of a scoped chat", func() {
 		Expect(r.exists("/Other/y.txt")).To(BeFalse())
 	})
 
+	It("names an attachment at the path its commands see, and keeps the home path in an unscoped chat", func() {
+		r := newCommandRig()
+		rec := r.scopedChat(agents.FolderWrite)
+		_, err := r.svc.SendWithFiles(r.ctx, alice, rec.ID, "sum it", []session.Upload{upload("q1.csv", "1,2\n")})
+		Expect(err).NotTo(HaveOccurred())
+		idle(r.svc, alice, rec.ID)
+		sentText := r.h.Sent(rec.ID)
+		Expect(sentText).NotTo(BeEmpty())
+		Expect(sentText[len(sentText)-1]).To(HaveSuffix("The user attached these files:\n- /workspace/chat/q1.csv"))
+		out, err := r.bash(rec.ID, "cat /workspace/chat/q1.csv 2>/dev/null || cat ../chat/q1.csv")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal("1,2\n"))
+		lines := userLines(r.svc, alice, rec.ID)
+		Expect(lines[len(lines)-1].Attachments[0].Path).To(HavePrefix("/"+session.ChatsDir+"/"), "the transcript keeps the path of the files API")
+
+		plain := create(r.svc, alice)
+		_, err = r.svc.SendWithFiles(r.ctx, alice, plain, "sum it", []session.Upload{upload("q2.csv", "3\n")})
+		Expect(err).NotTo(HaveOccurred())
+		idle(r.svc, alice, plain)
+		sentText = r.h.Sent(plain)
+		Expect(sentText[len(sentText)-1]).To(MatchRegexp(`The user attached these files:\n- /workspace/home/Chats/[^\n]+/q2\.csv$`))
+	})
+
 	It("cannot change a read-only folder, and the agent's new mode applies at the next command", func() {
 		r := newCommandRig()
 		a, err := r.svc.SaveAgentWithFolder(r.ctx, alice, agents.Agent{Name: "Acme"}, &studio.AgentFolderWrite{Path: "/Projects/Acme", Mode: agents.FolderWrite})

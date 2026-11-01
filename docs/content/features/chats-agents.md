@@ -131,7 +131,8 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   `/workspace/chat`, with the work folder at `/workspace/chat/work/`. The
   shared folders are at `/workspace/shared-<name>`. The file tools, the image
   and document tools, the file search and the system prompt use this layout,
-  and a sub-agent of the chat gets the same folders.
+  and a sub-agent of the chat gets the same folders. A file you attach to a
+  message is named to the model at `/workspace/chat/<file>`.
 - A sub-agent never reaches more than the chat that started it, in folder or
   in mode. A plain sub-agent and a saved agent without a folder work in the
   chat's folder, at the chat's mode. A saved agent with a folder can start from
@@ -139,7 +140,6 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   in its own folder at the lower of the two modes. Any other agent is refused
   with "this agent works in another folder than this chat", and `list_agents`
   does not list it.
-
 - Commands of the chat run only in the Sandbox add-on. Its sandbox has the
   agent's folder at `/workspace/home` (read only for `read`), the chat folder
   at `/workspace/chat` (read and write), and the shared folders and skills read
