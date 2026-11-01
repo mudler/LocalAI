@@ -226,6 +226,15 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_shared_fft_cancellation_ctest
+        music_shared_fft_cancellation_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/audio/fft.cpp")
+    target_compile_definitions(music_shared_fft_cancellation_ctest PRIVATE ENGINE_FFT_TESTING=1)
+    target_include_directories(music_shared_fft_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_shared_fft_cancellation_ctest PRIVATE ggml Threads::Threads)
+    add_test(NAME music_shared_fft_cancellation COMMAND music_shared_fft_cancellation_ctest)
+    set_tests_properties(music_shared_fft_cancellation PROPERTIES TIMEOUT 45)
+
     target_compile_definitions(engine_core PRIVATE ENGINE_CORE_CANCELLATION_TESTING=1)
     add_executable(music_core_cancellation_ctest music_core_cancellation_ctest.cpp)
     target_compile_definitions(music_core_cancellation_ctest PRIVATE ENGINE_CORE_CANCELLATION_TESTING=1)

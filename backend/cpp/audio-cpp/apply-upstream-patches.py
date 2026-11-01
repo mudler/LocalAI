@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 PIN = 'ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067'
-MANIFEST_SHA256 = 'b7a7575239f218894bf05297bf21d9fbac0ccd51439b0ab61378a8e4824218a9'
+MANIFEST_SHA256 = 'd270ea37d4421e013893434979890b021ce4d6b2ac480e2b57b3990a7425d951'
 PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('include/engine/framework/core', ('backend.h', 'execution_context.h')),
     ('src/framework/core', ('backend.cpp', 'execution_context.cpp')),
@@ -30,6 +30,9 @@ PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('include/engine/models/sheetsage', ('session.h', 'audio_frontend.h')),
     ('src/models/sheetsage', ('session.cpp', 'runtime.cpp', 'audio_frontend.cpp')),
     ('src/framework/runtime', ('graph_executor.cpp',)),
+    ('include/engine/framework/audio', ('fft.h',)),
+    ('src/framework/audio', ('fft.cpp',)),
+    ('src/framework/audio/detail', ('speech_fft_internal.h',)),
 ) for name in names)
 
 
