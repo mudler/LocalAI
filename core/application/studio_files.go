@@ -10,9 +10,9 @@ import (
 
 	"github.com/mudler/xlog"
 
-	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/storage"
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/textindex"
@@ -51,14 +51,20 @@ func (a *Application) StudioFiles() *files.Service {
 // SQLite file or PostgreSQL) the tree lives there, in the GORM store. With no
 // database it is a folder under the data path with a JSON index, in the JSON
 // store; a build without cgo and without any build tag has it too. The bytes
-// live at the explicit shared root when configured, otherwise in the cluster
-// object store or a folder under the data path. Explicit shared storage permits
-// temporary local scratch without a data path; legacy standalone Files are off. Moving files from one index to the other is not supported.
+// live in configured S3 for every role, otherwise at DataPath/chats/blobs.
+// Moving files between backends is not supported automatically.
 func (a *Application) initStudioFiles() (result error) {
-	shared := a.applicationConfig.ChatsSharedFilesDir != ""
-	if err := a.validateSharedFiles(); err != nil {
+	return a.initStudioFilesWithS3(func(ctx context.Context, cfg storage.S3Config) (storage.ObjectStore, error) {
+		return storage.NewS3Store(ctx, cfg)
+	})
+}
+
+func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.S3Config) (storage.ObjectStore, error)) (result error) {
+	objects, err := a.workspaceObjects(newS3)
+	if err != nil {
 		return err
 	}
+	strict := objects != nil || (a.authDB != nil && a.authDB.Dialector.Name() == "postgres")
 	defer func() {
 		if result != nil && a.studioFilesTemp != "" {
 			_ = os.RemoveAll(a.studioFilesTemp)
@@ -66,21 +72,16 @@ func (a *Application) initStudioFiles() (result error) {
 		}
 	}()
 	dp := a.applicationConfig.DataPath
-	dist := a.Distributed()
-	if reason := clusterFilesBlocker(a.applicationConfig, dist != nil && dist.Store != nil); reason != "" {
-		a.studioFiles = files.Disabled(reason)
-		return
-	}
-	if !shared && dp == "" && (a.authDB == nil || dist == nil || dist.Store == nil) {
+	if dp == "" && (a.authDB == nil || objects == nil) {
 		a.studioFiles = files.Disabled("There is no data path, so files are off. Start LocalAI with a data path to keep files.")
-		return
+		return nil
 	}
 	var tmpCache string
 	if dp == "" { // a cluster without a data path: the blob cache is a temporary folder
 		dir, err := os.MkdirTemp("", "localai-files-*")
 		if err != nil {
-			if shared {
-				return fmt.Errorf("shared workspace scratch: %w", err)
+			if strict {
+				return fmt.Errorf("workspace scratch: %w", err)
 			}
 			a.studioFiles = files.Disabled("Files are off: there is no folder for their cache.")
 			return
@@ -93,17 +94,14 @@ func (a *Application) initStudioFiles() (result error) {
 	}
 
 	var blobs blob.Store
-	var err error
-	if shared {
-		blobs, err = blob.NewFS(a.applicationConfig.ChatsSharedFilesDir)
-	} else if dist != nil && dist.Store != nil {
-		blobs = blob.NewObjectStore(dist.Store, filepath.Join(root, "blobcache"))
+	if objects != nil {
+		blobs = blob.NewObjectStore(objects, filepath.Join(root, "blobcache"))
 	} else {
 		blobs, err = blob.NewFS(filepath.Join(root, "blobs"))
 	}
 	if err != nil {
-		if shared {
-			return fmt.Errorf("shared workspace blob store: %w", err)
+		if strict {
+			return fmt.Errorf("workspace blob store: %w", err)
 		}
 		xlog.Warn("Files disabled: cannot open the blob store", "error", err)
 		a.studioFiles = files.Disabled("Files are off: their storage could not be opened.")
@@ -111,8 +109,8 @@ func (a *Application) initStudioFiles() (result error) {
 	}
 	ws, closer, err := a.openWorkspaceIndex(root, blobs)
 	if err != nil {
-		if shared {
-			return fmt.Errorf("shared workspace index: %w", err)
+		if strict {
+			return fmt.Errorf("workspace index: %w", err)
 		}
 		xlog.Warn("Files disabled: cannot start the workspace", "error", err)
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
@@ -125,8 +123,8 @@ func (a *Application) initStudioFiles() (result error) {
 		if closer != nil {
 			_ = closer.Close()
 		}
-		if shared {
-			return fmt.Errorf("shared workspace folders: %w", err)
+		if strict {
+			return fmt.Errorf("workspace folders: %w", err)
 		}
 		return
 	}
@@ -219,25 +217,13 @@ func addonSkillSync(f *files.Service) addons.SkillSync {
 	}
 }
 
-// clusterFilesBlocker returns why files cannot work in this cluster, or "" when
-// they can. The bytes of a file go to the cluster's object store so that every
-// frontend reads what another wrote. Without S3 the object store is a folder
-// on the frontend itself, and each frontend would keep its own copy of every
-// file, so files are off instead of silently wrong.
-func clusterFilesBlocker(cfg *config.ApplicationConfig, clustered bool) string {
-	if clustered && cfg.ChatsSharedFilesDir == "" && cfg.Distributed.StorageURL == "" {
-		return "Files are off: in a cluster they need S3 object storage (the storage URL setting), because without it each frontend would keep its own copy of every file."
-	}
-	return ""
-}
-
 // openWorkspaceIndex opens the index of the workspace: the GORM store on the
 // auth database when there is one, and the JSON store in a folder under root
 // otherwise. The returned closer is nil for the shared database, which the
 // application closes itself.
 func (a *Application) openWorkspaceIndex(root string, blobs blob.Store) (workspace.Store, io.Closer, error) {
 	if a.authDB != nil {
-		ws, err := gormstore.New(a.authDB, blobs, gormstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize, SharedFilesystem: a.applicationConfig.ChatsSharedFilesDir != ""})
+		ws, err := gormstore.New(a.authDB, blobs, gormstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})
 		return ws, nil, err
 	}
 	ws, err := jsonstore.New(filepath.Join(root, "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})

@@ -1623,11 +1623,12 @@ everything else in the chats works. A chat then has no skills either, not even
 the built-in ones, and no `load_skill`: skills are files, and every built-in
 skill works on files or runs commands.
 
-In a cluster the bytes go to the object store, so a file written through one
-frontend is read through another. That needs S3 (the storage URL setting); `docker-compose.distributed.yaml` sets it up with Garage.
-Without it the object store is a folder of each frontend, so files are off in
-that cluster, with a reason that says so, instead of every frontend keeping its
-own copy.
+In a cluster, configured S3 holds workspace bytes; the distributed compose
+example sets it up with Garage. Without S3, Files uses the existing
+`DataPath/chats/blobs` directly. All Files participants must then mount the same
+backing data directory and use the same PostgreSQL metadata database. See
+[Shared filesystem for Files](#shared-filesystem-for-files) for the operator
+contract; startup does not verify shared volume identity.
 
 ## Storage
 
@@ -1856,56 +1857,57 @@ The routes are listed under the `chats` tag at `/swagger/index.html`, and
 
 ### Shared filesystem for Files
 
-`--chats-shared-files-dir=/srv/localai/workspace-blobs` (or
-`LOCALAI_CHATS_SHARED_FILES_DIR`) opts Files into direct shared filesystem blob
-storage. This is a startup-only setting, not a mutable chat setting. It requires
-an active PostgreSQL auth database, including on an add-on owner without
-distributed services. JSON and SQLite metadata are not supported for this mode.
-Invalid explicit configuration fails startup rather than falling back.
+Files selects its blob backend automatically, with no separate workspace path or
+coordination flag:
 
-Use a dedicated absolute, non-root, service-controlled directory without symlink
-components or traversal. LocalAI creates missing directories restrictively, but
-never recursively changes existing permissions or ownership. Keep writers limited
-to the service and its trusted group; use compatible UID/GID and verify access
-from every participant. Do not point this setting at a general data directory.
+| Existing configuration | Workspace bytes |
+| --- | --- |
+| S3 storage URL configured | S3, using the existing bucket, region and credentials, for every role |
+| No S3 storage URL | Direct filesystem storage at `DataPath/chats/blobs` |
 
-PostgreSQL owns names, authorization, revisions and blob references. The shared
-directory owns immutable content-addressed bytes; per-instance caches and scratch
-are not authoritative. With PostgreSQL and this option, an empty data path is
-valid: Files uses temporary local scratch, removed at shutdown. Other data-path
-contents do not become cluster-safe.
+This applies to standalone servers, frontends, optional chat workers and the
+add-on owner. An owner honors configured S3 without joining the distributed
+control plane or changing its role. Global model/input staging is unchanged.
+Standalone JSON/SQLite filesystem behavior and existing blob paths remain stable.
+Without a data path and without S3, Files is disabled; temporary scratch never
+becomes authoritative filesystem storage. With S3 and a database, local cache may
+be temporary and is removed at shutdown. JSON metadata still needs a data path.
+Configured S3 errors and PostgreSQL workspace initialization errors fail startup
+rather than selecting another backend.
 
-Every Files consumer must mount the same underlying directory: frontends, the
-add-on owner and optional chat workers. Inference-only nodes do not need it.
-Equal path strings do not prove shared storage. A same-node RWO/local-path PVC
-requires enforced placement and does not provide cross-node failover. Multi-node
-use requires a coherent shared filesystem, normally an appropriate RWX volume:
-verify exclusive creation, atomic same-filesystem rename, immediate cross-client
-visibility, file sync and directory sync durability. Arbitrary RWX storage is not
-a guarantee of these semantics. Validate power-loss behavior with the storage
-provider.
+Distributed Files requires shared PostgreSQL metadata. PostgreSQL owns names,
+authorization, revisions and blob references; immutable content-addressed bytes
+live in the selected backend. Per-instance caches and scratch are disposable.
+For filesystem storage, every Files consumer must mount the same existing data
+directory/backing storage and use the same PostgreSQL database: frontends, the
+add-on owner and optional chat workers. Inference-only nodes need no Files mount.
+Equal path strings do not prove shared volume identity, and startup does not
+verify shared storage or datastore identity. No local probe certifies a deployment.
+Other data-path contents do not thereby become cluster-safe.
 
-Startup checks path components and performs a small write/sync/rename/read/delete
-probe. The probe wait has a five-second deadline; filesystem syscalls themselves
-cannot be cancelled, and directory inspection is outside that deadline. A hung
-mount can leave a worker waiting until the syscall returns, when it attempts
-cleanup. This local probe cannot certify shared volume identity or remote crash
-durability.
+Keep the canonical backing directory service-controlled, with compatible UID/GID
+and permissions for every participant. LocalAI does not recursively chmod/chown
+existing trees. Ordinary platform path aliases are resolved, while symlinks inside
+the canonical blob tree are rejected; do not allow untrusted writers to replace
+paths or redirect mounts. A same-node RWO/local-path volume needs enforced
+co-placement and provides no cross-node failover guarantee. Multi-node use needs
+coherent shared storage, normally an appropriate RWX volume: verify exclusive
+creation, atomic same-filesystem rename, immediate cross-client visibility, file
+sync and directory sync durability. An RWX label alone does not guarantee these
+semantics; validate crash/power-loss behavior with the storage provider.
 
-The explicit directory takes precedence over S3 **for workspace blobs only**.
-Global S3 storage and model/input staging remain unchanged. Without the option,
-standalone Files keeps its local filesystem/JSON-or-database behavior; distributed
-Files still uses S3 and remains disabled without S3. S3 is still an alternative
-to a shared filesystem. This option does not enable distributed mode on an owner.
-
-Shared-filesystem coordination holds the PostgreSQL revision lock through blob
-uploads, serializing metadata writes. Readers blocked behind those writes must
-honor request context cancellation. Orphan cleanup uses a bounded 30-second
-context; cancellation can defer cleanup to a later pass.
+All PostgreSQL-backed direct-filesystem workspaces automatically hold the revision
+lock through blob ingest and metadata publication, including non-distributed
+owners. This serializes metadata writes during slow uploads. Blocked operations
+must honor request context cancellation. Orphan cleanup uses a bounded 30-second
+context; cancellation can defer cleanup to a later pass. S3 is an alternative to
+this shared-filesystem deployment contract; its local cache is not treated as a
+shared filesystem.
 
 {{% notice warning %}}
-No blobs migrate automatically. Switch all participants consistently, using an
-empty workspace or a separately planned copy and verification procedure before
-changing backend against populated metadata. Mixed local, S3 and shared-filesystem
-backends on the same metadata can produce missing file content.
+No paths or blobs migrate automatically. Existing local data stays in place and
+existing S3-backed workspaces stay on S3. Switching populated metadata to another
+backend requires a separately planned blob copy and verification procedure, with
+all participants switching consistently. Mixed S3/local/shared backends on the
+same metadata can produce missing content.
 {{% /notice %}}

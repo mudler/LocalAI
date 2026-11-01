@@ -26,8 +26,8 @@ func NewFS(dir string) (Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Preserve ordinary platform aliases (for example macOS /var). Explicit
-	// shared-root policy is validated by startup, not by this default adapter.
+	// Preserve ordinary platform aliases (for example macOS /var). The
+	// operator must keep the canonical backing directory service-controlled.
 	if err = os.MkdirAll(abs, 0o700); err != nil {
 		return nil, err
 	}
@@ -238,3 +238,6 @@ func (r contextReader) Read(p []byte) (int, error) {
 	}
 	return r.r.Read(p)
 }
+
+// IsFilesystem distinguishes authoritative direct FS from an object-store cache.
+func (*fsStore) IsFilesystem() bool { return true }

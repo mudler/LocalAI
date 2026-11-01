@@ -42,7 +42,7 @@ import (
 
 func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
-	cleanupSharedFiles := sharedFilesStartupCleanup(options)
+	cleanupWorkspace := workspaceStartupCleanup(options)
 
 	// Store a copy of the startup config (env/CLI only, before file
 	// loading): the settings endpoint uses it to tell env-provided API
@@ -73,7 +73,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	startupComplete := false
 	defer func() {
 		if !startupComplete {
-			cleanupSharedFiles(application)
+			cleanupWorkspace(application)
 		}
 	}()
 
@@ -94,12 +94,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 		application.authDB = authDB
 	}
 
-	if err := application.validateSharedFiles(); err != nil {
-		return nil, err
-	}
-
 	if err := application.start(); err != nil {
-		if options.ChatsSharedFilesDir == "" && application.authDB != nil {
+		if application.authDB != nil {
 			if sqlDB, e := application.authDB.DB(); e == nil {
 				_ = sqlDB.Close()
 			}
@@ -835,10 +831,10 @@ func ensureAuthDBDirs(options *config.ApplicationConfig) error {
 	return nil
 }
 
-// sharedFilesStartupCleanup owns only explicit shared-Files startup resources.
+// workspaceStartupCleanup owns PostgreSQL workspace startup resources.
 // Never cancel the caller's context or change the legacy startup lifecycle.
-func sharedFilesStartupCleanup(options *config.ApplicationConfig) func(*Application) {
-	if options.ChatsSharedFilesDir == "" {
+func workspaceStartupCleanup(options *config.ApplicationConfig) func(*Application) {
+	if !options.Auth.Enabled || !(strings.HasPrefix(options.Auth.DatabaseURL, "postgres://") || strings.HasPrefix(options.Auth.DatabaseURL, "postgresql://")) {
 		return func(*Application) {}
 	}
 	ctx, cancel := context.WithCancel(options.Context)

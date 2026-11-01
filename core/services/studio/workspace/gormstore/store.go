@@ -31,12 +31,6 @@ const rootID = 1
 
 // Options configures a Store.
 type Options struct {
-	// SharedFilesystem opts PostgreSQL shared filesystem participants into
-	// revision-lock coordination from ingest through metadata publication and
-	// across purge reference-check/deletion. Every participant must enable it.
-	// Slow uploads serialize metadata writers; readers must honor cancellation.
-	// Defaults and object-store deployments leave this disabled.
-	SharedFilesystem bool
 	// Admin is the principal that manages grants. It has write access to
 	// every node. Empty means no admin: Grant and Revoke always fail.
 	Admin string
@@ -94,7 +88,8 @@ func New(db *gorm.DB, blobs blob.Store, o Options) (*Workspace, error) {
 	if now == nil {
 		now = time.Now
 	}
-	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace, sharedFilesystem: o.SharedFilesystem && d.name == "postgres"}, nil
+	fs, direct := blobs.(blob.Filesystem)
+	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace, sharedFilesystem: direct && fs.IsFilesystem() && d.name == "postgres"}, nil
 }
 
 // limit returns the smaller non-zero of the store limit and a per-call limit.

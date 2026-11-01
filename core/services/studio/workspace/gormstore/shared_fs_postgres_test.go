@@ -34,6 +34,11 @@ type gateBlob struct {
 	deleting, removeResume chan struct{}
 }
 
+func (b *gateBlob) IsFilesystem() bool {
+	fs, ok := b.Store.(blob.Filesystem)
+	return ok && fs.IsFilesystem()
+}
+
 func (b *gateBlob) Put(ctx context.Context, r io.Reader, max int64) (string, int64, error) {
 	sha, n, err := b.Store.Put(ctx, r, max)
 	b.mu.Lock()
@@ -56,7 +61,7 @@ func (b *gateBlob) Remove(ctx context.Context, sha string) error {
 	return b.Store.(blob.Remover).Remove(ctx, sha)
 }
 
-func sharedPG(enabled ...bool) (*Workspace, *Workspace, *gateBlob, *gateBlob) {
+func sharedPG() (*Workspace, *Workspace, *gateBlob, *gateBlob) {
 	GinkgoHelper()
 	rawURL := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
 	if rawURL == "" {
@@ -87,7 +92,7 @@ func sharedPG(enabled ...bool) (*Workspace, *Workspace, *gateBlob, *gateBlob) {
 		fs, err := blob.NewFS(root)
 		Expect(err).NotTo(HaveOccurred())
 		g := &gateBlob{Store: fs, pool: pool}
-		s, err := New(db, g, Options{Admin: wstest.Admin, BlobGrace: -1, SharedFilesystem: len(enabled) == 0 || enabled[0]})
+		s, err := New(db, g, Options{Admin: wstest.Admin, BlobGrace: -1})
 		Expect(err).NotTo(HaveOccurred())
 		return s, g
 	}
@@ -289,8 +294,8 @@ var _ = Describe("PostgreSQL shared filesystem", func() {
 	})
 
 	for _, kind := range []string{"Put", "CommitUpper"} {
-		It("preserves default PostgreSQL direct-FS ingest order for "+kind, func() {
-			a, b, ba, _ := sharedPG(false)
+		It("automatically coordinates default PostgreSQL direct-FS ingest for "+kind, func() {
+			a, b, ba, _ := sharedPG()
 			ba.uploaded = make(chan struct{})
 			ba.resume = make(chan struct{})
 			done := make(chan error, 1)
@@ -305,11 +310,13 @@ var _ = Describe("PostgreSQL shared filesystem", func() {
 				done <- err
 			}()
 			<-ba.uploaded
-			// A metadata writer completes while default-mode upload is paused.
-			_, err := b.Mkdir(ctx, actor, "/unblocked")
-			Expect(err).NotTo(HaveOccurred())
+			writer := make(chan error, 1)
+			go func() { _, err := b.Mkdir(ctx, actor, "/blocked"); writer <- err }()
+			waitSharedLock(ba.pool)
+			Consistently(writer, 50*time.Millisecond).ShouldNot(Receive())
 			close(ba.resume)
 			Expect(<-done).To(Succeed())
+			Expect(<-writer).To(Succeed())
 		})
 	}
 

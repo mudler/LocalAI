@@ -41,6 +41,14 @@ type Store interface {
 	LinkTo(ctx context.Context, sha string, dir *os.Root, name string) error
 }
 
+// Filesystem is an optional capability for authoritative direct filesystem blobs.
+// Object-store caches do not implement it. PostgreSQL uses it to coordinate
+// ingest/publication with purge automatically, including non-distributed owners.
+type Filesystem interface {
+	Store
+	IsFilesystem() bool
+}
+
 var shaRe = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 // validSHA reports whether s is a lower-case hex SHA-256.
