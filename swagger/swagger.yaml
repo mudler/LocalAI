@@ -4141,6 +4141,14 @@ definitions:
       batch:
         description: Custom parameters - not present in the OpenAI API
         type: integer
+      chat_template_kwargs:
+        additionalProperties: {}
+        description: |-
+          ChatTemplateKwargs is the per-request chat_template_kwargs field that
+          llama.cpp's llama-server, vLLM and SGLang accept (e.g.
+          {"enable_thinking": false}). Scalar values are folded into Metadata, so
+          they take the same path to the backend; an explicit Metadata key wins.
+        type: object
       clip_skip:
         description: Diffusers
         type: integer
