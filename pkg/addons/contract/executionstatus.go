@@ -2,7 +2,6 @@
 package contract
 
 import (
-	"encoding/json"
 	"fmt"
 	"unicode/utf8"
 )
@@ -29,6 +28,10 @@ func DecodeExecutionStatus(b []byte) (ExecutionStatus, error) {
 	if !utf8.Valid(b) {
 		return unknown, fmt.Errorf("invalid execution status UTF-8")
 	}
+	fields, err := exactObjectFields(b, MaxExecutionStatusBytes, "readiness", "isolation", "explanation")
+	if err != nil {
+		return unknown, err
+	}
 	if err := strictJSON(b, &v, MaxExecutionStatusBytes); err != nil {
 		return unknown, err
 	}
@@ -39,10 +42,6 @@ func DecodeExecutionStatus(b []byte) (ExecutionStatus, error) {
 		return unknown, fmt.Errorf("invalid execution isolation")
 	}
 	// Distinguish absent explanation from explicit null or empty text.
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(b, &fields); err != nil {
-		return unknown, err
-	}
 	if _, present := fields["explanation"]; present && !ValidPlainText(v.Explanation, MaxExecutionExplanationChars) {
 		return unknown, fmt.Errorf("invalid execution explanation")
 	}

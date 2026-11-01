@@ -28,11 +28,11 @@ type HomeCommand struct {
 func (c *HomeCommand) UnmarshalJSON(b []byte) error {
 	type wire HomeCommand
 	var v wire
-	if err := strictJSON(b, &v, DefaultLimits().ManifestBytes); err != nil {
+	fields, err := exactObjectFields(b, DefaultLimits().ManifestBytes, "id", "alias", "page", "label", "icon")
+	if err != nil {
 		return err
 	}
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(b, &fields); err != nil {
+	if err := strictJSON(b, &v, DefaultLimits().ManifestBytes); err != nil {
 		return err
 	}
 	for key, value := range map[string]string{"alias": v.Alias, "page": v.Page, "icon": v.Icon} {
