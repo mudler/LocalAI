@@ -14,6 +14,8 @@ AUDIO_CPP_REPO?=https://github.com/0xShug0/audio.cpp
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 BUILD_DIR := build
+AUDIO_CPP_DIR ?= $(CURRENT_MAKEFILE_DIR)audio.cpp
+PYTHON ?= python3
 
 BUILD_TYPE ?=
 NATIVE ?= false
@@ -143,23 +145,27 @@ ifneq ($(NATIVE),true)
     CMAKE_ARGS += -DENGINE_ENABLE_NATIVE_CPU=OFF
 endif
 
-.PHONY: all grpc-server package test test-engine clean purge
+.PHONY: all audio.cpp prepare-upstream grpc-server package test test-engine clean purge
 all: grpc-server
 
-# Clone the upstream source at the pinned commit. The directory is the target
-# so make only re-clones when it is missing. After bumping AUDIO_CPP_VERSION,
-# run 'make purge && make' to refetch.
-audio.cpp:
-	mkdir -p audio.cpp
-	cd audio.cpp && \
-	git init -q && \
-	git remote add origin $(AUDIO_CPP_REPO) && \
-	git fetch --depth 1 origin $(AUDIO_CPP_VERSION) && \
-	git checkout FETCH_HEAD
+# Preparation is always verified, including when the checkout already exists.
+# A pin override needs a separately reviewed patch rather than a stock build.
+audio.cpp: prepare-upstream
 
-grpc-server: audio.cpp
+prepare-upstream:
+	@test "$(AUDIO_CPP_VERSION)" = "ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067" || { echo "audio-cpp: unsupported patch pin" >&2; exit 1; }
+	@if test ! -d "$(AUDIO_CPP_DIR)"; then \
+	  mkdir -p "$(AUDIO_CPP_DIR)" && \
+	  git -C "$(AUDIO_CPP_DIR)" init -q && \
+	  git -C "$(AUDIO_CPP_DIR)" remote add origin "$(AUDIO_CPP_REPO)" && \
+	  git -C "$(AUDIO_CPP_DIR)" fetch --depth 1 origin "$(AUDIO_CPP_VERSION)" && \
+	  git -C "$(AUDIO_CPP_DIR)" checkout FETCH_HEAD; \
+	fi
+	$(PYTHON) "$(CURRENT_MAKEFILE_DIR)apply-upstream-patches.py" --source "$(AUDIO_CPP_DIR)"
+
+grpc-server: prepare-upstream
 	mkdir -p $(BUILD_DIR)
-	cd $(BUILD_DIR) && cmake $(CMAKE_ARGS) $(CURRENT_MAKEFILE_DIR) && \
+	cd $(BUILD_DIR) && cmake $(CMAKE_ARGS) -DAUDIO_CPP_DIR="$(AUDIO_CPP_DIR)" $(CURRENT_MAKEFILE_DIR) && \
 	cmake --build . --config Release -j $(JOBS)
 	cp $(BUILD_DIR)/grpc-server grpc-server
 
@@ -170,9 +176,9 @@ test:
 	@echo "audio-cpp: standalone unit tests run from the repo root via 'make test-backend-cpp'"
 
 # Engine-linked tests. Needs the upstream checkout and a full engine build.
-test-engine: audio.cpp
+test-engine: prepare-upstream
 	mkdir -p $(BUILD_DIR)
-	cd $(BUILD_DIR) && cmake $(CMAKE_ARGS) -DAUDIO_CPP_GRPC_BUILD_TESTS=ON $(CURRENT_MAKEFILE_DIR) && \
+	cd $(BUILD_DIR) && cmake $(CMAKE_ARGS) -DAUDIO_CPP_DIR="$(AUDIO_CPP_DIR)" -DAUDIO_CPP_GRPC_BUILD_TESTS=ON $(CURRENT_MAKEFILE_DIR) && \
 	cmake --build . --config Release -j $(JOBS) && ctest --output-on-failure --no-tests=error
 
 clean:

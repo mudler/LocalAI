@@ -1,0 +1,72 @@
+{
+  "base_commit": "ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067",
+  "files": {
+    "include/engine/framework/core/backend.h": {
+      "base_sha256": "376bc465860bc7e7fc94eb15a9ff572a5747dc3b8ec261e15c7eec4f7ea4ec58",
+      "final_sha256": "8c6877fe86bb7d035e9073f31a5afc5fdaaf9c5d4e1a137d16aaf2c6436c9e2f"
+    },
+    "include/engine/framework/core/execution_context.h": {
+      "base_sha256": "12d5f640c0994c2a5851dbda5bc3a0370628a18413676182c787ccf6e3162d99",
+      "final_sha256": "bd9717685ebb65535982418002ade100ab1ae1c6d755b7e817d22e739c94096b"
+    },
+    "include/engine/framework/runtime/graph_executor.h": {
+      "base_sha256": "24b49f98489d4db942eefa2d3917f45153339c37018dc9e7182bb841a280a8c0",
+      "final_sha256": "5e3c40fa1327b317caccffddddadafbdb01f7b46ba61fb1a380e41ec88a566a7"
+    },
+    "src/framework/core/backend.cpp": {
+      "base_sha256": "3f9a5a491ef4ae2f337272144f25baf5173fc46f577eb61afba7b639dc833ae7",
+      "final_sha256": "6459a855cbb9041037d369db9db7e8476aab8156a7bae0542e5ef15ed80a27a4"
+    },
+    "src/framework/core/execution_context.cpp": {
+      "base_sha256": "c299ec73c1599d077f0480ed6c3cf91779eff26200d9514b2033850c4f101611",
+      "final_sha256": "5d714c17c823eb9468c4d38824fe99a4160bc7a185663e6255a132ac334fa12f"
+    },
+    "src/framework/runtime/graph_executor.cpp": {
+      "base_sha256": "e71d1c7015a6c49505a059cf9ca2314f278953d5291ab504fea5962b41dbddb5",
+      "final_sha256": "7536e3e0ad958433395771460d502a5489357c4c2b8f37ffafcab4d6b1700b9e"
+    }
+  },
+  "omitted_tracked_paths": {
+    "assets/framework/audio_utilities/deepfilternet2/deepfilternet2.safetensors": "d2a4fe4e5dbb1a51f9ec41162460ce82ca4667a6",
+    "assets/framework/audio_utilities/flashsr/flashsr.safetensors": "cd281f710108234b162424523a8d13380df6e4bd",
+    "assets/framework/audio_utilities/gtcrn/gtcrn_dns3.safetensors": "1aca773733bdb1b04bcd2f39f59036b440ef1ce2",
+    "assets/framework/audio_utilities/gtcrn/gtcrn_streaming.safetensors": "fd2df63a5e6a6d5850605d134e3100c2a5dcc11a",
+    "assets/framework/audio_utilities/gtcrn/gtcrn_vctk.safetensors": "a2615ae0562114b7496196b8e781bf99a6ba58b2",
+    "assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12.safetensors": "9f84e8d3aff68b1e9db1ffb9cf7a80aaa92dc1b8",
+    "assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15.safetensors": "f0d841426657b80d7bc29a4d18a58d95c954343d",
+    "assets/framework/audio_utilities/zipenhancer/zipenhancer.safetensors": "f8e86990714a9c042d63198f9b8fb8fc6e35551d",
+    "assets/framework/models/earshot_vad/earshot_vad.safetensors": "92a4a92d31ed169f0bbb42592cf40654d054e0ea",
+    "assets/framework/models/marblenet_vad/marblenet_vad.safetensors": "3932b545ccf3fd9aa197fa3e4cd3c692ec9ba75e",
+    "assets/framework/models/silero_vad/silero_vad_16k.safetensors": "367975dcd8924bd8f17254f3da99361be0a3b928",
+    "examples/model_spec_demo/toy_package/model.safetensors": "39086d2fc52dcbeb48bf4edcd29c694532168ed3",
+    "external/sentencepiece/data/nfkc.bin": "101907ed80c10718002ac58631ab4539cab1804d",
+    "external/sentencepiece/data/nfkc_cf.bin": "af7704e9676f3c114e1f31c38c469d8ceb34701f",
+    "external/sentencepiece/data/nmt_nfkc.bin": "d9a6e20a787cb7281a44101c13c6635e94e9d915",
+    "external/sentencepiece/data/nmt_nfkc_cf.bin": "56e56bfb0f34de23a8653903d708a57b30ffdce7",
+    "tests/fun_asr_nano/adaptor_reference.bin": "b43dd61105a60d0e4b01480a2c2406d3d9c61819",
+    "tests/fun_asr_nano/decoder_reference.bin": "d6c4ff66c36d77611bbfb3dbd0e60f428bb4779e",
+    "tests/fun_asr_nano/encoder_reference.bin": "3ba164ac92988d6035f6c2542d2e5c9fd4ab0a9a",
+    "tests/fun_asr_nano/frontend_reference.bin": "6c8bcbf44e0175df2db67d2ee75b36a4e6efbf74",
+    "tests/fun_asr_nano/sanm_reference.bin": "2066e0402be73956a5f0ba96d330410bb682c7de",
+    "tests/higgs_audio_tts/higgs_audio_tts_sampler_logits.bin": "54ca2c0442f3ee8c73cc7cf91c36f8e186e8d248",
+    "tests/unittests/assets/framework/audio_utilities/flashsr/flashsr_case0.safetensors": "1c82b310b4cd0eb31b0ceb744704dc07971cd452",
+    "tests/unittests/assets/framework/audio_utilities/flashsr/flashsr_case1.safetensors": "f0e66e79cb58997f86ab40262ff4e40c784c059a",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_dns3_case0.safetensors": "527c66d0d0fe124ffeba39c6f10d8d4c6b804113",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_dns3_case1.safetensors": "ece82382f0ba2dadfd77d6071aca72d62c8c99bd",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_streaming_case0.safetensors": "72fc4997ad48b7003e66ff13a35d5228718ffc14",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_streaming_case1.safetensors": "c9aeff10eea6ef4d9a388847b505ab0236b53021",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_vctk_case0.safetensors": "9110ba364de8b811528335e0a66dab4a836c7d7b",
+    "tests/unittests/assets/framework/audio_utilities/gtcrn/gtcrn_vctk_case1.safetensors": "73cf886c9c8866ea3dbe48069fdb3d5086a20c98",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_case0.safetensors": "3c4b42cbe41ae7a148af61bd161874f53dd3e439",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_case1.safetensors": "0cee78a8cf8e2516daebaf54c63dcf4802f6f35b",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_waveform_case0.safetensors": "2d3d119733e94d0e2adef8acfa89a3e9364ce31f",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Ga_12_waveform_case1.safetensors": "93e5730da52d8aa34595764103b8ef04103e25ea",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_case0.safetensors": "7d146aa07ae6f2fa7021707bbe9e976ec1ea9317",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_case1.safetensors": "580a78afde212bd9e9a63d74dcec8e2a0bfb503b",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_waveform_case0.safetensors": "bea0fdeb5ad972862b54118bd50f9d2e324e377b",
+    "tests/unittests/assets/framework/audio_utilities/rnnoise/rnnoise10Gb_15_waveform_case1.safetensors": "254c228d7097ead0669e9ce84d9b627b20a35179",
+    "tests/unittests/assets/framework/audio_utilities/zipenhancer/zipenhancer_case0.safetensors": "4a30e8ca23828490d8e282ed353df6e3177058a4",
+    "tests/unittests/assets/framework/audio_utilities/zipenhancer/zipenhancer_case1.safetensors": "1841178c640e6d580de3bf5728d65eb63518656c"
+  },
+  "patch_sha256": "728f14f80d1314109f160171e9573c34c231eb502e0de02ed3be71c57728373c"
+}

@@ -15,6 +15,17 @@ if(NOT EXISTS "${AUDIO_CPP_DIR}/CMakeLists.txt")
         "Run 'make audio.cpp' first.")
 endif()
 
+# Direct configurations only verify: source mutation belongs to make preparation.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/apply-upstream-patches.py"
+            --source "${AUDIO_CPP_DIR}" --verify-only
+    RESULT_VARIABLE _audio_patch_status
+    OUTPUT_VARIABLE _audio_patch_output ERROR_VARIABLE _audio_patch_error)
+if(NOT _audio_patch_status EQUAL 0)
+    message(FATAL_ERROR "audio.cpp requires verified preparation: ${_audio_patch_error}")
+endif()
+
 if(APPLE)
     # Homebrew installs protobuf/grpc under a non-default prefix.
     if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "arm64")
@@ -215,6 +226,15 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    target_compile_definitions(engine_core PRIVATE ENGINE_CORE_CANCELLATION_TESTING=1)
+    add_executable(music_core_cancellation_ctest music_core_cancellation_ctest.cpp)
+    target_compile_definitions(music_core_cancellation_ctest PRIVATE ENGINE_CORE_CANCELLATION_TESTING=1)
+    target_include_directories(music_core_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_core_cancellation_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    target_compile_options(music_core_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_core_cancellation COMMAND music_core_cancellation_ctest)
+    set_tests_properties(music_core_cancellation PROPERTIES TIMEOUT 60)
+
     enable_testing()
 
     # This bounded CPU test calls the linked CPU API, not dynamically loaded
