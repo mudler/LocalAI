@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -22,13 +23,11 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
-	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
-	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -136,20 +135,32 @@ func (a *Application) initStudioService() {
 	}
 	// The built-in bash runs commands on this machine when no Sandbox serves
 	// bash. Its scratch folders are per process; the files are the truth.
-	var svcRef *studio.Service
+	// The hooks run in chat turns, which start only after svcRef is set; it
+	// is atomic because they read it from other goroutines.
+	var svcRef atomic.Pointer[studio.Service]
 	if f := a.StudioFiles(); f.Available() {
 		hxDir := filepath.Join(stateDir, "host-exec")
 		if dp := a.applicationConfig.DataPath; dp != "" {
 			hxDir = filepath.Join(dp, "chats", "host-exec")
 		}
+		// The actor and the view of each command come from the chat's
+		// resolved access, so they are the turn's: a chat whose agent works in
+		// one folder gets a fenced actor, which the runner refuses.
 		a.studioHostExec = hostexec.New(hostexec.Options{
 			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid,
-			Actor: func(user, chat string) workspace.Actor { act := files.UserActor(user); act.ChatID = chat; return act },
-			Shared: func(ctx context.Context, act workspace.Actor) ([]session.SharedRoot, error) {
-				if svcRef == nil {
-					return nil, nil
+			Actor: func(ctx context.Context, user, chat string) (workspace.Actor, error) {
+				svc := svcRef.Load()
+				if svc == nil {
+					return workspace.Actor{}, errStudioStarting
 				}
-				return svcRef.SharedRoots(ctx, act)
+				return svc.CommandActor(ctx, user, chat)
+			},
+			View: func(ctx context.Context, act workspace.Actor) (workspace.View, error) {
+				svc := svcRef.Load()
+				if svc == nil {
+					return workspace.View{}, errStudioStarting
+				}
+				return svc.CommandView(ctx, act)
 			},
 		})
 		if r := a.studioHostExec.Unavailable(); r != "" {
@@ -178,7 +189,7 @@ func (a *Application) initStudioService() {
 		return
 	}
 	a.studioService = svc
-	svcRef = svc
+	svcRef.Store(svc)
 	a.startStudioReaper(svc)
 	a.startStudioEgressPrune(svc)
 	if a.applicationConfig.Distributed.ChatWorker {
@@ -193,6 +204,10 @@ func (a *Application) initStudioService() {
 	a.startStudioJobs(svc)
 	a.prepareStudioConversion(svc)
 }
+
+// errStudioStarting is the error of a command hook called before the chat
+// service is up. No chat turn runs then, so it is not expected.
+var errStudioStarting = errors.New("chats: the service is starting")
 
 // A turn beats every 15 seconds; one that has not beaten for this long belongs
 // to a frontend that died.

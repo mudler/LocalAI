@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -65,4 +66,39 @@ func (x Access) Owner() workspace.Actor {
 func (x Access) Scoped() bool {
 	_, ok := x.actor.Fence()
 	return ok
+}
+
+// SandboxView is the view a command runner of the chat is made with: the
+// mounts of the turn's view (the home, or the agent's folder and the chat
+// folder) and the skill layers the actor can read, read only, at the names
+// the file tools use, so a skill's scripts run in place. It is built with the
+// access's actor, so the store caps every mount at the actor's fence.
+func (x Access) SandboxView(ctx context.Context, st workspace.Store) (workspace.View, error) {
+	v := x.View()
+	if st == nil {
+		return v, ErrNoWorkspace
+	}
+	layers, err := SkillLayerMounts(ctx, st, x.actor)
+	if err != nil {
+		return workspace.View{}, err
+	}
+	taken := map[string]bool{}
+	for _, m := range v.Mounts {
+		taken[m.At] = true
+	}
+	var add []workspace.MountRequest
+	for _, l := range layers {
+		if !taken[l.At] {
+			add = append(add, l)
+		}
+	}
+	if len(add) == 0 {
+		return v, nil
+	}
+	lv, err := st.View(ctx, x.actor, add)
+	if err != nil {
+		return workspace.View{}, err
+	}
+	v.Mounts = append(v.Mounts, lv.Mounts...)
+	return v, nil
 }

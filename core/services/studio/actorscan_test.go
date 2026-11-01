@@ -47,12 +47,14 @@ var actorAllowlist = map[string]string{
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must move to the chat's access there.
-	"sandbox/runner/runner.go:New":                                      "lane 5: the default actor hook of the sandbox runner",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.view":          "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.changes":       "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.export":        "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.importFile":    "lane 6: add-on workspace operations",
-	"../../application/studio_service.go:Application.initStudioService": "lane 5: the actor hook of the host bash",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.view":       "lane 6: add-on workspace operations",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.changes":    "lane 6: add-on workspace operations",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.export":     "lane 6: add-on workspace operations",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.importFile": "lane 6: add-on workspace operations",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.view":       "lane 6: add-on workspace operations",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.changes":    "lane 6: add-on workspace operations",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.export":     "lane 6: add-on workspace operations",
+	"../addons/hostops/engine_workspace.go:WorkspaceHost.importFile": "lane 6: add-on workspace operations",
 }
 
 // actorBuilds returns the places in src that build an actor, as
@@ -104,8 +106,6 @@ var viewAllowlist = map[string]string{
 	"agentaccess.go:Service.chatAccess": "the resolver: the one place a chat's access is built",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must take the chat's access there.
-	"hostexec/hostexec.go:Runner.mounts":                       "lane 5: the host bash builds the home view of its actor",
-	"sandbox/runner/runner.go:Manager.ready":                   "lane 5: the sandbox runner mounts the view of its actor",
 	"../addons/hostops/engine_workspace.go:WorkspaceHost.view": "lane 6: add-on workspace operations",
 }
 

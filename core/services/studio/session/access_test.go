@@ -3,6 +3,7 @@ package session_test
 import (
 	"context"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -133,6 +134,43 @@ var _ = Describe("session access", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_, err = m.ScopedAccess(ctx, a, notes.Path, other.Path)
 		Expect(err).To(MatchError(workspace.ErrNotFound), "another chat's folder is outside the fence")
+	})
+
+	It("gives a command runner the turn's view and the skill layers the actor can read", func() {
+		admin := workspace.Actor{Principal: filesAdmin}
+		_, err := ws.Put(ctx, admin, "/builtin-skills/pdf/SKILL.md", strings.NewReader("pdf"), workspace.PutOptions{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ws.Grant(ctx, admin, "alice", "/builtin-skills", workspace.ModeRead)).To(Succeed())
+		notes, err := ws.Stat(ctx, alice, session.HomePath("alice")+"/Notes")
+		Expect(err).NotTo(HaveOccurred())
+		layer, err := ws.Stat(ctx, admin, "/builtin-skills")
+		Expect(err).NotTo(HaveOccurred())
+		chat, err := ws.Mkdir(ctx, alice, session.ChatsPath("alice")+"/2026-11-01 Run")
+		Expect(err).NotTo(HaveOccurred())
+		a := workspace.Actor{Principal: "alice", ChatID: "c1"}.Fenced(
+			workspace.FenceRoot{Node: notes.ID, Mode: workspace.ModeRead},
+			workspace.FenceRoot{Node: chat.ID, Mode: workspace.ModeWrite},
+			workspace.FenceRoot{Node: layer.ID, Mode: workspace.ModeRead})
+		x, err := m.ScopedAccess(ctx, a, notes.Path, chat.Path)
+		Expect(err).NotTo(HaveOccurred())
+		v, err := x.SandboxView(ctx, ws)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Actor.SameFence(a)).To(BeTrue())
+		var ats []string
+		for _, mt := range v.Mounts {
+			ats = append(ats, mt.At+" "+mt.Path)
+			Expect(mt.Mode == workspace.ModeRead || mt.At == session.GuestChat).To(BeTrue(), "%s is writable", mt.At)
+		}
+		Expect(ats).To(Equal([]string{"home " + notes.Path, "chat " + chat.Path, "shared-builtin-skills /builtin-skills"}))
+
+		// The unscoped access of the same user mounts the home, writable.
+		ux, err := m.UserAccess(ctx, workspace.Actor{Principal: "alice", ChatID: "c2"})
+		Expect(err).NotTo(HaveOccurred())
+		uv, err := ux.SandboxView(ctx, ws)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(uv.Mounts[0].Path).To(Equal(session.HomePath("alice")))
+		Expect(uv.Mounts[0].Mode).To(Equal(workspace.ModeWrite))
+		Expect(uv.Mounts[len(uv.Mounts)-1].At).To(Equal("shared-builtin-skills"))
 	})
 
 	It("gives the same access to another chat of the user", func() {
