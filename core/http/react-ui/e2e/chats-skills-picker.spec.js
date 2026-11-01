@@ -172,6 +172,33 @@ test.describe('Chat skills picker', () => {
     await expect(page.getByTestId('chat-skills-error')).toHaveText('')
   })
 
+  test('the menu keeps its own height when the shared menu sheet loads after it', async ({ page }) => {
+    // The base rule of every composer menu caps it at 320px. The sheet of the
+    // picker is a lazy chunk, so the base rule can land last; the picker must
+    // still get its full height, or the list is a few rows and a click on a
+    // row at its edge scrolls the list.
+    await page.addInitScript(() => {
+      const late = () => {
+        const style = document.createElement('style')
+        style.textContent = '.chat-mcp-dropdown-menu { max-height: 320px; overflow-y: auto; min-width: 240px; }'
+        document.head.appendChild(style)
+      }
+      new MutationObserver(() => {
+        if (!window.__lateSheet && document.querySelector('[data-testid=chat-skills-menu]')) { window.__lateSheet = true; late() }
+      }).observe(document, { childList: true, subtree: true })
+      window.addEventListener('DOMContentLoaded', late)
+    })
+    const api = await stub(page)
+    api.fail = true
+    await open(page)
+    const menu = await page.getByTestId('chat-skills-menu').boundingBox()
+    expect(menu.height).toBeGreaterThan(400)
+    const before = await sw(page, 'skill-10').boundingBox()
+    await sw(page, 'skill-04').click()
+    await expect(page.getByTestId('chat-skills-error')).toContainText('Could not save. Nothing changed.')
+    expect(await sw(page, 'skill-10').boundingBox()).toEqual(before)
+  })
+
   test('a refused Disable all puts every skill back', async ({ page }) => {
     const api = await stub(page, { off: ['personal:skill-02'] })
     api.fail = true

@@ -2,7 +2,10 @@
    (title, count, actions, notes), a list that scrolls and a status line that
    always takes its room, so a refused change never moves the rows. Tokens
    only. */
-.swl-menu {
+/* The doubled class beats the base rule of the dropdown menu (a 320px cap and
+   a scrolling menu) whatever order the two sheets load in: the sheet of this
+   file is a lazy chunk, so it can land before or after the shared one. */
+.chat-mcp-dropdown-menu.swl-menu {
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -12,7 +15,7 @@
   max-height: min(30rem, 70dvh);
   padding: 0;
 }
-.swl-menu--wide { width: min(26rem, calc(100vw - 2 * var(--sp-4))); max-height: min(34rem, 75dvh); }
+.chat-mcp-dropdown-menu.swl-menu--wide { width: min(26rem, calc(100vw - 2 * var(--sp-4))); max-height: min(34rem, 75dvh); }
 /* On a phone the list is a sheet over the bottom of the screen: the chip is
    at the left edge, so a menu hung from it would leave the screen. */
 @media (max-width: 640px) {
