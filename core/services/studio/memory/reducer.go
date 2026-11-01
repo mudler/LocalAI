@@ -54,6 +54,9 @@ func Reduce(s State, e Event) Transition {
 		if env.Generation <= j.Generation || env.Owner == "" {
 			return ignore(s, "R02-stale", "recovery requires a newer fence")
 		}
+		if waiting, ok := s.(RetryWaiting); ok && env.Now < waiting.Due {
+			return ignore(s, "R06-early", "recovery arrived before retry due time")
+		}
 		if j.Attempts >= 3 {
 			return finish(Failed{j, "recovery exhausted"}, "R06-exhausted")
 		}

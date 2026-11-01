@@ -118,3 +118,61 @@ var _ = Describe("Capture expiry precedence", func() {
 		}
 	})
 })
+
+var _ = Describe("Retry recovery backoff", func() {
+	var waiting RetryWaiting
+	BeforeEach(func() {
+		s := advance(Initial("source-a", ContentInput{"hello"}), grant, auth, persist, auth)
+		waiting = Reduce(s, WriteFailed{envelopeOfState(s)}).State.(RetryWaiting)
+		Expect(waiting.Due).To(Equal(int64(1)))
+		Expect(waiting.Job.Attempts).To(Equal(1))
+	})
+	It("ignores early recovery without consuming an attempt or emitting effects", func() {
+		env := envelopeOfState(waiting)
+		env.Owner = "frontend-b"
+		tr := Reduce(waiting, RestartRecovered{env})
+		Expect(tr.State).To(Equal(waiting))
+		Expect(jobOf(tr.State).Attempts).To(Equal(1))
+		Expect(tr.Effects).To(BeEmpty())
+		Expect(tr.RuleID).To(Equal("R06-early"))
+	})
+	It("permits recovery at or after the retry due time with fresh authorization", func() {
+		for _, now := range []int64{waiting.Due, waiting.Due + 1} {
+			env := envelopeOfState(waiting)
+			env.Owner, env.Now = "frontend-b", now
+			tr := Reduce(waiting, RestartRecovered{env})
+			Expect(tr.RuleID).To(Equal("R06-recover"))
+			Expect(tr.State).To(BeAssignableToTypeOf(Authorizing{}))
+			Expect(jobOf(tr.State).Attempts).To(Equal(2))
+			Expect(jobOf(tr.State).Input).To(Equal(waiting.Job.Input))
+			Expect(effectNames(tr.Effects)).To(Equal([]string{"CheckAuthorization", "PublishStatus"}))
+		}
+	})
+	It("keeps capture expiry terminal even before the retry due time", func() {
+		waiting.Job.Expires = waiting.Due
+		waiting.Due++
+		env := envelopeOfState(waiting)
+		env.Now = waiting.Job.Expires
+		tr := Reduce(waiting, RestartRecovered{env})
+		Expect(tr.RuleID).To(Equal("R06-exhausted"))
+		Expect(tr.State).To(BeAssignableToTypeOf(Failed{}))
+		Expect(jobOf(tr.State).Attempts).To(Equal(1))
+		Expect(effectNames(tr.Effects)).To(Equal([]string{"PublishStatus"}))
+	})
+	It("does not promote invalid or stale recovery claims before or after due", func() {
+		for _, now := range []int64{0, waiting.Due, waiting.Due + 1} {
+			valid := envelopeOfState(waiting)
+			valid.Now = now
+			missingOwner, stale, wrongKey := valid, valid, valid
+			missingOwner.Owner = ""
+			stale.Generation = waiting.Job.Generation
+			wrongKey.Key = "another-capture"
+			for _, env := range []Envelope{missingOwner, stale, wrongKey} {
+				tr := Reduce(waiting, RestartRecovered{env})
+				Expect(tr.RuleID).To(Equal("R02-stale"))
+				Expect(tr.State).To(Equal(waiting))
+				Expect(tr.Effects).To(BeEmpty())
+			}
+		}
+	})
+})

@@ -8,7 +8,7 @@ import (
 
 var _ = Describe("Replay traces", func() {
 	It("pins every rule and effect in order, not only final status", func() {
-		Expect(ExampleTraces()).To(HaveLen(15))
+		Expect(ExampleTraces()).To(HaveLen(16))
 		for _, trace := range ExampleTraces() {
 			transitions := RunTrace(trace.Initial, trace.Events)
 			Expect(transitions).To(HaveLen(len(trace.Rules)), trace.Name)

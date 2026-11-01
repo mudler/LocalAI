@@ -38,6 +38,7 @@ func ExampleTraces() []Trace {
 		{"summary failure", SummaryInput{"hello"}, "claim auth summary-fail", "R02-claim R03-transform R04-failed", "Failed"},
 		{"empty summary", SummaryInput{"hello"}, "claim auth empty", "R02-claim R03-transform R04-empty", "Failed"},
 		{"transient write retry", ContentInput{"hello"}, "claim auth persist auth fail tick claim auth write", "R02-claim R04-content R04-durable R05-write R06-wait R06-ready R02-claim R05-write R05-saved", "Saved"},
+		{"restart respects retry backoff", ContentInput{"hello"}, "claim auth persist auth fail early-recover recover auth write", "R02-claim R04-content R04-durable R05-write R06-wait R06-early R06-recover R05-write R05-saved", "Saved"},
 		{"timeout exhaustion", ContentInput{"hello"}, "claim timeout tick claim timeout tick claim timeout", "R02-claim R06-wait R06-ready R02-claim R06-wait R06-ready R02-claim R06-exhausted", "Failed"},
 		{"two frontend claims and stale owner", ContentInput{"hello"}, "denied claim competitor timeout recover stale auth persist auth write", "R02-denied R02-claim R02-stale R06-wait R06-recover R02-stale R04-content R04-durable R05-write R05-saved", "Saved"},
 		{"out of order results", SummaryInput{"hello"}, "early-write claim early-summary auth early-write summary persist auth write late-summary late-write", "R02-unexpected R02-claim R02-unexpected R03-transform R02-unexpected R04-summary R04-durable R05-write R05-saved R07-absorbed R07-absorbed", "Saved"},
@@ -91,9 +92,12 @@ func ExampleTraces() []Trace {
 			case "tick":
 				env.Now = s.(RetryWaiting).Due
 				e = RetryTick{env}
-			case "recover":
+			case "recover", "early-recover":
 				if w, ok := workOf(s); ok {
 					env.Now = w.Deadline
+				}
+				if waiting, ok := s.(RetryWaiting); ok && action == "recover" {
+					env.Now = waiting.Due
 				}
 				env.Generation = jobOf(s).Generation + 1
 				env.Owner = "frontend-b"
