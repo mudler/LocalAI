@@ -139,6 +139,16 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   in its own folder at the lower of the two modes. Any other agent is refused
   with "this agent works in another folder than this chat", and `list_agents`
   does not list it.
+
+- Commands of the chat run only in the Sandbox add-on. Its sandbox has the
+  agent's folder at `/workspace/home` (read only for `read`), the chat folder
+  at `/workspace/chat` (read and write), and the shared folders and skills read
+  only. What a command writes anywhere else is not saved, and the command's
+  output says so. The built-in `bash` that runs on this machine is never
+  offered to such a chat, also when `chats_host_exec` is `on`: a command on
+  this machine can read every file LocalAI can read, so nothing can keep it in
+  the folder. The Tools menu of the chat says why. On a server without the
+  Sandbox, the agent still reads and changes its folder with the file tools.
 - A `PUT` without `folder` keeps the folder the agent has, so a client that
   does not know the field cannot give the agent more files by editing it.
   `"folder": {"path": ""}` clears the folder.

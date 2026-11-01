@@ -115,10 +115,20 @@ func (s *Service) registerHostBash() error {
 	})
 }
 
+// scopedHostBashReason is why a chat whose agent works in one folder has no
+// built-in bash (D10 of the agent folder design): a command on this machine
+// reads what the server can read, and no workspace rule confines it.
+const scopedHostBashReason = "this agent works in one folder, and commands on this machine could read files outside it; it runs commands only in the Sandbox add-on"
+
 // buildHostBash gives a chat the built-in bash when the setting allows it.
+// A chat whose actor is fenced (its agent, or its parent's, has a folder)
+// never gets it.
 func (s *Service) buildHostBash(_ context.Context, c builtins.Chat) (session.Tool, bool, string) {
 	if s.d.HostExec == nil {
 		return session.Tool{}, false, "this server cannot run commands by itself"
+	}
+	if workspace.HasFence(c.Actor) {
+		return session.Tool{}, false, scopedHostBashReason
 	}
 	if r := s.d.HostExec.Unavailable(); r != "" {
 		return session.Tool{}, false, r

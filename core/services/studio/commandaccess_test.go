@@ -106,6 +106,29 @@ func shellGroup(svc *studio.Service, user, conv string) studio.BuiltinGroup {
 }
 
 var _ = Describe("commands of a scoped chat", func() {
+	It("does not offer the built-in host bash to a scoped chat, and the tool list says why", func() {
+		r := newCommandRig()
+		plain := create(r.svc, alice)
+		sent(r.svc, alice, plain, "run")
+		idle(r.svc, alice, plain)
+		Expect(r.h.ToolNames(plain)).To(ContainElement("bash"), "an unscoped chat keeps the built-in bash")
+		Expect(r.fx.commands()).To(HaveLen(1))
+
+		rec := r.scopedChat(agents.FolderWrite)
+		sent(r.svc, alice, rec.ID, "run")
+		idle(r.svc, alice, rec.ID)
+		Expect(r.h.ToolNames(rec.ID)).NotTo(ContainElement("bash"))
+		Expect(r.fx.commands()).To(HaveLen(1), "the scoped chat ran a command on this machine")
+		Expect(r.h.TurnPrompt(rec.ID)).To(ContainSubstring("nothing in this chat runs code or commands"))
+		g := shellGroup(r.svc, alice, rec.ID)
+		Expect(g.Usable).To(BeFalse())
+		Expect(g.Reason).To(ContainSubstring("works in one folder"))
+		Expect(g.Reason).To(ContainSubstring("Sandbox"))
+		cmds, err := r.svc.CommandRunner(r.ctx, alice, rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(cmds.State).NotTo(Equal(studio.CommandsAvailable))
+	})
+
 	It("runs a real command that sees and writes only the chat's mounts", func() {
 		r := newCommandRig()
 		rec := r.scopedChat(agents.FolderWrite)

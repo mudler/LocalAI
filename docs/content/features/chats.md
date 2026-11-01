@@ -918,6 +918,12 @@ shown when the Sandbox is already installed, or when add-ons are off.
   apply. Install the Sandbox to isolate commands.
 - **Never as root.** When LocalAI runs as root, the built-in `bash` is not
   offered.
+- **Never for an agent limited to one folder.** A chat whose agent works in
+  one folder (and its sub-agents) never gets the built-in `bash`, whatever
+  `chats_host_exec` says: a command here can read every file LocalAI can read,
+  so nothing keeps it in that folder. Such a chat runs commands only in the
+  Sandbox, and its Tools menu says why. See
+  [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}).
 - **Your files.** Each chat gets a scratch folder with your files: `home/`
   there is `/workspace/home` of the file tools, and `shared-<name>/` is a
   shared folder. A command starts in `home/`, so a relative path is a path in
