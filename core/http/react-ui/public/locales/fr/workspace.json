@@ -667,5 +667,9 @@
       "server": "Le serveur n’a pas pu l’enregistrer."
     },
     "said": "Réponse du serveur : {{reason}}."
+  },
+  "picker": {
+    "retry": "Réessayer",
+    "noFolders": "Aucun dossier ici"
   }
 }

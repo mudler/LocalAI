@@ -667,5 +667,9 @@
       "server": "Il server non è riuscito a salvarlo."
     },
     "said": "Il server ha risposto: {{reason}}."
+  },
+  "picker": {
+    "retry": "Riprova",
+    "noFolders": "Nessuna cartella qui"
   }
 }

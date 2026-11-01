@@ -667,5 +667,9 @@
       "server": "El servidor no pudo guardarlo."
     },
     "said": "El servidor respondió: {{reason}}."
+  },
+  "picker": {
+    "retry": "Reintentar",
+    "noFolders": "No hay carpetas aquí"
   }
 }

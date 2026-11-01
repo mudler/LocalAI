@@ -667,5 +667,9 @@
       "server": "Server tidak dapat menyimpannya."
     },
     "said": "Server menjawab: {{reason}}."
+  },
+  "picker": {
+    "retry": "Coba lagi",
+    "noFolders": "Tidak ada folder di sini"
   }
 }

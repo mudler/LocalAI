@@ -688,5 +688,9 @@
       "server": "The server could not save it."
     },
     "said": "The server said: {{reason}}."
+  },
+  "picker": {
+    "retry": "Try again",
+    "noFolders": "No folders here"
   }
 }

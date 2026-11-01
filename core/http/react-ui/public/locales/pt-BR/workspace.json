@@ -667,5 +667,9 @@
       "server": "O servidor não conseguiu salvar."
     },
     "said": "O servidor respondeu: {{reason}}."
+  },
+  "picker": {
+    "retry": "Tentar de novo",
+    "noFolders": "Nenhuma pasta aqui"
   }
 }
