@@ -2,8 +2,9 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
-  ACCOUNT_KEY, LEGACY_CLAIM_KEY, clearRemote, deleteRemote, fromServerEntry, historyStorageKey, isServerMode,
-  mergeHistory, resetStudioHistorySync, saveRemote, setStudioHistoryTransport, syncStudioHistory, toServerEntry,
+  ACCOUNT_KEY, LEGACY_CLAIM_KEY, clearRemote, deleteRemote, deletedInLastSync, fromServerEntry, historyStorageKey,
+  isServerMode, keepPending, mergeHistory, resetStudioHistorySync, saveRemote, setStudioHistoryTransport,
+  syncStudioHistory, toServerEntry,
 } from '../src/utils/studioHistorySync.js'
 import { MEDIA_STORAGE_KEYS } from '../src/utils/mediaHistoryStore.js'
 
@@ -267,3 +268,40 @@ test('a queued item without an id is dropped, not sent', async () => {
   assert.equal(server.calls.filter(c => c.method === 'DELETE').length, 0)
   assert.deepEqual(JSON.parse(globalThis.localStorage.getItem('localai_studio_history_pending_deletes:acct1')), [])
 })
+
+test('keepPending keeps only unconfirmed entries of this page, never a deleted one, never across accounts', () => {
+  const cached = [entry('c1', 5)]
+  const prev = [entry('new', 9), entry('done', 8), entry('gone', 7), entry('c1', 5)]
+  const pendingIds = new Set(['new', 'gone'])
+  const same = keepPending({ prev, cached, pendingIds, deleted: new Set(['gone']), prevKey: 'k:acct1', key: 'k:acct1' })
+  assert.deepEqual(same.list.map(e => e.id), ['new', 'c1'])
+  // made before the account was verified (no key yet): still this page's own work
+  const verified = keepPending({ prev, cached, pendingIds, deleted: new Set(), prevKey: null, key: 'k:acct1' })
+  assert.deepEqual(verified.kept.map(e => e.id), ['new', 'gone'])
+  // the cache now belongs to another account: nothing carries over
+  const other = keepPending({ prev, cached, pendingIds, deleted: new Set(), prevKey: 'k:acct1', key: 'k:acct2' })
+  assert.deepEqual(other.list.map(e => e.id), ['c1'])
+  assert.deepEqual(other.kept, [])
+})
+
+test('an entry made here and deleted on another device stays deleted after the next sync', async () => {
+  const server = fakeServer({ entries: [serverEntry('v1', 'video', 1)] })
+  setup(server)
+  globalThis.localStorage.setItem(LEGACY_CLAIM_KEY, JSON.stringify('acct1'))
+  await syncStudioHistory()
+  const key = historyStorageKey('video')
+  // this tab made 'mine'; the upload went through, then another device deleted it
+  const mine = entry('mine', 9)
+  await saveRemote('video', mine)
+  await deleteRemote('video', 'mine')
+  // reconnect: the sync sees the tombstone and reports it to the page
+  resetStudioHistorySync()
+  await syncStudioHistory()
+  assert.ok(deletedInLastSync('video').has('mine'))
+  const cached = JSON.parse(globalThis.localStorage.getItem(key))
+  // even if the page still counted 'mine' as pending, it does not come back
+  const { list } = keepPending({ prev: [mine, ...cached], cached, pendingIds: new Set(['mine']),
+    deleted: deletedInLastSync('video'), prevKey: key, key })
+  assert.deepEqual(list.map(e => e.id), ['v1'])
+})
+
