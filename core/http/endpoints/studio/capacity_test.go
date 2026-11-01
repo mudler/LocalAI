@@ -8,7 +8,9 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -25,94 +27,66 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
 )
 
-func TestCapacityHandlers(t *testing.T) {
-	ctx := context.Background()
-	b, err := blob.NewFS(filepath.Join(t.TempDir(), "blobs"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ws, err := jsonstore.New(filepath.Join(t.TempDir(), "ws"), b, jsonstore.Options{Admin: files.AdminPrincipal})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ws.Close()
-	f := files.New(ws)
-	if err := f.EnsureHome(ctx, "alice"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ws.Mkdir(ctx, f.Actor("alice"), session.HomePath("alice")+"/PrivateWork"); err != nil {
-		t.Fatal(err)
-	}
-	st, err := store.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ags, err := agents.NewJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	harness := studiotest.NewGateHarness()
-	svc, err := studiosvc.New(studiosvc.Deps{Store: st, Agents: ags, Files: f, Provider: provider.New(), StateDir: t.TempDir(), Harness: harness})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer svc.Close(ctx)
-	ag, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Scoped", Model: "test"}, &studiosvc.AgentFolderWrite{Path: "/PrivateWork", Mode: agents.FolderRead})
-	if err != nil {
-		t.Fatal(err)
-	}
-	rec, err := svc.Create(ctx, "alice", studiosvc.CreateInput{AgentID: ag.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	admin := workspace.Actor{Principal: files.AdminPrincipal}
-	for i := 0; i < 31; i++ {
-		n, err := ws.Mkdir(ctx, admin, fmt.Sprintf("/shared/SecretShare%02d", i))
-		if err != nil {
-			t.Fatal(err)
+var _ = Describe("folder capacity", func() {
+	It("refuses create and send with a fixed capacity response", func() {
+		ctx := context.Background()
+		b, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
+		Expect(err).NotTo(HaveOccurred())
+		ws, err := jsonstore.New(filepath.Join(GinkgoT().TempDir(), "ws"), b, jsonstore.Options{Admin: files.AdminPrincipal})
+		Expect(err).NotTo(HaveOccurred())
+		defer ws.Close()
+		f := files.New(ws)
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		_, err = ws.Mkdir(ctx, f.Actor("alice"), session.HomePath("alice")+"/PrivateWork")
+		Expect(err).NotTo(HaveOccurred())
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		ags, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		harness := studiotest.NewGateHarness()
+		svc, err := studiosvc.New(studiosvc.Deps{Store: st, Agents: ags, Files: f, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: harness})
+		Expect(err).NotTo(HaveOccurred())
+		defer svc.Close(ctx)
+		ag, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Scoped", Model: "test"}, &studiosvc.AgentFolderWrite{Path: "/PrivateWork", Mode: agents.FolderRead})
+		Expect(err).NotTo(HaveOccurred())
+		rec, err := svc.Create(ctx, "alice", studiosvc.CreateInput{AgentID: ag.ID})
+		Expect(err).NotTo(HaveOccurred())
+		admin := workspace.Actor{Principal: files.AdminPrincipal}
+		for i := 0; i < 31; i++ {
+			n, err := ws.Mkdir(ctx, admin, fmt.Sprintf("/shared/SecretShare%02d", i))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ws.Grant(ctx, admin, files.EveryoneGroup, n.Path, workspace.ModeRead)).To(Succeed())
 		}
-		if err := ws.Grant(ctx, admin, files.EveryoneGroup, n.Path, workspace.ModeRead); err != nil {
-			t.Fatal(err)
+		h := New(svc, nil)
+		for _, send := range []bool{false, true} {
+			body := fmt.Sprintf(`{"agent_id":%q}`, ag.ID)
+			path := "/api/chats"
+			if send {
+				body = `{"text":"hi"}`
+				path += "/" + rec.ID + "/messages"
+			}
+			req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			out := httptest.NewRecorder()
+			c := echo.New().NewContext(req, out)
+			c.Set("auth_user", &auth.User{ID: "alice", Role: auth.RoleAdmin})
+			var err error
+			if send {
+				c.SetParamNames("id")
+				c.SetParamValues(rec.ID)
+				err = h.Send(c)
+			} else {
+				err = h.Create(c)
+			}
+			Expect(err).NotTo(HaveOccurred())
+			var response schema.ErrorResponse
+			Expect(json.Unmarshal(out.Body.Bytes(), &response)).To(Succeed())
+			Expect(out.Code).To(Equal(http.StatusConflict), "send=%v: %s", send, out.Body.String())
+			Expect(response.Error).NotTo(BeNil())
+			Expect(response.Error.Type).To(Equal("agent_folder_limit"))
+			Expect(response.Error.Code).To(BeEquivalentTo(http.StatusConflict))
+			Expect(response.Error.Message).To(Equal("This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."))
 		}
-	}
-	h := New(svc, nil)
-	for _, send := range []bool{false, true} {
-		body := fmt.Sprintf(`{"agent_id":%q}`, ag.ID)
-		path := "/api/chats"
-		if send {
-			body = `{"text":"hi"}`
-			path += "/" + rec.ID + "/messages"
-		}
-		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-		out := httptest.NewRecorder()
-		c := echo.New().NewContext(req, out)
-		c.Set("auth_user", &auth.User{ID: "alice", Role: auth.RoleAdmin})
-		var err error
-		if send {
-			c.SetParamNames("id")
-			c.SetParamValues(rec.ID)
-			err = h.Send(c)
-		} else {
-			err = h.Create(c)
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
-		var response schema.ErrorResponse
-		if err := json.Unmarshal(out.Body.Bytes(), &response); err != nil {
-			t.Fatal(err)
-		}
-		if out.Code != http.StatusConflict || response.Error == nil || response.Error.Type != "agent_folder_limit" {
-			t.Errorf("send=%v: got %d %s", send, out.Code, out.Body.String())
-			continue
-		}
-		want := "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."
-		if response.Error.Message != want {
-			t.Errorf("unsafe or incorrect message: %q", response.Error.Message)
-		}
-	}
-	if harness.Starts() != 0 {
-		t.Error("refused request started a harness")
-	}
-}
+		Expect(harness.Starts()).To(BeZero(), "refused request started a harness")
+	})
+})

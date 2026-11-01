@@ -128,7 +128,20 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   edit), and send the message again.
 - A chat with the agent reaches its folder (read only for `read`), its own
   chat folder under `Chats` (attachments and the work folder, read and write),
-  the shared folders and the skills (read only), and nothing else.
+  every readable shared folder and the skills (read only), and nothing else,
+  provided that the complete set fits the folder limit below.
+- Scoped access has a limit of **32 folder roots per scope**: the agent folder,
+  one reserved chat folder, every skill folder that exists, and every readable
+  shared folder. Three skill folders leave room for 27 shared folders. LocalAI
+  never drops shared folders to fit. If the complete set exceeds the limit,
+  `POST /api/chats` and the next message to an existing chat answer `409` with
+  type `agent_folder_limit`. This is a capacity refusal, not a missing folder.
+  Ask an administrator to reduce the shared folders available to you, then
+  retry. The Tools panel exposes no file access while this check fails, even
+  before the chat folder exists. Each turn checks access again, so a smaller
+  shared set allows a retry without editing the agent. A failure to enumerate
+  shared folders also refuses access instead of silently omitting them.
+  Chats without an agent folder keep their existing access.
 - The model sees the agent's folder at `/workspace/home`, so `/a.txt` and
   `/workspace/home/a.txt` are `a.txt` in that folder. The chat folder is at
   `/workspace/chat`, with the work folder at `/workspace/chat/work/`. The
@@ -334,6 +347,10 @@ folder, like every chat of the agent:
   is made, the trigger is switched off and you get a notification. Saving a
   trigger for such an agent is refused until you choose a folder. Restore the
   folder (or choose another one) and switch the trigger on again.
+- If the complete file access exceeds the 32-root limit, the run fails without
+  starting a chat. The trigger stays enabled: reduce the available shared
+  folders and retry. This differs from a missing agent folder, which switches
+  the trigger off.
 - The rules of a run come from `AGENTS.md` files in the agent's folder only:
   for a schedule trigger the agent's folder itself, for a file trigger the
   folders from the agent's folder down to the watched folder. An `AGENTS.md`
