@@ -65,11 +65,11 @@ func (s *fsStore) syncDir(path string) error {
 	if err := s.stage("directory sync"); err != nil {
 		return err
 	}
-	f, err := os.Open(path)
+	f, err := os.Open(path) // #nosec G304 -- internal callers pass only canonical-root directories or hash shards in the service-controlled tree.
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return f.Sync()
 }
 func (s *fsStore) mkdir(path string) error {
@@ -98,7 +98,12 @@ func (s *fsStore) Put(ctx context.Context, r io.Reader, max int64) (string, int6
 	if err != nil {
 		return "", 0, err
 	}
-	defer func() { f.Close(); os.Remove(f.Name()) }()
+	// Publication checks Sync and Close below; deferred cleanup is best-effort,
+	// including after a successful rename has removed the temporary name.
+	defer func() {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+	}()
 	h := sha256.New()
 	src := io.Reader(contextReader{ctx: ctx, r: r})
 	if max > 0 {
@@ -165,7 +170,7 @@ func (s *fsStore) Open(_ context.Context, sha string) (io.ReadSeekCloser, error)
 	if err := s.safe(p); err != nil {
 		return nil, err
 	}
-	f, err := os.Open(p)
+	f, err := os.Open(p) // #nosec G304 -- validSHA confines p beneath the canonical root; safe rejects in-tree symlinks in the service-controlled tree.
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, workspace.ErrNotFound
 	}
@@ -192,7 +197,7 @@ func (s *fsStore) LinkTo(ctx context.Context, sha string, dir *os.Root, name str
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 	out, err := dir.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o400)
 	if err != nil {
 		return err

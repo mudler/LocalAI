@@ -44,7 +44,7 @@ var _ = Describe("shared filesystem publication", func() {
 			f, err := s.Open(context.Background(), sha)
 			if stage == "directory sync" {
 				Expect(err).NotTo(HaveOccurred())
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 				got, err := io.ReadAll(f)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(string(got)).To(Equal(content))
@@ -97,7 +97,7 @@ var _ = Describe("shared filesystem publication", func() {
 		Expect(err).To(MatchError(injected))
 		f, err := other.Open(context.Background(), sha)
 		Expect(err).NotTo(HaveOccurred())
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		got, err := io.ReadAll(f)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(got)).To(Equal(content))
