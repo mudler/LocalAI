@@ -25831,6 +25831,11 @@ const docTemplate = `{
                     "description": "Custom parameters - not present in the OpenAI API",
                     "type": "integer"
                 },
+                "chat_template_kwargs": {
+                    "description": "ChatTemplateKwargs is the per-request chat_template_kwargs field that\nllama.cpp's llama-server, vLLM and SGLang accept (e.g.\n{\"enable_thinking\": false}). Scalar values are folded into Metadata, so\nthey take the same path to the backend; an explicit Metadata key wins.",
+                    "type": "object",
+                    "additionalProperties": {}
+                },
                 "clip_skip": {
                     "description": "Diffusers",
                     "type": "integer"
