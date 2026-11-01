@@ -897,7 +897,10 @@
           "is an unreachable resource when the policy denies it, on the owner and on a forwarding frontend",
           "types the denial of a read like the denial of a write, on the owner and on a forwarding frontend",
           "crosses the wire of a resource call typed, so a forwarding frontend answers like the owner",
-          "keeps any other failure to resolve a resource a plain denial, so nothing more is told"
+          "keeps any other failure to resolve a resource a plain denial, so nothing more is told",
+          "carries the chat binding signed and rejects a changed one",
+          "signs a request without a binding as before",
+          "gives the owner the chat the frontend bound the call to"
         ]
       },
       {
@@ -2152,7 +2155,10 @@
           "is an unreachable resource when the policy denies it, on the owner and on a forwarding frontend",
           "types the denial of a read like the denial of a write, on the owner and on a forwarding frontend",
           "crosses the wire of a resource call typed, so a forwarding frontend answers like the owner",
-          "keeps any other failure to resolve a resource a plain denial, so nothing more is told"
+          "keeps any other failure to resolve a resource a plain denial, so nothing more is told",
+          "carries the chat binding signed and rejects a changed one",
+          "signs a request without a binding as before",
+          "gives the owner the chat the frontend bound the call to"
         ]
       },
       {
@@ -2704,7 +2710,9 @@
           "is not sent to an add-on that declared no connector",
           "gives it time to release what it owns before it kills the process",
           "kills an add-on that ignores the closing of its startup channel, within the grace period",
-          "goes to the log line by line with the add-on ID and a cap per line"
+          "goes to the log line by line with the add-on ID and a cap per line",
+          "records the chat with the envelope of a read and of an action while it runs",
+          "sends the add-on an envelope without a new field"
         ]
       },
       {
