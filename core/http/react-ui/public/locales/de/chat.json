@@ -585,5 +585,19 @@
     "contextOf": "{{used}} von {{limit}} Token",
     "contextUsed": "{{used}} Token",
     "unknown": "Noch nicht bekannt"
+  },
+  "agentFolder": {
+    "home": "Start",
+    "chip": "{{name}}, {{mode}}",
+    "read": "nur lesen",
+    "write": "lesen und ändern",
+    "titleRead": "Dieser Chat sieht nur {{path}} und darf ihn lesen",
+    "titleWrite": "Dieser Chat sieht nur {{path}} und darf ihn lesen und ändern",
+    "toolsRead": "Dateien: nur {{path}}, nur lesen. Geteilte Ordner und Skills bleiben lesbar.",
+    "toolsWrite": "Dateien: nur {{path}}, lesen und ändern. Geteilte Ordner und Skills bleiben lesbar.",
+    "chipMissing": "Ordner fehlt",
+    "missing": "Der Ordner dieses Agenten existiert nicht mehr. Wähle im Agenten einen anderen Ordner.",
+    "startError": "Der Ordner dieses Agenten fehlt, daher kann der Chat nicht starten. Wähle einen anderen Ordner für den Agenten.",
+    "editAgent": "Agent bearbeiten"
   }
 }

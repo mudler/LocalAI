@@ -21,6 +21,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
@@ -239,6 +240,12 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		if e != nil {
 			http.Error(w, "forbidden", StatusFor(e))
 			return
+		}
+		// The chat the frontend bound the call to rides with the request
+		// context, so the add-on's host operations act with the chat's
+		// access. The signature covers it.
+		if b, ok := m.Binding(); ok {
+			r = r.WithContext(hostops.WithBinding(r.Context(), b))
 		}
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
@@ -637,6 +644,9 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, ErrForbidden
 	}
 	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
+	if b, ok := hostops.BindingOf(ctx); ok {
+		m.Chat = &b
+	}
 	m.Sign(c.config.SigningKey)
 	b, _ := json.Marshal(m)
 	req, e := http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 
@@ -16,6 +17,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/extract/extracttest"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/textindex"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
@@ -81,8 +83,15 @@ var _ = Describe("Finding an uploaded document by the words inside it", func() {
 		Expect(res.Hits[0].Snippet).To(ContainSubstring("Boiler service visit"))
 
 		// The tool a chat of alice's gets finds it too, and another user does not.
+		// The access is built as the chat service builds it for a chat whose
+		// agent has no folder: the user's home at /workspace/home.
 		search := func(user string) string {
-			for _, t := range f.Tools(workspace.Actor{Principal: user, ChatID: "c1"}) {
+			a := workspace.Actor{Principal: user, ChatID: "c1"}
+			v, err := session.BuildView(context.Background(), f.Store(), a, session.HomePath(user), "", nil, slog.New(slog.DiscardHandler))
+			Expect(err).NotTo(HaveOccurred())
+			x, err := session.NewAccess(a, v)
+			Expect(err).NotTo(HaveOccurred())
+			for _, t := range f.Tools(x) {
 				if t.Name == "search_files" {
 					out, err := t.Run(context.Background(), json.RawMessage(`{"query":"third of march"}`))
 					Expect(err).NotTo(HaveOccurred())

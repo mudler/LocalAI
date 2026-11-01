@@ -745,3 +745,98 @@ var _ = Describe("connectors", func() {
 		Expect(bot.sent).To(HaveLen(sentAtClose), "%d messages went out after Close returned", len(bot.sent)-sentAtClose)
 	})
 })
+
+var _ = Describe("connectors of a scoped agent", func() {
+	// scopedConn binds a sender to an agent limited to /Projects/Acme.
+	scopedConn := func(script func(workspace.Actor, string) []studiotest.ToolStep) (*connRig, *scriptedBot, string) {
+		GinkgoHelper()
+		sh, bot := newShared(), newScriptedBot()
+		ctx := context.Background()
+		Expect(sh.files.EnsureHome(ctx, alice)).To(Succeed())
+		home := session.HomePath(alice)
+		for _, d := range []string{"/Projects", "/Projects/Acme", "/Secret"} {
+			_, err := sh.files.Store().Mkdir(ctx, sh.files.Actor(alice), home+d)
+			Expect(err).NotTo(HaveOccurred())
+		}
+		r := newConnRig(sh, connStore(), bot, script, nil)
+		ag, err := r.svc.SaveAgentWithFolder(ctx, alice, agents.Agent{Name: "Support", Model: "m"},
+			&studio.AgentFolderWrite{Path: "/Projects/Acme", Mode: agents.FolderWrite})
+		Expect(err).NotTo(HaveOccurred())
+		r.agent = ag
+		return r, bot, home
+	}
+
+	It("does not send a file outside the folder", func() {
+		var sh *shared
+		home := session.HomePath(alice)
+		script := func(a workspace.Actor, _ string) []studiotest.ToolStep {
+			// Something on the host side wrote outside the folder in the
+			// chat's name; the reply must still not send it.
+			outside := sh.files.Actor(alice)
+			outside.ChatID = a.ChatID
+			_, _ = sh.files.Store().Put(context.Background(), outside, home+"/Secret/plan.csv", strings.NewReader("OUTSIDE-SECRET-MARKER"), workspace.PutOptions{Overwrite: true})
+			return []studiotest.ToolStep{
+				{Tool: "write_file", Args: `{"path":"/out/report.csv","content":"a,b\n1,2\n"}`},
+				{Say: "Here is the report."},
+			}
+		}
+		r, bot, _ := scopedConn(script)
+		sh = r.sh
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyOff})
+		bot.say(1, 11, "Ada", "ada", "make the report")
+		waitFor("the file", func() bool { return len(bot.sentFiles()) >= 1 })
+		waitFor("the answer", func() bool { return len(bot.answers()) >= 1 })
+		time.Sleep(300 * time.Millisecond) // a second file or a note would come now
+		files := bot.sentFiles()
+		Expect(files).To(HaveLen(1), "files = %+v", files)
+		Expect(files[0].Name).To(Equal("report.csv"))
+		for _, f := range files {
+			Expect(string(f.Data)).NotTo(ContainSubstring("OUTSIDE-SECRET-MARKER"))
+		}
+		for _, a := range bot.answers() {
+			Expect(a).NotTo(ContainSubstring("plan.csv"), "answers = %q", bot.answers())
+		}
+		// The file the run wrote is in the agent's folder.
+		_, err := sh.files.Store().Stat(context.Background(), sh.files.Actor(alice), home+"/Projects/Acme/out/report.csv")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("answers once that the agent cannot work when its folder is missing", func() {
+		r, bot, home := scopedConn(connSay("Hello."))
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		Expect(r.sh.files.Store().Delete(context.Background(), r.sh.files.Actor(alice), home+"/Projects/Acme")).To(Succeed())
+		bot.say(1, 11, "Ada", "ada", "hi")
+		waitFor("the answer", func() bool { return len(bot.answers()) >= 1 })
+		time.Sleep(300 * time.Millisecond)
+		Expect(bot.answers()).To(Equal([]string{"This agent cannot work right now: its folder is missing."}))
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(BeEmpty(), "a message with a missing folder made a chat: %+v", chats)
+		Expect(r.logs.String()).To(ContainSubstring("folder"), "the refusal is not logged")
+		// The binding stays on: the folder can come back.
+		got, err := r.conns.GetConnector(context.Background(), alice, r.agentBinding())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Enabled).To(BeTrue())
+	})
+
+	It("answers the same way in a chat that ran before the folder went missing", func() {
+		r, bot, home := scopedConn(connSay("Hello."))
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		bot.say(1, 11, "Ada", "ada", "hi")
+		waitFor("the first answer", func() bool { return len(bot.answers()) == 1 })
+		Expect(bot.answers()[0]).To(Equal("Hello."))
+		Expect(r.sh.files.Store().Delete(context.Background(), r.sh.files.Actor(alice), home+"/Projects/Acme")).To(Succeed())
+		bot.say(2, 11, "Ada", "ada", "again")
+		waitFor("the second answer", func() bool { return len(bot.answers()) >= 2 })
+		time.Sleep(300 * time.Millisecond)
+		Expect(bot.answers()).To(Equal([]string{"Hello.", "This agent cannot work right now: its folder is missing."}))
+	})
+})
+
+// agentBinding is the ID of the rig's one binding.
+func (c *connRig) agentBinding() string {
+	GinkgoHelper()
+	list, err := c.conns.ListConnectors(context.Background(), alice)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(list).To(HaveLen(1))
+	return list[0].ID
+}

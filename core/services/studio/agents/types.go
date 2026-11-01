@@ -56,9 +56,26 @@ type Agent struct {
 	// by the administrator's ceiling. Empty is off. A run never asks a
 	// person: a host outside the preset is blocked.
 	Network string
-	Created time.Time
-	Updated time.Time
+	// FolderID is the workspace node of the agent's folder, kept by node so a
+	// rename or a move of the folder is followed. FolderMode is FolderRead or
+	// FolderWrite for an agent with a folder and "" for an agent that works
+	// on the whole home. FolderMode set with FolderID 0 is an agent whose
+	// folder is not chosen yet (an import whose folder was not found): it
+	// must not start.
+	FolderID   int64
+	FolderMode string
+	Created    time.Time
+	Updated    time.Time
 }
+
+// The access modes of an agent's folder.
+const (
+	FolderRead  = "read"
+	FolderWrite = "write"
+)
+
+// HasFolder reports whether the agent is limited to a folder, chosen or not.
+func (a Agent) HasFolder() bool { return a.FolderMode != "" }
 
 // Store is the storage of saved agents.
 type Store interface {
@@ -101,6 +118,14 @@ func Validate(a Agent) error {
 	case "", "off", "registries", "all":
 	default:
 		return bad("the network must be off, registries or all")
+	}
+	switch a.FolderMode {
+	case "", FolderRead, FolderWrite:
+	default:
+		return bad("the folder mode must be read or write")
+	}
+	if a.FolderID < 0 || (a.FolderID != 0 && a.FolderMode == "") {
+		return bad("a folder needs a mode, read or write")
 	}
 	for _, l := range []struct {
 		name    string

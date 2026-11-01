@@ -27,6 +27,7 @@ import (
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -136,11 +137,18 @@ func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
 	root := a.addonDataRoot
 	return hostops.RegisterWorkspace(a.addonHostOps.Broker, &hostops.WorkspaceHost{
 		Store:     f.Store(),
-		Files:     f,
 		Principal: func(actor contract.Actor) string { return addonWorkspacePrincipal(a.authDB != nil)(actor) },
 		DataDir:   func(id string) string { return filepath.Join(root, id) },
 		// The chats service is built after the broker: it is looked up at
-		// each commit.
+		// each call. A chat's call gets the chat's access, so a chat whose
+		// agent has a folder reaches only that folder through an add-on;
+		// without the chats service a call is refused.
+		Access: func(ctx context.Context, principal, chat string) (session.Access, error) {
+			if svc := a.StudioService(); svc != nil {
+				return svc.AddonAccess(ctx, principal, chat)
+			}
+			return session.Access{}, errors.New("the chats service is not running")
+		},
 		Chat: func(ctx context.Context, principal, rid string) string {
 			if svc := a.StudioService(); svc != nil {
 				return svc.ChatOfAction(ctx, principal, rid)
@@ -836,7 +844,10 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	if err != nil {
 		return "", err
 	}
-	res, err := s.adapter.ExecuteIn(ctx, actor, conv, name, args)
+	// The call is bound to the chat on the host side, so the add-on's
+	// workspace operations act with the chat's access (a chat whose agent has
+	// a folder reaches only that folder), for every tool kind.
+	res, err := s.adapter.ExecuteChat(ctx, actor, addontools.NewChatCall(user, conv), name, args)
 	if err != nil {
 		return "", err
 	}

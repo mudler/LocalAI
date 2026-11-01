@@ -108,7 +108,8 @@ var _ = Describe("Host backend end to end", func() {
 		sel, err := newSelector(data)
 		Expect(err).NotTo(HaveOccurred())
 		eng := &engine{data: data, committed: map[string]string{}}
-		m, err := runner.New(runner.Options{Backend: sel.Backend, Store: remote.New(eng, data), Tools: tools.Runs,
+		rs := remote.New(eng, data)
+		m, err := runner.New(runner.Options{Backend: sel.Backend, Store: rs, Actor: remote.Actor, View: rs.HomeView, Tools: tools.Runs,
 			Prepare: func(ctx context.Context, r runner.Request) context.Context {
 				return remote.WithOperation(ctx, r.Operation)
 			}})

@@ -176,11 +176,16 @@ func (c *Client) health(ctx context.Context, r Registration) error {
 	return nil
 }
 
-// begin records the envelope of a call for the host operation channel. The
-// returned function ends the record.
-func (c *Client) begin(env *contract.Envelope) func() {
+// begin records the envelope of a call for the host operation channel, with
+// the chat the call was made for when ctx carries one (hostops.WithBinding).
+// The binding stays in the host's record: the envelope sent to the add-on is
+// the same with or without it. The returned function ends the record.
+func (c *Client) begin(ctx context.Context, env *contract.Envelope) func() {
 	if c.inflight == nil || env == nil {
 		return func() {}
+	}
+	if b, ok := hostops.BindingOf(ctx); ok {
+		return c.inflight.BeginBound(*env, b)
 	}
 	return c.inflight.Begin(*env)
 }
@@ -190,7 +195,7 @@ func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, 
 		return e
 	}
 	defer done()
-	defer c.begin(env)()
+	defer c.begin(ctx, env)()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	resp, e := c.send(ctx, path, in)
@@ -317,7 +322,7 @@ func (c *Client) OpenOutput(ctx context.Context, v contract.Envelope, handle str
 		return nil, e
 	}
 	// The record lasts as long as the stream, like the admission slot.
-	end := c.begin(&v)
+	end := c.begin(ctx, &v)
 	done := func() { end(); admitted() }
 	ctx, cancel := context.WithTimeout(ctx, c.limits.ReadTimeout)
 	resp, e := c.send(ctx, "/output", OutputRequest{v, handle})

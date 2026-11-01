@@ -216,7 +216,7 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 // commandsFor says whether the chat of rec can run commands at its next turn.
 func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) Commands {
 	conv := rec.ID
-	a := chatActor(p, conv)
+	a := s.chatActorFor(ctx, rec)
 	if rec.Kind == session.KindSubAgent {
 		s.mu.Lock()
 		tools := s.allowed[key(p, conv)]
@@ -235,11 +235,21 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 
 // sandboxWhere is where a command of the Sandbox starts and what it keeps.
 // fileTools says whether the chat has the file tools, which see the same
-// files: a chat without them must not hear of them.
-func sandboxWhere(fileTools bool) string {
+// files: a chat without them must not hear of them. A scoped chat (its agent
+// works in one folder) has that folder at /workspace/home, at the agent's
+// mode, and its chat folder at /workspace/chat; its shared folders are read
+// only.
+func sandboxWhere(fileTools bool, place session.Place) string {
 	same := ""
 	if fileTools {
 		same = ", the same files as the file tools"
+	}
+	if place.Scoped() {
+		kept := "/workspace/chat"
+		if place.PrimaryWritable() {
+			kept = "/workspace/home or /workspace/chat"
+		}
+		return "It starts in /workspace/home, the agent's folder" + same + "; the chat's own folder is /workspace/chat, and shared folders are read only. Only what it saves under " + kept + " is kept."
 	}
 	return "It starts in /workspace/home, the user's home" + same + "; only what it saves under /workspace/home or a writable shared folder is kept."
 }
@@ -253,8 +263,9 @@ const skillsNotInSandbox = "Skill folders are not visible in the Sandbox: load s
 // can run commands. writeFile says whether the chat has write_file,
 // fileTools whether it has the file tools to read them, and skillsOff
 // whether the skill index lists a skill as unavailable for want of a way to
-// run commands. It is short on purpose: it goes into every turn.
-func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool) string {
+// run commands, and place the chat's folders. It is short on purpose: it
+// goes into every turn.
+func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool, place session.Place) string {
 	if c.State == CommandsAvailable {
 		home := "the user's home files"
 		if fileTools {
@@ -272,11 +283,11 @@ func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool) string {
 		case c.Isolation == "isolated":
 			// The turn's note is cut at 400 characters and the tool description
 			// is capped, so the list of programs goes here, in the prompt.
-			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere(fileTools) + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
+			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere(fileTools, place) + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
 		case c.Isolation == "host":
-			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere(fileTools)
+			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere(fileTools, place)
 		}
-		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere(fileTools)
+		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere(fileTools, place)
 	}
 	var b strings.Builder
 	b.WriteString("Commands: nothing in this chat runs code or commands. Never claim or imply that you ran anything, and do not ask a sub-agent to run it: it has the same tools. Instead ")

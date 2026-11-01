@@ -6,10 +6,10 @@ import { useTranslation } from 'react-i18next'
 import { agentCollectionsApi, chatAgentsApi, chatMCPConnectorsApi, chatSkillsApi, modelMCPServersApi } from '../utils/api'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
 import { useAddonToolAddons } from '../addons/useAddonRegistry'
-import { AGENT_TEMPLATES, diffConfig, displayValue, exportAgent, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { addEntry, agentPayload, emptyAgent, removeEntry } from '../utils/chatAgents'
+import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
+import { addEntry, agentPayload, emptyAgent, folderState, removeEntry } from '../utils/chatAgents'
+import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
-import { downloadJSON } from '../utils/download'
 import './agents.css'
 import './library.css'
 // eslint-disable-next-line no-unused-vars
@@ -21,13 +21,16 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { Button, Callout, LoadError, Page, PageHeader, Segmented, SkeletonRows } from '../components/ui'
+// eslint-disable-next-line no-unused-vars
+import AgentFolderDialog from '../components/agents/AgentFolderDialog'
 
 // The sections of the form. Each folds; Basic info is open at first.
 const SECTIONS = [
   { id: 'BasicInfo', icon: 'info' },
   { id: 'ModelSettings', icon: 'brain' },
   { id: 'PromptsGoals', icon: 'target' },
+  { id: 'Files', icon: 'folder' },
   { id: 'MemorySettings', icon: 'database' },
   { id: 'Skills', icon: 'sparkles' },
   { id: 'Addons', icon: 'puzzle' },
@@ -89,6 +92,7 @@ export default function AgentCreate() {
   const [previewOpen, setPreviewOpen] = useState(false)
   const [previewTab, setPreviewTab] = useState('config')
   const [form, setForm] = useState(emptyAgent())
+  const [choosingFolder, setChoosingFolder] = useState(false)
   // Snapshot of the form as first loaded, for the unsaved-changes guard.
   const initialFormRef = useRef(null)
   const [skills, setSkills] = useState([])
@@ -151,13 +155,23 @@ export default function AgentCreate() {
 
   // The definition exactly as it is saved. The preview shows this object and
   // Save sends it.
-  const payload = useMemo(() => agentPayload(form), [form])
+  // The folder as saved: a save sends `folder` only when the form changed it,
+  // so an untouched folder is kept, also a missing one.
+  const initialFolder = isEdit ? (savedConfig?.folder || null) : null
+  const payload = useMemo(() => agentPayload(form, { initialFolder }), [form, initialFolder])
+  // "One folder" picked, and no folder chosen now or before.
+  const folderUnchosen = !!form.folder && !form.folder.path && !initialFolder
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
     if (!payload.name) {
       addToast(t('create.needsName'), 'warning')
       setOpenSections(prev => new Set([...prev, 'BasicInfo']))
+      return
+    }
+    if (folderUnchosen) {
+      addToast(t('folder.needsChoice'), 'warning')
+      setOpenSections(prev => new Set([...prev, 'Files']))
       return
     }
     setSaving(true)
@@ -202,7 +216,7 @@ export default function AgentCreate() {
   }
 
   const dirty = initialFormRef.current != null &&
-    JSON.stringify(payload) !== JSON.stringify(agentPayload(initialFormRef.current))
+    (JSON.stringify(payload) !== JSON.stringify(agentPayload(initialFormRef.current)) || folderUnchosen)
 
   const leave = () => navigate(isEdit ? `/app/agents/${encodeURIComponent(id)}` : '/app/agents')
 
@@ -220,6 +234,7 @@ export default function AgentCreate() {
     if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
     else if (s.id === 'Addons') { keys = ['addons']; summary = countOf(form.addons.length, 'create.countAddons'); state = form.addons.length ? 'ready' : 'empty' }
+    else if (s.id === 'Files') { keys = ['folder']; ({ summary, state } = folderFold()) }
     else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
     else {
       summary = summarise(SUMMARY_FIELDS[s.id], form)
@@ -229,6 +244,24 @@ export default function AgentCreate() {
     if (s.id === 'ModelSettings' && !payload.model) summary = t('create.anyModel')
     const changed = keys.filter(k => changedKeys.has(k)).length
     return { summary, state, changed }
+  }
+
+  // What the Files fold says when closed, and whether it needs the person.
+  function folderFold() {
+    const f = form.folder
+    if (!f) return { summary: t('folder.all'), state: 'ready' }
+    if (f.path) return { summary: t(f.mode === 'write' ? 'folder.summaryWrite' : 'folder.summaryRead', { path: shownPath(f.path) }), state: 'ready' }
+    const st = folderState({ folder: f })
+    if (st === 'missing') return { summary: t('folder.summaryMissing'), state: 'needs' }
+    if (st === 'unset') return { summary: t('folder.summaryUnset'), state: 'needs' }
+    return { summary: t('folder.needsChoice'), state: 'needs' }
+  }
+  function shownPath(path) { return path === '/' ? t('folder.home') : path }
+
+  // All my files, or one folder: back to the saved folder when there is one.
+  const setScope = (scope) => {
+    if (scope === 'all') updateField('folder', null)
+    else if (!form.folder) updateField('folder', initialFolder || { mode: 'read' })
   }
 
   const toggleSection = (sid) => setOpenSections(prev => {
@@ -312,6 +345,52 @@ export default function AgentCreate() {
             </div>
           </>
         )
+      case 'Files': {
+        const f = form.folder
+        const st = f ? folderState({ folder: f }) : 'none'
+        return (
+          <>
+            <Segmented
+              label={t('folder.scopeLabel')} testId="agent-folder-scope" itemTestId="agent-folder-scope-"
+              value={f ? 'one' : 'all'} onChange={setScope}
+              options={[{ id: 'all', label: t('folder.all') }, { id: 'one', label: t('folder.one') }]}
+            />
+            {f && (
+              <div className="ag-folder" data-testid="agent-folder">
+                {f.path ? (
+                  <div className="ag-folder__row">
+                    <span className="ag-folder__path" data-testid="agent-folder-path"><Icon name="folder" />{shownPath(f.path)}</span>
+                    <Button size="sm" onClick={() => setChoosingFolder(true)}>{t('folder.change')}</Button>
+                  </div>
+                ) : st === 'missing' || st === 'unset' ? (
+                  <Callout
+                    tone="error" role="alert" testId="agent-folder-missing"
+                    actions={<Button size="sm" icon="folder" onClick={() => setChoosingFolder(true)}>{t('folder.chooseOther')}</Button>}
+                  >
+                    {t(st === 'missing' ? 'folder.missing' : 'folder.unset')}
+                  </Callout>
+                ) : (
+                  <div className="ag-folder__row">
+                    <Button size="sm" icon="folder" onClick={() => setChoosingFolder(true)} data-testid="agent-folder-choose">{t('folder.choose')}</Button>
+                  </div>
+                )}
+                <div className="form-group">
+                  <span className="form-label" id="ag-folder-mode">{t('folder.modeLabel')}</span>
+                  <Segmented
+                    label={t('folder.modeLabel')} testId="agent-folder-mode" itemTestId="agent-folder-mode-"
+                    value={f.mode === 'write' ? 'write' : 'read'} onChange={(mode) => updateField('folder', { ...f, mode })}
+                    options={[{ id: 'read', label: t('folder.read') }, { id: 'write', label: t('folder.write') }]}
+                  />
+                </div>
+                <p className="ag-note">{t('folder.help')}</p>
+                <p className="ag-note">{t('folder.commands')}</p>
+                {isEdit && <p className="ag-note">{t('folder.nextMessage')}</p>}
+              </div>
+            )}
+            {!f && <p className="ag-note ag-note--gap">{t('folder.allHelp')}</p>}
+          </>
+        )
+      }
       case 'MCP':
         return (
           <>
@@ -418,7 +497,8 @@ export default function AgentCreate() {
               {openSections.has('export') && (
                 <div className="ag-fold__body" id="ag-fold-export">
                   <p className="ag-note">{t('create.exportHelp')}</p>
-                  <Button icon="download" onClick={() => downloadJSON(`${savedConfig.name}.json`, exportAgent(savedConfig))}>
+                  {savedConfig.folder?.path && <p className="ag-note ag-note--bottom" data-testid="agent-export-folder">{t('folder.exportNote', { path: shownPath(savedConfig.folder.path) })}</p>}
+                  <Button icon="download" onClick={() => downloadAgentFile(savedConfig, addToast, t)}>
                     {t('create.exportButton')}
                   </Button>
                 </div>
@@ -432,6 +512,14 @@ export default function AgentCreate() {
           <Button type="submit" variant="primary" icon="save" busy={saving}>{saveLabel}</Button>
         </div>
       </form>
+
+      {choosingFolder && (
+        <AgentFolderDialog
+          start={form.folder?.path || '/'}
+          onCancel={() => setChoosingFolder(false)}
+          onChoose={(path) => { setChoosingFolder(false); updateField('folder', { path, mode: form.folder?.mode === 'write' ? 'write' : 'read', state: 'ok' }) }}
+        />
+      )}
 
       {previewOpen && (
         <PreviewSheet

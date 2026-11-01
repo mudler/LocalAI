@@ -118,6 +118,10 @@ type Store interface {
 	// switched on, the way SetAddonsOff does for add-ons.
 	SetBuiltinsOn(ctx context.Context, principal, chatID string, on []string) error
 
+	// SetScopedAgent sets ChatRecord.ScopedAgent. UpdateChat leaves it alone,
+	// like the switches above.
+	SetScopedAgent(ctx context.Context, principal, chatID string, scoped bool) error
+
 	// SetHostConsent sets the consent card of the built-in bash that waits for
 	// an answer, or clears it with nil. UpdateChat leaves it alone, like the
 	// switches above.

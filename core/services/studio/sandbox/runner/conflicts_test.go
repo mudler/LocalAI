@@ -20,6 +20,12 @@ var _ = Describe("the note of the paths a commit did not save", func() {
 		Expect(runner.GuestPath("/report.docx", workspace.ReasonOutsideView, addon)).To(Equal("/workspace/report.docx"))
 	})
 
+	It("names an entry a read-only mount refused, which the store names by its path in the view", func() {
+		scoped := []workspace.Mount{{Path: "/users/alice/Proj", At: "home", Mode: workspace.ModeRead}, {Path: "/users/alice/Chats/c1", At: "chat", Mode: workspace.ModeWrite}}
+		Expect(runner.GuestPath("/home/a.txt", workspace.ReasonReadOnly, scoped)).To(Equal("/workspace/home/a.txt"))
+		Expect(runner.GuestPath("/users/alice/Proj/a.txt", workspace.ReasonReadOnly, scoped)).To(Equal("/workspace/home/a.txt"))
+	})
+
 	It("says where the copy of a file changed meanwhile is, and why a file outside the home was not saved", func() {
 		note := runner.ConflictNote([]workspace.Conflict{
 			{Path: "/scripts/build.py", Reason: workspace.ReasonChanged, Kept: "/scripts/build (conflict 1).py"},

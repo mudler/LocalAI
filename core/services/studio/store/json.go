@@ -539,6 +539,10 @@ func (s *jsonStore) SetBuiltinsOn(_ context.Context, principal, id string, on []
 	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOn = append([]string(nil), on...) })
 }
 
+func (s *jsonStore) SetScopedAgent(_ context.Context, principal, id string, scoped bool) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.ScopedAgent = scoped })
+}
+
 func (s *jsonStore) SetHostConsent(_ context.Context, principal, id string, c *session.HostConsent) error {
 	return s.set(principal, id, func(next *chatState) {
 		if c == nil {

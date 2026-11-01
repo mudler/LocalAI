@@ -58,7 +58,9 @@ func ConflictNote(conflicts []workspace.Conflict, mounts []workspace.Mount) stri
 
 // GuestPath names a path of a commit as the guest sees it. A path outside
 // every mount (reason outside-view) is a path of the view already; any other
-// is a path of the store, inside one of the mounts.
+// is a path of the store, inside one of the mounts, but for an entry that a
+// read-only mount refused, which the store names by its path in the view
+// (/home/x) too.
 func GuestPath(p, reason string, mounts []workspace.Mount) string {
 	if reason == workspace.ReasonOutsideView {
 		return GuestRoot + "/" + strings.TrimPrefix(p, "/")
@@ -72,6 +74,11 @@ func GuestPath(p, reason string, mounts []workspace.Mount) string {
 			return GuestRoot + "/" + m.At
 		case strings.HasPrefix(p, base+"/"):
 			return GuestRoot + "/" + m.At + strings.TrimPrefix(p, base)
+		}
+	}
+	for _, m := range ms {
+		if at := "/" + m.At; p == at || strings.HasPrefix(p, at+"/") {
+			return GuestRoot + p
 		}
 	}
 	return p

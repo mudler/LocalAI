@@ -667,5 +667,15 @@
       "server": "서버가 저장할 수 없었습니다."
     },
     "said": "서버 응답: {{reason}}."
+  },
+  "picker": {
+    "retry": "다시 시도",
+    "noFolders": "여기에는 폴더가 없습니다"
+  },
+  "agentMark": {
+    "usedBy": "사용 중: {{agents}}",
+    "read": "{{name}} (읽기 가능)",
+    "write": "{{name}} (읽기 및 변경 가능)",
+    "many": "에이전트 {{count}}개"
   }
 }

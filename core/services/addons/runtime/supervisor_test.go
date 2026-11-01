@@ -419,11 +419,28 @@ var _ = Describe("Process state observation", func() {
 	})
 	It("keeps reporting failed once the restart budget is exhausted", func() {
 		s := supervisor()
-		_, e := s.Start(context.Background(), fixture("crash", service), 1)
+		i, e := s.Start(context.Background(), fixture("normal", service), 1)
 		Expect(e).NotTo(HaveOccurred())
 		s.mu.Lock()
 		slot := s.slots["sample"]
 		s.mu.Unlock()
+		// A timed crash can beat the initial readiness handshake on a busy
+		// runner. Kill each incarnation only after the supervisor publishes it.
+		for attempt := 0; attempt <= 2; attempt++ {
+			Expect(s.Attempts("sample")).To(Equal(attempt))
+			Expect(i.process.cmd.Process.Kill()).To(Succeed())
+			if attempt < 2 {
+				previous := i.Incarnation
+				Eventually(func() string {
+					next, err := s.Current(context.Background(), "sample", 1)
+					if err != nil {
+						return ""
+					}
+					i = next
+					return next.Incarnation
+				}, time.Second).Should(And(Not(BeEmpty()), Not(Equal(previous))))
+			}
+		}
 		// The monitor returns only when the budget is spent.
 		Eventually(slot.workerDone, 5*time.Second).Should(BeClosed())
 		Expect(s.Attempts("sample")).To(Equal(2))

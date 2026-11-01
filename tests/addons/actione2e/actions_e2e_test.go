@@ -27,6 +27,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/session/sessiontest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
@@ -43,6 +45,10 @@ type world struct {
 	gen   uint64
 	opSeq int
 	id    string
+	mgr   *session.Manager
+	// scoped makes the access of a chat whose agent has a folder, by chat
+	// ID. Every other chat works on the whole home of its user.
+	scoped map[string]func() (session.Access, error)
 }
 
 func TestActionE2E(t *testing.T) {
@@ -104,10 +110,35 @@ func startAddonFrom(id, packageDir string) *world {
 	broker := hostops.New(inflight, func(string, string) bool { return true }, limits)
 	broker.SetAdminCheck(func(a contract.Actor) bool { return a.UserID == "root" })
 	dataRoot := filepath.Join(root, "data")
+	mgr, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), Workspace: ws, Harness: &sessiontest.FakeHarness{}, StateDir: filepath.Join(root, "sessions")})
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = mgr.Close(context.Background()) })
+	w := &world{f: f, gen: 1, id: id, mgr: mgr, scoped: map[string]func() (session.Access, error){}}
+	// As the chats service does: a call that no chat made works on the whole
+	// home, a chat's call takes the chat's access. The resource of an action
+	// is the chat here.
 	Expect(hostops.RegisterWorkspace(broker, &hostops.WorkspaceHost{
-		Store: ws, Files: f,
+		Store:     ws,
 		Principal: func(a contract.Actor) string { return a.UserID },
 		DataDir:   func(id string) string { return filepath.Join(dataRoot, id) },
+		Access: func(ctx context.Context, p, chat string) (session.Access, error) {
+			if err := f.EnsureHome(ctx, p); err != nil {
+				return session.Access{}, err
+			}
+			if chat == "" {
+				return mgr.PersonAccess(ctx, files.UserActor(p))
+			}
+			if mk, ok := w.scoped[chat]; ok {
+				if p != "alice" {
+					return session.Access{}, session.ErrNotFound
+				}
+				return mk()
+			}
+			a := files.UserActor(p)
+			a.ChatID = chat
+			return mgr.UserAccess(ctx, a)
+		},
+		Chat: func(_ context.Context, _, rid string) string { return rid },
 	})).To(Succeed())
 	sup, err := addonruntime.NewSupervisor(addonruntime.Config{
 		StateRoot: filepath.Join(root, "state"), DataRoot: dataRoot, Limits: limits,
@@ -123,7 +154,8 @@ func startAddonFrom(id, packageDir string) *world {
 	Expect(os.WriteFile(filepath.Join(filepath.Dir(bin), "receipt.json"), rb, 0o400)).To(Succeed())
 	inst, err := sup.Start(context.Background(), receipt, 1)
 	Expect(err).NotTo(HaveOccurred(), "start the add-on")
-	return &world{f: f, inst: inst, gen: 1, id: id}
+	w.inst = inst
+	return w
 }
 
 func repoRoot() string {
@@ -172,6 +204,42 @@ func (w *world) act(tool, user, conv string, args map[string]any) map[string]any
 	e := w.envelope(tool, user, conv, args, true)
 	res, err := w.inst.Client.(contract.ActRuntime).Act(context.Background(), e)
 	return w.result(res, err)
+}
+
+// readIn and actIn call a tool for a chat, as the chat turn does: the call
+// is bound to the chat on the host side, and the envelope does not change.
+func (w *world) readIn(tool, user, chat string, args map[string]any) map[string]any {
+	e := w.envelope(tool, user, "", args, false)
+	ctx := hostops.WithBinding(context.Background(), hostops.Binding{Principal: user, ChatID: chat})
+	res, err := w.inst.Client.Read(ctx, e)
+	return w.result(res, err)
+}
+
+func (w *world) actIn(tool, user, chat string, args map[string]any) map[string]any {
+	e := w.envelope(tool, user, chat, args, true)
+	ctx := hostops.WithBinding(context.Background(), hostops.Binding{Principal: user, ChatID: chat})
+	res, err := w.inst.Client.(contract.ActRuntime).Act(ctx, e)
+	return w.result(res, err)
+}
+
+// scopedChat makes chat a chat of alice whose agent has the folder /Acme at
+// mode, with its chat folder /Chats/<chat>.
+func (w *world) scopedChat(chat string, mode workspace.Mode) {
+	w.put("alice", "/Chats/"+chat+"/note.txt", "chat note")
+	w.scoped[chat] = func() (session.Access, error) {
+		ctx := context.Background()
+		stat := func(rel string) workspace.Node {
+			abs, _ := w.f.Abs("alice", rel)
+			n, err := w.f.Store().Stat(ctx, w.f.Actor("alice"), abs)
+			Expect(err).NotTo(HaveOccurred())
+			return n
+		}
+		acme, folder := stat("/Acme"), stat("/Chats/"+chat)
+		a := files.UserActor("alice")
+		a.ChatID = chat
+		a = a.Fenced(workspace.FenceRoot{Node: acme.ID, Mode: mode}, workspace.FenceRoot{Node: folder.ID, Mode: workspace.ModeWrite})
+		return w.mgr.ScopedAccess(ctx, a, acme.Path, folder.Path)
+	}
 }
 
 func (w *world) put(user, rel, content string) {
@@ -308,6 +376,91 @@ var _ = Describe("Add-on actions end to end", func() {
 		Expect(got["ok"]).To(Equal(false), "bob read alice's document: %v", got)
 		got = w.read("read-docx", "alice", map[string]any{"path": "../bob/x.docx"})
 		Expect(got["ok"]).To(Equal(false), "a path outside the files was served: %v", got)
+	})
+})
+
+var _ = Describe("Add-on calls of a chat whose agent has a folder", func() {
+	const marker = "OUTSIDE-THE-AGENT-FOLDER-e2e"
+
+	It("keeps the Office add-on inside the agent's folder", func() {
+		w := startAddon("office")
+		w.put("alice", "/Acme/seed.txt", "x")
+		// Two documents made outside any chat: one in the agent's folder, one
+		// outside it.
+		for path, text := range map[string]string{"/Acme/in.docx": "Inside the folder.", "/Other/out.docx": marker} {
+			made := w.act("create-docx", "alice", "convplain", map[string]any{"path": path, "blocks": []map[string]any{{"kind": "paragraph", "text": text}}})
+			Expect(made["ok"]).To(Equal(true), "create-docx %s = %v", path, made)
+		}
+		w.scopedChat("convscope", workspace.ModeWrite)
+
+		// The folder is the add-on's "/".
+		read := w.readIn("read-docx", "alice", "convscope", map[string]any{"path": "/in.docx"})
+		Expect(read["ok"]).To(Equal(true), "read-docx = %v", read)
+		Expect(string(mustJSON(read))).To(ContainSubstring("Inside the folder."))
+		// Nothing outside it is reached, however the path is spelled.
+		for _, p := range []string{"/Other/out.docx", "../Other/out.docx", "/../Other/out.docx", "/workspace/home/../Other/out.docx",
+			"/users/alice/Other/out.docx", "..%2fOther/out.docx", "/Acme/../Other/out.docx"} {
+			got := w.readIn("read-docx", "alice", "convscope", map[string]any{"path": p})
+			Expect(got["ok"]).To(Equal(false), "read-docx %q = %v", p, got)
+			Expect(string(mustJSON(got))).NotTo(ContainSubstring(marker), "read-docx %q", p)
+		}
+		// A document it makes lands in the folder, never at the home root.
+		made := w.actIn("create-docx", "alice", "convscope", map[string]any{"path": "/new.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "New."}}})
+		Expect(made["ok"]).To(Equal(true), "create-docx = %v", made)
+		Expect(made["path"]).To(Equal("/new.docx"), "the path in the add-on's terms")
+		_, ok := w.text("alice", "/Acme/new.docx")
+		Expect(ok).To(BeTrue(), "the new document is in the folder")
+		_, ok = w.text("alice", "/new.docx")
+		Expect(ok).To(BeFalse(), "the new document reached the home root")
+		escaped := w.actIn("create-docx", "alice", "convscope", map[string]any{"path": "../escape.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "x"}}})
+		Expect(escaped["ok"]).To(Equal(false), "create-docx outside = %v", escaped)
+		edited := w.actIn("edit-docx", "alice", "convscope", map[string]any{"path": "/Other/out.docx", "edits": []map[string]any{{"op": "replace", "find": marker, "text": "changed"}}})
+		Expect(edited["ok"]).To(Equal(false), "edit-docx outside = %v", edited)
+		text, _ := w.text("alice", "/Other/out.docx")
+		Expect(text).NotTo(BeEmpty())
+
+		// The same read with no chat is the person's own call: user-wide.
+		own := w.read("read-docx", "alice", map[string]any{"path": "/Other/out.docx"})
+		Expect(own["ok"]).To(Equal(true), "read-docx without a chat = %v", own)
+	})
+
+	It("gives the Sandbox the agent's folder at home and the chat folder next to it", func() {
+		w := start()
+		w.put("alice", "/Acme/a.txt", "inside\n")
+		w.put("alice", "/Other/secret.txt", marker+"\n")
+		w.read("confirm-host", "root", map[string]any{"phrase": hostPhrase})
+		w.read("set-backend", "root", map[string]any{"backend": "host"})
+		w.scopedChat("convscope", workspace.ModeWrite)
+		got := w.actIn("bash", "alice", "convscope", map[string]any{"command": "cat a.txt; cat ../chat/note.txt; ls -R .. 2>&1; cat ../Other/secret.txt ../home/Other/secret.txt ../../Other/secret.txt 2>/dev/null; echo made > made.txt; echo work > ../chat/work.txt"})
+		Expect(got["ok"]).To(Equal(true), "bash = %v", got)
+		out := got["output"].(string)
+		Expect(out).To(ContainSubstring("inside"))
+		Expect(out).To(ContainSubstring("chat note"), "the chat folder is mounted next to the folder")
+		Expect(out).NotTo(ContainSubstring(marker))
+		Expect(out).NotTo(ContainSubstring("Other"), "no folder outside the agent's folder is listed")
+		text, ok := w.text("alice", "/Acme/made.txt")
+		Expect(ok).To(BeTrue(), "a file the command made lands in the folder")
+		Expect(text).To(Equal("made\n"))
+		_, ok = w.text("alice", "/made.txt")
+		Expect(ok).To(BeFalse(), "never at the home root")
+		text, ok = w.text("alice", "/Chats/convscope/work.txt")
+		Expect(ok).To(BeTrue(), "a file in the chat folder lands there")
+		Expect(text).To(Equal("work\n"))
+	})
+
+	It("keeps an action of a read-only agent from writing its folder", func() {
+		w := startAddon("office")
+		w.put("alice", "/Acme/seed.txt", "x")
+		w.scopedChat("convread", workspace.ModeRead)
+		made := w.actIn("create-docx", "alice", "convread", map[string]any{"path": "/new.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "New."}}})
+		Expect(made["ok"]).To(Equal(false), "create-docx in a read-only folder = %v", made)
+		_, ok := w.text("alice", "/Acme/new.docx")
+		Expect(ok).To(BeFalse())
+		// Its chat folder stays writable.
+		made = w.actIn("create-docx", "alice", "convread", map[string]any{"path": "/workspace/chat/new.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "New."}}})
+		Expect(made["ok"]).To(Equal(true), "create-docx in the chat folder = %v", made)
+		_, ok = w.text("alice", "/Chats/convread/new.docx")
+		Expect(ok).To(BeTrue())
 	})
 })
 

@@ -20,6 +20,8 @@ import SkillsMenu from './SkillsMenu'
 import SwitchMenu from './SwitchMenu'
 import VisionNotice from './VisionNotice'
 import { ChatToolsControls } from '../../addons/hostControlComponents'
+import AgentFolderChip from './AgentFolderChip'
+import { agentFolderLine } from '../../utils/chatAgents'
 import { CommandsChip, CommandsNotice } from './CommandsNotice'
 import { ToolFallbacks } from './ToolFallbacks'
 import Button from '../ui/Button'
@@ -206,14 +208,16 @@ export default function ChatComposer({
     },
   ]
   const network = egress && networkMode(egress) !== 'hidden'
+  // A chat whose agent has a folder reaches only that folder with its file tools.
+  const scopeLine = agentFolderLine(pickedAgent, t)
   const tools = (
     <>
       <SwitchMenu
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')}
         note={chatId ? t('tools.note') : t('tools.draftNote')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={commands.info || network || switches.fallbacks.length > 0
-          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
+        notice={scopeLine || commands.info || network || switches.fallbacks.length > 0
+          ? <>{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>
@@ -301,6 +305,7 @@ export default function ChatComposer({
         chips={(
           <>
             <AgentPicker agents={agents} value={activeChat ? activeChat.agent_id : agentId} onChange={setAgentId} readOnly={!!chatId} />
+            <AgentFolderChip agent={pickedAgent} />
             {chips}
           </>
         )}

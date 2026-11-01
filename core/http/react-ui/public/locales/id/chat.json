@@ -585,5 +585,19 @@
     "contextOf": "{{used}} dari {{limit}} token",
     "contextUsed": "{{used}} token",
     "unknown": "Belum diketahui"
+  },
+  "agentFolder": {
+    "home": "Beranda",
+    "chip": "{{name}}, {{mode}}",
+    "read": "hanya baca",
+    "write": "baca dan ubah",
+    "titleRead": "Chat ini hanya melihat {{path}} dan bisa membacanya",
+    "titleWrite": "Chat ini hanya melihat {{path}} dan bisa membaca serta mengubahnya",
+    "toolsRead": "File: hanya {{path}}, hanya baca. Folder bersama dan skill tetap bisa dibaca.",
+    "toolsWrite": "File: hanya {{path}}, baca dan ubah. Folder bersama dan skill tetap bisa dibaca.",
+    "chipMissing": "Folder hilang",
+    "missing": "Folder agen ini sudah tidak ada. Pilih folder lain di agen.",
+    "startError": "Folder agen ini hilang, jadi chat tidak bisa dimulai. Pilih folder lain untuk agen.",
+    "editAgent": "Edit agen"
   }
 }

@@ -51,9 +51,43 @@ type ChatsAgent struct {
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
-	Network string    `json:"network"`
-	Created time.Time `json:"created"`
-	Updated time.Time `json:"updated"`
+	Network string `json:"network"`
+	// Folder is the one folder that chats with the agent work in. It is
+	// absent for an agent that works on all your files.
+	Folder  *ChatsAgentFolder `json:"folder,omitempty"`
+	Created time.Time         `json:"created"`
+	Updated time.Time         `json:"updated"`
+}
+
+// ChatsAgentFolder is the folder of a saved agent as it is now. The server
+// keeps the folder itself, not its path, so a renamed or moved folder shows
+// its new public path when one is available.
+type ChatsAgentFolder struct {
+	// Path is home-relative ("/" is the whole home), or /shared/<name>/...
+	// for a followed readable shared folder. It is absent when missing,
+	// not chosen, or readable outside these public locations; a readable
+	// folder without a public path still has state ok.
+	Path string `json:"path,omitempty"`
+	// Name is the folder's own name; absent for "/".
+	Name string `json:"name,omitempty"`
+	// Mode is read (the agent's chats can read the folder) or write (they can
+	// read and change it).
+	Mode string `json:"mode"`
+	// State is ok; missing when the folder was deleted or you can no longer
+	// read it; or unset when no folder is chosen yet (an imported agent whose
+	// folder was not found). An agent whose folder is missing or unset does
+	// not start.
+	State string `json:"state"`
+}
+
+// ChatsAgentFolderWrite chooses the folder of a saved agent.
+type ChatsAgentFolderWrite struct {
+	// Path is a folder of your files, "/" based; "/" is all of them, read
+	// only or not. It cannot be LocalAI or Chats, a folder inside them, or a
+	// shared folder. An empty path clears the folder.
+	Path string `json:"path"`
+	// Mode is read or write; it is required with a path.
+	Mode string `json:"mode,omitempty"`
 }
 
 // ChatsAgentWrite creates or replaces a saved agent.
@@ -67,6 +101,12 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// Folder chooses the one folder the agent's chats work in. A write
+	// without it keeps the folder the agent has; {"path": ""} clears it. In
+	// an export file it is the home-relative path and mode when the file was
+	// made. A missing, unchosen or non-home folder has an empty export path;
+	// import preserves its mode as unset and warns instead of clearing scope.
+	Folder *ChatsAgentFolderWrite `json:"folder,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.

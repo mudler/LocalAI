@@ -3703,6 +3703,12 @@
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
+                    },
+                    "409": {
+                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
@@ -4456,7 +4462,7 @@
                 }
             },
             "post": {
-                "description": "An agent is a definition: instructions and exact lists of the MCP servers, add-ons, collections and skills a chat with it may use. A chat gets what the lists name and you may use at that moment, never more. Start a chat with it by passing agent_id to POST /api/chats.",
+                "description": "An agent is a definition: instructions and exact lists of the MCP servers, add-ons, collections and skills a chat with it may use. A chat gets what the lists name and you may use at that moment, never more. Start a chat with it by passing agent_id to POST /api/chats. folder {path, mode} gives the agent one folder of your files, read or write; without it the agent works on all your files.",
                 "tags": [
                     "chats"
                 ],
@@ -4478,13 +4484,19 @@
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgent"
                         }
+                    },
+                    "400": {
+                        "description": "The definition or the folder is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/api/chats/agents/import": {
             "post": {
-                "description": "Send the export file as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning.",
+                "description": "Send the export file (version 1, or 2 for an agent with a folder) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
                 "consumes": [
                     "application/json",
                     "multipart/form-data"
@@ -4601,7 +4613,7 @@
                 }
             },
             "put": {
-                "description": "The body replaces every field. Chats that already run with the agent use the new definition from their next turn.",
+                "description": "The body replaces every field but folder: a body without folder keeps the folder the agent has, so a client that does not know the field cannot widen the agent, and folder {path: \"\"} clears it. Chats that already run with the agent use the new definition from their next turn.",
                 "tags": [
                     "chats"
                 ],
@@ -4629,6 +4641,12 @@
                         "description": "The saved agent",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgent"
+                        }
+                    },
+                    "400": {
+                        "description": "The definition or the folder is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
                     "404": {
@@ -4669,7 +4687,7 @@
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's path in your files now (empty when the folder is missing or not chosen); a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -9330,6 +9348,12 @@
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -17985,6 +18009,14 @@
                 "description": {
                     "type": "string"
                 },
+                "folder": {
+                    "description": "Folder is the one folder that chats with the agent work in. It is\nabsent for an agent that works on all your files.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentFolder"
+                        }
+                    ]
+                },
                 "id": {
                     "type": "string"
                 },
@@ -18035,6 +18067,40 @@
                 }
             }
         },
+        "schema.ChatsAgentFolder": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "description": "Mode is read (the agent's chats can read the folder) or write (they can\nread and change it).",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the folder's own name; absent for \"/\".",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the folder's path in your files now (\"/\" is all of them). It\nis absent when the folder is missing or not chosen.",
+                    "type": "string"
+                },
+                "state": {
+                    "description": "State is ok; missing when the folder was deleted or you can no longer\nread it; or unset when no folder is chosen yet (an imported agent whose\nfolder was not found). An agent whose folder is missing or unset does\nnot start.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentFolderWrite": {
+            "type": "object",
+            "properties": {
+                "mode": {
+                    "description": "Mode is read or write; it is required with a path.",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is a folder of your files, \"/\" based; \"/\" is all of them, read\nonly or not. It cannot be LocalAI or Chats, a folder inside them, or a\nshared folder. An empty path clears the folder.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsAgentHistory": {
             "type": "object",
             "properties": {
@@ -18063,7 +18129,7 @@
                     "$ref": "#/definitions/schema.ChatsAgent"
                 },
                 "warnings": {
-                    "description": "Warnings say what the import changed: a model this server does not have\nor you may not use is dropped, and a name you already use gets a number.",
+                    "description": "Warnings say what the import changed: a model this server does not have\nor you may not use is dropped, a name you already use gets a number, and\na folder that is not in your files leaves the agent without a folder\nchosen (state unset) until you choose one.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -18170,6 +18236,14 @@
                 },
                 "description": {
                     "type": "string"
+                },
+                "folder": {
+                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the folder's path and mode when the file was made.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
+                        }
+                    ]
                 },
                 "instructions": {
                     "type": "string"

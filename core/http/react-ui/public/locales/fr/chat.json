@@ -583,5 +583,19 @@
     "contextOf": "{{used}} sur {{limit}} tokens",
     "contextUsed": "{{used}} tokens",
     "unknown": "Pas encore connu"
+  },
+  "agentFolder": {
+    "home": "Accueil",
+    "chip": "{{name}}, {{mode}}",
+    "read": "lecture seule",
+    "write": "lecture et modification",
+    "titleRead": "Ce chat ne voit que {{path}} et peut le lire",
+    "titleWrite": "Ce chat ne voit que {{path}} et peut le lire et le modifier",
+    "toolsRead": "Fichiers : uniquement {{path}}, lecture seule. Les dossiers partagés et les skills restent lisibles.",
+    "toolsWrite": "Fichiers : uniquement {{path}}, lecture et modification. Les dossiers partagés et les skills restent lisibles.",
+    "chipMissing": "Dossier manquant",
+    "missing": "Le dossier de cet agent n'existe plus. Choisissez un autre dossier dans l'agent.",
+    "startError": "Le dossier de cet agent est manquant, le chat ne peut donc pas démarrer. Choisissez un autre dossier pour l'agent.",
+    "editAgent": "Modifier l'agent"
   }
 }

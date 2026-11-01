@@ -167,7 +167,7 @@ const MixedProvider = "mixed"
 func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, tools []session.Tool) []BuiltinGroup {
 	offList, onList := s.switchesOf(ctx, rec)
 	off, on := set(offList), set(onList)
-	a := chatActor(rec.Principal, rec.ID)
+	a := s.chatActorFor(ctx, rec)
 	c := builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: rec.Kind == session.KindSubAgent,
 		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, GoalActive: goalActive(rec)}
 	var out []BuiltinGroup

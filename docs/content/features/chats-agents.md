@@ -25,6 +25,7 @@ An agent has:
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
 | `network` | The network of the [Sandbox]({{%relref "features/addons#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
+| `folder` | Optional. One folder of your files that chats with the agent work in, and the mode: `read` or `write`. Without it the agent works on all your files. See [One folder for an agent](#one-folder-for-an-agent). |
 
 Each list is an exact grant. An empty list grants nothing: a chat with an agent
 that names no add-ons has no add-on tools, even when you could use some. A
@@ -59,9 +60,10 @@ A chat can also start a saved agent as a sub-agent, when you switch **Saved
 agents** on in its Tools menu. See [Saved agents as
 sub-agents]({{%relref "features/chats#saved-agents-as-sub-agents" %}}).
 
-If you delete an agent, the chats that ran with it keep their history. Their
-next turn runs without the agent's tools, and the model is told that the agent
-was deleted.
+If you delete an agent, the chats that ran with it keep their history. For an
+agent without a folder, their next turn runs without the agent's tools,
+and the model is told that the agent was deleted. For an agent with a folder,
+the next turn is refused instead; it never falls back to all your files.
 
 ### Pages
 
@@ -86,12 +88,124 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 ```
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
-A `PUT` replaces every field. Chats that already run with the agent use the new
+A `PUT` replaces every field except `folder` (see below). Chats that already run with the agent use the new
 definition from their next turn. Another user's agent is always `404`.
 
 Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
 tools, as they are your own settings.
+
+### One folder for an agent
+
+`folder` gives the agent one folder of your files and a mode, `read` (the
+agent's chats can read it) or `write` (they can read and change it):
+
+```
+curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Projects/Acme", "mode": "read"}}'
+# {"id":"...","name":"Acme",...,
+#  "folder":{"path":"/Projects/Acme","name":"Acme","mode":"read","state":"ok"}}
+```
+
+- `path` is a folder of your files, as the Files page shows it. `/` is all of
+  your files, which with `read` makes an agent that can read everything and
+  change nothing. The folder cannot be `LocalAI`, `Chats` or a folder inside
+  them, and it cannot be a shared folder. A path that is not a folder of yours
+  is `400`.
+- The server keeps the folder itself, not its path. When you rename or move
+  the folder, the agent follows it while you can read it. `path` shows its
+  home-relative path, or `/shared/<name>/...` after a move into a shared folder.
+  Other readable locations have no public `path`; the folder remains `ok` and
+  the agent still follows it by identity.
+- `state` is `ok`, `missing` when the folder was deleted or you can no longer
+  read it, or `unset` when no folder is chosen yet (an imported agent whose
+  folder was not found here).
+- An agent whose folder is `missing` or `unset` does not start, and it never
+  falls back to all your files: `POST /api/chats` answers `409` with the type
+  `agent_folder_missing`, and so does a message to a chat that is open
+  already. A chat whose agent had a folder and was then deleted is refused the
+  same way. Choose a folder in the agent's settings, or restore the folder
+  from the Trash (it comes back as the same folder, so the agent needs no
+  edit), and send the message again.
+- A chat with the agent reaches its folder (read only for `read`), its own
+  chat folder under `Chats` (attachments and the work folder, read and write),
+  every readable shared folder and the skills (read only), and nothing else,
+  provided that the complete set fits the folder limit below.
+- Scoped access has a limit of **32 folder roots per scope**: the agent folder,
+  one reserved chat folder, every skill folder that exists, and every readable
+  shared folder. Three skill folders leave room for 27 shared folders. LocalAI
+  never drops shared folders to fit. If the complete set exceeds the limit,
+  `POST /api/chats` and the next message to an existing chat answer `409` with
+  type `agent_folder_limit`. This is a capacity refusal, not a missing folder.
+  Ask an administrator to reduce the shared folders available to you, then
+  retry. The Tools panel exposes no file access while this check fails, even
+  before the chat folder exists. Each turn checks access again, so a smaller
+  shared set allows a retry without editing the agent. A failure to enumerate
+  shared folders also refuses access instead of silently omitting them.
+  Chats without an agent folder keep their existing access.
+- The model sees the agent's folder at `/workspace/home`, so `/a.txt` and
+  `/workspace/home/a.txt` are `a.txt` in that folder. The chat folder is at
+  `/workspace/chat`, with the work folder at `/workspace/chat/work/`. The
+  shared folders are at `/workspace/shared-<name>`. The file tools, the image
+  and document tools, the file search and the system prompt use this layout,
+  and a sub-agent of the chat gets the same folders. A file you attach to a
+  message is named to the model at `/workspace/chat/<file>`.
+- A sub-agent never reaches more than the chat that started it, in folder or
+  in mode. A plain sub-agent and a saved agent without a folder work in the
+  chat's folder, at the chat's mode. A saved agent with a folder can start from
+  the chat only when its folder is the chat's folder or inside it; it then works
+  in its own folder at the lower of the two modes. Any other agent is refused
+  with "this agent works in another folder than this chat", and `list_agents`
+  does not list it.
+- Commands of the chat run only in the Sandbox add-on. Its sandbox has the
+  agent's folder at `/workspace/home` (read only for `read`), the chat folder
+  at `/workspace/chat` (read and write), and nothing else of your files. What
+  a command writes anywhere else is not saved, and the command's output says
+  so. The built-in `bash` that runs on this machine is never
+  offered to such a chat, also when `chats_host_exec` is `on`: a command on
+  this machine can read every file LocalAI can read, so nothing can keep it in
+  the folder. The Tools menu of the chat says why. On a server without the
+  Sandbox, the agent still reads and changes its folder with the file tools.
+- Add-ons that a chat with the agent calls work in the same folders. For an
+  add-on that works on your files, such as Office or the Sandbox, `/` is the
+  agent's folder, and the Sandbox sees the chat folder next to it at
+  `/workspace/chat`. This holds for every tool, also one that only reads. See
+  [Workspace operations]({{%relref "features/addons#workspace-operations" %}}).
+- A `PUT` without `folder` keeps the folder the agent has, so a client that
+  does not know the field cannot give the agent more files by editing it.
+  `"folder": {"path": ""}` clears the folder.
+- The folder limits what the chat reaches through your files only. The MCP
+  servers, web tools and collections that the agent grants are separate
+  grants and are not limited to the folder. The chat is not told to build
+  [Pages]({{%relref "features/pages" %}}) either: pages live in `pages/` of your home,
+  outside the folder.
+- The folder limits the agent, not you. The Files page, its History, Undo and
+  Trash still show all your files, and a chat's file list and attachments
+  keep their paths in your home there.
+- Triggers and connectors that use the agent keep to its folder too. See
+  [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
+  the [connectors page](/features/chats-connectors/#what-a-message-gets).
+
+In the web interface, the **Files** section of the agent form sets the folder:
+**All my files**, or **One folder** with **Choose folder**, which opens a folder
+picker of your files (`LocalAI`, `Chats` and shared folders cannot be chosen),
+and the access, **Can read** or **Can read and change**. The agents list and the
+agent's page show the folder and its access, with a lock for read only, or
+**Folder missing** with a link to the form. The Files page marks a folder that
+an agent uses. A chat with the agent shows the folder next to the agent in the
+message box and in the Tools menu. A chat that cannot start because the folder
+is missing says so and offers **Edit agent**.
+
+The folder is read from the stores at every request and at the start of every
+turn, and nothing is kept in memory between turns (stateless per request), so
+every frontend and chat worker of a cluster answers the same. A change of the
+folder or the mode applies from the next message of a chat that is open; a
+turn that is running finishes with the access it started with.
+
+**Downgrade.** A server older than this feature does not know the folder of an
+agent. If you go back to such a version, its agents work on all your files
+again, without a warning, and an agent file of version 2 cannot be imported
+there. Before you downgrade, export and delete the agents that have a folder,
+or switch off their triggers and connectors.
 
 ### Starter agents
 
@@ -108,8 +222,20 @@ curl -X POST .../api/chats/agents/import -d @reviewer.json
 curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
-The file holds the definition only (version 1, kind `localai-agent`): no ID,
-owner or time. An import always makes a new agent. A name you already use gets
+The file holds the definition only (kind `localai-agent`): no ID, owner or
+time. An agent without a folder is version 1. An agent with a folder is
+version 2 and carries `folder` with the folder's path at export time and the
+mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
+empty when the folder is missing, not chosen, or now outside your home).
+A followed folder in a shared location stays usable by the original agent,
+but its export carries an empty path and the mode. Import keeps it scoped
+with state `unset` and warns you to choose a folder; it never interprets the
+shared path as a folder in your home. A server that reads only
+version 1 refuses a version 2 file, so an agent limited to one folder is never
+imported somewhere as an agent with all the files. An import always makes a
+new agent. The folder is looked up by its path in your files; when you have
+no such folder, the agent is saved with the mode and no folder (`state:
+unset`), it does not start until you choose one, and a warning says so. A name you already use gets
 " (2)", " (3)" and so on, and a model that this server does not have, or that you
 may not use, is dropped. The response lists such changes under `warnings`. The
 grants (MCP servers, add-ons, collections, skills) are kept as names; a grant
@@ -200,7 +326,45 @@ message as rules for the run. Treat it as text from whoever can write there.
 - **When it cannot run.** A deleted agent fails the run with "the agent was
   deleted" and switches the trigger off. A disabled owner skips the run. An owner
   who no longer exists, or a folder that is gone, skips the run and switches the
-  trigger off. Each of these tells the owner.
+  trigger off. An agent whose folder is missing or not chosen skips the run with
+  "the agent's folder is missing" and switches the trigger off. Each of these
+  tells the owner.
+
+### Triggers of an agent with a folder
+
+A trigger whose agent has a [folder](#one-folder-for-an-agent) keeps to that
+folder, like every chat of the agent:
+
+- A file trigger must watch the agent's folder or a folder inside it. Saving
+  one that watches another folder (at create, at update, and when you confirm
+  a proposal) is refused with `400`: "the trigger's folder must be inside the
+  agent's folder". A file outside the folder never starts a run.
+- Each run checks again. A trigger made before the agent got its folder, or
+  whose agent moved to another folder since, skips the run with "the trigger's
+  folder is not inside the agent's folder" and is switched off.
+- A run whose agent's folder is deleted, unreadable or not chosen never runs on
+  your other files: it is skipped with "the agent's folder is missing", no chat
+  is made, the trigger is switched off and you get a notification. Saving a
+  trigger for such an agent is refused until you choose a folder. Restore the
+  folder (or choose another one) and switch the trigger on again.
+- If the complete file access exceeds the 32-root limit, the run fails without
+  starting a chat. The trigger stays enabled: reduce the available shared
+  folders and retry. This differs from a missing agent folder, which switches
+  the trigger off.
+- The rules of a run come from `AGENTS.md` files in the agent's folder only:
+  for a schedule trigger the agent's folder itself, for a file trigger the
+  folders from the agent's folder down to the watched folder. An `AGENTS.md`
+  above the agent's folder is not read. The first message names folders and
+  the file as the agent's chats see them: `# Folder rules: /workspace/home`
+  and `A new file arrived: /workspace/home/In/a.txt`.
+- The run's chat reaches what a chat of the agent reaches, nothing more.
+- In a chat with the agent, the trigger tools name folders as the chat does
+  (`/In` and `/workspace/home/In` are `In` in the agent's folder) and refuse a
+  folder outside it. `list_triggers`, `update_trigger` and `delete_trigger`
+  see only the triggers of that agent; change the others on the Triggers page.
+
+The folder is looked up at every save and every run, so all frontends of a
+cluster apply the same rule (stateless per request).
 
 A trigger runs nothing for the time before it was saved or switched on. After
 downtime, a missed schedule runs once, not once for each missed time.
@@ -454,6 +618,7 @@ behaves with several frontends:
 | State | Mode | How |
 |---|---|---|
 | Agents, triggers, runs, notifications, push subscriptions | Shared | Rows in the database. Any frontend reads and writes them. |
+| What a chat of an agent with a folder may reach | Stateless | The folder and its mode are columns of the agent's row. The frontend or chat worker that runs a turn, a trigger run, a connector reply or an add-on call reads them, and the folder, from the stores each time. Nothing is cached, so an edit applies on every frontend from the next turn. |
 | Which frontend runs the triggers | Single runner | The frontend that holds the advisory lock (`KeyChatsTriggers`) runs the Runner. When it stops, another takes the lock. |
 | A due time or a file version | Shared | One unique row for each trigger and due key. Two frontends cannot start the same run. |
 | Trigger proposals and changes asked for in a chat | Stateless | Rows in the trigger table. Each request reads and writes them in the database, so any frontend can show, apply or undo them. The answer to a change (apply, dismiss, undo) is a conditional update of its row: when two frontends answer the same change at once, one wins and the other answers `409`, so a change is applied or undone once. |

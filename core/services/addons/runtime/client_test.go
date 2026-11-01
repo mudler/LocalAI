@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	. "github.com/onsi/ginkgo/v2"
@@ -354,5 +355,81 @@ var _ = Describe("Action calls", func() {
 		_, e = i.Client.(contract.ActRuntime).Act(ctx, env)
 		Expect(e).To(HaveOccurred())
 		Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second))
+	})
+})
+
+var _ = Describe("The chat binding of a call", func() {
+	// recording is an add-on that keeps the body of each call and what the
+	// host recorded for it while it ran.
+	type seen struct {
+		body    []byte
+		binding hostops.Binding
+		live    bool
+	}
+	actEnvelope := func() contract.Envelope {
+		e := envelope("act")
+		e.Request.Action = "act"
+		e.Request.Arguments = json.RawMessage(`{"tool":"run"}`)
+		return e
+	}
+	recording := func() (*Client, *[]seen) {
+		var calls []seen
+		var c *Client
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			b, _ := io.ReadAll(r.Body)
+			var env contract.Envelope
+			if r.URL.Path == "/read" || r.URL.Path == "/act" {
+				_ = json.Unmarshal(b, &env)
+			}
+			_, binding, live := c.inflight.LookupBound(env.Request.AddonID, env.Request.OperationID)
+			calls = append(calls, seen{body: b, binding: binding, live: live})
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"payload":{"ok":true}}`))
+		}))
+		DeferCleanup(srv.Close)
+		var e error
+		c, e = newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL, Capabilities: contract.Capabilities{Service: true, Actions: true}}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		c.inflight = hostops.NewInFlight()
+		return c, &calls
+	}
+
+	It("records the chat with the envelope of a read and of an action while it runs", func() {
+		c, calls := recording()
+		ctx := hostops.WithBinding(context.Background(), hostops.Binding{Principal: "alice", ChatID: "c1"})
+		_, e := c.Read(ctx, envelope("read"))
+		Expect(e).NotTo(HaveOccurred())
+		_, e = c.Act(ctx, actEnvelope())
+		Expect(e).NotTo(HaveOccurred())
+		Expect(*calls).To(HaveLen(2))
+		for _, s := range *calls {
+			Expect(s.live).To(BeTrue())
+			Expect(s.binding).To(Equal(hostops.Binding{Principal: "alice", ChatID: "c1"}))
+		}
+		_, e = c.Read(context.Background(), envelope("read"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect((*calls)[2].binding).To(Equal(hostops.Binding{}), "a call that no chat made has no binding")
+		_, _, live := c.inflight.LookupBound("sample", "operation")
+		Expect(live).To(BeFalse(), "the record ends with the call")
+	})
+
+	It("sends the add-on an envelope without a new field", func() {
+		c, calls := recording()
+		env := envelope("read")
+		_, e := c.Read(context.Background(), env)
+		Expect(e).NotTo(HaveOccurred())
+		_, e = c.Read(hostops.WithBinding(context.Background(), hostops.Binding{Principal: "alice", ChatID: "c1"}), env)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(*calls).To(HaveLen(2))
+		unbound, bound := (*calls)[0].body, (*calls)[1].body
+		Expect(bound).To(Equal(unbound), "the binding stays on the host")
+		Expect(string(bound)).NotTo(ContainSubstring("c1"))
+		Expect(string(bound)).NotTo(ContainSubstring("chatId"))
+		// An installed add-on decodes the envelope with unknown fields
+		// refused: what it receives still decodes.
+		var strict contract.Envelope
+		Expect(strict.UnmarshalJSON(bound)).To(Succeed())
+		Expect(strict.Request.OperationID).To(Equal(env.Request.OperationID))
 	})
 })

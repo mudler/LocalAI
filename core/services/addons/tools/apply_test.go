@@ -64,7 +64,7 @@ var _ = Describe("changes made at once for a chat", func() {
 
 	It("applies a row change for the chat adapter, as the actor, with the digest it just stored", func() {
 		f, _, chats := build()
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Kind).To(Equal(tools.ResultApplied))
 		Expect(res.Proposal).To(BeNil())
@@ -84,7 +84,7 @@ var _ = Describe("changes made at once for a chat", func() {
 	It("says a change can be undone when the add-on kept a change set, with the change ID and what undo does", func() {
 		f, _, chats := build()
 		f.payload = args(`{"inserted":2,"undo":{"id":"t-op-1","available":true,"summary":"Delete the 2 rows added to Entries"}}`)
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Applied.Undoable).To(BeTrue())
 		Expect(res.Applied.ChangeID).To(Equal("t-op-1"))
@@ -99,14 +99,14 @@ var _ = Describe("changes made at once for a chat", func() {
 	It("says why a change cannot be undone when the add-on says so, and never trusts an undo note with a bad ID", func() {
 		f, _, chats := build()
 		f.payload = args(`{"undo":{"available":false,"reason":"cannot be undone: the data it changed is too large to keep"}}`)
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Applied.Undoable).To(BeFalse())
 		Expect(res.Applied.ChangeID).To(BeEmpty())
 		Expect(res.Applied.Reason).To(ContainSubstring("too large"))
 		Expect(res.Note).To(ContainSubstring("cannot be undone"))
 		f.payload = args(`{"undo":{"id":"../../etc","available":true,"summary":"x"}}`)
-		res, err = chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err = chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Applied.Undoable).To(BeFalse())
 		Expect(res.Applied.ChangeID).To(BeEmpty())
@@ -114,7 +114,7 @@ var _ = Describe("changes made at once for a chat", func() {
 
 	It("gives a reason when the add-on says nothing about undo", func() {
 		_, _, chats := build()
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Applied.Undoable).To(BeFalse())
 		Expect(res.Applied.Reason).NotTo(BeEmpty())
@@ -127,7 +127,7 @@ var _ = Describe("changes made at once for a chat", func() {
 			long[i] = 'u'
 		}
 		f.payload = args(`{"undo":{"id":"t-op-1","available":true,"summary":"` + string(long) + `"}}`)
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(res.Applied.Undo)).To(BeNumerically("<=", contract.MaxUndoText))
 		Expect(len(res.JSON())).To(BeNumerically("<", 1900))
@@ -144,7 +144,7 @@ var _ = Describe("changes made at once for a chat", func() {
 		}
 		f.proposal.Effects.Sample = args(`"` + str(tools.MaxAppliedBytes-2) + `"`)
 		f.payload = args(`{"r":"` + str(tools.MaxAppliedBytes-30) + `","undo":{"id":"` + str(60) + `","available":true,"summary":"` + str(contract.MaxUndoText) + `"}}`)
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Applied.Summary).NotTo(BeEmpty())
 		Expect(len(res.JSON())).To(BeNumerically("<=", 2048), "the chat cuts a longer result and the card would be lost")
@@ -159,7 +159,7 @@ var _ = Describe("changes made at once for a chat", func() {
 		}
 		big = append(big, `"`...)
 		f.proposal.Effects.Sample = big
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Applied.Summary).To(BeEmpty())
 		Expect(len(res.JSON())).To(BeNumerically("<", 1500))
@@ -167,9 +167,9 @@ var _ = Describe("changes made at once for a chat", func() {
 
 	It("applies a creation and a schema change too", func() {
 		f, _, chats := build()
-		_, err := chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("tables", "databases-create"), args(`{"name":"Orders"}`))
+		_, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), tools.ToolName("tables", "databases-create"), args(`{"name":"Orders"}`))
 		Expect(err).NotTo(HaveOccurred())
-		_, err = chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("tables", "tables-drop"), args(`{"resourceId":"db-one","table":"t"}`))
+		_, err = chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), tools.ToolName("tables", "tables-drop"), args(`{"resourceId":"db-one","table":"t"}`))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(f.confirmed).To(HaveLen(2))
 	})
@@ -184,7 +184,7 @@ var _ = Describe("changes made at once for a chat", func() {
 
 	It("keeps a proposal when the owner cannot apply, so nothing is lost", func() {
 		only := &actFake{fake: &fake{list: newFake().list}}
-		res, err := tools.NewChatToolAdapter(only).ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := tools.NewChatToolAdapter(only).ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Kind).To(Equal(tools.ResultProposal))
 	})
@@ -192,7 +192,7 @@ var _ = Describe("changes made at once for a chat", func() {
 	It("withdraws the proposal and reports the error when the apply is refused as stale", func() {
 		f, _, chats := build()
 		f.confirmErr = gateway.ErrStale
-		_, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		_, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).To(MatchError(gateway.ErrStale))
 		Expect(f.cancelled).To(Equal([]string{f.proposed[0].Request.OperationID}))
 	})
@@ -200,7 +200,7 @@ var _ = Describe("changes made at once for a chat", func() {
 	It("tells the model the call was invalid when the add-on refuses it, and withdraws the proposal", func() {
 		f, _, chats := build()
 		f.confirmErr = gateway.ErrInvalidRequest
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Kind).To(Equal(tools.ResultError))
 		Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
@@ -210,7 +210,7 @@ var _ = Describe("changes made at once for a chat", func() {
 	It("does not withdraw, and does not claim success, when the outcome is unknown", func() {
 		f, _, chats := build()
 		f.confirmErr = &gateway.OutcomeUnknown{OperationID: "x"}
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		var unknown *gateway.OutcomeUnknown
 		Expect(errors.As(err, &unknown)).To(BeTrue())
 		Expect(res.Applied).To(BeNil())
@@ -220,7 +220,7 @@ var _ = Describe("changes made at once for a chat", func() {
 	It("does not report a change that the add-on rejected at the apply", func() {
 		f, _, chats := build()
 		f.state = gateway.ProposalRejected
-		res, err := chats.ExecuteIn(ctx, member, "conv1", insert, rows)
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
 		Expect(err).To(HaveOccurred())
 		Expect(res.Applied).To(BeNil())
 	})

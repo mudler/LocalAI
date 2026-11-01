@@ -51,13 +51,17 @@ type Options struct {
 	Shared func(ctx context.Context, a workspace.Actor) ([]SharedRoot, error)
 	// ChatTools supplies host-side tools for one turn, for example the tools
 	// of MCP servers that the user connected. It runs at the start of every
-	// turn with the chat's actor. The tools are added to the six sandbox
+	// turn with the chat's access. The tools are added to the six sandbox
 	// tools. When the set of tools (names, descriptions, schemas) differs
 	// from the one the harness runs with, the harness restarts from its saved
 	// state before the turn. A tool whose name is the name of a sandbox tool
 	// is dropped. An error from the hook does not fail the turn: it runs with
 	// the sandbox tools only. Nil: only the sandbox tools.
-	ChatTools func(ctx context.Context, a workspace.Actor) (TurnTools, error)
+	ChatTools func(ctx context.Context, x Access) (TurnTools, error)
+	// Resolve gives the access of a chat again, for a chat whose sandbox
+	// could not mount its view (a shared folder went away). a is the chat's
+	// actor. Nil: the view is built again for the actor, as UserAccess does.
+	Resolve func(ctx context.Context, a workspace.Actor) (Access, error)
 	// Inputs gives the harness of a chat its source of pending messages (see
 	// HarnessEnv.Inputs). It runs once per harness start. Nil: no pending
 	// messages.
@@ -175,22 +179,18 @@ func (m *Manager) isClosed() bool {
 	return m.closed
 }
 
-// userActor is the actor for the user's own actions: uploads and renames.
-func userActor(a workspace.Actor) workspace.Actor {
-	a.ChatID = ""
-	return a
-}
-
 func (m *Manager) chatDir(chatID string) string {
 	sum := sha256.Sum256([]byte(chatID))
 	return filepath.Join(m.o.StateDir, "chats", hex.EncodeToString(sum[:8]))
 }
 
 // Open returns the chat, creating it on first use. It loads the transcript.
-// A chat that is open already is returned as it is. A chat of another
-// principal is ErrNotFound. The first tool call creates or resumes the
-// sandbox.
-func (m *Manager) Open(ctx context.Context, a workspace.Actor, chatID string) (*Chat, error) {
+// x is the access of the chat for this turn (see UserAccess). A chat that is
+// open already takes x when it differs from the access it has (syncAccess).
+// A chat of another principal is ErrNotFound. The first tool call creates or
+// resumes the sandbox.
+func (m *Manager) Open(ctx context.Context, x Access, chatID string) (*Chat, error) {
+	a := x.Actor()
 	if chatID == "" || a.Principal == "" || a.ChatID != chatID {
 		return nil, fmt.Errorf("%w: the actor's ChatID must be the chat ID", ErrInvalid)
 	}
@@ -213,11 +213,7 @@ func (m *Manager) Open(ctx context.Context, a workspace.Actor, chatID string) (*
 		if c.principal() != a.Principal {
 			return nil, ErrNotFound
 		}
-		view, err := m.buildView(ctx, a)
-		if err != nil {
-			return nil, err
-		}
-		if err := c.syncAccess(ctx, a, view); err != nil {
+		if err := c.syncAccess(ctx, x); err != nil {
 			return nil, err
 		}
 		if err := c.reopen(ctx); err != nil {
@@ -232,7 +228,7 @@ func (m *Manager) Open(ctx context.Context, a workspace.Actor, chatID string) (*
 		now := time.Now().UTC()
 		rec = ChatRecord{ID: chatID, Principal: a.Principal, Title: DefaultTitle, Created: now, Updated: now}
 		if m.o.Workspace != nil {
-			if _, serr := m.o.Workspace.Stat(ctx, userActor(a), HomePath(a.Principal)); serr != nil {
+			if _, serr := m.o.Workspace.Stat(ctx, x.Owner(), HomePath(a.Principal)); serr != nil {
 				if errors.Is(serr, workspace.ErrNotFound) {
 					return nil, fmt.Errorf("%w: %s", ErrNoHome, HomePath(a.Principal))
 				}
@@ -246,11 +242,7 @@ func (m *Manager) Open(ctx context.Context, a workspace.Actor, chatID string) (*
 	if err != nil {
 		return nil, err
 	}
-	view, err := m.buildView(ctx, a)
-	if err != nil {
-		return nil, err
-	}
-	c = newChat(m, a, rec, view)
+	c = newChat(m, x, rec)
 	if err := c.startHarness(ctx); err != nil {
 		return nil, err
 	}

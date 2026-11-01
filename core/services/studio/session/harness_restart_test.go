@@ -22,7 +22,7 @@ var _ = Describe("harness restarts and chat opening", func() {
 		h := &sessiontest.FakeHarness{}
 		var calls atomic.Int32
 		o := session.Options{Store: sessiontest.NewMemoryStore(), Harness: h, StateDir: GinkgoT().TempDir()}
-		o.ChatTools = func(context.Context, workspace.Actor) (session.TurnTools, error) {
+		o.ChatTools = func(context.Context, session.Access) (session.TurnTools, error) {
 			if calls.Add(1) == 1 {
 				return session.TurnTools{}, nil
 			}
@@ -33,7 +33,7 @@ var _ = Describe("harness restarts and chat opening", func() {
 		m, err := session.New(o)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
-		chat, err := m.Open(context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
+		chat, err := openAs(m, context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
 		Expect(err).NotTo(HaveOccurred())
 		// Take the channel once, before the turn. After the restart fails the chat
 		// closes and drops its bus, so Events() then returns a new, closed channel
@@ -63,7 +63,7 @@ var _ = Describe("harness restarts and chat opening", func() {
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
 		a := workspace.Actor{Principal: workspace.StudioAdmin, ChatID: "c1"}
-		_, err = m.Open(context.Background(), a, "c1")
+		_, err = openAs(m, context.Background(), a, "c1")
 		Expect(err).To(MatchError(session.ErrInvalid), "Open as the administrator")
 	})
 
@@ -76,7 +76,7 @@ var _ = Describe("harness restarts and chat opening", func() {
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
 		ctx := context.Background()
 		a := workspace.Actor{Principal: "alice", ChatID: "c1"}
-		chat, err := m.Open(ctx, a, "c1")
+		chat, err := openAs(m, ctx, a, "c1")
 		Expect(err).NotTo(HaveOccurred())
 		for _, text := range []string{"first question", "second question"} {
 			Expect(chat.Send(ctx, session.Message{Text: text})).To(Succeed())
@@ -91,7 +91,7 @@ var _ = Describe("harness restarts and chat opening", func() {
 		}
 		Expect(chat.Close()).To(Succeed())
 		h.FailResume = true
-		_, err = m.Open(ctx, a, "c1")
+		_, err = openAs(m, ctx, a, "c1")
 		Expect(err).NotTo(HaveOccurred())
 		starts := h.Starts()
 		prompt := starts[len(starts)-1].SystemPrompt

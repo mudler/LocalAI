@@ -585,5 +585,19 @@
     "contextOf": "{{used}} di {{limit}} token",
     "contextUsed": "{{used}} token",
     "unknown": "Non ancora noto"
+  },
+  "agentFolder": {
+    "home": "Home",
+    "chip": "{{name}}, {{mode}}",
+    "read": "sola lettura",
+    "write": "lettura e modifica",
+    "titleRead": "Questa chat vede solo {{path}} e può leggerla",
+    "titleWrite": "Questa chat vede solo {{path}} e può leggerla e modificarla",
+    "toolsRead": "File: solo {{path}}, sola lettura. Le cartelle condivise e le skill restano leggibili.",
+    "toolsWrite": "File: solo {{path}}, lettura e modifica. Le cartelle condivise e le skill restano leggibili.",
+    "chipMissing": "Cartella mancante",
+    "missing": "La cartella di questo agente non esiste più. Scegli un'altra cartella nell'agente.",
+    "startError": "La cartella di questo agente manca, quindi la chat non può partire. Scegli un'altra cartella per l'agente.",
+    "editAgent": "Modifica agente"
   }
 }

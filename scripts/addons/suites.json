@@ -553,7 +553,9 @@
       "is not sent to an add-on that declared no connector",
       "gives it time to release what it owns before it kills the process",
       "kills an add-on that ignores the closing of its startup channel, within the grace period",
-      "goes to the log line by line with the add-on ID and a cap per line"
+      "goes to the log line by line with the add-on ID and a cap per line",
+      "records the chat with the envelope of a read and of an action while it runs",
+      "sends the add-on an envelope without a new field"
     ],
     "report": ".cache/addons/logs/runtime.json"
   },
@@ -791,7 +793,10 @@
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
       "returns the same text through a forwarding frontend",
-      "names every typed cause of a failed install in the 403 of the dispatch route"
+      "names every typed cause of a failed install in the 403 of the dispatch route",
+      "carries the chat binding signed and rejects a changed one",
+      "signs a request without a binding as before",
+      "gives the owner the chat the frontend bound the call to"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -892,7 +897,10 @@
           "is an unreachable resource when the policy denies it, on the owner and on a forwarding frontend",
           "types the denial of a read like the denial of a write, on the owner and on a forwarding frontend",
           "crosses the wire of a resource call typed, so a forwarding frontend answers like the owner",
-          "keeps any other failure to resolve a resource a plain denial, so nothing more is told"
+          "keeps any other failure to resolve a resource a plain denial, so nothing more is told",
+          "carries the chat binding signed and rejects a changed one",
+          "signs a request without a binding as before",
+          "gives the owner the chat the frontend bound the call to"
         ]
       },
       {
@@ -2001,7 +2009,10 @@
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
       "returns the same text through a forwarding frontend",
-      "names every typed cause of a failed install in the 403 of the dispatch route"
+      "names every typed cause of a failed install in the 403 of the dispatch route",
+      "carries the chat binding signed and rejects a changed one",
+      "signs a request without a binding as before",
+      "gives the owner the chat the frontend bound the call to"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -2144,7 +2155,10 @@
           "is an unreachable resource when the policy denies it, on the owner and on a forwarding frontend",
           "types the denial of a read like the denial of a write, on the owner and on a forwarding frontend",
           "crosses the wire of a resource call typed, so a forwarding frontend answers like the owner",
-          "keeps any other failure to resolve a resource a plain denial, so nothing more is told"
+          "keeps any other failure to resolve a resource a plain denial, so nothing more is told",
+          "carries the chat binding signed and rejects a changed one",
+          "signs a request without a binding as before",
+          "gives the owner the chat the frontend bound the call to"
         ]
       },
       {
@@ -2553,7 +2567,9 @@
       "returns the SDK refusal text, the unverified-package text and the missing-release text to the administrator",
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
-      "names every typed cause of a failed install in the 403 of the dispatch route"
+      "names every typed cause of a failed install in the 403 of the dispatch route",
+      "records the chat with the envelope of a read and of an action while it runs",
+      "sends the add-on an envelope without a new field"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -2694,7 +2710,9 @@
           "is not sent to an add-on that declared no connector",
           "gives it time to release what it owns before it kills the process",
           "kills an add-on that ignores the closing of its startup channel, within the grace period",
-          "goes to the log line by line with the add-on ID and a cap per line"
+          "goes to the log line by line with the add-on ID and a cap per line",
+          "records the chat with the envelope of a read and of an action while it runs",
+          "sends the add-on an envelope without a new field"
         ]
       },
       {
@@ -3920,6 +3938,10 @@
       "go: keeps the schema bytes of a parsed manifest equal to what the runtime echoes back",
       "go: rejects a definition that declares an identity, role, approval or operation property",
       "go: rejects an undeclared tool, a repeated tool, an unknown kind and a missing or unbounded schema",
+      "go: binds every tool kind of a chat call to the chat",
+      "go: refuses a call of the chats adapter that names a conversation without its binding",
+      "go: refuses an incomplete chat call",
+      "go: leaves the calls of other consumers without a binding",
       "go: binds one actor to an executor and serves tools through the broker only",
       "go: refuses to bind an executor when the owner denies the actor",
       "go: routes the add-on namespace to the broker and never to another executor",

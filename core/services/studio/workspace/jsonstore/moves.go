@@ -33,8 +33,13 @@ func (w *writer) moveNode(src nodeRow, to []string) (nodeRow, error) {
 }
 
 // checkParentWrite requires write access on the parent of n: changing a
-// directory entry needs write on the folder that holds it.
+// directory entry needs write on the folder that holds it. A root of the
+// actor's fence is read only there, so a fenced actor cannot take its own
+// folder away.
 func (w *writer) checkParentWrite(n nodeRow) error {
+	if workspace.IsFenceRoot(w.actor, n.ID) {
+		return workspace.ErrReadOnly
+	}
 	if n.Parent == 0 {
 		return nil
 	}

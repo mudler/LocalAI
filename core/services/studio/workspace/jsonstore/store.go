@@ -170,8 +170,10 @@ func (s *Store) kindFor(a workspace.Actor) workspace.ChangeSetKind {
 	return workspace.ChangeUser
 }
 
+// isAdmin reports whether a is the administrator. A fenced actor never is,
+// whatever its principal: the fence would mean nothing otherwise.
 func (s *Store) isAdmin(a workspace.Actor) bool {
-	return s.admin != "" && a.Principal == s.admin
+	return s.admin != "" && a.Principal == s.admin && !workspace.HasFence(a)
 }
 
 // snapshot is the file index.json.

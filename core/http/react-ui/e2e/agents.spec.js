@@ -1,6 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
-import { installAgents, AGENTS } from './agents-fixtures.js'
-import { readFile } from 'node:fs/promises'
+import { installAgents, AGENTS, HOME_FOLDERS } from './agents-fixtures.js'
+import { readFile, writeFile, mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 // The agents list and the page of one agent, with the saved-agents API stubbed.
 
@@ -169,4 +171,71 @@ test('the old addresses of the agents page redirect', async ({ page }) => {
   await page.goto('/app/chats/agents')
   await expect(page).toHaveURL(/\/app\/agents$/)
   expect(AGENTS.length).toBe(2)
+})
+
+// The folder of an agent outside its editor: the Files page marker, the chat
+// chip and Tools line, the chat that cannot start, and the import warning.
+test.describe('Agent folders on the other pages', () => {
+  const ACME = { path: '/Projects/Acme', name: 'Acme', mode: 'read', state: 'ok' }
+
+  test('the Files page marks the agent\'s folder', async ({ page }) => {
+    const files = { ...HOME_FOLDERS, '/Projects': [...HOME_FOLDERS['/Projects']] }
+    await installAgents(page, {
+      files,
+      agents: [{ ...AGENTS[0], folder: { ...ACME, mode: 'write' } }, { ...AGENTS[1], folder: ACME }, { ...AGENTS[1], id: 'a3', name: 'gone', folder: { mode: 'read', state: 'missing' } }],
+    })
+    await page.route(/\/api\/chats\/files\/trash(\?.*)?$/, route => route.fulfill({ json: { entries: [] } }))
+    await page.goto('/app/files?path=/Projects')
+    const acme = page.locator('[data-testid="ws-row"][data-path="/Projects/Acme"]')
+    const tag = acme.getByTestId('ws-agent-tag')
+    await expect(tag).toHaveText('2 agents')
+    await expect(tag).toHaveAttribute('title', 'Used by code-reviewer (can read), research-assistant (can read and change)')
+    await expect(page.locator('[data-path="/Projects/Beta"]').getByTestId('ws-agent-tag')).toHaveCount(0)
+    // Inside the folder, the line over the list says who uses it.
+    await page.goto('/app/files?path=/Projects/Acme')
+    await expect(page.getByTestId('ws-folder-agents')).toContainText('Used by code-reviewer (can read)')
+  })
+
+  test('a chat with a scoped agent shows its folder in the composer and the Tools menu', async ({ page }) => {
+    await installAgents(page, { agents: AGENTS.map(a => (a.id === 'a2' ? { ...a, folder: ACME } : a)) })
+    await page.goto('/app/agents/a2')
+    await page.getByTestId('agent-chat').click()
+    await expect(page).toHaveURL(/\/app\/chats$/)
+    const chip = page.getByTestId('chat-agent-folder')
+    await expect(chip).toContainText('Acme, read only')
+    await expect(chip).toHaveAttribute('title', 'This chat sees only /Projects/Acme and can read it')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-tools-scope')).toHaveText('Files: only /Projects/Acme, read only. Shared folders and skills stay readable.')
+  })
+
+  test('starting a chat with a missing folder offers Edit agent', async ({ page }) => {
+    const s = await installAgents(page, { agents: AGENTS.map(a => (a.id === 'a2' ? { ...a, folder: { mode: 'read', state: 'missing' } } : a)) })
+    await page.goto('/app/agents/a2')
+    await page.getByTestId('agent-chat').click()
+    await expect(page.getByTestId('chat-agent-folder')).toHaveText('Folder missing')
+    await page.getByTestId('chat-input').fill('hello')
+    await page.getByTestId('chat-send').click()
+    await expect(page.getByTestId('chat-folder-missing')).toHaveText('This agent\'s folder is missing, so the chat cannot start. Choose another folder for the agent.')
+    expect(s.createdChats).toHaveLength(0)
+    // The words keep the message; the link opens the agent's editor.
+    await expect(page.getByTestId('chat-input')).toHaveValue('hello')
+    await page.getByTestId('chat-folder-edit').click()
+    await expect(page).toHaveURL(/\/app\/agents\/a2\/edit$/)
+  })
+
+  test('an imported agent whose folder is not here says so and shows no folder chosen', async ({ page }) => {
+    await installAgents(page, {
+      files: HOME_FOLDERS,
+      importWarnings: ['The folder /Projects/Gone was not found. Choose a folder before you use this agent.'],
+    })
+    const dir = await mkdtemp(join(tmpdir(), 'agent-import-'))
+    const path = join(dir, 'scoped.json')
+    await writeFile(path, JSON.stringify({ version: 2, kind: 'localai-agent', agent: { name: 'Scoped', instructions: 'Hi', folder: { path: '/Projects/Gone', mode: 'read' } } }))
+    await page.goto('/app/agents')
+    await page.locator('input[type=file]').first().setInputFiles(path)
+    await expect(page).toHaveURL(/\/app\/agents\/a3$/)
+    await expect(page.getByText(/The folder \/Projects\/Gone was not found/)).toBeVisible()
+    await expect(page.getByTestId('agent-folder-warning')).toContainText('No folder is chosen yet. Choose a folder to use this agent.')
+    await expect(page.getByTestId('agent-facts').getByTestId('agent-folder-chip')).toHaveText('No folder chosen')
+  })
 })

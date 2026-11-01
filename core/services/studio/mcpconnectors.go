@@ -127,7 +127,7 @@ func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRec
 	sc := s.scopeOf(ctx, rec)
 	var shadowing []session.Tool
 	if sc == nil || !sc.deleted {
-		shadowing, _ = s.addonTools(ctx, chatActor(principal(user), conv), rec, sc)
+		shadowing, _ = s.addonTools(ctx, s.chatActorFor(ctx, rec), rec, sc)
 	}
 	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(ctx, rec, shadowing)}
 	if s.d.AddonTools != nil && (sc == nil || !sc.deleted) {

@@ -168,6 +168,7 @@ a.ag-row__name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .ag-meta > * { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .ag-meta .lai-icon { width: 13px; height: 13px; flex: none; }
 .ag-meta a { color: inherit; text-decoration: none; }
+.ag-meta a.ag-meta__warn { color: var(--dk-warn-text); }
 .ag-meta a:hover { color: var(--dk-text); text-decoration: underline; text-underline-offset: 3px; }
 .ag-row__record { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; font-size: var(--fs-meta); line-height: var(--lh-meta); font-variant-numeric: tabular-nums; }
 .ag-row__end { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
@@ -295,6 +296,26 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 .ag-import-note { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--dk-inset); font-size: var(--fs-small); }
 .ag-import-note p { margin: 0; }
 .ag-import-note p + p { margin-top: 4px; color: var(--dk-muted); }
+/* ---- Folder (agent form) ------------------------------------------------ */
+.ag-folder { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.ag-folder__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ag-folder__path {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--dk-inset);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  overflow-wrap: anywhere;
+}
+.ag-folder__path .lai-icon { width: 14px; height: 14px; flex: none; color: var(--dk-accent-text); }
+.ag-folder .form-group { margin: 0; }
+.ag-chip--warn { box-shadow: inset 0 0 0 1px var(--dk-warn); color: var(--dk-text); }
+.ag-chip--warn .lai-icon { color: var(--dk-warn); }
 .agent-subsection-title { margin: 18px 0 var(--sp-2); font-size: var(--fs-body); font-weight: 600; }
 
 /* ---- Phone ----------------------------------------------------------------- */

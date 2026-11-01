@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "“{{name}}” eliminato.",
     "undoLate": "“{{name}}” era già stato eliminato.",
-    "restored": "“{{name}}” ripristinato."
+    "restored": "“{{name}}” ripristinato.",
+    "exportedFolder": "Agente \"{{name}}\" esportato. Il file indica la sua cartella, {{path}}. Dove lo importi, l'agente riceve la cartella con quel percorso, se esiste."
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Cartella"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "File"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "Esegui un'attività e la risposta comparirà qui.",
       "more": "Mostra altre {{count}}"
     }
+  },
+  "folder": {
+    "all": "Tutti i miei file",
+    "one": "Una cartella",
+    "scopeLabel": "File che questo agente può raggiungere",
+    "allHelp": "Le chat con questo agente raggiungono tutti i tuoi file, come una chat senza agente.",
+    "choose": "Scegli cartella",
+    "chooseOther": "Scegli un'altra cartella",
+    "change": "Cambia",
+    "home": "Home",
+    "modeLabel": "Accesso",
+    "read": "Può leggere",
+    "write": "Può leggere e modificare",
+    "readShort": "sola lettura",
+    "writeShort": "lettura e modifica",
+    "help": "Le chat con questo agente vedono solo questa cartella e la propria cartella della chat. Le cartelle condivise e le skill restano leggibili. I server MCP e gli strumenti web che concedi non sono limitati a questa cartella.",
+    "commands": "I comandi di questo agente girano solo nell'add-on Sandbox, mai direttamente su questa macchina.",
+    "nextMessage": "Una modifica vale dal messaggio successivo di ogni chat.",
+    "missing": "Questa cartella non esiste più. Scegli un'altra cartella per usare questo agente.",
+    "unset": "Nessuna cartella scelta. Scegli una cartella per usare questo agente.",
+    "needsChoice": "Scegli una cartella, oppure Tutti i miei file.",
+    "summaryRead": "{{path}}, può leggere",
+    "summaryWrite": "{{path}}, può leggere e modificare",
+    "summaryMissing": "Cartella mancante",
+    "summaryUnset": "Nessuna cartella scelta",
+    "dialogTitle": "Scegli una cartella",
+    "dialogText": "Apri la cartella in cui lavora questo agente, poi usala.",
+    "use": "Usa {{folder}}",
+    "useAll": "Usa tutta la Home",
+    "cancel": "Annulla",
+    "managedHint": "Cartella gestita da LocalAI",
+    "sharedHint": "Le cartelle condivise non si possono scegliere",
+    "exportNote": "Il file indica la cartella {{path}}. Dove lo importi, l'agente riceve la cartella con quel percorso, se esiste, oppure ti chiede di sceglierne una.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Cartella mancante",
+    "chipUnset": "Nessuna cartella scelta"
   }
 }

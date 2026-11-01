@@ -100,4 +100,35 @@ var _ = Describe("working files", func() {
 		Expect(n).To(ContainSubstring("Consider moving it"))
 		Expect(workfiles.ToolHint).To(ContainSubstring("work folder"))
 	})
+
+	DescribeTable("treats /workspace/chat/work as the work folder",
+		func(p, want string, stray bool) {
+			Expect(workfiles.Kind(p)).To(Equal(want), p)
+			Expect(workfiles.Stray(p)).To(Equal(stray), p)
+		},
+		Entry("a script in the chat's work folder", "/workspace/chat/work/run.py", workfiles.Working, false),
+		Entry("a draft in the chat's work folder", "/workspace/chat/work/draft.docx", workfiles.Working, false),
+		Entry("a nested file in the chat's work folder", "/workspace/chat/work/data/rows.json", workfiles.Working, false),
+		Entry("an attachment in the chat folder", "/workspace/chat/invoice.pdf", workfiles.Deliverable, false),
+		Entry("a script beside the attachments", "/workspace/chat/run.py", workfiles.Working, true),
+		Entry("a script in the agent's folder", "/workspace/home/run.py", workfiles.Working, true),
+		Entry("a report in the agent's folder", "/workspace/home/report.docx", workfiles.Deliverable, false),
+		Entry("the chat folder itself", "/workspace/chat", workfiles.Deliverable, false),
+		Entry("a folder named chat in the home is no chat folder", "/workspace/home/chat/work/a.docx", workfiles.Deliverable, false),
+	)
+
+	It("steers a scoped chat to its own work folder", func() {
+		Expect(workfiles.ChatGuestFolder).To(Equal("/workspace/chat/work/"))
+		p := workfiles.ScopedPrompt(true)
+		for _, want := range []string{"/workspace/chat/work/", "mkdir -p", "deliverable", "/workspace/home/", "python3 -c"} {
+			Expect(p).To(ContainSubstring(want))
+		}
+		for _, leak := range []string{"pages", "LocalAI", "Chats"} {
+			Expect(p).NotTo(ContainSubstring(leak))
+		}
+		ro := workfiles.ScopedPrompt(false)
+		Expect(ro).To(ContainSubstring("read only"))
+		Expect(ro).To(ContainSubstring("/workspace/chat/"))
+		Expect(ro).NotTo(ContainSubstring("else in /workspace/home/"))
+	})
 })

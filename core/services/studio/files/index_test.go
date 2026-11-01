@@ -278,9 +278,7 @@ var _ = Describe("the file tools on indexed documents", func() {
 		for _, u := range []string{"alice", "bob"} {
 			Expect(f.Store().Grant(ctx, admin, u, "/shared/team", workspace.ModeRead)).To(Succeed())
 		}
-		f.SetSharedRoots(func(context.Context, workspace.Actor) ([]session.SharedRoot, error) {
-			return []session.SharedRoot{{Path: "/shared/team", Mode: workspace.ModeRead}}, nil
-		})
+		setShared(f, session.SharedRoot{Path: "/shared/team", Mode: workspace.ModeRead})
 		Expect(ix.Pass(ctx)).To(Succeed())
 		for _, u := range []string{"alice", "bob"} {
 			got, err := newToolBox(f, u, "c").run("search_files", map[string]any{"query": "blue tiles", "path": "/workspace/shared-team"})

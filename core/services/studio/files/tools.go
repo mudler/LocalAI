@@ -38,175 +38,29 @@ const (
 	maxPatternLen = 1000
 )
 
-// toolPath accepts a path the way the model sees it, in the home: "/a.txt",
-// "/workspace/home/a.txt", "workspace/home/a.txt" and "home/a.txt" are all
-// "/a.txt".
-func toolPath(p string) string {
-	p = strings.TrimSpace(p)
-	guest := session.GuestRoot + "/" + session.GuestHome
-	if strings.HasPrefix(p, strings.TrimPrefix(session.GuestRoot, "/")+"/") {
-		p = "/" + p
-	}
-	switch {
-	case p == guest, p == session.GuestRoot, p == session.GuestHome:
-		return "/"
-	case strings.HasPrefix(p, guest+"/"):
-		return strings.TrimPrefix(p, guest)
-	case strings.HasPrefix(p, session.GuestHome+"/"):
-		return strings.TrimPrefix(p, session.GuestHome)
-	}
-	return p
-}
-
-// HomePath turns a path the model wrote into a path inside the user's home,
-// with the same spellings and the same refusal of a stray /workspace path as
-// the file tools. Other tools that read the user's files (the media tools)
-// use it.
-func HomePath(p string) (string, error) {
-	if err := strayGuestPath(p); err != nil {
-		return "", err
-	}
-	return toolPath(p), nil
-}
-
-// strayGuestPath returns an error for a path below /workspace that is no
-// place of the chat's view (/workspace/newsapp, say). Taken as a path in the
-// home it would make a folder named "workspace" there, so it is refused with
-// the right spelling.
-func strayGuestPath(p string) error {
-	p = strings.TrimSpace(p)
-	if strings.HasPrefix(p, strings.TrimPrefix(session.GuestRoot, "/")+"/") {
-		p = "/" + p
-	}
-	rest, ok := strings.CutPrefix(p, session.GuestRoot+"/")
-	if !ok {
-		return nil
-	}
-	first, _, _ := strings.Cut(rest, "/")
-	if first == session.GuestHome || strings.HasPrefix(first, session.GuestSharedPrefix) || first == "" {
-		return nil
-	}
-	return fmt.Errorf("%s is not a place of the user's files: files live under %s/%s/. Did you mean %s/%s/%s? "+
-		"To make an app the user can open, build a Page: %s/%s/pages/<name>/index.html",
-		p, session.GuestRoot, session.GuestHome, session.GuestRoot, session.GuestHome, rest, session.GuestRoot, session.GuestHome)
-}
-
 // Errors of a write to a place the model may only read.
 var (
 	errSharedReadOnly = errors.New("the shared and built-in skills are read-only")
 	errFolderReadOnly = errors.New("this shared folder is read-only for you")
 )
 
-// target is a path a tool was given, resolved in the workspace.
-type target struct {
-	abs string
-	// write is false for a place the user may only read: the skill layers and
-	// a shared folder shared with "Can read". The store checks the grant again.
-	write   bool
-	readErr error // what a write gets when write is false
-	// root is the top of the place (the home, a skill layer or a shared
-	// folder), which a move or a delete must never take away.
-	root string
-	// show turns a workspace path inside the place into the path the cards
-	// and the change notes use: inside the home, the path in the home
-	// ("/a.txt"); elsewhere the path the model uses.
-	show func(abs string) string
-	// say turns it into the path the model uses (/workspace/home/a.txt), for
-	// the tool results, so the model never sees a second spelling of a path.
-	say func(abs string) string
-}
-
-// locate resolves a path a tool was given: in the home, in a skill layer or in
-// a shared folder of the user. A path with .. is refused wherever it points.
-func (s *Service) locate(ctx context.Context, a workspace.Actor, p string) (target, error) {
-	p = strings.TrimSpace(p)
-	for _, seg := range strings.Split(p, "/") {
-		if seg == ".." {
-			return target{}, workspace.ErrBadName
-		}
-	}
-	if real, layer, guest := sharedLayer(p); real != "" {
-		segs, err := workspace.SplitPath(real)
-		if err != nil {
-			return target{}, err
-		}
-		abs := workspace.JoinPath(segs)
-		return target{abs: abs, readErr: errSharedReadOnly, root: layer, show: rebase(layer, guest), say: rebase(layer, guest)}, nil
-	}
-	if err := strayGuestPath(p); err != nil {
-		return target{}, err
-	}
-	if strings.HasPrefix(p, strings.TrimPrefix(session.GuestRoot, "/")+"/") {
-		p = "/" + p
-	}
-	if strings.HasPrefix(p, session.GuestRoot+"/"+session.GuestSharedPrefix) {
-		return s.locateShared(ctx, a, p)
-	}
-	abs, err := s.Abs(a.Principal, toolPath(p))
+// writable resolves a path for a tool that changes it. Every tool resolves
+// its paths through the chat's place: in the primary folder (the home, or
+// the agent's folder), the chat folder, a shared folder or a skill layer. A
+// path with .. is refused wherever it points.
+func writable(place session.Place, p string) (session.Target, error) {
+	t, err := place.Resolve(p)
 	if err != nil {
-		return target{}, err
+		return session.Target{}, err
 	}
-	rel := func(abs string) string { return s.Rel(a.Principal, abs) }
-	home := session.HomePath(a.Principal)
-	return target{abs: abs, write: true, root: home, show: rel, say: rebase(home, session.GuestRoot+"/"+session.GuestHome)}, nil
-}
-
-// locateShared resolves /workspace/shared-<name>/... with the names the
-// chat's view gives the user's shared folders.
-func (s *Service) locateShared(ctx context.Context, a workspace.Actor, p string) (target, error) {
-	rest := strings.TrimPrefix(p, session.GuestRoot+"/")
-	at, sub, _ := strings.Cut(rest, "/")
-	s.mu.Lock()
-	roots := s.sharedRoots
-	s.mu.Unlock()
-	if roots == nil {
-		return target{}, workspace.ErrNotFound
-	}
-	shared, err := roots(ctx, a)
-	if err != nil {
-		return target{}, err
-	}
-	v, err := session.BuildView(ctx, s.ws, a, shared, quietLog)
-	if err != nil {
-		return target{}, err
-	}
-	for _, m := range v.Mounts {
-		if m.At != at || m.At == session.GuestHome {
-			continue
+	if !t.Write {
+		switch {
+		case t.Layer:
+			return session.Target{}, errSharedReadOnly
+		case t.At == session.GuestHome || t.At == session.GuestChat:
+			return session.Target{}, session.ErrReadOnlyPlace
 		}
-		abs := m.Path
-		if sub != "" {
-			segs, err := workspace.SplitPath("/" + sub)
-			if err != nil {
-				return target{}, err
-			}
-			abs = strings.TrimSuffix(m.Path, "/") + strings.TrimSuffix(workspace.JoinPath(segs), "/")
-		}
-		return target{abs: abs, write: m.Mode >= workspace.ModeWrite, readErr: errFolderReadOnly, root: m.Path,
-			show: rebase(m.Path, session.GuestRoot+"/"+m.At), say: rebase(m.Path, session.GuestRoot+"/"+m.At)}, nil
-	}
-	return target{}, workspace.ErrNotFound
-}
-
-// rebase returns a function that shows a path below from as the same path
-// below to.
-func rebase(from, to string) func(string) string {
-	return func(abs string) string {
-		if abs == from {
-			return to
-		}
-		return to + strings.TrimPrefix(abs, from)
-	}
-}
-
-// writable resolves a path for a tool that changes it.
-func (s *Service) writable(ctx context.Context, a workspace.Actor, p string) (target, error) {
-	t, err := s.locate(ctx, a, p)
-	if err != nil {
-		return target{}, err
-	}
-	if !t.write {
-		return target{}, t.readErr
+		return session.Target{}, errFolderReadOnly
 	}
 	return t, nil
 }
@@ -215,11 +69,14 @@ func (s *Service) writable(ctx context.Context, a workspace.Actor, p string) (ta
 // delete files, and search them, in the user's home and shared folders. They
 // act as the user in that chat, so what they change is an agent change in the
 // history, which the user can undo, and a delete goes to the Trash. A
-// sub-agent gets the tools of its parent chat.
-func (s *Service) Tools(a workspace.Actor) []session.Tool {
+// sub-agent gets the tools of its parent chat. Every path goes through the
+// access's place, and every call acts as the access's actor, so a chat whose
+// agent has a folder reaches only its folders.
+func (s *Service) Tools(x session.Access) []session.Tool {
 	if !s.Available() {
 		return nil
 	}
+	a, place := x.Actor(), x.Place()
 	call := func(fn func(ctx context.Context, args json.RawMessage) (string, error)) func(context.Context, json.RawMessage) (string, error) {
 		return func(ctx context.Context, args json.RawMessage) (string, error) {
 			out, err := fn(ctx, args)
@@ -239,14 +96,14 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				t, err := s.locate(ctx, a, in.Path)
+				t, err := place.Resolve(in.Path)
 				if err != nil {
 					return "", err
 				}
 				if strings.TrimSpace(in.Pattern) != "" {
 					return s.glob(ctx, a, t, in.Pattern)
 				}
-				kids, err := s.ws.List(ctx, a, t.abs)
+				kids, err := s.ws.List(ctx, a, t.Abs)
 				if err != nil {
 					return "", err
 				}
@@ -273,15 +130,15 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				t, err := s.locate(ctx, a, in.Path)
+				t, err := place.Resolve(in.Path)
 				if err != nil {
 					return "", err
 				}
 				var data string
-				if extract.Supported(t.abs) {
-					data, err = s.documentText(ctx, a, t.abs)
+				if extract.Supported(t.Abs) {
+					data, err = s.documentText(ctx, a, t.Abs)
 				} else {
-					data, _, err = s.readText(ctx, a, t.abs, readMaxBytes)
+					data, _, err = s.readText(ctx, a, t.Abs, readMaxBytes)
 				}
 				if err != nil {
 					return "", err
@@ -295,16 +152,16 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				t, err := s.writable(ctx, a, in.Path)
+				t, err := writable(place, in.Path)
 				if err != nil {
 					return "", err
 				}
-				n, err := s.put(ctx, a, t.abs, in.Content, workspace.PutOptions{Overwrite: true}, "Chat wrote ")
+				n, err := s.put(ctx, a, t.Abs, in.Content, workspace.PutOptions{Overwrite: true}, "Chat wrote ")
 				if err != nil {
 					return "", err
 				}
-				changeCard(ctx, n.Rev, t.show(t.abs))
-				return fmt.Sprintf("Wrote %d bytes to %s.", len(in.Content), t.say(t.abs)), nil
+				changeCard(ctx, n.Rev, t.Show(t.Abs))
+				return fmt.Sprintf("Wrote %d bytes to %s.", len(in.Content), t.Guest(t.Abs)), nil
 			})},
 		{Name: "edit_file", Description: "Replace text in a text file of the user's. old_string must match the file exactly once, with its spaces and line breaks; add lines around it to make it unique, or set replace_all to replace every match. The user can undo it.",
 			Schema: obj(pathProp+`,"old_string":{"type":"string","description":"The exact text to replace."},"new_string":{"type":"string","description":"The text to put in its place."},"replace_all":{"type":"boolean","description":"Replace every match instead of exactly one."}`, "path", "old_string", "new_string"),
@@ -324,11 +181,11 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				case in.Old == in.New:
 					return "", errors.New("old_string and new_string are the same, so there is nothing to change")
 				}
-				t, err := s.writable(ctx, a, in.Path)
+				t, err := writable(place, in.Path)
 				if err != nil {
 					return "", err
 				}
-				cur, node, err := s.readText(ctx, a, t.abs, editMaxBytes)
+				cur, node, err := s.readText(ctx, a, t.Abs, editMaxBytes)
 				if err != nil {
 					return "", err
 				}
@@ -343,16 +200,16 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if len(next) > editMaxBytes {
 					return "", fmt.Errorf("the file would be larger than %d MiB", editMaxBytes>>20)
 				}
-				n, err := s.put(ctx, a, t.abs, next, workspace.PutOptions{BaseVersion: node.Version}, "Chat edited ")
+				n, err := s.put(ctx, a, t.Abs, next, workspace.PutOptions{BaseVersion: node.Version}, "Chat edited ")
 				if err != nil {
 					return "", err
 				}
 				if n.ConflictOf != "" {
-					changeCard(ctx, n.Rev, t.show(n.Path))
-					return fmt.Sprintf("The file changed while it was edited: the edited version was saved as %s and %s was left as it is.", t.say(n.Path), t.say(t.abs)), nil
+					changeCard(ctx, n.Rev, t.Show(n.Path))
+					return fmt.Sprintf("The file changed while it was edited: the edited version was saved as %s and %s was left as it is.", t.Guest(n.Path), t.Guest(t.Abs)), nil
 				}
-				changeCard(ctx, n.Rev, t.show(t.abs))
-				return fmt.Sprintf("Replaced %d occurrence(s) in %s.", count, t.say(t.abs)), nil
+				changeCard(ctx, n.Rev, t.Show(t.Abs))
+				return fmt.Sprintf("Replaced %d occurrence(s) in %s.", count, t.Guest(t.Abs)), nil
 			})},
 		{Name: "move_file", Description: "Move or rename a file or folder of the user's.",
 			Schema: obj(`"from":{"type":"string"},"to":{"type":"string"}`, "from", "to"),
@@ -361,23 +218,23 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				from, err := s.writable(ctx, a, in.From)
+				from, err := writable(place, in.From)
 				if err != nil {
 					return "", err
 				}
-				to, err := s.writable(ctx, a, in.To)
+				to, err := writable(place, in.To)
 				if err != nil {
 					return "", err
 				}
-				if from.abs == from.root || to.abs == to.root {
+				if from.Abs == from.Root || to.Abs == to.Root {
 					return "", workspace.ErrInvalid
 				}
-				n, err := s.ws.Move(ctx, a, from.abs, to.abs)
+				n, err := s.ws.Move(ctx, a, from.Abs, to.Abs)
 				if err != nil && !errors.Is(err, workspace.ErrCommitted) {
 					return "", err
 				}
-				changeCard(ctx, n.Rev, to.show(to.abs))
-				return "Moved to " + to.say(to.abs) + ".", nil
+				changeCard(ctx, n.Rev, to.Show(to.Abs))
+				return "Moved to " + to.Guest(to.Abs) + ".", nil
 			})},
 		{Name: "delete_file", Description: "Delete a file or folder of the user's. It goes to the Trash, so the user can restore it.",
 			Schema: obj(pathProp, "path"),
@@ -386,14 +243,14 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				t, err := s.writable(ctx, a, in.Path)
+				t, err := writable(place, in.Path)
 				if err != nil {
 					return "", err
 				}
-				if t.abs == t.root {
+				if t.Abs == t.Root {
 					return "", workspace.ErrInvalid
 				}
-				if err := s.ws.Delete(ctx, a, t.abs); err != nil {
+				if err := s.ws.Delete(ctx, a, t.Abs); err != nil {
 					return "", err
 				}
 				return "Moved to the Trash.", nil
@@ -410,7 +267,7 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				t, err := s.locate(ctx, a, in.Path)
+				t, err := place.Resolve(in.Path)
 				if err != nil {
 					return "", err
 				}
@@ -418,9 +275,25 @@ func (s *Service) Tools(a workspace.Actor) []session.Tool {
 				if err != nil {
 					return "", err
 				}
-				res, err := s.search(ctx, a, t.abs, t.say, q)
+				res, err := s.search(ctx, a, t.Abs, t.Guest, q)
 				if err != nil {
 					return "", err
+				}
+				// A scoped chat's own folder is a mount of its own: a search
+				// with no path looks there too, after the agent's folder.
+				if strings.TrimSpace(in.Path) == "" && place.Chat() != "" && len(res.Hits) < q.limit {
+					if ct, err := place.Resolve(session.GuestRoot + "/" + session.GuestChat); err == nil {
+						more, err := s.search(ctx, a, ct.Abs, ct.Guest, q)
+						if err != nil {
+							return "", err
+						}
+						res.Hits = append(res.Hits, more.Hits...)
+						if len(res.Hits) > q.limit {
+							res.Hits = res.Hits[:q.limit]
+						}
+						res.Indexing += more.Indexing
+						res.Limited = res.Limited || more.Limited
+					}
 				}
 				return searchAnswer(res), nil
 			})},
@@ -653,7 +526,7 @@ func globRE(pattern string) (*regexp.Regexp, error) {
 }
 
 // glob lists the paths below t that match pattern, relative to t.
-func (s *Service) glob(ctx context.Context, a workspace.Actor, t target, pattern string) (string, error) {
+func (s *Service) glob(ctx context.Context, a workspace.Actor, t session.Target, pattern string) (string, error) {
 	if len(pattern) > maxPatternLen || strings.ContainsRune(pattern, 0) {
 		return "", fmt.Errorf("the pattern must be at most %d characters", maxPatternLen)
 	}
@@ -694,7 +567,7 @@ func (s *Service) glob(ctx context.Context, a workspace.Actor, t target, pattern
 		}
 		return nil
 	}
-	if err := walk(t.abs, ""); err != nil {
+	if err := walk(t.Abs, ""); err != nil {
 		return "", err
 	}
 	if len(found) == 0 {

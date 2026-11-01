@@ -36,8 +36,14 @@ type Call struct {
 	// the envelope (for an action tool, the key of the chat). It is never a
 	// value from the arguments.
 	ResourceID string
-	Actor      contract.Actor
-	Arguments  json.RawMessage
+	// Scope is the scope of the live request's authority.
+	Scope string
+	// ChatID and ChatPrincipal name the chat the live request was made for,
+	// from the host's own record of it (InFlight), never from the envelope
+	// or the arguments. Both are empty for a request no chat made.
+	ChatID, ChatPrincipal string
+	Actor                 contract.Actor
+	Arguments             json.RawMessage
 }
 
 type Handler func(ctx context.Context, call Call) (json.RawMessage, error)
@@ -191,7 +197,7 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 			b.serveInbound(w, r, spec, addonID, req)
 			return
 		}
-		env, live := b.inflight.Lookup(addonID, req.OperationID)
+		env, binding, live := b.inflight.LookupBound(addonID, req.OperationID)
 		if !live {
 			refuse(w, http.StatusForbidden, contract.HostNoLiveOperation, "no live request")
 			return
@@ -223,7 +229,8 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 		}
 		ctx, cancel := context.WithTimeout(r.Context(), timeout)
 		defer cancel()
-		call := Call{AddonID: addonID, OperationID: req.OperationID, ResourceID: env.Request.ResourceID, Actor: actor, Arguments: args}
+		call := Call{AddonID: addonID, OperationID: req.OperationID, ResourceID: env.Request.ResourceID, Scope: env.Authority.Scope,
+			ChatID: binding.ChatID, ChatPrincipal: binding.Principal, Actor: actor, Arguments: args}
 		result, err := b.run(ctx, spec, call)
 		if err != nil {
 			status, code, msg := http.StatusServiceUnavailable, contract.HostUnavailable, "operation unavailable"

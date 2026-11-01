@@ -7,6 +7,19 @@ import { mockChat } from './chat-fixtures.js'
 test.describe('Files page with a stubbed API', () => {
   test.beforeEach(async ({ page }) => {
     await mockChat(page)
+    await page.route(/\/api\/chats\/agents(\?.*)?$/, route => route.fulfill({ json: { agents: [] } }))
+    // These API-state tests must not refresh from other tests' real file writes.
+    // Keep the workspace stream idle without reconnects triggering a resync.
+    await page.addInitScript(() => {
+      const NativeEventSource = window.EventSource
+      window.EventSource = class extends EventTarget {
+        constructor(url, options) {
+          super()
+          if (new URL(url, location.href).pathname !== '/api/workspace/events') return new NativeEventSource(url, options)
+        }
+        close() {}
+      }
+    })
   })
 
   test('says why files are off, and offers nothing to do', async ({ page }) => {
@@ -55,17 +68,23 @@ test.describe('Files page with a stubbed API', () => {
   test('a folder that cannot be read says so and offers Try again', async ({ page }) => {
     await page.route(/\/api\/chats\/files\/trash(\?.*)?$/, route => route.fulfill({ json: { entries: [] } }))
     let lists = 0
+    let readable = false
     await page.route(/\/api\/chats\/files(\?.*)?$/, route => {
       lists++
-      if (lists === 1) return route.fulfill({ status: 500, json: { error: { message: 'database locked', code: 500 } } })
+      // Background reads must not recover this folder before the user retries.
+      if (!readable) return route.fulfill({ status: 500, json: { error: { message: 'database locked', code: 500 } } })
       return route.fulfill({ json: { path: '/', entries: [{ path: '/a.txt', name: 'a.txt', kind: 'file', size: 1, version: 1 }] } })
     })
     await page.goto('/app/files')
     const error = page.getByTestId('ws-load-error')
     await expect(error).toContainText('Could not open Home.')
     await expect(error).toContainText('database locked')
+    const beforeRetry = lists
+    readable = true
     await error.getByRole('button', { name: 'Try again' }).click()
     await expect(page.getByTestId('ws-row').filter({ hasText: 'a.txt' })).toBeVisible()
+    await expect(error).toHaveCount(0)
+    expect(lists).toBeGreaterThan(beforeRetry)
   })
 
   test('shows the host preview of a file no add-on previews, and no add-on frame', async ({ page }) => {

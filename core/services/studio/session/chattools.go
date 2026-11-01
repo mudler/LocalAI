@@ -16,7 +16,6 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 )
 
@@ -167,14 +166,14 @@ func oneLine(s string) string {
 }
 
 // callChatTools runs the product's hook. A panic is an error.
-func callChatTools(ctx context.Context, f func(context.Context, workspace.Actor) (TurnTools, error), a workspace.Actor, log *slog.Logger) (tt TurnTools, err error) {
+func callChatTools(ctx context.Context, f func(context.Context, Access) (TurnTools, error), x Access, log *slog.Logger) (tt TurnTools, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Error("session: ChatTools panicked", "panic", fmt.Sprint(r), "stack", string(debug.Stack()))
 			tt, err = TurnTools{}, errors.New("ChatTools panicked")
 		}
 	}()
-	return f(ctx, a)
+	return f(ctx, x)
 }
 
 // hostWrappers returns the tools the harness is started with for the current
@@ -220,8 +219,10 @@ func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool) {
 	if f == nil {
 		return "", false
 	}
-	actor, _, _ := c.access()
-	tt, err := callChatTools(ctx, f, actor, c.m.log)
+	c.accMu.RLock()
+	x := c.acc
+	c.accMu.RUnlock()
+	tt, err := callChatTools(ctx, f, x, c.m.log)
 	if ctx.Err() != nil {
 		// The turn was stopped while the hook ran. Its result is partial: keep
 		// the state of the last turn, so that the next turn does not see a change.
@@ -548,8 +549,10 @@ func (c *Chat) primeChatTools(ctx context.Context) {
 	if f == nil {
 		return
 	}
-	actor, _, _ := c.access()
-	tt, err := callChatTools(ctx, f, actor, c.m.log)
+	c.accMu.RLock()
+	x := c.acc
+	c.accMu.RUnlock()
+	tt, err := callChatTools(ctx, f, x, c.m.log)
 	if err != nil || ctx.Err() != nil {
 		return
 	}

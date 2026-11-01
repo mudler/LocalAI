@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -36,8 +37,8 @@ var ErrBusy = errors.New("as many sandboxes run as may; try again later")
 // else changed them.
 type Store = workspace.Store
 
-// HomeMounts is the view the add-on asks for: the user's files, writable,
-// under home.
+// HomeMounts are the mounts the add-on asks for: the user's files, writable,
+// under home. The host decides what they reach for the call's chat.
 func HomeMounts(context.Context, workspace.Actor) ([]workspace.MountRequest, error) {
 	return []workspace.MountRequest{{Path: "/", At: "home", Mode: workspace.ModeWrite}}, nil
 }
@@ -48,17 +49,21 @@ type Options struct {
 	// administrator can switch it). ErrNoSandbox means there is none.
 	Backend func() (sandbox.Backend, error)
 	Store   Store
-	// Mounts returns the mounts of a new sandbox of a user, given to
-	// Store.View. Nil: HomeMounts.
-	Mounts func(ctx context.Context, a workspace.Actor) ([]workspace.MountRequest, error)
+	// Actor returns the actor a sandbox of a user and a conversation reads and
+	// commits as: in the server, the actor of the chat's resolved access
+	// (fenced for a chat whose agent has a folder). It is asked at every call,
+	// so a changed access applies from the next call. Required.
+	Actor func(ctx context.Context, user, conversation string) (workspace.Actor, error)
+	// View returns the view a sandbox of a is made with: in the server, the
+	// view of the chat's resolved access. Its actor must be a. It is asked at
+	// every call too: a sandbox whose actor or mounts changed is made again.
+	// Required.
+	View func(ctx context.Context, a workspace.Actor) (workspace.View, error)
 	// Tools returns the tools a sandbox runs. Nil: bash with its defaults.
 	Tools func(acquire Acquire) []Tool
 	// Prepare, when set, gives a call the context its store needs (the add-on
 	// names the host operation of the call).
 	Prepare func(ctx context.Context, r Request) context.Context
-	// Actor returns the actor a sandbox of a user and a conversation reads and
-	// commits as. Nil: the user with the conversation, and no group.
-	Actor func(user, conversation string) workspace.Actor
 	// Title starts the title of the change set of a call, before the tool
 	// name. Empty: "Sandbox: ".
 	Title string
@@ -115,12 +120,20 @@ type entry struct {
 	// commit as the guest sees it. A resumed sandbox has the view it was
 	// made with.
 	mounts []workspace.Mount
+	// actor is the actor the sandbox was made with. A call whose resolved
+	// actor or view differs makes the sandbox again.
+	actor workspace.Actor
 }
 
 // New returns a manager. It removes what an earlier run left in StateDir.
 func New(o Options) (*Manager, error) {
 	if o.Backend == nil || o.Store == nil {
 		return nil, errors.New("runner: a backend and a store are required")
+	}
+	// There is no default actor or view: a sandbox made with an actor that
+	// is not the chat's would reach more than the chat may.
+	if o.Actor == nil || o.View == nil {
+		return nil, errors.New("runner: the actor and the view of a chat are required")
 	}
 	if o.PerUser <= 0 {
 		o.PerUser = DefaultPerUser
@@ -136,12 +149,6 @@ func New(o Options) (*Manager, error) {
 	}
 	if o.Now == nil {
 		o.Now = time.Now
-	}
-	if o.Mounts == nil {
-		o.Mounts = HomeMounts
-	}
-	if o.Actor == nil {
-		o.Actor = func(user, conv string) workspace.Actor { return workspace.Actor{Principal: user, ChatID: conv} }
 	}
 	if o.Title == "" {
 		o.Title = "Sandbox: "
@@ -328,25 +335,70 @@ func (m *Manager) destroy(ctx context.Context, e *entry) {
 	}
 }
 
-func (m *Manager) actorOf(e *entry) workspace.Actor { return m.o.Actor(e.user, e.conv) }
+// access resolves the actor and the view of the entry's chat for this call.
+// A view of another actor than the chat's is refused: a sandbox is never made
+// with a view wider than the actor it commits as.
+func (m *Manager) access(ctx context.Context, e *entry) (workspace.Actor, workspace.View, error) {
+	a, err := m.o.Actor(ctx, e.user, e.conv)
+	if err != nil {
+		return workspace.Actor{}, workspace.View{}, err
+	}
+	if a.Principal != e.user || a.ChatID != e.conv {
+		return workspace.Actor{}, workspace.View{}, fmt.Errorf("%w: the actor is not the one of this chat", ErrInvalid)
+	}
+	v, err := m.o.View(ctx, a)
+	if err != nil {
+		return workspace.Actor{}, workspace.View{}, err
+	}
+	if !sameActor(v.Actor, a) {
+		return workspace.Actor{}, workspace.View{}, fmt.Errorf("%w: the view is not the one of this chat's actor", ErrInvalid)
+	}
+	if len(v.Mounts) == 0 {
+		return workspace.Actor{}, workspace.View{}, fmt.Errorf("%w: the view of this chat has no folder", ErrInvalid)
+	}
+	return a, v, nil
+}
 
-// ready makes sure the entry has a running sandbox that matches the user's
-// files. The entry's lock is held.
+// sameActor reports whether a and b are the same principal, chat, groups and
+// fence.
+func sameActor(a, b workspace.Actor) bool {
+	if a.Principal != b.Principal || a.ChatID != b.ChatID || !a.SameFence(b) || len(a.Groups) != len(b.Groups) {
+		return false
+	}
+	ga, gb := slices.Clone(a.Groups), slices.Clone(b.Groups)
+	slices.Sort(ga)
+	slices.Sort(gb)
+	return slices.Equal(ga, gb)
+}
+
+// ready makes sure the entry has a running sandbox that matches the chat's
+// access and the user's files. The entry's lock is held.
 func (m *Manager) ready(ctx context.Context, e *entry) error {
 	b, err := m.o.Backend()
 	if err != nil {
 		return err
 	}
+	a, v, err := m.access(ctx, e)
+	if err != nil {
+		return err
+	}
+	if (e.sb != nil || e.snap != nil) && (!sameActor(e.actor, a) || !slices.Equal(e.mounts, v.Mounts)) {
+		// The chat's agent changed its folder or mode, or the chat's folders
+		// changed: the sandbox must not keep the old ones. What the earlier
+		// calls did is committed already.
+		m.destroy(ctx, e)
+		e.trk = nil
+	}
 	if e.trk == nil {
 		e.trk = &tracker{Store: m.o.Store}
 	}
-	env := sandbox.Env{Store: e.trk, Actor: m.actorOf(e)}
+	env := sandbox.Env{Store: e.trk, Actor: a}
 	if m.o.Ports != nil {
 		env.Ports = m.o.Ports(e.user, e.conv)
 	}
 	switch {
 	case e.sb != nil:
-		if e.trk.stale(ctx, m.actorOf(e)) {
+		if e.trk.stale(ctx, a) {
 			if err := e.sb.Refresh(ctx); err != nil {
 				return fmt.Errorf("could not bring the sandbox up to date with your files: %w", err)
 			}
@@ -363,19 +415,11 @@ func (m *Manager) ready(ctx context.Context, e *entry) error {
 		xlog.Warn("sandbox: resume failed, starting a fresh one", "error", err)
 		m.destroy(ctx, e)
 	}
-	reqs, err := m.o.Mounts(ctx, m.actorOf(e))
-	if err != nil {
-		return err
-	}
-	v, err := m.o.Store.View(ctx, m.actorOf(e), reqs)
-	if err != nil {
-		return err
-	}
 	sb, err := b.Create(ctx, sandbox.Spec{Env: env, View: v})
 	if err != nil {
 		return err
 	}
-	e.sb, e.hasBuilt, e.mounts = sb, true, v.Mounts
+	e.sb, e.hasBuilt, e.mounts, e.actor = sb, true, v.Mounts, a
 	return nil
 }
 

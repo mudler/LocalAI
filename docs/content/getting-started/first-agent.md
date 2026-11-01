@@ -16,7 +16,8 @@ An agent that uses tools needs a model that can call them. Open **Models**, inst
 1. Open **Agents** in the sidebar.
 2. Choose **New agent**. Give it a name and the instructions it should always follow, for example: `Answer in French. Cite the file you used.`
 3. Leave the lists empty for an agent that only talks. Add an MCP server of the model, an add-on, a collection or a skill to give it more. An empty list grants nothing: an agent never has more than you put in it.
-4. Save it.
+4. Optional: in **Files**, choose **One folder** and pick a folder, for example `/Projects/Acme`, with **Can read** or **Can read and change**. Chats with the agent then see only that folder and their own chat folder, not the rest of your files. See [One folder for an agent](/features/chats-agents/#one-folder-for-an-agent).
+5. Save it.
 
 ## Talk to it
 
@@ -31,6 +32,7 @@ Open **Triggers** and make a schedule, for example `weekdays 09:00`, with the ag
 - **No model.** An agent without a model needs one when you start the chat. A trigger or a connector needs an agent that names a model.
 - **A tool is missing.** The chat lists what was unavailable at the start of the turn. Check that the MCP server is configured on the model, the add-on is enabled, and the collection or skill still exists.
 - **A server of the model is unreachable.** An MCP server that does not answer makes its tools time out. Open the model's `mcp:` configuration and test the server.
+- **Folder missing.** The agent's folder was deleted, or it was imported without a folder that exists here. The agent does not start until you restore the folder from the Trash or choose another one in **Files**.
 - **A trigger did not start.** Open it on the **Triggers** page: it shows why a run was skipped or failed.
 
 ## Next steps

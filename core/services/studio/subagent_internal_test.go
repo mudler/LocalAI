@@ -12,7 +12,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
-	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // A long sub-agent run has more entries than one page; its answer is the last
@@ -55,7 +54,9 @@ var _ = Describe("subagent internal", func() {
 		ctx := context.Background()
 		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
 		Expect(err).NotTo(HaveOccurred())
-		_, err = svc.spawn(ctx, workspace.Actor{Principal: "alice", ChatID: rec.ID}, json.RawMessage(`{"task":"do it"}`))
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = svc.spawn(ctx, x, json.RawMessage(`{"task":"do it"}`))
 		Expect(err).To(HaveOccurred(), "spawn should fail when the child cannot start")
 		svc.mu.Lock()
 		waiters := len(svc.waiters)
