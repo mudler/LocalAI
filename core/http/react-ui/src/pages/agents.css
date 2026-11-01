@@ -295,6 +295,24 @@ a.ag-run-row:hover { background: color-mix(in srgb, var(--dk-hover) 45%, transpa
 .ag-import-note { padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--dk-inset); font-size: var(--fs-small); }
 .ag-import-note p { margin: 0; }
 .ag-import-note p + p { margin-top: 4px; color: var(--dk-muted); }
+/* ---- Folder (agent form) ------------------------------------------------ */
+.ag-folder { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-3); }
+.ag-folder__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; }
+.ag-folder__path {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  min-height: 32px;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--dk-inset);
+  font-family: var(--font-mono);
+  font-size: var(--fs-meta);
+  overflow-wrap: anywhere;
+}
+.ag-folder__path .lai-icon { width: 14px; height: 14px; flex: none; color: var(--dk-accent-text); }
+.ag-folder .form-group { margin: 0; }
 .agent-subsection-title { margin: 18px 0 var(--sp-2); font-size: var(--fs-body); font-weight: 600; }
 
 /* ---- Phone ----------------------------------------------------------------- */

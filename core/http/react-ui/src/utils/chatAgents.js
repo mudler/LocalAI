@@ -3,7 +3,7 @@
 export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills']
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off' }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', folder: null }
 }
 
 // Adds a name to a list: trimmed, not empty, once.
