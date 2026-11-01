@@ -350,7 +350,7 @@
     },
     "limited": "Limité par votre administrateur",
     "limitedBy": "Votre administrateur autorise au plus : {{limit}}.",
-    "hostNetwork": "Les commandes s’exécutent sur cette machine et utilisent son réseau.",
+    "hostNetwork": "Les commandes s’exécutent sur cette machine et utilisent son réseau. Les limites réseau nécessitent le module Sandbox.",
     "panel": "Règles et demandes ({{count}})",
     "rules": "Règles de ce chat",
     "cards": "Demandes de ce chat",
@@ -392,7 +392,9 @@
     },
     "allowedHosts": "Toujours autorisés par votre administrateur :",
     "allowedHostsOff": "Ils s’appliquent quand le réseau est activé.",
-    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur."
+    "allowedHostsNote": "{{count}} hôtes sont toujours autorisés par votre administrateur.",
+    "limitNote": "Réseau de cette conversation. L’administrateur fixe le maximum qu’une conversation peut atteindre.",
+    "asksAbove": "Cette conversation demande {{choice}} ; la limite de l’administrateur est {{limit}}."
   },
   "inbox": {
     "unread": "{{count}} non lues",

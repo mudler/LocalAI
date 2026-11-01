@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { aboveCeiling, ceilingKind, cardAnswers, cardStateKey, cardsByTool, networkMode, presetChoices, sortedCards } from '../../src/utils/chatEgress.js'
+import { aboveCeiling, askedAboveLimit, ceilingKind, cardAnswers, cardStateKey, cardsByTool, networkMode, presetChoices, sortedCards } from '../../src/utils/chatEgress.js'
 import { payloadFor, runChecks, EGRESS_CONFIRM_KEY, EGRESS_PRIVATE_PHRASE } from '../../src/utils/settingsPending.js'
 import { FIELD_BY_KEY } from '../../src/utils/settingsSchema.js'
 
@@ -67,4 +67,14 @@ test('settings: the private network switch sends the typed phrase and needs it t
   assert.equal(runChecks(changes, initial, typed).filter(c => c.level === 'error').length, 0)
   assert.deepEqual(payloadFor(changes, typed), { chats_egress_allow_private: true, [EGRESS_CONFIRM_KEY]: EGRESS_PRIVATE_PHRASE })
   assert.deepEqual(payloadFor([{ field, from: true, to: false }], { chats_egress_allow_private: false }), { chats_egress_allow_private: false })
+})
+
+test('chat egress: the highlighted choice is what applies, never a choice above the limit', () => {
+  const on = (view) => presetChoices(view).filter(c => c.chosen).map(c => c.id)
+  assert.deepEqual(on({ preset: 'all', ceiling: 'off', effective: 'off' }), ['off'])
+  assert.deepEqual(on({ preset: 'all', ceiling: 'registries', effective: 'registries' }), ['registries'])
+  assert.deepEqual(on({ preset: 'registries', ceiling: 'all', effective: 'registries' }), ['registries'])
+  assert.deepEqual(on({ preset: 'all', ceiling: 'off' }), ['off'])
+  assert.equal(askedAboveLimit({ preset: 'all', ceiling: 'off' }), 'all')
+  assert.equal(askedAboveLimit({ preset: 'registries', ceiling: 'all' }), '')
 })

@@ -8,11 +8,26 @@ const rank = (p) => Math.max(0, PRESETS.indexOf(p))
 // Whether a preset is above the administrator's limit.
 export function aboveCeiling(preset, ceiling) { return rank(preset) > rank(ceiling) }
 
-// The three choices of the Network row: each with whether it is chosen and
-// whether the limit blocks it.
+// What applies to the chat: the lower of its own choice and the limit. The
+// server sends it as `effective`; the fallback keeps a stale view honest.
+export function appliedPreset(egress) {
+  const ceiling = egress?.ceiling || 'off'
+  const preset = egress?.preset || 'off'
+  return egress?.effective || (aboveCeiling(preset, ceiling) ? ceiling : preset)
+}
+
+// The chat's own choice when it is wider than the limit (so it does not
+// apply), else ''. The row says it in words and never highlights it.
+export function askedAboveLimit(egress) {
+  const preset = egress?.preset || 'off'
+  return aboveCeiling(preset, egress?.ceiling || 'off') ? preset : ''
+}
+
+// The three choices of the Network row: each with whether it is what applies
+// and whether the limit blocks it.
 export function presetChoices(egress) {
   const ceiling = egress?.ceiling || 'off'
-  const chosen = egress?.preset || 'off'
+  const chosen = appliedPreset(egress)
   return PRESETS.map(p => ({ id: p, chosen: p === chosen, limited: aboveCeiling(p, ceiling) }))
 }
 

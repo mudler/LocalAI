@@ -350,7 +350,7 @@
     },
     "limited": "受管理员限制",
     "limitedBy": "管理员最多允许：{{limit}}。",
-    "hostNetwork": "命令在这台机器上运行，使用它的网络。",
+    "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要 Sandbox 插件。",
     "panel": "规则和请求（{{count}}）",
     "rules": "此聊天的规则",
     "cards": "此聊天的请求",
@@ -392,7 +392,9 @@
     },
     "allowedHosts": "管理员始终允许：",
     "allowedHostsOff": "网络开启时生效。",
-    "allowedHostsNote": "管理员始终允许 {{count}} 个主机。"
+    "allowedHostsNote": "管理员始终允许 {{count}} 个主机。",
+    "limitNote": "此对话的网络。管理员决定对话最多能访问的范围。",
+    "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。"
   },
   "inbox": {
     "unread": "{{count}} 条未读",

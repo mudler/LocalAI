@@ -350,7 +350,7 @@
     },
     "limited": "관리자가 제한함",
     "limitedBy": "관리자가 허용하는 최대 범위: {{limit}}.",
-    "hostNetwork": "명령은 이 컴퓨터에서 실행되며 이 컴퓨터의 네트워크를 사용합니다.",
+    "hostNetwork": "명령은 이 머신에서 실행되며 이 머신의 네트워크를 사용합니다. 네트워크 제한에는 Sandbox 애드온이 필요합니다.",
     "panel": "규칙과 요청 ({{count}})",
     "rules": "이 채팅의 규칙",
     "cards": "이 채팅의 요청",
@@ -392,7 +392,9 @@
     },
     "allowedHosts": "관리자가 항상 허용함:",
     "allowedHostsOff": "네트워크가 켜져 있을 때 적용됩니다.",
-    "allowedHostsNote": "관리자가 호스트 {{count}}개를 항상 허용합니다."
+    "allowedHostsNote": "관리자가 호스트 {{count}}개를 항상 허용합니다.",
+    "limitNote": "이 채팅의 네트워크입니다. 채팅이 접근할 수 있는 최대 범위는 관리자가 정합니다.",
+    "asksAbove": "이 채팅은 {{choice}}을(를) 요청합니다. 관리자 제한은 {{limit}}입니다."
   },
   "inbox": {
     "unread": "읽지 않음 {{count}}개",

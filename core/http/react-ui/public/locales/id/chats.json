@@ -350,7 +350,7 @@
     },
     "limited": "Dibatasi oleh administrator Anda",
     "limitedBy": "Administrator Anda mengizinkan paling banyak: {{limit}}.",
-    "hostNetwork": "Perintah berjalan di mesin ini dan memakai jaringannya.",
+    "hostNetwork": "Perintah berjalan di mesin ini dan memakai jaringannya. Batas jaringan memerlukan add-on Sandbox.",
     "panel": "Aturan dan permintaan ({{count}})",
     "rules": "Aturan chat ini",
     "cards": "Permintaan chat ini",
@@ -392,7 +392,9 @@
     },
     "allowedHosts": "Selalu diizinkan oleh administrator Anda:",
     "allowedHostsOff": "Berlaku saat jaringan aktif.",
-    "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda."
+    "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda.",
+    "limitNote": "Jaringan chat ini. Administrator menetapkan batas maksimum yang dapat dijangkau sebuah chat.",
+    "asksAbove": "Chat ini meminta {{choice}}; batas administrator adalah {{limit}}."
   },
   "inbox": {
     "unread": "{{count}} belum dibaca",

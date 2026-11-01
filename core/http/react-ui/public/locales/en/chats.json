@@ -729,7 +729,7 @@
     },
     "limited": "Limited by your administrator",
     "limitedBy": "Your administrator allows at most: {{limit}}.",
-    "hostNetwork": "Commands run on this machine and use its network.",
+    "hostNetwork": "Commands run on this machine and use its network. Network limits need the Sandbox add-on.",
     "panel": "Rules and requests ({{count}})",
     "rules": "Rules of this chat",
     "cards": "Requests of this chat",
@@ -771,7 +771,9 @@
     },
     "allowedHosts": "Always allowed by your administrator:",
     "allowedHostsOff": "They apply when the network is on.",
-    "allowedHostsNote": "{{count}} hosts are always allowed by your administrator."
+    "allowedHostsNote": "{{count}} hosts are always allowed by your administrator.",
+    "limitNote": "This chat’s network. The administrator sets the most a chat can reach.",
+    "asksAbove": "This chat asks for {{choice}}; the administrator limit is {{limit}}."
   },
   "change": {
     "loading": "Reading the trigger change...",

@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { AdminHint, CardAnswerButtons } from './NetworkConsentCard'
-import { cardAnswers, ceilingKind, cardStateKey, hostPort, networkMode, presetChoices, sortedCards } from '../../utils/chatEgress'
+import { askedAboveLimit, cardAnswers, ceilingKind, cardStateKey, hostPort, networkMode, presetChoices, sortedCards } from '../../utils/chatEgress'
 import './network.css'
 
 // The Network row of the chat's Tools menu: how much of the network the
@@ -22,6 +22,7 @@ export default function NetworkRow({ egress }) {
   if (mode === 'host') return <p className="cmd-notice__line" data-testid="chat-network-host">{t('egress.hostNetwork')}</p>
   const choices = presetChoices(egress)
   const kind = ceilingKind(egress)
+  const asked = askedAboveLimit(egress)
   const hosts = egress.allowed_hosts || []
   const items = egress.rules.length + egress.cards.length + hosts.length
   return (
@@ -33,7 +34,7 @@ export default function NetworkRow({ egress }) {
             <button
               key={c.id} type="button" role="radio" className="dk-seg" aria-checked={c.chosen} aria-pressed={c.chosen}
               disabled={c.limited} title={c.limited ? t('egress.limited') : t(`egress.presetHint.${c.id}`)}
-              onClick={() => { if (!c.chosen) egress.setPreset(c.id) }} data-testid={`chat-network-${c.id}`}
+              onClick={() => { if (c.id !== egress.preset) egress.setPreset(c.id) }} data-testid={`chat-network-${c.id}`}
             >
               {t(`egress.preset.${c.id}`)}
             </button>
@@ -48,6 +49,12 @@ export default function NetworkRow({ egress }) {
             {kind === 'capped' && <> {t('egress.limitedBy', { limit: t(`egress.preset.${egress.ceiling}`) })}</>}
           </>}
       </p>
+      {asked && (
+        <p className="chat-network__note" data-testid="chat-network-asks">
+          {t('egress.asksAbove', { choice: t(`egress.preset.${asked}`), limit: t(`egress.preset.${egress.ceiling || 'off'}`) })}
+        </p>
+      )}
+      <p className="chat-network__note" data-testid="chat-network-limit-note">{t('egress.limitNote')}</p>
       {kind && <AdminHint isAdmin={isAdmin} egress={egress} testId="chat-network-limit-admin" />}
       {hosts.length > 0 && egress.effective && egress.effective !== 'off' && (
         <p className="chat-network__note" data-testid="chat-network-allowed-note">{t('egress.allowedHostsNote', { count: hosts.length })}</p>

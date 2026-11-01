@@ -825,6 +825,13 @@ access]({{%relref "features/addons#network-access" %}})). Each chat has a
   `pip install`, `npm install`, `go get` and `cargo build` work.
 - **All public sites**: commands reach every public host.
 
+The highlighted choice is what applies: the lower of the choice of the chat and
+the limit. When a chat asks for more than the limit (for example All public
+sites with the limit Off), the row shows the limit highlighted and says in a
+line what the chat asked for. Where commands run on the server's own machine,
+the row is a line saying they use its network; network limits need the Sandbox
+add-on.
+
 A choice above the limit an administrator set (`chats_egress_ceiling`) is
 greyed out with *Limited by your administrator*. When the limit is `off` (the
 default), the row says *Off: the administrator has not allowed network access*

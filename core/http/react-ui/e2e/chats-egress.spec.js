@@ -92,6 +92,27 @@ test.describe('Network of the Sandbox commands', () => {
     await expect(rule).toHaveCount(0)
   })
 
+  test('the highlighted choice is what applies when the chat asks for more than the limit', async ({ page }) => {
+    await stubChat(page, { egress: view({ preset: 'all', ceiling: 'off', effective: 'off' }) })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network-off')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('chat-network-all')).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByTestId('chat-network-asks')).toHaveText('This chat asks for All public sites; the administrator limit is Off.')
+    await expect(page.getByTestId('chat-network-limit-note')).toBeVisible()
+    await shot(page, 'network-over-limit-off')
+  })
+
+  test('with the limit on registries a chat that asks for all shows registries', async ({ page }) => {
+    await stubChat(page, { egress: view({ preset: 'all', ceiling: 'registries', effective: 'registries' }) })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network-registries')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('chat-network-all')).toHaveAttribute('aria-checked', 'false')
+    await expect(page.getByTestId('chat-network-asks')).toContainText('the administrator limit is Package registries')
+    await shot(page, 'network-over-limit-registries')
+  })
+
   test('the panel lists the hosts the administrator always allows, read only', async ({ page }) => {
     await stubChat(page, { egress: view({ preset: 'registries', effective: 'registries', allowed_hosts: ['api.example.org', 'git.example.org:8443'] }) })
     await page.goto('/app/chats/c1')
@@ -118,7 +139,7 @@ test.describe('Network of the Sandbox commands', () => {
     await stubChat(page, { egress: view({ applies: false, applies_reason: 'host' }) })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByTestId('chat-network-host')).toHaveText('Commands run on this machine and use its network.')
+    await expect(page.getByTestId('chat-network-host')).toHaveText('Commands run on this machine and use its network. Network limits need the Sandbox add-on.')
     await expect(page.getByTestId('chat-network')).toHaveCount(0)
   })
 

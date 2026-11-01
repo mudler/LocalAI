@@ -350,7 +350,7 @@
     },
     "limited": "Limitado pelo seu administrador",
     "limitedBy": "Seu administrador permite no máximo: {{limit}}.",
-    "hostNetwork": "Os comandos rodam nesta máquina e usam a rede dela.",
+    "hostNetwork": "Os comandos são executados nesta máquina e usam a rede dela. Os limites de rede exigem o complemento Sandbox.",
     "panel": "Regras e pedidos ({{count}})",
     "rules": "Regras deste chat",
     "cards": "Pedidos deste chat",
@@ -392,7 +392,9 @@
     },
     "allowedHosts": "Sempre permitidos pelo seu administrador:",
     "allowedHostsOff": "Eles valem quando a rede está ligada.",
-    "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador."
+    "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador.",
+    "limitNote": "Rede deste chat. O administrador define o máximo que um chat pode alcançar.",
+    "asksAbove": "Este chat pede {{choice}}; o limite do administrador é {{limit}}."
   },
   "inbox": {
     "unread": "{{count}} não lidas",
