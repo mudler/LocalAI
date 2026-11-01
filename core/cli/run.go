@@ -70,6 +70,7 @@ type RunCMD struct {
 
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"${generatedcontentpath}" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
 	UploadPath                   string        `env:"LOCALAI_UPLOAD_PATH,UPLOAD_PATH" type:"path" default:"${uploadpath}" help:"Path to store uploads from files api" group:"storage"`
+	ChatsSharedFilesDir          string        `env:"LOCALAI_CHATS_SHARED_FILES_DIR" help:"Dedicated absolute shared workspace blob directory (requires PostgreSQL); overrides workspace S3, not model staging. Startup-only" group:"storage"`
 	DataPath                     string        `env:"LOCALAI_DATA_PATH" type:"path" default:"${basepath}/data" help:"Path for persistent data (chats, files, collections, jobs and the JSON stores when there is no database). Separates mutable data from configuration. Use - to keep nothing on disk: chats then live in memory and files are off" group:"storage"`
 	LocalaiConfigDir             string        `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
 	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
@@ -384,6 +385,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithGeneratedContentDir(r.GeneratedContentPath),
 		config.WithUploadDir(r.UploadPath),
 		config.WithDataPath(r.DataPath),
+		r.chatsSharedFilesOption(),
 		config.WithDynamicConfigDir(r.LocalaiConfigDir),
 		config.WithDynamicConfigDirPollInterval(r.LocalaiConfigDirPollInterval),
 		config.WithF16(r.F16),
@@ -1085,4 +1087,10 @@ func waitForServerReady(address string, ctx context.Context) {
 		case <-ticker.C:
 		}
 	}
+}
+
+// chatsSharedFilesOption keeps the startup-only value unnormalized: relative
+// and traversal paths must reach validation rather than becoming valid paths.
+func (r *RunCMD) chatsSharedFilesOption() config.AppOption {
+	return config.WithChatsSharedFilesDir(r.ChatsSharedFilesDir)
 }

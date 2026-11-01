@@ -1584,3 +1584,35 @@ Install coalescing is per frontend instance and includes a keyed identity of
 the snapshot, so concurrent installs with different environments do not share an
 install reply. The worker owns process-local snapshots; they are rebuilt from
 model configuration on each install, not persisted as a new cluster state store.
+
+### Workspace Files without S3
+
+Files can explicitly use a shared filesystem instead of S3 with
+`--chats-shared-files-dir=/srv/localai/workspace-blobs` or
+`LOCALAI_CHATS_SHARED_FILES_DIR`. This immutable startup selection requires the
+actual PostgreSQL auth database on **every** Files participant, including the
+add-on owner with distributed mode disabled. It selects direct workspace FS
+storage before the S3 adapter; S3 remains available for global storage and
+model/input staging. Unset preserves the default S3 behavior and no-S3 Files
+guard. It does not alter owner/frontend roles.
+
+Mount the same dedicated, absolute, non-root, service-controlled directory on
+frontends, the add-on owner and optional chat workers; inference-only nodes do
+not need it. PostgreSQL remains authoritative for metadata and references,
+shared immutable blobs live on the volume, and local scratch remains disposable.
+Compatible UID/GID and trusted writers are required; LocalAI does not recursively
+chmod/chown existing trees. Symlink components and unsafe paths fail startup.
+
+Same-node RWO/local-path storage requires enforced co-placement, without a
+cross-node failover claim. Multi-node deployments need coherent shared storage
+(typically RWX) with verified atomic same-filesystem rename, cross-client
+visibility and durable file/directory synchronization. The local startup probe
+cannot certify those remote guarantees or prove two mounts share a volume. Its
+five-second wait does not cancel blocked filesystem syscalls or bound preceding
+path inspection. See [Shared filesystem for Files](/features/chats/#shared-filesystem-for-files)
+for the consumer and durability contract, serialized upload/metadata coordination,
+context-aware blocked readers and bounded 30-second orphan cleanup.
+
+No automatic migration occurs. Use an empty workspace or plan and verify a
+separate blob copy before switching populated PostgreSQL metadata. All consumers
+must switch together: mixed S3/local/shared roots can yield missing content.

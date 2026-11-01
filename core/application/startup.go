@@ -86,6 +86,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 		application.authDB = authDB
 	}
 
+	if err := application.validateSharedFiles(); err != nil {
+		if application.authDB != nil {
+			if db, e := application.authDB.DB(); e == nil {
+				_ = db.Close()
+			}
+		}
+		return nil, err
+	}
+
 	if err := application.start(); err != nil {
 		if application.authDB != nil {
 			if sqlDB, e := application.authDB.DB(); e == nil {
@@ -415,7 +424,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	// The chats service needs the cluster message bus, so it starts after distributed wiring.
-	application.initStudioFiles()
+	if err := application.initStudioFiles(); err != nil {
+		_ = application.Shutdown()
+		return nil, err
+	}
 	application.initStudioService()
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.RequireBackendIntegrity, nil, options.ModelsURL...); err != nil {

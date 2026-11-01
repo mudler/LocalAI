@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -50,17 +51,27 @@ func (a *Application) StudioFiles() *files.Service {
 // SQLite file or PostgreSQL) the tree lives there, in the GORM store. With no
 // database it is a folder under the data path with a JSON index, in the JSON
 // store; a build without cgo and without any build tag has it too. The bytes
-// live in the object store of a cluster, and otherwise in a folder under the
-// data path. With no data path there is nowhere to keep files, so they are
-// off. Moving files from one index to the other is not supported.
-func (a *Application) initStudioFiles() {
+// live at the explicit shared root when configured, otherwise in the cluster
+// object store or a folder under the data path. Explicit shared storage permits
+// temporary local scratch without a data path; legacy standalone Files are off. Moving files from one index to the other is not supported.
+func (a *Application) initStudioFiles() (result error) {
+	shared := a.applicationConfig.ChatsSharedFilesDir != ""
+	if err := a.validateSharedFiles(); err != nil {
+		return err
+	}
+	defer func() {
+		if result != nil && a.studioFilesTemp != "" {
+			_ = os.RemoveAll(a.studioFilesTemp)
+			a.studioFilesTemp = ""
+		}
+	}()
 	dp := a.applicationConfig.DataPath
 	dist := a.Distributed()
 	if reason := clusterFilesBlocker(a.applicationConfig, dist != nil && dist.Store != nil); reason != "" {
 		a.studioFiles = files.Disabled(reason)
 		return
 	}
-	if dp == "" && (a.authDB == nil || dist == nil || dist.Store == nil) {
+	if !shared && dp == "" && (a.authDB == nil || dist == nil || dist.Store == nil) {
 		a.studioFiles = files.Disabled("There is no data path, so files are off. Start LocalAI with a data path to keep files.")
 		return
 	}
@@ -68,6 +79,9 @@ func (a *Application) initStudioFiles() {
 	if dp == "" { // a cluster without a data path: the blob cache is a temporary folder
 		dir, err := os.MkdirTemp("", "localai-files-*")
 		if err != nil {
+			if shared {
+				return fmt.Errorf("shared workspace scratch: %w", err)
+			}
 			a.studioFiles = files.Disabled("Files are off: there is no folder for their cache.")
 			return
 		}
@@ -80,18 +94,26 @@ func (a *Application) initStudioFiles() {
 
 	var blobs blob.Store
 	var err error
-	if dist != nil && dist.Store != nil {
+	if shared {
+		blobs, err = blob.NewFS(a.applicationConfig.ChatsSharedFilesDir)
+	} else if dist != nil && dist.Store != nil {
 		blobs = blob.NewObjectStore(dist.Store, filepath.Join(root, "blobcache"))
 	} else {
 		blobs, err = blob.NewFS(filepath.Join(root, "blobs"))
 	}
 	if err != nil {
+		if shared {
+			return fmt.Errorf("shared workspace blob store: %w", err)
+		}
 		xlog.Warn("Files disabled: cannot open the blob store", "error", err)
 		a.studioFiles = files.Disabled("Files are off: their storage could not be opened.")
 		return
 	}
 	ws, closer, err := a.openWorkspaceIndex(root, blobs)
 	if err != nil {
+		if shared {
+			return fmt.Errorf("shared workspace index: %w", err)
+		}
 		xlog.Warn("Files disabled: cannot start the workspace", "error", err)
 		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
 		return
@@ -103,6 +125,9 @@ func (a *Application) initStudioFiles() {
 		if closer != nil {
 			_ = closer.Close()
 		}
+		if shared {
+			return fmt.Errorf("shared workspace folders: %w", err)
+		}
 		return
 	}
 	// The office skills ship with the server. A copy that fails leaves the
@@ -113,6 +138,7 @@ func (a *Application) initStudioFiles() {
 	a.studioFiles, a.studioFilesIndex = f, closer
 	a.initStudioTextIndex(f, root)
 	a.syncAddonSkills(f)
+	return nil
 }
 
 // initStudioTextIndex builds the text index of the documents in the files and
@@ -199,7 +225,7 @@ func addonSkillSync(f *files.Service) addons.SkillSync {
 // on the frontend itself, and each frontend would keep its own copy of every
 // file, so files are off instead of silently wrong.
 func clusterFilesBlocker(cfg *config.ApplicationConfig, clustered bool) string {
-	if clustered && cfg.Distributed.StorageURL == "" {
+	if clustered && cfg.ChatsSharedFilesDir == "" && cfg.Distributed.StorageURL == "" {
 		return "Files are off: in a cluster they need S3 object storage (the storage URL setting), because without it each frontend would keep its own copy of every file."
 	}
 	return ""
@@ -211,7 +237,7 @@ func clusterFilesBlocker(cfg *config.ApplicationConfig, clustered bool) string {
 // application closes itself.
 func (a *Application) openWorkspaceIndex(root string, blobs blob.Store) (workspace.Store, io.Closer, error) {
 	if a.authDB != nil {
-		ws, err := gormstore.New(a.authDB, blobs, gormstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})
+		ws, err := gormstore.New(a.authDB, blobs, gormstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize, SharedFilesystem: a.applicationConfig.ChatsSharedFilesDir != ""})
 		return ws, nil, err
 	}
 	ws, err := jsonstore.New(filepath.Join(root, "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})

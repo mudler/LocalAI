@@ -141,8 +141,9 @@ type ApplicationConfig struct {
 	EnableBackendLogging         bool
 	GeneratedContentDir          string
 
-	UploadDir string
-	DataPath  string // Persistent data directory for collectiondb, agents, etc.
+	UploadDir           string
+	ChatsSharedFilesDir string // Startup-only shared workspace blob root; requires PostgreSQL.
+	DataPath            string // Persistent data directory for collectiondb, agents, etc.
 
 	DynamicConfigsDir             string
 	DynamicConfigsDirPollInterval time.Duration
@@ -1647,4 +1648,9 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 		return DefaultChatsMaxIterations
 	}
 	return o.ChatsMaxIterations
+}
+
+// WithChatsSharedFilesDir selects shared workspace blobs for this process only.
+func WithChatsSharedFilesDir(dir string) AppOption {
+	return func(o *ApplicationConfig) { o.ChatsSharedFilesDir = dir }
 }
