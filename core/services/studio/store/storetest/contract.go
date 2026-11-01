@@ -421,6 +421,46 @@ func Run(newStore New) {
 		Expect(got.Title).To(Equal("Renamed"))
 	})
 
+	It("round-trips ScopedAgent and reads old chats as false", func() {
+		s := newStore()
+		chat(s, "plain", "alice")
+		rec, err := s.GetChat(ctx(), "alice", "plain")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.ScopedAgent).To(BeFalse(), "a chat stored without the flag")
+
+		scoped := session.ChatRecord{ID: "sc1", Principal: "alice", Title: "Scoped", Created: t0, Updated: t0, AgentID: "ag1", ScopedAgent: true}
+		Expect(s.CreateChat(ctx(), scoped)).To(Succeed())
+		got, err := s.GetChat(ctx(), "alice", "sc1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ScopedAgent).To(BeTrue(), "CreateChat writes the flag")
+
+		// The loop saves its own copy of the record; a stale copy must not
+		// clear the flag, or a chat whose scoped agent is deleted would get
+		// the whole home.
+		stale := got
+		stale.ScopedAgent, stale.Title, stale.Updated = false, "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "sc1")
+		Expect(got.ScopedAgent).To(BeTrue(), "UpdateChat leaves the flag alone")
+		Expect(got.Title).To(Equal("Renamed"))
+
+		Expect(s.SetScopedAgent(ctx(), "bob", "sc1", false)).To(MatchError(session.ErrNotFound), "another principal's SetScopedAgent")
+		Expect(s.SetScopedAgent(ctx(), "alice", "missing", true)).To(MatchError(session.ErrNotFound))
+		Expect(s.SetScopedAgent(ctx(), "alice", "sc1", false)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "sc1")
+		Expect(got.ScopedAgent).To(BeFalse(), "after clearing")
+		Expect(s.SetScopedAgent(ctx(), "alice", "plain", true)).To(Succeed())
+		got, _ = s.GetChat(ctx(), "alice", "plain")
+		Expect(got.ScopedAgent).To(BeTrue(), "after setting")
+		list, err := s.ListChats(ctx(), "alice", session.ChatCursor{}, 0)
+		Expect(err).NotTo(HaveOccurred())
+		flags := map[string]bool{}
+		for _, r := range list {
+			flags[r.ID] = r.ScopedAgent
+		}
+		Expect(flags).To(Equal(map[string]bool{"plain": true, "sc1": false}), "ListChats carries the flag")
+	})
+
 	It("pending messages are taken once, in send order", func() {
 		s := newStore()
 		chat(s, "c1", "alice")

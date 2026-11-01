@@ -107,6 +107,37 @@ func Run(newStore NewStore) {
 		Expect(s.Delete(ctx, "u1", "a1")).To(MatchError(agents.ErrNotFound), "second delete")
 		Expect(s.Put(ctx, sample("a2", "u1", "x"))).To(Succeed(), "the name is free after delete")
 	})
+	It("round-trips the folder and its mode", func() {
+		s := newStore()
+		a := sample("a1", "u1", "Scoped")
+		a.FolderID, a.FolderMode = 42, agents.FolderRead
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, err := s.Get(ctx, "u1", "a1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.FolderID).To(Equal(int64(42)))
+		Expect(got.FolderMode).To(Equal(agents.FolderRead))
+
+		a.FolderMode = agents.FolderWrite
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "a1")
+		Expect(got.FolderMode).To(Equal(agents.FolderWrite), "after replace")
+
+		// A mode without a folder is an agent whose folder is not chosen yet.
+		a.FolderID = 0
+		Expect(s.Put(ctx, a)).To(Succeed())
+		l, err := s.List(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(l).To(HaveLen(1))
+		Expect(l[0].FolderID).To(BeZero())
+		Expect(l[0].FolderMode).To(Equal(agents.FolderWrite), "the unset state is kept")
+
+		a.FolderMode = ""
+		Expect(s.Put(ctx, a)).To(Succeed())
+		all, err := s.ListAll(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(all[0].FolderID).To(BeZero())
+		Expect(all[0].FolderMode).To(BeEmpty(), "after clearing")
+	})
 	It("ReturnedListsAreCopies", func() {
 		s := newStore()
 		_ = s.Put(ctx, sample("a1", "u1", "x"))
