@@ -149,6 +149,11 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   this machine can read every file LocalAI can read, so nothing can keep it in
   the folder. The Tools menu of the chat says why. On a server without the
   Sandbox, the agent still reads and changes its folder with the file tools.
+- Add-ons that a chat with the agent calls work in the same folders. For an
+  add-on that works on your files, such as Office or the Sandbox, `/` is the
+  agent's folder, and the Sandbox sees the chat folder next to it at
+  `/workspace/chat`. This holds for every tool, also one that only reads. See
+  [Workspace operations]({{%relref "features/addons#workspace-operations" %}}).
 - A `PUT` without `folder` keeps the folder the agent has, so a client that
   does not know the field cannot give the agent more files by editing it.
   `"folder": {"path": ""}` clears the folder.

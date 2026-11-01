@@ -1798,7 +1798,13 @@ cache prevents replay within that handler. This cache is a documented per-owner 
 it does not require shared storage because no other process can use that audience.
 
 The signed payload binds the peer, actor, credential reference, operation ID, request
-body, audience, nonce, and expiry. The carrier never forwards browser authorization,
+body, audience, nonce, and expiry. When a chat made the call, it also binds the chat
+(`chat`: the user's principal and the chat ID), so the owner runs the add-on's
+workspace operations with that chat's access (see
+[Workspace operations](#workspace-operations)). A changed, added or removed chat fails
+the signature check. A request that no chat made has no `chat` field and signs as
+before. An owner that does not know the field refuses a forwarded call that a chat made,
+so upgrade the owner before the frontends. The carrier never forwards browser authorization,
 cookies, or actor headers. It has no proxy discovery, redirects, affinity, fan-out,
 owner election, or failover. An absent owner returns unavailable.
 
@@ -4093,7 +4099,19 @@ An add-on that holds `sandbox=workspace.`, `office=workspace.` or `web=workspace
 - `workspace.admin` answers only when the user of the request is an administrator, and is refused for anyone else. An add-on uses it to guard a setting; it never decides who is an administrator itself.
 - `workspace.export` copies one file of the user into the data directory, and `workspace.import` (an `act` request) writes one file of the data directory into the files of the user, with the version check of the files API.
 
-Every call runs as the user of the live request, never as a user named in the arguments. Folders are named relative to the home of that user, and `dir` is a relative folder inside the add-on's data directory; an absolute path, a parent reference or a symbolic link is refused.
+Every call runs as the user of the live request, never as a user named in the arguments. `dir` is a relative folder inside the add-on's data directory; an absolute path, a parent reference or a symbolic link is refused.
+
+What a call can reach depends on who made the request:
+
+- **A call from a chat.** The host binds every add-on call that a chat makes to that chat, for every tool kind: a read tool that names no resource (such as the Office add-on's `read-docx`) as well as an action or a change. The calls act with the chat's own access, the same access as the chat's file tools:
+  - In a chat whose agent has no folder, `/` is the user's home, as before.
+  - In a chat whose agent has a folder (see [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}})), `/` is the agent's folder. A path names a file inside it: `/Other/x` is `Other/x` inside the folder, not a folder of the home. The add-on can also name the chat's own folder as `/workspace/chat/x`, and the shared folders as `/workspace/shared-<name>/x` (read only). A path with a parent reference, NUL or a control character is refused. An encoded or look-alike separator (`..%2f`, `%2e%2e`, a backslash, U+2024, U+FF0F) is part of a name. A path outside these folders is not found. The agent's mode applies: a read-only folder takes no file.
+  - When an add-on mounts its `/` at `home`, the host also mounts the chat's folder at `chat` in a chat whose agent has a folder, so the Sandbox sees `/workspace/home` and `/workspace/chat` as the chat's file tools do. No add-on needs a change for this.
+  - `workspace.changes` lists only the change sets inside the chat's folders, and a `workspace.commit` entry outside every mount comes back as an `outside-view` conflict.
+  - A call whose chat the host cannot resolve (the chat is gone, its agent's folder is missing, or the binding names another user than the actor) is refused with `bad_request`. It never falls back to the home. An action always works for one chat, so an action request that carries no binding and whose resource names no chat of the user is refused too.
+- **A call that no chat made**, such as a call from the add-on's own page or the OpenAI-compatible route, works on the user's whole home, as the Files page does. The person acts with their own rights there.
+
+The binding stays on the host. It is kept next to the envelope of the live request, and between frontends it rides in the signed forwarded request (see [Owner forwarding and HTTP relays](#owner-forwarding-and-http-relays)). It is never a field of the envelope the add-on receives, which installed add-ons decode with unknown fields refused, so the add-on contract does not change. The access is resolved again from the stores at each call (stateless per request).
 
 #### Network operations
 

@@ -45,12 +45,6 @@ var actorAllowlist = map[string]string{
 	"chatfiles.go:Service.ResolveAttachments":                           "the attachments a person sees in the transcript are a user surface",
 	"service.go:New":                                                    "the administrator of the change feed and the trigger watcher",
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
-	// Not converted yet: each is the work of a later lane of the agent folder
-	// plan, and must move to the chat's access there.
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.view":       "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.changes":    "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.export":     "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.importFile": "lane 6: add-on workspace operations",
 }
 
 // actorBuilds returns the places in src that build an actor, as
@@ -95,11 +89,15 @@ func actorBuilds(fset *token.FileSet, f *ast.File) map[string][]string {
 // of its own would see more than the turn's access: the home of a scoped
 // chat. viewBuilds finds, in the same folders:
 //   - a call of BuildView or SkillLayerMounts;
-//   - a call of NewAccess, UserAccess or ScopedAccess;
+//   - a call of NewAccess, UserAccess, ScopedAccess or PersonAccess;
 //   - a call X.View(ctx, actor, mounts) with three arguments: a store's View.
 //     (session.Access.View takes none.)
 var viewAllowlist = map[string]string{
 	"agentaccess.go:Service.chatAccess": "the resolver: the one place a chat's access is built",
+	// A user surface: an add-on call that no chat made (an add-on page, the
+	// web interface) works on the whole home, as the Files page does. A
+	// chat's add-on call takes chatAccess.
+	"addonaccess.go:Service.AddonAccess": "the access of an add-on call that no chat made",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must take the chat's access there.
 }
@@ -116,7 +114,7 @@ func viewBuilds(fset *token.FileSet, f *ast.File) map[string][]string {
 		switch {
 		case name == "BuildView" || name == "SkillLayerMounts":
 			return name
-		case name == "NewAccess" || name == "UserAccess" || name == "ScopedAccess":
+		case name == "NewAccess" || name == "UserAccess" || name == "ScopedAccess" || name == "PersonAccess":
 			return name
 		case name == "View" && len(x.Args) == 3:
 			return "a store's View"
@@ -219,6 +217,8 @@ func b() { _, _ = st.View(ctx, ac, reqs) }
 func (s *S) c() { _, _ = s.mgr.UserAccess(ctx, ac) }
 func d() { _, _ = session.NewAccess(ac, v) }
 func e() { _ = x.View(); _ = x.Place() }
+func (s *S) f() { _, _ = s.mgr.PersonAccess(ctx, ac) }
+func g() { _, _ = x.SubView(ctx, st, reqs) }
 `
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, "x.go", src, parser.SkipObjectResolution)
@@ -229,6 +229,8 @@ func e() { _ = x.View(); _ = x.Place() }
 		Expect(got).To(HaveKey("S.c"))
 		Expect(got).To(HaveKey("d"))
 		Expect(got).NotTo(HaveKey("e"), "Access.View() builds nothing")
+		Expect(got).To(HaveKey("S.f"))
+		Expect(got).NotTo(HaveKey("g"), "a sub-view of an access reaches no more than the access")
 	})
 
 	It("catches a literal, a UserActor call and a Files.Actor call", func() {
