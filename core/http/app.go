@@ -20,6 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 
@@ -62,6 +63,33 @@ func defaultBodyLimitSkipper(c echo.Context) bool {
 	return c.Request().Method == http.MethodPost && c.Path() == "/3d/remesh"
 }
 
+// bodyLimitSkipper skips the general body limit for the routes that bring
+// their own. The upload of the Files page and a chat message with attachments
+// are two of them unless the operator set --upload-limit: then that value
+// wins, lower or higher. Without it the workspace limits each file to its own
+// cap, and the message handler limits the whole message, while they read the
+// body.
+func bodyLimitSkipper(cfg *config.ApplicationConfig) func(echo.Context) bool {
+	return func(c echo.Context) bool {
+		if defaultBodyLimitSkipper(c) {
+			return true
+		}
+		if cfg.UploadLimitSet() {
+			return false
+		}
+		r := c.Request()
+		switch {
+		case r.Method == http.MethodPut && c.Path() == "/api/chats/files/content":
+			return true
+		case r.Method == http.MethodPost && c.Path() == "/api/chats/:id/messages":
+			// Only the multipart form carries files; a JSON message keeps the
+			// general limit.
+			return strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
+		}
+		return false
+	}
+}
+
 // applyModelLoadCooldown maps a ModelLoadCooldownError anywhere in err's chain
 // to HTTP 503 with a Retry-After header (whole seconds, floor 1), so a client
 // polling a model whose load recently failed backs off instead of triggering a
@@ -76,6 +104,10 @@ func applyModelLoadCooldown(err error, code int, c echo.Context) int {
 		secs = 1
 	}
 	c.Response().Header().Set("Retry-After", strconv.Itoa(secs))
+	c.Response().Header().Set(model.LoadFailedHeader, "true")
+	if coolErr.BackendMissing {
+		c.Response().Header().Set(model.LoadCauseHeader, model.LoadCauseBackendMissing)
+	}
 	return http.StatusServiceUnavailable
 }
 
@@ -185,27 +217,21 @@ func setModelLoadingRetryAfter(loadErr *nodes.ModelLoadingError, c echo.Context)
 // @tag.description Prometheus metrics, backend status, system information
 // @tag.name mcp
 // @tag.description Model Context Protocol — tool-augmented chat with MCP servers
-// @tag.name agent-jobs
-// @tag.description Agent task and job management
 // @tag.name p2p
 // @tag.description Peer-to-peer networking nodes and tokens
 // @tag.name rerank
 // @tag.description Document reranking
 // @tag.name instructions
 // @tag.description API instruction discovery — browse instruction areas and get endpoint guides
-// @tag.name chat-history
-// @tag.description Server-side persistence of WebUI chat conversations
 
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
 
 	// Set body limit
-	if application.ApplicationConfig().UploadLimitMB > 0 {
-		e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
-			Limit:   fmt.Sprintf("%dM", application.ApplicationConfig().UploadLimitMB),
-			Skipper: defaultBodyLimitSkipper,
-		}))
-	}
+	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
+		Limit:   fmt.Sprintf("%dM", application.ApplicationConfig().GeneralUploadLimitMB()),
+		Skipper: bodyLimitSkipper(application.ApplicationConfig()),
+	}))
 
 	// SPA fallback handler, set later when React UI is available
 	var spaFallback func(echo.Context) error
@@ -482,10 +508,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Feature middlewares: per-feature access control
-	agentsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureAgents)
-	skillsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureSkills)
 	collectionsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureCollections)
-	mcpJobsMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCPJobs)
 
 	requestExtractor := httpMiddleware.NewRequestExtractor(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	requestExtractor.SetFailoverManager(application.FailoverManager())
@@ -538,9 +561,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	mcpMw := auth.RequireFeature(application.AuthDB(), auth.FeatureMCP)
-	chatHistoryMw := auth.RequireFeature(application.AuthDB(), auth.FeatureChatHistory)
-	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpJobsMw, mcpMw, chatHistoryMw)
-	routes.RegisterAgentPoolRoutes(e, application, agentsMw, skillsMw, collectionsMw)
+	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator(), application, adminMiddleware, mcpMw)
+	routes.RegisterCollectionsRoutes(e, application, collectionsMw)
 	if addonsOn {
 		// Fine-tuning routes
 		fineTuningMw := auth.RequireFeature(application.AuthDB(), auth.FeatureFineTuning)
@@ -601,6 +623,15 @@ func API(application *application.Application) (*echo.Echo, error) {
 		if err := application.RegisterAddonEngineDatasets(localai.NewFineTuneDatasets(ftService)); err != nil {
 			return nil, err
 		}
+		if err := application.RegisterAddonWorkspace(application.StudioFiles()); err != nil {
+			return nil, err
+		}
+		if err := application.RegisterAddonEgress(); err != nil {
+			return nil, err
+		}
+		if err := application.RegisterAddonConnector(); err != nil {
+			return nil, err
+		}
 	} else {
 		routes.RegisterAddonsUnavailable(e, "/api/fine-tuning")
 		routes.RegisterAddonsUnavailable(e, "/api/quantization")
@@ -621,16 +652,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 	natsCfg := distCfg.NatsAuthConfig()
 	routes.RegisterNodeSelfServiceRoutes(e, registry, distCfg.RegistrationToken, distCfg.AutoApproveNodes, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, natsCfg)
 	routes.RegisterNodeAdminRoutes(e, registry, remoteUnloader, application.GalleryService(), opcache, application.ApplicationConfig(), adminMiddleware, application.AuthDB(), application.ApplicationConfig().Auth.APIKeyHMACSecret, application.ApplicationConfig().Distributed.RegistrationToken, natsCfg, workerHTTPDial)
-
-	// Distributed SSE routes (job progress + agent events via NATS)
-	if d := application.Distributed(); d != nil {
-		if d.Dispatcher != nil {
-			e.GET("/api/agent/jobs/:id/progress", d.Dispatcher.SSEHandler(), mcpJobsMw)
-		}
-		if d.AgentBridge != nil {
-			e.GET("/api/agents/:name/sse/distributed", d.AgentBridge.SSEHandler(), agentsMw)
-		}
-	}
 
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	routes.RegisterAnthropicRoutes(e, requestExtractor, application)
@@ -749,6 +770,16 @@ func API(application *application.Application) (*echo.Echo, error) {
 			// they only get a short TTL.
 			e.GET("/assets/*", serveReactSubdir("assets", immutableAssetCacheControl))
 			e.GET("/locales/*", serveReactSubdir("locales", "public, max-age=300"))
+			// The service worker of browser push. It must not be cached for
+			// long: a browser checks it for updates on its own schedule.
+			e.GET("/chats-sw.js", func(c echo.Context) error {
+				raw, err := fs.ReadFile(reactFS, "chats-sw.js")
+				if err != nil {
+					return echo.NewHTTPError(http.StatusNotFound)
+				}
+				c.Response().Header().Set("Cache-Control", "no-cache")
+				return c.Blob(http.StatusOK, "text/javascript; charset=utf-8", raw)
+			})
 		}
 	}
 	routes.RegisterJINARoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
@@ -774,6 +805,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 	e.Server.RegisterOnShutdown(func() {
 		xlog.Info("LocalAI API server shutting down")
 	})
+
+	routes.RegisterStudioRoutes(e, application.StudioService(), routes.NewStudioModelChecker(application), adminMiddleware)
+
+	// The studio loop reaches the model through this router, in memory.
+	if sp := application.StudioProvider(); sp != nil {
+		sp.Transport().SetHandler(e)
+	}
 
 	return e, nil
 }

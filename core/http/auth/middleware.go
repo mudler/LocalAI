@@ -18,7 +18,7 @@ import (
 const (
 	contextKeyUser                = "auth_user"
 	contextKeyRole                = "auth_role"
-	contextKeyAPIKey              = "auth_apikey"
+	contextKeyAPIKey              = "auth_apikey" // #nosec G101 -- the name of a request context key, not a credential
 	contextKeySource              = "auth_source"
 	contextKeyHeaderAuthenticated = "auth_header_authenticated"
 )
@@ -41,6 +41,14 @@ const (
 func Middleware(db *gorm.DB, appConfig *config.ApplicationConfig) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// An in-process caller (see WithInternalUser) is already authenticated.
+			if u, ok := internalUser(c.Request().Context()); ok {
+				c.Set(contextKeyUser, u)
+				c.Set(contextKeyRole, u.Role)
+				c.Set(contextKeySource, UsageSourceChats)
+				return next(c)
+			}
+
 			authEnabled := db != nil
 			hasLegacyKeys := len(appConfig.ApiKeys) > 0
 

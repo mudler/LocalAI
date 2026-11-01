@@ -13,8 +13,15 @@ import (
 )
 
 // trustedJobs are the only jobs that may hold registry credentials, the
-// OIDC token permission or an environment.
-var trustedJobs = map[string]bool{"publish": true, "promote": true}
+// OIDC token permission or an environment. sandbox-image calls the reusable
+// workflow that builds and signs the guest image of the Sandbox add-on; it
+// needs the same permissions in order to sign.
+var trustedJobs = map[string]bool{"publish": true, "promote": true, "sandbox-image": true}
+
+// writeScopes lists the one write permission that a named untrusted job may
+// hold. release-index attaches the release catalog to the GitHub release, so
+// it writes the contents of the repository's releases and nothing else.
+var writeScopes = map[string]string{"release-index": "contents"}
 
 // deniedInWorkflow are strings that tie a workflow to the backend image
 // pipeline. The add-on package workflow has its own registry input, its own
@@ -100,7 +107,7 @@ func checkWorkflow(data []byte) []string {
 		}
 		if p, ok := j["permissions"].(map[string]any); ok {
 			for k, val := range p {
-				if val != "read" && val != "none" {
+				if val != "read" && val != "none" && writeScopes[n] != k {
 					add("P_UNTRUSTED_SECRETS", "job %s has %s: %v; untrusted jobs are read-only and never hold id-token", n, k, val)
 				}
 			}

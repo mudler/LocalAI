@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reading list</title>
+<style>
+  :root { --bg: #f6f7f9; --card: #ffffff; --line: #d9dde3; --text: #121417; --muted: #5d6673; --accent: #1f6feb; }
+  :root[data-theme="dark"] { --bg: #0b0d10; --card: #171c22; --line: #29313b; --text: #e6e9ee; --muted: #8b95a3; --accent: #58a6ff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 14px/1.45 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  input[type=text] { flex: 1 1 200px; min-width: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; }
+  button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--text); font: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  li { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+  li.read .title { color: var(--muted); text-decoration: line-through; }
+  .title { margin: 0; overflow-wrap: anywhere; font-weight: 600; }
+  .note { margin: 2px 0 0; color: var(--muted); overflow-wrap: anywhere; }
+  .counts, .status { color: var(--muted); font-size: 12px; }
+  .counts { margin: 0 0 8px; }
+  .status { margin-top: 12px; min-height: 1em; }
+</style>
+</head>
+<body>
+<!-- No form: a sandboxed page cannot submit one, so Enter and the button add the item. -->
+<div class="add">
+  <input id="title" type="text" placeholder="Something to read" maxlength="200" aria-label="Something to read">
+  <input id="note" type="text" placeholder="Note (optional)" maxlength="300" aria-label="Note">
+  <button id="add" class="primary" type="button">Add</button>
+  <button id="ask" type="button">Ask the assistant</button>
+</div>
+<p class="counts" id="counts"></p>
+<ul id="list"></ul>
+<div class="status" id="status"></div>
+<script>
+(function () {
+  var FILE = 'reading.json'
+  var data = { items: [] }
+  var version = 0
+  var edits = 0 // counts the changes made here; a read older than one is dropped
+  var saving = null
+  var list = document.getElementById('list')
+  var status = document.getElementById('status')
+
+  function say(text) { status.textContent = text }
+
+  // Text goes in with textContent, never innerHTML: an item is data.
+  function el(tag, text, cls) {
+    var e = document.createElement(tag)
+    if (text !== undefined) e.textContent = text
+    if (cls) e.className = cls
+    return e
+  }
+
+  function render() {
+    list.textContent = ''
+    var left = data.items.filter(function (it) { return !it.read }).length
+    document.getElementById('counts').textContent = left + ' to read, ' + (data.items.length - left) + ' read'
+    data.items.forEach(function (it) {
+      var li = el('li', undefined, it.read ? 'read' : '')
+      var box = document.createElement('input')
+      box.type = 'checkbox'
+      box.checked = !!it.read
+      box.setAttribute('aria-label', 'Read: ' + it.title)
+      box.onchange = function () { it.read = box.checked; changed() }
+      var text = el('div')
+      text.appendChild(el('p', it.title, 'title'))
+      if (it.note) text.appendChild(el('p', it.note, 'note'))
+      var del = el('button', 'Remove')
+      del.onclick = function () { data.items = data.items.filter(function (x) { return x !== it }); changed() }
+      li.appendChild(box); li.appendChild(text); li.appendChild(del)
+      list.appendChild(li)
+    })
+  }
+
+  // Saves after a short pause, so a burst of clicks is one write.
+  function changed() {
+    edits++
+    render()
+    clearTimeout(saving)
+    saving = setTimeout(function () {
+      localai.files.write(FILE, JSON.stringify(data, null, 2)).then(function (f) {
+        version = f.version
+        say('Saved')
+      }, function (e) { say('Not saved: ' + e.message) })
+    }, 400)
+  }
+
+  function load() {
+    var asked = edits
+    return localai.files.read(FILE).then(function (f) {
+      if (asked !== edits || f.version === version) return
+      var next = JSON.parse(f.content)
+      if (!next || !Array.isArray(next.items)) throw new Error('reading.json has no items')
+      data = next
+      version = f.version
+      render()
+      say('')
+    }).catch(function (e) { say('Could not read reading.json: ' + e.message) })
+  }
+
+  function add() {
+    var title = document.getElementById('title')
+    var note = document.getElementById('note')
+    if (!title.value.trim()) return
+    data.items.unshift({ id: 'r' + Date.now(), title: title.value.trim(), note: note.value.trim(), read: false })
+    title.value = ''
+    note.value = ''
+    changed()
+  }
+  document.getElementById('add').onclick = add
+  document.getElementById('title').onkeydown = function (ev) { if (ev.key === 'Enter') add() }
+  document.getElementById('note').onkeydown = function (ev) { if (ev.key === 'Enter') add() }
+
+  document.getElementById('ask').onclick = function () {
+    localai.chat.send('Look at my reading list in pages/' + localai.page.name + '/reading.json and tell me what to read next.')
+  }
+
+  localai.on('files.changed', function (ev) {
+    if (ev.resync || ev.paths.indexOf(FILE) >= 0) load()
+  })
+
+  render()
+  load()
+})()
+</script>
+</body>
+</html>

@@ -34,6 +34,8 @@ import { groupForEntity } from '../utils/entityGroups'
 import { renderMarkdown, stripMarkdown } from '../utils/markdown'
 import React from 'react'
 import Icon from '../components/Icon'
+// eslint-disable-next-line no-unused-vars
+import { Button, Callout, PageHeader } from '../components/ui'
 import KindLibraries from '../components/catalog/KindLibraries'
 import { filterRowsBySource } from '../components/catalog/catalogState'
 import './models-ledger.css'
@@ -145,14 +147,14 @@ function ModelsTabs({ activeView, searchParams, installedCount, t }) {
         to={hrefFor('explore')}
         aria-current={activeView === 'explore' ? 'page' : undefined}
       >
-        <Icon name="compass" /> <span>{t('lifecycle.views.explore')}</span>
+        <span>{t('lifecycle.views.explore')}</span>
       </Link>
       <Link
         className="dk-hubtab"
         to={hrefFor('installed')}
         aria-current={activeView === 'installed' ? 'page' : undefined}
       >
-        <Icon name="hard-drive" /> <span>{t('lifecycle.views.installed')}</span>
+        <span>{t('lifecycle.views.installed')}</span>
         {installedCount > 0 && <span className="dk-hubtab-count">{installedCount}</span>}
       </Link>
     </nav>
@@ -211,6 +213,11 @@ export default function Models() {
   const [contextSize, setContextSize] = useState(CONTEXT_SIZES[0])
   const [density, setDensity] = useState(readDensity)
   const [sheetOpen, setSheetOpen] = useState(false)
+  // Below 640 px the filters live in a bottom sheet behind one button.
+  const [filtersOpen, setFiltersOpen] = useState(false)
+  const filtersToggleRef = useRef(null)
+  const filtersSheetRef = useRef(null)
+  useEffect(() => { if (filtersOpen) filtersSheetRef.current?.focus() }, [filtersOpen])
   // Bumped when a removal finishes, so the Installed table and the cleanup
   // sheet read the list again.
   const [refreshToken, setRefreshToken] = useState(0)
@@ -758,15 +765,27 @@ export default function Models() {
   )
 
   const headerActions = (
-    <div className="view-bar__actions models-bar__actions">
+    <div className="models-bar__actions">
       <DiskStrip disk={disk} open={sheetOpen} onOpen={() => setSheetOpen(true)} />
-      <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
-        <Icon name="plus" /> {t('actions.addModel')}
-      </button>
-      <button className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => navigate('/app/import-model')}>
-        <Icon name="upload" /> {t('actions.importModel')}
-      </button>
+      <Button icon="plus" onClick={() => navigate('/app/model-editor', { state: fromState(location, t('models')) })}>
+        {t('actions.addModel')}
+      </Button>
+      <Button icon="upload" onClick={() => navigate('/app/import-model')}>
+        {t('actions.importModel')}
+      </Button>
     </div>
+  )
+
+  // One header for both views: the title, what the page is for, and the disk
+  // and add actions; the two views are an underline tab row under it.
+  const pageHead = (count) => (
+    <>
+      <PageHeader className="models-head" title={t('lifecycle.title')} supporting={t('lifecycle.supporting')} actions={headerActions} />
+      <div className="models-tabsrow">
+        <ModelsTabs activeView={activeView} searchParams={searchParams} installedCount={statsLoaded ? stats.installed : 0} t={t} />
+        {count}
+      </div>
+    </>
   )
 
   const overlays = (
@@ -803,12 +822,8 @@ export default function Models() {
 
   if (activeView === 'installed') {
     return withDetail(
-      <div className="page page--wide page--app models-page">
-        <div className="view-bar models-bar">
-          <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
-          <ModelsTabs activeView={activeView} searchParams={searchParams} installedCount={statsLoaded ? stats.installed : 0} t={t} />
-          {headerActions}
-        </div>
+      <div className="page page--full page--app models-page">
+        {pageHead(null)}
         <InstalledModels
           addToast={addToast}
           query={urlSearch}
@@ -832,6 +847,18 @@ export default function Models() {
     )
   }
 
+  const activeFilterCount = filters.length + (backendFilter ? 1 : 0) + (fitsFilter ? 1 : 0) + (collapseVariants ? 0 : 1)
+  const closeFilters = () => {
+    setFiltersOpen(false)
+    filtersToggleRef.current?.focus()
+  }
+  const onFiltersKey = (event) => {
+    if (filtersOpen && event.key === 'Escape') {
+      event.stopPropagation()
+      closeFilters()
+    }
+  }
+
   const contextIndex = CONTEXT_SIZES.indexOf(contextSize)
   const contextLabel = CONTEXT_LABELS[contextIndex]
   const filtersActive = !!(search || filters.length > 0 || backendFilter || fitsFilter || !collapseVariants)
@@ -846,15 +873,10 @@ export default function Models() {
         : t('ledger.basis.ram', { memory: formatBytes(totalGpuMemory) })
 
   return withDetail(
-    <div className="page page--wide page--app models-page">
-      <div className="view-bar models-bar">
-        <h1 className="view-bar__title">{t('lifecycle.title')}</h1>
-        <ModelsTabs activeView={activeView} searchParams={searchParams} installedCount={statsLoaded ? stats.installed : 0} t={t} />
-        {statsLoaded && (
-          <span className="view-bar__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
-        )}
-        {headerActions}
-      </div>
+    <div className="page page--full page--app models-page">
+      {pageHead(statsLoaded && (
+        <span className="models-tabsrow__count">{t('rail.showingCount', { shown: visibleModels.length, total: stats.total })}</span>
+      ))}
 
       <KindLibraries kind="model" onSelect={setLibrarySource} onChanged={() => setRefreshToken(n => n + 1)} />
 
@@ -867,8 +889,7 @@ export default function Models() {
           2. Facets: the capability chips with counts, and the context length
              the VRAM estimate is computed at. The estimate is exactly what the
              fits filter tests against, so the two controls sit together. */}
-      <div className="ledger-controls models-filters">
-        <div className="ledger-controls__row">
+      <div className="ledger-controls models-filters" onKeyDown={onFiltersKey}>
           <div className="dk-input-icon ledger-search" data-testid="models-search-wrap">
             <Icon name="search" className="dk-icon" />
             <input
@@ -884,6 +905,32 @@ export default function Models() {
               onKeyDown={(e) => { if (e.key === 'Escape') e.currentTarget.blur() }}
             />
             <kbd className="dk-kbd ledger-search__key" aria-hidden="true">/</kbd>
+          </div>
+          {/* Phone only: the controls below collapse into a sheet behind this. */}
+          <Button
+            ref={filtersToggleRef}
+            className="models-filters__toggle"
+            icon="filter"
+            aria-expanded={filtersOpen}
+            aria-controls="models-filter-sheet"
+            onClick={() => setFiltersOpen(true)}
+          >
+            {activeFilterCount > 0 ? t('filters.sheetButtonCount', { count: activeFilterCount }) : t('filters.sheetButton')}
+          </Button>
+          {filtersOpen && <div className="models-filters__scrim" aria-hidden="true" onClick={closeFilters} />}
+          <div
+            id="models-filter-sheet"
+            ref={filtersSheetRef}
+            className="models-filters__sheet"
+            data-open={filtersOpen ? 'true' : undefined}
+            role={filtersOpen ? 'dialog' : undefined}
+            aria-modal={filtersOpen ? 'true' : undefined}
+            aria-labelledby={filtersOpen ? 'models-filter-sheet-title' : undefined}
+            tabIndex={-1}
+          >
+          <div className="models-filters__sheet-head">
+            <h2 className="models-filters__sheet-title" id="models-filter-sheet-title">{t('filters.sheetTitle')}</h2>
+            <Button variant="primary" size="sm" onClick={closeFilters}>{t('filters.sheetDone')}</Button>
           </div>
           {allBackends.length > 0 && (
             <div className="models-filters__backend">
@@ -942,7 +989,6 @@ export default function Models() {
               <Icon name="equals" />
             </button>
           </div>
-        </div>
         <div className="ledger-controls__row ledger-controls__row--facets">
           <FacetBar
             facets={FILTERS}
@@ -955,19 +1001,20 @@ export default function Models() {
             ariaLabel={t('filters.useCaseLabel')}
           />
         </div>
+          </div>
       </div>
 
       {loadError && (
-        <div className="ledger-banner ledger-banner--error" role="alert" data-testid="gallery-error">
-          <Icon name="alert-circle" />
-          <span>
-            <strong>{t('ledger.offline.title')}</strong>{' '}
-            {models.length > 0 ? t('ledger.offline.stale', { message: loadError }) : t('ledger.offline.empty', { message: loadError })}
-          </span>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => fetchModels()}>
-            <Icon name="refresh" /> {t('ledger.retry')}
-          </button>
-        </div>
+        <Callout
+          tone="error"
+          role="alert"
+          testId="gallery-error"
+          className="ledger-callout"
+          title={t('ledger.offline.title')}
+          actions={<Button size="sm" icon="refresh" onClick={() => fetchModels()}>{t('ledger.retry')}</Button>}
+        >
+          {models.length > 0 ? t('ledger.offline.stale', { message: loadError }) : t('ledger.offline.empty', { message: loadError })}
+        </Callout>
       )}
 
       {/* The gallery, as a table to scan and an inspector that answers.

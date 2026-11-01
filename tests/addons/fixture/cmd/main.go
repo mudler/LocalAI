@@ -5,6 +5,7 @@ package main
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"io"
@@ -41,7 +42,16 @@ func main() {
 	// The "orphan" mode ignores the closing of the startup channel, as a
 	// misbehaving add-on would: only the owner's ledger can then stop it.
 	if config.Mode != "orphan" {
-		go func() { _, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent)); os.Exit(0) }()
+		go func() {
+			_, _ = io.Copy(io.Discard, io.MultiReader(d.Buffered(), parent))
+			// The "graceful" mode needs a moment to release what it owns, as a
+			// sandbox add-on does; it records that it got to finish.
+			if config.Mode == "graceful" {
+				time.Sleep(40 * time.Millisecond)
+				_ = os.WriteFile("fixture.closed", []byte("ok"), 0600)
+			}
+			os.Exit(0)
+		}()
 	}
 	_ = os.WriteFile("fixture.pid", []byte(strconv.Itoa(os.Getpid())), 0600)
 	// The data directory the owner passed is recorded as received, so a test
@@ -54,6 +64,14 @@ func main() {
 	// The host operation endpoint and credential, as received, so a test can
 	// assert that an add-on the host does not name gets neither.
 	_ = os.WriteFile("fixture.hostops", []byte(startup.HostEndpoint+"\n"+startup.HostCredential), 0600)
+	// The "log" mode writes to its output streams, as an add-on that reports
+	// what it does would; one line is far over any sane limit.
+	if config.Mode == "log" {
+		_, _ = fmt.Fprintln(os.Stdout, "hello from stdout")
+		fmt.Fprintln(os.Stderr, "hello from stderr")
+		_, _ = fmt.Fprintln(os.Stdout, strings.Repeat("x", 20000))
+		_, _ = fmt.Fprint(os.Stdout, "no newline at the end")
+	}
 	if config.Mode == "exit-start" {
 		os.Exit(4)
 	}
@@ -112,6 +130,26 @@ func main() {
 				reg.Protocol = 2
 			}
 			_ = json.NewEncoder(w).Encode(reg)
+		case "/act":
+			// An action tool: it answers for the actor of the envelope and says
+			// the scope it ran under. The action "slow" waits for the caller to give up.
+			var v contract.Envelope
+			if !read(&v) || !valid(v, "act") {
+				return
+			}
+			var args struct {
+				Slow bool `json:"slow"`
+			}
+			_ = json.Unmarshal(v.Request.Arguments, &args)
+			if args.Slow {
+				select {
+				case <-r.Context().Done():
+					return
+				case <-time.After(5 * time.Second):
+				}
+			}
+			payload, _ := json.Marshal(map[string]any{"actor": v.Authority.Actor.UserID, "scope": v.Authority.Scope, "arguments": v.Request.Arguments})
+			_ = json.NewEncoder(w).Encode(contract.Result{Payload: payload})
 		case "/read", "/preview":
 			var v contract.Envelope
 			if !read(&v) || !valid(v, r.URL.Path[1:]) {

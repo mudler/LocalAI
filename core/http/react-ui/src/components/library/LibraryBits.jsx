@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { agentHref } from '../../utils/libraryText'
-import { agentSkills, estimateTokens, passageScore, passageSource, passageText, skillLoadTokens, skillsMode } from '../../utils/library'
+import { estimateTokens, passageScore, passageSource, passageText } from '../../utils/library'
 
 // The strip in a pane: who uses this, each name a link to the agent with a
 // small x to take the item away, and the Add to... menu at the end.
@@ -23,7 +23,7 @@ export function UsedByStrip({ users, status, onRemove, busy, children }) {
         <ul className="lib-chips">
           {users.map(u => (
             <li key={u.name} className="dk-chip dk-chip--sm lib-chip" data-testid={`used-by-${u.name}`}>
-              <Link className="lib-chip__link" to={agentHref(u.name)} title={t('usedBy.open', { agent: u.name })}>{u.name}</Link>
+              <Link className="lib-chip__link" to={agentHref(u)} title={t('usedBy.open', { agent: u.name })}>{u.name}</Link>
               {u.all && <span className="lib-chip__note" title={t('usedBy.allTitle')}>{t('usedBy.all')}</span>}
               <button
                 type="button"
@@ -43,10 +43,9 @@ export function UsedByStrip({ users, status, onRemove, busy, children }) {
   )
 }
 
-// The Add to... menu. A skill can go to any agent; a collection can go only to
-// the agent that carries its name, because that is the collection an agent
-// reads. Each row says what the addition costs where that can be worked out.
-export function AddToMenu({ kind, name, skill, agents, allSkillNames, status, onAdd, busy, buttonClass = 'dk-btn dk-btn--secondary dk-btn--sm' }) {
+// The Add to... menu: a collection or a skill can go to any saved agent, by
+// adding it to the agent's list.
+export function AddToMenu({ kind = 'collection', name, agents, status, onAdd, busy, buttonClass = 'dk-btn dk-btn--secondary dk-btn--sm' }) {
   const { t } = useTranslation('library')
   const [open, setOpen] = useState(false)
   const root = useRef(null)
@@ -63,20 +62,11 @@ export function AddToMenu({ kind, name, skill, agents, allSkillNames, status, on
     }
   }, [open])
 
-  const rows = kind === 'collection' ? agents.filter(a => a.name === name) : agents
+  const rows = agents
   const hasAgent = rows.length > 0
 
   const rowFor = agent => {
-    if (kind === 'collection') {
-      const on = !!agent.config?.enable_kb
-      return { on, hint: on ? '' : t('add.kbOn') }
-    }
-    const s = agentSkills(agent.config, allSkillNames)
-    const on = s.names.includes(name)
-    if (on) return { on, hint: '' }
-    const tokens = skillLoadTokens(skill, agent.config)
-    const hint = skillsMode(agent.config) === 'tools' ? t('add.toolsMode') : t('add.tokens', { count: tokens })
-    return { on, hint }
+    return { on: (agent.config?.[kind === 'skill' ? 'skills' : 'collections'] || []).includes(name), hint: '' }
   }
 
   return (
@@ -95,13 +85,12 @@ export function AddToMenu({ kind, name, skill, agents, allSkillNames, status, on
       {open && (
         <div className="dk-popover dk-popover--end dk-pop lib-addmenu" role="dialog" aria-label={t('add.title', { name })} data-state="open" data-testid="add-to-menu">
           <p className="lib-addmenu__title">{t('add.title', { name })}</p>
-          {kind === 'skill' && hasAgent && <p className="lib-addmenu__sub">{t('add.estimate')}</p>}
-          {kind === 'collection' && <p className="lib-addmenu__sub">{t('add.collectionNote')}</p>}
+          <p className="lib-addmenu__sub">{t(kind === 'skill' ? 'add.skillNote' : 'add.collectionNote')}</p>
           {status === 'failed' ? (
             <p className="lib-addmenu__empty">{t('usedBy.unread')}</p>
           ) : !hasAgent ? (
             <div className="lib-addmenu__empty">
-              <p>{kind === 'collection' ? t('add.noAgentNamed', { name }) : t('add.noAgents')}</p>
+              <p>{t('add.noAgents')}</p>
               <Link className="dk-link" to="/app/agents/new">{t('add.createAgent')}</Link>
             </div>
           ) : (

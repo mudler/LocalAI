@@ -1,16 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { fillStyle } from '../home/memory'
 // eslint-disable-next-line no-unused-vars
 import ActionMenu from '../ActionMenu'
 import Icon from '../Icon'
 
 // The slim bar over the thread: the conversations list (Ctrl K), the chat's
-// name (click to rename), how full the context is, find, settings and the rest.
+// name (click to rename), the inbox (extra), find,
+// settings and the rest.
 export default function ChatHeader({
   historyMenu, manageMode, name, onRename, renaming, setRenaming,
-  contextPercent, contextTokens, contextSize,
-  onFind, findOpen, onSettings, settingsOpen, moreItems,
+  onFind, findOpen, onSettings, settingsOpen, moreItems, extra, canRename = true,
 }) {
   const { t } = useTranslation('chat')
   const inputRef = useRef(null)
@@ -33,9 +32,6 @@ export default function ChatHeader({
     if (save && next && next !== name) onRename(next)
     setRenaming(false)
   }
-
-  const warn = contextPercent !== null && contextPercent > 70
-  const hot = contextPercent !== null && contextPercent > 90
 
   return (
     <header className="cx-hd" data-testid="chat-header">
@@ -61,39 +57,14 @@ export default function ChatHeader({
             aria-label={t('header.chatName')}
           />
         ) : (
-          <button type="button" className="cx-ttl__btn" data-testid="chat-title" title={name} onClick={() => setRenaming(true)}>
+          <button type="button" className="cx-ttl__btn" data-testid="chat-title" title={name} disabled={!canRename} onClick={() => setRenaming(true)}>
             {name}
           </button>
         )}
       </div>
 
-      {contextPercent !== null && (
-        <div
-          className="cx-ctx"
-          data-warn={warn || undefined}
-          data-hot={hot || undefined}
-          title={contextTokens > 0
-            ? t('context.labelWithTokens', { percent: Math.round(contextPercent), tokens: contextTokens })
-            : t('context.label', { percent: Math.round(contextPercent) })}
-          data-testid="chat-context"
-        >
-          <span className="cx-ctx__label">{t('context.title')}</span>
-          <span
-            className="cx-ctx__bar"
-            role="meter"
-            aria-label={t('context.title')}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(contextPercent)}
-            aria-valuetext={contextSize ? t('context.ofSize', { percent: Math.round(contextPercent), size: contextSize }) : undefined}
-          >
-            <i style={fillStyle(contextPercent)} />
-          </span>
-          <span className="cx-ctx__pct">{Math.round(contextPercent)}%</span>
-        </div>
-      )}
-
       <div className="cx-hdr">
+        {extra}
         {onFind && (
           <button
             type="button"

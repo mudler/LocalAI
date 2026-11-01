@@ -10,12 +10,13 @@
   "changeLanguage": "Sprache ändern",
   "logout": "Abmelden",
   "accountSettings": "Kontoeinstellungen",
+  "yourSettings": "Deine Einstellungen",
   "account": "Konto",
   "accountFor": "Konto: {{name}}",
   "sections": {
     "recognition": "Erkennung",
     "build": "Entwickeln",
-    "operate": "Betrieb",
+    "operate": "Verwaltung",
     "workspace": "Arbeitsbereich"
   },
   "operate": {
@@ -66,7 +67,14 @@
     "logs": "Logs",
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
-    "prometheus": "Prometheus"
+    "prometheus": "Prometheus",
+    "chats": "Chats",
+    "files": "Dateien",
+    "triggers": "Auslöser",
+    "mcpConnectors": "MCP-Connectors",
+    "chatsAdmin": "Chats aller Benutzer",
+    "pages": "Seiten",
+    "allChats": "Alle Chats"
   },
   "footer": {
     "github": "GitHub",
@@ -99,7 +107,15 @@
       "import": "Füge ein Modell aus einer Datei, einer URL oder einem Hugging-Face-Repository hinzu.",
       "voices": "Erkenne Sprecher und verwalte eine Bibliothek von Stimmprofilen.",
       "faces": "Gesichter erkennen, vergleichen und zuordnen.",
-      "addons": "Add-ons installieren und die Apps öffnen, die sie bereitstellen."
-    }
-  }
+      "addons": "Add-ons installieren und die Apps öffnen, die sie bereitstellen.",
+      "triggers": "Starte einen Chat von selbst, nach Zeitplan oder wenn eine Datei eintrifft."
+    },
+    "operateSupporting": "Was auf diesem Server läuft, wie er genutzt wird und wie er eingerichtet ist."
+  },
+  "pinnedPages": "Angeheftete Seiten",
+  "new": "Neu",
+  "recentChats": "Letzte Chats",
+  "newChat": "Neuer Chat",
+  "untitledChat": "Chat ohne Titel",
+  "chatRunning": "Läuft"
 }

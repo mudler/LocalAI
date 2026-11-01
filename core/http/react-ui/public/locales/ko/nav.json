@@ -10,12 +10,13 @@
   "changeLanguage": "언어 변경",
   "logout": "로그아웃",
   "accountSettings": "계정 설정",
+  "yourSettings": "내 설정",
   "account": "계정",
   "accountFor": "계정: {{name}}",
   "sections": {
     "recognition": "인식",
     "build": "구축",
-    "operate": "운영",
+    "operate": "관리",
     "workspace": "워크스페이스"
   },
   "operate": {
@@ -66,7 +67,14 @@
     "logs": "Logs",
     "trafficModels": "Models",
     "gpuHost": "GPU and host",
-    "prometheus": "Prometheus"
+    "prometheus": "Prometheus",
+    "chats": "채팅 세션",
+    "files": "파일",
+    "triggers": "트리거",
+    "mcpConnectors": "MCP 커넥터",
+    "chatsAdmin": "모든 사용자의 채팅",
+    "pages": "페이지",
+    "allChats": "모든 채팅"
   },
   "footer": {
     "github": "GitHub",
@@ -99,7 +107,15 @@
       "import": "파일, URL 또는 Hugging Face 저장소에서 모델을 추가합니다.",
       "voices": "화자를 식별하고 음성 프로필 라이브러리를 관리합니다.",
       "faces": "얼굴을 감지, 비교, 매칭합니다.",
-      "addons": "애드온을 설치하고 그것이 제공하는 앱을 엽니다."
-    }
-  }
+      "addons": "애드온을 설치하고 그것이 제공하는 앱을 엽니다.",
+      "triggers": "일정에 따라 또는 파일이 도착하면 채팅을 자동으로 시작합니다."
+    },
+    "operateSupporting": "이 서버에서 실행 중인 것, 사용 현황, 설정을 확인합니다."
+  },
+  "pinnedPages": "고정된 페이지",
+  "new": "새 기능",
+  "recentChats": "최근 채팅",
+  "newChat": "새 채팅",
+  "untitledChat": "제목 없는 채팅",
+  "chatRunning": "진행 중"
 }

@@ -214,7 +214,7 @@
       },
       {
         "name": "databases-create",
-        "description": "Propose a new database with the given name. A person confirms it in the approval card; nothing exists before that.",
+        "description": "Create a new database with the given name. In a chat it runs at once and the person can undo it; from an API key it is only a proposal that a person confirms.",
         "kind": "create",
         "inputSchema": {
           "type": "object",
@@ -233,7 +233,7 @@
       },
       {
         "name": "databases-rename",
-        "description": "Propose a new name for a database. Needs the owner role and a person's confirmation.",
+        "description": "Propose a new name for a database. Needs the owner role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "schema",
         "inputSchema": {
           "type": "object",
@@ -257,7 +257,7 @@
       },
       {
         "name": "tables-create",
-        "description": "Propose a new empty table. Needs the owner role and a person's confirmation.",
+        "description": "Propose a new empty table. Needs the owner role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "schema",
         "inputSchema": {
           "type": "object",
@@ -281,7 +281,7 @@
       },
       {
         "name": "tables-rename",
-        "description": "Propose a new name for a table. Needs the owner role and a person's confirmation.",
+        "description": "Propose a new name for a table. Needs the owner role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "schema",
         "inputSchema": {
           "type": "object",
@@ -311,7 +311,7 @@
       },
       {
         "name": "tables-drop",
-        "description": "Propose dropping a table and all of its rows. Needs the owner role and a person's confirmation.",
+        "description": "Propose dropping a table and all of its rows. Needs the owner role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "schema",
         "inputSchema": {
           "type": "object",
@@ -335,7 +335,7 @@
       },
       {
         "name": "columns-add",
-        "description": "Propose a new column. Needs the owner role and a person's confirmation.",
+        "description": "Propose a new column. Needs the owner role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "schema",
         "inputSchema": {
           "type": "object",
@@ -388,7 +388,7 @@
       },
       {
         "name": "columns-rename",
-        "description": "Propose a new label for a column. Needs the owner role and a person's confirmation.",
+        "description": "Propose a new label for a column. Needs the owner role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "schema",
         "inputSchema": {
           "type": "object",
@@ -424,7 +424,7 @@
       },
       {
         "name": "columns-drop",
-        "description": "Propose dropping a column and its values. Needs the owner role and a person's confirmation.",
+        "description": "Propose dropping a column and its values. Needs the owner role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "schema",
         "inputSchema": {
           "type": "object",
@@ -454,7 +454,7 @@
       },
       {
         "name": "rows-insert",
-        "description": "Propose inserting 1 to 100 rows. Each row maps column labels to values. Needs the editor role and a person's confirmation.",
+        "description": "Propose inserting 1 to 100 rows. Each row maps column labels to values. Needs the editor role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -488,7 +488,7 @@
       },
       {
         "name": "rows-update",
-        "description": "Propose setting column values on rows named by ids or a filter. Needs the editor role and a person's confirmation.",
+        "description": "Propose setting column values on rows named by ids or a filter. Needs the editor role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -530,7 +530,7 @@
       },
       {
         "name": "rows-delete",
-        "description": "Propose deleting rows named by ids or a filter. Needs the editor role and a person's confirmation.",
+        "description": "Propose deleting rows named by ids or a filter. Needs the editor role and a person's confirmation outside a chat. In a chat it applies at once and the person can undo it.",
         "kind": "write",
         "inputSchema": {
           "type": "object",
@@ -569,6 +569,7 @@
     "adminTools": [
       "databases-delete"
     ],
+    "undo": true,
     "resources": {
       "noun": "database",
       "create": "databases-create",

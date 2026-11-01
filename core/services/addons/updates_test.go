@@ -12,8 +12,16 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
@@ -488,6 +496,124 @@ var _ = Describe("explicit upgrade from an authoritative update check", func() {
 		out, e := r.m.Submit(ctx, actor, LifecycleCommand{OperationID: "legacy", AddonID: "sample", Action: "upgrade", SourceID: "test", Version: "1.2.3"})
 		Expect(e).NotTo(HaveOccurred())
 		Expect(out.Phase).To(Equal("completed"))
+	})
+})
+
+// pushDevelopment builds a package from the fixture manifest with the version
+// label a development build carries and pushes it to the tag of artifact, the
+// way the publish workflow moves the development tag. It returns the digest
+// the tag names now.
+func pushDevelopment(artifact, version, content string) string {
+	GinkgoHelper()
+	manifest, e := os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
+	Expect(e).NotTo(HaveOccurred())
+	var m map[string]any
+	Expect(json.Unmarshal(manifest, &m)).To(Succeed())
+	m["version"] = version
+	manifest, _ = json.Marshal(m)
+	var b bytes.Buffer
+	tw := tar.NewWriter(&b)
+	for _, f := range []struct {
+		name string
+		data []byte
+	}{{"manifest.json", manifest}, {"bin/sample", []byte(content)}} {
+		Expect(tw.WriteHeader(&tar.Header{Name: f.name, Mode: 0755, Size: int64(len(f.data))})).To(Succeed())
+		_, e = tw.Write(f.data)
+		Expect(e).NotTo(HaveOccurred())
+	}
+	Expect(tw.Close()).To(Succeed())
+	layer, e := tarball.LayerFromReader(bytes.NewReader(b.Bytes()))
+	Expect(e).NotTo(HaveOccurred())
+	img, e := mutate.AppendLayers(empty.Image, layer)
+	Expect(e).NotTo(HaveOccurred())
+	cfg, e := img.ConfigFile()
+	Expect(e).NotTo(HaveOccurred())
+	cfg.OS, cfg.Architecture = "linux", "amd64"
+	img, e = mutate.ConfigFile(img, cfg)
+	Expect(e).NotTo(HaveOccurred())
+	ref, e := name.ParseReference(strings.TrimPrefix(artifact, "oci://"))
+	Expect(e).NotTo(HaveOccurred())
+	Expect(remote.Write(ref, img)).To(Succeed())
+	d, e := img.Digest()
+	Expect(e).NotTo(HaveOccurred())
+	return d.String()
+}
+
+// The official library lists a development add-on as a mutable entry: a
+// moving tag under the label 0.0.0-development, with no digest. The installed
+// package carries its own label (0.0.0-dev.<commit>).
+var _ = Describe("explicit upgrade from an authoritative update check, for a development build installed from a moving tag", func() {
+	It("is offered when the tag moved, pinned to the build the tag names, and upgrades to exactly that build", func() {
+		r := newUpdateRig(false)
+		reg := httptest.NewServer(registry.New())
+		DeferCleanup(reg.Close)
+		artifact := "oci://" + strings.TrimPrefix(reg.URL, "http://") + "/local-ai-addons:sample-development"
+		current := pushDevelopment(artifact, "0.0.0-dev.aaaaaaaaaaaa", "dev-1")
+		first := current
+		r.m.installer.Lookup = func(context.Context, string, string) (string, error) { return current, nil }
+		r.m.EnableUpdates(updates.Config{Now: func() time.Time { return *r.clk }, MinRefresh: time.Second, TTL: time.Hour})
+		r.lib.mu.Lock()
+		r.lib.releases = append(r.lib.releases, catalog.Release{ID: "sample", Name: "Sample", Version: "0.0.0-development", Channel: "development",
+			Artifact: artifact, Mutable: true, OS: "linux", Arch: "amd64"})
+		r.lib.mu.Unlock()
+		r.lib.refresh()
+		_, e := r.m.Submit(ctx, actor, LifecycleCommand{OperationID: "install", AddonID: "sample", Action: "install", SourceID: "test", Version: "0.0.0-development"})
+		Expect(e).NotTo(HaveOccurred())
+
+		st, e := r.m.CheckUpdates(ctx, actor, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.State).To(Equal(updates.UpToDate), "the tag still names the installed build")
+
+		current = pushDevelopment(artifact, "0.0.0-dev.bbbbbbbbbbbb", "dev-2")
+		r.tick(2 * time.Second)
+		st, e = r.m.CheckUpdates(ctx, actor, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.State).To(Equal(updates.UpdateAvailable))
+		Expect(st.InstalledDigest).To(Equal(first))
+		Expect(st.CandidateDigest).To(Equal(current))
+		// The installed view gives the page the digest it pins.
+		installed, e := r.m.Installed(ctx, actor)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(installed[0].Update.Digest).To(Equal(current))
+
+		out, e := r.m.Submit(ctx, actor, upgrade("up-dev", first, current))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(out.Phase).To(Equal("completed"))
+		s, _ := r.m.Status(ctx, "sample")
+		Expect(s.Generation).To(Equal(uint64(2)))
+		Expect(s.Generations[1].Receipt.Digest).To(Equal(current))
+
+		st, e = r.m.UpdateStatus(ctx, actor, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.State).To(Equal(updates.UpToDate))
+	})
+
+	It("refuses the upgrade when the tag moved again after the check, and installs nothing", func() {
+		r := newUpdateRig(false)
+		reg := httptest.NewServer(registry.New())
+		DeferCleanup(reg.Close)
+		artifact := "oci://" + strings.TrimPrefix(reg.URL, "http://") + "/local-ai-addons:sample-development"
+		current := pushDevelopment(artifact, "0.0.0-dev.aaaaaaaaaaaa", "dev-1")
+		first := current
+		r.m.installer.Lookup = func(context.Context, string, string) (string, error) { return current, nil }
+		r.m.EnableUpdates(updates.Config{Now: func() time.Time { return *r.clk }, MinRefresh: time.Second, TTL: time.Hour})
+		r.lib.mu.Lock()
+		r.lib.releases = append(r.lib.releases, catalog.Release{ID: "sample", Name: "Sample", Version: "0.0.0-development", Channel: "development",
+			Artifact: artifact, Mutable: true, OS: "linux", Arch: "amd64"})
+		r.lib.mu.Unlock()
+		r.lib.refresh()
+		_, e := r.m.Submit(ctx, actor, LifecycleCommand{OperationID: "install", AddonID: "sample", Action: "install", SourceID: "test", Version: "0.0.0-development"})
+		Expect(e).NotTo(HaveOccurred())
+		checked := pushDevelopment(artifact, "0.0.0-dev.bbbbbbbbbbbb", "dev-2")
+		current = checked
+		st, e := r.m.CheckUpdates(ctx, actor, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.CandidateDigest).To(Equal(checked))
+		current = pushDevelopment(artifact, "0.0.0-dev.cccccccccccc", "dev-3")
+		_, e = r.m.Submit(ctx, actor, upgrade("up-moved", first, checked))
+		Expect(e).To(MatchError(ErrCandidateChanged))
+		s, _ := r.m.Status(ctx, "sample")
+		Expect(s.Generation).To(Equal(uint64(1)))
 	})
 })
 

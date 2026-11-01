@@ -1,11 +1,143 @@
-# Official add-on library: the first-party add-ons, one entry for each package.
-# LocalAI registers this file as its default library (the raw URL of this file
-# on the master branch). The entries are rendered by the add-on package
-# workflow with `addonpkg catalog`: regenerate this file from the workflow
-# output, never edit a digest by hand. A release entry is pinned by digest. A
-# development entry is mutable: it keeps the moving tag <id>-development, has
-# no digest, and the install resolves the tag to a digest, verifies the
-# signature against it and records it, as for a development backend.
+# Official add-on library: the first-party add-ons, one entry for each
+# enabled platform of each package. LocalAI registers this file as its default
+# library (the raw URL of this file on the master branch). The file is
+# generated, never edited by hand:
+#   sh scripts/addons/catalog.sh --channel development --repository <repo> --out gallery/addons/index.yaml
+# CI fails when the committed file differs from the generated one.
+# Every entry is a development entry: it is mutable, keeps the moving tag
+# <id>-development and has no digest. The install resolves the tag to a digest,
+# verifies the signature against it and records it, as for a development
+# backend. A tagged release does not read this file for its pins: the release
+# workflow renders pinned entries into the asset addons-index.yaml of the
+# release (see .agents/preparing-a-release.md).
+- id: "face"
+  name: Face
+  description: "Find out whose face is in a photo, or whether two photos show the same person."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:face-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Face"
+    description: "Find out whose face is in a photo, or whether two photos show the same person."
+    mainPage: "recognition"
+    icon: "ui/icon.png"
+- id: "face"
+  name: Face
+  description: "Find out whose face is in a photo, or whether two photos show the same person."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:face-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Face"
+    description: "Find out whose face is in a photo, or whether two photos show the same person."
+    mainPage: "recognition"
+    icon: "ui/icon.png"
+- id: "face"
+  name: Face
+  description: "Find out whose face is in a photo, or whether two photos show the same person."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:face-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Face"
+    description: "Find out whose face is in a photo, or whether two photos show the same person."
+    mainPage: "recognition"
+    icon: "ui/icon.png"
+- id: "face"
+  name: Face
+  description: "Find out whose face is in a photo, or whether two photos show the same person."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:face-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Face"
+    description: "Find out whose face is in a photo, or whether two photos show the same person."
+    mainPage: "recognition"
+    icon: "ui/icon.png"
+- id: "fine-tuning"
+  name: Fine-tuning
+  description: "Train an adapter on your own data, then export it as a model you can chat with."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:fine-tuning-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Fine-tuning"
+    description: "Train an adapter on your own data, then export it as a model you can chat with."
+    mainPage: "jobs"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "resource-exists"
+    - "fine-tune-list"
+    - "fine-tune-start"
+    - "fine-tune-dataset"
+    - "fine-tune-status"
+    - "fine-tune-checkpoints"
+    - "fine-tune-stop"
+    - "fine-tune-export"
+- id: "fine-tuning"
+  name: Fine-tuning
+  description: "Train an adapter on your own data, then export it as a model you can chat with."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:fine-tuning-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Fine-tuning"
+    description: "Train an adapter on your own data, then export it as a model you can chat with."
+    mainPage: "jobs"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "resource-exists"
+    - "fine-tune-list"
+    - "fine-tune-start"
+    - "fine-tune-dataset"
+    - "fine-tune-status"
+    - "fine-tune-checkpoints"
+    - "fine-tune-stop"
+    - "fine-tune-export"
 - id: "fine-tuning"
   name: Fine-tuning
   description: "Train an adapter on your own data, then export it as a model you can chat with."
@@ -34,6 +166,230 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+- id: "fine-tuning"
+  name: Fine-tuning
+  description: "Train an adapter on your own data, then export it as a model you can chat with."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:fine-tuning-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Fine-tuning"
+    description: "Train an adapter on your own data, then export it as a model you can chat with."
+    mainPage: "jobs"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "resource-exists"
+    - "fine-tune-list"
+    - "fine-tune-start"
+    - "fine-tune-dataset"
+    - "fine-tune-status"
+    - "fine-tune-checkpoints"
+    - "fine-tune-stop"
+    - "fine-tune-export"
+- id: "office"
+  name: Office
+  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Office"
+    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    mainPage: "office"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "read-docx"
+    - "read-xlsx"
+    - "read-pptx"
+    - "read-pdf"
+    - "edit-docx"
+    - "edit-xlsx"
+    - "edit-pptx"
+    - "create-docx"
+    - "create-xlsx"
+    - "create-pptx"
+    - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
+- id: "office"
+  name: Office
+  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Office"
+    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    mainPage: "office"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "read-docx"
+    - "read-xlsx"
+    - "read-pptx"
+    - "read-pdf"
+    - "edit-docx"
+    - "edit-xlsx"
+    - "edit-pptx"
+    - "create-docx"
+    - "create-xlsx"
+    - "create-pptx"
+    - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
+- id: "office"
+  name: Office
+  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Office"
+    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    mainPage: "office"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "read-docx"
+    - "read-xlsx"
+    - "read-pptx"
+    - "read-pdf"
+    - "edit-docx"
+    - "edit-xlsx"
+    - "edit-pptx"
+    - "create-docx"
+    - "create-xlsx"
+    - "create-pptx"
+    - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
+- id: "office"
+  name: Office
+  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Office"
+    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    mainPage: "office"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "read-docx"
+    - "read-xlsx"
+    - "read-pptx"
+    - "read-pdf"
+    - "edit-docx"
+    - "edit-xlsx"
+    - "edit-pptx"
+    - "create-docx"
+    - "create-xlsx"
+    - "create-pptx"
+    - "create-pdf"
+  skillShadows:
+    - "xlsx"
+    - "docx"
+    - "pptx"
+    - "pdf"
+- id: "quantization"
+  name: Quantization
+  description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:quantization-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Quantization"
+    description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+    mainPage: "jobs"
+    icon: "ui/icon.png"
+  toolCount: 6
+  tools:
+    - "resource-exists"
+    - "quantize-list"
+    - "quantize-start"
+    - "quantize-status"
+    - "quantize-stop"
+    - "quantize-import"
+- id: "quantization"
+  name: Quantization
+  description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:quantization-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Quantization"
+    description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+    mainPage: "jobs"
+    icon: "ui/icon.png"
+  toolCount: 6
+  tools:
+    - "resource-exists"
+    - "quantize-list"
+    - "quantize-start"
+    - "quantize-status"
+    - "quantize-stop"
+    - "quantize-import"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
@@ -60,30 +416,38 @@
     - "quantize-status"
     - "quantize-stop"
     - "quantize-import"
-- id: "voice"
-  name: Voice
-  description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+- id: "quantization"
+  name: Quantization
+  description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
   version: "0.0.0-development"
   channel: "development"
-  artifact: "oci://quay.io/go-skynet/local-ai-addons:voice-development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:quantization-development"
   mutable: true
   os: "linux"
-  arch: "amd64"
+  arch: "arm64"
   policy:
     requireSignature: true
     issuer: "https://token.actions.githubusercontent.com"
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
-    title: "Voice"
-    description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
-    mainPage: "voice"
+    title: "Quantization"
+    description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+    mainPage: "jobs"
     icon: "ui/icon.png"
-- id: "face"
-  name: Face
-  description: "Find out whose face is in a photo, or whether two photos show the same person."
+  toolCount: 6
+  tools:
+    - "resource-exists"
+    - "quantize-list"
+    - "quantize-start"
+    - "quantize-status"
+    - "quantize-stop"
+    - "quantize-import"
+- id: "sandbox"
+  name: Sandbox
+  description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
   version: "0.0.0-development"
   channel: "development"
-  artifact: "oci://quay.io/go-skynet/local-ai-addons:face-development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:sandbox-development"
   mutable: true
   os: "linux"
   arch: "amd64"
@@ -92,9 +456,151 @@
     issuer: "https://token.actions.githubusercontent.com"
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
-    title: "Face"
-    description: "Find out whose face is in a photo, or whether two photos show the same person."
-    mainPage: "recognition"
+    title: "Sandbox"
+    description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
+    mainPage: "sandbox"
+    icon: "ui/icon.png"
+  toolCount: 4
+  tools:
+    - "bash"
+    - "status"
+    - "set-backend"
+    - "confirm-host"
+  shadows:
+    - "bash"
+- id: "sandbox"
+  name: Sandbox
+  description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:sandbox-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Sandbox"
+    description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
+    mainPage: "sandbox"
+    icon: "ui/icon.png"
+  toolCount: 4
+  tools:
+    - "bash"
+    - "status"
+    - "set-backend"
+    - "confirm-host"
+  shadows:
+    - "bash"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+- id: "slack"
+  name: Slack
+  description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:slack-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Slack"
+    description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+- id: "studio"
+  name: Studio
+  description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:studio-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Studio"
+    description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+    mainPage: "studio"
+    icon: "ui/icon.png"
+- id: "studio"
+  name: Studio
+  description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:studio-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Studio"
+    description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+    mainPage: "studio"
     icon: "ui/icon.png"
 - id: "studio"
   name: Studio
@@ -114,24 +620,96 @@
     description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
     mainPage: "studio"
     icon: "ui/icon.png"
-- id: "talk"
-  name: Talk
-  description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+- id: "studio"
+  name: Studio
+  description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
   version: "0.0.0-development"
   channel: "development"
-  artifact: "oci://quay.io/go-skynet/local-ai-addons:talk-development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:studio-development"
   mutable: true
   os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Studio"
+    description: "Make images, video, 3D models, speech, sound and transformed audio with the models you have installed, and keep what you make."
+    mainPage: "studio"
+    icon: "ui/icon.png"
+- id: "tables"
+  name: Tables
+  description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:tables-development"
+  mutable: true
+  os: "darwin"
   arch: "amd64"
   policy:
     requireSignature: true
     issuer: "https://token.actions.githubusercontent.com"
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
-    title: "Talk"
-    description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
-    mainPage: "talk"
+    title: "Tables"
+    description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
+    mainPage: "databases"
     icon: "ui/icon.png"
+  toolCount: 16
+  tools:
+    - "resource-exists"
+    - "databases-create"
+    - "databases-rename"
+    - "databases-inspect"
+    - "tables-create"
+    - "tables-rename"
+    - "tables-drop"
+    - "columns-add"
+    - "columns-rename"
+    - "columns-drop"
+    - "rows-query"
+    - "rows-aggregate"
+    - "rows-export"
+    - "rows-insert"
+    - "rows-update"
+    - "rows-delete"
+- id: "tables"
+  name: Tables
+  description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:tables-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Tables"
+    description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
+    mainPage: "databases"
+    icon: "ui/icon.png"
+  toolCount: 16
+  tools:
+    - "resource-exists"
+    - "databases-create"
+    - "databases-rename"
+    - "databases-inspect"
+    - "tables-create"
+    - "tables-rename"
+    - "tables-drop"
+    - "columns-add"
+    - "columns-rename"
+    - "columns-drop"
+    - "rows-query"
+    - "rows-aggregate"
+    - "rows-export"
+    - "rows-insert"
+    - "rows-update"
+    - "rows-delete"
 - id: "tables"
   name: Tables
   description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
@@ -168,3 +746,367 @@
     - "rows-insert"
     - "rows-update"
     - "rows-delete"
+- id: "tables"
+  name: Tables
+  description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:tables-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Tables"
+    description: "Databases of tables you own or share: typed rows, filters, schema and sharing."
+    mainPage: "databases"
+    icon: "ui/icon.png"
+  toolCount: 16
+  tools:
+    - "resource-exists"
+    - "databases-create"
+    - "databases-rename"
+    - "databases-inspect"
+    - "tables-create"
+    - "tables-rename"
+    - "tables-drop"
+    - "columns-add"
+    - "columns-rename"
+    - "columns-drop"
+    - "rows-query"
+    - "rows-aggregate"
+    - "rows-export"
+    - "rows-insert"
+    - "rows-update"
+    - "rows-delete"
+- id: "talk"
+  name: Talk
+  description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talk-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talk"
+    description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+    mainPage: "talk"
+    icon: "ui/icon.png"
+- id: "talk"
+  name: Talk
+  description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talk-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talk"
+    description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+    mainPage: "talk"
+    icon: "ui/icon.png"
+- id: "talk"
+  name: Talk
+  description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talk-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talk"
+    description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+    mainPage: "talk"
+    icon: "ui/icon.png"
+- id: "talk"
+  name: Talk
+  description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:talk-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Talk"
+    description: "Have a spoken conversation with a model: your voice goes in, the answer is spoken back."
+    mainPage: "talk"
+    icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "telegram"
+  name: Telegram
+  description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:telegram-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Telegram"
+    description: "Bind a Telegram bot to one of your saved agents, so people can talk to it from Telegram."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "voice"
+  name: Voice
+  description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:voice-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Voice"
+    description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+    mainPage: "voice"
+    icon: "ui/icon.png"
+- id: "voice"
+  name: Voice
+  description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:voice-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Voice"
+    description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+    mainPage: "voice"
+    icon: "ui/icon.png"
+- id: "voice"
+  name: Voice
+  description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:voice-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Voice"
+    description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+    mainPage: "voice"
+    icon: "ui/icon.png"
+- id: "voice"
+  name: Voice
+  description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:voice-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Voice"
+    description: "Recognise who is speaking, keep the voices that text-to-speech can use, and speak text with them."
+    mainPage: "voice"
+    icon: "ui/icon.png"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"
+- id: "web"
+  name: Web
+  description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:web-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Web"
+    description: "Search the web from your chats with Brave Search, Tavily or Google, and read PDF files on the web."
+    mainPage: "web"
+    icon: "ui/icon.png"
+  toolCount: 5
+  tools:
+    - "search"
+    - "fetch"
+    - "status"
+    - "set-settings"
+    - "test-search"
+  shadows:
+    - "web_search"
+    - "web_fetch"

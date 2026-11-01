@@ -1,7 +1,9 @@
 package config
 
 import (
+	"maps"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/model"
@@ -41,6 +43,13 @@ type fieldSpec struct {
 }
 
 type fieldOpt func(*fieldSpec)
+
+// withApply replaces the apply step of a spec, for a setting whose value is
+// checked before it is taken.
+func withApply(f fieldSpec, apply func(o *ApplicationConfig, s *RuntimeSettings) bool) fieldSpec {
+	f.apply = apply
+	return f
+}
 
 func restartRequired() fieldOpt { return func(f *fieldSpec) { f.requiresRestart = true } }
 func fromFileAlways() fieldOpt  { return func(f *fieldSpec) { f.fileAuthoritative = true } }
@@ -94,6 +103,19 @@ func durationField(name string, sel func(*RuntimeSettings) **string, dur func(*A
 		opt(&f)
 	}
 	return f
+}
+
+// loopIntField is a loop limit from 1 to hi; a value outside is refused.
+func loopIntField(name string, hi int, sel func(*RuntimeSettings) **int, get func(*ApplicationConfig) int, set func(*ApplicationConfig, int)) fieldSpec {
+	return withApply(field(name, sel, get, set), func(o *ApplicationConfig, s *RuntimeSettings) bool {
+		v := **sel(s)
+		if v < 1 || v > hi {
+			xlog.Warn("invalid "+name+" in runtime settings", "value", v)
+			return false
+		}
+		set(o, v)
+		return true
+	})
 }
 
 // runtimeSettingsFields is THE per-field description of every runtime
@@ -361,11 +383,6 @@ var runtimeSettingsFields = []fieldSpec{
 		isSet: func(s *RuntimeSettings) bool { return s.ApiKeys != nil },
 	},
 
-	field("agent_job_retention_days",
-		func(s *RuntimeSettings) **int { return &s.AgentJobRetentionDays },
-		func(o *ApplicationConfig) int { return o.AgentJobRetentionDays },
-		func(o *ApplicationConfig, v int) { o.AgentJobRetentionDays = v }),
-
 	// Open Responses TTL: "0" or "" mean "no expiration" on the wire.
 	{
 		jsonNames: []string{"open_responses_store_ttl"},
@@ -397,55 +414,53 @@ var runtimeSettingsFields = []fieldSpec{
 	},
 
 	// Agent Pool.
-	field("agent_pool_enabled",
-		func(s *RuntimeSettings) **bool { return &s.AgentPoolEnabled },
-		func(o *ApplicationConfig) bool { return o.AgentPool.Enabled },
-		func(o *ApplicationConfig, v bool) { o.AgentPool.Enabled = v },
+	field("collections_enabled",
+		func(s *RuntimeSettings) **bool { return &s.CollectionsEnabled },
+		func(o *ApplicationConfig) bool { return o.Collections.Enabled },
+		func(o *ApplicationConfig, v bool) { o.Collections.Enabled = v },
 		restartRequired()),
-	field("agent_pool_default_model",
-		func(s *RuntimeSettings) **string { return &s.AgentPoolDefaultModel },
-		func(o *ApplicationConfig) string { return o.AgentPool.DefaultModel },
-		func(o *ApplicationConfig, v string) { o.AgentPool.DefaultModel = v },
+	field("collections_default_model",
+		func(s *RuntimeSettings) **string { return &s.CollectionsDefaultModel },
+		func(o *ApplicationConfig) string { return o.Collections.DefaultModel },
+		func(o *ApplicationConfig, v string) { o.Collections.DefaultModel = v },
 		restartRequired()),
-	field("agent_pool_embedding_model",
-		func(s *RuntimeSettings) **string { return &s.AgentPoolEmbeddingModel },
-		func(o *ApplicationConfig) string { return o.AgentPool.EmbeddingModel },
-		func(o *ApplicationConfig, v string) { o.AgentPool.EmbeddingModel = v },
+	field("chats_vision_model",
+		func(s *RuntimeSettings) **string { return &s.ChatsVisionModel },
+		func(o *ApplicationConfig) string { return o.ChatsVisionModel },
+		func(o *ApplicationConfig, v string) { o.ChatsVisionModel = v }),
+	field("chats_transcription_model",
+		func(s *RuntimeSettings) **string { return &s.ChatsTranscriptionModel },
+		func(o *ApplicationConfig) string { return o.ChatsTranscriptionModel },
+		func(o *ApplicationConfig, v string) { o.ChatsTranscriptionModel = v }),
+	field("collections_embedding_model",
+		func(s *RuntimeSettings) **string { return &s.CollectionsEmbeddingModel },
+		func(o *ApplicationConfig) string { return o.Collections.EmbeddingModel },
+		func(o *ApplicationConfig, v string) { o.Collections.EmbeddingModel = v },
 		restartRequired()),
-	field("agent_pool_max_chunking_size",
-		func(s *RuntimeSettings) **int { return &s.AgentPoolMaxChunkingSize },
-		func(o *ApplicationConfig) int { return o.AgentPool.MaxChunkingSize },
-		func(o *ApplicationConfig, v int) { o.AgentPool.MaxChunkingSize = v },
+	field("collections_max_chunking_size",
+		func(s *RuntimeSettings) **int { return &s.CollectionsMaxChunkingSize },
+		func(o *ApplicationConfig) int { return o.Collections.MaxChunkingSize },
+		func(o *ApplicationConfig, v int) { o.Collections.MaxChunkingSize = v },
 		restartRequired()),
-	field("agent_pool_chunk_overlap",
-		func(s *RuntimeSettings) **int { return &s.AgentPoolChunkOverlap },
-		func(o *ApplicationConfig) int { return o.AgentPool.ChunkOverlap },
-		func(o *ApplicationConfig, v int) { o.AgentPool.ChunkOverlap = v },
+	field("collections_chunk_overlap",
+		func(s *RuntimeSettings) **int { return &s.CollectionsChunkOverlap },
+		func(o *ApplicationConfig) int { return o.Collections.ChunkOverlap },
+		func(o *ApplicationConfig, v int) { o.Collections.ChunkOverlap = v },
 		restartRequired()),
-	field("agent_pool_enable_logs",
-		func(s *RuntimeSettings) **bool { return &s.AgentPoolEnableLogs },
-		func(o *ApplicationConfig) bool { return o.AgentPool.EnableLogs },
-		func(o *ApplicationConfig, v bool) { o.AgentPool.EnableLogs = v },
+	field("collections_db_path",
+		func(s *RuntimeSettings) **string { return &s.CollectionsDBPath },
+		func(o *ApplicationConfig) string { return o.Collections.CollectionDBPath },
+		func(o *ApplicationConfig, v string) { o.Collections.CollectionDBPath = v },
 		restartRequired()),
-	field("agent_pool_collection_db_path",
-		func(s *RuntimeSettings) **string { return &s.AgentPoolCollectionDBPath },
-		func(o *ApplicationConfig) string { return o.AgentPool.CollectionDBPath },
-		func(o *ApplicationConfig, v string) { o.AgentPool.CollectionDBPath = v },
+	field("collections_vector_engine",
+		func(s *RuntimeSettings) **string { return &s.CollectionsVectorEngine },
+		func(o *ApplicationConfig) string { return o.Collections.VectorEngine },
+		func(o *ApplicationConfig, v string) { o.Collections.VectorEngine = v },
 		restartRequired()),
-	field("agent_pool_vector_engine",
-		func(s *RuntimeSettings) **string { return &s.AgentPoolVectorEngine },
-		func(o *ApplicationConfig) string { return o.AgentPool.VectorEngine },
-		func(o *ApplicationConfig, v string) { o.AgentPool.VectorEngine = v },
-		restartRequired()),
-	field("agent_pool_database_url",
-		func(s *RuntimeSettings) **string { return &s.AgentPoolDatabaseURL },
-		func(o *ApplicationConfig) string { return o.AgentPool.DatabaseURL },
-		func(o *ApplicationConfig, v string) { o.AgentPool.DatabaseURL = v },
-		restartRequired()),
-	field("agent_pool_agent_hub_url",
-		func(s *RuntimeSettings) **string { return &s.AgentPoolAgentHubURL },
-		func(o *ApplicationConfig) string { return o.AgentPool.AgentHubURL },
-		func(o *ApplicationConfig, v string) { o.AgentPool.AgentHubURL = v },
+	field("collections_database_url",
+		func(s *RuntimeSettings) **string { return &s.CollectionsDatabaseURL },
+		func(o *ApplicationConfig) string { return o.Collections.DatabaseURL },
+		func(o *ApplicationConfig, v string) { o.Collections.DatabaseURL = v },
 		restartRequired()),
 
 	// Distributed disk-headroom admission check: stored as the negation for UI
@@ -458,11 +473,287 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) bool { return !o.Distributed.DiskHeadroomDisabled },
 		func(o *ApplicationConfig, v bool) { o.Distributed.DiskHeadroomDisabled = !v }),
 
+	// MCP connectors: private network addresses are refused unless this is on.
+	// Read at each connection, so no restart.
+	field("mcp_connectors_allow_private",
+		func(s *RuntimeSettings) **bool { return &s.MCPConnectorsAllowPrivate },
+		func(o *ApplicationConfig) bool { return o.MCPConnectorsAllowPrivate },
+		func(o *ApplicationConfig, v bool) { o.MCPConnectorsAllowPrivate = v }),
+
+	// The built-in web tools of the chats: read at each turn, so no restart.
+	// The two switches are stored as the negation, so both tools are on by
+	// default.
+	field("chats_web_search",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWebSearch },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsWebSearch },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsWebSearch = !v }),
+	field("chats_web_fetch",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWebFetch },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsWebFetch },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsWebFetch = !v }),
+	// The saved agents as sub-agents of a chat: read at each turn, so no
+	// restart. Stored as the negation, so it is on by default.
+	field("chats_saved_agents",
+		func(s *RuntimeSettings) **bool { return &s.ChatsSavedAgents },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsSavedAgents },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsSavedAgents = !v }),
+	// The work folder of each chat for its scripts, logs and drafts: read at
+	// each turn, so no restart. Stored as the negation, so it is on by default.
+	field("chats_work_folder",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWorkFolder },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsWorkFolder },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsWorkFolder = !v }),
+	// The text index of the documents in the chats' files: read at each pass
+	// of the indexer, so no restart. The switch is stored as the negation, so
+	// it is on by default; the snapshot of the cap is the cap that applies.
+	field("chats_index_files",
+		func(s *RuntimeSettings) **bool { return &s.ChatsIndexFiles },
+		func(o *ApplicationConfig) bool { return !o.DisableChatsIndexFiles },
+		func(o *ApplicationConfig, v bool) { o.DisableChatsIndexFiles = !v }),
+	withApply(field("chats_index_max_text_bytes",
+		func(s *RuntimeSettings) **int { return &s.ChatsIndexMaxTextBytes },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsIndexMaxTextBytes() },
+		func(o *ApplicationConfig, v int) { o.ChatsIndexMaxTextBytes = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsIndexMaxTextBytes; v < MinChatsIndexMaxTextBytes || v > MaxChatsIndexMaxTextBytes {
+				xlog.Warn("invalid chats_index_max_text_bytes in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsIndexMaxTextBytes = *s.ChatsIndexMaxTextBytes
+			return true
+		}),
+	field("chats_web_searxng_url",
+		func(s *RuntimeSettings) **string { return &s.ChatsWebSearXNGURL },
+		func(o *ApplicationConfig) string { return o.ChatsWebSearXNGURL },
+		func(o *ApplicationConfig, v string) { o.ChatsWebSearXNGURL = strings.TrimSpace(v) }),
+	withApply(field("chats_web_search_providers",
+		func(s *RuntimeSettings) **string { return &s.ChatsWebSearchProviders },
+		func(o *ApplicationConfig) string { return o.ChatsWebSearchProviders },
+		func(o *ApplicationConfig, v string) { o.ChatsWebSearchProviders = strings.TrimSpace(v) }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsWebSearchProviders)
+			if _, err := ParseSearchProviders(v, true); err != nil {
+				xlog.Warn("invalid chats_web_search_providers in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsWebSearchProviders = v
+			return true
+		}),
+	field("chats_web_allow_private",
+		func(s *RuntimeSettings) **bool { return &s.ChatsWebAllowPrivate },
+		func(o *ApplicationConfig) bool { return o.ChatsWebAllowPrivate },
+		func(o *ApplicationConfig, v bool) { o.ChatsWebAllowPrivate = v }),
+	withApply(field("chats_web_ports",
+		func(s *RuntimeSettings) **string { return &s.ChatsWebPorts },
+		func(o *ApplicationConfig) string { return o.ChatsWebPorts },
+		func(o *ApplicationConfig, v string) { o.ChatsWebPorts = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsWebPorts)
+			if _, err := ParsePorts(v); err != nil {
+				xlog.Warn("invalid chats_web_ports in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsWebPorts = v
+			return true
+		}),
+
+	// The network of the Sandbox commands: read at each check, so no
+	// restart. The lists and the presets are checked by the settings
+	// endpoint; a bad value in the file is logged and the safe default kept.
+	withApply(field("chats_egress_ceiling",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressCeiling },
+		func(o *ApplicationConfig) string { return o.ChatsEgressCeiling },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressCeiling = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressCeiling)
+			if !ValidEgressPreset(v) {
+				xlog.Warn("invalid chats_egress_ceiling in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsEgressCeiling = v
+			return true
+		}),
+	withApply(field("chats_egress_default",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressDefault },
+		func(o *ApplicationConfig) string { return o.ChatsEgressDefault },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressDefault = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressDefault)
+			if !ValidEgressPreset(v) {
+				xlog.Warn("invalid chats_egress_default in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsEgressDefault = v
+			return true
+		}),
+	field("chats_egress_allow_private",
+		func(s *RuntimeSettings) **bool { return &s.ChatsEgressAllowPrivate },
+		func(o *ApplicationConfig) bool { return o.ChatsEgressAllowPrivate },
+		func(o *ApplicationConfig, v bool) { o.ChatsEgressAllowPrivate = v }),
+	withApply(field("chats_egress_ports",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressPorts },
+		func(o *ApplicationConfig) string { return o.ChatsEgressPorts },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressPorts = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressPorts)
+			if _, err := ParseEgressPorts(v); err != nil {
+				xlog.Warn("invalid chats_egress_ports in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsEgressPorts = v
+			return true
+		}),
+	withApply(field("chats_egress_extra_registries",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressExtraRegistries },
+		func(o *ApplicationConfig) string { return o.ChatsEgressExtraRegistries },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressExtraRegistries = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressExtraRegistries)
+			if _, err := ParseEgressHosts(v); err != nil {
+				xlog.Warn("invalid chats_egress_extra_registries in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsEgressExtraRegistries = v
+			return true
+		}),
+	withApply(field("chats_egress_allowed_hosts",
+		func(s *RuntimeSettings) **string { return &s.ChatsEgressAllowedHosts },
+		func(o *ApplicationConfig) string { return o.ChatsEgressAllowedHosts },
+		func(o *ApplicationConfig, v string) { o.ChatsEgressAllowedHosts = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			v := strings.TrimSpace(*s.ChatsEgressAllowedHosts)
+			// The shape is checked here; the settings endpoint also checks
+			// IP literals against the private switch of the same request.
+			if _, err := ParseEgressAllowedHosts(v, true); err != nil {
+				xlog.Warn("invalid chats_egress_allowed_hosts in runtime settings", "value", v, "error", err)
+				return false
+			}
+			o.ChatsEgressAllowedHosts = v
+			return true
+		}),
+	// The snapshot is the retention that applies, so a page that saves every
+	// setting back sends 30 while the setting is unset, not an invalid 0.
+	withApply(field("chats_egress_audit_days",
+		func(s *RuntimeSettings) **int { return &s.ChatsEgressAuditDays },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsEgressAuditDays() },
+		func(o *ApplicationConfig, v int) { o.ChatsEgressAuditDays = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsEgressAuditDays; v < 1 || v > 365 {
+				xlog.Warn("invalid chats_egress_audit_days in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsEgressAuditDays = *s.ChatsEgressAuditDays
+			return true
+		}),
+
+	// The step limit of a chat turn: read when a turn starts, so no restart.
+	// The snapshot is the limit that applies, so the page shows 40 while the
+	// setting is unset.
+	withApply(field("chats_max_iterations",
+		func(s *RuntimeSettings) **int { return &s.ChatsMaxIterations },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsMaxIterations() },
+		func(o *ApplicationConfig, v int) { o.ChatsMaxIterations = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsMaxIterations; v < 1 || v > MaxChatsMaxIterations {
+				xlog.Warn("invalid chats_max_iterations in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsMaxIterations = *s.ChatsMaxIterations
+			return true
+		}),
+
+	// The limits of a chat's goal: read when a turn ends, so no restart. The
+	// snapshot is the limit that applies.
+	withApply(field("chats_goal_max_turns",
+		func(s *RuntimeSettings) **int { return &s.ChatsGoalMaxTurns },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsGoalMaxTurns() },
+		func(o *ApplicationConfig, v int) { o.ChatsGoalMaxTurns = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsGoalMaxTurns; v < 1 || v > MaxChatsGoalMaxTurns {
+				xlog.Warn("invalid chats_goal_max_turns in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsGoalMaxTurns = *s.ChatsGoalMaxTurns
+			return true
+		}),
+	withApply(field("chats_goal_max_steps",
+		func(s *RuntimeSettings) **int { return &s.ChatsGoalMaxSteps },
+		func(o *ApplicationConfig) int { return o.EffectiveChatsGoalMaxSteps() },
+		func(o *ApplicationConfig, v int) { o.ChatsGoalMaxSteps = v }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			if v := *s.ChatsGoalMaxSteps; v < 1 || v > MaxChatsGoalMaxSteps {
+				xlog.Warn("invalid chats_goal_max_steps in runtime settings", "value", v)
+				return false
+			}
+			o.ChatsGoalMaxSteps = *s.ChatsGoalMaxSteps
+			return true
+		}),
+	// The loops of the chats: read at each use, so no restart. The snapshot
+	// is the value that applies.
+	withApply(fieldEq("chats_loop_min_interval",
+		func(s *RuntimeSettings) **string { return &s.ChatsLoopMinInterval },
+		func(o *ApplicationConfig) string { return o.EffectiveChatsLoopMinInterval().String() },
+		func(o *ApplicationConfig, v string) {
+			if d, err := time.ParseDuration(v); err == nil {
+				o.ChatsLoopMinInterval = d
+			}
+		},
+		func(a, b string) bool { return a == b }),
+		func(o *ApplicationConfig, s *RuntimeSettings) bool {
+			d, err := time.ParseDuration(strings.TrimSpace(*s.ChatsLoopMinInterval))
+			if err != nil || d < MinChatsLoopInterval || d > MaxChatsLoopInterval {
+				xlog.Warn("invalid chats_loop_min_interval in runtime settings", "value", *s.ChatsLoopMinInterval)
+				return false
+			}
+			o.ChatsLoopMinInterval = d
+			return true
+		}),
+	loopIntField("chats_loop_max_runs", MaxChatsLoopMaxRuns,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxRuns },
+		(*ApplicationConfig).EffectiveChatsLoopMaxRuns,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxRuns = v }),
+	loopIntField("chats_loop_max_per_chat", MaxChatsLoopMaxPerChat,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxPerChat },
+		(*ApplicationConfig).EffectiveChatsLoopMaxPerChat,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxPerChat = v }),
+	loopIntField("chats_loop_max_per_user", MaxChatsLoopMaxPerUser,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxPerUser },
+		(*ApplicationConfig).EffectiveChatsLoopMaxPerUser,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxPerUser = v }),
+	loopIntField("chats_loop_daily_runs", MaxChatsLoopDailyRuns,
+		func(s *RuntimeSettings) **int { return &s.ChatsLoopDailyRuns },
+		(*ApplicationConfig).EffectiveChatsLoopDailyRuns,
+		func(o *ApplicationConfig, v int) { o.ChatsLoopDailyRuns = v }),
+
+	// Offers from the assistant: stored as the negation for UI clarity. Read
+	// at each turn, so no restart.
+	field("chats_suggestions",
+		func(s *RuntimeSettings) **bool { return &s.ChatsSuggestions },
+		func(o *ApplicationConfig) bool { return !o.DisableChatSuggestions },
+		func(o *ApplicationConfig, v bool) { o.DisableChatSuggestions = !v }),
+
 	// LocalAI Assistant: stored as the negation for UI clarity.
 	field("localai_assistant_enabled",
 		func(s *RuntimeSettings) **bool { return &s.LocalAIAssistantEnabled },
 		func(o *ApplicationConfig) bool { return !o.DisableLocalAIAssistant },
 		func(o *ApplicationConfig, v bool) { o.DisableLocalAIAssistant = !v }),
+
+	// Pages of shared folders: stored as the negation, like the assistant.
+	field("shared_pages_enabled",
+		func(s *RuntimeSettings) **bool { return &s.SharedPagesEnabled },
+		func(o *ApplicationConfig) bool { return !o.DisableSharedPages },
+		func(o *ApplicationConfig, v bool) { o.DisableSharedPages = !v }),
+
+	// Built-in chat tools: the host-commands mode and the add-on pins.
+	field("chats_host_exec",
+		func(s *RuntimeSettings) **string { return &s.ChatsHostExec },
+		func(o *ApplicationConfig) string { return o.ChatsHostExec },
+		func(o *ApplicationConfig, v string) { o.ChatsHostExec = v }),
+	fieldEq("chats_tool_providers",
+		func(s *RuntimeSettings) **map[string]string { return &s.ChatsToolProviders },
+		func(o *ApplicationConfig) map[string]string { return maps.Clone(o.ChatsToolProviders) },
+		func(o *ApplicationConfig, v map[string]string) { o.ChatsToolProviders = maps.Clone(v) },
+		func(a, b map[string]string) bool { return maps.Equal(a, b) }),
 
 	// Branding: the file is the only source (no env/CLI), so it is always
 	// authoritative. Without fromFileAlways a restart silently drops the

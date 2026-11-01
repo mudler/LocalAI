@@ -1,10 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import { cssVars } from '../../utils/modelLedger'
 import Icon from '../Icon'
-
-const CONTEXT_STEPS = [4096, 8192, 16384, 32768]
+import { REASONING_EFFORTS, settingsBody, settingsChanged, settingsErrors, settingsForm } from '../../utils/chatSettings'
 
 // eslint-disable-next-line no-unused-vars
 function Switch({ checked, onChange, label }) {
@@ -20,45 +18,83 @@ function Switch({ checked, onChange, label }) {
   )
 }
 
-// One sampling setting. null means "the model's own default": the slider sits
-// at a typical value, the label says so, and Reset puts the chat back to it.
-// eslint-disable-next-line no-unused-vars
-function Slider({ id, label, value, fallback, min, max, step, onChange, onReset, parse }) {
+// The chat in one sheet: how the page behaves, what the chat runs with (its
+// agent, the LocalAI tools) and, for admins, what the model is. The server keeps
+// the chat, its model and its tools; the switches of the tools and skills are in
+// the composer.
+// The settings the server keeps with an open chat: a system prompt, the
+// sampling values, the reasoning effort and the context size. Save sends them
+// all (PATCH /api/chats/{id}); they apply from the next turn.
+// eslint-disable-next-line no-unused-vars -- used as JSX below
+function AnswerSettings({ settings, onSave }) {
   const { t } = useTranslation('chat')
-  const shown = value ?? fallback
-  const pct = ((shown - min) / (max - min)) * 100
-  return (
+  const [form, setForm] = useState(() => settingsForm(settings))
+  const [state, setState] = useState({ kind: 'idle', message: '' })
+  useEffect(() => { setForm(settingsForm(settings)) }, [settings])
+  const errors = settingsErrors(form)
+  const changed = settingsChanged(form, settings)
+  const set = (key) => (e) => { setForm(f => ({ ...f, [key]: e.target.value })); setState({ kind: 'idle', message: '' }) }
+  const save = async (e) => {
+    e.preventDefault()
+    if (Object.keys(errors).length > 0) return
+    setState({ kind: 'busy', message: '' })
+    try {
+      await onSave(settingsBody(form))
+      setState({ kind: 'saved', message: '' })
+    } catch (err) {
+      setState({ kind: 'error', message: err.message || t('settings.saveFailed') })
+    }
+  }
+  const field = (key, label, extra = {}) => (
     <div className="cx-field">
-      <div className="cx-field__label">
-        <label htmlFor={id}>{label}</label>
-        <span className="cx-field__value" data-default={value === null || value === undefined || undefined}>
-          {value === null || value === undefined ? t('settings.modelDefault') : value}
-        </span>
-        {value !== null && value !== undefined && (
-          <button type="button" className="cx-link" onClick={onReset}>{t('settings.reset')}</button>
-        )}
-      </div>
+      <label className="cx-field__label" htmlFor={`cx-set-${key}`}>{label}</label>
       <input
-        id={id}
-        className="dk-range"
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={shown}
-        style={cssVars({ '--dk-fill': `${pct}%` })}
-        onChange={(e) => onChange(parse(e.target.value))}
+        id={`cx-set-${key}`}
+        className="cx-in"
+        inputMode="decimal"
+        value={form[key]}
+        onChange={set(key)}
+        placeholder={t('settings.modelDefault')}
+        aria-invalid={errors[key] ? true : undefined}
+        aria-describedby={errors[key] ? `cx-set-${key}-err` : undefined}
+        {...extra}
       />
-      <div className="cx-field__ends"><span>{min}</span><span>{max}</span></div>
+      {errors[key] && <p className="cx-help cx-help--err" id={`cx-set-${key}-err`}>{t(`settings.invalid.${errors[key]}`)}</p>}
     </div>
+  )
+  return (
+    <form className="cx-sec" data-testid="chat-answer-settings" onSubmit={save}>
+      <h3>{t('settings.answers')}</h3>
+      <p className="cx-help">{t('settings.answersHelp')}</p>
+      <div className="cx-field">
+        <label className="cx-field__label" htmlFor="cx-set-system_prompt">{t('settings.systemPrompt')}</label>
+        <textarea id="cx-set-system_prompt" className="cx-ta" value={form.system_prompt} onChange={set('system_prompt')} placeholder={t('settings.systemPromptPlaceholder')} />
+      </div>
+      {field('temperature', t('settings.temperature'))}
+      {field('top_p', t('settings.topP'))}
+      {field('top_k', t('settings.topK'), { inputMode: 'numeric' })}
+      {field('context_size', t('settings.contextSize'), { inputMode: 'numeric' })}
+      <div className="cx-field" role="group" aria-label={t('settings.reasoningEffort')}>
+        <span className="cx-field__label">{t('settings.reasoningEffort')}</span>
+        <div className="cx-seg">
+          {REASONING_EFFORTS.map(v => (
+            <button key={v || 'default'} type="button" aria-pressed={form.reasoning_effort === v} onClick={() => set('reasoning_effort')({ target: { value: v } })}>
+              {v ? t(`settings.effort.${v}`) : t('settings.effort.default')}
+            </button>
+          ))}
+        </div>
+      </div>
+      {state.kind === 'error' && <p className="cx-notice cx-notice--error" role="alert" data-testid="chat-settings-error">{state.message}</p>}
+      {state.kind === 'saved' && <p className="cx-help" role="status">{t('settings.saved')}</p>}
+      <button type="submit" className="cx-btn cx-btn--primary" disabled={!changed || state.kind === 'busy' || Object.keys(errors).length > 0} data-testid="chat-settings-save">
+        {state.kind === 'busy' ? t('settings.saving') : t('settings.save')}
+      </button>
+    </form>
   )
 }
 
-// Everything that shapes the next reply, in one sheet: the system prompt,
-// sampling, the context size, the behaviour switches and, for admins, what the
-// model is. Settings apply from the next message.
 export default function ChatSettingsSheet({
-  chat, isAdmin, onUpdate, focusMode, onFocusMode, modelInfo, onEditConfig, onClear, onClose,
+  chat, agent, isAdmin, focusMode, onFocusMode, modelInfo, onEditConfig, onEditAgent, onDelete, onClose, onSaveSettings,
 }) {
   const { t } = useTranslation('chat')
   const sheetRef = useRef(null)
@@ -76,7 +112,7 @@ export default function ChatSettingsSheet({
     const onKey = (e) => {
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onCloseRef.current(); return }
       if (e.key !== 'Tab' || !sheetRef.current) return
-      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+      const focusable = Array.from(sheetRef.current.querySelectorAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'))
       if (focusable.length === 0) return
       const first = focusable[0]
       const last = focusable[focusable.length - 1]
@@ -90,10 +126,6 @@ export default function ChatSettingsSheet({
       if (el && document.contains(el)) el.focus?.()
     }
   }, [])
-
-  const set = (patch) => onUpdate(patch)
-  const used = chat.tokenUsage?.total || 0
-  const percent = chat.contextSize ? Math.min(100, Math.round((used / chat.contextSize) * 100)) : null
 
   return createPortal(
     <div className="dk-sheet-veil cx-sheet-veil" data-state="open" onMouseDown={onClose}>
@@ -111,7 +143,7 @@ export default function ChatSettingsSheet({
         <div className="dk-sheet-head">
           <div>
             <h2 className="dk-sheet-title" id="chat-settings-title">{t('settings.title')}</h2>
-            <p className="dk-sheet-desc">{t('settings.appliesNext')}</p>
+            <p className="dk-sheet-desc">{t('settings.serverKept')}</p>
           </div>
           <button
             ref={closeRef}
@@ -126,85 +158,13 @@ export default function ChatSettingsSheet({
 
         <div className="dk-sheet-body cx-sheet__body">
           <section className="cx-sec">
-            <h3>{t('settings.systemPrompt')}</h3>
-            <textarea
-              className="cx-ta"
-              data-testid="chat-system-prompt"
-              value={chat.systemPrompt || ''}
-              onChange={(e) => set({ systemPrompt: e.target.value })}
-              rows={5}
-              placeholder={t('settings.systemPromptPlaceholder')}
-              aria-label={t('settings.systemPrompt')}
-            />
-            <p className="cx-help">{t('settings.systemPromptHelp')}</p>
-          </section>
-
-          <section className="cx-sec">
-            <h3>{t('settings.sampling')}</h3>
-            <Slider
-              id="chat-temperature" label={t('settings.temperature')} value={chat.temperature} fallback={0.7}
-              min={0} max={2} step={0.1} parse={parseFloat}
-              onChange={(v) => set({ temperature: v })} onReset={() => set({ temperature: null })}
-            />
-            <Slider
-              id="chat-top-p" label={t('settings.topP')} value={chat.topP} fallback={0.9}
-              min={0} max={1} step={0.05} parse={parseFloat}
-              onChange={(v) => set({ topP: v })} onReset={() => set({ topP: null })}
-            />
-            <Slider
-              id="chat-top-k" label={t('settings.topK')} value={chat.topK} fallback={40}
-              min={1} max={100} step={1} parse={(v) => parseInt(v, 10)}
-              onChange={(v) => set({ topK: v })} onReset={() => set({ topK: null })}
-            />
-          </section>
-
-          <section className="cx-sec">
-            <h3>{t('settings.contextWindow')}</h3>
-            <div className="cx-field">
-              <div className="cx-field__label">
-                <label htmlFor="chat-context-size">{t('settings.contextSize')}</label>
-              </div>
-              <div className="cx-seg" role="group" aria-label={t('settings.contextSize')}>
-                {CONTEXT_STEPS.map(n => (
-                  <button
-                    key={n}
-                    type="button"
-                    aria-pressed={chat.contextSize === n}
-                    onClick={() => set({ contextSize: n })}
-                  >
-                    {n / 1024}k
-                  </button>
-                ))}
-              </div>
-              <input
-                id="chat-context-size"
-                type="number"
-                className="cx-in"
-                value={chat.contextSize || ''}
-                onChange={(e) => set({ contextSize: parseInt(e.target.value, 10) || null })}
-                placeholder={t('settings.contextSizePlaceholder')}
-              />
-              <p className="cx-help">
-                {percent !== null
-                  ? t('settings.contextUsing', { used, size: chat.contextSize, percent })
-                  : t('settings.contextHelp')}
-              </p>
-            </div>
-          </section>
-
-          <section className="cx-sec">
             <h3>{t('settings.behaviour')}</h3>
-            {isAdmin && (
-              <div className="cx-tog">
+            {chat.assistant && (
+              <div className="cx-tog" data-testid="chat-manage-mode">
                 <span>
                   <b><Icon name="user-shield" /> {t('settings.manageMode')}</b>
-                  <small>{t('settings.manageModeDesc')}</small>
+                  <small>{t('settings.manageModeOn')}</small>
                 </span>
-                <Switch
-                  checked={!!chat.localaiAssistant}
-                  onChange={(next) => set({ localaiAssistant: next })}
-                  label={t('settings.manageMode')}
-                />
               </div>
             )}
             <div className="cx-tog">
@@ -215,6 +175,18 @@ export default function ChatSettingsSheet({
               <Switch checked={focusMode} onChange={onFocusMode} label={t('settings.focusMode')} />
             </div>
           </section>
+
+          {onSaveSettings && <AnswerSettings settings={chat.settings} onSave={onSaveSettings} />}
+
+          {agent && (
+            <section className="cx-sec" data-testid="chat-agent-info">
+              <h3>{t('settings.agent')}</h3>
+              <p className="cx-help">{t('settings.agentHelp', { name: agent.name })}</p>
+              <button type="button" className="cx-btn" onClick={onEditAgent}>
+                <Icon name="edit" /> {t('settings.editAgent')}
+              </button>
+            </section>
+          )}
 
           {isAdmin && chat.model && modelInfo && (
             <section className="cx-sec" data-testid="chat-model-info">
@@ -234,15 +206,15 @@ export default function ChatSettingsSheet({
             </section>
           )}
 
-          <section className="cx-sec">
+          {onDelete && <section className="cx-sec">
             <h3>{t('settings.conversation')}</h3>
             <div className="cx-danger">
-              <span>{t('settings.clearHelp')}</span>
-              <button type="button" className="cx-btn cx-btn--danger" onClick={onClear} title={t('settings.clearHistory')}>
-                <Icon name="eraser" /> {t('settings.clearHistory')}
+              <span>{t('settings.deleteHelp')}</span>
+              <button type="button" className="cx-btn cx-btn--danger" onClick={onDelete} data-testid="chat-settings-delete">
+                <Icon name="trash" /> {t('menu.deleteChat')}
               </button>
             </div>
-          </section>
+          </section>}
         </div>
       </div>
     </div>,

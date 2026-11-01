@@ -33,10 +33,10 @@ test.describe('Add-ons: apps', () => {
     await page.goto('/app/addons')
     const notes = page.locator('[data-app="notes"]')
     await expect(notes.locator('.ad-tile__title')).toHaveText('Notes')
-    await expect(notes.locator('.ad-tile__state')).toHaveText('On')
+    await expect(notes.locator('.ad-tile__state')).toHaveText('Running')
     await expect(notes.getByRole('link')).toHaveAttribute('href', '/app/addons/notes/home')
     await expect(notes.locator('img.ad-icon')).toHaveAttribute('src', '/api/addons/apps/notes/icon?generation=3')
-    await expect(page.locator('[data-app="broken"] .ad-tile__state')).toHaveText('Off, failed')
+    await expect(page.locator('[data-app="broken"] .ad-tile__state')).toHaveText('Failed')
     await expect(page.locator('[data-app="broken"]').getByRole('link')).toHaveCount(0)
     await expect(page.locator('[data-app="indexer"]').getByRole('link')).toHaveCount(0)
     // Every image is served by the host itself, never from another origin.
@@ -79,7 +79,7 @@ test.describe('Add-ons: apps', () => {
     const card = detail(page, 'indexer')
     await expect(card.getByRole('img', { name: 'State: Off' })).toBeVisible()
     await card.getByRole('button', { name: 'Turn on' }).click()
-    await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
     expect(state.log.start).toHaveLength(1)
     expect(state.log.start[0].generation).toBe(4)
     expect(state.log.start[0].operationId).toMatch(UUID)
@@ -173,7 +173,7 @@ test.describe('Add-ons: apps', () => {
     await card.getByRole('button', { name: 'Turn on' }).click()
     await expect.poll(() => state.log.start.length).toBe(2)
     expect(state.log.start[1].operationId).not.toBe(firstId)
-    await expect(card.getByRole('img', { name: 'State: On' })).toBeVisible()
+    await expect(card.getByRole('img', { name: 'State: Running' })).toBeVisible()
     await expect(card.getByRole('alert')).toHaveCount(0)
     expect(state.apps[0].enabled).toBe(true)
   })
@@ -252,7 +252,7 @@ test.describe('Add-ons: apps', () => {
     await expect.poll(() => state.log.appsList).toBe(4)
     await expect(page.getByText('may be out of date')).toHaveCount(0)
     // Leaving the page stops the requests.
-    await page.evaluate(() => { window.history.pushState({}, '', '/app/chat'); window.dispatchEvent(new PopStateEvent('popstate')) })
+    await page.evaluate(() => { window.history.pushState({}, '', '/app/chats'); window.dispatchEvent(new PopStateEvent('popstate')) })
     await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
     const seen = state.log.appsList
     await page.clock.runFor(180_000)
@@ -260,41 +260,105 @@ test.describe('Add-ons: apps', () => {
   })
 })
 
+// The stand-in counts a read when the request arrives, before the page has its
+// answer. The page sets its next timer only once it has read the answer, so a
+// spec that moves the clock as soon as a request arrives can move it past a
+// timer that does not exist yet. This counts the answers the page has read.
+async function countAppsAnswers(page) {
+  await page.addInitScript(() => {
+    window.__appsAnswers = 0
+    const original = window.fetch
+    window.fetch = async (...args) => {
+      const response = await original(...args)
+      const target = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url) || ''
+      if (!/\/api\/addons\/apps$/.test(new URL(target, window.location.href).pathname)) return response
+      const json = response.json.bind(response)
+      response.json = async () => {
+        try { return await json() } finally { window.__appsAnswers += 1 }
+      }
+      return response
+    }
+  })
+}
+
+// Lets the page finish the work it has queued (the render of a new list and
+// its effects). A message channel is not under the page clock.
+const settle = (page) => page.evaluate(async () => {
+  for (let i = 0; i < 10; i++) {
+    await new Promise(resolve => {
+      const channel = new MessageChannel()
+      channel.port1.onmessage = () => resolve()
+      channel.port2.postMessage(null)
+    })
+  }
+})
+
+// Pauses the page clock a moment ahead of its own time. On a slow machine that
+// moment can pass before the pause arrives, so a pause in the past is retried.
+async function pauseClock(page) {
+  for (let attempt = 0; ; attempt++) {
+    const now = await page.evaluate(() => Date.now())
+    try {
+      await page.clock.pauseAt(now + 500)
+      return
+    } catch (error) {
+      if (attempt >= 4 || !String(error).includes('to the past')) throw error
+    }
+  }
+}
+
+// Waits until read `n` has arrived and the page has read its answer.
+async function appsAnswered(page, state, n) {
+  await expect.poll(() => state.log.appsList).toBe(n)
+  await expect.poll(() => page.evaluate(() => window.__appsAnswers)).toBe(n)
+  await settle(page)
+}
+
 test.describe('Add-ons: registry polling', () => {
-  const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chat'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chats'); window.dispatchEvent(new PopStateEvent('popstate')) })
   const contributing = (over = {}) => app({ ui: { entry: '/api/addons/notes/assets/' + 'c'.repeat(64) + '/ui.js', css: [], sdk: { min: 1, max: 2 }, pages: ['home'], navigation: ['home'] }, ...over })
 
   test('apps: an add-on that contributes UI keeps the list current off the page and its disable stops the reads', async ({ page }) => {
     await signIn(page, MEMBER, { addons: true })
+    await countAppsAnswers(page)
     await page.clock.install()
     const state = await mockAddons(page, { apps: [contributing()] })
     await page.goto('/app/addons')
     await expect(page.locator('[data-app="notes"]')).toBeVisible()
+    // The clock is paused before the registry takes over, so from here only
+    // runFor moves it and a slow machine cannot make a read come early.
+    await pauseClock(page)
+    await page.waitForTimeout(150)
+    await settle(page)
+    const onPage = state.log.appsList
+    await expect.poll(() => page.evaluate(() => window.__appsAnswers)).toBe(onPage)
     await leave(page)
     await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
-    await page.clock.pauseAt((await page.evaluate(() => Date.now())) + 50)
-    await expect.poll(() => state.log.appsList).toBeGreaterThanOrEqual(1)
-    // Reads continue, one per interval and no faster. The clock only moves
-    // by runFor, and each step waits for its answer before the next one.
+    // Off the page the registry reads the list at once. Each step waits until
+    // the page has read the answer, and so has set its next timer, before the
+    // clock moves again.
+    await appsAnswered(page, state, onPage + 1)
     const before = state.log.appsList
+    // Reads continue, one per interval and no faster.
     await page.clock.runFor(4_000)
     await page.waitForTimeout(150)
+    await settle(page)
     expect(state.log.appsList).toBe(before)
     await page.clock.runFor(1_100)
-    await expect.poll(() => state.log.appsList).toBe(before + 1)
+    await appsAnswered(page, state, before + 1)
     for (let n = 2; n <= 4; n++) {
       await page.clock.runFor(5_100)
-      await expect.poll(() => state.log.appsList).toBe(before + n)
+      await appsAnswered(page, state, before + n)
     }
     // The owner disables it: the next list withdraws the contribution, and
     // with nothing left to keep current the reads stop.
     state.apps[0].enabled = false
     state.apps[0].state = 'stopped'
     await page.clock.runFor(5_100)
-    await expect.poll(() => state.log.appsList).toBe(before + 5)
-    await page.waitForTimeout(150)
+    await appsAnswered(page, state, before + 5)
     await page.clock.runFor(180_000)
     await page.waitForTimeout(300)
+    await settle(page)
     expect(state.log.appsList).toBe(before + 5)
   })
 
@@ -302,7 +366,7 @@ test.describe('Add-ons: registry polling', () => {
     await signIn(page, MEMBER, {})
     await page.clock.install()
     const state = await mockAddons(page, { apps: [contributing()] })
-    await page.goto('/app/chat')
+    await page.goto('/app/chats')
     await page.clock.runFor(120_000)
     await page.goto('/app/addons')
     await page.clock.runFor(120_000)
@@ -349,7 +413,7 @@ test.describe('Add-ons: browse', () => {
     await expect(row.getByTestId('entry-adds')).toHaveText('Adds a page')
     // One button on the entry, and Details is folded into it.
     await expect(row.getByRole('button')).toHaveCount(1)
-    await row.getByRole('button', { name: 'Install and turn on' }).click()
+    await row.getByRole('button', { name: /^Install / }).click()
     const dialog = page.getByRole('alertdialog')
     await expect(dialog).toContainText('Install and turn on Tables?')
     await expect(dialog).toContainText('sha256:aaaaaaaaaaaa')
@@ -388,7 +452,7 @@ test.describe('Add-ons: browse', () => {
     })
     await page.goto('/app/addons?tab=browse')
     const row = page.locator('.cat-item', { hasText: 'Tables' })
-    await row.getByRole('button', { name: 'Install and turn on' }).click()
+    await row.getByRole('button', { name: /^Install / }).click()
     const dialog = page.getByRole('alertdialog')
     await dialog.getByRole('button', { name: 'Install and turn on' }).click()
     await expect(dialog.getByTestId('install-dialog-failed')).toContainText('Tables is installed but did not turn on.')
@@ -413,7 +477,7 @@ test.describe('Add-ons: browse', () => {
   })
 })
 
-// What the Installed tab used to show is the Details of an add-on in My add-ons:
+// What the old Installed tab showed is the Details of an add-on in Installed:
 // the list read for an administrator and its installed record go together.
 const details = (id, over = {}, installedOver = {}) => ({
   apps: [app({ id, title: installedOver.title || id, admin: { canStart: false, canStop: true, managementUrl: `/app/addons?manage=${id}` }, ...over })],
@@ -423,7 +487,7 @@ const details = (id, over = {}, installedOver = {}) => ({
 test.describe('Add-ons: installed', () => {
   test('installed: health is separate from enabled and the details show trust, compatibility and storage', async ({ page }) => {
     await signIn(page, ADMIN)
-    await mockAddons(page, details('notes', { state: 'failed' }, { state: 'failed', restarts: 3, verification: 'sha256+sigstore', title: 'Notes' }))
+    await mockAddons(page, details('notes', { state: 'failed' }, { state: 'failed', restarts: 3, verification: 'sha256+sigstore', title: 'Notes', installedAt: '2026-10-01T10:00:00Z' }))
     await page.goto('/app/addons?manage=notes')
     const pane = page.getByTestId('addon-detail')
     await expect(pane.getByRole('heading', { name: 'Notes' })).toBeVisible()
@@ -438,6 +502,7 @@ test.describe('Add-ons: installed', () => {
     await expect(sheet.getByTestId('manage-updates').getByText('sha256:0123456789ab')).toBeVisible()
     await expect(sheet.locator('dt', { hasText: 'Host API' }).locator('xpath=following-sibling::dd[1]')).toHaveText('1-2')
     await expect(sheet.getByText('12 KiB')).toBeVisible()
+    await expect(sheet.getByTestId('manage-installed-at')).toContainText('2026')
     await expect(sheet.getByTestId('update-state')).toHaveAttribute('data-state', 'unknown')
     await expect(sheet.getByText('not collected in this release')).toBeVisible()
     await shoot(page, 'manage')
@@ -455,17 +520,17 @@ test.describe('Add-ons: installed', () => {
       ],
     })
     await page.goto('/app/addons')
-    await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('update-chip')).toHaveText('Update pending')
+    await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]').getByTestId('update-chip')).toHaveText('Update 1.3.0')
     await expect(page.locator('[data-testid="addon-tile"][data-app="plain"]').getByTestId('update-chip')).toHaveCount(0)
     await page.goto('/app/addons?manage=notes')
     await page.getByTestId('addon-manage').getByRole('button', { name: 'Upgrade' }).click()
-    // The review sheet names the version and digest the owner resolved and
-    // nothing is sent until it is confirmed there.
-    const dialog = page.getByTestId('update-review')
+    // The confirmation names the version and digest the owner resolved and
+    // nothing is sent until it is confirmed.
+    const dialog = page.getByTestId('upgrade-confirm')
     await expect(dialog).toContainText('1.3.0')
-    await expect(dialog.getByTestId('update-review-detail')).toContainText('sha256:bbbbbbbbbbbb')
+    await expect(dialog).toContainText('sha256:bbbbbbbbbbbb')
     expect(state.log.upgrade).toHaveLength(0)
-    await dialog.getByTestId('update-review-selected').click()
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Upgrade' }).click()
     await expect.poll(() => state.log.upgrade.length).toBe(1)
     const sent = state.log.upgrade[0]
     expect(sent.id).toBe('notes')
@@ -526,7 +591,7 @@ test.describe('Add-ons: installed', () => {
     const sheet = page.getByTestId('addon-manage')
     await expect(sheet.getByText('Headless, no pages')).toBeVisible()
     await expect(sheet.getByText('2: query, export')).toBeVisible()
-    await expect(sheet.getByRole('img', { name: 'State: On' })).toBeVisible()
+    await expect(sheet.getByRole('img', { name: 'State: Running' })).toBeVisible()
     await expect(sheet.getByRole('link', { name: 'Open' })).toHaveCount(0)
   })
 
@@ -536,18 +601,18 @@ test.describe('Add-ons: installed', () => {
     await page.goto('/app/addons?detail=notes')
     await expect(page.getByTestId('addon-detail').getByRole('heading', { name: 'Notes' })).toBeVisible()
     await expect(page.getByTestId('preview-source')).toHaveText('Not known')
-    await expect(page.getByTestId('addon-more')).toHaveCount(0)
+    await expect(page.getByTestId('addon-manage')).toHaveCount(0)
   })
 
-  test('installed: an old Installed address lands on My add-ons and the management link opens the details', async ({ page }) => {
+  test('installed: an old Installed address lands on Installed and the management link opens the details', async ({ page }) => {
     await signIn(page, ADMIN)
     await mockAddons(page, details('notes', {}, { title: 'Notes' }))
     await page.goto('/app/addons?tab=installed')
-    await expect(tab(page, 'My add-ons')).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('tab', { name: 'Installed' })).toHaveCount(0)
+    await expect(tab(page, 'Installed')).toHaveAttribute('aria-selected', 'true')
+    await expect(page.getByRole('tab', { name: /^Installed/ })).toHaveCount(1)
     await expect(page.getByTestId('addon-tile')).toHaveCount(1)
     await page.goto('/app/addons?manage=notes')
-    await expect(page.getByTestId('addon-more')).toHaveAttribute('open', '')
+    await expect(page.getByTestId('addon-detail').getByTestId('addon-manage')).toBeVisible()
   })
 })
 
@@ -589,7 +654,7 @@ test.describe('Add-ons: libraries', () => {
     // A removal goes through the library route, the same one the other kinds use.
     const removal = state.log.library.find(c => c.method === 'DELETE')
     expect(removal.id).toBe('main')
-    await tab(page, 'My add-ons').click()
+    await tab(page, 'Installed').click()
     await expect(page.locator('[data-testid="addon-tile"][data-app="notes"]')).toBeVisible()
     expect(state.installed).toHaveLength(1)
   })
@@ -617,7 +682,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await signIn(page, ADMIN)
     const state = await mockAddons(page, { apps: [app({ admin })] })
     await page.goto('/app/addons')
-    await tab(page, 'My add-ons').focus()
+    await tab(page, 'Installed').focus()
     await page.keyboard.press('ArrowRight')
     await expect(tab(page, 'Find add-ons')).toBeFocused()
     await expect(tab(page, 'Find add-ons')).toHaveAttribute('aria-selected', 'true')
@@ -625,7 +690,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.keyboard.press('End')
     await expect(tab(page, 'Sources')).toHaveAttribute('aria-selected', 'true')
     await page.keyboard.press('Home')
-    await expect(tab(page, 'My add-ons')).toHaveAttribute('aria-selected', 'true')
+    await expect(tab(page, 'Installed')).toHaveAttribute('aria-selected', 'true')
     // The selected tab is the only one in the tab order.
     await expect(tab(page, 'Find add-ons')).toHaveAttribute('tabindex', '-1')
     // Stop is reachable and operable with the keyboard alone, in the detail sheet.
@@ -663,7 +728,7 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await page.goto('/app/addons?detail=notes')
     const read = () => page.locator('.ad-pane').first().evaluate(el => {
       const css = getComputedStyle(el)
-      const chip = getComputedStyle(el.querySelector('.ad-chip'))
+      const chip = getComputedStyle(el.querySelector('.ad-state .ui-chip'))
       return { card: css.backgroundColor, chip: chip.color, chipBg: chip.backgroundColor }
     })
     const light = await read()
@@ -684,18 +749,18 @@ test.describe('Add-ons: access, keyboard, layout and language', () => {
     await expect(page.getByRole('tab', { name: 'Trova componenti' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Fonti' })).toBeVisible()
     await page.goto('/app/addons?detail=notes')
-    await expect(detail(page, 'notes').getByRole('img', { name: 'Stato: Attivo' })).toBeVisible()
+    await expect(detail(page, 'notes').getByRole('img', { name: 'Stato: In esecuzione' }).first()).toBeVisible()
   })
 
   test('hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature', async ({ page }) => {
     await page.route('**/api/features', route => route.fulfill({ json: { addon_navigation: false } }))
     await signIn(page, MEMBER, { chat: true })
     await mockAddons(page)
-    await page.goto('/app/build')
+    await page.goto('/app/addons')
     await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveCount(0)
     await page.unroute('**/api/auth/status')
     await signIn(page, MEMBER, { chat: true, addons: true })
-    await page.goto('/app/build')
+    await page.goto('/app/addons')
     await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveAttribute('href', '/app/addons')
     await page.locator('.dk-hubtabs [data-hub-tab="addons"]').click()
     await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveAttribute('aria-current', 'page')
@@ -719,7 +784,8 @@ test.describe('Add-ons: shared catalog components keep the backends gallery', ()
     await expect(page.locator('[data-entity="backend-60"]')).toBeVisible()
     await expect(page.locator('.bk-search.dk-input-icon input')).toBeVisible()
     await page.getByPlaceholder(/search backends/i).fill('nothing-here')
-    await expect(page.locator('.dk-empty')).toBeVisible()
-    await expect(page.locator('.dk-empty .dk-empty-title')).toBeVisible()
+    // The page draws the shared empty state of the kit, in its no-results form.
+    await expect(page.locator('.ui-empty.ui-empty--no-results')).toBeVisible()
+    await expect(page.locator('.ui-empty .ui-empty__title')).toHaveText('No backends found')
   })
 })

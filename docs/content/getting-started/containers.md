@@ -202,7 +202,7 @@ The container exposes the following volumes:
 | `/models` | Model files used for inferencing | `--models-path` | `$LOCALAI_MODELS_PATH` |
 | `/backends` | Custom backends for inferencing | `--backends-path` | `$LOCALAI_BACKENDS_PATH` |
 | `/configuration` | Dynamic config files (api_keys.json, external_backends.json, runtime_settings.json) | `--localai-config-dir` | `$LOCALAI_CONFIG_DIR` |
-| `/data` | Persistent data (collections, agent state, tasks, jobs) | `--data-path` | `$LOCALAI_DATA_PATH` |
+| `/data` | Persistent data (collections, chat files, JSON stores when there is no database). Downloads are staged in `/data/downloading` until they are extracted | `--data-path` | `$LOCALAI_DATA_PATH` |
 
 {{% notice warning %}}
 Container files that are not stored in a volume are lost when the container is
@@ -264,6 +264,15 @@ podman run -ti --name local-ai -p 8080:8080 \
   -v localai-data:/data \
   docker.io/localai/localai:latest
 ```
+
+### Container user and existing volumes
+
+The image starts as root only to run `entrypoint.sh`, which gives the data folders (`/models`, `/backends`, `/configuration`, `/data`, `/tmp/generated`) to the user `localai` (uid and gid 10001) and then runs LocalAI as that user. The Sandbox add-on needs this, because it refuses to run as root. See [the Sandbox in the LocalAI container]({{% relref "features/addons#the-sandbox-in-the-localai-container" %}}) for the devices and permissions it needs.
+
+- **Volumes from an older image** are owned by root. The first start with this image changes their owner to 10001 (it logs this, and it can take a while on a large models folder). No manual step is needed.
+- `LOCALAI_UID` and `LOCALAI_GID` change the user. `docker run --user` or a Kubernetes `runAsUser` is respected, and the data folders must then be writable by that user.
+- `LOCALAI_RUN_AS_ROOT=true` keeps the old behaviour. The Sandbox add-on is then unavailable.
+- A bind mount whose owner cannot be changed (a read-only or network mount) must be made writable for uid 10001 on the storage side.
 
 ## Next Steps
 

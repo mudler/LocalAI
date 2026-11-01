@@ -34,5 +34,9 @@
       "title": "Nenhum campo configurado",
       "text": "Use a barra de busca acima para encontrar e adicionar campos de configuração."
     }
+  },
+  "proxyVision": {
+    "label": "Este modelo consegue ver imagens",
+    "hint": "Ative se o modelo upstream aceita imagens. O LocalAI não consegue verificar isso. As imagens anexadas vão para o modelo junto com a mensagem."
   }
 }

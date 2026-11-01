@@ -362,8 +362,11 @@ test.describe('Users and keys: phone', () => {
     await expect(page.getByRole('columnheader', { name: 'Sign-in' })).toBeHidden()
     await expect(page.getByRole('columnheader', { name: 'Access' })).toBeHidden()
     // The role moves under the name, and the row's actions stay on screen.
+    // The Administration header sits above the page, so the row may start
+    // below the fold: bring it up, then check nothing is cut at the side.
     await expect(page.getByRole('columnheader', { name: 'Role' })).toBeHidden()
     await expect(row(page, 'bob@lab.example').locator('.us-role-phone')).toBeVisible()
+    await row(page, 'dave@lab.example').scrollIntoViewIfNeeded()
     await expect(row(page, 'dave@lab.example').getByRole('button', { name: 'Approve' })).toBeInViewport()
     await expect(page.getByLabel('Actions for dave')).toBeInViewport()
     expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(false)

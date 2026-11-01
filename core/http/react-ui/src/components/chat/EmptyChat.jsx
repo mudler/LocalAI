@@ -16,12 +16,24 @@ export function EmptyHead({ name, manage }) {
   )
 }
 
-// Under the composer of an empty chat: starters to try, whether the model is
-// ready, and the conversations you can go back to. With no model installed it
-// is the install card instead.
+// Whether the model of a new chat is loaded, or loads with the first reply.
+export function ReadyLine({ model, warm }) {
+  const { t } = useTranslation('chat')
+  if (!model) return null
+  return (
+    <p className="cx-ready" data-testid="chat-ready">
+      <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
+      <span>{warm ? t('empty.warmReady', { model }) : t('empty.coldReady', { model })}</span>
+    </p>
+  )
+}
+
+// Under the composer of an empty chat: whether the model is ready, and the
+// conversations you can go back to. The starters moved into the shortcuts row
+// above the composer. With no model installed it is the install card instead.
 export function EmptyUnder({
-  noModel, isAdmin, addToast, onInstallStarted, manage, model, warm, starters, onStarter,
-  conversations, leavingId, onResume, onDelete,
+  noModel, isAdmin, addToast, onInstallStarted, manage, model, warm,
+  conversations, onResume,
 }) {
   const { t } = useTranslation('chat')
   if (noModel) {
@@ -30,27 +42,9 @@ export function EmptyUnder({
   return (
     <>
       {manage && <p className="cx-empty__text">{t('empty.manageText')}</p>}
-      <div className="cx-starters" data-testid="chat-starters">
-        <span className="cx-starters__label">{t('empty.try')}</span>
-        {starters.map(prompt => (
-          <button key={prompt} type="button" className="cx-starter" onClick={() => onStarter(prompt)}>
-            {prompt}
-          </button>
-        ))}
-      </div>
-      {model && (
-        <p className="cx-ready" data-testid="chat-ready">
-          <span className={`home-dot${warm ? '' : ' home-dot--cold'}`} aria-hidden="true" />
-          <span>{warm ? t('empty.warmReady', { model }) : t('empty.coldReady', { model })}</span>
-        </p>
-      )}
+      <ReadyLine model={model} warm={warm} />
       {conversations.length > 0 && (
-        <HomeResume
-          items={conversations}
-          leavingId={leavingId}
-          onResume={onResume}
-          onDelete={onDelete}
-        />
+        <HomeResume items={conversations} onResume={onResume} />
       )}
       <p className="cx-empty__hint"><Icon name="keyboard" /> {t('empty.hintKeys')}</p>
     </>

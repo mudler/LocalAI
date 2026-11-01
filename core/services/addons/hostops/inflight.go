@@ -21,24 +21,44 @@ type InFlight struct {
 
 type live struct {
 	env contract.Envelope
-	n   int
+	// binding is the chat the request was made for; bound is false for a
+	// request no chat made.
+	binding Binding
+	bound   bool
+	// mixed is set when two requests share the operation ID with different
+	// bindings. Neither chat can be trusted, so the entry is not live.
+	mixed bool
+	n     int
 }
 
 func NewInFlight() *InFlight { return &InFlight{entries: map[string]*live{}} }
 
 func key(addonID, operationID string) string { return addonID + "/" + operationID }
 
-// Begin records the envelope for the time of the request. The returned
+// Begin records the envelope of a request that no chat made. The returned
 // function removes it; it is safe to call more than once. Two requests with
 // the same operation ID share one entry until both end.
 func (f *InFlight) Begin(env contract.Envelope) (end func()) {
+	return f.begin(env, Binding{}, false)
+}
+
+// BeginBound records the envelope of a request made for the chat b. The
+// binding stays on the host: the envelope the add-on receives is unchanged.
+func (f *InFlight) BeginBound(env contract.Envelope, b Binding) (end func()) {
+	return f.begin(env, b, true)
+}
+
+func (f *InFlight) begin(env contract.Envelope, b Binding, bound bool) (end func()) {
 	k := key(env.Request.AddonID, env.Request.OperationID)
 	f.mu.Lock()
 	if e := f.entries[k]; e != nil {
 		e.n++
 		e.env = env
+		if e.bound != bound || e.binding != b {
+			e.mixed = true
+		}
 	} else {
-		f.entries[k] = &live{env: env, n: 1}
+		f.entries[k] = &live{env: env, binding: b, bound: bound, n: 1}
 	}
 	f.mu.Unlock()
 	var once sync.Once
@@ -58,11 +78,19 @@ func (f *InFlight) Begin(env contract.Envelope) (end func()) {
 // Lookup returns the envelope of a live request. An envelope whose authority
 // has expired is not live.
 func (f *InFlight) Lookup(addonID, operationID string) (contract.Envelope, bool) {
+	env, _, ok := f.LookupBound(addonID, operationID)
+	return env, ok
+}
+
+// LookupBound returns the envelope of a live request and the chat it was made
+// for (the zero Binding for a request no chat made). An expired authority, or
+// an operation ID that requests of different chats share, is not live.
+func (f *InFlight) LookupBound(addonID, operationID string) (contract.Envelope, Binding, bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	e := f.entries[key(addonID, operationID)]
-	if e == nil || !e.env.Authority.ExpiresAt.After(time.Now()) {
-		return contract.Envelope{}, false
+	if e == nil || e.mixed || !e.env.Authority.ExpiresAt.After(time.Now()) {
+		return contract.Envelope{}, Binding{}, false
 	}
-	return e.env, true
+	return e.env, e.binding, true
 }

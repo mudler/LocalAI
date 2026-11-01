@@ -1,0 +1,46 @@
+{
+  "badge": {
+    "available": "업데이트 가능",
+    "availableVersion": "업데이트 가능: {{version}}"
+  },
+  "trigger": {
+    "all": "모두 업그레이드 ({{count}})",
+    "running": "{{total}}개 중 {{current}}번째 업그레이드 중",
+    "summary": "{{done}}개 완료, {{failed}}개 실패, {{skipped}}개 건너뜀",
+    "summaryOk": "{{done}}개 완료",
+    "review": "확인"
+  },
+  "dialog": {
+    "title": "모두 업그레이드",
+    "intro": "업그레이드할 항목을 선택하세요. 각 항목은 하나씩 차례로 업그레이드됩니다. 하나가 실패해도 나머지는 계속됩니다.",
+    "selection": "선택",
+    "selectAll": "모두 선택",
+    "selectNone": "선택 해제",
+    "selectedCount_one": "{{count}}개 선택됨",
+    "selectedCount_other": "{{count}}개 선택됨",
+    "item": "{{name}} 업그레이드",
+    "versions": "{{from}} → {{to}}",
+    "blocked": "시작할 수 없음",
+    "start": "선택 항목 업그레이드",
+    "starting": "업그레이드 중...",
+    "retry": "실패한 항목 다시 시도 ({{count}})",
+    "again": "새로 선택",
+    "close": "닫기",
+    "closeRunning": "닫기 (계속 실행됨)",
+    "runningNote": "이 창을 닫아도 업그레이드는 중단되지 않습니다.",
+    "progress": "{{total}}개 중 {{current}}번째 업그레이드 중",
+    "summary": "{{done}}개 완료, {{failed}}개 실패, {{skipped}}개 건너뜀",
+    "empty": "업그레이드할 항목이 없습니다."
+  },
+  "item": {
+    "queued": "대기 중",
+    "upgrading": "업그레이드 중",
+    "done": "완료",
+    "failed": "실패",
+    "skipped": "건너뜀"
+  },
+  "reason": {
+    "checkAgain": "다시 확인",
+    "checking": "확인 중..."
+  }
+}

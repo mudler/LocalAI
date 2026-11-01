@@ -8,6 +8,8 @@ import {
 // into the rest.
 
 const row = (page, name) => page.locator(`[data-entity="${name}"]`)
+// Rare actions (check for updates, install from a URL) are in the More menu.
+const openMore = page => page.getByRole('button', { name: 'More backend actions' }).click()
 const jsonOk = route => route.fulfill({ json: { status: 'ok' } })
 
 const VLLM_INSTALLING = { ...RUNNING_OP, name: 'vllm', id: 'vllm', fullName: 'localai@vllm', jobID: 'job-vllm', progress: 6 }
@@ -109,19 +111,7 @@ test.describe('Backend install progress', () => {
 })
 
 test.describe('Backend updates', () => {
-  test('Update on the row starts that update only', async ({ page }) => {
-    await mockOperate(page, { upgrades: UPGRADE_LLAMA })
-    const calls = []
-    await page.route('**/api/backends/upgrade/llama-cpp', route => { calls.push('llama-cpp'); return jsonOk(route) })
-    await page.goto('/app/backends?view=installed')
-    await row(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
-    // The row button opens the review sheet; nothing starts until it is confirmed.
-    expect(calls).toEqual([])
-    await page.getByTestId('update-review-selected').click()
-    await expect.poll(() => calls).toEqual(['llama-cpp'])
-  })
-
-  test('Updates reviews every update and starts them on confirm', async ({ page }) => {
+  test('Update on the row opens the dialog with that update only, and starts it on confirm', async ({ page }) => {
     await mockOperate(page, {
       upgrades: {
         ...UPGRADE_LLAMA,
@@ -131,9 +121,29 @@ test.describe('Backend updates', () => {
     const calls = []
     await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
     await page.goto('/app/backends?view=installed')
-    await page.getByRole('button', { name: 'Updates (2)' }).click()
+    await row(page, 'llama-cpp').getByRole('button', { name: 'Update llama-cpp' }).click()
+    // The row button opens the dialog; nothing starts until it is confirmed.
+    const dialog = page.getByTestId('bulk-upgrade-dialog')
+    await expect(dialog.locator('[data-item="llama-cpp"]').getByRole('checkbox')).toBeChecked()
+    await expect(dialog.locator('[data-item="whisper"]').getByRole('checkbox')).not.toBeChecked()
     expect(calls).toEqual([])
-    await page.getByTestId('update-review-all').click()
+    await dialog.getByTestId('bulk-upgrade-start').click()
+    await expect.poll(() => calls).toEqual(['llama-cpp'])
+  })
+
+  test('Update all starts every update and counts them', async ({ page }) => {
+    await mockOperate(page, {
+      upgrades: {
+        ...UPGRADE_LLAMA,
+        whisper: { backend_name: 'whisper', installed_version: '1.7.2', available_version: '1.8.0' },
+      },
+    })
+    const calls = []
+    await page.route('**/api/backends/upgrade/*', route => { calls.push(new URL(route.request().url()).pathname.split('/').pop()); return jsonOk(route) })
+    await page.goto('/app/backends?view=installed')
+    await expect(page.getByTestId('backends-updates')).toContainText('2 updates available')
+    await page.getByTestId('backends-updates').getByRole('button', { name: 'Review' }).click()
+    await page.getByTestId('bulk-upgrade-start').click()
     await expect.poll(() => calls.sort()).toEqual(['llama-cpp', 'whisper'])
   })
 
@@ -142,16 +152,19 @@ test.describe('Backend updates', () => {
     let checks = 0
     await page.route('**/api/backends/upgrades/check', route => { checks += 1; return route.fulfill({ json: UPGRADE_LLAMA }) })
     await page.goto('/app/backends?view=installed')
-    await page.getByRole('button', { name: 'Check for updates' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Check for updates' }).click()
     await expect.poll(() => checks).toBe(1)
-    await expect(page.getByRole('button', { name: 'Updates (1)' })).toBeVisible()
+    await expect(page.getByTestId('backends-updates')).toContainText('1 update available')
+    await expect(page.getByTestId('backends-updates').getByRole('button', { name: 'Review' })).toBeVisible()
   })
 
   test('says when every backend is current', async ({ page }) => {
     await mockOperate(page)
     await page.route('**/api/backends/upgrades/check', route => route.fulfill({ json: {} }))
     await page.goto('/app/backends?view=installed')
-    await page.getByRole('button', { name: 'Check for updates' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Check for updates' }).click()
     await expect(page.getByText('Every installed backend is current')).toBeVisible()
   })
 })
@@ -217,7 +230,8 @@ test.describe('Install from URL and the catalog', () => {
     const bodies = []
     await page.route('**/api/backends/install-external', route => { bodies.push(route.request().postDataJSON()); return jsonOk(route) })
     await page.goto('/app/backends')
-    await page.getByRole('button', { name: 'From URL' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Install from URL…' }).click()
     await page.getByLabel('OCI image, URL or path').fill('oci://quay.io/example/backend:latest')
     await page.getByLabel('Name (required for an OCI image)').fill('my-backend')
     await page.getByLabel('Alias (optional)').fill('mine')
@@ -228,7 +242,8 @@ test.describe('Install from URL and the catalog', () => {
   test('asks for an address before posting anything', async ({ page }) => {
     await mockOperate(page)
     await page.goto('/app/backends')
-    await page.getByRole('button', { name: 'From URL' }).click()
+    await openMore(page)
+    await page.getByRole('menuitem', { name: 'Install from URL…' }).click()
     await page.getByRole('button', { name: 'Install', exact: true }).click()
     await expect(page.getByRole('alert')).toContainText('Enter an image, URL or path')
   })

@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useOutletContext, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { apiUrl } from '../../utils/basePath'
@@ -9,6 +9,9 @@ import { useHubAuth } from './useHubAuth'
 import { OperateSummaryProvider, useOperateSummary } from '../../contexts/OperateSummaryContext'
 import Icon from '../Icon'
 import { useAddonNavigation, useSlotContributions } from '../../addons/useAddonRegistry'
+// eslint-disable-next-line no-unused-vars
+import { HubHeaderContext } from './hubHeaderContext'
+import './hub.css'
 // eslint-disable-next-line no-unused-vars
 import AddonSlot from '../../addons/AddonSlot'
 
@@ -43,7 +46,6 @@ function HubTab({ tab, current, auth, summary, t }) {
       onMouseEnter={() => preloadRoute(target)}
       onFocus={() => preloadRoute(target)}
     >
-      {tab.icon && <Icon name={tab.icon} aria-hidden="true" />}
       <span>{label}</span>
       {(tab.signals || []).map(signal => (
         <TabBadge key={signal.key} signal={signal} summary={summary} />
@@ -52,8 +54,8 @@ function HubTab({ tab, current, auth, summary, t }) {
   )
 }
 
-// The second row, for a tab that owns several routes. Quiet text links, so the
-// bar above stays the only strong navigation.
+// The second level, for a tab that owns several routes: a segmented control,
+// so it never reads as a second row of tabs.
 function SubNav({ tab, auth, pathname, t }) {
   const items = visibleItems(tab, auth)
   // Add-on components in the app.nav slot join the second row of the hub that
@@ -86,26 +88,93 @@ function SubNav({ tab, auth, pathname, t }) {
   )
 }
 
+// The nodes the page portals its supporting line and actions into, and how
+// many pages fill the line (the hub's own line shows only when none does).
+function useHeaderSlots() {
+  const [supporting, setSupporting] = useState(null)
+  const [actions, setActions] = useState(null)
+  const [filled, setFilled] = useState(0)
+  const claim = useCallback((delta) => setFilled(n => Math.max(0, n + delta)), [])
+  const value = useMemo(() => ({ supporting, actions, claim }), [supporting, actions, claim])
+  return { value, filled, setSupporting, setActions }
+}
+
+// A tab row that scrolls sideways fades at the edge that has more, and brings
+// the current tab into view when the route changes.
+function useTabRow(pathname) {
+  const ref = useRef(null)
+  const [fade, setFade] = useState('')
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return undefined
+    const measure = () => {
+      const max = el.scrollWidth - el.clientWidth
+      const parts = []
+      if (max > 1 && el.scrollLeft > 1) parts.push('start')
+      if (max > 1 && el.scrollLeft < max - 1) parts.push('end')
+      setFade(parts.join(' '))
+    }
+    const currentTab = el.querySelector('[aria-current="page"]')
+    if (currentTab && el.scrollWidth > el.clientWidth) {
+      const left = currentTab.offsetLeft
+      const right = left + currentTab.offsetWidth
+      if (left < el.scrollLeft || right > el.scrollLeft + el.clientWidth) {
+        el.scrollLeft = Math.max(0, left - 24)
+      }
+    }
+    measure()
+    el.addEventListener('scroll', measure, { passive: true })
+    const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(measure) : null
+    observer?.observe(el)
+    return () => {
+      el.removeEventListener('scroll', measure)
+      observer?.disconnect()
+    }
+  }, [pathname])
+  return { ref, fade }
+}
+
 function HubLayoutInner({ config }) {
   const { t } = useTranslation('nav')
   const hubAuth = useHubAuth()
   // Add-on navigation is read only on the hub that lists it, so the registry
   // does not poll on pages that never show it.
-  const addonNavigation = useAddonNavigation(config.id === 'build')
-  const auth = config.id === 'build' ? { ...hubAuth, addonNavigation } : hubAuth
+  const addonNavigation = useAddonNavigation(config.id === 'addons')
+  const auth = config.id === 'addons' ? { ...hubAuth, addonNavigation } : hubAuth
   const location = useLocation()
   const summary = useOperateSummary()
   // Forward the App-level outlet context (e.g. addToast): a nested bare
   // <Outlet/> would otherwise shadow it with undefined and crash pages.
   const outletContext = useOutletContext()
+  const slots = useHeaderSlots()
+  const { ref: tabsRef, fade } = useTabRow(location.pathname)
 
   const { tabs, current } = resolveTabs(config, auth, location.pathname)
   const external = (config.external || []).filter(item => !item.adminOnly || auth.isAdmin)
+  const header = config.header ? (
+    <header className="hub-head">
+      <div className="hub-head__lead">
+        {/* Not a heading: the page under the tabs owns the one h1. The tab
+            row is labelled with the same name for assistive technology. */}
+        <p className="hub-title">{t(config.titleKey)}</p>
+        <div className="hub-head__supporting" data-testid="hub-supporting">
+          {slots.filled === 0 && config.header.supportingKey
+            ? <span className="hub-head__default">{t(config.header.supportingKey)}</span>
+            : null}
+          {/* The page's line is portalled here; the node has no React children. */}
+          <div className="hub-head__slot" ref={slots.setSupporting} />
+        </div>
+      </div>
+      <div className="hub-head__actions" ref={slots.setActions} />
+    </header>
+  ) : null
 
   return (
+    <HubHeaderContext.Provider value={slots.value}>
     <div className="hub-layout" data-hub={config.id}>
       <div className="hub-bar">
-        <nav className="dk-hubtabs" aria-label={t(config.titleKey)}>
+        {header}
+        <nav className="dk-hubtabs" aria-label={t(config.titleKey)} ref={tabsRef} data-fade={fade || undefined}>
           {tabs.map(tab => (
             <HubTab key={tab.id} tab={tab} current={current?.id === tab.id} auth={auth} summary={summary} t={t} />
           ))}
@@ -117,7 +186,6 @@ function HubLayoutInner({ config }) {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Icon name={item.icon} aria-hidden="true" />
               <span>{t(item.labelKey)}</span>
               <Icon name="external-link" aria-hidden="true" />
             </a>
@@ -133,6 +201,7 @@ function HubLayoutInner({ config }) {
         </Suspense>
       </div>
     </div>
+    </HubHeaderContext.Provider>
   )
 }
 

@@ -1,0 +1,57 @@
+{
+  "brand": "Explorer {{name}}",
+  "openApp": "Buka LocalAI",
+  "close": "Tutup",
+  "copy": "Salin",
+  "copied": "Disalin",
+  "loading": "Memuat swarm",
+  "title": "Swarm publik",
+  "lede": "Swarm adalah sekelompok mesin yang berbagi inferensi model melalui jaringan peer-to-peer. Daftar ini menampilkan swarm yang pemiliknya memilih untuk membuatnya publik. Siapa pun yang memiliki token swarm dapat bergabung dengan swarm tersebut.",
+  "count_one": "{{count}} swarm online",
+  "count_other": "{{count}} swarm online",
+  "sorted": "Worker terbanyak lebih dulu",
+  "workers_one": "worker",
+  "workers_other": "worker",
+  "tokenTitle": "Awal dan akhir token. Salin dari Cara bergabung.",
+  "warning": "Explorer adalah daftar komunitas token swarm. Siapa pun dapat menggunakan token untuk mengirim pekerjaan ke swarm atau berbagi sumber daya dengannya. Gunakan atas risiko Anda sendiri.",
+  "listed": "Swarm ini ada dalam daftar.",
+  "empty": {
+    "title": "Belum ada swarm dengan worker online",
+    "text": "Hanya swarm dengan minimal satu worker online yang ditampilkan. Daftarkan swarm Anda agar menjadi publik."
+  },
+  "off": {
+    "title": "Server ini bukan explorer",
+    "text": "Halaman Explorer memerlukan server LocalAI yang dijalankan dalam mode explorer. Server ini tidak memiliki daftar swarm untuk ditampilkan."
+  },
+  "error": {
+    "title": "Tidak dapat memuat swarm",
+    "text": "Server explorer tidak merespons. Pastikan server berjalan, lalu coba lagi.",
+    "retry": "Coba lagi"
+  },
+  "join": {
+    "open": "Cara bergabung",
+    "title": "Bergabung dengan {{name}}",
+    "text": "Jalankan worker LocalAI dengan token swarm ini.",
+    "token": "Token",
+    "federated": "Klaster federasi {{id}}. Jalankan node di dalamnya dengan salah satu perintah.",
+    "docker": "Dengan Docker",
+    "cli": "Dengan command line",
+    "noCommands": "Worker swarm ini berbagi komputasi melalui tokennya. Token di atas adalah yang dibutuhkan node untuk bergabung.",
+    "docs": "Baca cara kerja swarm"
+  },
+  "list": {
+    "open": "Daftarkan swarm",
+    "title": "Daftarkan swarm",
+    "text": "Tambahkan swarm ke daftar publik. Swarm akan muncul setelah memiliki worker online.",
+    "name": "Nama",
+    "description": "Deskripsi",
+    "token": "Token",
+    "tokenHint": "Token jaringan swarm, seperti yang ditampilkan server.",
+    "public": "Pendaftaran akan mempublikasikan token. Siapa pun yang melihat daftar dapat menggunakan worker swarm Anda.",
+    "understood": "Saya memahami bahwa token akan menjadi publik.",
+    "cancel": "Batal",
+    "add": "Daftarkan swarm ini",
+    "adding": "Mendaftarkan...",
+    "failed": "Tidak dapat mendaftarkan swarm."
+  }
+}

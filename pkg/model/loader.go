@@ -124,7 +124,28 @@ type ModelLoader struct {
 type loadFailureState struct {
 	consecutive   int
 	cooldownUntil time.Time
+	// backendMissing records that the last failure was a backend that is not
+	// installed, so a caller can tell the user to install it instead of waiting.
+	backendMissing bool
 }
+
+// LoadFailedHeader is set on an HTTP answer that refuses a request because the
+// last load of the model failed. A caller in this process reads it to end its
+// work with the reason instead of waiting for a load that keeps failing.
+const LoadFailedHeader = "X-Localai-Model-Load-Failed"
+
+// UpstreamStatusHeader is set on an HTTP answer that a cloud-proxy model relays
+// from its upstream error. It tells a caller in this process that the status
+// belongs to the upstream, not to LocalAI: a 403 there is a refused key, not a
+// user who may not use the model.
+const UpstreamStatusHeader = "X-Localai-Upstream-Status"
+
+// LoadCauseHeader accompanies LoadFailedHeader when the cause is known. Its
+// value is LoadCauseBackendMissing, the only cause a caller can act on.
+const (
+	LoadCauseHeader         = "X-Localai-Model-Load-Cause"
+	LoadCauseBackendMissing = "backend-missing"
+)
 
 // ModelLoadCooldownError is returned when a model load is skipped because a
 // recent attempt failed and the per-model cooldown window has not yet elapsed.
@@ -133,6 +154,9 @@ type loadFailureState struct {
 type ModelLoadCooldownError struct {
 	ModelID    string
 	RetryAfter time.Duration
+	// BackendMissing is true when the failure that armed the cooldown was a
+	// backend that is not installed.
+	BackendMissing bool
 }
 
 func (e *ModelLoadCooldownError) Error() string {
@@ -181,20 +205,20 @@ func (ml *ModelLoader) SetLoadFailureCooldown(base, max time.Duration) {
 
 // cooldownRemaining returns how long the modelID's load cooldown still has to
 // run, or 0 if there is none. Callers must hold ml.mu.
-func (ml *ModelLoader) cooldownRemaining(modelID string) time.Duration {
+func (ml *ModelLoader) cooldownRemaining(modelID string) (time.Duration, bool) {
 	st := ml.loadFailures[modelID]
 	if st == nil {
-		return 0
+		return 0, false
 	}
 	if remaining := time.Until(st.cooldownUntil); remaining > 0 {
-		return remaining
+		return remaining, st.backendMissing
 	}
-	return 0
+	return 0, false
 }
 
 // recordLoadFailure grows the modelID's consecutive-failure count and arms the
 // next cooldown window using exponential backoff capped at loadFailureMaxCooldown.
-func (ml *ModelLoader) recordLoadFailure(modelID string) {
+func (ml *ModelLoader) recordLoadFailure(modelID string, cause error) {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 	if ml.loadFailureBaseCooldown <= 0 {
@@ -206,6 +230,7 @@ func (ml *ModelLoader) recordLoadFailure(modelID string) {
 		ml.loadFailures[modelID] = st
 	}
 	st.consecutive++
+	st.backendMissing = errors.Is(cause, ErrBackendNotFound)
 	// base * 2^(consecutive-1), clamped. Cap the shift to avoid overflowing
 	// the Duration; anything past the cap collapses to loadFailureMaxCooldown.
 	shift := st.consecutive - 1
@@ -558,10 +583,10 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 	// on every request. The coalesced follower-retry below passes
 	// checkCooldown=false so an in-flight burst still gets its one retry.
 	if checkCooldown {
-		if retryAfter := ml.cooldownRemaining(modelID); retryAfter > 0 {
+		if retryAfter, backendMissing := ml.cooldownRemaining(modelID); retryAfter > 0 {
 			ml.mu.Unlock()
 			xlog.Debug("Model load in cooldown after a recent failure", "modelID", modelID, "retryAfter", retryAfter)
-			return nil, &ModelLoadCooldownError{ModelID: modelID, RetryAfter: retryAfter}
+			return nil, &ModelLoadCooldownError{ModelID: modelID, RetryAfter: retryAfter, BackendMissing: backendMissing}
 		}
 	}
 
@@ -600,12 +625,13 @@ func (ml *ModelLoader) loadModel(modelID, modelName, modelFileName string, loade
 
 	model, err := loader(modelID, modelName, modelFile)
 	if err != nil {
-		ml.recordLoadFailure(modelID)
-		return nil, fmt.Errorf("failed to load model with internal loader: %s", err)
+		ml.recordLoadFailure(modelID, err)
+		// %w keeps the cause (a missing backend) visible to errors.Is.
+		return nil, fmt.Errorf("failed to load model with internal loader: %w", err)
 	}
 
 	if model == nil {
-		ml.recordLoadFailure(modelID)
+		ml.recordLoadFailure(modelID, nil)
 		return nil, fmt.Errorf("loader didn't return a model")
 	}
 

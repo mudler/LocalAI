@@ -26,7 +26,8 @@ for (const theme of ['light', 'dark']) {
           canvas: getComputedStyle(document.body).backgroundColor,
         }
       })
-      expect(style.radius).toBe('20px')
+      // Cards use the 12px card radius of the token scale (--r-lg).
+      expect(style.radius).toBe('12px')
       expect(style.shadow).not.toBe('none')
       // The edge differs from the card, and the card differs from the canvas.
       expect(distance(rgb(style.border), rgb(style.bg))).toBeGreaterThan(8)
@@ -65,28 +66,6 @@ for (const theme of ['light', 'dark']) {
       // The test server lists no chat model, so the button stays disabled.
       // Compare the two looks directly: the active look must differ from the
       // quiet one whatever the disabled state.
-      const colours = await btn.evaluate((el) => {
-        el.disabled = false
-        el.style.transition = 'none'
-        const active = getComputedStyle(el).backgroundColor
-        el.setAttribute('data-empty', 'true')
-        const quiet = getComputedStyle(el).backgroundColor
-        return { active, quiet }
-      })
-      expect(distance(rgb(colours.active), rgb(colours.quiet))).toBeGreaterThan(40)
-    })
-
-    test('the chat send button is quiet when empty and active with text', async ({ page }) => {
-      await page.goto('/app/chat')
-      const btn = page.locator('#chat-submit-btn')
-      await expect(btn).toBeVisible({ timeout: 15_000 })
-      await expect(btn).toBeDisabled()
-      await expect(btn).toHaveAttribute('data-empty', 'true')
-      await page.getByTestId('chat-input').fill('hello')
-      await expect(btn).not.toHaveAttribute('data-empty', 'true')
-      // The test server lists no chat model, so the button stays disabled. Compare
-      // the two looks directly: the active look must differ from the quiet one
-      // whatever the disabled state.
       const colours = await btn.evaluate((el) => {
         el.disabled = false
         el.style.transition = 'none'

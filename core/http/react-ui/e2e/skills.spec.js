@@ -1,187 +1,157 @@
 import { test, expect } from './coverage-fixtures.js'
-import { mockLibrary, SKILLS } from './library-fixtures.js'
+import { installAgents } from './agents-fixtures.js'
 
-// Skills page (src/pages/Skills.jsx): the library of instructions, who uses
-// each one, and how to add one to an agent.
+// The skills page and the skill editor, with the skills API stubbed.
 
-test.describe('Skills page', () => {
-  test('renders the skills list with create affordances', async ({ page }) => {
+test.describe('Skills', () => {
+  test('lists the skills with their layer, who uses them, and opens one', async ({ page }) => {
+    await installAgents(page)
     await page.goto('/app/skills')
-    await expect(page).toHaveURL(/\/app\/skills$/)
-    await expect(page.getByRole('heading', { name: 'Skills', exact: true })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'New skill' })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Git repositories' })).toBeVisible()
+    await expect(page.getByTestId('skills-page')).toBeVisible()
+    await expect(page.getByTestId('skill-row-citations')).toContainText('Personal')
+    await expect(page.getByTestId('skill-used-citations')).toHaveText('Used by research-assistant')
+    await expect(page.getByTestId('skill-row-pdf')).toContainText('Built-in')
+    await expect(page.getByTestId('skill-row-house-style')).toContainText('Shared')
+    await expect(page.getByTestId('skill-row-broken')).toContainText('Workspace')
+    await expect(page.getByTestId('skill-used-broken')).toContainText('not a valid skill')
+
+    await page.getByTestId('skill-row-citations').click()
+    await expect(page.getByTestId('skill-title')).toHaveText('citations')
+    await expect(page.getByTestId('skill-preview')).toContainText('Cite every claim.')
+    await page.getByRole('tab', { name: 'Instructions' }).click()
+    await expect(page.getByTestId('skill-content')).toContainText('List them at the end.')
   })
 
-  test('New skill navigates to the skill editor', async ({ page }) => {
-    await page.goto('/app/skills')
-    await page.getByRole('button', { name: 'New skill' }).click()
-    await expect(page).toHaveURL(/\/app\/skills\/new$/)
-  })
-})
-
-test.describe('Skills library', () => {
-  test('each skill says who uses it, from the agents configs, and never claims Chat', async ({ page }) => {
-    await mockLibrary(page)
-    await page.goto('/app/skills')
-    await expect(page.getByTestId('skill-used-summarise-pdf')).toHaveText('Used by research-assistant +1')
-    await expect(page.getByTestId('skill-used-query-database')).toHaveText('Used by research-assistant')
-    await expect(page.getByTestId('skill-used-triage-issue')).toHaveText('Used by support-desk')
-    await expect(page.getByTestId('skill-used-translate-document')).toHaveText('Not used yet')
-    await expect(page.getByTestId('skill-used-weekly-digest')).toHaveText('Not used yet')
-    for (const skill of SKILLS) {
-      await expect(page.getByTestId(`skill-used-${skill.name}`)).not.toContainText(/chat/i)
-    }
-  })
-
-  test('an agent with skills on and no selection uses every skill', async ({ page }) => {
-    await mockLibrary(page, {
-      agents: { everything: { name: 'everything', model: 'm', enable_skills: true, selected_skills: [] } },
+  test('an add-on skill that another, chosen add-on serves says which one provides it', async ({ page }) => {
+    await installAgents(page, {
+      skills: [
+        { name: 'xlsx', description: 'Office sheets.', layer: 'addon', addon: 'office', addon_title: 'Office', path: '/addon-skills/office/xlsx/SKILL.md', enabled: true, editable: false },
+        { name: 'xlsx', description: 'Sheets sheets.', layer: 'addon', addon: 'sheets', addon_title: 'Sheets', path: '/addon-skills/sheets/xlsx/SKILL.md', enabled: true, editable: false, shadowed: 'addon', shadowed_by: 'office' },
+        { name: 'xlsx', description: 'Built-in sheets.', layer: 'builtin', path: '/builtin-skills/xlsx/SKILL.md', enabled: true, editable: false, shadowed: 'addon', shadowed_by: 'office' },
+      ],
     })
-    await page.goto('/app/skills?skill=weekly-digest')
-    await expect(page.getByTestId('skill-used-weekly-digest')).toHaveText('Used by everything')
-    const chip = page.getByTestId('used-by-everything')
-    await expect(chip).toContainText('all skills')
+    await page.goto('/app/skills')
+    await expect(page.getByTestId('skills-page')).toContainText('Not active: Office provides it')
+    await expect(page.getByTestId('skills-page')).toContainText('Replaced by Office')
   })
 
-  test('the Used and Not used yet filters split the list', async ({ page }) => {
-    await mockLibrary(page)
+  test('only your own skills can be edited or deleted', async ({ page }) => {
+    await installAgents(page)
     await page.goto('/app/skills')
-    await page.getByTestId('skills-filter-used').click()
-    await expect(page.locator('[data-testid^="skill-row-"]')).toHaveCount(3)
-    await expect(page.getByTestId('skill-row-translate-document')).toHaveCount(0)
+    await page.getByTestId('skill-row-pdf').click()
+    await expect(page.getByTestId('skill-title')).toHaveText('pdf')
+    await expect(page.getByTestId('skill-layer')).toHaveText('Built-in')
+    await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0)
+    await page.getByTestId('skill-row-citations').click()
+    await expect(page.getByRole('button', { name: 'Edit' })).toBeVisible()
+  })
+
+  test('an invalid SKILL.md says why it was skipped', async ({ page }) => {
+    await installAgents(page)
+    await page.goto('/app/skills')
+    await page.getByTestId('skill-row-broken').click()
+    await expect(page.getByTestId('skill-invalid')).toContainText('the description is empty')
+  })
+
+  test('filters by search, by layer and by use', async ({ page }) => {
+    await installAgents(page)
+    await page.goto('/app/skills')
+    await page.getByTestId('skills-search').fill('pdf')
+    await expect(page.getByTestId('skill-row-pdf')).toBeVisible()
+    await expect(page.getByTestId('skill-row-citations')).toHaveCount(0)
+    await page.getByTestId('skills-search').fill('')
+    await page.getByTestId('skills-layer-shared').click()
+    await expect(page.getByTestId('skill-row-house-style')).toBeVisible()
+    await expect(page.getByTestId('skill-row-pdf')).toHaveCount(0)
+    await page.getByTestId('skills-layer-all').click()
     await page.getByTestId('skills-filter-unused').click()
-    await expect(page.locator('[data-testid^="skill-row-"]')).toHaveCount(2)
-    await expect(page.getByTestId('skill-row-translate-document')).toBeVisible()
-    await expect(page.getByTestId('skill-row-weekly-digest')).toBeVisible()
-    await page.getByTestId('skills-filter-all').click()
-    await expect(page.locator('[data-testid^="skill-row-"]')).toHaveCount(5)
-  })
-
-  test('search narrows the list to the matching skills', async ({ page }) => {
-    await mockLibrary(page)
-    await page.goto('/app/skills')
-    await page.getByTestId('skills-search').fill('triage')
-    await expect(page.locator('[data-testid^="skill-row-"]')).toHaveCount(1)
-    await expect(page.getByTestId('skill-row-triage-issue')).toBeVisible()
-    await page.getByTestId('skills-search').fill('zzzz')
+    await expect(page.getByTestId('skill-row-citations')).toHaveCount(0)
+    await expect(page.getByTestId('skill-row-pdf')).toBeVisible()
+    await page.getByTestId('skills-search').fill('zzz')
     await expect(page.getByTestId('skills-none')).toBeVisible()
   })
 
-  test('the pane shows instructions, an estimate, files and who uses the skill', async ({ page }) => {
-    await mockLibrary(page)
+  test('adds a skill to an agent and takes it away, with an undo', async ({ page }) => {
+    const s = await installAgents(page)
     await page.goto('/app/skills')
-    await page.getByTestId('skill-row-summarise-pdf').click()
-    await expect(page.getByTestId('skill-title')).toHaveText('summarise-pdf')
-    await expect(page.getByTestId('used-by-research-assistant').getByRole('link')).toHaveAttribute('href', '/app/agents/research-assistant')
-    await expect(page.getByTestId('used-by-handbook')).toBeVisible()
-    // 456 characters, 114 tokens by the stated rule
-    await expect(page.getByTestId('skill-tokens')).toContainText('About 114 tokens')
-    await page.getByRole('tab', { name: 'Instructions' }).click()
-    await expect(page.getByTestId('skill-content')).toContainText('Read the file the user attached')
-    await page.getByRole('tab', { name: 'Files' }).click()
-    await expect(page.getByText('scripts/extract.py')).toBeVisible()
-    await expect(page.getByText('references/style.md')).toBeVisible()
-  })
-
-  test('Add to... lists agents with the cost, and adding saves the agent', async ({ page }) => {
-    const { seen } = await mockLibrary(page)
-    await page.goto('/app/skills?skill=translate-document')
-    await expect(page.getByTestId('skill-not-used')).toBeVisible()
+    await page.getByTestId('skill-row-pdf').click()
     await page.getByTestId('add-to-button').click()
-    const menu = page.getByTestId('add-to-menu')
-    await expect(menu.getByTestId('add-to-research-assistant')).toContainText('tokens per message (estimate)')
-    await expect(menu.getByTestId('add-to-support-desk')).toContainText('Loaded when the model asks for it')
-    await menu.getByRole('button', { name: 'Add to handbook' }).click()
-    await expect.poll(() => seen.saves.length).toBe(1)
-    expect(seen.saves[0].name).toBe('handbook')
-    expect(seen.saves[0].body.selected_skills).toEqual(['summarise-pdf', 'translate-document'])
-    expect(seen.saves[0].body.enable_skills).toBe(true)
-    await expect(page.getByTestId('skill-used-translate-document')).toHaveText('Used by handbook')
-    await expect(page.getByTestId('skill-not-used')).toHaveCount(0)
+    await page.getByTestId('add-to-code-reviewer').getByRole('button', { name: 'Add to code-reviewer' }).click()
+    await expect.poll(() => s.calls.find(c => c.method === 'PUT' && c.url === '/api/chats/agents/a2')?.body.skills).toEqual(['pdf'])
+    await expect(page.getByTestId('used-by-code-reviewer')).toBeVisible()
+    await page.getByRole('button', { name: 'Remove from code-reviewer' }).click()
+    await expect(page.getByTestId('library-undo-toast')).toBeVisible()
+    await expect.poll(() => s.calls.filter(c => c.method === 'PUT' && c.url === '/api/chats/agents/a2').at(-1)?.body.skills).toEqual([])
   })
 
-  test('adding to an agent with skills off turns them on with only that skill', async ({ page }) => {
-    const { seen } = await mockLibrary(page)
-    await page.goto('/app/skills?skill=translate-document')
-    await page.getByTestId('add-to-button').click()
-    await page.getByRole('button', { name: 'Add to idle-agent' }).click()
-    await expect.poll(() => seen.saves.length).toBe(1)
-    expect(seen.saves[0].body).toMatchObject({ name: 'idle-agent', enable_skills: true, selected_skills: ['translate-document'] })
-  })
-
-  test('removing a skill from an agent saves the rest, and Undo puts it back', async ({ page }) => {
-    const { seen } = await mockLibrary(page)
-    await page.goto('/app/skills?skill=query-database')
-    await page.getByRole('button', { name: 'Remove from research-assistant' }).click()
-    await expect.poll(() => seen.saves.length).toBe(1)
-    expect(seen.saves[0].body.selected_skills).toEqual(['summarise-pdf'])
-    await expect(page.getByTestId('skill-used-query-database')).toHaveText('Not used yet')
-    await page.getByTestId('library-undo-toast').getByRole('button', { name: 'Undo' }).click()
-    await expect.poll(() => seen.saves.length).toBe(2)
-    expect(seen.saves[1].body.selected_skills).toEqual(['summarise-pdf', 'query-database'])
-    await expect(page.getByTestId('skill-used-query-database')).toHaveText('Used by research-assistant')
-  })
-
-  test('removing the only skill switches skills off instead of selecting every skill', async ({ page }) => {
-    const { seen } = await mockLibrary(page)
-    await page.goto('/app/skills?skill=triage-issue')
-    await page.getByRole('button', { name: 'Remove from support-desk' }).click()
-    await expect.poll(() => seen.saves.length).toBe(1)
-    expect(seen.saves[0].body).toMatchObject({ name: 'support-desk', enable_skills: false, selected_skills: [] })
-    await expect(page.getByTestId('library-undo-toast')).toContainText('Skills are now off')
-  })
-
-  test('when the agents cannot be read the page says nothing about use', async ({ page }) => {
-    await mockLibrary(page, { agentsStatus: 500 })
+  test('deletes a skill after asking', async ({ page }) => {
+    const s = await installAgents(page)
     await page.goto('/app/skills')
-    await expect(page.getByTestId('skill-row-summarise-pdf')).toBeVisible()
-    await expect(page.getByTestId('skill-used-summarise-pdf')).toHaveText('Use unknown')
-    await expect(page.getByTestId('skills-filter-used')).toBeDisabled()
-    await expect(page.locator('[data-testid^="skill-used-"]').filter({ hasText: 'Not used yet' })).toHaveCount(0)
-    await expect(page.getByTestId('used-by')).toContainText('could not be read')
+    await page.getByTestId('skill-row-citations').click()
+    await page.getByRole('button', { name: 'Delete' }).click()
+    const dialog = page.getByRole('alertdialog')
+    await expect(dialog).toContainText('Delete citations?')
+    await dialog.getByRole('button', { name: 'Delete' }).click()
+    await expect(page.getByTestId('skill-row-citations')).toHaveCount(0)
+    expect(s.calls.some(c => c.method === 'DELETE' && c.url === '/api/chats/skills/personal/citations')).toBe(true)
   })
 
-  test('an empty library teaches what a skill is', async ({ page }) => {
-    await mockLibrary(page, { skills: [] })
+  test('says why the page is unavailable when the files are off', async ({ page }) => {
+    await installAgents(page)
+    await page.route(/\/api\/chats\/skills(\?.*)?$/, route => route.fulfill({ status: 409, json: { error: { message: 'Files are off on this server.', type: 'files_off', code: 409 } } }))
     await page.goto('/app/skills')
-    const empty = page.getByTestId('skills-empty')
-    await expect(empty.getByRole('heading', { name: 'Skills are instructions an agent can follow' })).toBeVisible()
-    await expect(empty.getByRole('button', { name: 'Create skill' })).toBeVisible()
-    await expect(empty.getByText('Import', { exact: true })).toBeVisible()
+    await expect(page.getByTestId('files-off')).toContainText('Files are off on this server.')
   })
 
-  test('Git repositories open in the pane and a repository can be added', async ({ page }) => {
-    await mockLibrary(page)
+  test('the empty page walks through writing the first skill', async ({ page }) => {
+    await installAgents(page, { skills: [] })
     await page.goto('/app/skills')
-    await page.getByTestId('skills-git-toggle').click()
-    const git = page.getByTestId('skills-git')
-    await expect(git.getByText('No Git repos configured')).toBeVisible()
-    await git.getByLabel('Repository URL').fill('https://github.com/example/skills')
-    await git.getByRole('button', { name: 'Add repo' }).click()
-    await expect(git.getByText('https://github.com/example/skills')).toBeVisible()
+    await expect(page.getByTestId('skills-empty')).toBeVisible()
+    await page.getByRole('button', { name: 'Create skill' }).click()
+    await expect(page).toHaveURL(/\/app\/skills\/new$/)
   })
 
-  test('on a phone the list and the skill take turns', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 844 })
-    await mockLibrary(page)
-    await page.goto('/app/skills')
-    await expect(page.getByTestId('skill-row-summarise-pdf')).toBeVisible()
-    await expect(page.getByTestId('skill-pane')).toBeHidden()
-    await page.getByTestId('skill-row-summarise-pdf').click()
-    await expect(page.getByTestId('skill-title')).toBeVisible()
-    await expect(page.getByTestId('skill-row-summarise-pdf')).toBeHidden()
-    await page.getByRole('button', { name: 'All skills' }).click()
-    await expect(page.getByTestId('skill-row-summarise-pdf')).toBeVisible()
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
-    expect(overflow).toBeLessThanOrEqual(0)
+  test('the old address of the skills page redirects', async ({ page }) => {
+    await installAgents(page)
+    await page.goto('/app/chats/skills')
+    await expect(page).toHaveURL(/\/app\/skills$/)
+  })
+})
+
+test.describe('Skill editor', () => {
+  test('writes a new skill in your own layer', async ({ page }) => {
+    const s = await installAgents(page)
+    await page.goto('/app/skills/new')
+    await page.getByLabel(/^Name/).fill('release-notes')
+    await page.getByLabel(/^Description/).fill('Write release notes from a changelog')
+    await page.locator('.skilledit-sidebar-item', { hasText: 'Content' }).click()
+    await page.getByLabel('Skill content (markdown)').fill('Group by feature.')
+    await page.getByRole('button', { name: 'Create skill' }).click()
+    await expect(page).toHaveURL(/\/app\/skills$/)
+    expect(s.calls.find(c => c.method === 'POST').body).toEqual({
+      layer: 'personal', name: 'release-notes', description: 'Write release notes from a changelog', body: 'Group by feature.',
+    })
   })
 
-  test('wide, the first skill is open until another is picked', async ({ page }) => {
-    await mockLibrary(page)
-    await page.goto('/app/skills')
-    await expect(page.getByTestId('skill-title')).toHaveText('summarise-pdf')
-    await page.getByTestId('skill-row-triage-issue').click()
-    await expect(page.getByTestId('skill-title')).toHaveText('triage-issue')
+  test('edits a skill: the name and the layer stay, the description and the body change', async ({ page }) => {
+    const s = await installAgents(page)
+    await page.goto('/app/skills/edit/personal/citations')
+    await expect(page.getByLabel(/^Name/)).toBeDisabled()
+    await expect(page.getByLabel(/^Name/)).toHaveValue('citations')
+    await expect(page.getByTestId('skill-edit-layer')).toHaveText('Personal')
+    await page.getByLabel(/^Description/).fill('Cite with numbers.')
+    await page.locator('.skilledit-sidebar-item', { hasText: 'Content' }).click()
+    await expect(page.getByLabel('Skill content (markdown)')).toHaveValue(/Number the sources/)
+    await page.getByRole('button', { name: 'Save changes' }).click()
+    await expect(page).toHaveURL(/\/app\/skills$/)
+    expect(s.calls.find(c => c.method === 'PUT' && c.url.includes('/skills/')).body).toMatchObject({ description: 'Cite with numbers.' })
+  })
+
+  test('a skill you cannot write opens read-only', async ({ page }) => {
+    await installAgents(page)
+    await page.goto('/app/skills/edit/builtin/pdf')
+    await expect(page.getByTestId('skill-readonly')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)
   })
 })
