@@ -72,7 +72,7 @@ function ControlledElsewhere({ apps }) {
       {apps.map(app => {
         const name = localizedText(app, 'title', i18n.language) || app.id
         return (
-          <div key={app.id} className="st-row st-tools__row" data-wide data-app={app.id} data-testid="settings-network-addon">
+          <div key={app.id} className="st-row" data-app={app.id} data-testid="settings-network-addon">
             <div className="st-row__main">
               <div className="st-row__title"><span className="st-row__label">{t('settings.network.title')}</span></div>
               <p className="st-row__desc">{t('settings.network.where', { name })}</p>
