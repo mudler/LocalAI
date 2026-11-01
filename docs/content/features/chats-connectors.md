@@ -30,6 +30,32 @@ working as soon as the Telegram add-on is installed. Until then the binding is k
 switched as it was, and shown as not running with the reason "install the Telegram
 add-on"; nothing polls and nothing is lost.
 
+### Multiple frontends and readiness
+
+In a multi-frontend deployment, connector discovery and calls go to the frontend
+that owns the add-on runtime over the private, peer-authenticated add-on carrier.
+You can create and test bindings from another frontend; it does not need its own
+Slack or Telegram runtime. Poll leadership is unchanged: the polling frontend
+and notification sender can reach the runtime owner without owning it themselves.
+Connector access still requires **Connectors**, not the separate **Add-ons**
+permission. Existing agent permissions and sender allowlists still apply.
+
+A healthy owner with no running connector kinds returns an empty list. An
+unreachable, unready or fenced owner returns an error instead: an empty list is
+not an outage signal. Check that the connector add-on is running and that the
+frontends can reach the configured private carrier before trying discovery again.
+
+If discovery fails or the platform explicitly refuses a token, creating a binding
+fails without saving it. Once discovery succeeds, a temporary outage during token
+verification retains the existing permissive save behavior; use **Test** when the
+platform is available again. An authorization denial or explicit token refusal
+during replacement leaves the stored binding unchanged. Binding calls use the
+owner's stored token. LocalAI does not replay a forwarded send automatically after
+a transport failure, since the platform may already have received it.
+
+Telegram's legacy binding resolution remains compatible with existing bindings.
+It is not a fallback for discovering other connector kinds or for owner outages.
+
 ## Telegram
 
 The Telegram add-on binds a bot to one of your [saved agents](/features/chats-agents/).
