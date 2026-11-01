@@ -19,7 +19,7 @@ An agent has:
 | `name` | 1 to 80 characters. Unique for you, ignoring case. |
 | `description` | A short note for you. |
 | `instructions` | Text added to the system prompt of every turn. At most 32 KiB. |
-| `model` | Optional. The chat uses this model. Without it, the chat is created with the model you choose. |
+| `model` | Optional. The chat uses this model. Chat-capable model aliases can also be selected; the agent saves the alias name, not its target name. Without it, the chat is created with the model you choose. |
 | `mcp_servers` | Names of servers in the model's MCP configuration, and your [MCP connectors](/features/chats-connectors/#mcp-servers) as `connector:<id>`. The form lists both. |
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |

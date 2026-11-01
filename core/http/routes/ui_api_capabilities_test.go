@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -75,6 +76,77 @@ func TestUIUpscaleCapabilities(t *testing.T) {
 			}
 		} else if entry.Scale != nil {
 			t.Fatalf("invalid scale exposed: %+v", entry)
+		}
+	}
+}
+
+func TestUIAliasCapabilities(t *testing.T) {
+	dir := t.TempDir()
+	st, err := system.GetSystemState(system.WithModelPath(dir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cl := config.NewModelConfigLoader(dir)
+	for name, body := range map[string]string{
+		"target":         "backend: llama-cpp\nknown_usecases: [chat, vision]\npinned: true\n",
+		"alias":          "alias: target\nknown_usecases: [embeddings]\nprofile:\n  system_prompt: Answer briefly.\n  client_tools: drop\n",
+		"disabled-alias": "alias: target\ndisabled: true\n",
+		"broken":         "alias: missing\nknown_usecases: [chat]\n",
+		"chain":          "alias: alias\nknown_usecases: [chat]\n",
+	} {
+		path := filepath.Join(dir, name+".yaml")
+		if err := os.WriteFile(path, []byte("name: "+name+"\n"+body), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := cl.ReadModelConfig(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ac := config.NewApplicationConfig()
+	ac.SystemState = st
+	ml := model.NewModelLoader(st)
+	gs := galleryop.NewGalleryService(ac, ml)
+	app := echo.New()
+	routes.RegisterUIAPIRoutes(app, cl, ml, ac, gs, galleryop.NewOpCache(gs), &application.Application{}, func(next echo.HandlerFunc) echo.HandlerFunc { return next })
+	rec := httptest.NewRecorder()
+	app.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/models/capabilities", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	var response struct {
+		Data []struct {
+			ID           string   `json:"id"`
+			Capabilities []string `json:"capabilities"`
+			Backend      string   `json:"backend"`
+			Disabled     bool     `json:"disabled"`
+			Pinned       bool     `json:"pinned"`
+			MCP          bool     `json:"mcp"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Data) != 5 {
+		t.Fatalf("unexpected models: %+v", response.Data)
+	}
+	for _, entry := range response.Data {
+		switch entry.ID {
+		case "target", "alias", "disabled-alias":
+			if len(entry.Capabilities) != 2 || !slices.Contains(entry.Capabilities, "FLAG_CHAT") || !slices.Contains(entry.Capabilities, "FLAG_VISION") {
+				t.Errorf("%s must inherit chat/vision: %+v", entry.ID, entry)
+			}
+		case "broken", "chain":
+			if len(entry.Capabilities) != 0 {
+				t.Errorf("invalid alias gained capabilities: %+v", entry)
+			}
+		default:
+			t.Errorf("unexpected ID: %s", entry.ID)
+		}
+		if entry.ID != "target" && (entry.Backend != "" || entry.Pinned || entry.MCP) {
+			t.Errorf("alias inherited management metadata: %+v", entry)
+		}
+		if entry.Disabled != (entry.ID == "disabled-alias") {
+			t.Errorf("disabled changed: %+v", entry)
 		}
 	}
 }

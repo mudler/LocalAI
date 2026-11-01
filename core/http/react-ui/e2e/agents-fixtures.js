@@ -79,9 +79,9 @@ const BODIES = { citations: 'Cite every claim.\n\n1. Number the sources.\n2. Lis
 
 export async function installAgents(page, {
   agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [], files = null,
-  collections = ['handbook', 'notes'], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
+  models, collections = ['handbook', 'notes'], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
 } = {}) {
-  await mockChat(page)
+  await mockChat(page, { models })
   const s = {
     agents: structuredClone(agents), triggers: structuredClone(triggers), skills: structuredClone(skills), proposals: structuredClone(proposals),
     calls: [], createdChats: [],

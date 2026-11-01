@@ -345,3 +345,81 @@ test.describe('Agent folder', () => {
     expect(text).not.toMatch(/\bnode\b/i)
   })
 })
+
+const aliasModels = [
+  { id: 'production', capabilities: ['FLAG_CHAT'] },
+  { id: 'alternate', capabilities: ['FLAG_CHAT'] },
+  { id: 'embedding', capabilities: ['FLAG_EMBEDDINGS'] },
+  { id: 'disabled', capabilities: ['FLAG_CHAT'], disabled: true },
+  { id: 'broken', capabilities: [] },
+  { id: 'chained', capabilities: [] },
+]
+const openModel = async page => {
+  await fold(page, 'ModelSettings').locator('.ag-fold__button').click()
+  return page.getByTestId('home-model-chip')
+}
+
+test('create uses the chat picker, filters unusable models and persists the alias ID', async ({ page }) => {
+  const s = await installAgents(page, { models: aliasModels })
+  const aliasRequests = []
+  page.on('request', r => { if (new URL(r.url()).pathname.startsWith('/api/aliases')) aliasRequests.push(r.url()) })
+  await page.goto('/app/agents/new')
+  await page.getByLabel('Name', { exact: false }).first().fill('Alias user')
+  const chip = await openModel(page)
+  await expect(chip).toContainText('Any model')
+  await chip.click()
+  const options = page.getByRole('listbox').getByRole('option')
+  await expect(options.locator('code')).toHaveText(['Any model (the chat picks one)', 'production', 'alternate'])
+  await expect(options.locator('small')).toHaveText(['not loaded', 'not loaded'])
+  await options.filter({ has: page.getByText('production', { exact: true }) }).click()
+  await page.getByRole('button', { name: 'Create Agent' }).first().click()
+  await expect(page).toHaveURL(/\/app\/agents$/)
+  const created = s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/agents')
+  expect(created.body.model).toBe('production')
+  const id = s.agents.find(a => a.name === 'Alias user').id
+  await page.goto(`/app/agents/${id}/edit`)
+  await expect(await openModel(page)).toContainText('production')
+  await page.reload()
+  await expect(await openModel(page)).toContainText('production')
+  expect(aliasRequests).toEqual([])
+})
+
+test('edit retains the stored alias while capabilities load and through unrelated saves, then can change or clear it', async ({ page }) => {
+  const s = await installAgents(page, { models: aliasModels, agents: [{ ...AGENTS[0], model: 'production' }] })
+  let release
+  const loading = new Promise(resolve => { release = resolve })
+  await page.route('**/api/models/capabilities', async route => { await loading; await route.fulfill({ json: { data: aliasModels } }) })
+  await page.goto('/app/agents/a1/edit')
+  const chip = await openModel(page)
+  await expect(chip).toContainText('production')
+  release()
+  await page.getByLabel('Description').fill('Unrelated edit')
+  await page.getByRole('button', { name: 'Save Changes' }).first().click()
+  await expect(page).toHaveURL(/\/app\/agents$/)
+  expect(s.calls.find(c => c.method === 'PUT').body.model).toBe('production')
+  await page.goto('/app/agents/a1/edit')
+  await (await openModel(page)).click()
+  await page.getByRole('listbox').getByRole('option').filter({ has: page.getByText('alternate', { exact: true }) }).click()
+  await page.getByRole('button', { name: 'Save Changes' }).first().click()
+  await expect(page).toHaveURL(/\/app\/agents$/)
+  expect(s.agents[0].model).toBe('alternate')
+  await page.goto('/app/agents/a1/edit')
+  await expect(await openModel(page)).toContainText('alternate')
+  await page.getByTestId('home-model-chip').click()
+  await page.getByRole('option', { name: 'Any model (the chat picks one)', exact: true }).click()
+  await page.getByRole('button', { name: 'Save Changes' }).first().click()
+  await expect(page).toHaveURL(/\/app\/agents$/)
+  expect(s.agents[0].model).toBe('')
+  await page.goto('/app/agents/a1/edit')
+  await expect(await openModel(page)).toContainText('Any model')
+})
+
+test('an unavailable stored alias is not silently replaced', async ({ page }) => {
+  const s = await installAgents(page, { models: aliasModels, agents: [{ ...AGENTS[0], model: 'unavailable-alias' }] })
+  await page.goto('/app/agents/a1/edit')
+  await expect(await openModel(page)).toContainText('unavailable-alias')
+  await page.getByLabel('Description').fill('Keep the model ID')
+  await page.getByRole('button', { name: 'Save Changes' }).first().click()
+  await expect(page).toHaveURL(/\/app\/agents$/)
+  expect(s.calls.find(c => c.method === 'PUT').body.model).toBe('unavailable-alias')
+})

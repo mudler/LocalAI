@@ -239,3 +239,12 @@ test.describe('Agent folders on the other pages', () => {
     await expect(page.getByTestId('agent-facts').getByTestId('agent-folder-chip')).toHaveText('No folder chosen')
   })
 })
+
+test('chat still uses the shared picker and selects an allowed alias', async ({ page }) => {
+  await installAgents(page, { models: [{ id: 'production', capabilities: ['FLAG_CHAT'] }, { id: 'alternate', capabilities: ['FLAG_CHAT'] }] })
+  await page.goto('/app/chats')
+  const chip = page.getByTestId('home-model-chip')
+  await chip.click()
+  await page.getByRole('option', { name: /alternate/ }).click()
+  await expect(chip).toContainText('alternate')
+})

@@ -12,8 +12,9 @@ import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
 import './library.css'
+import '../components/home/composer.css'
 // eslint-disable-next-line no-unused-vars
-import SearchableModelSelect from '../components/SearchableModelSelect'
+import HomeModelPicker from '../components/home/HomeModelPicker'
 // eslint-disable-next-line no-unused-vars
 import NameList from '../components/ChatNameList'
 // eslint-disable-next-line no-unused-vars
@@ -295,8 +296,15 @@ export default function AgentCreate() {
       case 'ModelSettings':
         return (
           <div className="form-group">
-            <label className="form-label">{t('create.model')}</label>
-            <SearchableModelSelect
+            <label className="form-label" htmlFor="agent-model">{t('create.model')}</label>
+            <HomeModelPicker
+              id="agent-model"
+              labels={{ label: t('create.model') }}
+              autoSelect={false}
+              rememberSelection={false}
+              defaultChoice={t('create.modelPlaceholder')}
+              defaultSelected={!form.model}
+              onChooseDefault={() => updateField('model', '')}
               value={form.model}
               onChange={(v) => updateField('model', v)}
               capability={CAP_CHAT}
