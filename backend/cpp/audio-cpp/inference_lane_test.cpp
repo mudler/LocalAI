@@ -585,7 +585,21 @@ static void test_failure_messages_are_diagnosable() {
     }
 }
 
+static void test_immediate_admission() {
+    InferenceLane lane("music");
+    {
+        LaneEntry owner(lane, LaneEntry::TryNow{});
+        bool busy = false;
+        try { LaneEntry second(lane, LaneEntry::TryNow{}); }
+        catch (const LaneUnavailable &) { busy = true; }
+        check(busy, "music nonwaiting admission refuses an occupied lane");
+    }
+    LaneEntry next(lane, LaneEntry::TryNow{});
+    check(true, "music nonwaiting admission releases by RAII");
+}
+
 int main() {
+    test_immediate_admission();
     // Last resort only. Every threaded test above is individually bounded, so
     // this should never fire; it exists so that an implementation which parks a
     // thread forever still ends the job instead of occupying a CI runner.

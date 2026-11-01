@@ -78,6 +78,7 @@ class InferenceLane {
     friend class LaneEntry;
 
     void occupy(int budget_ms);
+    void try_occupy();
     void vacate();
 
     const std::string model_label_;
@@ -106,6 +107,9 @@ class LaneEntry {
     // budget_ms <= 0 waits indefinitely. Pass the output of
     // resolve_wait_budget_ms.
     LaneEntry(InferenceLane &lane, int budget_ms);
+    // Immediate admission: never queue behind computation (or the state lock).
+    struct TryNow {};
+    LaneEntry(InferenceLane &lane, TryNow);
     ~LaneEntry();
 
     LaneEntry(const LaneEntry &) = delete;

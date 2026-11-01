@@ -217,6 +217,14 @@ set_target_properties(${TARGET} PROPERTIES
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
     enable_testing()
 
+    add_executable(music_cancellation_ctest
+        music_cancellation_ctest.cpp music_cancellation.cpp inference_lane.cpp)
+    target_link_libraries(music_cancellation_ctest PRIVATE
+        engine_runtime ggml ggml-cpu Threads::Threads)
+    target_compile_options(music_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_cancellation COMMAND music_cancellation_ctest)
+    set_tests_properties(music_cancellation PROPERTIES TIMEOUT 30)
+
     add_executable(music_result_mapping_ctest
         music_result_mapping_ctest.cpp music_result_mapping.cpp)
     target_include_directories(music_result_mapping_ctest PRIVATE

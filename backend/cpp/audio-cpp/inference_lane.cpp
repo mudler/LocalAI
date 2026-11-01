@@ -90,6 +90,15 @@ void InferenceLane::occupy(int budget_ms) {
     run_started_ms_ = monotonic_millis();
 }
 
+void InferenceLane::try_occupy() {
+    std::unique_lock<std::mutex> lock(state_mutex_, std::try_to_lock);
+    if (!lock.owns_lock() || occupied_) {
+        throw LaneUnavailable(busy_prefix(model_label_) + "immediate admission refused");
+    }
+    occupied_ = true;
+    run_started_ms_ = monotonic_millis();
+}
+
 void InferenceLane::vacate() {
     {
         std::lock_guard<std::mutex> lock(state_mutex_);
@@ -107,6 +116,10 @@ LaneEntry::LaneEntry(InferenceLane &lane, int budget_ms) : lane_(lane) {
     // If this throws, the object never existed, so ~LaneEntry does not run and
     // cannot hand back a lane this caller never held.
     lane_.occupy(budget_ms);
+}
+
+LaneEntry::LaneEntry(InferenceLane &lane, TryNow) : lane_(lane) {
+    lane_.try_occupy();
 }
 
 LaneEntry::~LaneEntry() { lane_.vacate(); }
