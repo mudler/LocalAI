@@ -123,6 +123,26 @@ async function api(path, init) {
   return type.includes('application/json') ? response.json() : null
 }
 
+// Ids the last sync counted as deleted, per media type (server tombstones and
+// deletes still queued here). A page must never show one of them again.
+let lastDeleted = {}
+
+export function deletedInLastSync(mediaType) {
+  return new Set(lastDeleted[mediaType] || [])
+}
+
+// keepPending decides which entries a page keeps on screen when a sync lands:
+// the synced cache, plus entries made on this page that the server has not
+// confirmed yet (the sync read the cache before they were saved). Nothing is
+// kept when the cache now belongs to another account (prevKey set and
+// different), and nothing the sync saw deleted comes back.
+export function keepPending({ prev, cached, pendingIds, deleted, prevKey, key }) {
+  if (prevKey && prevKey !== key) return { list: cached, kept: [] }
+  const known = new Set(cached.map(e => e.id))
+  const kept = (prev || []).filter(e => pendingIds.has(e.id) && !known.has(e.id) && !deleted.has(e.id))
+  return { list: kept.length ? [...kept, ...cached] : cached, kept }
+}
+
 function notify() {
   try { globalThis.dispatchEvent?.(new Event(SYNC_EVENT)) } catch { /* no window */ }
 }
@@ -229,6 +249,7 @@ async function runSync() {
   // Deletes just sent (in case the list could not be fetched again) and those
   // still waiting for the server count as deleted here.
   for (const p of [...sent, ...pending]) (deadByType[p.type] ||= []).push({ id: p.id })
+  lastDeleted = Object.fromEntries(Object.entries(deadByType).map(([type, l]) => [type, l.map(t => t.id)]))
 
   for (const mediaType of Object.keys(MEDIA_STORAGE_KEYS)) {
     const key = historyStorageKey(mediaType)
@@ -305,4 +326,5 @@ export function resetStudioHistorySync() {
   serverMode = null
   locked = false
   syncPromise = null
+  lastDeleted = {}
 }

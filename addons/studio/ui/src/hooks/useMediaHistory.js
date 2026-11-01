@@ -3,7 +3,8 @@ import { generateId } from '../utils/format'
 import { fetchUrl } from '../utils/api'
 import { MEDIA_STORAGE_KEYS as STORAGE_KEYS, FAVOURITES_KEY, clearAllMediaHistory as clearStoredMediaHistory } from '../utils/mediaHistoryStore'
 import {
-  SYNC_EVENT, clearRemote, deleteRemote, historyStorageKey, saveRemote, setStudioHistoryTransport, syncStudioHistory,
+  SYNC_EVENT, clearRemote, deleteRemote, deletedInLastSync, historyStorageKey, keepPending, saveRemote,
+  setStudioHistoryTransport, syncStudioHistory,
 } from '../utils/studioHistorySync'
 
 export { FAVOURITES_KEY }
@@ -86,22 +87,30 @@ export function useMediaHistory(mediaType) {
   const dirty = useRef(false)
   const entriesRef = useRef(entries)
   entriesRef.current = entries
-  // Entries made on this page, kept across a sync that lands after them.
-  const addedIds = useRef(new Set())
+  // Entries made on this page that the server has not confirmed yet: kept
+  // across a sync that lands after them, until saveRemote answers.
+  const pendingIds = useRef(new Set())
+  const keyRef = useRef(storageKey)
 
   // Ask the server once per page load; when it answers, show its history
   // (merged into this account's browser cache by the sync).
   useEffect(() => {
     const reload = () => {
       const key = historyStorageKey(mediaType)
+      const prevKey = keyRef.current
+      keyRef.current = key
+      const deleted = deletedInLastSync(mediaType)
+      // Another account's cache: what this page made under the previous one stays there.
+      if (prevKey && prevKey !== key) pendingIds.current.clear()
+      for (const id of deleted) pendingIds.current.delete(id)
       setStorageKey(key)
       setEntries(prev => {
-        const cached = loadEntries(key)
-        const known = new Set(cached.map(e => e.id))
-        const fresh = prev.filter(e => addedIds.current.has(e.id) && !known.has(e.id))
-        if (fresh.length === 0) return cached
+        const { list, kept } = keepPending({
+          prev, cached: loadEntries(key), pendingIds: pendingIds.current, deleted, prevKey, key,
+        })
+        if (kept.length === 0) return list
         dirty.current = true
-        return [...fresh, ...cached].slice(0, MAX_ENTRIES)
+        return list.slice(0, MAX_ENTRIES)
       })
     }
     globalThis.addEventListener?.(SYNC_EVENT, reload)
@@ -143,21 +152,27 @@ export function useMediaHistory(mediaType) {
       ...(parentId ? { parentId, edge: edge || 'take' } : {}),
     }
     dirty.current = true
-    addedIds.current.add(entry.id)
+    pendingIds.current.add(entry.id)
     setEntries(prev => {
       const updated = [entry, ...prev]
       if (updated.length > MAX_ENTRIES) updated.length = MAX_ENTRIES
       return updated
     })
     saveRemote(mediaType, entry).then(version => {
-      if (!version || version < 0) return
+      if (!version) return // no server, or not reached: stays pending, uploaded by the next sync
+      pendingIds.current.delete(entry.id)
       dirty.current = true
+      if (version < 0) { // deleted on another browser before this upload landed
+        setEntries(prev => prev.filter(e => e.id !== entry.id))
+        return
+      }
       setEntries(prev => prev.map(e => (e.id === entry.id ? { ...e, serverVersion: version } : e)))
     })
     return entry.id
   }, [mediaType])
 
   const deleteEntry = useCallback((id) => {
+    pendingIds.current.delete(id)
     dirty.current = true
     setEntries(prev => prev.filter(e => e.id !== id))
     setSelectedId(prev => prev === id ? null : prev)
@@ -165,6 +180,7 @@ export function useMediaHistory(mediaType) {
   }, [mediaType])
 
   const clearAll = useCallback(() => {
+    pendingIds.current.clear()
     dirty.current = true
     const removed = entriesRef.current.map(e => ({ id: e.id, type: mediaType }))
     setEntries([])
