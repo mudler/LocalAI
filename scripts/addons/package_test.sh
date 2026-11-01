@@ -89,7 +89,7 @@ test -f "$work/voice/receipt.json"
 case_ok 'package.sh builds and verifies the voice add-on for the host'
 # A platform other than the host is refused for every add-on, whatever the config.
 if [ "$host" = linux/amd64 ]; then foreign=linux/arm64; else foreign=linux/amd64; fi
-for id in tables voice face fine-tuning quantization studio talk; do
+for id in tables voice face fine-tuning quantization studio talk telegram slack office sandbox web; do
     expect_fail "package.sh refuses a foreign platform without an executable: $id" 'is not this host' sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/foreign-$id" --version 1.2.3 --platform "$foreign" --local-check
 done
 case_ok 'package.sh refuses a foreign platform without an executable for every add-on'
@@ -107,6 +107,7 @@ if [ "\$1" = build ]; then
         last=\$a
     done
     printf '%s CGO_ENABLED=%s\n' "\$last" "\${CGO_ENABLED-unset}" >>"$work/gobuild.log"
+    case " \$* " in *' -ldflags '*) printf '%s %s\n' "\$last" "\$*" >>"$work/ldflags.log" ;; esac
     printf '#!/bin/sh\nexit 2\n' >"\$out"
     chmod 755 "\$out"
     exit 0
@@ -115,14 +116,38 @@ exec "$realgo" "\$@"
 STUB
 chmod 755 "$work/stubbin/go"
 : >"$work/gobuild.log"
-for id in tables voice face fine-tuning quantization studio talk; do
-    PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/stub-$id" --version 1.2.3 --platform "$host" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+: >"$work/ldflags.log"
+# The sandbox platforms name runtime files (gVisor binaries) that the release
+# build fetches. The check lays small stand-ins for them in a runtime directory.
+mkdir -p "$work/runtime/gvisor-bin"
+for f in runsc gvisor-profile cloud-hypervisor virtiofsd gvisor-bin/checkpointgofer gvisor-bin/gvisor-sentry-prewarmer gvisor-bin/gvisor_sentry gvisor-bin/runsc-fd-parking gvisor-bin/runsc-metric-server; do
+    printf 'stand-in\n' >"$work/runtime/$f"
+done
+for id in tables voice face fine-tuning quantization studio talk telegram slack office sandbox web; do
+    PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config "addons/$id/package/platforms.yaml" --layout "$work/stub-$id" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
 done
 grep -x './addons/tables/cmd/tables CGO_ENABLED=1' "$work/gobuild.log" >/dev/null
-for id in voice face fine-tuning quantization studio talk; do
+for id in voice face fine-tuning quantization studio talk telegram slack office sandbox web; do
     grep -x "./addons/$id/cmd/$id CGO_ENABLED=0" "$work/gobuild.log" >/dev/null || { echo "FAIL: $id is not built with CGO_ENABLED=0" >&2; cat "$work/gobuild.log" >&2; exit 1; }
 done
 case_ok 'package.sh builds Tables with cgo and the pure Go add-ons without'
+# The sandbox executable carries its guest image. A release build without
+# SANDBOX_GUEST_IMAGE fails; --local-check builds with a stand-in reference.
+digest=sha256:$(printf '0123456789abcdef%.0s' 1 2 3 4)
+good="registry.example/org/sandbox-guest@$digest"
+if grep -F -- 'main.guestImage' "$work/ldflags.log" >/dev/null; then
+    grep -F -- 'main.guestImage=localcheck.invalid/sandbox-guest@sha256:' "$work/ldflags.log" >/dev/null || { echo 'FAIL: local check lacks the stand-in guest image' >&2; exit 1; }
+else
+    echo 'FAIL: the sandbox build passed no guest image ldflags' >&2
+    exit 1
+fi
+case_ok 'package.sh stamps the sandbox executable with a guest image in a local check'
+expect_fail 'package.sh refuses a sandbox release build without SANDBOX_GUEST_IMAGE' 'needs SANDBOX_GUEST_IMAGE' env -u SANDBOX_GUEST_IMAGE PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/nogi" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime"
+expect_fail 'package.sh refuses a guest image that is not by digest' 'must be <repository>@sha256' env SANDBOX_GUEST_IMAGE=registry.example/org/sandbox-guest:latest PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/badgi" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime"
+: >"$work/ldflags.log"
+env SANDBOX_GUEST_IMAGE="$good" PATH="$work/stubbin:$PATH" sh scripts/addons/package.sh --config addons/sandbox/package/platforms.yaml --layout "$work/withgi" --version 1.2.3 --platform "$host" --runtime-dir "$work/runtime" --local-check >"$work/out" 2>&1 || { cat "$work/out" >&2; exit 1; }
+grep -F -- "-X main.guestImage=$good" "$work/ldflags.log" >/dev/null || { echo 'FAIL: SANDBOX_GUEST_IMAGE did not reach the linker' >&2; cat "$work/ldflags.log" >&2; exit 1; }
+case_ok 'package.sh passes SANDBOX_GUEST_IMAGE to the linker'
 expect_fail 'matrix fails closed while no platform is enabled' 'no enabled platform' "$tool" matrix --config "$work/disabled.yaml"
 expect_fail 'matrix fails closed without a file' 'platform matrix' "$tool" matrix --config "$work/absent.yaml"
 

@@ -9,13 +9,16 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"testing/fstest"
 
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/mudler/LocalAI/core/services/addons/skilltree"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -110,6 +113,30 @@ func (l *leg) openLayers() ([]extracted, error) {
 	return out, nil
 }
 
+// verifySkillLayer checks the skills layer with the owner's staging rules:
+// every file is under skills/, and the tree matches the manifest.
+func verifySkillLayer(files []extracted, m contract.Manifest) error {
+	tree := fstest.MapFS{}
+	for _, f := range files {
+		if f.role != roleSkills {
+			continue
+		}
+		rel, ok := strings.CutPrefix(f.name, contract.SkillsDir+"/")
+		if !ok || rel == "" {
+			return fail("E_SKILLS", "skills layer file %q is outside %s/", f.name, contract.SkillsDir)
+		}
+		mode := fs.FileMode(0o644)
+		if f.exec {
+			mode = 0o755
+		}
+		tree[rel] = &fstest.MapFile{Data: f.data, Mode: mode}
+	}
+	if _, err := skilltree.Verify(tree, m); err != nil {
+		return fail("E_SKILLS", "%v", err)
+	}
+	return nil
+}
+
 // verifyLeg applies every package rule to one platform layout.
 func verifyLeg(dir, platform, version string, cfg *PlatformsFile) (*Verified, error) {
 	l, rec, err := loadLeg(dir)
@@ -178,10 +205,14 @@ func verifyLoaded(l *leg, rec *Receipt, platform, version string, cfg *Platforms
 		return nil, fail("E_MANIFEST", "%v", err)
 	}
 
-	// Layer roles: executable, ui when declared, manifest. Nothing else.
+	// Layer roles: executable, ui and skills when declared, manifest. Nothing
+	// else.
 	want := []string{roleExecutable}
 	if m.Capabilities.UI != nil {
 		want = append(want, roleUI)
+	}
+	if len(m.Capabilities.SkillDefinitions) > 0 {
+		want = append(want, roleSkills)
 	}
 	want = append(want, roleManifest)
 	hasUI := false
@@ -246,7 +277,15 @@ func verifyLoaded(l *leg, rec *Receipt, platform, version string, cfg *Platforms
 			}
 		}
 	}
+	if len(m.Capabilities.SkillDefinitions) > 0 {
+		if err := verifySkillLayer(files, m); err != nil {
+			return nil, err
+		}
+	}
 	for _, f := range files {
+		if f.role == roleSkills {
+			continue // checked by verifySkillLayer
+		}
 		if r, ok := allowed[f.name]; ok {
 			if f.role != r {
 				return nil, fail("E_LAYERS", "file %q is in layer %q, expected %q", f.name, f.role, r)

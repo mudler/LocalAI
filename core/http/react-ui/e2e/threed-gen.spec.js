@@ -1,3 +1,4 @@
+import { truncateSync, writeFileSync } from 'node:fs'
 import { test, expect } from './coverage-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
 
@@ -333,17 +334,20 @@ test.describe('3D generation', () => {
     await expect(page.locator('.media-result')).toContainText(/missing files|error/i, { timeout: 15_000 })
   })
 
-  test('rejects oversized conditioning images before making an API request', async ({ page }) => {
+  test('rejects oversized conditioning images before making an API request', async ({ page }, testInfo) => {
     let requested = false
     await mockGeneration(page, () => { requested = true })
     await page.goto('/app/3d')
     await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
 
-    await page.locator('#threed-image-file').setInputFiles({
-      name: 'oversized.png',
-      mimeType: 'image/png',
-      buffer: Buffer.alloc(32 * 1024 * 1024 + 1),
-    })
+    // A file on disk, not an in-memory buffer: Playwright sends a buffer to
+    // the browser over the protocol, and 32 MiB of it took most of the 30 s
+    // test timeout on a loaded CI runner. A path is handed to the local browser
+    // as is, and the sparse file costs no disk.
+    const oversized = testInfo.outputPath('oversized.png')
+    writeFileSync(oversized, '')
+    truncateSync(oversized, 32 * 1024 * 1024 + 1)
+    await page.locator('#threed-image-file').setInputFiles(oversized)
 
     await expect(page.locator('.toast')).toContainText('32 MiB limit')
     expect(requested).toBe(false)

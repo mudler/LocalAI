@@ -3,49 +3,108 @@ import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import { Button, Callout } from '../ui'
 import { apiUrl } from '../../utils/basePath'
-import { StateChip, AppIcon, UnknownNotice, UpdateChip } from './AddonBits'
+import { pushLayer } from '../../utils/modalLayers'
+import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
-import { addedByAddon, appActions, localizedText, screenshotsOf } from './addonState'
+import AddonSkills from './AddonSkills'
+import AddonSettings from './AddonSettings'
+import { addedByAddon, appActions, attentionOf, localizedText, screenshotsOf } from './addonState'
+import { updateView, upgradeAvailability } from './updateState'
 import { describeOutcome } from './errors'
 
-// The preview of one add-on, beside the list: what it is, what it adds, and
-// what to do with it. It uses what the list already carries. `children` hold
-// the operator facts an administrator may open (health, trust, updates).
-export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], children }) {
+// The details of one add-on, beside the list. From the top: who it is and its
+// state; what needs a decision now (a failure, an update); what to do with it
+// (Open, Turn on or off, Pin); what it can do; then, for an administrator, the
+// operator facts in `children` (trust, health, updates, compatibility, storage
+// and data). Remove sits last, apart from everything else.
+export default function AddonPreview({ tile, language, title, pinned, onPin, onMove, onClose, actions, onStartStop, onRemove, isAdmin, source, links = [], upgrade, hasSettings = false, view = 'overview', onView, children }) {
   const { t } = useTranslation('addons')
   const ref = useRef(null)
   const app = tile.app
   useEffect(() => { ref.current?.focus({ preventScroll: true }) }, [tile.id])
+  // The pane is a layer, so an Escape meant for a dialog opened from it (a
+  // restore, a removal) closes only that dialog. The dialog listens on the
+  // document, after this handler, so defaultPrevented is not set yet here.
+  const layerRef = useRef(null)
+  useEffect(() => {
+    const layer = pushLayer()
+    layerRef.current = layer
+    return () => { layer.pop(); layerRef.current = null }
+  }, [])
   const onKeyDown = (e) => {
-    if (e.key === 'Escape' && !e.defaultPrevented) { e.preventDefault(); onClose() }
+    if (e.key !== 'Escape' || e.defaultPrevented || (layerRef.current && !layerRef.current.isTop())) return
+    e.preventDefault()
+    onClose()
   }
+  const update = isAdmin && source ? updateView(source.update) : null
   return (
     <aside className="ad-pane" ref={ref} tabIndex={-1} data-testid="addon-detail" aria-labelledby="ad-pane-title" onKeyDown={onKeyDown}>
       <div className="ad-pane__inner" data-app={tile.id}>
-      <div className="ad-pane__head">
-        {tile.source === 'builtin'
-          ? <span className="ad-icon ad-icon--empty" aria-hidden="true"><Icon name={tile.iconName} /></span>
-          : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} />}
-        <div className="ad-pane__lead">
-          <h2 className="ad-pane__title" id="ad-pane-title">{title}</h2>
-          {app && (
-            <div className="ad-card__chips">
-              <StateChip app={app} />
-              {app.update === 'update-pending' && <UpdateChip />}
-            </div>
-          )}
+        <div className="ad-pane__head">
+          {tile.source === 'builtin'
+            ? <BuiltinIcon name={tile.iconName} size={44} />
+            : <AppIcon src={tile.icon ? apiUrl(tile.icon) : ''} id={tile.id} name={title} size={44} />}
+          <div className="ad-pane__lead">
+            <h2 className="ad-pane__title" id="ad-pane-title">{title}</h2>
+            {app && (
+              <div className="ad-pane__meta">
+                <StateChip app={app} />
+                {(app.update === 'update-pending' || update?.state === 'update-available') && <UpdateChip version={update?.state === 'update-available' ? update.version : ''} />}
+                <span className="ad-pane__where">
+                  <VersionText version={app.version} />
+                  {isAdmin && source && source.sourceId ? <> · {t('meta.library', { library: source.sourceId })}</> : null}
+                </span>
+              </div>
+            )}
+          </div>
+          <AddonMenu name={title} pinned={pinned} onPin={onPin} onMove={pinned ? onMove : undefined} onRemove={onRemove} />
+          <Button variant="ghost" size="sm" icon="close" className="ad-pane__close" aria-label={t('drawer.close')} onClick={onClose} />
         </div>
-        <AddonMenu name={title} pinned={pinned} onPin={onPin} onMove={pinned ? onMove : undefined} onRemove={onRemove} />
-        <button type="button" className="ad-pane__close" aria-label={t('drawer.close')} onClick={onClose}><Icon name="close" /></button>
-      </div>
-      {app ? <PreviewBody app={app} language={language} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} links={links}>{children}</PreviewBody> : <p className="ad-pane__text">{t('drawer.builtinDetail')}</p>}
+        {app && hasSettings && (
+          <div className="ad-pane__tabs" role="tablist" aria-label={t('settingsTab.tabsLabel', { name: title })} onKeyDown={(e) => {
+            if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return
+            e.preventDefault()
+            const next = view === 'settings' ? 'overview' : 'settings'
+            onView?.(next)
+            requestAnimationFrame(() => document.getElementById(`ad-pane-tab-${next}`)?.focus())
+          }}>
+            {['overview', 'settings'].map(id => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                id={`ad-pane-tab-${id}`}
+                className="ad-tab ad-pane__tab"
+                aria-selected={view === id}
+                aria-controls="ad-pane-panel"
+                tabIndex={view === id ? 0 : -1}
+                data-testid={`addon-detail-tab-${id}`}
+                onClick={() => onView?.(id)}
+              >
+                {id === 'settings' && <Icon name="settings" aria-hidden="true" />}
+                {t(`settingsTab.${id}`)}
+              </button>
+            ))}
+          </div>
+        )}
+        {app && hasSettings && view === 'settings' && (
+          <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-settings" className="ad-pane__body"><AddonSettings app={app} title={title} /></div>
+        )}
+        {app && hasSettings && view !== 'settings' && (
+          <div role="tabpanel" id="ad-pane-panel" aria-labelledby="ad-pane-tab-overview">
+            <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>
+          </div>
+        )}
+        {app && !hasSettings && <PreviewBody app={app} title={title} language={language} pinned={pinned} onPin={onPin} actions={actions} onStartStop={onStartStop} onRemove={onRemove} isAdmin={isAdmin} source={source} update={update} upgrade={upgrade} links={links}>{children}</PreviewBody>}
+        {!app && <p className="ad-pane__text ad-pane__text--pad">{t('drawer.builtinDetail')}</p>}
       </div>
     </aside>
   )
 }
 
-function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, source, links, children }) {
+function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop, onRemove, isAdmin, source, update, upgrade, links, children }) {
   const { t } = useTranslation('addons')
   const description = localizedText(app, 'description', language)
   const added = addedByAddon(app)
@@ -59,9 +118,48 @@ function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, s
   const result = actions.state[startKey]?.phase !== 'working' ? actions.state[startKey] : null
   const stopResult = actions.state[stopKey]?.phase !== 'working' ? actions.state[stopKey] : null
   const outcome = result || stopResult
+  const attention = attentionOf(app, source)
+  const restarts = Number(source?.restarts) || 0
+  const canUpgrade = Boolean(upgrade && source && update?.state === 'update-available' && upgradeAvailability(source, { isAdmin, pending: true }).startable)
+  const upgrading = Boolean(source && upgrade) && upgrade.working(app.id)
   return (
     <div className="ad-pane__body">
+      {attention === 'failed' && (
+        <Callout tone="error" title={t('attention.failedTitle', { name: title })} testId="pane-failed">
+          {restarts > 0 ? t('attention.failedRestarts', { count: restarts }) : t('attention.failedOnce')}{' '}
+          {added.tools > 0 ? t('attention.toolsOff', { count: added.tools }) : added.page ? t('attention.pageOff') : ''}
+        </Callout>
+      )}
+      {canUpgrade && (
+        <Callout
+          tone="warn"
+          icon="arrow-up"
+          title={t('preview.updateTitle', { version: update.version })}
+          testId="pane-update"
+          actions={<Button size="sm" busy={upgrading} disabled={upgrading || pending} onClick={() => upgrade.ask(source)} aria-label={t('updates.upgradeNamed', { name: title })}>{t('updates.upgrade')}</Button>}
+        >
+          {t('attention.updateBody', { current: source.version })}
+        </Callout>
+      )}
       {description && <p className="ad-pane__text">{description}</p>}
+      <div className="ad-pane__acts">
+        {app.mainPage && (
+          <Button variant="primary" size="sm" icon="external-link" to={app.mainPage}>{t('apps.open')}</Button>
+        )}
+        {control.start && (
+          <Button variant={app.mainPage ? 'secondary' : 'primary'} size="sm" icon="toggle-on" busy={working} disabled={locked} onClick={() => onStartStop(app, 'start')}>{t('apps.start')}</Button>
+        )}
+        {control.stop && (
+          <Button variant="ghost" size="sm" icon="toggle-off" busy={working} disabled={locked} onClick={() => onStartStop(app, 'stop')}>{t('apps.stop')}</Button>
+        )}
+        <Button size="sm" variant="ghost" icon="pin" aria-pressed={pinned} onClick={onPin}>{pinned ? t('drawer.pinned') : t('drawer.pinLabel')}</Button>
+      </div>
+      {working && <p className="ad-card__note" role="status">{t('apps.working')}</p>}
+      {pending
+        ? <UnknownNotice addonId={app.id} actions={actions} className="ad-card__note" />
+        : outcome && outcome.outcome && describeOutcome(outcome.outcome, t, outcome.error) && (
+          <Callout tone="error" role="alert">{describeOutcome(outcome.outcome, t, outcome.error)}</Callout>
+        )}
       {shots.length > 0 && (
         <ul className="ad-shots" data-testid="addon-shots" aria-label={t('preview.screenshots')}>
           {shots.map(src => <li key={src}><img src={apiUrl(src)} alt="" loading="lazy" decoding="async" /></li>)}
@@ -76,53 +174,31 @@ function PreviewBody({ app, language, actions, onStartStop, onRemove, isAdmin, s
               <Icon name="wrench" aria-hidden="true" />
               <span>
                 {t('card.chatTools', { count: added.tools })}
-                {added.toolNames.length > 0 && <>{': '}<span className="dk-mono">{added.toolNames.join(', ')}</span>{added.toolsMore > 0 ? ` ${t('apps.toolsMore', { count: added.toolsMore })}` : ''}</>}
+                {added.toolNames.length > 0 && <span className="ad-adds__ids"><span className="dk-mono">{added.toolNames.join(', ')}</span>{added.toolsMore > 0 ? ` ${t('apps.toolsMore', { count: added.toolsMore })}` : ''}</span>}
               </span>
             </li>
           )}
           {!added.page && added.tools === 0 && <li className="ad-quiet">{t('preview.addsNothing')}</li>}
         </ul>
-        {!added.page && <p className="ad-quiet">{t('apps.headless')}</p>}
+        {!added.page && <p className="ad-quiet ad-pane__text">{t('apps.headless')}</p>}
         {links.length > 0 && (
           <div className="ad-pane__acts">
-            {links.map(link => <Link key={link.path} className="dk-btn dk-btn--ghost dk-btn--sm" to={link.path}>{link.label}</Link>)}
+            {links.map(link => <Button key={link.path} variant="ghost" size="sm" to={link.path}>{link.label}</Button>)}
           </div>
         )}
       </section>
-      <div className="ad-pane__acts">
-        {app.mainPage && (
-          <Link className="dk-btn dk-btn--primary dk-btn--sm" to={app.mainPage}>
-            <Icon name="external-link" /> {t('apps.open')}
-          </Link>
-        )}
-        {control.start && (
-          <button type="button" className={`dk-btn dk-btn--sm${app.mainPage ? '' : ' dk-btn--primary'}`} disabled={locked} onClick={() => onStartStop(app, 'start')}>
-            <Icon name={working ? 'spinner' : 'toggle-on'} spin={working} /> {t('apps.start')}
-          </button>
-        )}
-        {control.stop && (
-          <button type="button" className="dk-btn dk-btn--ghost dk-btn--sm" disabled={locked} onClick={() => onStartStop(app, 'stop')}>
-            <Icon name={working ? 'spinner' : 'toggle-off'} spin={working} /> {t('apps.stop')}
-          </button>
-        )}
-        {onRemove && (
-          <button type="button" className="dk-btn dk-btn--danger dk-btn--sm" disabled={locked} onClick={onRemove} data-testid="pane-remove">
-            <Icon name="trash" /> {t('card.remove')}
-          </button>
-        )}
-      </div>
-      {working && <p className="ad-card__note" role="status">{t('apps.working')}</p>}
-      {pending
-        ? <UnknownNotice addonId={app.id} actions={actions} className="ad-card__note" />
-        : outcome && outcome.outcome && describeOutcome(outcome.outcome, t, outcome.error) && (
-          <p className="ad-card__note" data-tone="error" role="alert">{describeOutcome(outcome.outcome, t, outcome.error)}</p>
-        )}
+      <AddonSkills app={app} isAdmin={isAdmin} />
       <dl className="dk-kv ad-kv ad-pane__facts" data-testid="preview-facts">
         <dt>{t('preview.version')}</dt><dd>{app.version}</dd>
         {isAdmin && <><dt>{t('trust.library')}</dt><dd data-testid="preview-source">{source ? `${source.sourceId || '—'}${source.channel ? ` · ${source.channel}` : ''}` : t('preview.sourceUnknown')}</dd></>}
         <dt>{t('preview.id')}</dt><dd className="dk-mono">{app.id}</dd>
       </dl>
       {children}
+      {onRemove && (
+        <div className="ad-pane__danger">
+          <Button variant="danger-ghost" size="sm" icon="trash" disabled={locked} onClick={onRemove} data-testid="pane-remove">{t('card.removeNamed', { name: title })}</Button>
+        </div>
+      )}
     </div>
   )
 }

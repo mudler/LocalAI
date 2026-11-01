@@ -22,6 +22,14 @@ const (
 	// ToolKindCreate proposes the creation of a resource. It names no
 	// resource: the host reserves one for the proposer.
 	ToolKindCreate = "create"
+	// ToolKindAction runs under the act action and changes things at once, as
+	// the calling user, with no browser confirmation: the add-on does what a
+	// person asked a chat to do, in that person's own space, and the change is
+	// undone from the history of the space. It names no resource. The host
+	// offers it to the chat consumer only; every other consumer neither lists
+	// nor runs it. An add-on that declares one must say so in its
+	// capabilities (actions).
+	ToolKindAction = "action"
 )
 
 // ResourceArgument is the tool argument that names the resource a tool works
@@ -54,6 +62,92 @@ type ToolDefinition struct {
 	// object schema with explicit properties, additionalProperties false at
 	// the top level and the keywords the host allows only.
 	InputSchema json.RawMessage `json:"inputSchema" swaggertype:"object"`
+	// UIOnly marks a tool that only the add-on's own page may call, such as a
+	// settings change that asks the host whether the caller is an
+	// administrator. It is never offered to a model, a chat or an agent. The
+	// page has no resource to name, so it must be a read tool without one.
+	UIOnly bool `json:"uiOnly,omitempty"`
+	// Shadows names a built-in chat tool that this tool replaces. When the
+	// add-on is installed, running and on for a chat, the model sees one tool
+	// under that name, served by the add-on, and the built-in one is hidden.
+	// Only a name in ReplaceableTools may be shadowed. A tool without it keeps
+	// its add-on name (addon__<id>__<tool>).
+	Shadows string `json:"shadows,omitempty"`
+}
+
+// ReplaceableTool says what a tool that shadows a built-in chat tool must look
+// like, so that the model calls the replacement the way it calls the built-in
+// and the user keeps the consent split of the built-in name.
+type ReplaceableTool struct {
+	// Kind is the kind the shadowing tool must have: an action tool for bash
+	// (chats only, capabilities.actions), a read tool for the web tools.
+	Kind string
+	// Required are the properties the built-in requires, with their JSON
+	// type. The shadowing tool declares each of them with that type and
+	// requires no other property; extra optional properties are allowed.
+	Required map[string]string
+}
+
+// ReplaceableTools are the built-in chat tools an add-on tool may shadow.
+// The file tools are not on the list: they are the one file toolset of a
+// chat, with Undo cards and the shared-folder rules, and an add-on must not
+// take them over.
+var ReplaceableTools = map[string]ReplaceableTool{
+	"bash":       {Kind: ToolKindAction, Required: map[string]string{"command": "string"}},
+	"web_search": {Kind: ToolKindRead, Required: map[string]string{"query": "string"}},
+	"web_fetch":  {Kind: ToolKindRead, Required: map[string]string{"url": "string"}},
+}
+
+// Replaceable reports whether an add-on tool may shadow the built-in tool
+// name.
+func Replaceable(name string) bool {
+	_, ok := ReplaceableTools[name]
+	return ok
+}
+
+// ValidateShadow checks a tool that shadows a built-in chat tool against
+// ReplaceableTools: the name is replaceable, the kind is the built-in's, the
+// schema declares every property the built-in requires with its type, it
+// requires no other property, and it names no resource. It is nil for a tool
+// that shadows nothing.
+func ValidateShadow(d ToolDefinition) error {
+	if d.Shadows == "" {
+		return nil
+	}
+	r, ok := ReplaceableTools[d.Shadows]
+	if !ok {
+		return fmt.Errorf("tool %s: %q is not a built-in tool an add-on may shadow", d.Name, d.Shadows)
+	}
+	if d.UIOnly {
+		return fmt.Errorf("tool %s: a page-only tool cannot shadow a chat tool", d.Name)
+	}
+	if d.Kind != r.Kind {
+		return fmt.Errorf("tool %s: a tool that shadows %s must be a %s tool", d.Name, d.Shadows, r.Kind)
+	}
+	var root struct {
+		Properties map[string]struct {
+			Type string `json:"type"`
+		} `json:"properties"`
+		Required []string `json:"required"`
+	}
+	if err := json.Unmarshal(d.InputSchema, &root); err != nil {
+		return fmt.Errorf("tool %s: invalid arguments schema", d.Name)
+	}
+	if _, has := root.Properties[ResourceArgument]; has {
+		return fmt.Errorf("tool %s: a tool that shadows %s names no %s", d.Name, d.Shadows, ResourceArgument)
+	}
+	for name, typ := range r.Required {
+		p, ok := root.Properties[name]
+		if !ok || p.Type != typ {
+			return fmt.Errorf("tool %s: a tool that shadows %s declares %s as a %s", d.Name, d.Shadows, name, typ)
+		}
+	}
+	for _, name := range root.Required {
+		if _, ok := r.Required[name]; !ok {
+			return fmt.Errorf("tool %s: a tool that shadows %s requires %s, which the built-in does not", d.Name, d.Shadows, name)
+		}
+	}
+	return nil
 }
 
 var toolPropertyName = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]{0,63}$`)
@@ -100,6 +194,7 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 		declared[t] = true
 	}
 	seen := map[string]bool{}
+	shadowed := map[string]bool{}
 	total := 0
 	for _, d := range defs {
 		if !declared[d.Name] || seen[d.Name] {
@@ -110,7 +205,7 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 			return fmt.Errorf("invalid tool description")
 		}
 		switch d.Kind {
-		case ToolKindRead, ToolKindWrite, ToolKindSchema, ToolKindCreate:
+		case ToolKindRead, ToolKindWrite, ToolKindSchema, ToolKindCreate, ToolKindAction:
 		default:
 			return fmt.Errorf("invalid tool kind")
 		}
@@ -123,6 +218,18 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 		}
 		if err := ValidateToolSchema(d.InputSchema, d.Kind); err != nil {
 			return fmt.Errorf("tool %s: %w", d.Name, err)
+		}
+		if d.UIOnly && !IsResourceless(d) {
+			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
+		}
+		if d.Shadows != "" {
+			if err := ValidateShadow(d); err != nil {
+				return err
+			}
+			if shadowed[d.Shadows] {
+				return fmt.Errorf("tool %s: two tools shadow %s", d.Name, d.Shadows)
+			}
+			shadowed[d.Shadows] = true
 		}
 	}
 	return nil
@@ -161,7 +268,7 @@ func ValidateToolSchema(raw json.RawMessage, kind string) error {
 	switch {
 	case kind == ToolKindCreate && has:
 		return fmt.Errorf("%s is absent for a create tool", ResourceArgument)
-	case kind != ToolKindCreate && kind != ToolKindRead && !has:
+	case kind != ToolKindCreate && kind != ToolKindRead && kind != ToolKindAction && !has:
 		return fmt.Errorf("%s is required for a tool of a resource", ResourceArgument)
 	}
 	req, _ := root["required"].([]any)
@@ -269,4 +376,16 @@ func IsResourceless(d ToolDefinition) bool {
 	}
 	_, has := root.Properties[ResourceArgument]
 	return !has
+}
+
+// ShadowedTools lists, in definition order, the built-in chat tools that the
+// tool definitions replace.
+func ShadowedTools(defs []ToolDefinition) []string {
+	var out []string
+	for _, d := range defs {
+		if d.Shadows != "" && ValidateShadow(d) == nil {
+			out = append(out, d.Shadows)
+		}
+	}
+	return out
 }

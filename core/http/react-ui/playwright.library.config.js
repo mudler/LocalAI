@@ -10,6 +10,16 @@ const port = Number(process.env.LIBRARY_UI_PORT || 8097)
 export default defineConfig({
   ...base,
   testIgnore: [],
+  // The Models and Backends pages are still fetching their catalogs (a few
+  // requests per host at a time) when the Libraries panel opens, so a list can
+  // wait behind them for longer than the default five seconds.
+  expect: { timeout: 20_000 },
+  timeout: 90_000,
+  // A retry that passes is a flake, and the runner (scripts/addons/library_ui.sh)
+  // rejects it; it reads this report.
+  retries: 0,
+  workers: 1,
+  reporter: process.env.ADDONS_UI_REPORT ? [['json', { outputFile: process.env.ADDONS_UI_REPORT }]] : base.reporter,
   testMatch: ['**/library-sources.spec.js'],
   globalSetup: undefined,
   use: { ...base.use, baseURL: `http://127.0.0.1:${port}` },

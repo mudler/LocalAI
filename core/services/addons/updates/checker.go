@@ -78,6 +78,9 @@ type Config struct {
 	Timeout time.Duration
 	// Now is the clock. Default time.Now.
 	Now func() time.Time
+	// Lookup resolves the tag of a mutable entry (a development build) to a
+	// digest. Default: the registry, as the install does.
+	Lookup catalog.DigestLookup
 }
 
 // Result is the status of an evaluation and the release it resolved.
@@ -119,6 +122,16 @@ type Checker struct {
 	flights  map[string]*flight
 	lastAddr map[string]time.Time // last explicit refresh per add-on
 	lastLib  map[string]time.Time // last network refresh per library
+	// tags is the digest the moving tag of a mutable entry named when an
+	// explicit check last resolved it, per add-on. A status read compares
+	// against it without the network.
+	tags map[string]resolvedTag
+}
+
+// resolvedTag is one resolution of the tag of a mutable entry.
+type resolvedTag struct {
+	artifact, platform string
+	digest, version    string
 }
 
 // New returns a checker. The reader and the catalog are the owner's.
@@ -139,7 +152,7 @@ func New(cfg Config, c Catalog, r Reader) *Checker {
 		cfg.Now = time.Now
 	}
 	base, cancel := context.WithCancel(context.Background())
-	return &Checker{cfg: cfg, cat: c, reader: r, base: base, cancel: cancel, entries: map[string]*entry{}, flights: map[string]*flight{}, lastAddr: map[string]time.Time{}, lastLib: map[string]time.Time{}}
+	return &Checker{cfg: cfg, cat: c, reader: r, base: base, cancel: cancel, entries: map[string]*entry{}, tags: map[string]resolvedTag{}, flights: map[string]*flight{}, lastAddr: map[string]time.Time{}, lastLib: map[string]time.Time{}}
 }
 
 // Close ends every check in flight and waits for it. A check asked for after
@@ -225,6 +238,7 @@ func (c *Checker) Forget(addonID string) {
 	defer c.mu.Unlock()
 	delete(c.entries, addonID)
 	delete(c.lastAddr, addonID)
+	delete(c.tags, addonID)
 }
 
 func (c *Checker) cached(in Installation, now time.Time) (Status, bool) {
@@ -309,7 +323,9 @@ func (c *Checker) evaluateAndStore(ctx context.Context, in Installation, refresh
 			_ = c.cat.Refresh(ctx, src)
 		}
 	}
-	res := c.Evaluate(ctx, in)
+	// The tag of a development build is resolved by an explicit check that
+	// reached the library; a throttled one reuses the last resolution.
+	res := c.evaluate(ctx, in, refresh && !throttled)
 	st := res.Status
 	st.Throttled = throttled
 	c.mu.Lock()
@@ -345,6 +361,13 @@ func (c *Checker) prune(m map[string]time.Time) {
 // lifecycle manager calls it at execution of an upgrade, so the candidate and
 // its compatibility are decided again at the moment of the change.
 func (c *Checker) Evaluate(ctx context.Context, in Installation) Result {
+	return c.evaluate(ctx, in, true)
+}
+
+// evaluate is Evaluate. With resolveTags it resolves the moving tag of a
+// mutable entry through the registry; without it, it uses the last
+// resolution and never the network.
+func (c *Checker) evaluate(ctx context.Context, in Installation, resolveTags bool) Result {
 	r := in.Receipt
 	now := c.cfg.Now()
 	selection := r.Selection
@@ -370,10 +393,17 @@ func (c *Checker) Evaluate(ctx context.Context, in Installation) Result {
 	}
 	targetOS, targetArch := c.cat.Target()
 	var res Result
-	if isVersion(selection) {
+	// A development entry names a moving tag under a label that reads as a
+	// version (0.0.0-development). It is compared by the digest its tag names,
+	// never by its label: as a version it would always look newer than the
+	// build the install recorded, with no digest to pin.
+	tagged := slices.ContainsFunc(releases, func(x catalog.Release) bool {
+		return x.Mutable && x.Channel == r.Channel && (x.Version == selection || x.Channel == selection)
+	})
+	if isVersion(selection) && !tagged {
 		res = c.immutable(ctx, in, st, selection, releases, targetOS, targetArch)
 	} else {
-		res = c.moving(ctx, in, st, selection, releases)
+		res = c.moving(ctx, in, st, selection, releases, resolveTags)
 	}
 	c.stamp(&res.Status, now)
 	return res
@@ -412,7 +442,7 @@ func classOf(e error) string {
 // moving handles a moving channel (development, branch-*, latest): the
 // resolved digest is the whole truth. The same digest is up to date and any
 // other digest is an update, even when the version label did not change.
-func (c *Checker) moving(ctx context.Context, in Installation, st Status, selection string, releases []catalog.Release) Result {
+func (c *Checker) moving(ctx context.Context, in Installation, st Status, selection string, releases []catalog.Release, resolveTags bool) Result {
 	rel, e := c.cat.Resolve(ctx, st.SourceID, in.AddonID, selection)
 	if e != nil {
 		if errors.Is(e, catalog.ErrNotFound) {
@@ -427,18 +457,70 @@ func (c *Checker) moving(ctx context.Context, in Installation, st Status, select
 		st.State, st.Error = CheckFailed, classOf(e)
 		return Result{Status: st}
 	}
-	// A mutable entry has no digest to compare: its tag is resolved at install.
-	// Until the check resolves it too, report nothing rather than a false update.
-	if rel.Mutable {
-		st.State = Unknown
-		return Result{Status: st}
-	}
 	st.CandidateVersion, st.CandidateDigest = rel.Version, rel.Digest
-	if rel.Digest == in.Receipt.Digest {
+	if rel.Mutable {
+		// A mutable entry has no digest in the library: its tag is resolved
+		// at install. The check resolves it the same way, so the candidate is
+		// the build the tag names now. The release stays the library's entry,
+		// and the install resolves the tag again and must find this digest.
+		tag, ok, e := c.tag(ctx, in.AddonID, rel, resolveTags)
+		if e != nil {
+			st.CandidateVersion, st.CandidateDigest = "", ""
+			st.State, st.Error = CheckFailed, ClassRefresh
+			if errors.Is(e, context.Canceled) || errors.Is(e, context.DeadlineExceeded) {
+				st.Error = ClassCanceled
+			}
+			return Result{Status: st}
+		}
+		if !ok {
+			// Not resolved yet: an explicit check tells. Never a false update.
+			st.CandidateVersion, st.CandidateDigest = "", ""
+			st.State = Unknown
+			return Result{Status: st}
+		}
+		st.CandidateVersion, st.CandidateDigest = tag.version, tag.digest
+	}
+	if st.CandidateDigest == in.Receipt.Digest {
 		st.State = UpToDate
 		return Result{Status: st, Release: rel}
 	}
 	return c.judge(in, st, rel)
+}
+
+// tag returns the digest the tag of a mutable entry names. With resolve it
+// asks the registry and remembers the answer; without it, it returns the last
+// answer for the same artifact and platform, or false.
+func (c *Checker) tag(ctx context.Context, addonID string, rel catalog.Release, resolve bool) (resolvedTag, bool, error) {
+	platform := rel.OS + "/" + rel.Arch
+	if !resolve {
+		c.mu.Lock()
+		defer c.mu.Unlock()
+		t, ok := c.tags[addonID]
+		if !ok || t.artifact != rel.Artifact || t.platform != platform {
+			return resolvedTag{}, false, nil
+		}
+		return t, true, nil
+	}
+	pin, e := catalog.Pin(ctx, rel, c.cfg.Lookup)
+	if e != nil {
+		if ctx.Err() != nil {
+			return resolvedTag{}, false, ctx.Err()
+		}
+		return resolvedTag{}, false, e
+	}
+	t := resolvedTag{artifact: rel.Artifact, platform: platform, digest: pin.Digest, version: pin.Version}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.tags[addonID] = t
+	for len(c.tags) > c.cfg.MaxEntries {
+		for id := range c.tags {
+			if id != addonID {
+				delete(c.tags, id)
+				break
+			}
+		}
+	}
+	return t, true, nil
 }
 
 // judge decides between update-available and incompatible for a candidate.

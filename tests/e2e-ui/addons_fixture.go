@@ -262,6 +262,22 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 	return f, nil
 }
 
+// localOwnerAddons is the add-on owner of a server that has no fixture packages:
+// add-ons are on, in local-owner mode, with a loopback carrier. The library
+// sources spec needs the Add-ons page, which is only there with add-ons on.
+func localOwnerAddons(dataDir string) (config.AddonConfig, error) {
+	transport, address, err := fixtureTransport()
+	if err != nil {
+		return config.AddonConfig{}, err
+	}
+	return config.AddonConfig{
+		Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://" + address, StorageID: "disk",
+		Root: filepath.Join(dataDir, "addons"), ListenAddress: address, Transport: transport,
+		Host:          contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
+		OwnershipMode: auth.AddonModeLocalOwner,
+	}, nil
+}
+
 // listed is the library document at the current step: the releases that never
 // move and, of each moving add-on and channel, the one the step has reached.
 func (f *addonsFixture) listed() []catalog.Release {

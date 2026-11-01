@@ -25,7 +25,10 @@
     "title": "LocalAI per Chat verwalten",
     "description": "Modelle installieren, Backends wechseln, Konfigurationen bearbeiten und Status prüfen — durch Gespräche mit LocalAI.",
     "open": "Assistent öffnen",
-    "tooltip": "LocalAI per Chat verwalten"
+    "tooltip": "LocalAI per Chat verwalten",
+    "noModel": "Wähle zuerst ein Chat-Modell.",
+    "startFailed": "Der Assistenten-Chat konnte nicht gestartet werden: {{message}}",
+    "chatTitle": "LocalAI-Assistent"
   },
   "input": {
     "placeholder": "Nachricht...",
@@ -79,13 +82,17 @@
       "step2Title": "Modell installieren",
       "step2Body": "Klicken Sie auf Installieren, um es automatisch herunterzuladen und zu konfigurieren.",
       "step3Title": "Chat starten",
-      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API."
+      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API.",
+      "sandboxTitle": "Code sicher ausführen (optional)",
+      "sandboxBody": "Installieren Sie das Sandbox-Add-on, damit das Modell Code und Befehle isoliert ausführt. Ohne es laufen Befehle direkt auf diesem Rechner, mit vollem Netzwerkzugriff und ohne Isolation."
     },
     "browseGallery": "Modellgalerie durchsuchen",
     "importModel": "Modell importieren",
     "docs": "Dokumentation",
     "noModelsTitle": "Keine Modelle verfügbar",
-    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können."
+    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können.",
+    "sandboxInstall": "Sandbox installieren",
+    "sandboxSkip": "Überspringen"
   },
   "connect": {
     "title": "Ein Endpunkt, jede API",
@@ -105,7 +112,23 @@
     "modelsSummary": "Explore, install, and manage models",
     "create": "Create",
     "createSummary": "Open a chat, image or voice session",
-    "operate": "Operate",
-    "operateSummary": "{{models}} models configured · nodes, activity and traces"
+    "operate": "Verwaltung",
+    "operateSummary": "{{models}} models configured · nodes, activity and traces",
+    "allChats": "Alle Chats"
+  },
+  "slash": {
+    "agents": {
+      "label": "Agenten",
+      "desc": "Deine gespeicherten Agenten, Auslöser und Skills"
+    },
+    "mcp": {
+      "label": "MCP-Connectors",
+      "desc": "MCP-Server, die deine Chats nutzen können"
+    },
+    "memory": {
+      "label": "Gedächtnis",
+      "desc": "Sammlungen, in denen deine Chats suchen können"
+    },
+    "complete": "ergänzen"
   }
 }

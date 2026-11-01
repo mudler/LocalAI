@@ -16,7 +16,7 @@
       "looking_other": "Running, with {{count}} things to look at.",
       "firstRun": "Nothing is running yet."
     },
-    "firstRunBody": "Operate shows health once a model is loaded. Start with a backend: it is the program that runs models.",
+    "firstRunBody": "Administration shows health once a model is loaded. Start with a backend: it is the program that runs models.",
     "firstRunBackend": "Install a backend",
     "firstRunModels": "Browse models",
     "rows": {
@@ -62,7 +62,8 @@
     "nodeMeter": "{{name}}: {{used}} of {{total}} in use",
     "openMachine": "Open This machine",
     "openNodes": "Open the swarm",
-    "reclaimer": "The memory reclaimer is on."
+    "reclaimer": "The memory reclaimer is on.",
+    "diskChip": "Disk almost full"
   },
   "running": {
     "none": "Nothing is running.",
@@ -95,7 +96,7 @@
     "titleRam": "System memory in use",
     "titleClusterGpu": "GPU memory in use, all nodes",
     "titleClusterRam": "System memory in use, all nodes",
-    "scope": "Since you opened Operate. LocalAI keeps no memory history.",
+    "scope": "Since you opened Administration. LocalAI keeps no memory history.",
     "meterLabel": "{{used}} of {{total}} in use, {{percent}} percent",
     "of": "of {{total}}",
     "hint": "Readings over {{span}}. Hover the chart or use the arrow keys.",
@@ -105,7 +106,7 @@
     "capacity": "capacity {{value}}",
     "gbTick": "{{value}} GB",
     "now": "{{value}} now",
-    "waiting": "The chart starts with the second reading, about 15 seconds after you open this page. It shows only readings taken while Operate is open.",
+    "waiting": "The chart starts with the second reading, about 15 seconds after you open this page. It shows only readings taken while Administration is open.",
     "unavailable": "No memory reading is available, so no chart is drawn.",
     "dataTable": "Data table",
     "time": "Time",
@@ -278,7 +279,8 @@
     "upgradeVersions": "{{from}} to {{to}}",
     "rowUpgraded": "Upgraded in {{duration}}",
     "rowUpgradedPlain": "Upgraded",
-    "viewInAddons": "View in Add-ons"
+    "viewInAddons": "View in Add-ons",
+    "upgradeWaiting": "Waiting for the add-on service to start. Next check in {{seconds}} s."
   },
   "backends": {
     "title": "Backend Management",
@@ -304,17 +306,9 @@
       "updates": "Updates",
       "offline": "Offline nodes"
     },
-    "variants": "Variants",
-    "variantsCount": "Variants ({{count}})",
-    "development": "Development",
-    "developmentCount": "Development ({{count}})",
     "update": "Update",
     "updating": "Updating...",
-    "updateAll": "Update all ({{count}})",
     "updateLabel": "Update {{name}}",
-    "updateTo": "Update to v{{version}}",
-    "updateToTitle": "Update to {{version}}",
-    "latest": "latest",
     "updateStarted": "Updating {{name}}...",
     "updateFailed": "Failed to update: {{message}}",
     "updateAllFailed": "Update failed for {{name}}: {{message}}",
@@ -325,7 +319,6 @@
     "checkFound_other": "{{count}} backends have updates",
     "checkNone": "Every installed backend is current",
     "checkFailed": "Could not check for updates: {{message}}",
-    "fromUrl": "From URL",
     "manualTitle": "Install a backend from a URL",
     "manualUri": "OCI image, URL or path",
     "manualName": "Name (required for an OCI image)",
@@ -397,7 +390,6 @@
     "installedLoadFailed": "Failed to load installed backends: {{message}}",
     "installedAria": "Installed backends",
     "catalogAria": "Backend catalog",
-    "shown": "{{shown}} of {{total}}",
     "prevPage": "Previous page",
     "nextPage": "Next page",
     "showDetails": "Show details for {{name}}",
@@ -458,11 +450,35 @@
       "updated": "{{name}} updated from its library.",
       "updateFailed": "The update failed. {{message}}"
     },
-    "reviewButton": "Updates ({{count}})",
-    "reviewTitle": "Review backend updates",
-    "reviewDescription": "Nothing is upgraded until you choose here. Models that use an upgraded backend restart.",
-    "reviewDone": "Update started for {{name}}.",
-    "reviewFailed": "Update failed for {{name}}: {{message}}"
+    "updateAllTitle": "Update all backends",
+    "updateAllIntro": "Choose which backends to update. Each one is updated on its own, one after another. A failure does not stop the others.",
+    "updateSelected": "Update selected",
+    "loadFailedTitle": "Could not load the backend catalog.",
+    "filtersButton": "Filters",
+    "filtersDone": "Done",
+    "filterGroups": {
+      "state": "State",
+      "type": "Type",
+      "show": "Show",
+      "library": "Library"
+    },
+    "showVariants": "Variant builds",
+    "showDevelopment": "Development builds",
+    "allLibraries": "All libraries",
+    "moreActions": "More backend actions",
+    "installFromUrl": "Install from URL…",
+    "manageLibraries": "Manage libraries…",
+    "count_one": "{{count}} backend",
+    "count_other": "{{count}} backends",
+    "countOf": "{{shown}} of {{total}} backends",
+    "activeFilters": "Active filters",
+    "removeFilter": "Remove filter: {{name}}",
+    "checking": "Checking for updates…",
+    "updatesAvailable_one": "{{count}} update available",
+    "updatesAvailable_other": "{{count}} updates available",
+    "reviewUpdates": "Review",
+    "close": "Close",
+    "installedLoadFailedTitle": "Could not load the installed backends."
   },
   "logs": {
     "title": "Backend logs",

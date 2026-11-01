@@ -1,0 +1,57 @@
+{
+  "brand": "{{name}} 探索",
+  "openApp": "打开 LocalAI",
+  "close": "关闭",
+  "copy": "复制",
+  "copied": "已复制",
+  "loading": "正在加载 swarm",
+  "title": "公开的 swarm",
+  "lede": "swarm 是通过点对点网络共享模型推理的一组机器。此列表显示其所有者选择公开的 swarm。持有 swarm 令牌的任何人都可以加入。",
+  "count_one": "{{count}} 个 swarm 在线",
+  "count_other": "{{count}} 个 swarm 在线",
+  "sorted": "工作节点最多的优先",
+  "workers_one": "工作节点",
+  "workers_other": "工作节点",
+  "tokenTitle": "令牌的开头和结尾。请从“如何加入”处复制。",
+  "warning": "Explorer 是社区维护的 swarm 令牌列表。任何人都可以使用令牌向 swarm 发送任务，或与之共享资源。请自行承担风险。",
+  "listed": "该 swarm 已列出。",
+  "empty": {
+    "title": "没有 swarm 的工作节点在线",
+    "text": "只列出至少有一个在线工作节点的 swarm。列出您的 swarm 即可将其公开。"
+  },
+  "off": {
+    "title": "此服务器不是 explorer",
+    "text": "Explorer 页面需要以 explorer 模式启动的 LocalAI 服务器。此服务器没有可显示的 swarm 列表。"
+  },
+  "error": {
+    "title": "无法加载 swarm",
+    "text": "explorer 服务器没有响应。请检查它是否正在运行，然后重试。",
+    "retry": "重试"
+  },
+  "join": {
+    "open": "如何加入",
+    "title": "加入 {{name}}",
+    "text": "使用此 swarm 的令牌启动一个 LocalAI 工作节点。",
+    "token": "令牌",
+    "federated": "联邦集群 {{id}}。使用以下任一命令在其上启动节点。",
+    "docker": "使用 Docker",
+    "cli": "使用命令行",
+    "noCommands": "此 swarm 的工作节点通过其令牌共享算力。节点加入所需的就是上方的令牌。",
+    "docs": "了解 swarm 的工作原理"
+  },
+  "list": {
+    "open": "列出 swarm",
+    "title": "列出 swarm",
+    "text": "将 swarm 添加到公开列表。它有在线工作节点后才会显示。",
+    "name": "名称",
+    "description": "描述",
+    "token": "令牌",
+    "tokenHint": "swarm 的网络令牌，即服务器打印的内容。",
+    "public": "列出即会公开令牌。任何查看列表的人都可以使用您 swarm 的工作节点。",
+    "understood": "我了解令牌将会公开。",
+    "cancel": "取消",
+    "add": "列出此 swarm",
+    "adding": "正在列出...",
+    "failed": "无法列出该 swarm。"
+  }
+}

@@ -19,3 +19,6 @@
 
 .memorybar[data-over="true"] .memorybar__limit { background: var(--dk-error); }
 .memorybar__legend { margin-top: 0; }
+
+/* Sizes are numbers to compare: sans, tabular figures. */
+.memorybar__fig { font-variant-numeric: tabular-nums; }

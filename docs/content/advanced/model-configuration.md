@@ -1006,17 +1006,16 @@ Model Context Protocol (MCP) configuration:
 
 ## Agent Configuration
 
-Agent/autonomous agent configuration:
+Options of the tool loop. They apply to the [chats](/features/chats/) (including saved agents, triggers and connector turns) and, for `max_iterations`, to `/v1/chat/completions`, `/v1/messages` and `/v1/responses`:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `agent.max_attempts` | int | Maximum number of attempts |
-| `agent.max_iterations` | int | Maximum number of iterations |
-| `agent.enable_reasoning` | bool | Enable reasoning capabilities |
-| `agent.enable_planning` | bool | Enable planning capabilities |
-| `agent.enable_mcp_prompts` | bool | Enable MCP prompts |
-| `agent.enable_plan_re_evaluator` | bool | Enable plan re-evaluation |
-| `agent.max_generation_tokens` | int | Output-token cap for each completion in the agent loop (agent jobs, `/api/agent/jobs`). Bounds a single completion that keeps generating, which `max_iterations` and `loop_detection` do not. A request that already carries a cap keeps it, so a length retry can still raise it. `0` (default) keeps the client default of 16384 |
+| `agent.max_iterations` | int | Maximum number of tool rounds in one turn. In the chats it replaces the runtime setting `chats_max_iterations` (default 40) for this model |
+| `agent.max_attempts` | int | How often a failed tool call is retried |
+| `agent.force_reasoning_tool` | bool | Make the model reason before it picks a tool |
+| `agent.max_generation_tokens` | int | Accepted and ignored. It capped the completions of the agent jobs, which were removed |
+
+The old agent loop also had `enable_reasoning`, `enable_planning`, `enable_mcp_prompts`, `enable_plan_re_evaluator`, `disable_sink_state`, `loop_detection` and `max_adjustment_attempts`. The chats loop has no counterpart for them. A model file that still sets one keeps loading; the option is ignored and a warning names it when the file is read.
 
 ## Reasoning Configuration
 

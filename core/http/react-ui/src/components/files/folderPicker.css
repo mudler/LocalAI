@@ -1,0 +1,57 @@
+/* The folder tree walk of the Move dialog and of the agent's folder choice
+   (FolderPicker.jsx). */
+
+.ws-move__path { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); margin-bottom: var(--sp-2); }
+.ws-move__step { display: inline-flex; align-items: center; gap: var(--sp-1); }
+.ws-move__sep { color: var(--color-text-muted); font-size: var(--dk-text-12); }
+.ws-move__crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--dk-text-13);
+  cursor: pointer;
+}
+.ws-move__crumb:hover { background: var(--dk-hover); color: var(--color-text-primary); }
+.ws-move__crumb[aria-current] { color: var(--color-text-primary); font-weight: var(--font-weight-semibold); }
+.ws-move__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-height: 160px;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-md);
+}
+.ws-move__list[aria-busy="true"] { opacity: .6; }
+.ws-move__folder {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--dk-text-13);
+  text-align: left;
+  cursor: pointer;
+}
+.ws-move__folder svg:first-child { color: var(--dk-accent-text); }
+.ws-move__folder:hover:not(:disabled) { background: var(--dk-hover); }
+.ws-move__folder:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: -2px; }
+.ws-move__folder:disabled { color: var(--color-text-disabled); cursor: not-allowed; }
+.ws-move__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-move__go { color: var(--color-text-muted); }
+.ws-move__note { padding: var(--sp-4); color: var(--color-text-muted); font-size: var(--dk-text-13); }
+.ws-move__hint { flex: none; color: var(--color-text-muted); font-size: var(--dk-text-12); }
+.ws-move__retry { margin-left: var(--sp-2); }

@@ -25,7 +25,10 @@
     "title": "Gerencie o LocalAI conversando",
     "description": "Instale modelos, alterne backends, edite configurações e verifique o status conversando com o LocalAI.",
     "open": "Abrir assistente",
-    "tooltip": "Gerencie o LocalAI conversando"
+    "tooltip": "Gerencie o LocalAI conversando",
+    "noModel": "Escolha primeiro um modelo de chat.",
+    "startFailed": "Não foi possível iniciar o chat do assistente: {{message}}",
+    "chatTitle": "Assistente do LocalAI"
   },
   "input": {
     "placeholder": "Mensagem...",
@@ -79,13 +82,17 @@
       "step2Title": "Instale um Modelo",
       "step2Body": "Clique em instalar para baixar e configurá-lo automaticamente.",
       "step3Title": "Comece a Conversar",
-      "step3Body": "Converse com seu modelo direto do navegador ou use a API."
+      "step3Body": "Converse com seu modelo direto do navegador ou use a API.",
+      "sandboxTitle": "Execute código com segurança (opcional)",
+      "sandboxBody": "Instale o complemento Sandbox para que o modelo execute código e comandos isolados. Sem ele, os comandos rodam direto nesta máquina, com acesso total à rede e nenhum isolamento."
     },
     "browseGallery": "Explorar Galeria de Modelos",
     "importModel": "Importar Modelo",
     "docs": "Documentação",
     "noModelsTitle": "Nenhum Modelo Disponível",
-    "noModelsBody": "Ainda não há modelos instalados. Peça ao administrador para configurar modelos para você poder começar a conversar."
+    "noModelsBody": "Ainda não há modelos instalados. Peça ao administrador para configurar modelos para você poder começar a conversar.",
+    "sandboxInstall": "Instalar Sandbox",
+    "sandboxSkip": "Pular"
   },
   "starters": {
     "title": "Recomendados para o seu hardware",
@@ -120,7 +127,23 @@
     "modelsSummary": "Explore, instale e gerencie modelos",
     "create": "Criar",
     "createSummary": "Abra uma sessão de chat, imagem ou voz",
-    "operate": "Operar",
-    "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos"
+    "operate": "Administração",
+    "operateSummary": "{{models}} modelos configurados · nós, atividade e rastreamentos",
+    "allChats": "Todos os chats"
+  },
+  "slash": {
+    "agents": {
+      "label": "Agentes",
+      "desc": "Seus agentes salvos, gatilhos e habilidades"
+    },
+    "mcp": {
+      "label": "Conectores MCP",
+      "desc": "Servidores MCP que seus chats podem usar"
+    },
+    "memory": {
+      "label": "Memória",
+      "desc": "Coleções em que seus chats podem pesquisar"
+    },
+    "complete": "completar"
   }
 }

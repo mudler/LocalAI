@@ -10,7 +10,7 @@ import { formatBytes } from '../utils/format'
 import { compactCount, durationText, filterRows, groupUsage, modelStats, sortModelRows } from '../utils/traffic'
 import WindowSwitch from '../components/traffic/WindowSwitch'
 import Icon from '../components/Icon'
-import LoadingSpinner from '../components/LoadingSpinner'
+import { Button, EmptyState, LoadError, SkeletonRows } from '../components/ui'
 import './traffic.css'
 
 function SortHead({ col, label, sort, onSort, className }) {
@@ -74,30 +74,25 @@ export default function TrafficModels() {
         </div>
         <div className="tf-head__acts">
           <WindowSwitch />
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--icon" aria-label={t('refresh')} onClick={() => { usage.reload(); machine.refresh(); readOps() }}>
-            <Icon name="refresh" spin={usage.loading} />
-          </button>
+          <Button icon="refresh" aria-label={t('refresh')} busy={usage.loading && all.length > 0} onClick={() => { usage.reload(); machine.refresh(); readOps() }} />
         </div>
       </header>
       <p className="tf-source">{t('models.sources', { window: windowName })}</p>
 
       {usage.error && (
-        <div className="tf-error" role="alert">
-          <Icon name="alert-circle" />
-          <span>{t('usage.error', { message: String(usage.error.message || usage.error) })}</span>
-          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={usage.reload}>{t('retry')}</button>
-        </div>
+        <LoadError title={t('overview.usageErrorTitle')} error={usage.error} onRetry={usage.reload} />
       )}
 
       {loading ? (
-        <div className="tf-loading"><LoadingSpinner size="lg" /></div>
+        <SkeletonRows />
       ) : all.length === 0 ? (
-        <div className="dk-empty tf-empty" data-testid="models-empty">
-          <Icon name="cube" className="dk-empty-icon" />
-          <h2 className="dk-empty-title">{t('models.emptyTitle')}</h2>
-          <p className="dk-empty-text">{t('models.emptyText')}</p>
-          <div className="tf-empty__acts"><Link className="dk-btn dk-btn--primary" to="/app/chat">{t('overview.emptyChat')}</Link></div>
-        </div>
+        <EmptyState
+          testId="models-empty"
+          icon="cube"
+          title={t('models.emptyTitle')}
+          body={t('models.emptyText')}
+          actions={<Button variant="primary" to="/app/chats">{t('overview.emptyChat')}</Button>}
+        />
       ) : (
         <>
           <div className="tf-controls">
@@ -124,7 +119,7 @@ export default function TrafficModels() {
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr className="dk-table-empty"><td colSpan={7}><div className="dk-empty"><p className="dk-empty-text">{t('usage.noMatchText')}</p></div></td></tr>
+                  <tr className="dk-table-empty"><td colSpan={7}><EmptyState variant="no-results" title={t('models.noMatch', { query })} actions={<Button variant="ghost" size="sm" onClick={() => setQuery('')}>{t('clearSearch')}</Button>} /></td></tr>
                 )}
                 {rows.map(r => {
                   const isOpen = open.has(r.id)

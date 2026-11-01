@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -95,5 +96,87 @@ var _ = Describe("an add-on's invalid-request refusal", func() {
 		e = front.Relay(context.Background(), actor, RelayRequest{Request: read, Kind: "json"}, w)
 		assertInvalid(e)
 		Expect(w.Body.Len()).To(BeZero())
+	})
+})
+
+// denyingRuntime answers every read as the add-on's own denial of the person,
+// the way the runtime client reports the 403 "forbidden" of an add-on.
+type denyingRuntime struct{ contract.Runtime }
+
+func (denyingRuntime) Read(context.Context, contract.Envelope) (contract.Result, error) {
+	return contract.Result{}, addonruntime.ErrDenied
+}
+
+// unreachableAdmission denies every resource as the policy does.
+type unreachableAdmission struct{}
+
+func (unreachableAdmission) Admit(context.Context, contract.Actor, ResourceKey, string, func(context.Context) error) error {
+	return ErrResourceUnreachable
+}
+
+// failingResolver fails to resolve every resource with err.
+type failingResolver struct{ err error }
+
+func (f failingResolver) Resolve(context.Context, contract.Actor, contract.Request) (ResourceKey, error) {
+	return ResourceKey{}, f.err
+}
+func (failingResolver) Output(context.Context, contract.Actor, contract.Request, string) (contract.OutputDescription, error) {
+	return contract.OutputDescription{}, ErrForbidden
+}
+
+var _ = Describe("a denial that says which denial it is", func() {
+	ok := func(context.Context, contract.Actor) error { return nil }
+	actor := contract.Actor{UserID: "u", CredentialID: "key:k", Mode: "named-user"}
+	read := contract.Request{AddonID: "sample", Generation: 1, OperationID: "denied-read", Action: "read", Arguments: []byte(`{}`)}
+	frontend := func(g *Gateway) *Carrier {
+		_, cs := carrierFixture(func(c *Carrier) http.Handler {
+			h, e := c.OwnerHandler(g)
+			Expect(e).NotTo(HaveOccurred())
+			return h
+		})
+		return cs["front-a"]
+	}
+	It("is not permitted when the add-on denies the person, on the owner and on a forwarding frontend", func() {
+		g := &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: resolved{}, Runtime: currentFixture{denyingRuntime{}}}
+		_, e := g.Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrNotPermitted))
+		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+		_, e = frontend(g).Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrNotPermitted))
+	})
+	It("is an unreachable resource when the policy denies it, on the owner and on a forwarding frontend", func() {
+		g := &Gateway{Revalidate: ok, Admission: unreachableAdmission{}, Resolver: resolved{}, Runtime: currentFixture{refusingRuntime{}}}
+		_, e := g.Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+		_, e = frontend(g).Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+	})
+	It("types the denial of a read like the denial of a write, on the owner and on a forwarding frontend", func() {
+		g := &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: failingResolver{ErrResourceUnreachable}, Runtime: currentFixture{refusingRuntime{}}}
+		_, e := g.Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+		Expect(StatusFor(e)).To(Equal(http.StatusForbidden))
+		_, e = frontend(g).Dispatch(context.Background(), actor, read)
+		Expect(e).To(MatchError(ErrResourceUnreachable))
+	})
+	It("crosses the wire of a resource call typed, so a forwarding frontend answers like the owner", func() {
+		for _, typed := range []error{ErrResourceUnreachable, ErrNotPermitted} {
+			w := httptest.NewRecorder()
+			resourceFailure(w, ResourceCall{Op: resourceSelResolve}, "op-1", typed)
+			Expect(w.Code).To(Equal(http.StatusForbidden))
+			got := resourceReplyError(strings.NewReader(w.Body.String()), w.Code, "op-1")
+			Expect(got).To(MatchError(typed))
+		}
+		// A type that names a denial is no denial without the 403.
+		got := resourceReplyError(strings.NewReader(`{"type":"resource_unreachable"}`), http.StatusServiceUnavailable, "op-1")
+		Expect(errors.Is(got, ErrResourceUnreachable)).To(BeFalse())
+	})
+	It("keeps any other failure to resolve a resource a plain denial, so nothing more is told", func() {
+		for _, cause := range []error{errors.New("record store: row 7 is held by another user"), ErrUnavailable, ErrQuotaReached} {
+			g := &Gateway{Revalidate: ok, Admission: &admitted{}, Resolver: failingResolver{cause}, Runtime: currentFixture{refusingRuntime{}}}
+			_, e := g.Dispatch(context.Background(), actor, read)
+			Expect(e).To(Equal(ErrForbidden), cause.Error())
+		}
 	})
 })

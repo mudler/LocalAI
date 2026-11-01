@@ -91,8 +91,8 @@ fi
 nsc edit user \
 	-n "$SERVICE_USER" \
 	--account "$ACCOUNT" \
-	--allow-pub "nodes.>,gallery.>,agent.>,staging.>,state.>,jobs.>,mcp.>,cache.>,prefixcache.>,finetune.>" \
-	--allow-sub "nodes.>,gallery.>,agent.>,staging.>,state.>,jobs.>,mcp.>,cache.>,prefixcache.>,_INBOX.>"
+	--allow-pub "nodes.>,gallery.>,staging.>,state.>,mcp.>,cache.>,prefixcache.>,finetune.>,chats.>,responses.>" \
+	--allow-sub "nodes.>,gallery.>,staging.>,state.>,mcp.>,cache.>,prefixcache.>,chats.>,responses.>,_INBOX.>"
 
 # Generate a credentials file containing the frontend user JWT and seed.
 rm -f "$CREDS_FILE"

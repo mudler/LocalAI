@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
+import { buttonClass } from '../ui/buttonClass'
 import { useModels } from '../../hooks/useModels'
 import { CAP_TRANSCRIPT } from '../../utils/capabilities'
 import { audioApi } from '../../utils/api'
@@ -79,7 +80,7 @@ export default function DictateButton({ onText, onError }) {
   return (
     <button
       type="button"
-      className="home-attach-btn"
+      className={buttonClass({ variant: 'ghost', size: 'sm', iconOnly: true, className: 'home-attach-btn' })}
       data-testid="chat-dictate"
       data-state={state}
       aria-pressed={state === 'recording'}
