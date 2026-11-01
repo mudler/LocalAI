@@ -1162,12 +1162,22 @@ func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) string {
 		if name == "" {
 			return ""
 		}
-		return workfiles.Prompt(workfiles.GuestFolder(name))
+		return c.workPrompt(name)
 	}
 	name, err := c.reserveFolder(ctx)
 	if err != nil {
 		c.m.log.Warn("session: no work folder this turn", "chat", c.id, "error", err)
 		return ""
+	}
+	return c.workPrompt(name)
+}
+
+// workPrompt names the work folder by the chat's view: in a scoped chat the
+// chat folder is its own mount, at /workspace/chat.
+func (c *Chat) workPrompt(name string) string {
+	_, _, view := c.access()
+	if p := NewPlace(view); p.Scoped() {
+		return workfiles.ScopedPrompt(p.PrimaryWritable())
 	}
 	return workfiles.Prompt(workfiles.GuestFolder(name))
 }
