@@ -51,7 +51,7 @@ func (s *Service) newRulesNudge(ctx context.Context, x session.Access, rec sessi
 	}
 	n := &rulesNudge{s: s, a: a, place: place, home: home, has: map[string]bool{}, named: map[string]bool{}}
 	if rec.Origin == session.OriginTrigger && s.triggers != nil {
-		if dir := s.triggers.rulesFolder(ctx, a.Principal, rec.OriginID); dir != "" {
+		if dir := s.triggers.rulesFolder(ctx, a.Principal, rec.OriginID, home); dir != "" {
 			for _, d := range upFrom(dir) {
 				n.named[d] = true
 			}

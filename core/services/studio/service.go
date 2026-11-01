@@ -322,6 +322,11 @@ type Service struct {
 
 	feed *wsfeed.Feed // changes of the home folders; nil without files
 
+	// admin is the administrator's actor of the hosts that watch every
+	// home's changes (the change feed and the trigger watcher). It matches
+	// paths and reads no file for a model.
+	admin workspace.Actor
+
 	nudged nudges // the turns whose results said where helper files go
 
 	shared *sharedfolders.Service // the folders an administrator shares
@@ -424,8 +429,9 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	s.mgr = mgr
+	s.admin = workspace.Actor{Principal: files.AdminPrincipal}
 	if d.Files.Available() {
-		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: workspace.Actor{Principal: files.AdminPrincipal}, Logger: log})
+		s.feed = wsfeed.New(wsfeed.Options{Store: d.Files.Store(), Admin: s.admin, Logger: log})
 	}
 	return s, nil
 }

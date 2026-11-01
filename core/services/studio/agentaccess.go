@@ -36,9 +36,9 @@ type folderScope struct {
 }
 
 // userChatActor is the user's actor in a chat, without a fence: the actor of
-// a chat whose agent has no folder, and the base that chatAccess fences. A
-// person's own action on a chat (a delete) uses it too. Every other actor of
-// a chat comes from chatAccess.
+// a chat whose agent has no folder, and the base that chatAccess and
+// agentReader fence. A person's own action on a chat (a delete) uses it too.
+// Every other actor of a chat comes from chatAccess.
 func userChatActor(p, conv string) workspace.Actor {
 	a := files.UserActor(p)
 	a.ChatID = conv

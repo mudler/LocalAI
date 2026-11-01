@@ -142,6 +142,9 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
 - A `PUT` without `folder` keeps the folder the agent has, so a client that
   does not know the field cannot give the agent more files by editing it.
   `"folder": {"path": ""}` clears the folder.
+- Triggers and connectors that use the agent keep to its folder too. See
+  [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
+  the [connectors page](/features/chats-connectors/#what-a-message-gets).
 
 The folder is read from the stores at every request and at the start of every
 turn, and nothing is kept in memory between turns, so every frontend and chat
@@ -262,7 +265,41 @@ message as rules for the run. Treat it as text from whoever can write there.
 - **When it cannot run.** A deleted agent fails the run with "the agent was
   deleted" and switches the trigger off. A disabled owner skips the run. An owner
   who no longer exists, or a folder that is gone, skips the run and switches the
-  trigger off. Each of these tells the owner.
+  trigger off. An agent whose folder is missing or not chosen skips the run with
+  "the agent's folder is missing" and switches the trigger off. Each of these
+  tells the owner.
+
+### Triggers of an agent with a folder
+
+A trigger whose agent has a [folder](#one-folder-for-an-agent) keeps to that
+folder, like every chat of the agent:
+
+- A file trigger must watch the agent's folder or a folder inside it. Saving
+  one that watches another folder (at create, at update, and when you confirm
+  a proposal) is refused with `400`: "the trigger's folder must be inside the
+  agent's folder". A file outside the folder never starts a run.
+- Each run checks again. A trigger made before the agent got its folder, or
+  whose agent moved to another folder since, skips the run with "the trigger's
+  folder is not inside the agent's folder" and is switched off.
+- A run whose agent's folder is deleted, unreadable or not chosen never runs on
+  your other files: it is skipped with "the agent's folder is missing", no chat
+  is made, the trigger is switched off and you get a notification. Saving a
+  trigger for such an agent is refused until you choose a folder. Restore the
+  folder (or choose another one) and switch the trigger on again.
+- The rules of a run come from `AGENTS.md` files in the agent's folder only:
+  for a schedule trigger the agent's folder itself, for a file trigger the
+  folders from the agent's folder down to the watched folder. An `AGENTS.md`
+  above the agent's folder is not read. The first message names folders and
+  the file as the agent's chats see them: `# Folder rules: /workspace/home`
+  and `A new file arrived: /workspace/home/In/a.txt`.
+- The run's chat reaches what a chat of the agent reaches, nothing more.
+- In a chat with the agent, the trigger tools name folders as the chat does
+  (`/In` and `/workspace/home/In` are `In` in the agent's folder) and refuse a
+  folder outside it. `list_triggers`, `update_trigger` and `delete_trigger`
+  see only the triggers of that agent; change the others on the Triggers page.
+
+The folder is looked up at every save and every run, so all frontends of a
+cluster apply the same rule (stateless per request).
 
 A trigger runs nothing for the time before it was saved or switched on. After
 downtime, a missed schedule runs once, not once for each missed time.

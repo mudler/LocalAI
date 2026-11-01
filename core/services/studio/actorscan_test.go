@@ -34,7 +34,7 @@ var actorScanDirs = []string{".", "hostexec", "sandbox/runner", "../addons/hosto
 // "folder/file.go:Func" (Func is "Type.Method" for a method), with why.
 var actorAllowlist = map[string]string{
 	// The resolver and a person's own action on a chat.
-	"agentaccess.go:userChatActor": "the base actor that chatAccess fences, and the actor of a person's delete",
+	"agentaccess.go:userChatActor": "the base actor that chatAccess and agentReader fence, and the actor of a person's delete",
 	// Host reads of the user's settings and choices, not the model's reads.
 	"agentfolder.go:folderResolver.NodeOf":                              "resolves the folder a person chooses for an agent",
 	"agentfolder.go:folderResolver.pathsOf":                             "finds where an agent's folder is now, for the person and for chatAccess",
@@ -43,15 +43,10 @@ var actorAllowlist = map[string]string{
 	"skillsvc.go:Service.chatSkillSet":                                  "reads the index of the skills the chat may use",
 	"loadskill.go:Service.loadSkill":                                    "reads only skills the agent grants, by name",
 	"chatfiles.go:Service.ResolveAttachments":                           "the attachments a person sees in the transcript are a user surface",
-	"service.go:New":                                                    "the administrator of the change feed",
+	"service.go:New":                                                    "the administrator of the change feed and the trigger watcher",
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must move to the chat's access there.
-	"triggersvc.go:Triggers.checkFolder":                                "lane 7: the folder of a file trigger at each run",
-	"triggersvc.go:Triggers.runMessage":                                 "lane 7: the rules of a trigger run",
-	"triggersvc.go:Triggers.ensureRunner":                               "lane 7: the administrator of the trigger watcher",
-	"triggerscrud.go:Triggers.build":                                    "lane 7: the folder of a trigger at create and update",
-	"triggerscrud.go:Triggers.ConfirmProposal":                          "lane 7: the folder of a proposed trigger",
 	"connectorfiles.go:Service.readChatFile":                            "lane 7: the files a connector reply sends",
 	"sandbox/runner/runner.go:New":                                      "lane 5: the default actor hook of the sandbox runner",
 	"../addons/hostops/engine_workspace.go:WorkspaceHost.view":          "lane 6: add-on workspace operations",

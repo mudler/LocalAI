@@ -539,3 +539,196 @@ var _ = Describe("triggersvc", func() {
 		Expect(got).To(Equal("/Contracts/a.txt"), "RelPath = %q", got)
 	})
 })
+
+var _ = Describe("trigger runs of a scoped agent", func() {
+	// arrive writes a file and lets its quiet period end.
+	arrive := func(s *scopedTrig, rel string) {
+		GinkgoHelper()
+		s.put(rel, "hello")
+		s.pass()
+		s.sh.clock.Advance(2 * time.Second)
+		s.pass()
+	}
+	allRuns := func(s *scopedTrig, id string) []triggers.Run {
+		GinkgoHelper()
+		runs, err := s.host.TriggerRuns(s.ctx, alice, id, 0)
+		Expect(err).NotTo(HaveOccurred())
+		return runs
+	}
+
+	It("watches only inside the agent's folder", func() {
+		s := newScopedTrig(saySummary)
+		tr, err := s.fileTrigger("/Projects/Acme")
+		Expect(err).NotTo(HaveOccurred())
+		s.pass() // reads the feed: nothing yet
+		arrive(s, "/Projects/Other/x.txt")
+		arrive(s, "/Projects/AcmeX/x.txt")
+		arrive(s, "/top.txt")
+		Expect(allRuns(s, tr.ID)).To(BeEmpty(), "a file outside the folder started a run")
+		arrive(s, "/Projects/Acme/In/a.txt")
+		run := s.waitEnded(tr.ID)
+		Expect(run.Status).To(Equal(triggers.StatusDone), "run = %+v", run)
+		Expect(run.File).To(Equal(s.home + "/Projects/Acme/In/a.txt"))
+		sent := s.h.Sent(run.ChatID)
+		Expect(sent).To(HaveLen(1))
+		// The run names the file as its chat sees it: the agent's folder is
+		// /workspace/home.
+		Expect(sent[0]).To(ContainSubstring("A new file arrived: /workspace/home/In/a.txt"), "first message = %q", sent[0])
+		Expect(sent[0]).NotTo(ContainSubstring("/Projects"), "first message = %q", sent[0])
+		Expect(allRuns(s, tr.ID)).To(HaveLen(1))
+	})
+
+	It("skips and switches off a run outside the folder", func() {
+		s := newScopedTrig(saySummary)
+		// The trigger was made while the agent had no folder; the folder came later.
+		plain, err := s.svc.SaveAgent(s.ctx, alice, agents.Agent{Name: "Later", Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		tr, err := s.host.CreateTrigger(s.ctx, alice, studio.TriggerInput{Name: "Other", Prompt: "Sort it.", Kind: triggers.KindFile,
+			Folder: "/Projects/Other", Quiet: time.Second, AgentID: plain.ID, Enabled: true})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = s.svc.SaveAgentWithFolder(s.ctx, alice, plain, &studio.AgentFolderWrite{Path: "/Projects/Acme", Mode: agents.FolderWrite})
+		Expect(err).NotTo(HaveOccurred())
+		s.pass()
+		arrive(s, "/Projects/Other/x.txt")
+		run := s.waitEnded(tr.ID)
+		Expect(run.Status).To(Equal(triggers.StatusSkipped), "run = %+v", run)
+		Expect(run.Reason).To(ContainSubstring("not inside the agent's folder"), "run = %+v", run)
+		Expect(run.ChatID).To(BeEmpty(), "a run outside the folder made a chat")
+		got, _ := s.host.GetTrigger(s.ctx, alice, tr.ID)
+		Expect(got.Enabled).To(BeFalse(), "the trigger stayed on")
+		chats, _ := s.svc.List(s.ctx, alice, 100)
+		Expect(chats).To(BeEmpty(), "chats = %+v", chats)
+		var bodies []string
+		for _, n := range s.notes() {
+			bodies = append(bodies, n.Title+": "+n.Body)
+		}
+		Expect(strings.Join(bodies, "\n")).To(ContainSubstring("not inside the agent's folder"), "notifications = %q", bodies)
+	})
+
+	It("skips and switches off a run whose agent folder is missing, without reading the home", func() {
+		var reads []string
+		var mu sync.Mutex
+		s := newScopedTrig(func(_ workspace.Actor, text string) []studiotest.ToolStep {
+			mu.Lock()
+			reads = append(reads, text)
+			mu.Unlock()
+			return []studiotest.ToolStep{{Say: "ran"}}
+		})
+		s.put("/AGENTS.md", "HOME-RULES-MARKER")
+		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID, Model: ""})
+		s.remove("/Projects/Acme")
+		s.due()
+		run := s.waitEnded(tr.ID)
+		Expect(run.Status).To(Equal(triggers.StatusSkipped), "run = %+v", run)
+		Expect(run.Reason).To(Equal("the agent's folder is missing"), "run = %+v", run)
+		Expect(run.ChatID).To(BeEmpty())
+		got, _ := s.host.GetTrigger(s.ctx, alice, tr.ID)
+		Expect(got.Enabled).To(BeFalse(), "the trigger stayed on")
+		chats, _ := s.svc.List(s.ctx, alice, 100)
+		Expect(chats).To(BeEmpty(), "a run with a missing folder made a chat: %+v", chats)
+		mu.Lock()
+		Expect(reads).To(BeEmpty(), "a turn ran: %q", reads)
+		mu.Unlock()
+		var bodies []string
+		for _, n := range s.notes() {
+			bodies = append(bodies, n.Title+": "+n.Body)
+		}
+		Expect(strings.Join(bodies, "\n")).To(ContainSubstring("the agent's folder is missing"), "notifications = %q", bodies)
+		Expect(strings.Join(bodies, "\n")).NotTo(ContainSubstring("HOME-RULES-MARKER"))
+	})
+
+	It("skips a run whose agent's folder was never chosen", func() {
+		s := newScopedTrig(saySummary)
+		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID})
+		// An imported agent whose folder does not exist here: limited, not chosen.
+		unset := s.agent
+		unset.FolderID = 0
+		Expect(s.sh.agents.Put(s.ctx, unset)).To(Succeed())
+		s.due()
+		run := s.waitEnded(tr.ID)
+		Expect(run.Status).To(Equal(triggers.StatusSkipped), "run = %+v", run)
+		Expect(run.Reason).To(Equal("the agent's folder is missing"), "run = %+v", run)
+		chats, _ := s.svc.List(s.ctx, alice, 100)
+		Expect(chats).To(BeEmpty())
+	})
+
+	It("reads the rules from the agent's folder for a non-file trigger", func() {
+		s := newScopedTrig(saySummary)
+		s.put("/AGENTS.md", "HOME-RULES-MARKER")
+		s.put("/Projects/AGENTS.md", "PROJECTS-RULES-MARKER")
+		s.put("/Projects/Acme/AGENTS.md", "ACME-RULES-MARKER")
+		s.put("/Projects/Other/AGENTS.md", "OTHER-RULES-MARKER")
+		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID})
+		s.due()
+		run := s.waitEnded(tr.ID)
+		Expect(run.Status).To(Equal(triggers.StatusDone), "run = %+v", run)
+		sent := s.h.Sent(run.ChatID)
+		Expect(sent).To(HaveLen(1))
+		Expect(sent[0]).To(ContainSubstring("ACME-RULES-MARKER"))
+		Expect(sent[0]).To(ContainSubstring("# Folder rules: /workspace/home"), "first message = %q", sent[0])
+		for _, m := range []string{"HOME-RULES-MARKER", "PROJECTS-RULES-MARKER", "OTHER-RULES-MARKER", "/Projects"} {
+			Expect(sent[0]).NotTo(ContainSubstring(m), "first message = %q", sent[0])
+		}
+	})
+
+	It("reads the rules of a file trigger from its folder up to the agent's folder only", func() {
+		s := newScopedTrig(func(workspace.Actor, string) []studiotest.ToolStep {
+			return []studiotest.ToolStep{{Tool: "read_file", Args: `{"path":"/In/a.txt"}`}, {Say: "read it"}}
+		})
+		s.put("/Projects/AGENTS.md", "PROJECTS-RULES-MARKER")
+		s.put("/Projects/Acme/AGENTS.md", "ACME-RULES-MARKER")
+		s.put("/Projects/Acme/In/AGENTS.md", "IN-RULES-MARKER")
+		tr, err := s.fileTrigger("/Projects/Acme/In")
+		Expect(err).NotTo(HaveOccurred())
+		s.pass()
+		arrive(s, "/Projects/Acme/In/a.txt")
+		run := s.waitEnded(tr.ID)
+		sent := s.h.Sent(run.ChatID)
+		Expect(sent).To(HaveLen(1))
+		Expect(sent[0]).To(ContainSubstring("ACME-RULES-MARKER"))
+		Expect(sent[0]).To(ContainSubstring("IN-RULES-MARKER"))
+		Expect(sent[0]).To(ContainSubstring("# Folder rules: /workspace/home/In"), "first message = %q", sent[0])
+		Expect(sent[0]).NotTo(ContainSubstring("PROJECTS-RULES-MARKER"))
+		// The rules came in the first message: the turn note does not point
+		// at them again.
+		Expect(s.h.TurnPrompt(run.ChatID)).NotTo(ContainSubstring("AGENTS.md"), "turn prompt = %q", s.h.TurnPrompt(run.ChatID))
+		reads := s.h.ResultsFor("read_file")
+		Expect(reads).To(HaveLen(1))
+		Expect(reads[0].Out).To(ContainSubstring("hello"))
+		Expect(reads[0].Out).NotTo(ContainSubstring("AGENTS.md"), "the rules of the run's folder were pointed at again: %q", reads[0].Out)
+	})
+
+	It("a scheduled run of a scoped agent reaches only its folder", func() {
+		var env workspace.Actor
+		var mu sync.Mutex
+		s := newScopedTrig(func(a workspace.Actor, _ string) []studiotest.ToolStep {
+			mu.Lock()
+			env = a
+			mu.Unlock()
+			return []studiotest.ToolStep{
+				{Tool: "read_file", Args: `{"path":"/Projects/Other/secret.txt"}`},
+				{Tool: "read_file", Args: `{"path":"/workspace/home/../Other/secret.txt"}`},
+				{Tool: "list_files", Args: `{"path":"/"}`},
+				{Tool: "write_file", Args: `{"path":"/note.txt","content":"inside"}`},
+				{Say: "done"},
+			}
+		})
+		s.put("/Projects/Other/secret.txt", "OUTSIDE-SECRET-MARKER")
+		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID})
+		s.due()
+		run := s.waitEnded(tr.ID)
+		Expect(run.Status).To(Equal(triggers.StatusDone), "run = %+v", run)
+		mu.Lock()
+		Expect(workspace.HasFence(env)).To(BeTrue(), "the run's actor has no fence")
+		mu.Unlock()
+		for _, res := range s.h.Results() {
+			Expect(res.Out).NotTo(ContainSubstring("OUTSIDE-SECRET-MARKER"), "%+v", res)
+			Expect(res.Out).NotTo(ContainSubstring("Other"), "%+v", res)
+		}
+		n, err := s.sh.files.Store().Stat(s.ctx, s.act, s.home+"/Projects/Acme/note.txt")
+		Expect(err).NotTo(HaveOccurred(), "the run did not write inside its folder")
+		Expect(n.Kind).To(Equal(workspace.KindFile))
+		_, err = s.sh.files.Store().Stat(s.ctx, s.act, s.home+"/note.txt")
+		Expect(err).To(MatchError(workspace.ErrNotFound), "the run wrote at the home root")
+	})
+})
