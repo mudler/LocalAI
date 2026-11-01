@@ -114,18 +114,17 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   the folder, the agent follows it, and `path` shows where it is now.
 - `state` is `ok`, `missing` when the folder was deleted or you can no longer
   read it, or `unset` when no folder is chosen yet (an imported agent whose
-  folder was not found here). An agent whose folder is `missing` or `unset`
-  does not start: it never falls back to all your files. Restoring a deleted
-  folder from the Trash makes the agent work again.
-- A chat with an agent whose folder is `missing` or `unset` does not start:
-  `POST /api/chats` answers `409` with the type `agent_folder_missing`, and so
-  does a message to a chat that is open already. A chat whose agent had a
-  folder and was then deleted is refused the same way. Choose a folder in the
-  agent's settings, or restore it, and send the message again.
+  folder was not found here).
+- An agent whose folder is `missing` or `unset` does not start, and it never
+  falls back to all your files: `POST /api/chats` answers `409` with the type
+  `agent_folder_missing`, and so does a message to a chat that is open
+  already. A chat whose agent had a folder and was then deleted is refused the
+  same way. Choose a folder in the agent's settings, or restore the folder
+  from the Trash (it comes back as the same folder, so the agent needs no
+  edit), and send the message again.
 - A chat with the agent reaches its folder (read only for `read`), its own
   chat folder under `Chats` (attachments and the work folder, read and write),
-  the shared folders and the skills (read only), and nothing else. A change of
-  the folder or the mode applies from the next message of a chat that is open.
+  the shared folders and the skills (read only), and nothing else.
 - The model sees the agent's folder at `/workspace/home`, so `/a.txt` and
   `/workspace/home/a.txt` are `a.txt` in that folder. The chat folder is at
   `/workspace/chat`, with the work folder at `/workspace/chat/work/`. The
@@ -142,9 +141,9 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   does not list it.
 - Commands of the chat run only in the Sandbox add-on. Its sandbox has the
   agent's folder at `/workspace/home` (read only for `read`), the chat folder
-  at `/workspace/chat` (read and write), and the shared folders and skills read
-  only. What a command writes anywhere else is not saved, and the command's
-  output says so. The built-in `bash` that runs on this machine is never
+  at `/workspace/chat` (read and write), and nothing else of your files. What
+  a command writes anywhere else is not saved, and the command's output says
+  so. The built-in `bash` that runs on this machine is never
   offered to such a chat, also when `chats_host_exec` is `on`: a command on
   this machine can read every file LocalAI can read, so nothing can keep it in
   the folder. The Tools menu of the chat says why. On a server without the
@@ -157,6 +156,14 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
 - A `PUT` without `folder` keeps the folder the agent has, so a client that
   does not know the field cannot give the agent more files by editing it.
   `"folder": {"path": ""}` clears the folder.
+- The folder limits what the chat reaches through your files only. The MCP
+  servers, web tools and collections that the agent grants are separate
+  grants and are not limited to the folder. The chat is not told to build
+  [Pages]({{%relref "features/pages" %}}) either: pages live in `pages/` of your home,
+  outside the folder.
+- The folder limits the agent, not you. The Files page, its History, Undo and
+  Trash still show all your files, and a chat's file list and attachments
+  keep their paths in your home there.
 - Triggers and connectors that use the agent keep to its folder too. See
   [Triggers of an agent with a folder](#triggers-of-an-agent-with-a-folder) and
   the [connectors page](/features/chats-connectors/#what-a-message-gets).
@@ -172,8 +179,16 @@ message box and in the Tools menu. A chat that cannot start because the folder
 is missing says so and offers **Edit agent**.
 
 The folder is read from the stores at every request and at the start of every
-turn, and nothing is kept in memory between turns, so every frontend and chat
-worker of a cluster answers the same.
+turn, and nothing is kept in memory between turns (stateless per request), so
+every frontend and chat worker of a cluster answers the same. A change of the
+folder or the mode applies from the next message of a chat that is open; a
+turn that is running finishes with the access it started with.
+
+**Downgrade.** A server older than this feature does not know the folder of an
+agent. If you go back to such a version, its agents work on all your files
+again, without a warning, and an agent file of version 2 cannot be imported
+there. Before you downgrade, export and delete the agents that have a folder,
+or switch off their triggers and connectors.
 
 ### Starter agents
 
@@ -578,6 +593,7 @@ behaves with several frontends:
 | State | Mode | How |
 |---|---|---|
 | Agents, triggers, runs, notifications, push subscriptions | Shared | Rows in the database. Any frontend reads and writes them. |
+| What a chat of an agent with a folder may reach | Stateless | The folder and its mode are columns of the agent's row. The frontend or chat worker that runs a turn, a trigger run, a connector reply or an add-on call reads them, and the folder, from the stores each time. Nothing is cached, so an edit applies on every frontend from the next turn. |
 | Which frontend runs the triggers | Single runner | The frontend that holds the advisory lock (`KeyChatsTriggers`) runs the Runner. When it stops, another takes the lock. |
 | A due time or a file version | Shared | One unique row for each trigger and due key. Two frontends cannot start the same run. |
 | Trigger proposals and changes asked for in a chat | Stateless | Rows in the trigger table. Each request reads and writes them in the database, so any frontend can show, apply or undo them. The answer to a change (apply, dismiss, undo) is a conditional update of its row: when two frontends answer the same change at once, one wins and the other answers `409`, so a change is applied or undone once. |
