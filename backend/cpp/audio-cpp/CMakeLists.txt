@@ -237,6 +237,23 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
 
     enable_testing()
 
+    # Compile the real frontend in this executable with test-only instrumentation.
+    # Production engine objects have no observer; the class layout is unchanged.
+    add_executable(music_sheetsage_frontend_cancellation_ctest
+        music_sheetsage_frontend_cancellation_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/models/sheetsage/audio_frontend.cpp")
+    target_compile_definitions(music_sheetsage_frontend_cancellation_ctest PRIVATE
+        ENGINE_SHEETSAGE_FRONTEND_TESTING=1)
+    target_include_directories(music_sheetsage_frontend_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_sheetsage_frontend_cancellation_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_sheetsage_frontend_cancellation_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    target_compile_options(music_sheetsage_frontend_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_sheetsage_frontend_cancellation COMMAND music_sheetsage_frontend_cancellation_ctest)
+    set_tests_properties(music_sheetsage_frontend_cancellation PROPERTIES TIMEOUT 60)
+
     # Graph-only checkpoint, not complete offline/music cancellation acceptance.
     add_executable(music_sheetsage_cancellation_ctest music_sheetsage_cancellation_ctest.cpp)
     target_include_directories(music_sheetsage_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")

@@ -357,7 +357,7 @@ class ChainTests(DeliveryTests):
                                    '\nPATHS = ' + repr(frozenset(self.files))) + script[end:]
         (helper / 'apply-upstream-patches.py').write_text(script)
         (helper / 'patches').mkdir()
-        for path in (self.patch, self.second):
+        for path in (self.root / step['patch'] for step in self.chain):
             (helper / 'patches' / path.name).write_bytes(path.read_bytes())
         (helper / 'patches/core-run-cancellation.manifest.json').write_bytes(self.manifest.read_bytes())
         cmake = Path(delivery.__file__).with_name('CMakeLists.txt').read_text()
@@ -373,12 +373,66 @@ class ChainTests(DeliveryTests):
         self.assertEqual(before, self.snapshot())
 
 
+class ThreePatchTests(ChainTests):
+    """The complete security/overlap suite also runs on three ordered steps."""
+    def setUp(self):
+        super().setUp()
+        delivery.git(self.source, 'apply', str(self.patch))
+        delivery.git(self.source, 'apply', str(self.second))
+        delivery.git(self.source, 'add', '.')
+        old = self.files['two']['final_sha256']
+        (self.source / 'two').write_text('two patched three\n')
+        self.third = self.root / 'third.patch'
+        self.third.write_bytes(delivery.git(self.source, 'diff', '--binary', '--'))
+        self.files['two']['final_sha256'] = delivery.digest((self.source / 'two').read_bytes())
+        self.chain.append({'patch': self.third.name,
+                           'patch_sha256': delivery.digest(self.third.read_bytes()),
+                           'files': {'two': {'base_sha256': old,
+                                             'final_sha256': self.files['two']['final_sha256']}}})
+        delivery.git(self.source, 'read-tree', self.pin)
+        for name in self.files: (self.source / name).write_text(name + '\n')
+        self.save_chain()
+
+    def test_second_prefix_upgrade(self):
+        self.prefix()
+        delivery.git(self.source, 'apply', str(self.second))
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'two').read_text(), 'two patched three\n')
+        self.assertEqual(self.run_prepare(True), 'verified')
+        before = self.snapshot()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual(before, self.snapshot())
+
+    def test_second_prefix_verify_only(self):
+        self.prefix()
+        delivery.git(self.source, 'apply', str(self.second))
+        self.assert_rejected_without_writes(True)
+
+    def test_third_tamper(self):
+        self.third.write_bytes(self.third.read_bytes() + b'bad')
+        self.assert_rejected_without_writes()
+
+    def test_third_wrong_boundary(self):
+        self.chain[2]['files']['two']['base_sha256'] = '0' * 64
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_third_wrong_final(self):
+        self.chain[2]['files']['two']['final_sha256'] = '0' * 64
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_cmake_rejects_prefix_without_mutation(self):
+        # Parent fixture copies every patch referenced by its authenticated manifest.
+        super().test_cmake_rejects_prefix_without_mutation()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--require-min-tests', type=int, default=7)
     args = parser.parse_args()
     suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
-                               for case in (DeliveryTests, ChainTests))
+                               for case in (DeliveryTests, ChainTests, ThreePatchTests))
     if suite.countTestCases() < args.require_min_tests:
         raise SystemExit('insufficient discovered delivery tests')
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

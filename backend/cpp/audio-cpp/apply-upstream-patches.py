@@ -22,13 +22,13 @@ import subprocess
 import sys
 
 PIN = 'ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067'
-MANIFEST_SHA256 = 'a66789f6542abb2c82051eaafe011dc561b3b7757130568c6bbdcfac21ce928b'
+MANIFEST_SHA256 = 'b7a7575239f218894bf05297bf21d9fbac0ccd51439b0ab61378a8e4824218a9'
 PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('include/engine/framework/core', ('backend.h', 'execution_context.h')),
     ('src/framework/core', ('backend.cpp', 'execution_context.cpp')),
     ('include/engine/framework/runtime', ('graph_executor.h', 'session.h')),
-    ('include/engine/models/sheetsage', ('session.h',)),
-    ('src/models/sheetsage', ('session.cpp', 'runtime.cpp')),
+    ('include/engine/models/sheetsage', ('session.h', 'audio_frontend.h')),
+    ('src/models/sheetsage', ('session.cpp', 'runtime.cpp', 'audio_frontend.cpp')),
     ('src/framework/runtime', ('graph_executor.cpp',)),
 ) for name in names)
 
