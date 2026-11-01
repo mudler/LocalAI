@@ -69,6 +69,22 @@ var _ = Describe("Optional extension contracts", func() {
 		_, err := ParseManifest([]byte(b))
 		Expect(err).NotTo(HaveOccurred())
 	})
+	DescribeTable("requires status schemas to accept the empty object", func(schema string, valid bool) {
+		b := strings.Replace(string(extensionFixture()), `"type":"object","properties":{},"additionalProperties":false`, schema, 1)
+		Expect(b).NotTo(Equal(string(extensionFixture())))
+		_, err := ParseManifest([]byte(b))
+		if valid {
+			Expect(err).NotTo(HaveOccurred())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
+	},
+		Entry("root enum excludes objects", `"type":"object","properties":{},"additionalProperties":false,"enum":["never-an-object"]`, false),
+		Entry("root required property excludes empty objects", `"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false`, false),
+		Entry("root type excludes objects", `"type":"string","properties":{},"additionalProperties":false`, false),
+		Entry("optional constrained properties accept empty objects", `"type":"object","properties":{"query":{"type":"string","enum":["ready"],"minLength":1},"options":{"type":"object","properties":{"detail":{"type":"boolean"}},"required":["detail"],"additionalProperties":false}},"additionalProperties":false`, true),
+		Entry("keywords for other types do not constrain objects", `"type":"object","properties":{},"additionalProperties":false,"minLength":1,"maxLength":0,"minItems":1,"maxItems":0,"minimum":1,"maximum":0`, true),
+	)
 	DescribeTable("rejects malformed extension declarations", func(old, replacement string) {
 		b := strings.Replace(string(extensionFixture()), old, replacement, 1)
 		Expect(b).NotTo(Equal(string(extensionFixture())))

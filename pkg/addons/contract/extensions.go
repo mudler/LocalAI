@@ -109,11 +109,15 @@ func validateExtensions(c Capabilities) error {
 			return fmt.Errorf("execution status must be a separate page-only resourceless read tool")
 		}
 		// Tool schema validation already enforces an object, the shared keyword
-		// allowlist and additionalProperties:false. It must also accept {}.
+		// allowlist and additionalProperties:false. It must also accept {}:
+		// required must be empty, and enum (which only supports string values)
+		// cannot constrain this object. Other allowed constraints either apply
+		// to absent properties or to non-object types.
 		var schema struct {
-			Required []string `json:"required"`
+			Required []string        `json:"required"`
+			Enum     json.RawMessage `json:"enum"`
 		}
-		if err := json.Unmarshal(d.InputSchema, &schema); err != nil || len(schema.Required) != 0 {
+		if err := json.Unmarshal(d.InputSchema, &schema); err != nil || len(schema.Required) != 0 || len(schema.Enum) != 0 {
 			return fmt.Errorf("execution status must accept empty arguments")
 		}
 	}
