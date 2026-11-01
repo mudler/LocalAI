@@ -61,10 +61,12 @@ type ChatsAgent struct {
 
 // ChatsAgentFolder is the folder of a saved agent as it is now. The server
 // keeps the folder itself, not its path, so a renamed or moved folder shows
-// its new path.
+// its new public path when one is available.
 type ChatsAgentFolder struct {
-	// Path is the folder's path in your files now ("/" is all of them). It
-	// is absent when the folder is missing or not chosen.
+	// Path is home-relative ("/" is the whole home), or /shared/<name>/...
+	// for a followed readable shared folder. It is absent when missing,
+	// not chosen, or readable outside these public locations; a readable
+	// folder without a public path still has state ok.
 	Path string `json:"path,omitempty"`
 	// Name is the folder's own name; absent for "/".
 	Name string `json:"name,omitempty"`
@@ -101,7 +103,9 @@ type ChatsAgentWrite struct {
 	Network      string   `json:"network,omitempty"`
 	// Folder chooses the one folder the agent's chats work in. A write
 	// without it keeps the folder the agent has; {"path": ""} clears it. In
-	// an export file it is the folder's path and mode when the file was made.
+	// an export file it is the home-relative path and mode when the file was
+	// made. A missing, unchosen or non-home folder has an empty export path;
+	// import preserves its mode as unset and warns instead of clearing scope.
 	Folder *ChatsAgentFolderWrite `json:"folder,omitempty"`
 }
 
