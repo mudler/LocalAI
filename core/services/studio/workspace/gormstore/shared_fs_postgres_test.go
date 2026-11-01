@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-package gormstore_test
+package gormstore
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,9 +20,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
-	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/wstest"
 )
+
+var sharedSchemaSeq atomic.Int64
 
 // gateBlob exposes explicit ingest and removal barriers without timing guesses.
 type gateBlob struct {
@@ -54,7 +56,7 @@ func (b *gateBlob) Remove(ctx context.Context, sha string) error {
 	return b.Store.(blob.Remover).Remove(ctx, sha)
 }
 
-func sharedPG(enabled ...bool) (*gormstore.Workspace, *gormstore.Workspace, *gateBlob, *gateBlob) {
+func sharedPG(enabled ...bool) (*Workspace, *Workspace, *gateBlob, *gateBlob) {
 	GinkgoHelper()
 	rawURL := os.Getenv("LOCALAI_TEST_POSTGRES_URL")
 	if rawURL == "" {
@@ -62,7 +64,7 @@ func sharedPG(enabled ...bool) (*gormstore.Workspace, *gormstore.Workspace, *gat
 	}
 	u, err := url.Parse(rawURL)
 	Expect(err).NotTo(HaveOccurred())
-	schema := fmt.Sprintf("swf_%d_%d", os.Getpid(), schemaSeq.Add(1))
+	schema := fmt.Sprintf("swf_%d_%d", os.Getpid(), sharedSchemaSeq.Add(1))
 	admin, err := gorm.Open(postgres.Open(rawURL), &gorm.Config{})
 	Expect(err).NotTo(HaveOccurred())
 	adminRaw, err := admin.DB()
@@ -76,7 +78,7 @@ func sharedPG(enabled ...bool) (*gormstore.Workspace, *gormstore.Workspace, *gat
 	q.Set("search_path", schema)
 	u.RawQuery = q.Encode()
 	root := GinkgoT().TempDir()
-	open := func() (*gormstore.Workspace, *gateBlob) {
+	open := func() (*Workspace, *gateBlob) {
 		db, err := gorm.Open(postgres.Open(u.String()), &gorm.Config{})
 		Expect(err).NotTo(HaveOccurred())
 		pool, err := db.DB()
@@ -85,7 +87,7 @@ func sharedPG(enabled ...bool) (*gormstore.Workspace, *gormstore.Workspace, *gat
 		fs, err := blob.NewFS(root)
 		Expect(err).NotTo(HaveOccurred())
 		g := &gateBlob{Store: fs, pool: pool}
-		s, err := gormstore.New(db, g, gormstore.Options{Admin: wstest.Admin, BlobGrace: -1, SharedFilesystem: len(enabled) == 0 || enabled[0]})
+		s, err := New(db, g, Options{Admin: wstest.Admin, BlobGrace: -1, SharedFilesystem: len(enabled) == 0 || enabled[0]})
 		Expect(err).NotTo(HaveOccurred())
 		return s, g
 	}
@@ -97,6 +99,56 @@ func sharedPG(enabled ...bool) (*gormstore.Workspace, *gormstore.Workspace, *gat
 var _ = Describe("PostgreSQL shared filesystem", func() {
 	ctx := context.Background()
 	actor := wstest.AdminActor
+	It("bounds cleanup waiting on the revision row and preserves blobs", func() {
+		_, b, ba, bb := sharedPG()
+		sha, _, err := bb.Store.Put(ctx, strings.NewReader("unreferenced"), 0)
+		Expect(err).NotTo(HaveOccurred())
+		lock, err := ba.pool.BeginTx(ctx, nil)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = lock.Rollback() })
+		_, err = lock.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`)
+		Expect(err).NotTo(HaveOccurred())
+		cleanup, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		defer cancel()
+		done := make(chan struct{})
+		go func() { b.removePGBlobsNow(cleanup, []string{sha}, bb); close(done) }()
+		waitSharedLock(ba.pool)
+		Eventually(done, 2*time.Second).Should(BeClosed())
+		Eventually(func() int { return bb.pool.Stats().InUse }, time.Second).Should(BeZero())
+		exists, err := bb.Store.Exists(ctx, sha)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(exists).To(BeTrue())
+	})
+
+	It("honors immediate caller cancellation without deleting blobs", func() {
+		_, b, _, bb := sharedPG()
+		sha, _, err := bb.Store.Put(ctx, strings.NewReader("canceled cleanup"), 0)
+		Expect(err).NotTo(HaveOccurred())
+		caller, cancel := context.WithCancel(ctx)
+		cancel()
+		b.removePGBlobs(caller, []string{sha})
+		exists, err := bb.Store.Exists(ctx, sha)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(exists).To(BeTrue())
+		Expect(bb.pool.Stats().InUse).To(BeZero())
+	})
+
+	It("lets delayed cleanup outlive caller cancellation", func() {
+		_, b, _, bb := sharedPG()
+		sha, _, err := bb.Store.Put(ctx, strings.NewReader("delayed cleanup"), 0)
+		Expect(err).NotTo(HaveOccurred())
+		b.grace = 20 * time.Millisecond
+		caller, cancel := context.WithCancel(ctx)
+		cancel()
+		b.removePGBlobs(caller, []string{sha})
+		Eventually(func() bool {
+			exists, err := bb.Store.Exists(ctx, sha)
+			Expect(err).NotTo(HaveOccurred())
+			return exists
+		}, 2*time.Second).Should(BeFalse())
+		Eventually(func() int { return bb.pool.Stats().InUse }, time.Second).Should(BeZero())
+	})
+
 	It("shares owner writes, authorization and materialization across independent pools", func() {
 		a, b, _, _ := sharedPG()
 		wstest.MustPut(a, actor, "/owner/file", "shared")

@@ -112,45 +112,35 @@ func TestSharedFSProcess(t *testing.T) {
 	if mode == "" {
 		return
 	}
+	// This bootstrap runs without the parent Ginkgo suite in each OS process.
+	g := NewWithT(t)
 	s, err := blob.NewFS(os.Getenv("SWF_ROOT"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	g.Expect(err).NotTo(HaveOccurred())
 	content := os.Getenv("SWF_CONTENT")
 	if mode == "read" {
 		r, err := s.Open(context.Background(), sum(content))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = r.Seek(1, io.SeekStart); err != nil {
-			t.Fatal(err)
-		}
+		g.Expect(err).NotTo(HaveOccurred())
+		_, err = r.Seek(1, io.SeekStart)
+		g.Expect(err).NotTo(HaveOccurred())
 		got, err := io.ReadAll(r)
-		r.Close()
-		if err != nil || string(got) != content[1:] {
-			t.Fatalf("read %q: %v", got, err)
-		}
+		g.Expect(r.Close()).To(Succeed())
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(string(got)).To(Equal(content[1:]))
 		root, err := os.OpenRoot(os.Getenv("SWF_DEST"))
-		if err != nil {
-			t.Fatal(err)
-		}
+		g.Expect(err).NotTo(HaveOccurred())
 		defer root.Close()
-		if err = s.LinkTo(context.Background(), sum(content), root, "file"); err != nil {
-			t.Fatal(err)
-		}
+		g.Expect(s.LinkTo(context.Background(), sum(content), root, "file")).To(Succeed())
 		return
 	}
 	fmt.Println("ready")
-	if _, err = bufio.NewReader(os.Stdin).ReadByte(); err != nil {
-		t.Fatal(err)
-	}
+	_, err = bufio.NewReader(os.Stdin).ReadByte()
+	g.Expect(err).NotTo(HaveOccurred())
 	var reader io.Reader = strings.NewReader(content)
 	if mode == "interrupt" {
 		reader = &interruptedUpload{content: content}
 	}
-	if _, _, err = s.Put(context.Background(), reader, 0); err != nil {
-		t.Fatal(err)
-	}
+	_, _, err = s.Put(context.Background(), reader, 0)
+	g.Expect(err).NotTo(HaveOccurred())
 }
 
 type interruptedUpload struct {

@@ -252,7 +252,7 @@ func (s *Workspace) purge(ctx context.Context, a Actor, dryRun bool, pick func(q
 		shas = append(shas, sha)
 	}
 	if s.sharedFilesystem {
-		s.removePGBlobs(shas)
+		s.removePGBlobs(ctx, shas)
 	} else {
 		blob.RemoveLater(s.blobs, shas, blob.Grace(s.grace), s.blobsInUse)
 	}
@@ -294,42 +294,50 @@ func scanStrings(rows *sql.Rows, into map[string]bool) error {
 
 // The revision row covers ingest through reference publication and this entire
 // check/delete interval across PostgreSQL connections. Grace alone cannot do so.
-func (s *Workspace) removePGBlobs(shas []string) {
+func (s *Workspace) removePGBlobs(ctx context.Context, shas []string) {
 	rm, ok := s.blobs.(blob.Remover)
-	if !ok {
+	if !ok || len(shas) == 0 {
 		return
 	}
-	run := func() {
-		ctx := context.Background()
-		t, err := s.db.BeginTx(ctx)
-		if err != nil {
-			xlog.Warn("workspace: could not begin blob purge", "error", err)
+	if grace := blob.Grace(s.grace); grace > 0 {
+		// Delayed work outlives the request; its timeout starts after grace.
+		time.AfterFunc(grace, func() { s.removePGBlobsNow(context.Background(), shas, rm) })
+	} else {
+		s.removePGBlobsNow(ctx, shas, rm)
+	}
+}
+
+// removePGBlobsNow keeps the check/delete transaction in one cancellation scope.
+func (s *Workspace) removePGBlobsNow(caller context.Context, shas []string, rm blob.Remover) {
+	// Bound pool acquisition, revision-lock waiting and reference checks together.
+	ctx, cancel := context.WithTimeout(caller, 30*time.Second)
+	defer cancel()
+	t, err := s.db.BeginTx(ctx)
+	if err != nil {
+		xlog.Warn("workspace: could not begin blob purge", "error", err)
+		return
+	}
+	defer func() { _ = t.Rollback() }()
+	if _, err = t.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`); err != nil {
+		xlog.Warn("workspace: could not lock blob purge", "error", err)
+		return
+	}
+	used, err := blobsInUse(ctx, t, shas)
+	if err != nil {
+		xlog.Warn("workspace: could not check the blobs of a purge", "error", err)
+		return
+	}
+	for _, sha := range shas {
+		if ctx.Err() != nil {
 			return
 		}
-		defer t.Rollback()
-		if _, err = t.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`); err != nil {
-			xlog.Warn("workspace: could not lock blob purge", "error", err)
-			return
-		}
-		used, err := blobsInUse(ctx, t, shas)
-		if err != nil {
-			xlog.Warn("workspace: could not check the blobs of a purge", "error", err)
-			return
-		}
-		for _, sha := range shas {
-			if !used[sha] {
-				if err := rm.Remove(ctx, sha); err != nil {
-					xlog.Warn("workspace: could not remove a purged blob", "error", err)
-				}
+		if !used[sha] {
+			if err := rm.Remove(ctx, sha); err != nil {
+				xlog.Warn("workspace: could not remove a purged blob", "error", err)
 			}
 		}
-		if err := t.Commit(); err != nil {
-			xlog.Warn("workspace: could not finish blob purge", "error", err)
-		}
 	}
-	if grace := blob.Grace(s.grace); grace > 0 {
-		time.AfterFunc(grace, run)
-	} else {
-		run()
+	if err := t.Commit(); err != nil {
+		xlog.Warn("workspace: could not finish blob purge", "error", err)
 	}
 }

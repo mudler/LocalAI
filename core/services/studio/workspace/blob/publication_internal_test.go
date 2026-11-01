@@ -8,34 +8,26 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestSharedFilesystemPublicationFailures(t *testing.T) {
+var _ = Describe("shared filesystem publication", func() {
 	for _, stage := range []string{"write", "file sync", "rename", "directory sync"} {
-		t.Run(stage, func(t *testing.T) {
-			root := t.TempDir()
+		It("cleans up after injected "+stage+" failure", func() {
+			root := GinkgoT().TempDir()
 			st, err := NewFS(root)
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(err).NotTo(HaveOccurred())
 			s := st.(*fsStore)
 			content := "complete"
-			seed, err := NewFS(t.TempDir())
-			if err != nil {
-				t.Fatal(err)
-			}
+			seed, err := NewFS(GinkgoT().TempDir())
+			Expect(err).NotTo(HaveOccurred())
 			sha, _, err := seed.Put(context.Background(), strings.NewReader(content), 0)
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(err).NotTo(HaveOccurred())
 			// Pre-create shard/tmp so directory-sync injection tests post-publication.
-			if err = os.MkdirAll(filepath.Dir(shaPath(root, sha)), 0o700); err != nil {
-				t.Fatal(err)
-			}
-			if err = os.Mkdir(filepath.Join(root, "tmp"), 0o700); err != nil {
-				t.Fatal(err)
-			}
+			Expect(os.MkdirAll(filepath.Dir(shaPath(root, sha)), 0o700)).To(Succeed())
+			Expect(os.Mkdir(filepath.Join(root, "tmp"), 0o700)).To(Succeed())
 			injected := errors.New("injected " + stage)
 			s.fault = func(at string) error {
 				if at == stage {
@@ -44,105 +36,83 @@ func TestSharedFilesystemPublicationFailures(t *testing.T) {
 				return nil
 			}
 			_, _, err = s.Put(context.Background(), strings.NewReader(content), 0)
-			if !errors.Is(err, injected) {
-				t.Fatalf("want injection, got %v", err)
-			}
+			Expect(err).To(MatchError(injected))
 			entries, err := os.ReadDir(filepath.Join(root, "tmp"))
-			if err != nil || len(entries) != 0 {
-				t.Fatalf("temp leak: %v %v", entries, err)
-			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(entries).To(BeEmpty())
 			s.fault = nil
 			f, err := s.Open(context.Background(), sha)
 			if stage == "directory sync" {
-				if err != nil {
-					t.Fatal(err)
+				Expect(err).NotTo(HaveOccurred())
+				defer f.Close()
+				got, err := io.ReadAll(f)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(got)).To(Equal(content))
+			} else {
+				if err == nil {
+					_ = f.Close()
 				}
-				got, _ := io.ReadAll(f)
-				f.Close()
-				if string(got) != content {
-					t.Fatal("partial publication")
-				}
-			} else if err == nil {
-				f.Close()
-				t.Fatal("published failed upload")
+				Expect(err).To(HaveOccurred(), "failed upload must not be published")
 			}
 		})
 	}
-}
 
-func TestSharedFilesystemSyncsCreatedAncestors(t *testing.T) {
-	st, err := NewFS(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	s := st.(*fsStore)
-	count := 0
-	s.fault = func(at string) error {
-		if at == "directory sync" {
-			count++
-		}
-		return nil
-	}
-	if _, _, err = s.Put(context.Background(), strings.NewReader("new shards"), 0); err != nil {
-		t.Fatal(err)
-	}
-	// Creation of tmp/two shard parents, final/ancestor directories and tmp.
-	if count != 7 {
-		t.Fatalf("want 7 directory syncs, got %d", count)
-	}
-}
-
-func TestSharedFilesystemFailedSyncPreservesConcurrentPublication(t *testing.T) {
-	root := t.TempDir()
-	first, err := NewFS(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	other, err := NewFS(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	content := "concurrent publication"
-	sha, _, err := other.Put(context.Background(), strings.NewReader(content), 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	injected := errors.New("post-rename sync")
-	first.(*fsStore).fault = func(at string) error {
-		if at != "directory sync" {
+	It("syncs newly created ancestors", func() {
+		st, err := NewFS(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		s := st.(*fsStore)
+		count := 0
+		s.fault = func(at string) error {
+			if at == "directory sync" {
+				count++
+			}
 			return nil
 		}
-		// Another instance publishes the same hash after this writer's rename.
-		if _, _, err := other.Put(context.Background(), strings.NewReader(content), 0); err != nil {
-			t.Fatal(err)
+		_, _, err = s.Put(context.Background(), strings.NewReader("new shards"), 0)
+		Expect(err).NotTo(HaveOccurred())
+		// Creation of tmp/two shard parents, final/ancestor directories and tmp.
+		Expect(count).To(Equal(7))
+	})
+
+	It("preserves concurrent publication after a failed sync", func() {
+		root := GinkgoT().TempDir()
+		first, err := NewFS(root)
+		Expect(err).NotTo(HaveOccurred())
+		other, err := NewFS(root)
+		Expect(err).NotTo(HaveOccurred())
+		content := "concurrent publication"
+		sha, _, err := other.Put(context.Background(), strings.NewReader(content), 0)
+		Expect(err).NotTo(HaveOccurred())
+		injected := errors.New("post-rename sync")
+		first.(*fsStore).fault = func(at string) error {
+			if at != "directory sync" {
+				return nil
+			}
+			// Another instance publishes the same hash after this writer's rename.
+			_, _, err := other.Put(context.Background(), strings.NewReader(content), 0)
+			Expect(err).NotTo(HaveOccurred())
+			return injected
 		}
-		return injected
-	}
-	if _, _, err = first.Put(context.Background(), strings.NewReader(content), 0); !errors.Is(err, injected) {
-		t.Fatalf("want sync error, got %v", err)
-	}
-	f, err := other.Open(context.Background(), sha)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	got, err := io.ReadAll(f)
-	if err != nil || string(got) != content {
-		t.Fatalf("lost complete publication: %q %v", got, err)
-	}
-}
+		_, _, err = first.Put(context.Background(), strings.NewReader(content), 0)
+		Expect(err).To(MatchError(injected))
+		f, err := other.Open(context.Background(), sha)
+		Expect(err).NotTo(HaveOccurred())
+		defer f.Close()
+		got, err := io.ReadAll(f)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(got)).To(Equal(content))
+	})
+
+	It("honors cancellation at the end of bounded ingest", func() {
+		s, err := NewFS(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		_, _, err = s.Put(ctx, cancelAtEOF{cancel}, 128)
+		Expect(err).To(MatchError(context.Canceled))
+	})
+})
 
 type cancelAtEOF struct{ cancel context.CancelFunc }
 
 func (r cancelAtEOF) Read([]byte) (int, error) { r.cancel(); return 0, io.EOF }
-func TestSharedFilesystemBoundedUploadCancellation(t *testing.T) {
-	s, err := NewFS(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if _, _, err = s.Put(ctx, cancelAtEOF{cancel}, 128); !errors.Is(err, context.Canceled) {
-		t.Fatalf("want canceled bounded ingest, got %v", err)
-	}
-}
