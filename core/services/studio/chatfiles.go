@@ -76,7 +76,9 @@ func (s *Service) filesPrompt(ctx context.Context, a workspace.Actor) string {
 	if !s.d.Files.Available() {
 		return ""
 	}
-	cf, err := s.mgr.Files(ctx, a.Principal, a.ChatID)
+	// The prompt names the files by the turn's place: a scoped chat hears of
+	// no file outside its folders.
+	cf, err := s.mgr.FilesIn(ctx, a.Principal, a.ChatID, s.turnAccess(ctx, a).Place())
 	if err != nil {
 		s.log.Warn("studio: the chat's files are not in the prompt", "chat", a.ChatID, "error", err)
 		return ""
