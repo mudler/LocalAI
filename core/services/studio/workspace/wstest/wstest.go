@@ -47,6 +47,7 @@ func RunStoreSuite(newStore NewStore) {
 	describeUpperOwn(newStore)
 	describeSandboxAccess(newStore)
 	describePurge(newStore)
+	describeFence(newStore)
 }
 
 // Ctx returns the context the suite uses.
