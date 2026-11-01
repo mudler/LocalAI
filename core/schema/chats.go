@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"strings"
 	"time"
 )
 
@@ -122,14 +123,12 @@ type ChatsAgentWrite struct {
 func (w *ChatsAgentWrite) UnmarshalJSON(raw []byte) error {
 	type wire ChatsAgentWrite
 	var v wire
-	if err := json.Unmarshal(raw, &v); err != nil {
-		return err
-	}
 	d := json.NewDecoder(bytes.NewReader(raw))
 	if t, err := d.Token(); err != nil || t != json.Delim('{') {
 		return fmt.Errorf("invalid agent definition")
 	}
 	seen := map[string]bool{}
+	nullCollections := false
 	for d.More() {
 		t, err := d.Token()
 		if err != nil {
@@ -139,6 +138,13 @@ func (w *ChatsAgentWrite) UnmarshalJSON(raw []byte) error {
 		var value json.RawMessage
 		if err := d.Decode(&value); err != nil {
 			return err
+		}
+		// encoding/json matches struct fields case-insensitively. Require the
+		// canonical spelling so aliases cannot evade these presence checks.
+		for _, policy := range []string{"collection_permissions", "memory", "collections"} {
+			if key != policy && strings.EqualFold(key, policy) {
+				return fmt.Errorf("agent policy field must be spelled %s", policy)
+			}
 		}
 		switch key {
 		case "collection_permissions", "memory", "collections":
@@ -150,9 +156,15 @@ func (w *ChatsAgentWrite) UnmarshalJSON(raw []byte) error {
 				if key != "collections" {
 					return fmt.Errorf("%s must be an object", key)
 				}
-				v.Collections = []string{}
+				nullCollections = true
 			}
 		}
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return err
+	}
+	if nullCollections {
+		v.Collections = []string{}
 	}
 	*w = ChatsAgentWrite(v)
 	return nil

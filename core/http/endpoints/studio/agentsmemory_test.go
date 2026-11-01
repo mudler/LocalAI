@@ -85,6 +85,28 @@ var _ = Describe("saved agent memory API", func() {
 			Expect(err).To(HaveOccurred(), raw)
 		}
 	})
+	for _, attack := range []struct{ name, fields string }{
+		{"aliased null memory", `"Memory":null`},
+		{"aliased duplicate memory", `"memory":{"version":1},"Memory":null`},
+		{"aliased collections projection", `"collections":[],"Collections":null,"collection_permissions":{"version":1,"grants":[{"collection":"docs","search":true}]}`},
+		{"aliased null permissions", `"Collection_Permissions":null`},
+	} {
+		for _, surface := range []string{"API", "bare import", "enveloped import"} {
+			It("rejects "+attack.name+" in "+surface, func() {
+				raw := `{"name":"bad",` + attack.fields + `}`
+				if surface == "API" {
+					var def schema.ChatsAgentWrite
+					Expect(json.Unmarshal([]byte(raw), &def)).NotTo(Succeed(), raw)
+				} else {
+					if surface == "enveloped import" {
+						raw = `{"version":1,"kind":"localai-agent","agent":` + raw + `}`
+					}
+					_, err := readAgentFile([]byte(raw))
+					Expect(err).To(HaveOccurred(), raw)
+				}
+			})
+		}
+	}
 	It("preserves explicit empty and null compatibility projections for conflict checking", func() {
 		for _, value := range []string{`[]`, `null`} {
 			var def schema.ChatsAgentWrite

@@ -680,7 +680,10 @@ Create, replace and import accept the versioned fields. When
 `collection_permissions` is supplied it is authoritative: if `collections` is
 also supplied, it must equal the ordered list of search-enabled collections.
 An explicit empty list (or `null` compatibility list) is not omission. Versioned
-policy objects cannot be `null`. Unknown policy fields, versions, enum values,
+policy objects cannot be `null`. The policy keys `collections`,
+`collection_permissions`, and `memory` require their exact lowercase spelling
+in API requests and imports; case aliases such as `Memory` are rejected.
+Unknown policy fields, versions, enum values,
 duplicate keys and duplicate collection grants are rejected.
 
 A legacy-only replacement, with neither versioned field, replaces associations
