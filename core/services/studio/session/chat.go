@@ -93,14 +93,12 @@ const (
 type Chat struct {
 	m  *Manager
 	id string
-	// accMu guards the access of the chat: the actor, the user actor and the
-	// view. Open replaces them when the actor's groups or the shared folders
-	// have changed (see syncAccess).
+	// accMu guards the access of the chat: the actor (with ChatID, fenced
+	// for an agent with a folder) and the view of the sandbox. Open replaces
+	// it when the access resolved for the turn differs (see syncAccess).
 	accMu       sync.RWMutex
-	actor       workspace.Actor // with ChatID: the agent's actor
-	user        workspace.Actor // without ChatID: uploads and renames
-	view        workspace.View  // the view of the sandbox
-	harnessView workspace.View  // the view that the harness prompt names
+	acc         Access
+	harnessView workspace.View // the view that the harness prompt names
 	dir         string
 	turnCtx     context.Context // the context of the running turn; under mu
 
@@ -161,10 +159,9 @@ type vmState struct {
 	unsupported bool
 }
 
-func newChat(m *Manager, a workspace.Actor, rec ChatRecord, view workspace.View) *Chat {
-	a = copyActor(a)
+func newChat(m *Manager, x Access, rec ChatRecord) *Chat {
 	c := &Chat{
-		m: m, id: rec.ID, actor: a, user: userActor(a), view: view, rec: rec,
+		m: m, id: rec.ID, acc: x, rec: rec,
 		dir: m.chatDir(rec.ID), turn: rec.Turns, bus: newEventBus(),
 	}
 	c.lastUse.Store(time.Now().UnixNano())
@@ -180,17 +177,19 @@ func (c *Chat) idleForClose(d time.Duration) bool {
 	return !busy && time.Since(time.Unix(0, c.lastUse.Load())) > d
 }
 
-// access returns the actor, the user actor and the view of the chat.
+// access returns the actor of the chat, the owner's actor (no chat ID and no
+// fence: the person's uploads and renames, in the chat folder only) and the
+// view of the chat.
 func (c *Chat) access() (actor, user workspace.Actor, view workspace.View) {
 	c.accMu.RLock()
 	defer c.accMu.RUnlock()
-	return c.actor, c.user, c.view
+	return c.acc.Actor(), c.acc.Owner(), c.acc.View()
 }
 
 func (c *Chat) principal() string {
 	c.accMu.RLock()
 	defer c.accMu.RUnlock()
-	return c.actor.Principal
+	return c.acc.actor.Principal
 }
 
 // Events returns the channel of live events. A consumer that falls behind
@@ -309,8 +308,8 @@ func (c *Chat) startHarness(ctx context.Context) error {
 		prompt += "\n\n"
 	}
 	c.accMu.Lock()
-	c.harnessView = c.view
-	view := c.view
+	view := c.acc.View()
+	c.harnessView = view
 	c.accMu.Unlock()
 	prompt += LayoutPrompt(view)
 	c.hostMu.Lock()

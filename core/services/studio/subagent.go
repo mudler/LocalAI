@@ -37,8 +37,11 @@ type child struct {
 // gets the host tools plus spawn_agent; a sub-agent gets only the tools its
 // parent chose and never spawn_agent. A sub-agent started from a saved agent
 // gets what the agent grants instead, read from the store like any chat with
-// an agent, so it needs no tool list in memory.
-func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.TurnTools, error) {
+// an agent, so it needs no tool list in memory. Every tool is built from the
+// chat's access for the turn: its actor is fenced when the chat's agent has a
+// folder.
+func (s *Service) chatTools(ctx context.Context, x session.Access) (session.TurnTools, error) {
+	a := x.Actor()
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return session.TurnTools{}, err
@@ -299,7 +302,10 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	}
 	now := parent.Updated
 	rec := session.ChatRecord{ID: childID, Principal: a.Principal, Title: title, Created: now, Updated: now,
-		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID}
+		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID,
+		// The child is refused, never given the whole home, when the folder
+		// it works in can no longer be found (chatScopes).
+		ScopedAgent: parent.ScopedAgent || agent.HasFolder()}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		s.forgetChild(parentKey, childID)
 		return "", err

@@ -78,12 +78,16 @@ func (s *Service) subWorkBlock(ctx context.Context, rec session.ChatRecord) stri
 
 // ensureWorkFolder makes the chat's work folder before a command runs, so a
 // script can save into it at once. A failure is logged: the command runs.
+// The folder is made as the user (a change set of no chat), with the chat's
+// fence kept, so a scoped chat makes it only inside its chat folder.
 func (s *Service) ensureWorkFolder(ctx context.Context, a workspace.Actor) {
 	folder, _ := s.workFolderOf(ctx, a)
 	if folder == "" {
 		return
 	}
-	if err := session.EnsureWorkFolder(ctx, s.d.Files.Store(), userOf(a), a.Principal, folder); err != nil {
+	user := a
+	user.ChatID = ""
+	if err := session.EnsureWorkFolder(ctx, s.d.Files.Store(), user, a.Principal, folder); err != nil {
 		s.log.Warn("studio: could not make the chat's work folder", "chat", a.ChatID, "error", err)
 	}
 }

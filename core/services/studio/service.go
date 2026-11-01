@@ -422,7 +422,7 @@ func New(d Deps) (*Service, error) {
 	d.Files.SetSharedRoots(s.shared.Roots)
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
 	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
-		Shared: s.shared.Roots, Logger: log})
+		Shared: s.shared.Roots, Resolve: s.resolveAccess, Logger: log})
 	if err != nil {
 		return nil, err
 	}
@@ -529,14 +529,6 @@ func principal(user string) string {
 	return user
 }
 
-// chatActor is the actor of a chat: its owner, in the group of every user, so
-// the chat sees the folders shared with everyone.
-func chatActor(p, conv string) workspace.Actor {
-	a := files.UserActor(p)
-	a.ChatID = conv
-	return a
-}
-
 func key(p, conv string) string { return p + "\x00" + conv }
 
 func newID() string {
@@ -575,6 +567,7 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 // the user's own.
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
 	model := in.Model
+	scoped := false
 	if in.Assistant {
 		if in.AgentID != "" {
 			return session.ChatRecord{}, ErrAssistantAgent
@@ -597,6 +590,14 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		if ag.Model != "" {
 			model = ag.Model
 		}
+		if ag.HasFolder() {
+			// A chat never starts on the whole home in place of a folder
+			// that is missing or not chosen.
+			if _, err := s.liveFolder(ctx, principal(user), ag); err != nil {
+				return session.ChatRecord{}, err
+			}
+			scoped = true
+		}
 	}
 	if strings.TrimSpace(model) == "" {
 		return session.ChatRecord{}, ErrNoModel
@@ -611,7 +612,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	}
 	now := time.Now().UTC()
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
-		AgentID: in.AgentID, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
+		AgentID: in.AgentID, ScopedAgent: scoped, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
 		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
 		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff)}
 	if origin.Kind == "" {
@@ -1136,7 +1137,17 @@ func (s *Service) chat(ctx context.Context, p, conv string) (*session.Chat, erro
 			return nil, err
 		}
 	}
-	chat, err := s.mgr.Open(ctx, chatActor(p, conv), conv)
+	// The access is resolved at every open, which every turn does: an edit
+	// of the chat's agent applies from the next turn.
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
+		return nil, err
+	}
+	x, err := s.chatAccess(ctx, rec)
+	if err != nil {
+		return nil, err
+	}
+	chat, err := s.mgr.Open(ctx, x, conv)
 	if err != nil {
 		return nil, err
 	}
@@ -1417,7 +1428,9 @@ func (s *Service) Delete(ctx context.Context, user, conv string) error {
 		return err
 	}
 	s.stopChildren(p, conv)
-	if err := s.mgr.Delete(ctx, chatActor(p, conv), conv); err != nil {
+	// A delete is the person's action: it needs no access of the chat, so a
+	// chat whose agent folder is missing can still be deleted.
+	if err := s.mgr.Delete(ctx, userChatActor(p, conv), conv); err != nil {
 		return err
 	}
 	if s.loops != nil {

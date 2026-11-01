@@ -216,7 +216,7 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 // commandsFor says whether the chat of rec can run commands at its next turn.
 func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) Commands {
 	conv := rec.ID
-	a := chatActor(p, conv)
+	a := s.chatActorFor(ctx, rec)
 	if rec.Kind == session.KindSubAgent {
 		s.mu.Lock()
 		tools := s.allowed[key(p, conv)]

@@ -22,7 +22,7 @@ var _ = Describe("closing idle chats", func() {
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
 		ctx := context.Background()
 		a := workspace.Actor{Principal: "alice", ChatID: "c1"}
-		chat, err := m.Open(ctx, a, "c1")
+		chat, err := openAs(m, ctx, a, "c1")
 		Expect(err).NotTo(HaveOccurred())
 		events := chat.Events()
 		deadline := time.After(5 * time.Second)
@@ -35,7 +35,7 @@ var _ = Describe("closing idle chats", func() {
 			}
 		}
 		Expect(h.Closed()).To(Equal(1), "the harness of the idle chat must be closed once")
-		again, err := m.Open(ctx, a, "c1")
+		again, err := openAs(m, ctx, a, "c1")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(again.Send(ctx, session.Message{Text: "hello"})).To(Succeed())
 		for done := false; !done; {
@@ -54,7 +54,7 @@ var _ = Describe("closing idle chats", func() {
 		m, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), Harness: h, StateDir: GinkgoT().TempDir(), IdleClose: -1})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
-		_, err = m.Open(context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
+		_, err = openAs(m, context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(60 * time.Millisecond)
 		Expect(h.Closed()).To(BeZero(), "a negative IdleClose closed a chat")
