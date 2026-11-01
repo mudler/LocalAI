@@ -174,7 +174,7 @@ var _ = Describe("chat access", func() {
 			Expect(x.Scoped()).To(BeFalse())
 			shared, err := r.svc.SharedFolders().Roots(r.ctx, want)
 			Expect(err).NotTo(HaveOccurred())
-			v, err := session.BuildView(r.ctx, r.ws, want, shared, slog.Default())
+			v, err := session.BuildView(r.ctx, r.ws, want, r.home, "", shared, slog.Default())
 			Expect(err).NotTo(HaveOccurred())
 			Expect(x.View().Mounts).To(Equal(v.Mounts))
 			Expect(x.View().Mounts).To(HaveLen(2), "the home and the shared folder")
