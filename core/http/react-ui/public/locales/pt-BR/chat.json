@@ -588,5 +588,19 @@
     "contextOf": "{{used}} de {{limit}} tokens",
     "contextUsed": "{{used}} tokens",
     "unknown": "Ainda não se sabe"
+  },
+  "agentFolder": {
+    "home": "Início",
+    "chip": "{{name}}, {{mode}}",
+    "read": "somente leitura",
+    "write": "leitura e alteração",
+    "titleRead": "Este chat vê apenas {{path}} e pode lê-la",
+    "titleWrite": "Este chat vê apenas {{path}} e pode lê-la e alterá-la",
+    "toolsRead": "Arquivos: apenas {{path}}, somente leitura. As pastas compartilhadas e as skills continuam legíveis.",
+    "toolsWrite": "Arquivos: apenas {{path}}, leitura e alteração. As pastas compartilhadas e as skills continuam legíveis.",
+    "chipMissing": "Pasta ausente",
+    "missing": "A pasta deste agente não existe mais. Escolha outra pasta no agente.",
+    "startError": "A pasta deste agente está ausente, então o chat não pode começar. Escolha outra pasta para o agente.",
+    "editAgent": "Editar agente"
   }
 }

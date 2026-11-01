@@ -117,3 +117,10 @@ export function agentFolderMarks(agents) {
 export function isFolderMissingError(err) {
   return !!err && err.status === 409 && err.body?.error?.type === 'agent_folder_missing'
 }
+
+// The line of the Tools menu of a scoped chat: which files its tools reach.
+export function agentFolderLine(agent, t) {
+  if (folderState(agent) !== 'ok') return ''
+  const path = agent.folder.path === '/' ? t('agentFolder.home') : agent.folder.path
+  return t(agent.folder.mode === 'write' ? 'agentFolder.toolsWrite' : 'agentFolder.toolsRead', { path })
+}

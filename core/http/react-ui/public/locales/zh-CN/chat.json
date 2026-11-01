@@ -585,5 +585,19 @@
     "contextOf": "{{used}} / {{limit}} 个 token",
     "contextUsed": "{{used}} 个 token",
     "unknown": "尚不清楚"
+  },
+  "agentFolder": {
+    "home": "主页",
+    "chip": "{{name}}，{{mode}}",
+    "read": "只读",
+    "write": "读取和修改",
+    "titleRead": "此对话只能看到 {{path}}，并且可以读取",
+    "titleWrite": "此对话只能看到 {{path}}，并且可以读取和修改",
+    "toolsRead": "文件：仅 {{path}}，只读。共享文件夹和技能仍可读取。",
+    "toolsWrite": "文件：仅 {{path}}，读取和修改。共享文件夹和技能仍可读取。",
+    "chipMissing": "文件夹缺失",
+    "missing": "此智能体的文件夹已不存在。请在智能体中选择其他文件夹。",
+    "startError": "此智能体的文件夹缺失，因此无法开始对话。请为智能体选择其他文件夹。",
+    "editAgent": "编辑智能体"
   }
 }

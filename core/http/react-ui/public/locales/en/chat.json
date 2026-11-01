@@ -732,5 +732,19 @@
     "contextOf": "{{used}} of {{limit}} tokens",
     "contextUsed": "{{used}} tokens",
     "unknown": "Not known yet"
+  },
+  "agentFolder": {
+    "home": "Home",
+    "chip": "{{name}}, {{mode}}",
+    "read": "read only",
+    "write": "read and change",
+    "titleRead": "This chat sees only {{path}} and can read it",
+    "titleWrite": "This chat sees only {{path}} and can read and change it",
+    "toolsRead": "Files: only {{path}}, read only. Shared folders and skills stay readable.",
+    "toolsWrite": "Files: only {{path}}, read and change. Shared folders and skills stay readable.",
+    "chipMissing": "Folder missing",
+    "missing": "The folder of this agent is gone. Choose another folder in the agent.",
+    "startError": "This agent's folder is missing, so the chat cannot start. Choose another folder for the agent.",
+    "editAgent": "Edit agent"
   }
 }

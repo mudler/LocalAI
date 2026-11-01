@@ -52,6 +52,7 @@ import { EmptyHead, EmptyUnder } from '../components/chat/EmptyChat'
 // eslint-disable-next-line no-unused-vars
 import ShortcutsRow from '../components/wellknown/ShortcutsRow'
 import { isStaleFailure } from '../utils/chatFailure'
+import { isFolderMissingError } from '../utils/chatAgents'
 // eslint-disable-next-line no-unused-vars
 import CommandsConsentCard from '../components/chat/CommandsConsentCard'
 import NetworkConsentCard from '../components/chat/NetworkConsentCard'
@@ -162,6 +163,18 @@ function ChatPage() {
   const [loopListFor, setLoopListFor] = useState('')
   // An error of this page (a send or a delete that failed); the hook has its own.
   const [localError, setLocalError] = useState('')
+  // The agent whose folder is missing, when the last error said so: the
+  // error then offers to edit that agent.
+  const [folderAgent, setFolderAgent] = useState('')
+  const sayError = useCallback((e, fallback) => {
+    if (isFolderMissingError(e)) {
+      setFolderAgent((activeId && activeChat?.agent_id) || agentId || '')
+      setLocalError(t('agentFolder.startError'))
+      return
+    }
+    setFolderAgent('')
+    setLocalError(e?.message || fallback)
+  }, [activeId, activeChat, agentId, t])
   // The chats the old chat page left in this browser, offered for import once.
   const [browserStores, setBrowserStores] = useState(() => {
     const st = browserStorage()
@@ -517,12 +530,12 @@ function ChatPage() {
       // Give the text and files back to the chat they were written in, unless
       // the user typed something else there. Another chat may be open by now.
       if (typeof override !== 'string') drafts.restore(target, input.trim(), sending)
-      if (drafts.isOpen(target)) setLocalError(e.message || tc('errors.send'))
-      else addToast(e.message || tc('errors.send'), 'error')
+      if (drafts.isOpen(target)) sayError(e, tc('errors.send'))
+      else addToast(isFolderMissingError(e) ? t('agentFolder.startError') : (e.message || tc('errors.send')), 'error')
     } finally {
       setBusy(false)
     }
-  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, composer.agents, chat, select, navigate, addToast, t, tc, drafts])
+  }, [input, files, activeId, busy, effectiveModel, draftModel, agentId, switches, composer.agents, chat, select, navigate, addToast, t, tc, drafts, sayError])
 
   // The Home page hands over the first message in the location state. It goes
   // once, when a model is known; without one the text waits in the box. A
@@ -893,7 +906,7 @@ function ChatPage() {
         await chat.resumeGoal(target)
       }
     } catch (e) {
-      setLocalError(e.message || tc('errors.send'))
+      sayError(e, tc('errors.send'))
     } finally {
       setBusy(false)
     }
@@ -1139,8 +1152,11 @@ function ChatPage() {
             )}
             {(localError || (chat.error && !(chat.lastTurn === 'failed' && !chat.running))) && (
               <p className="cx-notice cx-notice--error" role="alert">
-                <span>{localError || chat.error}</span>
-                <button type="button" className="cx-link" onClick={() => { setLocalError(''); chat.clearError() }}>{tc('errors.dismiss')}</button>
+                <span data-testid={localError && folderAgent ? 'chat-folder-missing' : undefined}>{localError || chat.error}</span>
+                {localError && folderAgent && (
+                  <button type="button" className="cx-link" onClick={() => navigate(`/app/agents/${encodeURIComponent(folderAgent)}/edit`)} data-testid="chat-folder-edit">{t('agentFolder.editAgent')}</button>
+                )}
+                <button type="button" className="cx-link" onClick={() => { setLocalError(''); setFolderAgent(''); chat.clearError() }}>{tc('errors.dismiss')}</button>
               </p>
             )}
             {activeId && chat.pending.length > 0 && (
