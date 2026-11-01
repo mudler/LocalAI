@@ -5,6 +5,7 @@
 package apps
 
 import (
+	"maps"
 	"net/url"
 	"regexp"
 	"slices"
@@ -151,10 +152,23 @@ type UIView struct {
 	Actions   []ChatActionView    `json:"actions,omitempty"`
 	Slots     []SlotView          `json:"slots,omitempty"`
 	Renderers []contract.Renderer `json:"renderers,omitempty"`
+	// HomeCommands contains only resolved navigation metadata for this app.
+	HomeCommands []HomeCommandView `json:"homeCommands,omitempty"`
 	// Controls are the host controls the host draws for the addon: the ones
 	// its manifest declares that its grants and tools entitle it to now. The
 	// host draws them with its own components; the addon supplies nothing.
 	Controls []string `json:"controls,omitempty" enums:"network-policy,tool-providers" example:"network-policy"`
+}
+
+// HomeCommandView is a navigation declaration resolved against this installed
+// generation. Page is a declared page identifier, not a URL or tool invocation.
+type HomeCommandView struct {
+	ID     string            `json:"id"`
+	Alias  string            `json:"alias,omitempty"`
+	Page   string            `json:"page"`
+	Label  string            `json:"label"`
+	Labels map[string]string `json:"labels,omitempty"`
+	Icon   string            `json:"icon"`
 }
 
 // ChatActionView is a declared chat action as the host draws it.
@@ -293,6 +307,39 @@ func uiView(id, digest string, u *contract.UI) *UIView {
 	}
 	v := &UIView{Entry: asset(u.Entry), SDK: u.SDK, Pages: slices.Clone(u.Pages), Navigation: slices.Clone(u.Navigation), ChatActions: u.ChatActionIDs()}
 	v.Actions, v.Slots, v.Renderers = contributions(u)
+	for _, command := range u.HomeCommands {
+		page := command.Page
+		if page == "" {
+			page = u.MainPage
+		}
+		if page == "" || !slices.Contains(u.Pages, page) {
+			continue
+		}
+		c := HomeCommandView{ID: command.ID, Alias: command.Alias, Page: page, Label: id, Icon: "puzzle"}
+		if u.Title != nil {
+			c.Label, c.Labels = u.Title.Default(), maps.Clone(u.Title.ByLanguage)
+		}
+		if page != u.MainPage {
+			c.Label += " — " + page
+			for language, label := range c.Labels {
+				c.Labels[language] = label + " — " + page
+			}
+		}
+		if command.Label != nil {
+			c.Label, c.Labels = command.Label.Default(), maps.Clone(command.Label.ByLanguage)
+		}
+		if u.Icon != "" {
+			c.Icon = asset(u.Icon)
+		}
+		if command.Icon != "" {
+			if command.Icon == u.Icon {
+				c.Icon = asset(u.Icon)
+			} else {
+				c.Icon = command.Icon
+			}
+		}
+		v.HomeCommands = append(v.HomeCommands, c)
+	}
 	for _, css := range u.CSS {
 		v.CSS = append(v.CSS, asset(css))
 	}
