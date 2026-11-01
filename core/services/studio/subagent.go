@@ -27,7 +27,11 @@ var (
 	ErrSubAgentLimit = errors.New("the limit of background sub-agents for this conversation is reached; wait for one to finish")
 	// errNoTurnAccess means the hook got an access that has no folder: the
 	// chat's access was not resolved, so it gets no tools.
-	errNoTurnAccess = errors.New("studio: the chat's access was not resolved; no tools this turn")
+	// ErrAgentOutsideFolder means spawn_agent named a saved agent whose folder
+	// is not the folder of the chat's own agent or inside it. A sub-agent never
+	// has more reach than its parent, so the agent is refused, not widened.
+	ErrAgentOutsideFolder = errors.New("this agent works in another folder than this chat")
+	errNoTurnAccess       = errors.New("studio: the chat's access was not resolved; no tools this turn")
 )
 
 type child struct {
@@ -287,6 +291,9 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		if agent, err = s.resolveAgent(ctx, a.Principal, ref); err != nil {
 			return "", err
 		}
+		if err := s.agentFitsChat(ctx, parent, agent); err != nil {
+			return "", err
+		}
 	} else {
 		if subset, err = s.subset(ctx, x, args.Tools); err != nil {
 			return "", err
@@ -359,6 +366,31 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		s.forgetChild(parentKey, childID)
 		return "", ctx.Err()
 	}
+}
+
+// agentFitsChat checks that a saved agent may run as a sub-agent of the
+// chat: when the chat's own agent has a folder, the agent has none or has one
+// that is the same or inside it. The check is made from the stores at the
+// call, before any chat is made for the child.
+func (s *Service) agentFitsChat(ctx context.Context, chat session.ChatRecord, ag agents.Agent) error {
+	outer, err := s.agentFolderScope(ctx, chat, false)
+	if err != nil {
+		return err
+	}
+	if outer == nil || !ag.HasFolder() {
+		return nil
+	}
+	inner, err := s.liveFolder(ctx, chat.Principal, ag)
+	if errors.Is(err, ErrAgentFolderMissing) {
+		return ErrAgentOutsideFolder
+	}
+	if err != nil {
+		return err
+	}
+	if !workspace.Within(inner.path, outer.path) {
+		return ErrAgentOutsideFolder
+	}
+	return nil
 }
 
 // subset picks the tools a sub-agent gets from the parent's host tools and

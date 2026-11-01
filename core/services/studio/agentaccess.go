@@ -202,14 +202,40 @@ func (s *Service) chatScopes(ctx context.Context, rec session.ChatRecord, record
 			}
 		}
 	}
-	sc, err := s.agentFolderScope(ctx, rec, record)
+	// A sub-agent's flag follows both folders, not only its own agent's: a
+	// child of a scoped chat stays refused, never given the whole home, when
+	// its parent's folder can no longer be found.
+	sub := rec.Kind == session.KindSubAgent && rec.ParentID != ""
+	sc, err := s.agentFolderScope(ctx, rec, record && !sub)
 	if err != nil {
 		return nil, "", err
 	}
 	if sc != nil {
 		scopes = append(scopes, *sc)
 	}
+	if record && sub {
+		if err := s.markScoped(ctx, rec, len(scopes) > 0); err != nil {
+			return nil, "", err
+		}
+	}
 	return scopes, holder, nil
+}
+
+// markScoped sets the chat's ScopedAgent flag to match what its folders are
+// now. Failing to set it is an error only when the chat is scoped: without the
+// flag a later delete of the agent would give the chat the whole home.
+func (s *Service) markScoped(ctx context.Context, rec session.ChatRecord, scoped bool) error {
+	if rec.ScopedAgent == scoped {
+		return nil
+	}
+	err := s.d.Store.SetScopedAgent(ctx, rec.Principal, rec.ID, scoped)
+	switch {
+	case err != nil && scoped:
+		return fmt.Errorf("studio: mark the chat as scoped: %w", err)
+	case err != nil:
+		s.log.Warn("studio: could not clear the scoped mark of a chat", "chat", rec.ID, "error", err)
+	}
+	return nil
 }
 
 // agentFolderScope returns the folder of the saved agent of rec, nil for a
@@ -235,15 +261,9 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 		// Without the agent nothing says whether it has a folder.
 		return nil, fmt.Errorf("studio: read the chat's agent: %w", err)
 	}
-	if record && rec.ScopedAgent != ag.HasFolder() {
-		serr := s.d.Store.SetScopedAgent(ctx, rec.Principal, rec.ID, ag.HasFolder())
-		if serr != nil && ag.HasFolder() {
-			// Without the flag a later delete of the agent would give the
-			// chat the whole home: do not run.
-			return nil, fmt.Errorf("studio: mark the chat as scoped: %w", serr)
-		}
-		if serr != nil {
-			s.log.Warn("studio: could not clear the scoped mark of a chat", "chat", rec.ID, "error", serr)
+	if record {
+		if err := s.markScoped(ctx, rec, ag.HasFolder()); err != nil {
+			return nil, err
 		}
 	}
 	if !ag.HasFolder() {
