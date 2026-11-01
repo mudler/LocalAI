@@ -75,6 +75,28 @@ var _ = Describe("agent folders", func() {
 		Expect(st.State).To(Equal(studio.AgentFolderOK))
 	})
 
+	It("keeps an unnamed readable root without exposing another home's workspace path", func() {
+		mkdir("/Notes")
+		a, err := svc.SaveAgentWithFolder(ctx, alice, agents.Agent{Name: "Scoped"}, &studio.AgentFolderWrite{Path: "/Notes", Mode: agents.FolderRead})
+		Expect(err).NotTo(HaveOccurred())
+		admin := workspace.Actor{Principal: files.AdminPrincipal}
+		otherHome := session.HomePath("other")
+		_, err = ws.Mkdir(ctx, admin, otherHome)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ws.Grant(ctx, admin, alice, otherHome, workspace.ModeRead)).To(Succeed())
+		_, err = ws.Move(ctx, admin, home+"/Notes", otherHome+"/Notes")
+		Expect(err).NotTo(HaveOccurred())
+		st, ok := svc.AgentFolder(ctx, alice, a)
+		Expect(ok).To(BeTrue())
+		Expect(st).To(Equal(studio.AgentFolderState{Name: "Notes", Mode: "read", State: studio.AgentFolderOK}))
+		abs, live := svc.FolderResolver().PathOf(ctx, alice, a.FolderID)
+		Expect(live).To(BeTrue())
+		Expect(abs).To(Equal(otherHome + "/Notes"))
+		Expect(ws.Revoke(ctx, admin, alice, otherHome)).To(Succeed())
+		st, _ = svc.AgentFolder(ctx, alice, a)
+		Expect(st).To(Equal(studio.AgentFolderState{Mode: "read", State: studio.AgentFolderMissing}))
+	})
+
 	It("keeps the folder when a save has no folder, and clears it with an empty path", func() {
 		mkdir("/Notes")
 		a, err := svc.SaveAgentWithFolder(ctx, alice, agents.Agent{Name: "Scoped"}, &studio.AgentFolderWrite{Path: "/Notes", Mode: agents.FolderWrite})

@@ -5,6 +5,11 @@ package routes_test
 
 import (
 	"bytes"
+	"context"
+
+	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -158,6 +163,48 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
 			return decodeJSON(rec)["id"].(string)
 		}
+
+		It("follows a readable shared move in responses but reimports its export as unset", func() {
+			id := scoped("alice")
+			ctx := context.Background()
+			f := s.svc.Files()
+			ws := f.Store()
+			admin := workspace.Actor{Principal: files.AdminPrincipal}
+			_, err := ws.Mkdir(ctx, admin, "/shared/Team")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ws.Grant(ctx, admin, "alice", "/shared/Team", workspace.ModeRead)).To(Succeed())
+			_, err = ws.Move(ctx, admin, session.HomePath("alice")+"/Projects/Acme", "/shared/Team/Acme")
+			Expect(err).NotTo(HaveOccurred())
+			// A home folder with the same spelling must never receive the imported scope.
+			mkdir("alice", "/shared/Team/Acme")
+			got := s.do("alice", http.MethodGet, "/api/chats/agents/"+id, nil)
+			Expect(got.Code).To(Equal(http.StatusOK))
+			Expect(decodeJSON(got)["folder"]).To(Equal(map[string]any{"path": "/shared/Team/Acme", "name": "Acme", "mode": "read", "state": "ok"}))
+			a, err := s.svc.Agent(ctx, "alice", id)
+			Expect(err).NotTo(HaveOccurred())
+			followed, ok := s.svc.FolderResolver().PathOf(ctx, "alice", a.FolderID)
+			Expect(ok).To(BeTrue())
+			Expect(followed).To(Equal("/shared/Team/Acme"))
+			exp := s.do("alice", http.MethodGet, "/api/chats/agents/"+id+"/export", nil)
+			Expect(exp.Code).To(Equal(http.StatusOK))
+			file := decodeJSON(exp)
+			// Exercise import before asserting the export, to expose silent remapping.
+			imp := s.do("alice", http.MethodPost, "/api/chats/agents/import", file)
+			Expect(imp.Code).To(Equal(http.StatusCreated), imp.Body.String())
+			res := decodeJSON(imp)
+			Expect(res["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"mode": "read", "state": "unset"})))
+			Expect(res["warnings"]).To(ContainElement("The file names no folder. Choose a folder before you use this agent."))
+			Expect(file).To(HaveKeyWithValue("version", BeNumerically("==", 2)))
+			Expect(file["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "", "mode": "read"})))
+			importedID := res["agent"].(map[string]any)["id"].(string)
+			Expect(s.do("alice", http.MethodPost, "/api/chats", map[string]any{"agent_id": importedID, "model": "test-model"}).Code).To(Equal(http.StatusConflict))
+
+			Expect(ws.Revoke(ctx, admin, "alice", "/shared/Team")).To(Succeed())
+			got = s.do("alice", http.MethodGet, "/api/chats/agents/"+id, nil)
+			Expect(decodeJSON(got)["folder"]).To(Equal(map[string]any{"mode": "read", "state": "missing"}))
+			file = decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+id+"/export", nil))
+			Expect(file["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "", "mode": "read"})))
+		})
 
 		It("exports an agent without a folder as version 1", func() {
 			id := save("alice")

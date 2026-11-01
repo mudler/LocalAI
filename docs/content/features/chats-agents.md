@@ -60,9 +60,10 @@ A chat can also start a saved agent as a sub-agent, when you switch **Saved
 agents** on in its Tools menu. See [Saved agents as
 sub-agents]({{%relref "features/chats#saved-agents-as-sub-agents" %}}).
 
-If you delete an agent, the chats that ran with it keep their history. Their
-next turn runs without the agent's tools, and the model is told that the agent
-was deleted.
+If you delete an agent, the chats that ran with it keep their history. For an
+agent without a folder, their next turn runs without the agent's tools,
+and the model is told that the agent was deleted. For an agent with a folder,
+the next turn is refused instead; it never falls back to all your files.
 
 ### Pages
 
@@ -111,7 +112,10 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   them, and it cannot be a shared folder. A path that is not a folder of yours
   is `400`.
 - The server keeps the folder itself, not its path. When you rename or move
-  the folder, the agent follows it, and `path` shows where it is now.
+  the folder, the agent follows it while you can read it. `path` shows its
+  home-relative path, or `/shared/<name>/...` after a move into a shared folder.
+  Other readable locations have no public `path`; the folder remains `ok` and
+  the agent still follows it by identity.
 - `state` is `ok`, `missing` when the folder was deleted or you can no longer
   read it, or `unset` when no folder is chosen yet (an imported agent whose
   folder was not found here).
@@ -209,7 +213,11 @@ The file holds the definition only (kind `localai-agent`): no ID, owner or
 time. An agent without a folder is version 1. An agent with a folder is
 version 2 and carries `folder` with the folder's path at export time and the
 mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
-empty when the folder is missing or not chosen). A server that reads only
+empty when the folder is missing, not chosen, or now outside your home).
+A followed folder in a shared location stays usable by the original agent,
+but its export carries an empty path and the mode. Import keeps it scoped
+with state `unset` and warns you to choose a folder; it never interprets the
+shared path as a folder in your home. A server that reads only
 version 1 refuses a version 2 file, so an agent limited to one folder is never
 imported somewhere as an agent with all the files. An import always makes a
 new agent. The folder is looked up by its path in your files; when you have

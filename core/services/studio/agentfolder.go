@@ -33,7 +33,8 @@ const (
 type AgentFolderState struct {
 	// Path is where the folder is now, inside the user's home ("/" is the
 	// whole home). A folder moved into a shared folder shows its path there
-	// (/shared/<name>/...). Empty when the folder is missing or unset.
+	// (/shared/<name>/...). Empty when missing, unset, or outside these public
+	// locations; an unnamed readable folder still has state ok.
 	Path string
 	// Name is the folder's own name; empty for the whole home.
 	Name  string
@@ -181,12 +182,15 @@ func (s *Service) AgentFolders(ctx context.Context, user string, list []agents.A
 		if a.FolderID > 0 {
 			st.State = AgentFolderMissing
 			if abs, ok := paths[a.FolderID]; ok {
-				st.State, st.Path = AgentFolderOK, abs
-				if rel := s.d.Files.Rel(p, abs); rel != "" {
-					st.Path = rel
+				st.State = AgentFolderOK
+				st.Path = s.d.Files.Rel(p, abs)
+				// Shared paths are already public Files paths. Never expose an
+				// internal workspace path for any other readable location.
+				if st.Path == "" && strings.HasPrefix(abs, "/shared/") {
+					st.Path = abs
 				}
 				if st.Path != "/" {
-					st.Name = path.Base(st.Path)
+					st.Name = path.Base(abs)
 				}
 			}
 		}

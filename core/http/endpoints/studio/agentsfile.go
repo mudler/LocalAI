@@ -50,8 +50,13 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network}
 	if st, ok := h.svc.AgentFolder(c.Request().Context(), userID(c), a); ok {
-		// The path, never the node: the node means nothing on another server.
-		w.Folder = &schema.ChatsAgentFolderWrite{Path: st.Path, Mode: st.Mode}
+		// Imports resolve paths in the home only. A followed root outside
+		// it must stay scoped but unset, not bind to a same-spelled home path.
+		exportPath := ""
+		if abs, live := h.svc.FolderResolver().PathOf(c.Request().Context(), h.svc.Principal(userID(c)), a.FolderID); live {
+			exportPath = h.svc.Files().Rel(h.svc.Principal(userID(c)), abs)
+		}
+		w.Folder = &schema.ChatsAgentFolderWrite{Path: exportPath, Mode: st.Mode}
 	}
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", fileSafe(a.Name)+".json"))
 	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: agentFileVersion(a.HasFolder()), Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
