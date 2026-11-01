@@ -230,21 +230,18 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
         audio_units.cpp)
     target_include_directories(result_map_ctest PRIVATE
         "${AUDIO_CPP_DIR}/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}"
-        # session.h reaches ggml.h through core/backend.h. Every other target
-        # here inherits that directory from the ggml target it links; this one
-        # links no ggml, so it has to name it.
-        "${AUDIO_CPP_DIR}/external/ggml/include")
-    # No engine_runtime: result_map touches only the plain structs in
-    # engine/framework/runtime/session.h, so the header is all it needs.
+        "${CMAKE_CURRENT_SOURCE_DIR}")
+    # TaskResult owns CustomSchemaOutput's JSON Value, whose destructor is
+    # defined out of line in engine_runtime even when no model is loaded.
     target_link_libraries(result_map_ctest PRIVATE
+        engine_runtime
         hw_grpc_proto
         protobuf::libprotobuf
         Threads::Threads)
     target_compile_options(result_map_ctest PRIVATE -Wall -Wextra -Wpedantic)
     add_test(NAME result_map COMMAND result_map_ctest)
 
-    # Same shape as result_map_ctest: generation_request touches only the plain
+    # Unlike result_map_ctest, generation_request touches only the plain
     # structs in engine/framework/runtime/session.h plus the generated protobuf
     # messages, so the headers are all it needs and no engine_runtime is linked.
     add_executable(generation_request_ctest
