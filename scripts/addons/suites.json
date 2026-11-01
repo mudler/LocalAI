@@ -793,7 +793,10 @@
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
       "returns the same text through a forwarding frontend",
-      "names every typed cause of a failed install in the 403 of the dispatch route"
+      "names every typed cause of a failed install in the 403 of the dispatch route",
+      "carries the chat binding signed and rejects a changed one",
+      "signs a request without a binding as before",
+      "gives the owner the chat the frontend bound the call to"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -2003,7 +2006,10 @@
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
       "returns the same text through a forwarding frontend",
-      "names every typed cause of a failed install in the 403 of the dispatch route"
+      "names every typed cause of a failed install in the 403 of the dispatch route",
+      "carries the chat binding signed and rejects a changed one",
+      "signs a request without a binding as before",
+      "gives the owner the chat the frontend bound the call to"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
