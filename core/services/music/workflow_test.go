@@ -83,7 +83,8 @@ func runSteps(g Gomega, op operation, steps []step) State {
 			}
 		}
 		b, _ := json.Marshal(map[string]any{"step": i, "event": fmt.Sprintf("%#v", w.Event), "before": fmt.Sprintf("%#v", before), "after": fmt.Sprintf("%#v", tr.State), "rule": tr.Rule, "guard": tr.Guard, "effects": fmt.Sprintf("%#v", tr.Effects), "state": typeName(tr.State)})
-		fmt.Fprintln(GinkgoWriter, "TRACE "+string(b))
+		_, err := fmt.Fprintln(GinkgoWriter, "TRACE "+string(b))
+		g.Expect(err).NotTo(HaveOccurred())
 		if path := os.Getenv("MUSIC_TRACE_FILE"); path != "" {
 			f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
 			g.Expect(err).NotTo(HaveOccurred())
