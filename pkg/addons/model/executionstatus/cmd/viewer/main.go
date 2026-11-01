@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -174,7 +175,11 @@ func validatePage(html []byte) error {
 func run(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("viewer", flag.ContinueOnError)
 	flags.SetOutput(out)
-	path := flags.String("o", "viewer.html", "output file (with -check, verify this existing file)")
+	defaultPath := "viewer.html"
+	if root, present := os.LookupEnv("SDD_LOCAL_ROOT"); present {
+		defaultPath = filepath.Join(root, "executionstatus-viewer.html")
+	}
+	path := flags.String("o", defaultPath, "output file (with -check, verify this existing file)")
 	check := flags.Bool("check", false, "verify traces, invariants and deterministic embedded data without writing")
 	if err := flags.Parse(args); err != nil {
 		return err

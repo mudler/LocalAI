@@ -28,10 +28,12 @@ frontend build is needed. JavaScript only presents transitions computed by Go.
 Reply descriptions retain the model payload's validation details; they are not
 wire-format payloads. Fixtures contain synthetic opaque identities, not secrets.
 
-Without `-o`, generation writes `viewer.html` in the current directory.
-`go generate ./pkg/addons/model/executionstatus` writes that local artifact in
-the model directory. Generated HTML is not committed. Choose an explicit `-o`
-under your local artifact directory when working in an isolated environment.
+Without `-o`, generation writes `executionstatus-viewer.html` under
+`SDD_LOCAL_ROOT` when that environment variable is present. Otherwise it writes
+portable `viewer.html` in the current directory.
+`go generate ./pkg/addons/model/executionstatus` uses the same default: the
+configured artifact root, or the model directory when the variable is absent.
+An explicit `-o` always overrides this default. Generated HTML is not committed.
 
 ## Check contract
 

@@ -78,7 +78,47 @@ var _ = Describe("Real reducer trace export", func() {
 		Expect(string(a)).To(ContainSubstring(`id="trace"`))
 		Expect(string(a)).To(ContainSubstring(`id="next"`))
 	})
+	It("writes default output under SDD_LOCAL_ROOT instead of the working directory", func() {
+		cwd, err := os.Getwd()
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(os.Chdir, cwd)
+		work := GinkgoT().TempDir()
+		root := GinkgoT().TempDir()
+		Expect(os.Chdir(work)).To(Succeed())
+		GinkgoT().Setenv("SDD_LOCAL_ROOT", root)
+		var out bytes.Buffer
+		Expect(run(nil, &out)).To(Succeed())
+		html, err := os.ReadFile(filepath.Join(root, "executionstatus-viewer.html"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(validatePage(html)).To(Succeed())
+		entries, err := os.ReadDir(work)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).To(BeEmpty())
+	})
+	It("falls back to portable viewer.html when SDD_LOCAL_ROOT is absent", func() {
+		cwd, err := os.Getwd()
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(os.Chdir, cwd)
+		Expect(os.Chdir(GinkgoT().TempDir())).To(Succeed())
+		GinkgoT().Setenv("SDD_LOCAL_ROOT", "")
+		Expect(os.Unsetenv("SDD_LOCAL_ROOT")).To(Succeed())
+		var out bytes.Buffer
+		Expect(run(nil, &out)).To(Succeed())
+		html, err := os.ReadFile("viewer.html")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(validatePage(html)).To(Succeed())
+	})
+	It("keeps bare checks write-free even with an unusable default root", func() {
+		root := GinkgoT().TempDir()
+		GinkgoT().Setenv("SDD_LOCAL_ROOT", filepath.Join(root, "missing"))
+		var out bytes.Buffer
+		Expect(run([]string{"-check"}, &out)).To(Succeed())
+		entries, err := os.ReadDir(root)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).To(BeEmpty())
+	})
 	It("checks in memory without writing and supports explicit output plus stale-file checks", func() {
+		GinkgoT().Setenv("SDD_LOCAL_ROOT", filepath.Join(GinkgoT().TempDir(), "missing"))
 		dir := GinkgoT().TempDir()
 		path := filepath.Join(dir, "viewer.html")
 		var out bytes.Buffer
