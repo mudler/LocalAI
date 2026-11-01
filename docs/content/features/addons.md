@@ -3731,13 +3731,14 @@ development build).
 
 ### Declarations
 
-All three lists are inside `ui` and are optional. A manifest without them is valid.
+All four lists are inside `ui` and are optional. A manifest without them is valid.
 
 | Field | Entry | Rules |
 |---|---|---|
 | `ui.chatActions` | A bare identifier, or `{id, label, icon, placement, target}` | `id` is a namespace name. `label` is plain text (60 characters at most) or a language map; markup characters are rejected. `icon` is a host icon name from the SDK list or the packaged `ui.icon` path; a remote or absolute address is rejected. `placement` is `composer` or `message`. `target` has exactly one of `{tool}` (a tool in `capabilities.tools`) and `{component}` (an export of the module). |
 | `ui.slots` | `{id, slot, component}` | `slot` is one of the host slot identifiers below. `id` is a namespace name that no chat action uses. |
 | `ui.renderers` | `{kind, tool, component}` | `kind` is `approval-card` or `tool-result`. `tool` is a tool of the same add-on. One renderer for each kind and tool. |
+| `ui.controls` | A host control ID | One of the IDs in [Host controls](#host-controls). At most 8, no repeats. The add-on supplies no component for it. |
 
 A component name is a PascalCase identifier of at most 64 characters. Each list has at
 most 16 entries. Identifiers are unique across chat actions and slots. Any unknown field
@@ -3778,6 +3779,35 @@ dot (`"extensions": ["docx", "xlsx"]`, one to 16, no repeats). No other slot has
 `path` is the path of the file inside the user's files, `name` its name and `extension` its
 extension. The component reads the file through a read tool of its own add-on, as the user;
 the host never hands it file content.
+
+### Host controls
+
+A host control is a component that LocalAI ships and draws itself, bound to its own
+settings. An add-on asks for one by ID in `ui.controls`; it supplies no code, value or
+label for it, so it cannot change what the control does. The list of controls is closed,
+like the slot list. Any add-on can use any control it is entitled to: the host never reads
+the add-on's ID to decide.
+
+| Control | Where the host draws it | The add-on must |
+|---|---|---|
+| `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, audit retention and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare a tool that replaces `bash`. |
+| `tool-providers` | On the add-on's **Settings** tab: the rows of Settings > Tools for the built-in tools it replaces (who serves the tool, the choice when several add-ons replace it, and the switch of the built-in tool). | Declare at least one tool that replaces a built-in tool (`shadows`). |
+
+The apps list carries the controls in `ui.controls`, with only those the add-on is
+entitled to now. A control whose grant was removed is dropped from the list, without an
+error. Declaring a control grants nothing: the host operation, the limit and the audit
+work the same with or without it. A manifest without `ui.controls` is valid, and an add-on
+with a control has a **Settings** tab even when it declares no `settings.sections`.
+
+A second add-on that runs commands through the same proxy gets the same block, row and
+link with one manifest line and one grant, and no change to LocalAI:
+
+```json
+"ui": { "entry": "ui/devbox.js", "sdk": { "min": 2, "max": 2 }, "controls": ["network-policy", "tool-providers"] }
+```
+
+The grant is one more entry of `LOCALAI_ADDON_HOST_OPS`, next to the ones it has:
+`devbox=egress.`. The setting replaces the default list, so keep its other entries.
 
 ### What the host guarantees
 
