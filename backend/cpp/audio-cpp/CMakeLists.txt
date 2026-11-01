@@ -237,6 +237,14 @@ if(AUDIO_CPP_GRPC_BUILD_TESTS)
 
     enable_testing()
 
+    # Graph-only checkpoint, not complete offline/music cancellation acceptance.
+    add_executable(music_sheetsage_cancellation_ctest music_sheetsage_cancellation_ctest.cpp)
+    target_include_directories(music_sheetsage_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    target_link_libraries(music_sheetsage_cancellation_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    target_compile_options(music_sheetsage_cancellation_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_sheetsage_cancellation COMMAND music_sheetsage_cancellation_ctest)
+    set_tests_properties(music_sheetsage_cancellation PROPERTIES TIMEOUT 60)
+
     # This bounded CPU test calls the linked CPU API, not dynamically loaded
     # all-variant modules. Shipping builds (tests OFF) are unaffected.
     option(AUDIO_CPP_GRPC_BUILD_MUSIC_CANCELLATION_TEST

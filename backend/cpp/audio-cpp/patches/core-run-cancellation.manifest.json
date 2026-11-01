@@ -13,6 +13,14 @@
       "base_sha256": "24b49f98489d4db942eefa2d3917f45153339c37018dc9e7182bb841a280a8c0",
       "final_sha256": "5e3c40fa1327b317caccffddddadafbdb01f7b46ba61fb1a380e41ec88a566a7"
     },
+    "include/engine/framework/runtime/session.h": {
+      "base_sha256": "8ea01d52e91796c4049bbc72c019c6df4ac98d245e680d8abab2d9b514d9610b",
+      "final_sha256": "cc196eb324773791f795f764a57ae42153f9ca5430ec522d4c98550b1cf75b33"
+    },
+    "include/engine/models/sheetsage/session.h": {
+      "base_sha256": "2f76d0e21bbca9c968465cd2bea4a3b4f9be070350c2e82c5fd650343c63fe08",
+      "final_sha256": "19c4b2aecdbc2183c862736baa45b125aece4bc604132e711c4e26ceeb2b96f6"
+    },
     "src/framework/core/backend.cpp": {
       "base_sha256": "3f9a5a491ef4ae2f337272144f25baf5173fc46f577eb61afba7b639dc833ae7",
       "final_sha256": "f007f06172edc071cc3b07d812ee1e2c2cfc617f531e0afb44b05aff12d7807e"
@@ -24,6 +32,14 @@
     "src/framework/runtime/graph_executor.cpp": {
       "base_sha256": "e71d1c7015a6c49505a059cf9ca2314f278953d5291ab504fea5962b41dbddb5",
       "final_sha256": "7536e3e0ad958433395771460d502a5489357c4c2b8f37ffafcab4d6b1700b9e"
+    },
+    "src/models/sheetsage/runtime.cpp": {
+      "base_sha256": "01a1825c7011e14308f1a5f40a57907a21899c2fa4ab321f421499be1579ed36",
+      "final_sha256": "2d36565f4504c12f6bcb6b56d2d8bc9b08124d59bd1cdae00bb243f9c63edf93"
+    },
+    "src/models/sheetsage/session.cpp": {
+      "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
+      "final_sha256": "a04d3c4ac347f276eb0b9582c4006d3ac04d85cca0513695bcc444a35cb77d2f"
     }
   },
   "omitted_tracked_paths": {
@@ -98,6 +114,28 @@
       },
       "patch": "0001-core-run-cancellation.patch",
       "patch_sha256": "ebb201f00bb2aea5cfbc391f934b8d38cb4ee1c50ece6d4be09c124b036d954e"
+    },
+    {
+      "files": {
+        "include/engine/framework/runtime/session.h": {
+          "base_sha256": "8ea01d52e91796c4049bbc72c019c6df4ac98d245e680d8abab2d9b514d9610b",
+          "final_sha256": "cc196eb324773791f795f764a57ae42153f9ca5430ec522d4c98550b1cf75b33"
+        },
+        "include/engine/models/sheetsage/session.h": {
+          "base_sha256": "2f76d0e21bbca9c968465cd2bea4a3b4f9be070350c2e82c5fd650343c63fe08",
+          "final_sha256": "19c4b2aecdbc2183c862736baa45b125aece4bc604132e711c4e26ceeb2b96f6"
+        },
+        "src/models/sheetsage/runtime.cpp": {
+          "base_sha256": "01a1825c7011e14308f1a5f40a57907a21899c2fa4ab321f421499be1579ed36",
+          "final_sha256": "2d36565f4504c12f6bcb6b56d2d8bc9b08124d59bd1cdae00bb243f9c63edf93"
+        },
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
+          "final_sha256": "a04d3c4ac347f276eb0b9582c4006d3ac04d85cca0513695bcc444a35cb77d2f"
+        }
+      },
+      "patch": "0002-sheetsage-graph-cancellation.patch",
+      "patch_sha256": "db1349d04f20f60c19bdb64eaf0835c3e51089a7bee2b638acef947860a05ebb"
     }
   ]
 }
