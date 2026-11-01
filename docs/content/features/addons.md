@@ -136,6 +136,126 @@ receipt is pruned conflicts on its stale revision rather than applying again.
 Acknowledgement follows durable persistence; uncertain durability requires reopening
 and reconciling the operation before further use.
 
+## Optional typed manifest extensions
+
+These declarations extend the strict manifest contract. They keep
+`schemaVersion: 1`, host/API/protocol/data-format level 1 and UI SDK 2.
+The Go contract parser is authoritative; there is no separate JSON Schema.
+The fragments below merge into an otherwise valid manifest, not a complete
+installable package. Existing executable, identity, compatibility and UI
+entry/SDK fields remain required.
+
+### Home page commands
+
+Inside `capabilities.ui`:
+
+```json
+{
+  "pages": ["studio"],
+  "navigation": ["studio"],
+  "mainPage": "studio",
+  "title": {"en": "Studio", "it": "Studio"},
+  "icon": "ui/icon.png",
+  "homeCommands": [{"id": "open", "alias": "studio"}]
+}
+```
+
+`homeCommands` is opt-in and has at most 8 records. Each has a unique `id`
+accepted by `contract.ValidName`. Optional `alias` uses the same lower-case,
+slash-free identifier syntax; it requests convenience naming, not ownership.
+Optional `page` must belong to `pages`, even if not in `navigation`. Omission
+uses a nonempty, declared `mainPage`, never the first page or an external URL.
+
+Optional `label` is a `Localized` string or language map (not a `default`
+wrapper), with at most 60 Unicode characters per label and the existing
+plain-text and language rules. Omission selects the installed localized title
+and, for a non-main destination, the page identifier. Optional `icon` is an
+allowlisted semantic host icon or exactly the packaged `ui.icon`; omission
+selects the installed app icon, then `puzzle`. Omit unused overrides rather
+than sending empty strings or null. No tool, URL, command text, install action
+or component can be a command destination.
+
+### Execution provider and status payload
+
+Inside `capabilities`:
+
+```json
+{
+  "executionProvider": {
+    "tools": ["bash"],
+    "statusTool": "execution-status"
+  }
+}
+```
+
+`tools` contains 1–8 unique declared action tools with executable definitions.
+The current chat binding requires each bound tool to shadow `bash` through
+`shadows`; existing shadow validation still applies, including its uniqueness
+rule. This declaration neither grants shadow authority nor changes provider
+arbitration or execution authorization.
+
+`statusTool` is a separately declared `kind: "read"`, `uiOnly: true` tool,
+not an execution binding or admin tool. Its input schema is an object accepting
+`{}`, with no required inputs, no resource, and `additionalProperties: false`.
+It must answer without mutation. An owner-side typed read must invoke it;
+the model-facing tool adapter intentionally excludes `uiOnly` tools.
+
+The existing result envelope carries this JSON in `payload`:
+
+```json
+{
+  "readiness": "available",
+  "isolation": "isolated",
+  "explanation": "Commands use the configured isolated backend."
+}
+```
+
+`contract.DecodeExecutionStatus` accepts at most 2048 UTF-8 bytes. Both enums
+are required: readiness is `available`, `unavailable` or `unknown`; isolation
+is `isolated`, `host` or `unknown`. Optional explanation is nonempty plain text,
+at most 200 Unicode characters, without markup, controls or direction overrides.
+Unknown or duplicate fields, trailing JSON, `outputs`, private `ok` fields,
+backend names and warning booleans are not accepted. Invalid payloads return
+an error and unknown/unknown, never partial provider data. Non-available
+readiness normalizes isolation to unknown. Status describes only the bound
+tools of that addon incarnation; it is not a host isolation guarantee.
+
+### Requested host operations are not grants
+
+Inside `capabilities`:
+
+```json
+{
+  "hostOperations": {
+    "required": ["workspace.materialize", "workspace.commit"],
+    "optional": ["egress.check", "egress.audit"]
+  }
+}
+```
+
+Each name must pass `contract.ValidHostOp` exactly: no wildcard or prefix grant.
+There are at most 32 entries total, unique across both lists. An empty object
+is invalid. Omission preserves legacy/unspecified requests, not an empty grant
+and not a request for every operation. Required operations declare service
+prerequisites; optional denials must support degraded operation. Unknown but
+syntactically valid names are unsupported, never grants by inference. Requests
+do not create host endpoints or change administrator-controlled grants.
+
+### Compatibility and release packaging
+
+New hosts accept old manifests without these fields. Old hosts reject unknown
+extension fields during staging. Extension-bearing packages therefore require
+the host release introducing these contracts; document that minimum LocalAI
+release beside each addon release. An older host must retain its installed
+package on refusal. Do not add automatic install retries or promise new error
+wording from old binaries.
+
+Catalog version ranges do not negotiate individual fields and cannot guarantee
+eligibility before staging. SDK 2 does not signal support for these manifest
+extensions. If older hosts need support, release maintainers must decide whether
+and how long to publish separate legacy packages. These declarations alone do
+not install packages, grant operations or activate runtime/UI integrations.
+
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an

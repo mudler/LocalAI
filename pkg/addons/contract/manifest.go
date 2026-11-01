@@ -111,8 +111,10 @@ type Capabilities struct {
 	Connector *ConnectorCapability `json:"connector,omitempty"`
 	// SkillDefinitions are the skills the package ships under skills/ (see
 	// skills.go). The chat's skill index offers them while the add-on runs.
-	SkillDefinitions []SkillDefinition `json:"skillDefinitions,omitempty"`
-	UI               *UI               `json:"ui,omitempty"`
+	SkillDefinitions  []SkillDefinition  `json:"skillDefinitions,omitempty"`
+	UI                *UI                `json:"ui,omitempty"`
+	ExecutionProvider *ExecutionProvider `json:"executionProvider,omitempty"`
+	HostOperations    *HostOperations    `json:"hostOperations,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -203,11 +205,12 @@ func validateResourceTools(c Capabilities) error {
 }
 
 type UI struct {
-	Entry      string       `json:"entry"`
-	CSS        []string     `json:"css,omitempty"`
-	SDK        VersionRange `json:"sdk"`
-	Pages      []string     `json:"pages,omitempty"`
-	Navigation []string     `json:"navigation,omitempty"`
+	HomeCommands []HomeCommand `json:"homeCommands,omitempty"`
+	Entry        string        `json:"entry"`
+	CSS          []string      `json:"css,omitempty"`
+	SDK          VersionRange  `json:"sdk"`
+	Pages        []string      `json:"pages,omitempty"`
+	Navigation   []string      `json:"navigation,omitempty"`
 	// ChatActions are the chat actions: a bare identifier (inert) or a full
 	// declaration with label, icon, placement and target.
 	ChatActions []ChatAction `json:"chatActions,omitempty"`
@@ -356,6 +359,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		}
 	}
 	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
+		return e
+	}
+	if e := validateExtensions(c); e != nil {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {
