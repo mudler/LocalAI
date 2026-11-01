@@ -105,7 +105,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
 		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network}
-	saved, err := h.svc.ImportAgent(c.Request().Context(), userID(c), a)
+	saved, err := h.svc.ImportAgent(c.Request().Context(), userID(c), a, nil)
 	if err != nil {
 		return failFor(c, err)
 	}
