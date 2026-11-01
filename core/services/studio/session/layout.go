@@ -178,23 +178,37 @@ type SharedRoot struct {
 	Mode workspace.Mode // the mode to ask for; the store clamps it to the grant
 }
 
-// BuildView returns the view of a chat: the home folder read-write at
-// "home", and each shared root at "shared-<name>". A shared root that the
-// store refuses (the grant is gone) is skipped and logged. A missing home
-// folder is ErrNoHome.
-func BuildView(ctx context.Context, st workspace.Store, a workspace.Actor, shared []SharedRoot, log *slog.Logger) (workspace.View, error) {
+// BuildView returns the view of a chat: primary (the home, or the agent's
+// folder of a scoped chat) at "home", the chat folder at "chat" when chat is
+// not "", and each shared root at "shared-<name>". The store caps each mount
+// at the actor's mode, so a fenced actor gets its folder at the agent's mode.
+// A fenced actor gets the shared folders read only. A shared root that the
+// store refuses (the grant is gone, or it is outside the fence) is skipped
+// and logged. A primary folder that cannot be mounted is ErrNoHome; a chat
+// folder that cannot be mounted is an error too, since the resolver makes it
+// before it fences.
+func BuildView(ctx context.Context, st workspace.Store, a workspace.Actor, primary string, chat string, shared []SharedRoot, log *slog.Logger) (workspace.View, error) {
 	home := HomePath(a.Principal)
-	reqs := []workspace.MountRequest{{Path: home, At: GuestHome, Mode: workspace.ModeWrite}}
+	reqs := []workspace.MountRequest{{Path: primary, At: GuestHome, Mode: workspace.ModeWrite}}
 	v, err := st.View(ctx, a, reqs)
 	if err != nil {
 		if missingFolder(err) {
-			return workspace.View{}, fmt.Errorf("%w: %s", ErrNoHome, home)
+			return workspace.View{}, fmt.Errorf("%w: %s", ErrNoHome, primary)
 		}
 		return workspace.View{}, err
 	}
-	// The names of the skill layers are reserved: the file tools read the
-	// layers there, so a shared folder named skills gets "shared-skills 2".
-	used := map[string]bool{workspace.FoldName(GuestHome): true}
+	if chat != "" {
+		cv, err := st.View(ctx, a, []workspace.MountRequest{{Path: chat, At: GuestChat, Mode: workspace.ModeWrite}})
+		if err != nil {
+			return workspace.View{}, fmt.Errorf("session: mount the chat folder: %w", err)
+		}
+		v.Mounts = append(v.Mounts, cv.Mounts...)
+	}
+	fenced := workspace.HasFence(a)
+	// The names of the skill layers and of the chat folder are reserved: the
+	// file tools read them there, so a shared folder named skills gets
+	// "shared-skills 2".
+	used := map[string]bool{workspace.FoldName(GuestHome): true, workspace.FoldName(GuestChat): true}
 	for _, l := range SkillLayers {
 		used[workspace.FoldName(l.At)] = true
 	}
@@ -208,6 +222,9 @@ func BuildView(ctx context.Context, st workspace.Store, a workspace.Actor, share
 		mode := s.Mode
 		if mode != workspace.ModeRead {
 			mode = workspace.ModeWrite
+		}
+		if fenced {
+			mode = workspace.ModeRead
 		}
 		// Leave room for the " N" suffix that uniqueName may add.
 		base := fitBytes(GuestSharedPrefix+path.Base(p), maxNameBytes-len(" 999"))
@@ -239,15 +256,29 @@ func missingFolder(err error) bool {
 		errors.Is(err, workspace.ErrBadName)
 }
 
-// LayoutPrompt describes the guest layout for the system prompt.
-func LayoutPrompt(v workspace.View) string {
+// ScopedPrompt says how LayoutPrompt names the folders: Scoped is set for
+// a chat whose agent has a folder.
+type ScopedPrompt struct {
+	Scoped bool
+}
+
+// PromptScope is the ScopedPrompt of a view: scoped when its actor has a
+// fence or it mounts the chat folder.
+func PromptScope(v workspace.View) ScopedPrompt {
+	return ScopedPrompt{Scoped: NewPlace(v).Scoped()}
+}
+
+// LayoutPrompt describes the guest layout for the system prompt. A scoped
+// chat hears only of its folders, by the name the user gave the agent's
+// folder, and gets no hint to build a page: pages live outside its folder.
+func LayoutPrompt(v workspace.View, scoped ScopedPrompt) string {
+	if scoped.Scoped {
+		return scopedLayoutPrompt(v)
+	}
 	var b strings.Builder
 	b.WriteString("The user's files are in these folders; use these paths with the file tools:\n")
 	for _, m := range v.Mounts {
-		access := "read and write"
-		if m.Mode < workspace.ModeWrite {
-			access = "read only"
-		}
+		access := accessWords(m.Mode)
 		switch {
 		case m.At == GuestHome:
 			fmt.Fprintf(&b, "- %s/%s: the user's home folder (%s). Files the user uploads to a chat are in %s/%s/%s/.\n", GuestRoot, m.At, access, GuestRoot, m.At, ChatsDir)
@@ -257,5 +288,36 @@ func LayoutPrompt(v workspace.View) string {
 	}
 	b.WriteString("There is nothing else under " + GuestRoot + ": a path such as " + GuestRoot + "/myapp is not a folder of the user; write " + GuestRoot + "/" + GuestHome + "/myapp instead. " +
 		"To make an app the user can open, build a Page: " + GuestRoot + "/" + GuestHome + "/pages/<name>/index.html. Every change is saved, and the user can undo it.")
+	return b.String()
+}
+
+func accessWords(m workspace.Mode) string {
+	if m < workspace.ModeWrite {
+		return "read only"
+	}
+	return "read and write"
+}
+
+func scopedLayoutPrompt(v workspace.View) string {
+	home := ""
+	if validPrincipal(v.Actor.Principal) {
+		home = HomePath(v.Actor.Principal)
+	}
+	var b strings.Builder
+	b.WriteString("The files you can use are in these folders; use these paths with the file tools:\n")
+	for _, m := range v.Mounts {
+		access := accessWords(m.Mode)
+		switch {
+		case m.At == GuestHome && (m.Path == home || home == ""):
+			fmt.Fprintf(&b, "- %s/%s: the user's home folder (%s).\n", GuestRoot, m.At, access)
+		case m.At == GuestHome:
+			fmt.Fprintf(&b, "- %s/%s: the folder %q of the user (%s). You cannot see the user's other files.\n", GuestRoot, m.At, path.Base(m.Path), access)
+		case m.At == GuestChat:
+			fmt.Fprintf(&b, "- %s/%s: this chat's own folder (%s). Files the user attaches are here; save working files in %s/%s/%s/.\n", GuestRoot, m.At, access, GuestRoot, m.At, workfiles.Dir)
+		default:
+			fmt.Fprintf(&b, "- %s/%s: a folder shared with the user (%s).\n", GuestRoot, m.At, access)
+		}
+	}
+	b.WriteString("There is nothing else under " + GuestRoot + ". Every change is saved, and the user can undo it.")
 	return b.String()
 }

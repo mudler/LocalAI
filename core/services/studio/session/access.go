@@ -64,7 +64,7 @@ func (m *Manager) buildView(ctx context.Context, a workspace.Actor) (workspace.V
 			return workspace.View{}, fmt.Errorf("session: list shared folders: %w", err)
 		}
 	}
-	return BuildView(ctx, m.o.Workspace, a, shared, m.log)
+	return BuildView(ctx, m.o.Workspace, a, HomePath(a.Principal), "", shared, m.log)
 }
 
 // reloadView builds the view of the chat again, for the actor that the chat

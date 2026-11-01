@@ -312,7 +312,7 @@ func (c *Chat) startHarness(ctx context.Context) error {
 	c.harnessView = c.view
 	view := c.view
 	c.accMu.Unlock()
-	prompt += LayoutPrompt(view)
+	prompt += LayoutPrompt(view, PromptScope(view))
 	c.hostMu.Lock()
 	turnPrompt := c.host.prompt
 	c.hostMu.Unlock()

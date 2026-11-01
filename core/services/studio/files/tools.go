@@ -166,7 +166,7 @@ func (s *Service) locateShared(ctx context.Context, a workspace.Actor, p string)
 	if err != nil {
 		return target{}, err
 	}
-	v, err := session.BuildView(ctx, s.ws, a, shared, quietLog)
+	v, err := session.BuildView(ctx, s.ws, a, session.HomePath(a.Principal), "", shared, quietLog)
 	if err != nil {
 		return target{}, err
 	}
