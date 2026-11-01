@@ -831,10 +831,12 @@ func ensureAuthDBDirs(options *config.ApplicationConfig) error {
 	return nil
 }
 
-// workspaceStartupCleanup owns PostgreSQL workspace startup resources.
-// Never cancel the caller's context or change the legacy startup lifecycle.
+// workspaceStartupCleanup owns startup resources when workspace initialization
+// can fail fatally: configured S3 (with or without auth), or PostgreSQL metadata.
+// Never cancel the caller's context or change legacy JSON/SQLite without S3.
 func workspaceStartupCleanup(options *config.ApplicationConfig) func(*Application) {
-	if !options.Auth.Enabled || !(strings.HasPrefix(options.Auth.DatabaseURL, "postgres://") || strings.HasPrefix(options.Auth.DatabaseURL, "postgresql://")) {
+	postgres := options.Auth.Enabled && (strings.HasPrefix(options.Auth.DatabaseURL, "postgres://") || strings.HasPrefix(options.Auth.DatabaseURL, "postgresql://"))
+	if options.Distributed.StorageURL == "" && !postgres {
 		return func(*Application) {}
 	}
 	ctx, cancel := context.WithCancel(options.Context)

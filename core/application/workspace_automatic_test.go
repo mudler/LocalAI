@@ -74,6 +74,37 @@ var _ = Describe("automatic workspace", func() {
 		Expect(app.initStudioFiles()).To(MatchError(ContainSubstring("bucket")))
 		Expect(app.Distributed()).To(BeNil())
 	})
+	DescribeTable("cleans up standalone configured S3 startup failure", func(database bool) {
+		caller, cancel := context.WithCancel(context.Background())
+		DeferCleanup(cancel)
+		cfg := config.NewApplicationConfig(config.WithContext(caller), config.WithDataPath(GinkgoT().TempDir()))
+		cfg.Distributed.StorageURL = "http://s3.invalid:9000" // no bucket: fail before any network access
+		cfg.Auth.Enabled = database
+		cfg.Auth.DatabaseURL = filepath.Join(GinkgoT().TempDir(), "auth.db")
+		cleanup := workspaceStartupCleanup(cfg) // the same ownership scope used by New
+		app := &Application{applicationConfig: cfg}
+		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
+		if database {
+			withSQLite(app)
+		}
+		cleaned := false
+		app.studioLoopsStop = func() { cleaned = true }
+		stopped := make(chan struct{})
+		go func() { <-cfg.Context.Done(); close(stopped) }()
+
+		Expect(app.initStudioFiles()).To(MatchError(ContainSubstring("bucket")))
+		cleanup(app)
+		if database {
+			pool, err := app.authDB.DB()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(pool.Ping()).To(MatchError(ContainSubstring("database is closed")))
+		}
+		Expect(cfg.Context.Err()).To(MatchError(context.Canceled))
+		Eventually(stopped).Should(BeClosed())
+		Expect(cleaned).To(BeTrue(), "startup failure must shut down already opened resources")
+		Expect(caller.Err()).NotTo(HaveOccurred())
+		Expect(app.Distributed()).To(BeNil())
+	}, Entry("SQLite owner", true), Entry("no-auth owner", false))
 	DescribeTable("constructs owner S3 once and shares bytes through frontend S3 without changing global storage", func(database, noPath bool) {
 		dp := GinkgoT().TempDir()
 		if noPath {
