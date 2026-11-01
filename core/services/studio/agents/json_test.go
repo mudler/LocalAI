@@ -31,13 +31,16 @@ var _ = Describe("the JSON agent store", func() {
 
 	It("reads an agent stored before the folder fields as one without a folder", func() {
 		dir := GinkgoT().TempDir()
-		old := `[{"ID":"old","Principal":"u1","Name":"Old","Description":"","Instructions":"","Model":"","MCPServers":null,"Addons":null,"Collections":null,"Skills":null,"Network":"","Created":"2026-10-01T09:00:00Z","Updated":"2026-10-01T09:00:00Z"}]`
+		old := `[{"ID":"old","Principal":"u1","Name":"Old","Description":"","Instructions":"","Model":"","MCPServers":null,"Addons":null,"Collections":["docs"],"Skills":null,"Network":"","Created":"2026-10-01T09:00:00Z","Updated":"2026-10-01T09:00:00Z"}]`
 		Expect(os.WriteFile(filepath.Join(dir, "agents.json"), []byte(old), 0o600)).To(Succeed())
 		s, err := agents.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
 		got, err := s.Get(context.Background(), "u1", "old")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Name).To(Equal("Old"))
+		Expect(got.Memory.AddMemory).To(BeFalse())
+		Expect(got.Memory.AutomaticIngestion).To(Equal("off"))
+		Expect(got.CollectionPermissions.Grants).To(Equal([]agents.CollectionGrant{{Collection: "docs", Search: true}}))
 		Expect(got.FolderID).To(BeZero())
 		Expect(got.FolderMode).To(BeEmpty())
 	})

@@ -30,6 +30,40 @@ func sample(id, principal, name string) agents.Agent {
 // Run registers the specs that check the store.
 func Run(newStore NewStore) {
 	ctx := context.Background()
+	It("MemoryPolicyRoundTripAndLegacyReplacement", func() {
+		s := newStore()
+		for _, mode := range []string{"off", "incoming_only", "incoming_and_replies", "summary"} {
+			a := sample("memory", "u1", "Memory")
+			a.Collections = nil
+			a.CollectionPermissions = &agents.CollectionPermissions{Version: 1, Grants: []agents.CollectionGrant{{Collection: "docs", Search: true}, {Collection: "archive", DeleteEntries: true}, {Collection: "destination"}}}
+			a.Memory = &agents.MemorySettings{Version: 1, AddMemory: true, Destination: "destination", ToolStorage: "summary", AutomaticIngestion: mode}
+			Expect(s.Put(ctx, a)).To(Succeed())
+			got, err := s.Get(ctx, "u1", "memory")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got.Memory).To(Equal(a.Memory))
+			Expect(got.CollectionPermissions).To(Equal(a.CollectionPermissions))
+			Expect(got.Collections).To(Equal([]string{"docs"}))
+			got.Memory.AddMemory = false
+			got.CollectionPermissions.Grants[0].Search = false
+			again, err := s.Get(ctx, "u1", "memory")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(again.Memory.AddMemory).To(BeTrue())
+			Expect(again.CollectionPermissions.Grants[0].Search).To(BeTrue())
+			list, err := s.List(ctx, "u1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list[0].Memory).To(Equal(a.Memory))
+			all, err := s.ListAll(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(all[0].CollectionPermissions).To(Equal(a.CollectionPermissions))
+		}
+		legacy := sample("memory", "u1", "Memory")
+		Expect(s.Put(ctx, legacy)).To(Succeed())
+		got, err := s.Get(ctx, "u1", "memory")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Memory.AddMemory).To(BeFalse())
+		Expect(got.Memory.AutomaticIngestion).To(Equal("off"))
+		Expect(got.CollectionPermissions.Grants).To(Equal([]agents.CollectionGrant{{Collection: "docs", Search: true}}))
+	})
 	It("RoundTrip", func() {
 		s := newStore()
 		a := sample("a1", "u1", "Reviewer")
@@ -150,7 +184,10 @@ func Run(newStore NewStore) {
 
 // Seed stores one agent; CheckSeed finds it in another store on the same data.
 func Seed(s agents.Store) {
-	Expect(s.Put(context.Background(), sample("seed", "u1", "Seeded"))).To(Succeed())
+	a := sample("seed", "u1", "Seeded")
+	a.CollectionPermissions = &agents.CollectionPermissions{Version: 1, Grants: []agents.CollectionGrant{{Collection: "docs", Search: true}, {Collection: "destination"}}}
+	a.Memory = &agents.MemorySettings{Version: 1, AddMemory: true, Destination: "destination", ToolStorage: "summary", AutomaticIngestion: "incoming_and_replies"}
+	Expect(s.Put(context.Background(), a)).To(Succeed())
 }
 
 // CheckSeed checks what Seed wrote.
@@ -159,4 +196,6 @@ func CheckSeed(s agents.Store) {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(got.Name).To(Equal("Seeded"))
 	Expect(got.Addons).To(HaveLen(2))
+	Expect(got.Memory).To(Equal(&agents.MemorySettings{Version: 1, AddMemory: true, Destination: "destination", ToolStorage: "summary", AutomaticIngestion: "incoming_and_replies"}))
+	Expect(got.CollectionPermissions.Grants).To(Equal([]agents.CollectionGrant{{Collection: "docs", Search: true}, {Collection: "destination"}}))
 }

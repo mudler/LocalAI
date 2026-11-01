@@ -44,7 +44,11 @@ func NewJSON(dir string) (Store, error) {
 		return nil, fmt.Errorf("agents: read %s: %w", s.path, err)
 	}
 	for _, a := range all {
-		s.byID[a.ID] = a
+		n, err := NormalizeMemory(a)
+		if err != nil {
+			return nil, fmt.Errorf("agents: migrate %s: %w", a.ID, err)
+		}
+		s.byID[a.ID] = n
 	}
 	return s, nil
 }
@@ -62,6 +66,11 @@ func (s *jsonStore) save() error {
 }
 
 func (s *jsonStore) Put(_ context.Context, a Agent) error {
+	var err error
+	a, err = NormalizeMemory(a)
+	if err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	old, exists := s.byID[a.ID]

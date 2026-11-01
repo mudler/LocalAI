@@ -626,3 +626,68 @@ behaves with several frontends:
 | Live notifications | Shared, live only | Sent over the message bus to every frontend, with the "read or deleted" signal. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |
 | Where the turn of a run runs | Stateless | On the frontend that started it, or on a chat worker when the frontends send unattended turns there. The turn claim, its heartbeat and the waiting messages are in the database, so either one can run it and only one does. |
+
+## Versioned collection and memory configuration
+
+Saved-agent APIs and exported definitions retain `collections` as a **search-only
+compatibility projection**. The versioned policy separates search from deletion
+and records memory settings explicitly:
+
+```json
+{
+  "name": "Recorder",
+  "collections": ["reference"],
+  "collection_permissions": {
+    "version": 1,
+    "grants": [
+      {"collection": "reference", "search": true, "delete_entries": false},
+      {"collection": "notes", "search": false, "delete_entries": false}
+    ]
+  },
+  "memory": {
+    "version": 1,
+    "add_memory": true,
+    "destination": "notes",
+    "tool_storage": "content",
+    "automatic_ingestion": "off"
+  }
+}
+```
+
+This task introduces configuration storage and round trips, not memory tools or
+automatic capture execution. The example expresses tool-only memory intent:
+`add_memory` is independent of automatic ingestion. Storage is `content` or
+`summary`; automatic ingestion is `off`, `incoming_only`,
+`incoming_and_replies`, or `summary`. Defaults are adding disabled, no destination,
+`content`, and `off`. No existing agent or template gains mutation permissions.
+
+There is at most one destination, and it must be an associated collection when
+adding or automatic ingestion is enabled. Its search and deletion grants can
+both be false. Removing that collection while retaining active memory settings
+is rejected. `delete_entries` expresses permission to delete individual entries,
+including entries created by others in that collection, not to reset a collection.
+These configuration grants do not replace collection ownership or feature checks.
+
+### Migration and replacement safety
+
+Old JSON definitions and database rows are read as search-only grants with
+memory off. Database migration adds nullable policy columns without dropping
+existing data. Policies are normalized on reads and saved on subsequent writes.
+JSON storage continues using its existing Go field names on disk; API and export
+files use the lower-case names above.
+
+Create, replace and import accept the versioned fields. When
+`collection_permissions` is supplied it is authoritative: if `collections` is
+also supplied, it must equal the ordered list of search-enabled collections.
+An explicit empty list (or `null` compatibility list) is not omission. Versioned
+policy objects cannot be `null`. Unknown policy fields, versions, enum values,
+duplicate keys and duplicate collection grants are rejected.
+
+A legacy-only replacement, with neither versioned field, replaces associations
+with search-only grants and disables memory mutations; it **does not retain
+hidden delete or write permissions**. Editing with an older client may therefore
+disable writes. Omitting `memory` defaults it to off rather than preserving an
+old write setting. Legacy imports remain search-only, and exports include both
+versioned fields. The existing file envelope versions (1 without a folder, 2
+with a folder) are unchanged. No new management route or process-wide admin MCP
+memory mutation surface is introduced by this configuration change.

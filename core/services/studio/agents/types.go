@@ -46,11 +46,13 @@ type Agent struct {
 	Instructions  string
 	// Model is the model a chat with this agent talks to. Empty: the model the
 	// chat is created with.
-	Model       string
-	MCPServers  []string // names of servers in the model's MCP configuration
-	Addons      []string // add-on IDs
-	Collections []string // collection names
-	Skills      []string // skill names
+	Model                 string
+	MCPServers            []string // names of servers in the model's MCP configuration
+	Addons                []string // add-on IDs
+	Collections           []string // compatibility search-only projection
+	CollectionPermissions *CollectionPermissions
+	Memory                *MemorySettings
+	Skills                []string // skill names
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs (triggers, connectors): off, registries or all, capped
 	// by the administrator's ceiling. Empty is off. A run never asks a
@@ -99,6 +101,9 @@ func NameKey(name string) string { return strings.ToLower(strings.TrimSpace(name
 
 // Validate checks the limits of a definition. The error wraps ErrInvalid.
 func Validate(a Agent) error {
+	if _, err := NormalizeMemory(a); err != nil {
+		return err
+	}
 	bad := func(format string, args ...any) error {
 		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, args...))
 	}
@@ -153,7 +158,18 @@ func Validate(a Agent) error {
 func (a Agent) clone() Agent {
 	a.MCPServers = append([]string(nil), a.MCPServers...)
 	a.Addons = append([]string(nil), a.Addons...)
-	a.Collections = append([]string(nil), a.Collections...)
+	if a.Collections != nil {
+		a.Collections = append([]string{}, a.Collections...)
+	}
+	if a.CollectionPermissions != nil {
+		p := *a.CollectionPermissions
+		p.Grants = append([]CollectionGrant{}, p.Grants...)
+		a.CollectionPermissions = &p
+	}
+	if a.Memory != nil {
+		m := *a.Memory
+		a.Memory = &m
+	}
 	a.Skills = append([]string(nil), a.Skills...)
 	return a
 }

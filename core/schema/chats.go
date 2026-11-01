@@ -1,7 +1,10 @@
 package schema
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"time"
 )
 
@@ -39,15 +42,17 @@ type ChatsSwitches struct {
 // ChatsAgent is a saved agent. The four lists are exact grants: an empty list
 // grants nothing, and a chat gets only what you may use at that moment.
 type ChatsAgent struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
-	Instructions string   `json:"instructions"`
-	Model        string   `json:"model,omitempty"`
-	MCPServers   []string `json:"mcp_servers"`
-	Addons       []string `json:"addons"`
-	Collections  []string `json:"collections"`
-	Skills       []string `json:"skills"`
+	ID                    string                        `json:"id"`
+	Name                  string                        `json:"name"`
+	Description           string                        `json:"description"`
+	Instructions          string                        `json:"instructions"`
+	Model                 string                        `json:"model,omitempty"`
+	MCPServers            []string                      `json:"mcp_servers"`
+	Addons                []string                      `json:"addons"`
+	Collections           []string                      `json:"collections"`
+	CollectionPermissions *agents.CollectionPermissions `json:"collection_permissions,omitempty"`
+	Memory                *agents.MemorySettings        `json:"memory,omitempty"`
+	Skills                []string                      `json:"skills"`
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
@@ -92,21 +97,65 @@ type ChatsAgentFolderWrite struct {
 
 // ChatsAgentWrite creates or replaces a saved agent.
 type ChatsAgentWrite struct {
-	Name         string   `json:"name"`
-	Description  string   `json:"description,omitempty"`
-	Instructions string   `json:"instructions,omitempty"`
-	Model        string   `json:"model,omitempty"`
-	MCPServers   []string `json:"mcp_servers,omitempty"`
-	Addons       []string `json:"addons,omitempty"`
-	Collections  []string `json:"collections,omitempty"`
-	Skills       []string `json:"skills,omitempty"`
-	Network      string   `json:"network,omitempty"`
+	Name                  string                        `json:"name"`
+	Description           string                        `json:"description,omitempty"`
+	Instructions          string                        `json:"instructions,omitempty"`
+	Model                 string                        `json:"model,omitempty"`
+	MCPServers            []string                      `json:"mcp_servers,omitempty"`
+	Addons                []string                      `json:"addons,omitempty"`
+	Collections           []string                      `json:"collections,omitempty"`
+	CollectionPermissions *agents.CollectionPermissions `json:"collection_permissions,omitempty"`
+	Memory                *agents.MemorySettings        `json:"memory,omitempty"`
+	Skills                []string                      `json:"skills,omitempty"`
+	Network               string                        `json:"network,omitempty"`
 	// Folder chooses the one folder the agent's chats work in. A write
 	// without it keeps the folder the agent has; {"path": ""} clears it. In
 	// an export file it is the home-relative path and mode when the file was
 	// made. A missing, unchosen or non-home folder has an empty export path;
 	// import preserves its mode as unset and warns instead of clearing scope.
 	Folder *ChatsAgentFolderWrite `json:"folder,omitempty"`
+}
+
+// UnmarshalJSON distinguishes an omitted compatibility projection from an
+// explicitly empty one. Null policies are not legacy definitions: rejecting
+// them prevents a malformed versioned request from silently changing meaning.
+func (w *ChatsAgentWrite) UnmarshalJSON(raw []byte) error {
+	type wire ChatsAgentWrite
+	var v wire
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return err
+	}
+	d := json.NewDecoder(bytes.NewReader(raw))
+	if t, err := d.Token(); err != nil || t != json.Delim('{') {
+		return fmt.Errorf("invalid agent definition")
+	}
+	seen := map[string]bool{}
+	for d.More() {
+		t, err := d.Token()
+		if err != nil {
+			return err
+		}
+		key := t.(string)
+		var value json.RawMessage
+		if err := d.Decode(&value); err != nil {
+			return err
+		}
+		switch key {
+		case "collection_permissions", "memory", "collections":
+			if seen[key] {
+				return fmt.Errorf("duplicate agent policy field %s", key)
+			}
+			seen[key] = true
+			if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+				if key != "collections" {
+					return fmt.Errorf("%s must be an object", key)
+				}
+				v.Collections = []string{}
+			}
+		}
+	}
+	*w = ChatsAgentWrite(v)
+	return nil
 }
 
 // ChatsAgentList is the response of the agent list endpoint.

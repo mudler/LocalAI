@@ -18,18 +18,20 @@ import (
 // works on SQLite and PostgreSQL. NameKey is the lower-cased name: the unique
 // index on (principal, name_key) is what keeps names apart under a race.
 type agentRow struct {
-	ID           string `gorm:"primaryKey;size:64"`
-	Principal    string `gorm:"index:idx_studio_agents_name,unique;size:255"`
-	NameKey      string `gorm:"index:idx_studio_agents_name,unique;size:255"`
-	Name         string `gorm:"size:255"`
-	Description  string
-	Instructions string
-	Model        string `gorm:"size:255"`
-	MCPServers   string
-	Addons       string
-	Collections  string
-	Skills       string
-	Network      string `gorm:"size:16"`
+	ID                    string `gorm:"primaryKey;size:64"`
+	Principal             string `gorm:"index:idx_studio_agents_name,unique;size:255"`
+	NameKey               string `gorm:"index:idx_studio_agents_name,unique;size:255"`
+	Name                  string `gorm:"size:255"`
+	Description           string
+	Instructions          string
+	Model                 string `gorm:"size:255"`
+	MCPServers            string
+	Addons                string
+	Collections           string
+	CollectionPermissions string
+	Memory                string
+	Skills                string
+	Network               string `gorm:"size:16"`
 	// FolderID and FolderMode came after the table existed: the defaults
 	// fill the rows of agents made before, which have no folder, so
 	// AutoMigrate is their migration.
@@ -83,7 +85,17 @@ func (r agentRow) agent() (Agent, error) {
 			return a, err
 		}
 	}
-	return a, nil
+	if r.CollectionPermissions != "" {
+		if err := json.Unmarshal([]byte(r.CollectionPermissions), &a.CollectionPermissions); err != nil {
+			return a, err
+		}
+	}
+	if r.Memory != "" {
+		if err := json.Unmarshal([]byte(r.Memory), &a.Memory); err != nil {
+			return a, err
+		}
+	}
+	return NormalizeMemory(a)
 }
 
 // isNameTaken reports a unique violation of the name index. A collision on the
@@ -98,6 +110,19 @@ func isNameTaken(err error) bool {
 }
 
 func (s *gormStore) Put(ctx context.Context, a Agent) error {
+	var err error
+	a, err = NormalizeMemory(a)
+	if err != nil {
+		return err
+	}
+	permissions, err := json.Marshal(a.CollectionPermissions)
+	if err != nil {
+		return err
+	}
+	memory, err := json.Marshal(a.Memory)
+	if err != nil {
+		return err
+	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var old agentRow
 		err := tx.Where("id = ?", a.ID).Take(&old).Error
@@ -111,7 +136,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 		row := agentRow{ID: a.ID, Principal: a.Principal, NameKey: NameKey(a.Name), Name: a.Name,
 			Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
-			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network,
+			CollectionPermissions: string(permissions), Memory: string(memory), Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network,
 			FolderID: a.FolderID, FolderMode: a.FolderMode, Created: a.Created, Updated: a.Updated}
 		if exists {
 			row.Created = old.Created

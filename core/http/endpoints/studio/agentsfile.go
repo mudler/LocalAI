@@ -48,7 +48,7 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 		return failFor(c, err)
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network}
+		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, CollectionPermissions: a.CollectionPermissions, Memory: a.Memory, Skills: a.Skills, Network: a.Network}
 	if st, ok := h.svc.AgentFolder(c.Request().Context(), userID(c), a); ok {
 		// Imports resolve paths in the home only. A followed root outside
 		// it must stay scoped but unset, not bind to a same-spelled home path.
@@ -127,7 +127,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
-		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network}
+		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, CollectionPermissions: def.CollectionPermissions, Memory: def.Memory, Skills: def.Skills, Network: def.Network}
 	saved, err := h.svc.ImportAgent(c.Request().Context(), userID(c), a, folderIn(def.Folder))
 	if err != nil {
 		return failFor(c, err)

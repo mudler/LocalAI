@@ -44,7 +44,7 @@ func agentOut(a agents.Agent) schema.ChatsAgent {
 		return l
 	}
 	return schema.ChatsAgent{ID: a.ID, Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), Skills: nz(a.Skills),
+		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), CollectionPermissions: a.CollectionPermissions, Memory: a.Memory, Skills: nz(a.Skills),
 		Network: networkOf(a.Network), Created: a.Created, Updated: a.Updated}
 }
 
@@ -68,7 +68,7 @@ func (h *Handlers) agentIn(c echo.Context) (a agents.Agent, folder *studiosvc.Ag
 		}
 	}
 	return agents.Agent{Name: req.Name, Description: req.Description, Instructions: req.Instructions, Model: req.Model,
-			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Network: req.Network},
+			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, CollectionPermissions: req.CollectionPermissions, Memory: req.Memory, Skills: req.Skills, Network: req.Network},
 		folderIn(req.Folder), true, nil
 }
 

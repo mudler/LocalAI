@@ -340,3 +340,31 @@ var _ = Describe("list_agents and the folders of the agents", func() {
 		Expect(sub.Folder).To(Equal("sub"))
 	})
 })
+
+var _ = Describe("saved agent memory configuration service", func() {
+	It("rejects removal of an active destination without changing the stored definition", func() {
+		r := newAgentRig(sayOK)
+		ctx := context.Background()
+		a, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Recorder", CollectionPermissions: &agents.CollectionPermissions{Version: 1, Grants: []agents.CollectionGrant{{Collection: "docs"}}}, Memory: &agents.MemorySettings{Version: 1, AddMemory: true, Destination: "docs", ToolStorage: "content", AutomaticIngestion: "off"}})
+		Expect(err).NotTo(HaveOccurred())
+		a.CollectionPermissions.Grants = nil
+		_, err = r.svc.SaveAgent(ctx, alice, a)
+		Expect(err).To(MatchError(agents.ErrInvalid))
+		got, err := r.svc.Agent(ctx, alice, a.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Memory.AddMemory).To(BeTrue())
+		Expect(got.CollectionPermissions.Grants).To(HaveLen(1))
+		_, err = r.svc.Agent(ctx, bob, a.ID)
+		Expect(err).To(MatchError(agents.ErrNotFound))
+	})
+	It("creates templates with no mutation grants", func() {
+		r := newAgentRig(sayOK)
+		for _, t := range agents.Templates() {
+			a, err := r.svc.CreateAgentFromTemplate(context.Background(), alice, t.ID, "")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(a.CollectionPermissions.Grants).To(BeEmpty())
+			Expect(a.Memory.AddMemory).To(BeFalse())
+			Expect(a.Memory.AutomaticIngestion).To(Equal("off"))
+		}
+	})
+})
