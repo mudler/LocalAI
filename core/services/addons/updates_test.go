@@ -40,6 +40,8 @@ type updateLibrary struct {
 	archives map[string][]byte
 	releases []catalog.Release
 	sources  *catalog.Sources
+	// transform lets lifecycle specs publish real typed executable packages.
+	transform func(map[string]any) map[string][]byte
 }
 
 func (l *updateLibrary) publish(version, channel, content string, requires catalog.Requirements) catalog.Release {
@@ -49,15 +51,19 @@ func (l *updateLibrary) publish(version, channel, content string, requires catal
 	var m map[string]any
 	Expect(json.Unmarshal(manifest, &m)).To(Succeed())
 	m["version"] = version
+	files := map[string][]byte{"bin/sample": []byte(content)}
+	if l.transform != nil {
+		for name, data := range l.transform(m) {
+			files[name] = data
+		}
+	}
 	manifest, _ = json.Marshal(m)
+	files["manifest.json"] = manifest
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
-	for _, f := range []struct {
-		name string
-		data []byte
-	}{{"manifest.json", manifest}, {"bin/sample", []byte(content)}} {
-		Expect(tw.WriteHeader(&tar.Header{Name: f.name, Mode: 0755, Size: int64(len(f.data))})).To(Succeed())
-		_, e = tw.Write(f.data)
+	for name, data := range files {
+		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+		_, e = tw.Write(data)
 		Expect(e).NotTo(HaveOccurred())
 	}
 	Expect(tw.Close()).To(Succeed())

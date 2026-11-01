@@ -500,7 +500,8 @@
       "traces completion, retries, detach, interruption and late delivery without replay",
       "keeps terminals immutable for every event and gives each active state a terminal exit",
       "Close cancels a backup in flight and joins its cleanup before releasing ownership",
-      "serializes synchronous disable against an accepted upgrade without overwriting its journal"
+      "serializes synchronous disable against an accepted upgrade without overwriting its journal",
+      "persists and recovers all declarations through install manual and automatic upgrades and real activation rollback"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -582,7 +583,7 @@
       "sends the add-on an envelope without a new field",
       "requires exact typed capability equality on authenticated registration health",
       "keeps all typed declarations on automatic crash restart with a fresh incarnation",
-      "retains typed declarations through receipt reload process restart and prior generation rollback",
+      "replays typed and legacy receipts across process restarts",
       "encodes a payload",
       "reads the tool of a request",
       "empty tool",
@@ -671,7 +672,7 @@
           "sends the add-on an envelope without a new field",
           "requires exact typed capability equality on authenticated registration health",
           "keeps all typed declarations on automatic crash restart with a fresh incarnation",
-          "retains typed declarations through receipt reload process restart and prior generation rollback"
+          "replays typed and legacy receipts across process restarts"
         ]
       },
       {
@@ -954,7 +955,8 @@
       "forwards authenticated owner decisions",
       "validates strict request payloads",
       "checks CAS and administrator authority",
-      "accepts before a slow backup, detaches the request and polls through either frontend"
+      "accepts before a slow backup, detaches the request and polls through either frontend",
+      "round trips installed typed home metadata over mTLS with owner actor visibility and immutable asset URLs"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -1063,7 +1065,8 @@
           "forwards authenticated owner decisions",
           "validates strict request payloads",
           "checks CAS and administrator authority",
-          "accepts before a slow backup, detaches the request and polls through either frontend"
+          "accepts before a slow backup, detaches the request and polls through either frontend",
+          "round trips installed typed home metadata over mTLS with owner actor visibility and immutable asset URLs"
         ]
       },
       {
@@ -2754,7 +2757,8 @@
       "Close cancels a backup in flight and joins its cleanup before releasing ownership",
       "serializes synchronous disable against an accepted upgrade without overwriting its journal",
       "projects home commands with resolved declared pages display metadata immutable icons and generation",
-      "keeps disabled home apps installed without UI and never invents a destination"
+      "keeps disabled home apps installed without UI and never invents a destination",
+      "persists and recovers all declarations through install manual and automatic upgrades and real activation rollback"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -2855,7 +2859,8 @@
           "traces completion, retries, detach, interruption and late delivery without replay",
           "keeps terminals immutable for every event and gives each active state a terminal exit",
           "Close cancels a backup in flight and joins its cleanup before releasing ownership",
-          "serializes synchronous disable against an accepted upgrade without overwriting its journal"
+          "serializes synchronous disable against an accepted upgrade without overwriting its journal",
+          "persists and recovers all declarations through install manual and automatic upgrades and real activation rollback"
         ]
       },
       {

@@ -1344,6 +1344,17 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Actions: c.Actions, Undo: c.Undo}
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
 	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
+	if c.ExecutionProvider != nil {
+		p := *c.ExecutionProvider
+		p.Tools = slices.Clone(p.Tools)
+		out.ExecutionProvider = &p
+	}
+	if c.HostOperations != nil {
+		h := *c.HostOperations
+		h.Required = slices.Clone(h.Required)
+		h.Optional = slices.Clone(h.Optional)
+		out.HostOperations = &h
+	}
 	if c.Resources != nil {
 		r := *c.Resources
 		out.Resources = &r

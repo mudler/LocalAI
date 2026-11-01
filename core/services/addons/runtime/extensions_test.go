@@ -70,7 +70,7 @@ var _ = Describe("typed runtime declarations", func() {
 		Expect(current.Client.(*Client).health(context.Background(), regs[0])).To(Succeed())
 	})
 
-	It("retains typed declarations through receipt reload process restart and prior generation rollback", func() {
+	It("replays typed and legacy receipts across process restarts", func() {
 		s := supervisor()
 		caps := typedCapabilities()
 		prior := fixture("normal", caps)
