@@ -100,7 +100,10 @@ std::vector<Task> task_candidates(Rpc rpc, const RequestShape &shape) {
     case Rpc::Diarize:
         return {Task::Diarization};
     case Rpc::SoundGeneration:
+    case Rpc::MusicGeneration:
         return {Task::AudioGeneration};
+    case Rpc::MusicTranscription:
+        return {Task::Midi};
     case Rpc::AudioTransform:
         // Svc is listed for completeness but is unreachable by auto-routing, by
         // design: the only families advertising it (seed_vc, vevo2) also
@@ -216,6 +219,10 @@ const char *rpc_name(Rpc rpc) {
         return "Diarize";
     case Rpc::SoundGeneration:
         return "SoundGeneration";
+    case Rpc::MusicTranscription:
+        return "MusicTranscription";
+    case Rpc::MusicGeneration:
+        return "MusicGeneration";
     case Rpc::AudioTransform:
         return "AudioTransform";
     }
@@ -322,7 +329,7 @@ Route resolve_route(Rpc rpc, const RequestShape &shape,
         if (!parse_task_name(shape.pinned_task, pinned)) {
             route.error = "audio-cpp: unknown task option '" + shape.pinned_task +
                           "'. Known tasks: gen, tts, clon, vc, svc, s2s, asr, "
-                          "align, vad, diar, sep, vdes, spk";
+                          "align, vad, diar, sep, vdes, spk, midi, turn, wake, cls";
             return route;
         }
         // A pin is honoured exactly, but ONLY on an RPC that could have routed

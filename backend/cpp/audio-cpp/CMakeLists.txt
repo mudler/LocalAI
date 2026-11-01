@@ -217,6 +217,15 @@ set_target_properties(${TARGET} PROPERTIES
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
     enable_testing()
 
+    add_executable(music_result_mapping_ctest
+        music_result_mapping_ctest.cpp music_result_mapping.cpp)
+    target_include_directories(music_result_mapping_ctest PRIVATE
+        "${AUDIO_CPP_DIR}/include" "${CMAKE_CURRENT_SOURCE_DIR}")
+    # TaskResult's JSON Value destructor is out of line in engine_runtime.
+    target_link_libraries(music_result_mapping_ctest PRIVATE engine_runtime Threads::Threads)
+    target_compile_options(music_result_mapping_ctest PRIVATE -Wall -Wextra -Wpedantic)
+    add_test(NAME music_result_mapping COMMAND music_result_mapping_ctest)
+
     # These are the units whose tests CANNOT run under
     # backend/cpp/run-unit-tests.sh, because that script compiles each
     # *_test.cpp standalone with no protobuf and no audio.cpp include path.

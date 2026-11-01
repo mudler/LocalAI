@@ -590,7 +590,35 @@ static void test_detection_tasks_are_not_existing_rpcs() {
     }
 }
 
+static void test_music_routes() {
+    for (const auto rpc : {Rpc::MusicTranscription, Rpc::MusicGeneration}) {
+        const Task task = rpc == Rpc::MusicTranscription ? Task::Midi : Task::AudioGeneration;
+        const Capabilities caps{"synthetic-music", {{task, {Mode::Offline}}}};
+        RequestShape shape;
+        shape.has_prompt_text = shape.has_instructions = shape.has_voice_reference = true;
+        auto r = resolve_route(rpc, shape, caps);
+        check(r.ok && r.task == task && r.mode == Mode::Offline, "music exact offline route");
+        shape.pinned_task = task_name(task);
+        check(resolve_route(rpc, shape, caps).ok, "music correct pin");
+        shape.pinned_task = "asr";
+        check(!resolve_route(rpc, shape, caps).ok, "music refuses unrelated pin");
+        shape.pinned_task = task == Task::Midi ? "gen" : "midi";
+        check(!resolve_route(rpc, shape, caps).ok, "music refuses other music task pin");
+        shape.pinned_task.clear();
+        check(!resolve_route(rpc, shape, Capabilities{"empty", {}}).ok, "music missing capability");
+        check(!resolve_route(rpc, shape, Capabilities{"stream-only", {{task, {Mode::Streaming}}}}).ok,
+              "music refuses streaming-only task");
+    }
+    check(!resolve_route(Rpc::AudioTranscription, {}, Capabilities{"score", {{Task::Midi, {Mode::Offline}}}}).ok,
+          "speech transcription does not become music");
+    RequestShape shape;
+    shape.pinned_task = "midi";
+    check(!resolve_route(Rpc::SoundGeneration, shape, Capabilities{"both", {{Task::Midi, {Mode::Offline}},
+          {Task::AudioGeneration, {Mode::Offline}}}}).ok, "legacy sound never routes to Midi");
+}
+
 int main() {
+    test_music_routes();
     test_detection_tasks_are_not_existing_rpcs();
     test_turn_detection_is_not_vad();
     test_plain_tts();
