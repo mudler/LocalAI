@@ -65,6 +65,15 @@ local-ai federated
 
 To see all the available options, run `local-ai federated --help`.
 
+By default, the federated server assigns each incoming TCP connection to the online node with the fewest active connections.
+It selects randomly among nodes with equal counts.
+It reserves capacity before forwarding and releases it when forwarding ends, including on connection errors.
+An HTTP keep-alive connection stays assigned to the same node until it closes.
+
+These counts are per-instance: each federated server tracks only the connections it forwards.
+Multiple federated servers make independent routing decisions; their counts do not represent total cluster load or GPU utilization.
+Completed connections do not affect routing, so a new node does not need to catch up with lifetime request totals.
+
 The instructions are on the **P2P** page of the Swarm hub and in **Add a node**, guiding you through the process of connecting multiple instances.
 
 ### Workers mode
