@@ -206,11 +206,179 @@ class DeliveryTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.run_prepare()
 
 
+class ChainTests(DeliveryTests):
+    """Run all 29 legacy security checks against a genuine overlapping chain too."""
+    def setUp(self):
+        super().setUp()
+        first = {'patch': self.patch.name,
+                 'patch_sha256': delivery.digest(self.patch.read_bytes()),
+                 'files': {n: h.copy() for n, h in self.files.items()}}
+        for name in self.files:
+            (self.source / name).write_text(name + ' patched\n')
+        delivery.git(self.source, 'add', '.')
+        # Step two overlaps 'one', leaving step one's 'two' result intact.
+        (self.source / 'one').write_text('one patched twice\n')
+        self.second = self.root / 'second.patch'
+        self.second.write_bytes(delivery.git(self.source, 'diff', '--binary', '--'))
+        self.files['one']['final_sha256'] = delivery.digest((self.source / 'one').read_bytes())
+        self.chain = [first, {'patch': self.second.name,
+                             'patch_sha256': delivery.digest(self.second.read_bytes()),
+                             'files': {'one': {'base_sha256': first['files']['one']['final_sha256'],
+                                               'final_sha256': self.files['one']['final_sha256']}}}]
+        delivery.git(self.source, 'read-tree', self.pin)
+        for name in self.files:
+            (self.source / name).write_text(name + '\n')
+        self.save_chain()
+
+    def save_chain(self):
+        self.manifest.write_text(json.dumps({'base_commit': self.pin, 'files': self.files,
+                                            'patches': self.chain}))
+        self.digest = delivery.digest(self.manifest.read_bytes())
+
+    def prefix(self):
+        delivery.git(self.source, 'apply', str(self.patch))
+
+    def snapshot(self):
+        return {n: ((self.source / n).read_bytes(), (self.source / n).stat().st_mtime_ns)
+                for n in ('one', 'two', 'other')} | {'index': (self.source / '.git/index').read_bytes()}
+
+    def assert_rejected_without_writes(self, verify=False):
+        before = self.snapshot()
+        with self.assertRaises(ValueError):
+            self.run_prepare(verify)
+        self.assertEqual(before, self.snapshot())
+
+    def test_clean_apply(self):
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched twice\n')
+        self.assertEqual(delivery.git(self.source, 'write-tree').strip(),
+                         delivery.git(self.source, 'rev-parse', self.pin + '^{tree}').strip())
+
+    def test_prefix_upgrade(self):
+        self.prefix()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched twice\n')
+
+    def test_prefix_verify_only(self):
+        self.prefix()
+        self.assert_rejected_without_writes(True)
+
+    def test_prefix_unrelated_hidden_dirt(self):
+        self.prefix()
+        delivery.git(self.source, 'update-index', '--assume-unchanged', 'other')
+        (self.source / 'other').write_text('dirt\n')
+        self.assert_rejected_without_writes()
+
+    def test_mixed_final_base(self):
+        (self.source / 'one').write_text('one patched twice\n')
+        self.assert_rejected_without_writes()
+
+    def test_ordering(self):
+        self.chain.reverse()
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_step_two_tamper(self):
+        self.second.write_bytes(self.second.read_bytes() + b'\n')
+        self.assert_rejected_without_writes()
+
+    def test_step_two_invalid_apply(self):
+        self.second.write_bytes(self.second.read_bytes().replace(b'-one patched', b'-wrong context'))
+        self.chain[1]['patch_sha256'] = delivery.digest(self.second.read_bytes())
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_step_two_wrong_base_digest(self):
+        self.chain[1]['files']['one']['base_sha256'] = self.files['one']['base_sha256']
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_step_two_wrong_final_digest(self):
+        self.chain[1]['files']['one']['final_sha256'] = '0' * 64
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_step_two_extra_path(self):
+        extra = (b'diff --git a/extra b/extra\nnew file mode 100644\n'
+                 b'--- /dev/null\n+++ b/extra\n@@ -0,0 +1 @@\n+unreviewed\n')
+        self.second.write_bytes(self.second.read_bytes() + extra)
+        self.chain[1]['patch_sha256'] = delivery.digest(self.second.read_bytes())
+        self.save_chain()
+        self.assert_rejected_without_writes()
+        self.assertFalse((self.source / 'extra').exists())
+
+    def test_prefix_dirty_index(self):
+        self.prefix()
+        delivery.git(self.source, 'add', 'one')
+        self.assert_rejected_without_writes()
+
+    def test_prefix_untracked_collision(self):
+        self.prefix()
+        (self.source / 'one.rej').write_text('preserve me')
+        self.assert_rejected_without_writes()
+        self.assertEqual((self.source / 'one.rej').read_text(), 'preserve me')
+
+    def test_apply_failure_no_success(self):
+        original = delivery.git
+        def fail(source, *args, **kwargs):
+            if Path(source) == self.source and args[:1] == ('apply',) and '--check' not in args:
+                raise ValueError('fixture delivery failure')
+            return original(source, *args, **kwargs)
+        with patch.object(delivery, 'git', side_effect=fail):
+            self.assert_rejected_without_writes()
+
+    def test_final_readonly(self):
+        self.run_prepare()
+        before = self.snapshot()
+        for verify in (False, True):
+            self.assertEqual(self.run_prepare(verify), 'verified')
+            self.assertEqual(before, self.snapshot())
+
+    def test_path_union(self):
+        del self.chain[0]['files']['two']
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_bounded_chain(self):
+        self.chain = self.chain * 17
+        self.save_chain()
+        self.assert_rejected_without_writes()
+
+    def test_cmake_rejects_prefix_without_mutation(self):
+        # Execute the actual CMake verification stanza, with only its source
+        # directory redirected to a disposable authenticated fixture helper.
+        self.prefix()
+        helper = self.root / 'helper'
+        helper.mkdir()
+        script = Path(delivery.__file__).read_text()
+        start = script.index('PIN = ')
+        end = script.index('\n\ndef digest', start)
+        script = script[:start] + ('PIN = ' + repr(self.pin) + '\nMANIFEST_SHA256 = ' + repr(self.digest) +
+                                   '\nPATHS = ' + repr(frozenset(self.files))) + script[end:]
+        (helper / 'apply-upstream-patches.py').write_text(script)
+        (helper / 'patches').mkdir()
+        for path in (self.patch, self.second):
+            (helper / 'patches' / path.name).write_bytes(path.read_bytes())
+        (helper / 'patches/core-run-cancellation.manifest.json').write_bytes(self.manifest.read_bytes())
+        cmake = Path(delivery.__file__).with_name('CMakeLists.txt').read_text()
+        stanza = cmake[cmake.index('find_package(Python3'):cmake.index('\nif(APPLE)')]
+        fixture = self.root / 'verify.cmake'
+        fixture.write_text('set(AUDIO_CPP_DIR "' + self.source.as_posix() + '")\n' +
+                           stanza.replace('${CMAKE_CURRENT_SOURCE_DIR}', helper.as_posix()))
+        before = self.snapshot()
+        result = subprocess.run(['cmake', '-P', str(fixture)], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('requires verified preparation', result.stderr)
+        self.assertNotIn(str(self.source), result.stderr)
+        self.assertEqual(before, self.snapshot())
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--require-min-tests', type=int, default=7)
     args = parser.parse_args()
-    suite = unittest.defaultTestLoader.loadTestsFromTestCase(DeliveryTests)
+    suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
+                               for case in (DeliveryTests, ChainTests))
     if suite.countTestCases() < args.require_min_tests:
         raise SystemExit('insufficient discovered delivery tests')
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())
