@@ -70,7 +70,7 @@ func VerifyTokenWithMe(tr ConnectorTransport) func(ctx context.Context, b connec
 		}
 		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		defer cancel()
-		resp, err := tr.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+		resp, err := tr.Call(ctx, verificationScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
 		if err == nil && resp.Error != nil && resp.Error.Code == contract.ConnectorUnauthorized {
 			return ErrTokenRefused
 		}
@@ -391,7 +391,7 @@ func (c *Connectors) TestConnector(ctx context.Context, user, id string) (Connec
 	if err != nil {
 		return ConnectorBot{}, err
 	}
-	resp, err := c.o.Transport.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
 	if err == nil && resp.Error != nil {
 		err = resp.Error
 	}

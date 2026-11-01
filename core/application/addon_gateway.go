@@ -292,7 +292,7 @@ func (a *Application) startAddonGateway() error {
 	if mode == auth.AddonModeLocalOwner {
 		xlog.Warn(localOwnerWarning)
 	}
-	g := &gateway.Gateway{Limits: c.Limits, Manager: a.addonManager, Revalidate: auth.AddonRevalidate(a.authDB, mode)}
+	g := &gateway.Gateway{Limits: c.Limits, Manager: a.addonManager, ConnectorAuthority: connectorAuthority{a}, Revalidate: auth.AddonRevalidate(a.authDB, mode)}
 	if cfg.InstanceID != cfg.OwnerID {
 		g.Forward = carrier
 		a.addonGateway = g
@@ -865,4 +865,14 @@ func studioAddonText(res addontools.ToolResult) string {
 			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID)
 	}
 	return res.JSON()
+}
+
+// Resolve at call time: the connector service can start after the private gateway.
+type connectorAuthority struct{ a *Application }
+
+func (c connectorAuthority) AuthorizeConnector(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorRequest, error) {
+	if c.a.studioConnectors == nil {
+		return req, gateway.ErrUnavailable
+	}
+	return c.a.studioConnectors.AuthorizeConnector(ctx, scope, req)
 }

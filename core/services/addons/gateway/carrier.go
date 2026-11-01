@@ -176,6 +176,9 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
+		if g.serveConnectors(w, r) {
+			return
+		}
 		if r.Method == "GET" && r.URL.Path == "/addons/audience" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(struct {

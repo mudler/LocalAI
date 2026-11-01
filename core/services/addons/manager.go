@@ -1011,8 +1011,11 @@ type ConnectorKind struct {
 func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.runtime == nil {
-		return nil, nil
+	if e := m.check(ctx); e != nil {
+		return nil, e
+	}
+	if m.uncertain || m.runtimeRecoveryRequired || m.runtime == nil {
+		return nil, addonruntime.ErrRuntime
 	}
 	registrations, e := m.runtime.Registry.Snapshot(ctx)
 	if e != nil {

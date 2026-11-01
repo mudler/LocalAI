@@ -25,12 +25,14 @@ var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent:
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
 type Gateway struct {
-	Limits    RelayLimits
-	Manager   *addons.Manager
-	Runtime   CurrentRuntime
-	Forward   *Carrier
-	Admission Admission
-	Resolver  ResourceResolver
+	Connectors         ConnectorSource
+	ConnectorAuthority ConnectorAuthority
+	Limits             RelayLimits
+	Manager            *addons.Manager
+	Runtime            CurrentRuntime
+	Forward            *Carrier
+	Admission          Admission
+	Resolver           ResourceResolver
 	// Tools reports the tools each installed add-on declares. When nil the
 	// Manager is used; with neither, a request that names a tool is denied.
 	Tools ToolSource
