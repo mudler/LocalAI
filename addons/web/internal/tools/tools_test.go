@@ -166,6 +166,10 @@ var _ = Describe("the manifest", func() {
 		Expect(err).NotTo(HaveOccurred(), "the manifest does not parse")
 		Expect(m.ID).To(Equal("web"))
 		Expect(m.Capabilities.Tools).To(Equal(tools.Declared()))
+		// The host draws the rows of web_search and web_fetch on the add-on's
+		// own page; it holds no egress grant, so no network control.
+		Expect(m.Capabilities.UI.Controls).To(Equal([]string{contract.ControlToolProviders}))
+		Expect(contract.EntitledControls(m, []string{"workspace."})).To(Equal([]string{contract.ControlToolProviders}))
 		want := tools.Definitions()
 		Expect(m.Capabilities.ToolDefinitions).To(HaveLen(len(want)))
 		for i, d := range m.Capabilities.ToolDefinitions {
