@@ -22,7 +22,9 @@ type toolBox struct {
 func newToolBox(f *files.Service, user, chat string) *toolBox {
 	Expect(f.EnsureHome(context.Background(), user)).To(Succeed())
 	b := &toolBox{f: f, tools: map[string]session.Tool{}}
-	for _, tool := range f.Tools(workspace.Actor{Principal: user, ChatID: chat}) {
+	x, err := f.UnscopedAccess(context.Background(), workspace.Actor{Principal: user, ChatID: chat})
+	Expect(err).NotTo(HaveOccurred())
+	for _, tool := range f.Tools(x) {
 		b.tools[tool.Name] = tool
 	}
 	return b
