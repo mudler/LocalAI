@@ -51,10 +51,6 @@ var actorAllowlist = map[string]string{
 	"../addons/hostops/engine_workspace.go:WorkspaceHost.changes":    "lane 6: add-on workspace operations",
 	"../addons/hostops/engine_workspace.go:WorkspaceHost.export":     "lane 6: add-on workspace operations",
 	"../addons/hostops/engine_workspace.go:WorkspaceHost.importFile": "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.view":       "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.changes":    "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.export":     "lane 6: add-on workspace operations",
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.importFile": "lane 6: add-on workspace operations",
 }
 
 // actorBuilds returns the places in src that build an actor, as
@@ -106,7 +102,6 @@ var viewAllowlist = map[string]string{
 	"agentaccess.go:Service.chatAccess": "the resolver: the one place a chat's access is built",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must take the chat's access there.
-	"../addons/hostops/engine_workspace.go:WorkspaceHost.view": "lane 6: add-on workspace operations",
 }
 
 func viewBuilds(fset *token.FileSet, f *ast.File) map[string][]string {
