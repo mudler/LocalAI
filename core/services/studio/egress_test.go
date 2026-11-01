@@ -169,7 +169,7 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 
 	It("tells the model that the server's setting, not an approval, keeps the network off", func() {
 		off := egress.DescribeLimit(egress.PresetOff, egress.PresetOff, egress.BuiltinRegistries(), false)
-		Expect(off).To(SatisfyAll(ContainSubstring("server's setting"), ContainSubstring("do not wait"), ContainSubstring("Settings > Tools > Sandbox network")))
+		Expect(off).To(SatisfyAll(ContainSubstring("server's setting"), ContainSubstring("do not wait"), ContainSubstring("Settings tab of the add-on that runs the commands")))
 		Expect(off).NotTo(ContainSubstring("asks the user"))
 		capped := egress.DescribeLimit(egress.PresetRegistries, egress.PresetRegistries, egress.BuiltinRegistries(), false)
 		Expect(capped).To(SatisfyAll(ContainSubstring("package registries only"), ContainSubstring("not by a missing approval")))
@@ -208,5 +208,62 @@ var _ = Describe("the network line of a turn", func() {
 		Expect(got).To(ContainSubstring("Network for commands: off."))
 		Expect(got).To(ContainSubstring("no user approval changes that"))
 		Expect(got).NotTo(ContainSubstring("A blocked host asks the user"))
+	})
+})
+
+// controlledAddons is a broker that also says which host controls each
+// add-on is entitled to, as the apps list does.
+type controlledAddons struct {
+	isolatedAddons
+	controls map[string][]string
+}
+
+func (c controlledAddons) Controls(_ context.Context, _, addonID string) []string {
+	return c.controls[addonID]
+}
+
+var _ = Describe("the add-on that draws the network row of a chat", func() {
+	runner := func(addonID string) []studio.AddonTool {
+		bash := addonTool(addonID, "bash")
+		bash.Action, bash.Shadows = true, "bash"
+		return []studio.AddonTool{bash}
+	}
+	service := func(addonID, mode string, controls map[string][]string) *studio.Service {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: runner(addonID)}}
+		f := newFiles()
+		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, func(d *studio.Deps) {
+			d.Files = f
+			d.AddonTools = controlledAddons{isolatedAddons{fa, mode}, controls}
+		})
+		return svc
+	}
+
+	It("is the add-on that runs the commands and carries the network policy", func() {
+		svc := service("sandbox", "isolated", map[string][]string{"sandbox": {"network-policy", "tool-providers"}})
+		v, err := svc.Egress(context.Background(), alice, create(svc, alice))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(v.Applies).To(BeTrue())
+		Expect(v.JSON().Addon).To(Equal("sandbox"))
+	})
+
+	It("is any add-on with the control, not one name", func() {
+		svc := service("devbox", "isolated", map[string][]string{"devbox": {"network-policy"}})
+		v, _ := svc.Egress(context.Background(), alice, create(svc, alice))
+		Expect(v.JSON().Addon).To(Equal("devbox"))
+	})
+
+	It("is none when the runner has no network policy, and the policy still applies", func() {
+		svc := service("sandbox", "isolated", map[string][]string{"sandbox": {"tool-providers"}})
+		v, _ := svc.Egress(context.Background(), alice, create(svc, alice))
+		Expect(v.Applies).To(BeTrue())
+		Expect(v.JSON().Addon).To(BeEmpty())
+	})
+
+	It("is none when commands run on this machine", func() {
+		svc := service("sandbox", "host", map[string][]string{"sandbox": {"network-policy"}})
+		v, _ := svc.Egress(context.Background(), alice, create(svc, alice))
+		Expect(v.Applies).To(BeFalse())
+		Expect(v.AppliesReason).To(Equal(studio.EgressAppliesHost))
+		Expect(v.JSON().Addon).To(BeEmpty())
 	})
 })

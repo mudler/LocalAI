@@ -384,11 +384,12 @@
       "titleCapped": "网络访问受到限制",
       "bodyOff": "此服务器已关闭沙盒的网络访问。有一条命令想访问",
       "bodyCapped": "此服务器只允许沙盒网络使用：{{limit}}。有一条命令想访问",
-      "adminOff": "管理员可以在 设置 > Tools > 沙盒网络 中开启。",
-      "adminCapped": "管理员可以在 设置 > Tools > 沙盒网络 中提高限制。",
-      "adminLink": "打开沙盒网络设置",
-      "askAdmin": "请让此服务器的管理员更改（设置 > Tools > 沙盒网络）。",
-      "rowOff": "关闭：管理员尚未允许网络访问。"
+      "adminOff": "管理员可以在 {{name}} 的设置中开启。",
+      "adminCapped": "管理员可以在 {{name}} 的设置中提高限制。",
+      "adminLink": "打开 {{name}} 的设置",
+      "askAdmin": "请让此服务器的管理员更改。",
+      "rowOff": "关闭：管理员尚未允许网络访问。",
+      "runner": "运行命令的附加组件"
     },
     "allowedHosts": "管理员始终允许：",
     "allowedHostsOff": "网络开启时生效。",

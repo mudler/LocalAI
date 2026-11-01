@@ -215,6 +215,10 @@ type UI struct {
 	// the approval card or the result of one of the addon's own tools.
 	Slots     []SlotContribution `json:"slots,omitempty"`
 	Renderers []Renderer         `json:"renderers,omitempty"`
+	// Controls are host controls the add-on asks the host to draw for it, by
+	// ID from HostControls (see hostcontrols.go). The host draws them with its
+	// own components and settings, and only those EntitledControls admits.
+	Controls []string `json:"controls,omitempty"`
 	// MainPage is the route the Apps surface opens. It must be one of Pages;
 	// without it the addon has no Open action.
 	MainPage string `json:"mainPage,omitempty"`
@@ -398,6 +402,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			}
 		}
 		if e := validateContributions(u, c.Tools); e != nil {
+			return e
+		}
+		if e := validateControls(u.Controls); e != nil {
 			return e
 		}
 	}

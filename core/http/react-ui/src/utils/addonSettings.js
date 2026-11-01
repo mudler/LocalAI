@@ -2,18 +2,21 @@
 // Settings page, the Add-ons details and the add-on page shell agree on one
 // address for each.
 //
-// An add-on's own settings (its settings.sections contribution) are drawn on
-// the Settings tab of its details: /app/addons?detail=<id>&view=settings.
-// Some settings of an add-on's feature are the server's own runtime settings,
-// read by LocalAI and not by the add-on (the network of the Sandbox commands,
-// which add-on serves a built-in tool). They stay on the Settings page; the
-// add-on's Settings tab links to them.
+// An add-on's settings are drawn on the Settings tab of its details:
+// /app/addons?detail=<id>&view=settings. That tab holds its own settings
+// section (its settings.sections contribution) and the host controls the
+// apps list draws for it (ui.controls; see addons/hostControls.js), such as
+// the network of the commands it runs.
 
 export const SETTINGS_VIEW = 'settings'
 
 export function addonSettingsAddress(addonId) {
   return `/app/addons?detail=${encodeURIComponent(addonId)}&view=${SETTINGS_VIEW}`
 }
+
+// The old address of the network block of the Settings page. It opens the
+// Settings tab of the add-on that draws the network-policy control now.
+export const LEGACY_NETWORK_HASH = '#settings-egress'
 
 // The old place of a section was the end of the Settings page, with the
 // anchor ad-section-<addon>-<contribution>. An add-on id is lower case letters,
@@ -30,27 +33,6 @@ export function legacySectionTarget(hash, addonIds = []) {
   // Not listed (yet): the id up to the last dash, the shape the host wrote.
   const cut = rest.lastIndexOf('-')
   return cut > 0 ? rest.slice(0, cut) : rest
-}
-
-// The server settings that belong to an add-on's feature. The host knows
-// these: they are LocalAI runtime settings, documented in runtime-settings.md.
-// `anchor` is the id of the block on the Settings page.
-export const SERVER_SETTINGS = Object.freeze({
-  sandbox: Object.freeze([
-    Object.freeze({ id: 'network', group: 'tools', anchor: 'settings-egress', summary: 'egress' }),
-    Object.freeze({ id: 'bash', group: 'tools', anchor: 'settings-builtin-tools' }),
-  ]),
-  web: Object.freeze([
-    Object.freeze({ id: 'webTools', group: 'tools', anchor: 'settings-builtin-tools' }),
-  ]),
-})
-
-export function serverSettingsFor(addonId) {
-  return Object.hasOwn(SERVER_SETTINGS, addonId) ? SERVER_SETTINGS[addonId] : []
-}
-
-export function serverSettingsAddress(entry) {
-  return `/app/settings?group=${encodeURIComponent(entry.group)}#${entry.anchor}`
 }
 
 // The pane view a search string asks for: the Settings tab only when the

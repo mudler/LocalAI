@@ -185,6 +185,9 @@
       "test-search"
     ],
     "ui": {
+      "controls": [
+        "tool-providers"
+      ],
       "css": [
         "ui/web.css"
       ],

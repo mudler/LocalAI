@@ -384,11 +384,12 @@
       "titleCapped": "O acesso à rede está limitado",
       "bodyOff": "O acesso à rede do Sandbox está desligado neste servidor. Um comando pediu para alcançar",
       "bodyCapped": "Este servidor só permite {{limit}} para a rede do Sandbox. Um comando pediu para alcançar",
-      "adminOff": "Um administrador pode ligá-lo em Configurações > Tools > Rede do Sandbox.",
-      "adminCapped": "Um administrador pode aumentar o limite em Configurações > Tools > Rede do Sandbox.",
-      "adminLink": "Abrir as configurações da rede do Sandbox",
-      "askAdmin": "Peça a um administrador deste servidor para alterá-lo (Configurações > Tools > Rede do Sandbox).",
-      "rowOff": "Desligada: o administrador não permitiu o acesso à rede."
+      "adminOff": "Um administrador pode ativá-lo nas configurações de {{name}}.",
+      "adminCapped": "Um administrador pode aumentar o limite nas configurações de {{name}}.",
+      "adminLink": "Abrir as configurações de {{name}}",
+      "askAdmin": "Peça a um administrador deste servidor para alterar isso.",
+      "rowOff": "Desligada: o administrador não permitiu o acesso à rede.",
+      "runner": "o complemento que executa os comandos"
     },
     "allowedHosts": "Sempre permitidos pelo seu administrador:",
     "allowedHostsOff": "Eles valem quando a rede está ligada.",

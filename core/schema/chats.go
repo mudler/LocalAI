@@ -1582,9 +1582,14 @@ type ChatsEgress struct {
 	Effective string `json:"effective"` // the lower of the two
 	// Applies is false when commands run on this machine (applies_reason
 	// host) or no Sandbox serves bash (none).
-	Applies       bool                  `json:"applies"`
-	AppliesReason string                `json:"applies_reason,omitempty"`
-	Registries    []ChatsEgressRegistry `json:"registries"`
+	Applies       bool   `json:"applies"`
+	AppliesReason string `json:"applies_reason,omitempty"`
+	// Addon is the add-on that runs the chat's commands and carries the
+	// network-policy host control: the chat draws its Network row and links
+	// an administrator to that add-on's settings. Absent when applies is
+	// false or no such add-on runs the commands.
+	Addon      string                `json:"addon,omitempty" example:"sandbox"`
+	Registries []ChatsEgressRegistry `json:"registries"`
 	// AllowedHosts is the administrator's always-allowed list (host or
 	// host:port), read only here: it applies when the effective preset is
 	// registries or all.

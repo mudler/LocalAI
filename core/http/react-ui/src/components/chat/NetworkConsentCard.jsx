@@ -6,7 +6,9 @@ import Button from '../ui/Button'
 import Callout from '../ui/Callout'
 import { useAuth } from '../../context/AuthContext'
 import { chatEgressApi } from '../../utils/api'
-import { cardAnswers, cardStateKey, hostPort, SANDBOX_NETWORK_SETTINGS } from '../../utils/chatEgress'
+import { cardAnswers, cardStateKey, hostPort } from '../../utils/chatEgress'
+import { addonSettingsAddress } from '../../utils/addonSettings'
+import { useAddonTitle } from '../../addons/useAddonRegistry'
 import './network.css'
 
 // The card a command of the Sandbox waits on when it asks for a host the chat
@@ -97,17 +99,21 @@ export default function NetworkConsentCard({ card, chatId, egress }) {
   )
 }
 
-// Who can change the limit: an administrator gets the link, anyone else is
-// told to ask one. Also shown in the Network row.
+// Who can change the limit: an administrator gets the link to the settings
+// of the add-on that runs the commands (egress.addon), anyone else is told to
+// ask one. Also shown in the Network row.
 export function AdminHint({ isAdmin, egress, testId }) {
   const { t } = useTranslation('chats')
+  const addon = egress?.addon || ''
+  const title = useAddonTitle(addon)
   const off = (egress?.ceiling || 'off') === 'off'
+  const name = title || t('egress.blocked.runner')
   return (
     <p className="cmd-consent__hint" data-testid={testId}>
       {isAdmin ? (
         <>
-          {t(off ? 'egress.blocked.adminOff' : 'egress.blocked.adminCapped')}{' '}
-          <Link to={SANDBOX_NETWORK_SETTINGS} data-testid={`${testId}-link`}>{t('egress.blocked.adminLink')}</Link>
+          {t(off ? 'egress.blocked.adminOff' : 'egress.blocked.adminCapped', { name })}
+          {addon && <>{' '}<Link to={addonSettingsAddress(addon)} data-testid={`${testId}-link`}>{t('egress.blocked.adminLink', { name })}</Link></>}
         </>
       ) : t('egress.blocked.askAdmin')}
     </p>

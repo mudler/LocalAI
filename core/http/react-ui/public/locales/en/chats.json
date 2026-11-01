@@ -763,11 +763,12 @@
       "titleCapped": "Network access is limited",
       "bodyOff": "Network access is off for the Sandbox on this server. A command asked for",
       "bodyCapped": "This server only allows {{limit}} for the Sandbox network. A command asked for",
-      "adminOff": "An administrator can turn it on in Settings > Tools > Sandbox network.",
-      "adminCapped": "An administrator can raise the limit in Settings > Tools > Sandbox network.",
-      "adminLink": "Open Sandbox network settings",
-      "askAdmin": "Ask an administrator of this server to change it (Settings > Tools > Sandbox network).",
-      "rowOff": "Off: the administrator has not allowed network access."
+      "adminOff": "An administrator can turn it on in the settings of {{name}}.",
+      "adminCapped": "An administrator can raise the limit in the settings of {{name}}.",
+      "adminLink": "Open the settings of {{name}}",
+      "askAdmin": "Ask an administrator of this server to change it.",
+      "rowOff": "Off: the administrator has not allowed network access.",
+      "runner": "the add-on that runs commands"
     },
     "allowedHosts": "Always allowed by your administrator:",
     "allowedHostsOff": "They apply when the network is on.",

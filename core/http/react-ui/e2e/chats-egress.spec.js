@@ -1,10 +1,20 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { mockSettings } from './settings-fixtures.js'
+import { app, installedAddon, mockAddons } from './addons-fixtures.js'
 
 // The network of a chat's Sandbox commands: the Network row of the Tools menu,
-// the card a blocked host asks with, and Settings > Tools > Sandbox network.
-// The API is stubbed.
+// the card a blocked host asks with, and the network-policy host control on
+// the Settings tab of the add-on that runs commands. The control is drawn for
+// any add-on the apps list entitles to it: the specs use the Sandbox and a
+// second add-on, Devbox, with the same manifest line. The API is stubbed.
+
+// An add-on that runs commands, with the host controls the apps list gives it.
+const runner = (id, title, controls = ['network-policy', 'tool-providers']) => app({
+  id, name: id, title, description: 'Runs commands.', mainPage: undefined, shadows: ['bash'], tools: ['bash'], toolCount: 1,
+  ui: { entry: `/api/addons/${id}/assets/${'a'.repeat(64)}/ui.js`, sdk: { min: 2, max: 2 }, controls },
+})
+const RUNNERS = [runner('sandbox', 'Sandbox'), runner('devbox', 'Devbox', ['network-policy'])]
 
 const SHOTS = process.env.EGRESS_SHOT_DIR
 const shot = async (page, name) => {
@@ -22,12 +32,13 @@ const DETAIL = {
 }
 const sandbox = { addons: [{ id: 'sandbox', tools: 2, off: false }], commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' }
 const view = (over = {}) => ({
-  preset: 'off', ceiling: 'registries', effective: 'off', applies: true, applies_reason: '',
+  preset: 'off', ceiling: 'registries', effective: 'off', applies: true, applies_reason: '', addon: 'sandbox',
   registries: [{ id: 'pypi', title: 'Python (PyPI)', hosts: ['pypi.org', 'files.pythonhosted.org'] }], allowed_hosts: [], rules: [], cards: [], ...over,
 })
 
 async function stubChat(page, { egress, running = false, messages = [] }) {
   const detail = { ...DETAIL, running }
+  await mockAddons(page, { apps: RUNNERS, installed: RUNNERS.map(a => installedAddon({ id: a.id, title: a.title })) })
   await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages } }))
   await page.route('**/api/chats/c1', route => route.fulfill({ json: detail }))
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({
@@ -143,6 +154,26 @@ test.describe('Network of the Sandbox commands', () => {
     await expect(page.getByTestId('chat-network')).toHaveCount(0)
   })
 
+  test('with no add-on that draws the network controls, the Tools menu has no Network row', async ({ page }) => {
+    await stubChat(page, { egress: view({ addon: undefined }) })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByText('Tools for this chat')).toBeVisible()
+    await expect(page.getByTestId('chat-network')).toHaveCount(0)
+    await expect(page.getByTestId('chat-network-host')).toHaveCount(0)
+  })
+
+  test('a second add-on with the same control draws the same row, and its link opens that add-on', async ({ page }) => {
+    await stubChat(page, { egress: view({ ceiling: 'off', addon: 'devbox' }) })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network')).toContainText('Off: the administrator has not allowed network access.')
+    await expect(page.getByTestId('chat-network-limit-admin')).toContainText('An administrator can turn it on in the settings of Devbox.')
+    const link = page.getByTestId('chat-network-limit-admin-link')
+    await expect(link).toHaveText('Open the settings of Devbox')
+    await expect(link).toHaveAttribute('href', '/app/addons?detail=devbox&view=settings')
+  })
+
   test('a blocked host asks on a card that comes back after a reload and can be answered', async ({ page }) => {
     const card = { id: 'k1', host: 'pypi.org', port: 443, kind: 'connect', state: 'pending', asked_at: '2026-10-30T10:01:00Z' }
     const { state, push } = await stubChat(page, { egress: view({ cards: [card] }), running: true })
@@ -209,8 +240,8 @@ test.describe('A card the administrator\'s limit cannot admit', () => {
     const blocked = page.getByTestId('chat-network-blocked')
     await expect(blocked).toContainText('Network access is off for the Sandbox on this server.', { timeout: 15_000 })
     await expect(blocked.getByTestId('chat-network-consent-host')).toHaveText('example.com:443')
-    await expect(blocked.getByTestId('chat-network-blocked-admin')).toContainText('An administrator can turn it on in Settings > Tools > Sandbox network.')
-    await expect(blocked.getByTestId('chat-network-blocked-admin-link')).toHaveAttribute('href', '/app/settings?group=tools')
+    await expect(blocked.getByTestId('chat-network-blocked-admin')).toContainText('An administrator can turn it on in the settings of Sandbox.')
+    await expect(blocked.getByTestId('chat-network-blocked-admin-link')).toHaveAttribute('href', '/app/addons?detail=sandbox&view=settings')
     await expect(page.getByTestId('chat-network-consent')).toHaveCount(0)
     await expect(page.getByTestId('chat-network-consent-once')).toHaveCount(0)
     await shot(page, 'network-card-ceiling-off-dark')
@@ -221,7 +252,7 @@ test.describe('A card the administrator\'s limit cannot admit', () => {
     }
     await page.getByTestId('chat-tools-button').click()
     await expect(page.getByTestId('chat-network')).toContainText('Off: the administrator has not allowed network access.')
-    await expect(page.getByTestId('chat-network-limit-admin-link')).toHaveAttribute('href', '/app/settings?group=tools')
+    await expect(page.getByTestId('chat-network-limit-admin-link')).toHaveAttribute('href', '/app/addons?detail=sandbox&view=settings')
     await expect(page.getByTestId('chat-network-all')).toBeDisabled()
   })
 
@@ -246,57 +277,106 @@ test.describe('A card the administrator\'s limit cannot admit', () => {
   })
 })
 
-test.describe('Settings > Tools > Sandbox network', () => {
-  test('?group=tools opens the Tools group', async ({ page }) => {
-    await mockSettings(page, { chats_egress_ceiling: 'off' })
-    await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [] } }))
-    await page.route('**/api/chats/admin/egress', route => route.fulfill({
-      json: { ceiling: 'off', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], audit_days: 30, registries: [], sandbox: 'sandbox', isolation: 'isolated', allowed_24h: 0, blocked_24h: 0 },
-    }))
-    await page.route(/\/api\/chats\/admin\/egress\/events(\?.*)?$/, route => route.fulfill({ json: { events: [] } }))
+// The add-on pages of the network-policy control, with the settings and the
+// admin network routes stubbed.
+async function stubNetworkAdmin(page, { settings = {}, egress = {}, events = [], apps = RUNNERS } = {}) {
+  const state = await mockSettings(page, settings)
+  await mockAddons(page, { apps, installed: apps.map(a => installedAddon({ id: a.id, title: a.title })) })
+  await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [
+    { id: 'bash', label: 'bash', description: 'Run commands', setting: 'chats_host_exec', mode: 'off', provider: 'sandbox', candidates: ['devbox', 'sandbox'], titles: { sandbox: 'Sandbox', devbox: 'Devbox' } },
+    { id: 'web_search', label: 'web_search', description: 'Search the web', setting: 'chats_web_search', provider: 'builtin', candidates: [] },
+  ], skills: [] } }))
+  await page.route('**/api/chats/admin/egress', route => route.fulfill({
+    json: { ceiling: 'registries', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], allowed_hosts: [], audit_days: 30, registries: [], sandbox: 'sandbox', isolation: 'isolated', allowed_24h: 0, blocked_24h: 0, ...egress },
+  }))
+  await page.route(/\/api\/chats\/admin\/egress\/events(\?.*)?$/, route => route.fulfill({ json: { events } }))
+  return state
+}
+
+test.describe('The network of the commands on the add-on page', () => {
+  test('the old address of the network block opens the Settings tab of the add-on that draws it', async ({ page }) => {
+    await stubNetworkAdmin(page)
+    await page.goto('/app/settings?group=tools#settings-egress')
+    await expect(page).toHaveURL(/\/app\/addons\?detail=sandbox&view=settings$/)
+    await expect(page.getByTestId('host-control-network-policy')).toBeVisible({ timeout: 15_000 })
+  })
+
+  test('the Settings page keeps the built-in tools and a pointer, and none of the network settings', async ({ page }) => {
+    await stubNetworkAdmin(page)
     await page.goto('/app/settings?group=tools')
-    await expect(page.getByTestId('settings-egress')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('settings-tools')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('settings-egress')).toHaveCount(0)
+    await expect(page.locator('[data-field="chats_egress_ceiling"]')).toHaveCount(0)
+    await expect(page.locator('[data-field="chats_egress_allowed_hosts"]')).toHaveCount(0)
+    // The retention also keeps the audit of the commands on this machine.
+    await expect(page.locator('[data-field="chats_egress_audit_days"]')).toHaveCount(1)
+    const rows = page.getByTestId('settings-network-addon')
+    await expect(rows).toHaveCount(2)
+    await expect(rows.first()).toContainText('Sandbox keeps the network settings of the commands it runs on its own page.')
+    await expect(rows.nth(1).getByTestId('settings-network-addon-link')).toHaveAttribute('href', '/app/addons?detail=devbox&view=settings')
+    // The bash row points to the add-on that serves it and draws its row.
+    await expect(page.getByTestId('settings-tools-bash-addon-link')).toHaveAttribute('href', '/app/addons?detail=sandbox&view=settings')
+    // A search finds no network setting here either.
+    await page.getByRole('searchbox').first().fill('Always allowed hosts')
+    await expect(page.getByTestId('settings-results-title')).toHaveText('No settings found')
+  })
+
+  test('without an add-on that draws it, the old address opens the Tools group with no network block', async ({ page }) => {
+    await stubNetworkAdmin(page, { apps: [app({ id: 'notes', title: 'Notes' })] })
+    await page.goto('/app/settings?group=tools#settings-egress')
+    await expect(page).toHaveURL(/\/app\/settings\?group=tools#settings-egress$/)
+    await expect(page.getByTestId('settings-tools')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('settings-network-elsewhere')).toHaveCount(0)
   })
 
   test('shows who runs commands, the registries and the audit, and turns the private switch on only with the phrase', async ({ page }) => {
-    const settings = await mockSettings(page, { chats_egress_allow_private: false, chats_egress_ceiling: 'off' })
-    await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [] } }))
-    await page.route('**/api/chats/admin/egress', route => route.fulfill({
-      json: {
-        ceiling: 'registries', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], audit_days: 30,
-        registries: [{ id: 'pypi', title: 'Python (PyPI)', hosts: ['pypi.org', 'files.pythonhosted.org'] }],
-        sandbox: 'sandbox', isolation: 'isolated', allowed_24h: 4, blocked_24h: 1,
-      },
-    }))
-    await page.route(/\/api\/chats\/admin\/egress\/events(\?.*)?$/, route => route.fulfill({
-      json: { events: [{ user: 'u1', user_name: 'Sam', chat: 'c1', host: 'evil.example', port: 443, kind: 'connect', verdict: 'block', reason: 'off', at: '2026-10-30T10:00:00Z' }] },
-    }))
-    await page.goto('/app/settings')
-    await page.getByRole('button', { name: /^Tools/ }).click()
-    const section = page.getByTestId('settings-egress')
+    const settings = await stubNetworkAdmin(page, {
+      settings: { chats_egress_allow_private: false, chats_egress_ceiling: 'off' },
+      egress: { registries: [{ id: 'pypi', title: 'Python (PyPI)', hosts: ['pypi.org', 'files.pythonhosted.org'] }], allowed_24h: 4, blocked_24h: 1 },
+      events: [{ user: 'u1', user_name: 'Sam', chat: 'c1', host: 'evil.example', port: 443, kind: 'connect', verdict: 'block', reason: 'off', at: '2026-10-30T10:00:00Z' }],
+    })
+    await page.goto('/app/addons?detail=sandbox&view=settings')
+    const block = page.getByTestId('host-control-network-policy')
+    await expect(block).toBeVisible({ timeout: 15_000 })
     await expect(page.getByTestId('settings-egress-serves')).toHaveText('Commands run isolated in the sandbox add-on')
     await expect(page.getByTestId('settings-egress-counts')).toHaveText('Last 24 hours: 4 allowed, 1 blocked.')
+    await expect(block.locator('[data-field="chats_egress_ceiling"]')).toBeVisible()
+    await expect(block.locator('[data-field="chats_egress_audit_days"]')).toBeVisible()
     await page.getByTestId('settings-egress-registries').locator('summary').click()
-    await expect(section).toContainText('pypi.org, files.pythonhosted.org')
+    await expect(block).toContainText('pypi.org, files.pythonhosted.org')
     await page.getByTestId('settings-egress-audit-toggle').click()
     await expect(page.getByTestId('settings-egress-audit')).toContainText('evil.example:443')
-    await shot(page, 'settings-egress')
+    // The bash row of the tool-providers control is on the same tab; the
+    // web_search row is not, since the add-on does not replace it.
+    await expect(page.getByTestId('settings-tools-row-bash')).toBeVisible()
+    await expect(page.getByTestId('settings-tools-row-web_search')).toHaveCount(0)
+    await shot(page, 'addon-network')
 
     await page.getByTestId('settings-egress-private-switch').click()
     await expect(page.getByRole('button', { name: 'Apply' })).toBeDisabled()
     await page.getByTestId('settings-egress-private-phrase').fill('I understand that commands can reach my private network')
     await page.getByRole('button', { name: 'Apply' }).click()
     await expect.poll(() => settings.posts).toEqual([{ chats_egress_allow_private: true, chats_egress_private_confirm: 'I understand that commands can reach my private network' }])
+    await expect(page.getByTestId('settings-pending')).toHaveCount(0)
+  })
+
+  test('a second add-on with the same manifest line gets the same block, and only the controls it has', async ({ page }) => {
+    const settings = await stubNetworkAdmin(page, { settings: { chats_egress_ceiling: 'off' } })
+    await page.goto('/app/addons?detail=devbox&view=settings')
+    const block = page.getByTestId('host-control-network-policy')
+    await expect(block).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('host-control-tool-providers')).toHaveCount(0)
+    await block.locator('[data-field="chats_egress_ceiling"] select').selectOption('registries')
+    await page.getByRole('button', { name: 'Apply' }).click()
+    await expect.poll(() => settings.posts).toEqual([{ chats_egress_ceiling: 'registries' }])
   })
 
   test('the Always allowed hosts list adds, refuses and removes hosts and saves them with Apply', async ({ page }) => {
-    const settings = await mockSettings(page, { chats_egress_allow_private: false, chats_egress_ceiling: 'registries', chats_egress_allowed_hosts: 'api.example.org' })
-    await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [] } }))
-    await page.route('**/api/chats/admin/egress', route => route.fulfill({
-      json: { ceiling: 'registries', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], allowed_hosts: ['api.example.org'], audit_days: 30, registries: [], sandbox: 'sandbox', isolation: 'isolated', allowed_24h: 0, blocked_24h: 0 },
-    }))
-    await page.goto('/app/settings')
-    await page.getByRole('button', { name: /^Tools/ }).click()
+    const settings = await stubNetworkAdmin(page, {
+      settings: { chats_egress_allow_private: false, chats_egress_ceiling: 'registries', chats_egress_allowed_hosts: 'api.example.org' },
+      egress: { allowed_hosts: ['api.example.org'] },
+    })
+    await page.goto('/app/addons?detail=sandbox&view=settings')
     const editor = page.getByTestId('settings-hosts')
     await expect(editor.getByTestId('settings-hosts-item')).toHaveText(['api.example.org'])
     await expect(editor.getByTestId('settings-hosts-count')).toHaveText('1/64')

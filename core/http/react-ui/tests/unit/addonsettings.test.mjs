@@ -3,9 +3,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { SETTINGS_VIEW, addonSettingsAddress, legacySectionTarget, paneView } from '../../src/utils/addonSettings.js'
 import {
-  SETTINGS_VIEW, addonSettingsAddress, legacySectionTarget, paneView, serverSettingsAddress, serverSettingsFor,
-} from '../../src/utils/addonSettings.js'
+  HOST_CONTROL_IDS, NETWORK_POLICY, NETWORK_POLICY_FIELDS, TOOL_PROVIDERS, appsWithControl, controlsOf, hasAddonSettings, hasControl, ownedByControl,
+} from '../../src/addons/hostControls.js'
 import { FIELD_BY_KEY, getValue, isChanged } from '../../src/utils/settingsSchema.js'
 import { THEME_TOKENS } from '../../src/addons/sdk.js'
 import { KIT } from '../../../../../addons/internal/uibuild/kitstub.mjs'
@@ -33,18 +34,41 @@ test('add-on settings: the old anchor of a section at the end of the Settings pa
   assert.equal(legacySectionTarget('#ad-section-<x>', ['sandbox']), '')
 })
 
-test('add-on settings: the server settings of an add-on\'s feature link to their block on the Settings page', () => {
-  const sandbox = serverSettingsFor('sandbox')
-  assert.deepEqual(sandbox.map(e => e.id), ['network', 'bash'])
-  assert.equal(serverSettingsAddress(sandbox[0]), '/app/settings?group=tools#settings-egress')
-  assert.equal(serverSettingsAddress(serverSettingsFor('web')[0]), '/app/settings?group=tools#settings-builtin-tools')
-  assert.deepEqual(serverSettingsFor('toString'), [])
-  assert.deepEqual(serverSettingsFor('nope'), [])
-  // The anchors exist on the blocks they name.
-  const egress = readFileSync(join(src, 'components/settings/EgressSection.jsx'), 'utf8')
-  const tools = readFileSync(join(src, 'components/settings/BuiltinToolsSection.jsx'), 'utf8')
-  assert.match(egress, /id="settings-egress"/)
-  assert.match(tools, /id="settings-builtin-tools"/)
+test('add-on settings: the host draws the controls the apps list gives an add-on, whatever its ID', () => {
+  const ui = (controls, extra = {}) => ({ entry: '/x.js', sdk: { min: 2, max: 2 }, controls, ...extra })
+  const sandbox = { id: 'sandbox', enabled: true, state: 'running', ui: ui([NETWORK_POLICY, TOOL_PROVIDERS]) }
+  const devbox = { id: 'devbox', enabled: true, state: 'running', ui: ui([NETWORK_POLICY, 'from-a-newer-server']) }
+  const plain = { id: 'notes', enabled: true, state: 'running', ui: ui(undefined) }
+  assert.deepEqual(HOST_CONTROL_IDS, ['network-policy', 'tool-providers'])
+  assert.deepEqual(controlsOf(sandbox), ['network-policy', 'tool-providers'])
+  // An ID this page does not know is not drawn.
+  assert.deepEqual(controlsOf(devbox), ['network-policy'])
+  assert.deepEqual(controlsOf(plain), [])
+  assert.deepEqual(controlsOf(null), [])
+  assert.equal(hasControl(devbox, NETWORK_POLICY), true)
+  assert.equal(hasControl(devbox, TOOL_PROVIDERS), false)
+  // A control gives the add-on a Settings tab, as its own section does.
+  assert.equal(hasAddonSettings(devbox), true)
+  assert.equal(hasAddonSettings(plain), false)
+  assert.equal(hasAddonSettings({ ...plain, ui: ui(undefined, { slots: [{ id: 's', slot: 'settings.sections', component: 'S' }] }) }), true)
+  // Only usable add-ons point the Settings page and the chat at their page.
+  assert.deepEqual(appsWithControl([sandbox, devbox, { ...devbox, id: 'off', enabled: false }, plain], NETWORK_POLICY).map(a => a.id), ['sandbox', 'devbox'])
+})
+
+test('add-on settings: the network settings are drawn by their control, and the audit retention stays on the Settings page too', () => {
+  for (const key of NETWORK_POLICY_FIELDS) assert.ok(FIELD_BY_KEY[key], key)
+  for (const key of ['chats_egress_ceiling', 'chats_egress_default', 'chats_egress_ports', 'chats_egress_extra_registries', 'chats_egress_allowed_hosts', 'chats_egress_allow_private']) {
+    assert.equal(ownedByControl(key), true, key)
+  }
+  assert.equal(ownedByControl('chats_egress_audit_days'), false)
+  assert.ok(NETWORK_POLICY_FIELDS.includes('chats_egress_audit_days'))
+  assert.equal(ownedByControl('chats_host_exec'), false)
+  assert.equal(ownedByControl('chats_web_search'), false)
+  // No host file names an add-on to place its settings.
+  for (const f of ['utils/addonSettings.js', 'components/addons/AddonSettings.jsx', 'utils/chatEgress.js', 'components/chat/NetworkConsentCard.jsx', 'pages/Settings.jsx']) {
+    const text = readFileSync(join(src, f), 'utf8')
+    assert.doesNotMatch(text, /'sandbox'|"sandbox"|'web'|SERVER_SETTINGS|SANDBOX_NETWORK_SETTINGS/, f)
+  }
 })
 
 test('add-on settings: a setting never set (0 or empty) reads as its default and is not changed, and the audit retention has its unit and bounds', () => {

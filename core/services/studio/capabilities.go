@@ -30,6 +30,14 @@ type CommandIsolation interface {
 	Isolation(ctx context.Context, user, addonID string) string
 }
 
+// AddonControls is implemented by a broker that knows which host controls an
+// add-on is entitled to (see contract.EntitledControls). It is optional.
+type AddonControls interface {
+	// Controls returns the host controls the host draws for the add-on, as
+	// the apps list the user can read gives them, or nil.
+	Controls(ctx context.Context, user, addonID string) []string
+}
+
 // CommandState says whether a chat can run commands.
 type CommandState string
 

@@ -835,7 +835,8 @@ add-on.
 A choice above the limit an administrator set (`chats_egress_ceiling`) is
 greyed out with *Limited by your administrator*. When the limit is `off` (the
 default), the row says *Off: the administrator has not allowed network access*
-and gives an administrator a link to **Settings > Tools > Sandbox network**;
+and gives an administrator a link to the **Settings** tab of the add-on that runs
+the commands, named by its title;
 anyone else is told to ask one. The model is told the same, so it reports that
 the server's setting blocks the network instead of waiting for an approval. A new chat starts with the
 administrator's default. A fork keeps the choice and the allow rules of the
@@ -867,11 +868,17 @@ shows a card.
 When commands run on this machine instead, the row is one line, *Commands run
 on this machine and use its network*: these settings do not apply there.
 
+The Network row is drawn by LocalAI for the add-on that runs the chat's
+commands, when that add-on has the `network-policy` [host
+control]({{%relref "features/addons#host-controls" %}}) (the Sandbox has it).
+With an add-on that runs commands but does not have it, the Tools menu has no
+Network row; the limit and the default still apply to its commands.
+
 The routes, for the chat's owner (another user's chat is 404):
 
 | Route | What it does |
 |---|---|
-| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, registries, allowed_hosts, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). A rule the ceiling no longer admits has `above_limit`. |
+| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{%relref "features/addons#host-controls" %}})); it is absent when `applies` is false or that add-on has no such control, and the chat then shows no Network row. A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
 | `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). The same answer sent twice is one answer (204, nothing changes). Another answer to a card already answered is 409 `already_answered`. A host the ceiling does not admit refuses the card and gives 400 `egress_above_ceiling` on this answer and on every later one, so a stale card never ends in a conflict loop. In `GET /api/chats/{id}/egress` such a card has `above_ceiling`: no answer can make it work. |
@@ -881,7 +888,7 @@ host:port`) when a card asks and `egress_card` when the chat's network changes,
 so every open tab reads it again. Administrators read the settings in force
 and the audit with `GET /api/chats/admin/egress` and `GET
 /api/chats/admin/egress/events?limit=&user=&chat=&verdict=&host=`, and see
-both in Settings > Tools > Sandbox network. Its `sandbox` field names the
+both on the Settings tab of the add-on that runs the commands. Its `sandbox` field names the
 add-on that runs the commands now: of the running add-ons that replace `bash`,
 the one chosen in `chats_tool_providers` or the one installed first, and none
 when the chosen one is stopped. It is read from the add-on host each time, so

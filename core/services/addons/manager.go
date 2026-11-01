@@ -147,6 +147,18 @@ type Manager struct {
 	// skillSync keeps the chats' skill layer in step with the installed
 	// packages. Nil until the chats' files exist (see SetSkillSync).
 	skillSync SkillSync
+	// hostOps is the host setting of the host operation prefixes of each
+	// add-on. The apps list reads it to decide which host controls it draws.
+	hostOps map[string][]string
+}
+
+// SetHostOps sets the host operation grants of the add-ons (the host setting,
+// read at startup). The apps list draws a host control only for an add-on
+// whose grants entitle it.
+func (m *Manager) SetHostOps(ops map[string][]string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.hostOps = ops
 }
 
 // SkillSync copies the skills of an add-on package into the chats' skill layer
@@ -1090,7 +1102,7 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		if !ok {
 			continue
 		}
-		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt}
+		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt, HostOps: m.hostOps[id]}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
 		}

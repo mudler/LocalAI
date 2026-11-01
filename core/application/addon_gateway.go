@@ -581,6 +581,15 @@ func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) s
 	return ""
 }
 
+// Controls forwards to the broker when it knows the host controls of the
+// add-ons.
+func (l lateStudioAddons) Controls(ctx context.Context, user, addonID string) []string {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonControls); ok {
+		return g.Controls(ctx, user, addonID)
+	}
+	return nil
+}
+
 func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	b := l.a.StudioAddonTools()
 	if b == nil {
@@ -714,6 +723,20 @@ func (s *studioAddons) Isolation(ctx context.Context, user, addonID string) stri
 		return "host"
 	}
 	return "isolated"
+}
+
+// Controls returns the host controls the apps list draws for the add-on, as
+// the user reads the list, or nil.
+func (s *studioAddons) Controls(ctx context.Context, user, addonID string) []string {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil
+	}
+	out, err := s.adapter.Controls(ctx, actor, addonID)
+	if err != nil {
+		return nil
+	}
+	return out
 }
 
 func (s *studioAddons) actor(user string) (contract.Actor, error) {

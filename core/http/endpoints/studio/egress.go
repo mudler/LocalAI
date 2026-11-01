@@ -13,7 +13,7 @@ import (
 
 // GetEgress returns the network of a chat's Sandbox commands.
 // @Summary Read the network of a chat's Sandbox commands.
-// @Description The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.
+// @Description The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsEgress "The network of the chat"

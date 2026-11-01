@@ -92,6 +92,10 @@
       "confirm-host"
     ],
     "ui": {
+      "controls": [
+        "network-policy",
+        "tool-providers"
+      ],
       "css": [
         "ui/sandbox.css"
       ],

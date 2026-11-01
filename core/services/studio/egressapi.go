@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // The routes of the network of a chat's Sandbox commands: the chat's own
@@ -37,7 +38,12 @@ type EgressView struct {
 	// bash; AppliesReason then says which.
 	Applies       bool
 	AppliesReason string
-	Registries    []egress.Registry
+	// Addon is the add-on that runs the chat's commands and carries the
+	// network-policy host control, which draws the network row of the chat:
+	// set only while Applies. Without it no add-on draws the controls, and
+	// the policy still holds.
+	Addon      string
+	Registries []egress.Registry
 	// AllowedHosts is the administrator's always-allowed list, canonical.
 	AllowedHosts []string
 	Rules        []EgressRuleView
@@ -108,6 +114,9 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 		v.AppliesReason = EgressAppliesHost
 	case cmds.State == CommandsAvailable:
 		v.Applies = true
+		if c, ok := s.d.AddonTools.(AddonControls); ok && slices.Contains(c.Controls(ctx, p, cmds.Provider), contract.ControlNetworkPolicy) {
+			v.Addon = cmds.Provider
+		}
 	default:
 		v.AppliesReason = EgressAppliesNone
 	}

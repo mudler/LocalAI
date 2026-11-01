@@ -237,7 +237,10 @@ Install it from **Add-ons**, **Find add-ons**. The chat's **Tools** menu then sa
 "Served by add-on web" on the Web row, and **Settings > Tools** lists the add-on as the
 provider of both tools. When another add-on already replaces one of them, the install
 dialog says so for each tool ("This add-on replaces the built-in web_search. Another add-on
-(...) already does."), and you choose which one serves in **Settings > Tools**.
+(...) already does."), and you choose which one serves in **Settings > Tools**. The
+add-on asks for the `tool-providers` [host control]({{%relref "features/addons#host-controls" %}}),
+so the **Settings** tab of its details also shows the `web_search` and `web_fetch` rows of
+Settings > Tools, with the same choice, and those rows on Settings > Tools link to it.
 
 ### Providers
 
