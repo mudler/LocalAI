@@ -47,7 +47,6 @@ var actorAllowlist = map[string]string{
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
 	// Not converted yet: each is the work of a later lane of the agent folder
 	// plan, and must move to the chat's access there.
-	"connectorfiles.go:Service.readChatFile":                            "lane 7: the files a connector reply sends",
 	"sandbox/runner/runner.go:New":                                      "lane 5: the default actor hook of the sandbox runner",
 	"../addons/hostops/engine_workspace.go:WorkspaceHost.view":          "lane 6: add-on workspace operations",
 	"../addons/hostops/engine_workspace.go:WorkspaceHost.changes":       "lane 6: add-on workspace operations",

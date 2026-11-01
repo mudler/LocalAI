@@ -223,6 +223,14 @@ gives the same events without one.
 - **Answers.** See [How the bot answers](#how-the-bot-answers). A message that
   arrives while the agent works waits and is read at the agent's next request, as in
   any chat; the answer of that turn covers it.
+- **An agent with a folder.** When the agent has a
+  [folder](/features/chats-agents/#one-folder-for-an-agent), the chat of each sender
+  reaches only that folder, its own chat folder, the shared folders and the skills,
+  and the bot sends only files from those folders (see `send_files`). When the
+  folder is deleted, unreadable or not chosen, the agent does not run: each message
+  gets one reply, "This agent cannot work right now: its folder is missing.", and
+  the server logs it. The binding stays on, so the agent answers again once you
+  restore the folder or choose another one.
 
 ## How the bot answers
 
