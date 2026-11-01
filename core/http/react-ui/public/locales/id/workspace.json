@@ -671,5 +671,11 @@
   "picker": {
     "retry": "Coba lagi",
     "noFolders": "Tidak ada folder di sini"
+  },
+  "agentMark": {
+    "usedBy": "Dipakai oleh {{agents}}",
+    "read": "{{name}} (bisa membaca)",
+    "write": "{{name}} (bisa membaca dan mengubah)",
+    "many": "{{count}} agen"
   }
 }

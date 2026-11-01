@@ -671,5 +671,11 @@
   "picker": {
     "retry": "重试",
     "noFolders": "这里没有文件夹"
+  },
+  "agentMark": {
+    "usedBy": "使用者：{{agents}}",
+    "read": "{{name}}（可读取）",
+    "write": "{{name}}（可读取和修改）",
+    "many": "{{count}} 个智能体"
   }
 }
