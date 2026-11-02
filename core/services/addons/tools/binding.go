@@ -32,3 +32,14 @@ func (t *ToolAdapter) ValidateExecutionBinding(ctx context.Context, a contract.A
 	}
 	return owner.ValidateExecutionBinding(ctx, a, b)
 }
+
+// ExecutionStatusRead is optional and never falls back to ordinary tool dispatch.
+func (t *ToolAdapter) ExecutionStatusRead(ctx context.Context, a contract.Actor, r gateway.ExecutionStatusRequest) (gateway.ExecutionStatusResponse, error) {
+	owner, ok := t.backend.(interface {
+		ExecutionStatusRead(context.Context, contract.Actor, gateway.ExecutionStatusRequest) (gateway.ExecutionStatusResponse, error)
+	})
+	if !ok {
+		return gateway.ExecutionStatusResponse{}, gateway.ErrForbidden
+	}
+	return owner.ExecutionStatusRead(ctx, a, r)
+}

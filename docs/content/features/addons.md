@@ -220,6 +220,28 @@ an error and unknown/unknown, never partial provider data. Non-available
 readiness normalizes isolation to unknown. Status describes only the bound
 tools of that addon incarnation; it is not a host isolation guarantee.
 
+Studio consumes this declaration through the owner-selected conversation binding,
+not an addon ID or a private settings payload. Prompt construction, command
+status and nested egress reads share one observation within a turn. Priming and
+standalone command-status or egress requests have separate, bounded scopes.
+Consumer cancellation stops that wait; turn completion cancels the observation.
+Failed reads settle as unknown and do not retry within the same scope. Each
+consumption revalidates the complete owner binding, including conversation,
+selection revision and runtime incarnation.
+
+The current application resolver supports **local-owner JSON stores only**.
+Named-user and SQL/GORM selection snapshots are explicitly unavailable and fail
+closed for typed observations. Ordinary chat access is unchanged. An undeclared
+legacy provider does not acquire an isolation claim. Sandbox retains its existing
+private Settings status response and separately declares the typed page-only
+`execution-status` read. Unknown backends report unknown, never inferred isolation.
+
+Provider-reported isolation and a declared network control do not establish
+host network-policy enforcement. The egress API therefore does not claim policy
+applicability for addon command runners until the host can prove enforcement.
+Built-in or explicitly host execution continues to report the host-execution
+reason. Controls can still identify the addon that draws its settings row.
+
 ### Requested host operations are not grants
 
 Inside `capabilities`:

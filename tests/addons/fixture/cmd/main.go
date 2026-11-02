@@ -164,7 +164,7 @@ func main() {
 					Envelope    contract.Envelope `json:"envelope"`
 				}{startup.Registration.Incarnation, v})
 				noteLine(config.ObservationLog, string(b))
-				if string(v.Request.Arguments) != `{"tool":"health"}` {
+				if string(v.Request.Arguments) != `{"tool":"health"}` && string(v.Request.Arguments) != `{"tool":"inspect"}` {
 					http.Error(w, "wrong status tool", 400)
 					return
 				}

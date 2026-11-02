@@ -141,6 +141,21 @@ var _ = Describe("execution binding owner resolver", func() {
 		foreign.UserID = "other"
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, foreign, b)).NotTo(Succeed())
 	})
+	It("observes the actual renamed provider through the Studio typed adapter and withdraws stale facts", func() {
+		broker := a.StudioAddonTools().(*studioAddons)
+		request, addon, explanation := broker.NewExecutionObservation(ctx, studio.AnonymousPrincipal, claim.ConversationID)
+		Expect(request).NotTo(BeNil())
+		defer request.Close()
+		Expect(addon).To(Equal("renamed-runner"))
+		value := request.Observe(ctx)
+		Expect(string(value.Readiness)).To(Equal("available"))
+		Expect(string(value.Isolation)).To(Equal("isolated"))
+		Expect(explanation()).To(BeEmpty())
+		Expect(request.Observe(ctx)).To(Equal(value))
+		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner"})).To(Succeed())
+		Expect(string(request.Observe(ctx).Isolation)).To(Equal("unknown"))
+		Expect(broker.Isolation(ctx, studio.AnonymousPrincipal, "renamed-runner")).To(BeEmpty())
+	})
 	It("invalidates old bindings after pins and chat switch ABA", func() {
 		b, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())

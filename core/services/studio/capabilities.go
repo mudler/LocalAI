@@ -205,6 +205,8 @@ func (s *Service) commandsOf(ctx context.Context, user string, tools []session.T
 // Tools menu shows it. It uses the same tools the model would get. The chat of
 // another user is session.ErrNotFound.
 func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Commands, error) {
+	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
+	defer closeScope()
 	p := principal(user)
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {

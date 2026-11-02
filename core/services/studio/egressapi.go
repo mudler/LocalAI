@@ -72,6 +72,8 @@ func registriesView(s egress.Settings) []egress.Registry {
 // Egress returns the network of a chat for its owner. The chat of another
 // user is session.ErrNotFound.
 func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, error) {
+	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
+	defer closeScope()
 	p := principal(user)
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {
@@ -116,7 +118,8 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	case cmds.State == CommandsAvailable && (cmds.Provider == BuiltinProvider || cmds.Isolation == "host"):
 		v.AppliesReason = EgressAppliesHost
 	case cmds.State == CommandsAvailable:
-		v.Applies = true
+		// Provider isolation does not establish host network-policy enforcement.
+		v.AppliesReason = EgressAppliesNone
 		if c, ok := s.d.AddonTools.(AddonControls); ok && slices.Contains(c.Controls(ctx, p, cmds.Provider), contract.ControlNetworkPolicy) {
 			v.Addon = cmds.Provider
 		}
