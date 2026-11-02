@@ -107,6 +107,72 @@ var _ = Describe("document provider matrix", func() {
 		Expect(sandboxDocumentEligible(documentCommands(svc, ctx, "alice", rec, nil))).To(BeTrue())
 		Expect(sandboxDocumentEligible(documentCommands(svc, ctx, "alice", rec, &scope{deleted: true}))).To(BeFalse())
 	})
+	DescribeTable("uses saved-agent subagent grants for the index and loader", func(granted bool) {
+		ctx := context.Background()
+		b := &documentBroker{skillBroker: &skillBroker{}, isolation: "isolated", defs: []AddonTool{{AddonID: "sandbox", Name: "addon__sandbox__exec", Shadows: "bash"}}}
+		svc, f := newSkillService(b.skillBroker)
+		svc.d.AddonTools = b
+		agentsStore, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc.d.Agents = agentsStore
+		Expect(f.SyncAddonSkills(ctx, "sandbox", fstest.MapFS{"docx/SKILL.md": {Data: skillMD("docx", "Sandbox document.", "Sandbox body.", "requires: [exec]")}})).To(Succeed())
+		b.set(AddonSkillSet{AddonID: "sandbox", Skills: []string{"docx"}, Shadows: []string{"docx"}, Running: true})
+		grants := []string{}
+		if granted {
+			grants = []string{"sandbox"}
+		}
+		agent, err := svc.SaveAgent(ctx, "alice", agents.Agent{Name: "Document worker", Model: "m", Addons: grants, Skills: []string{"docx"}})
+		Expect(err).NotTo(HaveOccurred())
+		parent, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		// Persist the same saved-agent child record as spawn, without a model
+		// turn. Such children deliberately have no entry in s.allowed.
+		rec := session.ChatRecord{ID: "document-child", Principal: "alice", Model: "m", Kind: session.KindSubAgent, ParentID: parent.ID, AgentID: agent.ID}
+		Expect(svc.d.Store.CreateChat(ctx, rec)).To(Succeed())
+		Expect(svc.allowed).NotTo(HaveKey(key("alice", rec.ID)))
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		turn, err := svc.chatTools(ctx, x)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hasTool(turn.Tools, "bash")).To(Equal(granted))
+		Expect(strings.Contains(turn.Prompt, "- docx: Sandbox document.")).To(Equal(granted))
+		picker, _, err := svc.Skills(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(skills.Usable(picker)) > 0).To(Equal(granted))
+		if !granted {
+			Expect(hasTool(turn.Tools, "load_skill")).To(BeFalse())
+			return
+		}
+		Expect(hasTool(turn.Tools, "load_skill")).To(BeTrue(), "saved-agent Sandbox commands and index require a real loader")
+		var loader session.Tool
+		for _, tool := range turn.Tools {
+			if tool.Name == "load_skill" {
+				loader = tool
+			}
+		}
+		body, err := loader.Run(ctx, json.RawMessage(`{"name":"docx"}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(body).To(ContainSubstring("Sandbox body."))
+		// A previously constructed loader must not retain a revoked grant.
+		agent.Addons = nil
+		Expect(agentsStore.Put(ctx, agent)).To(Succeed())
+		body, err = loader.Run(ctx, json.RawMessage(`{"name":"docx"}`))
+		Expect(err).To(HaveOccurred())
+		Expect(body).NotTo(ContainSubstring("Sandbox body."))
+		turn, err = svc.chatTools(ctx, x)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hasTool(turn.Tools, "bash")).To(BeFalse())
+		Expect(hasTool(turn.Tools, "load_skill")).To(BeFalse())
+		Expect(turn.Prompt).NotTo(ContainSubstring("- docx: Sandbox document."))
+		picker, _, err = svc.Skills(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(skills.Usable(picker)).To(BeEmpty())
+		saved, err := agentsStore.Get(ctx, "alice", agent.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(saved.Addons).To(BeEmpty())
+		Expect(saved.Skills).To(Equal([]string{"docx"}))
+	}, Entry("permitted then revoked Sandbox", true), Entry("absent Sandbox grant", false))
+
 	It("opens a scoped chat with load_skill without reentering session access resolution", func() {
 		ctx := context.Background()
 		svc, f := newSkillService(&skillBroker{})

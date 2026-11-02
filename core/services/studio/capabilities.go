@@ -446,6 +446,8 @@ func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspac
 		return Commands{State: CommandsNone}, nil
 	}
 	var tools []session.Tool
+	// Only ad-hoc children inherit a pruned tool set. Saved-agent children
+	// resolve current grants through their scope, just like their turn tools.
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
 		s.mu.Lock()
 		tools = slices.Clone(s.allowed[key(p, rec.ID)])
