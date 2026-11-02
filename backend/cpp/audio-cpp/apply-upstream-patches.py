@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 PIN = 'ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067'
-MANIFEST_SHA256 = '45517ee2b901c45e74e683fff12c8c418f8ddb348694b659681e04d93412a724'
+MANIFEST_SHA256 = '8da1c4ed7a9b6d975b00bbc984c08509e042cac854ad9b881ce29a976e92b54b'
 PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('include/engine/framework/core', ('backend.h', 'execution_context.h')),
     ('src/framework/core', ('backend.cpp', 'execution_context.cpp')),
@@ -36,6 +36,7 @@ PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('include/engine/framework/audio', ('fft.h', 'dsp.h')),
     ('src/framework/audio', ('fft.cpp', 'dsp.cpp')),
     ('src/framework/audio/detail', ('speech_fft_internal.h',)),
+    ('src/framework/codecs', ('oobleck_audio_vae_runtime.cpp',)),
 ) for name in names)
 
 

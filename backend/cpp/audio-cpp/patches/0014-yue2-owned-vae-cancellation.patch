@@ -1,0 +1,630 @@
+diff --git a/src/framework/codecs/oobleck_audio_vae_runtime.cpp b/src/framework/codecs/oobleck_audio_vae_runtime.cpp
+--- a/src/framework/codecs/oobleck_audio_vae_runtime.cpp
++++ b/src/framework/codecs/oobleck_audio_vae_runtime.cpp
+@@ -66,6 +66,88 @@
+     modules::Conv1dWeights decoder_out_conv;
+ };
+ 
++
++#ifdef ENGINE_YUE2_VAE_TESTING
++namespace vae_testing{void stored(int stage,size_t index,float value)noexcept;void phase(int stage)noexcept;void graph(ggml_cgraph*graph,bool encode)noexcept;void before_compute(core::ExecutionContext&execution)noexcept;}
++#endif
++void vae_stop(const core::ExecutionContext&execution){if(execution.stop_requested())throw runtime::RunCancelled();}
++void vae_phase(int stage,const core::ExecutionContext&execution){
++#ifdef ENGINE_YUE2_VAE_TESTING
++ vae_testing::phase(stage);
++#else
++ (void)stage;
++#endif
++ vae_stop(execution);
++}
++void vae_stored(int stage,size_t index,float value){
++#ifdef ENGINE_YUE2_VAE_TESTING
++ vae_testing::stored(stage,index,value);
++#else
++ (void)stage;(void)index;(void)value;
++#endif
++}
++size_t vae_product(std::initializer_list<int64_t>dims){size_t count=1;size_t limit=std::min({std::vector<float>().max_size(),static_cast<size_t>(std::numeric_limits<ptrdiff_t>::max())/sizeof(float),static_cast<size_t>(std::numeric_limits<int64_t>::max())/sizeof(float)});for(auto d:dims){if(d<=0||static_cast<uint64_t>(d)>limit/count)throw std::runtime_error("Oobleck VAE dimensions exceed supported range");count*=static_cast<size_t>(d);}return count;}
++void vae_config_domain(const OobleckAudioVaeConfig&c){
++ if(c.sample_rate<=0||c.sample_rate>std::numeric_limits<int>::max()||c.audio_channels<=0||c.audio_channels>std::numeric_limits<int>::max()||c.channels<=0||c.encoder_latent_dim<=0||c.decoder_latent_dim<=0||c.c_mults.empty()||c.c_mults.size()!=c.strides.size()||!c.use_snake||c.strides.size()>static_cast<uint64_t>(std::numeric_limits<int>::max()-3))throw std::runtime_error("Oobleck VAE configuration is invalid");
++ int64_t previous=c.channels;
++ for(size_t i=0;i<c.strides.size();++i){auto m=c.c_mults[i],stride=c.strides[i];if(m<=0||stride<=0||stride>std::numeric_limits<int>::max()/4)throw std::runtime_error("Oobleck VAE stride or multiplier is invalid");auto channel=vae_product({c.channels,m});(void)vae_product({static_cast<int64_t>(channel),previous,2*stride});(void)vae_product({static_cast<int64_t>(channel),static_cast<int64_t>(channel),7});previous=static_cast<int64_t>(channel);}
++ (void)vae_product({c.audio_channels,c.channels,7});(void)vae_product({previous,c.decoder_latent_dim,7});(void)vae_product({previous,c.encoder_latent_dim,3});
++}
++// Bound each materialized tensor, including convolution lowering, before building.
++int64_t vae_time(const OobleckAudioVaeConfig & c,int64_t batch,int64_t input,bool encode){
++    vae_config_domain(c);
++    if(input<=0||batch<=0)throw std::runtime_error("Oobleck VAE frames and batch must be positive");
++    auto activation=[&](int64_t channels,int64_t frames){(void)vae_product({batch,channels,frames});};
++    auto conv=[&](int64_t in,int64_t out,int64_t kernel,int64_t frames){
++        // GGML materializes [kernel * in_channels, output_time] per batch.
++        // Checking the aggregate also bounds batch concatenations and copies.
++        (void)vae_product({batch,kernel,in,frames});
++        (void)vae_product({kernel,in,out});activation(out,frames);
++    };
++    auto residual=[&](int64_t channels,int64_t frames){
++        if(frames>std::numeric_limits<int64_t>::max()-54)throw std::runtime_error("Oobleck VAE residual padding overflow");
++        activation(channels,frames+54);
++        conv(channels,channels,7,frames);conv(channels,channels,1,frames);
++    };
++    auto channel=[&](size_t i){return i==0?c.channels:static_cast<int64_t>(vae_product({c.channels,c.c_mults[i-1]}));};
++    int64_t time=input;
++    activation(encode?c.audio_channels:c.decoder_latent_dim,time);
++    if(encode){
++        conv(c.audio_channels,c.channels,7,time);
++        for(size_t i=0;i<c.strides.size();++i){
++            residual(channel(i),time);
++            int64_t stride=c.strides[i],pad=static_cast<int64_t>(std::ceil(static_cast<float>(stride)/2.0F));
++            if(time>std::numeric_limits<int64_t>::max()-2*pad)throw std::runtime_error("Oobleck VAE encoder time overflow");
++            int64_t numerator=time+2*pad-2*stride;
++            if(numerator<0)throw std::runtime_error("Oobleck VAE encoder input too short");
++            int64_t next=numerator/stride+1;
++            conv(channel(i),channel(i+1),2*stride,next);time=next;
++        }
++        conv(channel(c.strides.size()),c.encoder_latent_dim,3,time);
++    }else{
++        conv(c.decoder_latent_dim,channel(c.strides.size()),7,time);
++        for(size_t n=c.strides.size();n>0;--n){
++            int64_t stride=c.strides[n-1],pad=static_cast<int64_t>(std::ceil(static_cast<float>(stride)/2.0F));
++            if(time>(std::numeric_limits<int64_t>::max()-stride)/stride)throw std::runtime_error("Oobleck VAE decoder time overflow");
++            int64_t transpose=time*stride+stride;
++            // Transpose backend packs kernel and input; bound both plus output.
++            const size_t packed_kernel=vae_product({channel(n),channel(n-1),2*stride});
++            const size_t packed_input=vae_product({channel(n),time});
++            // CPU transpose uses an int kernel offset and one combined workspace.
++            if(packed_kernel>static_cast<size_t>(std::numeric_limits<int>::max())||
++               packed_input>static_cast<size_t>(std::numeric_limits<ptrdiff_t>::max())/sizeof(float)-packed_kernel)
++                throw std::runtime_error("Oobleck VAE transpose workspace exceeds supported range");
++            activation(channel(n),time);activation(channel(n-1),transpose);
++            time=transpose-2*pad;
++            if(time<=0)throw std::runtime_error("Oobleck VAE decoder slice is empty");
++            residual(channel(n-1),time);
++        }
++        conv(c.channels,c.audio_channels,7,time);
++    }
++    return time;
++}
++void vae_input(const OobleckAudioVaeConfig&c,const std::vector<float>&values,int64_t batch,int64_t time,bool encode){(void)vae_time(c,batch,time,encode);if(values.size()!=vae_product({batch,encode?c.audio_channels:c.decoder_latent_dim,time}))throw std::runtime_error("Oobleck VAE input shape mismatch");for(float v:values)if(!std::isfinite(v))throw std::runtime_error("Oobleck VAE input must be finite");}
++void vae_status(ggml_status status,const core::ExecutionContext&e,bool encode){if(status==GGML_STATUS_ABORTED)throw runtime::RunCancelled();if(status!=GGML_STATUS_SUCCESS)throw std::runtime_error(encode?"Oobleck audio VAE encode graph compute failed":"Oobleck audio VAE decode graph compute failed");vae_stop(e);}
+ std::vector<int64_t> channel_plan(const OobleckAudioVaeConfig & config) {
+     if (config.c_mults.empty()) {
+         throw std::runtime_error("Oobleck audio VAE c_mults must not be empty");
+@@ -81,6 +163,7 @@
+ }
+ 
+ void validate_config(const OobleckAudioVaeConfig & config) {
++    vae_config_domain(config);
+     if (config.sample_rate <= 0 || config.audio_channels <= 0 || config.channels <= 0 ||
+         config.encoder_latent_dim <= 0 || config.decoder_latent_dim <= 0) {
+         throw std::runtime_error("Oobleck audio VAE config dimensions must be positive");
+@@ -458,7 +541,8 @@
+ class OobleckAudioVaeRuntime::Impl::EncodeGraph {
+ public:
+     EncodeGraph(core::ExecutionContext & execution, const OobleckAudioVaeConfig & config, const OobleckAudioVaeRuntimeOptions & options, const OobleckAudioVaeWeights & weights, int64_t frames)
+-        : backend_(execution.backend()),
++        : execution_(&execution),
++          backend_(execution.backend()),
+           backend_type_(execution.backend_type()),
+           threads_(std::max(1, execution.config().threads)),
+           config_(config),
+@@ -468,10 +552,13 @@
+         if (backend_ == nullptr || frames_ <= 0) {
+             throw std::runtime_error("Oobleck audio VAE encode graph initialization failed");
+         }
+-        build();
++        (void)vae_time(config_,1,frames_,true);build();
+     }
+ 
+     ~EncodeGraph() {
++#ifdef ENGINE_YUE2_VAE_TESTING
++        vae_testing::phase(34);
++#endif
+         if (backend_ != nullptr && graph_ != nullptr) {
+             core::release_backend_graph_resources(backend_type_, backend_, graph_);
+         }
+@@ -485,25 +572,27 @@
+     }
+ 
+     std::vector<float> run(const std::vector<float> & planar_audio) const {
+-        if (static_cast<int64_t>(planar_audio.size()) != config_.audio_channels * frames_) {
++        if (planar_audio.size() != vae_product({config_.audio_channels,frames_})) {
+             throw std::runtime_error("Oobleck audio VAE encode input shape mismatch");
+         }
+         const auto total_start = Clock::now();
+         const auto upload_start = Clock::now();
+-        core::write_tensor_f32(input_, planar_audio);
++        vae_phase(20,*execution_);core::write_tensor_f32(input_, planar_audio);vae_phase(22,*execution_);
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.encode.input_upload_ms", engine::debug::elapsed_ms(upload_start));
+         core::set_backend_threads(backend_, threads_);
+         const auto compute_start = Clock::now();
+-        const ggml_status status = core::compute_backend_graph(backend_, graph_, nullptr, "framework.oobleck_audio_vae.encode");
++        vae_phase(10,*execution_);
++#ifdef ENGINE_YUE2_VAE_TESTING
++        vae_testing::graph(graph_,true);vae_testing::before_compute(*execution_);
++#endif
++        const ggml_status status = core::compute_backend_graph(*execution_, graph_, nullptr, "framework.oobleck_audio_vae.encode");
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.encode.graph_compute_ms", engine::debug::elapsed_ms(compute_start));
+-        if (status != GGML_STATUS_SUCCESS) {
+-            throw std::runtime_error("Oobleck audio VAE encode graph compute failed");
+-        }
++        ggml_backend_synchronize(backend_);vae_status(status,*execution_,true);
+         const auto read_start = Clock::now();
+-        auto out = core::read_tensor_f32(output_);
++        vae_phase(24,*execution_);auto out = core::read_tensor_f32(output_);vae_phase(26,*execution_);
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.encode.output_read_ms", engine::debug::elapsed_ms(read_start));
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.encode.total_ms", engine::debug::elapsed_ms(total_start));
+-        return out;
++        vae_phase(28,*execution_);return out;
+     }
+ 
+ private:
+@@ -525,7 +614,7 @@
+         ggml_build_forward_expand(graph_, output_);
+         gallocr_ = ggml_gallocr_new(ggml_backend_get_default_buffer_type(backend_));
+         if (gallocr_ == nullptr || !ggml_gallocr_reserve(gallocr_, graph_) || !ggml_gallocr_alloc_graph(gallocr_, graph_)) {
+-            throw std::runtime_error("Oobleck audio VAE encode backend buffer allocation failed");
++            if(gallocr_){ggml_gallocr_free(gallocr_);gallocr_=nullptr;}throw std::runtime_error("Oobleck audio VAE encode backend buffer allocation failed");
+         }
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.encode.graph_frames", frames_);
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.encode.graph_build_ms", engine::debug::elapsed_ms(start));
+@@ -543,6 +632,7 @@
+             .build(ctx, hidden, weights_.encoder_out_conv);
+     }
+ 
++    core::ExecutionContext * execution_ = nullptr;
+     ggml_backend_t backend_ = nullptr;
+     core::BackendType backend_type_ = core::BackendType::Cpu;
+     int threads_ = 1;
+@@ -560,7 +650,8 @@
+ class OobleckAudioVaeRuntime::Impl::DecodeGraph {
+ public:
+     DecodeGraph(core::ExecutionContext & execution, const OobleckAudioVaeConfig & config, const OobleckAudioVaeRuntimeOptions & options, const OobleckAudioVaeWeights & weights, int64_t batch, int64_t latent_frames)
+-        : backend_(execution.backend()),
++        : execution_(&execution),
++          backend_(execution.backend()),
+           backend_type_(execution.backend_type()),
+           threads_(std::max(1, execution.config().threads)),
+           config_(config),
+@@ -571,10 +662,13 @@
+         if (backend_ == nullptr || batch_ <= 0 || latent_frames_ <= 0) {
+             throw std::runtime_error("Oobleck audio VAE decode graph initialization failed");
+         }
+-        build();
++        (void)vae_time(config_,batch_,latent_frames_,false);build();
+     }
+ 
+     ~DecodeGraph() {
++#ifdef ENGINE_YUE2_VAE_TESTING
++        vae_testing::phase(35);
++#endif
+         if (backend_ != nullptr && graph_ != nullptr) {
+             core::release_backend_graph_resources(backend_type_, backend_, graph_);
+         }
+@@ -588,25 +682,27 @@
+     }
+ 
+     std::vector<float> run(const std::vector<float> & latents) const {
+-        if (static_cast<int64_t>(latents.size()) != batch_ * config_.decoder_latent_dim * latent_frames_) {
++        if (latents.size() != vae_product({batch_,config_.decoder_latent_dim,latent_frames_})) {
+             throw std::runtime_error("Oobleck audio VAE latent shape mismatch");
+         }
+         const auto total_start = Clock::now();
+         const auto upload_start = Clock::now();
+-        core::write_tensor_f32(input_, latents);
++        vae_phase(21,*execution_);core::write_tensor_f32(input_, latents);vae_phase(23,*execution_);
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.input_upload_ms", engine::debug::elapsed_ms(upload_start));
+         core::set_backend_threads(backend_, threads_);
+         const auto compute_start = Clock::now();
+-        const ggml_status status = core::compute_backend_graph(backend_, graph_, nullptr, "framework.oobleck_audio_vae.decode");
++        vae_phase(11,*execution_);
++#ifdef ENGINE_YUE2_VAE_TESTING
++        vae_testing::graph(graph_,false);vae_testing::before_compute(*execution_);
++#endif
++        const ggml_status status = core::compute_backend_graph(*execution_, graph_, nullptr, "framework.oobleck_audio_vae.decode");
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.graph_compute_ms", engine::debug::elapsed_ms(compute_start));
+-        if (status != GGML_STATUS_SUCCESS) {
+-            throw std::runtime_error("Oobleck audio VAE decode graph compute failed");
+-        }
++        ggml_backend_synchronize(backend_);vae_status(status,*execution_,false);
+         const auto read_start = Clock::now();
+-        auto out = core::read_tensor_f32(output_);
++        vae_phase(25,*execution_);auto out = core::read_tensor_f32(output_);vae_phase(27,*execution_);
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.output_read_ms", engine::debug::elapsed_ms(read_start));
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.total_ms", engine::debug::elapsed_ms(total_start));
+-        return out;
++        vae_phase(29,*execution_);return out;
+     }
+ 
+ private:
+@@ -629,7 +725,7 @@
+         ggml_build_forward_expand(graph_, output_);
+         gallocr_ = ggml_gallocr_new(ggml_backend_get_default_buffer_type(backend_));
+         if (gallocr_ == nullptr || !ggml_gallocr_reserve(gallocr_, graph_) || !ggml_gallocr_alloc_graph(gallocr_, graph_)) {
+-            throw std::runtime_error("Oobleck audio VAE decode backend buffer allocation failed");
++            if(gallocr_){ggml_gallocr_free(gallocr_);gallocr_=nullptr;}throw std::runtime_error("Oobleck audio VAE decode backend buffer allocation failed");
+         }
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.graph_batch", batch_);
+         engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.graph_latent_frames", latent_frames_);
+@@ -661,6 +757,7 @@
+         return output;
+     }
+ 
++    core::ExecutionContext * execution_ = nullptr;
+     ggml_backend_t backend_ = nullptr;
+     core::BackendType backend_type_ = core::BackendType::Cpu;
+     int threads_ = 1;
+@@ -688,44 +785,61 @@
+ OobleckAudioVaeRuntime::OobleckAudioVaeRuntime(OobleckAudioVaeRuntime &&) noexcept = default;
+ OobleckAudioVaeRuntime & OobleckAudioVaeRuntime::operator=(OobleckAudioVaeRuntime &&) noexcept = default;
+ 
+-void OobleckAudioVaeRuntime::prepare_encode(int64_t frames) {
++void OobleckAudioVaeRuntime::prepare_encode(int64_t frames) try {
++    (void)vae_time(impl_->config,1,frames,true);vae_stop(*impl_->execution);
+     const auto & weights = impl_->require_weights();
++    vae_stop(*impl_->execution);
+     if (!impl_->encode_graph || !impl_->encode_graph->matches(frames)) {
+         impl_->encode_graph = std::make_unique<Impl::EncodeGraph>(*impl_->execution, impl_->config, impl_->options, weights, frames);
+-    }
+-}
+-
+-void OobleckAudioVaeRuntime::prepare_decode(int64_t batch, int64_t latent_frames) {
++#ifdef ENGINE_YUE2_VAE_TESTING
++        vae_testing::phase(32);
++#endif
++    }
++    vae_stop(*impl_->execution);
++} catch (...) { release_runtime_graphs();throw; }
++
++void OobleckAudioVaeRuntime::prepare_decode(int64_t batch, int64_t latent_frames) try {
++    (void)vae_time(impl_->config,batch,latent_frames,false);vae_stop(*impl_->execution);
+     const auto & weights = impl_->require_weights();
++    vae_stop(*impl_->execution);
+     if (!impl_->decode_graph || !impl_->decode_graph->matches(batch, latent_frames)) {
+         impl_->decode_graph.reset();
+         impl_->decode_graph = std::make_unique<Impl::DecodeGraph>(*impl_->execution, impl_->config, impl_->options, weights, batch, latent_frames);
+-    }
+-}
+-
+-std::vector<float> OobleckAudioVaeRuntime::encode_planar(const std::vector<float> & planar_audio, int64_t frames) {
++#ifdef ENGINE_YUE2_VAE_TESTING
++        vae_testing::phase(33);
++#endif
++    }
++    vae_stop(*impl_->execution);
++} catch (...) { release_runtime_graphs();throw; }
++
++std::vector<float> OobleckAudioVaeRuntime::encode_planar(const std::vector<float> & planar_audio, int64_t frames) try {
++    vae_input(impl_->config,planar_audio,1,frames,true);vae_stop(*impl_->execution);
+     const auto start = Clock::now();
+     prepare_encode(frames);
+     auto out = impl_->encode_graph->run(planar_audio);
+     engine::debug::timing_log_scalar("framework.oobleck_audio_vae.encode_planar_ms", engine::debug::elapsed_ms(start));
+     return out;
+-}
+-
+-std::vector<float> OobleckAudioVaeRuntime::decode_planar(const std::vector<float> & latents, int64_t batch, int64_t latent_frames) {
++} catch (...) { release_runtime_graphs();throw; }
++
++std::vector<float> OobleckAudioVaeRuntime::decode_planar(const std::vector<float> & latents, int64_t batch, int64_t latent_frames) try {
++    vae_input(impl_->config,latents,batch,latent_frames,false);vae_stop(*impl_->execution);
+     const auto start = Clock::now();
+     prepare_decode(batch, latent_frames);
+     auto out = impl_->decode_graph->run(latents);
+     engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode_planar_ms", engine::debug::elapsed_ms(start));
+     return out;
+-}
+-
+-std::vector<runtime::AudioBuffer> OobleckAudioVaeRuntime::decode(const std::vector<float> & latents, int64_t batch, int64_t latent_frames) {
++} catch (...) { release_runtime_graphs();throw; }
++
++std::vector<runtime::AudioBuffer> OobleckAudioVaeRuntime::decode(const std::vector<float> & latents, int64_t batch, int64_t latent_frames) try {
++    vae_input(impl_->config,latents,batch,latent_frames,false);vae_stop(*impl_->execution);
+     const auto total_start = Clock::now();
+     auto planar = decode_planar(latents, batch, latent_frames);
+-    const int64_t frames = static_cast<int64_t>(planar.size()) / (batch * impl_->config.audio_channels);
++    const int64_t frames=vae_time(impl_->config,batch,latent_frames,false);
++    if(planar.size()!=vae_product({batch,impl_->config.audio_channels,frames}))throw std::runtime_error("Oobleck VAE decoded planar shape mismatch");
+     std::vector<runtime::AudioBuffer> out;
+     out.reserve(static_cast<size_t>(batch));
+     const auto interleave_start = Clock::now();
++    size_t written=0;
+     for (int64_t b = 0; b < batch; ++b) {
+         runtime::AudioBuffer audio;
+         audio.sample_rate = static_cast<int>(impl_->config.sample_rate);
+@@ -733,17 +847,19 @@
+         audio.samples.assign(static_cast<size_t>(frames * impl_->config.audio_channels), 0.0F);
+         for (int64_t c = 0; c < impl_->config.audio_channels; ++c) {
+             for (int64_t t = 0; t < frames; ++t) {
++                if(written%256==0)vae_stop(*impl_->execution);
+                 audio.samples[static_cast<size_t>(t * impl_->config.audio_channels + c)] =
+                     planar[static_cast<size_t>((b * impl_->config.audio_channels + c) * frames + t)];
++                vae_stored(0,written,audio.samples[static_cast<size_t>(t*impl_->config.audio_channels+c)]);++written;if(written%256==0)vae_stop(*impl_->execution);
+             }
+         }
+-        out.push_back(std::move(audio));
++        vae_phase(30,*impl_->execution);out.push_back(std::move(audio));
+     }
+     engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.interleave_ms", engine::debug::elapsed_ms(interleave_start));
+     engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.audio_frames", frames);
+     engine::debug::timing_log_scalar("framework.oobleck_audio_vae.decode.full_ms", engine::debug::elapsed_ms(total_start));
+-    return out;
+-}
++    vae_phase(31,*impl_->execution);return out;
++} catch (...) { release_runtime_graphs();throw; }
+ 
+ void OobleckAudioVaeRuntime::release_runtime_graphs() {
+     impl_->encode_graph.reset();
+diff --git a/src/models/yue2/pipeline.cpp b/src/models/yue2/pipeline.cpp
+--- a/src/models/yue2/pipeline.cpp
++++ b/src/models/yue2/pipeline.cpp
+@@ -127,6 +127,183 @@
+ #endif
+ if(execution.stop_requested())throw runtime::RunCancelled();}
+ }
++void validate_yue2_audio_tiles(const std::vector<float>&latents,int64_t frames,int64_t channels,int64_t core_frames,int64_t halo_frames,int64_t ratio,int64_t sample_rate,int64_t audio_channels){
++ if(frames<=0||channels<=0||core_frames<=0||halo_frames<0||ratio<=0||sample_rate<=0||sample_rate>std::numeric_limits<int>::max()||audio_channels<=0||audio_channels>std::numeric_limits<int>::max()||halo_frames>std::numeric_limits<int64_t>::max()-frames||static_cast<uint64_t>(frames)>std::vector<float>().max_size()/static_cast<uint64_t>(channels)||latents.size()!=static_cast<uint64_t>(frames)*static_cast<uint64_t>(channels)||static_cast<uint64_t>(frames)>static_cast<uint64_t>(std::numeric_limits<ptrdiff_t>::max())/sizeof(float)/static_cast<uint64_t>(ratio))throw std::runtime_error("Yue2 VAE output tile shape is invalid");
++ int64_t output=frames*ratio;if(output<=64||static_cast<uint64_t>(output-64)>std::vector<float>().max_size()/static_cast<uint64_t>(audio_channels))throw std::runtime_error("Yue2 VAE output count exceeds supported range");
++ for(float value:latents)if(!std::isfinite(value))throw std::runtime_error("Yue2 VAE latents must be finite");
++}
++runtime::AudioBuffer decode_yue2_audio_tiles(codecs::OobleckAudioVaeRuntime & codec,
++ const std::vector<float>&latents,int64_t frames,int64_t channels,int64_t core_frames,int64_t halo_frames,int64_t ratio,int64_t sample_rate,int64_t audio_channels){
++        if (frames <= 0 || static_cast<int64_t>(latents.size()) != frames * channels) {
++            throw std::runtime_error("Yue2 VAE latent shape mismatch");
++        }
++        if (core_frames <= 0 || halo_frames < 0 || ratio <= 0) {
++            throw std::runtime_error("Yue2 VAE tile configuration is invalid");
++        }
++        engine::debug::timing_log_scalar("yue2.vae_decode.latent_frames", frames);
++
++        auto make_planar_tile = [&](int64_t begin, int64_t end) {
++            const int64_t tile_frames = end - begin;
++            std::vector<float> planar(static_cast<size_t>(channels * tile_frames), 0.0F);
++            for (int64_t t = 0; t < tile_frames; ++t) {
++                for (int64_t c = 0; c < channels; ++c) {
++                    planar[static_cast<size_t>(c * tile_frames + t)] =
++                        latents[static_cast<size_t>((begin + t) * channels + c)];
++                }
++            }
++            return planar;
++        };
++
++        if (frames <= core_frames) {
++            const auto decode_start = Clock::now();
++            auto audio = codec.decode(make_planar_tile(0, frames), 1, frames).front();
++            engine::debug::timing_log_scalar("yue2.vae_decode.tiles", 1);
++            engine::debug::timing_log_scalar("yue2.vae_decode.tile_decode_ms", engine::debug::elapsed_ms(decode_start));
++            engine::debug::timing_log_scalar("yue2.vae_decode.output_frames", static_cast<int64_t>(audio.samples.size()) / audio.channels);
++            return audio;
++        }
++
++        const int64_t total_output_frames = frames * ratio - 64;
++        if (total_output_frames <= 0) {
++            throw std::runtime_error("Yue2 VAE output frame count is invalid");
++        }
++        runtime::AudioBuffer audio;
++        audio.sample_rate = sample_rate;
++        audio.channels = static_cast<int>(audio_channels);
++        audio.samples.assign(static_cast<size_t>(total_output_frames * audio.channels), 0.0F);
++        int64_t tiles = 0;
++        double tile_decode_ms = 0.0;
++        for (int64_t start = 0; start < frames; start += core_frames) {
++            const int64_t end = std::min(frames, start + core_frames);
++            const int64_t left = std::max<int64_t>(0, start - halo_frames);
++            const int64_t right = std::min(frames, end + halo_frames);
++            const auto tile_decode_start = Clock::now();
++            auto tile_audio = codec.decode(make_planar_tile(left, right), 1, right - left).front();
++            tile_decode_ms += engine::debug::elapsed_ms(tile_decode_start);
++            const int64_t out_start = start * ratio;
++            const int64_t out_end = std::min(end * ratio, total_output_frames);
++            const int64_t copy_frames = out_end - out_start;
++            const int64_t crop_start = (start - left) * ratio;
++            if (copy_frames <= 0 ||
++                crop_start < 0 ||
++                crop_start + copy_frames > static_cast<int64_t>(tile_audio.samples.size()) / tile_audio.channels) {
++                throw std::runtime_error("Yue2 VAE tile did not cover output core");
++            }
++            for (int64_t t = 0; t < copy_frames; ++t) {
++                for (int64_t c = 0; c < audio.channels; ++c) {
++                    audio.samples[static_cast<size_t>((out_start + t) * audio.channels + c)] =
++                        tile_audio.samples[static_cast<size_t>((crop_start + t) * tile_audio.channels + c)];
++                }
++            }
++            ++tiles;
++        }
++        engine::debug::timing_log_scalar("yue2.vae_decode.tiles", tiles);
++        engine::debug::timing_log_scalar("yue2.vae_decode.tile_decode_ms", tile_decode_ms);
++        engine::debug::timing_log_scalar("yue2.vae_decode.output_frames", total_output_frames);
++        return audio;
++
++}
++#ifdef ENGINE_YUE2_VAE_TESTING
++namespace pipeline_vae_testing{void phase(int stage)noexcept;void stored(int stage,size_t index,float value)noexcept;}
++#endif
++runtime::AudioBuffer decode_yue2_audio_tiles(codecs::OobleckAudioVaeRuntime & codec,
++ const std::vector<float>&latents,int64_t frames,int64_t channels,int64_t core_frames,int64_t halo_frames,int64_t ratio,int64_t sample_rate,int64_t audio_channels,core::ExecutionContext & execution){
++    const auto product=[](int64_t a,int64_t b){if(a<=0||b<=0||static_cast<uint64_t>(a)>std::vector<float>().max_size()/static_cast<uint64_t>(b)||static_cast<uint64_t>(a)>static_cast<uint64_t>(std::numeric_limits<ptrdiff_t>::max())/sizeof(float)/static_cast<uint64_t>(b))throw std::runtime_error("Yue2 VAE output dimensions exceed supported range");return a*b;};
++    if(frames<=0||channels<=0||core_frames<=0||halo_frames<0||ratio<=0||sample_rate<=0||sample_rate>std::numeric_limits<int>::max()||audio_channels<=0||audio_channels>std::numeric_limits<int>::max()||latents.size()!=static_cast<uint64_t>(product(frames,channels))||halo_frames>std::numeric_limits<int64_t>::max()-frames)throw std::runtime_error("Yue2 VAE output tile shape is invalid");
++    const int64_t full_frames=product(frames,ratio);if(full_frames<=64)throw std::runtime_error("Yue2 VAE output frame count is invalid");(void)product(full_frames-64,audio_channels);
++    for(float value:latents)if(!std::isfinite(value))throw std::runtime_error("Yue2 VAE latents must be finite");
++    yue2_stage_barrier(execution);size_t written=0;
++    const auto phase=[&](int stage){
++#ifdef ENGINE_YUE2_VAE_TESTING
++        pipeline_vae_testing::phase(stage);
++#else
++        (void)stage;
++#endif
++        yue2_stage_barrier(execution);
++    };
++    const auto store=[&](int stage,size_t index,float value){
++#ifdef ENGINE_YUE2_VAE_TESTING
++        pipeline_vae_testing::stored(stage,index,value);
++#else
++        (void)stage;(void)index;(void)value;
++#endif
++        ++written;if(written%256==0)yue2_stage_barrier(execution);
++    };
++    const auto child=[&](runtime::AudioBuffer & audio,int64_t expected){if(audio.channels!=audio_channels||audio.sample_rate!=sample_rate||audio.samples.size()%static_cast<size_t>(audio_channels)!=0||audio.samples.size()/static_cast<size_t>(audio_channels)<static_cast<uint64_t>(expected))throw std::runtime_error("Yue2 VAE returned audio shape/rate mismatch");};
++        if (frames <= 0 || static_cast<int64_t>(latents.size()) != frames * channels) {
++            throw std::runtime_error("Yue2 VAE latent shape mismatch");
++        }
++        if (core_frames <= 0 || halo_frames < 0 || ratio <= 0) {
++            throw std::runtime_error("Yue2 VAE tile configuration is invalid");
++        }
++        engine::debug::timing_log_scalar("yue2.vae_decode.latent_frames", frames);
++
++        auto make_planar_tile = [&](int64_t begin, int64_t end) {
++            const int64_t tile_frames = end - begin;
++            std::vector<float> planar(static_cast<size_t>(channels * tile_frames), 0.0F);
++            for (int64_t t = 0; t < tile_frames; ++t) {
++                for (int64_t c = 0; c < channels; ++c) {
++                    if(written%256==0)yue2_stage_barrier(execution);
++                    planar[static_cast<size_t>(c * tile_frames + t)] =
++                        latents[static_cast<size_t>((begin + t) * channels + c)];
++                    store(0,static_cast<size_t>(c*tile_frames+t),planar[static_cast<size_t>(c*tile_frames+t)]);
++                }
++            }
++            phase(0);return planar;
++        };
++
++        if (frames <= core_frames) {
++            const auto decode_start = Clock::now();
++            phase(1);auto decoded=codec.decode(make_planar_tile(0,frames),1,frames);if(decoded.size()!=1)throw std::runtime_error("Yue2 VAE returned batch mismatch");auto audio=std::move(decoded.front());child(audio,full_frames-64);phase(2);
++            engine::debug::timing_log_scalar("yue2.vae_decode.tiles", 1);
++            engine::debug::timing_log_scalar("yue2.vae_decode.tile_decode_ms", engine::debug::elapsed_ms(decode_start));
++            engine::debug::timing_log_scalar("yue2.vae_decode.output_frames", static_cast<int64_t>(audio.samples.size()) / audio.channels);
++            phase(5);return audio;
++        }
++
++        const int64_t total_output_frames = frames * ratio - 64;
++        if (total_output_frames <= 0) {
++            throw std::runtime_error("Yue2 VAE output frame count is invalid");
++        }
++        runtime::AudioBuffer audio;
++        audio.sample_rate = sample_rate;
++        audio.channels = static_cast<int>(audio_channels);
++        audio.samples.assign(static_cast<size_t>(total_output_frames * audio.channels), 0.0F);
++        int64_t tiles = 0;
++        double tile_decode_ms = 0.0;
++        for (int64_t start = 0; start < frames; start += std::min(core_frames,frames-start)) {
++            const int64_t end = start + std::min(core_frames,frames-start);
++            const int64_t left = std::max<int64_t>(0, start - halo_frames);
++            const int64_t right = std::min(frames, end + halo_frames);
++            const auto tile_decode_start = Clock::now();
++            phase(1);auto decoded=codec.decode(make_planar_tile(left,right),1,right-left);if(decoded.size()!=1)throw std::runtime_error("Yue2 VAE returned batch mismatch");auto tile_audio=std::move(decoded.front());child(tile_audio,product(right-left,ratio)-64);phase(2);
++            tile_decode_ms += engine::debug::elapsed_ms(tile_decode_start);
++            const int64_t out_start = start * ratio;
++            const int64_t out_end = std::min(end * ratio, total_output_frames);
++            const int64_t copy_frames = out_end - out_start;
++            const int64_t crop_start = (start - left) * ratio;
++            if (copy_frames <= 0 ||
++                crop_start < 0 ||
++                crop_start + copy_frames > static_cast<int64_t>(tile_audio.samples.size()) / tile_audio.channels) {
++                throw std::runtime_error("Yue2 VAE tile did not cover output core");
++            }
++            for (int64_t t = 0; t < copy_frames; ++t) {
++                for (int64_t c = 0; c < audio.channels; ++c) {
++                    if(written%256==0)yue2_stage_barrier(execution);
++                    audio.samples[static_cast<size_t>((out_start + t) * audio.channels + c)] =
++                        tile_audio.samples[static_cast<size_t>((crop_start + t) * tile_audio.channels + c)];
++                    store(1,static_cast<size_t>((out_start+t)*audio.channels+c),audio.samples[static_cast<size_t>((out_start+t)*audio.channels+c)]);
++                }
++            }
++            ++tiles;
++        }
++        engine::debug::timing_log_scalar("yue2.vae_decode.tiles", tiles);
++        engine::debug::timing_log_scalar("yue2.vae_decode.tile_decode_ms", tile_decode_ms);
++        engine::debug::timing_log_scalar("yue2.vae_decode.output_frames", total_output_frames);
++        phase(5);return audio;
++
++}
++
+ class Yue2PipelineRuntime::Impl {
+     friend class Yue2PipelineRuntime;
+ public:
+@@ -257,78 +434,14 @@
+     }
+ 
+     runtime::AudioBuffer decode_audio(const std::vector<float> & latents, int64_t frames) {
++        const int64_t width=assets->config.model.latent_dim;
++        if(frames<=0||width<=0||static_cast<uint64_t>(frames)>std::vector<float>().max_size()/static_cast<uint64_t>(width)||latents.size()!=static_cast<uint64_t>(frames)*static_cast<uint64_t>(width))throw std::runtime_error("Yue2 VAE latent shape mismatch");
++        for(float value:latents)if(!std::isfinite(value))throw std::runtime_error("Yue2 VAE latents must be finite");
++        validate_yue2_audio_tiles(latents,frames,width,vae_tile_frames>0?vae_tile_frames:assets->config.vae.decode_core_frames,assets->config.vae.decode_halo_frames,assets->config.vae.downsampling_ratio,assets->config.vae.sample_rate,assets->config.vae.channels);
+         yue2_stage_barrier(*execution);ensure_vae();
+-        const int64_t channels = assets->config.model.latent_dim;
+-        if (frames <= 0 || static_cast<int64_t>(latents.size()) != frames * channels) {
+-            throw std::runtime_error("Yue2 VAE latent shape mismatch");
+-        }
+-        const int64_t core_frames = vae_tile_frames > 0 ? vae_tile_frames : assets->config.vae.decode_core_frames;
+-        const int64_t halo_frames = assets->config.vae.decode_halo_frames;
+-        const int64_t ratio = assets->config.vae.downsampling_ratio;
+-        if (core_frames <= 0 || halo_frames < 0 || ratio <= 0) {
+-            throw std::runtime_error("Yue2 VAE tile configuration is invalid");
+-        }
+-        engine::debug::timing_log_scalar("yue2.vae_decode.latent_frames", frames);
+-
+-        auto make_planar_tile = [&](int64_t begin, int64_t end) {
+-            const int64_t tile_frames = end - begin;
+-            std::vector<float> planar(static_cast<size_t>(channels * tile_frames), 0.0F);
+-            for (int64_t t = 0; t < tile_frames; ++t) {
+-                for (int64_t c = 0; c < channels; ++c) {
+-                    planar[static_cast<size_t>(c * tile_frames + t)] =
+-                        latents[static_cast<size_t>((begin + t) * channels + c)];
+-                }
+-            }
+-            return planar;
+-        };
+-
+-        if (frames <= core_frames) {
+-            const auto decode_start = Clock::now();
+-            auto audio = vae->decode(make_planar_tile(0, frames), 1, frames).front();
+-            engine::debug::timing_log_scalar("yue2.vae_decode.tiles", 1);
+-            engine::debug::timing_log_scalar("yue2.vae_decode.tile_decode_ms", engine::debug::elapsed_ms(decode_start));
+-            engine::debug::timing_log_scalar("yue2.vae_decode.output_frames", static_cast<int64_t>(audio.samples.size()) / audio.channels);
+-            return audio;
+-        }
+-
+-        const int64_t total_output_frames = frames * ratio - 64;
+-        if (total_output_frames <= 0) {
+-            throw std::runtime_error("Yue2 VAE output frame count is invalid");
+-        }
+-        runtime::AudioBuffer audio;
+-        audio.sample_rate = assets->config.vae.sample_rate;
+-        audio.channels = static_cast<int>(assets->config.vae.channels);
+-        audio.samples.assign(static_cast<size_t>(total_output_frames * audio.channels), 0.0F);
+-        int64_t tiles = 0;
+-        double tile_decode_ms = 0.0;
+-        for (int64_t start = 0; start < frames; start += core_frames) {
+-            const int64_t end = std::min(frames, start + core_frames);
+-            const int64_t left = std::max<int64_t>(0, start - halo_frames);
+-            const int64_t right = std::min(frames, end + halo_frames);
+-            const auto tile_decode_start = Clock::now();
+-            auto tile_audio = vae->decode(make_planar_tile(left, right), 1, right - left).front();
+-            tile_decode_ms += engine::debug::elapsed_ms(tile_decode_start);
+-            const int64_t out_start = start * ratio;
+-            const int64_t out_end = std::min(end * ratio, total_output_frames);
+-            const int64_t copy_frames = out_end - out_start;
+-            const int64_t crop_start = (start - left) * ratio;
+-            if (copy_frames <= 0 ||
+-                crop_start < 0 ||
+-                crop_start + copy_frames > static_cast<int64_t>(tile_audio.samples.size()) / tile_audio.channels) {
+-                throw std::runtime_error("Yue2 VAE tile did not cover output core");
+-            }
+-            for (int64_t t = 0; t < copy_frames; ++t) {
+-                for (int64_t c = 0; c < audio.channels; ++c) {
+-                    audio.samples[static_cast<size_t>((out_start + t) * audio.channels + c)] =
+-                        tile_audio.samples[static_cast<size_t>((crop_start + t) * tile_audio.channels + c)];
+-                }
+-            }
+-            ++tiles;
+-        }
+-        engine::debug::timing_log_scalar("yue2.vae_decode.tiles", tiles);
+-        engine::debug::timing_log_scalar("yue2.vae_decode.tile_decode_ms", tile_decode_ms);
+-        engine::debug::timing_log_scalar("yue2.vae_decode.output_frames", total_output_frames);
+-        return audio;
++        return decode_yue2_audio_tiles(*vae,latents,frames,assets->config.model.latent_dim,
++            vae_tile_frames>0?vae_tile_frames:assets->config.vae.decode_core_frames,assets->config.vae.decode_halo_frames,
++            assets->config.vae.downsampling_ratio,assets->config.vae.sample_rate,assets->config.vae.channels,*execution);
+     }
+ 
+     Yue2RunResult run(const Yue2Request & request) {

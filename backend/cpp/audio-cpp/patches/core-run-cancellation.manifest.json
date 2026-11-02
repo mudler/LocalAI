@@ -87,7 +87,7 @@
     },
     "src/models/yue2/pipeline.cpp": {
       "base_sha256": "f1f856a8d1a6d4bb2647e31df695a72051219aba8f10f6478151d7cdfa544a01",
-      "final_sha256": "fcc792665f7af5fc69b490b73882260c4c7158a563af5a1e1d073b20b9ee010b"
+      "final_sha256": "582cbd3e7458ceacd883c0be9923279635981df7d7b69e8c81bab525a85797a2"
     },
     "src/models/yue2/ar_runtime.cpp": {
       "base_sha256": "6c9b6ed1b220957082e758969baab648a945c6a4109cbdd4a0d29e97e3225aaa",
@@ -100,6 +100,10 @@
     "src/models/yue2/nar_runtime.cpp": {
       "base_sha256": "4d0dbd1238b0ed5893061dd966b997f2d41f02f762a6d4b6801acc3692e08e9e",
       "final_sha256": "b1d594d638589e576502d80096e3d0075abd287f2508b6981f129dd3f9363ef4"
+    },
+    "src/framework/codecs/oobleck_audio_vae_runtime.cpp": {
+      "base_sha256": "a5ebf277a3dd2cabf62c2a0d89a85665db4a3e49eb866080407a8a07ecb137a5",
+      "final_sha256": "2eb3df47065ea8ceed38901647544b2883d744503385a40333ff6f44e177e611"
     }
   },
   "omitted_tracked_paths": {
@@ -368,6 +372,20 @@
         "src/models/yue2/pipeline.cpp": {
           "base_sha256": "d66cd3517c3c20f2fd90b5d7824715516522c45821da2760e59491a0b09f8eed",
           "final_sha256": "fcc792665f7af5fc69b490b73882260c4c7158a563af5a1e1d073b20b9ee010b"
+        }
+      }
+    },
+    {
+      "patch": "0014-yue2-owned-vae-cancellation.patch",
+      "patch_sha256": "78fbc827d3b02c383ac41c7e99e54eee85d71ffab4cb20138750ea590ae2e07e",
+      "files": {
+        "src/framework/codecs/oobleck_audio_vae_runtime.cpp": {
+          "base_sha256": "a5ebf277a3dd2cabf62c2a0d89a85665db4a3e49eb866080407a8a07ecb137a5",
+          "final_sha256": "2eb3df47065ea8ceed38901647544b2883d744503385a40333ff6f44e177e611"
+        },
+        "src/models/yue2/pipeline.cpp": {
+          "base_sha256": "fcc792665f7af5fc69b490b73882260c4c7158a563af5a1e1d073b20b9ee010b",
+          "final_sha256": "582cbd3e7458ceacd883c0be9923279635981df7d7b69e8c81bab525a85797a2"
         }
       }
     }
