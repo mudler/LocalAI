@@ -3,14 +3,14 @@ import { chatAddonsApi, chatSkillsApi, chatToolsApi } from '../utils/api'
 import { connectorRef, toolsCounts } from '../utils/chatMCP'
 import { offWith, withOn } from '../utils/chatSwitchRows'
 import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
-import { commandsState } from '../utils/chatCommands'
+import { commandsState, noticeIdentity } from '../utils/chatCommands'
 import { applyChoices, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
-const noCommands = { state: '', reason: '' }
+const noCommands = { state: 'unknown', reason: '', identity: '' }
 // The commands state of the list: see commandsState in utils/chatCommands.js.
-const commandsOf = (res) => commandsState(res)
+const commandsOf = (res) => ({ ...commandsState(res), identity: noticeIdentity(res, '', '') })
 
 export { skillKey }
 
@@ -32,7 +32,12 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
   const choose = useCallback((kind, key, value) => { choicesRef.current = withChoice(choicesRef.current, kind, key, value) }, [])
   const [addons, setAddons] = useState([])
   // Whether the chat can run commands, from the same list (see utils/chatCommands.js).
-  const [commands, setCommands] = useState({ state: '', reason: '' })
+  const commandEpoch = useRef(0)
+  const context = JSON.stringify([chatId, draftModel, draftAgent, filesOn])
+  const commandContext = useRef(context)
+  if (commandContext.current !== context) { commandContext.current = context; commandEpoch.current++ }
+  const [commands, storeCommands] = useState(noCommands)
+  const setCommands = (value) => storeCommands({ ...value, context: commandContext.current })
   const [mcp, setMcp] = useState(noMCP)
   const [builtins, setBuiltins] = useState([])
   // The built-in tools an installed add-on replaces but cannot serve here now.
@@ -55,11 +60,13 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
     setSkillsError('')
     if (!chatId && !draftOn) { setAddons([]); setCommands(noCommands); setMcp(noMCP); setBuiltins([]); setFallbacks([]); setSkills([]); setReplaced([]); return undefined }
     let live = true
+    const epoch = ++commandEpoch.current
+    setCommands(noCommands)
     // A draft list keeps the choices made so far for the rows it still has.
     const chosen = (lists) => (draftOn ? applyChoices(lists, choicesRef.current, connectorRef) : lists)
     ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent) : chatAddonsApi.list(chatId))
-      .then((res) => { if (live) { setAddons(chosen({ addons: res.addons || [] }).addons); setCommands(commandsOf(res)) } })
-      .catch(() => { if (live) { setAddons([]); setCommands(noCommands) } })
+      .then((res) => { if (live && epoch === commandEpoch.current) { setAddons(chosen({ addons: res.addons || [] }).addons); setCommands(commandsOf(res)) } })
+      .catch(() => { if (live && epoch === commandEpoch.current) { setAddons([]); setCommands(noCommands) } })
     ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
       .then((res) => {
         if (!live) return
@@ -109,9 +116,12 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
     if (ids.length === 0) return
     putAddons(next)
     setError('')
+    const epoch = ++commandEpoch.current
+    setCommands(noCommands)
     if (draftOn) { ids.forEach((id) => choose('addons', id, !on)); return }
     try {
       const res = await chatAddonsApi.setOff(chatId, next.filter((a) => a.off).map((a) => a.id).sort())
+      if (epoch !== commandEpoch.current) return
       if (res?.addons) {
         putAddons(res.addons)
         setCommands(commandsOf(res))
@@ -123,6 +133,8 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
         .then((r) => { putBuiltins(r.builtins || []); setFallbacks(r.fallbacks || []) })
         .catch(() => {})
     } catch (e) {
+      if (epoch !== commandEpoch.current) return
+      setCommands(noCommands)
       putAddons(before)
       setError(e.message || 'error')
     }
@@ -160,16 +172,23 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
     const next = withOn(before, (b) => b.group, new Set(groups), on)
     putBuiltins(next)
     setError('')
+    const epoch = ++commandEpoch.current
+    setCommands(noCommands)
     if (draftOn) { groups.forEach((group) => choose('builtins', group, !on)); return }
     try {
       const off = next.filter((b) => b.off && !b.opt_in).map((b) => b.group).sort()
       const optIn = next.filter((b) => b.opt_in)
       const onList = optIn.length ? optIn.filter((b) => !b.off).map((b) => b.group).sort() : undefined
       const res = await chatToolsApi.setBuiltinsOff(chatId, off, onList)
+      const status = await chatAddonsApi.list(chatId)
+      if (epoch !== commandEpoch.current) return
+      setCommands(commandsOf(status))
       putBuiltins(res.builtins || [])
       putMcp(mcpOf(res))
       setFallbacks(res.fallbacks || [])
     } catch (e) {
+      if (epoch !== commandEpoch.current) return
+      setCommands(noCommands)
       putBuiltins(before)
       setError(e.message || 'error')
     }
@@ -224,7 +243,7 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
 
   return {
     draftSwitches, resetDraft, draft: draftOn,
-    addons, builtins, fallbacks, commands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
+    addons, builtins, fallbacks, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn,
   }

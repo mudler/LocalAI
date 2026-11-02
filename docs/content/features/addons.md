@@ -4854,3 +4854,22 @@ exist. These cases must produce unknown observations, not a timestamp-based
 fallback. Ordinary chat access does not depend on this observation support.
 Request/session integration, producer changes, and egress projection remain
 separate work; this owner binding path alone does not provide those features.
+
+### Execution safety notices
+
+The chat Tools menu and command chip describe the actual selected execution
+provider, not an installed app's name. Any provider that reports host execution
+gets a no-isolation warning. Unknown readiness or isolation gets an explicit
+warning, not an isolated or safe badge. A status read does not grant execution
+permission or replace the built-in host command consent flow.
+
+Provider explanations are bounded plain text. Dismissing a notice applies only
+to that mounted chat context and exact provider binding, including generation,
+incarnation, selection revision and observation. Loading, switching providers,
+changing isolation, changing actors or logging out resets the dismissal.
+
+The network panel retains the configured policy when the backend cannot verify
+its enforcement. It explicitly says that the policy does not apply to commands.
+Provider-reported isolation alone does not establish network enforcement.
+Named-agent and SQL-backed selections without authoritative revision support
+remain unknown; installing an app does not resolve that limitation.

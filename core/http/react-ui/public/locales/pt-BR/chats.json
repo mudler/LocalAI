@@ -285,7 +285,11 @@
       "hostOff": "O Sandbox está desligado neste chat, então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento. Ligue o Sandbox neste menu para isolá-los.",
       "hostUnavailable": "O Sandbox não consegue rodar aqui, então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento.",
       "hostUnavailableWhy": "O Sandbox não consegue rodar aqui ({{reason}}), então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento.",
-      "hostChipTitle": "Os comandos deste chat rodam nesta máquina, sem isolamento. Selecione para ver detalhes."
+      "hostChipTitle": "Os comandos deste chat rodam nesta máquina, sem isolamento. Selecione para ver detalhes.",
+      "providerHost": "Os comandos são executados no servidor sem isolamento.",
+      "unknown": "A disponibilidade ou o isolamento da execução é desconhecido.",
+      "providerUnavailable": "O provedor de execução selecionado está indisponível.",
+      "disabled": "A execução de comandos está desativada para esta conversa."
     },
     "consent": {
       "title": "Rodar este comando nesta máquina?",
@@ -395,7 +399,9 @@
     "allowedHostsOff": "Eles valem quando a rede está ligada.",
     "allowedHostsNote": "{{count}} hosts são sempre permitidos pelo seu administrador.",
     "limitNote": "Rede deste chat. O administrador define o máximo que um chat pode alcançar.",
-    "asksAbove": "Este chat pede {{choice}}; o limite do administrador é {{limit}}."
+    "asksAbove": "Este chat pede {{choice}}; o limite do administrador é {{limit}}.",
+    "unverified": "A aplicação da política de rede não foi verificada para o provedor real. Estas configurações não se aplicam aos comandos dele.",
+    "configuredPolicy": "Política de rede configurada: {{preset}} (não aplicada)."
   },
   "inbox": {
     "unread": "{{count}} não lidas",

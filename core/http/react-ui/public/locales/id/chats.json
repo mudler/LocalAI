@@ -285,7 +285,11 @@
       "hostOff": "Sandbox mati untuk chat ini, jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi. Nyalakan Sandbox di menu ini untuk mengisolasinya.",
       "hostUnavailable": "Sandbox tidak bisa berjalan di sini, jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi.",
       "hostUnavailableWhy": "Sandbox tidak bisa berjalan di sini ({{reason}}), jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi.",
-      "hostChipTitle": "Perintah di chat ini berjalan di mesin ini, tanpa isolasi. Pilih untuk detail."
+      "hostChipTitle": "Perintah di chat ini berjalan di mesin ini, tanpa isolasi. Pilih untuk detail.",
+      "providerHost": "Perintah dijalankan di server tanpa isolasi.",
+      "unknown": "Kesiapan atau isolasi eksekusi tidak diketahui.",
+      "providerUnavailable": "Penyedia eksekusi yang dipilih tidak tersedia.",
+      "disabled": "Eksekusi perintah dinonaktifkan untuk percakapan ini."
     },
     "consent": {
       "title": "Jalankan perintah ini di mesin ini?",
@@ -395,7 +399,9 @@
     "allowedHostsOff": "Berlaku saat jaringan aktif.",
     "allowedHostsNote": "{{count}} host selalu diizinkan oleh administrator Anda.",
     "limitNote": "Jaringan chat ini. Administrator menetapkan batas maksimum yang dapat dijangkau sebuah chat.",
-    "asksAbove": "Chat ini meminta {{choice}}; batas administrator adalah {{limit}}."
+    "asksAbove": "Chat ini meminta {{choice}}; batas administrator adalah {{limit}}.",
+    "unverified": "Penerapan kebijakan jaringan untuk penyedia sebenarnya belum diverifikasi. Pengaturan ini tidak berlaku untuk perintahnya.",
+    "configuredPolicy": "Kebijakan jaringan terkonfigurasi: {{preset}} (tidak diterapkan)."
   },
   "inbox": {
     "unread": "{{count}} belum dibaca",

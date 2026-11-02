@@ -60,6 +60,8 @@ const (
 
 // Commands is what a chat knows about running commands at a turn.
 type Commands struct {
+	ExecutionStatus *ExecutionStatusView
+
 	State CommandState
 	// Tool is the name of the tool that runs commands, when State is available.
 	Tool string
@@ -235,6 +237,9 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	if _, ok := s.d.AddonTools.(ExecutionObserver); ok {
+		c.ExecutionStatus = executionStatusView(ctx, p, c.Addon)
+	}
 	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
 	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec)), nil
 }

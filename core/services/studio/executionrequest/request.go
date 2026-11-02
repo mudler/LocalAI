@@ -212,3 +212,6 @@ func (r *Request) Trace() []model.Transition {
 	}
 	return out
 }
+
+// Binding returns the immutable admitted identity for presentation only.
+func (r *Request) Binding() model.Binding { return r.b }

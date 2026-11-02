@@ -3,6 +3,8 @@ package studio
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/executionrequest"
@@ -70,4 +72,30 @@ func ExecutionObservation(ctx context.Context, user, addon string) (model.Value,
 		explanation = scope.explanation()
 	}
 	return value, explanation
+}
+
+// ExecutionStatusView is observation data, never execution authorization.
+type ExecutionStatusView struct {
+	Readiness         string `json:"readiness"`
+	Isolation         string `json:"isolation"`
+	Explanation       string `json:"explanation,omitempty"`
+	Generation        string `json:"generation,omitempty"`
+	Incarnation       string `json:"incarnation,omitempty"`
+	SelectionRevision string `json:"selection_revision,omitempty"`
+}
+
+func executionStatusView(ctx context.Context, user, addon string) *ExecutionStatusView {
+	v, explanation := model.Unknown(), ""
+	if addon != "" {
+		v, explanation = ExecutionObservation(ctx, user, addon)
+	}
+	out := &ExecutionStatusView{Readiness: string(v.Readiness), Isolation: string(v.Isolation), Explanation: explanation}
+	scope, ok := ctx.Value(executionObservationKey{}).(*executionObservation)
+	if ok && scope.user == user && scope.addon == addon && scope.request != nil {
+		b := scope.request.Binding()
+		out.Generation, out.Incarnation = b.Generation, b.Incarnation
+		// Hash the full admitted revision (not current state). Never expose credentials.
+		out.SelectionRevision = fmt.Sprintf("%x", sha256.Sum256([]byte(b.SelectionRevision)))
+	}
+	return out
 }

@@ -30,6 +30,15 @@ export function commandsState(res) {
     if (res.commands_fallback) return { state: 'host-unavailable', reason: why }
     return { state: 'host', reason: '' }
   }
+  const observation = res?.execution_status
+  if (state === 'available') {
+    const isolation = observation?.isolation || res?.commands_isolation
+    if (observation && observation.readiness !== 'available') return { state: 'unknown', reason: plainExplanation(observation.explanation) }
+    if (isolation === 'host') return { state: 'provider-host', reason: plainExplanation(observation?.explanation) }
+    if (isolation !== 'isolated') return { state: 'unknown', reason: plainExplanation(observation?.explanation) }
+  }
+  if (state === 'none' && observation) return { state: 'unknown', reason: plainExplanation(observation.explanation) }
+  if (state === 'unavailable' && (observation || res?.commands_provider)) return { state: 'provider-unavailable', reason: plainExplanation(observation?.explanation || reason) }
   return { state, reason }
 }
 
@@ -38,6 +47,13 @@ export function commandsState(res) {
 // person who is not one is told to ask one, unless the fix is theirs.
 export function commandsNotice(commands, { isAdmin = false, reason = '' } = {}) {
   switch (commands) {
+    case 'provider-host':
+    case 'unknown':
+    case 'loading':
+    case 'provider-unavailable':
+    case 'switched_off':
+      return { state: commands, titleKey: commands === 'provider-host' ? 'hostTitle' : 'title', textKey: commands === 'switched_off' ? 'disabled' : commands === 'provider-host' ? 'providerHost' : commands === 'provider-unavailable' ? 'providerUnavailable' : 'unknown', reason: plainExplanation(reason), tone: 'warn', link: null, askKey: null }
+
     case 'off':
       return { state: 'off', textKey: 'off', link: null, askKey: null, reason: '' }
     case 'unavailable':
@@ -125,4 +141,14 @@ export function providerTag(card) {
 // ended, so nobody waits on the answer and the command did not run.
 export function consentExpired(e) {
   return e?.status === 410 || e?.body?.error?.type === 'consent_expired'
+}
+
+// Plain text only. React text children escape markup; never pass this to HTML/Markdown.
+export function plainExplanation(value) {
+  return typeof value === 'string' ? [...value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, '')].slice(0, 200).join('') : ''
+}
+
+export function noticeIdentity(res, chat, actor) {
+  const v = res?.execution_status || {}
+  return JSON.stringify([actor, chat, res?.commands_provider, v.generation, v.incarnation, v.selection_revision, res?.commands, v.readiness, v.isolation || res?.commands_isolation])
 }

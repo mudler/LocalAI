@@ -87,7 +87,7 @@ export default function ChatComposer({
 }) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const { drafts, draftId, switches, models, modelsLoading, pickedAgent, effectiveModel, agents, agentId, setAgentId, setDraftModel, attach, paste } = composer
   const { text, files, setText, setFiles } = drafts
 
@@ -97,14 +97,14 @@ export default function ChatComposer({
   const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
 
   const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), chatId)
-  const commands = useCommandsNotice(switches.commands.state, switches.commands.reason, isAdmin)
+  const commands = useCommandsNotice(switches.commands, isAdmin, [user, chatId, effectiveModel, agentId])
   // What the Tools picker says under an add-on: the Sandbox's state.
   const addonNote = (a) => {
     if (a.id !== SANDBOX_ADDON || !sandbox || sandbox.state === 'unknown') return {}
     if (sandbox.state === 'starting') return { note: tc('tools.sandbox.starting', { seconds: Math.max(1, Math.round(sandbox.retryMs / 1000)) }) }
     if (sandbox.state === 'cannot') return { usable: false, reason: sandbox.reason ? tc('tools.sandbox.cannotWhy', { reason: sandbox.reason }) : tc('tools.sandbox.cannot') }
     if (sandbox.state === 'host') return { note: tc('tools.sandbox.host'), warn: true }
-    return { note: tc('tools.sandbox.isolated', { backend: sandbox.backend }) }
+    return {} // Discovery status is not the actual selected provider observation.
   }
   // Who serves a group of built-in tools in this chat: the built-in itself, or
   // an add-on that shadows a tool of the group (the server resolves it).

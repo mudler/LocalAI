@@ -91,3 +91,82 @@ test('chat commands: a refused answer reads as an expired card only for 410 cons
   assert.equal(consentExpired(new Error('network')), false)
   assert.equal(consentExpired(undefined), false)
 })
+
+test('typed safety: any actual addon host warns and unknown never appears isolated', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  assert.equal(commandsState({ commands: 'available', commands_provider: 'renamed', commands_isolation: 'host' }).state, 'provider-host')
+  assert.equal(commandsState({ commands: 'available', commands_provider: 'renamed' }).state, 'unknown')
+  assert.equal(commandsNotice('unknown').tone, 'warn')
+  assert.equal(commandsNotice('switched_off').textKey, 'disabled')
+})
+
+test('typed safety: dismissal tracks binding, observation, chat and actor epoch', async () => {
+  const { noticeIdentity } = await import('../../src/utils/chatCommands.js')
+  const base = { commands: 'available', commands_provider: 'renamed', execution_status: { readiness: 'available', isolation: 'host', generation: '1', incarnation: 'a', selection_revision: 'r1' } }
+  const id = noticeIdentity(base, 'chat', 'actor-session')
+  for (const field of ['generation', 'incarnation', 'selection_revision', 'isolation', 'readiness']) {
+    assert.notEqual(noticeIdentity({ ...base, execution_status: { ...base.execution_status, [field]: 'changed' } }, 'chat', 'actor-session'), id)
+  }
+  assert.notEqual(noticeIdentity(base, 'other', 'actor-session'), id)
+  assert.notEqual(noticeIdentity(base, 'chat', 'new-session'), id)
+})
+
+test('typed safety: explanation is bounded plain data with no install advice', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  const state = commandsState({ commands: 'unavailable', commands_provider: 'renamed', execution_status: { readiness: 'unknown', isolation: 'unknown', explanation: '<img src=x onerror=alert(1)>'.repeat(30) } })
+  const notice = commandsNotice(state.state, { reason: state.reason })
+  assert.equal(notice.link, null)
+  assert.equal(notice.askKey, null)
+  assert.ok([...notice.reason].length <= 200)
+  assert.equal(typeof notice.reason, 'string')
+})
+
+test('typed safety: actual notice hook resets dismissal through loading, identity changes and logout', async () => {
+  const { readFileSync } = await import('node:fs')
+  const source = readFileSync(new URL('../../src/hooks/useCommandsNotice.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function')
+  let hidden = '', previous, effect
+  const hook = new Function('useState', 'useEffect', 'useCallback', 'commandsNotice', `${source}; return useCommandsNotice`)(
+    () => [hidden, v => { hidden = v }],
+    (fn, deps) => { if (previous !== deps[0]) { effect = fn; previous = deps[0] } },
+    fn => fn, commandsNotice)
+  const render = (state, identity = 'binding-1', actor = 'session-1') => {
+    const value = hook({ state, reason: '', identity }, false, [actor, 'chat'])
+    if (effect) { effect(); effect = null }
+    return value
+  }
+  render('provider-host').hide()
+  assert.equal(render('provider-host').hidden, true)
+  assert.equal(render('unknown', '').hidden, false)
+  assert.equal(render('provider-host').hidden, false, 'loading invalidates even the same binding')
+  render('provider-host').hide()
+  assert.equal(render('provider-host', 'binding-2').hidden, false)
+  assert.equal(render('provider-host', 'binding-1').hidden, false, 'replacement ABA does not restore dismissal')
+  render('provider-host').hide()
+  assert.equal(render('provider-host', 'binding-1', 'logged-out').hidden, false)
+})
+
+test('typed safety: actual explanation JSX escapes provider markup as React text', async () => {
+  const { readFileSync } = await import('node:fs')
+  const React = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { transformWithOxc } = await import('vite')
+  const source = readFileSync(new URL('../../src/components/chat/CommandsNotice.jsx', import.meta.url), 'utf8')
+  assert.ok(!source.includes('dangerouslySetInnerHTML'))
+  const jsx = source.slice(source.indexOf('<p>{info.reason}</p>'), source.indexOf('<p>{info.reason}</p>') + '<p>{info.reason}</p>'.length)
+  const { code } = await transformWithOxc(`return (${jsx})`, 'notice.jsx', { jsx: { runtime: 'classic' } })
+  const element = new Function('React', 'info', code)(React, { reason: '<img src=x onerror=alert(1)>' })
+  const html = renderToStaticMarkup(element)
+  assert.match(html, /&lt;img/)
+  assert.ok(!html.includes('<img'))
+})
+
+test('typed safety: nonavailable and inaccessible observations never suggest installing Sandbox', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  for (const commands of ['none', 'unavailable', 'available']) {
+    const projected = commandsState({ commands, execution_status: { readiness: 'unknown', isolation: 'isolated' } })
+    const notice = commandsNotice(projected.state, { isAdmin: true })
+    assert.ok(notice)
+    assert.equal(notice.link, null)
+    assert.equal(notice.askKey, null)
+  }
+})
