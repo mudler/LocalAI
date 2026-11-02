@@ -59,9 +59,9 @@ func runSlow(a *Application, url string) (string, error) {
 	_, err := a.StudioMCPConnectors().Create(ctx, "u1", mcpconns.Input{Name: "Slow", Transport: mcpconns.TransportHTTP, URL: url, Enabled: true})
 	Expect(err).NotTo(HaveOccurred())
 	tools, _ := a.StudioMCPConnectors().Resolve(ctx, "u1", nil, true)
-	for _, t := range tools {
-		if t.Name == "slow" {
-			return t.Run(ctx, json.RawMessage(`{"text":"x"}`))
+	for _, tool := range tools {
+		if tool.Name == "slow" {
+			return tool.Run(ctx, json.RawMessage(`{"text":"x"}`))
 		}
 	}
 	Fail("the connector offers no tool slow")
