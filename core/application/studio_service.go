@@ -25,6 +25,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
+	"github.com/mudler/LocalAI/core/services/studio/memoryaudit"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
@@ -70,6 +71,20 @@ func (a *Application) initStudioService() {
 			return
 		}
 		a.studioTempDir, stateDir = dir, dir
+	}
+	var auditErr error
+	if a.authDB != nil {
+		a.studioMemoryAudit, auditErr = memoryaudit.NewGORMAudit(a.authDB)
+	} else {
+		dir := ""
+		if a.applicationConfig.DataPath != "" {
+			dir = filepath.Join(a.applicationConfig.DataPath, "chats", "memory-audit")
+		}
+		a.studioMemoryAudit, auditErr = memoryaudit.NewJSONAudit(dir)
+	}
+	if auditErr != nil {
+		xlog.Error("Chats disabled: memory audit unavailable", "error", auditErr)
+		return
 	}
 	var bus studio.Bus
 	var fan notify.Fanout

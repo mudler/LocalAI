@@ -56,6 +56,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/jobs"
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/mcpconns"
+	"github.com/mudler/LocalAI/core/services/studio/memoryaudit"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
@@ -170,6 +171,7 @@ type Application struct {
 	studioLocks           []*advisorylock.HeldLock // leader locks of the chat hosts, closed by Shutdown
 	studioConnectorsStop  context.CancelFunc
 	studioProvider        *provider.Provider
+	studioMemoryAudit     memoryaudit.AuditStore
 	studioService         *studio.Service
 	studioWorkerSub       messaging.Subscription // the chat start subscription of a chat worker; nil otherwise
 	studioWorkerNode      *chatWorkerNode        // the chat worker's row in the node list; nil otherwise

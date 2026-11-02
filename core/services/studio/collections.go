@@ -15,6 +15,7 @@ import (
 // CollectionHit is one passage a collection search found.
 type CollectionHit struct {
 	Content    string
+	EntryID    string
 	Similarity float32
 	Metadata   map[string]string
 }
@@ -42,7 +43,7 @@ const (
 
 // namedOnlyTools are host tools a sub-agent gets only when its parent names
 // them: asking for all of the parent's tools does not include them.
-var namedOnlyTools = map[string]bool{"list_collections": true, "search_collection": true}
+var namedOnlyTools = map[string]bool{"add_memory": true, "delete_memory": true, "list_collections": true, "search_collection": true}
 
 // collectionTools returns the two collection tools, or none when the server
 // has no collections or the user may not use them.
@@ -52,7 +53,7 @@ var namedOnlyTools = map[string]bool{"list_collections": true, "search_collectio
 // granted collections the user does not have.
 func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *scope) ([]session.Tool, []string) {
 	c := s.d.Collections
-	if c == nil || !c.Allowed(ctx, a.Principal) || (sc != nil && len(sc.collections) == 0) {
+	if c == nil || !c.Allowed(ctx, a.Principal) {
 		return nil, nil
 	}
 	var missing []string
@@ -73,12 +74,16 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *sc
 			Description: "List the names of your collections, the knowledge bases you can search.",
 			Schema:      json.RawMessage(`{"type":"object","properties":{}}`),
 			Run: func(ctx context.Context, _ json.RawMessage) (string, error) {
+				live, err := s.liveSearchCollectionScope(ctx, a)
+				if err != nil {
+					return "", err
+				}
 				names, err := c.List(ctx, a.Principal)
 				if err != nil {
 					return "", fmt.Errorf("could not list collections: %w", err)
 				}
-				if sc != nil {
-					names = slices.DeleteFunc(slices.Clone(names), func(n string) bool { return !sc.collections[n] })
+				if live != nil {
+					names = slices.DeleteFunc(slices.Clone(names), func(n string) bool { return !live.collections[n] })
 				}
 				if names == nil {
 					names = []string{}
@@ -112,7 +117,11 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *sc
 					limit = collectionDefaultHits
 				}
 				limit = min(limit, collectionMaxHits)
-				if sc != nil && !sc.collections[args.Collection] {
+				live, err := s.liveSearchCollectionScope(ctx, a)
+				if err != nil {
+					return "", err
+				}
+				if live != nil && !live.collections[args.Collection] {
 					return "", errors.New("collection not found")
 				}
 				hits, err := c.Search(ctx, a.Principal, args.Collection, args.Query, limit)
@@ -126,12 +135,17 @@ func (s *Service) collectionTools(ctx context.Context, a workspace.Actor, sc *sc
 			},
 		},
 	}
+	if sc != nil && len(sc.collections) == 0 {
+		tools = nil
+	}
+	tools = append(tools, s.memoryTools(ctx, a)...)
 	return tools, missing
 }
 
 // collectionAnswer renders hits as JSON within the bounds above.
 func collectionAnswer(hits []CollectionHit, limit int) string {
 	type hit struct {
+		EntryID    string            `json:"entry_id,omitempty"`
 		Content    string            `json:"content"`
 		Similarity float32           `json:"similarity,omitempty"`
 		Metadata   map[string]string `json:"metadata,omitempty"`
@@ -150,7 +164,7 @@ func collectionAnswer(hits []CollectionHit, limit int) string {
 			break
 		}
 		size += len(content)
-		out = append(out, hit{Content: content, Similarity: h.Similarity, Metadata: h.Metadata})
+		out = append(out, hit{EntryID: h.EntryID, Content: content, Similarity: h.Similarity, Metadata: h.Metadata})
 	}
 	b, _ := json.Marshal(map[string]any{"results": out})
 	return string(b)

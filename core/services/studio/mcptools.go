@@ -11,7 +11,7 @@ import (
 
 // reservedToolNames are the names the service owns. A tool from another source
 // cannot take one, so the model always gets the real thing.
-var reservedToolNames = map[string]bool{"spawn_agent": true, proposeTriggerName: true, listTriggersName: true,
+var reservedToolNames = map[string]bool{"add_memory": true, "delete_memory": true, "spawn_agent": true, proposeTriggerName: true, listTriggersName: true,
 	webSearchName: true, webFetchName: true, listAgentsName: true}
 
 // hostTools returns the tools a conversation has besides the ones the service

@@ -654,8 +654,8 @@ and records memory settings explicitly:
 }
 ```
 
-This task introduces configuration storage and round trips, not memory tools or
-automatic capture execution. The example expresses tool-only memory intent:
+Saved agents can use explicit memory tools. Automatic capture execution and its
+status UI are not available yet. The example expresses tool-only memory intent:
 `add_memory` is independent of automatic ingestion. Storage is `content` or
 `summary`; automatic ingestion is `off`, `incoming_only`,
 `incoming_and_replies`, or `summary`. Defaults are adding disabled, no destination,
@@ -694,3 +694,38 @@ old write setting. Legacy imports remain search-only, and exports include both
 versioned fields. The existing file envelope versions (1 without a folder, 2
 with a folder) are unchanged. No new management route or process-wide admin MCP
 memory mutation surface is introduced by this configuration change.
+
+### Explicit memory tools
+
+When `memory.add_memory` is enabled, `add_memory(content)` stores text in the
+single configured destination. The model cannot choose a destination or a
+principal. Content storage preserves the supplied text, including whitespace.
+Summary storage calls the chat's resolved model as the current user, without
+tools, and treats the supplied text as untrusted data. Blank text, invalid UTF-8,
+and content or summaries larger than 32 KiB are rejected. Summary, authorization,
+embedding, and storage errors are returned to the tool caller; the original text
+is never used as a fallback for a failed summary. Success returns `destination`
+and the exact document `entry_id`.
+
+`delete_memory(collection, entry_id)` is available for collections with
+`delete_entries`. It removes one exact existing document, including a document
+created by another producer in that collection. It does not accept a query,
+title, wildcard, or collection reset. Search results include `entry_id` when the
+backend provides exact document identity; passage identity is not a document ID.
+Delete-only collections are described by the delete tool, not listed as searchable.
+Deletion attempts and outcomes record principal, agent, chat, collection, and
+entry ID without recording deleted content. An audit failure is a visible error.
+
+Every list, search, add, and delete invocation reloads the saved agent and current
+collection access. Mutations recheck the principal, current grant, and frozen
+destination at the backend boundary, including after summarization. A changed or
+deleted destination fails closed rather than redirecting an in-flight write.
+These checks do not make revocation atomic with a backend commit already in
+progress. Plain chats cannot write memory. A saved sub-agent uses its own grants;
+parent-bound mutation tools cannot be delegated to an unnamed sub-agent.
+
+`automatic_ingestion: off` supports tool-only use: ordinary messages store
+nothing. Separate successful explicit calls create separate entries. Internal
+adapter callers can reuse a host-assigned invocation identity and frozen request
+key for retries; this is not a model argument. Queue-based automatic capture and
+its retry/status UI are separate work.

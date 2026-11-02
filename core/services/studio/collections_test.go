@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -143,5 +144,33 @@ var _ = Describe("collections", func() {
 			Expect(kids).To(HaveLen(1), "children = %d", len(kids))
 			Expect(slices.Contains(h.ToolNames(kids[0].ID), "search_collection")).To(Equal(tc.want))
 		}
+	})
+})
+
+var _ = Describe("live collection authorization", func() {
+	It("reloads saved grants when an already assembled search is invoked", func() {
+		var r *agentRig
+		r = newAgentRig(func(workspace.Actor, string) []studiotest.ToolStep {
+			r.save(agents.Agent{ID: "live", Name: "Live", Collections: []string{}})
+			return []studiotest.ToolStep{{Tool: "search_collection", Args: `{"collection":"docs","query":"secret"}`}, {Tool: "list_collections", Args: `{}`}, {Say: "done"}}
+		})
+		r.save(agents.Agent{ID: "live", Name: "Live", Collections: []string{"docs"}})
+		id := r.chatWith("live")
+		sent(r.svc, alice, id, "go")
+		idle(r.svc, alice, id)
+		Expect(r.h.ResultsFor("search_collection")[0].Err).To(HaveOccurred())
+		Expect(r.h.ResultsFor("list_collections")[0].Out).NotTo(ContainSubstring("docs"))
+	})
+	It("checks current collection feature access for an assembled search", func() {
+		fc := &fakeCollections{mine: map[string]map[string][]studio.CollectionHit{alice: {"docs": {{Content: "private"}}}}, blocked: map[string]bool{}}
+		svc, h := collectionChat(fc, func(workspace.Actor, string) []studiotest.ToolStep {
+			fc.blocked[alice] = true
+			return []studiotest.ToolStep{{Tool: "search_collection", Args: `{"collection":"docs","query":"x"}`}, {Say: "done"}}
+		})
+		id := create(svc, alice)
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		Expect(h.ResultsFor("search_collection")[0].Err).To(HaveOccurred())
+		Expect(fc.asked).To(BeEmpty())
 	})
 })

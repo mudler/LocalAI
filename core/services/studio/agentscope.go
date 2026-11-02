@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // scope is what a saved agent allows a chat. It only narrows: each list is
@@ -54,6 +55,23 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 		addons: set(ag.Addons), collections: set(ag.Collections), skills: set(ag.Skills),
 		addonNames: ag.Addons, collNames: ag.Collections, skillNames: ag.Skills,
 	}
+}
+
+// liveSearchCollectionScope rechecks feature access and reloads the chat's saved agent
+// at invocation time. Missing chats and unavailable agents must not become plain chats.
+func (s *Service) liveSearchCollectionScope(ctx context.Context, a workspace.Actor) (*scope, error) {
+	if s.d.Collections == nil || !s.d.Collections.Allowed(ctx, a.Principal) {
+		return nil, ErrNoCollection
+	}
+	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return nil, ErrNoCollection
+	}
+	sc := s.scopeOf(ctx, rec)
+	if sc != nil && sc.deleted {
+		return nil, ErrNoCollection
+	}
+	return sc, nil
 }
 
 // unavailable renders the grants that could not be used into one line for the

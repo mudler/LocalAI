@@ -46,7 +46,7 @@ var _ = Describe("the switchable groups of built-in tools", func() {
 	groups := map[string][]string{
 		builtins.GroupFiles:       fileTools,
 		builtins.GroupMedia:       {"describe_image", "transcribe_audio"},
-		builtins.GroupCollections: {"list_collections", "search_collection"},
+		builtins.GroupCollections: {"list_collections", "search_collection", "add_memory", "delete_memory"},
 		builtins.GroupSubAgents:   {"spawn_agent"},
 	}
 
@@ -55,9 +55,14 @@ var _ = Describe("the switchable groups of built-in tools", func() {
 		id := create(svc, alice)
 		turnPrompt(svc, h, id)
 		all := h.ToolNames(id)
-		for _, names := range groups {
+		for group, names := range groups {
+			if group == builtins.GroupCollections {
+				names = []string{"list_collections", "search_collection"}
+			}
 			Expect(all).To(ContainElements(names))
 		}
+		Expect(all).NotTo(ContainElement("add_memory"), "plain chats have no write grant")
+		Expect(all).NotTo(ContainElement("delete_memory"), "plain chats have no delete grant")
 		for g, names := range groups {
 			Expect(svc.SetBuiltinsOff(context.Background(), alice, id, []string{g})).To(Succeed())
 			turnPrompt(svc, h, id)

@@ -433,6 +433,11 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 	}
 	out := make([]session.Tool, 0, len(*names))
 	for _, n := range *names {
+		// These closures carry the parent's actor. A child must use its own
+		// saved agent tools, never inherit a parent's mutation authority.
+		if n == "add_memory" || n == "delete_memory" || (perr == nil && parent.AgentID != "" && (n == "list_collections" || n == "search_collection")) {
+			return nil, errors.New("collection delegation requires the child's own saved agent")
+		}
 		t, ok := byName[n]
 		if !ok {
 			return nil, fmt.Errorf("the tool %q is not one of your tools, so a sub-agent cannot have it", n)

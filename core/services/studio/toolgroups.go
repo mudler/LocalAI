@@ -32,7 +32,7 @@ var fileToolNames = []string{"list_files", "read_file", "write_file", "edit_file
 var mediaToolNames = []string{"describe_image", "transcribe_audio"}
 
 // The collection tools, in the group GroupCollections.
-var collectionToolNames = []string{"list_collections", "search_collection"}
+var collectionToolNames = []string{"list_collections", "search_collection", "add_memory", "delete_memory"}
 
 // spawnAgentName is the tool that starts a sub-agent, in GroupSubAgents.
 const spawnAgentName = "spawn_agent"
