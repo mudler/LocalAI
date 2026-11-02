@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -25,6 +26,29 @@ func (s unavailableCaptureStore) CompleteMemoryTurn(context.Context, store.Memor
 }
 
 var _ = Describe("automatic memory payload isolation", func() {
+	It("answers background input when capture acceptance alone is unavailable", func() {
+		ctx := context.Background()
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		as, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(as.Put(ctx, agents.Agent{ID: "agent", Principal: "alice", Name: "Recorder", CollectionPermissions: &agents.CollectionPermissions{Version: 1, Grants: []agents.CollectionGrant{{Collection: "notes"}}}, Memory: &agents.MemorySettings{Version: 1, Destination: "notes", ToolStorage: "content", AutomaticIngestion: "incoming_only"}})).To(Succeed())
+		Expect(st.CreateChat(ctx, session.ChatRecord{ID: "chat", Principal: "alice", AgentID: "agent", Model: "m"})).To(Succeed())
+		h := studiotest.NewGateHarness()
+		svc, err := New(Deps{Store: unavailableCaptureStore{st}, Agents: as, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: h})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = svc.Close(ctx) })
+		result := svc.ServeStart(ctx, workerctl.ChatStartRequest{Principal: "alice", ChatID: "chat", Text: "still answer", RequestID: "request"})
+		Expect(result.Error).To(BeEmpty())
+		Expect(result.Started).To(BeTrue())
+		Eventually(h.Sent, time.Second*10).Should(Equal([]string{"still answer"}))
+		h.Gate <- struct{}{}
+		Eventually(func() store.TurnStatus { info, _ := st.Turn(ctx, "alice", "chat"); return info.Last }, time.Second*10).Should(Equal(store.TurnDone))
+		records, err := st.ListCaptures(ctx, "alice", "chat")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(BeEmpty())
+	})
+
 	It("separates notes and attachment paths from accepted pending and direct text", func() {
 		ctx := context.Background()
 		st, err := store.NewJSON("")

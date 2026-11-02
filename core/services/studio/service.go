@@ -844,12 +844,27 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 	unlock := s.lock(key(p, conv))
 	defer unlock()
 	if id, _ := ctx.Value(memoryDeliveryKey{}).(string); id != "" && !msg.Goal && msg.Loop == nil && len(msg.Files) == 0 {
-		if in, ok := s.memoryAcceptance(ctx, p, conv, msg.Text); ok {
-			in.PendingText = session.ComposeMessage(msg.Text, msg.Note, msg.Attachments)
-			accepted, err := s.d.Store.AcceptMemoryInput(ctx, in)
-			if err != nil {
-				return SendResult{}, err
+		// Delivery replay survives policy changes: accepting new capture work
+		// still requires current eligibility, but replaying old work does not.
+		accepted, found, lookupErr := s.d.Store.MemoryInput(ctx, p, conv, "memory:"+id)
+		if lookupErr != nil {
+			return SendResult{}, lookupErr
+		}
+		if !found {
+			if in, ok := s.memoryAcceptance(ctx, p, conv, msg.Text); ok {
+				in.PendingText = session.ComposeMessage(msg.Text, msg.Note, msg.Attachments)
+				var err error
+				accepted, err = s.d.Store.AcceptMemoryInput(ctx, in)
+				if err != nil {
+					// Capture-only outages must not block the ordinary chat path.
+					// No durable replay guarantee is possible for this failed acceptance.
+					s.log.Warn("studio: could not persist incoming memory intent", "chat", conv, "error", err)
+				} else {
+					found = true
+				}
 			}
+		}
+		if found {
 			pending, err := s.d.Store.Pending(ctx, p, conv)
 			if err != nil {
 				return SendResult{}, err

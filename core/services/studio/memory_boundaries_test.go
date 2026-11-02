@@ -184,6 +184,32 @@ var _ = Describe("automatic memory lifecycle", func() {
 })
 
 var _ = Describe("durable worker delivery identity", func() {
+	It("replays accepted worker delivery after automatic memory is switched off", func() {
+		r, _ := memoryRig(sayOK, func(d *studio.Deps) {})
+		a := memoryPolicy()
+		a.Memory.AutomaticIngestion = "incoming_only"
+		r.save(a)
+		id := r.chatWith(a.ID)
+		req := workerctl.ChatStartRequest{Principal: alice, ChatID: id, Text: "once", RequestID: "policy-replay"}
+		first := r.svc.ServeStart(context.Background(), req)
+		Expect(first.Error).To(BeEmpty())
+		idle(r.svc, alice, id)
+		a.Memory.AutomaticIngestion = "off"
+		r.save(a)
+		replay := r.svc.ServeStart(context.Background(), req)
+		Expect(replay).To(Equal(first))
+		idle(r.svc, alice, id)
+		entries, err := r.svc.Messages(context.Background(), alice, id, 0, 100)
+		Expect(err).NotTo(HaveOccurred())
+		users := 0
+		for _, e := range entries {
+			if e.Role == "user" {
+				users++
+			}
+		}
+		Expect(users).To(Equal(1))
+	})
+
 	It("deduplicates a redelivered remote request without merging intentional identical inputs", func() {
 		var st store.Store
 		r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store })

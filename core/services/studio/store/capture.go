@@ -801,3 +801,21 @@ func (s *jsonStore) BindMemoryTurn(ctx context.Context, p, c, r string, ids []st
 func (s *gormStore) BindMemoryTurn(ctx context.Context, p, c, r string, ids []string) error {
 	return s.editCapture(ctx, p, c, func(d *captureData, state *chatState) error { return bindMemoryTurn(d, state, r, ids) })
 }
+
+// MemoryInput is scoped by the chat store's principal check. Replay reads do not
+// authorize capture writes; those still require the worker's current policy.
+func memoryInput(ctx context.Context, p, c, id string, edit captureEdit) (AcceptedInput, bool, error) {
+	var out AcceptedInput
+	var found bool
+	err := edit(ctx, p, c, func(d *captureData, _ *chatState) error {
+		out, found = d.Accepted[id]
+		return nil
+	})
+	return out, found, err
+}
+func (s *jsonStore) MemoryInput(ctx context.Context, p, c, id string) (AcceptedInput, bool, error) {
+	return memoryInput(ctx, p, c, id, s.editCapture)
+}
+func (s *gormStore) MemoryInput(ctx context.Context, p, c, id string) (AcceptedInput, bool, error) {
+	return memoryInput(ctx, p, c, id, s.editCapture)
+}

@@ -872,6 +872,11 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
+	// Platforms scope message IDs to a conversation. Reuse that event identity,
+	// never the text: two identical messages are still two accepted inputs.
+	if m.MessageID != "" {
+		ctx = withMemoryDelivery(ctx, hashKey("connector:", b.ID, m.Chat, m.MessageID))
+	}
 	if _, err := c.svc.SendBackground(ctx, b.Owner, chatID, m.Text, up); err != nil {
 		if !was {
 			cancel()

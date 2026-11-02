@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/tests/studiobot"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -73,6 +74,44 @@ func (r *slackRig) answers() []slacktest.Post {
 }
 
 var _ = Describe("connectors slack", func() {
+	It("keeps connector message identity across duplicate delivery, not identical text", func() {
+		ctx := context.Background()
+		r, b := newSlackRig("Recorded.", []string{"U1"})
+		ag := r.agent
+		ag.CollectionPermissions = memoryPolicy().CollectionPermissions
+		ag.Memory = memoryPolicy().Memory
+		ag.Memory.AutomaticIngestion = "incoming_only"
+		Expect(r.sh.agents.Put(ctx, ag)).To(Succeed())
+		event := slacktest.DM("D1", "U1", "same words")
+		m := contract.ConnectorMessage{Chat: "D1", SenderID: "U1", MessageID: event["ts"].(string), Direct: true, Text: "same words"}
+		ingest := func() {
+			Expect(r.conns.Ingest(ctx, b.AddonID, contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: m})).To(Succeed())
+		}
+		r.slack.Push(slackApp, event)
+		waitFor("the first answer", func() bool { return len(r.answers()) == 1 })
+		chats, err := r.svc.List(ctx, alice, 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(chats).To(HaveLen(1))
+		id := chats[0].ID
+		idle(r.svc, alice, id)
+		ingest()
+		idle(r.svc, alice, id)
+		records, err := r.sh.chats.ListCaptures(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(HaveLen(1), "redelivery must not accept a second input")
+		Expect(r.h.Sent(id)).To(HaveLen(1), "redelivery must not answer twice")
+		m.MessageID = "1700000000.002"
+		ingest()
+		waitFor("the distinct event answer", func() bool { return len(r.h.Sent(id)) == 2 })
+		idle(r.svc, alice, id)
+		records, err = r.sh.chats.ListCaptures(ctx, alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(HaveLen(2))
+		Expect(records[0].RawText).To(Equal("same words"))
+		Expect(records[1].RawText).To(Equal("same words"))
+		Expect(records[0].Identity.Source).NotTo(Equal(records[1].Identity.Source))
+	})
+
 	It("slack thread is one chat for everyone in it", func() {
 		r, b := newSlackRig("Thread answer.", []string{"C1"})
 		mention := slacktest.Mention("C1", "U1", "UBOT", "help us", "")

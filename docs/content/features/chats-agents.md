@@ -769,3 +769,15 @@ pending delivery, so completing a recovered execution does not depend on the
 worker's in-memory list. Direct inputs enter the same durable pending queue
 before transcript delivery. A crash before transcript delivery leaves the input
 available for recovery rather than marking it delivered at acceptance.
+
+Connector messages reuse the platform message ID, scoped to the binding and
+conversation, as their background delivery identity. For capture-enabled text-only
+deliveries, redelivering that ID does
+not accept another input; a different ID with identical text is a separate input.
+Connectors without a platform message ID retain per-delivery behavior. Replay of
+an already accepted request still returns its original disposition after automatic
+memory is switched off; this does not grant permission for new collection writes.
+If capture acceptance alone fails while ordinary chat storage works, answering
+continues without a capture intent. That degraded delivery has no durable capture
+or replay guarantee; the failure is logged. An outage of ordinary chat storage
+can still prevent answering.
