@@ -209,7 +209,8 @@ func (c *Carrier) executionStatus(ctx context.Context, a contract.Actor, r Execu
 	if e != nil {
 		return out, e
 	}
-	defer resp.Body.Close()
+	// Read-only cleanup: close errors cannot change the decoded result.
+	defer func() { _ = resp.Body.Close() }()
 	var got ExecutionStatusResponse
 	if decode(io.LimitReader(resp.Body, 32768), &got) != nil || got.Version != 1 || got.Binding != r.Binding || got.ObservationID != r.ObservationID || ctx.Err() != nil {
 		return out, ErrUnavailable

@@ -64,7 +64,7 @@ var _ = Describe("product request scopes", func() {
 		}}}
 		o.ProductScope = func(ctx context.Context, x session.Access) (context.Context, func()) {
 			if x.Actor().ChatID != "c1" {
-				report(fmt.Errorf("wrong chat ID"))
+				_ = report(fmt.Errorf("wrong chat ID")) // report queues the failure for the spec goroutine.
 			}
 			s := &productScope{q: model.ObservationID(fmt.Sprint(serial.Add(1)))}
 			s.request = shell.New(ctx, b, s.q, model.Eligible, shell.IO{

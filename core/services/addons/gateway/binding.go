@@ -120,7 +120,8 @@ func (c *Carrier) executionBinding(ctx context.Context, a contract.Actor, claim 
 	if err != nil {
 		return ExecutionStatusBinding{}, err
 	}
-	defer r.Body.Close()
+	// Read-only cleanup: close errors cannot change the decoded result.
+	defer func() { _ = r.Body.Close() }()
 	var reply executionBindingReply
 	if decode(io.LimitReader(r.Body, 32768), &reply) != nil || reply.Version != 1 || reply.Binding.ConversationID != claim.ConversationID || !(ExecutionStatusRequest{Version: 1, Binding: reply.Binding, ObservationID: "binding"}).valid(a) || ctx.Err() != nil {
 		return ExecutionStatusBinding{}, ErrUnavailable

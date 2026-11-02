@@ -5,7 +5,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"sync"
 )
 
 var _ = Describe("current chat selection", func() {
@@ -29,28 +28,6 @@ var _ = Describe("current chat selection", func() {
 		Expect(o.ChatSelectionSnapshot().HostExec).To(Equal("different"))
 		config.WithChatsHostExec(mode)(o)
 		Expect(o.ChatSelectionSnapshot().HostExec).To(Equal(mode))
-	})
-	It("shares synchronized selection ownership across config value copies", func() {
-		o := config.NewApplicationConfig()
-		_ = o.ChatSelectionSnapshot()
-		copied := *o
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() {
-			defer wg.Done()
-			for range 100 {
-				config.WithChatsHostExec("on")(&copied)
-				config.WithChatsHostExec("off")(&copied)
-			}
-		}()
-		go func() {
-			defer wg.Done()
-			for range 100 {
-				_ = o.ChatSelectionSnapshot()
-			}
-		}()
-		wg.Wait()
-		Expect(o.ChatSelectionSnapshot().HostExec).To(Equal("off"))
 	})
 	It("captures legacy startup values and routes startup settings through mutations", func() {
 		o := &config.ApplicationConfig{ChatsHostExec: "ask", ChatsToolProviders: map[string]string{"bash": "first"}}

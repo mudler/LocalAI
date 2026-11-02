@@ -21,7 +21,8 @@ var _ = Describe("exact observation client admission", func() {
 		var calls atomic.Int32
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			calls.Add(1)
-			io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			_, err := io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			Expect(err).NotTo(HaveOccurred())
 		}))
 		defer srv.Close()
 		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Incarnation: "old", Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
@@ -36,7 +37,8 @@ var _ = Describe("exact observation client admission", func() {
 		var calls atomic.Int32
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			calls.Add(1)
-			io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			_, err := io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			Expect(err).NotTo(HaveOccurred())
 		}))
 		defer srv.Close()
 		old, e := newClient(Registration{AddonID: "sample", Generation: 1, Incarnation: "old", Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())

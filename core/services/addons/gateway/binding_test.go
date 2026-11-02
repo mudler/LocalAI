@@ -8,58 +8,50 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"strings"
-	"testing"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-func TestOwnerBinding(t *testing.T) {
-	ctx := context.Background()
-	claim := ExecutionBindingClaim{ConversationID: "chat"}
-	b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", CurrentSelection: "owner:1:2:3:4"}
-	g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
-	if _, err := g.BindingForActor(ctx, frontActor, claim); err == nil {
-		t.Fatal("missing resolver granted binding")
-	}
-	calls := 0
-	g.ResolveExecutionBinding = func(_ context.Context, actor contract.Actor, got ExecutionBindingClaim) (ExecutionStatusBinding, error) {
-		calls++
-		if actor != frontActor || got != claim {
-			return ExecutionStatusBinding{}, ErrForbidden
+var _ = Describe("owner binding validation", func() {
+	It("validates current selection and authenticated actor", func() {
+		ctx := context.Background()
+		claim := ExecutionBindingClaim{ConversationID: "chat"}
+		b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", CurrentSelection: "owner:1:2:3:4"}
+		g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
+		_, err := g.BindingForActor(ctx, frontActor, claim)
+		Expect(err).To(HaveOccurred())
+		calls := 0
+		g.ResolveExecutionBinding = func(_ context.Context, actor contract.Actor, got ExecutionBindingClaim) (ExecutionStatusBinding, error) {
+			calls++
+			if actor != frontActor || got != claim {
+				return ExecutionStatusBinding{}, ErrForbidden
+			}
+			return b, nil
 		}
-		return b, nil
-	}
-	got, err := g.BindingForActor(ctx, frontActor, claim)
-	if err != nil || got != b {
-		t.Fatalf("binding: %+v %v", got, err)
-	}
-	if err := g.ValidateExecutionBinding(ctx, frontActor, b); err != nil {
-		t.Fatal(err)
-	}
-	stale := b
-	stale.CurrentSelection = "old"
-	if g.ValidateExecutionBinding(ctx, frontActor, stale) == nil {
-		t.Fatal("changed selection granted")
-	}
-	forged := b
-	forged.Actor.UserID = "other"
-	before := calls
-	if g.ValidateExecutionBinding(ctx, frontActor, forged) == nil || calls != before {
-		t.Fatal("forged actor reached resolver")
-	}
-	b.CurrentSelection = "current-selection" // The resolver reports a different current selection.
-	if g.ValidateExecutionBinding(ctx, frontActor, got) == nil {
-		t.Fatal("changed current selection survived")
-	}
-}
-func TestBindingClaimStrict(t *testing.T) {
-	for _, raw := range []string{`{"ConversationID":"chat"}`, `{"conversationId":"chat","actor":{}}`, `{"conversationId":"chat","conversationId":"other"}`, `null`} {
-		var c ExecutionBindingClaim
-		if json.Unmarshal([]byte(raw), &c) == nil {
-			t.Fatalf("accepted %s", raw)
+		got, err := g.BindingForActor(ctx, frontActor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(b))
+		Expect(g.ValidateExecutionBinding(ctx, frontActor, b)).To(Succeed())
+		stale := b
+		stale.CurrentSelection = "old"
+		Expect(g.ValidateExecutionBinding(ctx, frontActor, stale)).NotTo(Succeed())
+		forged := b
+		forged.Actor.UserID = "other"
+		before := calls
+		Expect(g.ValidateExecutionBinding(ctx, frontActor, forged)).NotTo(Succeed())
+		Expect(calls).To(Equal(before))
+		b.CurrentSelection = "current-selection" // The resolver reports a different current selection.
+		Expect(g.ValidateExecutionBinding(ctx, frontActor, got)).NotTo(Succeed())
+	})
+})
+var _ = Describe("binding claim strictness", func() {
+	It("rejects aliases, duplicate fields and null claims", func() {
+		for _, raw := range []string{`{"ConversationID":"chat"}`, `{"conversationId":"chat","actor":{}}`, `{"conversationId":"chat","conversationId":"other"}`, `null`} {
+			var c ExecutionBindingClaim
+			Expect(json.Unmarshal([]byte(raw), &c)).NotTo(Succeed(), raw)
 		}
-	}
-}
+	})
+})
 
 var _ = Describe("owner binding carrier", func() {
 	It("resolves only the authenticated claim over actual mTLS", func() {
@@ -102,7 +94,7 @@ var _ = Describe("owner binding carrier", func() {
 		// A mixed door is signed and authenticated, but still has no authority.
 		resp, e := cs["front-a"].send(context.Background(), frontActor, wireRequest{Request: contract.Request{Action: executionBindingAction, OperationID: "mixed", AddonID: "forged"}, ExecutionBinding: &executionBindingCall{Version: 1, Claim: ExecutionBindingClaim{ConversationID: "chat"}}})
 		if resp != nil {
-			resp.Body.Close()
+			Expect(resp.Body.Close()).To(Succeed())
 		}
 		Expect(e).To(HaveOccurred())
 		Expect(calls).To(Equal(before))
@@ -119,11 +111,11 @@ var _ = Describe("owner binding carrier", func() {
 				Expect(e).NotTo(HaveOccurred())
 				return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if !supported && r.URL.Path == "/addons/capabilities" {
-						json.NewEncoder(w).Encode(Capabilities{Protocol: 2})
+						Expect(json.NewEncoder(w).Encode(Capabilities{Protocol: 2})).To(Succeed())
 						return
 					}
 					if r.URL.Path == "/addons/forward" {
-						json.NewEncoder(w).Encode(executionBindingReply{Version: 1, Binding: b})
+						Expect(json.NewEncoder(w).Encode(executionBindingReply{Version: 1, Binding: b})).To(Succeed())
 						return
 					}
 					h.ServeHTTP(w, r)
@@ -137,23 +129,22 @@ var _ = Describe("owner binding carrier", func() {
 	})
 })
 
-func TestBindingDTOStrictness(t *testing.T) {
-	rawBinding := `{"actor":{"userId":"u","credentialId":"c","mode":"named-user"},"addonId":"renamed","generation":1,"incarnation":"inc","executionTool":"run","statusTool":"health","conversationId":"chat","currentSelection":"current"}`
-	var b ExecutionStatusBinding
-	if json.Unmarshal([]byte(rawBinding), &b) != nil || b.ConversationID != "chat" {
-		t.Fatal("observation binding rejected")
-	}
-	for _, raw := range []string{
-		strings.Replace(rawBinding, `"addonId"`, `"AddonId"`, 1),
-		strings.Replace(rawBinding, `"userId"`, `"UserId"`, 1),
-		strings.Replace(rawBinding, `"addonId":"renamed"`, `"addonId":"renamed","addonId":"other"`, 1),
-		strings.Replace(rawBinding, `"actor":`, `"conversationId":"chat","ConversationID":"foreign","actor":`, 1),
-	} {
-		if json.Unmarshal([]byte(raw), &b) == nil {
-			t.Fatalf("accepted alias or duplicate: %s", raw)
+var _ = Describe("binding DTO strictness", func() {
+	It("accepts canonical bindings and rejects aliases and duplicates", func() {
+		rawBinding := `{"actor":{"userId":"u","credentialId":"c","mode":"named-user"},"addonId":"renamed","generation":1,"incarnation":"inc","executionTool":"run","statusTool":"health","conversationId":"chat","currentSelection":"current"}`
+		var b ExecutionStatusBinding
+		Expect(json.Unmarshal([]byte(rawBinding), &b)).To(Succeed())
+		Expect(b.ConversationID).To(Equal("chat"))
+		for _, raw := range []string{
+			strings.Replace(rawBinding, `"addonId"`, `"AddonId"`, 1),
+			strings.Replace(rawBinding, `"userId"`, `"UserId"`, 1),
+			strings.Replace(rawBinding, `"addonId":"renamed"`, `"addonId":"renamed","addonId":"other"`, 1),
+			strings.Replace(rawBinding, `"actor":`, `"conversationId":"chat","ConversationID":"foreign","actor":`, 1),
+		} {
+			Expect(json.Unmarshal([]byte(raw), &b)).NotTo(Succeed(), raw)
 		}
-	}
-}
+	})
+})
 
 var _ = Describe("generic execution provider identity", func() {
 	It("passes through owner-resolved bindings with distinct provider and status names", func() {

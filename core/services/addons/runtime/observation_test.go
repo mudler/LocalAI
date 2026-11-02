@@ -38,7 +38,8 @@ var _ = Describe("Host-only observation read", func() {
 			if r.URL.Path == "/output" {
 				opens.Add(1)
 			}
-			io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"},"outputs":[{"handle":"evil","name":"evil.txt","mediaType":"text/plain","size":1}]}`)
+			_, err := io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"},"outputs":[{"handle":"evil","name":"evil.txt","mediaType":"text/plain","size":1}]}`)
+			Expect(err).NotTo(HaveOccurred())
 		})
 		value, err := c.ReadObservation(context.Background(), env(), "q")
 		Expect(err).To(HaveOccurred())
@@ -59,7 +60,8 @@ var _ = Describe("Host-only observation read", func() {
 			rec := httptest.NewRecorder()
 			callback.ServeHTTP(rec, req)
 			code.Store(int32(rec.Code))
-			io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			_, err := io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			Expect(err).NotTo(HaveOccurred())
 		})
 		var calls atomic.Int32
 		Expect(b.Register(hostops.Spec{Op: "connector.inbound", Scope: hostops.ScopeInbound, Handler: func(context.Context, hostops.Call) (json.RawMessage, error) {
@@ -109,7 +111,8 @@ var _ = Describe("Host-only observation read", func() {
 				callback.ServeHTTP(rec, req)
 				statusCode.Store(int32(rec.Code))
 			}
-			io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			_, err := io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+			Expect(err).NotTo(HaveOccurred())
 		})
 		Expect(b.Register(hostops.Spec{Op: "workspace.export", Scope: "read", Feature: "chats", Handler: func(context.Context, hostops.Call) (json.RawMessage, error) { return json.RawMessage(`{}`), nil }})).To(Succeed())
 		callback = b.HandlerForRuntime("sample", "secret", []string{"workspace."}, 1, "inc")
@@ -132,9 +135,11 @@ var _ = Describe("Host-only observation read", func() {
 			case "timeout":
 				time.Sleep(50 * time.Millisecond)
 			case "malformed":
-				io.WriteString(w, `{"payload":{"artifact":"evil"}}`)
+				_, err := io.WriteString(w, `{"payload":{"artifact":"evil"}}`)
+				Expect(err).NotTo(HaveOccurred())
 			default:
-				io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+				_, err := io.WriteString(w, `{"payload":{"readiness":"available","isolation":"isolated"}}`)
+				Expect(err).NotTo(HaveOccurred())
 			}
 		})
 		ctx := context.Background()

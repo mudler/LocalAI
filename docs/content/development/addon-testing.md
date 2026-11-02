@@ -576,3 +576,7 @@ page-render-smoke, sound-expansion, every studio spec, talk, taste-polish,
 threed-animation, threed-gen and addon-navigation. Existing cases remain;
 standalone addon addresses become declared fixture pages, and selected models
 travel as query values. Addon-local navigation adapter coverage stays in place.
+
+The execution-status viewer defaults to `viewer.html`. Use `-o /path/to/viewer.html`
+to choose an output location explicitly; it does not read environment variables.
+`-check` alone verifies the model without writing a file.

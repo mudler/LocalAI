@@ -130,7 +130,7 @@ var _ = Describe("supervised owner observation over authenticated carrier", func
 			return nil
 		}
 		Expect(e).NotTo(HaveOccurred())
-		defer f.Close()
+		defer func() { Expect(f.Close()).To(Succeed()) }()
 		d := json.NewDecoder(f)
 		var out []observationRecord
 		for d.More() {

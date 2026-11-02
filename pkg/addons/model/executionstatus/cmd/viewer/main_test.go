@@ -16,6 +16,11 @@ import (
 func TestViewer(t *testing.T) { RegisterFailHandler(Fail); RunSpecs(t, "Execution status viewer") }
 
 var _ = Describe("Real reducer trace export", func() {
+	It("propagates output failures for checks and writes", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "viewer.html")
+		Expect(run([]string{"-check"}, failedOutput{})).To(MatchError("output failed"))
+		Expect(run([]string{"-o", path}, failedOutput{})).To(MatchError("output failed"))
+	})
 	It("exports every trace step with state, event, effects, rule and guard", func() {
 		d, err := collect(es.Traces(), es.RunTrace, es.Explore)
 		Expect(err).NotTo(HaveOccurred())
@@ -78,7 +83,7 @@ var _ = Describe("Real reducer trace export", func() {
 		Expect(string(a)).To(ContainSubstring(`id="trace"`))
 		Expect(string(a)).To(ContainSubstring(`id="next"`))
 	})
-	It("writes default output under SDD_LOCAL_ROOT instead of the working directory", func() {
+	It("writes explicit output outside the working directory", func() {
 		cwd, err := os.Getwd()
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(os.Chdir, cwd)
@@ -87,7 +92,7 @@ var _ = Describe("Real reducer trace export", func() {
 		Expect(os.Chdir(work)).To(Succeed())
 		GinkgoT().Setenv("SDD_LOCAL_ROOT", root)
 		var out bytes.Buffer
-		Expect(run(nil, &out)).To(Succeed())
+		Expect(run([]string{"-o", filepath.Join(root, "executionstatus-viewer.html")}, &out)).To(Succeed())
 		html, err := os.ReadFile(filepath.Join(root, "executionstatus-viewer.html"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(validatePage(html)).To(Succeed())
@@ -95,7 +100,7 @@ var _ = Describe("Real reducer trace export", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(entries).To(BeEmpty())
 	})
-	It("falls back to portable viewer.html when SDD_LOCAL_ROOT is absent", func() {
+	It("defaults to portable viewer.html", func() {
 		cwd, err := os.Getwd()
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(os.Chdir, cwd)
@@ -137,3 +142,7 @@ var _ = Describe("Real reducer trace export", func() {
 		Expect(run([]string{"unexpected"}, &out)).NotTo(Succeed())
 	})
 })
+
+type failedOutput struct{}
+
+func (failedOutput) Write([]byte) (int, error) { return 0, errors.New("output failed") }

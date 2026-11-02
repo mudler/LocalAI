@@ -62,11 +62,13 @@ func LoadAddonHostPolicy(path string) (map[string][]string, error) {
 	if !info.Mode().IsRegular() {
 		return nil, fmt.Errorf("policy must be a regular file")
 	}
+	// #nosec G304 -- Only the administrator selects this startup policy path via CLI/config; regular-file and 64 KiB checks bound its read.
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open policy: %w", err)
 	}
-	defer f.Close()
+	// Read-only cleanup: close errors cannot change the decoded result.
+	defer func() { _ = f.Close() }()
 	info, err = f.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("stat opened policy: %w", err)

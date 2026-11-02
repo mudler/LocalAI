@@ -4,7 +4,9 @@ package tools
 import (
 	"context"
 	"encoding/json"
-	"testing"
+	"fmt"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -17,26 +19,21 @@ type typedSettings struct {
 
 func (s typedSettings) Status() backends.Status { return s.status }
 
-func TestTypedExecutionStatus(t *testing.T) {
+var _ = Describe("typed execution status", func() {
 	for _, tc := range []struct{ active, readiness, isolation string }{
 		{"gvisor", "available", "isolated"}, {"kvm", "available", "isolated"}, {"host", "available", "host"}, {"", "unavailable", "unknown"}, {"future", "unknown", "unknown"},
 	} {
-		t.Run(tc.active+tc.readiness, func(t *testing.T) {
+		It(fmt.Sprintf("reports %s as %s with %s isolation", tc.active, tc.readiness, tc.isolation), func() {
 			r := New(nil, typedSettings{status: backends.Status{Active: tc.active}}, nil)
 			var env contract.Envelope
 			env.Request.OperationID = "typed-read"
 			env.Request.Arguments = json.RawMessage(`{"tool":"execution-status"}`)
 			result, err := r.Read(context.Background(), env)
-			if err != nil {
-				t.Fatal(err)
-			}
+			Expect(err).NotTo(HaveOccurred())
 			status, err := contract.DecodeExecutionStatus(result.Payload)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if status.Readiness != tc.readiness || status.Isolation != tc.isolation {
-				t.Fatalf("unexpected status: %+v", status)
-			}
+			Expect(err).NotTo(HaveOccurred())
+			Expect(status.Readiness).To(Equal(tc.readiness))
+			Expect(status.Isolation).To(Equal(tc.isolation))
 		})
 	}
-}
+})

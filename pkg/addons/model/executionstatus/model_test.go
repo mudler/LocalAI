@@ -85,7 +85,8 @@ var _ = ginkgo.Describe("Executable status model", func() {
 		Expect(report.States).To(BeNumerically(">", 100))
 		Expect(report.Transitions).To(BeNumerically(">", 10000))
 		Expect(report.LivenessChecks).To(Equal(report.States))
-		fmt.Fprintf(ginkgo.GinkgoWriter, "BFS: states=%d transitions=%d cells=%d liveness=%d\n", report.States, report.Transitions, len(report.Cells), report.LivenessChecks)
+		_, err = fmt.Fprintf(ginkgo.GinkgoWriter, "BFS: states=%d transitions=%d cells=%d liveness=%d\n", report.States, report.Transitions, len(report.Cells), report.LivenessChecks)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	ginkgo.It("covers deadline guard splits for Reply, Failure, Tick and expired Probe", func() {

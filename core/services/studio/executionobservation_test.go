@@ -5,8 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/executionrequest"
@@ -51,134 +52,110 @@ func (p *observationProvider) NewExecutionObservation(ctx context.Context, user,
 	}
 	return r, b.Addon, func() string { return "" }
 }
-func TestExecutionProductScopeActualSessionHook(t *testing.T) {
-	p := &observationProvider{requests: make(chan *executionrequest.Request, 3)}
-	s := &Service{d: Deps{AddonTools: p}}
-	h := &sessiontest.FakeHarness{Turns: [][]sessiontest.Step{{{Tool: "status", Args: "{}"}, {Tool: "egress", Args: "{}"}}}}
-	failures := make(chan string, 8)
-	observe := func(ctx context.Context) {
-		v, _ := ExecutionObservation(ctx, "alice", "renamed-provider")
-		if v.Isolation != model.Isolated {
-			failures <- "not isolated"
-		}
-	}
-	m, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), StateDir: t.TempDir(), Harness: h, ProductScope: s.productScope,
-		ChatTools: func(ctx context.Context, _ session.Access) (session.TurnTools, error) {
-			observe(ctx)
-			tools := []session.Tool{}
-			for _, name := range []string{"status", "egress"} {
-				tools = append(tools, session.Tool{Name: name, Description: name, Schema: json.RawMessage(`{"type":"object"}`), Run: func(ctx context.Context, _ json.RawMessage) (string, error) { observe(ctx); return "ok", nil }})
-			}
-			return session.TurnTools{Tools: tools}, nil
-		}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer m.Close(context.Background())
-	x, err := session.NewAccess(workspace.Actor{Principal: "alice", ChatID: "c1"}, workspace.View{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	chat, err := m.Open(context.Background(), x, "c1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = chat.Send(context.Background(), session.Message{Text: "hello"}); err != nil {
-		t.Fatal(err)
-	}
-	timer := time.NewTimer(5 * time.Second)
-	defer timer.Stop()
-	for {
-		select {
-		case e := <-chat.Events():
-			if e.Kind == session.KindTurnEnd {
-				goto finished
-			}
-		case <-timer.C:
-			t.Fatal("turn timed out")
-		}
-	}
-finished:
-	if len(failures) != 0 {
-		t.Fatal(<-failures)
-	}
-	if p.reads.Load() != 2 {
-		t.Fatalf("priming + one turn: reads=%d", p.reads.Load())
-	}
-	for range 2 {
-		r := <-p.requests
-		if r.Observe(context.Background()) != model.Unknown() {
-			t.Fatal("scope not closed")
-		}
-	}
-}
-func TestExecutionProductScopeCancellationAndFailure(t *testing.T) {
-	for _, fail := range []bool{false, true} {
-		p := &observationProvider{started: make(chan struct{}), release: make(chan struct{}), fail: fail}
+
+var _ = Describe("execution status product scope", func() {
+	It("shares one status observation across the actual session hook", func() {
+		p := &observationProvider{requests: make(chan *executionrequest.Request, 3)}
 		s := &Service{d: Deps{AddonTools: p}}
-		ctx, closeScope := s.executionScope(context.Background(), "alice", "c1")
-		consumer, cancel := context.WithCancel(ctx)
-		done := make(chan model.Value, 1)
-		go func() { v, _ := ExecutionObservation(consumer, "alice", "renamed-provider"); done <- v }()
-		select {
-		case <-p.started:
-		case <-time.After(5 * time.Second):
-			t.Fatal("no read")
+		h := &sessiontest.FakeHarness{Turns: [][]sessiontest.Step{{{Tool: "status", Args: "{}"}, {Tool: "egress", Args: "{}"}}}}
+		failures := make(chan string, 8)
+		observe := func(ctx context.Context) {
+			v, _ := ExecutionObservation(ctx, "alice", "renamed-provider")
+			if v.Isolation != model.Isolated {
+				failures <- "not isolated"
+			}
 		}
-		cancel()
-		if v := <-done; v != model.Unknown() {
-			t.Fatal(v)
+		m, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), StateDir: GinkgoT().TempDir(), Harness: h, ProductScope: s.productScope,
+			ChatTools: func(ctx context.Context, _ session.Access) (session.TurnTools, error) {
+				observe(ctx)
+				tools := []session.Tool{}
+				for _, name := range []string{"status", "egress"} {
+					tools = append(tools, session.Tool{Name: name, Description: name, Schema: json.RawMessage(`{"type":"object"}`), Run: func(ctx context.Context, _ json.RawMessage) (string, error) { observe(ctx); return "ok", nil }})
+				}
+				return session.TurnTools{Tools: tools}, nil
+			}})
+		Expect(err).NotTo(HaveOccurred())
+		defer func() { Expect(m.Close(context.Background())).To(Succeed()) }()
+		x, err := session.NewAccess(workspace.Actor{Principal: "alice", ChatID: "c1"}, workspace.View{})
+		Expect(err).NotTo(HaveOccurred())
+		chat, err := m.Open(context.Background(), x, "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(chat.Send(context.Background(), session.Message{Text: "hello"})).To(Succeed())
+		timer := time.NewTimer(5 * time.Second)
+		defer timer.Stop()
+		for {
+			select {
+			case e := <-chat.Events():
+				if e.Kind == session.KindTurnEnd {
+					goto finished
+				}
+			case <-timer.C:
+				Fail("turn timed out")
+			}
 		}
-		if fail {
-			close(p.release)
-		} else {
+	finished:
+		Expect(failures).To(BeEmpty())
+		Expect(p.reads.Load()).To(Equal(int32(2)), "priming + one turn")
+		for range 2 {
+			r := <-p.requests
+			Expect(r.Observe(context.Background()) != model.Unknown()).To(BeFalse(), "scope not closed")
+		}
+	})
+})
+var _ = Describe("execution status product scope", func() {
+	It("closes status observations on cancellation and failure", func() {
+		for _, fail := range []bool{false, true} {
+			p := &observationProvider{started: make(chan struct{}), release: make(chan struct{}), fail: fail}
+			s := &Service{d: Deps{AddonTools: p}}
+			ctx, closeScope := s.executionScope(context.Background(), "alice", "c1")
+			consumer, cancel := context.WithCancel(ctx)
+			done := make(chan model.Value, 1)
+			go func() { v, _ := ExecutionObservation(consumer, "alice", "renamed-provider"); done <- v }()
+			select {
+			case <-p.started:
+			case <-time.After(5 * time.Second):
+				Fail("no read")
+			}
+			cancel()
+			Expect(<-done).To(Equal(model.Unknown()))
+			if fail {
+				close(p.release)
+			} else {
+				closeScope()
+			}
+			v, _ := ExecutionObservation(ctx, "alice", "renamed-provider")
+			Expect(v != model.Unknown()).To(BeFalse(), v)
 			closeScope()
+			Expect(p.reads.Load() != 1).To(BeFalse(), "retried read")
+			legacy, _ := ExecutionObservation(ctx, "alice", "legacy-provider")
+			Expect(legacy).To(Equal(model.Unknown()))
 		}
-		v, _ := ExecutionObservation(ctx, "alice", "renamed-provider")
-		if v != model.Unknown() {
-			t.Fatal(v)
-		}
-		closeScope()
-		if p.reads.Load() != 1 {
-			t.Fatal("retried read")
-		}
-		if v, _ := ExecutionObservation(ctx, "alice", "legacy-provider"); v != model.Unknown() {
-			t.Fatal("legacy isolation inferred")
-		}
-	}
-}
+	})
+})
 
-func TestExecutionStatusPresentationBinding(t *testing.T) {
-	p := &observationProvider{}
-	s := &Service{d: Deps{AddonTools: p}}
-	ctx, closeScope := s.executionScope(context.Background(), "alice", "chat-one")
-	defer closeScope()
-	v := executionStatusView(ctx, "alice", "renamed-provider")
-	if v.Readiness != "available" || v.Isolation != "isolated" || v.Generation != "1" || v.Incarnation != "one" {
-		t.Fatal("missing or unredacted admitted presentation binding", v)
-	}
-	if again := executionStatusView(ctx, "alice", "renamed-provider"); *again != *v {
-		t.Fatal("binding changed within request")
-	}
-	if wrong := executionStatusView(ctx, "bob", "renamed-provider"); wrong.Readiness != "unknown" {
-		t.Fatal("actor leaked observation")
-	}
-	next, closeNext := s.executionScope(context.Background(), "alice", "chat-two")
-	defer closeNext()
-	if executionStatusView(next, "alice", "renamed-provider").Readiness != "available" {
-		t.Fatal("fresh request lost status")
-	}
-	if p.reads.Load() != 2 {
-		t.Fatal("DTO re-probed within request")
-	}
-}
+var _ = Describe("execution status product scope", func() {
+	It("retains the admitted status presentation binding per request", func() {
+		p := &observationProvider{}
+		s := &Service{d: Deps{AddonTools: p}}
+		ctx, closeScope := s.executionScope(context.Background(), "alice", "chat-one")
+		defer closeScope()
+		v := executionStatusView(ctx, "alice", "renamed-provider")
+		Expect(v.Readiness != "available" || v.Isolation != "isolated" || v.Generation != "1" || v.Incarnation != "one").To(BeFalse(), "missing or unredacted admitted presentation binding", v)
+		Expect(*executionStatusView(ctx, "alice", "renamed-provider")).To(Equal(*v))
+		Expect(executionStatusView(ctx, "bob", "renamed-provider").Readiness).To(Equal("unknown"))
+		next, closeNext := s.executionScope(context.Background(), "alice", "chat-two")
+		defer closeNext()
+		Expect(executionStatusView(next, "alice", "renamed-provider").Readiness != "available").To(BeFalse(), "fresh request lost status")
+		Expect(p.reads.Load() != 2).To(BeFalse(), "DTO re-probed within request")
+	})
+})
 
-func TestExecutionStatusUnboundPresentation(t *testing.T) {
-	s := &Service{}
-	ctx, done := s.executionScope(context.Background(), "alice", "chat")
-	defer done()
-	v := executionStatusView(ctx, "alice", "")
-	if v.Readiness != "unknown" || v.Isolation != "unknown" || v.Generation != "" || v.Incarnation != "" {
-		t.Fatal("unbound status manufactured identity", v)
-	}
-}
+var _ = Describe("execution status product scope", func() {
+	It("leaves unbound status presentation unknown", func() {
+		s := &Service{}
+		ctx, done := s.executionScope(context.Background(), "alice", "chat")
+		defer done()
+		v := executionStatusView(ctx, "alice", "")
+		Expect(v.Readiness != "unknown" || v.Isolation != "unknown" || v.Generation != "" || v.Incarnation != "").To(BeFalse(), "unbound status manufactured identity", v)
+	})
+})

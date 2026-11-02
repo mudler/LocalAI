@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -176,9 +175,6 @@ func run(args []string, out io.Writer) error {
 	flags := flag.NewFlagSet("viewer", flag.ContinueOnError)
 	flags.SetOutput(out)
 	defaultPath := "viewer.html"
-	if root, present := os.LookupEnv("SDD_LOCAL_ROOT"); present {
-		defaultPath = filepath.Join(root, "executionstatus-viewer.html")
-	}
 	path := flags.String("o", defaultPath, "output file (with -check, verify this existing file)")
 	check := flags.Bool("check", false, "verify traces, invariants and deterministic embedded data without writing")
 	if err := flags.Parse(args); err != nil {
@@ -220,14 +216,14 @@ func run(args []string, out io.Writer) error {
 				return fmt.Errorf("stale viewer: %s", *path)
 			}
 		}
-		fmt.Fprintln(out, "executionstatus: traces, rule/state/effect coverage, invariants and deterministic embedded data verified")
-		return nil
+		_, err = fmt.Fprintln(out, "executionstatus: traces, rule/state/effect coverage, invariants and deterministic embedded data verified")
+		return err
 	}
 	if err := os.WriteFile(*path, html, 0600); err != nil {
 		return err
 	}
-	fmt.Fprintf(out, "wrote %s\n", *path)
-	return nil
+	_, err = fmt.Fprintf(out, "wrote %s\n", *path)
+	return err
 }
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {

@@ -22,6 +22,7 @@ func RunTrace(initial State, events []Event) []Transition {
 	return out
 }
 func sampleBinding() Binding {
+	// #nosec G101 -- Symbolic credential identity for reducer traces, not an authentication secret.
 	return Binding{Actor: "actor-a", Credential: "credential-a", Conversation: "conversation-a", Mode: "named-user", Addon: "provider-a", Generation: "generation-a", Incarnation: "incarnation-a", ExecutionTool: "execute-a", StatusTool: "status-a"}
 }
 func AllStates() []State {

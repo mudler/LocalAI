@@ -1880,7 +1880,10 @@
       "renames a shared folder called chat",
       "tells a scoped chat only its folders and no page hint",
       "names the whole home for a scoped chat whose folder is the home",
-      "keeps today's prompt for an unscoped chat"
+      "keeps today's prompt for an unscoped chat",
+      "validates current selection and authenticated actor",
+      "rejects aliases, duplicate fields and null claims",
+      "accepts canonical bindings and rejects aliases and duplicates"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -2001,7 +2004,10 @@
           "alternates pinned frontends and rejects untrusted certificates without local fallback",
           "reports the original operation after lost mutation replies without retrying",
           "rejects a stream longer than its receiving frontend budget",
-          "reports an unclassified account check error as unavailable on every path and a wrapped denial as forbidden"
+          "reports an unclassified account check error as unavailable on every path and a wrapped denial as forbidden",
+          "validates current selection and authenticated actor",
+          "rejects aliases, duplicate fields and null claims",
+          "accepts canonical bindings and rejects aliases and duplicates"
         ]
       },
       {

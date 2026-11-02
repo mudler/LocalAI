@@ -102,7 +102,7 @@ var _ = Describe("exact owner execution observation", func() {
 				out := observationUnknown(r)
 				out.Binding.Incarnation = "replacement"
 				out.Status = contract.ExecutionStatus{Readiness: "available", Isolation: "isolated"}
-				json.NewEncoder(w).Encode(out)
+				Expect(json.NewEncoder(w).Encode(out)).To(Succeed())
 			})
 		})
 		front := &Gateway{Forward: cs["front-a"], Revalidate: g.Revalidate}

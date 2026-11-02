@@ -57,7 +57,8 @@ func (c *Client) ReadObservation(ctx context.Context, env contract.Envelope, req
 	if err != nil {
 		return unknown, err
 	}
-	defer resp.Body.Close()
+	// Read-only cleanup: close errors cannot change the decoded result.
+	defer func() { _ = resp.Body.Close() }()
 	var result contract.Result
 	if err = decode(resp.Body, c.limits.EnvelopeBytes, &result); err != nil {
 		return unknown, err

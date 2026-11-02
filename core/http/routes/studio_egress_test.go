@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -27,7 +28,7 @@ var _ = Describe("Chats Sandbox network routes", func() {
 		s = newStudioServerWith(newTestFiles(), func(d *studio.Deps) {
 			chats = d.Store
 			d.IsAdmin = func(_ context.Context, user string) bool { return user == "root" }
-			d.AddonTools = routeAddons{}
+			d.AddonTools = networkPolicyAddons{}
 			d.EgressAudit = lines
 			d.EgressSettings = func(context.Context) (egress.Settings, error) {
 				return egress.Settings{Ceiling: egress.PresetRegistries, ExtraRegistries: []string{"mirror.example.org"}}, nil
@@ -54,7 +55,9 @@ var _ = Describe("Chats Sandbox network routes", func() {
 		v := decodeJSON(rec)
 		Expect(v).To(HaveKeyWithValue("preset", "off"))
 		Expect(v).To(HaveKeyWithValue("ceiling", "registries"))
-		Expect(v).To(HaveKeyWithValue("applies", true))
+		// Declared controls draw the row; neither isolation nor the control proves enforcement.
+		Expect(v).To(HaveKeyWithValue("applies", false))
+		Expect(v).To(HaveKeyWithValue("addon", "sandbox"))
 		Expect(v["registries"]).To(ContainElement(HaveKeyWithValue("id", "extra")))
 
 		rec = s.do("alice", http.MethodPut, "/api/chats/"+id+"/egress", map[string]any{"preset": "all"})
@@ -140,3 +143,13 @@ var _ = Describe("Chats Sandbox network routes", func() {
 		}
 	})
 })
+
+// Only this fixture declares enforcement of the host network policy.
+type networkPolicyAddons struct{ routeAddons }
+
+func (networkPolicyAddons) Controls(_ context.Context, _, addon string) []string {
+	if addon == "sandbox" {
+		return []string{contract.ControlNetworkPolicy}
+	}
+	return nil
+}
