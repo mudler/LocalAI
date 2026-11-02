@@ -5,6 +5,10 @@ package application
 
 import (
 	"context"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/store"
+	"io"
+	"os"
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -39,17 +43,45 @@ var _ = Describe("studio store at startup", func() {
 		Expect(app.studioStoreKind).To(Equal("gorm"))
 	})
 
-	It("uses JSON files under the data path without a database, and keeps them across a restart", func() {
+	It("uses JSON files and retains ownership through Shutdown", func() {
 		dir := GinkgoT().TempDir()
 		first := newApp(config.WithDataPath(dir))
 		Expect(first.studioStoreKind).To(Equal("json"))
 		Expect(first.StudioStore().CreateChat(context.Background(),
 			session.ChatRecord{ID: "kept", Principal: "", Title: "Kept"})).To(Succeed())
 
-		second := newApp(config.WithDataPath(dir))
-		rec, err := second.StudioStore().GetChat(context.Background(), "", "kept")
+		Expect(first.Shutdown()).To(Succeed())
+		blocked, err := store.NewJSON(filepath.Join(dir, "chats"))
+		Expect(err).To(HaveOccurred())
+		Expect(blocked).To(BeNil())
+		blockedAgent, err := agents.NewJSON(filepath.Join(dir, "chats", "agents"))
+		Expect(err).To(HaveOccurred())
+		Expect(blockedAgent).To(BeNil())
+		rec, err := first.StudioStore().GetChat(context.Background(), "", "kept")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.Title).To(Equal("Kept"))
+	})
+
+	It("releases earlier unpublished stores when a later constructor fails", func() {
+		for _, failure := range []string{"agents", "notifications"} {
+			dir := GinkgoT().TempDir()
+			chats := filepath.Join(dir, "chats")
+			Expect(os.MkdirAll(chats, 0700)).To(Succeed())
+			// Agents fails after chats; notifications fails after both owners.
+			Expect(os.WriteFile(filepath.Join(chats, failure), []byte("not a directory"), 0600)).To(Succeed())
+			app := &Application{applicationConfig: &config.ApplicationConfig{DataPath: dir}}
+			app.initStudioStore()
+			Expect(app.studioStore).To(BeNil())
+			Expect(app.studioAgents).To(BeNil())
+			reopened, err := store.NewJSON(chats)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(reopened.(io.Closer).Close()).To(Succeed())
+			if failure == "notifications" {
+				reopenedAgent, err := agents.NewJSON(filepath.Join(chats, "agents"))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(reopenedAgent.(io.Closer).Close()).To(Succeed())
+			}
+		}
 	})
 
 	It("keeps chats in memory only when there is no data path", func() {

@@ -87,16 +87,11 @@ var _ = Describe("agent revision authority", func() {
 		}
 		Expect(tokens[0]).NotTo(Equal(tokens[1]))
 	})
-	It("fails closed for two file owners and two SQLite handles across ABA", func() {
+	It("fails closed for two SQLite handles across ABA", func() {
 		ctx := context.Background()
-		for _, backend := range []string{"file", "sqlite"} {
+		for range []string{"sqlite"} {
 			dir := GinkgoT().TempDir()
 			open := func() agents.Store {
-				if backend == "file" {
-					s, err := agents.NewJSON(dir)
-					Expect(err).NotTo(HaveOccurred())
-					return s
-				}
 				s, err := agents.NewGORM(openSQLite(filepath.Join(dir, "agents.db")))
 				Expect(err).NotTo(HaveOccurred())
 				return s

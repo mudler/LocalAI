@@ -187,9 +187,10 @@ var ErrSelectionRevisionUnsupported = errors.New("store: authoritative selection
 // repeat normal authorization and compare fresh snapshots before accepting a
 // status reply. Missing records still return the ordinary not-found error.
 //
-// Only memory-only JSON supports this contract. File JSON has no exclusive
-// owner lock, and GORM has no persisted ABA-safe revision. Neither backend can
-// support positive status until ownership or a shared persisted revision exists.
+// Memory JSON and exclusively owned persistent JSON support this contract.
+// Sidecar locks exclude cooperating writers only; deployments must stop old
+// writers before upgrading. GORM has no persisted ABA-safe revision and remains
+// unsupported pending a separate shared-revision design.
 // Unsupported snapshots return no record or token. Token state is bounded by
 // the store/record lifetime, not an ever-growing map of deleted IDs.
 type SelectionRevisionProvider interface {

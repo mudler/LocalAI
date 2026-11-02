@@ -2,6 +2,7 @@ package agents_test
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -17,6 +18,7 @@ var _ = Describe("the JSON agent store", func() {
 		agentstest.Run(func() agents.Store {
 			s, err := agents.NewJSON("")
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() { Expect(s.(io.Closer).Close()).To(Succeed()) })
 			return s
 		})
 	})
@@ -25,6 +27,7 @@ var _ = Describe("the JSON agent store", func() {
 		agentstest.Run(func() agents.Store {
 			s, err := agents.NewJSON(GinkgoT().TempDir())
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(func() { Expect(s.(io.Closer).Close()).To(Succeed()) })
 			return s
 		})
 	})
@@ -35,6 +38,7 @@ var _ = Describe("the JSON agent store", func() {
 		Expect(os.WriteFile(filepath.Join(dir, "agents.json"), []byte(old), 0o600)).To(Succeed())
 		s, err := agents.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(s.(io.Closer).Close()).To(Succeed()) })
 		got, err := s.Get(context.Background(), "u1", "old")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Name).To(Equal("Old"))
@@ -46,9 +50,12 @@ var _ = Describe("the JSON agent store", func() {
 		dir := GinkgoT().TempDir()
 		first, err := agents.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(first.(io.Closer).Close()).To(Succeed()) })
 		agentstest.Seed(first)
+		Expect(first.(io.Closer).Close()).To(Succeed())
 		second, err := agents.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(second.(io.Closer).Close()).To(Succeed()) })
 		agentstest.CheckSeed(second)
 	})
 })

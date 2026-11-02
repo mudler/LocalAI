@@ -635,3 +635,29 @@ behaves with several frontends:
 | Live notifications | Shared, live only | Sent over the message bus to every frontend, with the "read or deleted" signal. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |
 | Where the turn of a run runs | Stateless | On the frontend that started it, or on a chat worker when the frontends send unattended turns there. The turn claim, its heartbeat and the waiting messages are in the database, so either one can run it and only one does. |
+
+### JSON storage ownership and upgrades
+
+Without an auth database, persistent chats and agent definitions use per-instance
+JSON storage on a supported local filesystem. Each store takes a nonblocking,
+exclusive OS lock on a stable `.owner.lock` sidecar before loading, repairing,
+or removing persistent data. A second cooperating owner is refused. Do not
+remove or replace sidecar files, including during backup or maintenance.
+
+**Coordinate the upgrade:** stop every old writer before starting the new
+version. Mixed old/new writers are unsupported. These locks are advisory: they
+exclude only cooperating writers, not arbitrary editors or older binaries.
+Network/shared filesystems are not supported for this ownership contract.
+Revision tokens detect selection changes and ABA within the cooperating owner's
+lifetime, and change across restarts; they do not protect against noncooperating
+writers. GORM selection revisions remain unsupported pending a separate design.
+
+Embedded callers can optionally use `io.Closer` on JSON stores after stopping
+all their users. Close drains in-flight operations, releases ownership, and
+rejects subsequent operations; it is idempotent. The Store interface does not
+require Close. Application initialization releases unpublished stores if a later
+store fails. Application Shutdown deliberately retains published JSON locks
+until process exit: it drains studio sessions but does not establish that every
+HTTP handler and producer callback has drained. Cancellation alone is not a
+safe ownership handoff. Restart the process for a new application owner; do not
+expect Shutdown alone to permit another instance to open the same directory.

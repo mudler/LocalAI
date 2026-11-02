@@ -117,16 +117,11 @@ var _ = Describe("conversation revision authority", func() {
 		Expect(s.CreateChat(ctx, rec)).To(Succeed())
 		Expect(snapshot()).NotTo(Equal(old))
 	})
-	It("fails closed for two file owners and two SQLite handles across ABA", func() {
+	It("fails closed for two SQLite handles across ABA", func() {
 		ctx := context.Background()
-		for _, backend := range []string{"file", "sqlite"} {
+		for range []string{"sqlite"} {
 			dir := GinkgoT().TempDir()
 			open := func() store.Store {
-				if backend == "file" {
-					s, err := store.NewJSON(dir)
-					Expect(err).NotTo(HaveOccurred())
-					return s
-				}
 				s, err := store.NewGORM(openSQLite(filepath.Join(dir, "chats.db")))
 				Expect(err).NotTo(HaveOccurred())
 				return s
