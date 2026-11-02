@@ -22,7 +22,7 @@ func runTestAddonSettingsAuthorityProviderConsumers() {
 	ctx := context.Background()
 	owner, err := hostsettings.Open(filepath.Join(GinkgoT().TempDir(), "policy.json"), &hostsettings.Migration{Mode: hostsettings.Standalone, Source: "owner", Version: "1", Candidates: []hostsettings.Policy{{ToolProviders: map[string]string{"web_search": "sandbox", "pdf": "office"}}}})
 	Expect(err).NotTo(HaveOccurred())
-	defer owner.Close()
+	defer func() { Expect(owner.Close()).To(Succeed()) }()
 	var services []*studio.Service
 	for _, local := range []string{"local-a", "local-b", "worker"} {
 		_, carrier := consumerSettingsCarrier(&gateway.Gateway{HostSettings: owner})
@@ -36,7 +36,7 @@ func runTestAddonSettingsAuthorityProviderConsumers() {
 		if err != nil {
 			Fail(fmt.Sprint(err))
 		}
-		defer svc.Close(ctx)
+		defer func() { Expect(svc.Close(ctx)).To(Succeed()) }()
 		services = append(services, svc)
 	}
 	check := func(want string) {
@@ -75,7 +75,7 @@ func runTestAddonSettingsAuthorityProviderConsumers() {
 			Fail(fmt.Sprintf("accepted protected/unknown key %s", key))
 		}
 	}
-	owner.Close()
+	Expect(owner.Close()).To(Succeed())
 	for _, s := range services {
 		if _, err = s.AdminBuiltinTools(ctx, "alice"); err == nil {
 			Fail(fmt.Sprint("outage returned builtin/local listing"))

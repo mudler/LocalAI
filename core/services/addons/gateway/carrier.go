@@ -881,7 +881,7 @@ func (c *Carrier) HostSettingsSnapshot(ctx context.Context) (HostSettingsPolicy,
 	if err != nil {
 		return HostSettingsPolicy{}, ErrUnavailable
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		return HostSettingsPolicy{}, ErrUnavailable
 	}

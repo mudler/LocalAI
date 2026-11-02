@@ -130,7 +130,7 @@ func runTestAddonSettingsAuthorityConsumers() {
 	a := &Application{applicationConfig: &config.ApplicationConfig{Addons: config.AddonConfig{Enabled: true}, ChatsEgressCeiling: "all", ChatsEgressDefault: "all"}, addonGateway: &gateway.Gateway{HostSettings: owner}}
 	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: studiotest.NewGateHarness(), EgressSettings: a.studioEgressSettings})
 	Expect(err).NotTo(HaveOccurred())
-	defer svc.Close(ctx)
+	defer func() { Expect(svc.Close(ctx)).To(Succeed()) }()
 	rec, err := svc.Create(ctx, "alice", studio.CreateInput{Model: "test"})
 	if err != nil || rec.Egress.Preset != egress.PresetOff {
 		Fail(fmt.Sprintf("restart default %+v %v", rec, err))
@@ -165,14 +165,14 @@ func runTestAddonSettingsAuthorityPendingOutage() {
 	defer cancel()
 	owner, err := hostsettings.Open(filepath.Join(GinkgoT().TempDir(), "policy.json"), &hostsettings.Migration{Mode: hostsettings.Standalone, Source: "test", Version: "1", Candidates: []hostsettings.Policy{{Ceiling: "all", Default: "off"}}})
 	Expect(err).NotTo(HaveOccurred())
-	defer owner.Close()
+	defer func() { Expect(owner.Close()).To(Succeed()) }()
 	_, carrier := consumerSettingsCarrier(&gateway.Gateway{HostSettings: owner})
 	a := &Application{applicationConfig: &config.ApplicationConfig{Addons: config.AddonConfig{Enabled: true}, ChatsEgressCeiling: "all"}, addonGateway: &gateway.Gateway{Forward: carrier}}
 	st, err := store.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	svc, err := studio.New(studio.Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Harness: studiotest.NewGateHarness(), EgressSettings: a.studioEgressSettings, EgressCardWait: 8 * time.Second})
 	Expect(err).NotTo(HaveOccurred())
-	defer svc.Close(context.Background())
+	defer func() { Expect(svc.Close(context.Background())).To(Succeed()) }()
 	rec, err := svc.Create(ctx, "alice", studio.CreateInput{Model: "test"})
 	Expect(err).NotTo(HaveOccurred())
 	type result struct {
