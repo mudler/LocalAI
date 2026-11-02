@@ -1,0 +1,253 @@
+diff --git a/src/models/sheetsage/runtime.cpp b/src/models/sheetsage/runtime.cpp
+--- a/src/models/sheetsage/runtime.cpp
++++ b/src/models/sheetsage/runtime.cpp
+@@ -45,6 +45,169 @@
+     check_stop(execution);
+ }
+ 
++
++
++#ifdef ENGINE_SHEETSAGE_RUNTIME_HOST_TESTING
++namespace host_testing {
++void stored(bool cosine, size_t index, float value) noexcept;
++// transfer/boundary: 0 mel, 1 cos, 2 sin, 3 epsilon, 4 compute, 5 output,
++// 6 output publication, 7 rope publication; before/after are distinct events.
++void stage(int stage, bool after) noexcept;
++}
++#endif
++void encoder_stop(const core::RunStopHandle & stop) {
++    if (stop && stop->cancelled()) throw runtime::RunCancelled();
++}
++void encoder_phase(int stage, bool after, const core::RunStopHandle & stop) {
++#ifdef ENGINE_SHEETSAGE_RUNTIME_HOST_TESTING
++    host_testing::stage(stage, after);
++#else
++    (void)stage; (void)after;
++#endif
++    encoder_stop(stop);
++}
++size_t encoder_product(std::initializer_list<int64_t> dimensions) {
++    size_t count = 1;
++    const size_t limit = std::min({std::vector<float>().max_size(),
++        static_cast<size_t>(std::numeric_limits<int64_t>::max()) / sizeof(float),
++        static_cast<size_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(float)});
++    for (int64_t dimension : dimensions) {
++        if (dimension <= 0 || static_cast<uint64_t>(dimension) > limit / count)
++            throw std::runtime_error("SheetSage2 encoder dimensions exceed supported range");
++        count *= static_cast<size_t>(dimension);
++    }
++    return count;
++}
++struct EncoderHostShape { int64_t frames, head_dim, half_dim; size_t mel_count, rope_count, output_count; };
++EncoderHostShape encoder_host_shape(const SheetSage2DecoderConfig & c, int64_t batch, int64_t mel_frames) {
++    if (batch != 1 || mel_frames <= 0 || c.mel_bins != 128 || c.encoder_hidden_size != 1024 ||
++        c.encoder_attention_heads <= 0 || c.encoder_hidden_size % c.encoder_attention_heads != 0 ||
++        (c.encoder_hidden_size / c.encoder_attention_heads) % 2 != 0 ||
++        !std::isfinite(c.rotary_embedding_base) || c.rotary_embedding_base <= 0)
++        throw std::runtime_error("SheetSage2 encoder config or shape is invalid");
++    const size_t mel_count = encoder_product({batch, mel_frames, c.mel_bins});
++    const int64_t frames = ((mel_frames - 2) / 2 + 1 - 2) / 2 + 1;
++    if (frames <= 0) throw std::runtime_error("SheetSage2 encoder graph computed no frames");
++    const int64_t head_dim = c.encoder_hidden_size / c.encoder_attention_heads;
++    return {frames, head_dim, head_dim / 2, mel_count,
++        encoder_product({c.encoder_attention_heads, frames, head_dim / 2}),
++        encoder_product({frames, c.encoder_hidden_size})};
++}
++size_t encoder_rope_count(const SheetSage2DecoderConfig & c, int64_t frames) {
++    // Validate fixed channel/head/base compatibility without allocating tensors.
++    (void)encoder_host_shape(c, 1, 4);
++    return encoder_product({c.encoder_attention_heads, frames,
++                           c.encoder_hidden_size / c.encoder_attention_heads / 2});
++}
++std::vector<float> encoder_rope_legacy(const SheetSage2DecoderConfig & config_, int64_t encoded_frames_, bool cosine) {
++        const int64_t head_dim = config_.encoder_hidden_size / config_.encoder_attention_heads;
++        const int64_t half_dim = head_dim / 2;
++        std::vector<float> values(static_cast<size_t>(config_.encoder_attention_heads * encoded_frames_ * half_dim));
++        for (int64_t h = 0; h < config_.encoder_attention_heads; ++h) {
++            for (int64_t t = 0; t < encoded_frames_; ++t) {
++                for (int64_t i = 0; i < half_dim; ++i) {
++                    const float inv = std::pow(config_.rotary_embedding_base, -static_cast<float>(2 * i) / static_cast<float>(head_dim));
++                    const float value = cosine ? std::cos(static_cast<float>(t) * inv) : std::sin(static_cast<float>(t) * inv);
++                    values[static_cast<size_t>((h * encoded_frames_ + t) * half_dim + i)] = value;
++                }
++            }
++        }
++        return values;
++    }
++std::vector<float> encoder_rope_values(const SheetSage2DecoderConfig & config_, int64_t encoded_frames_, bool cosine, core::RunStopHandle stop) {
++        const size_t count = encoder_rope_count(config_, encoded_frames_);
++        encoder_phase(9, false, stop); // validated RoPE allocation entry
++        encoder_stop(stop);
++        const int64_t head_dim = config_.encoder_hidden_size / config_.encoder_attention_heads;
++        const int64_t half_dim = head_dim / 2;
++        std::vector<float> values(count);
++        encoder_stop(stop);
++        size_t completed = 0;
++        for (int64_t h = 0; h < config_.encoder_attention_heads; ++h) {
++            for (int64_t t = 0; t < encoded_frames_; ++t) {
++                for (int64_t i = 0; i < half_dim; ++i) {
++                    if (completed % 64 == 0) encoder_stop(stop); // rope tile pre-poll
++                    const float inv = std::pow(config_.rotary_embedding_base, -static_cast<float>(2 * i) / static_cast<float>(head_dim));
++                    const float value = cosine ? std::cos(static_cast<float>(t) * inv) : std::sin(static_cast<float>(t) * inv);
++                    values[static_cast<size_t>((h * encoded_frames_ + t) * half_dim + i)] = value;
++#ifdef ENGINE_SHEETSAGE_RUNTIME_HOST_TESTING
++                    host_testing::stored(cosine, completed, value);
++#endif
++                    ++completed;
++                    if (completed % 64 == 0 || completed == count) encoder_stop(stop); // rope tile post-poll
++                }
++            }
++        }
++        encoder_phase(7, true, stop); // rope publication
++        return values;
++    }
++
++void encoder_destination(const core::TensorValue & value, size_t count) {
++    if (!value.tensor || value.type != GGML_TYPE_F32 || value.tensor->type != GGML_TYPE_F32 ||
++        value.shape.rank == 0 || value.shape.rank > 4)
++        throw std::runtime_error("SheetSage2 encoder destination shape mismatch");
++    size_t physical = 1;
++    for (size_t i = 0; i < 4; ++i) {
++        const int64_t dim = value.tensor->ne[i];
++        if (dim <= 0 || static_cast<uint64_t>(dim) > count / physical)
++            throw std::runtime_error("SheetSage2 encoder destination shape mismatch");
++        physical *= static_cast<size_t>(dim);
++    }
++    if (!ggml_is_contiguous(value.tensor)) throw std::runtime_error("SheetSage2 encoder destination shape mismatch");
++    if (physical != count) throw std::runtime_error("SheetSage2 encoder destination shape mismatch");
++    size_t logical = 1;
++    for (size_t i = 0; i < value.shape.rank; ++i) {
++        const int64_t dim = value.shape.dims[i];
++        if (dim <= 0 || static_cast<uint64_t>(dim) > count / logical)
++            throw std::runtime_error("SheetSage2 encoder destination shape mismatch");
++        logical *= static_cast<size_t>(dim);
++    }
++    if (logical != count) throw std::runtime_error("SheetSage2 encoder destination shape mismatch");
++}
++void stage_encoder_inputs(const SheetSage2DecoderConfig & config, int64_t batch, int64_t mel_frames,
++    const std::vector<float> & normalized, const core::TensorValue & mel,
++    const core::TensorValue & cosine, const core::TensorValue & sine, const core::TensorValue & epsilon,
++    core::RunStopHandle stop) {
++    const auto shape = encoder_host_shape(config, batch, mel_frames);
++    if (normalized.size() != shape.mel_count)
++        throw std::runtime_error("SheetSage2 normalized mel shape mismatch");
++    encoder_destination(mel, shape.mel_count);
++    encoder_destination(cosine, shape.rope_count);
++    encoder_destination(sine, shape.rope_count);
++    encoder_destination(epsilon, static_cast<size_t>(batch));
++    encoder_phase(0, false, stop);
++    core::write_tensor_f32(mel, normalized);
++    encoder_phase(0, true, stop);
++    auto cos_values = stop ? encoder_rope_values(config, shape.frames, true, stop)
++                          : encoder_rope_legacy(config, shape.frames, true);
++    encoder_phase(1, false, stop);
++    core::write_tensor_f32(cosine, cos_values);
++    encoder_phase(1, true, stop);
++    auto sin_values = stop ? encoder_rope_values(config, shape.frames, false, stop)
++                          : encoder_rope_legacy(config, shape.frames, false);
++    encoder_phase(2, false, stop);
++    core::write_tensor_f32(sine, sin_values);
++    encoder_phase(2, true, stop);
++    encoder_phase(3, false, stop);
++#ifdef ENGINE_SHEETSAGE_RUNTIME_HOST_TESTING
++    host_testing::stage(8, false);
++#endif
++    std::vector<float> eps(static_cast<size_t>(batch), 1.0e-6F);
++    encoder_stop(stop);
++    core::write_tensor_f32(epsilon, eps);
++    encoder_phase(3, true, stop);
++}
++std::vector<float> read_encoder_output(const ggml_tensor * tensor, core::RunStopHandle stop) {
++    if (!tensor || tensor->type != GGML_TYPE_F32)
++        throw std::runtime_error("SheetSage2 encoder output shape mismatch");
++    (void)encoder_product({tensor->ne[0], tensor->ne[1], tensor->ne[2], tensor->ne[3]});
++    if (!ggml_is_contiguous(tensor)) throw std::runtime_error("SheetSage2 encoder output shape mismatch");
++    encoder_phase(5, false, stop);
++    auto result = core::read_tensor_f32(tensor);
++    encoder_phase(5, true, stop);
++    encoder_phase(6, true, stop);
++    return result;
++}
+ 
+ struct GgmlContextDeleter {
+     void operator()(ggml_context * ctx) const noexcept {
+@@ -831,7 +994,7 @@
+         if (backend_ == nullptr || batch_ != 1 || mel_frames_ <= 0) {
+             throw std::runtime_error("SheetSage2 encoder graph initialization failed");
+         }
+-        encoded_frames_ = ((mel_frames_ - 2) / 2 + 1 - 2) / 2 + 1;
++        encoded_frames_ = encoder_host_shape(config_, batch_, mel_frames_).frames;
+         if (encoded_frames_ <= 0) {
+             throw std::runtime_error("SheetSage2 encoder graph computed no frames");
+         }
+@@ -856,37 +1019,19 @@
+     }
+ 
+     std::vector<float> run(const std::vector<float> & normalized_mel) const {
+-        if (static_cast<int64_t>(normalized_mel.size()) != batch_ * mel_frames_ * config_.mel_bins) {
+-            throw std::runtime_error("SheetSage2 normalized mel shape mismatch");
+-        }
+-        core::write_tensor_f32(mel_, normalized_mel);
+-        core::write_tensor_f32(rope_cos_, rope_values(true));
+-        core::write_tensor_f32(rope_sin_, rope_values(false));
+-        core::write_tensor_f32(grn_eps_, std::vector<float>(static_cast<size_t>(batch_), 1.0e-6F));
+-        check_stop(execution_);
++        const auto stop = execution_.current_run_stop();
++        stage_encoder_inputs(config_, batch_, mel_frames_, normalized_mel,
++                             mel_, rope_cos_, rope_sin_, grn_eps_, stop);
++        encoder_phase(4, false, stop);
+         core::set_backend_threads(backend_, threads_);
+         const ggml_status status = core::compute_backend_graph(execution_, graph_, nullptr, "models.sheetsage2.encoder");
+         check_graph_status(status, execution_, "SheetSage2 encoder graph compute failed");
+-        auto result = core::read_tensor_f32(mixed_);
+-        check_stop(execution_);
+-        return result;
++        return read_encoder_output(mixed_, stop);
+     }
+ 
+ private:
+     std::vector<float> rope_values(bool cosine) const {
+-        const int64_t head_dim = config_.encoder_hidden_size / config_.encoder_attention_heads;
+-        const int64_t half_dim = head_dim / 2;
+-        std::vector<float> values(static_cast<size_t>(config_.encoder_attention_heads * encoded_frames_ * half_dim));
+-        for (int64_t h = 0; h < config_.encoder_attention_heads; ++h) {
+-            for (int64_t t = 0; t < encoded_frames_; ++t) {
+-                for (int64_t i = 0; i < half_dim; ++i) {
+-                    const float inv = std::pow(config_.rotary_embedding_base, -static_cast<float>(2 * i) / static_cast<float>(head_dim));
+-                    const float value = cosine ? std::cos(static_cast<float>(t) * inv) : std::sin(static_cast<float>(t) * inv);
+-                    values[static_cast<size_t>((h * encoded_frames_ + t) * half_dim + i)] = value;
+-                }
+-            }
+-        }
+-        return values;
++        return encoder_rope_legacy(config_, encoded_frames_, cosine);
+     }
+ 
+     void build() {
+@@ -1491,6 +1636,7 @@
+ Mert2EncoderRuntime & Mert2EncoderRuntime::operator=(Mert2EncoderRuntime &&) noexcept = default;
+ 
+ void Mert2EncoderRuntime::prepare(int64_t batch, int64_t mel_frames) try {
++    (void)encoder_host_shape(impl_->config, batch, mel_frames);
+     check_stop(*impl_->execution);
+     const auto & weights = impl_->require_encoder_weights();
+     if (!impl_->encoder_graph || !impl_->encoder_graph->matches(batch, mel_frames)) {
+@@ -1512,14 +1658,11 @@
+ std::vector<float> Mert2EncoderRuntime::encode_mel(
+     const std::vector<float> & normalized_mel,
+     int64_t mel_frames) try {
++    const auto shape = encoder_host_shape(impl_->config, 1, mel_frames);
++    if (normalized_mel.size() != shape.mel_count)
++        throw std::runtime_error("MERT2 normalized mel does not divide into batches");
++    const int64_t batch = 1;
+     check_stop(*impl_->execution);
+-    if (mel_frames <= 0) {
+-        throw std::runtime_error("MERT2 mel frames must be positive");
+-    }
+-    if (static_cast<int64_t>(normalized_mel.size()) % (mel_frames * impl_->config.mel_bins) != 0) {
+-        throw std::runtime_error("MERT2 normalized mel does not divide into batches");
+-    }
+-    const int64_t batch = static_cast<int64_t>(normalized_mel.size()) / (mel_frames * impl_->config.mel_bins);
+     prepare(batch, mel_frames);
+     return impl_->encoder_graph->run(normalized_mel);
+ } catch (...) {

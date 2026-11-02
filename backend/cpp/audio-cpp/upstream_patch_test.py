@@ -632,12 +632,75 @@ class SevenPatchTests(SixPatchTests):
         self.assert_rejected_without_writes()
 
 
+class EightPatchTests(SevenPatchTests):
+    """Eighth step changes existing union paths; every exact prefix upgrades."""
+    def setUp(self):
+        super().setUp()
+        for step in self.chain:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        delivery.git(self.source, 'add', '.')
+        old = self.files['one']['final_sha256']
+        (self.source / 'one').write_text('one patched eight\n')
+        self.eighth = self.root / 'eighth.patch'
+        self.eighth.write_bytes(delivery.git(self.source, 'diff', '--binary', '--'))
+        self.files['one']['final_sha256'] = delivery.digest((self.source / 'one').read_bytes())
+        self.chain.append({'patch': self.eighth.name,
+                           'patch_sha256': delivery.digest(self.eighth.read_bytes()),
+                           'files': {'one': {'base_sha256': old,
+                                             'final_sha256': self.files['one']['final_sha256']}}})
+        delivery.git(self.source, 'read-tree', self.pin)
+        for name in self.files: (self.source / name).write_text(name + '\n')
+        self.save_chain()
+
+    def test_clean_apply(self):
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched eight\n')
+
+    def test_prefix_upgrade(self):
+        self.prefix()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched eight\n')
+
+    def test_seventh_prefix_upgrade(self):
+        for step in self.chain[:7]:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        self.assert_rejected_without_writes(True)
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual(self.run_prepare(True), 'verified')
+        before = self.snapshot()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual(before, self.snapshot())
+
+    def test_partial_eighth(self):
+        for step in self.chain[:7]:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        (self.source / 'one').write_text('partial eighth\n')
+        self.assert_rejected_without_writes()
+
+    def test_actual_window_callsite_forwarding(self):
+        text = (Path(__file__).resolve().parent / 'patches' / '0007-sheetsage-window-cancellation.patch').read_text()
+        self.assertIn('const auto windows = owned_window_plan(', text)
+        self.assertIn('const auto window_audio = acquire_window_before_mel(', text)
+        self.assertIn('execution_context().current_run_stop()', text)
+
+    def test_actual_encoder_host_forwarding(self):
+        text = (Path(__file__).resolve().parent / 'patches' / '0008-sheetsage-encoder-host-cancellation.patch').read_text()
+        self.assertIn('stage_encoder_inputs(config_, batch_, mel_frames_', text)
+        self.assertIn('execution_.current_run_stop()', text)
+        self.assertIn('encoder_host_shape(impl_->config, batch, mel_frames)', text)
+        self.assertIn('return read_encoder_output(mixed_, stop)', text)
+
+    def test_eighth_tamper(self):
+        self.eighth.write_bytes(self.eighth.read_bytes() + b'bad')
+        self.assert_rejected_without_writes()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--require-min-tests', type=int, default=7)
     args = parser.parse_args()
     suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
-                               for case in (DeliveryTests, ChainTests, ThreePatchTests, FourPatchTests, FivePatchTests, SixPatchTests, SevenPatchTests))
+                               for case in (DeliveryTests, ChainTests, ThreePatchTests, FourPatchTests, FivePatchTests, SixPatchTests, SevenPatchTests, EightPatchTests))
     if suite.countTestCases() < args.require_min_tests:
         raise SystemExit('insufficient discovered delivery tests')
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

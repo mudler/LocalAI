@@ -226,6 +226,27 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_sheetsage_runtime_host_ctest
+        music_sheetsage_runtime_host_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/core/backend.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/module.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/execution_context.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/core/host_memory.cpp")
+    target_include_directories(music_sheetsage_runtime_host_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include")
+    target_compile_options(music_sheetsage_runtime_host_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_runtime_host_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_runtime_host_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_runtime_host_ctest PRIVATE ggml Threads::Threads ${CMAKE_DL_LIBS})
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_sheetsage_runtime_host_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    add_test(NAME music_sheetsage_runtime_host COMMAND music_sheetsage_runtime_host_ctest)
+    set_tests_properties(music_sheetsage_runtime_host PROPERTIES TIMEOUT 45)
+
     add_executable(music_sheetsage_window_cancellation_ctest music_sheetsage_window_cancellation_ctest.cpp)
     target_include_directories(music_sheetsage_window_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include" "${AUDIO_CPP_DIR}/external/ggml/include")
     target_compile_options(music_sheetsage_window_cancellation_ctest PRIVATE -ffunction-sections -fdata-sections)
