@@ -68,19 +68,21 @@ type addonSkills struct {
 // off by the chat (addonsOff) and, for a chat with an agent, granted by it. An
 // add-on the broker reports as unavailable is left out. A broker that cannot
 // answer gives none and a warning; it never fails the chat.
-func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []string, sc *scope) addonSkills {
+func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []string, sc *scope) (addonSkills, error) {
 	var out addonSkills
-	if s.d.ToolPins != nil {
-		out.pins = s.d.ToolPins()
+	pins, err := s.toolPins(ctx)
+	if err != nil {
+		return out, err
 	}
+	out.pins = pins
 	lister, ok := s.d.AddonTools.(AddonSkillLister)
 	if !ok || s.d.AddonTools == nil {
-		return out
+		return out, nil
 	}
 	sets, err := lister.AddonSkills(ctx, p)
 	if err != nil {
 		s.log.Warn("studio: add-on skills unavailable", "user", p, "error", err)
-		return out
+		return out, nil
 	}
 	sort.Slice(sets, func(i, j int) bool { return sets[i].AddonID < sets[j].AddonID })
 	off := make(map[string]bool, len(addonsOff))
@@ -101,7 +103,7 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 		}
 		out.usable = append(out.usable, set)
 	}
-	return out
+	return out, nil
 }
 
 // roots returns the add-on layer roots of the usable add-ons.

@@ -183,7 +183,7 @@ type Deps struct {
 	// ToolPins names, for a built-in tool that several add-ons replace, the
 	// add-on an administrator chose to serve it (runtime setting
 	// chats_tool_providers). Nil: no pins.
-	ToolPins func() map[string]string
+	ToolPins func(context.Context) (map[string]string, error)
 	// SharedPagesOn says whether the pages of shared folders are on; an
 	// administrator switches them at run time. Nil: on.
 	SharedPagesOn func() bool

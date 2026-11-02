@@ -175,7 +175,7 @@ func (a *Application) initStudioService() {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()
 	}
 	deps.IsAdmin = a.studioIsAdmin
-	deps.ToolPins = func() map[string]string { return a.applicationConfig.ChatsToolProviders }
+	deps.ToolPins = a.studioToolPins
 	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
 		deps.Workers = nodes.NewNATSChatStarter(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout))
 	}

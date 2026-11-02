@@ -69,8 +69,21 @@ Defaults, views and card decisions return an error; connection checks and waitin
 cards return a blocking verdict with a policy-unavailable error. When add-ons are
 disabled, Studio retains its existing local configuration behavior, including the
 last valid parsed lists. An enabled add-on deployment with no owner gateway instead
-fails closed. Public settings routes, the settings UI and the other runtime policy
-consumers are not yet connected to this store.
+fails closed.
+
+Studio also reads the owner's `chats_tool_providers` map for replaceable tools
+and skills. Provider selection, command availability, skill indexes and
+administrator tool/skill views read current pins with the request context. An
+owner update takes effect on the next read without restarting frontends or chat
+workers. When the owner or store cannot supply policy, these operations return
+an error rather than use frontend pins, a cached choice or a built-in fallback.
+This differs from a stopped or unusable add-on: with policy available, the
+existing built-in fallback rules still apply. Optional skill-listing failures
+also retain their existing behavior. With add-ons disabled, Studio continues to
+use its local `chats_tool_providers` configuration.
+
+Public settings routes, the settings UI and the upgrade policy consumer are not
+yet connected to this store.
 
 The schema is limited to six network fields (`chats_egress_ceiling`,
 `chats_egress_default`, `chats_egress_allow_private`, `chats_egress_ports`,

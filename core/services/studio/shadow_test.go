@@ -91,7 +91,7 @@ var _ = Describe("an add-on tool that shadows a built-in", func() {
 			return []studiotest.ToolStep{{Say: "ok"}}
 		}, func(d *studio.Deps) {
 			d.AddonTools = fa
-			d.ToolPins = func() map[string]string { return map[string]string{"bash": "sandbox"} }
+			d.ToolPins = func(context.Context) (map[string]string, error) { return map[string]string{"bash": "sandbox"}, nil }
 		})
 		id := create(svc, alice)
 		sent(svc, alice, id, "run")

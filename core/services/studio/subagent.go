@@ -77,6 +77,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
 	if err != nil {
+		var policyErr *providerPolicyError
+		if errors.As(err, &policyErr) {
+			return session.TurnTools{}, err
+		}
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
 	sc := s.scopeOf(ctx, rec)
@@ -110,7 +114,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
+	if err != nil {
+		return session.TurnTools{}, err
+	}
 	if !canWrite {
 		prompt = withoutWriteHint(prompt)
 	}

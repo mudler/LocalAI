@@ -4,6 +4,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"maps"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -45,6 +46,21 @@ func (a *Application) studioEgressSettings(ctx context.Context) (egress.Settings
 		out.AllowedHosts = append(out.AllowedHosts, egress.AllowedHost{Host: h.Host, Port: h.Port})
 	}
 	return out, nil
+}
+
+// studioToolPins never substitutes frontend pins when the owner is unavailable.
+func (a *Application) studioToolPins(ctx context.Context) (map[string]string, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if !a.applicationConfig.Addons.Enabled {
+		return maps.Clone(a.applicationConfig.ChatsToolProviders), nil
+	}
+	snapshot, err := a.readAddonHostPolicy(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return maps.Clone(snapshot.Policy.ToolProviders), nil
 }
 
 // readAddonHostPolicy is shared by host consumers; the DTO keeps revision
