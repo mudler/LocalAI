@@ -968,8 +968,8 @@ refreshed:
 | Skills per add-on | 16 |
 | Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
 | A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
-| A built-in skill name | refused for a plain skill (`writing-skills`, `localai-workspace`, `localai-apps` and the office skills) |
-| `shadows` | optional; must repeat `name` and be a replaceable built-in skill: `xlsx`, `docx`, `pptx` or `pdf` (`contract.ReplaceableSkills`) |
+| A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
+| `shadows` | optional; must repeat `name` and identify a supported document-provider slot: `xlsx`, `docx`, `pptx`, or `pdf` |
 
 Staging checks the files against the manifest. The folders under `skills/`
 must be the declared names, and a package that declares no skills must have
@@ -978,8 +978,7 @@ files and executable files are refused. A path segment uses lowercase ASCII
 letters, digits, `.`, `_` and `-`, does not start with a dot, and a path is at
 most 128 bytes. A file is a `.md`, `.txt`, `.json`, `.csv`, `.yaml` or `.yml`
 file of UTF-8 text with no NUL byte. **There are no scripts**: `.py`, `.sh`,
-`.js` and other files are refused. A skill that needs to run code is a
-built-in skill with `requires: [exec]`. `SKILL.md` is at most 64 KiB and must
+`.js` and other files are refused. A procedure can declare `requires: [exec]`, but its skill tree still contains no executable files. `SKILL.md` is at most 64 KiB and must
 parse with a `name` equal to its folder and a `description`; a reference file
 is at most 256 KiB; a skill has at most 64 files and 1 MiB, and a package at
 most 4 MiB of skill files. The receipt records each file with its size and
@@ -995,14 +994,11 @@ while the add-on is stopped. A chat offers them only while the add-on is
 installed, running, usable by the user and on for that chat, and for a chat
 with a saved agent only when the agent grants the add-on.
 
-#### Skills that replace a built-in skill
+#### Document skill providers
 
-An add-on skill can replace a built-in skill of the same name, as a tool
-replaces a built-in tool (see [Tools that replace a built-in
-tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
-`docx`, `pptx` and `pdf` can be replaced; `writing-skills`,
-`localai-workspace` and `localai-apps` cannot. The manifest says so with
-`shadows`, which repeats the name:
+The names `docx`, `pptx`, `pdf`, and `xlsx` are reserved document-provider slots.
+Core does not embed these document procedures. Its three remaining built-in skills cannot be replaced.
+The existing `shadows` declaration identifies a document provider:
 
 ```json
 "skillDefinitions": [
@@ -1011,47 +1007,34 @@ tool](#tools-that-replace-a-built-in-tool)). Only the office skills `xlsx`,
 ]
 ```
 
-- **In a chat.** While the add-on can serve (installed, running, usable by the
-  user and on for the chat), the model sees one `xlsx` skill, the add-on's,
-  and the built-in one is hidden: `load_skill xlsx` returns the add-on's. The index grows by nothing: one line
-  replaces another. A skill a person writes (folder, personal or shared) still
-  wins over the add-on's.
-- **The built-in comes back.** When the add-on is stopped, off for the chat or
-  removed, or the chat switches the add-on's skill off, the built-in skill
-  serves again. The turn tells the model in one line, and the Skills menu
-  says so on the built-in skill.
-- **Checked twice.** The install refuses a `shadows` that is not on the list,
-  and the chats refuse it again at each turn: an add-on skill with the name of
-  a built-in skill that cannot be replaced is skipped as invalid.
-- **Several add-ons.** Only one add-on serves a name. An administrator picks it
-  in Settings, **Tools**, in the same runtime setting as the tools
-  (`chats_tool_providers`, for example `{"xlsx": "office"}`; tool and skill
-  names never overlap). With no choice, the add-on installed first serves, by
-  the same rule as for the tools (see [Install
-  time](#tools-that-replace-a-built-in-tool)). A choice
-  of an add-on that is not running leaves the name to the built-in skill. The
-  Skills page marks the skill of an add-on that is not chosen "Not active:
-  <add-on> provides it", and the built-in skill "Replaced by <add-on>".
-  `GET /api/chats/admin/tools` lists the replaced skills in `skills`, with who
-  serves each one, the candidates oldest install first, `default` (the one that
-  serves with no choice) and `installed_at` (the install time of each).
-- **Before install.** The library entry and the installed view list the
-  skills an add-on replaces in `skillShadows`, and the install dialog names
-  each one: "This add-on replaces the built-in skill xlsx." When another
-  installed add-on already replaces it, the dialog says that only one can be
-  active and that the choice is in Settings > Tools. The install is still
-  allowed.
-- **On the Add-ons page.** The details of an add-on list its chat skills and
-  the built-in skills it replaces. For an administrator, a skill that several
-  add-ons replace has a switch, **Use for xlsx in the chats**: on, this add-on
-  serves it; off, the next add-on that replaces it does. The switch writes the
-  same choice as Settings > Tools.
+Existing Office packages with these declarations remain compatible; you do not need to reinstall them to change naming metadata.
+Unknown unprefixed names remain invalid. Ordinary add-on skills keep the add-on namespace rule.
 
-In distributed mode the state is **shared**: the files are in the workspace
-store that every frontend reads, and only the owner writes them, because only
-the owner holds the verified package. Which add-ons are usable is read from
-the broker at each turn, as for the tools. With the owner down the add-ons
-are down, their skills are not offered and the built-in skills serve.
+- **In a chat.** `load_skill xlsx` returns the eligible provider's instructions.
+  Folder, personal, and shared overrides still take precedence.
+- **Eligibility first.** A provider must be enabled, running, visible to the user, and on for the chat.
+  A saved agent must grant the add-on explicitly.
+  Sandbox document procedures also require usable isolated execution through the selected Sandbox command provider.
+  A host command runner or an installed but unselected Sandbox does not qualify.
+  Office procedures require no command execution.
+- **Several providers.** An administrator chooses in **Settings > Tools**, using `chats_tool_providers`, for example `{"xlsx": "office"}`.
+  Without a choice, the eligible provider installed first serves.
+  An unavailable or ungranted pin stays unavailable; it does not select another provider silently.
+  `GET /api/chats/admin/tools` lists skill providers and candidates in `skills`.
+- **No core fallback.** A stopped, disabled, OFF, removed, or ungranted provider does not restore a built-in document procedure.
+  If no provider qualifies, the document authoring skill is absent or explains its unavailable pin.
+  Core document-text extraction, `read_file`, and `search_files` remain unchanged.
+- **Before install.** The library and installed views retain `skillShadows` as the compatibility field.
+  The install dialog describes the skill provided, not a nonexistent built-in replacement.
+- **On the Add-ons page.** Details list the document skills an add-on provides.
+  An administrator can use **Use for xlsx in the chats** to choose between providers.
+  This writes the same setting as **Settings > Tools**; it does not grant access to an agent.
+
+The workspace store shares skill files across frontends; only the owner writes verified package contents.
+Each turn reads provider availability from the broker. When the owner is down, add-on document skills do not fall back to core.
+Saved skill names and explicit pins remain intact.
+Legacy built-in document OFF preferences migrate to add-on OFF preferences through the persisted settings path.
+See [Document skills]({{%relref "features/chats#document-skills" %}}) for setup and preference behavior.
 
 ### SDK versions
 
@@ -4254,7 +4237,11 @@ Simple Office is a lightweight option for basic office-file work, without requir
 
 The action tools run at once, as the user of the chat, with no confirmation, and only in a chat. Every tool, a read tool too, works with the chat's own access: in a chat whose agent works in one folder, `/` is that folder (see [Workspace operations](#workspace-operations)). Without accounts, the files are the same ones the chat and the Files page use. With accounts and `local-owner` mode, the `workspace.*` operations are refused, because the local owner is no account and has no files; use `named-user` mode for the Office and Sandbox add-ons. A file that someone else changed after the tool read it is never overwritten: the tool's version is saved as a second file next to it, and the answer says so. A file that is not of the type its name says, or a path outside the user's files, is refused with a reason the model can read.
 
-The add-on also ships four skills, `xlsx`, `docx`, `pptx` and `pdf` (see [Skills](#skills)). Each one replaces the built-in skill of the same name while the add-on can serve the chat. They are short procedures written for the tools above: read first, change only what must change, create a file only when none exists, and say what the tools cannot do (charts, tracked changes, form fields and the like) instead of describing a manual method. They need no command runner, so they are never "unavailable here". When the add-on is stopped, off for the chat or removed, the built-in skills come back. A test checks that every tool a skill names is a tool of the manifest.
+The add-on also ships `xlsx`, `docx`, `pptx`, and `pdf` skills (see [Document skill providers](#document-skill-providers)).
+These procedures use Office tools to read, edit, and create documents within the tools' supported capabilities.
+They require no command runner. Sandbox supplies separate Python/Paper procedures under the same logical names.
+Stopping Office does not restore core procedures; another provider serves only when eligible and not blocked by an explicit pin.
+A test checks that each tool named by an Office skill belongs to its manifest.
 
 ## Web
 
@@ -4290,7 +4277,16 @@ cluster.
 
 ## Sandbox
 
-The Sandbox add-on lets a chat run commands and code in isolation. It has one tool for the model, the action tool `bash`, which replaces the chat's built-in `bash` (`"shadows": "bash"`), so a chat with the Sandbox sees one `bash` and it runs isolated. The model reads and changes files with the chat's own file tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files` and the others; see [Chats]({{%relref "features/chats#running-commands" %}})): they work on the same files, so a script written with `write_file` runs with `bash` at once, and what `bash` writes is in the user's files after the call. `bash` runs inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`, where each call starts. The skill folders are not mounted in the sandbox: to run a skill's script there, the model copies it into the home with the file tools first. The status tool keeps its add-on name (`addon__sandbox__status`). Without the Sandbox, or with it off or unable to run, a chat may still run commands on the server itself, without isolation, when an administrator allows it; see [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
+The Sandbox add-on lets a chat run commands and code in isolation. It has one tool for the model, the action tool `bash`, which replaces the chat's built-in `bash` (`"shadows": "bash"`), so a chat with the Sandbox sees one `bash` and it runs isolated. The model reads and changes files with the chat's own file tools (`read_file`, `write_file`, `edit_file`, `list_files`, `search_files` and the others; see [Chats]({{%relref "features/chats#running-commands" %}})): they work on the same files, so a script written with `write_file` runs with `bash` at once, and what `bash` writes is in the user's files after the call. `bash` runs inside an isolated sandbox of the user and the chat, with the user's files mounted under `/workspace/home`, where each call starts. The skill folders are not mounted in the sandbox. User-written scripts must be saved in the home with the file tools before execution. The status tool keeps its add-on name (`addon__sandbox__status`). Without the Sandbox, or with it off or unable to run, a chat may still run commands on the server itself, without isolation, when an administrator allows it; see [Commands on this machine]({{%relref "features/chats#commands-on-this-machine" %}}).
+
+Sandbox also owns the `docx`, `pptx`, `pdf`, and `xlsx` Python/Paper procedures, references, and applicable license notices.
+They require the selected Sandbox provider to offer usable isolated commands, with explicit chat or agent grants.
+Their packaged skill trees contain text only; executable PDF helpers belong to the guest image.
+Invoke `/usr/local/lib/localai/document-skills/pdf/content_qa.py` and
+`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py` with `python3` through Sandbox `bash`.
+No host skill-folder mount is required. Dependency pins remain part of the guest image.
+Simple Office keeps its own tool-based procedures and needs no exec grant.
+
 
 An older package of the add-on also served `read`, `write`, `edit`, `glob` and `grep`. They are gone: reinstall the package to drop them. A chat's switch for the add-on is kept by add-on ID, so nothing a chat stored changes.
 

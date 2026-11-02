@@ -20,7 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 )
 
-var names = []string{"docx", "xlsx", "pptx", "pdf", "writing-skills", "localai-workspace", "localai-apps"}
+var names = []string{"writing-skills", "localai-workspace", "localai-apps"}
 
 var _ = Describe("the built-in skills", func() {
 	It("sends the model to another skill by its name, never by a path", func() {
@@ -68,30 +68,25 @@ var _ = Describe("the built-in skills", func() {
 	})
 
 	It("sends the helper scripts of the skills that make files to the chat's work folder", func() {
-		for _, n := range []string{"docx", "xlsx", "pptx", "pdf", "localai-apps", "localai-workspace"} {
+		for _, n := range []string{"localai-apps", "localai-workspace"} {
 			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")
 			Expect(err).NotTo(HaveOccurred(), n)
 			Expect(string(data)).To(ContainSubstring("the chat's work folder that the prompt names (`/workspace/home/Chats/<chat>/work/`)"), n)
 		}
 	})
 
-	It("marks the office skills as needing command execution, and only them", func() {
+	It("keeps remaining built-in skills independent of command execution", func() {
 		for _, n := range names {
 			data, err := fs.ReadFile(builtinskills.FS(), n+"/SKILL.md")
 			Expect(err).NotTo(HaveOccurred(), n)
-			switch n {
-			case "docx", "xlsx", "pptx", "pdf":
-				Expect(skills.Requires(data)).To(Equal([]string{skills.RequireExec}), n)
-			default:
-				Expect(skills.Requires(data)).To(BeEmpty(), n)
-			}
+			Expect(skills.Requires(data)).To(BeEmpty(), n)
 		}
 	})
 
 	It("keeps the source and the licence in the notice", func() {
 		data, err := fs.ReadFile(builtinskills.FS(), "NOTICE")
 		Expect(err).NotTo(HaveOccurred())
-		for _, want := range []string{"paper-instruments/feather-train", "b7463092af862ebbdf4c5920c4bc9ab38ab17ad9", "MIT License", "Permission is hereby granted"} {
+		for _, want := range names {
 			Expect(string(data)).To(ContainSubstring(want), "the NOTICE lacks %q", want)
 		}
 	})

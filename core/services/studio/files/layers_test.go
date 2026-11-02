@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
@@ -82,6 +83,37 @@ var _ = Describe("skill layers", func() {
 			_, err := f.Store().Put(ctx, f.Actor("bob"), p, strings.NewReader("x"), workspace.PutOptions{Overwrite: true})
 			Expect(err).To(HaveOccurred(), "bob wrote %s", p)
 			Expect(errors.Is(err, workspace.ErrReadOnly) || errors.Is(err, workspace.ErrNotFound)).To(BeTrue(), "bob writing %s = %v, want a refusal", p, err)
+		}
+	})
+
+	It("removes migrated built-in document trees but preserves user overrides", func() {
+		ctx := context.Background()
+		f := newFiles()
+		Expect(f.EnsureHome(ctx, "alice")).To(Succeed())
+		for _, n := range []string{"docx", "pptx", "pdf", "xlsx"} {
+			adminPut(f, files.BuiltinSkillsPath+"/"+n+"/SKILL.md", skillMD(n, "old builtin"))
+			adminPut(f, files.BuiltinSkillsPath+"/"+n+"/references/old.md", "old reference")
+			adminPut(f, files.SharedSkillsPath+"/"+n+"/SKILL.md", skillMD(n, "shared override"))
+			userPut(f, "alice", "/.skills/"+n+"/SKILL.md", skillMD(n, "personal override"))
+			userPut(f, "alice", "/Projects/Atlas/.skills/"+n+"/SKILL.md", skillMD(n, "folder override"))
+		}
+		Expect(f.SyncBuiltin(ctx, builtinskills.FS())).To(Succeed())
+		for _, n := range []string{"docx", "pptx", "pdf", "xlsx"} {
+			_, err := f.Store().Stat(ctx, workspace.Actor{Principal: files.AdminPrincipal}, files.BuiltinSkillsPath+"/"+n)
+			Expect(err).To(HaveOccurred())
+			for _, path := range []string{files.SharedSkillsPath + "/" + n + "/SKILL.md", "/users/alice/.skills/" + n + "/SKILL.md", "/users/alice/Projects/Atlas/.skills/" + n + "/SKILL.md"} {
+				if strings.HasPrefix(path, "/users/") {
+					continue
+				} // Personal paths are checked through the user's view below.
+				_, err := f.Store().Stat(ctx, workspace.Actor{Principal: files.AdminPrincipal}, path)
+				Expect(err).NotTo(HaveOccurred())
+			}
+			for _, path := range []string{"/.skills/" + n + "/SKILL.md", "/Projects/Atlas/.skills/" + n + "/SKILL.md"} {
+				abs, err := f.Abs("alice", path)
+				Expect(err).NotTo(HaveOccurred())
+				_, err = f.Store().Stat(ctx, f.Actor("alice"), abs)
+				Expect(err).NotTo(HaveOccurred())
+			}
 		}
 	})
 

@@ -51,18 +51,18 @@ var _ = Describe("skillkey internal", func() {
 		put("review", "v1")
 		put("notes", "v1")
 
-		_, _, base, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		_, _, base, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, Commands{}, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(base).NotTo(Equal(""), "no key for two skills")
-		_, _, k, _, err := svc.skillTurn(ctx, "alice", []string{"review"}, nil, nil, nil)
+		_, _, k, _, err := svc.skillTurn(ctx, "alice", []string{"review"}, nil, nil, Commands{}, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(k).To(Equal(base), "switching a skill off changed the key: %q != %q", k, base)
 		put("review", "v2")
-		_, _, k, _, err = svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		_, _, k, _, err = svc.skillTurn(ctx, "alice", nil, nil, nil, Commands{}, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(k).NotTo(Equal(base), "a changed SKILL.md left the key as it was")
 		put("extra", "new")
-		_, _, again, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		_, _, again, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, Commands{}, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(again).NotTo(Equal(base), "a new skill left the key as it was")
 	})
@@ -92,7 +92,7 @@ var _ = Describe("skillkey internal", func() {
 		Expect(f.WriteSkill(ctx, "alice", skills.LayerPersonal, "report", "Personal report.", "Steps.")).To(Succeed())
 		Expect(f.WriteSkill(ctx, files.AdminPrincipal, skills.LayerShared, "report", "Shared report.", "Steps.")).To(Succeed())
 		index := func(off ...string) string {
-			p, _, _, _, err := svc.skillTurn(ctx, "alice", off, nil, nil, nil)
+			p, _, _, _, err := svc.skillTurn(ctx, "alice", off, nil, nil, Commands{}, nil)
 			Expect(err).NotTo(HaveOccurred())
 			return p
 		}

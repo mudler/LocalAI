@@ -1,0 +1,298 @@
+package studio
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"strings"
+	"testing/fstest"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/studio/session"
+
+	"github.com/mudler/LocalAI/core/services/studio/skills"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("document command eligibility", func() {
+	It("does not offer installed Sandbox instructions without selected isolated commands", func() {
+		ctx := context.Background()
+		b := &skillBroker{}
+		svc, f := newSkillService(b)
+		Expect(f.SyncAddonSkills(ctx, "sandbox", fstest.MapFS{"docx/SKILL.md": {Data: md("docx", "Sandbox document.")}})).To(Succeed())
+		b.set(AddonSkillSet{AddonID: "sandbox", Skills: []string{"docx"}, Shadows: []string{"docx"}, Running: true})
+		list, _, err := svc.Skills(ctx, "alice", "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(skills.Names(skills.Usable(list))).NotTo(ContainElement("docx"))
+	})
+	It("does not switch a missing pinned document provider to Office", func() {
+		a := addonSkills{pins: map[string]string{"docx": "sandbox"}, usable: []AddonSkillSet{{AddonID: "office", Shadows: []string{"docx"}}}}
+		id, chosen := a.provider("docx")
+		Expect(chosen).To(BeTrue())
+		Expect(id).To(BeEmpty())
+	})
+})
+
+// This broker lists metadata but fails immediately if descriptor construction
+// invokes a command. Keeping it separate avoids changing older fixtures.
+type documentBroker struct {
+	*skillBroker
+	defs      []AddonTool
+	isolation string
+	reason    string
+	calls     int
+}
+
+func (b *documentBroker) Tools(context.Context, string) ([]AddonTool, error) {
+	b.calls++
+	return b.defs, nil
+}
+func (b *documentBroker) Unavailable(context.Context, string, string, bool) string { return b.reason }
+func (b *documentBroker) Isolation(context.Context, string, string) string         { return b.isolation }
+func (b *documentBroker) Call(context.Context, string, string, string, json.RawMessage) (string, error) {
+	Fail("descriptor executed a command")
+	return "", nil
+}
+
+var _ = Describe("document provider matrix", func() {
+	DescribeTable("filters before arbitration", func(ids []string, command Commands, off []string, sc *scope, pin, want string) {
+		ctx := context.Background()
+		b := &skillBroker{}
+		svc, f := newSkillService(b, map[string]string{"docx": pin})
+		for _, id := range ids {
+			Expect(f.SyncAddonSkills(ctx, id, fstest.MapFS{"docx/SKILL.md": {Data: md("docx", id+" document.")}})).To(Succeed())
+			b.sets = append(b.sets, AddonSkillSet{AddonID: id, Skills: []string{"docx"}, Shadows: []string{"docx"}, Running: true})
+		}
+		list, _, _, err := svc.chatSkillSet(ctx, "alice", nil, off, sc, command)
+		Expect(err).NotTo(HaveOccurred())
+		usable := skills.Usable(list)
+		if want == "" {
+			Expect(usable).To(BeEmpty())
+		} else {
+			Expect(usable).To(HaveLen(1))
+			Expect(usable[0].Addon).To(Equal(want))
+		}
+	},
+		Entry("neither", nil, Commands{}, nil, nil, "", ""),
+		Entry("sandbox selected", []string{"sandbox"}, Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "isolated"}, nil, nil, "", "sandbox"),
+		Entry("office without exec", []string{"office"}, Commands{}, nil, nil, "", "office"),
+		Entry("both with host fallback", []string{"sandbox", "office"}, Commands{State: CommandsAvailable, Provider: BuiltinProvider, Isolation: "host"}, nil, nil, "", "office"),
+		Entry("both with other isolated provider", []string{"sandbox", "office"}, Commands{State: CommandsAvailable, Addon: "other", Provider: "other", Isolation: "isolated"}, nil, nil, "", "office"),
+		Entry("unknown isolation", []string{"sandbox"}, Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox"}, nil, nil, "", ""),
+		Entry("incomplete provider", []string{"sandbox"}, Commands{State: CommandsAvailable, Addon: "sandbox", Isolation: "isolated"}, nil, nil, "", ""),
+		Entry("shell off", []string{"sandbox"}, Commands{State: CommandsSwitchedOff, Addon: "sandbox", Provider: "sandbox", Isolation: "isolated"}, nil, nil, "", ""),
+		Entry("addon off", []string{"sandbox"}, Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "isolated"}, []string{"sandbox"}, nil, "", ""),
+		Entry("ungranted", []string{"sandbox"}, Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "isolated"}, nil, &scope{skills: map[string]bool{"docx": true}}, "", ""),
+		Entry("deleted scope", []string{"sandbox"}, Commands{}, nil, &scope{deleted: true}, "", ""),
+		Entry("unavailable pin", []string{"sandbox", "office"}, Commands{}, nil, nil, "sandbox", ""),
+		Entry("missing pin", []string{"office"}, Commands{}, nil, nil, "sandbox", ""),
+		Entry("eligible pin", []string{"sandbox", "office"}, Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "isolated"}, nil, nil, "sandbox", "sandbox"),
+		Entry("existing default tie", []string{"sandbox", "office"}, Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "isolated"}, nil, nil, "", "office"),
+	)
+	It("describes selected commands without recursive tool building or execution, including subagent final pruning", func() {
+		ctx := context.Background()
+		svc, _ := newSkillService(&skillBroker{})
+		b := &documentBroker{skillBroker: &skillBroker{}, isolation: "isolated", defs: []AddonTool{{AddonID: "sandbox", Name: "addon__sandbox__exec", Shadows: "bash", Schema: json.RawMessage(`{"type":"object"}`)}}}
+		svc.d.AddonTools = b
+		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		c := documentCommands(svc, ctx, "alice", rec, nil)
+		Expect(sandboxDocumentEligible(c)).To(BeTrue())
+		Expect(b.calls).To(BeNumerically("<=", 3))
+		rec.Kind = session.KindSubAgent
+		Expect(sandboxDocumentEligible(documentCommands(svc, ctx, "alice", rec, nil))).To(BeFalse())
+		svc.allowed[key("alice", rec.ID)] = []session.Tool{{Name: "bash", Provider: "sandbox"}}
+		Expect(sandboxDocumentEligible(documentCommands(svc, ctx, "alice", rec, nil))).To(BeTrue())
+		Expect(sandboxDocumentEligible(documentCommands(svc, ctx, "alice", rec, &scope{deleted: true}))).To(BeFalse())
+	})
+	DescribeTable("uses saved-agent subagent grants for the index and loader", func(granted bool) {
+		ctx := context.Background()
+		b := &documentBroker{skillBroker: &skillBroker{}, isolation: "isolated", defs: []AddonTool{{AddonID: "sandbox", Name: "addon__sandbox__exec", Shadows: "bash"}}}
+		svc, f := newSkillService(b.skillBroker)
+		svc.d.AddonTools = b
+		agentsStore, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc.d.Agents = agentsStore
+		Expect(f.SyncAddonSkills(ctx, "sandbox", fstest.MapFS{"docx/SKILL.md": {Data: skillMD("docx", "Sandbox document.", "Sandbox body.", "requires: [exec]")}})).To(Succeed())
+		b.set(AddonSkillSet{AddonID: "sandbox", Skills: []string{"docx"}, Shadows: []string{"docx"}, Running: true})
+		grants := []string{}
+		if granted {
+			grants = []string{"sandbox"}
+		}
+		agent, err := svc.SaveAgent(ctx, "alice", agents.Agent{Name: "Document worker", Model: "m", Addons: grants, Skills: []string{"docx"}})
+		Expect(err).NotTo(HaveOccurred())
+		parent, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		// Persist the same saved-agent child record as spawn, without a model
+		// turn. Such children deliberately have no entry in s.allowed.
+		rec := session.ChatRecord{ID: "document-child", Principal: "alice", Model: "m", Kind: session.KindSubAgent, ParentID: parent.ID, AgentID: agent.ID}
+		Expect(svc.d.Store.CreateChat(ctx, rec)).To(Succeed())
+		Expect(svc.allowed).NotTo(HaveKey(key("alice", rec.ID)))
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		turn, err := svc.chatTools(ctx, x)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hasTool(turn.Tools, "bash")).To(Equal(granted))
+		Expect(strings.Contains(turn.Prompt, "- docx: Sandbox document.")).To(Equal(granted))
+		picker, _, err := svc.Skills(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(skills.Usable(picker)) > 0).To(Equal(granted))
+		if !granted {
+			Expect(hasTool(turn.Tools, "load_skill")).To(BeFalse())
+			return
+		}
+		Expect(hasTool(turn.Tools, "load_skill")).To(BeTrue(), "saved-agent Sandbox commands and index require a real loader")
+		var loader session.Tool
+		for _, tool := range turn.Tools {
+			if tool.Name == "load_skill" {
+				loader = tool
+			}
+		}
+		body, err := loader.Run(ctx, json.RawMessage(`{"name":"docx"}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(body).To(ContainSubstring("Sandbox body."))
+		// A previously constructed loader must not retain a revoked grant.
+		agent.Addons = nil
+		Expect(agentsStore.Put(ctx, agent)).To(Succeed())
+		body, err = loader.Run(ctx, json.RawMessage(`{"name":"docx"}`))
+		Expect(err).To(HaveOccurred())
+		Expect(body).NotTo(ContainSubstring("Sandbox body."))
+		turn, err = svc.chatTools(ctx, x)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hasTool(turn.Tools, "bash")).To(BeFalse())
+		Expect(hasTool(turn.Tools, "load_skill")).To(BeFalse())
+		Expect(turn.Prompt).NotTo(ContainSubstring("- docx: Sandbox document."))
+		picker, _, err = svc.Skills(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(skills.Usable(picker)).To(BeEmpty())
+		saved, err := agentsStore.Get(ctx, "alice", agent.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(saved.Addons).To(BeEmpty())
+		Expect(saved.Skills).To(Equal([]string{"docx"}))
+	}, Entry("permitted then revoked Sandbox", true), Entry("absent Sandbox grant", false))
+
+	It("opens a scoped chat with load_skill without reentering session access resolution", func() {
+		ctx := context.Background()
+		svc, f := newSkillService(&skillBroker{})
+		store, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc.d.Agents = store
+		_, err = f.Store().Mkdir(ctx, f.Actor("alice"), session.HomePath("alice")+"/Work")
+		Expect(err).NotTo(HaveOccurred())
+		agent, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Scoped", Model: "m"}, &AgentFolderWrite{Path: "/Work", Mode: agents.FolderRead})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(f.SyncAddonSkills(ctx, "office", fstest.MapFS{"docx/SKILL.md": {Data: md("docx", "Office document.")}})).To(Succeed())
+		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m", AgentID: agent.ID})
+		Expect(err).NotTo(HaveOccurred())
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		_, fenced := x.Actor().Fence()
+		Expect(fenced).To(BeTrue())
+		// Open primes tools under the manager's open lock. No turn or model
+		// inference is needed to exercise load_skill construction.
+		done := make(chan error, 1)
+		go func() {
+			_, err := svc.mgr.Open(ctx, x, rec.ID)
+			done <- err
+		}()
+		select {
+		case err := <-done:
+			Expect(err).NotTo(HaveOccurred())
+		case <-time.After(2 * time.Second):
+			// Fail without cleanup attempting to reacquire the stuck lock.
+			// The test process timeout also bounds teardown on a regression.
+			Fail("scoped chat setup reentered session access resolution")
+		}
+	})
+
+	It("refuses another user's chat and access errors rather than using the whole home", func() {
+		ctx := context.Background()
+		svc, _ := newSkillService(&skillBroker{})
+		b := &documentBroker{skillBroker: &skillBroker{}, isolation: "isolated", defs: []AddonTool{{AddonID: "sandbox", Name: "addon__sandbox__exec", Shadows: "bash"}}}
+		svc.d.AddonTools = b
+		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		c, err := svc.addonCommandDescriptor(ctx, "bob", rec, nil)
+		Expect(err).To(HaveOccurred())
+		Expect(sandboxDocumentEligible(c)).To(BeFalse())
+		Expect(b.calls).To(BeZero())
+		rec.ID = "missing"
+		c, err = svc.addonCommandDescriptor(ctx, "alice", rec, nil)
+		Expect(err).To(HaveOccurred())
+		Expect(sandboxDocumentEligible(c)).To(BeFalse())
+		Expect(b.calls).To(BeZero())
+		// Only the genuinely chatless picker may describe person capabilities.
+		Expect(sandboxDocumentEligible(documentCommands(svc, ctx, "alice", session.ChatRecord{}, nil))).To(BeTrue())
+	})
+
+	It("keeps picker, slash selection, index and fresh loads aligned across readiness and final pruning", func() {
+		ctx := context.Background()
+		b := &documentBroker{skillBroker: &skillBroker{}, isolation: "isolated", defs: []AddonTool{{AddonID: "sandbox", Name: "addon__sandbox__exec", Shadows: "bash"}}}
+		svc, f := newSkillService(b.skillBroker)
+		svc.d.AddonTools = b
+		Expect(f.SyncAddonSkills(ctx, "sandbox", fstest.MapFS{"docx/SKILL.md": {Data: skillMD("docx", "Sandbox document.", "Sandbox body.", "requires: [exec]")}})).To(Succeed())
+		b.set(AddonSkillSet{AddonID: "sandbox", Skills: []string{"docx"}, Shadows: []string{"docx"}, Running: true})
+		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		a := userChatActor("alice", rec.ID)
+		tools := svc.fitLoadSkill(a, []session.Tool{{Name: "load_skill"}, {Name: "bash", Provider: "sandbox"}, {Name: "read_file"}})
+		args := json.RawMessage(`{"name":"docx"}`)
+		check := func(want bool) {
+			picker, _, err := svc.Skills(ctx, "alice", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(skills.Usable(picker)) > 0).To(Equal(want))
+			slash, err := svc.chatSkills(ctx, "alice", rec)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(skills.Usable(slash)) > 0).To(Equal(want))
+			command := documentCommands(svc, ctx, "alice", rec, nil)
+			index, _, _, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, command, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(strings.Contains(index, "docx")).To(Equal(want))
+			body, err := tools[0].Run(ctx, args)
+			if want {
+				Expect(err).NotTo(HaveOccurred())
+			} else {
+				Expect(err).To(HaveOccurred())
+			}
+			Expect(strings.Contains(body, "Sandbox body.")).To(Equal(want))
+		}
+		check(true)
+		b.reason = "guest not ready"
+		check(false) // A previously built loader must recheck readiness.
+		b.reason = ""
+		check(true)
+		pruned := svc.fitLoadSkill(a, []session.Tool{{Name: "load_skill"}, {Name: "read_file"}})
+		body, err := pruned[0].Run(ctx, args)
+		Expect(err).To(HaveOccurred())
+		Expect(body).NotTo(ContainSubstring("Sandbox body."))
+
+		// A cached loader and every descriptor/picker must fail closed when
+		// the authoritative owner policy cannot be refreshed, not pick Office
+		// or host execution as an alternative to the pinned Sandbox provider.
+		unavailable := errors.New("owner policy unavailable")
+		svc.d.ToolPins = func(context.Context) (map[string]string, error) { return nil, unavailable }
+		command, err := svc.addonCommandDescriptor(ctx, "alice", rec, nil)
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		Expect(sandboxDocumentEligible(command)).To(BeFalse())
+		_, err = svc.CommandRunner(ctx, "alice", rec.ID)
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		_, _, err = svc.Skills(ctx, "alice", rec.ID)
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		_, err = svc.chatSkills(ctx, "alice", rec)
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		_, err = svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		body, err = tools[0].Run(ctx, args)
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		Expect(body).NotTo(ContainSubstring("Sandbox body."))
+	})
+
+})
+
+func documentCommands(s *Service, ctx context.Context, p string, rec session.ChatRecord, sc *scope) Commands {
+	c, err := s.addonCommandDescriptor(ctx, p, rec, sc)
+	Expect(err).NotTo(HaveOccurred())
+	return c
+}

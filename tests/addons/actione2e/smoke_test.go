@@ -59,4 +59,34 @@ var _ = Describe("Packaged Sandbox smoke", func() {
 		Expect(made).To(BeTrue(), "the file the command wrote did not reach the user's files")
 		Expect(text).To(ContainSubstring("written"))
 	})
+
+	It("executes the guest document helper fixtures in isolation", func() {
+		pkg := os.Getenv("SANDBOX_SMOKE_PACKAGE")
+		if pkg == "" {
+			Skip("set SANDBOX_SMOKE_PACKAGE to an extracted Sandbox package (scripts/addons/sandbox_smoke.sh does)")
+		}
+		w := startAddonFrom("sandbox", pkg)
+		st := w.read("status", "alice", nil)
+		Expect(st["hostNotice"]).NotTo(Equal(true))
+		if st["canRun"] != true {
+			if os.Getenv("SANDBOX_SMOKE_REQUIRE") == "isolated" {
+				Fail(fmt.Sprintf("guest document helpers require gVisor or KVM: %v", w.read("status", "root", nil)))
+			}
+			// The non-isolated smoke contract still checks the exact unavailable
+			// answer; it never substitutes host Python for the guest checker.
+			got := w.act("bash", "alice", "convdocumentsmoke", map[string]any{
+				"command": "python3 /usr/local/lib/localai/document-skills/check-document-skills.py",
+			})
+			Expect(got["output"]).To(Equal(unavailableAnswer))
+			return
+		}
+		Expect(st["active"]).To(BeElementOf("gvisor", "kvm"))
+		got := w.act("bash", "alice", "convdocumentsmoke", map[string]any{
+			"command": "python3 /usr/local/lib/localai/document-skills/check-document-skills.py && echo document-skills-command-exit-zero",
+		})
+		out, _ := got["output"].(string)
+		Expect(out).To(ContainSubstring("document-skills fixtures: ok"), "guest checker failed: %v", got)
+		Expect(out).To(ContainSubstring("document-skills-command-exit-zero"), "guest checker did not exit zero: %v", got)
+	})
+
 })

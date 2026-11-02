@@ -446,10 +446,23 @@ func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.Ch
 		return session.ChatRecord{}, err
 	}
 	defer unlock()
+	next := c.chatState
+	if off, changed := normalizeDocumentSkillsOff(next.Rec.SkillsOff); changed {
+		next.Rec.SkillsOff = off
+		if err := s.save(&next); err != nil {
+			return session.ChatRecord{}, err
+		}
+		c.chatState = next
+	}
 	return cloneRec(c.Rec), nil
 }
 
 func cloneRec(r session.ChatRecord) session.ChatRecord {
+	r.SkillsOff = append([]string(nil), r.SkillsOff...)
+	r.AddonsOff = append([]string(nil), r.AddonsOff...)
+	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
+	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
+	r.McpOff = append([]string(nil), r.McpOff...)
 	r.HarnessState = append([]byte(nil), r.HarnessState...)
 	r.Egress = r.Egress.Clone()
 	r.Goal = r.Goal.Clone()
@@ -524,7 +537,10 @@ func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error 
 }
 
 func (s *jsonStore) SetSkillsOff(_ context.Context, principal, id string, off []string) error {
-	return s.set(principal, id, func(next *chatState) { next.Rec.SkillsOff = append([]string(nil), off...) })
+	return s.set(principal, id, func(next *chatState) {
+		clean, _ := normalizeDocumentSkillsOff(off)
+		next.Rec.SkillsOff = append([]string(nil), clean...)
+	})
 }
 
 func (s *jsonStore) SetAddonsOff(_ context.Context, principal, id string, off []string) error {

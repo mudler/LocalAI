@@ -49,7 +49,7 @@ export const RUNS = {
 export const SKILLS = [
   { name: 'citations', description: 'Cite every claim with a numbered source.', layer: 'personal', path: '/skills/citations/SKILL.md', enabled: true, editable: true },
   { name: 'house-style', description: 'The shared writing rules.', layer: 'shared', path: '/shared/house-style/SKILL.md', enabled: true, editable: false },
-  { name: 'pdf', description: 'Read and fill PDF forms.', layer: 'builtin', path: '/builtin/pdf/SKILL.md', enabled: true, editable: false },
+  { name: 'pdf', description: 'Read and create PDFs with Office tools.', layer: 'addon', addon: 'office', addon_title: 'Office', path: '/addon-skills/office/pdf/SKILL.md', enabled: true, editable: false },
   { name: 'broken', description: '', layer: 'folder', path: '/Notes/.skills/broken/SKILL.md', enabled: true, editable: false, invalid: 'the description is empty' },
 ]
 

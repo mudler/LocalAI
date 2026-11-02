@@ -217,7 +217,7 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) (Commands, error) {
 	conv := rec.ID
 	a := s.chatActorFor(ctx, rec)
-	if rec.Kind == session.KindSubAgent {
+	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
 		s.mu.Lock()
 		tools := s.allowed[key(p, conv)]
 		s.mu.Unlock()
@@ -419,4 +419,49 @@ func (s *Service) repeatedTask(ctx context.Context, a workspace.Actor, task stri
 		}
 	}
 	return true, nil
+}
+
+// sandboxDocumentEligible requires the selected command provider, not just an
+// installed guest or generic command authority. Unknown isolation fails closed.
+func sandboxDocumentEligible(c Commands) bool {
+	return c.State == CommandsAvailable && c.Isolation == "isolated" && c.Addon == "sandbox" && c.Provider == "sandbox"
+}
+
+// addonCommandDescriptor describes existing add-on authority without building
+// built-ins (which build load_skill) or invoking any tool callbacks.
+func (s *Service) addonCommandDescriptor(ctx context.Context, p string, rec session.ChatRecord, sc *scope) (Commands, error) {
+	access, err := s.AddonAccess(ctx, p, rec.ID)
+	if err != nil {
+		return Commands{State: CommandsNone}, err
+	}
+	return s.addonCommandDescriptorForActor(ctx, access.Actor(), rec, sc)
+}
+
+// addonCommandDescriptorForActor reuses the actor already authorized by turn
+// setup (or the tools panel). It must not resolve session access: tool building
+// can run while Manager.Open holds its open lock.
+func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope) (Commands, error) {
+	p := a.Principal
+	if sc != nil && sc.deleted {
+		return Commands{State: CommandsNone}, nil
+	}
+	var tools []session.Tool
+	// Only ad-hoc children inherit a pruned tool set. Saved-agent children
+	// resolve current grants through their scope, just like their turn tools.
+	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
+		s.mu.Lock()
+		tools = slices.Clone(s.allowed[key(p, rec.ID)])
+		s.mu.Unlock()
+	} else {
+		var err error
+		tools, _, err = s.addonTools(ctx, a, rec, sc)
+		if err != nil {
+			return Commands{}, err
+		}
+	}
+	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	if c.State == CommandsAvailable {
+		c.Provider = c.Addon
+	}
+	return shellSwitched(c, s.hiddenFor(ctx, rec)), nil
 }

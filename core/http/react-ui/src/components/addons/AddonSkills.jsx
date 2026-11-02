@@ -8,10 +8,11 @@ import { createHostSettingsClient } from '../../utils/hostSettingsClient'
 import { createAddonsApi } from '../../utils/addonsApi'
 import { apiUrl } from '../../utils/basePath'
 import { useHostSettings } from '../../hooks/useHostSettings'
+import { skillDeclarationLabel } from '../../utils/chatSkills'
 import { skillsOf } from './addonState'
 
 // The skills an add-on ships, in its details: each name, and whether it
-// replaces the built-in skill of that name. For an administrator, a skill that
+// provides a document slot or replaces a remaining built-in. For an administrator, a skill that
 // several add-ons replace has a switch: on, this add-on serves it in the
 // chats; off, the next add-on that replaces it does. The choice is the pin of
 // Settings > Tools (chats_tool_providers), so both places show the same.
@@ -79,7 +80,7 @@ function SkillItem({ skill, app, row, busy, onChoose }) {
       <Icon name="book" aria-hidden="true" />
       <span className="ad-skill__text">
         <span className="dk-mono">{skill.name}</span>
-        {skill.replaces && <span className="ad-quiet"> · {t('skills.replaces', { skill: skill.name })}</span>}
+        {skill.replaces && <span className="ad-quiet"> · {t(`skills.${skillDeclarationLabel(skill)}`, { skill: skill.name })}</span>}
         {row && !several && <span className="ad-quiet"> · {serves ? t('skills.serves') : t('skills.notServing')}</span>}
       </span>
       {several && (

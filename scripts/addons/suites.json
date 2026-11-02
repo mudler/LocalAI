@@ -207,10 +207,10 @@
       "refuses a name declared twice",
       "refuses more than 16 skills",
       "refuses a plain name that does not start with the add-on id",
-      "refuses a plain name that is a built-in skill, whatever the add-on id",
+      "refuses protected or reserved plain names, whatever the add-on id",
       "accepts a skill that replaces a replaceable built-in skill by its name",
       "refuses shadows that does not repeat the name, or names a skill that may not be replaced",
-      "keeps the built-in names covered: each is replaceable or protected, never both",
+      "keeps embedded names protected or reserved without requiring a slot fallback",
       "keeps the replaceable skills and tools apart, so one pin map holds both",
       "accepts a read tool without a resource",
       "refuses one that works on a resource or is not a read: the page has no resource to name",
@@ -220,7 +220,8 @@
       "reads ui.controls from a manifest and refuses an unknown field in it",
       "draws the network policy only for an add-on granted egress that runs bash",
       "serves a second add-on with the same controls, by its grant and not by its name",
-      "draws the tool providers for an add-on that replaces any built-in tool"
+      "draws the tool providers for an add-on that replaces any built-in tool",
+      "does not promise a core fallback for document provider names"
     ],
     "report": ".cache/addons/logs/contracts.json"
   },
@@ -488,7 +489,8 @@
       "stamps the first install, keeps the time over an upgrade and stamps it again after an uninstall",
       "needs a state root for the owner only",
       "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum",
-      "distinguishes healthy empty connector discovery from loss of runtime ownership"
+      "distinguishes healthy empty connector discovery from loss of runtime ownership",
+      "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -2587,7 +2589,8 @@
       "names every typed cause of a failed install in the 403 of the dispatch route",
       "records the chat with the envelope of a read and of an action while it runs",
       "sends the add-on an envelope without a new field",
-      "distinguishes healthy empty connector discovery from loss of runtime ownership"
+      "distinguishes healthy empty connector discovery from loss of runtime ownership",
+      "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -2677,7 +2680,8 @@
           "does nothing without an update checker",
           "keeps the manual upgrade closed to a caller who is not an administrator",
           "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum",
-          "distinguishes healthy empty connector discovery from loss of runtime ownership"
+          "distinguishes healthy empty connector discovery from loss of runtime ownership",
+          "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts"
         ]
       },
       {
@@ -4345,6 +4349,7 @@
       ]
     ],
     "cases": [
+      "go: installs unchanged PDF helpers and their license with a build-time fixture check",
       "go: joins every enabled platform leg into one verified index",
       "go: never creates a partial index when an enabled platform has no leg",
       "go: refuses duplicate legs, local-check legs, other versions and extra platforms",
@@ -4553,7 +4558,9 @@
       "package.sh refuses a foreign platform without an executable: web",
       "package.sh refuses a guest image that is not by digest",
       "package.sh refuses a sandbox release build without SANDBOX_GUEST_IMAGE",
-      "package.sh stamps the sandbox executable with a guest image in a local check"
+      "package.sh stamps the sandbox executable with a guest image in a local check",
+      "go: packages all four document slots with the actual validator and no core fallback",
+      "go: proves every source block and local reference without Git or network"
     ]
   },
   "updates": {

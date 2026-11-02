@@ -68,7 +68,7 @@ type addonSkills struct {
 // off by the chat (addonsOff) and, for a chat with an agent, granted by it. An
 // add-on the broker reports as unavailable is left out. A broker that cannot
 // answer gives none and a warning; it never fails the chat.
-func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []string, sc *scope) (addonSkills, error) {
+func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []string, sc *scope, command Commands) (addonSkills, error) {
 	var out addonSkills
 	pins, err := s.toolPins(ctx)
 	if err != nil {
@@ -101,6 +101,10 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 		if gate != nil && gate.Unavailable(ctx, p, set.AddonID, s.d.Files.Available()) != "" {
 			continue
 		}
+		if set.AddonID == "sandbox" && !sandboxDocumentEligible(command) {
+			set.Skills = slices.DeleteFunc(slices.Clone(set.Skills), contract.DocumentSkill)
+			set.Shadows = slices.DeleteFunc(slices.Clone(set.Shadows), contract.DocumentSkill)
+		}
 		out.usable = append(out.usable, set)
 	}
 	return out, nil
@@ -122,7 +126,7 @@ func (a addonSkills) provider(name string) (string, bool) {
 	if !contract.ReplaceableSkill(name) {
 		return "", false
 	}
-	if pin := a.pins[name]; pin != "" && shipsReplacement(a.known, pin, name) {
+	if pin := a.pins[name]; pin != "" && (contract.DocumentSkill(name) || shipsReplacement(a.known, pin, name)) {
 		if shipsReplacement(a.usable, pin, name) {
 			return pin, true
 		}
@@ -131,7 +135,7 @@ func (a addonSkills) provider(name string) (string, bool) {
 	if id := ChooseProvider(a.shippers(a.usable, name), a.installTimes(), ""); id != "" {
 		return id, true
 	}
-	return "", false
+	return "", contract.DocumentSkill(name)
 }
 
 // shippers lists the add-ons of the sets that ship a replacement for name.
