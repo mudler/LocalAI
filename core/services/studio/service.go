@@ -843,7 +843,7 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 	}
 	unlock := s.lock(key(p, conv))
 	defer unlock()
-	if id, _ := ctx.Value(memoryDeliveryKey{}).(string); id != "" && !msg.Goal && msg.Loop == nil && len(msg.Files) == 0 {
+	if id, _ := ctx.Value(memoryDeliveryKey{}).(string); id != "" && !msg.Goal && msg.Loop == nil {
 		// Delivery replay survives policy changes: accepting new capture work
 		// still requires current eligibility, but replaying old work does not.
 		accepted, found, lookupErr := s.d.Store.MemoryInput(ctx, p, conv, "memory:"+id)
@@ -852,6 +852,16 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 		}
 		if !found {
 			if in, ok := s.memoryAcceptance(ctx, p, conv, msg.Text); ok {
+				// Persist paths in the model payload, never in the accepted text.
+				// A replay found above must not save the same uploads again.
+				if len(msg.Files) > 0 {
+					saved, err := s.attachWhileRunning(ctx, p, conv, msg.Files)
+					if err != nil {
+						return SendResult{}, err
+					}
+					msg.Attachments = append(slices.Clip(msg.Attachments), saved...)
+					msg.Files = nil
+				}
 				in.PendingText = session.ComposeMessage(msg.Text, msg.Note, msg.Attachments)
 				var err error
 				accepted, err = s.d.Store.AcceptMemoryInput(ctx, in)

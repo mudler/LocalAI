@@ -781,3 +781,8 @@ If capture acceptance alone fails while ordinary chat storage works, answering
 continues without a capture intent. That degraded delivery has no durable capture
 or replay guarantee; the failure is logged. An outage of ordinary chat storage
 can still prevent answering.
+
+Connector delivery identity also covers messages with attachments: replaying the
+same platform event does not start another answer or accept its text again. Saved
+attachment paths and extracted notes remain model context, not automatic incoming
+memory text. Distinct platform events remain distinct even with identical text.
