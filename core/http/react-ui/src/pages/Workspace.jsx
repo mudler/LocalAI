@@ -466,7 +466,8 @@ export default function Workspace() {
     const node = await ws.rename(entry, name)
     if (!node) return
     if (previewPath === entry.path) setPreviewPath(node.path)
-    setCursor(node.path)
+    // Do not overwrite a row the user focused while the rename was pending.
+    setCursor(current => current === entry.path ? node.path : current)
     undoToast(t('toast.renamed', { name }), node.rev ? [node.rev] : [], t('toast.renameUndone'))
   }
   const rename = (entry, name) => {

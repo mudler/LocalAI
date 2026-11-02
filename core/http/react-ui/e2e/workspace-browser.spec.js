@@ -23,7 +23,7 @@ function seed() {
 
 // stubFs answers the files API from an array that the moves, deletes, renames
 // and uploads change, and records every call.
-async function stubFs(page, { entries = seed(), maxFileSize = 0 } = {}) {
+async function stubFs(page, { entries = seed(), maxFileSize = 0, beforeMoveResponse } = {}) {
   const fs = { entries, calls: [], trash: [], rev: 100 }
   const parent = (p) => p.slice(0, p.lastIndexOf('/')) || '/'
   const name = (p) => p.slice(p.lastIndexOf('/') + 1)
@@ -37,13 +37,14 @@ async function stubFs(page, { entries = seed(), maxFileSize = 0 } = {}) {
     if (m) { const e = fs.entries.find(x => x.path === m.to); if (e) { e.path = m.from; e.name = name(m.from) } }
     return route.fulfill({ json: { rev: ++fs.rev } })
   })
-  await page.route(/\/api\/chats\/files\/move(\?.*)?$/, route => {
+  await page.route(/\/api\/chats\/files\/move(\?.*)?$/, async route => {
     const { from, to } = route.request().postDataJSON()
     fs.calls.push(['move', from, to])
     const e = fs.entries.find(x => x.path === from)
     const rev = ++fs.rev
     fs.moves = { ...(fs.moves || {}), [rev]: { from, to } }
     if (e) { e.path = to; e.name = name(to); e.rev = rev }
+    await beforeMoveResponse?.()
     return route.fulfill({ json: { ...(e || {}), path: to, name: name(to), rev } })
   })
   await page.route(/\/api\/chats\/files\/folders(\?.*)?$/, route => {
@@ -209,7 +210,9 @@ test.describe('Files: browsing, selection and actions', () => {
   })
 
   test('works from the keyboard: arrows, Shift, Space, Enter, F2, Delete, Ctrl+A and type to find', async ({ page }) => {
-    const fs = await stubFs(page)
+    let finishRename
+    const renameResponse = new Promise(resolve => { finishRename = resolve })
+    const fs = await stubFs(page, { beforeMoveResponse: () => renameResponse })
     await page.goto('/app/files')
     await row(page, 'archive').focus()
     await page.keyboard.press('ArrowDown')
@@ -236,6 +239,9 @@ test.describe('Files: browsing, selection and actions', () => {
     await expect.poll(() => fs.calls.find(c => c[0] === 'move')).toEqual(['move', '/Note 2.txt', '/Note 3.txt'])
 
     await row(page, 'a-notes.md').focus()
+    finishRename()
+    await expect(row(page, 'Note 3.txt')).toBeVisible()
+    await expect(row(page, 'a-notes.md')).toBeFocused()
     await page.keyboard.press('Delete')
     await expect.poll(() => fs.calls.find(c => c[0] === 'delete')).toEqual(['delete', '/a-notes.md'])
 

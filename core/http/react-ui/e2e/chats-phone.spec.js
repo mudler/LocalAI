@@ -51,8 +51,9 @@ test.describe('Chats on a phone', () => {
   test('Escape closes the menu before delayed timers run and restores focus', async ({ page }) => {
     await page.goto('/app/chats/c1')
     await expect(page.getByTestId('chat-input')).toBeVisible()
-    await page.clock.install()
-    await page.clock.pauseAt(new Date())
+    // Install on a fixed earlier epoch so pauseAt never races wall time.
+    await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+    await page.clock.pauseAt(new Date('2026-01-02T00:00:00Z'))
     const trigger = page.getByTestId('chats-trigger')
     await trigger.click()
     await expect(page.getByTestId('chats-menu')).toBeVisible()
