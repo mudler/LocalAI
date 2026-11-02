@@ -372,7 +372,8 @@ test.describe('3D generation', () => {
     await expect(page.locator('.studio-tab[data-tab="overview"]')).toHaveClass(/studio-tab-active/)
 
     await page.goto('/app/addons/studio/studio/threed')
-    await expect(page).toHaveURL(/\/app\/?$/)
+    await expect(page.locator('.studio-tab-active[data-tab="overview"]')).toBeVisible()
+    await expect(page.locator('[data-tab="threed"]')).toHaveCount(0)
   })
 
   test.describe('touch input', () => {

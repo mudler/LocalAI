@@ -251,8 +251,8 @@ test.describe('Add-ons: apps', () => {
     await page.clock.runFor(21_000)
     await expect.poll(() => state.log.appsList).toBe(4)
     await expect(page.getByText('may be out of date')).toHaveCount(0)
-    // Leaving the page stops the requests.
-    await page.evaluate(() => { window.history.pushState({}, '', '/app/chats'); window.dispatchEvent(new PopStateEvent('popstate')) })
+    // Leave for a route without a mounted add-on consumer (Home keeps commands current).
+    await page.evaluate(() => { window.history.pushState({}, '', '/app/polling-left'); window.dispatchEvent(new PopStateEvent('popstate')) })
     await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
     const seen = state.log.appsList
     await page.clock.runFor(180_000)
@@ -315,7 +315,7 @@ async function appsAnswered(page, state, n) {
 }
 
 test.describe('Add-ons: registry polling', () => {
-  const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/chats'); window.dispatchEvent(new PopStateEvent('popstate')) })
+  const leave = (page) => page.evaluate(() => { window.history.pushState({}, '', '/app/polling-left'); window.dispatchEvent(new PopStateEvent('popstate')) })
   const contributing = (over = {}) => app({ ui: { entry: '/api/addons/notes/assets/' + 'c'.repeat(64) + '/ui.js', css: [], sdk: { min: 1, max: 2 }, pages: ['home'], navigation: ['home'] }, ...over })
 
   test('apps: an add-on that contributes UI keeps the list current off the page and its disable stops the reads', async ({ page }) => {
@@ -333,7 +333,12 @@ test.describe('Add-ons: registry polling', () => {
     const onPage = state.log.appsList
     await expect.poll(() => page.evaluate(() => window.__appsAnswers)).toBe(onPage)
     await leave(page)
+    // Finish the lazy route transition under the paused page clock before
+    // testing the registry alone; Home would intentionally retain a consumer.
+    await page.clock.runFor(500)
+    await settle(page)
     await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'This page does not exist' })).toBeVisible()
     // Off the page the registry reads the list at once. Each step waits until
     // the page has read the answer, and so has set its next timer, before the
     // clock moves again.

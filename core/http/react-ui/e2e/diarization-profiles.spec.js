@@ -174,7 +174,8 @@ test('missing requested profiles is an error and normal defaults remain opt-in',
 
 test('diarization permission gates direct page and Studio tab', async ({ page }) => {
   await setup(page, true, false)
-  await expect(page).toHaveURL(/\/app$/)
+  await expect(page.locator('.studio-tab-active[data-tab="overview"]')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Diarize', exact: true })).toHaveCount(0)
   await page.goto('/app/addons/studio/studio')
   await expect(page.locator('[data-tab="diarization"]')).toHaveCount(0)
 })

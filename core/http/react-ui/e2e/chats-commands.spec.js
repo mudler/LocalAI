@@ -40,7 +40,7 @@ const none = () => ({ addons: [], commands: 'none' })
 test.describe('Chat that cannot run commands', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
-  test('an administrator sees the chip and a notice in the Tools menu with the way to install the Sandbox', async ({ page }) => {
+  test('an administrator sees command availability without promoting a provider', async ({ page }) => {
     await stubChat(page, none)
     await page.goto('/app/chats/c1')
     const chip = page.getByTestId('chat-commands-chip')
@@ -50,8 +50,7 @@ test.describe('Chat that cannot run commands', () => {
     const notice = page.getByTestId('chat-commands-notice')
     await expect(notice).toContainText("Commands can't run here")
     await expect(notice).toContainText('No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.')
-    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveText('Install the Sandbox')
-    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveAttribute('href', '/app/addons?tab=browse&q=sandbox')
+    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
     await expect(notice).not.toContainText('Ask an administrator')
     await shot(page, 'tools-menu-admin')
   })
@@ -71,18 +70,19 @@ test.describe('Chat that cannot run commands', () => {
     await expect(chip).toBeFocused()
   })
 
-  test('a person who is not an administrator is told to ask one, with no install link', async ({ page }) => {
+  test('a non-administrator sees command availability without an install link', async ({ page }) => {
     await mockUser(page, { chats: true })
     await stubChat(page, none)
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     const notice = page.getByTestId('chat-commands-notice')
-    await expect(notice).toContainText('Ask an administrator to install the Sandbox add-on.')
+    await expect(notice).not.toContainText('Ask an administrator')
+    await expect(notice).toContainText('No add-on that runs code is installed')
     await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
     await shot(page, 'tools-menu-user')
   })
 
-  test('hiding the notice hides the chip and leaves one line in the Tools menu, also after a reload', async ({ page }) => {
+  test('hiding the notice hides the chip and leaves one line in the Tools menu, but returns after a reload', async ({ page }) => {
     await stubChat(page, none)
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
@@ -91,22 +91,21 @@ test.describe('Chat that cannot run commands', () => {
     await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
     await expect(page.getByTestId('chat-commands-notice-line')).toHaveText("Commands can't run here")
     await page.reload()
-    await expect(page.getByTestId('chat-tools-button')).toBeVisible()
-    await expect(page.getByTestId('chat-commands-chip')).toHaveCount(0)
+    await expect(page.getByTestId('chat-commands-chip')).toBeVisible()
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByTestId('chat-commands-notice-line')).toBeVisible()
+    await expect(page.getByTestId('chat-commands-notice')).toBeVisible()
     await shot(page, 'tools-menu-hidden')
   })
 
   test('a Sandbox that is off for the chat points at its switch, and switching it on removes the notice', async ({ page }) => {
     const calls = await stubChat(page, (off) => {
       const isOff = off === null ? true : off.includes('sandbox')
-      return { addons: [{ id: 'sandbox', tools: 7, off: isOff }], commands: isOff ? 'off' : 'available' }
+      return { addons: [{ id: 'sandbox', tools: 7, off: isOff }], commands: isOff ? 'off' : 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' }
     })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     const notice = page.getByTestId('chat-commands-notice')
-    await expect(notice).toContainText('The Sandbox add-on is off for this chat. Switch it on in the Tools menu to let the assistant run code.')
+    await expect(notice).toContainText('Running commands is switched off for this chat.')
     await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
     await page.getByRole('switch', { name: 'sandbox' }).check()
     await expect.poll(() => calls.at(-1)).toEqual([])
@@ -114,17 +113,18 @@ test.describe('Chat that cannot run commands', () => {
     await expect(page.getByTestId('chat-commands-chip')).toHaveCount(0)
   })
 
-  test('a Sandbox that cannot run here gives the reason and the add-on page', async ({ page }) => {
-    await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 1, off: false }], commands: 'unavailable', commands_reason: 'no sandbox backend works on this host, so commands cannot run' }))
+  test('an unavailable selected provider gives its typed reason without an install link', async ({ page }) => {
+    await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 1, off: false }], commands: 'unavailable', commands_provider: 'sandbox', execution_status: { readiness: 'unavailable', explanation: 'no sandbox backend works on this host, so commands cannot run' }, commands_reason: 'no sandbox backend works on this host, so commands cannot run' }))
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     const notice = page.getByTestId('chat-commands-notice')
-    await expect(notice).toContainText('The Sandbox add-on cannot run commands on this server: no sandbox backend works on this host, so commands cannot run')
-    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveAttribute('href', '/app/addons?detail=sandbox')
+    await expect(notice).toContainText('The selected execution provider is unavailable.')
+    await expect(notice).toContainText('no sandbox backend works on this host')
+    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
   })
 
   test('a chat that runs commands shows neither the chip nor the notice', async ({ page }) => {
-    await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 7, off: false }], commands: 'available' }))
+    await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 7, off: false }], commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' }))
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     await expect(page.getByRole('switch', { name: 'sandbox' })).toBeChecked()
@@ -158,7 +158,7 @@ test.describe('Chat that cannot run commands', () => {
 test.describe('A chat that switched commands off', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
-  test('shows no notice and no chip: the switch in the Tools menu says it', async ({ page }) => {
+  test('shows the disabled notice and the off switch without an install link', async ({ page }) => {
     await stubChat(page, () => ({ addons: [], commands: 'switched_off' }))
     await page.route('**/api/chats/c1/tools', route => route.fulfill({
       json: {
@@ -169,8 +169,9 @@ test.describe('A chat that switched commands off', () => {
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     await expect(page.getByRole('switch', { name: 'Run commands' })).toHaveAttribute('aria-checked', 'false')
-    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
-    await expect(page.getByTestId('chat-commands-chip')).toHaveCount(0)
+    await expect(page.getByTestId('chat-commands-notice')).toContainText('Running commands is switched off for this chat.')
+    await expect(page.getByTestId('chat-commands-chip')).toBeVisible()
+    await expect(page.getByTestId('chat-commands-notice-link')).toHaveCount(0)
   })
 })
 

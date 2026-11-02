@@ -45,7 +45,7 @@ export function packagedApp(id, over = {}) {
   return app({
     id, name: id, title: ui.title, description: ui.description, icon: undefined, generation: 1, version: manifest.version,
     mainPage: `/app/addons/${id}/${ui.mainPage}`, tools: [], toolCount: 0,
-    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions },
+    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions, homeCommands: ui.homeCommands?.map(c => ({ ...c, page: c.page || ui.mainPage, label: c.label || ui.title, icon: c.icon || 'puzzle' })) },
     ...over,
   })
 }

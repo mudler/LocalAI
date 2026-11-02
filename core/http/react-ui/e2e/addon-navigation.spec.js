@@ -4,6 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ADMIN, MEMBER, app, installedAddon, release, sessionFor, mockAddons } from './addons-fixtures.js'
 import { buildAddonBundles, installStudioAddons, packagedApp } from './studio-addon.js'
+import { mockSettings } from './settings-fixtures.js'
 import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
@@ -223,6 +224,7 @@ test.describe('Add-on navigation', () => {
 
   test('the Settings page lists the add-ons with settings in an Add-ons group, and only when there is one', async ({ page }) => {
     await setup(page, { pins: [], studio: false, user: ADMIN, apps: [withSettings(), app({ id: 'notes', title: 'Notes' })] })
+    await mockSettings(page)
     await page.goto('/app/settings')
     const group = page.locator('.st-group[data-group="addons"]')
     await expect(group).toBeVisible()
@@ -239,6 +241,7 @@ test.describe('Add-on navigation', () => {
 
   test('the Settings page has no Add-ons group when no add-on has settings', async ({ page }) => {
     await setup(page, { pins: [], studio: false, user: ADMIN, apps: [app({ id: 'notes', title: 'Notes' })] })
+    await mockSettings(page)
     const listed = page.waitForResponse(r => /\/api\/addons\/apps$/.test(new URL(r.url()).pathname))
     await page.goto('/app/settings')
     await listed
@@ -504,11 +507,12 @@ test.describe('Add-on navigation: the legacy Add-ons hub tab and the route in bo
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/tts$/)
   })
 
-  test('a viewer without the 3d feature sees an unavailable canonical addon', async ({ page }) => {
+  test('a viewer without the native 3d feature stays in Studio overview without the gated tab', async ({ page }) => {
     await setup(page)
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, '3d': false }) }))
     await page.goto('/app/addons/studio/studio/threed')
-    await expect(page.getByTestId('addon-unavailable')).toBeVisible()
+    await expect(page.locator('.studio-tab-active[data-tab="overview"]')).toBeVisible()
+    await expect(page.locator('[data-tab="threed"]')).toHaveCount(0)
   })
 })
 
