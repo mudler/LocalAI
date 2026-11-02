@@ -468,6 +468,11 @@
     - "confirm-host"
   shadows:
     - "bash"
+  skillShadows:
+    - "docx"
+    - "pptx"
+    - "pdf"
+    - "xlsx"
 - id: "sandbox"
   name: Sandbox
   description: "Let your chats run commands and code in an isolated sandbox, with your files mounted."
@@ -494,6 +499,11 @@
     - "confirm-host"
   shadows:
     - "bash"
+  skillShadows:
+    - "docx"
+    - "pptx"
+    - "pdf"
+    - "xlsx"
 - id: "slack"
   name: Slack
   description: "Bind a Slack app to one of your saved agents, so people can talk to it from Slack."

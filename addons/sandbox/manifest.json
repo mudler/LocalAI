@@ -118,7 +118,25 @@
         }
       ],
       "title": "Sandbox"
-    }
+    },
+    "skillDefinitions": [
+      {
+        "name": "docx",
+        "shadows": "docx"
+      },
+      {
+        "name": "pptx",
+        "shadows": "pptx"
+      },
+      {
+        "name": "pdf",
+        "shadows": "pdf"
+      },
+      {
+        "name": "xlsx",
+        "shadows": "xlsx"
+      }
+    ]
   },
   "dataFormat": {
     "max": 1,

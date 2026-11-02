@@ -3,6 +3,8 @@ package packaging_test
 
 import (
 	"os"
+ "crypto/sha256"
+ "fmt"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -12,19 +14,23 @@ import (
 var _ = Describe("Sandbox document helpers", func() {
 	It("installs unchanged PDF helpers and their license with a build-time fixture check", func() {
 		guest := "../../../addons/sandbox/images/guest/"
-		for _, name := range []string{"content_qa.py", "verify_pdf.py"} {
-			original, err := os.ReadFile("../../../core/services/studio/builtinskills/tree/pdf/scripts/" + name)
-			Expect(err).NotTo(HaveOccurred())
-			copied, err := os.ReadFile(guest + "document-skills/pdf/" + name)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(copied).To(Equal(original))
-		}
-		notice, err := os.ReadFile(guest + "document-skills/pdf/notice.txt")
-		Expect(err).NotTo(HaveOccurred())
-		originalNotice, err := os.ReadFile("../../../core/services/studio/builtinskills/tree/NOTICE")
-		Expect(err).NotTo(HaveOccurred())
-		license := strings.Split(strings.Split(string(originalNotice), "The MIT licence of the Feather project\n--------------------------------------\n\n")[1], "\nThe generated API pages")[0]
-		Expect(string(notice)).To(ContainSubstring(strings.TrimSpace(license)))
+        fingerprints := map[string]string{
+            "content_qa.py": "06c41695cfb72a3b30d3f1a4ad2c9b1a5fd3b62ed82be090b48fdd27bd031de6",
+            "verify_pdf.py": "6e8844de335bb10492865f6d7f078d81637d47da32b0d86dce5fe2948650b9f9",
+            "notice.txt": "a178aa53599c2a10f619781d4799f517ef7b6567a749866bbd9db556e02b0625",
+        }
+        // Task 3 compared these bytes with the original Feather core copies.
+        // Keep trusted fingerprints, not an executable duplicate in core.
+        for name, fingerprint := range fingerprints {
+            data, err := os.ReadFile(guest + "document-skills/pdf/" + name)
+            Expect(err).NotTo(HaveOccurred())
+            Expect(fmt.Sprintf("%x", sha256.Sum256(data))).To(Equal(fingerprint), name)
+        }
+        notice, err := os.ReadFile(guest + "document-skills/pdf/notice.txt")
+        Expect(err).NotTo(HaveOccurred())
+        for _, text := range []string{"MIT License", "Copyright (c) 2026 Paper Instruments, Inc.", "Permission is hereby granted", "THE SOFTWARE IS PROVIDED"} {
+            Expect(string(notice)).To(ContainSubstring(text))
+        }
 		dockerfile, err := os.ReadFile(guest + "Dockerfile")
 		Expect(err).NotTo(HaveOccurred())
 		text := string(dockerfile)
