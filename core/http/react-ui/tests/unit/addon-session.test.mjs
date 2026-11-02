@@ -97,3 +97,85 @@ for (const switchUser of [false, true]) test(`installed records reject late admi
   await new Promise(r => setImmediate(r))
   assert.deepEqual(h.render({ api }).installedInfo, {})
 })
+
+for (const phase of ['completed', 'failed', 'intent', 'unreadable']) test(`cancel reconciliation drops ${phase} after auth epoch changes during status read`, async () => {
+  const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
+  const status = deferred(), reading = deferred()
+  let epoch = 1, verified = 0, reads = 0
+  const store = createUpgradeStore()
+  const api = {
+    updates: { upgrade: (_id, _body, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    }) },
+    operationStatus: () => { reads++; reading.resolve(); return status.promise.then(value => { if (phase === 'unreadable') throw new Error('offline'); return value }) },
+    installed: async () => { verified++; return [] },
+  }
+  const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
+  const work = store.start(api, addon, { current: () => epoch === 1 })
+  assert.equal(store.cancel(store.forAddon('notes').jobID), true)
+  await reading.promise // cancellation was authorized; its status read is pending
+  epoch = 2
+  const publications = []
+  store.subscribe(() => publications.push(store.getSnapshot()))
+  status.resolve({ phase })
+  assert.equal(await work, null)
+  assert.equal(reads, 1)
+  assert.equal(verified, 0)
+  assert.deepEqual(store.getSnapshot(), { live: [], records: [] })
+  assert.ok(publications.every(s => s.records.length === 0 && s.live.length === 0))
+})
+
+test('cancel reconciliation does not read status when auth expires before the read', async () => {
+  const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
+  const store = createUpgradeStore()
+  let epoch = 1, reads = 0
+  const api = {
+    updates: { upgrade: (_id, _body, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    }) },
+    operationStatus: async () => { reads++; return { phase: 'completed' } },
+  }
+  const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
+  const work = store.start(api, addon, { current: () => epoch === 1 })
+  store.cancel(store.forAddon('notes').jobID)
+  epoch = 2
+  assert.equal(await work, null)
+  assert.equal(reads, 0)
+  assert.deepEqual(store.getSnapshot(), { live: [], records: [] })
+})
+
+test('expired cancel cleanup preserves a newer attempt with the same action key', async () => {
+  const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
+  let id = 0, epoch = 1
+  const book = createActionBook(() => `attempt-${++id}`)
+  const store = createUpgradeStore({ book })
+  const status = deferred(), reading = deferred(), nextSubmit = deferred()
+  const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
+  const api = {
+    updates: { upgrade: (_id, _body, signal) => new Promise((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+    }) },
+    operationStatus: () => { reading.resolve(); return status.promise },
+  }
+  const oldWork = store.start(api, addon, { current: () => epoch === 1 })
+  const old = store.forAddon(addon.id)
+  store.cancel(old.jobID)
+  await reading.promise
+  // Another follower concludes the old entry, allowing a new authorized action.
+  store.conclude(old.jobID, addon, 'upgrade:notes:1', 'failed', old.operationId)
+  epoch = 2
+  const nextWork = store.start({
+    updates: { upgrade: () => nextSubmit.promise },
+    installed: async () => [{ ...addon, generation: 2 }],
+  }, addon, { current: () => epoch === 2 })
+  const next = store.forAddon(addon.id), held = book.pending(addon.id)
+  assert.notEqual(next.operationId, old.operationId)
+  status.resolve({ phase: 'completed' })
+  assert.equal(await oldWork, null)
+  assert.deepEqual(store.forAddon(addon.id), next)
+  assert.deepEqual(book.pending(addon.id), held)
+  assert.deepEqual(store.getSnapshot().records, [])
+  nextSubmit.resolve({ phase: 'completed' })
+  assert.equal((await nextWork).ok, true)
+  assert.equal(store.getSnapshot().records[0].operationId, next.operationId)
+})

@@ -70,6 +70,16 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     },
   })
 
+  const expireAttempt = (current, { jobID, addon, key, operationId }) => {
+    if (current()) return false
+    // A later session may already hold the same add-on and generation key.
+    if (book.pending(addon.id)?.operationId === operationId) book.resolve(addon.id, key)
+    if (snapshot.live.some(op => op.jobID === jobID)) {
+      emit({ ...snapshot, live: snapshot.live.filter(op => op.jobID !== jobID) })
+    }
+    return true
+  }
+
   const store = {
     bind(api, principal, persistence) {
       if (scope === principal && storage === persistence) return
@@ -165,12 +175,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         if (!current()) throw new DOMException('Aborted', 'AbortError')
         return status
       } }, jobID)
-      const expired = () => {
-        if (current()) return false
-        emit({ ...snapshot, live: snapshot.live.filter(op => op.jobID !== jobID) })
-        book.resolve(addon.id, key)
-        return true
-      }
+      const expired = () => expireAttempt(current, { jobID, addon, key, operationId })
       try {
         let outcome
         // While the add-on service does not answer, the entry says that it
@@ -209,7 +214,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       } catch (e) {
         if (expired()) return null
         if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
-        if (e && e.name === 'AbortError' && cancelled.has(jobID)) return store.afterCancel(api, { jobID, addon, operationId, key })
+        if (e && e.name === 'AbortError' && cancelled.has(jobID)) return store.afterCancel(api, { jobID, addon, operationId, key, current })
         const kind = e && e.kind ? e.kind : 'unavailable'
         if (kind === 'denied' || kind === 'invalid' || kind === 'auth') book.resolve(addon.id, key)
         const errorKey = updateErrorKey(e && e.kind ? e : { kind })
@@ -239,12 +244,15 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     },
 
     // After the request was aborted by a cancel: what did the owner end up with?
-    async afterCancel(api, { jobID, addon, operationId, key }) {
+    async afterCancel(api, { jobID, addon, operationId, key, current = () => true }) {
       cancelled.delete(jobID)
+      const expired = () => expireAttempt(current, { jobID, addon, key, operationId })
+      if (expired()) return null
       let outcome = 'unknown'
       try {
         outcome = (await settleOperation(api, { operationId, addonId: addon.id, waits: [] })).outcome
       } catch { /* an unreadable status stays unknown */ }
+      if (expired()) return null
       const op = snapshot.live.find(o => o.jobID === jobID)
       if (outcome === 'completed') {
         book.resolve(addon.id, key)
