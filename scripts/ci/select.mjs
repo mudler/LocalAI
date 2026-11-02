@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 import { readFileSync, appendFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { classify, diffSpec } from '../lib/ci-select.mjs';
+import { dependencyIndex } from './dependencies.mjs';
+import { classify, diffSpec, contractFocus } from '../lib/ci-select.mjs';
 // No API permissions, secrets, path truncation or shell interpolation. Checkout
 // fetch-depth: 0 supplies history; unavailable fork objects conservatively run all.
 export function selectEvent(name, event, ref, git = args => execFileSync('git', args, { maxBuffer: 64 * 1024 * 1024 }).toString()) {
@@ -12,7 +13,7 @@ export function selectEvent(name, event, ref, git = args => execFileSync('git', 
     const base = spec.mergeBase ? git(['merge-base', spec.base, spec.head]).trim() : spec.base;
     // --no-renames returns both deleted and added paths, including cross-domain moves.
     const paths = git(['diff', '--name-only', '-z', '--no-renames', base, spec.head, '--']).split('\0').filter(Boolean);
-    return classify(paths);
+    return classify(paths, '', dependencyIndex());
   } catch (error) {
     return classify([], `diff unavailable; full validation: ${error.message}`);
   }
@@ -24,6 +25,7 @@ if (process.argv[1]?.endsWith('/select.mjs')) {
   console.log(JSON.stringify(result, null, 2));
   if (process.env.GITHUB_OUTPUT) {
     for (const [key, value] of Object.entries(result.selected)) appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${value}\n`);
+    appendFileSync(process.env.GITHUB_OUTPUT, `contract-tests-json=${JSON.stringify(result.contracts.map(pkg => ({ package: pkg, focus: contractFocus[pkg] })))}\ngroups-json=${JSON.stringify({include: result.groups})}\nvalidation-json=${JSON.stringify(result.addons.length ? result.addons : ['rules'])}\n`);
     appendFileSync(process.env.GITHUB_OUTPUT, `addons-json=${JSON.stringify(result.addons)}\naddons-list=${result.addons.join(' ')}\nsandbox=${result.addons.includes('sandbox')}\n`);
   }
 }

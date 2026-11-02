@@ -1101,7 +1101,7 @@ var _ = Describe("workflow policy", func() {
 		Expect(base).To(ContainSubstring("SANDBOX_GUEST_IMAGE: ${{ matrix.addon == 'sandbox' && needs.sandbox-image.outputs.image || '' }}"))
 	})
 	It("rejects a registry login or publish in an untrusted job", func() {
-		expect(mutate("      - name: Run the packaging checks\n        if: matrix.addon == 'tables'\n        run: sh scripts/addons/package_test.sh", "      - name: Run the packaging checks\n        run: go run ./scripts/addons/cmd/addonpkg publish --layout x"), "P_UNTRUSTED_SECRETS")
+		expect(mutate("      - name: Run the packaging checks\n        if: strategy.job-index == 0\n        run: sh scripts/addons/package_test.sh", "      - name: Run the packaging checks\n        run: go run ./scripts/addons/cmd/addonpkg publish --layout x"), "P_UNTRUSTED_SECRETS")
 	})
 	It("rejects publish that does not wait for every platform leg", func() {
 		expect(mutate("    needs: [plan, validate, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan, validate]\n    if: needs.plan.outputs.publish == 'true'"), "P_NEEDS")
@@ -1113,19 +1113,27 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate("    needs: [plan, validate, package]\n    if: needs.plan.outputs.publish == 'true'", "    needs: [plan, package]\n    if: needs.plan.outputs.publish == 'true'"), "P_NEEDS")
 	})
 	It("rejects a package leg that does not need validate", func() {
-		expect(mutate("    needs: [plan, validate, sandbox-image]\n    if: needs.plan.outputs.has_platforms == 'true'", "    needs: [plan, sandbox-image]\n    if: needs.plan.outputs.has_platforms == 'true'"), "P_NEEDS")
+		expect(mutate("    needs: [plan, validate, sandbox-image]\n", "    needs: [plan, sandbox-image]\n"), "P_NEEDS")
 	})
 	It("rejects a validate job that cannot stop the release", func() {
 		anchor := "    name: validate package rules\n"
 		expect(mutate(anchor, anchor+"    continue-on-error: true\n"), "P_VALIDATE_GATE")
 		expect(mutate(anchor, anchor+"    continue-on-error: ${{ github.event_name != 'push' }}\n"), "P_VALIDATE_GATE")
-		expect(mutate(anchor, anchor+"    if: always()\n"), "P_VALIDATE_GATE")
-		expect(mutate(anchor, anchor+"    if: failure() || success()\n"), "P_VALIDATE_GATE")
+		expect(mutate("    if: needs.classify.outputs.packages == 'true'", "    if: always()"), "P_VALIDATE_GATE")
+		expect(mutate("    if: needs.classify.outputs.packages == 'true'", "    if: failure() || success()"), "P_VALIDATE_GATE")
 		expect(mutate("        run: sh scripts/addons/package_test.sh", "        continue-on-error: true\n        run: sh scripts/addons/package_test.sh"), "P_VALIDATE_GATE")
 	})
 	It("rejects a package or promote job that runs after a failed validate", func() {
-		expect(mutate("    if: needs.plan.outputs.has_platforms == 'true'", "    if: always() && needs.plan.outputs.has_platforms == 'true'"), "P_VALIDATE_GATE")
-		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: always() && needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''"), "P_VALIDATE_GATE")
+		expect(mutate("    if: ${{ always() && needs.plan.result == 'success' && needs.validate.result == 'success' && (needs.sandbox-image.result == 'success' || needs.sandbox-image.result == 'skipped') && needs.plan.outputs.has_platforms == 'true' }}", "    if: always() && needs.plan.outputs.has_platforms == 'true'"), "P_VALIDATE_GATE")
+		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.has_platforms == 'true' && needs.plan.outputs.aliases != ''", "    if: always() && needs.plan.outputs.publish == 'true' && needs.plan.outputs.has_platforms == 'true' && needs.plan.outputs.aliases != ''"), "P_VALIDATE_GATE")
+	})
+	It("rejects a package status override without explicit successful dependencies", func() {
+		for _, dependency := range []string{"plan", "validate"} {
+			guard := "needs." + dependency + ".result == 'success' && "
+			expect(mutate(guard, ""), "P_VALIDATE_GATE")
+		}
+		expect(mutate("always() && needs.plan.result", "always() || needs.plan.result"), "P_VALIDATE_GATE")
+		expect(mutate("needs.sandbox-image.result == 'success' || needs.sandbox-image.result == 'skipped'", "needs.sandbox-image.result != 'failure'"), "P_VALIDATE_GATE")
 	})
 	It("keeps validate unprivileged on every event", func() {
 		var doc struct {
@@ -1133,7 +1141,7 @@ var _ = Describe("workflow policy", func() {
 		}
 		Expect(yaml.Unmarshal([]byte(base), &doc)).To(Succeed())
 		v := doc.Jobs["validate"]
-		Expect(v).NotTo(HaveKey("if"))
+		Expect(v["if"]).To(Equal("needs.classify.outputs.packages == 'true'"))
 		Expect(v).NotTo(HaveKey("environment"))
 		Expect(fmt.Sprint(v)).NotTo(ContainSubstring("secrets."))
 		Expect(fmt.Sprint(v)).NotTo(ContainSubstring("id-token"))
@@ -1175,7 +1183,7 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("rejects a workflow that names one add-on by path or skips an add-on in the matrix", func() {
 		expect(mutate("node \"addons/$ADDON/ui/build.mjs\"\n      - name: Fill", "node addons/tables/ui/build.mjs\n      - name: Fill"), "P_ADDON_PATH")
-		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, office, sandbox, web]\n", "        platform: [x]\n"), "P_MATRIX")
+		expect(mutate("        addon: ${{ fromJSON(needs.classify.outputs.validation-json) }}\n", "        platform: [x]\n"), "P_MATRIX")
 	})
 	It("rejects a plan that does not refuse an add-on without an enabled platform", func() {
 		expect(mutate("has no enabled platform; refusing to publish", "has no platform"), "P_FAIL_CLOSED")
@@ -1216,7 +1224,7 @@ var _ = Describe("workflow policy", func() {
 		expect(mutate("      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}", "      matrix:\n        include:\n          - platform: linux/amd64\n            runner: ubuntu-24.04\n            slug: linux-amd64"), "P_MATRIX")
 	})
 	It("rejects a publishing job without an environment or a gate", func() {
-		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''", "    if: needs.plan.outputs.aliases != ''"), "P_TRUSTED_GATE")
+		expect(mutate("    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.has_platforms == 'true' && needs.plan.outputs.aliases != ''", "    if: needs.plan.outputs.aliases != ''"), "P_TRUSTED_GATE")
 	})
 	It("does not trust the backend workflow identity in the documented verification", func() {
 		Expect(strings.Contains(base, "backend_merge")).To(BeFalse())
@@ -1262,14 +1270,7 @@ var _ = Describe("the add-on package workflow", func() {
 		})
 
 		It("lists the add-ons in the validate matrix", func() {
-			// validate lists the add-ons literally. The other jobs take the add-ons
-			// that have an enabled platform from the plan.
-			var got []string
-			items, _ := matrixOf("validate")["addon"].([]any)
-			for _, x := range items {
-				got = append(got, fmt.Sprint(x))
-			}
-			Expect(strings.Join(got, ",")).To(Equal(strings.Join(firstPartyAddons, ",")), "validate matrix lists %v, want %v", got, firstPartyAddons)
+			Expect(fmt.Sprint(matrixOf("validate")["addon"])).To(Equal("${{ fromJSON(needs.classify.outputs.validation-json) }}"))
 		})
 
 		for _, job := range []string{"publish", "promote"} {
@@ -1285,7 +1286,7 @@ var _ = Describe("the add-on package workflow", func() {
 
 		It("loops the plan over the same list", func() {
 			plan := readWorkflow()
-			Expect(plan).To(ContainSubstring("for id in "+strings.Join(firstPartyAddons, " ")+"; do"),
+			Expect(plan).To(ContainSubstring("for id in $SELECTED_ADDONS; do"),
 				"plan does not loop over exactly %v", firstPartyAddons)
 		})
 
@@ -1398,7 +1399,8 @@ var _ = Describe("workflow behavior", func() {
 			cmd.Dir = dir
 			cmd.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
 				"EVENT="+event, "REF="+ref, "SHA="+rev, "DRAFT=false", "PRERELEASE=false",
-				"ADDON_OCI_REPOSITORY="+documentedAddonRepository, "GITHUB_OUTPUT="+output)
+				"ADDON_OCI_REPOSITORY="+documentedAddonRepository, "GITHUB_OUTPUT="+output,
+				"SELECTED_ADDONS="+strings.Join(firstPartyAddons, " "))
 			out, runErr := cmd.CombinedOutput()
 			written, err := os.ReadFile(output)
 			Expect(err).NotTo(HaveOccurred())

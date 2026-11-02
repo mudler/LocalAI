@@ -393,67 +393,104 @@ When changing `image_build.yml`, `backend_build.yml`, any of the `backend/Docker
 
 ## Selective validation (PRs and master)
 
-The heavyweight validation workflows `test.yml`, `build-test.yaml`,
-`tests-ui-e2e.yml`, `tests-e2e.yml`, `tests-e2e-distributed.yml` and
-`addons-tests.yml` use `.github/actions/ci-select`. They start on every PR and
-master push, without workflow-level path filters. Existing job names and matrices
-remain present; only expensive steps are gated. An always-run check in each job
-requires the selector and every selected mandatory step to succeed. A failure,
-cancellation or unexpected skip cannot become a successful omission. Cheap lint,
-UI unit and YAML validation remain broad; YAML validation also runs on master.
+The validation workflows classify once in a five-minute Ubuntu job, then gate
+whole expensive jobs before runner allocation. Classification uses a sparse
+checkout of the selector and Go import metadata, without submodules. The add-on
+host groups and package validation matrices contain only selected entries.
+Cheap lint, UI unit and YAML validation remain broad.
 
-`scripts/lib/ci-select.mjs` is the pure dependency classifier.
-`scripts/ci/select.mjs` is its local-git adapter. The JSON log explains every
-selected domain and package ID:
+Each workflow has an always-run aggregate that requires successful classification
+and successful selected dependencies. Only an explicit false selection permits a
+skip. Failed/cancelled preparation, missing outputs and unexpected skips fail the
+aggregate. The suites do not start after failed fixture preparation.
 
-- PR: diff the merge base of the payload's base SHA and head SHA against that
-  head, not against the synthetic merge commit. The tested tree remains the
-  normal checkout merge commit.
-- Master push: diff the payload's complete `before` and `after` trees. This avoids
-  the truncated commit/file lists in event payloads and compare APIs.
-- Renames are deliberately represented as deletion plus addition, so both
-  dependency domains are selected. Deleted files do not need to exist on disk.
-- Bad/zero SHAs, missing objects, diff errors, empty diffs and unknown inputs run
-  broadly. Malformed event JSON or a selector execution error fails the job.
-- Manual, scheduled, tag and release events bypass selection and run full checks
-  relevant to the workflow. Validation workflows have weekly schedules (the
-  distributed suite retains its nightly schedule) and manual dispatch.
+#### Required-check migration
 
-Selection is intentionally conservative, not a fine-grained test matrix:
+Protected-master settings are not available here; compatibility is **not verified**.
+Do not keep allocating old expensive jobs merely to emit their check names.
+Before enforcing this revision, replace required individual/matrix checks with
+these stable workflow/job pairs (confirm GitHub's displayed contexts in a trial run):
 
-| Input | Selection |
+- `tests` / `validation result`
+- `Build test` / `validation result`
+- `UI E2E Tests` / `validation result`
+- `E2E Backend Tests` / `validation result`
+- `Distributed E2E Tests` / `validation result`
+- `Add-on Tests` / `validation result`
+- `add-on packages` / `check package dependency results`
+
+Retain unrelated required checks. The old Linux/macOS/C++/launcher/browser and
+add-on group checks can now be skipped or absent from a reduced matrix.
+
+`scripts/lib/ci-select.mjs` is the readable dependency map;
+`scripts/ci/select.mjs` adapts local Git trees:
+
+- PR: diff the merge base of payload base/head SHAs against the actual PR head,
+  including forks. Validation still tests the normal merge checkout.
+- Master: diff the complete payload `before` and `after` trees, not truncated
+  event/API file lists. Missing objects, zero SHAs and diff errors run broadly.
+- Renames select both deletion and addition. A deleted file in a known package
+  uses that package's import consumers; a removed/unknown package runs broadly.
+- Malformed event JSON or an execution failure cannot produce a green omission.
+- Manual dispatch, existing schedules, tags and releases run full applicable
+  validation. No weekly schedule is added; the pre-existing distributed nightly
+  schedule remains. Manual Sandbox package dispatch remains validate-only.
+
+| Input | Expensive eligibility |
 |---|---|
-| Site/agent guides and root Markdown only | Omit migrated heavyweight validation; cheap checks remain |
-| `docs/**` | Broad: add-on tests read documentation as test contracts, including `docs/content/features/addons.md` and `tables.md` |
-| Gallery | Full core Go gate, including gallery invariants; add-on catalogs also select all package IDs and host add-on suites |
-| Backend C++/Python implementation | Backend E2E, standalone C++ tests, core Go and release-build validation |
-| Backend Go implementation | Broad: `make test` names backend Go roots and their transitive host imports |
-| Host Go, tests, shared add-on code, unknown inputs | Broad, including all add-on packages and all five host-suite groups |
-| Host UI | Core/embed, UI, host add-on suites, distributed/backend E2E and build validation; all add-on packages because they use the host bundler |
-| One known add-on | Host integration checks and all five add-on test groups; package/build/publish legs only for that add-on |
-| `go.mod`, `go.sum`, Makefile, proto/schema, CI/scripts/build tooling | Broad |
+| Unrelated docs/site/root Markdown | None in migrated workflows |
+| `features/addons.md` | One Linux contracts job, focused on five actual readers; no browser/macos/packages |
+| `features/tables.md` | Contracts: consumer matrix and Tables administration documentation specs |
+| Image-generation guide or model gallery | Contracts: gallery invariants, no full core/browser/macOS |
+| Diagnostics guide, CLI reference, troubleshooting | Contracts: diagnostics documentation specs |
+| Host UI CSS/src | UI coverage, host release build, three host/browser groups; no package legs/backend/distributed |
+| Host package.json/lock or Vite config | Same host work plus all add-on package IDs (shared bundler dependencies) |
+| One add-on Go | Core coverage/Linux+macOS, two host groups, that add-on's package validation/native platforms |
+| One add-on UI | Two host groups and only that add-on's package validation/native platforms |
+| Tables add-on | Also Tables/foundation groups |
+| Python backend | Backend E2E only; C++ changes also select standalone C++ helpers |
+| Core config | Core, host build/UI/backend/distributed/host integration; no independent add-on packages/C++/launchers |
+| Unrelated `pkg/addons/model/proposalflow` | Core and host build only |
+| Shared module/Makefile/proto/tooling or unknown source | Conservative full validation |
 
-Documentation is not uniformly inert: Tables administration and recovery tests
-read the feature guides directly. Other readers include core gallery image
-generation tests, add-on endpoint/consumer/packaging and Sandbox tests,
-`pkg/diagnostics/docs_test.go`, and the website installation/container review
-script. All `docs/**` inputs therefore select broadly,
-including unfamiliar or deleted docs, rather than maintaining an incomplete
-allowlist. Narrower documentation selection requires an explicit dependency
-inventory. Examples also select broadly because they may be executable fixtures.
-Core Go changes still select the backend E2E domain; proving a narrower import
-closure is deferred. UI style-only precision is also deferred rather than guessing
-which bundler dependencies a package observes. `test-extra.yml` and the existing
-backend/image matrix selectors are unchanged; this does not claim new per-backend
-matrix precision. Registry cache safeguards remain unchanged.
+Documentation readers are inventoried in `docContracts` and `contractFocus`:
+`core/gallery/esrgan_entries_test.go`, add-on endpoint `catalogui_test.go`, tools
+`consumer_matrix_test.go`, packaging/Sandbox tools specs, diagnostics docs specs,
+and Tables administration/recovery docs specs. Documentation jobs use non-empty
+Ginkgo focus checks, not entire integration/browser suites. The unused embed
+placeholder only permits compilation; these selected specs test documentation,
+routes and fields, not production bundles. Production/browser checks still use
+real production fixtures. `.github/ci/test-website-review-143.sh` separately reads
+installation/container guides; it is not invoked by these migrated workflows.
+New prose has no implicit heavy consumer; adding a file reader requires updating
+the explicit contract map.
+
+`scripts/ci/dependencies.mjs` indexes local Go imports without a toolchain or
+module downloads. It unions all OS/build-tag files, follows production imports
+transitively, and includes test imports only for tested roots (dependency tests
+are not linked into importing binaries). It separates independent add-on binaries
+from host integration. Same-directory embedded/non-Go inputs inherit package
+consumers; unknown nested asset directories conservatively run broadly. Generated
+protobuf inputs and build tooling select broadly. This is lexical import metadata,
+not a replacement for Go compilation; tests cover tags, root tests, generated
+imports, moved/deleted packages and embeds. No backend matrix redesign is claimed.
+
+`python3 scripts/ci/test-workflow-selection.py --table` evaluates the actual YAML
+job guards and dynamic matrices against checked-in cases, including native package
+platforms. It compares eligible base workflows using their original trigger rules.
+Necessary expansions include documentation readers previously omitted by path
+filters, config consumers compiled into integration binaries, and shared module/
+Makefile consumers omitted by old filters. Unknown sources deliberately expand.
+The table excludes cheap classify/result jobs, unchanged workflows, and master
+publish/promote operations; those retain their event policy and result guards.
 
 ### Add-on packaging events
 
 `addons-package.yml` starts for PRs, master pushes, `v*` tag pushes, published
 releases and manual dispatch. Other branch pushes no longer duplicate PR
 validation. PR/master package matrices use the selected IDs; all catalog and
-packaging rule checks still run once, and the validation check names remain
-present. Tags/releases and manual dispatch select every package ID. The guest
+packaging rule checks still run once when packaging is selected. The aggregate
+remains present even when no package is selected. Tags/releases and manual dispatch select every package ID. The guest
 image dependency runs only when Sandbox is selected; its failure or cancellation
 fails the final package result. The final result also rejects unexpected skips
 of selected package, publish, promotion and release catalog jobs.

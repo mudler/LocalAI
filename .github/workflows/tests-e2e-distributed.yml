@@ -23,7 +23,45 @@ permissions:
   contents: read
 
 jobs:
+  classify:
+    name: classify affected validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.affected.outputs.core }}
+      cpp: ${{ steps.affected.outputs.cpp }}
+      ui: ${{ steps.affected.outputs.ui }}
+      addons: ${{ steps.affected.outputs.addons }}
+      distributed: ${{ steps.affected.outputs.distributed }}
+      backend: ${{ steps.affected.outputs.backend }}
+      build: ${{ steps.affected.outputs.build }}
+      launcher: ${{ steps.affected.outputs.launcher }}
+      packages: ${{ steps.affected.outputs.packages }}
+      contracts: ${{ steps.affected.outputs.contracts }}
+      addons-json: ${{ steps.affected.outputs.addons-json }}
+      addons-list: ${{ steps.affected.outputs.addons-list }}
+      sandbox: ${{ steps.affected.outputs.sandbox }}
+      groups-json: ${{ steps.affected.outputs.groups-json }}
+      contract-tests-json: ${{ steps.affected.outputs.contract-tests-json }}
+      validation-json: ${{ steps.affected.outputs.validation-json }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          # Read only the selector and import metadata, not submodules/assets.
+          sparse-checkout: |
+            scripts/ci
+            scripts/lib
+            **/*.go
+            go.mod
+          sparse-checkout-cone-mode: false
+      - id: affected
+        run: node scripts/ci/select.mjs
+
   fakebus:
+    needs: classify
+    if: needs.classify.outputs.distributed == 'true'
     # No containers: the in-process bus carries the messages between two
     # frontends, a worker and the cluster state, with the race detector on.
     name: multi-frontend over the in-process bus
@@ -35,22 +73,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Select affected validation
-        id: affected
-        uses: ./.github/actions/ci-select
-      - name: Explain omitted work
-        if: steps.affected.outputs.distributed == 'false'
-        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Setup Go
-        id: work4
-        if: steps.affected.outputs.distributed == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
           cache: false
       - name: Proto Dependencies
-        id: work5
-        if: steps.affected.outputs.distributed == 'true'
         run: |
           curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
           sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
@@ -59,31 +87,20 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: System Dependencies
-        id: work6
-        if: steps.affected.outputs.distributed == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libopus-dev
       - name: Stub the React UI for go:embed
-        id: work7
-        if: steps.affected.outputs.distributed == 'true'
         # core/http embeds react-ui/dist. These tests do not serve the UI.
         run: |
           mkdir -p core/http/react-ui/dist
           touch core/http/react-ui/dist/index.html
       - name: Test the multi-frontend paths under the race detector
-        id: work8
-        if: steps.affected.outputs.distributed == 'true'
         run: PATH="$PATH:$HOME/go/bin" make test-distributed-fakebus
-      - name: Require selected work to succeed
-        if: always()
-        env:
-          STEPS: ${{ toJSON(steps) }}
-          DOMAIN: distributed
-          REQUIRED: work4 work5 work6 work7 work8
-        run: node scripts/ci/check-steps.mjs
 
   distributed:
+    needs: classify
+    if: needs.classify.outputs.distributed == 'true'
     name: PostgreSQL and NATS in containers
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -93,22 +110,12 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Select affected validation
-        id: affected
-        uses: ./.github/actions/ci-select
-      - name: Explain omitted work
-        if: steps.affected.outputs.distributed == 'false'
-        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Setup Go
-        id: work4
-        if: steps.affected.outputs.distributed == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: '1.26.x'
           cache: false
       - name: Proto Dependencies
-        id: work5
-        if: steps.affected.outputs.distributed == 'true'
         run: |
           curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
           sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
@@ -116,26 +123,28 @@ jobs:
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
       - name: System Dependencies
-        id: work6
-        if: steps.affected.outputs.distributed == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libopus-dev
       - name: Stub the React UI for go:embed
-        id: work7
-        if: steps.affected.outputs.distributed == 'true'
         run: |
           mkdir -p core/http/react-ui/dist
           touch core/http/react-ui/dist/index.html
       - name: Run the distributed e2e suite
-        id: work8
-        if: steps.affected.outputs.distributed == 'true'
         # protogen-go is a prerequisite of the target.
         run: PATH="$PATH:$HOME/go/bin" make test-e2e-distributed
-      - name: Require selected work to succeed
-        if: always()
-        env:
-          STEPS: ${{ toJSON(steps) }}
-          DOMAIN: distributed
-          REQUIRED: work4 work5 work6 work7 work8
-        run: node scripts/ci/check-steps.mjs
+
+  result:
+    name: validation result
+    if: always()
+    needs: [classify, fakebus, distributed]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+          JOB_DOMAINS: '{"fakebus": "distributed", "distributed": "distributed"}'
+        run: node scripts/ci/job-result.mjs

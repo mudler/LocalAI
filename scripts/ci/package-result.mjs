@@ -4,6 +4,13 @@ import { pathToFileURL } from 'node:url';
 export function checkResults(needs, event, ref, draft) {
   for (const [id, job] of Object.entries(needs)) assert.ok(['success', 'skipped'].includes(job.result), `${id}: ${job.result}`);
   const requireSuccess = id => assert.equal(needs[id]?.result, 'success', `${id} unexpectedly skipped`);
+  requireSuccess('classify');
+  const selected = needs.classify.outputs.packages;
+  assert.ok(['true', 'false'].includes(selected), 'invalid package selection');
+  if (selected === 'false') {
+    for (const [id, job] of Object.entries(needs)) if (id !== 'classify') assert.equal(job.result, 'skipped', `${id} unexpectedly ran`);
+    return;
+  }
   requireSuccess('plan'); requireSuccess('validate');
   const plan = needs.plan.outputs;
   if (plan.sandbox === 'true') requireSuccess('sandbox-image');

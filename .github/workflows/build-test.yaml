@@ -11,8 +11,6 @@ on:
 # back to github.sha (unique per commit) and cancel-in-progress is false, so
 # master runs never cancel each other -- each commit is built on its own.
   workflow_dispatch:
-  schedule:
-    - cron: '43 4 * * 1'
 
 concurrency:
   group: ci-build-test-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
@@ -22,22 +20,52 @@ permissions:
   contents: read
 
 jobs:
+  classify:
+    name: classify affected validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      core: ${{ steps.affected.outputs.core }}
+      cpp: ${{ steps.affected.outputs.cpp }}
+      ui: ${{ steps.affected.outputs.ui }}
+      addons: ${{ steps.affected.outputs.addons }}
+      distributed: ${{ steps.affected.outputs.distributed }}
+      backend: ${{ steps.affected.outputs.backend }}
+      build: ${{ steps.affected.outputs.build }}
+      launcher: ${{ steps.affected.outputs.launcher }}
+      packages: ${{ steps.affected.outputs.packages }}
+      contracts: ${{ steps.affected.outputs.contracts }}
+      addons-json: ${{ steps.affected.outputs.addons-json }}
+      addons-list: ${{ steps.affected.outputs.addons-list }}
+      sandbox: ${{ steps.affected.outputs.sandbox }}
+      groups-json: ${{ steps.affected.outputs.groups-json }}
+      contract-tests-json: ${{ steps.affected.outputs.contract-tests-json }}
+      validation-json: ${{ steps.affected.outputs.validation-json }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          # Read only the selector and import metadata, not submodules/assets.
+          sparse-checkout: |
+            scripts/ci
+            scripts/lib
+            **/*.go
+            go.mod
+          sparse-checkout-cone-mode: false
+      - id: affected
+        run: node scripts/ci/select.mjs
+
   build-test:
+    needs: classify
+    if: needs.classify.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Select affected validation
-        id: affected
-        uses: ./.github/actions/ci-select
-      - name: Explain omitted work
-        if: steps.affected.outputs.build == 'false'
-        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Set up Go
-        id: work4
-        if: steps.affected.outputs.build == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
@@ -48,101 +76,71 @@ jobs:
       # "is the release build broken" signal is unchanged. master and tags still
       # build everything.
       - name: Run GoReleaser
-        id: work5
-        if: steps.affected.outputs.build == 'true'
         run: |
           make ${{ github.event_name == 'pull_request' && 'dev-dist-single' || 'dev-dist' }}
-      - name: Require selected work to succeed
-        if: always()
-        env:
-          STEPS: ${{ toJSON(steps) }}
-          DOMAIN: build
-          REQUIRED: work4 work5
-        run: node scripts/ci/check-steps.mjs
 
   launcher-build-darwin:
+    needs: classify
+    if: needs.classify.outputs.launcher == 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Select affected validation
-        id: affected
-        uses: ./.github/actions/ci-select
-      - name: Explain omitted work
-        if: steps.affected.outputs.build == 'false'
-        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Set up Go
-        id: work4
-        if: steps.affected.outputs.build == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
       - name: Build launcher for macOS ARM64
-        id: work5
-        if: steps.affected.outputs.build == 'true'
         run: |
           make build-launcher-darwin
           ls -liah dist
       - name: Upload macOS launcher artifacts
-        id: work6
-        if: steps.affected.outputs.build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: launcher-macos
           path: dist/
           retention-days: 30
-      - name: Require selected work to succeed
-        if: always()
-        env:
-          STEPS: ${{ toJSON(steps) }}
-          DOMAIN: build
-          REQUIRED: work4 work5 work6
-        run: node scripts/ci/check-steps.mjs
 
   launcher-build-linux:
+    needs: classify
+    if: needs.classify.outputs.launcher == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: Select affected validation
-        id: affected
-        uses: ./.github/actions/ci-select
-      - name: Explain omitted work
-        if: steps.affected.outputs.build == 'false'
-        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Configure apt mirror on runner
-        id: work4
-        if: steps.affected.outputs.build == 'true'
         uses: ./.github/actions/configure-apt-mirror
       - name: Set up Go
-        id: work5
-        if: steps.affected.outputs.build == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
       - name: Build launcher for Linux
-        id: work6
-        if: steps.affected.outputs.build == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
           make build-launcher-linux
       - name: Upload Linux launcher artifacts
-        id: work7
-        if: steps.affected.outputs.build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: launcher-linux
           path: local-ai-launcher-linux.tar.xz
           retention-days: 30
-      - name: Require selected work to succeed
-        if: always()
-        env:
-          STEPS: ${{ toJSON(steps) }}
-          DOMAIN: build
-          REQUIRED: work4 work5 work6 work7
-        run: node scripts/ci/check-steps.mjs
+
+  result:
+    name: validation result
+    if: always()
+    needs: [classify, build-test, launcher-build-darwin, launcher-build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+      - env:
+          RESULTS: ${{ toJSON(needs) }}
+          JOB_DOMAINS: '{"build-test": "build", "launcher-build-darwin": "launcher", "launcher-build-linux": "launcher"}'
+        run: node scripts/ci/job-result.mjs

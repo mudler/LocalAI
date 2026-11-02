@@ -1,51 +1,110 @@
 // SPDX-License-Identifier: MIT
-// Pure dependency classification: every omission must be an explicit safe case.
-export const domains = ['core', 'cpp', 'ui', 'addons', 'distributed', 'backend', 'build', 'packages'];
+// Pure dependency classification. Unknown source/build inputs fail open to full
+// validation; known prose is inert unless named in the documentation contracts.
+export const domains = ['core', 'cpp', 'ui', 'addons', 'distributed', 'backend', 'build', 'launcher', 'packages', 'contracts'];
 export const addonIDs = ['tables', 'voice', 'face', 'fine-tuning', 'quantization', 'studio', 'talk', 'telegram', 'slack', 'office', 'sandbox', 'web'];
-export function classify(paths, fallback = '') {
+export const suiteGroups = [
+  { group: 'contracts and gateway', suites: 'prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps' },
+  { group: 'host pages', suites: 'gallery-ui esm-ui host-slots library-sources updates recovery' },
+  { group: 'foundation', suites: 'foundation-acceptance' },
+  { group: 'tables', suites: 'tables-databases tables-schema tables-rows tables-tools tables-admin' },
+  { group: 'tables pages', suites: 'tables-ui tables-csv tables-acceptance' },
+];
+// These are file readers, not mentions/links. Website installation/container
+// review is a separate script, not a consumer in these validation workflows.
+export const docContracts = {
+  'docs/content/features/addons.md': ['./pkg/addons/packaging', './addons/sandbox/internal/tools', './core/http/endpoints/addons', './tests/addons/tablesadmin', './tests/addons/recovery'],
+  'docs/content/features/tables.md': ['./core/services/addons/tools', './tests/addons/tablesadmin'],
+  'docs/content/features/image-generation.md': ['./core/gallery'],
+  'docs/content/features/diagnostics.md': ['./pkg/diagnostics'],
+  'docs/content/reference/cli-reference.md': ['./pkg/diagnostics'],
+  'docs/content/getting-started/troubleshooting.md': ['./pkg/diagnostics'],
+};
+export const contractFocus = {
+  './tests/addons/tablesadmin': 'lists every route in the instructions registry, the feature registry and the documentation',
+  './tests/addons/recovery': 'documents every route and every emitted field in the Swagger spec, the instructions and the feature registry',
+  './pkg/addons/packaging': 'publishes every add-on to the one documented repository',
+  './addons/sandbox/internal/tools': 'installs and checks in the guest image what the note names',
+  './core/http/endpoints/addons': 'documents the management actions and every emitted field',
+  './core/services/addons/tools': 'keeps the table of the Tables documentation in step with the matrix',
+  './pkg/diagnostics': 'Diagnostics documentation',
+  './core/gallery': '', // Gallery-only changes retain every gallery invariant.
+};
+export function classify(paths, fallback = '', dependencies = {}) {
   const reasons = Object.fromEntries(domains.map(d => [d, []]));
-  const addons = new Set();
+  const addons = new Set(), suites = new Set(), contracts = new Set();
   const select = (ds, why, ids = []) => {
     for (const d of ds) reasons[d].push(why);
     for (const id of ids) addons.add(id);
   };
-  const broad = why => select(domains, why, addonIDs);
+  const groups = (names, why) => {
+    select(['addons'], why);
+    for (const g of suiteGroups.filter(g => names.includes(g.group))) for (const s of g.suites.split(' ')) suites.add(s);
+  };
+  const host = why => groups(suiteGroups.map(g => g.group), why);
+  const broad = why => { select(domains, why, addonIDs); host(why); for (const ps of Object.values(docContracts)) for (const p of ps) contracts.add(p); };
   if (fallback || !paths.length) broad(fallback || 'empty diff: conservative full validation');
   for (const p of paths) {
+    const why = `dependency: ${p}`;
     if (!p || p.startsWith('/') || p.split('/').includes('..')) { broad(`unknown path: ${p}`); continue; }
     if (/^(go\.(mod|sum)|Makefile|CMakeLists.txt)$/.test(p) || /(^|\/)([^/]*\.proto|[^/]*schema[^/]*)$/.test(p) || /^(scripts\/|\.github\/|\.docker\/|Dockerfile|\.goreleaser|vendor\/)/.test(p)) {
       broad(`shared build/tool/schema input: ${p}`);
     } else if (p.startsWith('docs/')) {
-      // Add-on recovery/Tables tests read documentation as executable contracts.
-      // Keep all docs broad until their complete dependency closure is explicit.
-      broad(`documentation contract/test input: ${p}`);
+      for (const pkg of docContracts[p] || []) contracts.add(pkg);
+      if (docContracts[p]) select(['contracts'], `documentation reader: ${p}`);
     } else if (/^(website\/|\.agents\/)/.test(p) || /^[^/]+\.md$/.test(p)) {
-      // YAML validation remains always present in its existing workflow.
+      // Cheap lint/unit/YAML checks stay broad in their existing workflows.
     } else if (p.startsWith('gallery/')) {
-      select(['core'], `gallery Go invariants: ${p}`);
-      if (p.startsWith('gallery/addons/')) select(['packages', 'addons'], `add-on catalog: ${p}`, addonIDs);
+      select(['contracts'], `gallery invariants: ${p}`); contracts.add('./core/gallery');
+      if (p.startsWith('gallery/addons/')) { select(['packages'], why, addonIDs); groups(['contracts and gateway', 'host pages'], why); }
     } else if (p.startsWith('core/http/react-ui/')) {
-      // Go embeds dist; host suites and add-on bundlers consume the host UI.
-      select(['core', 'ui', 'addons', 'distributed', 'backend', 'build', 'packages'], `host UI/embed/bundler input: ${p}`, addonIDs);
-    } else if (/^addons\//.test(p)) {
+      select(['ui', 'build'], why);
+      groups(['host pages', 'foundation', 'tables pages'], why);
+      // Add-on bundlers resolve dependencies here, never host CSS/src files.
+      if (/^core\/http\/react-ui\/(package(-lock)?\.json|vite\.config\.[^/]+)$/.test(p)) select(['packages'], why, addonIDs);
+    } else if (p.startsWith('addons/')) {
       const id = p.split('/')[1];
-      if (!addonIDs.includes(id)) broad(`shared or unknown add-on input: ${p}`);
-      else select(['core', 'ui', 'addons', 'distributed', 'backend', 'packages', 'build'], `add-on ${id}, host integration and package: ${p}`, [id]);
-    } else if (/^(core\/|pkg\/|cmd\/|tests\/)/.test(p)) {
-      // Host binaries in browser/foundation suites can import arbitrary Go packages.
-      broad(`host Go/test dependency (transitive imports): ${p}`);
-    } else if (p.startsWith('backend/go/')) {
-      // make test includes backend Go roots, whose imports may reach host packages.
-      broad(`backend Go test/host dependency: ${p}`);
+      if (!addonIDs.includes(id)) {
+        select(['core', 'packages'], why, addonIDs); host(why);
+      } else {
+        select(['packages'], why, [id]);
+        if (!p.includes('/ui/')) select(['core'], why);
+        groups(['contracts and gateway', 'host pages'], why);
+        if (id === 'tables') groups(['tables', 'tables pages', 'foundation'], why);
+      }
     } else if (/^backend\/(cpp|python)\//.test(p)) {
-      select(['backend', 'cpp', 'core', 'build'], `backend implementation and conservative host validation: ${p}`);
-    } else if (p.startsWith('backend/')) {
-      broad(`shared backend input: ${p}`);
-    } else {
-      broad(`unclassified input: ${p}`);
-    }
+      select(['backend'], why);
+      if (p.startsWith('backend/cpp/')) select(['cpp'], why);
+    } else if (p.startsWith('backend/go/')) {
+      select(['core', 'backend'], why);
+    } else if (/^(core\/|pkg\/|cmd\/|tests\/|api\/|internal\/)/.test(p)) {
+      // All host Go changes retain the unchanged coverage gate. Additional
+      // expensive consumers follow real local imports (including test imports),
+      // indexed by the adapter, rather than treating every pkg as shared.
+      if (p.startsWith('cmd/launcher/')) select(['launcher'], why);
+      else if (p.startsWith('tests/addons/')) {
+        const dir = p.split('/')[2];
+        const group = dir.startsWith('tables') ? 'tables' : dir === 'foundation' ? 'foundation' : dir === 'recovery' ? 'host pages' : '';
+        if (group) groups([group], why);
+        else host(why); // Shared fixtures and unfamiliar suites can serve every group.
+        if (dir === 'actione2e') select(['core'], why);
+      } else {
+        select(['core'], why);
+        if (!p.startsWith('tests/')) select(['build'], why);
+        const consumers = dependencies[p.slice(0, p.lastIndexOf('/'))];
+        if (!consumers) { // Unknown/deleted package: preserve correctness.
+          broad(`unknown host package: ${p}`);
+        } else {
+          select(consumers.filter(d => domains.includes(d)), why);
+          if (consumers.includes('addons')) host(why);
+          select([], why, consumers.filter(d => addonIDs.includes(d)));
+          if (consumers.some(d => addonIDs.includes(d))) select(['packages'], why);
+        }
+      }
+    } else broad(`unclassified input: ${p}`);
   }
-  return { selected: Object.fromEntries(domains.map(d => [d, reasons[d].length > 0])), addons: addonIDs.filter(id => addons.has(id)), reasons };
+  const selectedGroups = suiteGroups.map(g => ({ ...g, suites: g.suites.split(' ').filter(s => suites.has(s)).join(' ') })).filter(g => g.suites);
+  return { selected: Object.fromEntries(domains.map(d => [d, reasons[d].length > 0])), addons: addonIDs.filter(id => addons.has(id)), groups: selectedGroups, contracts: [...contracts].sort(), reasons };
 }
 export function diffSpec(eventName, event, ref) {
   const sha = s => typeof s === 'string' && /^[a-f0-9]{40}$/i.test(s) && !/^0+$/.test(s);

@@ -11,6 +11,9 @@ import tarfile
 import tempfile
 import unittest
 import yaml
+import subprocess
+import re
+import fnmatch
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ['test.yml', 'build-test.yaml', 'tests-ui-e2e.yml', 'tests-e2e.yml',
@@ -20,85 +23,157 @@ def load(name):
     # BaseLoader keeps the GitHub `on` key a string (YAML 1.2 semantics).
     return yaml.load((ROOT / '.github/workflows' / name).read_text(), Loader=yaml.BaseLoader)
 
+ALL_WORKFLOWS = WORKFLOWS + ['addons-package.yml']
+
+def as_list(value):
+    return value if isinstance(value, list) else [value]
+
+def base_workflow(name):
+    return yaml.load(subprocess.check_output(['git', 'show', '16acc8926:.github/workflows/'+name], cwd=ROOT), Loader=yaml.BaseLoader)
+
+def triggered(workflow, paths, event):
+    if event not in workflow['on']: return False
+    rule = workflow['on'][event] or {}
+    if rule.get('paths') and not any(fnmatch.fnmatchcase(p, pat) for p in paths for pat in rule['paths']): return False
+    if rule.get('paths-ignore') and all(any(fnmatch.fnmatchcase(p, pat) for pat in rule['paths-ignore']) for p in paths): return False
+    return True
+
+def selection(paths, event='pull_request'):
+    script = """import { selectEvent } from './scripts/ci/select.mjs';
+const paths = JSON.parse(process.argv[1]), name = process.argv[2];
+const a = 'a'.repeat(40), b = 'b'.repeat(40);
+const event = name === 'push' ? {before:a, after:b} : {pull_request:{base:{sha:a},head:{sha:b,repo:{fork:true}}}};
+const git = args => args[0] === 'diff' ? paths.join('\\0')+'\\0' : args[0] === 'merge-base' ? a : '';
+console.log(JSON.stringify(selectEvent(name, event, name === 'push' ? 'refs/heads/master' : 'refs/pull/1/merge', git)));"""
+    return json.loads(subprocess.check_output(['node', '--input-type=module', '-e', script, json.dumps(paths), event], cwd=ROOT))
+
+def condition(expression, needs):
+    # Evaluate the actual supported job expressions. Refuse unfamiliar syntax
+    # rather than silently modeling a different guard from the YAML.
+    s = expression.replace('${{', '').replace('}}', '').strip()
+    s = s.replace('always()', 'True').replace('&&', ' and ').replace('||', ' or ')
+    s = re.sub(r'needs\.([\w-]+)\.outputs\.([\w-]+)', lambda m: repr(needs[m[1]]['outputs'][m[2]]), s)
+    s = re.sub(r'needs\.([\w-]+)\.result', lambda m: repr(needs[m[1]]['result']), s)
+    if re.search(r'[^a-zA-Z0-9_ \'"()=!-]', s): raise AssertionError('unsupported condition '+s)
+    return eval(s, {'__builtins__': {}}, {})
+
+def eligible_jobs(result):
+    outputs = {k: str(v).lower() for k,v in result['selected'].items()}
+    outputs.update({'groups-json': json.dumps({'include':result['groups']}), 'validation-json': json.dumps(result['addons'] or ['rules'])})
+    rows = []
+    for addon in result['addons']:
+        cfg = yaml.load((ROOT/'addons'/addon/'package/platforms.yaml').read_text(), Loader=yaml.BaseLoader)
+        rows.extend(dict(row, addon=addon) for row in cfg['platforms'] if row['enabled'] == 'true')
+    outputs.update({'sandbox': str('sandbox' in result['addons']).lower()})
+    needs = {'classify': {'result':'success', 'outputs':outputs}, 'prepare': {'result':'success'}, 'plan': {'result':'success', 'outputs':{'sandbox': outputs['sandbox'], 'has_platforms': str(bool(rows)).lower(), 'matrix': json.dumps({'include':rows})}}, 'validate': {'result':'success'}, 'sandbox-image': {'result':'success' if outputs['sandbox'] == 'true' else 'skipped'}}
+    actual = []
+    for name in ALL_WORKFLOWS:
+        for id, job in load(name)['jobs'].items():
+            if id in ['classify', 'result']: continue
+            if name == 'addons-package.yml' and id not in ['plan', 'validate', 'sandbox-image', 'package']: continue
+            if not condition(job['if'], needs): continue
+            matrix = job.get('strategy', {}).get('matrix')
+            legs = [None]
+            if isinstance(matrix, str):
+                match = re.fullmatch(r'\$\{\{ fromJSON\(needs.(classify|plan).outputs.([\w-]+)\) \}\}', matrix)
+                if not match: raise AssertionError(matrix)
+                legs = [g.get('group') or g['addon']+'@'+g['platform'] for g in json.loads(needs[match[1]]['outputs'][match[2]])['include']]
+            elif matrix and 'addon' in matrix:
+                self_expression = matrix['addon']
+                assert self_expression == '${{ fromJSON(needs.classify.outputs.validation-json) }}'
+                legs = json.loads(outputs['validation-json'])
+            for leg in legs: actual.append(name+':'+id+('['+leg+']' if leg else ''))
+    return actual
+
 class Wiring(unittest.TestCase):
     def test_all_yaml_parses(self):
         for path in (ROOT / '.github').rglob('*.y*ml'):
             if path.suffix in ('.yml', '.yaml'):
                 yaml.load(path.read_text(), Loader=yaml.BaseLoader)
 
-    def test_stable_names_routes_and_mandatory_steps(self):
+    def test_preallocation_and_fail_closed_results(self):
         for name in WORKFLOWS:
-            workflow = load(name)
-            self.assertIn('workflow_dispatch', workflow['on'], name)
-            self.assertIn('schedule', workflow['on'], name)
-            for event in ('pull_request', 'push'):
-                trigger = workflow['on'][event] or {}
-                self.assertNotIn('paths', trigger, name)
-                self.assertNotIn('paths-ignore', trigger, name)
-            old = json.loads((ROOT / 'scripts/ci/validation-checks.json').read_text())[name]
-            for job_id, oldjob in old.items():
-                job = workflow['jobs'][job_id]
-                self.assertEqual(job.get('name'), oldjob.get('name'), name + job_id)
-                self.assertIn(job.get('if', ''), ('', 'always()'))
-                if 'strategy' in oldjob:
-                    self.assertEqual(job['strategy'], oldjob['strategy'])
-            for job in workflow['jobs'].values():
-                steps = job.get('steps', [])
-                selector = next(s for s in steps if s.get('id') == 'affected')
-                self.assertEqual(selector['uses'], './.github/actions/ci-select')
-                checkout = next(s for s in steps if 'actions/checkout@' in s.get('uses', ''))
-                self.assertEqual(checkout['with']['fetch-depth'], '0')
-                gate = steps[-1]
-                self.assertEqual(gate['run'], 'node scripts/ci/check-steps.mjs')
-                self.assertEqual(gate['if'], 'always()')
-                required = set(gate['env']['REQUIRED'].split())
-                actual = {s['id'] for s in steps if "== 'true'" in s.get('if', '') and 'steps.affected.outputs.' in s.get('if', '') and s.get('id')}
-                self.assertEqual(required, actual, name)
-                self.assertTrue(required)
+            workflow = load(name); jobs = workflow['jobs']
+            self.assertIn('workflow_dispatch', workflow['on'])
+            old = base_workflow(name)
+            self.assertEqual(workflow['on'].get('schedule'), old['on'].get('schedule'))
+            self.assertEqual(jobs['classify']['runs-on'], 'ubuntu-latest')
+            self.assertEqual(len(jobs['classify']['steps']), 2)
+            self.assertEqual(jobs['classify']['steps'][0]['with']['persist-credentials'], 'false')
+            self.assertEqual(jobs['result']['if'], 'always()')
+            self.assertEqual(set(jobs['result']['needs']), set(jobs) - {'result'})
+            mapping = json.loads(jobs['result']['steps'][-1]['env']['JOB_DOMAINS'])
+            self.assertEqual(set(mapping), set(jobs)-{'result', 'classify'})
+            for id, domain in mapping.items():
+                job = jobs[id]
+                self.assertIn('classify', as_list(job['needs']))
+                self.assertIn(f"needs.classify.outputs.{domain} == 'true'", job['if'])
+                self.assertNotIn('steps.affected', str(job['steps']))
+                self.assertNotIn('check-steps.mjs', str(job))
+                self.assertNotIn('continue-on-error', job)
+            if name == 'addons-tests.yml':
+                self.assertEqual(jobs['suites']['strategy']['matrix'], '${{ fromJSON(needs.classify.outputs.groups-json) }}')
+                self.assertIn("needs.prepare.result == 'success'", jobs['suites']['if'])
 
     def test_publish_locks_and_manual_guest_safety(self):
-        package = load('addons-package.yml')
-        self.assertEqual(package['on']['push']['branches'], ['master'])
-        self.assertEqual(package['on']['push']['tags'], ['v*'])
-        self.assertIn('workflow_dispatch', package['on'])
-        self.assertEqual(package['concurrency']['cancel-in-progress'], "${{ github.event_name == 'pull_request' }}")
-        self.assertIn('github.run_id', package['concurrency']['group'])
-        self.assertNotIn('schedule', package['on'])
-        jobs = package['jobs']
+        workflow = load('addons-package.yml'); jobs = workflow['jobs']
+        self.assertEqual(workflow['on']['push']['branches'], ['master'])
+        self.assertNotIn('schedule', workflow['on'])
+        self.assertEqual(workflow['concurrency']['cancel-in-progress'], "${{ github.event_name == 'pull_request' }}")
         for id in ['publish', 'promote']:
             self.assertEqual(jobs[id]['concurrency']['cancel-in-progress'], 'false')
-        guest = jobs['sandbox-image']
-        self.assertEqual(guest['with']['validate-only'], "${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}")
-        push = load('sandbox-images.yml')['jobs']['build']['env']['PUSH']
-        self.assertIn('!inputs.validate-only', push)
+        self.assertEqual(jobs['sandbox-image']['with']['validate-only'], "${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}")
+        self.assertIn('!inputs.validate-only', load('sandbox-images.yml')['jobs']['build']['env']['PUSH'])
         plan = next(s for s in jobs['plan']['steps'] if s.get('id') == 'plan')
         self.assertEqual(plan['env']['EVENT'], "${{ github.event_name == 'workflow_dispatch' && 'pull_request' || github.event_name }}")
         self.assertIn('for id in $SELECTED_ADDONS;', plan['run'])
-        self.assertIn('always()', jobs['package']['if'])
-        self.assertEqual(jobs['result']['if'], 'always()')
-        self.assertEqual(set(jobs['result']['needs']), set(jobs) - {'result'})
-        validate = jobs['validate']['steps']
-        for needle in ['Run the packaging checks', 'Check that the committed catalog is the generated one']:
-            step = next(s for s in validate if s.get('name') == needle)
-            self.assertEqual(step['if'], "matrix.addon == 'tables'")
+        self.assertEqual(set(jobs['result']['needs']), set(jobs)-{'result'})
+        for id in ['validate', 'plan']:
+            self.assertEqual(jobs[id]['needs'], 'classify')
+            self.assertEqual(jobs[id]['if'], "needs.classify.outputs.packages == 'true'")
+        self.assertEqual(jobs['validate']['strategy']['matrix']['addon'], '${{ fromJSON(needs.classify.outputs.validation-json) }}')
+        for step in jobs['validate']['steps']:
+            if step.get('name') in ['Run the packaging checks', 'Check that the committed catalog is the generated one']:
+                self.assertEqual(step['if'], 'strategy.job-index == 0')
+        # PR-executable code has no registry credentials; the guest reusable
+        # workflow explicitly blocks login/write on its validate-only path.
+        for id in ['classify', 'plan', 'validate', 'package']:
+            self.assertNotIn('secrets.', str(jobs[id]))
+        self.assertNotIn('pull_request_target', workflow['on'])
+
+    def test_documentation_contract_job_does_not_run_browser_suites(self):
+        case = selection(['docs/content/features/addons.md'])
+        self.assertEqual(eligible_jobs(case), ['test.yml:contracts'])
+        self.assertEqual(len(case['contracts']), 5)
+        job = load('test.yml')['jobs']['contracts']
+        self.assertNotIn('make react-ui', str(job))
+        self.assertNotIn('playwright', str(job))
+        runner = (ROOT/'scripts/ci/run-contracts.mjs').read_text()
+        self.assertIn('-ginkgo.fail-on-empty', runner)
+        self.assertIn('assert.equal(test.focus', runner)
 
     def test_shared_fixture_wiring(self):
-        jobs = load('addons-tests.yml')['jobs']
-        producer, consumer = jobs['prepare'], jobs['suites']
+        jobs = load('addons-tests.yml')['jobs']; producer, consumer = jobs['prepare'], jobs['suites']
         self.assertEqual(producer['runs-on'], consumer['runs-on'])
-        self.assertEqual(consumer['needs'], 'prepare')
-        self.assertEqual(consumer['if'], 'always()')
+        self.assertIn('prepare', consumer['needs'])
         self.assertIn('PREPARE_RESULT', consumer['steps'][0]['run'])
-        ptext = str(producer)
-        ctext = str(consumer)
-        self.assertNotIn('install-deps', ptext)
-        self.assertIn('--prepare-build', ptext)
-        self.assertNotIn('--prepare-build', ctext)
-        self.assertIn('fixtures.py pack', ptext)
-        self.assertIn('fixtures.py unpack', ctext)
-        self.assertNotIn('--integration', ctext)
-        self.assertIn('--check', ctext)
-        self.assertIn('retention-days', ptext)
+        self.assertNotIn('install-deps', str(producer))
+        self.assertIn('--prepare-build', str(producer))
+        self.assertIn('fixtures.py pack', str(producer))
+        self.assertIn('fixtures.py unpack', str(consumer))
+        self.assertNotIn('--integration', str(consumer))
+        self.assertIn('--check', str(consumer))
+
+    def test_expensive_job_eligibility(self):
+        fixtures = json.loads((ROOT/'scripts/ci/eligibility-cases.json').read_text())
+        for case in fixtures:
+            result = selection(case['paths'], case.get('event', 'pull_request'))
+            actual = eligible_jobs(result)
+            self.assertEqual(actual, case['jobs'], case['name'])
+            # Read the original workflow trigger rules, not a hand-maintained
+            # list of which workflows used to start for each fixture.
+            old = [n for n in ALL_WORKFLOWS if triggered(base_workflow(n), case['paths'], case.get('event', 'pull_request'))]
+            self.assertEqual(old, case['base_workflows'], case['name'])
 
 spec = importlib.util.spec_from_file_location('fixtures', ROOT / 'scripts/ci/fixtures.py')
 fixtures = importlib.util.module_from_spec(spec)
@@ -149,4 +224,8 @@ class Fixtures(unittest.TestCase):
                 fixtures.transfer('unpack', root, root/'bad.tgz', 'abc')
 
 if __name__ == '__main__':
+    if '--table' in sys.argv:
+        for case in json.loads((ROOT/'scripts/ci/eligibility-cases.json').read_text()):
+            print(case['name'], '|', ', '.join(case['base_workflows']), '|', ', '.join(eligible_jobs(selection(case['paths'], case.get('event', 'pull_request')))))
+        sys.argv.remove('--table')
     unittest.main()

@@ -4,35 +4,30 @@ import assert from 'node:assert/strict';
 import { classify, domains, addonIDs, diffSpec } from './ci-select.mjs';
 import { selectEvent } from '../ci/select.mjs';
 const all = r => assert.ok(domains.every(d => r.selected[d]));
-test('known path fixtures explain selections', () => {
+test('targeted domains do not select unrelated work', () => {
   for (const [path, yes, no] of [
-    ['README.md', [], domains], ['website/content/guide.md', [], domains],
-    ['gallery/foo.yaml', ['core'], ['ui', 'packages']],
-    ['gallery/addons/index.yaml', ['core', 'addons', 'packages'], ['build']],
-    ['backend/python/foo/run.py', ['backend', 'cpp', 'core', 'build'], ['ui', 'packages']],
-    ['core/http/react-ui/src/main.jsx', ['core', 'ui', 'addons', 'build', 'packages'], []],
-    ['addons/voice/main.go', ['core', 'ui', 'addons', 'packages'], []],
+    ['README.md', [], domains], ['docs/guide.md', [], domains],
+    ['gallery/foo.yaml', ['contracts'], ['core', 'ui', 'packages']],
+    ['backend/python/foo/run.py', ['backend'], ['cpp', 'core', 'build', 'ui', 'packages']],
+    ['core/http/react-ui/src/main.css', ['ui', 'addons', 'build'], ['core', 'backend', 'distributed', 'packages']],
+    ['addons/voice/main.go', ['core', 'addons', 'packages'], ['ui', 'backend', 'build']],
+    ['addons/voice/ui/main.jsx', ['addons', 'packages'], ['core', 'ui', 'backend', 'build']],
   ]) {
     const r = classify([path]);
-    for (const d of yes) { assert.equal(r.selected[d], true, path + d); assert.ok(r.reasons[d].some(x => x.includes(path))); }
+    for (const d of yes) assert.equal(r.selected[d], true, path + d);
     for (const d of no) assert.equal(r.selected[d], false, path + d);
   }
-});
-test('arbitrary shared Go imports and build changes run broadly', () => {
-  for (const p of ['pkg/foo/x.go', 'core/services/chats/foo.go', 'go.mod', 'go.sum', 'Makefile', 'backend/backend.proto', 'new-input', 'scripts/build/x.sh', 'addons/internal/x.go', '.github/workflows/test.yml', 'schema.json', 'examples/fixture.go', 'backend/go/cloud-proxy/main.go']) all(classify([p]));
-});
-test('per-addon legs, deleted addon and cross-domain rename union', () => {
   assert.deepEqual(classify(['addons/voice/deleted.go']).addons, ['voice']);
   assert.deepEqual(classify(['addons/voice/old', 'addons/face/new']).addons, ['voice', 'face']);
   assert.deepEqual(classify(['core/http/react-ui/package-lock.json']).addons, addonIDs);
-  all(classify(['docs/new.md', 'pkg/old.go']));
+  for (const p of ['go.mod', 'go.sum', 'Makefile', 'backend/backend.proto', 'new-input', 'scripts/build/x.sh', '.github/workflows/test.yml', 'schema.json']) all(classify([p]));
 });
 const base = 'a'.repeat(40), head = 'b'.repeat(40);
 test('PR uses real head/base merge-base; master uses before/after', () => {
   const calls = [];
   const git = args => { calls.push(args); return args[0] === 'merge-base' ? 'c'.repeat(40) : args[0] === 'diff' ? 'gallery/model.yaml\0' : ''; };
   const r = selectEvent('pull_request', { pull_request: { base: { sha: base }, head: { sha: head } } }, 'refs/pull/1/merge', git);
-  assert.equal(r.selected.core, true);
+  assert.equal(r.selected.contracts, true);
   assert.deepEqual(calls[2], ['merge-base', base, head]);
   assert.ok(calls[3].includes('--no-renames'));
   calls.length = 0;
@@ -79,12 +74,52 @@ test('malformed event JSON is a hard CLI failure, never a green omission', async
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('documentation is a test contract, including deleted and unfamiliar docs', () => {
-  for (const path of ['docs/content/features/addons.md', 'docs/content/features/tables.md', 'docs/content/features/image-generation.md', 'docs/content/getting-started/install.md', 'docs/content/getting-started/containers.md', 'docs/guide.md', 'docs/deleted-contract.md']) {
-    const result = classify([path]);
-    all(result);
-    assert.deepEqual(result.addons, addonIDs);
-    for (const d of domains) assert.ok(result.reasons[d].includes(`documentation contract/test input: ${path}`));
-  }
-  all(classify(['website/content/guide.md', 'docs/content/features/addons.md']));
+test('documentation readers are explicit and select only their suites', () => {
+  const addons = classify(['docs/content/features/addons.md']);
+  assert.deepEqual(addons.groups, []);
+  assert.ok(addons.contracts.includes('./tests/addons/recovery'));
+  assert.ok(addons.contracts.includes('./tests/addons/tablesadmin'));
+  assert.deepEqual(addons.addons, []);
+  assert.equal(addons.selected.core, false);
+  assert.ok(addons.contracts.includes('./core/http/endpoints/addons'));
+  assert.ok(classify(['docs/content/features/tables.md']).contracts.includes('./tests/addons/tablesadmin'));
+  assert.deepEqual(classify(['docs/content/features/diagnostics.md']).contracts, ['./pkg/diagnostics']);
+  for (const p of ['docs/new.md', 'docs/deleted.md', 'docs/content/getting-started/install.md']) assert.ok(domains.every(d => !classify([p]).selected[d]));
+});
+test('real imports distinguish host compilation from independent package builds', async () => {
+  const { dependencyIndex } = await import('../ci/dependencies.mjs');
+  const deps = dependencyIndex();
+  assert.deepEqual(deps['core/config'].filter(x => addonIDs.includes(x)), []);
+  const config = classify(['core/config/config.go'], '', deps);
+  assert.equal(config.selected.packages, false);
+  assert.equal(config.selected.cpp, false);
+  assert.equal(config.selected.launcher, false);
+  const isolated = classify(['pkg/addons/model/proposalflow/flow.go'], '', deps);
+  assert.deepEqual(domains.filter(d => isolated.selected[d]), ['core', 'build']);
+});
+test('dependency index includes root tests, all build tags, and generated imports', async () => {
+  const { dependencyIndex } = await import('../ci/dependencies.mjs');
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = mkdtempSync(join(tmpdir(), 'ci-imports-'));
+  function file(path, text) { mkdirSync(join(root, path, '..'), { recursive: true }); writeFileSync(join(root, path), text); }
+  try {
+    file('go.mod', 'module example.test/localai\n');
+    file('tests/e2e-ui/main.go', 'package main\nimport "example.test/localai/pkg/shared"\n');
+    file('tests/e2e-ui/main_test.go', 'package main\nimport "example.test/localai/pkg/testonly"\n');
+    file('pkg/shared/posix.go', '//go:build linux\npackage shared\nimport "example.test/localai/pkg/tagged"\n');
+    file('pkg/shared/windows.go', '//go:build windows\npackage shared\nimport "example.test/localai/pkg/windows"\n');
+    file('pkg/shared/shared_test.go', 'package shared\nimport "example.test/localai/pkg/nottransitive"\n');
+    file('addons/voice/main.go', 'package main\nimport "example.test/localai/pkg/shared"\n');
+    for (const p of ['shared', 'testonly', 'tagged', 'windows', 'nottransitive', 'grpc/proto']) file(`pkg/${p}/p.go`, `package p\n`);
+    file('pkg/tagged/p.go', 'package tagged\nimport "example.test/localai/pkg/grpc/proto"\n');
+    const d = dependencyIndex(root);
+    for (const p of ['shared', 'testonly', 'tagged', 'windows', 'grpc/proto']) assert.ok(d[`pkg/${p}`].includes('ui'), p);
+    assert.ok(!d['pkg/nottransitive'].includes('ui'), 'dependency tests are not compiled into consumers');
+    assert.ok(!d['pkg/testonly'].includes('voice'), 'host test imports are not package build inputs');
+    assert.equal(classify(['pkg/shared/deleted.go'], '', d).selected.ui, true);
+    assert.equal(classify(['pkg/shared/embed.html'], '', d).selected.ui, true);
+    all(classify(['pkg/entirely-removed/deleted.go'], '', d));
+  } finally { rmSync(root, { recursive:true, force:true }); }
 });
