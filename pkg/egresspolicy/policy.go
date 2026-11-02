@@ -87,8 +87,8 @@ func ParseEgressHosts(s string) ([]string, error) {
 	return out, nil
 }
 
-// EgressAllowedHost is one entry of chats_egress_allowed_hosts: an exact host
-// name and, when the entry pins one, the only port it is allowed on. Port 0
+// EgressAllowedHost is an exact host, descendant pattern (*.example.com), or
+// public-any pattern (*), with an optional pinned port. Port 0
 // means the ports setting decides.
 type EgressAllowedHost struct {
 	Host string
@@ -132,8 +132,8 @@ func splitAllowedHost(f string) (host string, port int, err error) {
 }
 
 // ParseEgressAllowedHosts reads chats_egress_allowed_hosts: a comma list of
-// exact host names, each with an optional ":port" that pins the port, at most
-// 64. A name is checked with the rules of the guard (no pattern, no scheme or
+// exact hosts or whole-label wildcard patterns, with optional pinned ports,
+// at most 64. A name is checked with the rules of the guard (no scheme or
 // path, no numeric tricks), lower-cased, stripped of a trailing dot and
 // converted to punycode. An IP literal outside the public internet is refused
 // unless allowPrivate (the private switch) is on; even then the list does not
@@ -152,15 +152,28 @@ func ParseEgressAllowedHosts(s string, allowPrivate bool) ([]EgressAllowedHost, 
 		if f == "" {
 			continue
 		}
-		if strings.Contains(f, "*") {
-			return nil, fmt.Errorf("%q: write an exact host name, not a pattern", f)
-		}
 		if strings.Contains(f, "://") || strings.ContainsAny(f, "/?#@") {
 			return nil, fmt.Errorf("%q: write the host name only, without a scheme or path", f)
 		}
 		host, port, err := splitAllowedHost(f)
 		if err != nil {
 			return nil, fmt.Errorf("%q: %w", f, err)
+		}
+		prefix := ""
+		if host == "*" {
+			e := EgressAllowedHost{Host: "*", Port: port}
+			if !seen[e] {
+				seen[e] = true
+				out = append(out, e)
+			}
+			continue
+		}
+		if strings.HasPrefix(host, "*.") {
+			prefix = "*."
+			host = strings.TrimPrefix(host, prefix)
+		}
+		if strings.Contains(host, "*") {
+			return nil, fmt.Errorf("%q: only * or *.domain patterns are allowed", f)
 		}
 		host = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(host)), ".")
 		if ascii, err := idna.Lookup.ToASCII(host); err == nil {
@@ -175,7 +188,12 @@ func ParseEgressAllowedHosts(s string, allowPrivate bool) ([]EgressAllowedHost, 
 		if a, err := netip.ParseAddr(h); err == nil && !allowPrivate && !safehttp.Allowed(a, false) {
 			return nil, fmt.Errorf("%q is a private address: turn on the private network switch first", f)
 		}
-		e := EgressAllowedHost{Host: h, Port: port}
+		if prefix != "" {
+			if _, err := netip.ParseAddr(h); err == nil || !dnsLabels(h) {
+				return nil, fmt.Errorf("%q: a descendant pattern requires a DNS name", f)
+			}
+		}
+		e := EgressAllowedHost{Host: prefix + h, Port: port}
 		if !seen[e] {
 			seen[e] = true
 			out = append(out, e)
@@ -185,6 +203,49 @@ func ParseEgressAllowedHosts(s string, allowPrivate bool) ([]EgressAllowedHost, 
 		return nil, fmt.Errorf("at most %d hosts", MaxEgressAllowedHosts)
 	}
 	return out, nil
+}
+
+// Pattern distinguishes wildcard grants from the legacy exact-host exception.
+func (h EgressAllowedHost) Pattern() bool { return strings.Contains(h.Host, "*") }
+
+// Matches compares canonical names at label boundaries. Public-address checks
+// belong to the caller, after resolution; a textual match never permits a dial.
+func (h EgressAllowedHost) Matches(host string, port int) bool {
+	if h.Port != 0 && h.Port != port {
+		return false
+	}
+	g := safehttp.NewGuard(safehttp.GuardPolicy{AllowPrivate: true}, nil)
+	name, err := g.CheckHost(host, 443)
+	if err != nil {
+		return false
+	}
+	if !h.Pattern() {
+		return h.Host == name
+	}
+	if a, err := netip.ParseAddr(name); err == nil {
+		return h.Host == "*" && safehttp.Allowed(a, false)
+	}
+	if !dnsLabels(name) || name == "localhost" || strings.HasSuffix(name, ".localhost") {
+		return false
+	}
+	if h.Host == "*" {
+		return true
+	}
+	return strings.HasPrefix(h.Host, "*.") && strings.HasSuffix(name, h.Host[1:])
+}
+
+func dnsLabels(host string) bool {
+	for _, label := range strings.Split(host, ".") {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, c := range label {
+			if !(c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '-') {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func isASCII(s string) bool {

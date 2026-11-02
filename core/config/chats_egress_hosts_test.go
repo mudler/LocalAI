@@ -25,6 +25,10 @@ var _ = Describe("ParseEgressAllowedHosts", func() {
 		Expect(entries("", false)).To(BeEmpty())
 	})
 
+	It("accepts canonical whole-label patterns through the shared parser", func() {
+		Expect(entries("*.EXAMPLE.COM.,*:8443,*.bücher.example", false)).To(Equal([]string{"*.example.com", "*:8443", "*.xn--bcher-kva.example"}))
+	})
+
 	It("writes an international name in punycode", func() {
 		Expect(entries("bücher.example", false)).To(Equal([]string{"xn--bcher-kva.example"}))
 		Expect(entries("XN--BCHER-KVA.example:8443", false)).To(Equal([]string{"xn--bcher-kva.example:8443"}))
@@ -34,9 +38,9 @@ var _ = Describe("ParseEgressAllowedHosts", func() {
 		Expect(entries("a.example:80,a.example:443,a.example", false)).To(Equal([]string{"a.example:80", "a.example:443", "a.example"}))
 	})
 
-	It("refuses what is not an exact host name", func() {
+	It("refuses malformed hosts and partial-label patterns", func() {
 		for _, bad := range []string{
-			"*.example.com", "https://example.com", "example.com/path", "user@example.com", "example.com?x=1",
+			"foo*.example.com", "https://example.com", "example.com/path", "user@example.com", "example.com?x=1",
 			"0x7f.1", "2130706433", "example.com:0", "example.com:70000", "example.com:ssh",
 			"example.com:22", "example.com:25", "bad host.example",
 		} {

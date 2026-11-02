@@ -35,19 +35,11 @@ func ParseEgressHosts(s string) ([]string, error) {
 	return egresspolicy.ParseEgressHosts(s)
 }
 
-// EgressAllowedHost is one entry of chats_egress_allowed_hosts: an exact host
-// name and, when the entry pins one, the only port it is allowed on. Port 0
-// means the ports setting decides.
+// EgressAllowedHost is a canonical exact host or whole-label wildcard with an optional port.
 type EgressAllowedHost = egresspolicy.EgressAllowedHost
 
-// ParseEgressAllowedHosts reads chats_egress_allowed_hosts: a comma list of
-// exact host names, each with an optional ":port" that pins the port, at most
-// 64. A name is checked with the rules of the guard (no pattern, no scheme or
-// path, no numeric tricks), lower-cased, stripped of a trailing dot and
-// converted to punycode. An IP literal outside the public internet is refused
-// unless allowPrivate (the private switch) is on; even then the list does not
-// reach it, since a private address always needs an administrator's rule or
-// card answer. The entries come back canonical, without duplicates.
+// ParseEgressAllowedHosts parses bounded exact hosts and whole-label wildcards.
+// Wildcards never grant private access, even with allowPrivate enabled.
 func ParseEgressAllowedHosts(s string, allowPrivate bool) ([]EgressAllowedHost, error) {
 	return egresspolicy.ParseEgressAllowedHosts(s, allowPrivate)
 }
