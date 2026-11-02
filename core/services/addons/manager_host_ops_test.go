@@ -15,6 +15,12 @@ var _ = Describe("Manager host grants snapshot", func() {
 		grants["b"] = []string{"workspace."}
 		Expect(m.hostOps).To(Equal(map[string][]string{"a": {"workspace."}}))
 		m.SetHostOps(map[string][]string{})
+		Expect(m.hostOps).To(Equal(map[string][]string{"a": {"workspace."}}))
+	})
+	It("keeps an explicitly empty startup policy immutable", func() {
+		m := &Manager{}
+		m.SetHostOps(map[string][]string{})
+		m.SetHostOps(map[string][]string{"a": {"workspace."}})
 		Expect(m.hostOps).To(BeEmpty())
 	})
 })

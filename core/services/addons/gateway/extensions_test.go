@@ -30,7 +30,7 @@ var _ = Describe("typed installed Apps carrier", func() {
 		manifest.Capabilities = caps
 		raw, e := json.Marshal(manifest)
 		Expect(e).NotTo(HaveOccurred())
-		m := ownerManagerPackage(admin, true, string(raw), map[string]string{"icon.png": "\x89PNG\r\n\x1a\n" + strings.Repeat("x", 100)}, 2)
+		m := ownerManagerPackage(admin, true, string(raw), map[string]string{"icon.png": "\x89PNG\r\n\x1a\n" + strings.Repeat("x", 100)}, 2, map[string][]string{"sample": {"workspace."}})
 		status, e := m.Status(ctx, "sample")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(status.Generations[0].Receipt.Manifest.Capabilities).To(Equal(caps))
@@ -101,7 +101,11 @@ var _ = Describe("typed installed Apps carrier", func() {
 				Expect(e).NotTo(HaveOccurred())
 				Expect(string(b)).NotTo(ContainSubstring("directory"))
 				Expect(string(b)).NotTo(ContainSubstring("executionProvider"))
-				Expect(string(b)).NotTo(ContainSubstring("hostOperations"))
+				if a != admin {
+					Expect(string(b)).NotTo(ContainSubstring("hostOperations"))
+				} else {
+					Expect(app.Admin.HostOperations.MissingOptional).To(Equal([]string{"egress.check"}))
+				}
 			}
 		}
 		_, e = m.Submit(ctx, admin, addons.LifecycleCommand{OperationID: "typed-disable", AddonID: "sample", Action: "disable"})

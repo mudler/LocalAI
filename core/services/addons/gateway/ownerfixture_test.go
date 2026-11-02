@@ -30,7 +30,7 @@ func ownerManager(actor contract.Actor, install bool) *addons.Manager {
 	return ownerManagerPackage(actor, install, uiManifest, nil, 1)
 }
 
-func ownerManagerPackage(actor contract.Actor, install bool, manifest string, files map[string]string, sdk uint64) *addons.Manager {
+func ownerManagerPackage(actor contract.Actor, install bool, manifest string, files map[string]string, sdk uint64, grants ...map[string][]string) *addons.Manager {
 	root := GinkgoT().TempDir()
 	ctx := context.Background()
 	admin := func(_ context.Context, a contract.Actor) error {
@@ -84,6 +84,9 @@ func ownerManagerPackage(actor contract.Actor, install bool, manifest string, fi
 	m, e := addons.NewManager(ctx, cfg, c, i, admin)
 	Expect(e).NotTo(HaveOccurred())
 	DeferCleanup(func() { Expect(m.Close()).To(Succeed()) })
+	if len(grants) != 0 {
+		m.SetHostOps(grants[0])
+	}
 	if install {
 		_, e = m.Submit(ctx, actor, addons.LifecycleCommand{AddonID: "sample", OperationID: "install", Action: "install", SourceID: "test", Version: "1.2.3"})
 		Expect(e).NotTo(HaveOccurred())

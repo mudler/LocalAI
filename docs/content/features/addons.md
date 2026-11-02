@@ -1786,6 +1786,50 @@ person to confirm.
 
 ## Host operations
 
+### Required and optional operation admission
+
+A verified manifest can request exact operation names with
+`capabilities.hostOperations.required` and `.optional`. These are requests,
+**not grants**. The owner compares them with the host operation vocabulary
+and the immutable host policy selected at startup. Legacy manifests without
+requests retain their configured behavior.
+
+Coverage uses the broker's literal, nonempty prefix rule. For example,
+`workspace.` covers the requested name `workspace.materialize`;
+`workspace.materialize.narrow.` does not. Registry membership is an exact-name
+check: a grant cannot make `workspace.future` a supported operation. Requests
+are exact names, not prefixes, patterns, or authority for selecting providers.
+
+The owner verifies and stages a new install or upgrade before admission.
+Missing required requests refuse publication, before installed records,
+migrations, runtime withdrawal, or process creation. A refused upgrade retains
+the old receipt, digest, generation, and running incarnation; it needs no
+rollback. Automatic upgrades suppress further attempts for the same failed
+candidate until a different candidate appears or the owner restarts. They never
+acquire grants or prompt for approval.
+
+After an operator removes required grants and restarts, the package remains
+installed with its enabled intent. Its effective runtime is unavailable
+(`failed` in Apps), and the owner admits no launch, tool, resource, connector,
+or page access. It does not offer installation as a repair. Restore the host
+policy and restart the owner to make it available again. Policy is restart-only:
+subsequent manager `SetHostOps` calls do not replace the startup decision.
+
+Missing optional requests permit a degraded start. Existing admin Apps details
+and lifecycle operation results include bounded required, optional, granted,
+and missing name lists with counts. Here “granted” counts only supported
+**requested** names covered by host policy, not every grant the addon holds.
+Ordinary Apps readers receive the generic failed observation without policy
+paths, grant details, or missing operation names. Split deployments carry the
+owner's decision; a frontend cannot supply grants.
+
+Admission does not authorize an individual call. The broker still requires a
+registered handler and rechecks the live incarnation, operation scope, actor
+features/admin status, workspace/chat access, and connector binding. Handlers
+are wired as host services start; admission uses the host's startup operation
+vocabulary rather than treating not-yet-wired handlers as unknown operations.
+
+
 A host operation is how an add-on process asks the host to do something the
 add-on cannot do itself, such as starting a job of the engine. It is contract
 surface that third-party add-ons cannot use unless the host setting names them.

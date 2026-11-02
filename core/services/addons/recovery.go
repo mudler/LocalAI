@@ -133,6 +133,9 @@ func (h *managerHost) Commit(ctx context.Context, candidate recovery.Candidate) 
 	}
 	defer h.lock()()
 	m := h.m
+	if e := m.admit(staged.Receipt()); e != nil {
+		return packages.PackageReceipt{}, e
+	}
 	receipt, e := m.installer.Commit(ctx, staged)
 	if e != nil {
 		return packages.PackageReceipt{}, e
@@ -152,6 +155,9 @@ func (h *managerHost) Commit(ctx context.Context, candidate recovery.Candidate) 
 func (h *managerHost) StartCandidate(ctx context.Context, id string, receipt packages.PackageReceipt, number uint64) error {
 	defer h.lock()()
 	m := h.m
+	if e := m.admit(receipt); e != nil {
+		return e
+	}
 	if m.runtime == nil {
 		return nil
 	}

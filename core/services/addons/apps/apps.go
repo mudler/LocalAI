@@ -5,6 +5,7 @@
 package apps
 
 import (
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"maps"
 	"net/url"
 	"regexp"
@@ -35,7 +36,9 @@ type Snapshot struct {
 	UpdatePending bool
 	// HostOps are the host operation prefixes the host setting grants this
 	// add-on. They decide which declared host controls are drawn.
-	HostOps []string
+	HostOps        []string
+	HostOperations *hostops.RequestSummary
+	Unavailable    bool
 }
 
 // List is the response of the apps list.
@@ -205,8 +208,9 @@ type SlotView struct {
 // refuses the matching requests of everyone else; this is a convenience for
 // the UI, never the control.
 type AdminView struct {
-	CanStart bool `json:"canStart"`
-	CanStop  bool `json:"canStop"`
+	CanStart       bool                    `json:"canStart"`
+	HostOperations *hostops.RequestSummary `json:"hostOperations,omitempty"`
+	CanStop        bool                    `json:"canStop"`
 	// ManagementURL opens the management view of the addon.
 	ManagementURL string `json:"managementUrl" example:"/app/addons?manage=notes"`
 }
@@ -256,10 +260,10 @@ func build(s Snapshot, admin bool) App {
 		// The receipt came from the owner's journal, but the route is
 		// re-checked here: an Open action for a page the addon does not
 		// declare is never produced.
-		if s.Enabled && u.MainPage != "" && slices.Contains(u.Pages, u.MainPage) {
+		if s.Enabled && !s.Unavailable && u.MainPage != "" && slices.Contains(u.Pages, u.MainPage) {
 			a.MainPage = "/app/addons/" + url.PathEscape(id) + "/" + url.PathEscape(u.MainPage)
 		}
-		if s.Enabled {
+		if s.Enabled && !s.Unavailable {
 			a.UI = uiView(id, s.Receipt.Digest, u)
 			if a.UI != nil {
 				a.UI.Controls = contract.EntitledControls(m, s.HostOps)
@@ -270,7 +274,7 @@ func build(s Snapshot, admin bool) App {
 		a.Update = "update-pending"
 	}
 	if admin {
-		a.Admin = &AdminView{CanStart: !s.Enabled, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
+		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
 	}
 	return a
 }

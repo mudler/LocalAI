@@ -170,6 +170,11 @@ func (m *Manager) Installed(ctx context.Context, actor contract.Actor) ([]apps.I
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
 		}
+		snap.HostOperations = summaryPointer(m.requests(receipt))
+		if m.admit(receipt) != nil {
+			snap.Unavailable = true
+			snap.State = "failed"
+		}
 		if m.runtime != nil {
 			restarts[id] = m.runtime.Attempts(id)
 		}
