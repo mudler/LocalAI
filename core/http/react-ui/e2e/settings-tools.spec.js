@@ -31,7 +31,7 @@ test.describe('Settings > Tools', () => {
     await expect(page.getByTestId('settings-tools-bash-provider')).toHaveText('Built-in')
     await expect(page.getByTestId('settings-tools-bash-warning')).toContainText('reach the internet, your network and the LocalAI API')
     await expect(row).toContainText('Not set: the default applies (ask each time).')
-    await expect(page.getByTestId('settings-tools-install-sandbox')).toHaveAttribute('href', '/app/addons?tab=browse&q=sandbox')
+    await expect(page.getByTestId('settings-tools-install-sandbox')).toHaveCount(0)
     await shot(page, 'settings-tools')
     await row.getByRole('radio', { name: /Allow for everyone/ }).check()
     await page.getByRole('button', { name: 'Apply' }).click()

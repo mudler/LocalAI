@@ -635,3 +635,11 @@ behaves with several frontends:
 | Live notifications | Shared, live only | Sent over the message bus to every frontend, with the "read or deleted" signal. A client that missed one lists the inbox, which is the record. |
 | The supervisor of a running run | Per instance | The frontend that started the run watches it. The leader also ends any run that nobody watches whose chat is over, so a run is not lost when its frontend dies. |
 | Where the turn of a run runs | Stateless | On the frontend that started it, or on a chat worker when the frontends send unattended turns there. The turn claim, its heartbeat and the waiting messages are in the database, so either one can run it and only one does. |
+
+### JSON storage
+
+Without an auth database, persistent chats and agent definitions use per-instance
+JSON storage. These stores use in-process mutexes and atomic writes. Run one
+process per JSON directory on a local filesystem; clusters use the SQL stores.
+There is no cross-process directory lock or historical selection ledger.
+Status observations use current principal-scoped reads in either backend.

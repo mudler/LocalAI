@@ -584,7 +584,8 @@
     "context": "컨텍스트",
     "contextOf": "{{limit}} 토큰 중 {{used}}",
     "contextUsed": "{{used}} 토큰",
-    "unknown": "아직 알 수 없음"
+    "unknown": "아직 알 수 없음",
+    "commandsUnknown": "명령 격리 상태를 알 수 없습니다"
   },
   "agentFolder": {
     "home": "홈",

@@ -409,11 +409,15 @@
       "hostOff": "The Sandbox is off for this chat, so commands run on this machine, with its files and network, not isolated. Switch the Sandbox on in this menu to isolate them.",
       "hostUnavailable": "The Sandbox cannot run here, so commands run on this machine, with its files and network, not isolated.",
       "hostUnavailableWhy": "The Sandbox cannot run here ({{reason}}), so commands run on this machine, with its files and network, not isolated.",
-      "hostChipTitle": "Commands in this chat run on this machine, not isolated. Select for details."
+      "hostChipTitle": "Commands in this chat run on this machine, not isolated. Select for details.",
+      "providerHost": "Commands run on the server without isolation.",
+      "unknown": "Execution readiness or isolation is unknown.",
+      "providerUnavailable": "The selected execution provider is unavailable.",
+      "disabled": "Running commands is switched off for this chat."
     },
     "consent": {
       "title": "Run this command on this machine?",
-      "body": "Commands run on this machine with no isolation. They can read files that LocalAI can read and reach the internet and your network. Install the Sandbox for isolation.",
+      "body": "Commands run on this machine with no isolation. They can read files that LocalAI can read and reach the internet and your network.",
       "once": "Run once",
       "always": "Always on this instance",
       "deny": "Don't run",
@@ -774,7 +778,9 @@
     "allowedHostsOff": "They apply when the network is on.",
     "allowedHostsNote": "{{count}} hosts are always allowed by your administrator.",
     "limitNote": "This chat’s network. The administrator sets the most a chat can reach.",
-    "asksAbove": "This chat asks for {{choice}}; the administrator limit is {{limit}}."
+    "asksAbove": "This chat asks for {{choice}}; the administrator limit is {{limit}}.",
+    "unverified": "Network-policy enforcement is not verified for the actual provider. These settings do not currently apply to its commands.",
+    "configuredPolicy": "Configured network policy: {{preset}} (not enforced)."
   },
   "change": {
     "loading": "Reading the trigger change...",

@@ -150,7 +150,7 @@ test.describe('Network of the Sandbox commands', () => {
     await stubChat(page, { egress: view({ applies: false, applies_reason: 'host' }) })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByTestId('chat-network-host')).toHaveText('Commands run on this machine and use its network. Network limits need the Sandbox add-on.')
+    await expect(page.getByTestId('chat-network-unenforced')).toContainText('Commands run on this machine and use its network.')
     await expect(page.getByTestId('chat-network')).toHaveCount(0)
   })
 
@@ -160,7 +160,7 @@ test.describe('Network of the Sandbox commands', () => {
     await page.getByTestId('chat-tools-button').click()
     await expect(page.getByText('Tools for this chat')).toBeVisible()
     await expect(page.getByTestId('chat-network')).toHaveCount(0)
-    await expect(page.getByTestId('chat-network-host')).toHaveCount(0)
+    await expect(page.getByTestId('chat-network-unenforced')).toHaveCount(0)
   })
 
   test('a second add-on with the same control draws the same row, and its link opens that add-on', async ({ page }) => {

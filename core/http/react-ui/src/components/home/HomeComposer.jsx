@@ -74,7 +74,7 @@ export default function HomeComposer({
   // a command with an argument provider lists its arguments instead.
   const groupList = slash?.groups || SLASH_GROUPS
   const labelOf = useCallback((a) => (a.label || (slash ? slash.label(a) : t(`slash.${a.id}.label`))), [t, slash])
-  const descOf = (a) => (a.label ? a.desc : (slash ? slash.desc(a) : t(`slash.${a.id}.desc`)))
+  const descOf = (a) => (a.label ? (a.desc || a.label) : (slash ? slash.desc(a) : t(`slash.${a.id}.desc`)))
   const groupLabel = (g) => (slash ? slash.groupLabel(g) : t(`slash.group.${g}`))
   const actions = useMemo(
     () => (slash ? slash.actions : availableActions(slashContext)),
@@ -138,7 +138,7 @@ export default function HomeComposer({
     if (entry.insert) { onMessage(entry.insert); return }
     if (complete) { onMessage(entry.args ? `${entry.cmd} ` : entry.cmd); return }
     onMessage('')
-    if (!runLocal(entry.id)) onRunAction(entry.id)
+    if (!runLocal(entry.id)) onRunAction(entry.id, entry)
   }
 
   const onKeyDown = (e) => {
@@ -148,7 +148,13 @@ export default function HomeComposer({
       const n = items.length
       if (e.key === 'ArrowDown') { e.preventDefault(); setActive((safeActive + 1) % n); return }
       if (e.key === 'ArrowUp') { e.preventDefault(); setActive((safeActive + n - 1) % n); return }
-      if (e.key === 'Enter') { e.preventDefault(); run(items[safeActive]); return }
+      if (e.key === 'Enter') {
+        const entry = items[safeActive]
+        // Addon navigation is never prefix execution. Tab can complete it;
+        // Enter on a partial command leaves the draft untouched.
+        if (entry.addonId && message.trim() !== entry.cmd) { e.preventDefault(); return }
+        e.preventDefault(); run(entry); return
+      }
       if (e.key === 'Tab') { e.preventDefault(); run(items[safeActive], true); return }
       if (e.key === 'Escape') { e.preventDefault(); setDismissed(true); return }
     }
@@ -157,8 +163,14 @@ export default function HomeComposer({
     const bare = !strictEnter || (!e.ctrlKey && !e.metaKey && !e.altKey && e.keyCode !== 229)
     if (e.key === 'Enter' && !e.shiftKey && bare) {
       e.preventDefault()
-      onSubmit()
+      submit()
     }
+  }
+
+  const submit = () => {
+    const exact = actions.find(c => c.addonId && c.cmd === message.trim())
+    if (exact) { onMessage(''); onRunAction(exact.id, exact); return }
+    onSubmit()
   }
 
   const activeId = open ? `home-slash-opt-${safeActive}` : undefined
@@ -171,13 +183,13 @@ export default function HomeComposer({
         .filter((grp) => grp.rows.length > 0)
   const rowView = (it) => (argCmd
     ? { testId: `home-slash-arg-${it.key}`, icon: it.icon || argCmd.icon, name: it.name || slash?.argLabel?.(argCmd, it) || '', desc: it.desc || slash?.argDesc?.(argCmd, it) || '', mono: !!it.name, badge: it.badge, note: it.note, upto: 0 }
-    : { testId: `home-slash-${it.id}`, icon: it.icon, name: it.cmd, desc: descOf(it), mono: true, badge: it.badge, note: it.note,
+    : { testId: `home-slash-${it.id}`, icon: it.icon, iconUrl: it.iconUrl, name: it.cmd, desc: descOf(it), mono: true, badge: it.badge, note: it.note,
       upto: query && it.cmd.slice(1).toLowerCase().startsWith(query) ? 1 + query.length : 0 })
 
   return (
     <form
       className="home-cmd"
-      onSubmit={(e) => { e.preventDefault(); onSubmit() }}
+      onSubmit={(e) => { e.preventDefault(); submit() }}
       autoComplete="off"
       data-testid={testId}
       // The toast stack stays above this bar on a chat page (components/Toast).
@@ -241,7 +253,7 @@ export default function HomeComposer({
                       onMouseMove={() => setActive(i)}
                       onClick={() => run(it)}
                     >
-                      <Icon name={v.icon} className="dk-icon" />
+                      {v.iconUrl ? <img src={v.iconUrl} alt="" className="dk-icon" /> : <Icon name={v.icon} className="dk-icon" />}
                       <span className="dk-cmd-main">
                         <span className={`dk-cmd-name${v.mono ? ' dk-mono' : ''}`}><Marked text={v.name} upto={v.upto} /></span>
                         {v.desc && <span className="dk-cmd-desc">{v.desc}</span>}

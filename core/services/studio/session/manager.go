@@ -58,6 +58,14 @@ type Options struct {
 	// is dropped. An error from the hook does not fail the turn: it runs with
 	// the sandbox tools only. Nil: only the sandbox tools.
 	ChatTools func(ctx context.Context, x Access) (TurnTools, error)
+	// ProductScope optionally attaches request-local product state before any
+	// turn tool construction. Its context is used through the actual turn end;
+	// close releases the state after checkpoint and persistence, not when
+	// ChatTools returns. Priming gets a separate scope closed before Open returns.
+	// The hook must return a non-nil context derived from ctx and a non-nil
+	// close function. It must not retain state on the chat or manager. Nil
+	// leaves the context unchanged. Consumers must preserve cancellation.
+	ProductScope func(ctx context.Context, x Access) (context.Context, func())
 	// Resolve gives the access of a chat again, for a chat whose sandbox
 	// could not mount its view (a shared folder went away). a is the chat's
 	// actor. Nil: the view is built again for the actor, as UserAccess does.

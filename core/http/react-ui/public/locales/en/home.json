@@ -177,7 +177,10 @@
     "label": "Actions",
     "move": "move",
     "close": "close",
+    "commandDiagnostics": "App command diagnostics",
+    "apps": { "label": "Apps", "desc": "Browse installed apps" },
     "group": {
+      "addons": "Apps",
       "chat": "Chat",
       "models": "Models",
       "go": "Go to"
@@ -214,10 +217,6 @@
       "label": "Stop a model",
       "desc": "Free memory by unloading a model"
     },
-    "studio": {
-      "label": "Open Studio",
-      "desc": "Create images, audio and video"
-    },
     "settings": {
       "label": "Settings",
       "desc": "Change how LocalAI runs"
@@ -237,10 +236,6 @@
     "memory": {
       "label": "Memory",
       "desc": "Collections your chats can search"
-    },
-    "studioInstall": {
-      "label": "Install Studio",
-      "desc": "Studio makes images, audio and video. It is an add-on"
     },
     "complete": "complete"
   },
@@ -265,6 +260,7 @@
     "firstRun": "No models running. Memory use shows here once one loads."
   },
   "notice": {
+    "appUnavailable": "App is no longer available.",
     "loadFailedTitle": "LocalAI could not load your models",
     "loadFailedBody": "The server did not answer. Check that it is running, then try again.",
     "retry": "Try again",

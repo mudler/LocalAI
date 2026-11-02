@@ -3,6 +3,7 @@ import { chatAgentsApi } from '../utils/api'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useChatDrafts } from './useChatDrafts'
 import { useChatSwitches } from './useChatSwitches'
+import { useAuth } from '../context/AuthContext'
 import { useModels } from './useModels'
 
 // The state of the chat composer, shared by the chat page and Home: the draft
@@ -19,6 +20,8 @@ import { useModels } from './useModels'
 //   filesOn      files work on this server: attaching and the skills need it
 //   initialModel, initialAgent   the model and the agent a new chat starts on
 export function useChatComposer({ chatId = null, draftKey = '', userId, activeChat = null, filesOn = true, canAgents = false, initialModel = '', initialAgent = '' }) {
+  const { user, sessionEpoch } = useAuth()
+  const actorSession = JSON.stringify([user?.id ?? userId ?? null, sessionEpoch])
   // The id the draft is kept under (useChatDrafts): the chat, or draftKey.
   const draftId = chatId || draftKey || ''
   const drafts = useChatDrafts(draftId || null, userId)
@@ -38,7 +41,7 @@ export function useChatComposer({ chatId = null, draftKey = '', userId, activeCh
   const pickedAgent = agents.find((a) => a.id === (activeChat ? activeChat.agent_id : agentId))
   // The model of a new chat comes from the agent when it names one.
   const effectiveModel = activeChat ? activeChat.model : (pickedAgent?.model || draftModel)
-  const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId })
+  const switches = useChatSwitches(chatId, filesOn, chatId ? null : { model: effectiveModel, agentId }, actorSession)
 
   // Files go to the server with the message that starts a turn and are saved
   // in the chat's folder of the workspace.

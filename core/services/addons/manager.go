@@ -155,16 +155,25 @@ type Manager struct {
 	skillSync SkillSync
 	// hostOps is the host setting of the host operation prefixes of each
 	// add-on. The apps list reads it to decide which host controls it draws.
-	hostOps map[string][]string
+	hostOps    map[string][]string
+	hostOpsSet bool
 }
 
 // SetHostOps sets the host operation grants of the add-ons (the host setting,
 // read at startup). The apps list draws a host control only for an add-on
-// whose grants entitle it.
+// whose grants entitle it. The first call selects an immutable startup snapshot;
+// subsequent calls do not reload policy. Call before attaching the runtime.
 func (m *Manager) SetHostOps(ops map[string][]string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.hostOps = ops
+	if m.hostOpsSet {
+		return
+	}
+	m.hostOpsSet = true
+	m.hostOps = make(map[string][]string, len(ops))
+	for id, prefixes := range ops {
+		m.hostOps[id] = slices.Clone(prefixes)
+	}
 }
 
 // SkillSync copies the skills of an add-on package into the chats' skill layer
@@ -318,6 +327,10 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 	s.AddonID = id
 	s.ObservedHealth = "stopped"
 	s.StartEligible = s.Installed && s.DesiredEnabled
+	if m.admission(id) != nil {
+		s.StartEligible = false
+		s.ObservedHealth = "unavailable"
+	}
 	for _, op := range m.journal.Operations {
 		if op.Command.AddonID == id && op.Status.Phase != string(lifecycleCompleted) && op.Status.Phase != string(lifecycleFailed) {
 			s.StartEligible = false
@@ -497,6 +510,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				// ErrPackage is fixed, so it is safe to show.
 				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, packages.ErrPackage)
 			}
+			var admission *HostRequirementsRefusal
+			if errors.As(c, &admission) {
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, admission)
+			}
 			var typed *FailureCause
 			if errors.As(c, &typed) {
 				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, typed)
@@ -545,6 +562,14 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if m.uncertain || m.runtimeRecoveryRequired {
 				return op.Status, ErrRecoveryRequired
 			}
+			if e := m.admit(staged.Receipt()); e != nil {
+				op.Status.HostOperations = summaryPointer(m.requests(staged.Receipt()))
+				if discardErr := m.installer.Discard(staged); discardErr != nil {
+					xlog.Warn("Could not discard refused addon stage", "addon", cmd.AddonID, "error", discardErr)
+				}
+				return fail(e)
+			}
+			op.Status.HostOperations = summaryPointer(m.requests(staged.Receipt()))
 			var e error
 			if release != nil {
 				// An explicit upgrade never changes the trusted identity,
@@ -613,6 +638,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 		}
 	case "enable":
+		if e := m.admission(cmd.AddonID); e != nil {
+			return fail(e)
+		}
 		// Data that needs recovery is not served: it is restored or purged first.
 		if m.dataBlocked(cmd.AddonID) {
 			return fail()
@@ -880,6 +908,7 @@ func (m *Manager) AttachRuntime(ctx context.Context, s *addonruntime.Supervisor)
 	if m.uncertain || m.runtime != nil || s == nil {
 		return ErrConflict
 	}
+	m.hostOpsSet = true // An omitted startup policy is an immutable empty grant set.
 	m.runtime = s
 	m.instances = map[string]addonruntime.Instance{}
 	m.startFailed = map[string]error{}
@@ -902,6 +931,9 @@ func (m *Manager) syncFor(ctx context.Context, id string) error {
 // the add-on stopped on a generation that never ran. Without a running
 // instance there is nothing to replace and nothing to prove here.
 func (m *Manager) startCandidate(ctx context.Context, id string, prev Status, receipt packages.PackageReceipt, number uint64) error {
+	if e := m.admit(receipt); e != nil {
+		return e
+	}
 	if m.runtime == nil || !prev.Installed || !prev.DesiredEnabled {
 		return nil
 	}
@@ -992,6 +1024,10 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 		if _, failed := m.startFailed[id]; failed && id != target {
 			continue
 		}
+		if e := m.admission(id); e != nil {
+			m.startFailed[id] = e
+			continue
+		}
 		if m.quiesced[id] || m.dataBlocked(id) {
 			continue
 		}
@@ -1048,6 +1084,9 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 		return addonruntime.Instance{}, e
 	}
 	state := m.journal.Addons[id]
+	if m.admission(id) != nil {
+		return addonruntime.Instance{}, addonruntime.ErrRuntime
+	}
 	if m.uncertain || m.runtimeRecoveryRequired || m.runtime == nil || !state.Installed || !state.DesiredEnabled {
 		return addonruntime.Instance{}, addonruntime.ErrRuntime
 	}
@@ -1145,7 +1184,7 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 	if !ok || op.Actor.UserID == "" || op.Actor.CredentialID == "" || (op.Actor.Mode != "named-user" && op.Actor.Mode != "local-owner") || op.Actor != actor {
 		return OperationStatus{}, ErrOperationNotFound
 	}
-	result := OperationStatus{OperationID: id, AddonID: op.Status.AddonID, Phase: op.Status.Phase, Generation: op.Status.Generation, RuntimeState: "not-observed"}
+	result := OperationStatus{OperationID: id, AddonID: op.Status.AddonID, Phase: op.Status.Phase, Generation: op.Status.Generation, RuntimeState: "not-observed", HostOperations: copyRequestSummary(op.Status.HostOperations)}
 	if m.uncertain || m.runtimeRecoveryRequired {
 		result.RuntimeState = string(lifecycleRecovery)
 	}
@@ -1182,6 +1221,12 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt, HostOps: m.hostOps[id]}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
+		}
+		summary := m.requests(receipt)
+		snap.HostOperations = summaryPointer(summary)
+		if len(summary.MissingRequired) != 0 {
+			snap.Unavailable = true
+			snap.State = "failed"
 		}
 		// The apps list answers from the check cache only: it never
 		// evaluates and never reaches a library.
@@ -1245,7 +1290,7 @@ func (m *Manager) AppAsset(ctx context.Context, actor contract.Actor, id, digest
 		return packages.PackageReceipt{}, 0, ErrForbidden
 	}
 	receipt, ok := currentReceipt(st)
-	if !ok || receipt.Manifest.Capabilities.UI == nil || receipt.Digest != "sha256:"+digest {
+	if !ok || m.admit(receipt) != nil || receipt.Manifest.Capabilities.UI == nil || receipt.Digest != "sha256:"+digest {
 		return packages.PackageReceipt{}, 0, ErrForbidden
 	}
 	return receipt, st.Generation, nil
@@ -1303,6 +1348,9 @@ func (m *Manager) DeclaredTools(ctx context.Context, id string, generation uint6
 	if !ok || !st.Installed || generation == 0 || st.Generation != generation {
 		return nil, ErrForbidden
 	}
+	if m.admission(id) != nil {
+		return nil, ErrForbidden
+	}
 	if c, ok := m.toolCache[id]; ok && c.generation == generation {
 		return c.tools, nil
 	}
@@ -1340,10 +1388,24 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	if !ok {
 		return contract.Capabilities{}, ErrForbidden
 	}
+	if m.admit(receipt) != nil {
+		return contract.Capabilities{}, ErrForbidden
+	}
 	c := receipt.Manifest.Capabilities
 	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Actions: c.Actions, Undo: c.Undo}
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
 	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
+	if c.ExecutionProvider != nil {
+		p := *c.ExecutionProvider
+		p.Tools = slices.Clone(p.Tools)
+		out.ExecutionProvider = &p
+	}
+	if c.HostOperations != nil {
+		h := *c.HostOperations
+		h.Required = slices.Clone(h.Required)
+		h.Optional = slices.Clone(h.Optional)
+		out.HostOperations = &h
+	}
 	if c.Resources != nil {
 		r := *c.Resources
 		out.Resources = &r

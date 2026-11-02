@@ -559,7 +559,7 @@ default only applies when omitted.
 
 ## The WebUI page
 
-The page is the **Recognition** tab of the Voice add-on (**Add-ons → Voice**, `/app/addons/voice/voice/recognition`). Install the add-on from **Browse add-ons** and start it; the old `/app/voice` link opens the same page in the core web UI until then. The page calls the `/v1/voice/*` routes described on this page with your own session. The Voice page has four tabs. **Recognition** is this feature. **Library** is the [Voice Library](/features/text-to-audio/#voice-library) for text-to-speech, a different store with its own recordings and transcripts. **Text to speech** speaks text with a voice model. **From a recording** links to the diarization workspace, where a speaker can be named and remembered.
+The page is the **Recognition** tab of the Voice add-on (**Add-ons → Voice**, `/app/addons/voice/voice/recognition`). Install the add-on from **Browse add-ons** and start it. Canonical links show the add-on shell when the installation is unavailable. The page calls the `/v1/voice/*` routes described on this page with your own session. The Voice page has four tabs. **Recognition** is this feature. **Library** is the [Voice Library](/features/text-to-audio/#voice-library) for text-to-speech, a different store with its own recordings and transcripts. **Text to speech** speaks text with a voice model. **From a recording** links to the diarization workspace, where a speaker can be named and remembered.
 
 On the Recognition tab:
 

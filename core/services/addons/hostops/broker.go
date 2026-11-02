@@ -158,6 +158,54 @@ func refuse(w http.ResponseWriter, status int, code, msg string) {
 // secret that incarnation holds; allowed lists the operation prefixes the
 // host setting gives the add-on. Whatever the check, the default is refuse.
 func (b *Broker) Handler(addonID, credential string, allowed []string) http.Handler {
+	return b.HandlerForRuntime(addonID, credential, allowed, 0, "")
+}
+
+// RuntimeEndpoint owns callback admission and draining for one runtime. Stop
+// prevents new HTTP requests and handler admissions. Drain waits for admitted
+// requests, including those still decoding, without holding a lock across them.
+// Retired observation correlations must not be forgotten until Drain returns.
+type RuntimeEndpoint struct {
+	handler http.Handler
+	mu      sync.Mutex
+	closed  bool
+	active  sync.WaitGroup
+}
+
+type endpointKey struct{}
+
+func (b *Broker) EndpointForRuntime(addonID, credential string, allowed []string, generation uint64, incarnation string) *RuntimeEndpoint {
+	return &RuntimeEndpoint{handler: b.HandlerForRuntime(addonID, credential, allowed, generation, incarnation)}
+}
+
+func (e *RuntimeEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.mu.Lock()
+	if e.closed {
+		e.mu.Unlock()
+		refuse(w, http.StatusForbidden, contract.HostNoLiveOperation, "runtime endpoint closed")
+		return
+	}
+	e.active.Add(1)
+	e.mu.Unlock()
+	defer e.active.Done()
+	e.handler.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), endpointKey{}, e)))
+}
+
+func (e *RuntimeEndpoint) Stop() { e.mu.Lock(); e.closed = true; e.mu.Unlock() }
+
+// Drain must be called after Stop, which serializes admission with Wait.
+func (e *RuntimeEndpoint) Drain() { e.active.Wait() }
+
+// admit linearizes handler admission against Stop. No mutex is held while
+// running a handler: cancellation and teardown may themselves need the broker.
+func (e *RuntimeEndpoint) admit() bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return !e.closed
+}
+
+// HandlerForRuntime authenticates callbacks for exactly one runtime.
+func (b *Broker) HandlerForRuntime(addonID, credential string, allowed []string, generation uint64, incarnation string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			refuse(w, http.StatusMethodNotAllowed, contract.HostBadRequest, "POST only")
@@ -180,6 +228,10 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 		req, err := contract.DecodeHostRequest(body, b.limits.PayloadBytes)
 		if err != nil || req.OperationID == "" || !contract.ValidHostOp(req.Op) {
 			refuse(w, http.StatusBadRequest, contract.HostBadRequest, "malformed request")
+			return
+		}
+		if b.inflight.callbackDenied(addonID, req.OperationID, generation, incarnation) {
+			refuse(w, http.StatusForbidden, contract.HostScope, "observation callbacks denied")
 			return
 		}
 		if !hasPrefix(allowed, req.Op) {
@@ -235,6 +287,8 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 		if err != nil {
 			status, code, msg := http.StatusServiceUnavailable, contract.HostUnavailable, "operation unavailable"
 			switch {
+			case errors.Is(err, ErrForbidden):
+				status, code, msg = http.StatusForbidden, contract.HostNoLiveOperation, "runtime endpoint closed"
 			case errors.Is(err, ErrNotFound):
 				status, code, msg = http.StatusNotFound, contract.HostNotFound, "not found"
 			case errors.Is(err, ErrConflict):
@@ -326,6 +380,9 @@ func checkArguments(raw json.RawMessage) (json.RawMessage, error) {
 // operation ID and name; a repeat gets the first result, and a call that
 // arrives while the first still runs waits for it. A failure is not kept.
 func (b *Broker) run(ctx context.Context, spec Spec, call Call) (json.RawMessage, error) {
+	if endpoint, ok := ctx.Value(endpointKey{}).(*RuntimeEndpoint); ok && !endpoint.admit() {
+		return nil, ErrForbidden
+	}
 	if !spec.Idempotent {
 		return spec.Handler(ctx, call)
 	}

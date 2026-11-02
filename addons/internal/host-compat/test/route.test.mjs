@@ -38,3 +38,8 @@ test('params: the tab is the first segment, the model is ?model= or the second s
   assert.deepEqual(paramsOf({ path: 'images/by-hand', search: '' }), { tab: 'images', model: 'by-hand' })
   assert.deepEqual(paramsOf({ path: 'images/by-hand', search: 'model=wins' }), { tab: 'images', model: 'wins' })
 })
+
+test('remembered voices opens the declared Voice addon page, not a removed host alias', () => {
+  assert.deepEqual(resolveTarget('/app/voice', 'studio'), { own: false, address: '/app/addons/voice/voice' })
+  assert.deepEqual(resolveTarget('/app/voice?model=encoder', 'voice'), { own: true, subpath: 'voice?model=encoder' })
+})

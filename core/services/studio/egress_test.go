@@ -238,11 +238,11 @@ var _ = Describe("the add-on that draws the network row of a chat", func() {
 		return svc
 	}
 
-	It("is the add-on that runs the commands and carries the network policy", func() {
+	It("names the runner control without claiming host network enforcement", func() {
 		svc := service("sandbox", "isolated", map[string][]string{"sandbox": {"network-policy", "tool-providers"}})
 		v, err := svc.Egress(context.Background(), alice, create(svc, alice))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(v.Applies).To(BeTrue())
+		Expect(v.Applies).To(BeFalse())
 		Expect(v.JSON().Addon).To(Equal("sandbox"))
 	})
 
@@ -252,10 +252,10 @@ var _ = Describe("the add-on that draws the network row of a chat", func() {
 		Expect(v.JSON().Addon).To(Equal("devbox"))
 	})
 
-	It("is none when the runner has no network policy, and the policy still applies", func() {
+	It("is none when the runner has no network policy and enforcement is unknown", func() {
 		svc := service("sandbox", "isolated", map[string][]string{"sandbox": {"tool-providers"}})
 		v, _ := svc.Egress(context.Background(), alice, create(svc, alice))
-		Expect(v.Applies).To(BeTrue())
+		Expect(v.Applies).To(BeFalse())
 		Expect(v.JSON().Addon).To(BeEmpty())
 	})
 

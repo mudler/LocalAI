@@ -6,7 +6,7 @@ import { installStudioAddons } from './studio-addon.js'
 // whose sprite target is missing or that has no size), and controls left with
 // the user agent's own chrome, which is a pale grey button on a dark ground.
 const ROUTES = [
-  '/app', '/app/chats/all', '/app/models', '/app/studio', '/app/talk',
+  '/app', '/app/chats/all', '/app/models', '/app/addons/studio/studio', '/app/addons/talk/talk',
   '/app/agents', '/app/skills', '/app/collections', '/app/triggers', '/app/mcp-connectors',
   '/app/models?view=installed', '/app/backends', '/app/activity', '/app/operate',
   '/app/settings', '/app/traces', '/app/usage', '/app/nodes', '/app/p2p',
@@ -14,7 +14,7 @@ const ROUTES = [
 ]
 
 test('no page renders a dead icon or a default-chrome control', async ({ page }) => {
-  // Studio and Talk are add-ons; /app/studio and /app/talk open them.
+  // Studio and Talk are add-ons; /app/addons/studio/studio and /app/addons/talk/talk open them.
   await installStudioAddons(page)
   // One test walks every route, so its budget has to scale with the list rather
   // than sit on Playwright's per-test default of 30s. At 25 routes that default

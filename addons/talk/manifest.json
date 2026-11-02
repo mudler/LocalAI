@@ -16,6 +16,7 @@
       "sdk": { "min": 2, "max": 2 },
       "pages": ["talk"],
       "navigation": ["talk"],
+      "modelActions": [{"capability": "FLAG_TRANSCRIPT", "page": "talk"}],
       "mainPage": "talk",
       "icon": "ui/icon.png",
       "title": "Talk",

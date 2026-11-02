@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var _ = Describe("add-on pin store and the upgrade seed", func() {
+var _ = Describe("add-on pin store", func() {
 	pinIDs := func(s pins.Store, user string) []string {
 		list, err := s.List(context.Background(), user)
 		Expect(err).NotTo(HaveOccurred())
@@ -38,68 +38,72 @@ var _ = Describe("add-on pin store and the upgrade seed", func() {
 		return s
 	}
 
-	It("pins studio and talk once for the accounts that exist and never again", func() {
+	It("starts the local owner without implicit pins", func() {
+		s := store(appOver(nil, GinkgoT().TempDir()))
+		Expect(pinIDs(s, auth.AddonLocalOwnerID)).To(BeEmpty())
+	})
+	It("starts existing accounts without implicit pins", func() {
 		db, err := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
 		Expect(err).NotTo(HaveOccurred())
-		for _, id := range []string{"u1", "u2"} {
-			Expect(db.Create(&auth.User{ID: id, Email: id + "@example.test", Provider: auth.ProviderLocal, Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
-		}
+		Expect(db.Create(&auth.User{ID: "existing", Email: "existing@example.test", Provider: auth.ProviderLocal, Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
+		Expect(pinIDs(store(appOver(db, "")), "existing")).To(BeEmpty())
+	})
+
+	It("preserves saved user pins across a second frontend and reopen", func() {
+		path := filepath.Join(GinkgoT().TempDir(), "auth.db")
+		db, err := auth.InitDB(path)
+		Expect(err).NotTo(HaveOccurred())
+		saved, err := pins.NewGormStore(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(saved.Replace(context.Background(), "u1", []string{"studio", "talk", "arbitrary"})).To(Succeed())
 		a := appOver(db, "")
 		s := store(a)
-		Expect(pinIDs(s, "u1")).To(Equal([]string{"studio", "talk"}))
-		Expect(pinIDs(s, "u2")).To(Equal([]string{"studio", "talk"}))
-
-		// An account created later starts with no pins, and a second seed does nothing.
-		Expect(db.Create(&auth.User{ID: "u3", Email: "u3@example.test", Provider: auth.ProviderLocal, Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
-		Expect(pinIDs(s, "u3")).To(BeEmpty())
-		ran, err := s.SeedExisting(context.Background(), []string{"u3"}, pins.SeedIDs)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(ran).To(BeFalse())
-
-		// The store is created once per application.
 		Expect(store(a)).To(BeIdenticalTo(s))
-
-		// An unpin sticks across a restart or a second frontend over the same database.
+		Expect(pinIDs(s, "u1")).To(Equal([]string{"studio", "talk", "arbitrary"}))
 		Expect(s.Replace(context.Background(), "u1", []string{"talk"})).To(Succeed())
-		again := store(appOver(db, ""))
-		Expect(pinIDs(again, "u1")).To(Equal([]string{"talk"}))
-		Expect(pinIDs(again, "u3")).To(BeEmpty())
+		Expect(pinIDs(store(appOver(db, "")), "u1")).To(Equal([]string{"talk"}))
+		db2, err := auth.InitDB(path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pinIDs(store(appOver(db2, "")), "u1")).To(Equal([]string{"talk"}))
+		Expect(pinIDs(store(appOver(db2, "")), "new")).To(BeEmpty())
 	})
 
-	It("does not mark the seed as run when the accounts cannot be read, and seeds at the next start", func() {
+	It("opens the pin store without scanning accounts or creating seed metadata", func() {
 		db, err := auth.InitDB(filepath.Join(GinkgoT().TempDir(), "auth.db"))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(db.Create(&auth.User{ID: "u1", Email: "u1@example.test", Provider: auth.ProviderLocal, Role: auth.RoleUser, Status: auth.StatusActive}).Error).To(Succeed())
 		Expect(db.Migrator().RenameTable(&auth.User{}, "users_away")).To(Succeed())
-
 		s := store(appOver(db, ""))
 		Expect(pinIDs(s, "u1")).To(BeEmpty())
-		var marks int64
-		Expect(db.Model(&pins.SeedRun{}).Count(&marks).Error).To(Succeed())
-		Expect(marks).To(BeZero())
-
-		Expect(db.Migrator().RenameTable("users_away", &auth.User{})).To(Succeed())
-		next := store(appOver(db, ""))
-		Expect(pinIDs(next, "u1")).To(Equal([]string{"studio", "talk"}))
+		Expect(db.Migrator().HasTable("addon_pin_seed_runs")).To(BeFalse())
+		Expect(s.Replace(context.Background(), "u1", []string{"arbitrary"})).To(Succeed())
+		Expect(pinIDs(store(appOver(db, "")), "u1")).To(Equal([]string{"arbitrary"}))
 	})
 
-	It("seeds the local owner when authentication is off and keeps an unpin", func() {
+	It("keeps explicit local-owner pins and unpins across reopen", func() {
 		dir := GinkgoT().TempDir()
 		s := store(appOver(nil, dir))
-		Expect(pinIDs(s, auth.AddonLocalOwnerID)).To(Equal([]string{"studio", "talk"}))
+		Expect(pinIDs(s, auth.AddonLocalOwnerID)).To(BeEmpty())
+		Expect(s.Replace(context.Background(), auth.AddonLocalOwnerID, []string{"studio", "talk"})).To(Succeed())
 		Expect(s.Replace(context.Background(), auth.AddonLocalOwnerID, []string{"talk"})).To(Succeed())
 
 		again := store(appOver(nil, dir))
 		Expect(pinIDs(again, auth.AddonLocalOwnerID)).To(Equal([]string{"talk"}))
 		raw, err := os.ReadFile(filepath.Join(dir, "addon-pins.json"))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(string(raw)).To(ContainSubstring(pins.UpgradeSeedName))
+		Expect(string(raw)).NotTo(ContainSubstring("seedRuns"))
+		Expect(again.Replace(context.Background(), auth.AddonLocalOwnerID, []string{})).To(Succeed())
+		Expect(pinIDs(store(appOver(nil, dir)), auth.AddonLocalOwnerID)).To(BeEmpty())
 	})
 
 	It("reports a corrupt pins file instead of falling back to memory", func() {
 		dir := GinkgoT().TempDir()
 		Expect(os.WriteFile(filepath.Join(dir, "addon-pins.json"), []byte("{broken"), 0o600)).To(Succeed())
-		_, err := appOver(nil, dir).AddonPinStore()
+		a := appOver(nil, dir)
+		_, err := a.AddonPinStore()
 		Expect(err).To(HaveOccurred())
+		Expect(os.Remove(filepath.Join(dir, "addon-pins.json"))).To(Succeed())
+		s, again := a.AddonPinStore()
+		Expect(s).To(BeNil())
+		Expect(again).To(BeIdenticalTo(err))
 	})
 })

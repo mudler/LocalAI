@@ -5,6 +5,12 @@
   },
   "arch": "amd64",
   "capabilities": {
+    "hostOperations": {
+      "required": [
+        "workspace.export",
+        "workspace.import"
+      ]
+    },
     "actions": true,
     "skillDefinitions": [
       {

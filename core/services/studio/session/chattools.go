@@ -563,6 +563,11 @@ func (c *Chat) primeChatTools(ctx context.Context) error {
 	c.accMu.RLock()
 	x := c.acc
 	c.accMu.RUnlock()
+	if scope := c.m.o.ProductScope; scope != nil {
+		var closeScope func()
+		ctx, closeScope = scope(ctx, x)
+		defer closeScope()
+	}
 	tt, err := callChatTools(ctx, f, x, c.m.log)
 	if mandatoryChatToolsError(err) {
 		return err

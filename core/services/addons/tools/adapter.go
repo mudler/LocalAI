@@ -25,7 +25,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -317,18 +316,31 @@ func randomOperationID() (string, error) {
 	return "t" + hex.EncodeToString(raw[:]), nil
 }
 
-var toolName = regexp.MustCompile(`^addon__([a-z][a-z0-9-]{0,63})__([a-z][a-z0-9-]{0,63})$`)
-
-// ToolName is the function name of an add-on tool.
+// ToolName formats a qualified identity. Callers validate components and, for
+// model-callable tools, the total length with ParseToolName.
 func ToolName(addonID, tool string) string { return Prefix + addonID + "__" + tool }
 
-// ParseToolName splits a namespaced name. It accepts nothing else.
-func ParseToolName(name string) (addonID, tool string, ok bool) {
-	m := toolName.FindStringSubmatch(name)
-	if m == nil || len(name) > MaxNameLength {
+// ParseQualifiedToolName splits an add-on tool identity with valid contract
+// components. It does not apply the model's total name limit: Studio stand-ins
+// identify unavailable add-ons, including long IDs, rather than dispatch tools.
+func ParseQualifiedToolName(name string) (addonID, tool string, ok bool) {
+	qualified, ok := strings.CutPrefix(name, Prefix)
+	if !ok {
 		return "", "", false
 	}
-	return m[1], m[2], true
+	addonID, tool, ok = strings.Cut(qualified, "__")
+	if !ok || !contract.ValidName(addonID) || !contract.ValidName(tool) {
+		return "", "", false
+	}
+	return addonID, tool, true
+}
+
+// ParseToolName splits a model-callable name, enforcing its total length limit.
+func ParseToolName(name string) (addonID, tool string, ok bool) {
+	if len(name) > MaxNameLength {
+		return "", "", false
+	}
+	return ParseQualifiedToolName(name)
 }
 
 // IsToolName reports whether name is in the namespace reserved for add-on

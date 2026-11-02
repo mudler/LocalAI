@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
@@ -60,6 +61,8 @@ const (
 
 // Commands is what a chat knows about running commands at a turn.
 type Commands struct {
+	ExecutionStatus *ExecutionStatusView
+
 	State CommandState
 	// Tool is the name of the tool that runs commands, when State is available.
 	Tool string
@@ -136,11 +139,8 @@ func standInRunner(tools []session.Tool) string {
 		if !slices.Contains(t.StandInFor, commandTool) {
 			continue
 		}
-		id, ok := strings.CutPrefix(t.Name, "addon__")
-		if !ok {
-			continue
-		}
-		if id, ok = strings.CutSuffix(id, "__unavailable"); ok {
+		id, tool, ok := addontools.ParseQualifiedToolName(t.Name)
+		if ok && tool == "unavailable" {
 			return id
 		}
 	}
@@ -205,6 +205,8 @@ func (s *Service) commandsOf(ctx context.Context, user string, tools []session.T
 // Tools menu shows it. It uses the same tools the model would get. The chat of
 // another user is session.ErrNotFound.
 func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Commands, error) {
+	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
+	defer closeScope()
 	p := principal(user)
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {
@@ -233,6 +235,9 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	if _, ok := s.d.AddonTools.(ExecutionObserver); ok {
+		c.ExecutionStatus = executionStatusView(ctx, p, c.Addon)
+	}
 	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
 	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec)), nil
 }

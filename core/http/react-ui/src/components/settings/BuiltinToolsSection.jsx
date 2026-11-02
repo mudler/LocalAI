@@ -6,7 +6,6 @@ import { Link } from 'react-router-dom'
 import { Callout, LoadError, SkeletonRows, Switch } from '../ui'
 import { chatBuiltinToolsApi } from '../../utils/api'
 import { FIELD_BY_KEY, getValue, setValue } from '../../utils/settingsSchema'
-import { SANDBOX_INSTALL_LINK } from '../../utils/chatCommands'
 import { addonSettingsAddress } from '../../utils/addonSettings'
 
 // Settings > Tools: the built-in chat tools (bash, web_search, web_fetch), each
@@ -222,9 +221,7 @@ export default function BuiltinToolsSection({ settings, onChange, only, addonLin
                   </Link>
                 </p>
               )}
-              {tool.id === 'bash' && tool.candidates.length === 0 && (
-                <p className="st-row__desc"><Link to={SANDBOX_INSTALL_LINK} data-testid="settings-tools-install-sandbox">{t('settingsTools.installSandbox')}</Link></p>
-              )}
+
             </div>
           </div>
         )

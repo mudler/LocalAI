@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 )
@@ -23,12 +22,11 @@ type FileStore struct {
 }
 
 type fileState struct {
-	Pins     map[string][]Pin     `json:"pins"`
-	SeedRuns map[string]time.Time `json:"seedRuns"`
+	Pins map[string][]Pin `json:"pins"`
 }
 
 func NewFileStore(path string) (*FileStore, error) {
-	s := &FileStore{path: path, st: fileState{Pins: map[string][]Pin{}, SeedRuns: map[string]time.Time{}}}
+	s := &FileStore{path: path, st: fileState{Pins: map[string][]Pin{}}}
 	if path == "" {
 		return s, nil
 	}
@@ -44,9 +42,6 @@ func NewFileStore(path string) (*FileStore, error) {
 	}
 	if s.st.Pins == nil {
 		s.st.Pins = map[string][]Pin{}
-	}
-	if s.st.SeedRuns == nil {
-		s.st.SeedRuns = map[string]time.Time{}
 	}
 	return s, nil
 }
@@ -95,29 +90,6 @@ func rebuild(old []Pin, userID string, ids []string) []Pin {
 		out = append(out, Pin{UserID: userID, AddonID: id, Position: i, MissingSince: marks[id]})
 	}
 	return out
-}
-
-func (s *FileStore) SeedExisting(_ context.Context, userIDs []string, ids []string) (bool, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if _, done := s.st.SeedRuns[UpgradeSeedName]; done {
-		return false, nil
-	}
-	for _, userID := range userIDs {
-		have := map[string]bool{}
-		list := s.st.Pins[userID]
-		for _, p := range list {
-			have[p.AddonID] = true
-		}
-		for _, id := range ids {
-			if !have[id] {
-				list = append(list, Pin{UserID: userID, AddonID: id, Position: len(list)})
-			}
-		}
-		s.st.Pins[userID] = list
-	}
-	s.st.SeedRuns[UpgradeSeedName] = time.Now().UTC()
-	return true, s.save()
 }
 
 func (s *FileStore) Distinct(_ context.Context) ([]string, error) {
@@ -184,33 +156,4 @@ func (s *FileStore) DeleteMissingBefore(_ context.Context, cutoff time.Time) (in
 		s.st.Pins[u] = kept
 	}
 	return n, s.save()
-}
-
-func (s *FileStore) MarkInstalled(_ context.Context, ids []string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	changed := false
-	for _, id := range ids {
-		if _, done := s.st.SeedRuns[installedPrefix+id]; !done {
-			s.st.SeedRuns[installedPrefix+id] = time.Now().UTC()
-			changed = true
-		}
-	}
-	if !changed {
-		return nil
-	}
-	return s.save()
-}
-
-func (s *FileStore) Installed(_ context.Context) ([]string, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	var out []string
-	for name := range s.st.SeedRuns {
-		if id, ok := strings.CutPrefix(name, installedPrefix); ok {
-			out = append(out, id)
-		}
-	}
-	slices.Sort(out)
-	return out, nil
 }

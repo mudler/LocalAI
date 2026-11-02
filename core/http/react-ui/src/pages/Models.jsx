@@ -1,3 +1,4 @@
+import ModelLaunch from '../addons/ModelLaunch'
 // eslint-disable-next-line no-unused-vars
 import { useState, useCallback, useEffect, useLayoutEffect, useRef, Suspense } from 'react'
 // eslint-disable-next-line no-unused-vars
@@ -1702,7 +1703,7 @@ function DiscoverDetail({
   const ledgerFit = fitFor(vramBytes, budget, ramAvailable)
   const contextLabel = CONTEXT_LABELS[CONTEXT_SIZES.indexOf(contextSize)]
   const headroom = totalGpuMemory > 0 && vramBytes ? totalGpuMemory * 0.95 - vramBytes : null
-  const openUseCase = modelUseCases(installedProfile).find(useCase => useCase.route)
+  const openUseCases = modelUseCases(installedProfile)
   const leaves = leavesFree(disk, estimate?.sizeBytes)
   const canInstall = !installing && !model.installed
 
@@ -1736,12 +1737,7 @@ function DiscoverDetail({
             </div>
           ) : model.installed ? (
             <>
-              {openUseCase && (
-                <button className="dk-btn dk-btn--primary dk-btn--sm" onClick={() => onOpen(openUseCase.route(name))}>
-                  <Icon name="external-link" />
-                  {t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${openUseCase.labelKey}`) })}
-                </button>
-              )}
+              {openUseCases.map(useCase => <ModelLaunch key={useCase.cap} useCase={useCase} model={name} label={t('lifecycle.actions.open', { useCase: t(`lifecycle.open.${useCase.labelKey}`) })} className="dk-btn dk-btn--primary dk-btn--sm" />)}
               <button className="dk-btn dk-btn--ghost dk-btn--sm" onClick={() => onManage(name)}>
                 <Icon name="sliders" /> {t('lifecycle.actions.manageInstallation')}
               </button>

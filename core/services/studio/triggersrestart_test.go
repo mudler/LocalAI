@@ -31,6 +31,12 @@ func openFrontend(dir string, sh *shared) *shared {
 	return &shared{chats: st, files: sh.files, agents: ag, notices: ns, trg: ts, clock: sh.clock, addons: sh.addons}
 }
 
+// Stop every producer before reopening the files in the next frontend.
+func closeRestartFrontend(r *trigRig) {
+	r.host.Close()
+	Expect(r.svc.Close(context.Background())).To(Succeed())
+}
+
 var _ = Describe("triggersrestart", func() {
 	It("agents triggers and notifications survive a restart with no database", func() {
 		ctx, dir := context.Background(), GinkgoT().TempDir()
@@ -41,7 +47,7 @@ var _ = Describe("triggersrestart", func() {
 		ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Reviewer", Addons: []string{"office"}})
 		Expect(err).NotTo(HaveOccurred())
 		tr := r.schedule(studio.TriggerInput{AgentID: ag.ID, Kind: triggers.KindSchedule, Schedule: "once 2026-10-27 08:00", TZ: "UTC"})
-		r.host.Close()
+		closeRestartFrontend(r)
 
 		// The server was down across the due time. The new process finds everything.
 		base.clock.Advance(2 * time.Hour)
@@ -60,7 +66,7 @@ var _ = Describe("triggersrestart", func() {
 		r2.pass()
 		runs, _ := r2.host.TriggerRuns(ctx, alice, tr.ID, 0)
 		Expect(runs).To(HaveLen(1), "a missed once-trigger ran %d times", len(runs))
-		r2.host.Close()
+		closeRestartFrontend(r2)
 
 		// A third start still has the notification and does not run the trigger again.
 		third := openFrontend(dir, base)
@@ -78,7 +84,7 @@ var _ = Describe("triggersrestart", func() {
 		base := newShared()
 		r := openFrontend(dir, base).rig(saySummary, studio.TriggerOptions{})
 		tr := r.schedule(studio.TriggerInput{})
-		r.host.Close()
+		closeRestartFrontend(r)
 
 		base.clock.Advance(3*24*time.Hour + time.Hour)
 		r2 := openFrontend(dir, base).rig(saySummary, studio.TriggerOptions{})

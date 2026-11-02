@@ -802,6 +802,8 @@ type ChatsAddon struct {
 
 // ChatsAddonList lists the add-ons a chat can use.
 type ChatsAddonList struct {
+	ExecutionStatus *ChatsExecutionStatus `json:"execution_status,omitempty"`
+
 	Addons []ChatsAddon `json:"addons"`
 	// Commands says whether the chat can run commands and code at its next
 	// turn: available, off (the add-on that runs them is switched off for this
@@ -1688,4 +1690,13 @@ type ChatsEgressEvent struct {
 // ChatsEgressEventList is the audit, newest first.
 type ChatsEgressEventList struct {
 	Events []ChatsEgressEvent `json:"events"`
+}
+
+// ChatsExecutionStatus is presentation-only; it grants no execution authority.
+type ChatsExecutionStatus struct {
+	Readiness   string `json:"readiness"`
+	Isolation   string `json:"isolation"`
+	Explanation string `json:"explanation,omitempty"`
+	Generation  string `json:"generation,omitempty"`
+	Incarnation string `json:"incarnation,omitempty"`
 }

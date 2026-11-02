@@ -136,6 +136,212 @@ receipt is pruned conflicts on its stale revision rather than applying again.
 Acknowledgement follows durable persistence; uncertain durability requires reopening
 and reconciling the operation before further use.
 
+## Optional typed manifest extensions
+
+These declarations extend the strict manifest contract. They keep
+`schemaVersion: 1`, host/API/protocol/data-format level 1 and UI SDK 2.
+The Go contract parser is authoritative; there is no separate JSON Schema.
+The fragments below merge into an otherwise valid manifest, not a complete
+installable package. Existing executable, identity, compatibility and UI
+entry/SDK fields remain required.
+
+### Home page commands
+
+Inside `capabilities.ui`:
+
+```json
+{
+  "pages": ["studio"],
+  "navigation": ["studio"],
+  "mainPage": "studio",
+  "title": {"en": "Studio", "it": "Studio"},
+  "icon": "ui/icon.png",
+  "homeCommands": [{"id": "open", "alias": "studio"}]
+}
+```
+
+`homeCommands` is opt-in and has at most 8 records. Each has a unique `id`
+accepted by `contract.ValidName`. Optional `alias` uses the same lower-case,
+slash-free identifier syntax; it requests convenience naming, not ownership.
+Optional `page` must belong to `pages`, even if not in `navigation`. Omission
+uses a nonempty, declared `mainPage`, never the first page or an external URL.
+
+Optional `label` is a `Localized` string or language map (not a `default`
+wrapper), with at most 60 Unicode characters per label and the existing
+plain-text and language rules. Omission selects the installed localized title
+and, for a non-main destination, the page identifier. Optional `icon` is an
+allowlisted semantic host icon or exactly the packaged `ui.icon`; omission
+selects the installed app icon, then `puzzle`. Omit unused overrides rather
+than sending empty strings or null. No tool, URL, command text, install action
+or component can be a command destination.
+
+### Home commands from installed apps
+
+Home reads only the authenticated installed Apps registry, never the catalog.
+A contribution is actionable only while its app is enabled, running, compatible
+with the host SDK, and has validated immutable assets and a declared destination.
+Loading, list errors, forbidden access, absence, disabled installations and failed
+installations remain distinct; a list error does not mean “not installed”.
+Mounted consumers keep bounded polling alive after disable or failure so recovery
+appears without reloading. Drawing commands does not load addon JavaScript.
+
+Every eligible contribution has `/addon:<addonId>:<commandId>`. Optional aliases
+cannot take any native command name, even a hidden native command, or any usable
+skill name. If multiple contributions request the same alias, all lose that alias;
+the canonical commands remain. Order is addon ID then contribution ID in the Apps
+group. Home shows deterministic, actor-visible alias diagnostics to administrators
+in its expandable command diagnostics section. Labels do not identify commands.
+
+Clicking a command or submitting its exact text uses the same navigation guard.
+Commands accept no arguments and do not execute prefixes. The guard re-reads the
+authenticated installed registry and checks actor, permissions, generation,
+immutable entry and declared page before navigating. Disabled, failed, upgraded,
+removed or inaccessible apps cannot be opened by a previously captured menu entry.
+Logout aborts pending reads; even a response that ignores cancellation cannot
+publish into another actor's registry. Installed commands are Home-only; `/apps`
+remains generic native navigation to installed apps. Uninstalled apps never get
+install commands or promotional examples. Studio owns its `/studio` alias in its
+manifest rather than in Home code. Historical URL redirects and pin migration
+remain unchanged.
+
+### Execution provider and status payload
+
+Inside `capabilities`:
+
+```json
+{
+  "executionProvider": {
+    "tools": ["bash"],
+    "statusTool": "execution-status"
+  }
+}
+```
+
+`tools` contains 1–8 unique declared action tools with executable definitions.
+The current chat binding requires each bound tool to shadow `bash` through
+`shadows`; existing shadow validation still applies, including its uniqueness
+rule. This declaration neither grants shadow authority nor changes provider
+arbitration or execution authorization.
+
+`statusTool` is a separately declared `kind: "read"`, `uiOnly: true` tool,
+not an execution binding or admin tool. Its input schema is an object accepting
+`{}`, with no required inputs, no resource, and `additionalProperties: false`.
+It must answer without mutation. An owner-side typed read must invoke it;
+the model-facing tool adapter intentionally excludes `uiOnly` tools.
+
+The existing result envelope carries this JSON in `payload`:
+
+```json
+{
+  "readiness": "available",
+  "isolation": "isolated",
+  "explanation": "Commands use the configured isolated backend."
+}
+```
+
+`contract.DecodeExecutionStatus` accepts at most 2048 UTF-8 bytes. Both enums
+are required: readiness is `available`, `unavailable` or `unknown`; isolation
+is `isolated`, `host` or `unknown`. Optional explanation is nonempty plain text,
+at most 200 Unicode characters, without markup, controls or direction overrides.
+Unknown or duplicate fields, trailing JSON, `outputs`, private `ok` fields,
+backend names and warning booleans are not accepted. Invalid payloads return
+an error and unknown/unknown, never partial provider data. Non-available
+readiness normalizes isolation to unknown. Status describes only the bound
+tools of that addon incarnation; it is not a host isolation guarantee.
+
+Studio consumes this declaration through the owner-selected conversation binding,
+not an addon ID or a private settings payload. Prompt construction, command
+status and nested egress reads share one observation within a turn. Priming and
+standalone command-status or egress requests have separate, bounded scopes.
+Consumer cancellation stops that wait; turn completion cancels the observation.
+Failed reads settle as unknown and do not retry within the same scope. Each
+consumption revalidates the complete owner binding, including conversation,
+current selection identity and runtime incarnation.
+
+The application resolver reads the current principal-scoped chat and agent from
+JSON or SQL/GORM stores and revalidates current account credentials in named-user
+mode. Local-owner mode maps to the anonymous chat principal. Reads are advisory,
+not transactional snapshots: revoke-and-restore changes between reads are not
+remembered. Ordinary execution authority and consent remain unchanged. An undeclared
+legacy provider does not acquire an isolation claim. Sandbox retains its existing
+private Settings status response and separately declares the typed page-only
+`execution-status` read. Unknown backends report unknown, never inferred isolation.
+
+Provider-reported isolation and a declared network control do not establish
+host network-policy enforcement. The egress API therefore does not claim policy
+applicability for addon command runners until the host can prove enforcement.
+Built-in or explicitly host execution continues to report the host-execution
+reason. Controls can still identify the addon that draws its settings row.
+
+The Apps tab binds each list request and registry ingestion to the authenticated
+session epoch. A same-user refresh or account switch immediately hides the old
+list and rejects its pending responses, even before effect cleanup. A new list
+request can populate the refreshed session. These in-memory scopes contain no
+credentials.
+
+### Requested host operations are not grants
+
+Inside `capabilities`:
+
+```json
+{
+  "hostOperations": {
+    "required": ["workspace.materialize", "workspace.commit"],
+    "optional": ["egress.check", "egress.audit"]
+  }
+}
+```
+
+Each name must pass `contract.ValidHostOp` exactly: no wildcard or prefix grant.
+There are at most 32 entries total, unique across both lists. An empty object
+is invalid. Omission preserves legacy/unspecified requests, not an empty grant
+and not a request for every operation. Required operations declare service
+prerequisites; optional denials must support degraded operation. Unknown but
+syntactically valid names are unsupported, never grants by inference. Requests
+do not create host endpoints or change administrator-controlled grants.
+
+### Official operation audit
+
+The official manifests request the operations their production hostclient calls use.
+Deployment prefixes in `deploy/addons/host-policy.json` remain separate administrator grants.
+The generic binary selects no policy automatically.
+
+| Addon | Required operations | Optional operations |
+| --- | --- | --- |
+| Fine-tuning | `finetune.checkpoints`, `finetune.dataset`, `finetune.export`, `finetune.get`, `finetune.list`, `finetune.start`, `finetune.stop` | None |
+| Quantization | `quantize.get`, `quantize.import`, `quantize.list`, `quantize.start`, `quantize.stop` | None |
+| Office | `workspace.export`, `workspace.import` | None |
+| Sandbox | `workspace.changes`, `workspace.commit`, `workspace.materialize` | `egress.audit`, `egress.check`, `workspace.admin` |
+| Web | None | `workspace.admin` |
+| Face, Slack, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
+
+Fine-tuning and Quantization include operation names passed through mutation and undo wrappers.
+They do not request the host's unused progress operations.
+Telegram's historical `connector.` deployment grant does not imply a hostclient call or manufacture a manifest request.
+
+Sandbox's proxy uses the optional egress operations when configured connections need policy decisions.
+Missing grants do not authorize connections; the proxy cannot obtain an allow verdict.
+Sandbox's settings and Web's provider settings use `workspace.admin` to check administrators.
+Without that optional operation, these settings refuse changes; ordinary tools can remain available.
+The shipped deployment policy covers every official required operation.
+The package tests compare all twelve manifests with this source audit and the host's registered vocabulary.
+Their package-builder fixtures use temporary executable and UI bytes, not official release binaries or frontend build artifacts.
+
+### Compatibility and release packaging
+
+New hosts accept old manifests without these fields. Old hosts reject unknown
+extension fields during staging. Extension-bearing packages therefore require
+the host release introducing these contracts; document that minimum LocalAI
+release beside each addon release. An older host must retain its installed
+package on refusal. Do not add automatic install retries or promise new error
+wording from old binaries.
+
+Catalog version ranges do not negotiate individual fields and cannot guarantee
+eligibility before staging. SDK 2 does not signal support for these manifest
+extensions. If older hosts need support, release maintainers must decide whether
+and how long to publish separate legacy packages. These declarations alone do
+not install packages, grant operations or activate runtime/UI integrations.
+
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an
@@ -228,7 +434,7 @@ available on this instance:
 While the key is `false`:
 
 - The UI shows no Add-ons entry, no pinned apps, and no fine-tuning or
-  quantization entry. `/app/addons`, `/app/fine-tune` and `/app/quantize` lead back
+  quantization entry. `/app/addons` and canonical add-on page addresses lead back
   to `/app`. The UI does not call `/api/addons/pins` or `/api/addons/builtin`. A
   server that sends no `addons` key counts as `true` in the UI.
 - Every path under `/api/addons`, `/api/fine-tuning` and `/api/quantization`
@@ -1666,6 +1872,50 @@ person to confirm.
 
 ## Host operations
 
+### Required and optional operation admission
+
+A verified manifest can request exact operation names with
+`capabilities.hostOperations.required` and `.optional`. These are requests,
+**not grants**. The owner compares them with the host operation vocabulary
+and the immutable host policy selected at startup. Legacy manifests without
+requests retain their configured behavior.
+
+Coverage uses the broker's literal, nonempty prefix rule. For example,
+`workspace.` covers the requested name `workspace.materialize`;
+`workspace.materialize.narrow.` does not. Registry membership is an exact-name
+check: a grant cannot make `workspace.future` a supported operation. Requests
+are exact names, not prefixes, patterns, or authority for selecting providers.
+
+The owner verifies and stages a new install or upgrade before admission.
+Missing required requests refuse publication, before installed records,
+migrations, runtime withdrawal, or process creation. A refused upgrade retains
+the old receipt, digest, generation, and running incarnation; it needs no
+rollback. Automatic upgrades suppress further attempts for the same failed
+candidate until a different candidate appears or the owner restarts. They never
+acquire grants or prompt for approval.
+
+After an operator removes required grants and restarts, the package remains
+installed with its enabled intent. Its effective runtime is unavailable
+(`failed` in Apps), and the owner admits no launch, tool, resource, connector,
+or page access. It does not offer installation as a repair. Restore the host
+policy and restart the owner to make it available again. Policy is restart-only:
+subsequent manager `SetHostOps` calls do not replace the startup decision.
+
+Missing optional requests permit a degraded start. Existing admin Apps details
+and lifecycle operation results include bounded required, optional, granted,
+and missing name lists with counts. Here “granted” counts only supported
+**requested** names covered by host policy, not every grant the addon holds.
+Ordinary Apps readers receive the generic failed observation without policy
+paths, grant details, or missing operation names. Split deployments carry the
+owner's decision; a frontend cannot supply grants.
+
+Admission does not authorize an individual call. The broker still requires a
+registered handler and rechecks the live incarnation, operation scope, actor
+features/admin status, workspace/chat access, and connector binding. Handlers
+are wired as host services start; admission uses the host's startup operation
+vocabulary rather than treating not-yet-wired handlers as unknown operations.
+
+
 A host operation is how an add-on process asks the host to do something the
 add-on cannot do itself, such as starting a job of the engine. It is contract
 surface that third-party add-ons cannot use unless the host setting names them.
@@ -1677,8 +1927,11 @@ The rules:
   default is refuse.
 - The host setting `--addon-host-ops` (`LOCALAI_ADDON_HOST_OPS`) names the
   add-ons that get the channel and the operation prefixes each may call, as a
-  comma list of `addon-id=op-prefix`. The default is
-  `fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.`. An empty value names nobody.
+  comma list of `addon-id=op-prefix`. The generic binary grants nothing when
+  unconfigured. An explicitly empty value names nobody, including in Docker.
+  An administrator can instead select a file with `--addon-host-policy`; see
+  [Administrator host operation policy](#administrator-host-operation-policy)
+  for precedence and explicit-empty behavior.
   This is a host setting, not a manifest field and not a model argument.
 - An add-on that the setting names finds two optional fields in its startup
   object: `hostEndpoint`, a loopback address of the form
@@ -1731,7 +1984,7 @@ scope (today `connector.inbound`):
   owner is refused with `bad_request` before the operation runs.
 - The add-on ID is the one the host built the listener for, never a value of the
   call. The host setting must still name the operation prefix for the add-on
-  (`telegram=connector.` by default).
+  (`telegram=connector.` in the stock Docker policy).
 
 Every other operation keeps all its checks. An operation cannot become inbound by
 a field of the request: the scope is part of its registration.
@@ -1953,6 +2206,15 @@ definition replaces one with `"shadows": "<name>"`:
   ...: the built-in bash serves", or that the chat has no such tool when the
   built-in is off too), from `fallbacks` of `GET /api/chats/{id}/tools`. A
   tool without `shadows` keeps its add-on name.
+- **Qualified identities.** The shared tool adapter formats and parses
+  `addon__<id>__<tool>`. Both components must match
+  `[a-z][a-z0-9-]{0,63}`. Model-callable names cannot exceed 64 characters.
+  Execution-status binding rejects plain names, malformed names, and names
+  whose add-on ID differs from the selected provider. The real adapter already
+  supplies canonical names; this check also guards the binding boundary.
+  Studio's unavailable stand-ins use the same component grammar but do not
+  apply the model-callable total length limit. A long stand-in identifies an
+  unavailable add-on; it does not make that name callable through the adapter.
 - **Who served it.** A call the add-on served carries the card `tool_provider`
   with the add-on's ID, so the chat shows the provider on the tool line.
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it
@@ -2960,13 +3222,12 @@ the caller and is sent with `Cache-Control: private, no-store`.
   days the pins are deleted. A background sweep runs every six hours; with several
   frontends, one of them runs it at a time. A disabled add-on is not removed, so its pins
   never expire. A sweep that cannot read the add-on owner changes nothing.
-- **Upgrade seed.** A read or a save never pins anything. Once, at the upgrade that adds
-  this feature, the accounts that exist then get Studio and Talk pinned. Both are
-  add-ons, so a pin is drawn once the add-on is installed. A seeded pin does not
-  expire while its add-on was never installed, however long that takes; once the
-  add-on was installed, its pin follows the retention rule like any other (the sweep
-  records the first install in the table of seed runs, `addon_pin_seed_runs`, or in
-  the pins file). An account created later starts with no pins. An unpin stays after a restart.
+- **Explicit selection.** New and existing accounts, including the local owner, start
+  without implicit pins. Startup, reads, and saves never add Studio, Talk, or any other
+  ID on their own. Existing saved user pins remain unchanged. Explicit pins and unpins
+  survive restarts and are shared across frontends with an account database.
+  Every absent ID follows the same 30-day retention rule, even if it was never installed.
+  The store no longer creates or uses seed metadata; it does not drop existing database tables.
 - **Startup.** If the pins file cannot be read (it is corrupt), the server does not start
   and logs the error. It does not fall back to memory, because that would lose every unpin
   at the next restart.
@@ -3002,46 +3263,34 @@ former Installed tab showed is the **More details** section of an add-on in My a
 `?tab=installed` opens My add-ons. The management link of an app
 (`/app/addons?manage=ID`) opens My add-ons with the details of that add-on open.
 
-### Old links
+### Add-on page addresses and model actions
 
-The generators that had their own page now open inside the Studio add-on, and the
-Studio and Talk pages open their add-ons. The old links still work and keep the model, the
-query string and the hash:
+Open add-on pages through My add-ons or their declared navigation entries.
+The canonical address is `/app/addons/<id>/<page>`, with an optional relative
+suffix beneath the declared page. Historical standalone generator and add-on
+addresses are not registered and show Not Found. There is no compatibility
+support window for these unreleased routes.
 
-| Old link | Opens |
-|---|---|
-| `/app/studio` | `/app/addons/studio/studio` |
-| `/app/studio/<tab>` | `/app/addons/studio/studio/<tab>` |
-| `/app/talk` | `/app/addons/talk/talk` |
-| `/app/image` | `/app/addons/studio/studio/images` |
-| `/app/video` | `/app/addons/studio/studio/video` |
-| `/app/3d` | `/app/addons/studio/studio/threed` |
-| `/app/tts` | `/app/addons/studio/studio/tts` |
-| `/app/sound` | `/app/addons/studio/studio/sound` |
-| `/app/diarization` | `/app/addons/studio/studio/diarization` |
-| `/app/transform` | `/app/addons/studio/studio/transform` |
-| `/app/face` | `/app/addons/face/recognition` |
-| `/app/face/<model>` | `/app/addons/face/recognition?model=<model>` |
-| `/app/voice` | `/app/addons/voice/voice/recognition` |
-| `/app/voice/<model>` | `/app/addons/voice/voice/recognition?model=<model>` |
-| `/app/voice-library` | `/app/addons/voice/voice/library` |
-| `/app/voice-library/new` | `/app/addons/voice/voice/library/new` |
+Installed-model inspectors, gallery Open actions and model details resolve
+`capabilities.ui.modelActions` from the authenticated installed Apps list.
+A declaration names a model capability, a declared page and an optional safe
+relative path. Core does not map provider IDs to private page paths.
 
-None of these links has a core page behind it: the face, voice, Studio and Talk pages exist
-only in their add-ons. Without the add-on, a link opens the add-on page, which says the
-add-on is not available.
-A model id can hold `/` or `:`, which an add-on path segment refuses, so the model travels
-as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/voice/recognition?model=org%2Fname`; the face links and the
-Studio links do the same).
+One usable provider opens with one click. Multiple providers appear as named
+choices in the action menu, sorted by provider ID. When none is usable, the
+capability label remains without a dead link or an install promotion.
+Chat and completion keep their native destinations.
 
-A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/images?model=<model>`. The
-`/app/studio?tab=` links redirect to `/app/addons/studio/studio/<tab>`. A viewer without the `3d`,
-`audio_diarization` or `audio_transform` feature still lands on the app home, as before.
+The host sends the selected model as a URLSearchParams value under `model`.
+Slashes, colons, Unicode and query delimiters remain part of the model name.
+Each click refreshes the actor-filtered installed list and checks the captured
+provider, page, path, generation, immutable entry and authentication authority.
+A changed installation or session refuses the stale action instead of choosing
+another provider. Projection does not load add-on code or query the catalog.
+Talk still lands on its existing page; this does not change its pipeline.
 
-The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
-hub only. These redirects do not depend on it: with the switch on, the
-old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, All chats, Agents, MCP connectors, Memory and
-the hubs; Studio and Talk are in My add-ons, as add-ons.
+The legacy navigation switch changes the sidebar and hubs only. It does not
+restore removed addon-specific route registrations.
 
 ### The Studio add-on
 
@@ -3146,8 +3395,7 @@ with **Install and turn on**. Once usable, they appear in My add-ons and can be 
 | `fine-tuning` | Fine-Tune | `/app/addons/fine-tuning/jobs` | users with the `fine_tuning` feature; the page shows an off notice for anyone else |
 | `quantization` | Quantize | `/app/addons/quantization/jobs` | users with the `quantization` feature; the page shows an off notice for anyone else |
 
-The old links `/app/fine-tune` and `/app/quantize` open the add-on page. Without the add-on,
-they show the add-on page that says the add-on is not available. The pages call
+Canonical links open the add-on shell, which reports unavailable installations. The pages call
 `/api/fine-tuning/*` and `/api/quantization/*` with the signed-in user's own session (see
 "Core routes from add-ons"); the core keeps these routes and checks every call again.
 Both add-ons offer chat tools that start a job. In the chats a tool call starts it at once; on other surfaces it is a proposal that waits for a person to confirm. They
@@ -3604,7 +3852,12 @@ An upgrade started from the list, the details, **Find add-ons** or **Upgrade all
 running when you leave the page. It appears in the Activity page under the **Add-ons**
 filter, with progress, **Cancel** and **Retry**. Cancel stops the request, and the page then
 reads the operation to report what the owner did. The list of upgrades is kept by the
-browser that started them, so it is lost on a page reload.
+browser that started them, so it is lost on a page reload. Background tracking continues
+across navigation only within the same authentication session. An authentication
+refresh, account or permission change, logout initiation, or removal of the
+authentication provider expires pending observations. Late replies then cannot
+verify an upgrade or publish its result into the new session. This does not undo
+an operation already accepted by the server.
 
 While the add-on service restarts (an upgrade restarts it), the page cannot read the
 operation and the server answers 503. The page then waits longer before each new read, 2,
@@ -4484,3 +4737,215 @@ Logout clears the current user's observer records. Storage restrictions may prev
 observer recovery, but never cancel the owner operation. An unreadable owner or
 exhausted polling window is an unknown outcome: keep the ID and read it again,
 rather than starting a replacement operation.
+
+## Administrator host operation policy
+
+`--addon-host-policy` (environment: `LOCALAI_ADDON_HOST_POLICY`) selects an
+administrator-controlled JSON file. Use an absolute path to a readable regular
+file, at most 64 KiB. LocalAI reads it once at startup; changes require a restart.
+There is no implicit search, remote download, or manifest-selected policy path.
+Keep the file outside addon-writable directories. The deployment administrator
+must protect its ownership and mount permissions. A symlink to a regular file is
+accepted; path validation does not prove that the file is administrator-owned.
+
+```json
+{
+  "schemaVersion": 1,
+  "grants": {
+    "sandbox": ["workspace.", "egress."],
+    "office": ["workspace."]
+  }
+}
+```
+
+```sh
+local-ai run --addon-host-policy=/etc/localai/addon-host-policy.json
+# Equivalent selection:
+LOCALAI_ADDON_HOST_POLICY=/etc/localai/addon-host-policy.json local-ai run
+# Explicitly grant nothing, without opening any selected policy:
+local-ai run --addon-host-ops=
+# Disable policy selection inherited from the environment:
+local-ai run --addon-host-policy=
+```
+
+The file requires exactly `schemaVersion` (integer `1`) and `grants` (an object).
+Keys are case-sensitive. Unknown fields, duplicate keys, duplicate prefixes,
+malformed JSON and trailing data are errors. An empty `grants` object is valid.
+The limits are 128 addon IDs and 32 prefixes per addon. IDs use lowercase ASCII
+letters, digits and hyphens and start with a letter or digit. Prefixes use the
+same grammar as `--addon-host-ops`: lowercase ASCII letter segments, each ending
+in a dot, such as `workspace.` or `workspace.files.`. They are not regular
+expressions or exact operation names. The broker must still register an
+operation before any prefix can authorize it.
+
+Selection uses presence, not string length:
+
+1. An explicit `--addon-host-ops` wins, including an empty value.
+2. Otherwise, an explicitly set `LOCALAI_ADDON_HOST_OPS` wins, including empty.
+3. Otherwise, the selected policy supplies the complete grant map.
+4. The generic configuration resolver grants nothing when unconfigured.
+
+Overrides replace grants; they never merge with the file. LocalAI does not open
+an ignored policy and logs that it was ignored. An invalid selected policy stops
+startup. An explicitly empty `--addon-host-policy` disables an environment policy
+and supplies no grants. Startup logs report the source and counts, not file
+contents. Manifests, addon requests and libraries cannot grant host operations.
+In split deployments, the owner enforces authority; frontend settings cannot add
+grants. Programmatic `WithAddonHostOps`, including an empty map, is an exact
+startup decision and takes a copy of the supplied map and prefix slices.
+
+### Breaking upgrade change: standalone and custom deployments
+
+**The generic binary no longer grants host operations by default.** Upgrading
+an unconfigured standalone or custom deployment removes the former implicit
+grants, even when official addons are already installed. Those addons can lose
+host-backed functionality. Startup warns about unconfigured grants even before
+any addon is installed. LocalAI does not infer consent from installed addons,
+write migration grants into addon storage, or automatically restore old grants.
+
+Existing explicit flag or environment settings keep their effective grants,
+including explicitly empty settings. An override replaces the complete policy;
+it never unions with it. A missing or invalid selected file fails startup.
+
+To retain the former grants, review `deploy/addons/host-policy.json` from your
+trusted LocalAI release, then install and explicitly select it:
+
+```sh
+sudo install -d -m 0755 /etc/localai/addons
+sudo install -o root -g root -m 0644 deploy/addons/host-policy.json /etc/localai/addons/host-policy.json
+local-ai run --addon-host-policy=/etc/localai/addons/host-policy.json
+# Or configure this environment variable in your service, then restart:
+# LOCALAI_ADDON_HOST_POLICY=/etc/localai/addons/host-policy.json
+```
+
+The exact former explicit setting remains valid:
+
+```sh
+local-ai run --addon-host-ops='fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector.'
+```
+
+The reviewed deployment file contains exactly:
+
+| Addon ID | Prefix grants |
+| --- | --- |
+| `fine-tuning` | `finetune.` |
+| `quantization` | `quantize.` |
+| `sandbox` | `workspace.`, `egress.` |
+| `office` | `workspace.` |
+| `web` | `workspace.` |
+| `telegram` | `connector.` |
+
+This file is host-owned deployment policy, not authority supplied by a manifest
+or catalog. Grants trust addon identity, not a verified signature or provenance.
+Installing different code under a granted ID gives that code the selected grants.
+Protect the file against writes by addons and untrusted users. Review and reduce
+the grants if you do not intend to trust every listed ID.
+
+### Maintained launcher selection
+
+The stock Docker runtime copies the reviewed file to
+`/etc/localai/addons/host-policy.json` and explicitly selects that path through
+`LOCALAI_ADDON_HOST_POLICY`. No executable-relative or working-directory search
+is involved. `--addon-host-ops=` overrides this selection with zero grants.
+`--addon-host-policy=` disables the image's policy selection and gives zero
+grants unless an explicit host-operations override is present.
+
+| Launcher or deployment | Host policy decision |
+| --- | --- |
+| Stock runtime `Dockerfile` | Ships and explicitly selects the reviewed file. |
+| `docker-compose.yaml`, `docker-compose.distributed.yaml` | Inherit the stock runtime image selection; custom images must select their own policy. Only the addon owner enforces grants in split mode. |
+| `website/static/install/kubernetes.yaml` | Inherits the stock image selection. A custom image must ship/select policy or mount an administrator file and select its absolute path. |
+| External Helm chart referenced by the Kubernetes guide | Not shipped here. Check the selected image and chart environment; custom images are unconfigured unless the operator selects policy. |
+| `.devcontainer/docker-compose-devcontainer.yml` | Uses the development target, not the stock runtime stage. A manually launched binary is unconfigured. |
+| Release binaries, `website/static/install.sh`, AppImage/desktop launchers (`contrib/appimage`), macOS launcher packaging | Unconfigured standalone behavior. Operators must explicitly select policy or host operations; packaging does not migrate consent. |
+| Custom systemd services | No maintained unit ships in this tree. Set `LOCALAI_ADDON_HOST_POLICY` or explicit host operations in the unit, protect the file, and restart. |
+| `docs/docker-compose.yaml` | Documentation-site server only; it does not launch LocalAI. |
+
+These non-stock launchers do not promise the former implicit grants. Automatic
+policy installation or selection for them is deferred; use the explicit upgrade
+procedure above. Merely copying a file without selecting it does not grant
+anything. Do not fetch host policy from an addon library.
+
+### Owner-resolved execution observations
+
+The owner resolves execution-status bindings from an authenticated actor and a
+conversation ID. Callers cannot choose the provider, tools, runtime incarnation,
+agent grants, or consent. The resolver uses the chat's current add-on switches,
+agent grants, provider pins, and installed-provider ordering. An installed but
+idle pinned provider does not fall through to another add-on.
+Execution observations read the same current owner policy as normal execution,
+not frontend-local provider pins. Owner policy outages fail closed; a CAS pin
+change invalidates a binding whose current selection no longer matches.
+
+The binding path uses existing principal-scoped chat and agent reads on the
+owner, supporting JSON and SQL/GORM stores. Named actors use their account ID;
+the local owner uses the anonymous chat principal. Current account status,
+feature permissions and credentials are checked through normal authorization.
+The owner must have these stores; frontend tool lists are never authority.
+
+The status gateway re-resolves current authorization and selection before
+dispatch and before publishing positive facts, and compares the exact generation,
+runtime incarnation and tools. A changed current selection withdraws old facts;
+a fresh request can succeed after access is restored. This is current-read
+consistency, not a historical revoke-and-restore (ABA) guarantee or a database
+transaction spanning the read. The host compares
+current selection identity only; it is not a durable revision or owner nonce.
+A binding does not authorize command execution, grant access or replace consent.
+Request/session integration shares observations only within a bounded request.
+
+### Execution safety notices
+
+The chat Tools menu and command chip describe the actual selected execution
+provider, not an installed app's name. Any provider that reports host execution
+gets a no-isolation warning. Unknown readiness or isolation gets an explicit
+warning, not an isolated or safe badge. A status read does not grant execution
+permission or replace the built-in host command consent flow.
+
+Provider explanations are bounded plain text. Dismissing a notice applies only
+to that mounted chat context and exact provider binding, including generation,
+incarnation, readiness and isolation. Loading, switching providers,
+changing isolation, changing actors or logging out resets the dismissal.
+Actor or authentication-session changes also invalidate pending status reads
+before the next effect runs; logging in as the same user starts a new epoch.
+Built-in command execution, including fallback from an unavailable provider,
+shows the generic host warning without Sandbox installation or repair advice.
+This warning does not change command consent or administrator settings.
+
+The network panel retains the configured policy when the backend cannot verify
+its enforcement. It explicitly says that the policy does not apply to commands.
+Provider-reported isolation alone does not establish network enforcement.
+Missing current authorization, selection or runtime context yields unknown;
+installing an app does not confer authority or prove network enforcement.
+
+The chat `/about` card reports isolation from the selected command provider.
+When the provider status is missing or unknown, the card does not claim isolation.
+After an authentication refresh or account change, pending Apps reads and action
+results cannot populate the new session. The server still authorizes every action.
+
+### Model destinations (contract and backend metadata)
+
+An installed addon can declare optional `capabilities.ui.modelActions`:
+
+```json
+{"modelActions":[{"capability":"FLAG_IMAGE","page":"studio","path":"images"}]}
+```
+
+Each entry requires an existing non-native model capability and a declared UI
+page. The optional relative suffix must stay beneath that page. One entry per
+capability is allowed within an addon, with at most 27 entries. Native chat and
+completion cannot be shadowed; aggregate `FLAG_LLM` and `FLAG_ANY` are excluded.
+The remaining concrete host model flags form the vocabulary, guarded by parity
+tests. No labels, priorities, permissions, URLs or query templates are accepted.
+
+The combined page/suffix follows SDK routing bounds: at most 256 ASCII characters
+and eight segments, each 1–64 characters from `[A-Za-z0-9._~-]`; `.` and `..`
+segments are forbidden. Absolute paths, empty suffixes, percent escapes, queries,
+fragments, unknown keys, duplicate keys and noncanonical keys are rejected.
+Installed Apps metadata preserves these typed declarations and existing
+unavailable-UI omission; it does not discover or promote catalog entries.
+
+Studio declares its existing image, video, speech and sound tabs. Talk declares
+its transcription landing page, Face face recognition and Voice speaker
+recognition. Talk currently has no selected-model query semantics; its landing
+behavior is unchanged. This backend milestone does not yet alter model Open
+dispatch or remove historical frontend routes.

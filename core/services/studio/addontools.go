@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -57,7 +58,7 @@ type AddonGate interface {
 
 // unavailableToolName is the name of the stand-in tool of an add-on that
 // cannot work. It has the shape of the broker's tool names.
-func unavailableToolName(addonID string) string { return "addon__" + addonID + "__unavailable" }
+func unavailableToolName(addonID string) string { return addontools.ToolName(addonID, "unavailable") }
 
 // ErrBadAddonID means a switch names something that is not an add-on ID, or
 // there are too many switches.
@@ -193,12 +194,11 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 				continue
 			}
 		}
-		if off[d.AddonID] || reservedToolNames[d.Name] || (sc != nil && !sc.addons[d.AddonID]) {
-			continue
+		var grants []string
+		if sc != nil {
+			grants = sc.addonNames
 		}
-		// An unattended run with no agent never gets a tool that acts at once:
-		// the owner's explicit grant, in an agent, is what allows it.
-		if d.Action && rec.Origin != "" && rec.AgentID == "" {
+		if !AddonToolEligible(d, rec, grants) {
 			continue
 		}
 		name := d.Name

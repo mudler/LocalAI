@@ -1,23 +1,5 @@
-// Whether a chat can run commands and code, from the "commands" field of the
-// chat's add-on list (GET /api/chats/:id/addons). The server computes it from
-// the tools the model gets at the next turn:
-//   available    a tool runs commands
-//   off          the Sandbox add-on is installed but off for this chat
-//   unavailable  the Sandbox add-on is installed but cannot run commands here
-//   none         no add-on that runs commands is installed for the user
-// When commands_provider is builtin, bash runs directly on this machine (no
-// Sandbox serves it); commandsState turns that into one of three states of its
-// own, so the notice says that commands run here, not isolated:
-//   host              no Sandbox
-//   host-off          the Sandbox is off for this chat
-//   host-unavailable  the Sandbox cannot run (commands_fallback_reason)
-// An older server sends no field: then nothing is shown.
-
-export const SANDBOX_ADDON_ID = 'sandbox'
-
-// Where an administrator installs the Sandbox. The first-start wizard step
-// "Run code safely" links here too.
-export const SANDBOX_INSTALL_LINK = `/app/addons?tab=browse&q=${SANDBOX_ADDON_ID}`
+// Command availability and isolation come from the selected provider DTO, not
+// an add-on's private discovery response or its name.
 
 // commandsState reads the commands fields of an add-on list as one state and
 // its reason.
@@ -30,6 +12,15 @@ export function commandsState(res) {
     if (res.commands_fallback) return { state: 'host-unavailable', reason: why }
     return { state: 'host', reason: '' }
   }
+  const observation = res?.execution_status
+  if (state === 'available') {
+    const isolation = observation?.isolation || res?.commands_isolation
+    if (observation && observation.readiness !== 'available') return { state: 'unknown', reason: plainExplanation(observation.explanation) }
+    if (isolation === 'host') return { state: 'provider-host', reason: plainExplanation(observation?.explanation) }
+    if (isolation !== 'isolated') return { state: 'unknown', reason: plainExplanation(observation?.explanation) }
+  }
+  if (state === 'none' && observation) return { state: 'unknown', reason: plainExplanation(observation.explanation) }
+  if (state === 'unavailable' && (observation || res?.commands_provider)) return { state: 'provider-unavailable', reason: plainExplanation(observation?.explanation || reason) }
   return { state, reason }
 }
 
@@ -38,14 +29,21 @@ export function commandsState(res) {
 // person who is not one is told to ask one, unless the fix is theirs.
 export function commandsNotice(commands, { isAdmin = false, reason = '' } = {}) {
   switch (commands) {
+    case 'provider-host':
+    case 'unknown':
+    case 'loading':
+    case 'provider-unavailable':
+    case 'switched_off':
+      return { state: commands, titleKey: commands === 'provider-host' ? 'hostTitle' : 'title', textKey: commands === 'switched_off' ? 'disabled' : commands === 'provider-host' ? 'providerHost' : commands === 'provider-unavailable' ? 'providerUnavailable' : 'unknown', reason: plainExplanation(reason), tone: 'warn', link: null, askKey: null }
+
     case 'off':
-      return { state: 'off', textKey: 'off', link: null, askKey: null, reason: '' }
+      return { state: 'off', textKey: 'disabled', link: null, askKey: null, reason: '' }
     case 'unavailable':
       return {
         state: 'unavailable',
-        textKey: reason ? 'unavailableWhy' : 'unavailable',
+        textKey: 'providerUnavailable',
         reason: typeof reason === 'string' ? reason.slice(0, 200) : '',
-        link: isAdmin ? { to: `/app/addons?detail=${SANDBOX_ADDON_ID}`, labelKey: 'openSandbox' } : null,
+        link: null,
         askKey: isAdmin ? null : 'askFix',
       }
     case 'none':
@@ -53,25 +51,14 @@ export function commandsNotice(commands, { isAdmin = false, reason = '' } = {}) 
         state: 'none',
         textKey: 'none',
         reason: '',
-        link: isAdmin ? { to: SANDBOX_INSTALL_LINK, labelKey: 'install' } : null,
-        askKey: isAdmin ? null : 'askInstall',
+        link: null,
+        askKey: null,
       }
-    // Commands run, but on this machine: a quiet notice that stays.
+    // Actual host execution never implies that one particular add-on is the fix.
     case 'host':
-      return {
-        state: 'host', titleKey: 'hostTitle', textKey: 'host', reason: '', tone: 'warn',
-        link: isAdmin ? { to: SANDBOX_INSTALL_LINK, labelKey: 'install' } : null,
-        askKey: isAdmin ? null : 'askInstall',
-      }
     case 'host-off':
-      return { state: 'host-off', titleKey: 'hostTitle', textKey: 'hostOff', reason: '', tone: 'warn', link: null, askKey: null }
     case 'host-unavailable':
-      return {
-        state: 'host-unavailable', titleKey: 'hostTitle', textKey: reason ? 'hostUnavailableWhy' : 'hostUnavailable',
-        reason: typeof reason === 'string' ? reason.slice(0, 200) : '', tone: 'warn',
-        link: isAdmin ? { to: `/app/addons?detail=${SANDBOX_ADDON_ID}`, labelKey: 'openSandbox' } : null,
-        askKey: isAdmin ? null : 'askFix',
-      }
+      return { state: commands, titleKey: 'hostTitle', textKey: 'providerHost', reason: plainExplanation(reason), tone: 'warn', link: null, askKey: null }
     default:
       return null
   }
@@ -106,7 +93,7 @@ export function writeHidden(storage, state) {
 export function providerTag(card) {
   if (!card || typeof card !== 'object') return null
   if (card.kind === 'tool_provider' && card.id) {
-    return card.id === SANDBOX_ADDON_ID ? { key: 'sandbox' } : { key: 'addon', values: { name: String(card.id) } }
+    return { key: 'addon', values: { name: String(card.id) } }
   }
   if (card.kind === 'host_exec') {
     switch (card.id) {
@@ -125,4 +112,14 @@ export function providerTag(card) {
 // ended, so nobody waits on the answer and the command did not run.
 export function consentExpired(e) {
   return e?.status === 410 || e?.body?.error?.type === 'consent_expired'
+}
+
+// Plain text only. React text children escape markup; never pass this to HTML/Markdown.
+export function plainExplanation(value) {
+  return typeof value === 'string' ? [...value.replace(/[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g, '')].slice(0, 200).join('') : ''
+}
+
+export function noticeIdentity(res, chat, actor) {
+  const v = res?.execution_status || {}
+  return JSON.stringify([actor, chat, res?.commands_provider, v.generation, v.incarnation, res?.commands, v.readiness, v.isolation || res?.commands_isolation])
 }

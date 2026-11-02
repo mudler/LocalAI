@@ -5,6 +5,18 @@
   },
   "arch": "amd64",
   "capabilities": {
+    "hostOperations": {
+      "required": [
+        "workspace.changes",
+        "workspace.commit",
+        "workspace.materialize"
+      ],
+      "optional": [
+        "egress.audit",
+        "egress.check",
+        "workspace.admin"
+      ]
+    },
     "actions": true,
     "toolDefinitions": [
       {
@@ -30,6 +42,17 @@
           "type": "object"
         },
         "shadows": "bash"
+      },
+      {
+        "name": "execution-status",
+        "kind": "read",
+        "uiOnly": true,
+        "description": "Report typed execution readiness and isolation.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        }
       },
       {
         "name": "status",
@@ -87,6 +110,7 @@
     ],
     "tools": [
       "bash",
+      "execution-status",
       "status",
       "set-backend",
       "confirm-host"
@@ -136,7 +160,13 @@
         "name": "xlsx",
         "shadows": "xlsx"
       }
-    ]
+    ],
+    "executionProvider": {
+      "tools": [
+        "bash"
+      ],
+      "statusTool": "execution-status"
+    }
   },
   "dataFormat": {
     "max": 1,

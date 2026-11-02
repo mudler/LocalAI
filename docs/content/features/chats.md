@@ -1019,7 +1019,7 @@ setting like the others.
 ### What the web interface is told
 
 `GET /api/chats/{id}/addons` says the same for the web interface in
-`commands`: `available`, `off` (the Sandbox is installed but off for this chat,
+`commands`: `available`, `off` (the selected provider is off for this chat,
 or its agent does not name it, and the built-in `bash` is not allowed),
 `unavailable` (installed, but it cannot run commands on this server;
 `commands_reason` says why) or `none` (no add-on that runs commands is
@@ -1027,9 +1027,12 @@ installed for you). When commands run, `commands_provider` says who serves
 `bash` (`builtin`, or the add-on's ID) and `commands_isolation` says `isolated`
 or `host`. `commands_consent` is `ask` when each command waits for the card,
 and `commands_fallback` with `commands_fallback_reason` name the add-on that
-would serve but does not (`off`, or its reason). The **Tools** menu and the
-chip next to it say "Commands run on this machine" with the reason, and link an
-administrator to the Sandbox.
+would serve but does not (`off`, or its reason). The **Tools** menu uses this selected-provider response, not private add-on
+status data. It labels commands as isolated only when the current provider
+explicitly reports available, isolated execution. Missing, loading and unknown
+observations remain unknown. Host execution shows a warning without recommending
+a specific add-on. The first-run guide and native tool settings do not recommend
+an add-on by ID.
 
 ```bash
 curl -s localhost:8080/api/chats/$ID/addons

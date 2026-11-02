@@ -703,7 +703,6 @@ func (a *Application) Shutdown() error {
 		if a.studioService != nil {
 			_ = a.studioService.Close(context.Background())
 		}
-		// After the studio service: a chat may still search a collection.
 		if svc := a.collectionsService.Load(); svc != nil {
 			svc.Close()
 		}

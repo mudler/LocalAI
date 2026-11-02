@@ -8,10 +8,12 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +42,8 @@ type updateLibrary struct {
 	archives map[string][]byte
 	releases []catalog.Release
 	sources  *catalog.Sources
+	// transform lets lifecycle specs publish real typed executable packages.
+	transform func(map[string]any) map[string][]byte
 }
 
 func (l *updateLibrary) publish(version, channel, content string, requires catalog.Requirements) catalog.Release {
@@ -49,15 +53,26 @@ func (l *updateLibrary) publish(version, channel, content string, requires catal
 	var m map[string]any
 	Expect(json.Unmarshal(manifest, &m)).To(Succeed())
 	m["version"] = version
+	files := map[string][]byte{"bin/sample": []byte(content)}
+	if l.transform != nil {
+		for name, data := range l.transform(m) {
+			files[name] = data
+		}
+	}
 	manifest, _ = json.Marshal(m)
+	files["manifest.json"] = manifest
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
-	for _, f := range []struct {
-		name string
-		data []byte
-	}{{"manifest.json", manifest}, {"bin/sample", []byte(content)}} {
-		Expect(tw.WriteHeader(&tar.Header{Name: f.name, Mode: 0755, Size: int64(len(f.data))})).To(Succeed())
-		_, e = tw.Write(f.data)
+	// Stable entry order keeps identical package contents at the same digest.
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		data := files[name]
+		Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+		_, e = tw.Write(data)
 		Expect(e).NotTo(HaveOccurred())
 	}
 	Expect(tw.Close()).To(Succeed())
@@ -166,6 +181,44 @@ func (r *updateRig) journalOps() int {
 	defer r.m.mu.Unlock()
 	return len(r.m.journal.Operations)
 }
+
+var _ = Describe("update library archive fixtures", func() {
+	It("publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms", func() {
+		for _, transformed := range []bool{false, true} {
+			lib := &updateLibrary{archives: map[string][]byte{}, server: &httptest.Server{URL: "http://fixture.invalid"}}
+			wantNames := []string{"bin/sample", "manifest.json"}
+			if transformed {
+				lib.transform = func(m map[string]any) map[string][]byte {
+					m["description"] = "unchanged transform"
+					return map[string][]byte{"z-last.txt": []byte("last"), "a-first.txt": []byte("first"), "ui/main.js": []byte("export default {};")}
+				}
+				wantNames = []string{"a-first.txt", "bin/sample", "manifest.json", "ui/main.js", "z-last.txt"}
+			}
+			var archives [][]byte
+			digests := map[string]bool{}
+			for attempt := 0; attempt < 100; attempt++ {
+				release := lib.publish("1.2.3", "", "unchanged content", catalog.Requirements{})
+				digests[release.Digest] = true
+				archives = append(archives, lib.archives[strings.TrimPrefix(release.Artifact, lib.server.URL)])
+			}
+			Expect(digests).To(HaveLen(1), "unchanged publishes must not change the digest; transformed=%t", transformed)
+			for _, archive := range archives {
+				Expect(archive).To(Equal(archives[0]))
+				tr := tar.NewReader(bytes.NewReader(archive))
+				var names []string
+				for {
+					header, err := tr.Next()
+					if err == io.EOF {
+						break
+					}
+					Expect(err).NotTo(HaveOccurred())
+					names = append(names, header.Name)
+				}
+				Expect(names).To(Equal(wantNames), "archive entries must use lexical order")
+			}
+		}
+	})
+})
 
 var _ = Describe("explicit upgrade from an authoritative update check", func() {
 	It("reports a digest-only change of a moving channel, applies nothing and offers the pinned upgrade", func() {

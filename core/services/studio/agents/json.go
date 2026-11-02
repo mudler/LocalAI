@@ -14,7 +14,8 @@ import (
 
 // jsonStore keeps the agents in memory and, with a directory, in the file
 // agents.json (rewritten atomically after every change). One process owns the
-// directory: the lock is in-process only, so a cluster uses the GORM store.
+// directory.
+// A cluster uses GORM.
 type jsonStore struct {
 	mu   sync.Mutex
 	path string // empty: memory only

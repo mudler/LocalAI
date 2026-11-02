@@ -31,12 +31,18 @@ type Gateway struct {
 	HostSettings HostSettingsService
 	// HostSettingsAdmin checks current host authority, never add-on supplied flags.
 	HostSettingsAdmin func(context.Context, contract.Actor) error
-	Limits             RelayLimits
-	Manager            *addons.Manager
-	Runtime            CurrentRuntime
-	Forward            *Carrier
-	Admission          Admission
-	Resolver           ResourceResolver
+	// ResolveExecutionBinding loads actor-owned context on the owner. Nil denies.
+	ResolveExecutionBinding func(context.Context, contract.Actor, ExecutionBindingClaim) (ExecutionStatusBinding, error)
+	// AuthorizeExecutionStatus must revalidate current provider current selection,
+	// execution feature permission, access and builtin replacement authority on the owner.
+	// Nil denies all observations. Status is never selection authorization.
+	AuthorizeExecutionStatus func(context.Context, contract.Actor, ExecutionStatusBinding) error
+	Limits                   RelayLimits
+	Manager                  *addons.Manager
+	Runtime                  CurrentRuntime
+	Forward                  *Carrier
+	Admission                Admission
+	Resolver                 ResourceResolver
 	// Tools reports the tools each installed add-on declares. When nil the
 	// Manager is used; with neither, a request that names a tool is denied.
 	Tools ToolSource

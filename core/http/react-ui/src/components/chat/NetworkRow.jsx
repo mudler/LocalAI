@@ -19,7 +19,12 @@ export default function NetworkRow({ egress }) {
   const [open, setOpen] = useState(false)
   const mode = networkMode(egress)
   if (mode === 'hidden') return null
-  if (mode === 'host') return <p className="cmd-notice__line" data-testid="chat-network-host">{t('egress.hostNetwork')}</p>
+  if (mode === 'host' || mode === 'unverified') return (
+    <div className="cmd-notice__line" data-testid="chat-network-unenforced">
+      <p>{t(mode === 'host' ? 'egress.hostNetwork' : 'egress.unverified')}</p>
+      <p>{t('egress.configuredPolicy', { preset: t(`egress.preset.${egress.preset || 'off'}`) })}</p>
+    </div>
+  )
   const choices = presetChoices(egress)
   const kind = ceilingKind(egress)
   const asked = askedAboveLimit(egress)

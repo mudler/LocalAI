@@ -53,8 +53,8 @@ const ADDON_PAGES = [
   ['/app/addons/talk/talk', 'Talk', '.talk-page'],
   ['/app/addons/studio/studio', 'Studio', '[data-testid="studio-overview"]'],
   ['/app/addons/studio/studio/threed', 'Studio 3D', '.ws-title'],
-  ['/app/talk', 'Talk (old address)', '.talk-page'],
-  ['/app/studio/threed', 'Studio 3D (old address)', '.ws-title'],
+  ['/app/addons/talk/talk', 'Talk (old address)', '.talk-page'],
+  ['/app/addons/studio/studio/threed', 'Studio 3D (old address)', '.ws-title'],
 ]
 
 test.describe('Add-on page render smoke', () => {

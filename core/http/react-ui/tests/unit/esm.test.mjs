@@ -675,8 +675,8 @@ test('registry: the list is read off the Add-ons page only for a viewer with the
   assert.equal(contributesUI([{ ...nav[0], state: 'failed' }]), false)
   assert.equal(contributesUI(null), false)
   const base = { allowed: true, onAddonsPage: false, apps: plain, status: 'ready', consumers: 1 }
-  // Nothing contributes and the list is known: no read at all.
-  assert.equal(shouldPoll(base), false)
+  // A mounted consumer keeps even an empty/disabled list current.
+  assert.equal(shouldPoll(base), true)
   // A contribution keeps it current, with or without a consumer.
   assert.equal(shouldPoll({ ...base, apps: nav, consumers: 0 }), true)
   // The Add-ons page always reads it.

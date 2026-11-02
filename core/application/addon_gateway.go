@@ -313,6 +313,9 @@ func (a *Application) startAddonGateway() error {
 		}
 		return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
 	}
+	if e := a.wireExecutionBinding(g); e != nil {
+		return e
+	}
 	// Only the owner holds the policy store. Other frontends reach it through the
 	// gateway, and without it the gateway keeps denying every resource.
 	if !filepath.IsAbs(cfg.Root) || cfg.ListenAddress == "" {
@@ -662,12 +665,13 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 	return out
 }
 
-// sandboxAddonID is the add-on that runs commands and code.
-const sandboxAddonID = "sandbox"
-
 // needsWorkspace says whether the add-on works on the files of the user.
 func (s *studioAddons) needsWorkspace(addonID string) bool {
-	for _, p := range s.hostOps[addonID] {
+	return hasWorkspaceOperation(s.hostOps[addonID])
+}
+
+func hasWorkspaceOperation(operations []string) bool {
+	for _, p := range operations {
 		if strings.HasPrefix(p, "workspace.") {
 			return true
 		}
@@ -675,69 +679,28 @@ func (s *studioAddons) needsWorkspace(addonID string) bool {
 	return false
 }
 
-// Unavailable says why the tools of an add-on cannot work now, or "". An
-// add-on that needs the Files workspace cannot work without it, and the
-// Sandbox cannot run anything on a host where no backend works.
+// Unavailable consumes only the owner-selected request-local observation.
 func (s *studioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
 	if !workspace && s.needsWorkspace(addonID) {
 		return "the Files workspace is off on this server, so there is no place for files or code"
 	}
-	if addonID != sandboxAddonID {
-		return ""
+	value, explanation := studio.ExecutionObservation(ctx, user, addonID)
+	if value.Readiness == "unavailable" {
+		if explanation != "" {
+			return explanation
+		}
+		return "the selected execution provider is unavailable"
 	}
-	actor, err := s.actor(user)
-	if err != nil {
-		return ""
-	}
-	st, ok := s.sandboxStatus(ctx, actor)
-	if !ok || st.CanRun {
-		return ""
-	}
-	return "no sandbox backend works on this host, so commands cannot run"
+	return ""
 }
 
-// sandboxState is the part of the Sandbox add-on's status read that the chats use.
-type sandboxState struct {
-	OK         bool   `json:"ok"`
-	CanRun     bool   `json:"canRun"`
-	Active     string `json:"active"`
-	HostNotice bool   `json:"hostNotice"`
-}
-
-// sandboxStatus reads the Sandbox add-on's status as the actor. ok is false
-// when the read failed or the add-on did not answer ok.
-func (s *studioAddons) sandboxStatus(ctx context.Context, actor contract.Actor) (sandboxState, bool) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	res, err := s.adapter.Execute(ctx, actor, addontools.ToolName(sandboxAddonID, "status"), json.RawMessage(`{}`))
-	if err != nil || res.Kind != addontools.ResultData {
-		return sandboxState{}, false
-	}
-	var st sandboxState
-	if json.Unmarshal(res.Result, &st) != nil || !st.OK {
-		return sandboxState{}, false
-	}
-	return st, true
-}
-
-// Isolation says how the Sandbox add-on runs commands: "isolated", "host" (on
-// the server, with no isolation) or "" when it cannot tell.
+// Isolation is unknown outside an admitted scope or after freshness is lost.
 func (s *studioAddons) Isolation(ctx context.Context, user, addonID string) string {
-	if addonID != sandboxAddonID {
+	value, _ := studio.ExecutionObservation(ctx, user, addonID)
+	if value.Readiness != "available" || value.Isolation == "unknown" {
 		return ""
 	}
-	actor, err := s.actor(user)
-	if err != nil {
-		return ""
-	}
-	st, ok := s.sandboxStatus(ctx, actor)
-	switch {
-	case !ok || !st.CanRun:
-		return ""
-	case st.HostNotice || st.Active == "host":
-		return "host"
-	}
-	return "isolated"
+	return string(value.Isolation)
 }
 
 // Controls returns the host controls the apps list draws for the add-on, as

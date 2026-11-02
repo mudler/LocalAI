@@ -854,6 +854,18 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		c.mu.Unlock()
 	}()
 
+	if f := c.m.o.ProductScope; f != nil {
+		c.accMu.RLock()
+		x := c.acc
+		c.accMu.RUnlock()
+		var closeScope func()
+		ctx, closeScope = f(ctx, x)
+		defer closeScope()
+		c.mu.Lock()
+		c.turnCtx = ctx
+		c.mu.Unlock()
+	}
+
 	c.endMu.Lock()
 	c.emit(Event{Kind: KindTurnStart, Turn: n})
 	c.endMu.Unlock()

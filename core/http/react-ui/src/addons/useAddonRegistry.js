@@ -138,3 +138,12 @@ export function useAddonTitle(addonId) {
   const app = apps.find(a => a.id === addonId)
   return app ? (localizedText(app, 'title', language) || app.id) : ''
 }
+
+// Home holds the existing registry, not addon modules. Disabled and failed
+// installations remain live consumers so recovery is observed automatically.
+export function useAddonHomeCommands() {
+  const registry = useAddonRegistry()
+  const { acquire, allowed } = registry
+  useEffect(() => (allowed ? acquire() : undefined), [acquire, allowed])
+  return registry
+}

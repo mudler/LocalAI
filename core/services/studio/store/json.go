@@ -24,8 +24,7 @@ import (
 // jsonStore keeps chats in memory and, when it has a directory, mirrors them to
 // files: one small record file per chat (rewritten atomically), one
 // append-only transcript file per chat and one harness state file per chat
-// (written only when the state changes). One process owns the directory: the
-// locks below are in-process only, so two LocalAI processes must not share it.
+// (written only when the state changes). One process owns the directory.
 // A cluster uses the GORM store.
 //
 // mu guards the map only. Each chat has its own lock, held for the whole
@@ -72,6 +71,10 @@ func NewJSON(dir string) (Store, error) {
 	if dir == "" {
 		return s, nil
 	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
+
 	if err := os.MkdirAll(s.chatDir(), 0o700); err != nil {
 		return nil, err
 	}
@@ -421,7 +424,7 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 	if _, ok := s.chats[rec.ID]; ok {
 		return session.ErrExists
 	}
-	c := chatState{Rec: rec}
+	c := chatState{Rec: cloneRec(rec)}
 	c.Rec.HarnessState = nil
 	c.Rec.Egress = rec.Egress.Clone()
 	c.Rec.Goal = rec.Goal.Clone()
@@ -460,9 +463,30 @@ func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.Ch
 func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.SkillsOff = append([]string(nil), r.SkillsOff...)
 	r.AddonsOff = append([]string(nil), r.AddonsOff...)
+	r.McpOff = append([]string(nil), r.McpOff...)
 	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
 	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
-	r.McpOff = append([]string(nil), r.McpOff...)
+	if r.HostConsent != nil {
+		cp := *r.HostConsent
+		r.HostConsent = &cp
+	}
+	if r.Snapshot != nil {
+		cp := *r.Snapshot
+		r.Snapshot = &cp
+	}
+	if r.Settings.Temperature != nil {
+		cp := *r.Settings.Temperature
+		r.Settings.Temperature = &cp
+	}
+	if r.Settings.TopP != nil {
+		cp := *r.Settings.TopP
+		r.Settings.TopP = &cp
+	}
+	if r.Settings.TopK != nil {
+		cp := *r.Settings.TopK
+		r.Settings.TopK = &cp
+	}
+
 	r.HarnessState = append([]byte(nil), r.HarnessState...)
 	r.Egress = r.Egress.Clone()
 	r.Goal = r.Goal.Clone()
@@ -499,6 +523,7 @@ func (s *jsonStore) edit(principal, id string, change func(next *chatState) erro
 	}
 	defer unlock()
 	next := c.chatState
+	next.Rec = cloneRec(c.Rec)
 	if err := change(&next); err != nil {
 		return err
 	}
@@ -513,6 +538,7 @@ func (s *jsonStore) edit(principal, id string, change func(next *chatState) erro
 			xlog.Warn("studio store: could not remove an old harness state file", "chat", id, "error", err)
 		}
 	}
+	next.Rec = cloneRec(next.Rec)
 	c.chatState = next
 	return nil
 }

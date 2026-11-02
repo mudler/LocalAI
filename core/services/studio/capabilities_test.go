@@ -2,7 +2,10 @@ package studio_test
 
 import (
 	"context"
+	"github.com/mudler/LocalAI/core/services/studio/executionrequest"
+	model "github.com/mudler/LocalAI/pkg/addons/model/executionstatus"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -231,5 +234,47 @@ var _ = Describe("capabilities", func() {
 		Expect(res[1].Err).To(MatchError(studio.ErrSubAgentRepeat), "the same task with no new file must be refused")
 		Expect(res[2].Err).NotTo(HaveOccurred(), "a file changed since the first run, so the task may run again")
 		Expect(childrenOf(svc, alice, id)).To(HaveLen(2))
+	})
+})
+
+// presentationAddons supplies an admitted request just as the product broker does.
+type presentationAddons struct {
+	*fakeAddons
+	bound bool
+}
+
+func (p presentationAddons) NewExecutionObservation(ctx context.Context, user, conv string) (*executionrequest.Request, string, func() string) {
+	if !p.bound {
+		return nil, "", nil
+	}
+	b := model.Binding{Actor: user, Addon: "sandbox", Generation: "27", Incarnation: "runtime-two", ExecutionTool: "bash", StatusTool: "status"}
+	r := executionrequest.New(ctx, b, "q", model.Eligible, executionrequest.IO{
+		Validate: func(context.Context, model.Binding) error { return nil },
+		Read: func(context.Context, model.Binding, model.ObservationID, time.Time) (model.Payload, error) {
+			return model.ValidPayload(model.Value{Readiness: model.Available, Isolation: model.Host}), nil
+		},
+	}, nil)
+	Expect(r.Binding()).To(Equal(b))
+	return r, b.Addon, func() string { return "plain explanation" }
+}
+
+var _ = Describe("execution presentation DTO", func() {
+	It("returns admitted binding identity through CommandRunner and no identity without admission", func() {
+		for _, bound := range []bool{true, false} {
+			broker := presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: bound}
+			svc, _, _ := newCapsChat(broker, nil)
+			id := create(svc, alice)
+			c, err := svc.CommandRunner(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(c.ExecutionStatus).NotTo(BeNil())
+			if bound {
+				Expect(c.ExecutionStatus.Generation).To(Equal("27"))
+				Expect(c.ExecutionStatus.Incarnation).To(Equal("runtime-two"))
+				Expect(c.ExecutionStatus.Readiness).To(Equal("available"))
+			} else {
+				Expect(c.ExecutionStatus.Generation).To(BeEmpty())
+				Expect(c.ExecutionStatus.Readiness).To(Equal("unknown"))
+			}
+		}
 	})
 })

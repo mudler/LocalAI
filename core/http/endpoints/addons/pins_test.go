@@ -25,15 +25,12 @@ func madeUpPages() {
 	}))
 }
 
-// pinsApp builds the two routes over a store. With seeded set, the upgrade seed
-// has run for the local owner, as it does at start in a deployment that
-// existed before this release.
-func pinsApp(seeded bool) *echo.Echo {
+func pinsApp(withPins bool) *echo.Echo {
 	madeUpPages()
 	store, err := pins.NewFileStore("")
 	Expect(err).ToNot(HaveOccurred())
-	if seeded {
-		_, err := store.SeedExisting(context.Background(), []string{auth.AddonLocalOwnerID}, []string{"guide", "help"})
+	if withPins {
+		err := store.Replace(context.Background(), auth.AddonLocalOwnerID, []string{"guide", "help"})
 		Expect(err).ToNot(HaveOccurred())
 	}
 	svc := &pins.Service{Store: store}
@@ -57,7 +54,7 @@ var _ = Describe("the pins routes", func() {
 	It("gives no pins to an account created after the upgrade", func() {
 		e := pinsApp(false)
 		code, got := call(e, http.MethodGet, "")
-		Expect(code).To(Equal(200), "no seed has run for this account, so it has no pins")
+		Expect(code).To(Equal(200), "no pins were explicitly saved for this account")
 		Expect(got).To(BeEmpty())
 	})
 
@@ -65,7 +62,7 @@ var _ = Describe("the pins routes", func() {
 		e := pinsApp(true)
 		code, got := call(e, http.MethodGet, "")
 		Expect(code).To(Equal(200))
-		Expect(got).To(Equal([]string{"guide", "help"}), "seed")
+		Expect(got).To(Equal([]string{"guide", "help"}), "explicit saved pins")
 		code, got = call(e, http.MethodPut, `["help","guide"]`)
 		Expect(code).To(Equal(200))
 		Expect(got).To(HaveLen(2))

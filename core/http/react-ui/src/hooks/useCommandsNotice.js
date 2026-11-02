@@ -1,17 +1,15 @@
-import { useCallback, useState } from 'react'
-import { commandsNotice, readHidden, writeHidden } from '../utils/chatCommands'
+import { useCallback, useEffect, useState } from 'react'
+import { commandsNotice } from '../utils/chatCommands'
 
-const storage = () => (typeof window === 'undefined' ? null : window.localStorage)
-
-// The notice of a chat that cannot run commands, from the "commands" field of
-// the chat's add-on list, and whether the person hid it in this browser.
-export function useCommandsNotice(commands, reason, isAdmin) {
-  const info = commandsNotice(commands, { isAdmin, reason })
-  const [hiddenState, setHiddenState] = useState(() => readHidden(storage()))
+// Dismissal is deliberately mount-local: logout/remount never retains it.
+// Exact binding, observation and actor/chat context must match, not just state.
+export function useCommandsNotice(commands, isAdmin, context) {
+  const info = commandsNotice(commands.state, { isAdmin, reason: commands.reason })
+  const identity = JSON.stringify([context, commands.identity, commands.state, commands.reason])
+  const [hiddenIdentity, setHiddenIdentity] = useState('')
+  useEffect(() => { setHiddenIdentity('') }, [identity])
   const hide = useCallback(() => {
-    if (!info) return
-    writeHidden(storage(), info.state)
-    setHiddenState(info.state)
-  }, [info])
-  return { info, hidden: !!info && hiddenState === info.state, hide }
+    if (info && commands.identity) setHiddenIdentity(identity)
+  }, [info, commands.identity, identity])
+  return { info, hidden: !!commands.identity && !!info && hiddenIdentity === identity, hide }
 }

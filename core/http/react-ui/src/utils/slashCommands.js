@@ -1,3 +1,4 @@
+import { projectHomeCommands } from '../addons/homeCommands.js'
 // The slash commands of the composer, on Home and in a chat: one registry.
 // Pure functions, tested in tests/unit/slashcommands.test.mjs.
 //
@@ -138,7 +139,7 @@ const RESERVED = reservedNames()
 
 // The skills a chat can run now: switched on and not replaced.
 export function usableSkills(skills) {
-  return (skills || []).filter((s) => s && s.name && s.enabled !== false && !s.shadowed && !s.invalid)
+  return (skills || []).filter((s) => s && typeof s.name === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(s.name) && s.enabled !== false && !s.shadowed && !s.invalid)
 }
 
 // The items of /skill: every usable skill. One whose name is a command is
@@ -198,12 +199,14 @@ export function availableCommands(surface, ctx = {}) {
     })
   }
   const shared = SHARED_COMMANDS.filter((a) => (!a.where || a.where.includes(surface)) && (!a.needs || a.needs(ctx)))
-  return [...own, ...shared, ...skillCommands(ctx.skills)]
+  const addons = surface === 'home' && ctx.addonRegistry
+    ? projectHomeCommands(ctx.addonRegistry, { nativeNames: RESERVED, skillNames: usableSkills(ctx.skills).map(s => s.name), language: ctx.addonRegistry.language }).commands : []
+  return [...own, ...shared, ...addons, ...skillCommands(ctx.skills)]
 }
 
 // The groups of a surface, in menu order.
 export function commandGroups(surface) {
-  return [...(surface === 'home' ? SLASH_GROUPS : CHAT_SLASH_GROUPS), ...COMMAND_GROUPS]
+  return [...(surface === 'home' ? [...SLASH_GROUPS, 'addons'] : CHAT_SLASH_GROUPS), ...COMMAND_GROUPS]
 }
 
 // What the box asks of the menu.

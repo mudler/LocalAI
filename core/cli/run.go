@@ -33,7 +33,8 @@ import (
 // and document the deprecation in the help text.
 
 type RunCMD struct {
-	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
+	AddonHostPolicy           string `name:"addon-host-policy" env:"LOCALAI_ADDON_HOST_POLICY" help:"Absolute path to administrator host operation policy JSON, read once at startup. Empty disables environment policy" group:"addons"`
+	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
 	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
 	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
 	AddonsRole                string `name:"addons-role" env:"LOCALAI_ADDONS_ROLE" default:"combined" help:"How this process takes part in the add-on owner: combined (this node is its own owner, the default), owner (only the owner, serves the carrier on the network) or frontend (no owner here; every add-on request goes to the owner). owner and frontend need --addons-owner-address and --addons-carrier-dir" group:"addons"`
@@ -51,6 +52,9 @@ type RunCMD struct {
 	PprofMutexProfileFraction int    `name:"pprof-mutex-profile-fraction" env:"LOCALAI_PPROF_MUTEX_PROFILE_FRACTION" default:"0" help:"Mutex sampling fraction (0 disables sampling); requires pprof" group:"diagnostics"`
 	PprofBlockProfileRate     int    `name:"pprof-block-profile-rate" env:"LOCALAI_PPROF_BLOCK_PROFILE_RATE" default:"0" help:"Block sampling rate in nanoseconds (0 disables sampling); requires pprof" group:"diagnostics"`
 	RequestPhaseTiming        bool   `name:"request-phase-timing" env:"LOCALAI_REQUEST_PHASE_TIMING" default:"false" help:"Log sanitized request and config-reload phase timings at Info" group:"diagnostics"`
+
+	addonHostOpsFlagPresent    bool
+	addonHostPolicyFlagPresent bool
 
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 	Color     string   `env:"COLOR" hidden:""`
@@ -308,6 +312,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		return nil
 	}
 
+	hostOps, err := r.resolveAddonHostOps()
+	if err != nil {
+		return err
+	}
+	logAddonHostOpsResolution(hostOps)
+
 	diagnosticOpts := r.diagnosticsOptions()
 	if err := diagnosticOpts.Validate(); err != nil {
 		return err
@@ -360,13 +370,8 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	if !r.PreloadBackendOnly {
 		defer cancelRun(nil)
 	}
-	hostOps, err := config.ParseAddonHostOps(r.AddonHostOps)
-	if err != nil {
-		cancelRun(nil)
-		return fmt.Errorf("--addon-host-ops: %w", err)
-	}
 	opts := []config.AppOption{
-		config.WithAddonHostOps(hostOps),
+		config.WithAddonHostOps(hostOps.Grants),
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
