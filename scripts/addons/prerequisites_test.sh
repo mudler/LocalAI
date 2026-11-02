@@ -29,6 +29,10 @@ echo "${FIXTURE_PROTOC:-libprotoc 26.1}"
 TOOL
 chmod +x "$fixture/bin/"*
 count=0
+# Exercise successful real-format hooks as well as fail-closed report evidence.
+python3 "$root/scripts/addons/ginkgo_report_test.py"
+count=$((count + 1))
+printf '{"case":"ginkgo-reporter-regressions","status":"passed"}\n'
 reject() {
     name=$1; expected=$2; shift 2
     if "$@" > "$fixture/output" 2>&1; then

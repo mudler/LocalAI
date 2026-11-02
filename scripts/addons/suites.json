@@ -45,7 +45,8 @@
       "leak-ignores-command-line",
       "leak-finds-working-directory",
       "ginkgo-inventory-missing",
-      "ginkgo-artifact-missing"
+      "ginkgo-artifact-missing",
+      "ginkgo-reporter-regressions"
     ],
     "readiness": {
       "ginkgo": {
@@ -5326,7 +5327,8 @@
       "go: does not let a listing-capable provider invent a named-user principal",
       "go: revalidates listing failures through an already-bound consumer without namespace fallback",
       "go: preserves the model read byte bound",
-      "go: offers the host read even when Tables has no executable definitions"
+      "go: offers the host read even when Tables has no executable definitions",
+      "go: keeps declared uiOnly execution status tools out of generic adapters"
     ]
   },
   "tables-admin": {
@@ -5846,7 +5848,6 @@
       ]
     ],
     "cases": [
-      "go: publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms",
       "unit: updates: a failed, unknown or unreadable check is never current",
       "unit: updates: an upgrade is offered only for a candidate the owner confirmed, with a digest to pin",
       "unit: updates: the owner's typed refusals keep their type and are final answers",

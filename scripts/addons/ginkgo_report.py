@@ -14,9 +14,14 @@ def ginkgo_report(path, expected, focus=None):
             specs = report['SpecReports']
             assert specs
             for spec in specs:
+                # Suite hooks are execution evidence, not focused It cases. Ginkgo
+                # gives them a null hierarchy; still require every hook to pass.
+                if spec['LeafNodeType'] != 'It':
+                    assert spec['State'] == 'passed'
+                    continue
                 # Ginkgo reports filtered-out specs as skipped. Only an explicit
                 # report focus may exclude them; a required skipped case still fails.
-                text = ' '.join(spec.get('ContainerHierarchyTexts', []) + [spec['LeafNodeText']])
+                text = ' '.join((spec.get('ContainerHierarchyTexts') or []) + [spec['LeafNodeText']])
                 if focus and not re.search(focus, text):
                     assert spec['State'] == 'skipped'
                     continue
