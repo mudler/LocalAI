@@ -85,8 +85,9 @@ type BackupReceipt struct {
 
 // Recovery owns the backup, upgrade, restore and purge of add-on data.
 type Recovery struct {
-	cfg   Config
-	locks *lockSet
+	progress func(string) error
+	cfg      Config
+	locks    *lockSet
 	// Test-only seams; nil in production.
 	free func(path string) (uint64, error)
 	fail func(phase string) error
@@ -120,6 +121,13 @@ func New(cfg Config) (*Recovery, error) {
 func (r *Recovery) With(host Host) *Recovery {
 	c := *r
 	c.cfg.Host = host
+	return &c
+}
+
+// WithProgress observes durable upgrade stages without changing recovery rules.
+func (r *Recovery) WithProgress(f func(string) error) *Recovery {
+	c := *r
+	c.progress = f
 	return &c
 }
 

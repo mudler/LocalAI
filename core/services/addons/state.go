@@ -39,5 +39,7 @@ type OperationStatus struct {
 	OperationID, AddonID, Phase string
 	Generation                  uint64
 	// RuntimeState is an observation, never a durable execution receipt.
+	Stage        string `json:"stage,omitempty"`
+	FailureCode  string `json:"failureCode,omitempty"`
 	RuntimeState string `json:"runtimeState,omitempty"`
 }

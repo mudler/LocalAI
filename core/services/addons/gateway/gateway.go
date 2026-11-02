@@ -144,7 +144,13 @@ func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, reque
 			// disable; a stale one is denied before anything is recorded.
 			cmd.Generation = request.Generation
 		}
-		status, err := g.Manager.Submit(ctx, actor, cmd)
+		var status addons.OperationStatus
+		var err error
+		if cmd.Action == "upgrade" {
+			status, err = g.Manager.SubmitUpgrade(ctx, actor, cmd)
+		} else {
+			status, err = g.Manager.Submit(ctx, actor, cmd)
+		}
 		if err != nil {
 			return contract.Result{}, err
 		}

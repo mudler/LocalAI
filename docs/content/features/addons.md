@@ -4446,3 +4446,40 @@ What the source tree does not prove: the images and the `runsc` download are not
 Add-on skill switches and tool-provider choices read the owner policy and update only the changed provider keys. Clearing a choice removes that pin without changing other add-ons. Revision conflicts retain edits for an explicit reload and rebase. Uncertain writes retry the same operation; an owner outage disables writes until reconciliation. Native add-on configuration remains separate.
 
 With add-ons enabled, Settings → Backends uses the owner policy for automatic upgrades rather than the frontend runtime file. Combined mode uses the embedded owner through the same API.
+
+### Upgrade execution and polling
+
+Browser upgrades are accepted durably by the add-on owner before the submission
+returns. The response identifies the same operation used by subsequent status
+reads. Closing a page, refreshing, or losing the acceptance reply does not cancel
+accepted work. A retry with the same operation ID, actor and payload observes that
+operation; a changed payload conflicts. Only one asynchronous upgrade is admitted
+at a time; competing submissions receive a conflict instead of entering a queue.
+Other lifecycle service callers retain their synchronous contract.
+
+Execution is single-owner, using the existing storage ownership fence and local
+journal, not frontend memory or a message-bus dependency. Standalone uses the same
+path. Any frontend can forward polling to the owner. Each read revalidates current
+administrator authorization and the recorded actor, including credential identity.
+Expired or revoked credentials cannot read the operation, but do not revoke work
+already accepted. A different credential does not inherit the original receipt.
+
+Activity shows real stages (package preparation, verified backup, candidate
+migration/health, and publication), not estimated byte percentages. Failed
+operations retain a safe failure code; detailed underlying causes go to owner
+logs. A migration failure can require explicit data recovery; keeping the old
+package does not mean the data is safe to run.
+
+Shutdown cancels and waits for the owner worker before releasing storage. On
+restart, existing publication and data-recovery journals reconcile before runtime
+startup: prepared publication may finish; interrupted work otherwise becomes a
+terminal interrupted failure, with recovery-required reported when data is blocked.
+Destructive migration is never automatically replayed. An uncertain publication
+remains fenced for reconciliation, not presented as a definite rollback.
+
+The browser remembers pending operation IDs in session storage, scoped to the
+signed-in user, and resumes observation after a reload without resubmitting.
+Logout clears the current user's observer records. Storage restrictions may prevent
+observer recovery, but never cancel the owner operation. An unreadable owner or
+exhausted polling window is an unknown outcome: keep the ID and read it again,
+rather than starting a replacement operation.

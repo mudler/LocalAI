@@ -99,7 +99,13 @@ type Migrator interface {
 type Manager struct {
 	// One lock also serializes journal publication across addons. No operation can
 	// overtake another operation on the same addon, including reconciliation.
-	mu sync.Mutex
+	mu                            sync.Mutex
+	upgradeMu                     sync.Mutex
+	upgradeViews                  map[string]upgradeSnapshot
+	upgradeCtx                    context.Context
+	upgradeCancel                 context.CancelFunc
+	upgradeWG                     sync.WaitGroup
+	upgradeActive, upgradeClosing bool
 	// opMu serializes Submit and Reconcile as whole operations, so mu can be
 	// released around a slow fetch without letting another operation in.
 	opMu                    sync.Mutex
@@ -228,7 +234,8 @@ func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *pack
 	if e := cfg.validate(); e != nil {
 		return nil, e
 	}
-	m := &Manager{config: cfg, catalog: c, installer: i, admin: admin}
+	m := &Manager{config: cfg, catalog: c, installer: i, admin: admin, upgradeViews: map[string]upgradeSnapshot{}}
+	m.upgradeCtx, m.upgradeCancel = context.WithCancel(context.Background())
 	if cfg.InstanceID != cfg.OwnerID {
 		return m, nil
 	}
@@ -244,9 +251,15 @@ func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *pack
 		_ = release()
 		return nil, e
 	}
+	m.refreshUpgradeViews()
 	return m, nil
 }
 func (m *Manager) Close() error {
+	m.upgradeMu.Lock()
+	m.upgradeClosing = true
+	m.upgradeCancel()
+	m.upgradeMu.Unlock()
+	m.upgradeWG.Wait()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed && m.release == nil {
@@ -349,6 +362,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	}
 	var op journalOperation
 	resumed := false
+	accepted := false
 	if !addonID.MatchString(cmd.AddonID) || cmd.OperationID == "" || len(cmd.OperationID) > 256 {
 		return OperationStatus{}, ErrConflict
 	}
@@ -356,7 +370,13 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		if old.Command != cmd || old.Actor != actor {
 			return OperationStatus{}, ErrConflict
 		}
-		if old.Status.Phase == "failed" {
+		if old.Async && old.Status.Phase == "accepted" {
+			if ctx.Value(upgradeExecutionKey{}) != m {
+				return old.Status, ErrRecoveryRequired
+			}
+			accepted = true
+			op = old
+		} else if old.Status.Phase == "failed" {
 			// The answer stays the failure, but the add-on must not stay
 			// down because the failing attempt could not put it back.
 			if e := m.syncRuntime(ctx, cmd.AddonID); e != nil {
@@ -364,7 +384,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			return old.Status, ErrOperationFailed
 		}
-		if _, again := m.canceled[cmd.OperationID]; again && old.Status.Phase == "intent" {
+		if accepted {
+			// Accepted work continues exactly once under the owner worker.
+		} else if _, again := m.canceled[cmd.OperationID]; again && old.Status.Phase == "intent" {
 			resumed = true
 			op = old
 		} else {
@@ -378,7 +400,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	if pinned && (cmd.Action != "upgrade" || cmd.ExpectedDigest == "" || cmd.CandidateDigest == "") {
 		return OperationStatus{}, ErrConflict
 	}
-	if pinned && !resumed {
+	if pinned && !resumed && !accepted {
 		// The same transition under another operation ID is a duplicate,
 		// whether the first one is in flight or done. Only a failed attempt
 		// leaves the transition open for a new one.
@@ -389,7 +411,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 		}
 	}
-	if !resumed {
+	if !resumed && !accepted {
 		for _, other := range m.journal.Operations {
 			if other.Command.AddonID == cmd.AddonID && other.Status.Phase != "completed" && other.Status.Phase != "failed" {
 				return OperationStatus{}, ErrRecoveryRequired
@@ -429,7 +451,14 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	default:
 		return OperationStatus{}, ErrConflict
 	}
-	if !resumed {
+	if accepted {
+		phase, _ := upgradeTransition(upgradePhase(op.Status.Phase), "start")
+		op.Status.Phase = string(phase)
+		m.journal.Operations[cmd.OperationID] = op
+		if e := m.persist("running"); e != nil {
+			return op.Status, e
+		}
+	} else if !resumed {
 		op = journalOperation{Command: cmd, Actor: actor, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: "intent"}}
 		m.journal.Operations[cmd.OperationID] = op
 		if e := m.persist("intent"); e != nil {
@@ -443,7 +472,17 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// The client gets a typed cause or the generic error; the operator
 		// gets the underlying error here, which would otherwise be lost.
 		xlog.Warn("Addon operation failed", "action", cmd.Action, "addonId", cmd.AddonID, "operationId", cmd.OperationID, "causes", describeCauses(cause))
+		op.Status.Stage = m.journal.Operations[cmd.OperationID].Status.Stage
 		op.Status.Phase = "failed"
+		op.Status.FailureCode = "upgrade_failed"
+		for _, c := range cause {
+			if errors.Is(c, context.Canceled) || errors.Is(c, context.DeadlineExceeded) {
+				op.Status.FailureCode = "interrupted"
+			}
+			if errors.Is(c, recovery.ErrNeedsRecovery) {
+				op.Status.FailureCode = "recovery_required"
+			}
+		}
 		m.journal.Operations[cmd.OperationID] = op
 		if e := m.persist("failed"); e != nil {
 			return op.Status, e
@@ -482,6 +521,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			// available, and opMu keeps every other operation out.
 			var r catalog.Release
 			var resolveErr error
+			if e := m.upgradeStage(cmd.OperationID, "preparing-package"); e != nil {
+				return op.Status, e
+			}
 			m.mu.Unlock()
 			if release != nil {
 				r = *release
@@ -529,6 +571,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				if cmd.Action == "upgrade" {
 					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
 				}
+			}
+			if e = m.upgradeStage(cmd.OperationID, "committing-package"); e != nil {
+				return op.Status, e
 			}
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
@@ -685,8 +730,9 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 			return e
 		}
 		switch op.Status.Phase {
-		case "intent":
+		case "accepted", "running", "intent":
 			op.Status.Phase = "failed"
+			op.Status.FailureCode = "interrupted"
 			m.journal.Operations[id] = op
 			if e := m.persist("failed"); e != nil {
 				return e
@@ -704,6 +750,15 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 		}
 	}
 	m.reconcileData(ctx)
+	for id, op := range m.journal.Operations {
+		if op.Async && op.Status.Phase == "failed" && m.dataBlocked(op.Command.AddonID) {
+			op.Status.FailureCode = "recovery_required"
+			m.journal.Operations[id] = op
+		}
+	}
+	if e := m.persist("reconciled"); e != nil {
+		return e
+	}
 	return m.syncRuntime(ctx, "")
 }
 func syncPackage(root string) error {
@@ -1050,6 +1105,25 @@ func (m *Manager) Connector(ctx context.Context, addonID string, req contract.Co
 // OperationStatus only observes lifecycle intent. It never resumes a command or
 // infers runtime completion from a completed journal publication.
 func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id string) (OperationStatus, error) {
+	m.upgradeMu.Lock()
+	view, found := m.upgradeViews[id]
+	closing := m.upgradeClosing
+	m.upgradeMu.Unlock()
+	if found {
+		if closing {
+			return OperationStatus{}, ErrNotOwner
+		}
+		if m.admin == nil || m.admin(ctx, actor) != nil {
+			return OperationStatus{}, ErrForbidden
+		}
+		if view.Actor != actor {
+			return OperationStatus{}, ErrOperationNotFound
+		}
+		if err := ctx.Err(); err != nil {
+			return OperationStatus{}, err
+		}
+		return view.Status, nil
+	}
 	// A slow lifecycle publication must not strand disconnected status readers.
 	for !m.mu.TryLock() {
 		timer := time.NewTimer(10 * time.Millisecond)
