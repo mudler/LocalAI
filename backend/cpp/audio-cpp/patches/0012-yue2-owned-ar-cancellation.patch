@@ -1,0 +1,1126 @@
+diff --git a/include/engine/models/yue2/session.h b/include/engine/models/yue2/session.h
+--- a/include/engine/models/yue2/session.h
++++ b/include/engine/models/yue2/session.h
+@@ -11,7 +11,7 @@
+ 
+ class Yue2Session final
+     : public runtime::RuntimeSessionBase
+-    , public runtime::IOfflineVoiceTaskSession {
++    , public runtime::ICancellableOfflineVoiceTaskSession {
+ public:
+     Yue2Session(
+         runtime::TaskSpec task,
+@@ -25,7 +25,11 @@
+     void prepare(const runtime::SessionPreparationRequest & request) override;
+     runtime::TaskResult run(const runtime::TaskRequest & request) override;
+ 
++    runtime::OfflineCancellationSupport cancellation_support() const noexcept override;
++    runtime::TaskResult run_cancellable(const runtime::TaskRequest & request, core::RunStopHandle stop) override;
++
+ private:
++    runtime::TaskResult run_impl(const runtime::TaskRequest & request);
+     runtime::TaskSpec task_;
+     std::shared_ptr<const Yue2Assets> assets_;
+     std::unique_ptr<Yue2PipelineRuntime> pipeline_;
+diff --git a/src/models/yue2/session.cpp b/src/models/yue2/session.cpp
+--- a/src/models/yue2/session.cpp
++++ b/src/models/yue2/session.cpp
+@@ -332,12 +332,23 @@
+     mark_prepared();
+ }
+ 
+-runtime::TaskResult Yue2Session::run(const runtime::TaskRequest & request) {
++runtime::OfflineCancellationSupport Yue2Session::cancellation_support()const noexcept {
++    return execution_context().supports_cancellation()?runtime::OfflineCancellationSupport::GraphOnly:runtime::OfflineCancellationSupport::Unsupported;
++}
++runtime::TaskResult Yue2Session::run(const runtime::TaskRequest & request){return run_impl(request);}
++runtime::TaskResult Yue2Session::run_cancellable(const runtime::TaskRequest & request,core::RunStopHandle stop){
++    auto binding=execution_context().begin_cancellable_run(std::move(stop));
++    try{auto result=run_impl(request);if(execution_context().stop_requested())throw runtime::RunCancelled();return result;}
++    catch(...){pipeline_->release_runtime_graphs();throw;}
++}
++runtime::TaskResult Yue2Session::run_impl(const runtime::TaskRequest & request) {
+     require_prepared("Yue2 run");
+     const auto wall_start = Clock::now();
+     const auto parsed = parse_yue2_request(request, assets_->config.generation);
++    if(execution_context().stop_requested())throw runtime::RunCancelled();
+     runtime::TaskResult result;
+     auto run_result = pipeline_->run(parsed);
++    if(execution_context().stop_requested())throw runtime::RunCancelled();
+     result.audio_output = std::move(run_result.audio);
+     if (!run_result.plan_abc_text.empty()) {
+         result.output_artifacts.push_back(runtime::make_text_artifact(
+@@ -366,6 +377,7 @@
+             }));
+     }
+     engine::debug::timing_log_scalar("session.wall_ms", engine::debug::elapsed_ms(wall_start, Clock::now()));
++    if(execution_context().stop_requested())throw runtime::RunCancelled();
+     return result;
+ }
+ 
+diff --git a/src/models/yue2/pipeline.cpp b/src/models/yue2/pipeline.cpp
+--- a/src/models/yue2/pipeline.cpp
++++ b/src/models/yue2/pipeline.cpp
+@@ -1,3 +1,4 @@
++#include "engine/framework/runtime/session.h"
+ #include "engine/models/yue2/pipeline.h"
+ 
+ #include "engine/framework/debug/profiler.h"
+@@ -116,7 +117,18 @@
+ 
+ }  // namespace
+ 
++namespace {
++#ifdef ENGINE_YUE2_AR_TESTING
++namespace pipeline_testing{void stage()noexcept;}
++#endif
++void yue2_stage_barrier(const core::ExecutionContext & execution){
++#ifdef ENGINE_YUE2_AR_TESTING
++pipeline_testing::stage();
++#endif
++if(execution.stop_requested())throw runtime::RunCancelled();}
++}
+ class Yue2PipelineRuntime::Impl {
++    friend class Yue2PipelineRuntime;
+ public:
+     Impl(
+         core::ExecutionContext & execution,
+@@ -170,20 +182,25 @@
+     }
+ 
+     Yue2Plan plan(const Yue2Request & request) {
++        yue2_stage_barrier(*execution);
+         Yue2Plan out;
+         out.cot = request.cot;
+         if (!request.abc.empty()) {
+             out.abc = request.abc;
+-            out.abc_ids = tokenizer.encode(request.abc);
+-        }
++            yue2_stage_barrier(*execution);out.abc_ids = tokenizer.encode(request.abc);yue2_stage_barrier(*execution);
++        }
++        yue2_stage_barrier(*execution);
+         out.prefix = token_prefixes(request, tokenizer, out.abc_ids);
+-        return out;
++        yue2_stage_barrier(*execution);
++        yue2_stage_barrier(*execution);return out;
+     }
+ 
+     Yue2SemanticResult generate_semantic(const Yue2Request & request, Yue2Plan plan) {
+         Yue2SemanticResult out;
+         out.plan = std::move(plan);
++        yue2_stage_barrier(*execution);
+         generate_plan_abc(request, out.plan);
++        yue2_stage_barrier(*execution);
+         const auto forced = semantic_tokens_from_codec(request.semantic_prefix);
+         if (!forced.empty() &&
+             static_cast<int64_t>(forced.size()) >= request.generation.semantic.max_tokens) {
+@@ -194,7 +211,7 @@
+             out.truncated = true;
+             engine::debug::timing_log_scalar("yue2.semantic.tokens", out.tokens.size());
+             engine::debug::timing_log_scalar("yue2.semantic.truncated", out.truncated);
+-            return out;
++            yue2_stage_barrier(*execution);return out;
+         }
+         ensure_ar();
+         const auto neg = negative_prefix(request, tokenizer, out.plan.abc_ids);
+@@ -209,7 +226,7 @@
+         engine::debug::timing_log_scalar("yue2.semantic.tokens", out.tokens.size());
+         engine::debug::timing_log_scalar("yue2.semantic.truncated", out.truncated);
+         if (mem_saver) ar->release_runtime_graphs();
+-        return out;
++        yue2_stage_barrier(*execution);return out;
+     }
+ 
+     std::vector<float> synthesize_latents(
+@@ -221,7 +238,7 @@
+         if (codec.empty()) {
+             throw std::runtime_error("Yue2 semantic generation produced no codec tokens");
+         }
+-        ensure_nar();
++        yue2_stage_barrier(*execution);ensure_nar();
+         ensure_ar();
+         return nar->synthesize(
+             semantic.plan.prefix,
+@@ -236,7 +253,7 @@
+     }
+ 
+     runtime::AudioBuffer decode_audio(const std::vector<float> & latents, int64_t frames) {
+-        ensure_vae();
++        yue2_stage_barrier(*execution);ensure_vae();
+         const int64_t channels = assets->config.model.latent_dim;
+         if (frames <= 0 || static_cast<int64_t>(latents.size()) != frames * channels) {
+             throw std::runtime_error("Yue2 VAE latent shape mismatch");
+@@ -341,17 +358,24 @@
+             }
+         }
+         const auto plan_start = Clock::now();
++        yue2_stage_barrier(*execution);
+         auto planned = plan(request);
++        yue2_stage_barrier(*execution);
+         engine::debug::timing_log_scalar("yue2.plan_ms", engine::debug::elapsed_ms(plan_start, Clock::now()));
+         Yue2RunResult out;
+         if (request.stop_after == Yue2StopAfter::Abc) {
++            yue2_stage_barrier(*execution);
+             generate_plan_abc(request, planned);
++            yue2_stage_barrier(*execution);
+             if (mem_saver) ar.reset();
+             attach_plan_abc(request, planned, out);
+-            return out;
++            yue2_stage_barrier(*execution);
++        return out;
+         }
+         const auto semantic_start = Clock::now();
++        yue2_stage_barrier(*execution);
+         auto semantic = generate_semantic(request, std::move(planned));
++        yue2_stage_barrier(*execution);
+         engine::debug::timing_log_scalar("yue2.semantic_ms", engine::debug::elapsed_ms(semantic_start, Clock::now()));
+         if (request.export_semantic) {
+             out.semantic_codes = codec_from_semantic_tokens(semantic.tokens);
+@@ -363,23 +387,29 @@
+                 throw std::runtime_error("Yue2 semantic generation produced no codec tokens");
+             }
+             if (mem_saver) ar.reset();
+-            return out;
++            yue2_stage_barrier(*execution);
++        return out;
+         }
+         const auto nar_start = Clock::now();
++        yue2_stage_barrier(*execution);
+         auto latents = synthesize_latents(semantic, request.generation, request.nar_noise, request.seed);
+         engine::debug::timing_log_scalar("yue2.nar_ms", engine::debug::elapsed_ms(nar_start, Clock::now()));
++        yue2_stage_barrier(*execution);
+         const int64_t frames = static_cast<int64_t>(latents.size()) / assets->config.model.latent_dim;
+         if (mem_saver) {
+             nar.reset();
+             ar.reset();
+         }
+         const auto vae_start = Clock::now();
++        yue2_stage_barrier(*execution);
+         auto audio = decode_audio(latents, frames);
++        yue2_stage_barrier(*execution);
+         engine::debug::timing_log_scalar("yue2.vae_decode_ms", engine::debug::elapsed_ms(vae_start, Clock::now()));
+         if (mem_saver && vae) {
+             vae->release_runtime_graphs();
+         }
+         out.audio = std::move(audio);
++        yue2_stage_barrier(*execution);
+         return out;
+     }
+ 
+@@ -560,7 +590,7 @@
+ }
+ 
+ Yue2RunResult Yue2PipelineRuntime::run(const Yue2Request & request) {
+-    return impl_->run(request);
++    try{yue2_stage_barrier(*impl_->execution);auto result=impl_->run(request);yue2_stage_barrier(*impl_->execution);return result;}catch(...){release_runtime_graphs();throw;}
+ }
+ 
+ void Yue2PipelineRuntime::release_runtime_graphs() {
+diff --git a/src/models/yue2/ar_runtime.cpp b/src/models/yue2/ar_runtime.cpp
+--- a/src/models/yue2/ar_runtime.cpp
++++ b/src/models/yue2/ar_runtime.cpp
+@@ -1,4 +1,5 @@
+ #include "engine/models/yue2/ar_runtime.h"
++#include "engine/framework/runtime/session.h"
+ 
+ #include "engine/framework/core/backend.h"
+ #include "engine/framework/debug/profiler.h"
+@@ -454,6 +455,261 @@
+     return index == 0 ? kMusicEndToken : kCodecOffset + index - 1;
+ }
+ 
++#ifdef ENGINE_YUE2_AR_TESTING
++namespace ar_testing{int64_t decode_chunk(int64_t normal)noexcept;void progress(int stage,size_t units,int64_t index,double value)noexcept;void logits(const std::vector<float>&values)noexcept;}
++#endif
++void ar_check(const core::ExecutionContext & execution){if(execution.stop_requested())throw runtime::RunCancelled();}
++struct ARHostOwner{
++ core::RunStopHandle stop;size_t units=0;
++ void check(int stage=0){
++#ifdef ENGINE_YUE2_AR_TESTING
++ ar_testing::progress(stage,units,0,0);
++#endif
++ if(stop&&stop->cancelled())throw runtime::RunCancelled();}
++ void work(int stage,int64_t index,int64_t other,double value){(void)other;++units;
++#ifdef ENGINE_YUE2_AR_TESTING
++ ar_testing::progress(stage,units,index,value);
++#endif
++ if(units%64==0&&stop&&stop->cancelled())throw runtime::RunCancelled();}
++ template<class T>void append(std::vector<T>&target,const std::vector<T>&source){
++  if(source.size()>target.max_size()-target.size())throw std::runtime_error("Yue2 AR copy exceeds supported range");
++  for(size_t begin=0;begin<source.size();){check();size_t end=begin+std::min<size_t>(256,source.size()-begin);target.insert(target.end(),source.begin()+begin,source.begin()+end);work(9,begin,0,end-begin);check();begin=end;}
++ }
++ struct Visit{ARHostOwner&owner;~Visit()noexcept{++owner.units;
++#ifdef ENGINE_YUE2_AR_TESTING
++ ar_testing::progress(1,owner.units,0,0);
++#endif
++ }};
++ Visit visit(){if(stop&&stop->cancelled())throw runtime::RunCancelled();return {*this};}
++void apply_repetition_penalty(
++    std::vector<float> & logits,
++    const std::vector<int32_t> & emitted,
++    const Yue2ARSamplingWindow & window) {
++    const float penalty = window.sampling.repetition_penalty;
++    if (penalty == 1.0F || emitted.empty()) {
++        return;
++    }
++    const int64_t begin = std::max<int64_t>(0, static_cast<int64_t>(emitted.size()) - window.sampling.penalty_window);
++    for (int64_t i = begin; i < static_cast<int64_t>(emitted.size()); ++i) {
++        auto completed=visit();
++        const int32_t token = emitted[static_cast<size_t>(i)];
++        if (token < 0 || token >= static_cast<int32_t>(logits.size())) {
++            continue;
++        }
++        float & value = logits[static_cast<size_t>(token)];
++        value = value < 0.0F ? value * penalty : value / penalty;work(3,token,0,value);
++    }
++}
++
++int32_t sample_from_allowed_ranges(
++    std::vector<float> & logits,
++    const std::array<Yue2SamplerRange, 2> & ranges,
++    const Yue2SamplingConfig & sampling,
++    std::mt19937 & rng,
++    Yue2SamplerScratch & scratch,
++    const char * context) {
++    if (!(sampling.temperature > 0.0F) || !std::isfinite(sampling.temperature)) {
++        throw std::runtime_error(std::string(context) + " temperature must be finite and positive");
++    }
++    if (sampling.top_p < 0.0F || sampling.top_p > 1.0F || !std::isfinite(sampling.top_p)) {
++        throw std::runtime_error(std::string(context) + " top_p must be finite and in [0, 1]");
++    }
++    scratch.kept.clear();
++    scratch.candidates.clear();
++    const bool bounded_top_k = sampling.top_k > 0;
++    if (bounded_top_k) {
++        const size_t keep = static_cast<size_t>(std::max<int64_t>(sampling.top_k, 1));
++        auto worse_than = [&](int32_t lhs, int32_t rhs) {
++            const float lhs_score = logits[static_cast<size_t>(lhs)];
++            const float rhs_score = logits[static_cast<size_t>(rhs)];
++            if (lhs_score == rhs_score) {
++                bool value=lhs>rhs;work(2,lhs,rhs,value);return value;
++            }
++            bool value=lhs_score>rhs_score;work(2,lhs,rhs,value);return value;
++        };
++        for (const auto & range : ranges) {
++        auto completed=visit();
++            const int64_t begin = std::max<int64_t>(0, range.begin);
++            const int64_t end = std::min<int64_t>(range.end, static_cast<int64_t>(logits.size()));
++            for (int64_t token = begin; token < end; ++token) {
++        auto completed=visit();
++                const float score = logits[static_cast<size_t>(token)];
++                if (!std::isfinite(score)) {
++                    continue;
++                }
++                const auto token_i32 = static_cast<int32_t>(token);
++                if (scratch.candidates.size() < keep) {
++                    scratch.candidates.push_back(token_i32);
++                    std::push_heap(scratch.candidates.begin(), scratch.candidates.end(), worse_than);
++                } else {
++                    const int32_t worst = scratch.candidates.front();
++                    const float worst_score = logits[static_cast<size_t>(worst)];
++                    if (score > worst_score || (score == worst_score && token_i32 < worst)) {
++                        std::pop_heap(scratch.candidates.begin(), scratch.candidates.end(), worse_than);
++                        scratch.candidates.back() = token_i32;
++                        std::push_heap(scratch.candidates.begin(), scratch.candidates.end(), worse_than);
++                    }
++                }
++            }
++        }
++        scratch.kept = scratch.candidates;
++    } else {
++        for (const auto & range : ranges) {
++        auto completed=visit();
++            const int64_t begin = std::max<int64_t>(0, range.begin);
++            const int64_t end = std::min<int64_t>(range.end, static_cast<int64_t>(logits.size()));
++            for (int64_t token = begin; token < end; ++token) {
++        auto completed=visit();
++                if (std::isfinite(logits[static_cast<size_t>(token)])) {
++                    scratch.kept.push_back(static_cast<int32_t>(token));
++                }
++            }
++        }
++    }
++    if (scratch.kept.empty()) {
++        throw std::runtime_error(std::string(context) + " sampler has no finite logits");
++    }
++
++    auto score_at = [&](int32_t token) {
++        return logits[static_cast<size_t>(token)] / sampling.temperature;
++    };
++    if (sampling.top_p < 1.0F) {
++        std::sort(scratch.kept.begin(), scratch.kept.end(), [&](int32_t lhs, int32_t rhs) {
++            const float lhs_score = score_at(lhs);
++            const float rhs_score = score_at(rhs);
++            if (lhs_score == rhs_score) {
++                bool value=lhs<rhs;work(2,lhs,rhs,value);return value;
++            }
++            bool value=lhs_score<rhs_score;work(2,lhs,rhs,value);return value;
++        });
++    } else if (bounded_top_k) {
++        std::sort(scratch.kept.begin(),scratch.kept.end(),[&](int32_t a,int32_t b){bool result=a<b;work(2,a,b,result);return result;});
++    }
++    float max_score = -std::numeric_limits<float>::infinity();
++    for (const int32_t token : scratch.kept) {
++        auto completed=visit();
++        max_score = std::max(max_score, score_at(token));
++    }
++    if (!std::isfinite(max_score)) {
++        throw std::runtime_error(std::string(context) + " sampler max score is invalid");
++    }
++    scratch.weights.resize(scratch.kept.size());
++    double total = 0.0;
++    for (size_t index = 0; index < scratch.kept.size(); ++index) {
++        auto completed=visit();
++        scratch.weights[index] = std::exp(static_cast<double>(score_at(scratch.kept[index]) - max_score));
++        total += scratch.weights[index];work(4,index,scratch.kept[index],scratch.weights[index]);
++    }
++    if (!(total > 0.0) || !std::isfinite(total)) {
++        throw std::runtime_error(std::string(context) + " probability mass is invalid");
++    }
++
++    if (sampling.top_p < 1.0F) {
++        double cumulative = 0.0;
++        size_t kept_count = 0;
++        const double remove_mass = 1.0 - static_cast<double>(sampling.top_p);
++        const size_t protected_from = scratch.kept.size() - 1;
++        for (size_t index = 0; index < scratch.kept.size(); ++index) {
++        auto completed=visit();
++            cumulative += scratch.weights[index] / total;
++            if (index < protected_from && cumulative <= remove_mass) {
++                continue;
++            }
++            scratch.kept[kept_count] = scratch.kept[index];
++            scratch.weights[kept_count] = scratch.weights[index];
++            ++kept_count;
++        }
++        scratch.kept.resize(kept_count);
++        scratch.weights.resize(kept_count);
++    }
++
++    std::discrete_distribution<size_t> distribution(scratch.weights.begin(), scratch.weights.end());
++    int32_t selected=scratch.kept[distribution(rng)];check(5);return selected;
++}
++
++int32_t sample_token(
++    std::vector<float> & logits,
++    const std::vector<int32_t> & emitted,
++    const Yue2ARSamplingWindow & window,
++    std::mt19937 & rng,
++    Yue2SamplerScratch & scratch) {
++    if (window.begin < 0 || window.end <= window.begin ||
++        window.stop_token < 0 || static_cast<int64_t>(logits.size()) <= window.stop_token ||
++        static_cast<int64_t>(logits.size()) < window.end) {
++        throw std::runtime_error("Yue2 AR sampling window is invalid");
++    }
++#ifdef ENGINE_YUE2_AR_TESTING
++    ar_testing::logits(logits);
++#endif
++    apply_repetition_penalty(logits, emitted, window);
++    return sample_from_allowed_ranges(
++        logits,
++        {
++            Yue2SamplerRange{window.begin, window.end},
++            Yue2SamplerRange{
++                static_cast<int64_t>(emitted.size()) >= window.min_tokens ? window.stop_token : 0,
++                static_cast<int64_t>(emitted.size()) >= window.min_tokens ? window.stop_token + 1 : 0,
++            },
++        },
++        window.sampling,
++        rng,
++        scratch,
++        "Yue2 AR");
++}
++
++int32_t compact_semantic_index(int32_t token) {
++    if (token == kMusicEndToken) {
++        return 0;
++    }
++    if (token >= kCodecOffset && token < kCodecOffset + kCodecSize) {
++        return token - kCodecOffset + 1;
++    }
++    return -1;
++}
++
++int32_t sample_semantic_token(
++    std::vector<float> & logits,
++    const std::vector<int32_t> & emitted,
++    const Yue2ARSamplingWindow & window,
++    std::mt19937 & rng,
++    Yue2SamplerScratch & scratch) {
++    if (static_cast<int64_t>(logits.size()) != kCodecSize + 1 ||
++        window.begin != kCodecOffset ||
++        window.end != kCodecOffset + kCodecSize ||
++        window.stop_token != kMusicEndToken) {
++        throw std::runtime_error("Yue2 compact semantic logits shape mismatch");
++    }
++    const float penalty = window.sampling.repetition_penalty;
++    if (penalty != 1.0F && !emitted.empty()) {
++        const int64_t begin = std::max<int64_t>(0, static_cast<int64_t>(emitted.size()) - window.sampling.penalty_window);
++        for (int64_t i = begin; i < static_cast<int64_t>(emitted.size()); ++i) {
++        auto completed=visit();
++            const int32_t index = compact_semantic_index(emitted[static_cast<size_t>(i)]);
++            if (index < 0 || index >= static_cast<int32_t>(logits.size())) {
++                continue;
++            }
++            float & value = logits[static_cast<size_t>(index)];
++            value = value < 0.0F ? value * penalty : value / penalty;work(3,index,0,value);
++        }
++    }
++    const int32_t index = sample_from_allowed_ranges(
++        logits,
++        {
++            Yue2SamplerRange{1, static_cast<int64_t>(logits.size())},
++            Yue2SamplerRange{
++                static_cast<int64_t>(emitted.size()) >= window.min_tokens ? 0 : 0,
++                static_cast<int64_t>(emitted.size()) >= window.min_tokens ? 1 : 0,
++            },
++        },
++        window.sampling,
++        rng,
++        scratch,
++        "Yue2 semantic AR");
++    return index == 0 ? kMusicEndToken : kCodecOffset + index - 1;
++}
++
++};
++
+ core::TensorValue view_linear_rows(
+     ggml_context * ctx,
+     const core::TensorValue & weight,
+@@ -476,6 +732,32 @@
+ 
+ }  // namespace
+ 
++void combine_cfg_logits(const std::vector<float>&positive,const std::vector<float>&negative,float guidance,std::vector<float>&out,ARHostOwner&host){
++ if(positive.size()!=negative.size()||positive.empty()||!std::isfinite(guidance))throw std::runtime_error("Yue2 CFG logits size or guidance mismatch");
++ out.resize(positive.size());host.check();
++ for(size_t i=0;i<out.size();++i){if(i%64==0)host.check();out[i]=negative[i]+(positive[i]-negative[i])*guidance;host.work(7,i,0,out[i]);}
++ host.check(8);
++}
++int64_t ar_decode_chunk(){
++#ifdef ENGINE_YUE2_AR_TESTING
++ return ar_testing::decode_chunk(kArDecodeChunkTokens);
++#else
++ return kArDecodeChunkTokens;
++#endif
++}
++void validate_ar_config(const Yue2ModelConfig & c,int64_t alignment){
++ if(c.hidden_size<=0||c.layers<=0||c.attention_heads<=0||c.kv_heads<=0||c.attention_heads%c.kv_heads!=0||c.head_dim<=0||c.head_dim%2!=0||c.intermediate_size<=0||c.vocab_size<=0||c.vocab_size>std::numeric_limits<int32_t>::max()||c.max_position_embeddings<=0||c.max_position_embeddings>std::numeric_limits<int32_t>::max()||alignment<=0||!std::isfinite(c.rope_theta)||c.rope_theta<=0||!std::isfinite(c.rms_norm_eps)||c.rms_norm_eps<=0)throw std::runtime_error("Yue2 AR configuration is invalid");
++ auto product=[](int64_t a,int64_t b){if(a<=0||b<=0||static_cast<uint64_t>(a)>static_cast<uint64_t>(std::numeric_limits<ptrdiff_t>::max())/sizeof(float)/static_cast<uint64_t>(b))throw std::runtime_error("Yue2 AR dimensions exceed supported range");};
++ auto chain=[&](std::initializer_list<int64_t>dims){size_t n=1;for(int64_t d:dims){if(d<=0||static_cast<uint64_t>(d)>static_cast<uint64_t>(std::numeric_limits<ptrdiff_t>::max())/sizeof(float)/n)throw std::runtime_error("Yue2 AR aggregate dimensions exceed supported range");n*=size_t(d);}};
++ chain({c.layers,c.attention_heads,c.head_dim,c.hidden_size});chain({c.layers,c.kv_heads,c.head_dim,c.hidden_size});chain({c.layers,c.hidden_size,c.intermediate_size});chain({c.layers,2,c.kv_heads,c.head_dim,c.max_position_embeddings});chain({2,c.max_position_embeddings,c.max_position_embeddings});
++ product(c.vocab_size,c.hidden_size);product(c.attention_heads,c.head_dim);product(c.kv_heads,c.head_dim);product(c.hidden_size,c.intermediate_size);product(c.layers,2);
++}
++void validate_ar_request(const Yue2ModelConfig &c,int64_t alignment,const std::vector<int32_t>&prefix,const Yue2ARSamplingWindow&window,const std::vector<int32_t>&forced){
++ validate_ar_config(c,alignment);
++ if(prefix.empty()||window.begin<0||window.end<=window.begin||window.end>c.vocab_size||window.stop_token<0||window.stop_token>=c.vocab_size||window.max_tokens<0||window.min_tokens<0||window.min_tokens>window.max_tokens||static_cast<uint64_t>(window.max_tokens)>static_cast<uint64_t>(c.max_position_embeddings)||forced.size()>static_cast<uint64_t>(window.max_tokens)||prefix.size()>static_cast<uint64_t>(c.max_position_embeddings)-static_cast<uint64_t>(window.max_tokens)||!std::isfinite(window.sampling.temperature)||window.sampling.temperature<=0||!std::isfinite(window.sampling.top_p)||window.sampling.top_p<0||window.sampling.top_p>1||!std::isfinite(window.sampling.repetition_penalty)||window.sampling.repetition_penalty<=0||window.sampling.penalty_window<0)throw std::runtime_error("Yue2 AR generation inputs are invalid");
++ for(const auto*ids:{&prefix,&forced})for(int32_t token:*ids)if(token<0||token>=c.vocab_size)throw std::runtime_error("Yue2 AR token is outside embedding vocabulary");
++ const int64_t count=static_cast<int64_t>(prefix.size())+window.max_tokens;if(alignment>c.max_position_embeddings||count>std::numeric_limits<int64_t>::max()-(alignment-1)||((count+alignment-1)/alignment)>c.max_position_embeddings/alignment)throw std::runtime_error("Yue2 AR aligned cache exceeds supported context");
++}
+ struct Yue2ARRuntime::Impl {
+     Impl(
+         core::ExecutionContext & execution,
+@@ -493,6 +775,8 @@
+         if (!this->assets) {
+             throw std::runtime_error("Yue2 AR runtime requires assets");
+         }
++        validate_ar_config(this->assets->config.model,kv_cache_alignment);
++        ar_check(execution);
+         store = std::make_shared<core::BackendWeightStore>(
+             execution.backend(),
+             execution.backend_type(),
+@@ -660,11 +944,13 @@
+             ggml_backend_tensor_set(input, tokens.data(), 0, tokens.size() * sizeof(int32_t));
+             ggml_backend_tensor_set(positions, position_values.data(), 0, position_values.size() * sizeof(int32_t));
+             ggml_backend_tensor_set(attention_mask, mask_values.data(), 0, mask_values.size() * sizeof(ggml_fp16_t));
+-            const auto status = core::compute_backend_graph(owner->execution.backend(), graph, nullptr, "yue2.ar.prefix_state");
++            const auto status = core::compute_backend_graph(owner->execution, graph, nullptr, "yue2.ar.prefix_state");
+             ggml_backend_synchronize(owner->execution.backend());
++            if(status==GGML_STATUS_ABORTED)throw runtime::RunCancelled();
+             if (status != GGML_STATUS_SUCCESS) {
+                 throw std::runtime_error("Yue2 AR prefix-state graph compute failed");
+             }
++            ar_check(owner->execution);
+         }
+ 
+         Impl * owner = nullptr;
+@@ -690,6 +976,10 @@
+         const Yue2ARSamplingWindow & window,
+         uint64_t seed,
+         const std::vector<int32_t> & forced) {
++        validate_ar_request(assets->config.model,decode_cache_alignment,prefix,window,forced);
++        ar_check(execution);
++        ARHostOwner host{execution.current_run_stop()};
++
+         if (prefix.empty()) {
+             throw std::runtime_error("Yue2 AR prefix must not be empty");
+         }
+@@ -703,23 +993,23 @@
+         const auto total_start = Clock::now();
+         engine::debug::timing_log_scalar("yue2.ar.generate.prefix_tokens", prefix.size());
+         auto cache_steps_for = [this](int64_t prefix_tokens, int64_t remaining_tokens) {
+-            const int64_t required = prefix_tokens + std::min<int64_t>(remaining_tokens, kArDecodeChunkTokens);
++            const int64_t required = prefix_tokens + std::min<int64_t>(remaining_tokens, ar_decode_chunk());
+             // Aligned masked capacity enables the existing vector Flash Attention path.
+             return ((required + decode_cache_alignment - 1) / decode_cache_alignment) * decode_cache_alignment;
+         };
+         std::vector<int32_t> emitted;
+         emitted.reserve(static_cast<size_t>(window.max_tokens));
+-        emitted.insert(emitted.end(), forced.begin(), forced.end());
++        host.append(emitted,forced);
+         std::vector<int32_t> forced_prefix;
+         if (!forced.empty()) {
+             forced_prefix.reserve(prefix.size() + forced.size());
+-            forced_prefix.insert(forced_prefix.end(), prefix.begin(), prefix.end());
+-            forced_prefix.insert(forced_prefix.end(), forced.begin(), forced.end());
++            host.append(forced_prefix,prefix);
++            host.append(forced_prefix,forced);
+             engine::debug::timing_log_scalar("yue2.ar.generate.forced_tokens", forced.size());
+         }
+         const auto & start_prefix = forced.empty() ? prefix : forced_prefix;
+         int64_t refill_at = static_cast<int64_t>(start_prefix.size()) +
+-            std::min<int64_t>(window.max_tokens - static_cast<int64_t>(emitted.size()), kArDecodeChunkTokens);
++            std::min<int64_t>(window.max_tokens - static_cast<int64_t>(emitted.size()), ar_decode_chunk());
+         const auto prefill_start = Clock::now();
+         auto prefill = active_runtime->prefill_tokens_into_decode_cache(
+             start_prefix,
+@@ -737,11 +1027,13 @@
+         double refill_prefill_ms = 0.0;
+         int64_t refill_count = 0;
+         for (int64_t step = static_cast<int64_t>(emitted.size()); step < window.max_tokens; ++step) {
++            host.check();
+             const auto sample_start = Clock::now();
+             const int32_t token = compact_semantic ?
+-                sample_semantic_token(decode_result.logits, emitted, window, rng, scratch) :
+-                sample_token(decode_result.logits, emitted, window, rng, scratch);
++                host.sample_semantic_token(decode_result.logits, emitted, window, rng, scratch) :
++                host.sample_token(decode_result.logits, emitted, window, rng, scratch);
+             sample_ms += engine::debug::elapsed_ms(sample_start);
++            host.check();
+             if (token == window.stop_token) {
+                 engine::debug::timing_log_scalar("yue2.ar.generate.sample_ms", sample_ms);
+                 engine::debug::timing_log_scalar("yue2.ar.generate.decode_ms", decode_ms);
+@@ -750,7 +1042,7 @@
+                 engine::debug::timing_log_scalar("yue2.ar.generate.emitted_tokens", emitted.size());
+                 engine::debug::timing_log_scalar("yue2.ar.generate.total_ms", engine::debug::elapsed_ms(total_start));
+                 if (refill_count > 0) active_runtime->release_prefill_graph();
+-                return emitted;
++                host.check(6);return emitted;
+             }
+             emitted.push_back(token);
+             if (static_cast<int64_t>(emitted.size()) >= window.max_tokens) {
+@@ -760,12 +1052,12 @@
+                 (decode_cache_alignment > 1 && active_runtime->decode_valid_steps() >= refill_at)) {
+                 std::vector<int32_t> refill_prefix;
+                 refill_prefix.reserve(prefix.size() + emitted.size());
+-                refill_prefix.insert(refill_prefix.end(), prefix.begin(), prefix.end());
+-                refill_prefix.insert(refill_prefix.end(), emitted.begin(), emitted.end());
++                host.append(refill_prefix,prefix);
++                host.append(refill_prefix,emitted);
+                 const auto refill_prefill_start = Clock::now();
+                 const int64_t remaining = window.max_tokens - static_cast<int64_t>(emitted.size());
+                 refill_at = static_cast<int64_t>(refill_prefix.size()) +
+-                    std::min<int64_t>(remaining, kArDecodeChunkTokens);
++                    std::min<int64_t>(remaining, ar_decode_chunk());
+                 auto refill = active_runtime->prefill_tokens_into_decode_cache(
+                     refill_prefix,
+                     cache_steps_for(static_cast<int64_t>(refill_prefix.size()), remaining));
+@@ -786,7 +1078,7 @@
+         engine::debug::timing_log_scalar("yue2.ar.generate.emitted_tokens", emitted.size());
+         engine::debug::timing_log_scalar("yue2.ar.generate.total_ms", engine::debug::elapsed_ms(total_start));
+         if (refill_count > 0) active_runtime->release_prefill_graph();
+-        return emitted;
++        host.check(6);return emitted;
+     }
+ 
+     std::vector<int32_t> generate_cfg(
+@@ -796,6 +1088,12 @@
+         float guidance_scale,
+         uint64_t seed,
+         const std::vector<int32_t> & forced) {
++        validate_ar_request(assets->config.model,decode_cache_alignment,positive_prefix,window,forced);
++        validate_ar_request(assets->config.model,decode_cache_alignment,negative_prefix,window,forced);
++        if(!std::isfinite(guidance_scale))throw std::runtime_error("Yue2 CFG guidance must be finite");
++        ar_check(execution);
++        ARHostOwner host{execution.current_run_stop()};
++
+         if (guidance_scale == 1.0F) {
+             return generate(positive_prefix, window, seed, forced);
+         }
+@@ -807,11 +1105,11 @@
+         ensure_generation_runtime(false, compact_semantic, compact_abc);
+         auto & positive_runtime = compact_semantic ? semantic_runtime : (compact_abc ? abc_runtime : runtime);
+         const auto total_start = Clock::now();
+-        auto append_forced = [&forced](const std::vector<int32_t> & tokens) {
++        auto append_forced = [&forced,&host](const std::vector<int32_t> & tokens) {
+             std::vector<int32_t> out;
+             out.reserve(tokens.size() + forced.size());
+-            out.insert(out.end(), tokens.begin(), tokens.end());
+-            out.insert(out.end(), forced.begin(), forced.end());
++            host.append(out,tokens);
++            host.append(out,forced);
+             return out;
+         };
+         const auto positive_tokens = append_forced(positive_prefix);
+@@ -849,30 +1147,30 @@
+         engine::debug::timing_log_scalar("yue2.ar.cfg.prefill_into_cache_ms", engine::debug::elapsed_ms(prefill_start));
+         std::vector<int32_t> emitted;
+         emitted.reserve(static_cast<size_t>(window.max_tokens));
+-        emitted.insert(emitted.end(), forced.begin(), forced.end());
++        host.append(emitted,forced);
+         std::mt19937 rng(static_cast<uint32_t>(seed));
+         Yue2SamplerScratch scratch;
+         std::vector<float> logits(positive.logits.size(), 0.0F);
+         double sample_ms = 0.0;
+         double decode_batched_ms = 0.0;
+         for (int64_t step = static_cast<int64_t>(emitted.size()); step < window.max_tokens; ++step) {
+-            if (positive.logits.size() != negative.logits.size()) {
++            if (positive.logits.size() != negative.logits.size() || positive.logits.empty()) {
+                 throw std::runtime_error("Yue2 CFG logits size mismatch");
+             }
+-            for (size_t i = 0; i < logits.size(); ++i) {
+-                logits[i] = negative.logits[i] + (positive.logits[i] - negative.logits[i]) * guidance_scale;
+-            }
++            combine_cfg_logits(positive.logits,negative.logits,guidance_scale,logits,host);
++            host.check();
+             const auto sample_start = Clock::now();
+             const int32_t token = compact_semantic ?
+-                sample_semantic_token(logits, emitted, window, rng, scratch) :
+-                sample_token(logits, emitted, window, rng, scratch);
++                host.sample_semantic_token(logits, emitted, window, rng, scratch) :
++                host.sample_token(logits, emitted, window, rng, scratch);
+             sample_ms += engine::debug::elapsed_ms(sample_start);
++            host.check();
+             if (token == window.stop_token) {
+                 engine::debug::timing_log_scalar("yue2.ar.cfg.sample_ms", sample_ms);
+                 engine::debug::timing_log_scalar("yue2.ar.cfg.decode_batched_ms", decode_batched_ms);
+                 engine::debug::timing_log_scalar("yue2.ar.cfg.emitted_tokens", emitted.size());
+                 engine::debug::timing_log_scalar("yue2.ar.cfg.total_ms", engine::debug::elapsed_ms(total_start));
+-                return emitted;
++                host.check(6);return emitted;
+             }
+             emitted.push_back(token);
+             if (static_cast<int64_t>(emitted.size()) >= window.max_tokens) {
+@@ -892,7 +1190,7 @@
+         engine::debug::timing_log_scalar("yue2.ar.cfg.decode_batched_ms", decode_batched_ms);
+         engine::debug::timing_log_scalar("yue2.ar.cfg.emitted_tokens", emitted.size());
+         engine::debug::timing_log_scalar("yue2.ar.cfg.total_ms", engine::debug::elapsed_ms(total_start));
+-        return emitted;
++        host.check(6);return emitted;
+     }
+ 
+     runtime::TransformerKVState prefill_state(const std::vector<int32_t> & tokens) {
+@@ -928,6 +1226,8 @@
+     }
+ 
+     void ensure_generation_runtime(bool require_negative, bool compact_semantic, bool compact_abc) {
++        if(assets->config.model.vocab_size<kCodecOffset+kCodecSize)throw std::runtime_error("Yue2 generation vocabulary does not cover compact head views");
++        ar_check(execution);
+         auto & active_runtime = compact_semantic ? semantic_runtime : (compact_abc ? abc_runtime : runtime);
+         auto & active_negative_runtime =
+             compact_semantic ? semantic_negative_runtime : (compact_abc ? abc_negative_runtime : negative_runtime);
+@@ -1041,7 +1341,7 @@
+     const Yue2ARSamplingWindow & window,
+     uint64_t seed,
+     const std::vector<int32_t> & forced) {
+-    return impl_->generate(prefix, window, seed, forced);
++    try{return impl_->generate(prefix, window, seed, forced);}catch(...){release_runtime_graphs();throw;}
+ }
+ 
+ std::vector<int32_t> Yue2ARRuntime::generate_cfg(
+@@ -1051,15 +1351,15 @@
+     float guidance_scale,
+     uint64_t seed,
+     const std::vector<int32_t> & forced) {
+-    return impl_->generate_cfg(positive_prefix, negative_prefix, window, guidance_scale, seed, forced);
++    try{return impl_->generate_cfg(positive_prefix, negative_prefix, window, guidance_scale, seed, forced);}catch(...){release_runtime_graphs();throw;}
+ }
+ 
+ runtime::TransformerKVState Yue2ARRuntime::prefill_state(const std::vector<int32_t> & tokens) {
+-    return impl_->prefill_state(tokens);
++    try{if(tokens.empty()||tokens.size()>static_cast<uint64_t>(impl_->assets->config.model.max_position_embeddings))throw std::runtime_error("Yue2 prefix state shape is invalid");for(int32_t token:tokens)if(token<0||token>=impl_->assets->config.model.vocab_size)throw std::runtime_error("Yue2 prefix token is outside vocabulary");ar_check(impl_->execution);auto result=impl_->prefill_state(tokens);ar_check(impl_->execution);return result;}catch(...){release_runtime_graphs();throw;}
+ }
+ 
+ Yue2ARDevicePrefixState Yue2ARRuntime::prefill_device_state(const std::vector<int32_t> & tokens) {
+-    return impl_->prefill_device_state(tokens);
++    try{if(tokens.empty()||tokens.size()>static_cast<uint64_t>(impl_->assets->config.model.max_position_embeddings))throw std::runtime_error("Yue2 prefix state shape is invalid");for(int32_t token:tokens)if(token<0||token>=impl_->assets->config.model.vocab_size)throw std::runtime_error("Yue2 prefix token is outside vocabulary");ar_check(impl_->execution);auto result=impl_->prefill_device_state(tokens);ar_check(impl_->execution);return result;}catch(...){release_runtime_graphs();throw;}
+ }
+ 
+ void Yue2ARRuntime::release_runtime_graphs() {
+diff --git a/src/framework/modules/transformers/causal_decoder_runtime.cpp b/src/framework/modules/transformers/causal_decoder_runtime.cpp
+--- a/src/framework/modules/transformers/causal_decoder_runtime.cpp
++++ b/src/framework/modules/transformers/causal_decoder_runtime.cpp
+@@ -1,4 +1,5 @@
+ #include "engine/framework/modules/transformers/causal_decoder_runtime.h"
++#include "engine/framework/runtime/session.h"
+ 
+ #include "engine/framework/core/backend.h"
+ #include "engine/framework/core/module.h"
+@@ -18,6 +19,9 @@
+ #include <utility>
+ 
+ namespace engine::modules {
++#ifdef ENGINE_YUE2_AR_TESTING
++namespace causal_testing{void graph_returned(ggml_status status)noexcept;void before_graph(core::ExecutionContext & execution,ggml_cgraph *graph)noexcept;}
++#endif
+ namespace {
+ 
+ using Clock = std::chrono::steady_clock;
+@@ -503,6 +507,12 @@
+ 
+ }  // namespace
+ 
++namespace {
++void classify_owned_causal_status(ggml_status status,const core::ExecutionContext&execution){
++ if(status==GGML_STATUS_ABORTED)throw runtime::RunCancelled();
++ if(status==GGML_STATUS_SUCCESS&&execution.stop_requested())throw runtime::RunCancelled();
++}
++}
+ class CausalDecoderRuntime::Impl {
+     friend class CausalDecoderRuntime;
+ public:
+@@ -510,7 +520,8 @@
+         core::ExecutionContext & execution,
+         CausalDecoderRuntimeConfig config,
+         CausalDecoderRuntimeWeights weights)
+-        : backend_(execution.backend()),
++        : execution_(&execution),
++          backend_(execution.backend()),
+           backend_type_(execution.backend_type()),
+           threads_(std::max(1, execution.config().threads)),
+           config_(std::move(config)),
+@@ -525,6 +536,21 @@
+         release_runtime_graphs();
+     }
+ 
++    ggml_status owned_compute(ggml_cgraph * graph) {
++        // compute_backend_graph synchronizes before return. ABORTED is
++        // authoritative even if an external observer clears its request later.
++#ifdef ENGINE_YUE2_AR_TESTING
++        causal_testing::before_graph(*execution_,graph);
++#endif
++        const auto status=core::compute_backend_graph(*execution_,graph);
++#ifdef ENGINE_YUE2_AR_TESTING
++        causal_testing::graph_returned(status);
++#endif
++        ggml_backend_synchronize(backend_);
++        classify_owned_causal_status(status,*execution_);
++        return status;
++    }
++    void owned_check()const{if(execution_->stop_requested())throw runtime::RunCancelled();}
+     struct CacheLanePrefillGraph {
+         Impl & owner;
+         int64_t steps;
+@@ -610,7 +636,7 @@
+             ggml_backend_tensor_set(mask, mask_values.data(), 0, mask_values.size() * sizeof(ggml_fp16_t));
+             if (readback_ids) upload_logits_readback_token_ids(readback_ids, owner.config_);
+             core::set_backend_threads(owner.backend_, owner.threads_);
+-            if (core::compute_backend_graph(owner.backend_, graph) != GGML_STATUS_SUCCESS) {
++            if (owner.owned_compute(graph) != GGML_STATUS_SUCCESS) {
+                 throw std::runtime_error("cache-lane prefill graph compute failed");
+             }
+             CausalDecoderStepResult result;
+@@ -619,7 +645,7 @@
+                 result.hidden = core::read_tensor_f32(hidden);
+                 round_readback(result.hidden, owner.config_);
+             }
+-            return result;
++            owner.owned_check();return result;
+         }
+     };
+ 
+@@ -674,9 +700,10 @@
+             }
+             results.push_back(prefill->run(prefixes[batch]));
+         }
++        owned_check();
+         batched_decode_cache_.advance_after_direct_append(lengths);
+         debug::timing_log_scalar(config_.trace_name + ".batched_prefill.compute_ms", debug::elapsed_ms(compute_start));
+-        return results;
++        owned_check();return results;
+     }
+ 
+     struct BatchedAttentionGraph {
+@@ -918,9 +945,10 @@
+             ggml_backend_tensor_set(block_mask_, mask.data(), 0, mask.size() * sizeof(ggml_fp16_t));
+             ggml_backend_tensor_set(block_last_, &last, 0, sizeof(last));
+             core::set_backend_threads(backend_, threads_);
+-            if (core::compute_backend_graph(backend_, block_graph_) != GGML_STATUS_SUCCESS) {
++            if (owned_compute(block_graph_) != GGML_STATUS_SUCCESS) {
+                 throw std::runtime_error("Qwen chunked prefill compute failed");
+             }
++            owned_check();
+             decode_cache_.advance_after_direct_append(count);
+         }
+         ggml_backend_synchronize(backend_);
+@@ -1257,7 +1285,7 @@
+             upload_logits_readback_token_ids(prefill_logits_readback_token_ids_, config_);
+         }
+         core::set_backend_threads(backend_, threads_);
+-        const ggml_status status = core::compute_backend_graph(backend_, prefill_graph_);
++        const ggml_status status = owned_compute(prefill_graph_);
+         ggml_backend_synchronize(backend_);
+         if (status != GGML_STATUS_SUCCESS) {
+             throw std::runtime_error("QwenCausalDecodeRuntime prefill graph compute failed");
+@@ -1286,7 +1314,7 @@
+             round_readback(state.key, config_);
+             round_readback(state.value, config_);
+         }
+-        return out;
++        owned_check();return out;
+     }
+ 
+     CausalDecoderPrefillIntoDecodeResult run_prefill_into_decode_cache() {
+@@ -1307,7 +1335,7 @@
+             upload_logits_readback_token_ids(prefill_logits_readback_token_ids_, config_);
+         }
+         core::set_backend_threads(backend_, threads_);
+-        const ggml_status status = core::compute_backend_graph(backend_, prefill_graph_);
++        const ggml_status status = owned_compute(prefill_graph_);
+         ggml_backend_synchronize(backend_);
+         if (status != GGML_STATUS_SUCCESS) {
+             throw std::runtime_error("QwenCausalDecodeRuntime prefill graph compute failed");
+@@ -1323,11 +1351,12 @@
+             round_readback(out.hidden, config_);
+         }
+         decode_cache_.retain_prefix(0);
++        owned_check();
+         decode_cache_.advance_after_direct_append(prefill_steps_);
+         begin_decode_mask();
+         out.current_end = decode_cache_.current_end();
+         out.valid_steps = decode_cache_.valid_steps();
+-        return out;
++        owned_check();return out;
+     }
+ 
+     void ensure_batched_prefill_token_graph(int64_t batch_size, int64_t steps) {
+@@ -1487,7 +1516,7 @@
+                 batched_prefill_logits_readback_token_ids_, config_);
+         }
+         core::set_backend_threads(backend_, threads_);
+-        const ggml_status status = core::compute_backend_graph(backend_, batched_prefill_graph_);
++        const ggml_status status = owned_compute(batched_prefill_graph_);
+         ggml_backend_synchronize(backend_);
+         if (status != GGML_STATUS_SUCCESS) {
+             throw std::runtime_error("QwenCausalDecodeRuntime batched prefill graph compute failed");
+@@ -1536,7 +1565,7 @@
+             round_readback(state.key, config_);
+             round_readback(state.value, config_);
+         }
+-        return out;
++        owned_check();return out;
+     }
+ 
+     void ensure_decode_token_graph(int64_t cache_steps) {
+@@ -1837,7 +1866,7 @@
+             cache_slot,
+             position);
+         core::set_backend_threads(backend_, threads_);
+-        const ggml_status status = core::compute_backend_graph(backend_, decode_graph_);
++        const ggml_status status = owned_compute(decode_graph_);
+         ggml_backend_synchronize(backend_);
+         if (status != GGML_STATUS_SUCCESS) {
+             throw std::runtime_error("QwenCausalDecodeRuntime decode graph compute failed");
+@@ -1852,8 +1881,9 @@
+             ggml_backend_tensor_get(decode_hidden_, out.hidden.data(), 0, out.hidden.size() * sizeof(float));
+             round_readback(out.hidden, config_);
+         }
++        owned_check();
+         decode_cache_.advance_after_direct_append(1);
+-        return out;
++        owned_check();return out;
+     }
+ 
+     void run_decode_step_into(CausalDecoderStepResult & out) {
+@@ -1883,7 +1913,7 @@
+                 position);
+         }
+         core::set_backend_threads(backend_, threads_);
+-        const ggml_status status = core::compute_backend_graph(backend_, decode_graph_);
++        const ggml_status status = owned_compute(decode_graph_);
+         ggml_backend_synchronize(backend_);
+         if (status != GGML_STATUS_SUCCESS) {
+             throw std::runtime_error("QwenCausalDecodeRuntime decode graph compute failed");
+@@ -1901,6 +1931,7 @@
+         } else {
+             out.hidden.clear();
+         }
++        owned_check();
+         decode_cache_.advance_after_direct_append(1);
+     }
+ 
+@@ -1978,7 +2009,7 @@
+             logits = active->logits;
+             hidden = active->hidden;
+         }
+-        const ggml_status status = core::compute_backend_graph(backend_, graph);
++        const ggml_status status = owned_compute(graph);
+         ggml_backend_synchronize(backend_);
+         if (status != GGML_STATUS_SUCCESS) {
+             throw std::runtime_error("QwenCausalDecodeRuntime batched decode graph compute failed");
+@@ -2001,8 +2032,9 @@
+                 out.hidden.size() * sizeof(float));
+             round_readback(out.hidden, config_);
+         }
++        owned_check();
+         batched_decode_cache_.advance_after_direct_append(1);
+-        return out;
++        owned_check();return out;
+     }
+ 
+     void release_prefill_graph() {
+@@ -2183,6 +2215,7 @@
+         batched_decode_lazy_import_scratch_ = false;
+     }
+ 
++    core::ExecutionContext * execution_ = nullptr;
+     ggml_backend_t backend_ = nullptr;
+     core::BackendType backend_type_ = core::BackendType::Cpu;
+     int threads_ = 1;
+@@ -2283,56 +2316,56 @@
+ 
+ CausalDecoderRuntime::~CausalDecoderRuntime() = default;
+ 
+-CausalDecoderPrefillResult CausalDecoderRuntime::prefill_tokens(const std::vector<int32_t> & token_ids) {
++CausalDecoderPrefillResult CausalDecoderRuntime::prefill_tokens(const std::vector<int32_t> & token_ids) try {
+     return impl_->prefill_tokens(token_ids);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ CausalDecoderPrefillResult CausalDecoderRuntime::prefill_embeddings(
+     const std::vector<float> & embeddings,
+-    int64_t steps) {
++    int64_t steps) try {
+     return impl_->prefill_embeddings(embeddings, steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ CausalDecoderPrefillIntoDecodeResult CausalDecoderRuntime::prefill_tokens_into_decode_cache(
+     const std::vector<int32_t> & token_ids,
+-    int64_t required_cache_steps) {
++    int64_t required_cache_steps) try {
+     return impl_->prefill_tokens_into_decode_cache(token_ids, required_cache_steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ CausalDecoderPrefillIntoDecodeResult CausalDecoderRuntime::prefill_embeddings_into_decode_cache(
+-    const std::vector<float> & embeddings, int64_t steps, int64_t required_cache_steps) {
++    const std::vector<float> & embeddings, int64_t steps, int64_t required_cache_steps) try {
+     return impl_->prefill_embeddings_into_decode_cache(embeddings, steps, required_cache_steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ CausalDecoderBatchedPrefillResult CausalDecoderRuntime::prefill_tokens_batched(
+     const std::vector<int32_t> & token_ids,
+     int64_t batch_size,
+-    int64_t steps) {
++    int64_t steps) try {
+     return impl_->prefill_tokens_batched(token_ids, batch_size, steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ std::vector<CausalDecoderStepResult> CausalDecoderRuntime::prefill_tokens_into_batched_decode_cache(
+-    const std::vector<std::vector<int32_t>> & prefixes, int64_t required_cache_steps) {
++    const std::vector<std::vector<int32_t>> & prefixes, int64_t required_cache_steps) try {
+     return impl_->prefill_tokens_into_batched_decode_cache(prefixes, required_cache_steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ std::vector<CausalDecoderStepResult> CausalDecoderRuntime::prefill_embeddings_into_batched_decode_cache(
+-    const std::vector<std::vector<float>> & prefixes, int64_t required_cache_steps) {
++    const std::vector<std::vector<float>> & prefixes, int64_t required_cache_steps) try {
+     return impl_->prefill_embeddings_into_batched_decode_cache(prefixes, required_cache_steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ CausalDecoderBatchedPrefillResult CausalDecoderRuntime::prefill_embeddings_batched(
+     const std::vector<float> & embeddings,
+     int64_t batch_size,
+-    int64_t steps) {
++    int64_t steps) try {
+     return impl_->prefill_embeddings_batched(embeddings, batch_size, steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ CausalDecoderStepResult CausalDecoderRuntime::prefill_embeddings_into_cache(
+     const std::vector<float> & embeddings, int64_t steps, int64_t cache_steps, int64_t chunk_steps,
+-    int64_t keep_prefix_steps) {
++    int64_t keep_prefix_steps) try {
+     return impl_->prefill_embeddings_into_cache(embeddings, steps, cache_steps, chunk_steps, keep_prefix_steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ int64_t CausalDecoderRuntime::retainable_prefix_steps(
+     int64_t steps, int64_t cache_steps, int64_t chunk_steps, int64_t keep_prefix_steps) const {
+@@ -2341,49 +2374,49 @@
+ 
+ void CausalDecoderRuntime::start_decode_tokens(
+     const runtime::TransformerKVState & state,
+-    int64_t required_cache_steps) {
++    int64_t required_cache_steps) try {
+     impl_->start_decode_tokens(state, required_cache_steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ void CausalDecoderRuntime::start_decode_embeddings(
+     const runtime::TransformerKVState & state,
+-    int64_t required_cache_steps) {
++    int64_t required_cache_steps) try {
+     impl_->start_decode_embeddings(state, required_cache_steps);
+-}
+-
+-CausalDecoderStepResult CausalDecoderRuntime::decode_token(int32_t token) {
++} catch (...) { impl_->release_runtime_graphs(); throw; }
++
++CausalDecoderStepResult CausalDecoderRuntime::decode_token(int32_t token) try {
+     return impl_->decode_token(token);
+-}
+-
+-void CausalDecoderRuntime::decode_token_into(int32_t token, CausalDecoderStepResult & out) {
++} catch (...) { impl_->release_runtime_graphs(); throw; }
++
++void CausalDecoderRuntime::decode_token_into(int32_t token, CausalDecoderStepResult & out) try {
+     impl_->decode_token_into(token, out);
+-}
+-
+-CausalDecoderStepResult CausalDecoderRuntime::decode_embedding(const std::vector<float> & embedding) {
++} catch (...) { impl_->release_runtime_graphs(); throw; }
++
++CausalDecoderStepResult CausalDecoderRuntime::decode_embedding(const std::vector<float> & embedding) try {
+     return impl_->decode_embedding(embedding);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ void CausalDecoderRuntime::start_decode_tokens_batched(
+     const runtime::TransformerBatchedKVState & state,
+-    int64_t required_cache_steps) {
++    int64_t required_cache_steps) try {
+     impl_->start_decode_tokens_batched(state, required_cache_steps);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ void CausalDecoderRuntime::start_decode_embeddings_batched(
+     const runtime::TransformerBatchedKVState & state,
+-    int64_t required_cache_steps) {
++    int64_t required_cache_steps) try {
+     impl_->start_decode_embeddings_batched(state, required_cache_steps);
+-}
+-
+-CausalDecoderStepResult CausalDecoderRuntime::decode_tokens_batched(const std::vector<int32_t> & tokens) {
++} catch (...) { impl_->release_runtime_graphs(); throw; }
++
++CausalDecoderStepResult CausalDecoderRuntime::decode_tokens_batched(const std::vector<int32_t> & tokens) try {
+     return impl_->decode_tokens_batched(tokens);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ CausalDecoderStepResult CausalDecoderRuntime::decode_embeddings_batched(
+     const std::vector<float> & embeddings,
+-    int64_t batch_size) {
++    int64_t batch_size) try {
+     return impl_->decode_embeddings_batched(embeddings, batch_size);
+-}
++} catch (...) { impl_->release_runtime_graphs(); throw; }
+ 
+ runtime::TransformerBatchedKVState CausalDecoderRuntime::export_batched_decode_state() const {
+     return impl_->export_batched_decode_state();

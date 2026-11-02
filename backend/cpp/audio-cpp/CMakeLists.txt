@@ -226,6 +226,20 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_yue2_owned_ar_ctest music_yue2_owned_ar_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/modules/transformers/causal_decoder_runtime.cpp")
+    target_include_directories(music_yue2_owned_ar_ctest PRIVATE "${AUDIO_CPP_DIR}")
+    target_compile_definitions(music_yue2_owned_ar_ctest PRIVATE ENGINE_YUE2_AR_TESTING=1)
+    target_compile_options(music_yue2_owned_ar_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_yue2_owned_ar_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_yue2_owned_ar_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_yue2_owned_ar_ctest PRIVATE engine_runtime ggml Threads::Threads)
+    add_test(NAME music_yue2_owned_ar COMMAND music_yue2_owned_ar_ctest)
+    set_tests_properties(music_yue2_owned_ar PROPERTIES TIMEOUT 45)
+
     add_executable(music_sheetsage_output_host_ctest music_sheetsage_output_host_ctest.cpp
         "${AUDIO_CPP_DIR}/src/framework/runtime/session.cpp"
         "${AUDIO_CPP_DIR}/src/framework/io/json.cpp")

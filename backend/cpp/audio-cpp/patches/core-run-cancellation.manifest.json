@@ -76,6 +76,26 @@
     "include/engine/models/sheetsage/processing.h": {
       "base_sha256": "c4fcd5a98970c0dfed084ea54cf71178d5a5d0a22be6ead80b21b61f476a9c72",
       "final_sha256": "8c2f96998bfb4ea43aca959a44046c397ba2b603c543cece03ad536039619f41"
+    },
+    "include/engine/models/yue2/session.h": {
+      "base_sha256": "1576e5bb78e0f52657222ba04b3aaca4fb5a1654aa81edbd45a0fc642b0b643c",
+      "final_sha256": "0dcba50e827499ca8d614e699140e4884fb372c6d90701ffbdee300ea1d743e8"
+    },
+    "src/models/yue2/session.cpp": {
+      "base_sha256": "6e8687512b5a4cfe73208eb0202021405ee70f6bbe18b398ebb8fbe536023c82",
+      "final_sha256": "cd6fbaf82e4bdeebe00b2b145f46cf2b46ec79cf18bb972c4d82f2caee76d2c4"
+    },
+    "src/models/yue2/pipeline.cpp": {
+      "base_sha256": "f1f856a8d1a6d4bb2647e31df695a72051219aba8f10f6478151d7cdfa544a01",
+      "final_sha256": "d66cd3517c3c20f2fd90b5d7824715516522c45821da2760e59491a0b09f8eed"
+    },
+    "src/models/yue2/ar_runtime.cpp": {
+      "base_sha256": "6c9b6ed1b220957082e758969baab648a945c6a4109cbdd4a0d29e97e3225aaa",
+      "final_sha256": "72926f9b8d8f50f636b0c68472c51a6b9ff5a189393cb48a5e3fdfd3739d446b"
+    },
+    "src/framework/modules/transformers/causal_decoder_runtime.cpp": {
+      "base_sha256": "54a4170b9aedda90a531710a70f0db9a86d3235bb70a01ce726d226a6d0f3eeb",
+      "final_sha256": "38e36750488988ad2f39498385bad42769e57356825b3cdd57f02f7a74ed36e0"
     }
   },
   "omitted_tracked_paths": {
@@ -304,6 +324,32 @@
         "include/engine/models/sheetsage/processing.h": {
           "base_sha256": "c4fcd5a98970c0dfed084ea54cf71178d5a5d0a22be6ead80b21b61f476a9c72",
           "final_sha256": "8c2f96998bfb4ea43aca959a44046c397ba2b603c543cece03ad536039619f41"
+        }
+      }
+    },
+    {
+      "patch": "0012-yue2-owned-ar-cancellation.patch",
+      "patch_sha256": "65134384f7ba8e49aa581e772a391f806fcb04c5ebf90efb1c65898ab55c8849",
+      "files": {
+        "include/engine/models/yue2/session.h": {
+          "base_sha256": "1576e5bb78e0f52657222ba04b3aaca4fb5a1654aa81edbd45a0fc642b0b643c",
+          "final_sha256": "0dcba50e827499ca8d614e699140e4884fb372c6d90701ffbdee300ea1d743e8"
+        },
+        "src/models/yue2/session.cpp": {
+          "base_sha256": "6e8687512b5a4cfe73208eb0202021405ee70f6bbe18b398ebb8fbe536023c82",
+          "final_sha256": "cd6fbaf82e4bdeebe00b2b145f46cf2b46ec79cf18bb972c4d82f2caee76d2c4"
+        },
+        "src/models/yue2/pipeline.cpp": {
+          "base_sha256": "f1f856a8d1a6d4bb2647e31df695a72051219aba8f10f6478151d7cdfa544a01",
+          "final_sha256": "d66cd3517c3c20f2fd90b5d7824715516522c45821da2760e59491a0b09f8eed"
+        },
+        "src/models/yue2/ar_runtime.cpp": {
+          "base_sha256": "6c9b6ed1b220957082e758969baab648a945c6a4109cbdd4a0d29e97e3225aaa",
+          "final_sha256": "72926f9b8d8f50f636b0c68472c51a6b9ff5a189393cb48a5e3fdfd3739d446b"
+        },
+        "src/framework/modules/transformers/causal_decoder_runtime.cpp": {
+          "base_sha256": "54a4170b9aedda90a531710a70f0db9a86d3235bb70a01ce726d226a6d0f3eeb",
+          "final_sha256": "38e36750488988ad2f39498385bad42769e57356825b3cdd57f02f7a74ed36e0"
         }
       }
     }
