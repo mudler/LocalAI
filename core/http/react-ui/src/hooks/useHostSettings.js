@@ -21,6 +21,16 @@ export function useHostSettings(client, scope) {
       if (sequence.current !== id) return
       setState(s => {
         const edits = preserve && s.snapshot ? Object.fromEntries(Object.entries(s.draft).filter(([k, v]) => JSON.stringify(v) !== JSON.stringify(s.snapshot.policy[k]))) : {}
+        if (edits.chats_tool_providers) {
+          const before = s.snapshot.policy.chats_tool_providers, after = edits.chats_tool_providers
+          const merged = { ...snapshot.policy.chats_tool_providers }
+          for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
+            if (before[key] === after[key]) continue
+            if (Object.hasOwn(after, key)) merged[key] = after[key]
+            else delete merged[key]
+          }
+          edits.chats_tool_providers = merged
+        }
         return { snapshot, draft: { ...snapshot.policy, ...edits }, error: pending.current ? new Error('Write outcome is uncertain. Retry the same operation, or discard after reviewing owner state.') : null, busy: false }
       })
     } catch (error) { if (sequence.current === id) setState(s => ({ ...s, error, busy: false })) }

@@ -55,6 +55,10 @@ export default function HostControlsForm({ app, client = ownerClient }) {
           // The typed phrase is checked above, but only the legacy runtime
           // endpoint accepts it. The owner patch contains policy fields only.
           delete patch[EGRESS_CONFIRM_KEY]
+          if (patch.chats_tool_providers) {
+            const before = initial.chats_tool_providers, after = patch.chats_tool_providers
+            patch.chats_tool_providers = Object.fromEntries([...new Set([...Object.keys(before), ...Object.keys(after)])].filter(k => before[k] !== after[k]).map(k => [k, after[k] ?? null]))
+          }
           return owner.save(patch)
         }} onDiscard={owner.discard} />}
     </div>

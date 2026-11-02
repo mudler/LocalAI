@@ -3,7 +3,11 @@ import { useCallback, useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import { Switch } from '../ui'
-import { chatBuiltinToolsApi, settingsApi } from '../../utils/api'
+import { chatBuiltinToolsApi } from '../../utils/api'
+import { createHostSettingsClient } from '../../utils/hostSettingsClient'
+import { createAddonsApi } from '../../utils/addonsApi'
+import { apiUrl } from '../../utils/basePath'
+import { useHostSettings } from '../../hooks/useHostSettings'
 import { skillsOf } from './addonState'
 
 // The skills an add-on ships, in its details: each name, and whether it
@@ -11,13 +15,14 @@ import { skillsOf } from './addonState'
 // several add-ons replace has a switch: on, this add-on serves it in the
 // chats; off, the next add-on that replaces it does. The choice is the pin of
 // Settings > Tools (chats_tool_providers), so both places show the same.
+const ownerClient = createHostSettingsClient({ api: createAddonsApi({ base: apiUrl }) })
+
 export default function AddonSkills({ app, isAdmin }) {
+  const owner = useHostSettings(ownerClient, app.id)
   const { t } = useTranslation('addons')
   const skills = skillsOf(app)
   const replaces = skills.some(s => s.replaces)
   const [rows, setRows] = useState({})
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState('')
 
   const load = useCallback(() => {
     if (!isAdmin || !replaces) return () => {}
@@ -34,20 +39,11 @@ export default function AddonSkills({ app, isAdmin }) {
   const choose = async (name, on) => {
     const row = rows[name]
     if (!row) return
-    const next = on ? app.id : row.candidates.find(id => id !== app.id)
-    if (!next) return
-    setBusy(name)
-    setError('')
-    try {
-      const current = await settingsApi.get()
-      const pins = { ...(current?.chats_tool_providers || {}), [name]: next }
-      await settingsApi.save({ chats_tool_providers: pins })
-      load()
-    } catch (e) {
-      setError(e.message || 'error')
-    } finally {
-      setBusy('')
-    }
+    const pins = { ...owner.draft.chats_tool_providers }
+    if (on) pins[name] = app.id
+    else delete pins[name]
+    owner.setDraft({ ...owner.draft, chats_tool_providers: pins })
+    await owner.save({ chats_tool_providers: { [name]: on ? app.id : null } })
   }
 
   return (
@@ -55,10 +51,20 @@ export default function AddonSkills({ app, isAdmin }) {
       <h3 className="ad-section__title" id="ad-pane-skills">{t('skills.title', { count: skills.length })}</h3>
       <ul className="ad-adds">
         {skills.map(s => (
-          <SkillItem key={s.name} skill={s} app={app} row={rows[s.name]} busy={busy === s.name} onChoose={choose} />
+          <SkillItem key={s.name} skill={s} app={app} row={rows[s.name] && owner.draft ? { ...rows[s.name], provider: owner.draft.chats_tool_providers[s.name] || rows[s.name].default || rows[s.name].candidates[0] } : undefined} busy={!isAdmin || owner.busy || !!owner.error || !owner.snapshot} onChoose={choose} />
         ))}
       </ul>
-      {error && <p className="ad-card__note" role="alert" data-testid="app-skills-error">{t('skills.saveFailed')}</p>}
+      {owner.snapshot && <p>Owner policy · revision {owner.snapshot.revision}</p>}
+      {owner.error && <div role="alert" data-testid="app-skills-error">
+        {owner.uncertain ? 'Write outcome is uncertain. ' : 'Owner settings unavailable. '}{owner.error.message}
+        <button type="button" onClick={owner.reload} disabled={owner.busy}>Reload and rebase edits</button>
+        {owner.uncertain && <button type="button" onClick={() => owner.save({})} disabled={owner.busy}>Retry same operation</button>}
+      </div>}
+      {owner.snapshot && !owner.error && JSON.stringify(owner.draft.chats_tool_providers) !== JSON.stringify(owner.snapshot.policy.chats_tool_providers) && <button type="button" onClick={() => {
+        const before = owner.snapshot.policy.chats_tool_providers, after = owner.draft.chats_tool_providers
+        const patch = Object.fromEntries([...new Set([...Object.keys(before), ...Object.keys(after)])].filter(k => before[k] !== after[k]).map(k => [k, after[k] ?? null]))
+        return owner.save({ chats_tool_providers: patch })
+      }} disabled={owner.busy}>Apply</button>}
     </section>
   )
 }

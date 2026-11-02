@@ -4444,3 +4444,9 @@ gVisor, KVM and the host backend refuse to run as root, so the sandbox needs the
 - **Cluster.** The add-on runs on the add-on owner node only. In Kubernetes, give that pod the settings above; a node pool dedicated to it is the way to keep the isolation requirements off the other nodes.
 
 What the source tree does not prove: the images and the `runsc` download are not built in the test suite, and the gVisor and KVM backends need a host that allows them. Their tests skip with the reason on a host that does not. The host backend and the whole path from a chat to a file in the user's files run in the tests.
+
+### Provider choices and automatic upgrades
+
+Add-on skill switches and tool-provider choices read the owner policy and update only the changed provider keys. Clearing a choice removes that pin without changing other add-ons. Revision conflicts retain edits for an explicit reload and rebase. Uncertain writes retry the same operation; an owner outage disables writes until reconciliation. Native add-on configuration remains separate.
+
+With add-ons enabled, Settings → Backends uses the owner policy for automatic upgrades rather than the frontend runtime file. Combined mode uses the embedded owner through the same API.

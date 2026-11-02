@@ -416,3 +416,7 @@ and that the database and the backups are untouched.
   runtime client types the add-on's HTTP 400 and 422 as a refusal, and the host answers
   it the same way from the apply, read, proposal, chat and artifact paths, and from the
   owner and every frontend. The authorization specs pin the exact status.
+
+### Settings authority in both topologies
+
+For every add-on settings surface, run combined-mode and owner-with-two-frontends cases. Save through one frontend and verify the other frontend and the real consumer agree. Repeat a restrictive update, restart the owner, and interrupt owner access. Assert explicit errors rather than frontend-local settings or built-in fallback. Exercise CAS conflicts, per-key provider deletion, uncertain retries, and preservation of unrelated fields. Network policy tests must use new HTTP and CONNECT sockets after revocation; established streams may finish. Add rendered-form tests for the actual dispatch payload and disabled controls during failed reconciliation. Follow the existing distributed-state checklist before introducing a new settings path.

@@ -252,3 +252,132 @@ test('mounted HostControlsForm confirms private access locally and sends only th
     await server.close()
   }
 })
+
+async function providerRender() {
+  const server = await createServer({ configFile: false, server: { middlewareMode: true }, plugins: [{
+    name: 'provider-render-stubs', enforce: 'pre',
+    resolveId(id) { if (id.endsWith('/UnsavedChangesGuard') || id === 'react-i18next' || id.endsWith('/utils/api')) return `\0provider-stub:${id}` },
+    load(id) {
+      if (!id.startsWith('\0provider-stub:')) return
+      if (id.endsWith('/UnsavedChangesGuard')) return 'export default function Guard() { return null }'
+      if (id.endsWith('react-i18next')) return 'export const useTranslation = () => ({ t: key => key, i18n: { language: "en" } })'
+      return 'export const chatBuiltinToolsApi = { list: () => globalThis.providerCatalog() }; export const settingsApi = { get: () => fetch("/api/settings"), save: () => fetch("/api/settings") }'
+    },
+  }] })
+  const { default: Form } = await server.ssrLoadModule('/src/components/hostcontrols/HostControlsForm.jsx')
+  await server.ssrLoadModule('/src/components/hostcontrols/ToolProvidersSettings.jsx')
+  const { default: Skills } = await server.ssrLoadModule('/src/components/addons/AddonSkills.jsx')
+  const { default: Upgrades } = await server.ssrLoadModule('/src/components/settings/AddonUpgradeSettings.jsx')
+  const root = createRoot(document.getElementById('root'))
+  return { Form, Skills, Upgrades, async render(Component, props) { await act(async () => root.render(React.createElement(Component, props))) }, async close() { await act(async () => root.unmount()); await server.close() } }
+}
+const buttonNamed = text => [...document.querySelectorAll('button')].find(b => b.textContent === text)
+const skillSwitch = name => document.querySelector(`[data-testid="app-skill-${name}-switch"]`)
+function providerWire() {
+  let revision = 7, pins = { bash: 'sandbox', web_search: 'web', xlsx: 'office', pdf: 'other' }, mode = 'ok'
+  const calls = [], forbidden = []
+  const previous = globalThis.fetch
+  globalThis.fetch = async (url, opts) => {
+    if (url !== '/api/addons/dispatch') { forbidden.push(url); throw new Error(`Forbidden legacy route ${url}`) }
+    const body = JSON.parse(opts.body); calls.push(body)
+    if (mode === 'offline') throw new Error('offline')
+    if (body.action === 'host-settings-update') {
+      if (mode === 'conflict' || body.arguments.expectedRevision !== revision) return new Response(JSON.stringify({ payload: { error: 'revision_conflict' } }))
+      assert.deepEqual(Object.keys(body.arguments.patch), ['chats_tool_providers'])
+      for (const [key, value] of Object.entries(body.arguments.patch.chats_tool_providers)) { if (value === null) delete pins[key]; else pins[key] = value }
+      revision++
+    }
+    return reply(dto(revision, { chats_tool_providers: pins }))
+  }
+  globalThis.providerCatalog = async () => ({ tools: ['bash', 'web_search'].map(id => ({ id, provider: 'legacy-wrong', candidates: id === 'bash' ? ['sandbox', 'other'] : ['web', 'other'], default: 'other' })), skills: ['xlsx', 'pdf'].map(id => ({ id, provider: 'legacy-wrong', candidates: ['office', 'other'], default: 'other' })) })
+  return { calls, forbidden, get pins() { return pins }, set mode(v) { mode = v }, concurrent() { pins.web_fetch = 'remote'; revision++ }, close() { globalThis.fetch = previous; delete globalThis.providerCatalog } }
+}
+const officeApp = { id: 'office', skills: ['xlsx', 'pdf'].map(name => ({ name, shadows: name })) }
+
+test('mounted skill switches use owner pins, preserve other pins, and read fresh across add-ons', async () => {
+  const wire = providerWire(), h = await providerRender()
+  try {
+    await h.render(h.Skills, { app: officeApp, isAdmin: true })
+    assert.equal(skillSwitch('xlsx').getAttribute('aria-checked'), 'true', 'owner pin overrides conflicting legacy catalog')
+    await act(async () => skillSwitch('xlsx').click())
+    await act(async () => skillSwitch('pdf').click())
+    assert.deepEqual(wire.calls.filter(c => c.action === 'host-settings-update').map(c => c.arguments), [
+      { expectedRevision: 7, patch: { chats_tool_providers: { xlsx: null } } },
+      { expectedRevision: 8, patch: { chats_tool_providers: { pdf: 'office' } } },
+    ])
+    assert.deepEqual(wire.pins, { bash: 'sandbox', web_search: 'web', pdf: 'office' })
+    await h.render(h.Skills, { app: { ...officeApp, id: 'other' }, isAdmin: true })
+    assert.equal(skillSwitch('pdf').getAttribute('aria-checked'), 'false')
+    assert.match(document.body.textContent, /revision 9/)
+    assert.deepEqual(wire.forbidden, [])
+  } finally { await h.close(); wire.close() }
+})
+
+test('mounted provider form sends per-key clear and never submits native runtime settings', async () => {
+  const wire = providerWire(), h = await providerRender()
+  try {
+    await h.render(h.Form, { app: { id: 'sandbox', shadows: ['bash'], ui: { controls: ['tool-providers'] } } })
+    assert.equal(document.querySelector('input[value="sandbox"]').checked, true)
+    assert.equal(document.querySelector('[data-testid="settings-tools-bash-switch"]'), null, 'native execution mode is not owner policy')
+    await act(async () => buttonNamed('Use default provider').click())
+    await act(async () => buttonNamed('Apply').click())
+    assert.deepEqual(wire.calls.find(c => c.action === 'host-settings-update').arguments, { expectedRevision: 7, patch: { chats_tool_providers: { bash: null } } })
+    assert.deepEqual(wire.pins, { web_search: 'web', xlsx: 'office', pdf: 'other' })
+    assert.deepEqual(wire.forbidden, [])
+  } finally { await h.close(); wire.close() }
+})
+
+test('mounted skills retain conflict edits, require visible rebase and retry uncertain identity', async () => {
+  const wire = providerWire(), h = await providerRender()
+  try {
+    await h.render(h.Skills, { app: officeApp, isAdmin: true })
+    wire.concurrent(); wire.mode = 'conflict'
+    await act(async () => skillSwitch('pdf').click())
+    assert.match(document.body.textContent, /changed|conflict/i)
+    assert.equal(skillSwitch('pdf').disabled, true)
+    wire.mode = 'ok'
+    await act(async () => buttonNamed('Reload and rebase edits').click())
+    assert.equal(skillSwitch('pdf').getAttribute('aria-checked'), 'true', 'intended choice survives conflict')
+    await act(async () => buttonNamed('Apply').click())
+    assert.equal(wire.pins.web_fetch, 'remote')
+    wire.mode = 'offline'
+    await act(async () => skillSwitch('xlsx').click())
+    assert.equal(skillSwitch('pdf').disabled, true)
+    const failed = wire.calls.filter(c => c.action === 'host-settings-update').at(-1)
+    await act(async () => buttonNamed('Reload and rebase edits').click())
+    assert.match(document.body.textContent, /unavailable|uncertain/i)
+    wire.mode = 'ok'
+    await act(async () => buttonNamed('Retry same operation').click())
+    assert.deepEqual(wire.calls.filter(c => c.action === 'host-settings-update').at(-1), failed)
+    assert.deepEqual(wire.forbidden, [])
+  } finally { await h.close(); wire.close() }
+})
+
+ test('mounted upgrade control writes owner CAS policy and blocks on outage', async () => {
+  const previous = globalThis.fetch, calls = []
+  let revision = 7, enabled = false, offline = false
+  globalThis.fetch = async (url, opts) => {
+    assert.equal(url, '/api/addons/dispatch')
+    const body = JSON.parse(opts.body); calls.push(body)
+    if (offline) throw new Error('offline')
+    if (body.action === 'host-settings-update') {
+      assert.deepEqual(body.arguments, { expectedRevision: 7, patch: { auto_upgrade_addons: true } })
+      enabled = true; revision++
+    }
+    return reply(dto(revision, { auto_upgrade_addons: enabled }))
+  }
+  const h = await providerRender()
+  try {
+    await h.render(h.Upgrades, {})
+    const box = () => document.querySelector('input[type="checkbox"]')
+    await act(async () => box().click())
+    await act(async () => buttonNamed('Apply upgrade setting').click())
+    assert.equal(enabled, true)
+    offline = true
+    await act(async () => box().click())
+    await act(async () => buttonNamed('Apply upgrade setting').click())
+    assert.equal(buttonNamed('Apply upgrade setting').disabled, true)
+    assert.match(document.body.textContent, /unavailable|changed/i)
+    assert.equal(calls.filter(c => c.action === 'host-settings-update').length, 2)
+  } finally { await h.close(); globalThis.fetch = previous }
+ })

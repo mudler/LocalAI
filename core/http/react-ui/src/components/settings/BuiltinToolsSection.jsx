@@ -136,7 +136,7 @@ function WebSearchTest() {
 // The add-ons that replace one tool or skill: mutually exclusive, the pinned
 // one serves. titles, when given, maps an add-on ID to its title. With no pin
 // the server's default serves: the add-on installed first, which is marked.
-function ProviderChoice({ tool, settings, onChange, titles }) {
+function ProviderChoice({ tool, settings, onChange, titles, disabled = false }) {
   const { t, i18n } = useTranslation('admin')
   const pins = readPins(settings)
   const pinned = pins[tool.id] || ''
@@ -144,7 +144,7 @@ function ProviderChoice({ tool, settings, onChange, titles }) {
   const active = pinned && tool.candidates.includes(pinned) ? pinned : first
   const set = (id) => onChange(writePins(settings, { ...pins, [tool.id]: id }))
   return (
-    <fieldset className="st-tools__choice" data-testid={`settings-tools-${tool.id}-providers`}>
+    <fieldset disabled={disabled} className="st-tools__choice" data-testid={`settings-tools-${tool.id}-providers`}>
       <legend className="st-row__desc">{t('settingsTools.replaceExplain', { tool: tool.id })}</legend>
       {!pinned && (
         <Callout tone="warn" testId={`settings-tools-${tool.id}-unpinned`}>
@@ -168,11 +168,12 @@ function ProviderChoice({ tool, settings, onChange, titles }) {
           </span>
         </label>
       ))}
+      <button type="button" className="dk-btn dk-btn--secondary" onClick={() => set('')}>Use default provider</button>
     </fieldset>
   )
 }
 
-export default function BuiltinToolsSection({ settings, onChange, only, addonLinks }) {
+export default function BuiltinToolsSection({ settings, onChange, only, addonLinks, providersOnly = false, providerSettings = settings, onProviderChange = onChange, providersDisabled = false }) {
   const { t } = useTranslation('admin')
   const [state, setState] = useState({ loading: true, tools: [], skills: [], error: '' })
   const [reload, setReload] = useState(0)
@@ -208,11 +209,11 @@ export default function BuiltinToolsSection({ settings, onChange, only, addonLin
               <p className="st-row__desc">{t(`settingsTools.descriptions.${tool.id}`, { defaultValue: tool.description })}</p>
               <div className="st-row__meta"><code className="st-key">{tool.setting}</code></div>
               {tool.unavailable && <p className="st-row__desc" data-tone="warn" data-testid={`settings-tools-${tool.id}-unavailable`}>{t('settingsTools.unavailable', { reason: tool.unavailable })}</p>}
-              {tool.id === 'bash'
+              {!providersOnly && (tool.id === 'bash'
                 ? <BashControls tool={tool} settings={settings} onChange={onChange} />
-                : <BoolControls tool={tool} settings={settings} onChange={onChange} />}
+                : <BoolControls tool={tool} settings={settings} onChange={onChange} />)}
               {tool.note && <p className="st-row__desc" data-tone="warn" data-testid={`settings-tools-${tool.id}-note`}>{t('settingsTools.toolNotRunning')}</p>}
-              {tool.candidates.length > 1 && <ProviderChoice tool={tool} settings={settings} onChange={onChange} titles={tool.titles} />}
+              {tool.candidates.length > 1 && <ProviderChoice tool={tool} settings={providerSettings} onChange={onProviderChange} titles={tool.titles} disabled={providersDisabled} />}
               {tool.id === 'web_search' && <WebSearchTest />}
               {!only && tool.provider && addonLinks?.has(tool.provider) && (
                 <p className="st-row__desc">
@@ -228,14 +229,14 @@ export default function BuiltinToolsSection({ settings, onChange, only, addonLin
           </div>
         )
       })}
-      {!only && state.skills.length > 0 && <SkillRows skills={state.skills} settings={settings} onChange={onChange} />}
+      {!only && state.skills.length > 0 && <SkillRows skills={state.skills} settings={providerSettings} onChange={onProviderChange} disabled={providersDisabled} />}
     </div>
   )
 }
 
 // The built-in skills that installed add-ons replace: who serves each now and,
 // when several add-ons replace one, the choice.
-function SkillRows({ skills, settings, onChange }) {
+function SkillRows({ skills, settings, onChange, disabled }) {
   const { t } = useTranslation('admin')
   return (
     <div className="st-tools__skills" data-testid="settings-tools-skills">
@@ -254,7 +255,7 @@ function SkillRows({ skills, settings, onChange }) {
                 <span className="st-tag" data-testid={`settings-tools-skill-${skill.id}-provider`}>{by}</span>
               </div>
               {skill.note && <p className="st-row__desc" data-tone="warn" data-testid={`settings-tools-skill-${skill.id}-note`}>{t('settingsTools.skillNotRunning')}</p>}
-              {skill.candidates.length > 1 && <ProviderChoice tool={skill} settings={settings} onChange={onChange} titles={titles} />}
+              {skill.candidates.length > 1 && <ProviderChoice tool={skill} settings={settings} onChange={onChange} titles={titles} disabled={disabled} />}
             </div>
           </div>
         )
