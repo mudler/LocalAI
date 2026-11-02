@@ -3557,7 +3557,9 @@ checks, the data backup and the recovery behavior above all apply, and an upgrad
 fails any of them changes nothing and is written to the log. An automatic upgrade never
 changes the library, the channel or the trusted signer. A candidate that failed is not
 tried again until the library lists a different one. With the setting off, nothing
-upgrades by itself.
+upgrades by itself. Each scheduled pass reads the current owner-host policy, so
+changes take effect without a restart. If the owner policy is unavailable, the
+pass skips upgrades and logs an error; it does not use frontend-local settings.
 
 ### In the page
 
