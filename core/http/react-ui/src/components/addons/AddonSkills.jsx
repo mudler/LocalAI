@@ -8,7 +8,7 @@ import { createHostSettingsClient } from '../../utils/hostSettingsClient'
 import { createAddonsApi } from '../../utils/addonsApi'
 import { apiUrl } from '../../utils/basePath'
 import { useHostSettings } from '../../hooks/useHostSettings'
-import { skillDeclarationLabel } from \'../../utils/chatSkills\'
+import { skillDeclarationLabel } from '../../utils/chatSkills'
 import { skillsOf } from './addonState'
 
 // The skills an add-on ships, in its details: each name, and whether it
