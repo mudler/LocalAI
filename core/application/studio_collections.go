@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
+	"github.com/mudler/LocalAI/core/services/studio/memory"
 	"github.com/mudler/LocalAI/core/services/studio/memoryaudit"
 	"strings"
 	"time"
@@ -122,4 +123,30 @@ func (c studioCollections) DeleteMemory(ctx context.Context, req studio.DeleteMe
 	}
 	receipt, err := c.a.CollectionsService().DeleteMemory(ctx, c.owner(req.Principal), req.Destination, req.EntryID, func(ctx context.Context) error { return c.memoryCheck(ctx, req.MemoryAuthorization, authorize) })
 	return studio.MemoryResult{Destination: req.Destination, EntryID: receipt.EntryID}, err
+}
+
+// captureCheck is synchronous: ctx can carry the queue store's locked snapshot.
+func (c studioCollections) captureCheck(ctx context.Context, i memory.Identity, authorize func(context.Context) error) error {
+	if !c.Allowed(ctx, i.Principal) || c.a.studioService == nil || authorize == nil {
+		return studio.ErrMemoryDenied
+	}
+	if err := c.a.studioService.AuthorizeCapture(ctx, i); err != nil {
+		return err
+	}
+	return authorize(ctx)
+}
+func (c studioCollections) BeginCapture(ctx context.Context, i memory.Identity, key, owner string, authorize func(context.Context) error) (lagi.MemoryFence, error) {
+	if err := c.captureCheck(ctx, i, authorize); err != nil {
+		return lagi.MemoryFence{}, err
+	}
+	return c.a.CollectionsService().BeginMemoryAttempt(ctx, c.owner(i.Principal), i.Destination, key, owner)
+}
+func (c studioCollections) ReconcileCapture(ctx context.Context, i memory.Identity, key string) (lagi.MemoryReceipt, error) {
+	if err := c.captureCheck(ctx, i, func(context.Context) error { return nil }); err != nil {
+		return lagi.MemoryReceipt{}, err
+	}
+	return c.a.CollectionsService().ReconcileMemory(ctx, c.owner(i.Principal), i.Destination, key)
+}
+func (c studioCollections) WriteCapture(ctx context.Context, i memory.Identity, fence lagi.MemoryFence, req lagi.MemoryWrite, authorize func(context.Context) error) (lagi.MemoryReceipt, error) {
+	return c.a.CollectionsService().WriteMemoryFenced(ctx, c.owner(i.Principal), i.Destination, fence, req, func(ctx context.Context) error { return c.captureCheck(ctx, i, authorize) })
 }

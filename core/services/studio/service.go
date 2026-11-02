@@ -65,6 +65,8 @@ type UserLookup func(ctx context.Context, id string) (*auth.User, error)
 
 // Deps is what the service needs.
 type Deps struct {
+	CaptureWorker CaptureWorkerOptions
+
 	Store    store.Store
 	Provider *provider.Provider
 	Users    UserLookup
@@ -291,8 +293,11 @@ type SendResult struct {
 
 // Service runs conversations.
 type Service struct {
-	d   Deps
-	mgr *session.Manager
+	captureMu     sync.Mutex
+	captureCancel context.CancelFunc
+	captureDone   chan struct{}
+	d             Deps
+	mgr           *session.Manager
 	// builtins holds the built-in chat tools an add-on may replace.
 	builtins *builtins.Registry
 	bus      Bus
@@ -480,6 +485,19 @@ func (s *Service) isClosed() bool {
 
 // Close stops every chat. A turn that it cuts short is recorded as interrupted.
 func (s *Service) Close(ctx context.Context) error {
+	s.captureMu.Lock()
+	if s.captureCancel != nil {
+		s.captureCancel()
+	}
+	done := s.captureDone
+	s.captureMu.Unlock()
+	if done != nil {
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	select {
 	case <-s.closed:
 	default:
@@ -1382,7 +1400,10 @@ func (s *Service) confirm(p, conv string, ids []string) {
 
 // llmFor gives the harness of a chat its model client, acting as the chat's owner.
 func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
-	ctx := context.Background()
+	return s.llmForContext(context.Background(), a)
+}
+
+func (s *Service) llmForContext(ctx context.Context, a workspace.Actor) (nibharness.Model, error) {
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nibharness.Model{}, err

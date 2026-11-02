@@ -205,6 +205,7 @@ func (a *Application) initStudioService() {
 	}
 	a.studioService = svc
 	svcRef.Store(svc)
+	svc.StartMemoryCaptures(a.backgroundContext())
 	a.startStudioReaper(svc)
 	a.startStudioEgressPrune(svc)
 	if a.applicationConfig.Distributed.ChatWorker {
