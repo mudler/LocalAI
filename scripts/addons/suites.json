@@ -993,7 +993,10 @@
       "settles parent cancellation and owner permission loss as unknown",
       "does not grant owner selection authority through wire capability support",
       "rejects duplicate noncanonical and nested authority keys in observation DTOs",
-      "withdraws a positive late reply when exact-client admission becomes stale"
+      "withdraws a positive late reply when exact-client admission becomes stale",
+      "reads typed status and preserves named tool and host operation IDs through a supervised process",
+      "rejects a captured supervised client after same generation replacement before carrier dispatch",
+      "rejects a late supervised carrier observation after replacement before owner consumption"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -1113,7 +1116,10 @@
           "settles parent cancellation and owner permission loss as unknown",
           "does not grant owner selection authority through wire capability support",
           "rejects duplicate noncanonical and nested authority keys in observation DTOs",
-          "withdraws a positive late reply when exact-client admission becomes stale"
+          "withdraws a positive late reply when exact-client admission becomes stale",
+          "reads typed status and preserves named tool and host operation IDs through a supervised process",
+          "rejects a captured supervised client after same generation replacement before carrier dispatch",
+          "rejects a late supervised carrier observation after replacement before owner consumption"
         ]
       },
       {
