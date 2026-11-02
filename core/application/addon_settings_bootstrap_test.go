@@ -6,9 +6,9 @@ package application
 import (
 	"context"
 	"errors"
+	. "github.com/onsi/ginkgo/v2"
 	"os"
 	"path/filepath"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -21,21 +21,21 @@ import (
 	"github.com/onsi/gomega"
 )
 
-func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
-	t.Run("owner resource close order", func(t *testing.T) {
+func runTestAddonSettingsAuthorityBootstrap() {
+	By("owner resource close order", func() {
 		for _, scenario := range []string{"shutdown", "context cancellation", "store open failure", "runtime startup failure", "gateway startup failure"} {
-			t.Run(scenario, func(t *testing.T) {
-				g := gomega.NewWithT(t)
+			By(scenario, func() {
+				g := gomega.NewWithT(GinkgoT())
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				root := filepath.Join(t.TempDir(), "addons")
-				transport, listen, err := gateway.NewLoopbackCarrierConfig(gateway.OwnerIdentity, t.TempDir())
+				root := filepath.Join(GinkgoT().TempDir(), "addons")
+				transport, listen, err := gateway.NewLoopbackCarrierConfig(gateway.OwnerIdentity, GinkgoT().TempDir())
 				g.Expect(err).NotTo(gomega.HaveOccurred())
 				cfg := &config.ApplicationConfig{Context: ctx, DataPath: filepath.Dir(root)}
 				cfg.Addons = config.AddonConfig{Enabled: true, InstanceID: transport.InstanceID, OwnerID: transport.OwnerID, OwnerAddress: transport.OwnerAddress, Root: root, StorageID: "local", Transport: transport, ListenAddress: listen, OwnershipMode: auth.AddonModeLocalOwner}
 				guard := addons.OwnerGuard{Config: addons.OwnerConfig{InstanceID: transport.InstanceID, OwnerID: transport.OwnerID, OwnerAddress: transport.OwnerAddress, Root: root, StorageID: "local"}}
 				a := &Application{applicationConfig: cfg}
-				t.Cleanup(func() { cancel(); _ = a.Shutdown() })
+				DeferCleanup(func() { cancel(); _ = a.Shutdown() })
 				type observation struct{ snapshotErr, guardErr error }
 				closed := make(chan observation, 2)
 				a.addonHostSettingsOnClose = func() {
@@ -82,12 +82,12 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 						g.Expect(got.snapshotErr).NotTo(gomega.HaveOccurred())
 						g.Expect(got.guardErr).To(gomega.MatchError(addons.ErrOwnerBusy), "owner guard must remain held when the live settings store closes")
 					case <-time.After(5 * time.Second):
-						t.Fatal("host settings store was not closed")
+						Fail("host settings store was not closed")
 					}
 					select {
 					case <-a.addonHostSettingsDone:
 					case <-time.After(5 * time.Second):
-						t.Fatal("host settings closure did not finish")
+						Fail("host settings closure did not finish")
 					}
 					_, err = a.addonHostSettings.Snapshot(context.Background())
 					g.Expect(err).To(gomega.HaveOccurred())
@@ -108,15 +108,15 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 			})
 		}
 	})
-	g := gomega.NewWithT(t)
+	g := gomega.NewWithT(GinkgoT())
 	ctx := context.Background()
 	actor := contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}
-	root := filepath.Join(t.TempDir(), "addons")
+	root := filepath.Join(GinkgoT().TempDir(), "addons")
 	carrierRoots := map[string]string{}
 	start := func(root string, change func(*config.ApplicationConfig)) (*Application, context.CancelFunc, error) {
 		cfg := &config.ApplicationConfig{DataPath: filepath.Dir(root)}
 		if carrierRoots[root] == "" {
-			carrierRoots[root] = t.TempDir()
+			carrierRoots[root] = GinkgoT().TempDir()
 		}
 		transport, listen, err := gateway.NewLoopbackCarrierConfig(gateway.OwnerIdentity, carrierRoots[root])
 		if err != nil {
@@ -128,7 +128,7 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 		cfg.Context = cctx
 		a := &Application{applicationConfig: cfg}
 		err = a.startAddons()
-		t.Cleanup(func() { cancel(); _ = a.Shutdown() })
+		DeferCleanup(func() { cancel(); _ = a.Shutdown() })
 		return a, cancel, err
 	}
 	a, cancel, err := start(root, func(c *config.ApplicationConfig) {
@@ -159,22 +159,22 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 	g.Expect(again.Revision).To(gomega.Equal(s.Revision))
 	g.Expect(again.Policy).To(gomega.Equal(s.Policy))
 
-	fresh, _, err := start(filepath.Join(t.TempDir(), "addons"), func(*config.ApplicationConfig) {})
+	fresh, _, err := start(filepath.Join(GinkgoT().TempDir(), "addons"), func(*config.ApplicationConfig) {})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	defaults, err := fresh.AddonGateway().HostSettingsInternalSnapshot(ctx)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(defaults.Policy.AllowPrivate).To(gomega.BeFalse())
 	g.Expect(defaults.Policy.Ceiling).To(gomega.BeElementOf("", "off"))
 
-	badRoot := filepath.Join(t.TempDir(), "linked")
+	badRoot := filepath.Join(GinkgoT().TempDir(), "linked")
 	g.Expect(os.Symlink(filepath.Dir(root), badRoot)).To(gomega.Succeed())
 	_, _, err = start(filepath.Join(badRoot, "escape"), func(*config.ApplicationConfig) {})
 	g.Expect(err).To(gomega.HaveOccurred())
 	_, err = os.Stat(filepath.Join(badRoot, "escape", "host-settings.json"))
 	g.Expect(os.IsNotExist(err)).To(gomega.BeTrue())
-	t.Run("dedicated owner requires selection", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		root := filepath.Join(t.TempDir(), "addons")
+	By("dedicated owner requires selection", func() {
+		g := gomega.NewWithT(GinkgoT())
+		root := filepath.Join(GinkgoT().TempDir(), "addons")
 		legacy := func(c *config.ApplicationConfig) { c.Addons.DedicatedOwner = true; c.ChatsEgressCeiling = "registries" }
 		_, _, err := start(root, legacy)
 		g.Expect(errors.Is(err, hostsettings.ErrMigrationRequired)).To(gomega.BeTrue())
@@ -186,9 +186,9 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		g.Expect(snap.Policy.Ceiling).To(gomega.Equal("registries"))
 	})
-	t.Run("dedicated fresh defaults and duplicate guard", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		root := filepath.Join(t.TempDir(), "addons")
+	By("dedicated fresh defaults and duplicate guard", func() {
+		g := gomega.NewWithT(GinkgoT())
+		root := filepath.Join(GinkgoT().TempDir(), "addons")
 		owner, _, err := start(root, func(c *config.ApplicationConfig) { c.Addons.DedicatedOwner = true })
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 		snap, err := owner.AddonGateway().HostSettingsInternalSnapshot(ctx)
@@ -199,9 +199,9 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 		_, err = owner.AddonGateway().HostSettingsInternalSnapshot(ctx)
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
-	t.Run("corrupt store fails closed and releases guard", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		root := filepath.Join(t.TempDir(), "addons")
+	By("corrupt store fails closed and releases guard", func() {
+		g := gomega.NewWithT(GinkgoT())
+		root := filepath.Join(GinkgoT().TempDir(), "addons")
 		g.Expect(os.MkdirAll(root, 0700)).To(gomega.Succeed())
 		path := filepath.Join(root, "host-settings.json")
 		g.Expect(os.WriteFile(path, []byte("corrupt"), 0600)).To(gomega.Succeed())
@@ -216,9 +216,9 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 		_, _, err = start(root, func(*config.ApplicationConfig) {})
 		g.Expect(err).NotTo(gomega.HaveOccurred())
 	})
-	t.Run("frontend forwards without owner store", func(t *testing.T) {
-		g := gomega.NewWithT(t)
-		root := filepath.Join(t.TempDir(), "absent")
+	By("frontend forwards without owner store", func() {
+		g := gomega.NewWithT(GinkgoT())
+		root := filepath.Join(GinkgoT().TempDir(), "absent")
 		front, _, err := start(root, func(c *config.ApplicationConfig) {
 			c.Addons.InstanceID = "frontend"
 			c.Addons.Transport.InstanceID = "frontend"
@@ -236,3 +236,7 @@ func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
 	})
 
 }
+
+var _ = Describe("add-on settings authority", Label("addon-settings-authority"), func() {
+	It("TestAddonSettingsAuthorityBootstrap", runTestAddonSettingsAuthorityBootstrap)
+})
