@@ -313,6 +313,9 @@ func (a *Application) startAddonGateway() error {
 		}
 		return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
 	}
+	if e := a.wireExecutionBinding(g); e != nil {
+		return e
+	}
 	// Only the owner holds the policy store. Other frontends reach it through the
 	// gateway, and without it the gateway keeps denying every resource.
 	if !filepath.IsAbs(cfg.Root) || cfg.ListenAddress == "" {

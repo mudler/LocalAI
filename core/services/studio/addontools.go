@@ -193,12 +193,11 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 				continue
 			}
 		}
-		if off[d.AddonID] || reservedToolNames[d.Name] || (sc != nil && !sc.addons[d.AddonID]) {
-			continue
+		var grants []string
+		if sc != nil {
+			grants = sc.addonNames
 		}
-		// An unattended run with no agent never gets a tool that acts at once:
-		// the owner's explicit grant, in an agent, is what allows it.
-		if d.Action && rec.Origin != "" && rec.AgentID == "" {
+		if !AddonToolEligible(d, rec, grants) {
 			continue
 		}
 		name := d.Name

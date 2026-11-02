@@ -4779,3 +4779,27 @@ These non-stock launchers do not promise the former implicit grants. Automatic
 policy installation or selection for them is deferred; use the explicit upgrade
 procedure above. Merely copying a file without selecting it does not grant
 anything. Do not fetch host policy from an addon library.
+
+### Owner-resolved execution observations
+
+The owner resolves execution-status bindings from an authenticated actor and a
+conversation ID. Callers cannot choose the provider, tools, runtime incarnation,
+agent grants, or consent. The resolver uses the chat's current add-on switches,
+agent grants, provider pins, and installed-provider ordering. An installed but
+idle pinned provider does not fall through to another add-on.
+
+This binding path currently supports unauthenticated **local-owner** mode with
+memory JSON stores or exclusively owned persistent JSON stores. The owner loads
+both chat and agent selection snapshots and checks their mutation tokens before
+publishing a binding. Configuration and manager epochs, the actual running
+process incarnation, and a fresh owner-lifetime nonce invalidate stale bindings.
+The status gateway recomputes and compares every binding component before and
+after its read. A binding does not authorize command execution or host consent.
+
+Named-user mode returns unavailable until authorization storage exposes an
+authoritative access revision that detects revoke-and-restore changes. SQL/GORM
+selection snapshots also remain unsupported until shared, ABA-safe revisions
+exist. These cases must produce unknown observations, not a timestamp-based
+fallback. Ordinary chat access does not depend on this observation support.
+Request/session integration, producer changes, and egress projection remain
+separate work; this owner binding path alone does not provide those features.

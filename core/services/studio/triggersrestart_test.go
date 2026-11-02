@@ -22,13 +22,23 @@ import (
 func openFrontend(dir string, sh *shared) *shared {
 	st, err := store.NewJSON(filepath.Join(dir, "chats"))
 	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = st.(interface{ Close() error }).Close() })
 	ag, err := agents.NewJSON(filepath.Join(dir, "chats", "agents"))
 	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(func() { _ = ag.(interface{ Close() error }).Close() })
 	ns, err := notify.NewJSON(filepath.Join(dir, "chats", "notifications"))
 	Expect(err).NotTo(HaveOccurred())
 	ts, err := triggers.NewJSON(filepath.Join(dir, "chats", "triggers"))
 	Expect(err).NotTo(HaveOccurred())
 	return &shared{chats: st, files: sh.files, agents: ag, notices: ns, trg: ts, clock: sh.clock, addons: sh.addons}
+}
+
+// Stop every producer before releasing file ownership to the next frontend.
+func closeRestartFrontend(r *trigRig) {
+	r.host.Close()
+	Expect(r.svc.Close(context.Background())).To(Succeed())
+	Expect(r.sh.chats.(interface{ Close() error }).Close()).To(Succeed())
+	Expect(r.sh.agents.(interface{ Close() error }).Close()).To(Succeed())
 }
 
 var _ = Describe("triggersrestart", func() {
@@ -41,7 +51,7 @@ var _ = Describe("triggersrestart", func() {
 		ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Reviewer", Addons: []string{"office"}})
 		Expect(err).NotTo(HaveOccurred())
 		tr := r.schedule(studio.TriggerInput{AgentID: ag.ID, Kind: triggers.KindSchedule, Schedule: "once 2026-10-27 08:00", TZ: "UTC"})
-		r.host.Close()
+		closeRestartFrontend(r)
 
 		// The server was down across the due time. The new process finds everything.
 		base.clock.Advance(2 * time.Hour)
@@ -60,7 +70,7 @@ var _ = Describe("triggersrestart", func() {
 		r2.pass()
 		runs, _ := r2.host.TriggerRuns(ctx, alice, tr.ID, 0)
 		Expect(runs).To(HaveLen(1), "a missed once-trigger ran %d times", len(runs))
-		r2.host.Close()
+		closeRestartFrontend(r2)
 
 		// A third start still has the notification and does not run the trigger again.
 		third := openFrontend(dir, base)
@@ -78,7 +88,7 @@ var _ = Describe("triggersrestart", func() {
 		base := newShared()
 		r := openFrontend(dir, base).rig(saySummary, studio.TriggerOptions{})
 		tr := r.schedule(studio.TriggerInput{})
-		r.host.Close()
+		closeRestartFrontend(r)
 
 		base.clock.Advance(3*24*time.Hour + time.Hour)
 		r2 := openFrontend(dir, base).rig(saySummary, studio.TriggerOptions{})

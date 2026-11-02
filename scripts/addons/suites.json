@@ -764,6 +764,18 @@
         "auth",
         "./core/http/endpoints/addons",
         "-ginkgo.json-report=../../../../.cache/addons/logs/gateway-http.json"
+      ],
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./core/application",
+        "-ginkgo.focus=execution binding owner resolver",
+        "-ginkgo.json-report=../../.cache/addons/logs/gateway-owner-binding.json"
       ]
     ],
     "cases": [
@@ -998,7 +1010,13 @@
       "withdraws a positive late reply when exact-client admission becomes stale",
       "reads typed status and preserves named tool and host operation IDs through a supervised process",
       "rejects a captured supervised client after same generation replacement before carrier dispatch",
-      "rejects a late supervised carrier observation after replacement before owner consumption"
+      "rejects a late supervised carrier observation after replacement before owner consumption",
+      "binds the actual renamed running provider and rejects forged bindings and foreign actors",
+      "invalidates old bindings after pins and chat switch ABA",
+      "denies foreign chat access and named-user contexts",
+      "uses owner agent snapshots, denies unattended actions, and fences agent ABA",
+      "rejects stale runtime incarnations and previous owner lifetimes",
+      "fails unsupported snapshots closed without changing ordinary chat access"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -1118,8 +1136,8 @@
           "settles parent cancellation and owner permission loss as unknown",
           "does not grant owner selection authority through wire capability support",
           "rejects duplicate noncanonical and nested authority keys in observation DTOs",
-      "resolves only the authenticated claim over actual mTLS",
-      "fails closed on unsupported owners and mismatched binding replies",
+          "resolves only the authenticated claim over actual mTLS",
+          "fails closed on unsupported owners and mismatched binding replies",
           "withdraws a positive late reply when exact-client admission becomes stale",
           "reads typed status and preserves named tool and host operation IDs through a supervised process",
           "rejects a captured supervised client after same generation replacement before carrier dispatch",
@@ -1242,6 +1260,17 @@
           "logs the cause of a failed install and types it for the client",
           "logs the reason behind a generic denial and leaves the response unchanged",
           "names every typed cause of a failed install in the 403 of the dispatch route"
+        ]
+      },
+      {
+        "path": ".cache/addons/logs/gateway-owner-binding.json",
+        "cases": [
+          "binds the actual renamed running provider and rejects forged bindings and foreign actors",
+          "invalidates old bindings after pins and chat switch ABA",
+          "denies foreign chat access and named-user contexts",
+          "uses owner agent snapshots, denies unattended actions, and fences agent ABA",
+          "rejects stale runtime incarnations and previous owner lifetimes",
+          "fails unsupported snapshots closed without changing ordinary chat access"
         ]
       }
     ]
