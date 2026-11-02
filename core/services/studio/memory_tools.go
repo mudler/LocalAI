@@ -118,7 +118,7 @@ func (s *Service) SummarizeMemory(ctx context.Context, req SummaryRequest) (stri
 	if !validMemoryContent(req.Content) {
 		return "", errors.New("invalid memory content")
 	}
-	model, err := s.llmForContext(ctx, userChatActor(req.Principal, req.ChatID))
+	model, err := s.summaryModelForContext(ctx, userChatActor(req.Principal, req.ChatID))
 	if err != nil {
 		return "", err
 	}

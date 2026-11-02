@@ -1404,6 +1404,16 @@ func (s *Service) llmFor(a workspace.Actor) (nibharness.Model, error) {
 }
 
 func (s *Service) llmForContext(ctx context.Context, a workspace.Actor) (nibharness.Model, error) {
+	return s.modelForContext(ctx, a, false)
+}
+
+// summaryModelForContext shares model resolution and current-user authorization,
+// but never installs chat callbacks that can consume pending media or tools.
+func (s *Service) summaryModelForContext(ctx context.Context, a workspace.Actor) (nibharness.Model, error) {
+	return s.modelForContext(ctx, a, true)
+}
+
+func (s *Service) modelForContext(ctx context.Context, a workspace.Actor, textOnly bool) (nibharness.Model, error) {
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nibharness.Model{}, err
@@ -1421,16 +1431,18 @@ func (s *Service) llmForContext(ctx context.Context, a workspace.Actor) (nibharn
 	}
 	params := provider.Params{
 		Temperature: set.Temperature, TopP: set.TopP, TopK: set.TopK, ReasoningEffort: set.ReasoningEffort,
-		OnUsage:    func(u provider.Usage) { s.reportUsage(a, u, rec.Model, limit) },
-		TakeVideos: func() []string { return s.takeVideos(a.Principal, a.ChatID) },
+	}
+	if !textOnly {
+		params.OnUsage = func(u provider.Usage) { s.reportUsage(a, u, rec.Model, limit) }
+		params.TakeVideos = func() []string { return s.takeVideos(a.Principal, a.ChatID) }
 		// An image goes to the model with its message, not with every later one.
-		OnlyLastImages: true,
+		params.OnlyLastImages = true
 	}
 	m := nibharness.Model{
 		LLM: s.d.Provider.LLMWith(user, rec.Model, params), Name: rec.Model,
 		ContextTokens: limit, ReasoningEffort: set.ReasoningEffort,
 	}
-	if s.d.AgentOptions != nil {
+	if !textOnly && s.d.AgentOptions != nil {
 		m.Agent = s.d.AgentOptions(rec.Model)
 	}
 	return m, nil
