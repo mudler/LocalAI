@@ -16,14 +16,14 @@ import { useAddonUpgrades } from '../../hooks/useAddonUpgrades'
 // installed records again.
 export function useAddonUpgrade(api, { onChanged } = {}) {
 
-  const { user, isAdmin, sessionEpoch } = useAuth()
+  const { user, isAdmin, sessionEpoch, captureSessionAuthority } = useAuth()
   const actor = JSON.stringify([user?.id, isAdmin, sessionEpoch])
   const authority = useRef(null)
   if (authority.current?.actor !== actor) {
-    authority.current = { actor, controller: new AbortController() }
+    authority.current = { actor, controller: new AbortController(), sessionCurrent: captureSessionAuthority() }
   }
   const origin = authority.current
-  const current = useCallback(() => authority.current === origin && !origin.controller.signal.aborted, [origin])
+  const current = useCallback(() => authority.current === origin && origin.sessionCurrent() && !origin.controller.signal.aborted, [origin])
   const [storedConfirm, saveConfirm] = useState({ actor, value: null })
   const confirm = storedConfirm.actor === actor ? storedConfirm.value : null
   const setConfirm = useCallback(value => {
@@ -51,7 +51,7 @@ export function useAddonUpgrade(api, { onChanged } = {}) {
   // words of a failure (see upgradeFailureWords).
   const upgrade = useCallback(async (addon) => {
     if (!current()) return null
-    const out = await addonUpgrades.start(api, addon, { current: () => authority.current === origin })
+    const out = await addonUpgrades.start(api, addon, { current: origin.sessionCurrent })
     if (!current()) return null
     if (changed.current) changed.current(addon)
     return out

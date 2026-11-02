@@ -290,7 +290,8 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     // Try a failed upgrade again. An unknown outcome is only read, never
     // submitted a second time; anything else starts from the installed record
     // as it is now, so a changed generation or candidate is honoured.
-    async retry(api, jobID) {
+    async retry(api, jobID, { current = () => true } = {}) {
+      if (!current()) return null
       const op = snapshot.live.find(o => o.jobID === jobID)
       if (!op || op.state !== 'failed') return { ok: false, outcome: 'invalid', message: 'operation_conflict' }
       const held = book.pending(op.addonId)
@@ -299,7 +300,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         controllers.set(jobID, controller)
         patch(jobID, { state: 'running', cancellable: false, error: '', errorKey: '' })
         const addon = op.addonRecord || { id: op.addonId, generation: Number(held.key.split(':')[2]) || 0 }
-        return store.follow(api, { jobID, addon, operationId: held.operationId, key: held.key, controller, submit: false })
+        return store.follow(api, { jobID, addon, operationId: held.operationId, key: held.key, controller, submit: false, current })
       }
       let fresh
       try {
@@ -307,8 +308,9 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       } catch (e) {
         return { ok: false, outcome: 'unavailable', message: updateErrorKey(e) }
       }
+      if (!current()) return null
       if (!fresh) return { ok: false, outcome: 'invalid', message: 'stale_installed' }
-      return store.start(api, fresh)
+      return store.start(api, fresh, { current })
     },
 
     dismiss(jobID) {

@@ -3857,7 +3857,12 @@ An upgrade started from the list, the details, **Find add-ons** or **Upgrade all
 running when you leave the page. It appears in the Activity page under the **Add-ons**
 filter, with progress, **Cancel** and **Retry**. Cancel stops the request, and the page then
 reads the operation to report what the owner did. The list of upgrades is kept by the
-browser that started them, so it is lost on a page reload.
+browser that started them, so it is lost on a page reload. Background tracking continues
+across navigation only within the same authentication session. An authentication
+refresh, account or permission change, logout initiation, or removal of the
+authentication provider expires pending observations. Late replies then cannot
+verify an upgrade or publish its result into the new session. This does not undo
+an operation already accepted by the server.
 
 While the add-on service restarts (an upgrade restarts it), the page cannot read the
 operation and the server answers 503. The page then waits longer before each new read, 2,

@@ -38,6 +38,7 @@ export function hookHarness(file, name, imports, transform = source => source) {
   const hook = new Function(...Object.keys(scope), `${source}; return ${name}`)(...Object.values(scope))
   return {
     render(...args) { cursor = 0; return hook(...args) },
+    unmount() { pending.clear(); slots.forEach(slot => slot?.cleanup?.()) },
     flush() { const effects = pending; pending = new Map(); effects.forEach(fn => fn()) },
   }
 }

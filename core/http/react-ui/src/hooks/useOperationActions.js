@@ -1,3 +1,4 @@
+import { useAuth } from '../context/AuthContext'
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { backendsApi, modelsApi, nodesApi } from '../utils/api'
@@ -17,6 +18,7 @@ export function isRetryable(op) {
 // Activity page and the Status page's "Needs you" row, so both do the same
 // thing with the same calls.
 export function useOperationActions(addToast) {
+  const { captureSessionAuthority } = useAuth()
   const { t } = useTranslation('operate')
   const { t: ta } = useTranslation('addons')
   const { dismissFailedOp } = useOperations()
@@ -26,7 +28,9 @@ export function useOperationActions(addToast) {
     // service. The store reads the add-on again, so a changed candidate is
     // honoured, and an unknown outcome is only read, never submitted twice.
     if (op.isAddon) {
-      const out = await addonUpgrades.retry(addonsApi, op.jobID)
+      const current = captureSessionAuthority()
+      const out = await addonUpgrades.retry(addonsApi, op.jobID, { current })
+      if (!current() || !out) return
       if (!out.ok && out.outcome !== 'cancelled') addToast?.(t('activity.retryFailed', { message: upgradeFailureWords(out.message, ta) }), 'error')
       return
     }
@@ -61,7 +65,7 @@ export function useOperationActions(addToast) {
     } catch (err) {
       addToast?.(t('activity.retryFailed', { message: err.message }), 'error')
     }
-  }, [dismissFailedOp, addToast, t, ta])
+  }, [dismissFailedOp, addToast, t, ta, captureSessionAuthority])
 
   const dismiss = useCallback((jobID) => {
     if (String(jobID).startsWith('addon:')) {

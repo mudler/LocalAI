@@ -8,7 +8,7 @@ import { newOperationId } from '../../src/components/catalog/catalogState.js'
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r }); return { promise, resolve } }
 
 for (const verb of ['start', 'stop']) test(`pending ${verb} cannot verify or publish after actual auth epoch changes before cleanup`, async () => {
-  let auth = { user: { id: 'admin' }, isAdmin: true, sessionEpoch: 1 }
+  let auth = { user: { id: 'admin' }, isAdmin: true, sessionEpoch: 1, captureSessionAuthority: () => () => true }
   const pending = deferred()
   let submitted = 0, verified = 0, settled = 0
   const h = hookHarness('../../src/components/addons/useAddonActions.js', 'useAddonActions', {
@@ -30,7 +30,7 @@ for (const verb of ['start', 'stop']) test(`pending ${verb} cannot verify or pub
 })
 
 test('pending update check and upgrade cannot publish to the next actor before cleanup', async () => {
-  let auth = { user: { id: 'admin' }, isAdmin: true, sessionEpoch: 1 }
+  let auth = { user: { id: 'admin' }, isAdmin: true, sessionEpoch: 1, captureSessionAuthority: () => () => true }
   const pending = deferred(), updating = deferred()
   let checked = 0, changed = 0, started = 0
   const api = { updates: { check: () => { checked++; return pending.promise } } }
@@ -41,7 +41,7 @@ test('pending update check and upgrade cannot publish to the next actor before c
   const render = () => h.render(api, { onChanged: () => changed++ })
   const old = render(); h.flush()
   const work = old.check({ id: 'notes' }), upgrade = old.upgrade({ id: 'notes' })
-  auth = { user: { id: 'other' }, isAdmin: true, sessionEpoch: 2 }
+  auth = { ...auth, user: { id: 'other' }, isAdmin: true, sessionEpoch: 2 }
   assert.deepEqual(render().checks, {})
   await old.check({ id: 'notes' }); await old.upgrade({ id: 'notes' })
   pending.resolve({ state: 'update-available' }); updating.resolve({ ok: true })
@@ -179,3 +179,74 @@ test('expired cancel cleanup preserves a newer attempt with the same action key'
   assert.equal((await nextWork).ok, true)
   assert.equal(store.getSnapshot().records[0].operationId, next.operationId)
 })
+
+// Execute the actual AuthProvider state transitions, not a test-owned epoch getter.
+// Only its JSX boundary is replaced; fetch is the controlled network boundary.
+async function providerAuthority() {
+  const ts = (await import('typescript')).default
+  let status = { authEnabled: true, user: { id: 'admin', role: 'admin' } }
+  const logoutReply = deferred()
+  const h = hookHarness('../../src/context/AuthContext.jsx', 'AuthProvider', {
+    apiUrl: x => x,
+    fetch: url => url.endsWith('/logout') ? logoutReply.promise : Promise.resolve({ json: async () => status }),
+    document: { cookie: '' }, window: { location: {} },
+  }, source => ts.transpileModule(source.replace(/return \(\s*<AuthContext.Provider[\s\S]*?\n  \)/, 'return value'), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText)
+  let auth = h.render({ children: null }); h.flush()
+  await new Promise(r => setImmediate(r))
+  auth = h.render({ children: null })
+  return {
+    get auth() { return auth },
+    async change(kind) {
+      if (kind === 'unmount') { h.unmount(); return }
+      if (kind === 'logout') { void auth.logout(); return } // network remains pending
+      if (kind === 'account') status = { ...status, user: { id: 'other', role: 'admin' } }
+      if (kind === 'feature') status = { ...status, user: { id: 'admin', role: 'user', permissions: {} } }
+      await auth.refresh()
+      // Do not render the provider or any consumer: expiry must be synchronous.
+    },
+  }
+}
+
+for (const path of ['cancel', 'completion', 'verification']) {
+  for (const change of ['same-auth', 'refresh', 'account', 'feature', 'logout', 'unmount']) {
+    test(`background ${path} after origin unmount uses actual provider authority on ${change}`, async () => {
+      const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
+      const provider = await providerAuthority()
+      const store = createUpgradeStore()
+      const reply = deferred(), reading = deferred(), verification = deferred(), verifying = deferred()
+      let verified = 0, changed = 0
+      const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
+      const api = {
+        updates: { upgrade: (_id, _body, signal) => path === 'cancel' ? new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
+        }) : reply.promise },
+        operationStatus: () => { reading.resolve(); return reply.promise },
+        installed: () => { verified++; verifying.resolve(); return verification.promise },
+      }
+      const view = hookHarness('../../src/components/addons/useAddonUpgrade.js', 'useAddonUpgrade', {
+        useAuth: () => provider.auth, newOperationId, addonUpgrades: store,
+        useAddonUpgrades: () => store.getSnapshot(),
+      })
+      const origin = view.render(api, { onChanged: () => changed++ }); view.flush()
+      const work = origin.upgrade(addon)
+      view.unmount() // navigation must not revoke a valid background upgrade
+      if (path === 'cancel') {
+        assert.equal(store.cancel(store.forAddon(addon.id).jobID), true)
+        await reading.promise
+      }
+      if (path === 'verification') {
+        reply.resolve({ phase: 'completed' }); await verifying.promise
+      }
+      if (change !== 'same-auth') await provider.change(change)
+      reply.resolve({ phase: 'completed' })
+      verification.resolve([{ ...addon, generation: 2 }])
+      await work
+      assert.equal(changed, 0, 'unmounted view must not receive callbacks')
+      assert.equal(verified, path === 'cancel' ? 0 : path === 'verification' || change === 'same-auth' ? 1 : 0)
+      assert.equal(store.getSnapshot().live.length, 0)
+      assert.equal(store.getSnapshot().records.length, change === 'same-auth' ? 1 : 0)
+    })
+  }
+}
