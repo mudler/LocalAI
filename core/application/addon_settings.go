@@ -59,6 +59,14 @@ func (a *Application) openAddonHostSettings() error {
 	a.addonHostSettings = store
 	done := make(chan struct{})
 	a.addonHostSettingsDone = done
-	a.addonHostSettingsClose = func() { once.Do(func() { _ = store.Close(); close(done) }) }
+	a.addonHostSettingsClose = func() {
+		once.Do(func() {
+			if a.addonHostSettingsOnClose != nil {
+				a.addonHostSettingsOnClose()
+			}
+			_ = store.Close()
+			close(done)
+		})
+	}
 	return nil
 }

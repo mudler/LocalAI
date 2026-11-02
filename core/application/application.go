@@ -102,9 +102,11 @@ type Application struct {
 	addonHostSettings      *hostsettings.Store
 	addonHostSettingsClose func()
 	addonHostSettingsDone  <-chan struct{}
-	addonGateway           *gateway.Gateway
-	addonServer            *http.Server
-	addonSources           *catalog.Sources
+	// addonHostSettingsOnClose observes closure while owner storage is still guarded.
+	addonHostSettingsOnClose func()
+	addonGateway             *gateway.Gateway
+	addonServer              *http.Server
+	addonSources             *catalog.Sources
 	// addonAdminCheck is the owner's administrator check, the one the manager gets.
 	addonAdminCheck func(context.Context, contract.Actor) error
 	librarySnap     librarySnapshot
@@ -987,15 +989,19 @@ func (a *Application) startAddons() error {
 	if err != nil {
 		return err
 	}
-	settingsStarted := false
+	started := false
 	defer func() {
-		if !settingsStarted && a.addonHostSettingsClose != nil {
-			a.addonHostSettingsClose()
+		if !started {
+			// The policy must stop accepting transactions before the manager
+			// releases the owner's storage guard, on every startup failure.
+			if a.addonHostSettingsClose != nil {
+				a.addonHostSettingsClose()
+			}
+			_ = m.Close()
 		}
 	}()
 	if c.InstanceID == c.OwnerID && c.Transport != nil {
 		if err = a.openAddonHostSettings(); err != nil {
-			_ = m.Close()
 			return err
 		}
 	}
@@ -1015,7 +1021,6 @@ func (a *Application) startAddons() error {
 			Retention:     recovery.Retention{Keep: c.BackupKeep, MaxAge: c.BackupMaxAge},
 		})
 		if rerr != nil {
-			_ = m.Close()
 			return rerr
 		}
 		m.SetRecovery(rec)
@@ -1023,7 +1028,6 @@ func (a *Application) startAddons() error {
 		// holds; it applies nothing, and its cache is bounded.
 		m.EnableUpdates(updates.Config{TTL: c.UpdateCacheTTL, MinRefresh: c.UpdateRefreshInterval})
 		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
-			_ = m.Close()
 			return err
 		}
 	}
@@ -1037,12 +1041,10 @@ func (a *Application) startAddons() error {
 		a.addonDataRoot = filepath.Join(c.Root, "data")
 		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
 		if err != nil {
-			_ = m.Close()
 			return err
 		}
 		if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
 			_ = supervisor.Close(context.Background())
-			_ = m.Close()
 			return err
 		}
 	}
@@ -1058,10 +1060,9 @@ func (a *Application) startAddons() error {
 		go a.runAddonAutoUpgrade(a.applicationConfig.Context, upgradeInitialDelay, upgradeCheckInterval)
 	}
 	if err := a.startAddonGateway(); err != nil {
-		_ = m.Close()
 		return err
 	}
-	settingsStarted = true
+	started = true
 	if closeSettings := a.addonHostSettingsClose; closeSettings != nil {
 		go func() {
 			select {

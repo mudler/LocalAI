@@ -9,6 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/addons"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
@@ -19,6 +22,92 @@ import (
 )
 
 func TestAddonSettingsAuthorityBootstrap(t *testing.T) {
+	t.Run("owner resource close order", func(t *testing.T) {
+		for _, scenario := range []string{"shutdown", "context cancellation", "store open failure", "runtime startup failure", "gateway startup failure"} {
+			t.Run(scenario, func(t *testing.T) {
+				g := gomega.NewWithT(t)
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				root := filepath.Join(t.TempDir(), "addons")
+				transport, listen, err := gateway.NewLoopbackCarrierConfig(gateway.OwnerIdentity, t.TempDir())
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				cfg := &config.ApplicationConfig{Context: ctx, DataPath: filepath.Dir(root)}
+				cfg.Addons = config.AddonConfig{Enabled: true, InstanceID: transport.InstanceID, OwnerID: transport.OwnerID, OwnerAddress: transport.OwnerAddress, Root: root, StorageID: "local", Transport: transport, ListenAddress: listen, OwnershipMode: auth.AddonModeLocalOwner}
+				guard := addons.OwnerGuard{Config: addons.OwnerConfig{InstanceID: transport.InstanceID, OwnerID: transport.OwnerID, OwnerAddress: transport.OwnerAddress, Root: root, StorageID: "local"}}
+				a := &Application{applicationConfig: cfg}
+				t.Cleanup(func() { cancel(); _ = a.Shutdown() })
+				type observation struct{ snapshotErr, guardErr error }
+				closed := make(chan observation, 2)
+				a.addonHostSettingsOnClose = func() {
+					_, snapshotErr := a.addonHostSettings.Snapshot(context.Background())
+					release, guardErr := guard.Acquire(context.Background())
+					if release != nil {
+						_ = release()
+					}
+					closed <- observation{snapshotErr, guardErr}
+				}
+				var blocker string
+				switch scenario {
+				case "store open failure":
+					blocker = filepath.Join(root, "host-settings.json")
+				case "runtime startup failure":
+					blocker = filepath.Join(root, "runtime")
+				case "gateway startup failure":
+					transport.InstanceID = "wrong-instance"
+				}
+				if blocker != "" {
+					g.Expect(os.MkdirAll(root, 0700)).To(gomega.Succeed())
+					g.Expect(os.WriteFile(blocker, []byte("corrupt"), 0600)).To(gomega.Succeed())
+				}
+				err = a.startAddons()
+				switch scenario {
+				case "shutdown", "context cancellation":
+					g.Expect(err).NotTo(gomega.HaveOccurred())
+					if scenario == "context cancellation" {
+						cancel()
+					} else {
+						g.Expect(a.Shutdown()).To(gomega.Succeed())
+					}
+				case "store open failure":
+					g.Expect(errors.Is(err, hostsettings.ErrUnavailable)).To(gomega.BeTrue())
+				case "runtime startup failure":
+					var pathErr *os.PathError
+					g.Expect(errors.As(err, &pathErr)).To(gomega.BeTrue())
+				case "gateway startup failure":
+					g.Expect(errors.Is(err, gateway.ErrForbidden)).To(gomega.BeTrue())
+				}
+				if scenario != "store open failure" {
+					select {
+					case got := <-closed:
+						g.Expect(got.snapshotErr).NotTo(gomega.HaveOccurred())
+						g.Expect(got.guardErr).To(gomega.MatchError(addons.ErrOwnerBusy), "owner guard must remain held when the live settings store closes")
+					case <-time.After(5 * time.Second):
+						t.Fatal("host settings store was not closed")
+					}
+					select {
+					case <-a.addonHostSettingsDone:
+					case <-time.After(5 * time.Second):
+						t.Fatal("host settings closure did not finish")
+					}
+					_, err = a.addonHostSettings.Snapshot(context.Background())
+					g.Expect(err).To(gomega.HaveOccurred())
+				}
+				cancel()
+				g.Expect(a.Shutdown()).To(gomega.Succeed())
+				g.Expect(a.Shutdown()).To(gomega.Succeed())
+				g.Expect(closed).To(gomega.BeEmpty(), "close callback must run at most once")
+				release, err := guard.Acquire(context.Background())
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(release()).To(gomega.Succeed())
+				if blocker != "" {
+					g.Expect(os.Remove(blocker)).To(gomega.Succeed())
+				}
+				store, err := hostsettings.Open(filepath.Join(root, "host-settings.json"), &hostsettings.Migration{Mode: hostsettings.Standalone, Source: "test", Version: "1", Candidates: []hostsettings.Policy{{}}})
+				g.Expect(err).NotTo(gomega.HaveOccurred())
+				g.Expect(store.Close()).To(gomega.Succeed())
+			})
+		}
+	})
 	g := gomega.NewWithT(t)
 	ctx := context.Background()
 	actor := contract.Actor{UserID: auth.AddonLocalOwnerID, CredentialID: auth.AddonLocalOwnerID, Mode: auth.AddonModeLocalOwner}
