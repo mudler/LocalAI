@@ -1419,10 +1419,10 @@
   files:
     - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
       sha256: 1e207a449e37ea902de237aba1158f960a91bd344bee6edc5b0aa0dbce015621
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
       sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 8192
@@ -1469,10 +1469,10 @@
   files:
     - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
       sha256: 6bdb901ce3c468c626c5481076b9c56bc69a35fc3ad08c78b2b6cbede5cbd9da
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
       sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 8192
@@ -1515,10 +1515,10 @@
   files:
     - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
       sha256: 66b7eebe3316775b6e0194b3b4da2888c32830d3c7e3c749b1e861d121e97aa9
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
       sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 8192
@@ -1561,10 +1561,10 @@
   files:
     - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ2_M.gguf
       sha256: 61ecb5b0d2854afbc1436db7598465f77ccf63ec62210e75cc761e09ecb6d729
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-IQ2_M.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-IQ2_M.gguf
     - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
       sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 8192
@@ -1607,10 +1607,10 @@
   files:
     - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q4_0.gguf
       sha256: 1d23b7340a5828d12c50ee60a9fd0662c6cf23117d4cd4f6a7e3ec1bfb503260
-      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/gemma-4-E4B-it-Artemis-Q4_0.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-Q4_0.gguf
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
       sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
-      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/mmproj-F16.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 8192
@@ -1656,10 +1656,10 @@
   files:
     - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-IQ3_M.gguf
       sha256: 7d19112172d02bfe3edd711627bb988330e3fea8714c77362e2b77ae1634ac39
-      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/gemma-4-E4B-it-Artemis-IQ3_M.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-IQ3_M.gguf
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
       sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
-      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/mmproj-F16.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 8192
@@ -1702,10 +1702,10 @@
   files:
     - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
       sha256: 182f4a4f29461620f7404b9eb25a03bd7fe9f91de49718662c9146c01c9d3547
-      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
     - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
       sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
-      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/mmproj-F16.gguf
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
   overrides:
     backend: llama-cpp
     context_size: 8192
