@@ -47,7 +47,7 @@
     },
     "src/models/sheetsage/session.cpp": {
       "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
-      "final_sha256": "3613ab53600aae2daea168b91f4cadca776cfd82ba26e324b6fbbbbf2327dd2e"
+      "final_sha256": "ec9eb9b069514a56c7a6f687828eaf40fc9df63c72cbbe995cd5ba5cad2d28c9"
     },
     "include/engine/framework/audio/fft.h": {
       "base_sha256": "5a63de2ab9d7361f186b9c9b7b6ba390526b4cb5122fa1174921295c2f2b7f55",
@@ -268,6 +268,16 @@
         "src/models/sheetsage/runtime.cpp": {
           "base_sha256": "74e6fc339d24b3943d54255154dd231b9c6ab9f71864485d02ff1ccfe06e7737",
           "final_sha256": "3e2e4bee1a838ec2489cc35663c8636189d6ffdd9385b6a1f54000fbc3dea199"
+        }
+      }
+    },
+    {
+      "patch": "0010-sheetsage-token-host-cancellation.patch",
+      "patch_sha256": "2a79e4b707bc6025780d781a82d542d5d6aab8c113b2ed267f7bbeb9d578c330",
+      "files": {
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "3613ab53600aae2daea168b91f4cadca776cfd82ba26e324b6fbbbbf2327dd2e",
+          "final_sha256": "ec9eb9b069514a56c7a6f687828eaf40fc9df63c72cbbe995cd5ba5cad2d28c9"
         }
       }
     }

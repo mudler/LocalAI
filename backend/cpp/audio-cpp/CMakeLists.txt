@@ -226,6 +226,19 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_sheetsage_token_host_ctest music_sheetsage_token_host_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/models/sheetsage/processing.cpp")
+    target_include_directories(music_sheetsage_token_host_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include")
+    target_compile_options(music_sheetsage_token_host_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_token_host_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_token_host_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_token_host_ctest PRIVATE ggml Threads::Threads)
+    add_test(NAME music_sheetsage_token_host COMMAND music_sheetsage_token_host_ctest)
+    set_tests_properties(music_sheetsage_token_host PROPERTIES TIMEOUT 45)
+
     add_executable(music_sheetsage_decoder_host_ctest
         music_sheetsage_decoder_host_ctest.cpp
         "${AUDIO_CPP_DIR}/src/framework/core/backend.cpp"
