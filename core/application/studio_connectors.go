@@ -36,6 +36,9 @@ type connectorTransport struct{ a *Application }
 func (t connectorTransport) Kinds(ctx context.Context) ([]studio.ConnectorKind, error) {
 	g := t.a.addonGateway
 	if g == nil {
+		if cfg := t.a.ApplicationConfig(); cfg != nil && !cfg.Addons.Enabled {
+			return []studio.ConnectorKind{}, nil
+		}
 		return nil, gateway.ErrUnavailable
 	}
 	return g.ConnectorKinds(ctx)
