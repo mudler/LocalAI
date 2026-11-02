@@ -128,9 +128,10 @@ func (c *Carrier) peer(r *http.Request) (PeerIdentity, error) {
 }
 
 type wireRequest struct {
-	Observation *ExecutionStatusRequest `json:"observation,omitempty"`
-	Request     contract.Request        `json:"request"`
-	Relay       *RelayRequest           `json:"relay,omitempty"`
+	ExecutionBinding *executionBindingCall   `json:"executionBinding,omitempty"`
+	Observation      *ExecutionStatusRequest `json:"observation,omitempty"`
+	Request          contract.Request        `json:"request"`
+	Relay            *RelayRequest           `json:"relay,omitempty"`
 	// Proposal marks a call for the owner's proposal broker. Such a call is
 	// never a typed dispatch.
 	Proposal *ProposalCall `json:"proposal,omitempty"`
@@ -269,6 +270,33 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
 			http.Error(w, "invalid binding", 400)
+			return
+		}
+		if wire.ExecutionBinding != nil {
+			// New binding messages use exact canonical keys, including the
+			// routing envelope. Older ordinary messages keep their decoder.
+			var fields map[string]json.RawMessage
+			_ = json.Unmarshal(m.Body, &fields)
+			if observationObject(m.Body, "request", "executionBinding") != nil || observationObject(fields["request"], "action", "operationId", "addonId", "resourceId", "generation", "arguments") != nil {
+				http.Error(w, "invalid execution binding keys", 400)
+				return
+			}
+			if wire.Observation != nil || wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionBindingAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+				http.Error(w, "invalid execution binding", 400)
+				return
+			}
+			out, err := g.BindingForActor(r.Context(), actor, wire.ExecutionBinding.Claim)
+			if err != nil {
+				typedError(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(executionBindingReply{Version: 1, Binding: out})
+			return
+		}
+		// Reserved actions cannot fall through to ordinary tool dispatch.
+		if wire.Request.Action == executionBindingAction {
+			http.Error(w, "missing execution binding", 400)
 			return
 		}
 		if wire.Observation != nil {
@@ -794,7 +822,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != ActionHostSettingsRead && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
 }
 
 // Act forwards an action call to the owner and waits for its answer, up to the

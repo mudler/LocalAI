@@ -17,6 +17,7 @@ import (
 // ExecutionStatusBinding contains opaque authenticated identities, not credentials.
 // Every component is a precondition; readiness never authorizes execution.
 type ExecutionStatusBinding struct {
+	ConversationID    string         `json:"conversationId,omitempty"`
 	Actor             contract.Actor `json:"actor"`
 	AddonID           string         `json:"addonId"`
 	Generation        uint64         `json:"generation"`
@@ -51,7 +52,7 @@ func observationUnknown(r ExecutionStatusRequest) ExecutionStatusResponse {
 }
 func (r ExecutionStatusRequest) valid(a contract.Actor) bool {
 	b := r.Binding
-	return r.Version == 1 && b.Actor == a && a.UserID != "" && a.CredentialID != "" && len(a.UserID) <= 256 && len(a.CredentialID) <= 256 && (a.Mode == "named-user" || a.Mode == "local-owner") && contract.ValidName(b.AddonID) && b.Generation != 0 && b.Incarnation != "" && len(b.Incarnation) <= 256 && contract.ValidName(b.ExecutionTool) && contract.ValidName(b.StatusTool) && b.SelectionRevision != "" && len(b.SelectionRevision) <= 256 && r.ObservationID != "" && len(r.ObservationID) <= 256
+	return (b.ConversationID == "" || validExecutionConversation(b.ConversationID)) && r.Version == 1 && b.Actor == a && a.UserID != "" && a.CredentialID != "" && len(a.UserID) <= 256 && len(a.CredentialID) <= 256 && (a.Mode == "named-user" || a.Mode == "local-owner") && contract.ValidName(b.AddonID) && b.Generation != 0 && b.Incarnation != "" && len(b.Incarnation) <= 256 && contract.ValidName(b.ExecutionTool) && contract.ValidName(b.StatusTool) && b.SelectionRevision != "" && len(b.SelectionRevision) <= 256 && r.ObservationID != "" && len(r.ObservationID) <= 256
 }
 
 // ExecutionStatusRead is a host-only observation door. It cannot name arguments,
@@ -240,7 +241,7 @@ func observationObject(raw []byte, keys ...string) error {
 	return nil
 }
 func (b *ExecutionStatusBinding) UnmarshalJSON(raw []byte) error {
-	if observationObject(raw, "actor", "addonId", "generation", "incarnation", "executionTool", "statusTool", "selectionRevision") != nil {
+	if observationObject(raw, "conversationId", "actor", "addonId", "generation", "incarnation", "executionTool", "statusTool", "selectionRevision") != nil {
 		return ErrForbidden
 	}
 	var fields map[string]json.RawMessage

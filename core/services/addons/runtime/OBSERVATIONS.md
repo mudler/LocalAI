@@ -83,3 +83,23 @@ This is a host-mediated effect boundary, not a process sandbox or purity
 attestation. An addon may still mutate its own memory/files or perform its own I/O.
 Uncorrelated independently authorized inbound work remains ordinary inbound work;
 correlation is not evidence about arbitrary process behavior.
+
+## Owner binding API (bounded transport milestone)
+
+`Gateway.BindingForActor(ctx, actor, ExecutionBindingClaim{ConversationID: id})`
+accepts only a conversation claim. The optional `ResolveExecutionBinding` callback
+runs on the owner and must load actor-owned authoritative context. A missing
+resolver denies the request. `ValidateExecutionBinding` resolves the claim again
+and compares every binding component. The optional ToolAdapter backend forwards
+these host-only calls; it does not change discovery or ordinary execution.
+
+The authenticated carrier negotiates `execution-binding-v1`, uses version 1
+canonical-key DTOs, and rejects authority fields and mixed dispatch doors.
+`conversationId` is optional in the older observation binding DTO for compatibility,
+but is required for the new binding API. Binding lookup has a five-second budget.
+Transport support is not execution authority or permission to observe.
+
+This milestone tests an injected owner-trusted resolver, including real mTLS.
+It does not install an application resolver, instrument agent/conversation stores,
+or connect request/session lifecycle hooks. Product binding remains denied until
+an owner resolver can capture authoritative mutation revisions and eligibility.
