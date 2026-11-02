@@ -9,42 +9,43 @@ import (
 var _ = Describe("upgrade observation reducer", func() {
 	It("traces completion, retries, detach, interruption and late delivery without replay", func() {
 		for _, trace := range []struct {
-			events, rules []string
-			end           string
+			events []upgradeEvent
+			rules  []string
+			end    lifecyclePhase
 		}{
-			{[]string{"start", "complete"}, []string{"U2-start", "U3-complete"}, "completed"},
-			{[]string{"retry", "start", "retry", "complete"}, []string{"U1-observe", "U2-start", "U1-observe", "U3-complete"}, "completed"},
-			{[]string{"start", "detach", "complete"}, []string{"U2-start", "U1-observe", "U3-complete"}, "completed"},
-			{[]string{"interrupt", "start"}, []string{"U5-interrupted", "U0-terminal"}, "failed"},
-			{[]string{"recover", "complete"}, []string{"U6-recovery", "U0-terminal"}, "recovery-required"},
+			{[]upgradeEvent{upgradeStart, upgradeComplete}, []string{"U2-start", "U3-complete"}, lifecycleCompleted},
+			{[]upgradeEvent{upgradeRetry, upgradeStart, upgradeRetry, upgradeComplete}, []string{"U1-observe", "U2-start", "U1-observe", "U3-complete"}, lifecycleCompleted},
+			{[]upgradeEvent{upgradeStart, upgradeDetach, upgradeComplete}, []string{"U2-start", "U1-observe", "U3-complete"}, lifecycleCompleted},
+			{[]upgradeEvent{upgradeInterrupt, upgradeStart}, []string{"U5-interrupted", "U0-terminal"}, lifecycleFailed},
+			{[]upgradeEvent{upgradeRecover, upgradeComplete}, []string{"U6-recovery", "U0-terminal"}, lifecycleRecovery},
 		} {
-			phase := upgradePhase("accepted")
+			phase := lifecycleAccepted
 			for n, event := range trace.events {
 				var rule string
-				phase, rule = upgradeTransition(upgradePhase(phase), upgradeEvent(event))
+				phase, rule = upgradeTransition(phase, event)
 				Expect(rule).To(Equal(trace.rules[n]))
 			}
-			Expect(string(phase)).To(Equal(trace.end))
+			Expect(phase).To(Equal(trace.end))
 		}
 	})
 	It("keeps terminals immutable for every event and gives each active state a terminal exit", func() {
-		events := []string{"start", "retry", "detach", "complete", "fail", "interrupt", "recover"}
-		for _, phase := range []upgradePhase{upgradeAccepted, upgradeRunning, upgradeCompleted, upgradeFailed, upgradeRecovery} {
+		events := []upgradeEvent{upgradeStart, upgradeRetry, upgradeDetach, upgradeComplete, upgradeFail, upgradeInterrupt, upgradeRecover}
+		for _, phase := range []lifecyclePhase{lifecycleAccepted, lifecycleRunning, lifecycleCompleted, lifecycleFailed, lifecycleRecovery} {
 			for _, event := range []upgradeEvent{upgradeStart, upgradeComplete, upgradeFail, upgradeInterrupt, upgradeRecover, upgradeDetach, upgradeRetry} {
 				next, rule := upgradeTransition(phase, event)
 				Expect(next).NotTo(BeEmpty())
 				Expect(rule).NotTo(BeEmpty())
 			}
 		}
-		for _, phase := range []string{"completed", "failed", "recovery-required"} {
+		for _, phase := range []lifecyclePhase{lifecycleCompleted, lifecycleFailed, lifecycleRecovery} {
 			for _, event := range events {
-				next, _ := upgradeTransition(upgradePhase(phase), upgradeEvent(event))
-				Expect(string(next)).To(Equal(phase))
+				next, _ := upgradeTransition(phase, event)
+				Expect(next).To(Equal(phase))
 			}
 		}
-		for _, phase := range []string{"accepted", "running"} {
-			next, rule := upgradeTransition(upgradePhase(phase), "interrupt")
-			Expect(string(next)).To(Equal("failed"))
+		for _, phase := range []lifecyclePhase{lifecycleAccepted, lifecycleRunning} {
+			next, rule := upgradeTransition(phase, upgradeInterrupt)
+			Expect(next).To(Equal(lifecycleFailed))
 			Expect(rule).To(Equal("U5-interrupted"))
 		}
 	})

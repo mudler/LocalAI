@@ -218,9 +218,9 @@ func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand,
 		}
 		op.Next = next
 		op.Status.Generation = next.Generation
-		op.Status.Phase = "prepared"
+		op.Status.Phase = string(lifecyclePrepared)
 		m.journal.Operations[cmd.OperationID] = op
-		if e := m.persist("prepared"); e != nil {
+		if e := m.persist(string(lifecyclePrepared)); e != nil {
 			applyErr = e
 			result = op.Status
 			return e

@@ -4,15 +4,9 @@ package addons
 // upgradeTransition is the owner's observation reducer. Effects remain in the
 // existing lifecycle and recovery journals; observer detach never emits work.
 // Every terminal result is sticky, including after late progress or a retry.
-type upgradePhase string
 type upgradeEvent string
 
 const (
-	upgradeAccepted  upgradePhase = "accepted"
-	upgradeRunning   upgradePhase = "running"
-	upgradeCompleted upgradePhase = "completed"
-	upgradeFailed    upgradePhase = "failed"
-	upgradeRecovery  upgradePhase = "recovery-required"
 	upgradeStart     upgradeEvent = "start"
 	upgradeComplete  upgradeEvent = "complete"
 	upgradeFail      upgradeEvent = "fail"
@@ -22,24 +16,24 @@ const (
 	upgradeRetry     upgradeEvent = "retry"
 )
 
-func upgradeTransition(phase upgradePhase, event upgradeEvent) (next upgradePhase, rule string) {
+func upgradeTransition(phase lifecyclePhase, event upgradeEvent) (next lifecyclePhase, rule string) {
 	switch phase {
-	case "completed", "failed", "recovery-required":
+	case lifecycleCompleted, lifecycleFailed, lifecycleRecovery:
 		return phase, "U0-terminal"
-	case "accepted", "running":
+	case lifecycleAccepted, lifecycleRunning:
 		switch event {
-		case "detach", "retry":
+		case upgradeDetach, upgradeRetry:
 			return phase, "U1-observe"
-		case "start":
-			return "running", "U2-start"
-		case "complete":
-			return "completed", "U3-complete"
-		case "fail":
-			return "failed", "U4-fail"
-		case "interrupt":
-			return "failed", "U5-interrupted"
-		case "recover":
-			return "recovery-required", "U6-recovery"
+		case upgradeStart:
+			return lifecycleRunning, "U2-start"
+		case upgradeComplete:
+			return lifecycleCompleted, "U3-complete"
+		case upgradeFail:
+			return lifecycleFailed, "U4-fail"
+		case upgradeInterrupt:
+			return lifecycleFailed, "U5-interrupted"
+		case upgradeRecover:
+			return lifecycleRecovery, "U6-recovery"
 		}
 	}
 	panic("invalid upgrade state or event")

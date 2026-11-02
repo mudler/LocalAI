@@ -3,6 +3,21 @@ package addons
 
 import "github.com/mudler/LocalAI/core/services/addons/packages"
 
+// lifecyclePhase is shared by the owner journal and upgrade reducer. The
+// operation DTO retains string fields for compatibility with existing callers.
+type lifecyclePhase string
+
+const (
+	lifecycleAccepted  lifecyclePhase = "accepted"
+	lifecycleRunning   lifecyclePhase = "running"
+	lifecycleCompleted lifecyclePhase = "completed"
+	lifecycleFailed    lifecyclePhase = "failed"
+	lifecycleRecovery  lifecyclePhase = "recovery-required"
+	lifecycleIntent    lifecyclePhase = "intent"
+	lifecyclePrepared  lifecyclePhase = "prepared"
+	lifecycleApplied   lifecyclePhase = "applied"
+)
+
 type Generation struct {
 	Number  uint64
 	Receipt packages.PackageReceipt

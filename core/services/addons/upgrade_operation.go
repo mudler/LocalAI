@@ -62,17 +62,17 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		return OperationStatus{}, ErrConflict
 	}
 	for _, op := range m.journal.Operations {
-		if cmd.ExpectedDigest != "" && op.Command.Action == "upgrade" && op.Command.AddonID == cmd.AddonID && op.Command.ExpectedDigest == cmd.ExpectedDigest && op.Command.CandidateDigest == cmd.CandidateDigest && op.Status.Phase != "failed" {
+		if cmd.ExpectedDigest != "" && op.Command.Action == "upgrade" && op.Command.AddonID == cmd.AddonID && op.Command.ExpectedDigest == cmd.ExpectedDigest && op.Command.CandidateDigest == cmd.CandidateDigest && op.Status.Phase != string(lifecycleFailed) {
 			return OperationStatus{}, ErrTransitionConflict
 		}
-		if op.Command.AddonID == cmd.AddonID && op.Status.Phase != "completed" && op.Status.Phase != "failed" {
+		if op.Command.AddonID == cmd.AddonID && op.Status.Phase != string(lifecycleCompleted) && op.Status.Phase != string(lifecycleFailed) {
 			return OperationStatus{}, ErrConflict
 		}
 	}
-	op := journalOperation{Command: cmd, Actor: actor, Async: true, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: "accepted"}}
+	op := journalOperation{Command: cmd, Actor: actor, Async: true, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleAccepted)}}
 	m.journal.Operations[cmd.OperationID] = op
 	// persist normally refreshes snapshots. We already hold the projection lock.
-	if e := m.persistJournal("accepted"); e != nil {
+	if e := m.persistJournal(string(lifecycleAccepted)); e != nil {
 		return OperationStatus{}, e
 	}
 	m.upgradeViews[cmd.OperationID] = upgradeSnapshot{cmd, actor, op.Status}
@@ -83,8 +83,8 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		_, err := m.submit(context.WithValue(m.upgradeCtx, upgradeExecutionKey{}, m), actor, cmd, true)
 		m.mu.Lock()
 		current := m.journal.Operations[cmd.OperationID]
-		if err != nil && current.Status.Phase != "completed" && current.Status.Phase != "failed" && !m.uncertain {
-			phase, _ := upgradeTransition("running", "fail")
+		if err != nil && current.Status.Phase != string(lifecycleCompleted) && current.Status.Phase != string(lifecycleFailed) && !m.uncertain {
+			phase, _ := upgradeTransition(lifecycleRunning, upgradeFail)
 			current.Status.Phase = string(phase)
 			current.Status.FailureCode = "upgrade_failed"
 			if errors.Is(err, context.Canceled) {
@@ -94,7 +94,7 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 				current.Status.FailureCode = "recovery_required"
 			}
 			m.journal.Operations[cmd.OperationID] = current
-			_ = m.persist("failed")
+			_ = m.persist(string(lifecycleFailed))
 		}
 		m.mu.Unlock()
 		if err != nil {
@@ -116,7 +116,7 @@ func (m *Manager) refreshUpgradeViews() {
 		if op.Async {
 			status := op.Status
 			if m.uncertain || m.runtimeRecoveryRequired {
-				status.RuntimeState = "recovery-required"
+				status.RuntimeState = string(lifecycleRecovery)
 			}
 			m.upgradeViews[id] = upgradeSnapshot{op.Command, op.Actor, status}
 		}

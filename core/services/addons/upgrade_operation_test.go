@@ -48,14 +48,14 @@ var _ = Describe("owner-managed upgrade operations", func() {
 		m.SetRecovery(r)
 		result, e := m.SubmitUpgrade(request, actor, command("upgrade-disconnect", "upgrade"))
 		Expect(e).NotTo(HaveOccurred())
-		Expect(result.Phase).To(Equal("accepted"))
+		Expect(result.Phase).To(Equal(string(lifecycleAccepted)))
 		Eventually(exported).Should(BeClosed())
 		Eventually(func() string {
 			status, err := m.OperationStatus(ctx, actor, "upgrade-disconnect")
 			Expect(err).NotTo(HaveOccurred())
 			result = status
 			return status.Phase
-		}).Should(Equal("completed"))
+		}).Should(Equal(string(lifecycleCompleted)))
 		Expect(result.Generation).To(Equal(uint64(2)))
 	})
 	It("polls and retries during a blocked backup, rejects conflicting IDs, and retains the receipt on restart", func() {
@@ -88,7 +88,7 @@ var _ = Describe("owner-managed upgrade operations", func() {
 		Expect(status.Stage).To(Equal("backing-up"))
 		status, e = m.SubmitUpgrade(read, actor, cmd)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(status.Phase).To(Equal("running"))
+		Expect(status.Phase).To(Equal(string(lifecycleRunning)))
 		changed := cmd
 		changed.Version = "9.0.0"
 		_, e = m.SubmitUpgrade(read, actor, changed)
@@ -106,13 +106,13 @@ var _ = Describe("owner-managed upgrade operations", func() {
 			st, e := m.OperationStatus(ctx, actor, cmd.OperationID)
 			Expect(e).NotTo(HaveOccurred())
 			return st.Phase
-		}).Should(Equal("completed"))
+		}).Should(Equal(string(lifecycleCompleted)))
 		Expect(m.Close()).To(Succeed())
 		second := open(cfg, c, i)
 		Expect(second.Reconcile(ctx)).To(Succeed())
 		status, e = second.SubmitUpgrade(ctx, actor, cmd)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(status.Phase).To(Equal("completed"))
+		Expect(status.Phase).To(Equal(string(lifecycleCompleted)))
 		Expect(status.Generation).To(Equal(uint64(2)))
 	})
 	It("reconciles durable accepted work to interrupted without replay", func() {
@@ -122,15 +122,15 @@ var _ = Describe("owner-managed upgrade operations", func() {
 		Expect(e).NotTo(HaveOccurred())
 		cmd := command("interrupted", "upgrade")
 		m.mu.Lock()
-		m.journal.Operations[cmd.OperationID] = journalOperation{Command: cmd, Actor: actor, Async: true, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: "accepted"}}
-		Expect(m.persist("accepted")).To(Succeed())
+		m.journal.Operations[cmd.OperationID] = journalOperation{Command: cmd, Actor: actor, Async: true, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleAccepted)}}
+		Expect(m.persist(string(lifecycleAccepted))).To(Succeed())
 		m.mu.Unlock()
 		Expect(m.Close()).To(Succeed())
 		second := open(cfg, c, i)
 		Expect(second.Reconcile(ctx)).To(Succeed())
 		status, e := second.OperationStatus(ctx, actor, cmd.OperationID)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(status.Phase).To(Equal("failed"))
+		Expect(status.Phase).To(Equal(string(lifecycleFailed)))
 		Expect(status.FailureCode).To(Equal("interrupted"))
 		st, e := second.Status(ctx, "sample")
 		Expect(e).NotTo(HaveOccurred())
@@ -154,7 +154,7 @@ var _ = Describe("owner-managed upgrade operations", func() {
 		Expect(second.Reconcile(ctx)).To(Succeed())
 		status, e := second.OperationStatus(ctx, actor, "shutdown")
 		Expect(e).NotTo(HaveOccurred())
-		Expect(status.Phase).To(Equal("failed"))
+		Expect(status.Phase).To(Equal(string(lifecycleFailed)))
 		Expect(status.FailureCode).To(Equal("interrupted"))
 	})
 
