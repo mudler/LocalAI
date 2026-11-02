@@ -40,7 +40,10 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if appConfig.Addons.Enabled {
 			// Do not expose stale local values as policy, even when the owner is
 			// unavailable. Unrelated settings remain readable without an owner RPC.
-			body, err := json.Marshal(settings)
+			// This administrative endpoint already returns RuntimeSettings (including
+			// API keys) below. Preserve that authorized contract while removing the
+			// owner-only fields; this projection is not a public policy response.
+			body, err := json.Marshal(settings) // #nosec G117 -- authenticated administrator settings response; same fields as the non-add-on path.
 			if err != nil {
 				return err
 			}

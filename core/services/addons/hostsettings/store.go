@@ -35,7 +35,7 @@ func Open(path string, migration *Migration) (*Store, error) {
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
-	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	lock, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600) // #nosec G304 -- caller supplies a fixed file in the guarded owner root, never a request path; reject symlinks.
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func Open(path string, migration *Migration) (*Store, error) {
 		return fail(err)
 	}
 	s.persist = func(d document) (bool, error) { return persistFile(path, d) }
-	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0) // #nosec G304 -- same trusted owner-root file; NOFOLLOW plus mode/type checks below prevent file substitution.
 	var d document
 	if os.IsNotExist(err) {
 		d, err = migrate(migration)
@@ -202,12 +202,12 @@ func persistFile(path string, d document) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer dir.Close()
+	defer func() { _ = dir.Close() }() // The explicit Sync below determines commit durability.
 	f, err := os.CreateTemp(filepath.Dir(path), ".host-policy-*")
 	if err != nil {
 		return false, err
 	}
-	defer os.Remove(f.Name())
+	defer func() { _ = os.Remove(f.Name()) }() // Best-effort removal; successful rename already removed this name.
 	if _, err = f.Write(b); err == nil {
 		err = f.Sync()
 	}
