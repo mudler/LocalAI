@@ -175,6 +175,35 @@ selects the installed app icon, then `puzzle`. Omit unused overrides rather
 than sending empty strings or null. No tool, URL, command text, install action
 or component can be a command destination.
 
+### Home commands from installed apps
+
+Home reads only the authenticated installed Apps registry, never the catalog.
+A contribution is actionable only while its app is enabled, running, compatible
+with the host SDK, and has validated immutable assets and a declared destination.
+Loading, list errors, forbidden access, absence, disabled installations and failed
+installations remain distinct; a list error does not mean “not installed”.
+Mounted consumers keep bounded polling alive after disable or failure so recovery
+appears without reloading. Drawing commands does not load addon JavaScript.
+
+Every eligible contribution has `/addon:<addonId>:<commandId>`. Optional aliases
+cannot take any native command name, even a hidden native command, or any usable
+skill name. If multiple contributions request the same alias, all lose that alias;
+the canonical commands remain. Order is addon ID then contribution ID in the Apps
+group. Home shows deterministic, actor-visible alias diagnostics to administrators
+in its expandable command diagnostics section. Labels do not identify commands.
+
+Clicking a command or submitting its exact text uses the same navigation guard.
+Commands accept no arguments and do not execute prefixes. The guard re-reads the
+authenticated installed registry and checks actor, permissions, generation,
+immutable entry and declared page before navigating. Disabled, failed, upgraded,
+removed or inaccessible apps cannot be opened by a previously captured menu entry.
+Logout aborts pending reads; even a response that ignores cancellation cannot
+publish into another actor's registry. Installed commands are Home-only; `/apps`
+remains generic native navigation to installed apps. Uninstalled apps never get
+install commands or promotional examples. Studio owns its `/studio` alias in its
+manifest rather than in Home code. Historical URL redirects and pin migration
+remain unchanged.
+
 ### Execution provider and status payload
 
 Inside `capabilities`:

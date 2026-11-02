@@ -117,6 +117,14 @@
     "allChats": "Tutte le chat"
   },
   "slash": {
+    "commandDiagnostics": "Diagnostica dei comandi delle app",
+    "apps": {
+      "label": "App",
+      "desc": "Sfoglia le app installate"
+    },
+    "group": {
+      "addons": "App"
+    },
     "agents": {
       "label": "Agenti",
       "desc": "I tuoi agenti salvati, trigger e skill"
@@ -130,5 +138,6 @@
       "desc": "Raccolte in cui le tue chat possono cercare"
     },
     "complete": "completa"
-  }
+  },
+  "notice": { "appUnavailable": "L’app non è più disponibile." }
 }

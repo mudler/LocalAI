@@ -25,7 +25,7 @@ import { agentFolderLine } from '../../utils/chatAgents'
 import { CommandsChip, CommandsNotice } from './CommandsNotice'
 import { ToolFallbacks } from './ToolFallbacks'
 import Button from '../ui/Button'
-import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills } from '../../utils/slashCommands'
+import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills, reservedNames } from '../../utils/slashCommands'
 import { CHAT_SLASH_ACTIONS } from './chatActions'
 import { SLASH_ACTIONS } from '../home/homeActions'
 
@@ -248,8 +248,8 @@ export default function ChatComposer({
       actions: withModelArgs(availableCommands(slashSurface, slashCtx)),
       groups: commandGroups(slashSurface),
       ctx: slashCtx,
-      label: (a) => words(a)(`slash.${a.id}.label`),
-      desc: (a) => words(a)(`slash.${a.id}.desc`),
+      label: (a) => a.label || words(a)(`slash.${a.id}.label`),
+      desc: (a) => a.addonId ? a.label : words(a)(`slash.${a.id}.desc`),
       groupLabel: (g) => (COMMAND_GROUPS.includes(g) ? t(`slash.group.${g}`) : own(`slash.group.${g}`)),
       argsLabel: (c) => t(`slash.args.${c.id === 'models' ? 'model' : c.id}`, { defaultValue: c.cmd }),
       argLabel: (c, it) => (it.action === 'enableAgents' ? t('slash.agent.enable') : it.action === 'loopStopAll' ? t('slash.loop.stopAll') : ''),
@@ -285,7 +285,7 @@ export default function ChatComposer({
       onRunAction?.(id, { about: { tools, skills: usableSkills(switches.skills).length, commands: runs } })
       return
     }
-    onRunAction?.(id, item)
+    onRunAction?.(id, item?.addonId ? { ...item, addonOptions: { nativeNames: reservedNames(), skillNames: usableSkills(switches.skills).map(s => s.name) } } : item)
   }, [chatId, onPickModel, setDraftModel, pickerRef, switches, setText, onRunAction, slash, sandbox])
 
   const effectivePlaceholder = placeholder || (effectiveModel

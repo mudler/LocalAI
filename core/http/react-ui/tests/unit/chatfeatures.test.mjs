@@ -153,10 +153,9 @@ test('sandbox state: the Tools picker reads isolated, host, cannot-run or unknow
   assert.deepEqual(startingState(4000.4), { state: 'starting', backend: '', reason: '', retryMs: 4000 })
 })
 
-test('home actions: an administrator without Studio gets Install Studio under the same command', async () => {
+test('home actions: only generic Apps browsing is native, never an install command', async () => {
   const { availableActions } = await import('../../src/components/home/homeActions.js')
-  const ids = (ctx) => availableActions(ctx).filter(a => a.cmd === '/studio').map(a => a.id)
-  assert.deepEqual(ids({ isAdmin: true, studioInstalled: false }), ['studioInstall'])
-  assert.deepEqual(ids({ isAdmin: true, studioInstalled: true }), ['studio'])
-  assert.deepEqual(ids({ isAdmin: false, studioInstalled: false }), [])
+  assert.ok(availableActions({ hasAddons: true }).some(a => a.cmd === '/apps'))
+  assert.ok(!availableActions({ hasAddons: false }).some(a => a.cmd === '/apps'))
+  assert.ok(!availableActions({ isAdmin: true }).some(a => a.cmd === '/studio'))
 })

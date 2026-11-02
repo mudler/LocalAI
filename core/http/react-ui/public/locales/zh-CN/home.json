@@ -117,6 +117,14 @@
     "allChats": "全部对话"
   },
   "slash": {
+    "commandDiagnostics": "应用命令诊断",
+    "apps": {
+      "label": "应用",
+      "desc": "浏览已安装的应用"
+    },
+    "group": {
+      "addons": "应用"
+    },
     "agents": {
       "label": "智能体",
       "desc": "你保存的智能体、触发器和技能"
@@ -130,5 +138,6 @@
       "desc": "你的对话可以搜索的集合"
     },
     "complete": "补全"
-  }
+  },
+  "notice": { "appUnavailable": "应用已不可用。" }
 }

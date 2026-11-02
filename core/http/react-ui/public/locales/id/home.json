@@ -117,6 +117,14 @@
     "allChats": "Semua obrolan"
   },
   "slash": {
+    "commandDiagnostics": "Diagnostik perintah aplikasi",
+    "apps": {
+      "label": "Aplikasi",
+      "desc": "Jelajahi aplikasi terpasang"
+    },
+    "group": {
+      "addons": "Aplikasi"
+    },
     "agents": {
       "label": "Agen",
       "desc": "Agen tersimpan, pemicu, dan keahlian Anda"
@@ -130,5 +138,6 @@
       "desc": "Koleksi yang bisa dicari obrolan Anda"
     },
     "complete": "lengkapi"
-  }
+  },
+  "notice": { "appUnavailable": "Aplikasi tidak lagi tersedia." }
 }

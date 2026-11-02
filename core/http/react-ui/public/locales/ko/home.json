@@ -117,6 +117,14 @@
     "allChats": "모든 채팅"
   },
   "slash": {
+    "commandDiagnostics": "앱 명령 진단",
+    "apps": {
+      "label": "앱",
+      "desc": "설치된 앱 찾아보기"
+    },
+    "group": {
+      "addons": "앱"
+    },
     "agents": {
       "label": "에이전트",
       "desc": "저장된 에이전트, 트리거, 스킬"
@@ -130,5 +138,6 @@
       "desc": "채팅이 검색할 수 있는 컬렉션"
     },
     "complete": "완성"
-  }
+  },
+  "notice": { "appUnavailable": "앱을 더 이상 사용할 수 없습니다." }
 }

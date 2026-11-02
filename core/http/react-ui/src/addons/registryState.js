@@ -48,15 +48,13 @@ export function contributesUI(apps) {
   })
 }
 
-// Whether the registry reads the apps list now. Never without the feature. On
-// an Add-ons page always. Anywhere else only while a listed app contributes UI,
-// or once, to learn that, when a consumer needs a list that was never read (a
-// failed read is not retried for a consumer: the next page load asks again).
-export function shouldPoll({ allowed, onAddonsPage, apps, status, consumers }) {
+// Mounted consumers keep reading while disabled, failed or temporarily
+// unreachable, so re-enable and recovery do not require a page reload.
+export function shouldPoll({ allowed, onAddonsPage, apps, consumers }) {
   if (!allowed) return false
   if (onAddonsPage) return true
   if (contributesUI(apps)) return true
-  return consumers > 0 && status === 'idle'
+  return consumers > 0
 }
 
 // Pages an app contributes to navigation, only while it is usable.
