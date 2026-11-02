@@ -1,9 +1,15 @@
 package schema
 
 // CollectionList is the answer to a list of collections.
+type CollectionLegacyStatus struct {
+	ActionRequired bool   `json:"action_required"`
+	Message        string `json:"message,omitempty"`
+}
+
 type CollectionList struct {
-	Collections []string `json:"collections"`
-	Count       int      `json:"count"`
+	LegacyStatus CollectionLegacyStatus `json:"legacy_status"`
+	Collections  []string               `json:"collections"`
+	Count        int                    `json:"count"`
 	// EmbeddingModel is the model that indexes and searches the collections.
 	// EmbeddingModelInstalled is false when this server does not have it:
 	// adding files and searching then fail until it is installed.
@@ -16,7 +22,8 @@ type CollectionList struct {
 
 // CollectionGroup is the collections of one user.
 type CollectionGroup struct {
-	Collections []string `json:"collections"`
+	LegacyStatus CollectionLegacyStatus `json:"legacy_status"`
+	Collections  []string               `json:"collections"`
 }
 
 // CollectionCreateRequest makes a collection.

@@ -156,3 +156,10 @@ func (c studioCollections) ReconcileCapture(ctx context.Context, i memory.Identi
 func (c studioCollections) WriteCapture(ctx context.Context, i memory.Identity, fence lagi.MemoryFence, req lagi.MemoryWrite, authorize func(context.Context) error) (lagi.MemoryReceipt, error) {
 	return c.a.CollectionsService().WriteMemoryFenced(ctx, c.owner(i.Principal), i.Destination, fence, req, func(ctx context.Context) error { return c.captureCheck(ctx, i, authorize) })
 }
+
+func (c studioCollections) CheckCollection(ctx context.Context, user, name string) error {
+	if !c.Allowed(ctx, user) {
+		return studio.ErrNoCollection
+	}
+	return c.a.CollectionsService().CheckForUser(ctx, c.owner(user), name)
+}

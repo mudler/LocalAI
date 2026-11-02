@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"github.com/mudler/localrecall/rag/engine"
 	"io"
 	"net/http"
 	"time"
@@ -55,6 +56,8 @@ type CollectionModelSettings struct {
 
 // Config holds the configuration for the in-process collections backend.
 type Config struct {
+	PostgresScope          engine.PostgresScope
+	LegacyCollectionDBPath string
 	// ModelSettings resolves models before an operation acquires backend locks.
 	// Errors deny embedding and reranking operations; inspection and reset remain available.
 	ModelSettings func(collectionName string) (CollectionModelSettings, error)

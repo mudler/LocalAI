@@ -19,6 +19,7 @@ import (
 	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/localrecall/rag"
+	"github.com/mudler/localrecall/rag/engine"
 	"github.com/mudler/localrecall/rag/sources"
 )
 
@@ -241,6 +242,34 @@ var _ = Describe("sharedCollections across two frontends", func() {
 		reg.remove("col-1")
 		_, err = quiet.Search(context.Background(), "col-1", "q", 1)
 		Expect(err).To(MatchError(ContainSubstring("collection not found")))
+	})
+
+	It("keeps verified scoped caches available only after successful legacy admission", func() {
+		a.namespace = "tenant"
+		b.namespace = "tenant"
+		Expect(a.CreateCollection("col-1")).To(Succeed())
+		b.admit = func(string) error { return nil }
+		_, err := b.Search(context.Background(), "col-1", "q", 1)
+		Expect(err).NotTo(HaveOccurred())
+		b.forget("col-1")
+		reg.setErr(errors.New("connection refused"))
+		_, err = b.Search(context.Background(), "col-1", "q", 1)
+		Expect(err).NotTo(HaveOccurred())
+		b.admit = func(string) error { return ErrLegacyCollectionActionRequired }
+		_, err = b.Search(context.Background(), "col-1", "q", 1)
+		Expect(err).To(MatchError(ErrLegacyCollectionActionRequired))
+		b.admit = func(string) error { return nil }
+		reg.setErr(engine.ErrPostgresScope)
+		_, err = b.Search(context.Background(), "col-1", "q", 1)
+		Expect(err).To(MatchError(engine.ErrPostgresScope))
+	})
+	It("ignores events from another namespace even for the same logical name", func() {
+		Expect(a.CreateCollection("col-1")).To(Succeed())
+		_, err := b.Search(context.Background(), "col-1", "q", 1)
+		Expect(err).NotTo(HaveOccurred())
+		b.namespace = "tenant-b"
+		b.onEvent(collectionEvent{Namespace: "tenant-a", Name: "col-1", Op: collectionOpReset})
+		Expect(b.fresh("col-1")).To(BeTrue())
 	})
 
 	It("keeps serving the cached collection when the registry is unreachable", func() {

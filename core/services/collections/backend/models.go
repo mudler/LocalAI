@@ -91,7 +91,7 @@ func (b *backendInProcess) construct(name, desired string) (*rag.PersistentKB, e
 	if err = b.saveModel(name, model); err != nil {
 		return nil, err
 	}
-	kb := newVectorEngine(b.cfg.VectorEngine, b.openAIClient, b.cfg.LLMAPIURL, b.cfg.LLMAPIKey, name, b.cfg.CollectionDBPath, b.cfg.FileAssets, model, b.cfg.DatabaseURL, b.cfg.MaxChunkingSize, b.cfg.ChunkOverlap)
+	kb := newVectorEngine(b.cfg.VectorEngine, b.openAIClient, b.cfg.LLMAPIURL, b.cfg.LLMAPIKey, name, b.cfg.CollectionDBPath, b.cfg.FileAssets, model, b.cfg.DatabaseURL, b.cfg.MaxChunkingSize, b.cfg.ChunkOverlap, b.cfg.PostgresScope)
 	if kb == nil {
 		return nil, fmt.Errorf("unsupported or misconfigured vector engine")
 	}

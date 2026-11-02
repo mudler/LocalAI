@@ -166,17 +166,18 @@ type RunCMD struct {
 	MCPCIJobTimeout       time.Duration `name:"mcp-ci-job-timeout" env:"LOCALAI_MCP_CI_JOB_TIMEOUT" default:"10m" help:"Longest an agent job may run" group:"chats"`
 
 	// Collections (the knowledge base)
-	DisableCollections         bool   `env:"LOCALAI_DISABLE_COLLECTIONS" default:"false" help:"Disable the collections service (the knowledge base API under /api/collections)" group:"collections"`
-	CollectionsAPIURL          string `env:"LOCALAI_COLLECTIONS_API_URL" help:"API URL the collections service uses for embeddings (defaults to self-referencing LocalAI)" group:"collections"`
-	CollectionsAPIKey          string `env:"LOCALAI_COLLECTIONS_API_KEY" help:"API key the collections service uses for embeddings (defaults to first LocalAI API key)" group:"collections"`
-	CollectionsDefaultModel    string `env:"LOCALAI_COLLECTIONS_DEFAULT_MODEL" help:"Default model of the collections service" group:"collections"`
-	CollectionsStateDir        string `env:"LOCALAI_COLLECTIONS_STATE_DIR" help:"State directory of the collections" group:"collections"`
-	CollectionsVectorEngine    string `env:"LOCALAI_COLLECTIONS_VECTOR_ENGINE" help:"Vector engine of the collections: chromem or postgres (default chromem)" group:"collections"`
-	CollectionsEmbeddingModel  string `env:"LOCALAI_COLLECTIONS_EMBEDDING_MODEL" help:"Embedding model of the collections (default granite-embedding-107m-multilingual)" group:"collections"`
-	CollectionsDatabaseURL     string `env:"LOCALAI_COLLECTIONS_DATABASE_URL" help:"Database URL of the collections, for the postgres vector engine" group:"collections"`
-	CollectionsMaxChunkingSize int    `env:"LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE" help:"Maximum chunking size for collection documents (default 400)" group:"collections"`
-	CollectionsChunkOverlap    int    `env:"LOCALAI_COLLECTIONS_CHUNK_OVERLAP" help:"Chunk overlap size for collection documents (default 0)" group:"collections"`
-	CollectionsDBPath          string `env:"LOCALAI_COLLECTIONS_DB_PATH" help:"Where the vector engine of the collections keeps its data" group:"collections"`
+	DisableCollections           bool   `env:"LOCALAI_DISABLE_COLLECTIONS" default:"false" help:"Disable the collections service (the knowledge base API under /api/collections)" group:"collections"`
+	CollectionsAPIURL            string `env:"LOCALAI_COLLECTIONS_API_URL" help:"API URL the collections service uses for embeddings (defaults to self-referencing LocalAI)" group:"collections"`
+	CollectionsAPIKey            string `env:"LOCALAI_COLLECTIONS_API_KEY" help:"API key the collections service uses for embeddings (defaults to first LocalAI API key)" group:"collections"`
+	CollectionsDefaultModel      string `env:"LOCALAI_COLLECTIONS_DEFAULT_MODEL" help:"Default model of the collections service" group:"collections"`
+	CollectionsStateDir          string `env:"LOCALAI_COLLECTIONS_STATE_DIR" help:"State directory of the collections" group:"collections"`
+	CollectionsVectorEngine      string `env:"LOCALAI_COLLECTIONS_VECTOR_ENGINE" help:"Vector engine of the collections: chromem or postgres (default chromem)" group:"collections"`
+	CollectionsEmbeddingModel    string `env:"LOCALAI_COLLECTIONS_EMBEDDING_MODEL" help:"Embedding model of the collections (default granite-embedding-107m-multilingual)" group:"collections"`
+	CollectionsPostgresNamespace string `env:"LOCALAI_COLLECTIONS_POSTGRES_NAMESPACE" default:"default" help:"Stable deployment namespace shared by collections frontends" group:"collections"`
+	CollectionsDatabaseURL       string `env:"LOCALAI_COLLECTIONS_DATABASE_URL" help:"Database URL of the collections, for the postgres vector engine" group:"collections"`
+	CollectionsMaxChunkingSize   int    `env:"LOCALAI_COLLECTIONS_MAX_CHUNKING_SIZE" help:"Maximum chunking size for collection documents (default 400)" group:"collections"`
+	CollectionsChunkOverlap      int    `env:"LOCALAI_COLLECTIONS_CHUNK_OVERLAP" help:"Chunk overlap size for collection documents (default 0)" group:"collections"`
+	CollectionsDBPath            string `env:"LOCALAI_COLLECTIONS_DB_PATH" help:"Where the vector engine of the collections keeps its data" group:"collections"`
 
 	// Old names of the collections options: accepted, used when the new name is not set.
 	LegacyCollectionsOptions `embed:""`
@@ -669,6 +670,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	opts = append(opts, config.WithTriggerRunRetention(r.TriggerRunKeep, r.TriggerRunRetention))
 
 	// Collections
+	opts = append(opts, config.WithCollectionsPostgresNamespace(r.CollectionsPostgresNamespace))
 	if r.DisableCollections {
 		opts = append(opts, config.DisableCollections)
 	}

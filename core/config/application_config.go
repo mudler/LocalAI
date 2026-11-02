@@ -490,17 +490,18 @@ type AuthConfig struct {
 
 // CollectionsConfig holds the configuration of the collections service.
 type CollectionsConfig struct {
-	Enabled          bool   // default: true (disabled by LOCALAI_DISABLE_COLLECTIONS=true)
-	StateDir         string // default: DynamicConfigsDir (LocalAI configuration folder)
-	APIURL           string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
-	APIKey           string // default: first API key from LocalAI config
-	DefaultModel     string
-	CollectionDBPath string
-	VectorEngine     string // default: "chromem"
-	EmbeddingModel   string // default: "granite-embedding-107m-multilingual"
-	MaxChunkingSize  int    // default: 400
-	ChunkOverlap     int    // default: 0
-	DatabaseURL      string
+	PostgresNamespace string // stable deployment identity; default "default"
+	Enabled           bool   // default: true (disabled by LOCALAI_DISABLE_COLLECTIONS=true)
+	StateDir          string // default: DynamicConfigsDir (LocalAI configuration folder)
+	APIURL            string // default: self-referencing LocalAI (http://127.0.0.1:<port>)
+	APIKey            string // default: first API key from LocalAI config
+	DefaultModel      string
+	CollectionDBPath  string
+	VectorEngine      string // default: "chromem"
+	EmbeddingModel    string // default: "granite-embedding-107m-multilingual"
+	MaxChunkingSize   int    // default: 400
+	ChunkOverlap      int    // default: 0
+	DatabaseURL       string
 }
 
 type AppOption func(*ApplicationConfig)
@@ -1647,4 +1648,8 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 		return DefaultChatsMaxIterations
 	}
 	return o.ChatsMaxIterations
+}
+
+func WithCollectionsPostgresNamespace(namespace string) AppOption {
+	return func(c *ApplicationConfig) { c.Collections.PostgresNamespace = namespace }
 }

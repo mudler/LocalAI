@@ -2,6 +2,7 @@ package collections
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -48,31 +49,37 @@ type collectionRegistry interface {
 
 // postgresCollectionRegistry reads the collection registry of the PostgreSQL
 // vector engine.
-type postgresCollectionRegistry struct{ databaseURL string }
+type postgresCollectionRegistry struct {
+	databaseURL string
+	scope       engine.PostgresScope
+}
 
 func (r postgresCollectionRegistry) Exists(ctx context.Context, name string) (bool, error) {
-	return engine.PostgresCollectionExists(ctx, r.databaseURL, name)
+	return engine.PostgresCollectionExists(ctx, r.databaseURL, name, r.scope)
 }
 
 func (r postgresCollectionRegistry) List(ctx context.Context) ([]string, error) {
-	return engine.ListPostgresCollections(ctx, r.databaseURL)
+	return engine.ListPostgresCollections(ctx, r.databaseURL, r.scope)
 }
 
 // collectionEvent is the payload published on
 // messaging.SubjectCacheInvalidateCollection.
 type collectionEvent struct {
-	Name string `json:"name"`
-	Op   string `json:"op"`
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name"`
+	Op        string `json:"op"`
 }
 
 // sharedCollections implements lagi.Backend on top of the in-process
 // backend and the shared registry.
 type sharedCollections struct {
-	inner    lagi.Backend
-	state    *lagi.State
-	registry collectionRegistry
-	bus      messaging.Broadcaster // nil without a message bus
-	recheck  time.Duration
+	namespace string
+	admit     func(string) error
+	inner     lagi.Backend
+	state     *lagi.State
+	registry  collectionRegistry
+	bus       messaging.Broadcaster // nil without a message bus
+	recheck   time.Duration
 
 	opens singleflight.Group
 
@@ -94,6 +101,9 @@ func newSharedCollections(inner lagi.Backend, state *lagi.State, registry collec
 		bus:      bus,
 		recheck:  collectionRecheckInterval,
 		checked:  map[string]time.Time{},
+	}
+	if r, ok := registry.(postgresCollectionRegistry); ok {
+		s.namespace = r.scope.Schema
 	}
 	if bus != nil {
 		sub, err := messaging.SubscribeJSON(bus, messaging.SubjectCacheInvalidateCollectionAll, s.onEvent)
@@ -117,7 +127,7 @@ func (s *sharedCollections) Close() {
 // onEvent handles an event from any frontend, including this one. It never
 // publishes, so it cannot loop.
 func (s *sharedCollections) onEvent(evt collectionEvent) {
-	if evt.Name == "" {
+	if evt.Namespace != s.namespace || evt.Name == "" {
 		return
 	}
 	s.forget(evt.Name)
@@ -132,7 +142,7 @@ func (s *sharedCollections) publish(name, op string) {
 	if s.bus == nil {
 		return
 	}
-	if err := s.bus.Publish(messaging.SubjectCacheInvalidateCollection(name), collectionEvent{Name: name, Op: op}); err != nil {
+	if err := s.bus.Publish(messaging.SubjectCacheInvalidateCollection(name), collectionEvent{Namespace: s.namespace, Name: name, Op: op}); err != nil {
 		xlog.Warn("Failed to publish collection event", "collection", name, "op", op, "error", err)
 	}
 }
@@ -199,6 +209,11 @@ func (s *sharedCollections) reconcile(name string) {
 // ensure makes the local cache agree with the registry for one collection. It
 // returns a "collection not found" error when the registry does not have it.
 func (s *sharedCollections) ensure(name string) error {
+	if s.admit != nil {
+		if err := s.admit(name); err != nil {
+			return err
+		}
+	}
 	if s.fresh(name) {
 		return nil
 	}
@@ -206,9 +221,13 @@ func (s *sharedCollections) ensure(name string) error {
 	defer cancel()
 	exists, err := s.registry.Exists(ctx, name)
 	if err != nil {
-		// Keep serving what this frontend already has.
+		// Legacy wrappers preserve cached availability. Scoped backends must
+		// surface registry failures rather than treating failed admission as absence.
 		xlog.Warn("Could not check the collection registry", "collection", name, "error", err)
-		return nil
+		if s.namespace == "" || (s.cached(name) && !errors.Is(err, engine.ErrPostgresScope)) {
+			return nil
+		}
+		return err
 	}
 	if !exists {
 		s.drop(name)
@@ -237,10 +256,31 @@ func (s *sharedCollections) ensure(name string) error {
 func (s *sharedCollections) ListCollections() ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), collectionRegistryTimeout)
 	defer cancel()
-	return s.registry.List(ctx)
+	names, err := s.registry.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	safe := make([]string, 0, len(names))
+	for _, name := range names {
+		if s.admit != nil {
+			if err := s.admit(name); err != nil {
+				if errors.Is(err, ErrLegacyCollectionActionRequired) {
+					continue
+				}
+				return nil, err
+			}
+		}
+		safe = append(safe, name)
+	}
+	return safe, nil
 }
 
 func (s *sharedCollections) CreateCollection(name string) error {
+	if s.admit != nil {
+		if err := s.admit(name); err != nil {
+			return err
+		}
+	}
 	if err := s.inner.CreateCollection(name); err != nil {
 		return err
 	}

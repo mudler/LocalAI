@@ -234,7 +234,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
-	github.com/mudler/localrecall v0.6.7-0.20261102005035-a79a4780a181
+	github.com/mudler/localrecall v0.6.7-0.20261102220754-09926f78c8cf
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/oxffaa/gopher-parse-sitemap v0.0.0-20191021113419-005d2eb1def4 // indirect
 	github.com/philippgille/chromem-go v0.7.0 // indirect

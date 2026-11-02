@@ -220,3 +220,32 @@ identity, and the complete capture-mode/restart matrix. Existing single-service
 or reducer tests are not a substitute for those distributed backend proofs.
 Full build, UI and coverage gates run separately; this bounded gate does not
 claim them.
+
+### PostgreSQL principal isolation and legacy data
+
+PostgreSQL collections use distinct verified schemas for the root and each
+account. Set `LOCALAI_COLLECTIONS_POSTGRES_NAMESPACE` (or
+`--collections-postgres-namespace`) to a stable deployment identity. Its default
+is `default`. Every frontend in one deployment must use the same value;
+independent deployments sharing a database must use different values. Do not
+change it as a way to access or migrate existing data.
+
+The shared PostgreSQL registry discovers collections created by another frontend,
+including when the account backend was already open. Account collection metadata
+and assets live under versioned scoped subdirectories; frontends do not need a
+shared metadata mount for discovery. Original uploaded files still require shared
+asset storage when another frontend must serve the original file. Memory writes
+and searches use the shared database. Non-PostgreSQL engines remain per-instance.
+
+Older PostgreSQL versions of this integration used bare collection names across
+accounts. LocalAI cannot infer ownership of that data safely. It never migrates,
+claims, or opens legacy data automatically. Operations on names found in the old
+registry or unverified local collection metadata fail with an explicit operator
+ownership-resolution error. Unrelated scoped collections continue working.
+
+`GET /api/collections` returns only verified scoped names and a separate
+`legacy_status` object (`action_required`, and an explanatory `message` when
+needed). Administrator `user_groups` include the same status. A status warning
+never labels ambiguous legacy names as belonging to an account. Resolve ownership
+and preserve backups explicitly before any separately reviewed migration; there
+is no automatic migration or ownership-claim option in this change.

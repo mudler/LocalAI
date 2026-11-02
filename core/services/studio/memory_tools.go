@@ -103,16 +103,7 @@ func (s *Service) AuthorizeMemory(ctx context.Context, req MemoryAuthorization) 
 	if !req.Delete && (!ag.Memory.AddMemory || ag.Memory.Destination != req.Destination || ag.Memory.ToolStorage != req.Storage || req.Source != "tool") {
 		return ErrMemoryDenied
 	}
-	names, err := s.d.Collections.List(ctx, req.Principal)
-	if err != nil {
-		return err
-	}
-	for _, n := range names {
-		if n == req.Destination {
-			return ctx.Err()
-		}
-	}
-	return ErrMemoryDenied
+	return s.checkCollection(ctx, req.Principal, req.Destination)
 }
 func (s *Service) SummarizeMemory(ctx context.Context, req SummaryRequest) (string, error) {
 	if !validMemoryContent(req.Content) {

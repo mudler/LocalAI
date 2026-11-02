@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mudler/localrecall/rag"
+	"github.com/mudler/localrecall/rag/engine"
 	"github.com/mudler/localrecall/rag/sources"
 	"github.com/mudler/xlog"
 	"github.com/sashabaranov/go-openai"
@@ -25,7 +26,7 @@ func newVectorEngine(
 	vectorEngineType string,
 	llmClient *openai.Client,
 	apiURL, apiKey, collectionName, dbPath, fileAssets, embeddingModel, databaseURL string,
-	maxChunkSize, chunkOverlap int,
+	maxChunkSize, chunkOverlap int, scopes ...engine.PostgresScope,
 ) *rag.PersistentKB {
 	var (
 		kb  *rag.PersistentKB
@@ -44,7 +45,7 @@ func newVectorEngine(
 			return nil
 		}
 		xlog.Info("PostgreSQL collection", "collectionName", collectionName)
-		kb, err = rag.NewPersistentPostgresCollection(llmClient, collectionName, dbPath, fileAssets, embeddingModel, maxChunkSize, chunkOverlap, databaseURL)
+		kb, err = rag.NewPersistentPostgresCollection(llmClient, collectionName, dbPath, fileAssets, embeddingModel, maxChunkSize, chunkOverlap, databaseURL, scopes...)
 	default:
 		xlog.Error("Unknown vector engine", "engine", vectorEngineType)
 		return nil

@@ -52,9 +52,8 @@ func WithHTTPClient(c *http.Client) Option {
 	return func(s *Service) { s.httpClient = c }
 }
 
-// New builds the service. bus, when not nil, is the cluster's message bus: the
-// root backend then shares its list of collections between frontends (with the
-// PostgreSQL vector engine). The embedding calls go to the server's own API, so
+// New builds the service. PostgreSQL collections use a verified deployment and
+// principal scope and a shared registry. bus accelerates cache invalidation. The embedding calls go to the server's own API, so
 // the caller starts the service after the API is listening.
 func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster, opts ...Option) (*Service, error) {
 	cfg := appConfig.Collections
@@ -87,8 +86,9 @@ func New(appConfig *config.ApplicationConfig, bus messaging.Broadcaster, opts ..
 		dbPath = filepath.Join(stateDir, "collections")
 	}
 	rootCfg := s.config(dbPath, filepath.Join(stateDir, "assets"))
+	s.scopeConfig(rootCfg, "")
 	backend, state := lagi.NewInProcessBackend(rootCfg)
-	if bus != nil {
+	if bus != nil || rootCfg.VectorEngine == "postgres" {
 		backend = s.share(backend, state, rootCfg)
 	}
 	s.root = backend
@@ -113,7 +113,9 @@ func (s *Service) share(backend lagi.Backend, state *lagi.State, cfg *lagi.Confi
 		xlog.Warn("Distributed mode without the postgres vector engine: each frontend keeps its own list of collections", "vectorEngine", cfg.VectorEngine)
 		return backend
 	}
-	return newSharedCollections(backend, state, postgresCollectionRegistry{databaseURL: cfg.DatabaseURL}, s.bus)
+	shared := newSharedCollections(backend, state, postgresCollectionRegistry{databaseURL: cfg.DatabaseURL, scope: cfg.PostgresScope}, s.bus)
+	shared.admit = func(name string) error { return s.admitLegacy(cfg, name) }
+	return shared
 }
 
 // Close stops the background work of the backends: the loops that refresh the
@@ -161,7 +163,13 @@ func (s *Service) Backend(userID string) (lagi.Backend, error) {
 	if err := s.storage.ensure(userID); err != nil {
 		return nil, err
 	}
-	b, _ = lagi.NewInProcessBackend(s.config(s.storage.CollectionsDir(userID), s.storage.AssetsDir(userID)))
+	cfg := s.config(s.storage.CollectionsDir(userID), s.storage.AssetsDir(userID))
+	s.scopeConfig(cfg, userID)
+	var state *lagi.State
+	b, state = lagi.NewInProcessBackend(cfg)
+	if s.bus != nil || cfg.VectorEngine == "postgres" {
+		b = s.share(b, state, cfg)
+	}
 	s.cache[userID] = b
 	return b, nil
 }
@@ -176,6 +184,9 @@ func (s *Service) ListForUser(userID string) ([]string, error) {
 		return nil, err
 	}
 	names, err := b.ListCollections()
+	if err == nil {
+		_, err = s.LegacyStatusForUser(userID)
+	}
 	if names == nil {
 		names = []string{}
 	}

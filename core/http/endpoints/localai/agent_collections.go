@@ -26,9 +26,14 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		}
 
+		legacy, err := svc.LegacyStatusForUser(userID)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 		model := app.ApplicationConfig().Collections.EmbeddingModel
 		resp := map[string]any{
 			"collections":               cols,
+			"legacy_status":             legacy,
 			"count":                     len(cols),
 			"embedding_model":           model,
 			"embedding_model_installed": embeddingModelInstalled(app, model),
@@ -44,10 +49,17 @@ func ListCollectionsEndpoint(app *application.Application) echo.HandlerFunc {
 						continue
 					}
 					userCols, err := svc.ListForUser(uid)
-					if err != nil || len(userCols) == 0 {
+					if err != nil {
+						return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+					}
+					userLegacy, err := svc.LegacyStatusForUser(uid)
+					if err != nil {
+						return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+					}
+					if len(userCols) == 0 && !userLegacy.ActionRequired {
 						continue
 					}
-					userGroups[uid] = map[string]any{"collections": userCols}
+					userGroups[uid] = map[string]any{"collections": userCols, "legacy_status": userLegacy}
 				}
 				if len(userGroups) > 0 {
 					resp["user_groups"] = userGroups

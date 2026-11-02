@@ -58,16 +58,7 @@ func (s *Service) AuthorizeCapture(ctx context.Context, i memory.Identity) error
 	default:
 		return ErrMemoryDenied
 	}
-	names, err := s.d.Collections.List(ctx, i.Principal)
-	if err != nil {
-		return err
-	}
-	for _, name := range names {
-		if name == i.Destination {
-			return ctx.Err()
-		}
-	}
-	return ErrMemoryDenied
+	return s.checkCollection(ctx, i.Principal, i.Destination)
 }
 
 // ProcessMemoryCaptures owns no goroutines. The caller owns its lifetime and

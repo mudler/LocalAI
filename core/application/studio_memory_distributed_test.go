@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/collections"
 	"github.com/mudler/LocalAI/core/services/nodes"
@@ -25,6 +26,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/testutil"
+	"github.com/mudler/localrecall/rag/engine"
 	"github.com/nats-io/nats.go"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -76,11 +78,19 @@ var _ = Describe("PostgreSQL two-frontend memory acceptance", func() {
 		DeferCleanup(embeddings.Close)
 		const principal = "a9d95bda-b870-4a0b-9f6d-d186d080b123"
 		const text = "Distributed curator: the launch window is Tuesday"
+		DeferCleanup(func() {
+			for _, user := range []string{"", principal} {
+				identity, _ := json.Marshal([]string{"localai.collections.v1", schema, user})
+				scope := engine.NewPostgresScope(string(identity))
+				memoryAdmin, e := pgx.Connect(ctx, memoryURL)
+				Expect(e).NotTo(HaveOccurred())
+				_, e = memoryAdmin.Exec(ctx, "DROP SCHEMA IF EXISTS "+pgx.Identifier{scope.Schema}.Sanitize()+" CASCADE")
+				Expect(e).NotTo(HaveOccurred())
+				Expect(memoryAdmin.Close(ctx)).To(Succeed())
+			}
+		})
 		name := fmt.Sprintf("distributed_memory_%d", time.Now().UnixNano())
 		net := &memoryAcceptanceBus{testutil.NewFakeBus()}
-		// Principal collection discovery currently uses file metadata, not the
-		// root-only PostgreSQL registry. Model the supported shared state mount.
-		collectionState := GinkgoT().TempDir()
 		type replica struct {
 			svc     *studio.Service
 			chats   store.Store
@@ -91,8 +101,7 @@ var _ = Describe("PostgreSQL two-frontend memory acceptance", func() {
 		}
 		open := func(owner string, remote bool) replica {
 			// Each replica opens its own pool, store, agent store, collection service
-			// and application adapter. PostgreSQL, transport and principal collection
-			// discovery metadata on the shared state mount are shared.
+			// and application adapter. Only PostgreSQL and transport are shared.
 			db, e := gorm.Open(postgres.Open(u.String()), &gorm.Config{})
 			Expect(e).NotTo(HaveOccurred())
 			sqlDB, e := db.DB()
@@ -103,7 +112,8 @@ var _ = Describe("PostgreSQL two-frontend memory acceptance", func() {
 			Expect(e).NotTo(HaveOccurred())
 			cfg := config.NewApplicationConfig()
 			cfg.DataPath = GinkgoT().TempDir()
-			cfg.Collections.StateDir = collectionState
+			cfg.Collections.StateDir = cfg.DataPath
+			cfg.Collections.PostgresNamespace = schema
 			cfg.Collections.VectorEngine, cfg.Collections.DatabaseURL = "postgres", memoryURL
 			cfg.Collections.APIURL, cfg.Collections.EmbeddingModel = embeddings.URL+"/v1", "test"
 			cs, e := collections.New(cfg, net)
@@ -135,9 +145,12 @@ var _ = Describe("PostgreSQL two-frontend memory acceptance", func() {
 		first, second, worker := open("frontend-one", true), open("frontend-two", true), open("chat-worker", false)
 		Expect(first.chats).NotTo(BeIdenticalTo(second.chats))
 		Expect(first.agents).NotTo(BeIdenticalTo(second.agents))
+		_, err = second.adapter.a.CollectionsService().Backend(principal)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = worker.adapter.a.CollectionsService().Backend(principal)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(first.adapter.a.CollectionsService().CreateForUser(principal, name)).To(Succeed())
-		// Each principal backend first opens after collection metadata exists. This
-		// does not prove live discovery by an already-open principal backend.
+		// Already-open principal backends discover through the scoped registry.
 		names, err := second.adapter.List(ctx, principal)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(names).To(ContainElement(name))

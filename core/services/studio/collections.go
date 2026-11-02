@@ -33,6 +33,28 @@ type Collections interface {
 	Search(ctx context.Context, user, collection, query string, limit int) ([]CollectionHit, error)
 }
 
+// CollectionAdmission checks a single destination without denying unrelated
+// scoped collections when legacy data needs operator resolution.
+type CollectionAdmission interface {
+	CheckCollection(context.Context, string, string) error
+}
+
+func (s *Service) checkCollection(ctx context.Context, principal, name string) error {
+	if admission, ok := s.d.Collections.(CollectionAdmission); ok {
+		return admission.CheckCollection(ctx, principal, name)
+	}
+	names, err := s.d.Collections.List(ctx, principal)
+	if err != nil {
+		return err
+	}
+	for _, n := range names {
+		if n == name {
+			return ctx.Err()
+		}
+	}
+	return ErrMemoryDenied
+}
+
 // The bounds of a search answer, so one search cannot fill the context.
 const (
 	collectionDefaultHits = 5
