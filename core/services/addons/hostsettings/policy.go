@@ -13,6 +13,8 @@ import (
 	"fmt"
 	"io"
 	"maps"
+	"reflect"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -41,6 +43,16 @@ type Policy struct {
 	AllowedHosts      string            `json:"chats_egress_allowed_hosts"`
 	ToolProviders     map[string]string `json:"chats_tool_providers"`
 	AutoUpgradeAddons bool              `json:"auto_upgrade_addons"`
+}
+
+// MarshalJSON keeps an empty provider set canonical rather than emitting null,
+// including when a legacy owner has no pins.
+func (p Policy) MarshalJSON() ([]byte, error) {
+	type plain Policy
+	if p.ToolProviders == nil {
+		p.ToolProviders = map[string]string{}
+	}
+	return json.Marshal(plain(p))
 }
 
 // Patch changes only present keys. An empty string clears a string field;
@@ -76,16 +88,123 @@ func (p *Patch) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// Check the wire shape before encoding/json can discard duplicates, accept
+// case-insensitive field aliases, or turn null/missing fields into zero values.
 func strictJSON(b []byte, v any) error {
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.DisallowUnknownFields()
-	if err := d.Decode(v); err != nil {
+	shape := json.NewDecoder(bytes.NewReader(b))
+	shape.UseNumber()
+	if err := jsonShape(shape, reflect.TypeOf(v).Elem()); err != nil {
 		return err
 	}
-	if err := d.Decode(new(any)); err != io.EOF {
+	if _, err := shape.Token(); err != io.EOF {
 		return ErrInvalid
 	}
-	return nil
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	return d.Decode(v)
+}
+
+func jsonShape(d *json.Decoder, t reflect.Type) error {
+	nullable := t.Kind() == reflect.Pointer
+	if nullable {
+		t = t.Elem()
+	}
+	token, err := d.Token()
+	if err != nil {
+		return err
+	}
+	if token == nil {
+		// Only pointer map values (provider deletions) may be null. Patch
+		// UnmarshalJSON separately rejects null at the top level.
+		if nullable || t == reflect.TypeOf(json.RawMessage{}) {
+			return nil
+		}
+		return ErrInvalid
+	}
+	// RawMessage is used only to inspect a patch before decoding its fields.
+	raw := t == reflect.TypeOf(json.RawMessage{})
+	if delim, ok := token.(json.Delim); ok {
+		switch delim {
+		case '{':
+			if !raw && t.Kind() != reflect.Struct && t.Kind() != reflect.Map {
+				return ErrInvalid
+			}
+			fields := map[string]reflect.StructField{}
+			if t.Kind() == reflect.Struct && !raw {
+				for i := 0; i < t.NumField(); i++ {
+					f := t.Field(i)
+					fields[strings.Split(f.Tag.Get("json"), ",")[0]] = f
+				}
+			}
+			seen := map[string]bool{}
+			for d.More() {
+				keyToken, err := d.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok || seen[key] {
+					return ErrInvalid
+				}
+				seen[key] = true
+				var child reflect.Type
+				switch {
+				case raw:
+					child = t
+				case t.Kind() == reflect.Map:
+					child = t.Elem()
+				default:
+					f, ok := fields[key]
+					if !ok {
+						return ErrInvalid
+					}
+					child = f.Type
+				}
+				if err := jsonShape(d, child); err != nil {
+					return err
+				}
+			}
+			if _, err := d.Token(); err != nil {
+				return err
+			}
+			for name, f := range fields {
+				if !strings.Contains(f.Tag.Get("json"), ",omitempty") && !seen[name] {
+					return ErrInvalid
+				}
+			}
+			return nil
+		case '[':
+			if !raw {
+				return ErrInvalid
+			}
+			for d.More() {
+				if err := jsonShape(d, t); err != nil {
+					return err
+				}
+			}
+			_, err := d.Token()
+			return err
+		}
+		return ErrInvalid
+	}
+	if raw {
+		return nil
+	}
+	switch t.Kind() {
+	case reflect.String:
+		if _, ok := token.(string); ok {
+			return nil
+		}
+	case reflect.Bool:
+		if _, ok := token.(bool); ok {
+			return nil
+		}
+	case reflect.Int, reflect.Uint64:
+		if _, ok := token.(json.Number); ok {
+			return nil
+		}
+	}
+	return ErrInvalid
 }
 
 type Provenance struct {
@@ -159,6 +278,9 @@ func apply(s Snapshot, p Patch) (Snapshot, error) {
 		s.Policy.ToolProviders = map[string]string{}
 	}
 	for k, v := range p.ToolProviders {
+		if len(k) > 128 || !(contract.Replaceable(k) || contract.ReplaceableSkill(k)) {
+			return Snapshot{}, fmt.Errorf("%w: provider pin %q", ErrInvalid, k)
+		}
 		if v == nil {
 			delete(s.Policy.ToolProviders, k)
 		} else {

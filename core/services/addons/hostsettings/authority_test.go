@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"strings"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -133,6 +134,141 @@ var _ = Describe("Owner policy", func() {
             Expect(after).To(Equal(body))
         }
     })
+	It("reopens canonical migration without provider pins", func() {
+        m := legacy()
+        m.Candidates[0].ToolProviders = nil
+        var err error
+        s, err = Open(path, m)
+        Expect(err).NotTo(HaveOccurred())
+        Expect(s.Close()).To(Succeed())
+        s = nil
+        s, err = Open(path, nil)
+        Expect(err).NotTo(HaveOccurred())
+        live, err := s.Snapshot(ctx)
+        Expect(err).NotTo(HaveOccurred())
+        Expect(live.Policy.ToolProviders).To(BeEmpty())
+    })
+	for name, body := range map[string]string{
+		"duplicate ceiling":  `{"chats_egress_ceiling":"off","chats_egress_ceiling":"all"}`,
+		"escaped duplicate":  `{"chats_egress_ceiling":"off","chats_egress_\u0063eiling":"all"}`,
+		"duplicate provider": `{"chats_tool_providers":{"bash":null,"bash":"sandbox"}}`,
+		"noncanonical field": `{"CHATS_EGRESS_CEILING":"all"}`,
+	} {
+		It("rejects patch "+name, func() {
+			var p Patch
+			Expect(json.Unmarshal([]byte(body), &p)).NotTo(Succeed())
+		})
+	}
+	It("validates deletion keys before persistence even when absent", func() {
+		open()
+		before, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		calls := 0
+		s.persist = func(document) (bool, error) { calls++; return false, nil }
+		for _, key := range []string{"unknown", "", "BASH", "localai-workspace"} {
+			_, err = s.Update(ctx, Patch{ToolProviders: map[string]*string{key: nil}}, 1, "delete-"+key)
+			Expect(errors.Is(err, ErrInvalid)).To(BeTrue(), key)
+		}
+		Expect(calls).To(BeZero())
+		live, err := s.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(live.Revision).To(Equal(uint64(1)))
+		after, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(after).To(Equal(before))
+	})
+	It("rejects missing null and mistyped required document fields recursively", func() {
+		open()
+		_, err := s.Update(ctx, Patch{}, 1, "Mixed-Case-Receipt")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Close()).To(Succeed())
+		s = nil
+		original, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		var root map[string]any
+		Expect(json.Unmarshal(original, &root)).To(Succeed())
+		// Include both the current and receipt snapshots and all nested objects.
+		var visit func(map[string]any, []string)
+		visit = func(obj map[string]any, pathParts []string) {
+			for key, value := range obj {
+				fieldPath := append(append([]string{}, pathParts...), key)
+				for _, replacement := range []string{"missing", "null", "wrong type"} {
+					var copyRoot map[string]any
+					Expect(json.Unmarshal(original, &copyRoot)).To(Succeed())
+					target := copyRoot
+					for _, part := range pathParts {
+						target = target[part].(map[string]any)
+					}
+					switch replacement {
+					case "missing":
+						delete(target, key)
+					case "null":
+						target[key] = nil
+					default:
+						target[key] = []any{}
+					}
+					body, err := json.Marshal(copyRoot)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(os.WriteFile(path, body, 0600)).To(Succeed())
+					other, openErr := Open(path, legacy())
+					if other != nil {
+						Expect(other.Close()).To(Succeed())
+					}
+					Expect(openErr).To(HaveOccurred(), "%v %s", fieldPath, replacement)
+					after, err := os.ReadFile(path)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(after).To(Equal(body))
+				}
+				if child, ok := value.(map[string]any); ok {
+					// Map entries are optional; their values still have required fields.
+					if key == "receipts" {
+						for id, receipt := range child {
+							visit(receipt.(map[string]any), append(fieldPath, id))
+						}
+					} else if key != "chats_tool_providers" {
+						visit(child, fieldPath)
+					}
+				}
+			}
+		}
+		visit(root, nil)
+	})
+	It("rejects duplicate and noncanonical document fields at every structure", func() {
+		open()
+		_, err := s.Update(ctx, Patch{}, 1, "Mixed-Case-Receipt")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.Close()).To(Succeed())
+		s = nil
+		original, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		for _, field := range []string{"snapshot", "receipts", "schema_version", "policy", "migration", "mode", "body", "chats_egress_ceiling", "bash"} {
+			token := `"` + field + `":`
+			// An extra null occurrence must not be silently overwritten.
+			body := strings.Replace(string(original), token, token+`null,`+token, 1)
+			Expect(os.WriteFile(path, []byte(body), 0600)).To(Succeed())
+			other, err := Open(path, legacy())
+			if other != nil {
+				Expect(other.Close()).To(Succeed())
+			}
+			Expect(err).To(HaveOccurred(), field)
+			if field == "bash" {
+				continue
+			} // Map keys are not struct field names.
+			body = strings.Replace(string(original), token, `"`+strings.ToUpper(field)+`":`, 1)
+			Expect(os.WriteFile(path, []byte(body), 0600)).To(Succeed())
+			other, err = Open(path, legacy())
+			if other != nil {
+				Expect(other.Close()).To(Succeed())
+			}
+			Expect(err).To(HaveOccurred(), field)
+		}
+		// The canonical file accepts arbitrary valid operation IDs unchanged.
+		Expect(os.WriteFile(path, original, 0600)).To(Succeed())
+		open()
+		replay, err := s.Update(ctx, Patch{}, 1, "Mixed-Case-Receipt")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(replay.Revision).To(Equal(uint64(2)))
+	})
 	It("serializes concurrent stale writers and preserves disjoint reconciled patches", func() {
 		open()
 		var wg sync.WaitGroup
