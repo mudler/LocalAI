@@ -50,6 +50,8 @@ export function useHostSettings(client, scope) {
   }
   return { ...state, uncertain: !!pending.current, reload: () => load(true), save,
     setDraft: draft => setState(s => ({ ...s, draft: typeof draft === 'function' ? draft(s.draft) : draft })),
-    discard: () => { pending.current = null; setState(s => ({ ...s, draft: structuredClone(s.snapshot.policy), error: null })) },
+    // Discard is local only: neither an outage nor an uncertain operation is
+    // reconciled by resetting the draft. Keep the error and retry identity.
+    discard: () => setState(s => ({ ...s, draft: structuredClone(s.snapshot.policy) })),
   }
 }

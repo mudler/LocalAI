@@ -16,7 +16,9 @@ globalThis.document = dom.window.document
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 // React DOM detects input event support at import time, after JSDOM exists.
 const { createRoot } = await import('react-dom/client')
-const dto = (revision = 1, policy = { chats_egress_allowed_hosts: '' }) => ({ schema_version: 1, revision, policy })
+// All eight fields are emitted by Go Policy.MarshalJSON (no omitempty).
+const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false }
+const dto = (revision = 1, policy = {}) => ({ schema_version: 1, revision, policy: { ...defaults, ...policy } })
 const reply = data => new Response(JSON.stringify({ payload: { data } }), { status: 200 })
 
 test('owner client dispatches exact immutable CAS payload and same identity on retry', async () => {
@@ -81,10 +83,86 @@ test('rendered hook keeps conflict edits for rebase, blocks outage fallback and 
 })
 
 test('owner client rejects malformed DTOs rather than inventing local settings', async () => {
-  for (const value of [null, dto(0), dto(1, []), { ...dto(), schema_version: 2 }]) {
+  for (const value of [null, dto(0), { ...dto(), policy: [] }, { ...dto(), schema_version: 2 }]) {
     const client = createHostSettingsClient({ api: { dispatch: async () => ({ data: value }) } })
     await assert.rejects(client.read(), /unavailable/i)
   }
+})
+
+test('owner client rejects partial, mistyped, unknown and oversized owner policies on reads and writes', async () => {
+  const malformed = [
+    { ...dto(), policy: {} }, { ...dto(), policy: { chats_egress_allowed_hosts: '' } },
+    ...Object.keys(defaults).map(key => { const value = dto(); delete value.policy[key]; return value }),
+    ...Object.keys(defaults).map(key => dto(1, { [key]: null })),
+    dto(1, { chats_egress_allow_private: 'false' }), dto(1, { auto_upgrade_addons: 0 }),
+    dto(1, { chats_egress_ports: 443 }), dto(1, { chats_egress_ceiling: 'future' }),
+    dto(1, { chats_egress_allowed_hosts: 'é'.repeat(4097) }),
+    dto(1, { chats_tool_providers: new Date() }), dto(1, { future_owner_guard: false }),
+    dto(1, { chats_tool_providers: [] }), dto(1, { chats_tool_providers: { tool: false } }),
+    dto(1, { chats_tool_providers: { ['x'.repeat(129)]: 'addon' } }),
+    dto(1, { chats_tool_providers: { tool: 'x'.repeat(129) } }),
+    dto(1, { chats_tool_providers: Object.fromEntries(Array.from({ length: 129 }, (_, i) => [`tool${i}`, 'addon'])) }),
+    ...['chats_egress_ceiling', 'chats_egress_default', 'chats_egress_ports', 'chats_egress_extra_registries', 'chats_egress_allowed_hosts'].map(key => dto(1, { [key]: 'x'.repeat(8193) })),
+    { ...dto(), future: true }, dto(Number.MAX_SAFE_INTEGER + 1),
+  ]
+  for (const value of malformed) {
+    const client = createHostSettingsClient({ api: { dispatch: async () => ({ data: value }) } })
+    await assert.rejects(client.read(), /unavailable/i)
+    await assert.rejects(client.prepare({}, 1).update(), /unavailable/i)
+  }
+  for (const envelope of [{ data: dto(), error: 'invalid' }, { data: dto(), future: true }, { error: 'future_error' }]) {
+    const client = createHostSettingsClient({ api: { dispatch: async () => envelope } })
+    await assert.rejects(client.read(), /unavailable/i)
+  }
+  const client = createHostSettingsClient({ api: { dispatch: async () => ({ data: dto() }) } })
+  assert.deepEqual(await client.read(), dto(), 'actual Go empty/default representation is accepted unchanged')
+})
+
+test('discard preserves an uncertain write identity until a successful retry and owner read', async () => {
+  let fail = true
+  const operations = []
+  const client = createHostSettingsClient({ api: { dispatch: async request => {
+    if (request.action === 'host-settings-update') {
+      operations.push(structuredClone(request))
+      if (fail) throw new Error('offline')
+    }
+    return { data: dto(fail ? 1 : 2) }
+  } } })
+  const h = await mount(client)
+  try {
+    await act(async () => h.owner.setDraft({ ...h.owner.draft, chats_egress_allowed_hosts: '*.example.com' }))
+    await act(async () => h.owner.save({ chats_egress_allowed_hosts: '*.example.com' }))
+    await act(async () => h.owner.discard())
+    assert.equal(h.owner.uncertain, true)
+    assert.ok(h.owner.error)
+    assert.deepEqual(h.owner.draft, defaults)
+    await act(async () => h.owner.reload())
+    assert.equal(h.owner.uncertain, true, 'a read alone cannot resolve the pending operation')
+    assert.ok(h.owner.error)
+    fail = false
+    await act(async () => h.owner.save({}))
+    assert.deepEqual(operations[1], operations[0], 'discard must not replace the uncertain operation with a new write')
+    assert.equal(h.owner.uncertain, false)
+    assert.equal(h.owner.error, null)
+    assert.equal(h.owner.snapshot.revision, 2)
+  } finally { await h.close() }
+})
+
+test('malformed reload never publishes a partial snapshot and successful read reconciles availability', async () => {
+  let value = dto()
+  const h = await mount(createHostSettingsClient({ api: { dispatch: async () => ({ data: value }) } }))
+  try {
+    value = { ...dto(2), policy: { chats_egress_allow_private: 'false' } }
+    await act(async () => h.owner.reload())
+    assert.equal(h.owner.snapshot.revision, 1)
+    assert.deepEqual(h.owner.snapshot.policy, defaults)
+    await act(async () => h.owner.discard())
+    assert.ok(h.owner.error)
+    value = dto(3)
+    await act(async () => h.owner.reload())
+    assert.equal(h.owner.error, null)
+    assert.equal(h.owner.snapshot.revision, 3)
+  } finally { await h.close() }
 })
 
 // Load the real JSX form and network-policy block. Only routing, translation
@@ -116,11 +194,15 @@ test('mounted HostControlsForm confirms private access locally and sends only th
     // module loading (the real registry still chooses the real component).
     await server.ssrLoadModule('/src/components/hostcontrols/NetworkPolicySettings.jsx')
     const calls = [], rejected = []
-    let revision = 7, allowPrivate = false
+    let revision = 7, allowPrivate = false, offline = false
     const client = createHostSettingsClient({ api: createAddonsApi({ fetch: async (url, opts) => {
       const body = JSON.parse(opts.body)
       calls.push({ url, body })
       assert.equal(url, '/api/addons/dispatch')
+      if (offline) {
+        if (body.action === 'host-settings-update') return new Response(JSON.stringify({ payload: { error: 'invalid' } }))
+        throw new Error('offline')
+      }
       if (body.action === 'host-settings-read') return reply(dto(revision, { chats_egress_allow_private: allowPrivate }))
       assert.equal(body.action, 'host-settings-update')
       const unknown = Object.keys(body.arguments.patch).filter(key => key !== 'chats_egress_allow_private')
@@ -155,6 +237,16 @@ test('mounted HostControlsForm confirms private access locally and sends only th
     assert.ok(calls.every(c => c.url !== '/api/settings'))
     assert.match(document.body.textContent, /revision 8/)
     assert.equal(document.querySelector('[data-testid="settings-pending"]'), null)
+    await act(async () => document.querySelector('[data-testid="settings-egress-private-switch"]').click())
+    offline = true
+    const button = text => [...document.querySelectorAll('button')].find(b => b.textContent === text)
+    // Trigger a failed write, then the real reload action, before discarding.
+    await act(async () => apply().click())
+    await act(async () => button('Reload and rebase edits').click())
+    await act(async () => button('Discard').click())
+    assert.ok(document.querySelector('[data-testid="addon-host-controls-error"]'), 'discard cannot clear owner unavailability')
+    await act(async () => document.querySelector('[data-testid="settings-egress-private-switch"]').click())
+    assert.equal(apply().disabled, true, 'failed reload -> discard -> edit must not reopen Save')
   } finally {
     if (root) await act(async () => root.unmount())
     await server.close()
