@@ -169,7 +169,7 @@ import HubLayout from './components/hub/HubLayout'
 import { AddonRegistryProvider } from './addons/registry'
 import { useAuth } from './context/AuthContext'
 import { NavigationProvider, useNavigation } from './context/NavigationContext'
-import { addonPageAddress, bareChatsRedirect, chatsRedirect, studioAddress, studioRedirect, talkAddress } from './utils/legacyRoutes'
+import { bareChatsRedirect, chatsRedirect } from './utils/legacyRoutes'
 import { legacyAddonsHub, operateHub } from './components/hub/hubConfig'
 import { useHubAuth } from './components/hub/useHubAuth'
 
@@ -199,61 +199,14 @@ function AgentRedirect() {
   return <Navigate to={`/app/agents/${encodeURIComponent(id)}`} replace />
 }
 
-// An old generator link opens the same generator inside the Studio add-on. The
-// model, the query string and the hash are kept.
-function StudioTabRedirect({ legacy }) {
-  const { model } = useParams()
-  const { search, hash } = useLocation()
-  return <Navigate to={studioRedirect(legacy, model, search, hash)} replace />
-}
-
-// /app/studio[/tab[/model]] is a page of the Studio add-on now.
-function StudioRedirect() {
-  const { tab, model } = useParams()
-  const { search, hash } = useLocation()
-  return <Navigate to={studioAddress({ tab, model, search, hash })} replace />
-}
-
-// /app/talk is a page of the Talk add-on now.
-function TalkRedirect() {
-  const { search, hash } = useLocation()
-  return <Navigate to={talkAddress({ search, hash })} replace />
-}
-
 function BrowseRedirect() {
   const { '*': splat } = useParams()
   return <Navigate to={`/app/${splat || ''}`} replace />
 }
 
 
-// The pages of Face, Voice, Fine-tuning and Quantization live only in their
-// add-ons. The old address opens the add-on page; when the add-on is not
-// installed or not ready, the add-on shell says so. withModel carries the
-// :model segment of the old route as ?model=<id>: an add-on path segment
-// refuses "/", ":" and "%" and long ids (resolveSubpath), so a model id cannot
-// travel in the path.
-function AddonRedirect({ addon, page, withModel }) {
-  const { search, hash } = useLocation()
-  const { model } = useParams()
-  return <Navigate to={addonPageAddress({ addon, page, model: withModel ? model : undefined, search, hash })} replace />
-}
-
 function Admin({ children }) {
   return <RequireAdmin>{children}</RequireAdmin>
-}
-
-// The layout of the add-on routes: the Build hub bar under the legacy switch,
-// the bare page otherwise.
-// With add-ons off (features.addons === false) the add-on addresses and the
-// old fine-tuning and quantization addresses lead back to /app. An absent key
-// counts as on.
-// Home then says that add-ons are off and how to turn them on (state.addonsOff
-// names the add-on the address was for).
-function AddonsOffRedirect({ addon, children }) {
-  const { features, featuresLoaded } = useHubAuth()
-  if (!featuresLoaded) return null
-  if (features.addons === false) return <Navigate to="/app" replace state={{ addonsOff: addon }} />
-  return children
 }
 
 function AddonsShell() {
@@ -323,27 +276,6 @@ const appChildren = [
   { path: 'triggers/:id/edit', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
   { path: 'triggers/:id', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
   { path: 'agent-tasks', element: <Feature feature="mcp_jobs"><ServerSwitch name="agent_jobs" to="/app/agents"><AgentTasks /></ServerSwitch></Feature> },
-  { path: 'image', element: <StudioTabRedirect legacy="image" /> },
-  { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
-  { path: 'video', element: <StudioTabRedirect legacy="video" /> },
-  { path: 'video/:model', element: <StudioTabRedirect legacy="video" /> },
-  { path: '3d', element: <Feature feature="3d"><StudioTabRedirect legacy="3d" /></Feature> },
-  { path: '3d/:model', element: <Feature feature="3d"><StudioTabRedirect legacy="3d" /></Feature> },
-  { path: 'tts', element: <StudioTabRedirect legacy="tts" /> },
-  { path: 'tts/:model', element: <StudioTabRedirect legacy="tts" /> },
-  { path: 'sound', element: <StudioTabRedirect legacy="sound" /> },
-  { path: 'sound/:model', element: <StudioTabRedirect legacy="sound" /> },
-  { path: 'diarization', element: <Feature feature="audio_diarization"><StudioTabRedirect legacy="diarization" /></Feature> },
-  { path: 'diarization/:model', element: <Feature feature="audio_diarization"><StudioTabRedirect legacy="diarization" /></Feature> },
-  { path: 'transform', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
-  { path: 'transform/:model', element: <Feature feature="audio_transform"><StudioTabRedirect legacy="transform" /></Feature> },
-  // Studio and Talk are add-ons; the old addresses open them. When the add-on
-  // is not installed the add-on page says so.
-  { path: 'studio', element: <StudioRedirect /> },
-  { path: 'studio/:tab', element: <StudioRedirect /> },
-  // A generator opened on one model: /app/studio/images/<model>.
-  { path: 'studio/:tab/:model', element: <StudioRedirect /> },
-  { path: 'talk', element: <TalkRedirect /> },
   { path: 'account', element: <Account /> },
   // The Add-ons drawer. A viewer without the addons feature still reaches it
   // when a built-in tile is theirs to open (the built-in list is empty today).
@@ -364,13 +296,6 @@ const appChildren = [
   { path: 'build', element: <Navigate to="/app/models" replace /> },
   { path: 'collections', element: <Feature feature="collections"><Collections /></Feature> },
   { path: 'collections/:name', element: <Feature feature="collections"><Collections /></Feature> },
-  { path: 'fine-tune', element: <AddonsOffRedirect addon="fine-tuning"><AddonRedirect addon="fine-tuning" page="jobs" /></AddonsOffRedirect> },
-  { path: 'quantize', element: <AddonsOffRedirect addon="quantization"><AddonRedirect addon="quantization" page="jobs" /></AddonsOffRedirect> },
-  { path: 'face', element: <AddonRedirect addon="face" page="recognition" /> },
-  { path: 'face/:model', element: <AddonRedirect addon="face" page="recognition" withModel /> },
-  { path: 'voice', element: <AddonRedirect addon="voice" page="voice/recognition" /> },
-  { path: 'voice/:model', element: <AddonRedirect addon="voice" page="voice/recognition" withModel /> },
-  { path: 'voice-library', element: <AddonRedirect addon="voice" page="voice/library" /> },
   { path: 'import-model', element: <Admin><ImportModel /></Admin> },
   // The user's MCP connectors have a page of their own; the old address was a
   // tab of the messaging connectors.
@@ -420,7 +345,6 @@ const appChildren = [
     children: [{ path: ':id', element: <ModelPage /> }],
   },
   { path: 'manage', element: <Admin><ManageRedirect /></Admin> },
-  { path: 'voice-library/new', element: <AddonRedirect addon="voice" page="voice/library/new" /> },
   { path: 'model-editor', element: <Admin><ModelEditor /></Admin> },
   { path: 'model-editor/:name', element: <Admin><ModelEditor /></Admin> },
   { path: 'ui-catalog', element: <Admin><UiCatalog /></Admin> },

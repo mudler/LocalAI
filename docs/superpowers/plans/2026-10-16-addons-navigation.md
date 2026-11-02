@@ -1,5 +1,10 @@
 # Add-on navigation Implementation Plan
 
+
+> Routing update: historical addon-specific redirect requirements below are
+> superseded by the approved model-actions amendment (2026-11-02). Use declared
+> canonical add-on pages; native chat handoff and addon-local adapters remain.
+
 > Pin behavior update: the unreleased seed proposal and seed code examples below are
 > superseded. Startup adds no implicit pins and does not scan accounts. Existing saved
 > pins remain intact. Explicit selections persist across reopen and frontends. Studio,

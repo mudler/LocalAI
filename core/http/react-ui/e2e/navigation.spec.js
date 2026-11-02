@@ -42,7 +42,7 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL(/\/app\/settings/)
     await expect(page.locator('.dk-hubtabs [data-hub-tab="settings"]')).toHaveAttribute('aria-current', 'page')
     // Studio and Talk are add-ons: the sidebar does not list them; they are in the drawer while installed.
-    for (const href of ['/app/studio', '/app/talk']) {
+    for (const href of ['/app/addons/studio/studio', '/app/addons/talk/talk']) {
       await expect(page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)).toHaveCount(0)
     }
   })

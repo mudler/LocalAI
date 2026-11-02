@@ -65,7 +65,7 @@ test('switching the files group off in a chat stores it, and Select all puts it 
 test('an add-on address with add-ons off lands on Home with a notice, and /studio offers Install Studio', async ({ page, request }) => {
   const features = await (await request.get('/api/features')).json()
   test.skip(features.addons !== false, 'needs a server with add-ons off')
-  await page.goto('/app/image')
+  await page.goto('/app/addons/studio/studio/images')
   await page.waitForURL(/\/app$/)
   const note = page.getByTestId('home-addons-off')
   await expect(note).toContainText('Add-ons are off on this server')

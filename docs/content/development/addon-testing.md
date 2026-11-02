@@ -556,3 +556,23 @@ owns vocabulary parity; the contract package does not import core/config.
 Exact contract, Apps, package and protocol spec names are in
 `scripts/addons/suites.json`. These unit checks do not certify browser dispatch,
 PostgreSQL services, or full-system harness prerequisites.
+
+
+### Model launch and canonical route regressions
+
+`core/http/react-ui/e2e/addon-model-actions.spec.js` exercises the production
+React InstalledModels inspector, gallery Open and ModelPage Overview renderer.
+Each surface covers arbitrary single providers, deterministic named collisions,
+encoded selected model values, absence without install promotion and stale
+installation refusal. The removed-route case asserts NotFound without redirect.
+The tests mock HTTP responses; they do not verify backend authorization or
+multi-node integration. Node tests in `addonmodelactions.test.mjs` cover bounded
+metadata and dispatch rejection after actor, session, generation, entry or
+page/path changes. `legacyroutes.test.mjs` retains native chat handoff checks.
+
+The canonical-address fixture audit includes audio-transform, chats-switches-real,
+chrome-audit, diarization-profiles, media-history, navigation, no-edge-rails,
+page-render-smoke, sound-expansion, every studio spec, talk, taste-polish,
+threed-animation, threed-gen and addon-navigation. Existing cases remain;
+standalone addon addresses become declared fixture pages, and selected models
+travel as query values. Addon-local navigation adapter coverage stays in place.

@@ -1,8 +1,7 @@
 // Studio and Talk are packaged add-ons. A spec that draws one of them installs
 // the real built bundle here: the app list names it, and its module and style
 // sheet are served from the build output the way the add-on owner serves them.
-// The old /app/studio and /app/talk addresses redirect to the add-on page, so a
-// spec can still open those.
+// Specs open canonical declared pages, never historical standalone redirects.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -46,7 +45,7 @@ export function packagedApp(id, over = {}) {
   return app({
     id, name: id, title: ui.title, description: ui.description, icon: undefined, generation: 1, version: manifest.version,
     mainPage: `/app/addons/${id}/${ui.mainPage}`, tools: [], toolCount: 0,
-    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation },
+    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions },
     ...over,
   })
 }

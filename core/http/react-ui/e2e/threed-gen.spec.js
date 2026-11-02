@@ -117,7 +117,7 @@ function mockGlbDownload(page) {
 }
 
 async function generateOnce(page) {
-  await page.goto('/app/3d')
+  await page.goto('/app/addons/studio/studio/threed')
   await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
   await page.locator('#threed-image-file').setInputFiles({
     name: 'input.png',
@@ -213,7 +213,7 @@ test.describe('3D generation', () => {
     let requestBody = null
     await mockGeneration(page, (body) => { requestBody = body })
 
-    await page.goto('/app/studio/threed')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
     await pasteImage(page)
     await page.locator('button[type="submit"]').click()
@@ -232,7 +232,7 @@ test.describe('3D generation', () => {
     let requestBody = null
     await mockGeneration(page, (body) => { requestBody = body })
 
-    await page.goto('/app/3d')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
     await page.locator('#threed-image-file').setInputFiles({ name: 'input.png', mimeType: 'image/png', buffer: TINY_PNG })
 
@@ -291,7 +291,7 @@ test.describe('3D generation', () => {
 
     // IndexedDB persists within the browser context — navigate away and back.
     await page.goto('/app')
-    await page.goto('/app/3d')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page.getByTestId('media-history-item')).toHaveCount(1, { timeout: 15_000 })
 
     // Selecting the entry loads the stored Blob back into the viewer.
@@ -302,7 +302,7 @@ test.describe('3D generation', () => {
 
   test('new history is visible on the Studio overview without a reload', async ({ page }) => {
     await mockGeneration(page)
-    await page.goto('/app/studio/threed')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
     await page.locator('#threed-image-file').setInputFiles({ name: 'input.png', mimeType: 'image/png', buffer: TINY_PNG })
     await page.locator('button[type="submit"]').click()
@@ -337,7 +337,7 @@ test.describe('3D generation', () => {
   test('rejects oversized conditioning images before making an API request', async ({ page }, testInfo) => {
     let requested = false
     await mockGeneration(page, () => { requested = true })
-    await page.goto('/app/3d')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page.getByRole('button', { name: 'trellis-test-model' })).toBeVisible({ timeout: 10_000 })
 
     // A file on disk, not an in-memory buffer: Playwright sends a buffer to
@@ -365,13 +365,13 @@ test.describe('3D generation', () => {
       })
     })
 
-    await page.goto('/app/studio/threed')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page.getByRole('button', { name: '3D', exact: true })).toHaveCount(0)
     // Falls back to the overview rather than Images. Landing on Images was
     // never a decision, only the first entry in the tab array.
     await expect(page.locator('.studio-tab[data-tab="overview"]')).toHaveClass(/studio-tab-active/)
 
-    await page.goto('/app/3d')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page).toHaveURL(/\/app\/?$/)
   })
 

@@ -434,7 +434,7 @@ available on this instance:
 While the key is `false`:
 
 - The UI shows no Add-ons entry, no pinned apps, and no fine-tuning or
-  quantization entry. `/app/addons`, `/app/fine-tune` and `/app/quantize` lead back
+  quantization entry. `/app/addons` and canonical add-on page addresses lead back
   to `/app`. The UI does not call `/api/addons/pins` or `/api/addons/builtin`. A
   server that sends no `addons` key counts as `true` in the UI.
 - Every path under `/api/addons`, `/api/fine-tuning` and `/api/quantization`
@@ -3254,46 +3254,34 @@ former Installed tab showed is the **More details** section of an add-on in My a
 `?tab=installed` opens My add-ons. The management link of an app
 (`/app/addons?manage=ID`) opens My add-ons with the details of that add-on open.
 
-### Old links
+### Add-on page addresses and model actions
 
-The generators that had their own page now open inside the Studio add-on, and the
-Studio and Talk pages open their add-ons. The old links still work and keep the model, the
-query string and the hash:
+Open add-on pages through My add-ons or their declared navigation entries.
+The canonical address is `/app/addons/<id>/<page>`, with an optional relative
+suffix beneath the declared page. Historical standalone generator and add-on
+addresses are not registered and show Not Found. There is no compatibility
+support window for these unreleased routes.
 
-| Old link | Opens |
-|---|---|
-| `/app/studio` | `/app/addons/studio/studio` |
-| `/app/studio/<tab>` | `/app/addons/studio/studio/<tab>` |
-| `/app/talk` | `/app/addons/talk/talk` |
-| `/app/image` | `/app/addons/studio/studio/images` |
-| `/app/video` | `/app/addons/studio/studio/video` |
-| `/app/3d` | `/app/addons/studio/studio/threed` |
-| `/app/tts` | `/app/addons/studio/studio/tts` |
-| `/app/sound` | `/app/addons/studio/studio/sound` |
-| `/app/diarization` | `/app/addons/studio/studio/diarization` |
-| `/app/transform` | `/app/addons/studio/studio/transform` |
-| `/app/face` | `/app/addons/face/recognition` |
-| `/app/face/<model>` | `/app/addons/face/recognition?model=<model>` |
-| `/app/voice` | `/app/addons/voice/voice/recognition` |
-| `/app/voice/<model>` | `/app/addons/voice/voice/recognition?model=<model>` |
-| `/app/voice-library` | `/app/addons/voice/voice/library` |
-| `/app/voice-library/new` | `/app/addons/voice/voice/library/new` |
+Installed-model inspectors, gallery Open actions and model details resolve
+`capabilities.ui.modelActions` from the authenticated installed Apps list.
+A declaration names a model capability, a declared page and an optional safe
+relative path. Core does not map provider IDs to private page paths.
 
-None of these links has a core page behind it: the face, voice, Studio and Talk pages exist
-only in their add-ons. Without the add-on, a link opens the add-on page, which says the
-add-on is not available.
-A model id can hold `/` or `:`, which an add-on path segment refuses, so the model travels
-as `?model=` (for example `/app/voice/org%2Fname` opens `/app/addons/voice/voice/recognition?model=org%2Fname`; the face links and the
-Studio links do the same).
+One usable provider opens with one click. Multiple providers appear as named
+choices in the action menu, sorted by provider ID. When none is usable, the
+capability label remains without a dead link or an install promotion.
+Chat and completion keep their native destinations.
 
-A link with a model (`/app/image/<model>`) opens `/app/addons/studio/studio/images?model=<model>`. The
-`/app/studio?tab=` links redirect to `/app/addons/studio/studio/<tab>`. A viewer without the `3d`,
-`audio_diarization` or `audio_transform` feature still lands on the app home, as before.
+The host sends the selected model as a URLSearchParams value under `model`.
+Slashes, colons, Unicode and query delimiters remain part of the model name.
+Each click refreshes the actor-filtered installed list and checks the captured
+provider, page, path, generation, immutable entry and authentication authority.
+A changed installation or session refuses the stale action instead of choosing
+another provider. Projection does not load add-on code or query the catalog.
+Talk still lands on its existing page; this does not change its pipeline.
 
-The legacy switch (`LOCALAI_LEGACY_NAVIGATION`) restores the old sidebar and the Add-ons
-hub only. These redirects do not depend on it: with the switch on, the
-old generator links also open the Studio add-on. The legacy sidebar lists Home, Models, All chats, Agents, MCP connectors, Memory and
-the hubs; Studio and Talk are in My add-ons, as add-ons.
+The legacy navigation switch changes the sidebar and hubs only. It does not
+restore removed addon-specific route registrations.
 
 ### The Studio add-on
 
@@ -3398,8 +3386,7 @@ with **Install and turn on**. Once usable, they appear in My add-ons and can be 
 | `fine-tuning` | Fine-Tune | `/app/addons/fine-tuning/jobs` | users with the `fine_tuning` feature; the page shows an off notice for anyone else |
 | `quantization` | Quantize | `/app/addons/quantization/jobs` | users with the `quantization` feature; the page shows an off notice for anyone else |
 
-The old links `/app/fine-tune` and `/app/quantize` open the add-on page. Without the add-on,
-they show the add-on page that says the add-on is not available. The pages call
+Canonical links open the add-on shell, which reports unavailable installations. The pages call
 `/api/fine-tuning/*` and `/api/quantization/*` with the signed-in user's own session (see
 "Core routes from add-ons"); the core keeps these routes and checks every call again.
 Both add-ons offer chat tools that start a job. In the chats a tool call starts it at once; on other surfaces it is a proposal that waits for a person to confirm. They

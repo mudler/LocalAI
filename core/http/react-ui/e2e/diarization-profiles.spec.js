@@ -30,7 +30,7 @@ async function setup(page, permission = true, diarizationPermission = true) {
   // Studio and Voice are add-ons. Installed after the catch-all above, so their routes win.
   // The remembered-voices link opens the Voice add-on page.
   await installStudioAddons(page, { ids: ['studio', 'voice'] })
-  await page.goto('/app/diarization')
+  await page.goto('/app/addons/studio/studio/diarization')
   if (!diarizationPermission) return
   await expect(page.getByRole('button', { name: 'diarizer', exact: true })).toBeVisible()
   await page.getByLabel('Recording', { exact: true }).setInputFiles(file)
@@ -175,7 +175,7 @@ test('missing requested profiles is an error and normal defaults remain opt-in',
 test('diarization permission gates direct page and Studio tab', async ({ page }) => {
   await setup(page, true, false)
   await expect(page).toHaveURL(/\/app$/)
-  await page.goto('/app/studio')
+  await page.goto('/app/addons/studio/studio')
   await expect(page.locator('[data-tab="diarization"]')).toHaveCount(0)
 })
 
@@ -186,7 +186,7 @@ test('Studio exposes diarization and navigation revokes recording URL', async ({
     URL.revokeObjectURL = url => { window.revoked.push(url); revoke(url) }
   })
   await setup(page)
-  await page.goto('/app/studio/diarization')
+  await page.goto('/app/addons/studio/studio/diarization')
   await expect(page.getByRole('heading', { name: 'Speaker diarization' })).toBeVisible()
   await page.getByLabel('Recording', { exact: true }).setInputFiles(file)
   await run(page)

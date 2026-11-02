@@ -21,6 +21,7 @@ import ApprovalFrame from './ApprovalFrame'
 import { actionArguments, proposalIdOf, rendererFor, resultText } from './slots'
 import { createRegistryRequests } from './registryRequests'
 import { dispatchHomeCommand } from './homeCommands'
+import { dispatchModelAction } from './modelActions'
 import './shell.css'
 
 // The add-on registry of the shell. It polls the apps list while something
@@ -40,7 +41,7 @@ function guarded(build) {
 }
 
 export function AddonRegistryProvider({ children, api = addonsApi }) {
-  const { hasFeature, user, isAdmin, sessionEpoch } = useAuth()
+  const { hasFeature, user, isAdmin, sessionEpoch, captureSessionAuthority } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation('addons')
@@ -143,6 +144,10 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   const navigateHomeCommand = useCallback((command, options) => dispatchHomeCommand(command, {
     refresh, current: () => authority.current, navigate: path => navigateRef.current(path),
   }, options), [refresh])
+
+  const navigateModelAction = useCallback(command => dispatchModelAction(command, {
+    sessionCurrent: captureSessionAuthority(), refresh, current: () => authority.current, navigate: path => navigateRef.current(path),
+  }), [refresh, captureSessionAuthority])
 
   // Mounted consumers keep a bounded chain alive even after disable/failure.
   // The same reference count and cadence serve Home, slots and navigation.
@@ -254,6 +259,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   const value = useMemo(() => ({
     // Whether the server said if add-ons are on: until then `allowed` is false
     // only because the answer is not in yet.
+    actor,
     known: serverOn !== null,
     status: authority.current.list.status,
     apps: authority.current.list.apps,
@@ -262,6 +268,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     allowed,
     refresh,
     navigateHomeCommand,
+    navigateModelAction,
     ingest,
     acquire,
     language: i18n.language,
@@ -276,7 +283,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     // them leaves the host with no entries, never with a broken render.
     navigationItems: guarded(() => buildNavigation(list.apps, { language: i18n.language })),
     chatActions: guarded(() => availableChatActions(instances, list.apps, { hasFeature: () => allowed })),
-  }), [actor, serverOn, list, instances, allowed, refresh, navigateHomeCommand, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
+  }), [actor, serverOn, list, instances, allowed, refresh, navigateHomeCommand, navigateModelAction, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
 
   const boundaryLabels = { title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }
   return (

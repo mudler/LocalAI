@@ -1,5 +1,10 @@
 # Add-ons navigation design
 
+
+> Routing update: historical addon-specific redirect requirements below are
+> superseded by the approved model-actions amendment (2026-11-02). Use declared
+> canonical add-on pages; native chat handoff and addon-local adapters remain.
+
 ## Status
 
 - Status: implemented, with the amendments of 2026-10-31 below, which win over the text that follows. One question stays open (see "Open questions and decisions"). Questions (a) and (b) and the rulings (d) to (j) were decided on 2026-10-16. The changelog at the end lists every change of that day.
