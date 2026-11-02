@@ -273,6 +273,12 @@ applicability for addon command runners until the host can prove enforcement.
 Built-in or explicitly host execution continues to report the host-execution
 reason. Controls can still identify the addon that draws its settings row.
 
+The Apps tab binds each list request and registry ingestion to the authenticated
+session epoch. A same-user refresh or account switch immediately hides the old
+list and rejects its pending responses, even before effect cleanup. A new list
+request can populate the refreshed session. These in-memory scopes contain no
+credentials.
+
 ### Requested host operations are not grants
 
 Inside `capabilities`:

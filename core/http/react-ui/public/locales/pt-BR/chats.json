@@ -293,7 +293,7 @@
     },
     "consent": {
       "title": "Rodar este comando nesta máquina?",
-      "body": "Os comandos rodam nesta máquina sem isolamento. Eles podem ler os arquivos que o LocalAI lê e acessar a internet e a sua rede. Instale o Sandbox para isolá-los.",
+      "body": "Os comandos rodam nesta máquina sem isolamento. Eles podem ler os arquivos que o LocalAI lê e acessar a internet e a sua rede.",
       "once": "Rodar uma vez",
       "always": "Sempre nesta instância",
       "deny": "Não rodar",

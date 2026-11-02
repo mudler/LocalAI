@@ -38,23 +38,27 @@ import { useAddonActions } from './useAddonActions'
 // refuses everyone else whatever this view shows.
 export default function AppsView({ api, adapter, onSummary }) {
   const { t, i18n } = useTranslation('addons')
-  const [state, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
+  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
   const reloadRef = useRef(() => {})
-  const { hasFeature, isAdmin } = useAuth()
+  const { hasFeature, isAdmin, user, sessionEpoch } = useAuth()
   // Without the feature there is no list to read and the route would answer 403.
   const canList = hasFeature(FEATURE_ADDONS)
   // The add-on registry does not read the list again while this tab is open:
   // every list read here is handed to it.
   const registry = useContext(RegistryContext)
-  const ingestRef = useRef(null)
-  ingestRef.current = registry ? registry.ingest : null
+  const actor = JSON.stringify([user?.id, sessionEpoch, isAdmin, canList])
+  const scope = useRef(actor)
+  scope.current = actor
+  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false }
+  const ingest = registry?.ingest
 
   // Poll with a timer chain: one request at a time, aborted on unmount. A
   // refresh asked for while one is in flight runs right after it, so there is
   // never more than one chain.
   useEffect(() => {
-    if (!canList) { setState({ status: 'ready', apps: [], error: null, stale: false }); return undefined }
+    if (!canList) { setState({ actor, status: 'ready', apps: [], error: null, stale: false }); return undefined }
+    const current = () => scope.current === actor
     const ctl = new AbortController()
     let timer = null
     let failures = 0
@@ -67,19 +71,19 @@ export default function AppsView({ api, adapter, onSummary }) {
       try {
         const apps = await api.apps.list(ctl.signal)
         failures = 0
-        if (alive) {
-          setState({ status: 'ready', apps, error: null, stale: false })
-          ingestRef.current?.(apps)
+        if (alive && current()) {
+          setState({ actor, status: 'ready', apps, error: null, stale: false })
+          ingest?.(apps)
         }
       } catch (error) {
-        if (!alive || (error && error.name === 'AbortError')) return
+        if (!alive || !current() || (error && error.name === 'AbortError')) return
         failures += 1
         // Keep what was on screen and say it may be out of date.
-        setState(s => ({ status: s.status === 'ready' ? 'ready' : 'error', apps: s.apps, error, stale: true }))
+        setState(s => ({ actor, status: s.actor === actor && s.status === 'ready' ? 'ready' : 'error', apps: s.actor === actor ? s.apps : [], error, stale: true }))
       } finally {
         inflight = false
       }
-      if (!alive) return
+      if (!alive || !current()) return
       const wait = queued ? 0 : pollDelay(failures, typeof document !== 'undefined' && document.hidden)
       queued = false
       clearTimeout(timer)
@@ -88,7 +92,7 @@ export default function AppsView({ api, adapter, onSummary }) {
     reloadRef.current = () => { if (inflight) { queued = true } else { clearTimeout(timer); tick() } }
     tick()
     return () => { alive = false; ctl.abort(); clearTimeout(timer) }
-  }, [api, reload, canList])
+  }, [api, reload, canList, actor, ingest])
 
   // The installed record of an add-on, for the administrator's Details in the
   // pane. A change reads it again.

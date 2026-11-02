@@ -10,7 +10,7 @@ const noMCP = { servers: [], connectors: [], off: [] }
 const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
 const noCommands = { state: 'unknown', reason: '', identity: '' }
 // The commands state of the list: see commandsState in utils/chatCommands.js.
-const commandsOf = (res) => ({ ...commandsState(res), identity: noticeIdentity(res, '', '') })
+const commandsOf = (res) => ({ ...commandsState(res), provider: typeof res?.commands_provider === 'string' ? res.commands_provider : '', identity: noticeIdentity(res, '', '') })
 
 export { skillKey }
 

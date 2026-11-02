@@ -293,7 +293,7 @@
     },
     "consent": {
       "title": "Jalankan perintah ini di mesin ini?",
-      "body": "Perintah berjalan di mesin ini tanpa isolasi. Perintah dapat membaca berkas yang bisa dibaca LocalAI dan menjangkau internet serta jaringan Anda. Pasang Sandbox untuk isolasi.",
+      "body": "Perintah berjalan di mesin ini tanpa isolasi. Perintah dapat membaca berkas yang bisa dibaca LocalAI dan menjangkau internet serta jaringan Anda.",
       "once": "Jalankan sekali",
       "always": "Selalu di instans ini",
       "deny": "Jangan jalankan",

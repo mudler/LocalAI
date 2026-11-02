@@ -7,9 +7,7 @@ import { seesImages } from '../../utils/chatVision'
 import { connectorRef } from '../../utils/chatMCP'
 import { networkMode } from '../../utils/chatEgress'
 import { gbLabel, gbNumber } from '../../utils/modelLedger'
-import { SANDBOX_ADDON } from '../../utils/sandboxStatus'
 import { useModelFit } from '../../hooks/useModelFit'
-import { useSandboxStatus } from '../../hooks/useSandboxStatus'
 import { useCommandsNotice } from '../../hooks/useCommandsNotice'
 import { fillStyle, hostMemory, memoryFigure } from '../home/memory'
 import HomeComposer from '../home/HomeComposer'
@@ -96,16 +94,7 @@ export default function ChatComposer({
   const modelFit = useModelFit({ openCount: fitOpenCount, names: modelNames })
   const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
 
-  const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), chatId)
   const commands = useCommandsNotice(switches.commands, isAdmin, [user, chatId, effectiveModel, agentId])
-  // What the Tools picker says under an add-on: the Sandbox's state.
-  const addonNote = (a) => {
-    if (a.id !== SANDBOX_ADDON || !sandbox || sandbox.state === 'unknown') return {}
-    if (sandbox.state === 'starting') return { note: tc('tools.sandbox.starting', { seconds: Math.max(1, Math.round(sandbox.retryMs / 1000)) }) }
-    if (sandbox.state === 'cannot') return { usable: false, reason: sandbox.reason ? tc('tools.sandbox.cannotWhy', { reason: sandbox.reason }) : tc('tools.sandbox.cannot') }
-    if (sandbox.state === 'host') return { note: tc('tools.sandbox.host'), warn: true }
-    return {} // Discovery status is not the actual selected provider observation.
-  }
   // Who serves a group of built-in tools in this chat: the built-in itself, or
   // an add-on that shadows a tool of the group (the server resolves it).
   const builtinNote = (b) => {
@@ -127,13 +116,13 @@ export default function ChatComposer({
   const shellNote = (b) => {
     if (b.usable === false) return commands.info ? { reason: tc(`tools.commands.${commands.info.textKey}`, { reason: commands.info.reason }) } : {}
     const by = (b.providers || {}).bash || b.provider
-    if (by === 'builtin') return { chip: tc('tools.shell.machine'), note: tc('tools.sandbox.host'), warn: true }
-    if (by === SANDBOX_ADDON) {
-      return sandbox?.state === 'host'
-        ? { chip: tc('tools.provider.sandbox'), note: tc('tools.sandbox.host'), warn: true }
-        : { chip: tc('tools.provider.sandbox'), note: tc('tools.shell.isolated') }
-    }
-    return by ? { chip: tc('tools.servedBy', { provider: by }) } : {}
+    const selected = switches.commands
+    const chip = by === 'builtin' ? tc('tools.shell.machine') : by ? tc('tools.servedBy', { provider: by }) : undefined
+    // Group discovery is not evidence of the selected provider's isolation.
+    if (!by || selected.provider !== by) return { chip, note: tc('tools.commands.unknown') }
+    if (['host', 'host-off', 'host-unavailable', 'provider-host'].includes(selected.state)) return { chip, note: tc('tools.commands.providerHost'), warn: true }
+    if (selected.state === 'available') return { chip, note: tc('tools.shell.isolated') }
+    return { chip, note: tc('tools.commands.unknown') }
   }
 
   // What a row of the model list says: whether it is loaded, what it can do
@@ -196,7 +185,7 @@ export default function ChatComposer({
     },
     {
       key: 'addons', title: tc('tools.addons'), icon: 'puzzle', onSet: switches.setAddonsOn,
-      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, id: a.id, label: a.id, meta: t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on), ...addonNote(a) })),
+      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, id: a.id, label: a.id, meta: t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on) })),
     },
     {
       key: 'servers', title: tc('tools.servers'), icon: 'server', onSet: switches.setMCPOn,

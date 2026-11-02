@@ -210,7 +210,7 @@ async function registrySessionHarness() {
  render(); h.flush()
  await new Promise(resolve => setImmediate(resolve))
  render(); h.flush(); render()
- return { h, render, reads, paths, revalidated, refreshSession() { auth = {...auth,sessionEpoch:auth.sessionEpoch + 1}; return render() } }
+ return { h, render, reads, paths, revalidated, refreshSession(user = auth.user) { auth = {...auth,user,sessionEpoch:auth.sessionEpoch + 1}; return render() } }
 }
 
 test('Home addons: actual registry rejects same-user refresh late poll before effect cleanup', async () => {
@@ -247,4 +247,31 @@ test('Home addons: actual registry pending NAV cannot cross same-user session re
  r.reads[1].resolve([app()])
  assert.equal(await fresh, true)
  assert.deepEqual(r.paths, ['/app/addons/paint/canvas'])
+})
+
+for (const accountSwitch of [false, true]) test(`Apps registry: late list cannot cross ${accountSwitch ? 'account switch' : 'same-user refresh'} before cleanup`, async () => {
+ const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+ const r = await registrySessionHarness()
+ let registry = r.render()
+ let auth = { user:{id:'alice'}, sessionEpoch:1, isAdmin:true, hasFeature:() => true }
+ const reads = []
+ const api = { apps:{ list:() => { const d = deferred(); reads.push(d); return d.promise } } }
+ const h = hookHarness('../../src/components/addons/AppsView.jsx', 'AppsView', {
+  useAuth:() => auth, useContext:() => registry, RegistryContext:{}, useTranslation:() => ({t:x=>x,i18n:{}}),
+  FEATURE_ADDONS:'addons', pollDelay:() => 1000, setTimeout:()=>1, clearTimeout:()=>{},
+ }, s => s.replace('export default function', 'function').split('  // The installed record')[0] + 'return state\n}')
+ const render = () => h.render({api})
+ render(); h.flush()
+ const staleIngest = registry.ingest
+ auth = {...auth, user:{id:accountSwitch ? 'bob' : 'alice'},sessionEpoch:2}
+ registry = r.refreshSession(auth.user)
+ render() // Deliberately withhold Apps effect cleanup.
+ reads[0].resolve([app()]); await new Promise(resolve=>setImmediate(resolve))
+ assert.deepEqual(render().apps, [])
+ assert.deepEqual(r.render().apps, [])
+ staleIngest([app()]) // Registry independently rejects the originating authority.
+ assert.deepEqual(r.render().apps, [])
+ h.flush(); reads[1].resolve([app()]); await new Promise(resolve=>setImmediate(resolve))
+ assert.equal(render().apps[0].id, 'paint')
+ assert.equal(r.render().apps[0].id, 'paint')
 })

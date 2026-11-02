@@ -293,7 +293,7 @@
     },
     "consent": {
       "title": "Exécuter cette commande sur cette machine ?",
-      "body": "Les commandes s'exécutent sur cette machine sans isolation. Elles peuvent lire les fichiers que LocalAI peut lire et joindre Internet et votre réseau. Installez le Sandbox pour les isoler.",
+      "body": "Les commandes s'exécutent sur cette machine sans isolation. Elles peuvent lire les fichiers que LocalAI peut lire et joindre Internet et votre réseau.",
       "once": "Exécuter une fois",
       "always": "Toujours sur cette instance",
       "deny": "Ne pas exécuter",

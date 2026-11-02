@@ -293,7 +293,7 @@
     },
     "consent": {
       "title": "Diesen Befehl auf diesem Rechner ausführen?",
-      "body": "Befehle laufen auf diesem Rechner ohne Isolierung. Sie können Dateien lesen, die LocalAI lesen kann, und das Internet und Ihr Netzwerk erreichen. Installieren Sie die Sandbox für Isolierung.",
+      "body": "Befehle laufen auf diesem Rechner ohne Isolierung. Sie können Dateien lesen, die LocalAI lesen kann, und das Internet und Ihr Netzwerk erreichen.",
       "once": "Einmal ausführen",
       "always": "Immer auf dieser Instanz",
       "deny": "Nicht ausführen",

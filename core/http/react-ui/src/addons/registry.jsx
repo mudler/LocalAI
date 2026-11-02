@@ -130,8 +130,8 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     if (next.status === 'error') { manager.disposeAll(); setLayers([]) }
   }, [manager])
   const ingest = useCallback((apps) => {
-    if (authority.current.allowed) publish({ status: 'ready', apps, error: null })
-  }, [publish])
+    if (authority.current.actor === actor && authority.current.allowed) publish({ status: 'ready', apps, error: null })
+  }, [publish, actor])
 
   const refresh = useCallback(async (signal) => {
     if (!authority.current.allowed) return null

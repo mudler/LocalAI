@@ -9,29 +9,29 @@ test('chat commands: no notice when commands run or the server does not say', ()
   assert.equal(commandsNotice('something-new', { isAdmin: true }), null)
 })
 
-test('chat commands: with no Sandbox an administrator gets the install link and others are told to ask', () => {
+test('chat commands: with no provider there is no specific installation recommendation', () => {
   assert.deepEqual(commandsNotice('none', { isAdmin: true }), {
-    state: 'none', textKey: 'none', reason: '', link: { to: '/app/addons?tab=browse&q=sandbox', labelKey: 'install' }, askKey: null,
+    state: 'none', textKey: 'none', reason: '', link: null, askKey: null,
   })
   assert.deepEqual(commandsNotice('none', { isAdmin: false }), {
-    state: 'none', textKey: 'none', reason: '', link: null, askKey: 'askInstall',
+    state: 'none', textKey: 'none', reason: '', link: null, askKey: null,
   })
 })
 
-test('chat commands: a Sandbox that cannot run gives its reason and the add-on page to an administrator', () => {
+test('chat commands: an unavailable provider gives its reason without a specific add-on recommendation', () => {
   const admin = commandsNotice('unavailable', { isAdmin: true, reason: 'no sandbox backend works on this host' })
-  assert.equal(admin.textKey, 'unavailableWhy')
+  assert.equal(admin.textKey, 'providerUnavailable')
   assert.equal(admin.reason, 'no sandbox backend works on this host')
-  assert.deepEqual(admin.link, { to: '/app/addons?detail=sandbox', labelKey: 'openSandbox' })
+  assert.equal(admin.link, null)
   const user = commandsNotice('unavailable', { isAdmin: false })
-  assert.equal(user.textKey, 'unavailable')
+  assert.equal(user.textKey, 'providerUnavailable')
   assert.equal(user.link, null)
   assert.equal(user.askKey, 'askFix')
   assert.equal(commandsNotice('unavailable', { reason: 'x'.repeat(500) }).reason.length, 200)
 })
 
 test('chat commands: a Sandbox switched off in the chat is the user\'s own fix, with no link', () => {
-  assert.deepEqual(commandsNotice('off', { isAdmin: false }), { state: 'off', textKey: 'off', link: null, askKey: null, reason: '' })
+  assert.deepEqual(commandsNotice('off', { isAdmin: false }), { state: 'off', textKey: 'disabled', link: null, askKey: null, reason: '' })
 })
 
 test('chat commands: hiding remembers the state, and storage that throws is ignored', () => {
@@ -72,7 +72,7 @@ test('chat commands: actual host execution keeps a generic isolation warning', (
 
 test('chat commands: the tool line says who served a call', async () => {
   const { providerTag } = await import('../../src/utils/chatCommands.js')
-  assert.deepEqual(providerTag({ kind: 'tool_provider', id: 'sandbox' }), { key: 'sandbox' })
+  assert.deepEqual(providerTag({ kind: 'tool_provider', id: 'sandbox' }), { key: 'addon', values: { name: 'sandbox' } })
   assert.deepEqual(providerTag({ kind: 'tool_provider', id: 'other' }), { key: 'addon', values: { name: 'other' } })
   assert.deepEqual(providerTag({ kind: 'host_exec', id: 'ran' }), { key: 'host' })
   assert.deepEqual(providerTag({ kind: 'host_exec', id: 'once' }), { key: 'hostOnce' })
@@ -256,4 +256,50 @@ test('typed safety: actual auth epoch reaches composer and changes on same-user 
     globalThis.document = originalDocument
     globalThis.window = originalWindow
   }
+})
+
+for (const provider of ['copper-runner', 'violet-executor']) test(`typed safety: production Composer uses current ${provider} DTO, never discovery isolation`, async () => {
+  const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches']
+  const imports = Object.assign({}, ...await Promise.all(names.map(name => import(`../../src/utils/${name}.js`))))
+  const requests = []
+  const switchesHook = hookHarness('../../src/hooks/useChatSwitches.js', 'useChatSwitches', {
+    ...imports, chatAddonsApi:{list:() => new Promise(resolve => requests.push(resolve))},
+    chatToolsApi:{list:async () => ({})}, chatSkillsApi:{list:async () => ({})},
+  })
+  const composer = hookHarness('../../src/components/chat/ChatComposer.jsx', 'ChatComposer', {
+    useTranslation:() => ({t:key => key}), useAuth:() => ({isAdmin:true,user:{id:'alice'}}),
+    useModelFit:() => ({}), useCommandsNotice:() => ({info:null}),
+    // Only the original code needs these; keeping them permits a genuine RED run.
+    SANDBOX_ADDON:'sandbox', useSandboxStatus:() => null,
+  }, source => source.replace('export default function', 'function').split('  // What a row of the model list')[0] + 'return shellNote\n}')
+  const group = {group:'shell',providers:{bash:provider},provider,usable:true}
+  const render = (actor = 'alice:1', override) => {
+    const switches = switchesHook.render('same-chat', false, null, actor)
+    if (override) switches.commands = override
+    const shellNote = composer.render({composer:{drafts:{},switches,models:[]}})
+    return shellNote(group)
+  }
+  const unknown = note => {
+    assert.equal(note.note, 'tools.commands.unknown')
+    assert.notEqual(note.note, 'tools.shell.isolated')
+  }
+  unknown(render()); switchesHook.flush()
+  const reply = isolation => ({commands:'available',commands_provider:provider,execution_status:{readiness:'available',isolation,generation:2,incarnation:'run-2'}})
+  requests[0](reply('isolated')); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(render().note, 'tools.shell.isolated')
+  unknown(render('alice:2')) // Same user refresh before cleanup invalidates positive evidence.
+  switchesHook.flush()
+  unknown(render('bob:3')) // Withhold cleanup of the second request.
+  requests[1](reply('isolated')); await new Promise(resolve => setImmediate(resolve))
+  unknown(render('bob:3')) // Late authenticated generation cannot publish.
+  switchesHook.flush()
+  requests[2](reply('host')); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(render('bob:3').note, 'tools.commands.providerHost')
+  assert.equal(render('bob:3').warn, true)
+  for (const state of ['unknown', 'loading', '', null]) unknown(render('bob:3', {state,provider}))
+  unknown(render('bob:3', {state:'available',provider:'different-current-provider'}))
+  // Built-in bash remains a primitive choice, not an add-on identity.
+  group.providers.bash = 'builtin'
+  assert.equal(render('bob:3', {state:'host',provider:'builtin'}).warn, true)
 })

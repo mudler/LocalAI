@@ -293,7 +293,7 @@
     },
     "consent": {
       "title": "¿Ejecutar este comando en esta máquina?",
-      "body": "Los comandos se ejecutan en esta máquina sin aislamiento. Pueden leer los archivos que LocalAI puede leer y llegar a internet y a tu red. Instala el Sandbox para aislarlos.",
+      "body": "Los comandos se ejecutan en esta máquina sin aislamiento. Pueden leer los archivos que LocalAI puede leer y llegar a internet y a tu red.",
       "once": "Ejecutar una vez",
       "always": "Siempre en esta instancia",
       "deny": "No ejecutar",

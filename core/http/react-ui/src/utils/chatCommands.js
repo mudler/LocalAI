@@ -1,23 +1,5 @@
-// Whether a chat can run commands and code, from the "commands" field of the
-// chat's add-on list (GET /api/chats/:id/addons). The server computes it from
-// the tools the model gets at the next turn:
-//   available    a tool runs commands
-//   off          the Sandbox add-on is installed but off for this chat
-//   unavailable  the Sandbox add-on is installed but cannot run commands here
-//   none         no add-on that runs commands is installed for the user
-// When commands_provider is builtin, bash runs directly on this machine (no
-// Sandbox serves it); commandsState turns that into one of three states of its
-// own, so the notice says that commands run here, not isolated:
-//   host              no Sandbox
-//   host-off          the Sandbox is off for this chat
-//   host-unavailable  the Sandbox cannot run (commands_fallback_reason)
-// An older server sends no field: then nothing is shown.
-
-export const SANDBOX_ADDON_ID = 'sandbox'
-
-// Where an administrator installs the Sandbox. The first-start wizard step
-// "Run code safely" links here too.
-export const SANDBOX_INSTALL_LINK = `/app/addons?tab=browse&q=${SANDBOX_ADDON_ID}`
+// Command availability and isolation come from the selected provider DTO, not
+// an add-on's private discovery response or its name.
 
 // commandsState reads the commands fields of an add-on list as one state and
 // its reason.
@@ -55,13 +37,13 @@ export function commandsNotice(commands, { isAdmin = false, reason = '' } = {}) 
       return { state: commands, titleKey: commands === 'provider-host' ? 'hostTitle' : 'title', textKey: commands === 'switched_off' ? 'disabled' : commands === 'provider-host' ? 'providerHost' : commands === 'provider-unavailable' ? 'providerUnavailable' : 'unknown', reason: plainExplanation(reason), tone: 'warn', link: null, askKey: null }
 
     case 'off':
-      return { state: 'off', textKey: 'off', link: null, askKey: null, reason: '' }
+      return { state: 'off', textKey: 'disabled', link: null, askKey: null, reason: '' }
     case 'unavailable':
       return {
         state: 'unavailable',
-        textKey: reason ? 'unavailableWhy' : 'unavailable',
+        textKey: 'providerUnavailable',
         reason: typeof reason === 'string' ? reason.slice(0, 200) : '',
-        link: isAdmin ? { to: `/app/addons?detail=${SANDBOX_ADDON_ID}`, labelKey: 'openSandbox' } : null,
+        link: null,
         askKey: isAdmin ? null : 'askFix',
       }
     case 'none':
@@ -69,8 +51,8 @@ export function commandsNotice(commands, { isAdmin = false, reason = '' } = {}) 
         state: 'none',
         textKey: 'none',
         reason: '',
-        link: isAdmin ? { to: SANDBOX_INSTALL_LINK, labelKey: 'install' } : null,
-        askKey: isAdmin ? null : 'askInstall',
+        link: null,
+        askKey: null,
       }
     // Actual host execution never implies that one particular add-on is the fix.
     case 'host':
@@ -111,7 +93,7 @@ export function writeHidden(storage, state) {
 export function providerTag(card) {
   if (!card || typeof card !== 'object') return null
   if (card.kind === 'tool_provider' && card.id) {
-    return card.id === SANDBOX_ADDON_ID ? { key: 'sandbox' } : { key: 'addon', values: { name: String(card.id) } }
+    return { key: 'addon', values: { name: String(card.id) } }
   }
   if (card.kind === 'host_exec') {
     switch (card.id) {

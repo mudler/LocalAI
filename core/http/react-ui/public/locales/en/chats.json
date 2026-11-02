@@ -417,7 +417,7 @@
     },
     "consent": {
       "title": "Run this command on this machine?",
-      "body": "Commands run on this machine with no isolation. They can read files that LocalAI can read and reach the internet and your network. Install the Sandbox for isolation.",
+      "body": "Commands run on this machine with no isolation. They can read files that LocalAI can read and reach the internet and your network.",
       "once": "Run once",
       "always": "Always on this instance",
       "deny": "Don't run",
