@@ -2914,7 +2914,7 @@
     - deepseek
   files:
     - filename: ds4flash.gguf
-      sha256: 49c2951a5d75e341e5e69a02e75989895150709aa4d65ef9809e6eef6adff3b0
+      sha256: 23fb9636d30d84d36ed10fbd42b311e55b2fe3f42ea13ee2fb650dd950091793
       uri: https://huggingface.co/unsloth/DeepSeek-V4-Flash-Vision-Exp-GGUF
   overrides:
     backend: ds4
