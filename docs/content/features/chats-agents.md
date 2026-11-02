@@ -784,6 +784,13 @@ not accept another input; a different ID with identical text is a separate input
 Connectors without a platform message ID retain per-delivery behavior. Replay of
 an already accepted request still returns its original disposition after automatic
 memory is switched off; this does not grant permission for new collection writes.
+If completion capture alone fails, an independent chat write commits the
+successful outcome, consumed input identities, final reply, model identity, and
+queued reply or summary intent together with turn release. Recovery uses the
+same capture key and payload after a restart. A repeated completion cannot
+replace that outcome or redirect it to a newly selected destination. The capture
+worker still checks current permissions before writing to the collection.
+
 If capture acceptance alone fails while ordinary chat storage works, answering
 continues with a metadata-only failure marker if the independent status write
 succeeds. This is bounded best effort: if the whole chat database is unavailable,

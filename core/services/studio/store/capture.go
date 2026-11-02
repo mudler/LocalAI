@@ -67,6 +67,8 @@ type MemoryTurnCompletion struct {
 // State/InputType discriminate concrete values; StateJSON never decodes an
 // untrusted interface or substitutes a second lifecycle implementation.
 type CaptureRecord struct {
+	// SummaryModel freezes model identity with the successful completion.
+	SummaryModel string `json:",omitempty"`
 	// CaptureUnavailable marks a metadata-only failure; no payload exists to retry.
 	CaptureUnavailable bool                 `json:",omitempty"`
 	BackendFence       *CaptureBackendFence `json:",omitempty"`
@@ -472,6 +474,14 @@ func completeMemory(ctx context.Context, in MemoryTurnCompletion, edit captureEd
 				if err := addCapture(d, a, in.Principal, in.ChatID, in.ReplyID, "summary", strings.Join(texts, "\n\n"), time.Now()); err != nil {
 					return err
 				}
+			}
+		}
+		// Model selection is part of this same atomic outcome, not a later read
+		// from mutable chat settings during queue recovery.
+		for id, r := range d.Records {
+			if r.Identity.Source == in.ReplyID && (r.Identity.Kind == "summary" || r.Identity.Kind == "reply") {
+				r.SummaryModel = c.Rec.Model
+				d.Records[id] = r
 			}
 		}
 		return nil

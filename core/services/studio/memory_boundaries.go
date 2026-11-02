@@ -78,9 +78,13 @@ func (s *Service) completeMemoryRun(ctx context.Context, p, conv string, r *run,
 		if err == nil {
 			return nil
 		}
-		if markerErr := s.d.Store.RecordMemoryCompletionFailure(ctx, in); markerErr != nil {
-			s.log.Warn("studio: memory failure status unavailable", "chat", conv)
+		// One independent chat write, with no retry loop in the answer path.
+		// It releases the turn only with its durable outcome and capture intent.
+		if handoffErr := s.d.Store.RecordMemoryCompletionFailure(ctx, in); handoffErr != nil {
+			s.log.Warn("studio: memory completion handoff unavailable", "chat", conv)
+			return handoffErr
 		}
+		return nil
 	}
 	return s.releaseTurn(ctx, p, conv, r.id, status)
 }

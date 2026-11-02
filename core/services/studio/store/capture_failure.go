@@ -9,9 +9,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/memory"
 )
 
-// These writes deliberately do not call acceptance/completion: a capture-specific
-// failure must not make ordinary answering depend on retrying the failed operation.
-// They share the principal-scoped chat transaction and durable status storage.
+// Acceptance failure markers use an independent principal-scoped chat write.
+// Completion fallback below retains the payload instead of creating a tombstone.
 func failureMarker(d *captureData, a AcceptedInput, p, chat, source, kind string) error {
 	i := memory.Identity{Principal: p, Chat: chat, Agent: a.Policy.AgentID, Destination: a.Policy.Destination, Source: source, Kind: kind}
 	id := CaptureKey(i)
@@ -58,41 +57,12 @@ func acceptanceFailure(ctx context.Context, in MemoryAcceptance, edit captureEdi
 		return nil
 	})
 }
+
+// Completion fallback bypasses the failed public operation, not its invariants.
+// The ordinary chat boundary commits the outcome receipt, frozen capture payload
+// and turn release together. Queued records then use normal worker recovery.
 func completionFailure(ctx context.Context, in MemoryTurnCompletion, edit captureEdit) error {
-	if in.Status != TurnDone || strings.TrimSpace(in.ReplyText) == "" {
-		return nil
-	}
-	return edit(ctx, in.Principal, in.ChatID, func(d *captureData, c *chatState) error {
-		if _, ok := d.Outcomes[in.ReplyID]; ok {
-			return nil
-		}
-		if c.Run != in.RunID {
-			return ErrNotClaimed
-		}
-		ids := d.Turns[in.RunID]
-		if len(ids) == 0 {
-			ids = in.IncomingIDs
-		}
-		for _, id := range ids {
-			a, ok := d.Accepted[id]
-			if !ok || strings.TrimSpace(a.Text) == "" {
-				continue
-			}
-			kind := ""
-			switch a.Policy.Mode {
-			case CaptureReplies:
-				kind = "reply"
-			case CaptureSummary:
-				kind = "summary"
-			}
-			if kind != "" {
-				if err := failureMarker(d, a, in.Principal, in.ChatID, in.ReplyID, kind); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	})
+	return completeMemory(ctx, in, edit)
 }
 func (s *jsonStore) RecordMemoryAcceptanceFailure(ctx context.Context, in MemoryAcceptance) error {
 	return acceptanceFailure(ctx, in, s.editCapture)

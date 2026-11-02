@@ -55,7 +55,7 @@ type MemoryResult struct {
 	Destination string `json:"destination"`
 	EntryID     string `json:"entry_id"`
 }
-type SummaryRequest struct{ Principal, ChatID, Content string }
+type SummaryRequest struct{ Principal, ChatID, Content, Model string }
 
 // Memory adapters must call authorize immediately before the backend operation.
 // This check does not make permission revocation atomic with backend commit.
@@ -118,7 +118,7 @@ func (s *Service) SummarizeMemory(ctx context.Context, req SummaryRequest) (stri
 	if !validMemoryContent(req.Content) {
 		return "", errors.New("invalid memory content")
 	}
-	model, err := s.summaryModelForContext(ctx, userChatActor(req.Principal, req.ChatID))
+	model, err := s.summaryModelForContext(ctx, userChatActor(req.Principal, req.ChatID), req.Model)
 	if err != nil {
 		return "", err
 	}

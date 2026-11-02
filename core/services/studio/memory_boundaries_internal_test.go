@@ -101,6 +101,8 @@ var _ = Describe("automatic memory payload isolation", func() {
 		svc, err := New(Deps{Store: unavailableCaptureStore{st}, Agents: as, Provider: provider.New(), StateDir: GinkgoT().TempDir()})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = svc.Close(ctx) })
+		_, err = st.AcceptMemoryInput(ctx, store.MemoryAcceptance{Principal: "alice", ChatID: "chat", SourceID: "memory:input", Text: "input", Delivered: true, Policy: store.CapturePolicy{AgentID: "agent", Destination: "notes", Mode: store.CaptureIncoming}})
+		Expect(err).NotTo(HaveOccurred())
 		Expect(st.ClaimTurn(ctx, "alice", "chat", "run")).To(Succeed())
 		Expect(svc.completeMemoryRun(ctx, "alice", "chat", &run{id: "run", memoryInputs: []string{"memory:input"}, memoryReply: "answer"}, store.TurnDone)).To(Succeed())
 		info, err := st.Turn(ctx, "alice", "chat")
@@ -141,7 +143,7 @@ func (s unavailableCompletionStore) CompleteMemoryTurn(context.Context, store.Me
 
 var _ = Describe("capture failure visibility", func() {
 	for _, backend := range []string{"JSON", "SQLite", "PostgreSQL"} {
-		for _, stage := range []string{"acceptance", "completion"} {
+		for _, stage := range []string{"acceptance", "completion", "summary completion"} {
 			backend, stage := backend, stage
 			It("persists safe "+stage+" failure after actual ServeStart and reopen on "+backend, func() {
 				ctx := context.Background()
@@ -191,10 +193,13 @@ var _ = Describe("capture failure visibility", func() {
 				as, e := agents.NewJSON("")
 				Expect(e).NotTo(HaveOccurred())
 				ag := agents.Agent{ID: "agent", Principal: "alice", Name: "Recorder", CollectionPermissions: &agents.CollectionPermissions{Version: 1, Grants: []agents.CollectionGrant{{Collection: "notes"}}}, Memory: &agents.MemorySettings{Version: 1, Destination: "notes", ToolStorage: "content", AutomaticIngestion: "incoming_and_replies"}}
+				if stage == "summary completion" {
+					ag.Memory.AutomaticIngestion = "summary"
+				}
 				Expect(as.Put(ctx, ag)).To(Succeed())
 				Expect(st.CreateChat(ctx, session.ChatRecord{ID: "chat", Principal: "alice", AgentID: "agent", Model: "m"})).To(Succeed())
 				var injected store.Store = unavailableCaptureStore{st}
-				if stage == "completion" {
+				if stage != "acceptance" {
 					injected = unavailableCompletionStore{st}
 				}
 				h := studiotest.NewGateHarness()
@@ -211,6 +216,41 @@ var _ = Describe("capture failure visibility", func() {
 				reopened := open()
 				records, e := reopened.ListCaptures(ctx, "alice", "chat")
 				Expect(e).NotTo(HaveOccurred())
+				if stage != "acceptance" {
+					kind, text := "reply", "working on: private incoming bodydone"
+					if stage == "summary completion" {
+						kind, text = "summary", "private incoming body\n\n"+text
+					}
+					var completed []store.CaptureRecord
+					for _, r := range records {
+						if r.Identity.Kind == kind {
+							completed = append(completed, r)
+						}
+					}
+					Expect(completed).To(HaveLen(1), "successful completion must retain a recoverable payload")
+					r := completed[0]
+					Expect(r.CaptureUnavailable).To(BeFalse())
+					Expect(r.RawText).To(Equal(text))
+					Expect(r.State).To(Equal("Queued"))
+					Expect(r.SummaryModel).To(Equal("m"))
+					Expect(r.Identity.Destination).To(Equal("notes"))
+					completion := store.MemoryTurnCompletion{Principal: "alice", ChatID: "chat", RunID: r.Identity.Source, ReplyID: r.Identity.Source, ReplyText: "working on: private incoming bodydone", Status: store.TurnDone, IncomingIDs: []string{"memory:stable-delivery"}}
+					Expect(reopened.CompleteMemoryTurn(ctx, completion)).To(Succeed())
+					Expect(reopened.RecordMemoryCompletionFailure(ctx, completion)).To(Succeed())
+					completion.ReplyText = "different"
+					Expect(reopened.RecordMemoryCompletionFailure(ctx, completion)).To(MatchError(store.ErrCaptureConflict))
+					ag.Memory.Destination = "changed"
+					ag.CollectionPermissions.Grants = append(ag.CollectionPermissions.Grants, agents.CollectionGrant{Collection: "changed"})
+					Expect(as.Put(ctx, ag)).To(Succeed())
+					again, err := reopened.ListCaptures(ctx, "alice", "chat")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(again).To(ConsistOf(records))
+					claim, err := reopened.ClaimCapture(ctx, "recovery", time.Now(), time.Minute)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(claim.Record.Identity.Destination).To(Equal("notes"))
+					Expect(claim.Record.RawText).NotTo(BeEmpty())
+					return
+				}
 				var failures []store.CaptureRecord
 				for _, r := range records {
 					if r.CaptureUnavailable {

@@ -57,8 +57,12 @@ var _ = Describe("text-only memory summary model", func() {
 				w.Header().Set("Content-Type", "application/json")
 				_, _ = w.Write([]byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"summary only"},"finish_reason":"stop"}]}`))
 			}))
-			text, err := s.SummarizeMemory(ctx, SummaryRequest{Principal: "owner", ChatID: "chat", Content: "text only"})
-			if outcome == "success" {
+			request := SummaryRequest{Principal: "owner", ChatID: "chat", Content: "text only"}
+			if outcome == "frozen" {
+				request.Model = "original-model"
+			}
+			text, err := s.SummarizeMemory(ctx, request)
+			if outcome == "success" || outcome == "frozen" {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(text).To(Equal("summary only"))
 			} else {
@@ -71,7 +75,11 @@ var _ = Describe("text-only memory summary model", func() {
 			Expect(lookups).To(Equal(1))
 			Expect(requests).To(HaveLen(1))
 			body := requests[0]
-			Expect(body["model"]).To(Equal("resolved-model"))
+			expectedModel := "resolved-model"
+			if outcome == "frozen" {
+				expectedModel = "original-model"
+			}
+			Expect(body["model"]).To(Equal(expectedModel))
 			Expect(body["tools"]).To(BeNil())
 			Expect(body["functions"]).To(BeNil())
 			messages := body["messages"].([]any)
@@ -96,6 +104,7 @@ var _ = Describe("text-only memory summary model", func() {
 			Expect(string(raw)).To(ContainSubstring(video))
 		},
 		Entry("success", "success"),
+		Entry("frozen model after chat settings change", "frozen"),
 		Entry("provider failure", "forbidden"),
 		Entry("context cancellation", "cancelled"),
 	)

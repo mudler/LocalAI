@@ -80,6 +80,8 @@ type Store interface {
 	session.Store
 	AcceptMemoryInput(context.Context, MemoryAcceptance) (AcceptedInput, error)
 	RecordMemoryAcceptanceFailure(context.Context, MemoryAcceptance) error
+	// RecordMemoryCompletionFailure independently commits completion and release
+	// through the ordinary chat boundary when the primary operation fails.
 	RecordMemoryCompletionFailure(context.Context, MemoryTurnCompletion) error
 	// MemoryInput reads a prior acceptance independently of current capture policy.
 	MemoryInput(context.Context, string, string, string) (AcceptedInput, bool, error)

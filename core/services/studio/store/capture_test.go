@@ -746,6 +746,7 @@ var _ = Describe("durable capture", func() {
 				completion := store.MemoryTurnCompletion{Principal: "alice", ChatID: id, RunID: "run", ReplyID: "reply", ReplyText: "answer", Status: store.TurnDone, IncomingIDs: []string{"message"}}
 				restore = fail("UPDATE")
 				Expect(s.CompleteMemoryTurn(ctx, completion)).To(HaveOccurred())
+				Expect(s.RecordMemoryCompletionFailure(ctx, completion)).To(HaveOccurred())
 				restore()
 				turn, e := s.Turn(ctx, "alice", id)
 				Expect(e).NotTo(HaveOccurred())
@@ -753,7 +754,19 @@ var _ = Describe("durable capture", func() {
 				records, e = s.ListCaptures(ctx, "alice", id)
 				Expect(e).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(1))
+				Expect(s.RecordMemoryCompletionFailure(ctx, completion)).To(Succeed())
+				s = open()
+				turn, e = s.Turn(ctx, "alice", id)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(turn.Running).To(BeFalse())
+				Expect(turn.Last).To(Equal(store.TurnDone))
 				Expect(s.CompleteMemoryTurn(ctx, completion)).To(Succeed())
+				Expect(s.RecordMemoryCompletionFailure(ctx, completion)).To(Succeed())
+				conflict := completion
+				conflict.RunID = "stale"
+				Expect(s.RecordMemoryCompletionFailure(ctx, conflict)).To(MatchError(store.ErrCaptureConflict))
+				conflict.ReplyID = "different"
+				Expect(s.RecordMemoryCompletionFailure(ctx, conflict)).To(MatchError(store.ErrNotClaimed))
 				records, e = s.ListCaptures(ctx, "alice", id)
 				Expect(e).NotTo(HaveOccurred())
 				Expect(records).To(HaveLen(2))

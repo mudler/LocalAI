@@ -1519,14 +1519,17 @@ func (s *Service) llmForContext(ctx context.Context, a workspace.Actor) (nibharn
 
 // summaryModelForContext shares model resolution and current-user authorization,
 // but never installs chat callbacks that can consume pending media or tools.
-func (s *Service) summaryModelForContext(ctx context.Context, a workspace.Actor) (nibharness.Model, error) {
-	return s.modelForContext(ctx, a, true)
+func (s *Service) summaryModelForContext(ctx context.Context, a workspace.Actor, frozenModel ...string) (nibharness.Model, error) {
+	return s.modelForContext(ctx, a, true, frozenModel...)
 }
 
-func (s *Service) modelForContext(ctx context.Context, a workspace.Actor, textOnly bool) (nibharness.Model, error) {
+func (s *Service) modelForContext(ctx context.Context, a workspace.Actor, textOnly bool, frozenModel ...string) (nibharness.Model, error) {
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nibharness.Model{}, err
+	}
+	if textOnly && len(frozenModel) > 0 && frozenModel[0] != "" {
+		rec.Model = frozenModel[0]
 	}
 	var user *auth.User
 	if s.d.Users != nil && a.Principal != AnonymousPrincipal {

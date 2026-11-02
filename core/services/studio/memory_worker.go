@@ -241,7 +241,7 @@ func (s *Service) captureEffect(ctx context.Context, claim store.CaptureClaim, e
 		if !ok {
 			return nil, store.ErrCaptureConflict
 		}
-		text, err := s.SummarizeMemory(effectCtx, SummaryRequest{Principal: w.Job.Identity.Principal, ChatID: w.Job.Identity.Chat, Content: input.Text})
+		text, err := s.SummarizeMemory(effectCtx, SummaryRequest{Principal: w.Job.Identity.Principal, ChatID: w.Job.Identity.Chat, Content: input.Text, Model: claim.Record.SummaryModel})
 		env.Now = now().Unix()
 		if err != nil {
 			return memory.SummaryFailed{Envelope: env}, nil
