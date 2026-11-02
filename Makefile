@@ -1755,6 +1755,16 @@ test-memory-postgres:
 	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'a PostgreSQL memory test skipped' >&2; exit 1; fi; \
 	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -eq 4 || { echo 'fewer PostgreSQL memory suites ran than expected' >&2; exit 1; }
 
+## Bounded application acceptance: real PostgreSQL chat/collection backends,
+## independent frontend handles, a chat worker, and in-process bus transport.
+.PHONY: test-memory-distributed-postgres
+test-memory-distributed-postgres:
+	@test -n "$$LOCALAI_TEST_POSTGRES_URL" && test -n "$$MEMORY_DATABASE_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL and MEMORY_DATABASE_URL must point to disposable PostgreSQL fixtures' >&2; exit 1; }
+	@out=$$($(GOCMD) test -race -count=1 -v -tags "$(COVERAGE_TAGS)" ./core/application -ginkgo.focus 'PostgreSQL two-frontend memory acceptance ' -ginkgo.v -ginkgo.no-color 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
+	printf '%s\n' "$$out"; \
+	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'distributed memory acceptance skipped' >&2; exit 1; fi; \
+	printf '%s\n' "$$out" | grep -Eq '^Ran 1 of [0-9]+ Specs' || { echo 'expected exactly one distributed memory acceptance spec' >&2; exit 1; }
+
 ## The multi-frontend paths run against the in-process bus (testutil.FakeBus)
 ## under the race detector: two frontends, a worker and the cluster state, with
 ## no containers. The container-based suite is test-e2e-distributed. The

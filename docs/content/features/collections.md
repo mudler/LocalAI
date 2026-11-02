@@ -117,7 +117,13 @@ LOCALAI_COLLECTIONS_DATABASE_URL=postgresql://user:password@host:5432/localrecal
 The `docker-compose.yaml` of the project has a commented example with a
 PostgreSQL service. With several frontends in
 [distributed mode](/features/distributed-mode/), use the `postgres` engine, so
-that all frontends share the same collections.
+that all frontends share the same collection data. The shared PostgreSQL
+registry discovery layer currently applies to root (no-account) collections.
+Principal-owned collection lists are loaded from file metadata when that
+principal's backend first opens. Frontends using account-owned collections must
+share the collections state directory (`LOCALAI_COLLECTIONS_STATE_DIR`), and
+already-open principal backends do not discover later collection creation through
+the root registry. PostgreSQL alone does not provide that discovery guarantee.
 
 ## Use a collection in an agent
 
@@ -170,3 +176,47 @@ MEMORY_DATABASE_URL='postgres://postgres@localhost:5433/postgres?sslmode=disable
 
 The PostgreSQL cases fail rather than silently skipping when the fixture URL is
 missing.
+
+### Bounded two-frontend memory acceptance
+
+Run the mandatory-URL gate against disposable databases with pgvector and
+pg_textsearch installed (the backend also supports pgvector without vectorscale):
+
+```bash
+export LOCALAI_TEST_POSTGRES_URL='postgres://postgres:password@host:5433/postgres?sslmode=disable'
+export MEMORY_DATABASE_URL="$LOCALAI_TEST_POSTGRES_URL"
+make test-memory-distributed-postgres
+```
+
+This race-enabled gate requires exactly one selected spec and rejects a skipped
+spec. `core/application/studio_memory_distributed_test.go` opens two frontend
+services and a chat worker with independent SQL pools, chat/agent stores,
+collection services and application adapters. A real chat-start client/server
+routes the turn to the worker; two capture loops compete for the durable SQL
+claim. Assertions check a single winning generation, its backend fence, live
+processing status, one saved capture and one searchable PostgreSQL entry with
+the original text and entry ID. A synchronous bus subscriber reloads status
+through its own SQL handle, attempts another claim and re-enters the publishing
+service under a bounded context. This guards against publishing under SQL locks.
+The UI event subscription is disconnected before capture; after all three
+services close, a new service and pool reload the saved status and same entry,
+and cannot reclaim the completed capture.
+
+The fixture shares the principal collection metadata directory and opens each
+principal backend after the collection exists. It does **not** prove live
+collection discovery by an already-open principal backend or isolated-disk
+account deployments. The collection data and capture queue are real PostgreSQL;
+the transport is `testutil.FakeBus` with production `BroadcastBus` and chat-start
+adapters, not a distributed NATS deployment. Model and embedding responses are
+HTTP/harness fixtures. Restart here is a graceful service/pool reopen after a
+saved receipt, not a process crash or lost write response.
+
+Still required for full distributed release acceptance: committed-response-lost
+crash reconciliation by a new owner, frozen summary reuse at the write boundary,
+delayed grant revocation/destination edits, delete tombstone non-recreation and
+exact scoped deletion by another authorized producer, stale-claim fencing at
+each lifecycle boundary, cancellation/paused finalization, regenerated reply
+identity, and the complete capture-mode/restart matrix. Existing single-service
+or reducer tests are not a substitute for those distributed backend proofs.
+Full build, UI and coverage gates run separately; this bounded gate does not
+claim them.
