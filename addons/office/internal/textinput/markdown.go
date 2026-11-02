@@ -211,7 +211,28 @@ func (p *markdownParser) inline(parent ast.Node) ([]docx.Run, error) {
 	if isInclude(raw.String()) {
 		return nil, p.fail(parent, "includes are unsupported; supply literal content")
 	}
-	return runs, nil
+	// Parser fragments with identical formatting should share one text run so
+	// the DOCX editor can find text across punctuation, labels and inline code.
+	coalesced := runs[:0]
+	for i := 0; i < len(runs); {
+		run := runs[i]
+		var text strings.Builder
+		for i < len(runs) && runs[i].Bold == run.Bold && runs[i].Italic == run.Italic {
+			if err := p.ctx.Err(); err != nil {
+				return nil, err
+			}
+			text.WriteString(runs[i].Text)
+			endsLine := strings.HasSuffix(runs[i].Text, "\n")
+			i++
+			// Keep semantic line-break boundaries in separate runs.
+			if endsLine {
+				break
+			}
+		}
+		run.Text = text.String()
+		coalesced = append(coalesced, run)
+	}
+	return coalesced, nil
 }
 func (p *markdownParser) block(n ast.Node, indent int) error {
 	if err := p.ctx.Err(); err != nil {

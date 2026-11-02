@@ -49,6 +49,43 @@ var _ = Describe("manifest", func() {
 		}
 	})
 
+	It("advertises exactly the three string-only text creation contracts", func() {
+		raw, err := os.ReadFile(manifestPath)
+		Expect(err).NotTo(HaveOccurred())
+		m, err := contract.ParseManifest(raw)
+		Expect(err).NotTo(HaveOccurred())
+		for _, defs := range [][]contract.ToolDefinition{tools.Definitions(), m.Capabilities.ToolDefinitions} {
+			seen := 0
+			for _, d := range defs {
+				field := "markdown"
+				keys := []string{"path", "markdown", "title"}
+				switch d.Name {
+				case tools.ToolCreateDocx, tools.ToolCreatePdf:
+				case tools.ToolCreateXlsx:
+					field, keys = "csv", []string{"path", "csv", "sheet", "title"}
+				default:
+					continue
+				}
+				seen++
+				var schema map[string]any
+				Expect(json.Unmarshal(d.InputSchema, &schema)).To(Succeed())
+				Expect(schema["type"]).To(Equal("object"))
+				Expect(schema["additionalProperties"]).To(Equal(false))
+				Expect(schema["required"]).To(ConsistOf("path", field))
+				props := schema["properties"].(map[string]any)
+				Expect(props).To(HaveLen(len(keys)))
+				for _, key := range keys {
+					Expect(props).To(HaveKey(key))
+					Expect(props[key].(map[string]any)["type"]).To(Equal("string"))
+				}
+				for _, forbidden := range []string{`"array"`, `"items"`, `"oneOf"`, `"anyOf"`, `"allOf"`, `"blocks"`, `"sheets"`, `"rows"`, "2000"} {
+					Expect(string(d.InputSchema)).NotTo(ContainSubstring(forbidden), d.Name)
+				}
+			}
+			Expect(seen).To(Equal(3))
+		}
+	})
+
 	It("makes only the edit and create tools actions", func() {
 		for _, d := range tools.Definitions() {
 			wantAction := d.Name[:4] == "edit" || d.Name[:6] == "create"

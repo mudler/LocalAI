@@ -352,10 +352,7 @@ var _ = Describe("Add-on actions end to end", func() {
 	It("lets the Office add-on create, read and edit a document in the user's files", func() {
 		w := startAddon("office")
 		w.put("alice", "/seed.txt", "x")
-		created := w.act("create-docx", "alice", "convaaaa", map[string]any{"path": "/report.docx", "blocks": []map[string]any{
-			{"kind": "heading", "level": 1, "text": "Summary"},
-			{"kind": "paragraph", "text": "All good."},
-		}})
+		created := w.act("create-docx", "alice", "convaaaa", map[string]any{"path": "/report.docx", "markdown": "# Summary\n\nAll good."})
 		Expect(created["ok"]).To(Equal(true), "create-docx = %v", created)
 		Expect(created["path"]).To(Equal("/report.docx"), "create-docx = %v", created)
 		read := w.read("read-docx", "alice", map[string]any{"path": "/report.docx"})
@@ -388,7 +385,7 @@ var _ = Describe("Add-on calls of a chat whose agent has a folder", func() {
 		// Two documents made outside any chat: one in the agent's folder, one
 		// outside it.
 		for path, text := range map[string]string{"/Acme/in.docx": "Inside the folder.", "/Other/out.docx": marker} {
-			made := w.act("create-docx", "alice", "convplain", map[string]any{"path": path, "blocks": []map[string]any{{"kind": "paragraph", "text": text}}})
+			made := w.act("create-docx", "alice", "convplain", map[string]any{"path": path, "markdown": text})
 			Expect(made["ok"]).To(Equal(true), "create-docx %s = %v", path, made)
 		}
 		w.scopedChat("convscope", workspace.ModeWrite)
@@ -405,14 +402,14 @@ var _ = Describe("Add-on calls of a chat whose agent has a folder", func() {
 			Expect(string(mustJSON(got))).NotTo(ContainSubstring(marker), "read-docx %q", p)
 		}
 		// A document it makes lands in the folder, never at the home root.
-		made := w.actIn("create-docx", "alice", "convscope", map[string]any{"path": "/new.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "New."}}})
+		made := w.actIn("create-docx", "alice", "convscope", map[string]any{"path": "/new.docx", "markdown": "New."})
 		Expect(made["ok"]).To(Equal(true), "create-docx = %v", made)
 		Expect(made["path"]).To(Equal("/new.docx"), "the path in the add-on's terms")
 		_, ok := w.text("alice", "/Acme/new.docx")
 		Expect(ok).To(BeTrue(), "the new document is in the folder")
 		_, ok = w.text("alice", "/new.docx")
 		Expect(ok).To(BeFalse(), "the new document reached the home root")
-		escaped := w.actIn("create-docx", "alice", "convscope", map[string]any{"path": "../escape.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "x"}}})
+		escaped := w.actIn("create-docx", "alice", "convscope", map[string]any{"path": "../escape.docx", "markdown": "x"})
 		Expect(escaped["ok"]).To(Equal(false), "create-docx outside = %v", escaped)
 		edited := w.actIn("edit-docx", "alice", "convscope", map[string]any{"path": "/Other/out.docx", "edits": []map[string]any{{"op": "replace", "find": marker, "text": "changed"}}})
 		Expect(edited["ok"]).To(Equal(false), "edit-docx outside = %v", edited)
@@ -452,12 +449,12 @@ var _ = Describe("Add-on calls of a chat whose agent has a folder", func() {
 		w := startAddon("office")
 		w.put("alice", "/Acme/seed.txt", "x")
 		w.scopedChat("convread", workspace.ModeRead)
-		made := w.actIn("create-docx", "alice", "convread", map[string]any{"path": "/new.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "New."}}})
+		made := w.actIn("create-docx", "alice", "convread", map[string]any{"path": "/new.docx", "markdown": "New."})
 		Expect(made["ok"]).To(Equal(false), "create-docx in a read-only folder = %v", made)
 		_, ok := w.text("alice", "/Acme/new.docx")
 		Expect(ok).To(BeFalse())
 		// Its chat folder stays writable.
-		made = w.actIn("create-docx", "alice", "convread", map[string]any{"path": "/workspace/chat/new.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "New."}}})
+		made = w.actIn("create-docx", "alice", "convread", map[string]any{"path": "/workspace/chat/new.docx", "markdown": "New."})
 		Expect(made["ok"]).To(Equal(true), "create-docx in the chat folder = %v", made)
 		_, ok = w.text("alice", "/Chats/convread/new.docx")
 		Expect(ok).To(BeTrue())

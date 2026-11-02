@@ -597,6 +597,11 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	}
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
+		if errors.Is(err, ErrInvalidArguments) {
+			if message := officeCreationDiagnostic(addonID, tool, arguments); message != "" {
+				return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Message: message}, nil
+			}
+		}
 		return ToolResult{}, err
 	}
 	if resource == "" && conversationID != "" && requiresResource(def) {

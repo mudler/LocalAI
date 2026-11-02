@@ -305,117 +305,58 @@
       },
       {
         "name": "create-docx",
-        "description": "Create a Word file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text) or bullets (items). If the path is taken, the old file stays and the new one is saved next to it.",
+        "description": "Create a Word document from Markdown. Supports headings, paragraphs, lists, bold, italic and simple tables. If the path is taken, the old file stays and the new one is saved next to it.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,
           "properties": {
-            "blocks": {
-              "description": "The blocks, in order.",
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "items": {
-                    "description": "bullets: the lines.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "maxItems": 100,
-                    "type": "array"
-                  },
-                  "kind": {
-                    "description": "The kind of block.",
-                    "enum": [
-                      "heading",
-                      "paragraph",
-                      "bullets"
-                    ],
-                    "type": "string"
-                  },
-                  "level": {
-                    "description": "heading: 1 to 3.",
-                    "type": "integer"
-                  },
-                  "text": {
-                    "description": "heading and paragraph: the text.",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind"
-                ],
-                "type": "object"
-              },
-              "maxItems": 2000,
-              "type": "array"
+            "markdown": {
+              "description": "The markdown content.",
+              "type": "string"
             },
             "path": {
               "description": "The file, as a path inside the user's files, such as /reports/plan.docx.",
               "type": "string"
             },
             "title": {
-              "description": "The document title. Optional.",
+              "description": "Optional title metadata; does not add a heading.",
               "type": "string"
             }
           },
           "required": [
             "path",
-            "blocks"
+            "markdown"
           ],
           "type": "object"
         }
       },
       {
         "name": "create-xlsx",
-        "description": "Create an Excel file. Each sheet has a name and rows of text values. A value starting with = is a formula, a number is stored as a number. The first row is the header. If the path is taken, the old file stays.",
+        "description": "Create one Excel sheet from comma-separated CSV. Every nonempty value is text, never a formula or number. Sheet defaults to Sheet1. If the path is taken, the old file stays and the new one is saved next to it.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,
           "properties": {
+            "csv": {
+              "description": "The csv content.",
+              "type": "string"
+            },
             "path": {
               "description": "The file, as a path inside the user's files, such as /reports/plan.xlsx.",
               "type": "string"
             },
-            "sheets": {
-              "description": "The sheets.",
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "name": {
-                    "description": "The sheet name, at most 31 characters.",
-                    "type": "string"
-                  },
-                  "rows": {
-                    "description": "The rows, top to bottom.",
-                    "items": {
-                      "description": "One row.",
-                      "items": {
-                        "type": "string"
-                      },
-                      "maxItems": 200,
-                      "type": "array"
-                    },
-                    "maxItems": 5000,
-                    "type": "array"
-                  }
-                },
-                "required": [
-                  "name",
-                  "rows"
-                ],
-                "type": "object"
-              },
-              "maxItems": 32,
-              "type": "array"
+            "sheet": {
+              "description": "The sheet name. Optional; defaults to Sheet1.",
+              "type": "string"
             },
             "title": {
-              "description": "The workbook title. Optional.",
+              "description": "Optional title metadata; does not add a heading.",
               "type": "string"
             }
           },
           "required": [
             "path",
-            "sheets"
+            "csv"
           ],
           "type": "object"
         }
@@ -471,84 +412,27 @@
       },
       {
         "name": "create-pdf",
-        "description": "Create a PDF file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text), bullets (items) or table (header and rows). The text must use Latin-1 characters only. If the path is taken, the old file stays and the new one is saved next to it.",
+        "description": "Create a PDF from Markdown headings, paragraphs, lists, bold, italic and simple tables. Text must use Latin-1 characters only. If the path is taken, the old file stays and the new one is saved next to it.",
         "kind": "action",
         "inputSchema": {
           "additionalProperties": false,
           "properties": {
-            "blocks": {
-              "description": "The blocks, in order.",
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "header": {
-                    "description": "table: the column titles.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "maxItems": 20,
-                    "type": "array"
-                  },
-                  "items": {
-                    "description": "bullets: the lines.",
-                    "items": {
-                      "type": "string"
-                    },
-                    "maxItems": 100,
-                    "type": "array"
-                  },
-                  "kind": {
-                    "description": "The kind of block.",
-                    "enum": [
-                      "heading",
-                      "paragraph",
-                      "bullets",
-                      "table"
-                    ],
-                    "type": "string"
-                  },
-                  "level": {
-                    "description": "heading: 1 to 3.",
-                    "type": "integer"
-                  },
-                  "rows": {
-                    "description": "table: the rows, top to bottom.",
-                    "items": {
-                      "description": "One row.",
-                      "items": {
-                        "type": "string"
-                      },
-                      "maxItems": 20,
-                      "type": "array"
-                    },
-                    "maxItems": 500,
-                    "type": "array"
-                  },
-                  "text": {
-                    "description": "heading and paragraph: the text.",
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "kind"
-                ],
-                "type": "object"
-              },
-              "maxItems": 2000,
-              "type": "array"
+            "markdown": {
+              "description": "The markdown content.",
+              "type": "string"
             },
             "path": {
               "description": "The file, as a path inside the user's files, such as /reports/plan.pdf.",
               "type": "string"
             },
             "title": {
-              "description": "The document title. Optional.",
+              "description": "Optional title metadata; does not add a heading.",
               "type": "string"
             }
           },
           "required": [
             "path",
-            "blocks"
+            "markdown"
           ],
           "type": "object"
         }
@@ -571,7 +455,7 @@
       "css": [
         "ui/office.css"
       ],
-      "description": "Read and edit Word, Excel, PowerPoint and PDF files from your chats.",
+      "description": "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox.",
       "entry": "ui/office.js",
       "icon": "ui/icon.png",
       "mainPage": "office",
@@ -594,7 +478,7 @@
           "slot": "files.preview"
         }
       ],
-      "title": "Office"
+      "title": "Simple Office"
     }
   },
   "dataFormat": {
