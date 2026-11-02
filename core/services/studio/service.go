@@ -1135,11 +1135,8 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 
 // startTurn runs msg as a turn the claim runID already covers.
 func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
-	if len(msg.MemoryInputs) > 0 {
-		if err := s.d.Store.BindMemoryTurn(ctx, p, conv, runID, msg.MemoryInputs); err != nil {
-			return err
-		}
-	}
+	// TakePending already durably binds accepted inputs to the claimed run.
+	// Do not gate answering on a redundant capture-only write here.
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)

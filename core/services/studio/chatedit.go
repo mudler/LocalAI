@@ -154,6 +154,13 @@ func (s *Service) rerun(ctx context.Context, p, conv string, acceptNew bool, pic
 			msg.MemoryInputs = []string{id}
 		}
 	}
+	// Reruns bypass TakePending, so preserve their accepted entry membership
+	// separately without letting a capture-only failure prevent the answer.
+	if len(msg.MemoryInputs) > 0 {
+		if err := s.d.Store.BindMemoryTurn(ctx, p, conv, runID, msg.MemoryInputs); err != nil {
+			s.log.Warn("studio: could not persist rerun memory membership", "chat", conv, "error", err)
+		}
+	}
 	s.recommand(ctx, p, rec, &msg)
 	if err := s.startTurn(ctx, p, conv, runID, msg); err != nil {
 		return SendResult{}, err

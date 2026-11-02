@@ -4,6 +4,7 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -245,4 +246,53 @@ var _ = Describe("durable worker delivery identity", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(records).To(HaveLen(4))
 	})
+})
+
+// Acceptance and TakePending still use the real store: only the redundant
+// standalone binding write is unavailable.
+type failingMemoryBindStore struct {
+	store.Store
+}
+
+func (s failingMemoryBindStore) BindMemoryTurn(context.Context, string, string, string, []string) error {
+	return errors.New("memory binding unavailable")
+}
+
+var _ = Describe("worker memory binding failure isolation", func() {
+	for _, requestID := range []string{"", "accepted-worker-delivery"} {
+		It("answers and releases the claim with failing standalone binding for request "+requestID, func() {
+			ctx := context.Background()
+			var st store.Store
+			r, _ := memoryRig(sayOK, func(d *studio.Deps) {
+				st = d.Store
+				d.Store = failingMemoryBindStore{Store: st}
+			})
+			a := memoryPolicy()
+			a.Memory.AutomaticIngestion = "incoming_and_replies"
+			r.save(a)
+			id := r.chatWith(a.ID)
+			reply := r.svc.ServeStart(ctx, workerctl.ChatStartRequest{
+				Principal: alice, ChatID: id, Text: "remember despite binding failure", RequestID: requestID,
+			})
+			Expect(reply.Error).To(BeEmpty())
+			Expect(reply.Started).To(BeTrue())
+			idle(r.svc, alice, id)
+			info, err := st.Turn(ctx, alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Running).To(BeFalse())
+			Expect(info.Last).To(Equal(store.TurnDone))
+			entries, err := r.svc.Messages(ctx, alice, id, 0, 100)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(entries).To(ContainElement(And(HaveField("Role", "assistant"), HaveField("Text", "ok"))))
+			records, err := st.ListCaptures(ctx, alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			texts := []string{}
+			for _, record := range records {
+				texts = append(texts, record.RawText)
+			}
+			Expect(texts).To(ConsistOf("remember despite binding failure", "ok"))
+			Expect(st.ClaimTurn(ctx, alice, id, "next-run")).To(Succeed())
+			Expect(st.ReleaseTurn(ctx, alice, id, "next-run", store.TurnDone)).To(Succeed())
+		})
+	}
 })
