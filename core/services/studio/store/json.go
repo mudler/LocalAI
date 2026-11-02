@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -448,6 +449,13 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 			old.mu.Unlock()
 			return session.ErrExists
 		}
+		// Keep the slot locked, but let unrelated IDs proceed during cleanup.
+		s.mu.Unlock()
+		if err := s.cleanupDeletedChat(rec.ID); err != nil {
+			old.mu.Unlock()
+			return err
+		}
+		s.mu.Lock()
 		retained = old.Capture
 		defer old.mu.Unlock()
 		break
@@ -700,26 +708,54 @@ func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
 	if err := s.save(&next); err != nil {
 		return err
 	}
-	oldGen := c.StateGen
 	c.chatState = next
 	c.gone = true
-	if s.dir != "" {
-		files := []string{s.file(id, ".entries")}
-		if oldGen > 0 {
-			files = append(files, s.stateFile(id, oldGen))
+	return s.cleanupDeletedChat(id)
+}
+
+// cleanupDeletedChat runs with the deleted slot locked. Minimal tombstones do
+// not retain StateGen, so remove every generation belonging to exactly this
+// ID before its paths can be reused. Sync even on a retry with no files left:
+// a previous attempt may have removed them but failed to make that durable.
+func (s *jsonStore) cleanupDeletedChat(id string) error {
+	if s.dir == "" {
+		return nil
+	}
+	names, err := os.ReadDir(s.chatDir())
+	if err != nil {
+		return err
+	}
+	base := filepath.Base(s.file(id, ""))
+	remove := s.removeChatFile
+	if remove == nil {
+		remove = os.Remove
+	}
+	for _, entry := range names {
+		name := entry.Name()
+		if name != base+".entries" {
+			generation, ok := strings.CutPrefix(name, base+".")
+			if !ok {
+				continue
+			}
+			generation, ok = strings.CutSuffix(generation, ".state")
+			if !ok {
+				continue
+			}
+			gen, err := strconv.ParseInt(generation, 10, 64)
+			if err != nil || gen <= 0 || strconv.FormatInt(gen, 10) != generation {
+				continue
+			}
 		}
-		for _, file := range files {
-			remove := s.removeChatFile
-			if remove == nil {
-				remove = os.Remove
-			}
-			if err := remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
-				return err
-			}
+		if err := remove(filepath.Join(s.chatDir(), name)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
 		}
 	}
-
-	return nil
+	d, err := os.Open(s.chatDir())
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return d.Sync()
 }
 
 func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (int64, error) {
