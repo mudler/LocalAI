@@ -469,7 +469,13 @@ the explicit contract map.
 module downloads. It unions all OS/build-tag files, follows production imports
 transitively, and includes test imports only for tested roots (dependency tests
 are not linked into importing binaries). It separates independent add-on binaries
-from host integration. Same-directory embedded/non-Go inputs inherit package
+from host integration. Explicit executable roots also connect Playwright and
+add-on readiness to the UI test server and mock backend, add-on host suites to
+the protocol fixture/Tables/cluster commands, and backend E2E to the built proxy
+commands. Their production imports are followed transitively, without pulling
+executable test imports into runtime consumers. The MCP fixture is exclusive to
+`test-e2e-platform`, which these migrated workflows do not invoke; it does not
+select unrelated UI/package jobs. Same-directory embedded/non-Go inputs inherit package
 consumers; unknown nested asset directories conservatively run broadly. Generated
 protobuf inputs and build tooling select broadly. This is lexical import metadata,
 not a replacement for Go compilation; tests cover tags, root tests, generated
@@ -523,6 +529,10 @@ enabled.
 limits the archive to 512 MiB, rejects links/unexpected paths, and checks every
 file checksum and normalized mode. Its manifest binds the actual checkout SHA,
 Go/Node/protoc versions and the Ubuntu amd64/auth/production configuration.
+After SHA/tool/config/checksum validation, restoration rebases generated mtimes
+onto the later consumer checkout, with server binaries newer than embedded dist.
+Source mtimes are untouched: a subsequent edit still fails existing freshness
+checks. Failed identity validation never marks the restored files fresh.
 Artifacts expire after one day. A missing or mismatched artifact fails rather
 than silently rebuilding it. Consumers run `prepare.sh --check`, which inspects
 inputs and pinned plugins without regenerating sources or rebuilding the restored

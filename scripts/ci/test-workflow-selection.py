@@ -14,6 +14,8 @@ import yaml
 import subprocess
 import re
 import fnmatch
+import os
+import time
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ['test.yml', 'build-test.yaml', 'tests-ui-e2e.yml', 'tests-e2e.yml',
@@ -164,6 +166,37 @@ class Wiring(unittest.TestCase):
         self.assertNotIn('--integration', str(consumer))
         self.assertIn('--check', str(consumer))
 
+    def test_executable_edges_select_actual_ui_and_host_jobs(self):
+        for path in ['tests/e2e/mock-backend/main.go', 'tests/e2e-ui/main.go']:
+            jobs = eligible_jobs(selection([path]))
+            self.assertIn('tests-ui-e2e.yml:tests-ui-e2e', jobs, path)
+            self.assertIn('addons-tests.yml:prepare', jobs, path)
+            for group in ['host pages', 'foundation', 'tables pages']:
+                self.assertIn('addons-tests.yml:suites['+group+']', jobs, path)
+            self.assertFalse(any(j.startswith('addons-package.yml:') for j in jobs), path)
+
+    def test_executable_transitive_imports_gate_actual_yaml(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            files = {
+                'go.mod': 'module example.test/localai\n',
+                'tests/e2e/mock-backend/main.go': 'package main\nimport "example.test/localai/pkg/fixturedep"\n',
+                'pkg/fixturedep/dep.go': 'package fixturedep\nimport "example.test/localai/pkg/fixtureleaf"\n',
+                'pkg/fixtureleaf/leaf.go': 'package fixtureleaf\n',
+            }
+            for path, text in files.items():
+                target = root/path; target.parent.mkdir(parents=True, exist_ok=True); target.write_text(text)
+            script = """import { classify } from './scripts/lib/ci-select.mjs';
+import { dependencyIndex } from './scripts/ci/dependencies.mjs';
+console.log(JSON.stringify(classify(['pkg/fixtureleaf/changed.go'], '', dependencyIndex(process.argv[1]))));"""
+            result = json.loads(subprocess.check_output(['node', '--input-type=module', '-e', script, tmp], cwd=ROOT))
+            jobs = eligible_jobs(result)
+            self.assertIn('tests-ui-e2e.yml:tests-ui-e2e', jobs)
+            self.assertIn('addons-tests.yml:prepare', jobs)
+            for group in ['host pages', 'foundation', 'tables pages']:
+                self.assertIn('addons-tests.yml:suites['+group+']', jobs)
+            self.assertFalse(any(j.startswith('addons-package.yml:') for j in jobs))
+
     def test_expensive_job_eligibility(self):
         fixtures = json.loads((ROOT/'scripts/ci/eligibility-cases.json').read_text())
         for case in fixtures:
@@ -206,6 +239,38 @@ class Fixtures(unittest.TestCase):
                 tar.addfile(member, io.BytesIO(payload))
             with self.assertRaises(AssertionError):
                 fixtures.transfer('unpack', dst, archive, 'abc', {'go': '1.26'})
+
+    def test_restore_rebases_freshness_only_after_identity_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); src = root/'src'; dst = root/'dst'
+            src.mkdir(); dst.mkdir(); self.make(src)
+            old = time.time_ns()-10_000_000_000
+            for name in fixtures.metadata(src): os.utime(src/name, ns=(old, old))
+            archive = root/'fixtures.tgz'; fixtures.transfer('pack', src, archive, 'abc')
+            # A separate checkout occurs after the producer built its files.
+            sources = ['core/http/react-ui/src/components/addons/RecoveryPanel.jsx',
+                       'core/http/react-ui/src/components/addons/recoveryState.js',
+                       'core/http/react-ui/src/utils/addonsApi.js',
+                       'core/services/addons/recovery/backup.go',
+                       'core/http/endpoints/addons/recovery.go', 'tests/e2e/mock-backend/main.go']
+            for name in sources:
+                target = dst/name; target.parent.mkdir(parents=True, exist_ok=True); target.write_text('source')
+            fixtures.transfer('unpack', dst, archive, 'abc')
+            # Execute the exact freshness assertions from recovery.sh 33-39.
+            text = (ROOT/'scripts/addons/recovery.sh').read_text()
+            start = text.index('[ "$root/tests/e2e-ui/ui-test-server" -nt "$ui/dist/index.html" ]')
+            end = text.index('\n\n', start)
+            guard = text[start:end]
+            env = dict(os.environ, root=str(dst), ui=str(dst/'core/http/react-ui'))
+            self.assertEqual(subprocess.run(['sh', '-c', guard], env=env, capture_output=True).returncode, 0)
+            source = dst/sources[3]
+            later = (dst/'tests/e2e-ui/ui-test-server').stat().st_mtime_ns+1_000_000
+            source.write_text('new edit'); os.utime(source, ns=(later, later))
+            self.assertNotEqual(subprocess.run(['sh', '-c', guard], env=env, capture_output=True).returncode, 0)
+            # Failed identity checks must not mark a stale binary fresh.
+            with self.assertRaisesRegex(AssertionError, 'sha mismatch'):
+                fixtures.transfer('unpack', dst, archive, 'different')
+            self.assertLess((dst/'tests/e2e-ui/ui-test-server').stat().st_mtime_ns, source.stat().st_mtime_ns)
 
     def test_missing_executable_and_tampered_payload(self):
         with tempfile.TemporaryDirectory() as tmp:

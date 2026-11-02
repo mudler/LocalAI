@@ -760,5 +760,99 @@
       "addons-package.yml:package[web@darwin/arm64]",
       "addons-package.yml:package[web@darwin/amd64]"
     ]
+  },
+  {
+    "name": "mock backend executable",
+    "paths": [
+      "tests/e2e/mock-backend/main.go"
+    ],
+    "event": "pull_request",
+    "base_workflows": [
+      "test.yml",
+      "build-test.yaml",
+      "tests-ui-e2e.yml",
+      "tests-e2e.yml",
+      "addons-tests.yml"
+    ],
+    "jobs": [
+      "test.yml:tests-linux",
+      "test.yml:tests-apple",
+      "tests-ui-e2e.yml:tests-ui-e2e",
+      "tests-e2e.yml:tests-e2e-backend",
+      "addons-tests.yml:prepare",
+      "addons-tests.yml:suites[contracts and gateway]",
+      "addons-tests.yml:suites[host pages]",
+      "addons-tests.yml:suites[foundation]",
+      "addons-tests.yml:suites[tables]",
+      "addons-tests.yml:suites[tables pages]"
+    ]
+  },
+  {
+    "name": "mock backend imported dependency",
+    "paths": [
+      "pkg/grpc/grpcerrors/errors.go"
+    ],
+    "event": "pull_request",
+    "base_workflows": [
+      "test.yml",
+      "build-test.yaml",
+      "tests-e2e.yml"
+    ],
+    "jobs": [
+      "test.yml:tests-linux",
+      "test.yml:tests-apple",
+      "build-test.yaml:build-test",
+      "tests-ui-e2e.yml:tests-ui-e2e",
+      "tests-e2e.yml:tests-e2e-backend",
+      "tests-e2e-distributed.yml:fakebus",
+      "tests-e2e-distributed.yml:distributed",
+      "addons-tests.yml:prepare",
+      "addons-tests.yml:suites[contracts and gateway]",
+      "addons-tests.yml:suites[host pages]",
+      "addons-tests.yml:suites[foundation]",
+      "addons-tests.yml:suites[tables]",
+      "addons-tests.yml:suites[tables pages]"
+    ]
+  },
+  {
+    "name": "UI test server executable",
+    "paths": [
+      "tests/e2e-ui/main.go"
+    ],
+    "event": "pull_request",
+    "base_workflows": [
+      "test.yml",
+      "build-test.yaml",
+      "tests-ui-e2e.yml",
+      "tests-e2e.yml",
+      "addons-tests.yml"
+    ],
+    "jobs": [
+      "test.yml:tests-linux",
+      "test.yml:tests-apple",
+      "tests-ui-e2e.yml:tests-ui-e2e",
+      "addons-tests.yml:prepare",
+      "addons-tests.yml:suites[contracts and gateway]",
+      "addons-tests.yml:suites[host pages]",
+      "addons-tests.yml:suites[foundation]",
+      "addons-tests.yml:suites[tables]",
+      "addons-tests.yml:suites[tables pages]"
+    ]
+  },
+  {
+    "name": "MCP platform-only executable",
+    "paths": [
+      "tests/e2e-platform/mcpfixture/main.go"
+    ],
+    "event": "pull_request",
+    "base_workflows": [
+      "test.yml",
+      "build-test.yaml",
+      "tests-e2e.yml"
+    ],
+    "jobs": [
+      "test.yml:tests-linux",
+      "test.yml:tests-apple"
+    ]
   }
 ]

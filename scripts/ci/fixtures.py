@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tarfile
+import time
 
 PATHS = ['core/http/react-ui/dist', 'pkg/grpc/proto', 'pkg/motion/proto',
          'tests/e2e/mock-backend/mock-backend', 'tests/e2e-ui/ui-test-server']
@@ -51,6 +52,15 @@ def transfer(mode, root, archive, sha, tools=None):
         for key, value in identity.items():
             assert manifest[key] == value, f'fixture {key} mismatch'
         assert metadata(root) == manifest['files'], 'fixture checksum/mode mismatch'
+        # The consumer checks out the same SHA later than the producer. Only
+        # after identity and content verification, rebase generated mtimes onto
+        # that checkout. Keep the server newer than its embedded dist, and leave
+        # all source files untouched so a subsequent edit still fails -nt guards.
+        stamp = time.time_ns()
+        for name in manifest['files']:
+            if name not in BINARIES: os.utime(root / name, ns=(stamp, stamp))
+        for offset, name in enumerate(BINARIES, 1):
+            os.utime(root / name, ns=(stamp + offset, stamp + offset))
     else:
         raise ValueError(mode)
 

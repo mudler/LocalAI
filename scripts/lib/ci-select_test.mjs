@@ -123,3 +123,30 @@ test('dependency index includes root tests, all build tags, and generated import
     all(classify(['pkg/entirely-removed/deleted.go'], '', d));
   } finally { rmSync(root, { recursive:true, force:true }); }
 });
+
+test('executable consumers include transitive production imports, not fixture tests', async () => {
+  const { dependencyIndex } = await import('../ci/dependencies.mjs');
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const root = mkdtempSync(join(tmpdir(), 'ci-executables-'));
+  function file(path, text) { mkdirSync(join(root, path, '..'), { recursive: true }); writeFileSync(join(root, path), text); }
+  try {
+    file('go.mod', 'module example.test/localai\n');
+    file('tests/e2e/mock-backend/main.go', 'package main\nimport "example.test/localai/pkg/mockdep"\n');
+    file('pkg/mockdep/dep.go', 'package mockdep\nimport "example.test/localai/pkg/mockleaf"\n');
+    file('pkg/mockleaf/leaf.go', 'package mockleaf\n');
+    file('tests/e2e/mock-backend/main_test.go', 'package main\nimport "example.test/localai/pkg/mocktest"\n');
+    file('pkg/mocktest/test.go', 'package mocktest\n');
+    const deps = dependencyIndex(root);
+    for (const pkg of ['pkg/mockdep', 'pkg/mockleaf']) {
+      assert.ok(deps[pkg].includes('ui'), pkg);
+      assert.ok(deps[pkg].includes('addons'), pkg);
+      const r = classify([pkg+'/changed.go'], '', deps);
+      assert.equal(r.selected.ui, true);
+      assert.equal(r.selected.addons, true);
+      assert.equal(r.selected.packages, false);
+    }
+    assert.ok(!deps['pkg/mocktest'].includes('ui'), 'executable tests are not UI runtime inputs');
+  } finally { rmSync(root, {recursive:true, force:true}); }
+});
