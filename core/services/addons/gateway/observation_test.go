@@ -16,6 +16,15 @@ import (
 
 type observationCaps struct{ toolSet }
 
+type rawObservationCaps struct {
+	toolSet
+	caps contract.Capabilities
+}
+
+func (s rawObservationCaps) DeclaredCapabilities(context.Context, string, uint64) (contract.Capabilities, error) {
+	return s.caps, nil
+}
+
 func (s observationCaps) DeclaredCapabilities(context.Context, string, uint64) (contract.Capabilities, error) {
 	return contract.Capabilities{Tools: []string{"run", "health"}, ExecutionProvider: &contract.ExecutionProvider{Tools: []string{"run"}, StatusTool: "health"}, ToolDefinitions: []contract.ToolDefinition{
 		{Name: "run", Kind: "action", Shadows: "bash"},
@@ -65,6 +74,50 @@ var _ = Describe("exact owner execution observation", func() {
 		}}
 		r = ExecutionStatusRequest{Version: 1, Binding: ExecutionStatusBinding{Actor: frontActor, AddonID: "sample", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", CurrentSelection: "rev"}, ObservationID: "q"}
 	})
+
+	DescribeTable("rejects invalid raw execution declarations", func(field, value string) {
+		caps, err := g.Tools.(observationCaps).DeclaredCapabilities(context.Background(), "sample", 1)
+		Expect(err).NotTo(HaveOccurred())
+		switch field {
+		case "schema":
+			caps.ToolDefinitions[1].InputSchema = json.RawMessage(value)
+		case "resource":
+			caps.ToolDefinitions[1].InputSchema = json.RawMessage(`{"type":"object","properties":{"resourceId":{"type":"string"}},"required":["resourceId"],"additionalProperties":false}`)
+		case "admin":
+			caps.AdminTools = []string{"health"}
+		case "status-ui":
+			caps.ToolDefinitions[1].UIOnly = false
+		case "status-kind":
+			caps.ToolDefinitions[1].Kind = value
+		case "action-ui":
+			caps.ToolDefinitions[0].UIOnly = true
+		case "action-kind":
+			caps.ToolDefinitions[0].Kind = value
+		case "shadow":
+			caps.ToolDefinitions[0].Shadows = value
+		}
+		g.Tools = rawObservationCaps{caps: caps}
+		out, err := g.ExecutionStatusRead(context.Background(), frontActor, r)
+		Expect(err).To(MatchError(ErrForbidden))
+		Expect(out.Status.Readiness).To(Equal("unknown"))
+		Expect(c.calls.Load()).To(BeZero())
+	},
+		Entry("wrong object", "schema", `{"type":"string","additionalProperties":false}`),
+		Entry("additional properties true", "schema", `{"type":"object","additionalProperties":true}`),
+		Entry("additional properties absent", "schema", `{"type":"object"}`),
+		Entry("required", "schema", `{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}`),
+		Entry("enum", "schema", `{"type":"object","enum":["x"],"additionalProperties":false}`),
+		Entry("unknown schema keyword", "schema", `{"type":"object","minProperties":1,"additionalProperties":false}`),
+		Entry("malformed required", "schema", `{"type":"object","required":null,"additionalProperties":false}`),
+		Entry("resource", "resource", ""),
+		Entry("admin", "admin", ""),
+		Entry("status uiOnly", "status-ui", ""),
+		Entry("status kind", "status-kind", "action"),
+		Entry("action uiOnly", "action-ui", ""),
+		Entry("action kind", "action-kind", "read"),
+		Entry("shadow", "shadow", "other"),
+	)
+
 	It("reads the exact uiOnly status tool locally and over authenticated mTLS", func() {
 		_, cs := carrierFixture(func(car *Carrier) http.Handler {
 			h, e := car.OwnerHandler(g)

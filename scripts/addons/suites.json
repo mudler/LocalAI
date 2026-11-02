@@ -538,7 +538,22 @@
       "long segment",
       "too many segments",
       "long combined route",
-      "rejects noncanonical modelActions entry keys and duplicate keys"
+      "rejects noncanonical modelActions entry keys and duplicate keys",
+      "wrong object",
+      "additional properties true",
+      "additional properties absent",
+      "required",
+      "enum",
+      "unknown schema keyword",
+      "malformed required",
+      "resource",
+      "admin",
+      "status uiOnly",
+      "status kind",
+      "action uiOnly",
+      "action kind",
+      "shadow",
+      "accepts empty arguments with optional property constraints"
     ],
     "report": ".cache/addons/logs/contracts.json",
     "reports": [
@@ -774,7 +789,22 @@
           "long segment",
           "too many segments",
           "long combined route",
-          "rejects noncanonical modelActions entry keys and duplicate keys"
+          "rejects noncanonical modelActions entry keys and duplicate keys",
+          "wrong object",
+          "additional properties true",
+          "additional properties absent",
+          "required",
+          "enum",
+          "unknown schema keyword",
+          "malformed required",
+          "resource",
+          "admin",
+          "status uiOnly",
+          "status kind",
+          "action uiOnly",
+          "action kind",
+          "shadow",
+          "accepts empty arguments with optional property constraints"
         ]
       },
       {
@@ -1514,7 +1544,7 @@
         "-tags",
         "auth",
         "./core/application",
-        "-ginkgo.focus=execution binding owner resolver",
+        "-ginkgo.focus=execution binding owner resolver|workspace operation declarations",
         "-ginkgo.json-report=../../.cache/addons/logs/gateway-owner-binding.json"
       ],
       [
@@ -1891,7 +1921,31 @@
       "uses current agent grants and denies unattended actions",
       "rejects stale runtime incarnations without owner callback nonces",
       "uses the ordinary chat store interface",
-      "rejects noncanonical and mismatched selected tool identities"
+      "rejects noncanonical and mismatched selected tool identities",
+      "wrong object",
+      "additional properties true",
+      "additional properties absent",
+      "required",
+      "enum",
+      "unknown schema keyword",
+      "malformed required",
+      "resource",
+      "admin",
+      "status uiOnly",
+      "status kind",
+      "action uiOnly",
+      "action kind",
+      "shadow",
+      "nil",
+      "empty",
+      "materialize",
+      "read",
+      "prefix only",
+      "future suffix",
+      "mixed grants",
+      "unrelated operations",
+      "bare workspace",
+      "similar prefix"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -2019,7 +2073,21 @@
           "projects private policy safely",
           "forwards authenticated owner decisions",
           "validates strict request payloads",
-          "checks CAS and administrator authority"
+          "checks CAS and administrator authority",
+          "wrong object",
+          "additional properties true",
+          "additional properties absent",
+          "required",
+          "enum",
+          "unknown schema keyword",
+          "malformed required",
+          "resource",
+          "admin",
+          "status uiOnly",
+          "status kind",
+          "action uiOnly",
+          "action kind",
+          "shadow"
         ]
       },
       {
@@ -2154,9 +2222,19 @@
           "uses current agent grants and denies unattended actions",
           "rejects stale runtime incarnations without owner callback nonces",
           "uses the ordinary chat store interface",
-          "rejects noncanonical and mismatched selected tool identities"
+          "rejects noncanonical and mismatched selected tool identities",
+          "nil",
+          "empty",
+          "materialize",
+          "read",
+          "prefix only",
+          "future suffix",
+          "mixed grants",
+          "unrelated operations",
+          "bare workspace",
+          "similar prefix"
         ],
-        "focus": "execution binding owner resolver"
+        "focus": "execution binding owner resolver|workspace operation declarations"
       },
       {
         "path": ".cache/addons/logs/gateway-session-scope.json",

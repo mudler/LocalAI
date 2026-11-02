@@ -61,6 +61,31 @@ type HostOperations struct {
 	Optional []string `json:"optional,omitempty"`
 }
 
+// IsExecutionAction reports declaration facts only, never execution authority.
+func IsExecutionAction(c Capabilities, d ToolDefinition) bool {
+	return slices.Contains(c.Tools, d.Name) && d.Kind == ToolKindAction && !d.UIOnly && d.Shadows == "bash"
+}
+
+// IsExecutionStatusTool reports the status declaration shape, not read authority.
+// Schema acceptance is checked separately to preserve manifest diagnostics.
+func IsExecutionStatusTool(c Capabilities, d ToolDefinition) bool {
+	return slices.Contains(c.Tools, d.Name) && !slices.Contains(c.AdminTools, d.Name) && d.Kind == ToolKindRead && d.UIOnly && IsResourceless(d)
+}
+
+// ExecutionStatusAcceptsEmptyArguments applies the manifest schema rules even
+// when a capability source supplies raw definitions without parsing a manifest.
+func ExecutionStatusAcceptsEmptyArguments(d ToolDefinition) bool {
+	if ValidateToolSchema(d.InputSchema, ToolKindRead) != nil {
+		return false
+	}
+	var schema struct {
+		Required []string        `json:"required"`
+		Enum     json.RawMessage `json:"enum"`
+	}
+	// Allowed constraints otherwise apply to absent properties or non-object types.
+	return json.Unmarshal(d.InputSchema, &schema) == nil && len(schema.Required) == 0 && len(schema.Enum) == 0
+}
+
 func validateExtensions(c Capabilities) error {
 	if u := c.UI; u != nil {
 		if err := ValidateModelActions(u); err != nil {
@@ -103,24 +128,15 @@ func validateExtensions(c Capabilities) error {
 		}
 		for _, name := range p.Tools {
 			d, ok := defs[name]
-			if !ok || !slices.Contains(c.Tools, name) || d.Kind != ToolKindAction || d.UIOnly || d.Shadows != "bash" {
+			if !ok || !IsExecutionAction(c, d) {
 				return fmt.Errorf("execution provider must bind declared action tools shadowing bash")
 			}
 		}
 		d, ok := defs[p.StatusTool]
-		if !ok || !slices.Contains(c.Tools, p.StatusTool) || slices.Contains(c.AdminTools, p.StatusTool) || d.Kind != ToolKindRead || !d.UIOnly || !IsResourceless(d) {
+		if !ok || !IsExecutionStatusTool(c, d) {
 			return fmt.Errorf("execution status must be a separate page-only resourceless read tool")
 		}
-		// Tool schema validation already enforces an object, the shared keyword
-		// allowlist and additionalProperties:false. It must also accept {}:
-		// required must be empty, and enum (which only supports string values)
-		// cannot constrain this object. Other allowed constraints either apply
-		// to absent properties or to non-object types.
-		var schema struct {
-			Required []string        `json:"required"`
-			Enum     json.RawMessage `json:"enum"`
-		}
-		if err := json.Unmarshal(d.InputSchema, &schema); err != nil || len(schema.Required) != 0 || len(schema.Enum) != 0 {
+		if !ExecutionStatusAcceptsEmptyArguments(d) {
 			return fmt.Errorf("execution status must accept empty arguments")
 		}
 	}

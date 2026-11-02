@@ -419,3 +419,23 @@ var _ = Describe("execution binding owner resolver", func() {
 
 // The resolver needs only the ordinary current-read store interface.
 type ordinaryBindingStore struct{ store.Store }
+
+var _ = Describe("workspace operation declarations", func() {
+	DescribeTable("retains the workspace dot prefix semantics", func(operations []string, want bool) {
+		Expect(hasWorkspaceOperation(operations)).To(Equal(want))
+		adapter := &studioAddons{hostOps: map[string][]string{"sample": operations}}
+		Expect(adapter.needsWorkspace("sample")).To(Equal(want))
+		Expect(adapter.needsWorkspace("other")).To(BeFalse())
+	},
+		Entry("nil", []string(nil), false),
+		Entry("empty", []string{}, false),
+		Entry("materialize", []string{"workspace.materialize"}, true),
+		Entry("read", []string{"workspace.read"}, true),
+		Entry("prefix only", []string{"workspace."}, true),
+		Entry("future suffix", []string{"workspace.future.operation"}, true),
+		Entry("mixed grants", []string{"egress.check", "workspace.materialize"}, true),
+		Entry("unrelated operations", []string{"egress.check", "settings.read"}, false),
+		Entry("bare workspace", []string{"workspace"}, false),
+		Entry("similar prefix", []string{"workspaces.read", "workspace-other.read", "Workspace.read", "other.workspace.read"}, false),
+	)
+})

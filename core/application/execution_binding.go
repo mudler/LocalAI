@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"slices"
-	"strings"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -83,12 +82,7 @@ func (a *Application) resolveExecutionBindingWithTools(ctx context.Context, acto
 	// Workspace-dependent tools cannot be selected without the actual workspace.
 	eligible := defs[:0:0]
 	for _, d := range defs {
-		needsWorkspace := false
-		for _, p := range a.applicationConfig.AddonHostOps[d.AddonID] {
-			if strings.HasPrefix(p, "workspace.") {
-				needsWorkspace = true
-			}
-		}
+		needsWorkspace := hasWorkspaceOperation(a.applicationConfig.AddonHostOps[d.AddonID])
 		if needsWorkspace && !a.StudioFiles().Available() {
 			continue
 		}
@@ -116,10 +110,10 @@ func (a *Application) resolveExecutionBindingWithTools(ctx context.Context, acto
 	}
 	executionOK, statusOK := false, false
 	for _, d := range caps.ToolDefinitions {
-		if d.Name == tool && d.Kind == contract.ToolKindAction && d.Shadows == "bash" && !d.UIOnly && slices.Contains(caps.Tools, d.Name) {
+		if d.Name == tool && contract.IsExecutionAction(caps, d) {
 			executionOK = true
 		}
-		if d.Name == provider.StatusTool && d.Kind == contract.ToolKindRead && d.UIOnly && contract.IsResourceless(d) && slices.Contains(caps.Tools, d.Name) && !slices.Contains(caps.AdminTools, d.Name) {
+		if d.Name == provider.StatusTool && contract.IsExecutionStatusTool(caps, d) && contract.ExecutionStatusAcceptsEmptyArguments(d) {
 			statusOK = true
 		}
 	}

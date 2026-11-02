@@ -15,6 +15,63 @@ func extensionFixture() []byte {
 }
 
 var _ = Describe("Optional extension contracts", func() {
+	DescribeTable("keeps execution declaration predicates aligned with manifest validation", func(field, value, message string) {
+		m, err := ParseManifest(extensionFixture())
+		Expect(err).NotTo(HaveOccurred())
+		c := &m.Capabilities
+		switch field {
+		case "schema":
+			c.ToolDefinitions[1].InputSchema = json.RawMessage(value)
+		case "admin":
+			c.AdminTools = []string{"health"}
+		case "status-ui":
+			c.ToolDefinitions[1].UIOnly = false
+		case "status-kind":
+			c.ToolDefinitions[1].Kind = value
+		case "action-ui":
+			c.ToolDefinitions[0].UIOnly = true
+		case "action-kind":
+			c.ToolDefinitions[0].Kind = value
+		case "shadow":
+			c.ToolDefinitions[0].Shadows = value
+		}
+		action := IsExecutionAction(*c, c.ToolDefinitions[0])
+		status := IsExecutionStatusTool(*c, c.ToolDefinitions[1]) && ExecutionStatusAcceptsEmptyArguments(c.ToolDefinitions[1])
+		Expect(action && status).To(BeFalse())
+		Expect(validateExtensions(*c)).To(MatchError(message))
+		raw, err := json.Marshal(m)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = ParseManifest(raw)
+		Expect(err).To(HaveOccurred())
+	},
+		Entry("wrong object", "schema", `{"type":"string","additionalProperties":false}`, "execution status must accept empty arguments"),
+		Entry("additional properties true", "schema", `{"type":"object","additionalProperties":true}`, "execution status must accept empty arguments"),
+		Entry("additional properties absent", "schema", `{"type":"object"}`, "execution status must accept empty arguments"),
+		Entry("required", "schema", `{"type":"object","properties":{"query":{"type":"string"}},"required":["query"],"additionalProperties":false}`, "execution status must accept empty arguments"),
+		Entry("enum", "schema", `{"type":"object","enum":["x"],"additionalProperties":false}`, "execution status must accept empty arguments"),
+		Entry("unknown schema keyword", "schema", `{"type":"object","minProperties":1,"additionalProperties":false}`, "execution status must accept empty arguments"),
+		Entry("malformed required", "schema", `{"type":"object","required":null,"additionalProperties":false}`, "execution status must accept empty arguments"),
+		Entry("resource", "schema", `{"type":"object","properties":{"resourceId":{"type":"string"}},"required":["resourceId"],"additionalProperties":false}`, "execution status must be a separate page-only resourceless read tool"),
+		Entry("admin", "admin", "", "execution status must be a separate page-only resourceless read tool"),
+		Entry("status uiOnly", "status-ui", "", "execution status must be a separate page-only resourceless read tool"),
+		Entry("status kind", "status-kind", "action", "execution status must be a separate page-only resourceless read tool"),
+		Entry("action uiOnly", "action-ui", "", "execution provider must bind declared action tools shadowing bash"),
+		Entry("action kind", "action-kind", "read", "execution provider must bind declared action tools shadowing bash"),
+		Entry("shadow", "shadow", "other", "execution provider must bind declared action tools shadowing bash"),
+	)
+	It("accepts empty arguments with optional property constraints", func() {
+		m, err := ParseManifest(extensionFixture())
+		Expect(err).NotTo(HaveOccurred())
+		d := &m.Capabilities.ToolDefinitions[1]
+		d.InputSchema = json.RawMessage(`{"type":"object","properties":{"query":{"type":"string","enum":["ok"]}},"required":[],"additionalProperties":false}`)
+		Expect(IsExecutionStatusTool(m.Capabilities, *d)).To(BeTrue())
+		Expect(ExecutionStatusAcceptsEmptyArguments(*d)).To(BeTrue())
+		raw, err := json.Marshal(m)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = ParseManifest(raw)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("preserves all three declarations through manifest and capability echo", func() {
 		m, err := ParseManifest(extensionFixture())
 		Expect(err).NotTo(HaveOccurred())

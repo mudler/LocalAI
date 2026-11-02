@@ -110,17 +110,10 @@ func (g *Gateway) executionStatusLocal(ctx context.Context, a contract.Actor, r 
 		action, status := false, false
 		for _, d := range caps.ToolDefinitions {
 			if d.Name == b.ExecutionTool {
-				action = d.Kind == "action" && !d.UIOnly && d.Shadows == "bash"
+				action = contract.IsExecutionAction(caps, d)
 			}
 			if d.Name == b.StatusTool {
-				var schema struct {
-					Type                 string          `json:"type"`
-					Required             []string        `json:"required"`
-					AdditionalProperties *bool           `json:"additionalProperties"`
-					Enum                 json.RawMessage `json:"enum"`
-				}
-				e := json.Unmarshal(d.InputSchema, &schema)
-				status = d.Kind == "read" && d.UIOnly && contract.IsResourceless(d) && e == nil && schema.Type == "object" && len(schema.Required) == 0 && len(schema.Enum) == 0 && schema.AdditionalProperties != nil && !*schema.AdditionalProperties
+				status = contract.IsExecutionStatusTool(caps, d) && contract.ExecutionStatusAcceptsEmptyArguments(d)
 			}
 		}
 		if !action || !status {

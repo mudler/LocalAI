@@ -667,7 +667,11 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 
 // needsWorkspace says whether the add-on works on the files of the user.
 func (s *studioAddons) needsWorkspace(addonID string) bool {
-	for _, p := range s.hostOps[addonID] {
+	return hasWorkspaceOperation(s.hostOps[addonID])
+}
+
+func hasWorkspaceOperation(operations []string) bool {
+	for _, p := range operations {
 		if strings.HasPrefix(p, "workspace.") {
 			return true
 		}
