@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
 	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"io"
 	"net/http"
@@ -189,6 +190,21 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		if r.Method == "GET" && r.URL.Path == "/addons/capabilities" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(g.capabilities())
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/addons/host-settings" {
+			// Only pinned host peers reach this read-only internal route.
+			if g.Forward != nil {
+				typedError(w, ErrUnavailable)
+				return
+			}
+			s, err := g.HostSettingsInternalSnapshot(r.Context())
+			if err != nil {
+				typedError(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(hostSettingsEnvelope{Data: &s})
 			return
 		}
 		if r.Method == "GET" && r.URL.Path == "/addons/models-probe" {
@@ -751,7 +767,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+	return action != ActionHostSettingsRead && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
 }
 
 // Act forwards an action call to the owner and waits for its answer, up to the
@@ -851,4 +867,28 @@ func (c *Carrier) artifactStatus(ctx context.Context, a contract.Actor, id strin
 		return Artifact{}, ErrUnavailable
 	}
 	return art, nil
+}
+
+// HostSettingsSnapshot reads owner policy for trusted host consumers over pinned
+// mTLS. This route has no mutation counterpart and carries no caller flags.
+func (c *Carrier) HostSettingsSnapshot(ctx context.Context) (hostsettings.Snapshot, error) {
+	ctx, cancel := context.WithTimeout(ctx, ReachableTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/host-settings", nil)
+	if err != nil {
+		return hostsettings.Snapshot{}, ErrUnavailable
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return hostsettings.Snapshot{}, ErrUnavailable
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return hostsettings.Snapshot{}, ErrUnavailable
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return hostsettings.Snapshot{}, ErrUnavailable
+	}
+	return DecodeHostSettingsResult(contract.Result{Payload: raw})
 }

@@ -1,0 +1,278 @@
+// SPDX-License-Identifier: MIT
+package gateway
+
+import (
+	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"errors"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"reflect"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+func TestAddonSettingsAuthorityCarrier(t *testing.T) {
+	t.Run("forwarding", testSettingsForwarding)
+	t.Run("validation", testSettingsValidation)
+	ctx := context.Background()
+	store, err := hostsettings.Open(filepath.Join(t.TempDir(), "host.json"), &hostsettings.Migration{Mode: hostsettings.Standalone, Source: "owner", Version: "1", Candidates: []hostsettings.Policy{{Ceiling: "off", Default: "off"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	admin := contract.Actor{Mode: "local-owner"}
+	g := &Gateway{HostSettings: store, Revalidate: func(context.Context, contract.Actor) error { return nil }, HostSettingsAdmin: func(_ context.Context, a contract.Actor) error {
+		if a != admin {
+			return ErrForbidden
+		}
+		return nil
+	}}
+	s, err := g.HostSettingsSnapshot(ctx, admin)
+	if err != nil || s.Revision != 1 {
+		t.Fatalf("snapshot: %+v %v", s, err)
+	}
+	yes := true
+	s, err = g.UpdateHostSettings(ctx, admin, hostsettings.Patch{AutoUpgradeAddons: &yes}, 1, "update-1")
+	if err != nil || s.Revision != 2 {
+		t.Fatalf("update: %+v %v", s, err)
+	}
+	_, err = g.UpdateHostSettings(ctx, admin, hostsettings.Patch{}, 1, "update-2")
+	if !errors.Is(err, hostsettings.ErrConflict) {
+		t.Fatalf("conflict: %v", err)
+	}
+	_, err = g.UpdateHostSettings(ctx, contract.Actor{UserID: "not-admin"}, hostsettings.Patch{}, 2, "update-3")
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("admin: %v", err)
+	}
+	r, err := g.Dispatch(ctx, admin, contract.Request{Action: ActionHostSettingsUpdate, OperationID: "bad", Arguments: json.RawMessage(`{"expectedRevision":2,"patch":{},"admin":true}`)})
+	if err == nil {
+		_, err = DecodeHostSettingsResult(r)
+	}
+	if !errors.Is(err, hostsettings.ErrInvalid) {
+		t.Fatalf("malformed: %v", err)
+	}
+}
+
+// This fixture intentionally uses real pinned mTLS and signed forwarding rather
+// than a fake Dispatch: authority must be checked on the receiving owner.
+func settingsCarrier(t *testing.T, owner *Gateway) (*httptest.Server, *Carrier) {
+	t.Helper()
+	pub, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca := &x509.Certificate{SerialNumber: big.NewInt(1), NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), IsCA: true, BasicConstraintsValid: true, KeyUsage: x509.KeyUsageCertSign}
+	der, err := x509.CreateCertificate(rand.Reader, ca, ca, pub, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ca, err = x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	roots := x509.NewCertPool()
+	roots.AddCert(ca)
+	certs := map[string]tls.Certificate{}
+	pins := map[string][32]byte{}
+	keys := map[string]ed25519.PublicKey{}
+	private := map[string]ed25519.PrivateKey{}
+	for i, id := range []string{"owner", "front"} {
+		p, k, e := ed25519.GenerateKey(rand.Reader)
+		if e != nil {
+			t.Fatal(e)
+		}
+		c := &x509.Certificate{SerialNumber: big.NewInt(int64(i + 2)), NotBefore: ca.NotBefore, NotAfter: ca.NotAfter, IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}, KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}}
+		d, e := x509.CreateCertificate(rand.Reader, c, ca, p, key)
+		if e != nil {
+			t.Fatal(e)
+		}
+		certs[id] = tls.Certificate{Certificate: [][]byte{d}, PrivateKey: k}
+		pins[id] = sha256.Sum256(d)
+		keys[id] = p
+		private[id] = k
+	}
+	server := httptest.NewUnstartedServer(nil)
+	carriers := map[string]*Carrier{}
+	for _, id := range []string{"owner", "front"} {
+		c, e := NewCarrier(CarrierConfig{InstanceID: id, OwnerID: "owner", OwnerAddress: "https://" + server.Listener.Addr().String(), Certificate: certs[id], Roots: roots, Pins: pins, SigningKey: private[id], VerificationKeys: keys})
+		if e != nil {
+			t.Fatal(e)
+		}
+		carriers[id] = c
+	}
+	h, err := carriers["owner"].OwnerHandler(owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server.Config.Handler = h
+	server.TLS = carriers["owner"].ServerTLS()
+	server.StartTLS()
+	t.Cleanup(server.Close)
+	return server, carriers["front"]
+}
+
+type unavailableSettings struct{ err error }
+
+func (s unavailableSettings) Snapshot(context.Context) (hostsettings.Snapshot, error) {
+	return hostsettings.Snapshot{}, s.err
+}
+func (s unavailableSettings) Update(context.Context, hostsettings.Patch, uint64, string) (hostsettings.Snapshot, error) {
+	return hostsettings.Snapshot{}, s.err
+}
+
+func testSettingsForwarding(t *testing.T) {
+	ctx := context.Background()
+	store, err := hostsettings.Open(filepath.Join(t.TempDir(), "host.json"), &hostsettings.Migration{Mode: hostsettings.Standalone, Source: "owner", Version: "1", Candidates: []hostsettings.Policy{{Ceiling: "off", Default: "off"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	admin := contract.Actor{UserID: "admin", CredentialID: "key:admin", Mode: "named-user"}
+	var revoked atomic.Bool
+	var ownerChecks atomic.Int32
+	owner := &Gateway{HostSettings: store, Revalidate: func(_ context.Context, a contract.Actor) error {
+		ownerChecks.Add(1)
+		if revoked.Load() {
+			return ErrForbidden
+		}
+		return nil
+	}, HostSettingsAdmin: func(_ context.Context, a contract.Actor) error {
+		if a != admin {
+			return ErrForbidden
+		}
+		return nil
+	}}
+	server, carrier := settingsCarrier(t, owner)
+	// Even a frontend configured with a stale store must always read the owner.
+	front := &Gateway{Forward: carrier, HostSettings: unavailableSettings{hostsettings.ErrUnavailable}, Revalidate: func(context.Context, contract.Actor) error { return nil }, HostSettingsAdmin: func(context.Context, contract.Actor) error { return nil }}
+	yes := true
+	patch := hostsettings.Patch{AutoUpgradeAddons: &yes}
+	s, err := front.UpdateHostSettings(ctx, admin, patch, 1, "same-op")
+	if err != nil || s.Revision != 2 {
+		t.Fatalf("forward update: %+v %v", s, err)
+	}
+	replay, err := front.UpdateHostSettings(ctx, admin, patch, 1, "same-op")
+	if err != nil || !reflect.DeepEqual(replay, s) {
+		t.Fatalf("receipt replay: %+v %v", replay, err)
+	}
+	_, err = front.UpdateHostSettings(ctx, admin, hostsettings.Patch{}, 1, "same-op")
+	if !errors.Is(err, hostsettings.ErrOperationMismatch) {
+		t.Fatalf("receipt mismatch: %v", err)
+	}
+	_, err = front.UpdateHostSettings(ctx, admin, hostsettings.Patch{}, 1, "stale")
+	if !errors.Is(err, hostsettings.ErrConflict) {
+		t.Fatalf("forward CAS: %v", err)
+	}
+	user := contract.Actor{UserID: "user", CredentialID: "key:user", Mode: "named-user"}
+	_, err = front.UpdateHostSettings(ctx, user, patch, 2, "not-admin")
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("owner must ignore frontend admin approval: %v", err)
+	}
+	s, err = front.ReadHostSettings(ctx, user)
+	if err != nil || s.Revision != 2 {
+		t.Fatalf("authenticated read: %+v %v", s, err)
+	}
+	if ownerChecks.Load() < 12 {
+		t.Fatalf("owner did not revalidate each forwarded request: %d", ownerChecks.Load())
+	}
+	revoked.Store(true)
+	_, err = front.ReadHostSettings(ctx, admin)
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("revoked actor: %v", err)
+	}
+	// Trusted host reads do not impersonate a user, even after revocation.
+	s, err = front.HostSettingsInternalSnapshot(ctx)
+	if err != nil || s.Revision != 2 {
+		t.Fatalf("internal owner read: %+v %v", s, err)
+	}
+	// Internal reads still require the pinned client certificate.
+	carrier.client.Transport.(*http.Transport).TLSClientConfig.Certificates = nil
+	carrier.client.CloseIdleConnections()
+	_, err = front.HostSettingsInternalSnapshot(ctx)
+	if !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("untrusted internal read: %v", err)
+	}
+	server.Close()
+	_, err = front.ReadHostSettings(ctx, admin)
+	var unknown *OutcomeUnknown
+	if !errors.Is(err, ErrUnavailable) || errors.As(err, &unknown) {
+		t.Fatalf("read outage is not uncertain: %v", err)
+	}
+	_, err = front.UpdateHostSettings(ctx, admin, patch, 2, "lost")
+	// Audience discovery fails before any mutation is sent. Preserve that
+	// definite unavailable result rather than inventing an uncertain write.
+	if !errors.Is(err, ErrUnavailable) || errors.As(err, &unknown) {
+		t.Fatalf("pre-send mutation outage: %v", err)
+	}
+}
+
+func testSettingsValidation(t *testing.T) {
+	ctx := context.Background()
+	actor := contract.Actor{Mode: "local-owner"}
+	g := &Gateway{HostSettings: unavailableSettings{hostsettings.ErrUncertain}, Revalidate: func(context.Context, contract.Actor) error { return nil }, HostSettingsAdmin: func(context.Context, contract.Actor) error { return nil }}
+	for _, raw := range []string{
+		`{"expectedRevision":1,"patch":{},"admin":true}`, `{"ExpectedRevision":1,"patch":{}}`,
+		`{"expectedRevision":1,"expectedRevision":2,"patch":{}}`, `{"expectedRevision":null,"patch":{}}`,
+		`{"expectedRevision":1}`, `{"expectedRevision":1,"patch":null}`, `{"expectedRevision":1,"patch":{}} {}`,
+		`{"expectedRevision":1,"patch":{"AUTO_UPGRADE_ADDONS":true}}`,
+		`{"expectedRevision":1,"patch":{"auto_upgrade_addons":true,"auto_upgrade_addons":false}}`,
+		`{"expectedRevision":1,"patch":{"admin":true}}`, `{"expectedRevision":0,"patch":{}}`,
+	} {
+		r, err := g.Dispatch(ctx, actor, contract.Request{Action: ActionHostSettingsUpdate, OperationID: "invalid", Arguments: json.RawMessage(raw)})
+		if err == nil {
+			_, err = DecodeHostSettingsResult(r)
+		}
+		if !errors.Is(err, hostsettings.ErrInvalid) {
+			t.Errorf("%s: %v", raw, err)
+		}
+	}
+	for _, raw := range []string{`null`, `{"admin":true}`, `{} {}`} {
+		r, err := g.Dispatch(ctx, actor, contract.Request{Action: ActionHostSettingsRead, Arguments: json.RawMessage(raw)})
+		if err == nil {
+			_, err = DecodeHostSettingsResult(r)
+		}
+		if !errors.Is(err, hostsettings.ErrInvalid) {
+			t.Errorf("read %s: %v", raw, err)
+		}
+	}
+	_, err := g.UpdateHostSettings(ctx, actor, hostsettings.Patch{}, 1, "uncertain")
+	var unknown *OutcomeUnknown
+	if !errors.As(err, &unknown) || unknown.OperationID != "uncertain" {
+		t.Fatalf("store uncertainty: %v", err)
+	}
+	g.HostSettings = nil
+	_, err = g.ReadHostSettings(ctx, actor)
+	if !errors.Is(err, ErrUnavailable) || errors.As(err, &unknown) {
+		t.Fatalf("nil store read: %v", err)
+	}
+	_, err = g.HostSettingsInternalSnapshot(ctx)
+	if !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("nil internal read: %v", err)
+	}
+	g.HostSettingsAdmin = nil
+	_, err = g.UpdateHostSettings(ctx, actor, hostsettings.Patch{}, 1, "no-check")
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("missing admin check: %v", err)
+	}
+	g.Revalidate = nil
+	_, err = g.ReadHostSettings(ctx, actor)
+	if !errors.Is(err, ErrForbidden) {
+		t.Fatalf("missing actor check: %v", err)
+	}
+	if mutation(ActionHostSettingsRead) || !mutation(ActionHostSettingsUpdate) || !mutation("future-host-action") {
+		t.Fatal("unsafe mutation classification")
+	}
+}

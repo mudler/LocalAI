@@ -27,6 +27,10 @@ var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent:
 type Gateway struct {
 	Connectors         ConnectorSource
 	ConnectorAuthority ConnectorAuthority
+	// HostSettings is owner-only durable policy; frontends forward, never fall back.
+	HostSettings HostSettingsService
+	// HostSettingsAdmin checks current host authority, never add-on supplied flags.
+	HostSettingsAdmin func(context.Context, contract.Actor) error
 	Limits             RelayLimits
 	Manager            *addons.Manager
 	Runtime            CurrentRuntime
@@ -115,6 +119,8 @@ func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request co
 // dispatchLocal serves a request on the owner itself, with no forwarding.
 func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
 	switch request.Action {
+	case ActionHostSettingsRead, ActionHostSettingsUpdate:
+		return g.hostSettingsAction(ctx, actor, request)
 	case "catalog-search", "catalog-details", "catalog-sources", "catalog-source-save", "catalog-source-refresh", "addons-installed":
 		return g.management(ctx, actor, request)
 	case ActionUpdateStatus, ActionUpdateCheck, ActionUpdateUpgrade:

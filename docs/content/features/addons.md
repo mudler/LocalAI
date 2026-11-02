@@ -40,8 +40,18 @@ Every addon requires an executable; a UI bundle alone is not an addon.
 ## Internal host policy store
 
 `core/services/addons/hostsettings` provides internal, host-owned durable policy
-infrastructure. It is not yet connected to the settings UI, owner carrier or runtime
-consumers; the behavior described elsewhere on this page remains unchanged.
+infrastructure. The gateway now provides typed read/update actions over the existing
+owner carrier. The owner revalidates the authenticated actor and checks current host
+administrator authority before updates; caller-supplied role flags are rejected.
+Reads are explicitly read-only. Lost mutation responses retain the carrier's
+unknown-outcome behavior, with operation IDs and durable receipts for reconciliation.
+Trusted host consumers can also read snapshots over a pinned mutual-TLS internal
+route, without impersonating an end user. Frontends never fall back to local policy
+when the owner or its store is unavailable.
+
+These are internal service interfaces only: application initialization, public
+settings routes, the settings UI and runtime consumers are not yet connected.
+The behavior described elsewhere on this page remains unchanged.
 
 The schema is limited to six network fields (`chats_egress_ceiling`,
 `chats_egress_default`, `chats_egress_allow_private`, `chats_egress_ports`,
