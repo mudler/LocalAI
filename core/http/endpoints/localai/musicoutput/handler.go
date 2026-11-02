@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/music"
 	"github.com/mudler/LocalAI/core/services/music/outputstore"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -24,7 +25,7 @@ const FeatureMusic = auth.FeatureMusic
 
 // OpenPrincipal is shared by publication and retrieval only when authentication
 // is explicitly disabled. All reachable clients then share one trusted identity.
-const OpenPrincipal = "music-open"
+const OpenPrincipal = music.OpenPrincipal
 
 // OutputStore accepts only the durable manifest returned by Lookup, never a
 // client-supplied storage key. Open must recheck the manifest and its expiry.

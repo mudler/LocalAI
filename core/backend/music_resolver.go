@@ -26,6 +26,9 @@ type MusicPolicySession interface {
 	Principal() string
 	AuthorizeMusic(context.Context, music.Operation) error
 	AuthorizeMusicQuota(context.Context, music.Operation) error
+	// AuthorizeMusicModel checks canonical model access AND model-scoped quota;
+	// AuthorizeMusicQuota checks global rules. Both are read-only gates, not
+	// reservations or usage accounting.
 	AuthorizeMusicModel(context.Context, string) error
 }
 
