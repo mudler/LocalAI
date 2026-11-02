@@ -147,8 +147,10 @@ test.describe('Settings > Tools: skills that add-ons replace', () => {
   })
 })
 
-test.describe('Install of an add-on that replaces a built-in skill', () => {
-  test('says which built-in skills it replaces, warns when another add-on already does, and still installs', async ({ page }) => {
+// docx, pptx, pdf and xlsx have no core implementation: an add-on provides
+// them, it does not replace a built-in.
+test.describe('Install of an add-on that provides a document skill', () => {
+  test('says which document skills it provides, warns when another add-on already does, and still installs', async ({ page }) => {
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN) }))
     await mockAddons(page, {
       installed: [installedAddon({ id: 'sheets', title: 'Sheets', skillShadows: ['xlsx'] })],
@@ -158,8 +160,8 @@ test.describe('Install of an add-on that replaces a built-in skill', () => {
     await page.getByRole('button', { name: 'Install Office' }).click()
     const warnings = page.getByTestId('install-skill-warning')
     await expect(warnings).toHaveCount(2)
-    await expect(warnings.nth(0)).toHaveText('This add-on replaces the built-in skill xlsx. Another add-on (Sheets) already does. Only one can be active; you choose which in Settings > Tools. Until you choose, the one installed first serves.')
-    await expect(warnings.nth(1)).toHaveText('This add-on replaces the built-in skill docx.')
+    await expect(warnings.nth(0)).toHaveText('This add-on provides the xlsx skill. Another add-on (Sheets) also provides it. Only one can be active; choose in Settings > Tools. Without a choice, the one installed first serves.')
+    await expect(warnings.nth(1)).toHaveText('This add-on provides the docx skill.')
     await expect(page.getByTestId('install-dialog').getByRole('button', { name: 'Install and turn on' })).toBeEnabled()
     await shot(page, 'install-skill-warning')
   })
@@ -169,11 +171,13 @@ test.describe('The skills of an add-on in its details', () => {
   test('lists its skills, and lets an administrator choose it for a skill another add-on also replaces', async ({ page }) => {
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN) }))
     const office = { id: 'office', name: 'office', title: 'Office', skills: [{ name: 'xlsx', shadows: 'xlsx' }, { name: 'docx', shadows: 'docx' }, { name: 'office-tips' }] }
-    await mockAddons(page, {
+    const owner = await mockAddons(page, {
       apps: [{ ...installedAddon({ id: 'office', title: 'Office' }), ...office, admin: { canStart: false, canStop: true, managementUrl: '/app/addons?manage=office' } }],
       installed: [installedAddon({ id: 'office', title: 'Office', skillShadows: ['xlsx', 'docx'] })],
+      // Sheets is the pinned provider of xlsx: the owner's pins say who serves.
+      hostSettings: { chats_tool_providers: { bash: 'sandbox', xlsx: 'sheets' } },
     })
-    const settings = await mockSettings(page, { chats_tool_providers: { bash: 'sandbox' } })
+    await mockSettings(page)
     let rows = [
       { id: 'xlsx', provider: 'sheets', candidates: ['office', 'sheets'], titles: { office: 'Office', sheets: 'Sheets' } },
       { id: 'docx', provider: 'office', candidates: ['office'], titles: { office: 'Office' } },
@@ -183,14 +187,16 @@ test.describe('The skills of an add-on in its details', () => {
     const skills = page.getByTestId('app-skills')
     await expect(skills).toContainText('3 chat skills')
     await expect(page.getByTestId('app-skill-office-tips')).not.toContainText('replaces')
-    await expect(page.getByTestId('app-skill-docx')).toContainText('replaces the built-in skill · serves in the chats')
+    await expect(page.getByTestId('app-skill-docx')).toContainText('provides the docx skill · serves in the chats')
     await expect(page.getByTestId('app-skill-docx-switch')).toHaveCount(0)
     const sw = page.getByTestId('app-skill-xlsx-switch')
     await expect(sw).not.toBeChecked()
     await shot(page, 'addon-skills')
     rows = [{ ...rows[0], provider: 'office', pinned: 'office' }, rows[1]]
     await sw.click()
-    await expect.poll(() => settings.posts).toEqual([{ chats_tool_providers: { bash: 'sandbox', xlsx: 'office' } }])
+    // The owner gets only the changed pin; the bash pin stays as it was.
+    await expect.poll(() => owner.log.hostSettings).toEqual([{ chats_tool_providers: { xlsx: 'office' } }])
+    expect(owner.hostSettings.policy.chats_tool_providers).toEqual({ bash: 'sandbox', xlsx: 'office' })
     await expect(sw).toBeChecked()
   })
 })

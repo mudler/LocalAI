@@ -280,8 +280,10 @@ test.describe('A card the administrator\'s limit cannot admit', () => {
 // The add-on pages of the network-policy control, with the settings and the
 // admin network routes stubbed.
 async function stubNetworkAdmin(page, { settings = {}, egress = {}, events = [], apps = RUNNERS } = {}) {
-  const state = await mockSettings(page, settings)
-  await mockAddons(page, { apps, installed: apps.map(a => installedAddon({ id: a.id, title: a.title })) })
+  await mockSettings(page, settings)
+  // The network policy is the owner's: the add-on page reads and writes it
+  // through host-settings-read and host-settings-update, not /api/settings.
+  const state = await mockAddons(page, { apps, installed: apps.map(a => installedAddon({ id: a.id, title: a.title })), hostSettings: settings })
   await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [
     { id: 'bash', label: 'bash', description: 'Run commands', setting: 'chats_host_exec', mode: 'off', provider: 'sandbox', candidates: ['devbox', 'sandbox'], titles: { sandbox: 'Sandbox', devbox: 'Devbox' } },
     { id: 'web_search', label: 'web_search', description: 'Search the web', setting: 'chats_web_search', provider: 'builtin', candidates: [] },
@@ -341,7 +343,8 @@ test.describe('The network of the commands on the add-on page', () => {
     await expect(page.getByTestId('settings-egress-serves')).toHaveText('Commands run isolated in the sandbox add-on')
     await expect(page.getByTestId('settings-egress-counts')).toHaveText('Last 24 hours: 4 allowed, 1 blocked.')
     await expect(block.locator('[data-field="chats_egress_ceiling"]')).toBeVisible()
-    await expect(block.locator('[data-field="chats_egress_audit_days"]')).toBeVisible()
+    // The audit retention is a runtime setting of this host, on the Settings page.
+    await expect(block.locator('[data-field="chats_egress_audit_days"]')).toHaveCount(0)
     await page.getByTestId('settings-egress-registries').locator('summary').click()
     await expect(block).toContainText('pypi.org, files.pythonhosted.org')
     await page.getByTestId('settings-egress-audit-toggle').click()
@@ -356,7 +359,8 @@ test.describe('The network of the commands on the add-on page', () => {
     await expect(page.getByRole('button', { name: 'Apply' })).toBeDisabled()
     await page.getByTestId('settings-egress-private-phrase').fill('I understand that commands can reach my private network')
     await page.getByRole('button', { name: 'Apply' }).click()
-    await expect.poll(() => settings.posts).toEqual([{ chats_egress_allow_private: true, chats_egress_private_confirm: 'I understand that commands can reach my private network' }])
+    // The phrase is checked in the page; the owner patch carries policy fields only.
+    await expect.poll(() => settings.log.hostSettings).toEqual([{ chats_egress_allow_private: true }])
     await expect(page.getByTestId('settings-pending')).toHaveCount(0)
   })
 
@@ -368,7 +372,7 @@ test.describe('The network of the commands on the add-on page', () => {
     await expect(page.getByTestId('host-control-tool-providers')).toHaveCount(0)
     await block.locator('[data-field="chats_egress_ceiling"] select').selectOption('registries')
     await page.getByRole('button', { name: 'Apply' }).click()
-    await expect.poll(() => settings.posts).toEqual([{ chats_egress_ceiling: 'registries' }])
+    await expect.poll(() => settings.log.hostSettings).toEqual([{ chats_egress_ceiling: 'registries' }])
   })
 
   test('the Always allowed hosts list adds, refuses and removes hosts and saves them with Apply', async ({ page }) => {
@@ -382,7 +386,8 @@ test.describe('The network of the commands on the add-on page', () => {
     await expect(editor.getByTestId('settings-hosts-count')).toHaveText('1/64')
     const input = editor.getByTestId('settings-hosts-input')
 
-    await input.fill('*.example.com')
+    // *.example.com and * are accepted patterns; a star inside a name is not.
+    await input.fill('api.*.example.com')
     await input.press('Enter')
     await expect(editor.getByTestId('settings-hosts-error')).toContainText('not a pattern')
     await input.fill('https://example.com')
@@ -408,6 +413,6 @@ test.describe('The network of the commands on the add-on page', () => {
     await editor.getByRole('button', { name: 'Remove cdn.example.org' }).click()
     await expect(editor.getByTestId('settings-hosts-item')).toHaveCount(3)
     await page.getByRole('button', { name: 'Apply' }).click()
-    await expect.poll(() => settings.posts).toEqual([{ chats_egress_allowed_hosts: 'api.example.org, git.example.org:8443, xn--bcher-kva.example' }])
+    await expect.poll(() => settings.log.hostSettings).toEqual([{ chats_egress_allowed_hosts: 'api.example.org, git.example.org:8443, xn--bcher-kva.example' }])
   })
 })
