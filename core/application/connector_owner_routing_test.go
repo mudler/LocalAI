@@ -470,7 +470,7 @@ var _ = Describe("connector owner routing", func() {
 		httpClient := &http.Client{Transport: transport}
 		resp, e := httpClient.Post(server.URL+"/addons/connectors/call", "application/json", strings.NewReader(string(payload)+strings.Repeat(" ", 2<<20)))
 		Expect(e).NotTo(HaveOccurred())
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		Expect(resp.StatusCode).To(Equal(http.StatusForbidden))
 	})
 })

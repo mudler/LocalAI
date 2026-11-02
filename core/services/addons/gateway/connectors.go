@@ -135,7 +135,7 @@ func (c *Carrier) connectorRequest(ctx context.Context, method, path string, bod
 	if err != nil {
 		return ErrUnavailable
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode == http.StatusForbidden {
 		return ErrForbidden
 	}
