@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 PIN = 'ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067'
-MANIFEST_SHA256 = '8990cba2fd1c57e276304b0a422e5805092a52e67b1e753775325c25e250006d'
+MANIFEST_SHA256 = 'bb722758ad0d97f0f11f42d41d337c6b286bcebaf8dc8c9da2e14988fbf15428'
 PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('include/engine/framework/core', ('backend.h', 'execution_context.h')),
     ('src/framework/core', ('backend.cpp', 'execution_context.cpp')),

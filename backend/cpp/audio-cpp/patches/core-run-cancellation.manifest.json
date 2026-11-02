@@ -47,7 +47,7 @@
     },
     "src/models/sheetsage/session.cpp": {
       "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
-      "final_sha256": "5f18605e8affa1c5e8098aa5cfef52b2a06db0fdcebecba700722c19f5bfd350"
+      "final_sha256": "3613ab53600aae2daea168b91f4cadca776cfd82ba26e324b6fbbbbf2327dd2e"
     },
     "include/engine/framework/audio/fft.h": {
       "base_sha256": "5a63de2ab9d7361f186b9c9b7b6ba390526b4cb5122fa1174921295c2f2b7f55",
@@ -238,6 +238,16 @@
         "src/models/sheetsage/session.cpp": {
           "base_sha256": "6e29eaed2492b362b24c6c1d75200be756198bd007cb07c13944b32196f1ada0",
           "final_sha256": "5f18605e8affa1c5e8098aa5cfef52b2a06db0fdcebecba700722c19f5bfd350"
+        }
+      }
+    },
+    {
+      "patch": "0007-sheetsage-window-cancellation.patch",
+      "patch_sha256": "97bac89e398518fa73c70ecce04119aeed298e56fe42a8511b158c5f5f1abd7b",
+      "files": {
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "5f18605e8affa1c5e8098aa5cfef52b2a06db0fdcebecba700722c19f5bfd350",
+          "final_sha256": "3613ab53600aae2daea168b91f4cadca776cfd82ba26e324b6fbbbbf2327dd2e"
         }
       }
     }

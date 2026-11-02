@@ -226,6 +226,18 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_sheetsage_window_cancellation_ctest music_sheetsage_window_cancellation_ctest.cpp)
+    target_include_directories(music_sheetsage_window_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}" "${AUDIO_CPP_DIR}/include" "${AUDIO_CPP_DIR}/external/ggml/include")
+    target_compile_options(music_sheetsage_window_cancellation_ctest PRIVATE -ffunction-sections -fdata-sections)
+    if(APPLE)
+        target_link_options(music_sheetsage_window_cancellation_ctest PRIVATE -Wl,-dead_strip)
+    else()
+        target_link_options(music_sheetsage_window_cancellation_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_sheetsage_window_cancellation_ctest PRIVATE Threads::Threads)
+    add_test(NAME music_sheetsage_window_cancellation COMMAND music_sheetsage_window_cancellation_ctest)
+    set_tests_properties(music_sheetsage_window_cancellation PROPERTIES TIMEOUT 45)
+
     add_executable(music_shared_mel_cancellation_ctest
         music_shared_mel_cancellation_ctest.cpp
         "${AUDIO_CPP_DIR}/src/framework/audio/dsp.cpp"

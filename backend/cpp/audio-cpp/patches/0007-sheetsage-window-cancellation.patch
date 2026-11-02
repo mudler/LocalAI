@@ -1,0 +1,161 @@
+diff --git a/src/models/sheetsage/session.cpp b/src/models/sheetsage/session.cpp
+--- a/src/models/sheetsage/session.cpp
++++ b/src/models/sheetsage/session.cpp
+@@ -628,6 +628,133 @@
+     return out;
+ }
+ 
++#ifdef ENGINE_SHEETSAGE_WINDOW_TESTING
++namespace window_testing {
++void descriptor(const SheetSage2Window & value) noexcept;
++void copied(const float * output, size_t begin, size_t count) noexcept;
++// 0 plan publish, 1 slice publish, 2 before-mel, 3 accepted mel entry.
++void stage(int value) noexcept;
++}
++#endif
++void window_stop_check(const core::RunStopHandle & stop) {
++    if (stop && stop->cancelled()) throw runtime::RunCancelled();
++}
++std::vector<SheetSage2Window> sliding_window_plan(
++    int64_t audio_samples,
++    int64_t sample_rate,
++    int64_t window_samples, core::RunStopHandle stop) {
++    if (audio_samples <= 0 || sample_rate <= 0 || window_samples <= 0) {
++        throw std::runtime_error("SheetSage2 sliding window requires positive audio shape");
++    }
++    // Restrict the opt-in arithmetic domain to exactly representable positive
++    // integers and safe start+window sums. Legacy overload remains unchanged.
++    constexpr int64_t exact_integer = int64_t{1} << 52;
++    if (audio_samples > exact_integer || sample_rate > exact_integer || window_samples > exact_integer)
++        throw std::runtime_error("SheetSage2 sliding window shape exceeds supported range");
++    const double duration = static_cast<double>(audio_samples) / static_cast<double>(sample_rate);
++    const double window_seconds = static_cast<double>(window_samples) / static_cast<double>(sample_rate);
++    const double overlap_seconds = std::min(kDefaultOverlapSeconds, std::max(0.0, window_seconds - 1.0));
++    const double lookahead_seconds = std::min(kDefaultLookaheadSeconds, overlap_seconds);
++    if (!(0.0 <= lookahead_seconds && lookahead_seconds <= overlap_seconds && overlap_seconds < window_seconds)) {
++        throw std::runtime_error("SheetSage2 invalid sliding window overlap");
++    }
++    const double hop = window_seconds - overlap_seconds;
++    const long double upper_count = std::ceil(static_cast<long double>(duration) / hop) + 2;
++    if (!std::isfinite(hop) || hop <= 0 || upper_count > std::vector<SheetSage2Window>().max_size())
++        throw std::runtime_error("SheetSage2 sliding window plan exceeds supported range");
++    window_stop_check(stop);
++    double start = 0.0;
++    double accepted = 0.0;
++    int64_t index = 0;
++    std::vector<SheetSage2Window> out;
++    while (true) {
++        window_stop_check(stop); // descriptor pre-poll
++        const bool last = start + window_seconds >= duration - 1.0e-6;
++        const double accept_end = last ? duration : start + window_seconds - lookahead_seconds;
++        SheetSage2Window window;
++        window.index = index++;
++        window.start = start;
++        window.end = std::min(duration, start + window_seconds);
++        window.accept_start = accepted;
++        window.accept_end = accept_end;
++        window.prefix_end = accepted;
++        window.generation_stop = last ? std::nullopt : std::optional<double>(window_seconds - lookahead_seconds);
++        window.start_sample = static_cast<int64_t>(std::llround(start * static_cast<double>(sample_rate)));
++        window.end_sample = std::min<int64_t>(
++            audio_samples,
++            window.start_sample + window_samples);
++        out.push_back(window);
++#ifdef ENGINE_SHEETSAGE_WINDOW_TESTING
++        window_testing::descriptor(out.back());
++#endif
++        window_stop_check(stop); // descriptor post-poll
++        if (last) {
++#ifdef ENGINE_SHEETSAGE_WINDOW_TESTING
++            window_testing::stage(0);
++#endif
++            window_stop_check(stop); // plan publication
++            return out;
++        }
++        accepted = accept_end;
++        start = std::min(start + hop, duration - window_seconds);
++    }
++}
++
++std::vector<float> slice_window_audio(
++    const std::vector<float> & audio,
++    int64_t start_sample,
++    int64_t window_samples, core::RunStopHandle stop) {
++    if (start_sample < 0 || static_cast<uint64_t>(start_sample) > audio.size())
++        throw std::runtime_error("SheetSage2 sliding window start is outside audio");
++    if (window_samples < 0 || static_cast<uint64_t>(window_samples) > std::vector<float>().max_size() ||
++        static_cast<uint64_t>(window_samples) > static_cast<uint64_t>(std::numeric_limits<std::ptrdiff_t>::max()) / sizeof(float) ||
++        audio.size() > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))
++        throw std::runtime_error("SheetSage2 sliding window size exceeds supported range");
++    const int64_t count = std::min<int64_t>(window_samples, static_cast<int64_t>(audio.size()) - start_sample);
++    window_stop_check(stop);
++    std::vector<float> out(static_cast<size_t>(window_samples), 0.0F);
++    window_stop_check(stop);
++    for (int64_t begin = 0; begin < count; ) {
++        window_stop_check(stop); // copy tile pre-poll
++        const int64_t end = begin + std::min<int64_t>(256, count - begin);
++        std::copy_n(audio.begin() + static_cast<std::ptrdiff_t>(start_sample + begin),
++                    static_cast<size_t>(end - begin), out.begin() + static_cast<std::ptrdiff_t>(begin));
++#ifdef ENGINE_SHEETSAGE_WINDOW_TESTING
++        window_testing::copied(out.data(), static_cast<size_t>(begin), static_cast<size_t>(end - begin));
++#endif
++        window_stop_check(stop); // copy tile post-poll including short tail
++        begin = end;
++    }
++#ifdef ENGINE_SHEETSAGE_WINDOW_TESTING
++    window_testing::stage(1);
++#endif
++    window_stop_check(stop); // slice publication
++    return out;
++}
++
++std::vector<SheetSage2Window> owned_window_plan(
++    int64_t audio_samples, int64_t sample_rate, int64_t window_samples,
++    core::RunStopHandle stop) {
++    if (!stop) return sliding_window_plan(audio_samples, sample_rate, window_samples);
++    return sliding_window_plan(audio_samples, sample_rate, window_samples, std::move(stop));
++}
++
++std::vector<float> acquire_window_before_mel(
++    const std::vector<float> & audio, int64_t start_sample, int64_t window_samples,
++    core::RunStopHandle stop) {
++    // Slice validation precedes valid-input stop checks, even when pre-stopped.
++    auto output = stop ? slice_window_audio(audio, start_sample, window_samples, stop)
++                       : slice_window_audio(audio, start_sample, window_samples);
++#ifdef ENGINE_SHEETSAGE_WINDOW_TESTING
++    window_testing::stage(2);
++#endif
++    window_stop_check(stop); // actual before-mel boundary
++#ifdef ENGINE_SHEETSAGE_WINDOW_TESTING
++    window_testing::stage(3);
++#endif
++    return output;
++}
++
+ void set_event_local_timestamp(
+     SheetSage2Event & event,
+     const SheetSage2Tokenizer & tokenizer,
+@@ -1153,10 +1280,10 @@
+     }
+     engine::debug::timing_log_scalar("sheetsage2.frontend_ms", engine::debug::elapsed_ms(frontend_start, Clock::now()));
+ 
+-    const auto windows = sliding_window_plan(
++    const auto windows = owned_window_plan(
+         static_cast<int64_t>(waveform.size()),
+         assets_->config.sampling_rate,
+-        assets_->config.input_audio_length_samples);
++        assets_->config.input_audio_length_samples, execution_context().current_run_stop());
+     engine::debug::trace_log_scalar("sheetsage2.windows", static_cast<int64_t>(windows.size()));
+     engine::debug::trace_log_scalar(
+         "sheetsage2.duration_seconds",
+@@ -1173,7 +1300,9 @@
+ 
+     for (const auto & window : windows) {
+         const auto window_frontend_start = Clock::now();
+-        const auto window_audio = slice_window_audio(waveform, window.start_sample, assets_->config.input_audio_length_samples);
++        const auto window_audio = acquire_window_before_mel(
++            waveform, window.start_sample, assets_->config.input_audio_length_samples,
++            execution_context().current_run_stop());
+         int64_t mel_frames = 0;
+         const auto normalized_mel = prepare_owned_normalized_mel(
+             window_audio,
