@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"slices"
 	"time"
 
@@ -193,7 +194,11 @@ type BuiltinSkillInfo struct {
 // one now and the add-ons to choose from. The choice is the same pin map as
 // for the tools (chats_tool_providers).
 func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) ([]BuiltinSkillInfo, error) {
-	ad, err := s.addonSkillsFor(ctx, principal(user), nil, nil)
+	command, err := s.addonCommandDescriptor(ctx, principal(user), session.ChatRecord{}, nil)
+	if err != nil {
+		return nil, err
+	}
+	ad, err := s.addonSkillsFor(ctx, principal(user), nil, nil, command)
 	if err != nil {
 		return nil, err
 	}

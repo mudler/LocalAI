@@ -42,7 +42,8 @@ type loadOpts struct {
 	files bool
 	// exec is true when the chat can run commands. A skill that requires
 	// them is refused with the reason when it cannot.
-	exec bool
+	exec    bool
+	sandbox *bool
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -67,7 +68,7 @@ func (s *Service) buildLoadSkill(ctx context.Context, c builtins.Chat) (session.
 	if !s.d.Files.Available() {
 		return session.Tool{}, false, "the files are off"
 	}
-	list, err := s.loadableSkills(ctx, c.Actor)
+	list, err := s.loadableSkillsForActor(ctx, c.Actor, nil)
 	if err != nil {
 		return session.Tool{}, false, "the skills cannot be read now"
 	}
@@ -93,18 +94,42 @@ func (s *Service) fitLoadSkill(a workspace.Actor, tools []session.Tool) []sessio
 	if i < 0 {
 		return tools
 	}
-	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools)})
+	// Final tools may only narrow the freshly checked descriptor at call time.
+	sandbox := addonRunner(tools) == "sandbox"
+	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), sandbox: &sandbox})
 	return tools
 }
 
 // loadableSkills returns the skills the chat of a offers now: the list the
 // index of its turn shows, from the same resolution.
 func (s *Service) loadableSkills(ctx context.Context, a workspace.Actor) ([]skills.Skill, error) {
+	return s.loadableSkillsWithCommands(ctx, a, nil)
+}
+
+func (s *Service) loadableSkillsWithCommands(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, error) {
+	access, err := s.AddonAccess(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return nil, err
+	}
+	return s.loadableSkillsForActor(ctx, access.Actor(), final)
+}
+
+// loadableSkillsForActor is for initial tool construction, using its already
+// authorized actor. Public picker and tool calls resolve fresh access instead.
+func (s *Service) loadableSkillsForActor(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, error) {
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil, err
 	}
-	list, _, _, err := s.chatSkillSet(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, s.scopeOf(ctx, rec))
+	sc := s.scopeOf(ctx, rec)
+	command, err := s.addonCommandDescriptorForActor(ctx, a, rec, sc)
+	if err != nil {
+		return nil, err
+	}
+	if final != nil && !*final {
+		command = Commands{State: CommandsNone}
+	}
+	list, _, _, err := s.chatSkillSet(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, command)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +147,7 @@ func (s *Service) loadSkillRun(a workspace.Actor, o loadOpts) func(context.Conte
 		if err != nil {
 			return "", err
 		}
-		list, err := s.loadableSkills(ctx, a)
+		list, err := s.loadableSkillsWithCommands(ctx, a, o.sandbox)
 		if err != nil {
 			return "", fmt.Errorf("the skills cannot be read now: %w", err)
 		}
