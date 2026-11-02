@@ -83,7 +83,8 @@ func (b *BotTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
 }
 
 // Call runs the connector route of an add-on.
-func (b *BotTransport) Call(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+func (b *BotTransport) Call(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	addonID := scope.AddonID
 	if b.running.Load() {
 		for _, a := range b.addons {
 			if a.ID == addonID {

@@ -2,13 +2,15 @@ package application
 
 import (
 	"context"
+	"errors"
 
 	"github.com/mudler/xlog"
 
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
-	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -32,26 +34,23 @@ func UseConnectorTransportForTests(t studio.ConnectorTransport) (restore func())
 type connectorTransport struct{ a *Application }
 
 func (t connectorTransport) Kinds(ctx context.Context) ([]studio.ConnectorKind, error) {
-	m := t.a.addonManager
-	if m == nil {
-		return nil, nil
+	g := t.a.addonGateway
+	if g == nil {
+		return nil, gateway.ErrUnavailable
 	}
-	kinds, err := m.ConnectorKinds(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]studio.ConnectorKind, len(kinds))
-	for i, k := range kinds {
-		out[i] = studio.ConnectorKind{AddonID: k.AddonID, ConnectorKind: k.ConnectorKind}
-	}
-	return out, nil
+	return g.ConnectorKinds(ctx)
 }
 
-func (t connectorTransport) Call(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	if t.a.addonManager == nil {
-		return contract.ConnectorResponse{}, addonruntime.ErrRuntime
+func (t connectorTransport) Call(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	g := t.a.addonGateway
+	if g == nil {
+		return contract.ConnectorResponse{}, gateway.ErrUnavailable
 	}
-	return t.a.addonManager.Connector(ctx, addonID, req)
+	resp, err := g.ConnectorCall(ctx, scope, req)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return resp, connectors.ErrForbidden
+	}
+	return resp, err
 }
 
 // RegisterAddonConnector registers the host operation with which a connector
