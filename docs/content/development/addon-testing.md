@@ -6,6 +6,8 @@ description = "Prepare and verify the toolchain for focused addon tests."
 
 The addon verification scripts separate explicit dependency setup from offline checks.
 Run all commands from the repository root. `scripts/addons/suites.json` lists the available suites and their exact case inventories.
+For typed extensions, run `contracts`, `apps`, `runtime`, `gateway`, and `host-slots`.
+The `contracts` suite includes all official package manifests and generic architecture guards.
 Unknown suites, empty selections, skipped required tests, and failed commands return a nonzero status.
 
 ## Required tools

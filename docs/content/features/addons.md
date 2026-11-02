@@ -259,7 +259,7 @@ consumption revalidates the complete owner binding, including conversation,
 selection revision and runtime incarnation.
 
 The current application resolver supports **local-owner JSON stores only**.
-Named-user and SQL/GORM selection snapshots are explicitly unavailable and fail
+**Scope gap: named-user and SQL/GORM selection snapshots are currently unavailable.** They fail
 closed for typed observations. Ordinary chat access is unchanged. An undeclared
 legacy provider does not acquire an isolation claim. Sandbox retains its existing
 private Settings status response and separately declares the typed page-only
@@ -291,6 +291,33 @@ and not a request for every operation. Required operations declare service
 prerequisites; optional denials must support degraded operation. Unknown but
 syntactically valid names are unsupported, never grants by inference. Requests
 do not create host endpoints or change administrator-controlled grants.
+
+### Official operation audit
+
+The official manifests request the operations their production hostclient calls use.
+Deployment prefixes in `deploy/addons/host-policy.json` remain separate administrator grants.
+The generic binary selects no policy automatically.
+
+| Addon | Required operations | Optional operations |
+| --- | --- | --- |
+| Fine-tuning | `finetune.checkpoints`, `finetune.dataset`, `finetune.export`, `finetune.get`, `finetune.list`, `finetune.start`, `finetune.stop` | None |
+| Quantization | `quantize.get`, `quantize.import`, `quantize.list`, `quantize.start`, `quantize.stop` | None |
+| Office | `workspace.export`, `workspace.import` | None |
+| Sandbox | `workspace.changes`, `workspace.commit`, `workspace.materialize` | `egress.audit`, `egress.check`, `workspace.admin` |
+| Web | None | `workspace.admin` |
+| Face, Slack, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
+
+Fine-tuning and Quantization include operation names passed through mutation and undo wrappers.
+They do not request the host's unused progress operations.
+Telegram's historical `connector.` deployment grant does not imply a hostclient call or manufacture a manifest request.
+
+Sandbox's proxy uses the optional egress operations when configured connections need policy decisions.
+Missing grants do not authorize connections; the proxy cannot obtain an allow verdict.
+Sandbox's settings and Web's provider settings use `workspace.admin` to check administrators.
+Without that optional operation, these settings refuse changes; ordinary tools can remain available.
+The shipped deployment policy covers every official required operation.
+The package tests compare all twelve manifests with this source audit and the host's registered vocabulary.
+Their package-builder fixtures use temporary executable and UI bytes, not official release binaries or frontend build artifacts.
 
 ### Compatibility and release packaging
 
@@ -4852,8 +4879,8 @@ authoritative access revision that detects revoke-and-restore changes. SQL/GORM
 selection snapshots also remain unsupported until shared, ABA-safe revisions
 exist. These cases must produce unknown observations, not a timestamp-based
 fallback. Ordinary chat access does not depend on this observation support.
-Request/session integration, producer changes, and egress projection remain
-separate work; this owner binding path alone does not provide those features.
+Request/session integration shares observations within a turn. Producer declarations
+and conservative egress projection do not remove these storage and authorization gaps.
 
 ### Execution safety notices
 
@@ -4876,5 +4903,5 @@ This warning does not change command consent or administrator settings.
 The network panel retains the configured policy when the backend cannot verify
 its enforcement. It explicitly says that the policy does not apply to commands.
 Provider-reported isolation alone does not establish network enforcement.
-Named-agent and SQL-backed selections without authoritative revision support
+Named-user and SQL-backed selections without authoritative revision support
 remain unknown; installing an app does not resolve that limitation.

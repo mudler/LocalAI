@@ -72,3 +72,20 @@ func homeSnapshot(u *contract.UI) Snapshot {
 	s.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
 	return s
 }
+
+var _ = Describe("generic Home contributions", func() {
+	It("projects two non-Studio addon pages without identity dispatch", func() {
+		for _, id := range []string{"paint", "notebook"} {
+			u := page("canvas")
+			u.Pages = []string{"canvas", "other"}
+			u.HomeCommands = []contract.HomeCommand{{ID: "open"}, {ID: "past", Page: "other"}}
+			s := snapshot(id, true, "running", u)
+			s.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
+			a := Build([]Snapshot{s}, false)[0]
+			Expect(a.ID).To(Equal(id))
+			Expect(a.UI.HomeCommands).To(HaveLen(2))
+			Expect(a.UI.HomeCommands[0].Page).To(Equal("canvas"))
+			Expect(a.UI.HomeCommands[1].Page).To(Equal("other"))
+		}
+	})
+})

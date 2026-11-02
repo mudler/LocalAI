@@ -154,3 +154,17 @@ func TestBindingDTOCompatibility(t *testing.T) {
 		}
 	}
 }
+
+var _ = Describe("generic execution provider identity", func() {
+	It("resolves two renamed providers with distinct status tools without product dispatch", func() {
+		for _, pair := range [][2]string{{"runner-one", "inspect"}, {"runner-two", "readiness"}} {
+			want := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: pair[0], Generation: 2, Incarnation: "live", ExecutionTool: "execute", StatusTool: pair[1], SelectionRevision: "owner:revision"}
+			g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }, ResolveExecutionBinding: func(context.Context, contract.Actor, ExecutionBindingClaim) (ExecutionStatusBinding, error) {
+				return want, nil
+			}}
+			got, err := g.BindingForActor(context.Background(), frontActor, ExecutionBindingClaim{ConversationID: "chat"})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(got).To(Equal(want))
+		}
+	})
+})

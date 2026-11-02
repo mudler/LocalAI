@@ -5,6 +5,18 @@
   },
   "arch": "amd64",
   "capabilities": {
+    "hostOperations": {
+      "required": [
+        "workspace.changes",
+        "workspace.commit",
+        "workspace.materialize"
+      ],
+      "optional": [
+        "egress.audit",
+        "egress.check",
+        "workspace.admin"
+      ]
+    },
     "actions": true,
     "toolDefinitions": [
       {
