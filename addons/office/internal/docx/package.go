@@ -89,7 +89,7 @@ func (b *builder) parts() []part {
 	add("word/_rels/document.xml.rels", relsXML(rels), "")
 	add("word/styles.xml", b.stylesXML(), ctStyles)
 	if b.hasBullets {
-		add("word/numbering.xml", numberingXML(), ctNumbering)
+		add("word/numbering.xml", b.numberingXML(), ctNumbering)
 	}
 
 	ct.WriteString(`</Types>`)
@@ -116,18 +116,30 @@ func appXML(application string) []byte {
 		`xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">` + app + `</Properties>`)
 }
 
-func numberingXML() []byte {
+func (b *builder) numberingXML() []byte {
+	var ordered strings.Builder
+	id := 2
+	for _, blk := range b.doc.Blocks {
+		if v, ok := blk.(Bullets); ok && v.Ordered {
+			start := v.Start
+			if start == 0 && !v.StartSet {
+				start = 1
+			}
+			fmt.Fprintf(&ordered, `<w:abstractNum w:abstractNumId="%d"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="%d"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%%1."/><w:lvlJc w:val="left"/></w:lvl></w:abstractNum><w:num w:numId="%d"><w:abstractNumId w:val="%d"/></w:num>`, id, start, id, id)
+			id++
+		}
+	}
 	return []byte(xmlHeader + `<w:numbering xmlns:w="` + nsW + `">` +
 		`<w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="hybridMultilevel"/>` +
 		`<w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/><w:lvlText w:val="&#8226;"/><w:lvlJc w:val="left"/>` +
 		`<w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>` +
 		`</w:abstractNum>` +
 		fmt.Sprintf(`<w:num w:numId="%d"><w:abstractNumId w:val="0"/></w:num>`, bulletNumID) +
-		`</w:numbering>`)
+		ordered.String() + `</w:numbering>`)
 }
 
 // Heading sizes in half-points.
-var headingSize = map[int]int{1: 32, 2: 28, 3: 26}
+var headingSize = map[int]int{1: 32, 2: 28, 3: 26, 4: 24, 5: 22, 6: 22}
 
 func (b *builder) stylesXML() []byte {
 	st := b.style
@@ -166,10 +178,11 @@ func (b *builder) documentXML() []byte {
 	var x strings.Builder
 	x.WriteString(xmlHeader)
 	x.WriteString(`<w:document xmlns:w="` + nsW + `" xmlns:r="` + nsR + `"><w:body>`)
+	orderedID := 2
 	for _, blk := range b.doc.Blocks {
 		switch v := blk.(type) {
 		case Heading:
-			fmt.Fprintf(&x, `<w:p><w:pPr><w:pStyle w:val="Heading%d"/></w:pPr>%s</w:p>`, v.Level, runXML(Run{Text: v.Text}))
+			fmt.Fprintf(&x, `<w:p><w:pPr><w:pStyle w:val="Heading%d"/></w:pPr>%s</w:p>`, v.Level, runsXML(v.Text, v.Runs, false))
 		case Paragraph:
 			x.WriteString(`<w:p>`)
 			if v.Text != "" {
@@ -180,9 +193,20 @@ func (b *builder) documentXML() []byte {
 			}
 			x.WriteString(`</w:p>`)
 		case Bullets:
-			for _, it := range v.Items {
-				fmt.Fprintf(&x, `<w:p><w:pPr><w:pStyle w:val="ListBullet"/><w:numPr><w:ilvl w:val="0"/><w:numId w:val="%d"/></w:numPr></w:pPr>%s</w:p>`,
-					bulletNumID, runXML(Run{Text: it}))
+			id := bulletNumID
+			style := `<w:pStyle w:val="ListBullet"/>`
+			if v.Ordered {
+				style = ""
+				id = orderedID
+				orderedID++
+			}
+			for i, it := range v.texts() {
+				var runs []Run
+				if len(v.RichItems) > 0 {
+					runs = v.RichItems[i]
+					it = ""
+				}
+				fmt.Fprintf(&x, `<w:p><w:pPr>%s<w:numPr><w:ilvl w:val="0"/><w:numId w:val="%d"/></w:numPr><w:ind w:left="%d" w:hanging="360"/></w:pPr>%s</w:p>`, style, id, 720*(v.Indent+1), runsXML(it, runs, false))
 			}
 		case Table:
 			b.tableXML(&x, v)
@@ -206,7 +230,28 @@ func runXML(r Run) string {
 	if rpr != "" {
 		rpr = `<w:rPr>` + rpr + `</w:rPr>`
 	}
-	return `<w:r>` + rpr + `<w:t xml:space="preserve">` + ooxml.Escape(r.Text) + `</w:t></w:r>`
+	// WordprocessingML represents layout controls as elements, not character
+	// references inside w:t. Keep them in the same run to retain emphasis.
+	var content strings.Builder
+	start := 0
+	for i, ch := range r.Text {
+		if ch != '\n' && ch != '\t' {
+			continue
+		}
+		if i > start {
+			content.WriteString(`<w:t xml:space="preserve">` + ooxml.Escape(r.Text[start:i]) + `</w:t>`)
+		}
+		if ch == '\n' {
+			content.WriteString(`<w:br/>`)
+		} else {
+			content.WriteString(`<w:tab/>`)
+		}
+		start = i + 1
+	}
+	if start < len(r.Text) || len(r.Text) == 0 {
+		content.WriteString(`<w:t xml:space="preserve">` + ooxml.Escape(r.Text[start:]) + `</w:t>`)
+	}
+	return `<w:r>` + rpr + content.String() + `</w:r>`
 }
 
 // columnWidths returns the grid widths: the given widths, or an equal split of
@@ -232,7 +277,7 @@ func (b *builder) tableXML(x *strings.Builder, t Table) {
 		fmt.Fprintf(x, `<w:gridCol w:w="%d"/>`, w)
 	}
 	x.WriteString(`</w:tblGrid>`)
-	row := func(cells []string, header bool) {
+	row := func(cells []string, rich [][]Run, header bool) {
 		x.WriteString(`<w:tr>`)
 		if header {
 			x.WriteString(`<w:trPr><w:tblHeader/></w:trPr>`)
@@ -242,13 +287,34 @@ func (b *builder) tableXML(x *strings.Builder, t Table) {
 			if header && b.style.TableHeaderFill != "" {
 				fmt.Fprintf(x, `<w:shd w:val="clear" w:color="auto" w:fill="%s"/>`, strings.ToUpper(b.style.TableHeaderFill))
 			}
-			x.WriteString(`</w:tcPr><w:p>` + runXML(Run{Text: c, Bold: header}) + `</w:p></w:tc>`)
+			var runs []Run
+			if rich != nil {
+				runs = rich[i]
+				c = ""
+			}
+			x.WriteString(`</w:tcPr><w:p>` + runsXML(c, runs, header) + `</w:p></w:tc>`)
 		}
 		x.WriteString(`</w:tr>`)
 	}
-	row(t.Header, true)
-	for _, r := range t.Rows {
-		row(r, false)
+	row(t.Header, t.HeaderRuns, true)
+	for i, r := range t.Rows {
+		var rich [][]Run
+		if t.RowRuns != nil {
+			rich = t.RowRuns[i]
+		}
+		row(r, rich, false)
 	}
 	x.WriteString(`</w:tbl>`)
+}
+
+func runsXML(text string, runs []Run, bold bool) string {
+	if len(runs) == 0 {
+		return runXML(Run{Text: text, Bold: bold})
+	}
+	var b strings.Builder
+	for _, r := range runs {
+		r.Bold = r.Bold || bold
+		b.WriteString(runXML(r))
+	}
+	return b.String()
 }

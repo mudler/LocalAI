@@ -19,6 +19,7 @@ executable: tables
 manifest: addons/tables/manifest.json
 # The directory whose content is laid at the package root (ui/tables.js ...).
 ui: addons/tables/ui/dist
+skills: addons/tables/skills
 platforms:
   - platform: linux/amd64
     enabled: true

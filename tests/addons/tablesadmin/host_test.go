@@ -285,7 +285,11 @@ func (h *host) library() *cluster.Library {
 	delete(m.Capabilities, "ui")
 	exe, e := os.ReadFile(binary)
 	Expect(e).NotTo(HaveOccurred())
-	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())
+	skill, e := os.ReadFile("../../../addons/tables/skills/tables-readonly/SKILL.md")
+	Expect(e).NotTo(HaveOccurred())
+	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Executable: "bin/tables", Binary: exe,
+		Files: map[string]string{"skills/tables-readonly/SKILL.md": string(skill)},
+	}, GinkgoT().TempDir())).To(Succeed())
 	return lib
 }
 

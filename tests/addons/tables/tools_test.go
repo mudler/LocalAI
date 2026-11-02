@@ -47,13 +47,15 @@ var _ = Describe("Tables tools under the real owner", Label("application"), func
 
 		defs, e := adapter.Discover(ctx, h.actor("alice"))
 		Expect(e).NotTo(HaveOccurred())
-		Expect(defs).To(HaveLen(15))
+		Expect(defs).To(HaveLen(16))
+		Expect(defs).To(ContainElement(HaveField("Name", "addon__tables__databases-list")))
 		for _, d := range defs {
 			Expect(d.Name).To(HavePrefix("addon__tables__"))
 		}
 		defs, e = adapter.Discover(ctx, h.actor("bob"))
 		Expect(e).NotTo(HaveOccurred())
-		Expect(defs).To(HaveLen(15))
+		Expect(defs).To(HaveLen(16))
+		Expect(defs).To(ContainElement(HaveField("Name", "addon__tables__databases-list")))
 
 		// Another user's identity cannot be claimed by changing a field of
 		// the actor: the owner checks the stored credential.

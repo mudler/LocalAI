@@ -72,6 +72,7 @@ rm -rf "$fixture_dir"
 mkdir -p "$fixture_dir/tables"
 cp "$root/addons/tables/manifest.json" "$fixture_dir/tables/manifest.json"
 cp -R "$pkg/dist/ui" "$fixture_dir/tables/ui"
+cp -R "$root/addons/tables/skills" "$fixture_dir/tables/skills"
 
 free_port() { python3 -I -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])'; }
 named_port=$(free_port)

@@ -195,8 +195,8 @@
     - "fine-tune-stop"
     - "fine-tune-export"
 - id: "office"
-  name: Office
-  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  name: Simple Office
+  description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
@@ -208,8 +208,8 @@
     issuer: "https://token.actions.githubusercontent.com"
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
-    title: "Office"
-    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    title: "Simple Office"
+    description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
     mainPage: "office"
     icon: "ui/icon.png"
   toolCount: 11
@@ -231,8 +231,8 @@
     - "pptx"
     - "pdf"
 - id: "office"
-  name: Office
-  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  name: Simple Office
+  description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
@@ -244,8 +244,8 @@
     issuer: "https://token.actions.githubusercontent.com"
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
-    title: "Office"
-    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    title: "Simple Office"
+    description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
     mainPage: "office"
     icon: "ui/icon.png"
   toolCount: 11
@@ -267,8 +267,8 @@
     - "pptx"
     - "pdf"
 - id: "office"
-  name: Office
-  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  name: Simple Office
+  description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
@@ -280,8 +280,8 @@
     issuer: "https://token.actions.githubusercontent.com"
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
-    title: "Office"
-    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    title: "Simple Office"
+    description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
     mainPage: "office"
     icon: "ui/icon.png"
   toolCount: 11
@@ -303,8 +303,8 @@
     - "pptx"
     - "pdf"
 - id: "office"
-  name: Office
-  description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+  name: Simple Office
+  description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:office-development"
@@ -316,8 +316,8 @@
     issuer: "https://token.actions.githubusercontent.com"
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
-    title: "Office"
-    description: "Read and edit Word, Excel, PowerPoint and PDF files from your chats."
+    title: "Simple Office"
+    description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."
     mainPage: "office"
     icon: "ui/icon.png"
   toolCount: 11

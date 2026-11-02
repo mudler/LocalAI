@@ -77,7 +77,9 @@ a grant. Administrators who install the addon get no access to databases.
 
 ## Tools
 
-The manifest declares these tools. LocalAI rejects any other tool name.
+The manifest declares the executable tools below. The one host-owned exception
+is `addon__tables__databases-list`, described in [Database discovery](#database-discovery).
+That name is reserved: a Tables manifest cannot redefine it.
 
 | Tool | Kind | Effect |
 |---|---|---|
@@ -101,10 +103,38 @@ The manifest declares these tools. LocalAI rejects any other tool name.
 Tool names use hyphens because LocalAI manifests accept only
 `[a-z][a-z0-9-]*` identifiers.
 
-There is no tool that lists every database. The addon only knows the IDs that
-LocalAI sends it. LocalAI lists the databases a person may see from its own
-resource records, so a listing can never show a database the person has no
-grant for.
+### Database discovery
+
+`addon__tables__databases-list` takes exactly `{}` and reads the host's resource
+registry, not the Tables executable. It is available only through existing
+authorized actor-bound consumers when Tables is visible, enabled and running,
+and the backend supports host resource listing. Existing chat opt-ins, hidden
+add-ons and agent allowlists still apply. Shared MCP sessions and consumers
+without a principal do not gain access.
+
+The normal bounded data result contains only database IDs, optional display
+names and the caller's role:
+
+```json
+{"databases":[{"resourceId":"opaque-id","name":"Budget","role":"viewer"}],"truncated":false}
+```
+
+Only active databases owned by or shared with the caller are listed; installing
+Tables grants no data access. Credentials and grants are rechecked on each call.
+Permission, registry and owner/transport failures remain errors, not empty lists.
+A successful empty result has `databases: []`.
+
+Results are ordered by resource ID and limited to 100 databases. There is no
+pagination, cursor, search or total. `truncated: true` means the list is
+incomplete; an omitted database is not evidence that it does not exist. Names
+may be absent or duplicated: use opaque IDs, inspect the chosen database with
+`addon__tables__databases-inspect`, then query its actual tables and columns.
+Ask for clarification when the choice is ambiguous; never create a database
+or change the chat's selection as a discovery fallback. Inspect and query
+independently reauthorize the ID.
+
+This projected host read does not expose resource management, sharing,
+selection changes or mutations as discovery tools.
 
 In the chats (`/api/chats`), the agents and the triggers, a change made with
 these tools is applied at once: turning Tables on for the chat or the agent is
@@ -114,15 +144,24 @@ and a repeated operation applies once. Because nothing waits for a confirmation,
 undo is the safety net: Tables keeps a change set for every row and schema change
 a chat makes, and the chat shows an Undo button on it (see
 [Undo of a chat change](#undo-of-a-chat-change)). On every other surface (the OpenAI-compatible
-API, MCP, an API key), a change made from chat is a proposal: the model asks,
-LocalAI previews the change, and a person confirms it in the host confirmation
-card. A rename uses
-the standard proposal path. Creating a database from chat is a proposal too
-(`databases-create` with a `name`, no resource ID). LocalAI reserves a pending
-resource for the person who asked, shows the requested name in the card, and
-creates the database only when that person confirms it. Cancelling or letting
-the proposal expire removes the reservation. Sharing and deleting a database
-are not tools.
+API, MCP, an API key), changes normally return proposals for human confirmation.
+Authorized server-side chats can also apply database creation and schema changes
+with undo. Check the actual result kind: `proposal` is not completion; `applied`
+confirms a change. The model cannot manufacture approval or identity arguments.
+Sharing and whole-database deletion are not model tools.
+
+## Bundled discovery skill
+
+Tables packages the `tables-readonly` skill for structured-data questions and
+table searches. Load it to learn the workflow: list existing databases when
+needed, disambiguate names, inspect tables and columns, then query relevant rows
+or aggregate totals. Database listing is bounded to 100 and has no pagination;
+row queries have their own cursor.
+
+The skill needs no command runner. Existing installation, running-state, chat
+switch and agent-grant gates control its availability. Its read-only guidance
+does not revoke other tools granted to the chat. It never creates a database or
+changes conversation selection as a discovery fallback.
 
 ## Model tools and approval cards
 

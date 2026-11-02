@@ -1,10 +1,10 @@
 ---
 name: pptx
-description: Use when the user wants to read, change or create a PowerPoint deck (.pptx) in their files. Works with the Office add-on tools, with no command runner.
+description: Use when the user wants to read, change or create a PowerPoint deck (.pptx) in their files. Works with the Simple Office add-on tools, with no command runner.
 ---
-# PowerPoint decks with the Office tools
+# PowerPoint decks with the Simple Office tools
 
-Use the tools of the Office add-on: `addon__office__read-pptx`,
+Use the tools of the Simple Office add-on: `addon__office__read-pptx`,
 `addon__office__edit-pptx` and `addon__office__create-pptx`. A file is a
 path in the user's files, such as `/reports/plan.pptx`.
 

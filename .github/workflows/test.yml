@@ -72,7 +72,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install curl ffmpeg libopus-dev
+          sudo apt-get install curl ffmpeg libopus-dev poppler-utils
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -143,7 +143,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg poppler
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Setup Node.js
         uses: actions/setup-node@v7

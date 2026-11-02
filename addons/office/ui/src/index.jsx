@@ -7,12 +7,12 @@ export function createAddon(sdk) {
   // eslint-disable-next-line no-unused-vars
   const h = React.createElement
   sdk.locale.define('en', {
-    'office.title': 'Office',
-    'office.intro': 'Your chats can read and edit documents in your files. Ask for a change in a chat and the add-on makes it. If someone changed the file in the meantime, your version is saved as a copy next to it.',
-    'office.word': 'Word documents (.docx): read the text, replace text, add paragraphs and tables, create new ones.',
-    'office.excel': 'Excel workbooks (.xlsx): read the sheets, set cells and formulas, add sheets, create new ones.',
+    'office.title': 'Simple Office',
+    'office.intro': 'Lightweight basic office-file work from your chats, without requiring Sandbox. Ask for a change in a chat and the add-on makes it. If someone changed the file in the meantime, your version is saved as a copy next to it.',
+    'office.word': 'Word documents (.docx): read the text, replace text, add paragraphs, create new documents from Markdown.',
+    'office.excel': 'Excel workbooks (.xlsx): read the sheets, set cells and formulas, add sheets, create a single-sheet workbook from CSV.',
     'office.powerpoint': 'PowerPoint decks (.pptx): read the slides, edit text and shapes, add slides, create new decks.',
-    'office.pdf': 'PDF files (.pdf): read the text.',
+    'office.pdf': 'PDF files (.pdf): read the text, create new files from Markdown (Latin-1 text).',
     'office.preview.loading': 'Reading the file…',
     'office.preview.truncated': 'Only the start of the file is shown.',
     'office.preview.unsupported': 'This file cannot be previewed.',

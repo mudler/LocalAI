@@ -120,7 +120,11 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 		var buf bytes.Buffer
 		tw := tar.NewWriter(&buf)
 		add := func(name string, data []byte) error {
-			if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(data))}); err != nil {
+			mode := int64(0o644)
+			if name == "bin/fixture" || name == manifest["executable"] {
+				mode = 0o755
+			}
+			if err := tw.WriteHeader(&tar.Header{Name: name, Mode: mode, Size: int64(len(data))}); err != nil {
 				return err
 			}
 			_, err := tw.Write(data)

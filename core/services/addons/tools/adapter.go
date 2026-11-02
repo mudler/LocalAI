@@ -6,8 +6,8 @@
 // agent, a scheduled job) meets add-on tools. It never decides authority:
 //
 //   - discovery shows only what the owner lists for the authenticated actor:
-//     enabled, running add-ons with a tool definition in their verified
-//     manifest;
+//     enabled, running add-ons with verified manifest tools, plus the narrow
+//     host-owned Tables database listing;
 //   - a read goes to the gateway read path with that actor;
 //   - a change, a schema change or a creation goes to the proposal broker and
 //     returns a reference to the stored proposal. The adapter has no way to
@@ -353,7 +353,10 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 	}
 	var out []apps.App
 	for _, a := range list.Apps {
-		if a.Enabled && a.State == "running" && a.Generation > 0 && len(a.ToolDefinitions) > 0 {
+		if a.Enabled && a.State == "running" && a.Generation > 0 && (len(a.ToolDefinitions) > 0 || (a.ID == "tables" && t.hasResourceLister())) {
+			if err := validateTablesListing(a); err != nil {
+				return nil, err
+			}
 			out = append(out, a)
 		}
 	}
@@ -494,6 +497,9 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 	}
 	var out []ToolDefinition
 	for _, a := range list {
+		if a.ID == "tables" && t.hasResourceLister() && len(out) < MaxTools {
+			out = append(out, databaseListingDefinition())
+		}
 		for _, d := range a.ToolDefinitions {
 			if d.Kind == contract.ToolKindAction && !t.actions {
 				continue
@@ -571,6 +577,9 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 		if a.ID != addonID {
 			continue
 		}
+		if addonID == "tables" && tool == "databases-list" && t.hasResourceLister() {
+			return t.listDatabases(ctx, actor, name, arguments)
+		}
 		for _, d := range a.ToolDefinitions {
 			if d.Name != tool {
 				continue
@@ -588,6 +597,11 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	}
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
+		if errors.Is(err, ErrInvalidArguments) {
+			if message := officeCreationDiagnostic(addonID, tool, arguments); message != "" {
+				return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Message: message}, nil
+			}
+		}
 		return ToolResult{}, err
 	}
 	if resource == "" && conversationID != "" && requiresResource(def) {
