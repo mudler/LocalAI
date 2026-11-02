@@ -4,13 +4,10 @@ package pins
 import (
 	"context"
 	"fmt"
-	"slices"
-	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // GormStore keeps the pins in the account database, which every frontend of a
@@ -21,7 +18,7 @@ func NewGormStore(db *gorm.DB) (*GormStore, error) {
 	// Several frontends migrate the shared database at startup: take the
 	// schema-migrate lock like every other shared table does.
 	if err := advisorylock.WithLockCtx(context.Background(), db, advisorylock.KeySchemaMigrate, func() error {
-		return db.AutoMigrate(&Pin{}, &SeedRun{})
+		return db.AutoMigrate(&Pin{})
 	}); err != nil {
 		return nil, fmt.Errorf("migrating addon pin tables: %w", err)
 	}
@@ -51,44 +48,6 @@ func (s *GormStore) Replace(ctx context.Context, userID string, ids []string) er
 	})
 }
 
-// SeedExisting inserts the marker row first. Only the call that inserts it
-// seeds, so several frontends that start together seed once between them.
-func (s *GormStore) SeedExisting(ctx context.Context, userIDs []string, ids []string) (bool, error) {
-	ran := false
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&SeedRun{Name: UpgradeSeedName, At: time.Now().UTC()})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected == 0 {
-			return nil
-		}
-		ran = true
-		for _, userID := range userIDs {
-			var have []Pin
-			if err := tx.Where("user_id = ?", userID).Find(&have).Error; err != nil {
-				return err
-			}
-			held := map[string]bool{}
-			for _, p := range have {
-				held[p.AddonID] = true
-			}
-			next := len(have)
-			for _, id := range ids {
-				if held[id] {
-					continue
-				}
-				if err := tx.Create(&Pin{UserID: userID, AddonID: id, Position: next}).Error; err != nil {
-					return err
-				}
-				next++
-			}
-		}
-		return nil
-	})
-	return ran, err
-}
-
 func (s *GormStore) Distinct(ctx context.Context) ([]string, error) {
 	var out []string
 	err := s.db.WithContext(ctx).Model(&Pin{}).Distinct().Pluck("addon_id", &out).Error
@@ -112,27 +71,4 @@ func (s *GormStore) ClearMissing(ctx context.Context, ids []string) error {
 func (s *GormStore) DeleteMissingBefore(ctx context.Context, cutoff time.Time) (int64, error) {
 	res := s.db.WithContext(ctx).Where("missing_since IS NOT NULL AND missing_since < ?", cutoff).Delete(&Pin{})
 	return res.RowsAffected, res.Error
-}
-
-func (s *GormStore) MarkInstalled(ctx context.Context, ids []string) error {
-	for _, id := range ids {
-		err := s.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&SeedRun{Name: installedPrefix + id, At: time.Now().UTC()}).Error
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *GormStore) Installed(ctx context.Context) ([]string, error) {
-	var names []string
-	if err := s.db.WithContext(ctx).Model(&SeedRun{}).Where("name LIKE ?", installedPrefix+"%").Pluck("name", &names).Error; err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(names))
-	for _, n := range names {
-		out = append(out, strings.TrimPrefix(n, installedPrefix))
-	}
-	slices.Sort(out)
-	return out, nil
 }

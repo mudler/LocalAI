@@ -3213,13 +3213,12 @@ the caller and is sent with `Cache-Control: private, no-store`.
   days the pins are deleted. A background sweep runs every six hours; with several
   frontends, one of them runs it at a time. A disabled add-on is not removed, so its pins
   never expire. A sweep that cannot read the add-on owner changes nothing.
-- **Upgrade seed.** A read or a save never pins anything. Once, at the upgrade that adds
-  this feature, the accounts that exist then get Studio and Talk pinned. Both are
-  add-ons, so a pin is drawn once the add-on is installed. A seeded pin does not
-  expire while its add-on was never installed, however long that takes; once the
-  add-on was installed, its pin follows the retention rule like any other (the sweep
-  records the first install in the table of seed runs, `addon_pin_seed_runs`, or in
-  the pins file). An account created later starts with no pins. An unpin stays after a restart.
+- **Explicit selection.** New and existing accounts, including the local owner, start
+  without implicit pins. Startup, reads, and saves never add Studio, Talk, or any other
+  ID on their own. Existing saved user pins remain unchanged. Explicit pins and unpins
+  survive restarts and are shared across frontends with an account database.
+  Every absent ID follows the same 30-day retention rule, even if it was never installed.
+  The store no longer creates or uses seed metadata; it does not drop existing database tables.
 - **Startup.** If the pins file cannot be read (it is corrupt), the server does not start
   and logs the error. It does not fall back to memory, because that would lose every unpin
   at the next restart.
