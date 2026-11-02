@@ -11,6 +11,9 @@ import (
 // EventKind tells what an Event carries.
 type EventKind string
 
+// KindMemoryCapture invalidates capture status only; IDs are capture IDs, not transcript entries.
+const KindMemoryCapture EventKind = "memory_capture"
+
 // Event kinds. Every turn ends with KindCheckpoint then KindTurnEnd.
 const (
 	KindTurnStart  EventKind = "turn_start"

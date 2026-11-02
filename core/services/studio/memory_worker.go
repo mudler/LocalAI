@@ -129,11 +129,14 @@ func (s *Service) runCapture(ctx context.Context, claim store.CaptureClaim, back
 		// effect can apply the next revision, regardless of reducer effect order.
 		// Store callbacks have returned: subscribers may safely reload the record.
 		for _, effect := range tr.Effects {
-			if status, ok := effect.(memory.PublishStatus); ok && publish != nil {
+			if status, ok := effect.(memory.PublishStatus); ok {
 				if err := ctx.Err(); err != nil {
 					return err
 				}
-				publish(claim.Record, status)
+				s.publishMemoryCapture(claim.Record)
+				if publish != nil {
+					publish(claim.Record, status)
+				}
 			}
 		}
 		var next *memory.Transition

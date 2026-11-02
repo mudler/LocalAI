@@ -228,6 +228,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.GET(base, h.List)
 	e.GET(base+"/search", h.Search)
 	e.POST(base+"/import", h.Import)
+	e.GET(base+"/:id/memory", h.MemoryStatuses)
+	e.POST(base+"/:id/memory/:capture_id/retry", h.RetryMemoryCapture)
 	e.GET(base+"/:id", h.Get)
 	e.PATCH(base+"/:id", h.Update)
 	e.POST(base+"/:id/regenerate", h.Regenerate)

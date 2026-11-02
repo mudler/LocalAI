@@ -810,3 +810,37 @@ Connector delivery identity also covers messages with attachments: replaying the
 same platform event does not start another answer or accept its text again. Saved
 attachment paths and extracted notes remain model context, not automatic incoming
 memory text. Distinct platform events remain distinct even with identical text.
+
+### Reading and retrying automatic memory captures
+
+`GET /api/chats/{id}/memory` lists the caller's captures for an owned chat.
+Each record contains `id`, `destination`, `status`, and `retry_eligible`.
+The statuses are `queued`, `processing`, `saved`, `failed`, and `skipped`.
+A delayed retry is `queued` with `next_retry` as a Unix timestamp in seconds;
+`saved` includes the exact collection `entry_id`. Failure and skip reasons are
+allowlisted safe codes: `exhausted_or_expired`, `expired`, `exhausted`,
+`policy_revoked`, `authorization_denied`, `deleted`, `empty_input`,
+`empty_summary`, `summary_failed`, `missing_entry_id`, or `payload_unavailable`.
+Unknown reasons use `capture_failed` or `capture_skipped`, never backend errors
+or captured text. Queue identities, input, credentials, and write fences
+are not exposed.
+
+`POST /api/chats/{id}/memory/{capture_id}/retry` schedules a failed capture and
+returns its current durable status. It cannot change its destination, payload,
+or capture ID. A missing chat or capture returns 404, revoked current access
+returns 403, and a capture that is not failed (or has no retained payload)
+returns 409. Turning ingestion off, changing its destination, deleting the
+agent, or revoking collection access prevents retry. The worker checks current
+permissions again before writing. Historical status remains readable by the
+chat's owner even when retry is no longer allowed.
+
+Both routes use the existing chats feature permission. Live chat SSE emits
+`memory_capture` with capture IDs in `ids`; these events are status invalidations,
+not model-visible messages or transcript entries. Reload the memory endpoint
+after an event or reconnect: fanout is live-only and the durable API is the source
+of truth. Clients must not interpret these IDs as message IDs.
+
+There is deliberately no process-wide admin MCP mutation tool for these
+principal-scoped captures. Existing saved-agent REST/admin/MCP configuration
+DTOs and memory tool surfaces are unchanged; no new model capability flag is
+required.

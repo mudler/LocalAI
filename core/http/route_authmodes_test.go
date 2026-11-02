@@ -171,7 +171,7 @@ var _ = Describe("Route auth modes", func() {
 			paths[r.Method+" "+r.Path] = true
 		}
 		Expect(len(paths)).To(BeNumerically(">", 100))
-		for _, want := range append([]string{"GET /api/chats", "POST /api/chats", "GET /api/addons/builtin"}, adminOnlyAddonRoutes...) {
+		for _, want := range append([]string{"GET /api/chats", "POST /api/chats", "GET /api/chats/:id/memory", "POST /api/chats/:id/memory/:capture_id/retry", "GET /api/addons/builtin"}, adminOnlyAddonRoutes...) {
 			Expect(paths).To(HaveKey(want))
 		}
 	})

@@ -3708,7 +3708,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing)",
+                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -4690,7 +4690,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's path in your files now (empty when the folder is missing or not chosen); a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -9260,6 +9260,90 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/{id}/memory": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List a chat's memory captures",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chat ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/schema.ChatsMemoryCapture"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/{id}/memory/{capture_id}/retry": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Retry a failed memory capture",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Chat ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Capture ID",
+                        "name": "capture_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemoryCapture"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/messages": {
             "get": {
                 "tags": [
@@ -9356,7 +9440,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing)",
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -14584,6 +14668,54 @@ const docTemplate = `{
                 }
             }
         },
+        "agents.CollectionGrant": {
+            "type": "object",
+            "properties": {
+                "collection": {
+                    "type": "string"
+                },
+                "delete_entries": {
+                    "type": "boolean"
+                },
+                "search": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "agents.CollectionPermissions": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/agents.CollectionGrant"
+                    }
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
+        "agents.MemorySettings": {
+            "type": "object",
+            "properties": {
+                "add_memory": {
+                    "type": "boolean"
+                },
+                "automatic_ingestion": {
+                    "type": "string"
+                },
+                "destination": {
+                    "type": "string"
+                },
+                "tool_storage": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "integer"
+                }
+            }
+        },
         "apps.AdminView": {
             "type": "object",
             "properties": {
@@ -18000,6 +18132,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "collection_permissions": {
+                    "$ref": "#/definitions/agents.CollectionPermissions"
+                },
                 "collections": {
                     "type": "array",
                     "items": {
@@ -18031,6 +18166,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "memory": {
+                    "$ref": "#/definitions/agents.MemorySettings"
                 },
                 "model": {
                     "type": "string"
@@ -18082,7 +18220,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
-                    "description": "Path is the folder's path in your files now (\"/\" is all of them). It\nis absent when the folder is missing or not chosen.",
+                    "description": "Path is home-relative (\"/\" is the whole home), or /shared/\u003cname\u003e/...\nfor a followed readable shared folder. It is absent when missing,\nnot chosen, or readable outside these public locations; a readable\nfolder without a public path still has state ok.",
                     "type": "string"
                 },
                 "state": {
@@ -18231,6 +18369,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "collection_permissions": {
+                    "$ref": "#/definitions/agents.CollectionPermissions"
+                },
                 "collections": {
                     "type": "array",
                     "items": {
@@ -18241,7 +18382,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "folder": {
-                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the folder's path and mode when the file was made.",
+                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the home-relative path and mode when the file was\nmade. A missing, unchosen or non-home folder has an empty export path;\nimport preserves its mode as unset and warns instead of clearing scope.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
@@ -18256,6 +18397,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "memory": {
+                    "$ref": "#/definitions/agents.MemorySettings"
                 },
                 "model": {
                     "type": "string"
@@ -20351,6 +20495,32 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "schema.ChatsMemoryCapture": {
+            "type": "object",
+            "properties": {
+                "destination": {
+                    "type": "string"
+                },
+                "entry_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "next_retry": {
+                    "type": "integer"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "retry_eligible": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },
