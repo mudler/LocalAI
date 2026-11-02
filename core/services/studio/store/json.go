@@ -50,6 +50,8 @@ type chatSlot struct {
 }
 
 type chatState struct {
+	Capture              captureData       `json:"capture,omitempty"`
+	Deleted              bool              `json:"deleted,omitempty"`
 	FrozenMemoryRequests map[string][]byte `json:"frozen_memory_requests,omitempty"`
 	// Rec.HarnessState is not in the record file: it is in the state file of
 	// generation StateGen. A record without StateGen keeps it inline, as the
@@ -92,6 +94,10 @@ func NewJSON(dir string) (Store, error) {
 		var c chatState
 		if err := json.Unmarshal(raw, &c); err != nil || c.Rec.ID == "" {
 			xlog.Warn("studio store: skipping damaged chat record", "file", filepath.Base(p), "error", err)
+			continue
+		}
+		if c.Deleted {
+			s.chats[c.Rec.ID] = &chatSlot{chatState: c, gone: true}
 			continue
 		}
 		if c.Run != "" {
@@ -369,7 +375,7 @@ func (s *jsonStore) lock(id string) (c *chatSlot, unlock func(), err error) {
 		return nil, nil, session.ErrNotFound
 	}
 	c.mu.Lock()
-	if c.gone {
+	if c.gone || c.Deleted {
 		c.mu.Unlock()
 		return nil, nil, session.ErrNotFound
 	}
@@ -420,10 +426,14 @@ func (s *jsonStore) records(keep func(session.ChatRecord) bool) []session.ChatRe
 func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.chats[rec.ID]; ok {
-		return session.ErrExists
+	var retained captureData
+	if old, ok := s.chats[rec.ID]; ok {
+		if !old.Deleted {
+			return session.ErrExists
+		}
+		retained = old.Capture
 	}
-	c := chatState{Rec: rec}
+	c := chatState{Rec: rec, Capture: retained}
 	c.Rec.HarnessState = nil
 	c.Rec.Egress = rec.Egress.Clone()
 	c.Rec.Goal = rec.Goal.Clone()
@@ -664,21 +674,27 @@ func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
 		return err
 	}
 	defer unlock()
+	// Publish a minimal tombstone before removing old files. A crash during
+	// cleanup cannot load the old state or release its idempotency keys.
+	next := chatState{Rec: session.ChatRecord{ID: id, Principal: principal}, Deleted: true, Capture: tombstoneCapture(c.Capture)}
+	if err := s.save(&next); err != nil {
+		return err
+	}
+	oldGen := c.StateGen
+	c.chatState = next
+	c.gone = true
 	if s.dir != "" {
-		files := []string{s.file(id, ".json"), s.file(id, ".entries")}
-		if c.StateGen > 0 {
-			files = append(files, s.stateFile(id, c.StateGen))
+		files := []string{s.file(id, ".entries")}
+		if oldGen > 0 {
+			files = append(files, s.stateFile(id, oldGen))
 		}
-		for _, f := range files {
-			if err := os.Remove(f); err != nil && !errors.Is(err, os.ErrNotExist) {
+		for _, file := range files {
+			if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 		}
 	}
-	c.gone = true
-	s.mu.Lock()
-	delete(s.chats, id)
-	s.mu.Unlock()
+
 	return nil
 }
 

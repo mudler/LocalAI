@@ -144,7 +144,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("studio store: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&chatRow{}, &entryRow{}, &pendingRow{}, &memoryRequestRow{}); err != nil {
+	if err := db.AutoMigrate(&chatRow{}, &entryRow{}, &pendingRow{}, &memoryRequestRow{}, &captureStateRow{}, &captureKeyRow{}); err != nil {
 		return nil, fmt.Errorf("studio store: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -595,6 +595,21 @@ func (s *gormStore) DeleteChat(ctx context.Context, principal, id string) error 
 			return err
 		}
 		if err := tx.Where("chat_id = ?", id).Delete(&pendingRow{}).Error; err != nil {
+			return err
+		}
+		var row captureStateRow
+		if err := tx.Where("chat_id = ?", id).Limit(1).Find(&row).Error; err != nil {
+			return err
+		}
+		var d captureData
+		if len(row.Data) > 0 {
+			if err := json.Unmarshal(row.Data, &d); err != nil {
+				return err
+			}
+		}
+		row.ChatID = id
+		row.Data, _ = json.Marshal(tombstoneCapture(d))
+		if err := tx.Save(&row).Error; err != nil {
 			return err
 		}
 		// Frozen requests belong to this chat incarnation. Delete them under
