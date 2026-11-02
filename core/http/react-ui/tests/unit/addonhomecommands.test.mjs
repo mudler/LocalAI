@@ -184,3 +184,67 @@ test('Home addons: package icons reject traversal encodings foreign prefixes and
   assert.equal(projected.states[0].status, 'invalid-metadata', icon)
  }
 })
+
+// Run the production provider, including its request admission and Home dispatch.
+// Effects stay explicitly controlled so refresh races cannot rely on cleanup.
+async function registrySessionHarness() {
+ const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+ const { transformWithOxc } = await import('vite')
+ const source = readFileSync(new URL('../../src/addons/registry.jsx', import.meta.url), 'utf8')
+ const provider = source.slice(0, source.indexOf('  const boundaryLabels')) + '  return value\n}'
+ const { code } = await transformWithOxc(provider, 'registry.jsx', { jsx: { runtime:'classic' } })
+ let auth = { user:{id:'alice'}, isAdmin:true, hasFeature:() => true, sessionEpoch:1 }
+ const reads = [], paths = [], revalidated = []
+ const api = { apps:{list(signal) { const response = deferred(); reads.push({signal, ...response}); return response.promise }} }
+ const manager = { snapshot:() => [], revalidate:apps => revalidated.push(apps), disposeAll() {} }
+ const h = hookHarness('../../src/addons/registry.jsx', 'AddonRegistryProvider', {
+  useAuth:() => auth, useNavigate:() => path => paths.push(path), useLocation:() => ({pathname:'/app/home',search:''}),
+  useTranslation:() => ({t:key => key,i18n:{language:'en'}}), FEATURE_ADDONS:'addons', addonsApi:api,
+  apiUrl:path => path, fetch:async () => ({json:async () => ({addons:true})}),
+  createRegistryRequests, dispatchHomeCommand, createRuntimeManager:() => manager,
+  resolveManage:() => false, resolveTab:() => 'apps', shouldPoll, pollDelay:() => 1000,
+  buildNavigation:() => [], availableChatActions:() => [],
+  document:{hidden:false}, setTimeout:() => 1, clearTimeout:() => {},
+ }, () => code.replace(/^import .*\n/gm, '').replace('export function', 'function'))
+ const render = () => h.render({api})
+ render(); h.flush()
+ await new Promise(resolve => setImmediate(resolve))
+ render(); h.flush(); render()
+ return { h, render, reads, paths, revalidated, refreshSession() { auth = {...auth,sessionEpoch:auth.sessionEpoch + 1}; return render() } }
+}
+
+test('Home addons: actual registry rejects same-user refresh late poll before effect cleanup', async () => {
+ const r = await registrySessionHarness()
+ const value = r.render()
+ value.acquire(); r.render(); r.h.flush() // Start the actual production polling effect.
+ assert.equal(r.reads.length, 1)
+ const poll = r.reads[0]
+ r.refreshSession() // Same ID, feature and admin; deliberately do not flush effects.
+ poll.resolve([app()])
+ await new Promise(resolve => setImmediate(resolve))
+ assert.deepEqual(r.revalidated, [])
+ assert.ok(poll.signal.aborted)
+ assert.deepEqual(r.render().apps, [])
+ // Now cleanup may run; permission and polling recovery still work.
+ r.h.flush()
+ assert.equal(r.reads.length, 2)
+ r.reads[1].resolve([app()])
+ await new Promise(resolve => setImmediate(resolve))
+ assert.equal(r.render().apps[0].id, 'paint')
+})
+
+test('Home addons: actual registry pending NAV cannot cross same-user session refresh', async () => {
+ const r = await registrySessionHarness()
+ const command = projectHomeCommands(snapshot()).commands[0]
+ const pending = r.render().navigateHomeCommand(command)
+ assert.equal(r.reads.length, 1) // Fresh authenticated refetch already began.
+ r.refreshSession() // No metadata, ID or permissions change, and no effect cleanup.
+ r.reads[0].resolve([app()])
+ assert.equal(await pending, false)
+ assert.deepEqual(r.paths, [])
+ assert.deepEqual(r.revalidated, [])
+ const fresh = r.render().navigateHomeCommand(command)
+ r.reads[1].resolve([app()])
+ assert.equal(await fresh, true)
+ assert.deepEqual(r.paths, ['/app/addons/paint/canvas'])
+})

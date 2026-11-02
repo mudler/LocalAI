@@ -40,7 +40,7 @@ function guarded(build) {
 }
 
 export function AddonRegistryProvider({ children, api = addonsApi }) {
-  const { hasFeature, user, isAdmin } = useAuth()
+  const { hasFeature, user, isAdmin, sessionEpoch } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const { t, i18n } = useTranslation('addons')
@@ -59,7 +59,9 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   const allowed = hasFeature(FEATURE_ADDONS) && serverOn === true
   const [list, setList] = useState(EMPTY)
   const requests = useMemo(() => createRegistryRequests(), [])
-  const actor = `${user?.id || ''}:${allowed}:${isAdmin}`
+  // The opaque auth epoch also changes on same-user refresh. Invalidate reads
+  // and pending Home dispatch synchronously, before effect cleanup can run.
+  const actor = `${user?.id || ''}:${allowed}:${isAdmin}:${sessionEpoch}`
   requests.setScope(actor)
   const authority = useRef({ actor, allowed, list: EMPTY })
   if (authority.current.actor !== actor) authority.current = { actor, allowed, list: EMPTY }
@@ -164,15 +166,13 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     return () => { alive = false; ctl.abort(); clearTimeout(timer); tick.current = null }
   }, [polling, refresh, appsTabOwnsList, actor])
 
-  // A different user, or a user who lost the feature, never keeps another
-  // session's add-on code or caches.
-  const userId = user?.id || ''
+  // A changed actor or auth session never keeps old add-on code or caches.
   useEffect(() => {
     manager.disposeAll()
     setLayers([])
     authority.current.list = EMPTY
     setList(EMPTY)
-  }, [manager, userId, allowed])
+  }, [manager, actor])
 
   // Layers of a withdrawn add-on close with it.
   useEffect(() => {

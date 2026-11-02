@@ -24,6 +24,12 @@ export function hookHarness(file, name, imports, transform = source => source) {
         slots[i] = { deps, cleanup: fn() }
       })
     },
+    useMemo(fn, deps) {
+      const i = cursor++
+      if (!same(slots[i]?.deps, deps)) slots[i] = { deps, value: fn() }
+      return slots[i].value
+    },
+    useSyncExternalStore(subscribe, snapshot) { cursor++; return snapshot() },
     useCallback(fn) { cursor++; return fn },
   }
   const source = transform(readFileSync(new URL(file, import.meta.url), 'utf8')
