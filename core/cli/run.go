@@ -37,6 +37,7 @@ type RunCMD struct {
 	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
 	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
 	AddonsRole                string `name:"addons-role" env:"LOCALAI_ADDONS_ROLE" default:"combined" help:"How this process takes part in the add-on owner: combined (this node is its own owner, the default), owner (only the owner, serves the carrier on the network) or frontend (no owner here; every add-on request goes to the owner). owner and frontend need --addons-owner-address and --addons-carrier-dir" group:"addons"`
+	AddonsMigrateHostSettings bool   `name:"addons-migrate-host-settings" env:"LOCALAI_ADDONS_MIGRATE_HOST_SETTINGS" default:"false" help:"Owner role only: explicitly select this process's effective legacy host policy for first-start migration. Never imports frontend settings; ignored once the owner store exists" group:"addons"`
 	AddonsOwnerAddress        string `name:"addons-owner-address" env:"LOCALAI_ADDONS_OWNER_ADDRESS" help:"Address of the add-on owner carrier, as https://host:port with no path. Use a stable service name, never a pod address. Required for the owner and frontend roles" group:"addons"`
 	AddonsOwnerListen         string `name:"addons-owner-listen" env:"LOCALAI_ADDONS_OWNER_LISTEN" help:"Owner role only: the address the carrier listens on. Empty listens on all interfaces, on the port of --addons-owner-address" group:"addons"`
 	AddonsCarrierDir          string `name:"addons-carrier-dir" env:"LOCALAI_ADDONS_CARRIER_DIR" type:"path" help:"Directory with the carrier key set made by 'local-ai util addons-carrier-keys'. Required for the owner and frontend roles" group:"addons"`
@@ -722,6 +723,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		cancelRun(nil)
 		return err
 	}
+	if r.AddonsMigrateHostSettings && r.AddonsRole != addonRoleOwner {
+		cancelRun(nil)
+		return fmt.Errorf("--addons-migrate-host-settings requires --addons-role=owner")
+	}
+	addonCfg.MigrateHostSettings = r.AddonsMigrateHostSettings
 	addonCfg.Frontend = r.AddonsRole == addonRoleFrontend
 	if addonCfg.Enabled && r.AddonsRole == addonRoleFrontend && !authEnabled {
 		xlog.Warn("This add-on frontend has no account database, so its add-on pins are kept in this process only and differ between frontends")

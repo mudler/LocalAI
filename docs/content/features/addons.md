@@ -50,9 +50,13 @@ route, without impersonating an end user. Frontends never fall back to local pol
 when the owner or its store is unavailable.
 All read, update and replay results expose only schema version, revision and policy, excluding private migration provenance retained in owner storage.
 
-These are internal service interfaces only: application initialization, public
-settings routes, the settings UI and runtime consumers are not yet connected.
-The behavior described elsewhere on this page remains unchanged.
+Application initialization opens `host-settings.json` under the add-on owner root
+after acquiring the owner storage guard and attaches it to the gateway. Frontends
+only forward requests; they never open or import this store. Startup failure,
+context cancellation and application shutdown close the store once. A restart
+retains the saved policy and revision rather than importing configuration again.
+Public settings routes, the settings UI and runtime consumers are not yet connected;
+their behavior described elsewhere on this page remains unchanged.
 
 The schema is limited to six network fields (`chats_egress_ceiling`,
 `chats_egress_default`, `chats_egress_allow_private`, `chats_egress_ports`,
@@ -66,11 +70,22 @@ Provider pins name replaceable tools (`bash`, `web_search`, `web_fetch`) or skil
 The store uses one private file on trusted owner storage, with an exclusive lock,
 atomic replacement and file/directory sync. It is owner-only state, not a replicated
 frontend cache; the host must authenticate and authorize callers before updates.
-For a standalone combined instance, initial migration requires exactly one effective
-owner policy as its sole source. Distributed migration additionally requires an
-explicit operator selection of the owner source, never a frontend replica's copy.
-Migration records source/version provenance. Missing or ambiguous migration input
-fails closed, and a corrupt existing file never triggers re-import or defaults.
+On first start, the default standalone `--addons-role=combined` instance imports
+its sole effective host configuration automatically, including legacy runtime
+settings. A fresh dedicated `--addons-role=owner` with no legacy host policy
+starts with restrictive defaults. If that owner has non-default legacy policy,
+startup requires explicit selection with `--addons-migrate-host-settings`
+(or `LOCALAI_ADDONS_MIGRATE_HOST_SETTINGS=true`). This owner-only option selects
+only that process's effective configuration; it never selects, merges or imports
+frontend copies. Review the owner configuration before enabling it. The option
+is unnecessary after migration: an existing valid store remains authoritative.
+
+Migration records private source/version provenance. Missing or ambiguous migration
+input fails closed, and a corrupt existing file never triggers re-import or
+defaults. Keep this state on trusted owner storage with working exclusive file
+locks, atomic rename and file/directory sync; do not share it as a frontend cache
+or run multiple owners against it. Existing singleton-owner deployment constraints
+still apply.
 
 Updates use an expected revision (compare-and-swap), presence-aware patches and an
 operation ID. Omitted fields stay unchanged; explicit empty strings and false values

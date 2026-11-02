@@ -26,6 +26,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/pins"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
@@ -96,11 +97,14 @@ type Application struct {
 	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)
 	// addonReconcileTick drives the pending-registration retry; nil is a real
 	// 30 second ticker. addonReconcile is that loop once the owner started it.
-	addonReconcileTick <-chan time.Time
-	addonReconcile     *policy.ReconcileLoop
-	addonGateway       *gateway.Gateway
-	addonServer        *http.Server
-	addonSources       *catalog.Sources
+	addonReconcileTick     <-chan time.Time
+	addonReconcile         *policy.ReconcileLoop
+	addonHostSettings      *hostsettings.Store
+	addonHostSettingsClose func()
+	addonHostSettingsDone  <-chan struct{}
+	addonGateway           *gateway.Gateway
+	addonServer            *http.Server
+	addonSources           *catalog.Sources
 	// addonAdminCheck is the owner's administrator check, the one the manager gets.
 	addonAdminCheck func(context.Context, contract.Actor) error
 	librarySnap     librarySnapshot
@@ -716,6 +720,9 @@ func (a *Application) Shutdown() error {
 		if a.addonStore != nil {
 			_ = a.addonStore.Close()
 		}
+		if a.addonHostSettingsClose != nil {
+			a.addonHostSettingsClose()
+		}
 		if a.addonManager != nil {
 			err = a.addonManager.Close()
 		}
@@ -946,6 +953,9 @@ func (a *Application) startAddons() error {
 	var installer *packages.Installer
 	// Replicas must not load even source metadata from the owner's volume.
 	if c.InstanceID == c.OwnerID && c.OwnerID != "" {
+		if err := validateAddonSettingsRoot(c.Root); err != nil {
+			return err
+		}
 		if c.AdminCheck == nil {
 			return addons.ErrForbidden
 		}
@@ -976,6 +986,18 @@ func (a *Application) startAddons() error {
 	m, err := addons.NewManager(a.applicationConfig.Context, owner, cat, installer, c.AdminCheck)
 	if err != nil {
 		return err
+	}
+	settingsStarted := false
+	defer func() {
+		if !settingsStarted && a.addonHostSettingsClose != nil {
+			a.addonHostSettingsClose()
+		}
+	}()
+	if c.InstanceID == c.OwnerID && c.Transport != nil {
+		if err = a.openAddonHostSettings(); err != nil {
+			_ = m.Close()
+			return err
+		}
 	}
 	m.SetHostOps(a.applicationConfig.AddonHostOps)
 	if c.InstanceID == c.OwnerID {
@@ -1038,6 +1060,16 @@ func (a *Application) startAddons() error {
 	if err := a.startAddonGateway(); err != nil {
 		_ = m.Close()
 		return err
+	}
+	settingsStarted = true
+	if closeSettings := a.addonHostSettingsClose; closeSettings != nil {
+		go func() {
+			select {
+			case <-a.applicationConfig.Context.Done():
+				closeSettings()
+			case <-a.addonHostSettingsDone:
+			}
+		}()
 	}
 	return nil
 }
