@@ -139,3 +139,48 @@ test('Home addons: native hidden names and usable skills are reserved on the act
  assert.ok(!menu.find(c => c.cmd === '/paint').addonId)
  assert.equal(parseInvocation('/addon:paint:open', {skills:[{name:'addon:paint:open',enabled:true}]}), null)
 })
+
+test('Home addons: resolved inherited titles accept 61 through 80 Unicode characters and localized titles', () => {
+ for (let length = 61; length <= 80; length++) {
+  const label = 'é'.repeat(length), localized = '界'.repeat(length)
+  const a = app('paint', [{id:'open',page:'canvas',label,labels:{it:localized},icon:'palette'}])
+  const projected = projectHomeCommands(snapshot([a]), {language:'it'})
+  assert.equal(projected.states[0].status, 'ready', `title length ${length}`)
+  assert.equal(projected.commands[0]?.label, localized)
+  assert.equal(projectHomeCommands(snapshot([a])).commands[0]?.label, label)
+ }
+})
+test('Home addons: resolved secondary page fallback accepts the exact maximum and rejects overflow', () => {
+ const page = 'p'.repeat(64), label = 'é'.repeat(80) + ' — ' + page
+ const localized = '界'.repeat(80) + ' — ' + page
+ assert.equal([...label].length, 147)
+ const a = app('paint', [{id:'open',page,label,labels:{it:localized},icon:'palette'}])
+ a.ui.pages.push(page)
+ assert.equal(projectHomeCommands(snapshot([a])).commands[0]?.label, label)
+ assert.equal(projectHomeCommands(snapshot([a]), {language:'it'}).commands[0]?.label, localized)
+ for (const patch of [{label:label + 'x'}, {labels:{it:localized + 'x'}}, {label:'safe\u0085unsafe'}, {labels:{it:'safe\u202eunsafe'}}, {label:'<unsafe>'}]) {
+  const bad = structuredClone(a); Object.assign(bad.ui.homeCommands[0], patch)
+  const projected = projectHomeCommands(snapshot([bad]))
+  assert.equal(projected.commands.length, 0)
+  assert.equal(projected.states[0].status, 'invalid-metadata')
+ }
+})
+test('Home addons: immutable package icons accept dotted segments and all contract image extensions', () => {
+ for (const path of ['ui.v1/icon.png','ui/icon.dark.png','ui.v1/icon.dark.JPEG','ui/icon.webp','ui/icon.jpg', 'a'.repeat(252) + '.png']) {
+  const a = app(); a.ui.homeCommands[0].icon = entry.slice(0, -5) + path
+  const projected = projectHomeCommands(snapshot([a]))
+  assert.equal(projected.states[0].status, 'ready', path)
+  assert.equal(projected.commands[0]?.iconUrl, a.ui.homeCommands[0].icon, path)
+ }
+})
+test('Home addons: package icons reject traversal encodings foreign prefixes and non-image extensions', () => {
+ const base = entry.slice(0, -5)
+ const paths = ['../icon.png','./icon.png','ui/../icon.png','ui/./icon.png','ui//icon.png','/icon.png','ui/icon.png/', 'ui\\icon.png', '%2e%2e/icon.png','ui%2ficon.png','ui%5cicon.png','ui/icon%2epng','ui/icon.png?x=1','ui/icon.png#x','ui/icon.svg','ui/icon.gif','ui/icon.js','ui/icon.png\u0000', 'a'.repeat(253) + '.png']
+ const urls = paths.map(p => base + p).concat(['https://evil/icon.png','//evil/icon.png','javascript:bad', base.replace('/paint/', '/other/') + 'icon.png', base.replace('a'.repeat(64), 'b'.repeat(64)) + 'icon.png'])
+ for (const icon of urls) {
+  const a = app(); a.ui.homeCommands[0].icon = icon
+  const projected = projectHomeCommands(snapshot([a]))
+  assert.equal(projected.commands.length, 0, icon)
+  assert.equal(projected.states[0].status, 'invalid-metadata', icon)
+ }
+})

@@ -3,7 +3,19 @@
 import { localizedText } from '../components/addons/addonState.js'
 import { sdkAccepts, ICON_NAMES } from './sdk.js'
 const name = value => typeof value === 'string' && /^[a-z][a-z0-9-]*$/.test(value) && value.length <= 64
-const text = value => typeof value === 'string' && value.trim().length > 0 && [...value].length <= 60 && !/[\u0000-\u001f\u007f<>]/.test(value)
+// Apps resolves omitted labels from an 80-character UI title, then appends
+// " — " and a ValidName page (64 characters) for secondary destinations.
+// Explicit manifest labels retain the backend's separate 60-character cap.
+const maxResolvedLabelChars = 80 + 3 + 64
+const text = value => typeof value === 'string' && value.length > 0 && value.trim() === value && [...value].length <= maxResolvedLabelChars && !/[\p{Cc}\p{Cf}<>]/u.test(value)
+
+// contract.ValidIconPath accepts only these ASCII package paths and image types.
+// PathEscape leaves that alphabet unchanged; encoded alternatives are not DTOs.
+function iconPath(value) {
+  return value.length <= 256 && /^[a-zA-Z0-9_./-]+$/.test(value) &&
+    value.split('/').every(part => part !== '' && part !== '.' && part !== '..') &&
+    /\.(png|webp|jpe?g)$/i.test(value)
+}
 const object = value => value && typeof value === 'object' && !Array.isArray(value)
 const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0
 
@@ -39,7 +51,7 @@ function declarations(app, language) {
     if ((c.alias !== undefined && !name(c.alias)) || !name(c.page) || !ui.pages.includes(c.page) || !text(c.label)) return null
     if (c.labels !== undefined && (!object(c.labels) || Object.entries(c.labels).some(([k, v]) => !/^[a-zA-Z][a-zA-Z0-9-]*$/.test(k) || !text(v)))) return null
     const base = assetBase(app)
-    if (typeof c.icon !== 'string' || (!ICON_NAMES.includes(c.icon) && !(c.icon.startsWith(base) && /^(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+$/.test(c.icon.slice(base.length))))) return null
+    if (typeof c.icon !== 'string' || (!ICON_NAMES.includes(c.icon) && !(c.icon.startsWith(base) && iconPath(c.icon.slice(base.length))))) return null
     const canonical = `/addon:${app.id}:${c.id}`
     out.push({ id: canonical.slice(1), addonId: app.id, commandId: c.id, generation: app.generation, entry: ui.entry,
       page: c.page, label: localizedText({ title: c.label, titles: c.labels }, 'title', language),
