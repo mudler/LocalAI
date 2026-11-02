@@ -695,12 +695,86 @@ class EightPatchTests(SevenPatchTests):
         self.assert_rejected_without_writes()
 
 
+class NinePatchTests(EightPatchTests):
+    """Ninth step changes existing union paths; every exact prefix upgrades."""
+    def setUp(self):
+        super().setUp()
+        for step in self.chain:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        delivery.git(self.source, 'add', '.')
+        old = self.files['one']['final_sha256']
+        (self.source / 'one').write_text('one patched nine\n')
+        self.ninth = self.root / 'ninth.patch'
+        self.ninth.write_bytes(delivery.git(self.source, 'diff', '--binary', '--'))
+        self.files['one']['final_sha256'] = delivery.digest((self.source / 'one').read_bytes())
+        self.chain.append({'patch': self.ninth.name,
+                           'patch_sha256': delivery.digest(self.ninth.read_bytes()),
+                           'files': {'one': {'base_sha256': old,
+                                             'final_sha256': self.files['one']['final_sha256']}}})
+        delivery.git(self.source, 'read-tree', self.pin)
+        for name in self.files: (self.source / name).write_text(name + '\n')
+        self.save_chain()
+
+    def test_clean_apply(self):
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched nine\n')
+
+    def test_prefix_upgrade(self):
+        self.prefix()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched nine\n')
+
+    def test_eighth_prefix_upgrade(self):
+        for step in self.chain[:8]:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        self.assert_rejected_without_writes(True)
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual(self.run_prepare(True), 'verified')
+        before = self.snapshot()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual(before, self.snapshot())
+
+    def test_partial_ninth(self):
+        for step in self.chain[:8]:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        (self.source / 'one').write_text('partial ninth\n')
+        self.assert_rejected_without_writes()
+
+    def test_actual_window_callsite_forwarding(self):
+        text = (Path(__file__).resolve().parent / 'patches' / '0007-sheetsage-window-cancellation.patch').read_text()
+        self.assertIn('const auto windows = owned_window_plan(', text)
+        self.assertIn('const auto window_audio = acquire_window_before_mel(', text)
+        self.assertIn('execution_context().current_run_stop()', text)
+
+    def test_actual_encoder_host_forwarding(self):
+        text = (Path(__file__).resolve().parent / 'patches' / '0008-sheetsage-encoder-host-cancellation.patch').read_text()
+        self.assertIn('stage_encoder_inputs(config_, batch_, mel_frames_', text)
+        self.assertIn('execution_.current_run_stop()', text)
+        self.assertIn('encoder_host_shape(impl_->config, batch, mel_frames)', text)
+        self.assertIn('return read_encoder_output(mixed_, stop)', text)
+
+    def test_decoder_kv_prefill_source_order(self):
+        text = (Path(__file__).resolve().parent / 'patches' / '0009-sheetsage-decoder-host-staging.patch').read_text()
+        self.assertIn('head_dim_(decoder_host_shape(config, memory_steps, cache_steps).head_dim)', text)
+        self.assertIn('stage_decoder_step(config_', text)
+        self.assertIn('execution_.current_run_stop()', text)
+        self.assertIn('decoder_prefix_validate(config_', text)
+        self.assertIn('run_step(tokens[static_cast<size_t>(i)], false)', text)
+        self.assertIn('run_step(tokens.back(), true)', text)
+        self.assertIn('step_cache_.import_state(empty)', text)
+        self.assertEqual(text.count(' step_cache_.advance_after_direct_append(1);'), 1)
+
+    def test_ninth_tamper(self):
+        self.ninth.write_bytes(self.ninth.read_bytes() + b'bad')
+        self.assert_rejected_without_writes()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--require-min-tests', type=int, default=7)
     args = parser.parse_args()
     suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
-                               for case in (DeliveryTests, ChainTests, ThreePatchTests, FourPatchTests, FivePatchTests, SixPatchTests, SevenPatchTests, EightPatchTests))
+                               for case in (DeliveryTests, ChainTests, ThreePatchTests, FourPatchTests, FivePatchTests, SixPatchTests, SevenPatchTests, EightPatchTests, NinePatchTests))
     if suite.countTestCases() < args.require_min_tests:
         raise SystemExit('insufficient discovered delivery tests')
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

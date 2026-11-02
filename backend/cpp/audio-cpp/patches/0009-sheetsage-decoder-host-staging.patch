@@ -1,0 +1,290 @@
+diff --git a/src/models/sheetsage/runtime.cpp b/src/models/sheetsage/runtime.cpp
+--- a/src/models/sheetsage/runtime.cpp
++++ b/src/models/sheetsage/runtime.cpp
+@@ -207,6 +207,152 @@
+     encoder_phase(5, true, stop);
+     encoder_phase(6, true, stop);
+     return result;
++}
++
++
++#ifdef ENGINE_SHEETSAGE_DECODER_HOST_TESTING
++namespace decoder_host_testing {
++void stored(bool reset, size_t index, ggml_fp16_t value) noexcept;
++// 0 reset-mask upload, 1 token, 2 position, 3 slot, 4 step-mask upload,
++// 5 reset publication, 6 step compute boundary, 7 mask allocation, 8 mask publication.
++void phase(int stage, bool after) noexcept;
++}
++#endif
++void decoder_phase(int stage, bool after, const core::RunStopHandle & stop) {
++#ifdef ENGINE_SHEETSAGE_DECODER_HOST_TESTING
++    decoder_host_testing::phase(stage, after);
++#else
++    (void)stage; (void)after;
++#endif
++    encoder_stop(stop);
++}
++size_t decoder_product(std::initializer_list<int64_t> dims, size_t element_bytes) {
++    size_t count = 1;
++    const size_t limit = std::min({static_cast<size_t>(std::numeric_limits<int64_t>::max()),
++        std::numeric_limits<size_t>::max() / element_bytes,
++        static_cast<size_t>(std::numeric_limits<std::ptrdiff_t>::max()) / element_bytes});
++    for (int64_t dim : dims) {
++        if (dim <= 0 || static_cast<uint64_t>(dim) > limit / count)
++            throw std::runtime_error("SheetSage2 cached decoder dimensions exceed supported range");
++        count *= static_cast<size_t>(dim);
++    }
++    return count;
++}
++struct DecoderHostShape { int64_t head_dim; size_t memory, mask; };
++DecoderHostShape decoder_host_shape(const SheetSage2DecoderConfig & config, int64_t memory_steps, int64_t cache_steps) {
++    if (config.hidden_size <= 0 || config.encoder_hidden_size != 1024 || config.num_attention_heads <= 0 ||
++        config.hidden_size % config.num_attention_heads != 0 || config.decoder_layers <= 0 ||
++        config.vocab_size <= 0 || config.max_position_embeddings <= 0 ||
++        config.max_position_embeddings > static_cast<int64_t>(std::numeric_limits<int32_t>::max()) - 2 ||
++        memory_steps <= 0 || cache_steps <= 0 || cache_steps > config.max_position_embeddings)
++        throw std::runtime_error("SheetSage2 cached decoder config or dimensions are invalid");
++    const int64_t head_dim = config.hidden_size / config.num_attention_heads;
++    const size_t memory = decoder_product({memory_steps, config.encoder_hidden_size}, sizeof(float));
++    const size_t mask = decoder_product({config.num_attention_heads, cache_steps}, sizeof(ggml_fp16_t));
++    if (mask > std::vector<ggml_fp16_t>().max_size() || memory > std::vector<float>().max_size())
++        throw std::runtime_error("SheetSage2 cached decoder vector size exceeds supported range");
++    (void)decoder_product({cache_steps, config.hidden_size}, sizeof(ggml_fp16_t));
++    (void)decoder_product({config.num_attention_heads, memory_steps, head_dim}, sizeof(float));
++    (void)decoder_product({config.decoder_layers, 2, cache_steps, config.hidden_size}, sizeof(ggml_fp16_t));
++    (void)decoder_product({config.decoder_layers, 2, memory_steps, config.hidden_size}, sizeof(float));
++    return {head_dim, memory, mask};
++}
++void decoder_step_validate(const SheetSage2DecoderConfig & config, int64_t memory_steps, int64_t cache_steps,
++    int64_t valid_steps, int64_t current_end, int32_t token, size_t mask_count) {
++    const auto shape = decoder_host_shape(config, memory_steps, cache_steps);
++    if (token < 0 || static_cast<int64_t>(token) >= config.vocab_size || valid_steps < 0 || valid_steps >= cache_steps ||
++        valid_steps > std::numeric_limits<int32_t>::max() || current_end < 0 ||
++        current_end >= config.max_position_embeddings || current_end > std::numeric_limits<int32_t>::max() - 2 ||
++        mask_count != shape.mask)
++        throw std::runtime_error("SheetSage2 cached decoder token, position, slot or mask is invalid");
++    // Actual learned table has max_position_embeddings + 2 rows; position=end+2.
++    // Thus last allowed current_end is max_position_embeddings-1.
++}
++void decoder_prefix_validate(const SheetSage2DecoderConfig & config, int64_t memory_steps, int64_t cache_steps,
++    int64_t valid_steps, int64_t current_end, const std::vector<int32_t> & tokens, size_t mask_count) {
++    (void)decoder_host_shape(config, memory_steps, cache_steps);
++    if (valid_steps < 0 || valid_steps > cache_steps || current_end < 0 || tokens.empty() ||
++        tokens.size() > static_cast<uint64_t>(cache_steps - valid_steps) ||
++        current_end >= config.max_position_embeddings ||
++        tokens.size() > static_cast<uint64_t>(config.max_position_embeddings - current_end))
++        throw std::runtime_error("SheetSage2 cached decoder prefill exceeds remaining capacity or position range");
++    for (int32_t token : tokens)
++        decoder_step_validate(config, memory_steps, cache_steps, valid_steps, current_end, token, mask_count);
++}
++void decoder_tensor(const core::TensorValue & value, ggml_type type, size_t count) {
++    if (!value.tensor || value.type != type || value.tensor->type != type || value.shape.rank == 0 || value.shape.rank > 4)
++        throw std::runtime_error("SheetSage2 cached decoder staging tensor mismatch");
++    size_t physical=1, logical=1;
++    for (size_t i=0; i<4; ++i) {
++        if (value.tensor->ne[i] <= 0 || static_cast<uint64_t>(value.tensor->ne[i]) > count / physical)
++            throw std::runtime_error("SheetSage2 cached decoder staging tensor mismatch");
++        physical *= static_cast<size_t>(value.tensor->ne[i]);
++    }
++    for (size_t i=0; i<value.shape.rank; ++i) {
++        if (value.shape.dims[i] <= 0 || static_cast<uint64_t>(value.shape.dims[i]) > count / logical)
++            throw std::runtime_error("SheetSage2 cached decoder staging tensor mismatch");
++        logical *= static_cast<size_t>(value.shape.dims[i]);
++    }
++    if (physical!=count || logical!=count || !ggml_is_contiguous(value.tensor))
++        throw std::runtime_error("SheetSage2 cached decoder staging tensor mismatch");
++}
++void reset_decoder_mask(const SheetSage2DecoderConfig & config, int64_t memory_steps, int64_t cache_steps,
++    std::vector<ggml_fp16_t> & values, const core::TensorValue & tensor, core::RunStopHandle stop) {
++    const auto shape = decoder_host_shape(config, memory_steps, cache_steps);
++    decoder_tensor(tensor, GGML_TYPE_F16, shape.mask);
++    decoder_phase(7, false, stop);
++    std::vector<ggml_fp16_t> local(shape.mask);
++    encoder_stop(stop);
++    for (size_t begin=0; begin<shape.mask; ) {
++        encoder_stop(stop); // reset tile pre-poll
++        const size_t end=begin+std::min<size_t>(64,shape.mask-begin);
++        for (size_t i=begin; i<end; ++i) {
++            local[i]=ggml_fp32_to_fp16(-INFINITY);
++#ifdef ENGINE_SHEETSAGE_DECODER_HOST_TESTING
++            decoder_host_testing::stored(true,i,local[i]);
++#endif
++        }
++        encoder_stop(stop); // reset tile post-poll final-short
++        begin=end;
++    }
++    decoder_phase(8, true, stop);
++    decoder_phase(0, false, stop);
++    ggml_backend_tensor_set(tensor.tensor,local.data(),0,local.size()*sizeof(ggml_fp16_t));
++    decoder_phase(0, true, stop);
++    decoder_phase(5, true, stop);
++    values=std::move(local);
++}
++void stage_decoder_step(const SheetSage2DecoderConfig & config, int64_t memory_steps, int64_t cache_steps,
++    int64_t valid_steps, int64_t current_end, int32_t token, std::vector<ggml_fp16_t> & values,
++    const core::TensorValue & token_tensor, const core::TensorValue & position_tensor,
++    const core::TensorValue & slot_tensor, const core::TensorValue & mask_tensor, core::RunStopHandle stop) {
++    decoder_step_validate(config,memory_steps,cache_steps,valid_steps,current_end,token,values.size());
++    decoder_tensor(token_tensor,GGML_TYPE_I32,1);decoder_tensor(position_tensor,GGML_TYPE_I32,1);
++    decoder_tensor(slot_tensor,GGML_TYPE_I32,1);decoder_tensor(mask_tensor,GGML_TYPE_F16,values.size());
++    decoder_phase(1,false,stop);
++    core::write_tensor_i32(token_tensor,std::vector<int32_t>{token});
++    decoder_phase(1,true,stop);decoder_phase(2,false,stop);
++    core::write_tensor_i32(position_tensor,std::vector<int32_t>{static_cast<int32_t>(current_end+2)});
++    decoder_phase(2,true,stop);decoder_phase(3,false,stop);
++    core::write_tensor_i32(slot_tensor,std::vector<int32_t>{static_cast<int32_t>(valid_steps)});
++    decoder_phase(3,true,stop);
++    decoder_phase(9,false,stop);
++    for (int64_t begin=0; begin<config.num_attention_heads; ) {
++        encoder_stop(stop); // head tile pre-poll
++        const int64_t end=begin+std::min<int64_t>(64,config.num_attention_heads-begin);
++        for (int64_t head=begin; head<end; ++head) {
++            const size_t index=static_cast<size_t>(head)*static_cast<size_t>(cache_steps)+static_cast<size_t>(valid_steps);
++            values[index]=ggml_fp32_to_fp16(0.0F);
++#ifdef ENGINE_SHEETSAGE_DECODER_HOST_TESTING
++            decoder_host_testing::stored(false,index,values[index]);
++#endif
++        }
++        encoder_stop(stop); // head tile post-poll final-short
++        begin=end;
++    }
++    decoder_phase(8,true,stop);decoder_phase(4,false,stop);
++    ggml_backend_tensor_set(mask_tensor.tensor,values.data(),0,values.size()*sizeof(ggml_fp16_t));
++    decoder_phase(4,true,stop);decoder_phase(6,false,stop);
+ }
+ 
+ struct GgmlContextDeleter {
+@@ -1336,7 +1482,7 @@
+           weights_(weights),
+           memory_steps_(memory_steps),
+           cache_steps_(cache_steps),
+-          head_dim_(config.hidden_size / config.num_attention_heads) {
++          head_dim_(decoder_host_shape(config, memory_steps, cache_steps).head_dim) {
+         if (backend_ == nullptr || memory_steps_ <= 0 || cache_steps_ <= 0) {
+             throw std::runtime_error("SheetSage2 cached decoder graph initialization failed");
+         }
+@@ -1366,25 +1512,28 @@
+     }
+ 
+     std::vector<float> prefill(const std::vector<int32_t> & tokens) {
+-        const int64_t steps = static_cast<int64_t>(tokens.size());
+-        if (steps <= 0) {
+-            throw std::runtime_error("SheetSage2 cached decoder prefill requires tokens");
+-        }
+-        if (steps > cache_steps_) {
+-            throw std::runtime_error("SheetSage2 cached decoder prefill exceeds cache capacity");
+-        }
++        decoder_prefix_validate(config_,memory_steps_,cache_steps_,step_cache_.valid_steps(),step_cache_.current_end(),tokens,attention_mask_values_.size());
++        const auto stop=execution_.current_run_stop();
++        encoder_stop(stop);
++        const int64_t steps=static_cast<int64_t>(tokens.size());
+         for (int64_t i = 0; i + 1 < steps; ++i) {
++            encoder_stop(stop);
+             run_step(tokens[static_cast<size_t>(i)], false);
+         }
+-        return run_step(tokens.back(), true);
++        encoder_stop(stop);
++        auto result=run_step(tokens.back(), true);
++        encoder_stop(stop);
++        return result;
+     }
+ 
+     void reset(const std::vector<float> & mixed_encoder_state) {
+-        if (static_cast<int64_t>(mixed_encoder_state.size()) != memory_steps_ * config_.encoder_hidden_size) {
+-            throw std::runtime_error("SheetSage2 cached decoder memory shape mismatch");
+-        }
++        const auto shape=decoder_host_shape(config_,memory_steps_,cache_steps_);
++        if(mixed_encoder_state.size()!=shape.memory) throw std::runtime_error("SheetSage2 cached decoder memory shape mismatch");
++        decoder_tensor(mixed_encoder_state_,GGML_TYPE_F32,shape.memory);
++        const auto stop=execution_.current_run_stop();
++        encoder_stop(stop);
+         core::write_tensor_f32(mixed_encoder_state_, mixed_encoder_state);
+-        check_stop(execution_);
++        encoder_stop(stop);
+         const auto cross_start = std::chrono::steady_clock::now();
+         const ggml_status cross_status =
+             core::compute_backend_graph(execution_, cross_graph_, nullptr, "models.sheetsage2.decoder.cross_cache");
+@@ -1398,34 +1547,16 @@
+         for (auto & layer : empty.layers) {
+             layer.valid_steps = 0;
+         }
++        encoder_stop(stop);
+         step_cache_.import_state(empty);
+-        attention_mask_values_.assign(
+-            static_cast<size_t>(config_.num_attention_heads * cache_steps_),
+-            ggml_fp32_to_fp16(-INFINITY));
+-        ggml_backend_tensor_set(
+-            attention_mask_.tensor,
+-            attention_mask_values_.data(),
+-            0,
+-            attention_mask_values_.size() * sizeof(ggml_fp16_t));
++        encoder_stop(stop);
++        reset_decoder_mask(config_,memory_steps_,cache_steps_,attention_mask_values_,attention_mask_,stop);
+     }
+ 
+     std::vector<float> run_step(int32_t token, bool read_logits = true) {
+-        if (step_cache_.valid_steps() >= cache_steps_) {
+-            throw std::runtime_error("SheetSage2 cached decoder cache exhausted");
+-        }
+-        core::write_tensor_i32(token_id_, std::vector<int32_t>{token});
+-        core::write_tensor_i32(position_id_, std::vector<int32_t>{static_cast<int32_t>(step_cache_.current_end() + 2)});
+-        core::write_tensor_i32(cache_slot_, std::vector<int32_t>{static_cast<int32_t>(step_cache_.valid_steps())});
+-        const size_t valid = static_cast<size_t>(step_cache_.valid_steps());
+-        for (int64_t head = 0; head < config_.num_attention_heads; ++head) {
+-            attention_mask_values_[static_cast<size_t>(head * cache_steps_) + valid] = ggml_fp32_to_fp16(0.0F);
+-        }
+-        ggml_backend_tensor_set(
+-            attention_mask_.tensor,
+-            attention_mask_values_.data(),
+-            0,
+-            attention_mask_values_.size() * sizeof(ggml_fp16_t));
+-        check_stop(execution_);
++        const auto stop=execution_.current_run_stop();
++        stage_decoder_step(config_,memory_steps_,cache_steps_,step_cache_.valid_steps(),step_cache_.current_end(),token,
++                           attention_mask_values_,token_id_,position_id_,cache_slot_,attention_mask_,stop);
+         core::set_backend_threads(backend_, threads_);
+         const ggml_status status = core::compute_backend_graph(
+             execution_,
+@@ -1434,7 +1565,9 @@
+             read_logits ? "models.sheetsage2.decoder.cached_step" : "models.sheetsage2.decoder.cached_state_step");
+         check_graph_status(status, execution_, "SheetSage2 cached decoder graph compute failed");
+         ggml_backend_synchronize(backend_);
++        encoder_stop(stop);
+         step_cache_.advance_after_direct_append(1);
++        encoder_stop(stop);
+         auto result = read_logits ? core::read_tensor_f32(logits_) : std::vector<float>{};
+         check_stop(execution_);
+         return result;
+@@ -1741,14 +1874,9 @@
+     const std::vector<float> & mixed_encoder_state,
+     int64_t memory_steps,
+     int64_t cache_steps) try {
++    const auto shape=decoder_host_shape(impl_->config,memory_steps,cache_steps);
++    if(mixed_encoder_state.size()!=shape.memory) throw std::runtime_error("SheetSage2 cached decode memory shape mismatch");
+     check_stop(*impl_->execution);
+-    if (memory_steps <= 0 || cache_steps <= 0) {
+-        throw std::runtime_error("SheetSage2 cached decode requires positive memory/cache steps");
+-    }
+-    const int64_t expected = memory_steps * impl_->config.encoder_hidden_size;
+-    if (static_cast<int64_t>(mixed_encoder_state.size()) != expected) {
+-        throw std::runtime_error("SheetSage2 cached decode memory shape mismatch");
+-    }
+     const auto & weights = impl_->require_weights();
+     if (!impl_->cached_graph || !impl_->cached_graph->matches(memory_steps, cache_steps)) {
+         impl_->cached_graph = std::make_unique<Impl::CachedDecodeGraph>(
+@@ -1768,7 +1896,6 @@
+ }
+ 
+ std::vector<float> SheetSage2DecoderRuntime::decode_cached_step(int32_t token) try {
+-    check_stop(*impl_->execution);
+     if (!impl_->cached_graph) {
+         throw std::runtime_error("SheetSage2 cached decode graph is not prepared");
+     }
+@@ -1779,7 +1906,6 @@
+ }
+ 
+ std::vector<float> SheetSage2DecoderRuntime::prefill_cached_decode(const std::vector<int32_t> & token_ids) try {
+-    check_stop(*impl_->execution);
+     if (!impl_->cached_graph) {
+         throw std::runtime_error("SheetSage2 cached decode graph is not prepared");
+     }
