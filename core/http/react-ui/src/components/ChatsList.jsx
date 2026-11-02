@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { groupConversations } from '../utils/homeConversations'
 import Icon from './Icon'
@@ -81,12 +81,11 @@ export default function ChatsList({
 
   // On mount: start on the current chat and, in the dialog, put the cursor in
   // the search box.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const at = items.findIndex(c => c.id === activeChatId)
     setActiveIdx(at < 0 ? 0 : at)
-    if (!autoFocus) return undefined
-    const timer = setTimeout(() => searchRef.current?.focus(), 20)
-    return () => clearTimeout(timer)
+    // Focus before paint: Escape must reach the dialog even before timers run.
+    if (autoFocus) searchRef.current?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

@@ -48,6 +48,19 @@ test.describe('Chats on a phone', () => {
     await expect(menu).toBeHidden()
   })
 
+  test('Escape closes the menu before delayed timers run and restores focus', async ({ page }) => {
+    await page.goto('/app/chats/c1')
+    await expect(page.getByTestId('chat-input')).toBeVisible()
+    await page.clock.install()
+    await page.clock.pauseAt(new Date())
+    const trigger = page.getByTestId('chats-trigger')
+    await trigger.click()
+    await expect(page.getByTestId('chats-menu')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('chats-menu')).toBeHidden()
+    await expect(trigger).toBeFocused()
+  })
+
   test('choosing a chat opens it and closes the menu', async ({ page }) => {
     await page.route('**/api/chats/c2/events', route => route.abort())
     await page.route(/\/api\/chats\/c2\/messages(\?.*)?$/, route => route.fulfill({ json: { messages: [] } }))

@@ -151,10 +151,15 @@ test('a file attached while a turn runs waits with its message', async ({ page }
   await expect.poll(async () => (await api(page.request, `/api/chats/${id}`)).running).toBe(true)
   await page.getByTestId('chat-file-input').setInputFiles({ name: 'later.txt', mimeType: 'text/plain', buffer: Buffer.from('later') })
   await composer(page).fill('with a file')
+  const accepted = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/api/chats/${id}/messages`))
   await page.getByRole('button', { name: /send|queue/i }).first().click()
-  await expect.poll(async () => (await api(page.request, `/api/chats/${id}`)).pending?.length || 0).toBeGreaterThan(0)
+  const response = await accepted
+  expect(response.ok()).toBe(true)
+  // The harness can consume pending input before the next GET. The send
+  // receipt proves it queued; the stored message proves delivery with its file.
+  expect(await response.json()).toEqual({ started: false, pending_id: expect.any(String) })
   await settled(page, id)
-  await expect.poll(async () => (await api(page.request, `/api/chats/${id}/messages`)).messages.some(m => m.role === 'user' && /with a file/.test(m.text)), { timeout: 20_000 }).toBe(true)
+  await expect.poll(async () => (await api(page.request, `/api/chats/${id}/messages`)).messages.find(m => m.role === 'user' && /with a file/.test(m.text)), { timeout: 20_000 }).toMatchObject({ attachments: [expect.objectContaining({ name: 'later.txt' })] })
 })
 
 test('a trigger the model proposes shows a card that creates it', async ({ page }) => {
