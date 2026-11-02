@@ -4992,6 +4992,8 @@
       "import is refused for a feature-holding non-admin",
       "import is allowed for an admin",
       "lets the admin check decide in every mode",
+      "matches the supported vocabulary exactly to every real builtin registration",
+      "detects missing extra duplicate and case-changed operations with the parity oracle",
       "uses registered exact names and literal nonempty grant prefixes without self grants",
       "permits missing optional requests and bounds diagnostics to declaration names",
       "keeps the binding with the envelope and gives it to the operation",

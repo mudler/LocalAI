@@ -2,12 +2,76 @@
 package hostops
 
 import (
+	"context"
+	"slices"
+	"strings"
+
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
+
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
+// Only registration is exercised: no workspace method or handler may run.
+type admissionWorkspaceStore struct{ workspace.Store }
+type admissionInbox struct{}
+
+func (admissionInbox) Ingest(context.Context, string, contract.ConnectorInbound) error {
+	panic("admission parity must not invoke handlers")
+}
+
+func registeredBuiltinOperations() []string {
+	b := New(NewInFlight(), nil, contract.DefaultLimits())
+	Expect(RegisterEngineJobs(b, &fakeFT{}, &fakeQ{}, backends{})).To(Succeed())
+	Expect(RegisterEngineDatasets(b, &fakeDatasets{})).To(Succeed())
+	Expect(RegisterEngineModels(b, &fakeExporter{}, &fakeImporter{})).To(Succeed())
+	p := NewProgresser(newFakeSource())
+	Expect(RegisterEngineProgress(b, p, p)).To(Succeed())
+	Expect(RegisterWorkspace(b, &WorkspaceHost{
+		Store:     &admissionWorkspaceStore{},
+		Principal: func(contract.Actor) string { panic("registration only") },
+		DataDir:   func(string) string { panic("registration only") },
+		Access:    func(context.Context, string, string) (session.Access, error) { panic("registration only") },
+	})).To(Succeed())
+	Expect(RegisterEgress(b, &fakeEgress{})).To(Succeed())
+	Expect(RegisterConnector(b, admissionInbox{})).To(Succeed())
+	// Each registration error is checked above, so a duplicate cannot be hidden
+	// by the broker's map. Ops includes dynamic progress/stop and inbound specs.
+	return b.Ops()
+}
+
 var _ = Describe("Host operation request admission", func() {
+	It("matches the supported vocabulary exactly to every real builtin registration", func() {
+		registered := registeredBuiltinOperations()
+		supported := SupportedOperations()
+		for _, names := range [][]string{registered, supported} {
+			Expect(names).NotTo(BeEmpty())
+			seen := map[string]bool{}
+			for _, name := range names {
+				Expect(strings.TrimSpace(name)).NotTo(BeEmpty())
+				Expect(seen[name]).To(BeFalse(), "duplicate operation %q", name)
+				seen[name] = true
+			}
+		}
+		Expect(supported).To(ConsistOf(registered), "startup admission must match the case-sensitive runtime registry")
+	})
+	It("detects missing extra duplicate and case-changed operations with the parity oracle", func() {
+		registered := registeredBuiltinOperations()
+		Expect(registered).NotTo(BeEmpty())
+		oracle := ConsistOf(registered)
+		for _, mutated := range [][]string{
+			slices.Clone(registered[1:]),
+			append(slices.Clone(registered), "parity.negative.control"),
+			append(slices.Clone(registered), registered[0]),
+			append([]string{strings.ToUpper(registered[0])}, registered[1:]...),
+		} {
+			matches, err := oracle.Match(mutated)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(matches).To(BeFalse(), "parity oracle accepted mutated vocabulary %v", mutated)
+		}
+	})
 	It("uses registered exact names and literal nonempty grant prefixes without self grants", func() {
 		req := &contract.HostOperations{Required: []string{"workspace.materialize", "future.op"}, Optional: []string{"egress.check"}}
 		s := Requests(req, []string{"workspace.materialize", "egress.check"}, []string{"workspace."})
