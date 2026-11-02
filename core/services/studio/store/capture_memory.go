@@ -6,6 +6,7 @@ import (
 	"time"
 
 	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
+	"github.com/mudler/LocalAI/core/services/studio/memory"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -24,6 +25,9 @@ type CaptureBackendFence struct {
 // Backend mutations must use a separate connection/pool.
 // JSON retains its existing single-process directory ownership contract.
 type CaptureMemoryStore interface {
+	// ApplyCaptureTimeout derives the only permitted expired transition under the
+	// same lock as takeover. Now is the actual effect completion time, not a lease renewal.
+	ApplyCaptureTimeout(context.Context, CaptureClaim) (memory.Transition, error)
 	ReserveCaptureMemory(context.Context, CaptureClaim, func() time.Time, func(context.Context, string, string) (lagi.MemoryFence, error)) (lagi.MemoryFence, error)
 	WithCaptureMemory(context.Context, CaptureClaim, func() time.Time, func(context.Context, lagi.MemoryFence) error) error
 }
@@ -132,4 +136,48 @@ func captureChatRead(ctx context.Context, s *jsonStore, principal, id string) (s
 		return session.ChatRecord{}, false
 	}
 	return cloneRec(r.record), true
+}
+
+// Expiry does not surrender a claim to a late success. Only this timeout path
+// may consume an expired fence, and only until a competing takeover changes it.
+func applyCaptureTimeout(ctx context.Context, claim CaptureClaim, edit captureEdit) (memory.Transition, error) {
+	var out memory.Transition
+	c := claim.Record
+	err := edit(ctx, c.Identity.Principal, c.Identity.Chat, func(d *captureData, _ *chatState) error {
+		r, ok := d.Records[c.ID]
+		if !ok || r.Identity != c.Identity || r.Revision != c.Revision || r.Owner == "" || r.Owner != c.Owner || r.Generation != c.Generation || claim.Now.Before(r.Deadline) {
+			return ErrCaptureConflict
+		}
+		state, err := r.ReducerState()
+		if err != nil {
+			return err
+		}
+		w, active := stateWork(state)
+		if !active || claim.Now.Unix() < w.Deadline {
+			return ErrCaptureConflict
+		}
+		env := w.Fence
+		env.Now = claim.Now.Unix()
+		tr := memory.Reduce(state, memory.Timeout{Envelope: env})
+		if tr.IgnoredReason != "" || (tr.RuleID != "R06-wait" && tr.RuleID != "R06-exhausted") {
+			return ErrCaptureConflict
+		}
+		next, err := project(r, tr.State, tr.RuleID)
+		if err != nil {
+			return err
+		}
+		d.Records[c.ID] = next
+		out = tr
+		return nil
+	})
+	if err != nil {
+		return memory.Transition{}, err
+	}
+	return out, nil
+}
+func (s *jsonStore) ApplyCaptureTimeout(ctx context.Context, c CaptureClaim) (memory.Transition, error) {
+	return applyCaptureTimeout(ctx, c, s.editCapture)
+}
+func (s *gormStore) ApplyCaptureTimeout(ctx context.Context, c CaptureClaim) (memory.Transition, error) {
+	return applyCaptureTimeout(ctx, c, s.editCapture)
 }

@@ -355,6 +355,54 @@ var _ = Describe("durable capture", func() {
 				Expect(e).NotTo(HaveOccurred())
 				Expect(claim.Record.ID).To(Equal(records[0].ID))
 			})
+
+			It("fences timeout handoff against early events, stale revisions and takeover", func() {
+				_, err := s.AcceptMemoryInput(ctx, acceptance(store.CaptureIncoming))
+				Expect(err).NotTo(HaveOccurred())
+				now := time.Now().Truncate(time.Second)
+				claim, err := s.ClaimCapture(ctx, "first", now, time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+				timed := s.(store.CaptureMemoryStore)
+				_, err = timed.ApplyCaptureTimeout(ctx, claim)
+				Expect(err).To(MatchError(store.ErrCaptureConflict))
+				state, err := claim.Record.ReducerState()
+				Expect(err).NotTo(HaveOccurred())
+				w := state.(memory.Authorizing).Work
+				env := w.Fence
+				env.Now = now.Unix()
+				success := memory.Reduce(state, memory.AuthorizationGranted{Envelope: env})
+				claim.Now = claim.Record.Deadline.Add(3 * time.Second)
+				// Even a caller-supplied transition derived from a pre-expiry
+				// success cannot use the ordinary apply path after expiry.
+				Expect(s.ApplyCapture(ctx, claim, success)).To(MatchError(store.ErrCaptureConflict))
+				stale := claim
+				stale.Record.Revision++
+				_, err = timed.ApplyCaptureTimeout(ctx, stale)
+				Expect(err).To(MatchError(store.ErrCaptureConflict))
+				stale = claim
+				stale.Record.Owner = "impostor"
+				_, err = timed.ApplyCaptureTimeout(ctx, stale)
+				Expect(err).To(MatchError(store.ErrCaptureConflict))
+				stale = claim
+				stale.Record.Generation++
+				_, err = timed.ApplyCaptureTimeout(ctx, stale)
+				Expect(err).To(MatchError(store.ErrCaptureConflict))
+				other := s
+				if backend != "JSON" {
+					other = open()
+				}
+				takeover, err := other.ClaimCapture(ctx, "second", claim.Now, time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(takeover.Record.Generation).To(BeNumerically(">", claim.Record.Generation))
+				_, err = timed.ApplyCaptureTimeout(ctx, claim)
+				Expect(err).To(MatchError(store.ErrCaptureConflict))
+				records, err := s.ListCaptures(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(records[0].Revision).To(Equal(takeover.Record.Revision))
+				Expect(records[0].Owner).To(Equal(takeover.Record.Owner))
+				Expect(records[0].Generation).To(Equal(takeover.Record.Generation))
+				Expect(records[0].StateJSON).To(Equal(takeover.Record.StateJSON))
+			})
 			It("hands off a short expired lease with a new owner and rejects the old owner", func() {
 				_, e := s.AcceptMemoryInput(ctx, acceptance(store.CaptureIncoming))
 				Expect(e).NotTo(HaveOccurred())

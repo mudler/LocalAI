@@ -138,19 +138,20 @@ func (s *Service) runCapture(ctx context.Context, claim store.CaptureClaim, back
 			if err != nil {
 				return err
 			}
-			// Results arriving beyond the phase deadline cannot attest success.
-			// Feed the actual timeout to the reducer instead of a late result.
-			if w, ok := captureWork(state); ok && now().Unix() >= w.Deadline {
-				env := w.Fence
-				env.Now = now().Unix()
-				event = memory.Timeout{Envelope: env}
-			}
-			transition := memory.Reduce(state, event)
-			if transition.IgnoredReason != "" {
-				return store.ErrCaptureConflict
-			}
+			// Sample completion time once. An expired result can only become a
+			// store-derived timeout, never a late success or a backdated apply.
 			claim.Now = now()
-			if err := s.d.Store.ApplyCapture(ctx, claim, transition); err != nil {
+			var transition memory.Transition
+			if w, active := captureWork(state); active && claim.Now.Unix() >= w.Deadline {
+				transition, err = fenced.ApplyCaptureTimeout(ctx, claim)
+			} else {
+				transition = memory.Reduce(state, event)
+				if transition.IgnoredReason != "" {
+					return store.ErrCaptureConflict
+				}
+				err = s.d.Store.ApplyCapture(ctx, claim, transition)
+			}
+			if err != nil {
 				return err
 			}
 			// Reload the persisted projection: the store can shorten phase deadlines.
