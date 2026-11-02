@@ -176,3 +176,22 @@ type Store interface {
 	// Turn returns the turn state of the chat.
 	Turn(ctx context.Context, principal, chatID string) (TurnInfo, error)
 }
+
+// ErrSelectionRevisionUnsupported means this backend cannot prove mutation
+// authority. Callers must settle execution status unknown, not synthesize a
+// revision from timestamps or record hashes. Ordinary chat access is unchanged.
+var ErrSelectionRevisionUnsupported = errors.New("store: authoritative selection revision unsupported")
+
+// SelectionRevisionProvider optionally reads an actor-scoped record and its
+// opaque mutation token atomically. Tokens grant no authority: callers must
+// repeat normal authorization and compare fresh snapshots before accepting a
+// status reply. Missing records still return the ordinary not-found error.
+//
+// Only memory-only JSON supports this contract. File JSON has no exclusive
+// owner lock, and GORM has no persisted ABA-safe revision. Neither backend can
+// support positive status until ownership or a shared persisted revision exists.
+// Unsupported snapshots return no record or token. Token state is bounded by
+// the store/record lifetime, not an ever-growing map of deleted IDs.
+type SelectionRevisionProvider interface {
+	SelectionSnapshot(ctx context.Context, principal, id string) (session.ChatRecord, string, error)
+}

@@ -10,11 +10,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/atomicfile"
@@ -43,8 +45,10 @@ type jsonStore struct {
 // chat is deleted, so a caller that found the slot before the delete and
 // waited for the lock sees that it is gone.
 type chatSlot struct {
-	mu   sync.Mutex
-	gone bool
+	mu        sync.Mutex
+	gone      bool
+	selection string
+	revision  uint64
 	chatState
 }
 
@@ -116,7 +120,7 @@ func NewJSON(dir string) (Store, error) {
 			xlog.Warn("studio store: skipping chat with unreadable harness state", "chat", c.Rec.ID, "error", err)
 			continue
 		}
-		s.chats[c.Rec.ID] = &chatSlot{chatState: c}
+		s.chats[c.Rec.ID] = &chatSlot{chatState: c, selection: uuid.NewString()}
 	}
 	s.removeStaleStates()
 	return s, nil
@@ -421,7 +425,7 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 	if _, ok := s.chats[rec.ID]; ok {
 		return session.ErrExists
 	}
-	c := chatState{Rec: rec}
+	c := chatState{Rec: cloneRec(rec)}
 	c.Rec.HarnessState = nil
 	c.Rec.Egress = rec.Egress.Clone()
 	c.Rec.Goal = rec.Goal.Clone()
@@ -436,7 +440,7 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 		}
 		return err
 	}
-	s.chats[rec.ID] = &chatSlot{chatState: c}
+	s.chats[rec.ID] = &chatSlot{chatState: c, selection: uuid.NewString()}
 	return nil
 }
 
@@ -460,9 +464,30 @@ func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.Ch
 func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.SkillsOff = append([]string(nil), r.SkillsOff...)
 	r.AddonsOff = append([]string(nil), r.AddonsOff...)
+	r.McpOff = append([]string(nil), r.McpOff...)
 	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
 	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
-	r.McpOff = append([]string(nil), r.McpOff...)
+	if r.HostConsent != nil {
+		cp := *r.HostConsent
+		r.HostConsent = &cp
+	}
+	if r.Snapshot != nil {
+		cp := *r.Snapshot
+		r.Snapshot = &cp
+	}
+	if r.Settings.Temperature != nil {
+		cp := *r.Settings.Temperature
+		r.Settings.Temperature = &cp
+	}
+	if r.Settings.TopP != nil {
+		cp := *r.Settings.TopP
+		r.Settings.TopP = &cp
+	}
+	if r.Settings.TopK != nil {
+		cp := *r.Settings.TopK
+		r.Settings.TopK = &cp
+	}
+
 	r.HarnessState = append([]byte(nil), r.HarnessState...)
 	r.Egress = r.Egress.Clone()
 	r.Goal = r.Goal.Clone()
@@ -499,6 +524,7 @@ func (s *jsonStore) edit(principal, id string, change func(next *chatState) erro
 	}
 	defer unlock()
 	next := c.chatState
+	next.Rec = cloneRec(c.Rec)
 	if err := change(&next); err != nil {
 		return err
 	}
@@ -513,6 +539,13 @@ func (s *jsonStore) edit(principal, id string, change func(next *chatState) erro
 			xlog.Warn("studio store: could not remove an old harness state file", "chat", id, "error", err)
 		}
 	}
+	if !sameSelection(c.Rec, next.Rec) {
+		c.revision++
+		if c.revision == 0 {
+			c.selection = uuid.NewString()
+		}
+	}
+	next.Rec = cloneRec(next.Rec)
 	c.chatState = next
 	return nil
 }
@@ -1040,4 +1073,26 @@ func (s *jsonStore) Turn(_ context.Context, principal, id string) (TurnInfo, err
 	}
 	defer unlock()
 	return TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Beat: c.RunBeat, Last: c.Last}, nil
+}
+
+// Conservatively track all record fields except turn bookkeeping and harness
+// history. Thus switches, agent assignment (create-only), consent, egress,
+// workspace, title, model and settings invalidate selection; message appends,
+// pending queues, claims, heartbeats and turn outcomes do not.
+func sameSelection(a, b session.ChatRecord) bool {
+	a.Created, a.Updated = b.Created, b.Updated
+	a.Turns, a.Status, a.HarnessState = b.Turns, b.Status, b.HarnessState
+	return reflect.DeepEqual(a, b)
+}
+
+func (s *jsonStore) SelectionSnapshot(_ context.Context, principal, id string) (session.ChatRecord, string, error) {
+	c, unlock, err := s.get(principal, id)
+	if err != nil {
+		return session.ChatRecord{}, "", err
+	}
+	defer unlock()
+	if s.dir != "" {
+		return session.ChatRecord{}, "", ErrSelectionRevisionUnsupported
+	}
+	return cloneRec(c.Rec), fmt.Sprintf("%s:%d", c.selection, c.revision), nil
 }

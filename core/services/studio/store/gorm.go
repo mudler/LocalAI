@@ -993,3 +993,13 @@ func (s *gormStore) ReapTurns(ctx context.Context, olderThan time.Time) ([]Reape
 	}
 	return out, nil
 }
+
+// SelectionSnapshot fails closed: another frontend can mutate this database,
+// and the existing schema has no server-owned, ABA-safe selection revision.
+func (s *gormStore) SelectionSnapshot(ctx context.Context, principal, id string) (session.ChatRecord, string, error) {
+	_, err := s.GetChat(ctx, principal, id)
+	if err != nil {
+		return session.ChatRecord{}, "", err
+	}
+	return session.ChatRecord{}, "", ErrSelectionRevisionUnsupported
+}

@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"sync"
 
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
@@ -16,15 +18,17 @@ import (
 // agents.json (rewritten atomically after every change). One process owns the
 // directory: the lock is in-process only, so a cluster uses the GORM store.
 type jsonStore struct {
-	mu   sync.Mutex
-	path string // empty: memory only
-	byID map[string]Agent
+	mu       sync.Mutex
+	path     string // empty: memory only
+	byID     map[string]Agent
+	seed     string
+	revision uint64
 }
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
 // With a directory it creates it and loads what is there.
 func NewJSON(dir string) (Store, error) {
-	s := &jsonStore{byID: map[string]Agent{}}
+	s := &jsonStore{byID: map[string]Agent{}, seed: uuid.NewString()}
 	if dir == "" {
 		return s, nil
 	}
@@ -85,6 +89,9 @@ func (s *jsonStore) Put(_ context.Context, a Agent) error {
 			delete(s.byID, a.ID)
 		}
 		return err
+	}
+	if !exists || !sameSelection(old, a) {
+		s.advanceSelection()
 	}
 	return nil
 }
@@ -149,5 +156,33 @@ func (s *jsonStore) Delete(_ context.Context, principal, id string) error {
 		s.byID[id] = a
 		return err
 	}
+	s.advanceSelection()
 	return nil
+}
+
+// All definition fields except caller timestamps conservatively affect agent
+// selection. A store-global counter also invalidates unrelated agents.
+func sameSelection(a, b Agent) bool {
+	a.Created, a.Updated = b.Created, b.Updated
+	return reflect.DeepEqual(a, b)
+}
+
+func (s *jsonStore) SelectionSnapshot(_ context.Context, principal, id string) (Agent, string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	a, ok := s.byID[id]
+	if !ok || a.Principal != principal {
+		return Agent{}, "", ErrNotFound
+	}
+	if s.path != "" {
+		return Agent{}, "", ErrSelectionRevisionUnsupported
+	}
+	return a.clone(), fmt.Sprintf("%s:%d", s.seed, s.revision), nil
+}
+
+func (s *jsonStore) advanceSelection() {
+	s.revision++
+	if s.revision == 0 {
+		s.seed = uuid.NewString()
+	}
 }
