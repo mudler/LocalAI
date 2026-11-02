@@ -158,6 +158,11 @@ func refuse(w http.ResponseWriter, status int, code, msg string) {
 // secret that incarnation holds; allowed lists the operation prefixes the
 // host setting gives the add-on. Whatever the check, the default is refuse.
 func (b *Broker) Handler(addonID, credential string, allowed []string) http.Handler {
+	return b.HandlerForRuntime(addonID, credential, allowed, 0, "")
+}
+
+// HandlerForRuntime authenticates callbacks for exactly one runtime.
+func (b *Broker) HandlerForRuntime(addonID, credential string, allowed []string, generation uint64, incarnation string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			refuse(w, http.StatusMethodNotAllowed, contract.HostBadRequest, "POST only")
@@ -180,6 +185,10 @@ func (b *Broker) Handler(addonID, credential string, allowed []string) http.Hand
 		req, err := contract.DecodeHostRequest(body, b.limits.PayloadBytes)
 		if err != nil || req.OperationID == "" || !contract.ValidHostOp(req.Op) {
 			refuse(w, http.StatusBadRequest, contract.HostBadRequest, "malformed request")
+			return
+		}
+		if b.inflight.callbackDenied(addonID, req.OperationID, generation, incarnation) {
+			refuse(w, http.StatusForbidden, contract.HostScope, "observation callbacks denied")
 			return
 		}
 		if !hasPrefix(allowed, req.Op) {

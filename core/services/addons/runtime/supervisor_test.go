@@ -729,7 +729,7 @@ var _ = Describe("Addon data directory", func() {
 		}
 		Expect(call("wrong")).To(Equal(http.StatusUnauthorized))
 		Expect(call(credential)).To(Equal(http.StatusForbidden))
-		end := in.Begin(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}})
+		end := in.BeginRuntime(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}}, hostops.Binding{}, false, inst.Incarnation)
 		Expect(call(credential)).To(Equal(http.StatusOK))
 		end()
 		Expect(call(credential)).To(Equal(http.StatusForbidden))

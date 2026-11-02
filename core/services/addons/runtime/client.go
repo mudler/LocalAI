@@ -26,6 +26,7 @@ type Client struct {
 	mu                   sync.Mutex
 	accept               bool
 	active               int
+	observations         map[string]context.CancelFunc
 	endpoint, credential string
 	registration         Registration
 	limits               contract.Limits
@@ -45,10 +46,17 @@ func newClient(r Registration, credential string, l contract.Limits) (*Client, e
 	t := httpclient.HardenedTransport()
 	t.Proxy = nil
 	t.MaxResponseHeaderBytes = 16 << 10
-	return &Client{endpoint: r.Endpoint, credential: credential, registration: r, limits: l, http: httpclient.New(httpclient.WithTransport(t))}, nil
+	return &Client{inflight: hostops.NewInFlight(), endpoint: r.Endpoint, credential: credential, registration: r, limits: l, http: httpclient.New(httpclient.WithTransport(t))}, nil
 }
 func (c *Client) admitting() bool { c.mu.Lock(); defer c.mu.Unlock(); return c.accept }
-func (c *Client) withdraw()       { c.mu.Lock(); c.accept = false; c.mu.Unlock() }
+func (c *Client) withdraw() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.accept = false
+	for _, cancel := range c.observations {
+		cancel()
+	}
+}
 func (c *Client) drain(ctx context.Context) {
 	ticker := time.NewTicker(time.Millisecond)
 	defer ticker.Stop()
@@ -185,9 +193,9 @@ func (c *Client) begin(ctx context.Context, env *contract.Envelope) func() {
 		return func() {}
 	}
 	if b, ok := hostops.BindingOf(ctx); ok {
-		return c.inflight.BeginBound(*env, b)
+		return c.inflight.BeginRuntime(*env, b, true, c.registration.Incarnation)
 	}
-	return c.inflight.Begin(*env)
+	return c.inflight.BeginRuntime(*env, hostops.Binding{}, false, c.registration.Incarnation)
 }
 func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
 	done, e := c.admit()

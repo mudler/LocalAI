@@ -617,7 +617,16 @@
       "closes the runtime with a bounded context before it exits, once",
       "exits when the owner closes the startup channel",
       "still exits when the runtime does not return in time",
-      "exits at once for a runtime with nothing to close"
+      "exits at once for a runtime with nothing to close",
+      "rejects output handles before they can reach storage or output-open",
+      "settles callback denial as failure even if the addon returns a valid positive payload",
+      "cleans up after cancellation and rejects repeat correlation",
+      "keeps an ordinary concurrent read authorized while an observation is pending",
+      "success",
+      "error",
+      "timeout",
+      "malformed/artifact payload",
+      "cancels an admitted observation when the runtime withdraws"
     ],
     "report": ".cache/addons/logs/runtime.json",
     "reports": [
@@ -5044,7 +5053,12 @@
       "stops once per operation",
       "keeps the checkpoint only when asked",
       "does not find the stop of another user's job",
-      "ends the wait when the context is cancelled"
+      "ends the wait when the context is cancelled",
+      "denies every correlated class before handlers and retains late denial",
+      "cannot overwrite an observation with a forged identity or duplicate operation",
+      "rejects mismatched authenticated incarnation and forged IDs without touching handlers",
+      "removes retired state on endpoint close",
+      "fails closed at the retained correlation bound without restricting ordinary operations"
     ],
     "report": ".cache/addons/logs/host-admission.json"
   }
