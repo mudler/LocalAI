@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Fichiers"
+      "Files": "Fichiers",
+      "Collections": "Collections"
     },
     "name": "Name",
     "description": "Description",
@@ -483,5 +484,35 @@
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Dossier manquant",
     "chipUnset": "Aucun dossier choisi"
+  },
+  "memory": {
+    "associationHelp": "Associez des collections, puis choisissez Recherche et Suppression indépendamment. Les deux droits peuvent être désactivés pour une destination.",
+    "search": "Rechercher",
+    "delete_entries": "Supprimer des entrées",
+    "deleteWarning": "La suppression peut retirer les entrées de toute personne dans cette collection.",
+    "destination": "Destination de mémoire",
+    "noDestination": "Aucune destination",
+    "destinationRequired": "Choisissez une collection associée comme destination de mémoire.",
+    "destinationRemoved": "La destination n’est plus associée. Rétablissez la collection ou choisissez une autre destination.",
+    "addMemory": "Activer l’outil add_memory",
+    "toolStorage": "Stockage de l’outil",
+    "automaticIngestion": "Capture automatique",
+    "autoHelp": "La capture automatique est indépendante de add_memory. Seul le texte de la conversation est stocké.",
+    "toolOnlyHelp": "Le mode outil seul stocke uniquement les appels add_memory explicites et réussis.",
+    "off": "Désactivé",
+    "enabled": "Activé",
+    "reader": "Lecteur : {{collections}}",
+    "recorder": "Enregistreur : {{destination}} · Automatique : {{mode}} · add_memory : {{tool}} · Stockage : {{storage}}",
+    "deleter": "Supprimer des entrées : {{collections}}",
+    "storage": {
+      "content": "Contenu",
+      "summary": "Résumé"
+    },
+    "modes": {
+      "off": "Désactivé",
+      "incoming_only": "Messages entrants uniquement",
+      "incoming_and_replies": "Messages entrants et réponses",
+      "summary": "Résumé de conversation"
+    }
   }
 }

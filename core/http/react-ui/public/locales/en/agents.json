@@ -189,7 +189,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Files"
+      "Files": "Files",
+      "Collections": "Collections"
     },
     "name": "Name",
     "description": "Description",
@@ -722,5 +723,35 @@
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Folder missing",
     "chipUnset": "No folder chosen"
+  },
+  "memory": {
+    "associationHelp": "Associate collections, then choose Search and Delete entries independently. A destination can have both permissions off.",
+    "search": "Search",
+    "delete_entries": "Delete entries",
+    "deleteWarning": "Deletion can remove entries created by anyone in this collection.",
+    "destination": "Memory destination",
+    "noDestination": "No destination",
+    "destinationRequired": "Choose an associated collection as the memory destination.",
+    "destinationRemoved": "The destination is no longer associated. Restore the collection or choose another destination.",
+    "addMemory": "Enable add_memory tool",
+    "toolStorage": "Tool storage",
+    "automaticIngestion": "Automatic ingestion",
+    "autoHelp": "Automatic ingestion works independently of the add_memory tool. Only conversation text is stored.",
+    "toolOnlyHelp": "Tool-only mode stores only explicit, successful add_memory calls.",
+    "off": "Off",
+    "enabled": "Enabled",
+    "reader": "Reader: {{collections}}",
+    "recorder": "Recorder: {{destination}} · Automatic: {{mode}} · add_memory: {{tool}} · Tool storage: {{storage}}",
+    "deleter": "Delete entries: {{collections}}",
+    "storage": {
+      "content": "Content",
+      "summary": "Summary"
+    },
+    "modes": {
+      "off": "Off",
+      "incoming_only": "Incoming messages only",
+      "incoming_and_replies": "Incoming messages and replies",
+      "summary": "Conversation summary"
+    }
   }
 }

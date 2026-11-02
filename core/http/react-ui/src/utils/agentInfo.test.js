@@ -91,3 +91,20 @@ test('a file that is not an agent is refused', () => {
   assert.equal(importAgent({ kind: 'something.else', name: 'x' }), null)
   assert.equal(importAgent({ foo: 1 }), null)
 })
+
+test('modern memory import/export preserves disabled destination and independent grants', () => {
+  const policy = { collection_permissions: { version: 1, grants: [
+    { collection: 'sink', search: false, delete_entries: false },
+    { collection: 'reader', search: true, delete_entries: false },
+    { collection: 'cleanup', search: false, delete_entries: true },
+  ] }, memory: { version: 1, destination: 'sink', add_memory: false, automatic_ingestion: 'incoming_only', tool_storage: 'summary' } }
+  const file = exportAgent({ name: 'recorder', collections: ['stale'], ...policy })
+  const back = importAgent(JSON.parse(JSON.stringify(file)))
+  assert.deepEqual(back.dropped, [])
+  assert.deepEqual(back.agent.collection_permissions, policy.collection_permissions)
+  assert.deepEqual(back.agent.memory, policy.memory)
+  assert.deepEqual(back.agent.collections, ['reader'])
+  const info = agentInfo(back.agent)
+  assert.deepEqual(info.memory, ['reader'])
+  assert.deepEqual(info.memoryPolicy.memory, policy.memory)
+})

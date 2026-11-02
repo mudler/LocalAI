@@ -159,7 +159,12 @@ export default function AgentPage() {
               : <span className="ag-muted">{t('chips.none')}</span>}
           </dd>
           <dt>{t('facts.memory')}</dt>
-          <dd><LibraryChips info={info} kind="memory" /></dd>
+          <dd data-testid="agent-memory-facts">
+            <LibraryChips info={info} kind="memory" />
+            <p className="ag-note">{t('memory.reader', { collections: info.memory.join(', ') || t('chips.none') })}</p>
+            <p className="ag-note">{t('memory.recorder', { destination: info.memoryPolicy.memory.destination || t('memory.noDestination'), mode: t(`memory.modes.${info.memoryPolicy.memory.automatic_ingestion}`), tool: t(info.memoryPolicy.memory.add_memory ? 'memory.enabled' : 'memory.off'), storage: t(`memory.storage.${info.memoryPolicy.memory.tool_storage}`) })}</p>
+            <p className="ag-note">{t('memory.deleter', { collections: info.memoryPolicy.collection_permissions.grants.filter(g => g.delete_entries).map(g => g.collection).join(', ') || t('chips.none') })}</p>
+          </dd>
           <dt>{t('facts.skills')}</dt>
           <dd><LibraryChips info={info} kind="skills" /></dd>
           {info.instructions && (

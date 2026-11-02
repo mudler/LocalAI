@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "文件"
+      "Files": "文件",
+      "Collections": "集合"
     },
     "name": "Name",
     "description": "Description",
@@ -483,5 +484,35 @@
     "chip": "{{name}}，{{mode}}",
     "chipMissing": "文件夹缺失",
     "chipUnset": "未选择文件夹"
+  },
+  "memory": {
+    "associationHelp": "关联集合，然后分别选择搜索和删除条目。目标集合的两项权限均可关闭。",
+    "search": "搜索",
+    "delete_entries": "删除条目",
+    "deleteWarning": "删除操作可移除此集合中任何人创建的条目。",
+    "destination": "记忆目标",
+    "noDestination": "无目标",
+    "destinationRequired": "请选择一个关联集合作为记忆目标。",
+    "destinationRemoved": "目标已不再关联。请恢复集合或选择其他目标。",
+    "addMemory": "启用 add_memory 工具",
+    "toolStorage": "工具存储方式",
+    "automaticIngestion": "自动采集",
+    "autoHelp": "自动采集独立于 add_memory 工具运行。仅存储对话文本。",
+    "toolOnlyHelp": "仅工具模式只存储明确调用且成功的 add_memory 内容。",
+    "off": "关闭",
+    "enabled": "已启用",
+    "reader": "读取：{{collections}}",
+    "recorder": "记录：{{destination}} · 自动：{{mode}} · add_memory：{{tool}} · 工具存储：{{storage}}",
+    "deleter": "删除条目：{{collections}}",
+    "storage": {
+      "content": "内容",
+      "summary": "摘要"
+    },
+    "modes": {
+      "off": "关闭",
+      "incoming_only": "仅收到的消息",
+      "incoming_and_replies": "收到的消息和回复",
+      "summary": "对话摘要"
+    }
   }
 }

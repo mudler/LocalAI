@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "File"
+      "Files": "File",
+      "Collections": "Koleksi"
     },
     "name": "Name",
     "description": "Description",
@@ -483,5 +484,35 @@
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Folder hilang",
     "chipUnset": "Belum ada folder"
+  },
+  "memory": {
+    "associationHelp": "Hubungkan koleksi, lalu pilih Cari dan Hapus entri secara terpisah. Kedua izin tujuan dapat dinonaktifkan.",
+    "search": "Cari",
+    "delete_entries": "Hapus entri",
+    "deleteWarning": "Penghapusan dapat menghapus entri yang dibuat siapa pun dalam koleksi ini.",
+    "destination": "Tujuan memori",
+    "noDestination": "Tanpa tujuan",
+    "destinationRequired": "Pilih koleksi terkait sebagai tujuan memori.",
+    "destinationRemoved": "Tujuan tidak lagi terkait. Pulihkan koleksi atau pilih tujuan lain.",
+    "addMemory": "Aktifkan alat add_memory",
+    "toolStorage": "Penyimpanan alat",
+    "automaticIngestion": "Perekaman otomatis",
+    "autoHelp": "Perekaman otomatis bekerja terpisah dari add_memory. Hanya teks percakapan yang disimpan.",
+    "toolOnlyHelp": "Mode hanya alat menyimpan panggilan add_memory yang eksplisit dan berhasil saja.",
+    "off": "Nonaktif",
+    "enabled": "Aktif",
+    "reader": "Pembaca: {{collections}}",
+    "recorder": "Perekam: {{destination}} · Otomatis: {{mode}} · add_memory: {{tool}} · Penyimpanan: {{storage}}",
+    "deleter": "Hapus entri: {{collections}}",
+    "storage": {
+      "content": "Konten",
+      "summary": "Ringkasan"
+    },
+    "modes": {
+      "off": "Nonaktif",
+      "incoming_only": "Hanya pesan masuk",
+      "incoming_and_replies": "Pesan masuk dan balasan",
+      "summary": "Ringkasan percakapan"
+    }
   }
 }

@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Dateien"
+      "Files": "Dateien",
+      "Collections": "Sammlungen"
     },
     "name": "Name",
     "description": "Description",
@@ -483,5 +484,35 @@
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Ordner fehlt",
     "chipUnset": "Kein Ordner gewählt"
+  },
+  "memory": {
+    "associationHelp": "Sammlungen zuordnen und Suche und Löschen unabhängig auswählen. Für ein Ziel können beide Berechtigungen deaktiviert sein.",
+    "search": "Suchen",
+    "delete_entries": "Einträge löschen",
+    "deleteWarning": "Beim Löschen können Einträge aller Ersteller in dieser Sammlung entfernt werden.",
+    "destination": "Speicherziel",
+    "noDestination": "Kein Ziel",
+    "destinationRequired": "Eine zugeordnete Sammlung als Speicherziel auswählen.",
+    "destinationRemoved": "Das Ziel ist nicht mehr zugeordnet. Sammlung wiederherstellen oder ein anderes Ziel auswählen.",
+    "addMemory": "Werkzeug add_memory aktivieren",
+    "toolStorage": "Werkzeugspeicherung",
+    "automaticIngestion": "Automatische Erfassung",
+    "autoHelp": "Die automatische Erfassung ist unabhängig vom Werkzeug add_memory. Nur Gesprächstext wird gespeichert.",
+    "toolOnlyHelp": "Im reinen Werkzeugmodus werden nur explizite, erfolgreiche add_memory-Aufrufe gespeichert.",
+    "off": "Aus",
+    "enabled": "Aktiviert",
+    "reader": "Leser: {{collections}}",
+    "recorder": "Aufzeichnung: {{destination}} · Automatisch: {{mode}} · add_memory: {{tool}} · Speicherung: {{storage}}",
+    "deleter": "Einträge löschen: {{collections}}",
+    "storage": {
+      "content": "Inhalt",
+      "summary": "Zusammenfassung"
+    },
+    "modes": {
+      "off": "Aus",
+      "incoming_only": "Nur eingehende Nachrichten",
+      "incoming_and_replies": "Eingehende Nachrichten und Antworten",
+      "summary": "Gesprächszusammenfassung"
+    }
   }
 }

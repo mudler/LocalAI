@@ -1,3 +1,5 @@
+import { normalizeAgentMemory } from './chatAgents.js'
+
 // Helpers for the create and edit flow: starting points, the list of what
 // changed against the saved version, secret masking, and the one-line summary
 // of a section.
@@ -119,6 +121,7 @@ const LISTS = ['mcp_servers', 'addons', 'collections', 'skills']
 export function exportAgent(agent) {
   const out = { kind: EXPORT_KIND, version: EXPORT_VERSION, name: agent.name || '', description: agent.description || '', instructions: agent.instructions || '', model: agent.model || '' }
   for (const k of LISTS) out[k] = [...(agent[k] || [])]
+  if (agent.collection_permissions || agent.memory) Object.assign(out, normalizeAgentMemory(agent))
   return out
 }
 
@@ -145,7 +148,8 @@ export function importAgent(data) {
     collections: legacy ? [] : names(data.collections),
     skills: legacy ? names(data.selected_skills) : names(data.skills),
   }
-  const known = new Set(['kind', 'version', 'name', 'description', 'instructions', 'model', 'mcp_servers', 'addons', 'collections', 'skills', 'system_prompt', 'selected_skills'])
+  if (!legacy && (data.collection_permissions || data.memory)) Object.assign(agent, normalizeAgentMemory(data))
+  const known = new Set(['collection_permissions', 'memory', 'kind', 'version', 'name', 'description', 'instructions', 'model', 'mcp_servers', 'addons', 'collections', 'skills', 'system_prompt', 'selected_skills'])
   const dropped = Object.keys(data).filter(k => !known.has(k) && !empty(data[k]))
   if (legacy && Array.isArray(data.mcp_servers) && data.mcp_servers.length) dropped.push('mcp_servers')
   if (!agent.name && !agent.instructions && !agent.model) return null

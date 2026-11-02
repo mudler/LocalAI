@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "File"
+      "Files": "File",
+      "Collections": "Raccolte"
     },
     "name": "Name",
     "description": "Description",
@@ -483,5 +484,35 @@
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Cartella mancante",
     "chipUnset": "Nessuna cartella scelta"
+  },
+  "memory": {
+    "associationHelp": "Associa le raccolte, poi scegli Ricerca ed Eliminazione separatamente. Una destinazione può avere entrambi i permessi disattivati.",
+    "search": "Ricerca",
+    "delete_entries": "Elimina voci",
+    "deleteWarning": "L’eliminazione può rimuovere voci create da chiunque nella raccolta.",
+    "destination": "Destinazione della memoria",
+    "noDestination": "Nessuna destinazione",
+    "destinationRequired": "Scegli una raccolta associata come destinazione della memoria.",
+    "destinationRemoved": "La destinazione non è più associata. Ripristina la raccolta o scegli un’altra destinazione.",
+    "addMemory": "Abilita lo strumento add_memory",
+    "toolStorage": "Memorizzazione dello strumento",
+    "automaticIngestion": "Acquisizione automatica",
+    "autoHelp": "L’acquisizione automatica funziona indipendentemente da add_memory. Viene salvato solo il testo della conversazione.",
+    "toolOnlyHelp": "La modalità solo strumento salva solo chiamate add_memory esplicite e riuscite.",
+    "off": "Disattivato",
+    "enabled": "Abilitato",
+    "reader": "Lettore: {{collections}}",
+    "recorder": "Registratore: {{destination}} · Automatico: {{mode}} · add_memory: {{tool}} · Memorizzazione: {{storage}}",
+    "deleter": "Elimina voci: {{collections}}",
+    "storage": {
+      "content": "Contenuto",
+      "summary": "Riepilogo"
+    },
+    "modes": {
+      "off": "Disattivato",
+      "incoming_only": "Solo messaggi in arrivo",
+      "incoming_and_replies": "Messaggi in arrivo e risposte",
+      "summary": "Riepilogo della conversazione"
+    }
   }
 }

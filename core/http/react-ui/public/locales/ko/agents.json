@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "파일"
+      "Files": "파일",
+      "Collections": "컬렉션"
     },
     "name": "Name",
     "description": "Description",
@@ -483,5 +484,35 @@
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "폴더 없음",
     "chipUnset": "선택한 폴더 없음"
+  },
+  "memory": {
+    "associationHelp": "컬렉션을 연결한 후 검색과 항목 삭제를 각각 선택하세요. 대상의 두 권한을 모두 끌 수 있습니다.",
+    "search": "검색",
+    "delete_entries": "항목 삭제",
+    "deleteWarning": "이 컬렉션에서 누구나 만든 항목을 삭제할 수 있습니다.",
+    "destination": "메모리 저장 대상",
+    "noDestination": "대상 없음",
+    "destinationRequired": "연결된 컬렉션을 메모리 저장 대상으로 선택하세요.",
+    "destinationRemoved": "대상이 더 이상 연결되어 있지 않습니다. 컬렉션을 복원하거나 다른 대상을 선택하세요.",
+    "addMemory": "add_memory 도구 활성화",
+    "toolStorage": "도구 저장 방식",
+    "automaticIngestion": "자동 수집",
+    "autoHelp": "자동 수집은 add_memory 도구와 독립적으로 작동합니다. 대화 텍스트만 저장합니다.",
+    "toolOnlyHelp": "도구 전용 모드는 명시적으로 성공한 add_memory 호출만 저장합니다.",
+    "off": "꺼짐",
+    "enabled": "활성화",
+    "reader": "읽기: {{collections}}",
+    "recorder": "기록: {{destination}} · 자동: {{mode}} · add_memory: {{tool}} · 저장: {{storage}}",
+    "deleter": "항목 삭제: {{collections}}",
+    "storage": {
+      "content": "내용",
+      "summary": "요약"
+    },
+    "modes": {
+      "off": "꺼짐",
+      "incoming_only": "수신 메시지만",
+      "incoming_and_replies": "수신 메시지 및 답변",
+      "summary": "대화 요약"
+    }
   }
 }

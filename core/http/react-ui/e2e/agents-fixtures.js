@@ -159,6 +159,8 @@ export async function installAgents(page, {
     if (!found) return err(route, 404, 'no such agent')
     const { name, description, instructions, model, mcp_servers, addons, collections, skills, folder } = found
     const agent = { name, description, instructions, model, mcp_servers, addons, collections, skills }
+    if (found.collection_permissions) agent.collection_permissions = found.collection_permissions
+    if (found.memory) agent.memory = found.memory
     if (folder) return route.fulfill({ json: { version: 2, kind: 'localai-agent', agent: { ...agent, folder: { path: folder.path || '', mode: folder.mode } } } })
     return route.fulfill({ json: { version: 1, kind: 'localai-agent', agent } })
   })

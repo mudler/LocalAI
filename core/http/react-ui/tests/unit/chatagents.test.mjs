@@ -1,6 +1,7 @@
+import { exportAgent, importAgent } from '../../src/utils/agentConfigTools.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addEntry, agentFolderMarks, agentPayload, emptyAgent, folderName, folderPayload, folderPickable, folderState, grantSummary, isFolderMissingError, removeEntry } from '../../src/utils/chatAgents.js'
+import { addEntry, agentFolderMarks, agentPayload, emptyAgent, folderName, folderPayload, folderPickable, folderState, grantSummary, isFolderMissingError, removeEntry, memoryValidation, normalizeAgentMemory } from '../../src/utils/chatAgents.js'
 
 test('chat agents: an entry is trimmed and added once', () => {
   assert.deepEqual(addEntry([], ' office '), ['office'])
@@ -96,4 +97,55 @@ test('chat agents: a 409 agent_folder_missing is told apart from other errors', 
   assert.equal(isFolderMissingError({ status: 409, body: { error: { type: 'conflict' } } }), false)
   assert.equal(isFolderMissingError(new Error('x')), false)
   assert.equal(isFolderMissingError(null), false)
+})
+
+test('memory defaults and legacy collections never enable mutation', () => {
+  const body = agentPayload({ name: 'reader', collections: [' docs ', 'docs'] })
+  assert.deepEqual(body.collection_permissions, { version: 1, grants: [{ collection: 'docs', search: true, delete_entries: false }] })
+  assert.deepEqual(body.memory, { version: 1, add_memory: false, destination: '', tool_storage: 'content', automatic_ingestion: 'off' })
+  assert.equal(emptyAgent().memory.add_memory, false)
+})
+
+test('modern grants are authoritative and preserve a disabled destination', () => {
+  const form = { name: 'recorder', collections: ['stale'], collection_permissions: { version: 1, grants: [
+    { collection: 'sink', search: false, delete_entries: false },
+    { collection: 'read', search: true, delete_entries: false },
+    { collection: 'delete', search: false, delete_entries: true },
+  ] }, memory: { version: 1, destination: 'sink', add_memory: false, tool_storage: 'summary', automatic_ingestion: 'incoming_only' } }
+  const body = agentPayload(form)
+  assert.deepEqual(body.collections, ['read'])
+  assert.deepEqual(body.collection_permissions, form.collection_permissions)
+  assert.deepEqual(agentPayload(body), body)
+  assert.deepEqual(body.memory, form.memory)
+})
+
+
+test('memory validation never retargets a removed destination, even with writers off', () => {
+  const form = { ...emptyAgent(), memory: { ...emptyAgent().memory, destination: 'removed' } }
+  assert.equal(memoryValidation(form), 'destinationRemoved')
+  assert.equal(agentPayload(form).memory.destination, 'removed')
+  assert.equal(memoryValidation({ ...emptyAgent(), memory: { ...emptyAgent().memory, add_memory: true } }), 'destinationRequired')
+  for (const mode of ['incoming_only', 'incoming_and_replies', 'summary']) {
+    assert.equal(memoryValidation({ ...emptyAgent(), memory: { ...emptyAgent().memory, automatic_ingestion: mode } }), 'destinationRequired')
+  }
+  const associated = { ...form, collection_permissions: { version: 1, grants: [{ collection: 'removed', search: false, delete_entries: false }] } }
+  assert.equal(memoryValidation(associated), '')
+  assert.equal(memoryValidation({ ...associated, memory: { ...form.memory, automatic_ingestion: 'summary' } }), '')
+})
+
+test('memory normalization does not mutate the saved DTO', () => {
+  const saved = { collections: ['docs'], memory: null }
+  assert.deepEqual(normalizeAgentMemory(saved).collections, ['docs'])
+  assert.deepEqual(saved, { collections: ['docs'], memory: null })
+})
+
+
+test('memory import/export payload round trip keeps an all-false associated destination', () => {
+  const original = agentPayload({ name: 'recorder', collection_permissions: { version: 1, grants: [
+    { collection: 'sink', search: false, delete_entries: false },
+    { collection: 'reader', search: true, delete_entries: false },
+  ] }, memory: { version: 1, destination: 'sink', add_memory: true, tool_storage: 'summary', automatic_ingestion: 'off' } })
+  const imported = importAgent(JSON.parse(JSON.stringify(exportAgent(original))))
+  assert.deepEqual(imported.dropped, [])
+  assert.deepEqual(agentPayload(imported.agent), original)
 })

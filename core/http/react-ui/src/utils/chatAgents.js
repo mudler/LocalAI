@@ -3,7 +3,28 @@
 export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills']
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', folder: null }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', folder: null, ...normalizeAgentMemory({}) }
+}
+
+// Modern permissions are authoritative; collections is only their search projection.
+// In particular, an explicit all-false row still associates a write destination.
+export function normalizeAgentMemory(agent) {
+  const cleanNames = values => [...new Set((values || []).map(x => x.trim()).filter(Boolean))]
+  const grants = agent.collection_permissions
+    ? agent.collection_permissions.grants.map(g => ({ collection: g.collection.trim(), search: g.search === true, delete_entries: g.delete_entries === true }))
+    : cleanNames(agent.collections).map(collection => ({ collection, search: true, delete_entries: false }))
+  return {
+    collections: grants.filter(g => g.search).map(g => g.collection),
+    collection_permissions: { version: 1, grants },
+    memory: { version: 1, add_memory: false, destination: '', tool_storage: 'content', automatic_ingestion: 'off', ...agent.memory },
+  }
+}
+
+export function memoryValidation(agent) {
+  const { memory, collection_permissions } = normalizeAgentMemory(agent)
+  if (memory.destination && !collection_permissions.grants.some(g => g.collection === memory.destination)) return 'destinationRemoved'
+  if ((memory.add_memory || memory.automatic_ingestion !== 'off') && !memory.destination) return 'destinationRequired'
+  return ''
 }
 
 // Adds a name to a list: trimmed, not empty, once.
@@ -31,6 +52,7 @@ export function agentPayload(form, opts) {
     network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)
+  Object.assign(body, normalizeAgentMemory(form))
   if (opts && 'initialFolder' in opts) {
     const folder = folderPayload(opts.initialFolder, form.folder)
     if (folder) body.folder = folder

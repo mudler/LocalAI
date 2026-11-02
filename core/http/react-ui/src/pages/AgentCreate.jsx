@@ -7,7 +7,7 @@ import { agentCollectionsApi, chatAgentsApi, chatMCPConnectorsApi, chatSkillsApi
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
 import { useAddonToolAddons } from '../addons/useAddonRegistry'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { addEntry, agentPayload, emptyAgent, folderState, removeEntry } from '../utils/chatAgents'
+import { addEntry, agentPayload, emptyAgent, folderState, removeEntry, normalizeAgentMemory, memoryValidation } from '../utils/chatAgents'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
@@ -15,13 +15,13 @@ import './library.css'
 // eslint-disable-next-line no-unused-vars
 import SearchableModelSelect from '../components/SearchableModelSelect'
 // eslint-disable-next-line no-unused-vars
-import NameList from '../components/ChatNameList'
-// eslint-disable-next-line no-unused-vars
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, LoadError, Page, PageHeader, Segmented, SkeletonRows } from '../components/ui'
+// eslint-disable-next-line no-unused-vars
+import AgentMemorySettings from '../components/agents/AgentMemorySettings'
 // eslint-disable-next-line no-unused-vars
 import AgentFolderDialog from '../components/agents/AgentFolderDialog'
 
@@ -31,6 +31,7 @@ const SECTIONS = [
   { id: 'ModelSettings', icon: 'brain' },
   { id: 'PromptsGoals', icon: 'target' },
   { id: 'Files', icon: 'folder' },
+  { id: 'Collections', icon: 'database' },
   { id: 'MemorySettings', icon: 'database' },
   { id: 'Skills', icon: 'sparkles' },
   { id: 'Addons', icon: 'puzzle' },
@@ -128,10 +129,10 @@ export default function AgentCreate() {
         let initialForm = emptyAgent()
         if (isEdit) {
           const agent = await chatAgentsApi.get(id)
-          initialForm = { ...initialForm, ...agent }
+          initialForm = { ...initialForm, ...agent, ...normalizeAgentMemory(agent) }
           setSavedConfig(agent)
         } else if (imported) {
-          initialForm = { ...initialForm, ...imported.agent }
+          initialForm = { ...initialForm, ...imported.agent, ...normalizeAgentMemory(imported.agent) }
         } else if (templateId) {
           // A starting point fills the form; nothing is saved until the person saves.
           const tpl = AGENT_TEMPLATES.find(x => x.id === templateId)
@@ -172,6 +173,11 @@ export default function AgentCreate() {
     if (folderUnchosen) {
       addToast(t('folder.needsChoice'), 'warning')
       setOpenSections(prev => new Set([...prev, 'Files']))
+      return
+    }
+    if (memoryValidation(form)) {
+      addToast(t(`memory.${memoryValidation(form)}`), 'warning')
+      setOpenSections(prev => new Set([...prev, 'MemorySettings']))
       return
     }
     setSaving(true)
@@ -231,7 +237,8 @@ export default function AgentCreate() {
     let summary = ''
     let state = 'empty'
     let keys = (SUMMARY_FIELDS[s.id] || []).map(f => f.name)
-    if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
+    if (s.id === 'Collections') { keys = ['collections', 'collection_permissions']; summary = countOf(form.collection_permissions.grants.length, 'create.countCollections'); state = form.collection_permissions.grants.length ? 'ready' : 'empty' }
+    else if (s.id === 'MemorySettings') { keys = ['memory']; summary = form.memory.destination || t('memory.off'); state = memoryValidation(form) ? 'needs' : form.memory.destination ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
     else if (s.id === 'Addons') { keys = ['addons']; summary = countOf(form.addons.length, 'create.countAddons'); state = form.addons.length ? 'ready' : 'empty' }
     else if (s.id === 'Files') { keys = ['folder']; ({ summary, state } = folderFold()) }
@@ -313,14 +320,9 @@ export default function AgentCreate() {
             <p className="ag-note">{t('create.instructionsHelp')}</p>
           </div>
         )
+      case 'Collections':
       case 'MemorySettings':
-        return (
-          <>
-            <p className="ag-note">{t('create.collectionsHelp')}</p>
-            <NameList label={t('create.collections')} hint={t('create.collectionsHint')} value={form.collections}
-              suggestions={collectionNames} onChange={(v) => updateField('collections', v)} testId="agent-collections" />
-          </>
-        )
+        return <AgentMemorySettings section={sid} form={form} suggestions={collectionNames} onChange={patch => setForm(prev => ({ ...prev, ...patch }))} />
       case 'Skills':
         return (
           <>

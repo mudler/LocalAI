@@ -844,3 +844,25 @@ There is deliberately no process-wide admin MCP mutation tool for these
 principal-scoped captures. Existing saved-agent REST/admin/MCP configuration
 DTOs and memory tool surfaces are unchanged; no new model capability flag is
 required.
+
+### Configure collection access and memory
+
+In the agent editor, **Collections** associates collections with the agent.
+Each row has independent **Search** and **Delete entries** permissions. Delete
+entries can remove entries created by anyone in that collection. Existing
+agents with only a legacy collections list retain search-only access; saving
+one does not enable deletion or recording.
+
+The separate **Memory** section selects one associated destination. Its Search
+and Delete entries permissions can both remain off. Enable **add_memory** for
+explicit tool calls and choose content or summary storage for those calls.
+With automatic ingestion **Off**, only explicit, successful tool calls record
+memory. Automatic ingestion can instead capture incoming messages, incoming
+messages and replies, or a conversation summary. It works independently of
+the add_memory switch and stores only conversation text.
+
+Recording is off by default. Removing the destination's collection does not
+silently choose another destination: restore the association or choose a new
+destination before saving. Agent details show reader, recorder and deletion
+permissions without requiring the editor. Export and import retain the
+versioned collection permissions and memory settings.

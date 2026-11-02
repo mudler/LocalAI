@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Archivos"
+      "Files": "Archivos",
+      "Collections": "Colecciones"
     },
     "name": "Name",
     "description": "Description",
@@ -483,5 +484,35 @@
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Falta la carpeta",
     "chipUnset": "Ninguna carpeta elegida"
+  },
+  "memory": {
+    "associationHelp": "Asocia colecciones y elige Buscar y Eliminar entradas por separado. El destino puede tener ambos permisos desactivados.",
+    "search": "Buscar",
+    "delete_entries": "Eliminar entradas",
+    "deleteWarning": "La eliminación puede borrar entradas creadas por cualquier persona en esta colección.",
+    "destination": "Destino de memoria",
+    "noDestination": "Sin destino",
+    "destinationRequired": "Elige una colección asociada como destino de memoria.",
+    "destinationRemoved": "El destino ya no está asociado. Restaura la colección o elige otro destino.",
+    "addMemory": "Activar herramienta add_memory",
+    "toolStorage": "Almacenamiento de herramienta",
+    "automaticIngestion": "Captura automática",
+    "autoHelp": "La captura automática funciona independientemente de add_memory. Solo se guarda texto de la conversación.",
+    "toolOnlyHelp": "El modo solo herramienta guarda únicamente llamadas add_memory explícitas y exitosas.",
+    "off": "Desactivado",
+    "enabled": "Activado",
+    "reader": "Lector: {{collections}}",
+    "recorder": "Grabador: {{destination}} · Automático: {{mode}} · add_memory: {{tool}} · Almacenamiento: {{storage}}",
+    "deleter": "Eliminar entradas: {{collections}}",
+    "storage": {
+      "content": "Contenido",
+      "summary": "Resumen"
+    },
+    "modes": {
+      "off": "Desactivado",
+      "incoming_only": "Solo mensajes entrantes",
+      "incoming_and_replies": "Mensajes entrantes y respuestas",
+      "summary": "Resumen de conversación"
+    }
   }
 }
