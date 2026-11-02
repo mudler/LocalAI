@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -24,6 +25,10 @@ func (a *Application) wireExecutionBinding(g *gateway.Gateway) error {
 }
 
 func (a *Application) resolveExecutionBinding(ctx context.Context, actor contract.Actor, claim gateway.ExecutionBindingClaim) (gateway.ExecutionStatusBinding, error) {
+	return a.resolveExecutionBindingWithTools(ctx, actor, claim, a.StudioAddonTools())
+}
+
+func (a *Application) resolveExecutionBindingWithTools(ctx context.Context, actor contract.Actor, claim gateway.ExecutionBindingClaim, broker studio.AddonTools) (gateway.ExecutionStatusBinding, error) {
 	empty := gateway.ExecutionStatusBinding{}
 	if err := auth.AddonRevalidate(a.authDB, a.AddonOwnershipMode())(ctx, actor); err != nil {
 		return empty, err
@@ -60,7 +65,6 @@ func (a *Application) resolveExecutionBinding(ctx context.Context, actor contrac
 	}
 	// Discover through the actual Studio adapter: only currently running,
 	// actor-visible native replacements are candidates. No readiness read occurs.
-	broker := a.StudioAddonTools()
 	if broker == nil {
 		return empty, gateway.ErrUnavailable
 	}
@@ -103,7 +107,10 @@ func (a *Application) resolveExecutionBinding(ctx context.Context, actor contrac
 		return empty, err
 	}
 	provider := caps.ExecutionProvider
-	tool := strings.TrimPrefix(selected.Name, "addon__"+selected.AddonID+"__")
+	addonID, tool, valid := addontools.ParseToolName(selected.Name)
+	if !valid || addonID != selected.AddonID {
+		return empty, gateway.ErrForbidden
+	}
 	if provider == nil || !slices.Contains(provider.Tools, tool) {
 		return empty, gateway.ErrForbidden
 	}

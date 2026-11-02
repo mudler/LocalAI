@@ -1890,7 +1890,8 @@
       "denies foreign chat access and invalid named credentials",
       "uses current agent grants and denies unattended actions",
       "rejects stale runtime incarnations without owner callback nonces",
-      "uses the ordinary chat store interface"
+      "uses the ordinary chat store interface",
+      "rejects noncanonical and mismatched selected tool identities"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -2152,7 +2153,8 @@
           "denies foreign chat access and invalid named credentials",
           "uses current agent grants and denies unattended actions",
           "rejects stale runtime incarnations without owner callback nonces",
-          "uses the ordinary chat store interface"
+          "uses the ordinary chat store interface",
+          "rejects noncanonical and mismatched selected tool identities"
         ],
         "focus": "execution binding owner resolver"
       },
@@ -5378,7 +5380,10 @@
       "go: revalidates listing failures through an already-bound consumer without namespace fallback",
       "go: preserves the model read byte bound",
       "go: offers the host read even when Tables has no executable definitions",
-      "go: keeps declared uiOnly execution status tools out of generic adapters"
+      "go: keeps declared uiOnly execution status tools out of generic adapters",
+      "go: round trips valid components and enforces the callable length boundary",
+      "go: rejects malformed qualified identities while reserving their namespace",
+      "go: forwards bindings only through an explicit binding backend"
     ]
   },
   "tables-admin": {

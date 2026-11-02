@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
@@ -138,11 +139,8 @@ func standInRunner(tools []session.Tool) string {
 		if !slices.Contains(t.StandInFor, commandTool) {
 			continue
 		}
-		id, ok := strings.CutPrefix(t.Name, "addon__")
-		if !ok {
-			continue
-		}
-		if id, ok = strings.CutSuffix(id, "__unavailable"); ok {
+		id, tool, ok := addontools.ParseQualifiedToolName(t.Name)
+		if ok && tool == "unavailable" {
 			return id
 		}
 	}

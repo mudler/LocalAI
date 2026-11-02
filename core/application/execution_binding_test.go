@@ -31,6 +31,25 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+type bindingNameBroker struct {
+	studio.AddonTools
+	name string
+}
+
+func (b bindingNameBroker) Tools(ctx context.Context, user string) ([]studio.AddonTool, error) {
+	defs, err := b.AddonTools.Tools(ctx, user)
+	for i := range defs {
+		if defs[i].AddonID == "renamed-runner" {
+			defs[i].Name = b.name
+		}
+	}
+	return defs, err
+}
+
+func (b bindingNameBroker) AddonShadowers(ctx context.Context, user string) ([]studio.AddonShadower, error) {
+	return b.AddonTools.(studio.ShadowLister).AddonShadowers(ctx, user)
+}
+
 var _ = Describe("execution binding owner resolver", func() {
 	var a *Application
 	var ctx context.Context
@@ -148,6 +167,16 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(a.addonGateway.ResolveExecutionBinding).NotTo(BeNil())
 		Expect(a.addonGateway.AuthorizeExecutionStatus).NotTo(BeNil())
 	})
+	It("rejects noncanonical and mismatched selected tool identities", func() {
+		setOwnerPin("renamed-runner")
+		for _, name := range []string{"execute", "bash", "addon__alternate-worker__execute", "addon__renamed-runner__bad_name", "addon__renamed-runner__execute__extra"} {
+			_, err := a.resolveExecutionBindingWithTools(ctx, actor, claim, bindingNameBroker{AddonTools: a.StudioAddonTools(), name: name})
+			Expect(err).To(MatchError(gateway.ErrForbidden), name)
+		}
+		_, err := a.resolveExecutionBindingWithTools(ctx, actor, claim, bindingNameBroker{AddonTools: a.StudioAddonTools(), name: "addon__renamed-runner__execute"})
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("uses owner CAS pins for execution and typed status and fails closed on policy outage", func() {
 		first, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())

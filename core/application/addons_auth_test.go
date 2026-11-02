@@ -341,7 +341,7 @@ func TestAddonOwnershipWarningProcess(t *testing.T) {
 	named := setup()
 	named.authDB = authDB()
 	Expect(start(named, base())).To(Succeed())
-	defer named.Shutdown()
+	defer func() { Expect(named.Shutdown()).To(Succeed()) }()
 	Expect(named.AddonOwnershipMode()).To(Equal("named-user"))
 	Expect(logs.String()).NotTo(ContainSubstring("local-owner"))
 	// Named mode still refuses to run without the account database.
@@ -352,7 +352,7 @@ func TestAddonOwnershipWarningProcess(t *testing.T) {
 	c.OwnershipMode = "local-owner"
 	a := setup() // no account database: local-owner mode does not need one
 	Expect(start(a, c)).To(Succeed())
-	defer a.Shutdown()
+	defer func() { Expect(a.Shutdown()).To(Succeed()) }()
 	Expect(a.AddonOwnershipMode()).To(Equal("local-owner"))
 	Expect(logs.String()).To(ContainSubstring("local-owner"))
 	Expect(logs.String()).To(ContainSubstring("unauthenticated callers share"))

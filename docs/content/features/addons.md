@@ -2206,6 +2206,15 @@ definition replaces one with `"shadows": "<name>"`:
   ...: the built-in bash serves", or that the chat has no such tool when the
   built-in is off too), from `fallbacks` of `GET /api/chats/{id}/tools`. A
   tool without `shadows` keeps its add-on name.
+- **Qualified identities.** The shared tool adapter formats and parses
+  `addon__<id>__<tool>`. Both components must match
+  `[a-z][a-z0-9-]{0,63}`. Model-callable names cannot exceed 64 characters.
+  Execution-status binding rejects plain names, malformed names, and names
+  whose add-on ID differs from the selected provider. The real adapter already
+  supplies canonical names; this check also guards the binding boundary.
+  Studio's unavailable stand-ins use the same component grammar but do not
+  apply the model-callable total length limit. A long stand-in identifies an
+  unavailable add-on; it does not make that name callable through the adapter.
 - **Who served it.** A call the add-on served carries the card `tool_provider`
   with the add-on's ID, so the chat shows the provider on the tool line.
 - **Several add-ons.** Only one add-on serves a name. An administrator picks it

@@ -6,7 +6,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
-	"testing"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 type bindingBackend struct {
@@ -28,28 +29,25 @@ func (b *bindingBackend) ValidateExecutionBinding(_ context.Context, a contract.
 	}
 	return nil
 }
-func TestBindingOptionalBackend(t *testing.T) {
-	ctx := context.Background()
-	a := contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}
-	claim := gateway.ExecutionBindingClaim{ConversationID: "chat"}
-	adapter := tools.NewToolAdapter(&fake{})
-	if _, e := adapter.BindingForActor(ctx, a, claim); e == nil {
-		t.Fatal("ordinary backend granted binding")
-	}
-	if e := adapter.ValidateExecutionBinding(ctx, a, gateway.ExecutionStatusBinding{}); e == nil {
-		t.Fatal("ordinary backend validated binding")
-	}
-	b := &bindingBackend{binding: gateway.ExecutionStatusBinding{Actor: a, ConversationID: "chat", CurrentSelection: "owner-epoch"}}
-	adapter = tools.NewToolAdapter(b)
-	got, e := adapter.BindingForActor(ctx, a, claim)
-	if e != nil || got != b.binding || b.actor != a || b.claim != claim {
-		t.Fatal("binding forwarding changed input or output")
-	}
-	if e = adapter.ValidateExecutionBinding(ctx, a, got); e != nil {
-		t.Fatal(e)
-	}
-	got.CurrentSelection = "forged"
-	if e = adapter.ValidateExecutionBinding(ctx, a, got); e == nil {
-		t.Fatal("validation refusal lost")
-	}
-}
+
+var _ = Describe("optional execution binding backend", func() {
+	It("forwards bindings only through an explicit binding backend", func() {
+		ctx := context.Background()
+		actor := contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}
+		claim := gateway.ExecutionBindingClaim{ConversationID: "chat"}
+		adapter := tools.NewToolAdapter(&fake{})
+		_, err := adapter.BindingForActor(ctx, actor, claim)
+		Expect(err).To(HaveOccurred())
+		Expect(adapter.ValidateExecutionBinding(ctx, actor, gateway.ExecutionStatusBinding{})).NotTo(Succeed())
+		backend := &bindingBackend{binding: gateway.ExecutionStatusBinding{Actor: actor, ConversationID: "chat", CurrentSelection: "owner-epoch"}}
+		adapter = tools.NewToolAdapter(backend)
+		got, err := adapter.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(backend.binding))
+		Expect(backend.actor).To(Equal(actor))
+		Expect(backend.claim).To(Equal(claim))
+		Expect(adapter.ValidateExecutionBinding(ctx, actor, got)).To(Succeed())
+		got.CurrentSelection = "forged"
+		Expect(adapter.ValidateExecutionBinding(ctx, actor, got)).To(MatchError(gateway.ErrForbidden))
+	})
+})

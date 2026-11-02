@@ -9,6 +9,7 @@ import (
 	"slices"
 	"sort"
 
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -57,7 +58,7 @@ type AddonGate interface {
 
 // unavailableToolName is the name of the stand-in tool of an add-on that
 // cannot work. It has the shape of the broker's tool names.
-func unavailableToolName(addonID string) string { return "addon__" + addonID + "__unavailable" }
+func unavailableToolName(addonID string) string { return addontools.ToolName(addonID, "unavailable") }
 
 // ErrBadAddonID means a switch names something that is not an add-on ID, or
 // there are too many switches.
