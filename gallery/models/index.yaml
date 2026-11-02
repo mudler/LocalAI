@@ -1670,7 +1670,7 @@
 - kind: model
   id: gemma-4-e2b-it-artemis-q3-k-l
   name: gemma-4-e2b-it-artemis-q3-k-l
-  version: 0.0.0-gallery.a49a9ec13280
+  version: 0.0.0-gallery.913f4f46b99a
   description: |
     TurinTech Artemis Q3_K_L quantization of Gemma 4 E2B from Google's QAT
     checkpoint, for local chat and tool calls. Accepts image input through
@@ -1700,10 +1700,10 @@
     files:
       - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
         sha256: 1e207a449e37ea902de237aba1158f960a91bd344bee6edc5b0aa0dbce015621
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
       - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
         sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -1728,7 +1728,7 @@
 - kind: model
   id: gemma-4-e2b-it-artemis-q3-k-m
   name: gemma-4-e2b-it-artemis-q3-k-m
-  version: 0.0.0-gallery.7d34154c17da
+  version: 0.0.0-gallery.83b3d5a6ad27
   description: |
     TurinTech Artemis Q3_K_M quantization of Gemma 4 E2B from Google's QAT
     checkpoint, for local chat and tool calls. Accepts image input through
@@ -1758,10 +1758,10 @@
     files:
       - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
         sha256: 6bdb901ce3c468c626c5481076b9c56bc69a35fc3ad08c78b2b6cbede5cbd9da
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
       - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
         sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -1782,7 +1782,7 @@
 - kind: model
   id: gemma-4-e2b-it-artemis-iq3-xxs
   name: gemma-4-e2b-it-artemis-iq3-xxs
-  version: 0.0.0-gallery.c477c155a918
+  version: 0.0.0-gallery.cb51c00198b5
   description: |
     TurinTech Artemis IQ3_XXS quantization of Gemma 4 E2B from Google's QAT
     checkpoint, for local chat and tool calls. Accepts image input through
@@ -1812,10 +1812,10 @@
     files:
       - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
         sha256: 66b7eebe3316775b6e0194b3b4da2888c32830d3c7e3c749b1e861d121e97aa9
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
       - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
         sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -1836,7 +1836,7 @@
 - kind: model
   id: gemma-4-e2b-it-artemis-iq2-m
   name: gemma-4-e2b-it-artemis-iq2-m
-  version: 0.0.0-gallery.6ad57d354aa3
+  version: 0.0.0-gallery.ef9b355a5c42
   description: |
     TurinTech Artemis IQ2_M quantization of Gemma 4 E2B from Google's QAT
     checkpoint, for local chat and tool calls. Accepts image input through
@@ -1866,10 +1866,10 @@
     files:
       - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ2_M.gguf
         sha256: 61ecb5b0d2854afbc1436db7598465f77ccf63ec62210e75cc761e09ecb6d729
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/gemma-4-E2B-it-Artemis-IQ2_M.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-IQ2_M.gguf
       - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
         sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
-        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/mmproj-F16.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -1890,7 +1890,7 @@
 - kind: model
   id: gemma-4-e4b-it-artemis-q4-0
   name: gemma-4-e4b-it-artemis-q4-0
-  version: 0.0.0-gallery.f840da8f3f6e
+  version: 0.0.0-gallery.d90049360ebb
   description: |
     TurinTech Artemis Q4_0 quantization of Gemma 4 E4B from Google's QAT
     checkpoint, for local chat, reasoning, and tool use. Accepts image
@@ -1920,10 +1920,10 @@
     files:
       - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q4_0.gguf
         sha256: 1d23b7340a5828d12c50ee60a9fd0662c6cf23117d4cd4f6a7e3ec1bfb503260
-        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/gemma-4-E4B-it-Artemis-Q4_0.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-Q4_0.gguf
       - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
         sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
-        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/mmproj-F16.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -1947,7 +1947,7 @@
 - kind: model
   id: gemma-4-e4b-it-artemis-iq3-m
   name: gemma-4-e4b-it-artemis-iq3-m
-  version: 0.0.0-gallery.f622a887acdd
+  version: 0.0.0-gallery.fbca069dc669
   description: |
     TurinTech Artemis IQ3_M quantization of Gemma 4 E4B from Google's QAT
     checkpoint, for local chat, reasoning, and tool use. Accepts image
@@ -1977,10 +1977,10 @@
     files:
       - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-IQ3_M.gguf
         sha256: 7d19112172d02bfe3edd711627bb988330e3fea8714c77362e2b77ae1634ac39
-        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/gemma-4-E4B-it-Artemis-IQ3_M.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-IQ3_M.gguf
       - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
         sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
-        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/mmproj-F16.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
     overrides:
       backend: llama-cpp
       context_size: 8192
@@ -2001,7 +2001,7 @@
 - kind: model
   id: gemma-4-e4b-it-artemis-q3-k-m
   name: gemma-4-e4b-it-artemis-q3-k-m
-  version: 0.0.0-gallery.9c7e3af29345
+  version: 0.0.0-gallery.105a77dc8919
   description: |
     TurinTech Artemis Q3_K_M quantization of Gemma 4 E4B from Google's QAT
     checkpoint, for local chat, reasoning, and tool use. Accepts image
@@ -2031,10 +2031,10 @@
     files:
       - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
         sha256: 182f4a4f29461620f7404b9eb25a03bd7fe9f91de49718662c9146c01c9d3547
-        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
       - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
         sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
-        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/mmproj-F16.gguf
+        uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
     overrides:
       backend: llama-cpp
       context_size: 8192
