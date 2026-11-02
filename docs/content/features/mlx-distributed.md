@@ -43,7 +43,7 @@ On each additional Mac:
 docker run -ti --net host \
   -e TOKEN="<your-token>" \
   --name local-ai-mlx-worker \
-  localai/localai:latest-metal-darwin-arm64 worker p2p-mlx
+  localai/localai:latest-metal-darwin-arm64 p2p-worker p2p-mlx
 ```
 
 Workers auto-register on the P2P network. The LocalAI server discovers them and generates a hostfile for MLX distributed.
@@ -192,7 +192,7 @@ Starts a worker or manual rank 0 process.
 | `--addr` | `MLX_DISTRIBUTED_ADDR` | `localhost:50051` | gRPC API listen address (rank 0 only, for LocalAI or external access) |
 | `--coordinator` | `MLX_JACCL_COORDINATOR` | | JACCL coordinator `ip:port` - rank 0's address for RDMA setup (all ranks must use the same value) |
 
-### `worker p2p-mlx`
+### `p2p-worker p2p-mlx`
 
 P2P mode - auto-discovers peers and generates hostfile.
 

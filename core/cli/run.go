@@ -32,6 +32,13 @@ import (
 // When renaming flags, add the old name as an alias for backward compatibility
 // and document the deprecation in the help text.
 
+// workerJoinCommand is the command a user runs on another node to join the
+// P2P network with a llama.cpp worker. It is printed after `run --p2p`
+// generates a token, and a test parses it against the CLI so it cannot drift
+// from the command tree again (it named the pre-v4 `worker` command for a
+// release cycle).
+const workerJoinCommand = "local-ai p2p-worker p2p-llama-cpp-rpc"
+
 type RunCMD struct {
 	AddonHostPolicy           string `name:"addon-host-policy" env:"LOCALAI_ADDON_HOST_POLICY" help:"Absolute path to administrator host operation policy JSON, read once at startup. Empty disables environment policy" group:"addons"`
 	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
@@ -633,7 +640,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 			fmt.Println(token)
 
 			xlog.Info("To use the token, you can run the following command in another node or terminal:")
-			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
+			fmt.Printf("export TOKEN=\"%s\"\n%s\n", token, workerJoinCommand)
 		}
 		opts = append(opts, config.WithP2PToken(token))
 	}
