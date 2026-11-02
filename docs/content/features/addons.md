@@ -55,8 +55,22 @@ after acquiring the owner storage guard and attaches it to the gateway. Frontend
 only forward requests; they never open or import this store. Startup failure,
 context cancellation and application shutdown close the store once. A restart
 retains the saved policy and revision rather than importing configuration again.
-Public settings routes, the settings UI and runtime consumers are not yet connected;
-their behavior described elsewhere on this page remains unchanged.
+Studio now reads the owner's network policy for new-chat defaults, administrator
+network views, chat network settings, approval-card decisions and connection checks.
+These reads carry the request context and return errors. A frontend uses the pinned
+mutual-TLS internal route; an owner reads its durable store directly. Each host check
+reads current policy, so tightening applies to the next request on an existing
+frontend without restarting it. A waiting approval card rechecks policy when it
+wakes or polls, including after an answer. The Sandbox proxy's existing short-lived
+verdict cache still bounds reuse of an earlier connection verdict as described below.
+
+An unavailable owner or store does not substitute frontend settings or a cached allow.
+Defaults, views and card decisions return an error; connection checks and waiting
+cards return a blocking verdict with a policy-unavailable error. When add-ons are
+disabled, Studio retains its existing local configuration behavior, including the
+last valid parsed lists. An enabled add-on deployment with no owner gateway instead
+fails closed. Public settings routes, the settings UI and the other runtime policy
+consumers are not yet connected to this store.
 
 The schema is limited to six network fields (`chats_egress_ceiling`,
 `chats_egress_default`, `chats_egress_allow_private`, `chats_egress_ports`,
@@ -4335,7 +4349,7 @@ The preset of a chat is the lower of its own choice and the ceiling (`chats_egre
 
 | State | Mode |
 |---|---|
-| Ceiling, private switch, ports, extra registries, default | shared: runtime settings, like the other `chats_*` settings |
+| Ceiling, private switch, ports, extra registries, allowed hosts, default | owner-authoritative durable host policy when add-ons are enabled; Studio reads it per request. With add-ons disabled, existing local runtime settings apply |
 | A chat's preset, rules and cards | shared and durable: the chat record in the chat store (the database in a cluster) |
 | A card that waits | stateless per request: the host operation on the owner waits; it wakes on the answer's bus message or on a re-read of the card every two seconds |
 | The decision of one connection | stateless per request: the host operation reads the settings and the chat record at each check |

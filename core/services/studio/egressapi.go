@@ -77,7 +77,10 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	if err != nil {
 		return EgressView{}, err
 	}
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return EgressView{}, err
+	}
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	if err != nil {
 		return EgressView{}, err
@@ -137,7 +140,11 @@ func (s *Service) SetEgressPreset(ctx context.Context, user, conv string, preset
 	if rec.Kind == session.KindSubAgent {
 		return ErrSubAgentReadOnly
 	}
-	if preset.Rank() > egress.Min(s.egressSettings().Ceiling, egress.PresetAll).Rank() {
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if preset.Rank() > egress.Min(set.Ceiling, egress.PresetAll).Rank() {
 		return ErrEgressAboveCeiling
 	}
 	if err := s.d.Store.UpdateEgress(ctx, p, conv, func(st *egress.ChatState) error {
@@ -192,7 +199,10 @@ type EgressAdmin struct {
 // AdminEgress returns the settings in force, the registries list with the
 // extra hosts, whether a Sandbox serves and the counts of the last 24 hours.
 func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, error) {
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return EgressAdmin{}, err
+	}
 	set.Ceiling = egress.Min(set.Ceiling, egress.PresetAll)
 	set.Default = set.DefaultPreset()
 	if len(set.Ports) == 0 {

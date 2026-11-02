@@ -200,7 +200,7 @@ type Deps struct {
 	// EgressSettings returns the administrator's limits of the Sandbox
 	// network (chats_egress_*), read at each check. Nil: the ceiling is off and
 	// no command reaches the network.
-	EgressSettings func() egress.Settings
+	EgressSettings func(context.Context) (egress.Settings, error)
 	// EgressAudit keeps the audit of the Sandbox network requests. Nil: an
 	// in-memory audit, for a single process and tests.
 	EgressAudit audit.Store
@@ -626,10 +626,14 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		// A chat a person starts gets the instance default, or the network
 		// of its saved agent when the agent sets one, under the ceiling. An
 		// unattended run follows its agent's network field at each check.
-		rec.Egress = s.newChatEgress()
+		set, err := s.egressSettings(ctx)
+		if err != nil {
+			return session.ChatRecord{}, err
+		}
+		rec.Egress = egress.ChatState{Preset: set.DefaultPreset()}
 		if in.AgentID != "" {
 			if n := s.agentNetwork(ctx, rec); n != egress.PresetOff {
-				rec.Egress.Preset = egress.Min(n, s.egressSettings().Ceiling)
+				rec.Egress.Preset = egress.Min(n, set.Ceiling)
 			}
 		}
 	}

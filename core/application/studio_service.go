@@ -443,7 +443,7 @@ func (a *Application) studioHostExecAudit() hostexec.AuditStore {
 
 // studioEgressSettings is the chats_egress_* settings as they apply now. A
 // list value that does not parse keeps the last valid one (see lastGood).
-func (a *Application) studioEgressSettings() egress.Settings {
+func (a *Application) localStudioEgressSettings() egress.Settings {
 	cfg := a.applicationConfig
 	a.studioEgressListsOnce.Do(a.initStudioEgressLists)
 	return egress.Settings{

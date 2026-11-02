@@ -23,7 +23,7 @@ var _ = Describe("the Sandbox network state of a chat", func() {
 		st, _ := store.NewJSON("")
 		settings := egress.Settings{Ceiling: egress.PresetRegistries, Default: egress.PresetAll}
 		svc := newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = func(context.Context) (egress.Settings, error) { return settings, nil }
 		})
 		id := create(svc, alice)
 		rec, err := svc.Get(ctx, alice, id)
@@ -106,7 +106,7 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 		a, _ = audit.NewJSON("")
 		settings = egress.Settings{Ceiling: egress.PresetRegistries, Default: egress.PresetRegistries}
 		svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = func(context.Context) (egress.Settings, error) { return settings, nil }
 			d.EgressAudit = a
 		})
 	})
@@ -187,7 +187,7 @@ var _ = Describe("the network line of a turn", func() {
 		return newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }, func(d *studio.Deps) {
 			d.Files = f
 			d.AddonTools = isolatedAddons{fa, "isolated"}
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = func(context.Context) (egress.Settings, error) { return settings, nil }
 		})
 	}
 	turn := func(svc *studio.Service, h *studiotest.ToolHarness) string {

@@ -70,10 +70,10 @@ type egressSettings struct {
 	s  egress.Settings
 }
 
-func (e *egressSettings) get() egress.Settings {
+func (e *egressSettings) get(context.Context) (egress.Settings, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.s
+	return e.s, nil
 }
 
 func (e *egressSettings) setCeiling(p egress.Preset) {
@@ -350,7 +350,7 @@ var _ = Describe("the network cards of a chat", func() {
 		It("a settings change through one frontend is seen by the other at the next check", func() {
 			var mu sync.Mutex
 			shared := egress.Settings{Ceiling: egress.PresetOff}
-			read := func() egress.Settings { mu.Lock(); defer mu.Unlock(); return shared }
+			read := func(context.Context) (egress.Settings, error) { mu.Lock(); defer mu.Unlock(); return shared, nil }
 			a := newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) { d.EgressSettings = read })
 			b := newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) { d.EgressSettings = read })
 			Expect(a.SetEgressPreset(ctx, alice, id, egress.PresetRegistries)).To(MatchError(studio.ErrEgressAboveCeiling))

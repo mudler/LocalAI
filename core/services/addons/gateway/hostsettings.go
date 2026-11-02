@@ -193,3 +193,8 @@ func (g *Gateway) hostSettingsAction(ctx context.Context, actor contract.Actor, 
 	raw, err := json.Marshal(env)
 	return contract.Result{Payload: raw}, err
 }
+
+// ReadHostSettingsInternal reads the bounded policy for trusted host consumers.
+func (g *Gateway) ReadHostSettingsInternal(ctx context.Context) (HostSettingsPolicy, error) {
+	return g.HostSettingsInternalSnapshot(ctx)
+}

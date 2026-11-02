@@ -173,7 +173,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The network of the Sandbox commands, in one line: it follows the
 	// chat's preset at each turn and needs no restart of the harness.
 	if cmds.State == CommandsAvailable && cmds.Isolation == "isolated" && cmds.Provider != BuiltinProvider {
-		note = strings.TrimSpace(s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName)) + " " + note)
+		line, err := s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName))
+		if err != nil {
+			return session.TurnTools{}, err
+		}
+		note = strings.TrimSpace(line + " " + note)
 	}
 	// The AGENTS.md files of the chat's folder and the home: a pointer, first,
 	// so the cut of a long note keeps it. A chat that cannot read them is
