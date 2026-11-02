@@ -66,14 +66,15 @@ type chatRow struct {
 func (chatRow) TableName() string { return "studio_chats" }
 
 type entryRow struct {
-	ChatID string `gorm:"primaryKey;size:128"`
-	Seq    int64  `gorm:"primaryKey"`
-	Turn   int
-	Role   string `gorm:"size:32"`
-	Text   string `gorm:"type:text"`
-	Rev    int64
-	DurMs  int64
-	Card   string `gorm:"type:text"`
+	MemoryInputs string `gorm:"type:text"`
+	ChatID       string `gorm:"primaryKey;size:128"`
+	Seq          int64  `gorm:"primaryKey"`
+	Turn         int
+	Role         string `gorm:"size:32"`
+	Text         string `gorm:"type:text"`
+	Rev          int64
+	DurMs        int64
+	Card         string `gorm:"type:text"`
 	// Attachments is the JSON list of the files of a user message, Note the
 	// text read from them; both empty for other lines.
 	Attachments string `gorm:"type:text"`
@@ -92,6 +93,13 @@ func (entryRow) TableName() string { return "studio_entries" }
 func toEntryRow(id string, seq int64, e session.Entry) (entryRow, error) {
 	r := entryRow{ChatID: id, Seq: seq, Turn: e.Turn, Role: e.Role, Text: e.Text, Rev: e.Rev,
 		DurMs: e.Dur.Milliseconds(), Note: e.Note, At: e.At}
+	if len(e.MemoryInputs) > 0 {
+		raw, err := json.Marshal(e.MemoryInputs)
+		if err != nil {
+			return entryRow{}, err
+		}
+		r.MemoryInputs = string(raw)
+	}
 	if e.Card != nil {
 		raw, err := json.Marshal(e.Card)
 		if err != nil {
@@ -719,6 +727,11 @@ func (s *gormStore) Entries(ctx context.Context, id string, after int64, limit i
 		e := session.Entry{
 			Seq: r.Seq, Turn: r.Turn, Role: r.Role, Text: r.Text, Rev: r.Rev,
 			Dur: time.Duration(r.DurMs) * time.Millisecond, Note: r.Note, At: r.At,
+		}
+		if r.MemoryInputs != "" {
+			if err := json.Unmarshal([]byte(r.MemoryInputs), &e.MemoryInputs); err != nil {
+				return nil, err
+			}
 		}
 		if r.Attachments != "" {
 			if err := json.Unmarshal([]byte(r.Attachments), &e.Attachments); err != nil {

@@ -654,8 +654,8 @@ and records memory settings explicitly:
 }
 ```
 
-Saved agents can use explicit memory tools. Automatic capture execution and its
-status UI are not available yet. The example expresses tool-only memory intent:
+Saved agents can use explicit memory tools and durable automatic capture. The
+capture status UI is not available yet. The example expresses tool-only memory intent:
 `add_memory` is independent of automatic ingestion. Storage is `content` or
 `summary`; automatic ingestion is `off`, `incoming_only`,
 `incoming_and_replies`, or `summary`. Defaults are adding disabled, no destination,
@@ -736,3 +736,28 @@ collections are ready, it resumes claims and checks current permissions before
 writing or reconciling previous writes. Readiness does not grant access: a live
 permission or policy denial still skips the capture. Status notifications describe
 the persisted capture revision and are emitted before the next processing effect.
+
+### Automatic capture boundaries
+
+Automatic ingestion applies to saved-agent chats, including connector messages
+and explicit trigger prompts delivered through chat workers. Plain chats are
+excluded. `incoming_only` queues accepted text even if answering later fails.
+`incoming_and_replies` additionally queues the final completed assistant reply
+as a separate entry. `summary` queues only the incoming messages consumed by a
+successful turn and that turn's final reply, not the whole conversation.
+`off` creates no capture intents. These settings do not expose `add_memory`.
+
+Capture uses text at acceptance. Editing or cancelling a waiting message does
+not change or retract its accepted incoming memory. A summary uses the original
+accepted text only if that message was consumed by the successful turn. Notes
+extracted from attachments, file paths, reasoning, tool data, and internal goal
+continuations are not incoming memory. Paused, stopped, interrupted, and failed
+turns do not capture replies or summaries. Regeneration gives a newly completed
+reply a new identity without accepting the original incoming text again.
+
+Incoming intent and waiting-message acceptance share one store operation;
+reply intent and the successful turn outcome share another. Collection writes
+and summarization run independently of answering. Capture persistence failures
+are logged and do not prevent an otherwise successful answer or connector reply.
+Queued work retains its original destination and is authorized again before
+writing; changing an agent's destination never reroutes existing work.

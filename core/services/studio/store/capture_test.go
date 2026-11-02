@@ -441,6 +441,39 @@ var _ = Describe("durable capture", func() {
 				Expect(records).To(BeEmpty())
 			})
 
+			It("keeps model payload apart from incoming capture and does not requeue direct acceptance", func() {
+				in := acceptance(store.CaptureIncoming)
+				in.PendingText = "remember\nextracted private attachment text"
+				accepted, e := s.AcceptMemoryInput(ctx, in)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(accepted.Text).To(Equal("remember"))
+				Expect(accepted.Pending.Text).To(Equal(in.PendingText))
+				direct := in
+				direct.SourceID = "direct"
+				direct.Delivered = true
+				_, e = s.AcceptMemoryInput(ctx, direct)
+				Expect(e).NotTo(HaveOccurred())
+				s = open()
+				waiting, e := s.Pending(ctx, "alice", id)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(waiting).To(HaveLen(1))
+				Expect(waiting[0].Text).To(Equal(in.PendingText))
+				records, e := s.ListCaptures(ctx, "alice", id)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(records).To(HaveLen(2))
+				for _, r := range records {
+					Expect(r.RawText).To(Equal("remember"))
+				}
+				entry := session.Entry{Role: session.RoleUser, Text: "remember", MemoryInputs: []string{in.SourceID}}
+				_, e = s.AppendEntry(ctx, id, entry)
+				Expect(e).NotTo(HaveOccurred())
+				s = open()
+				entries, e := s.Entries(ctx, id, 0, 0)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(entries).To(HaveLen(1))
+				Expect(entries[0].MemoryInputs).To(Equal([]string{in.SourceID}))
+			})
+
 			for _, mode := range []store.CaptureMode{store.CaptureOff, store.CaptureIncoming, store.CaptureReplies, store.CaptureSummary} {
 				mode := mode
 				It("captures only the accepted text and successful final outcome for "+string(mode), func() {

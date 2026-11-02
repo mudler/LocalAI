@@ -41,8 +41,12 @@ type CapturePolicy struct {
 type CaptureOrigin struct{ Kind, ConnectorID string }
 type MemoryAcceptance struct {
 	Principal, ChatID, SourceID, Text string
-	Policy                            CapturePolicy
-	Origin                            CaptureOrigin
+	// PendingText is the model-visible payload, kept separate from captured text.
+	PendingText string
+	// Delivered accepts a direct message without leaving it in the waiting queue.
+	Delivered bool
+	Policy    CapturePolicy
+	Origin    CaptureOrigin
 }
 type AcceptedInput struct {
 	ID      string
@@ -371,7 +375,11 @@ func acceptMemory(ctx context.Context, in MemoryAcceptance, edit captureEdit) (A
 			return ErrCaptureConflict
 		}
 		c.NextPending++
-		p := Pending{ID: in.SourceID, Text: in.Text, Seq: c.NextPending, At: time.Now().UTC()}
+		payload := in.PendingText
+		if payload == "" {
+			payload = in.Text
+		}
+		p := Pending{ID: in.SourceID, Text: payload, Delivered: in.Delivered, Seq: c.NextPending, At: time.Now().UTC()}
 		c.Pending = append(c.Pending, p)
 		out = AcceptedInput{ID: in.SourceID, Pending: p, Text: in.Text, Policy: in.Policy, Origin: in.Origin}
 		d.Accepted[in.SourceID] = out
@@ -549,7 +557,7 @@ func (s *gormStore) editCapture(ctx context.Context, p, c string, f func(*captur
 					continue
 				}
 				p := a.Pending
-				if err = tx.Create(&pendingRow{ChatID: c, ID: p.ID, Seq: p.Seq, Text: p.Text, At: p.At}).Error; err != nil {
+				if err = tx.Create(&pendingRow{ChatID: c, ID: p.ID, Seq: p.Seq, Text: p.Text, Delivered: p.Delivered, At: p.At}).Error; err != nil {
 					return err
 				}
 			}

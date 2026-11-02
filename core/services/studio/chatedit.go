@@ -50,7 +50,7 @@ func (s *Service) rebuildState(ctx context.Context, rec session.ChatRecord, entr
 // turn starts. Files that the removed turn changed stay changed.
 func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult, error) {
 	p := principal(user)
-	return s.rerun(ctx, p, conv, func(entries []session.Entry) (int64, session.Message, error) {
+	return s.rerun(ctx, p, conv, false, func(entries []session.Entry) (int64, session.Message, error) {
 		last := -1
 		for i, entrie := range slices.Backward(entries) {
 			if entrie.Role == session.RoleUser {
@@ -80,6 +80,7 @@ func (s *Service) Regenerate(ctx context.Context, user, conv string) (SendResult
 			if e.Role != session.RoleUser {
 				continue
 			}
+			msg.MemoryInputs = append(msg.MemoryInputs, e.MemoryInputs...)
 			d := session.DisplayEntry(e)
 			if d.Text != "" {
 				texts = append(texts, d.Text)
@@ -101,7 +102,7 @@ func (s *Service) EditAndRerun(ctx context.Context, user, conv string, seq int64
 	if strings.TrimSpace(text) == "" {
 		return SendResult{}, fmt.Errorf("%w: empty message", session.ErrInvalid)
 	}
-	return s.rerun(ctx, principal(user), conv, func(entries []session.Entry) (int64, session.Message, error) {
+	return s.rerun(ctx, principal(user), conv, true, func(entries []session.Entry) (int64, session.Message, error) {
 		for _, e := range entries {
 			if e.Seq != seq {
 				continue
@@ -120,7 +121,7 @@ func (s *Service) EditAndRerun(ctx context.Context, user, conv string, seq int64
 // rerun cuts the transcript where pick says and runs the message as a new
 // turn, all under one turn claim so that nothing starts between the cut and
 // the turn.
-func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session.Entry) (keep int64, msg session.Message, err error)) (SendResult, error) {
+func (s *Service) rerun(ctx context.Context, p, conv string, acceptNew bool, pick func([]session.Entry) (keep int64, msg session.Message, err error)) (SendResult, error) {
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {
 		return SendResult{}, err
@@ -147,6 +148,11 @@ func (s *Service) rerun(ctx context.Context, p, conv string, pick func([]session
 			s.log.Warn("studio: could not release the claim after a failed cut", "chat", conv, "error", rerr)
 		}
 		return SendResult{}, err
+	}
+	if acceptNew && len(msg.MemoryInputs) == 0 {
+		if id := s.acceptDirectMemory(ctx, p, conv, msg.Text); id != "" {
+			msg.MemoryInputs = []string{id}
+		}
 	}
 	s.recommand(ctx, p, rec, &msg)
 	if err := s.startTurn(ctx, p, conv, runID, msg); err != nil {

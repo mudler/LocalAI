@@ -341,10 +341,12 @@ type Service struct {
 }
 
 type run struct {
-	id      string
-	started time.Time
-	stopped bool
-	failed  bool
+	memoryInputs []string
+	memoryReply  string
+	id           string
+	started      time.Time
+	stopped      bool
+	failed       bool
 	// paused is set when the tool loop reached its step limit: the turn ends
 	// as paused, so the person sees that the work is not finished.
 	paused bool
@@ -811,7 +813,11 @@ func joinPending(taken []store.Pending, msg session.Message) session.Message {
 		texts, notes []string
 		atts         []session.Attachment
 	)
+	incoming := []string{}
 	for _, t := range taken {
+		if strings.HasPrefix(t.ID, "memory:") {
+			incoming = append(incoming, t.ID)
+		}
 		body, note, a := session.SplitMessage(t.Text)
 		if body != "" {
 			texts = append(texts, body)
@@ -821,6 +827,7 @@ func joinPending(taken []store.Pending, msg session.Message) session.Message {
 	if strings.TrimSpace(msg.Text) != "" {
 		texts = append(texts, msg.Text)
 	}
+	msg.MemoryInputs = append(incoming, msg.MemoryInputs...)
 	msg.Text = strings.Join(texts, "\n\n")
 	msg.Note = strings.Join(notes, "") + msg.Note
 	msg.Attachments = append(atts, msg.Attachments...)
@@ -861,7 +868,7 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 		}
 		// A waiting message holds the text the model gets; the transcript and
 		// the list of waiting messages split the files out of it again.
-		pend, err := s.d.Store.AddPending(ctx, p, conv, session.ComposeMessage(msg.Text, msg.Note, atts))
+		pend, err := s.acceptPendingMemory(ctx, p, conv, msg.Text, session.ComposeMessage(msg.Text, msg.Note, atts))
 		if err != nil {
 			return SendResult{}, err
 		}
@@ -883,6 +890,11 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 // messages that wait: the new one must not overtake them. The caller holds the
 // lock of the chat.
 func (s *Service) startClaimed(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	if !msg.Goal && msg.Loop == nil && len(msg.MemoryInputs) == 0 {
+		if id := s.acceptDirectMemory(ctx, p, conv, msg.Text); id != "" {
+			msg.MemoryInputs = []string{id}
+		}
+	}
 	taken, err := s.d.Store.TakePending(ctx, p, conv)
 	if err != nil {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)
@@ -1084,7 +1096,7 @@ func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg sess
 	// frontend may have died: nobody waits on them any more.
 	s.expireConsents(ctx, p, conv, "")
 	s.mu.Lock()
-	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat}
+	s.runs[k] = &run{id: runID, started: time.Now(), end: end, chat: chat, memoryInputs: msg.MemoryInputs}
 	s.mu.Unlock()
 	msg.Media = s.keepVideos(k, msg.Media)
 	if err := chat.Send(context.WithoutCancel(ctx), msg); err != nil {
@@ -1203,6 +1215,16 @@ func (s *Service) pump(chat *session.Chat, evs <-chan session.Event, p, conv str
 		s.mu.Unlock()
 	}()
 	for ev := range evs {
+		s.mu.Lock()
+		if r := s.runs[k]; r != nil {
+			switch ev.Kind {
+			case session.KindText:
+				r.memoryReply += ev.Text
+			case session.KindToolStart:
+				r.memoryReply = ""
+			}
+		}
+		s.mu.Unlock()
 		if ev.Kind == session.KindTurnEnd {
 			// The end is recorded before it is announced: a client that reads
 			// the chat when it sees turn_end must not find it still running.
@@ -1274,7 +1296,7 @@ func (s *Service) finishTurn(chat *session.Chat, p, conv string) (next func()) {
 	case r.paused:
 		status = store.TurnPaused
 	}
-	if err := s.releaseTurn(ctx, p, conv, r.id, status); err != nil {
+	if err := s.completeMemoryRun(ctx, p, conv, r, status); err != nil {
 		s.log.Warn("studio: could not release the turn", "chat", conv, "error", err)
 		// The turn is over all the same, and a parent may wait for it. If the
 		// claim was reaped, whoever holds the chat now decides what runs next;
@@ -1376,14 +1398,26 @@ func (s *Service) inputs(a workspace.Actor) func() ([]string, func(error)) {
 				}
 				return
 			}
-			for _, t := range texts {
+			for i, t := range texts {
 				// The transcript keeps the words apart from the files.
 				body, note, atts := session.SplitMessage(t)
 				e := session.Entry{Turn: turn, Role: session.RoleUser, Text: body, Note: note, Attachments: atts}
+				if strings.HasPrefix(ids[i], "memory:") {
+					e.MemoryInputs = []string{ids[i]}
+				}
 				if _, aerr := s.d.Store.AppendEntry(ctx, a.ChatID, e); aerr != nil {
 					s.log.Warn("studio: could not record a delivered message", "chat", a.ChatID, "error", aerr)
 				}
 			}
+			s.mu.Lock()
+			if r := s.runs[key(a.Principal, a.ChatID)]; r != nil {
+				for _, id := range ids {
+					if strings.HasPrefix(id, "memory:") {
+						r.memoryInputs = append(r.memoryInputs, id)
+					}
+				}
+			}
+			s.mu.Unlock()
 			s.confirm(a.Principal, a.ChatID, ids)
 			s.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindPendingDelivered, IDs: ids})
 		}

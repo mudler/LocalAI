@@ -179,8 +179,10 @@ type ChatCursor struct {
 
 // Entry is one line of a transcript.
 type Entry struct {
-	Seq  int64
-	Turn int
+	// MemoryInputs links host acceptance identities without adding model-visible text.
+	MemoryInputs []string `json:",omitempty"`
+	Seq          int64
+	Turn         int
 	// Role is user, assistant, tool, checkpoint or reasoning. A reasoning
 	// entry is for display: it is not replayed to the model.
 	Role string

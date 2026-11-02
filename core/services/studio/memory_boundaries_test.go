@@ -1,0 +1,183 @@
+// SPDX-License-Identifier: MIT
+package studio_test
+
+import (
+	"context"
+	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/store"
+	"github.com/mudler/LocalAI/core/services/studio/studiotest"
+	"github.com/mudler/LocalAI/core/services/workerctl"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var _ = Describe("automatic memory boundaries", func() {
+	for _, mode := range []string{"off", "incoming_only", "incoming_and_replies", "summary"} {
+		It("captures a direct exchange in "+mode, func() {
+			var st store.Store
+			r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store })
+			a := memoryPolicy()
+			a.Memory.AddMemory = false
+			a.Memory.AutomaticIngestion = mode
+			r.save(a)
+			id := r.chatWith(a.ID)
+			sent(r.svc, alice, id, "only these words")
+			idle(r.svc, alice, id)
+			records, err := st.ListCaptures(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			texts := []string{}
+			kinds := []string{}
+			for _, record := range records {
+				texts = append(texts, record.RawText)
+				kinds = append(kinds, record.Identity.Kind)
+			}
+			switch mode {
+			case "off":
+				Expect(records).To(BeEmpty())
+			case "incoming_only":
+				Expect(texts).To(ConsistOf("only these words"))
+				Expect(kinds).To(ConsistOf("incoming"))
+			case "incoming_and_replies":
+				Expect(texts).To(ConsistOf("only these words", "ok"))
+				Expect(kinds).To(ConsistOf("incoming", "reply"))
+			case "summary":
+				Expect(texts).To(ConsistOf("only these words\n\nok"))
+				Expect(kinds).To(ConsistOf("summary"))
+			}
+			Expect(r.h.ToolNames(id)).NotTo(ContainElement("add_memory"))
+		})
+	}
+})
+
+// These tests inspect durable intents without running the independent capture
+// worker: answering must not wait for a collection backend.
+var _ = Describe("automatic memory lifecycle", func() {
+	for _, ending := range []string{"stopped", "paused", "failed"} {
+		It("keeps accepted pending input but not the "+ending+" reply", func() {
+			var st store.Store
+			h := studiotest.NewGateHarness()
+			if ending == "paused" {
+				h.PauseSteps = 4
+			}
+			if ending == "failed" {
+				h.FailRequest = 1
+			}
+			r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store; d.Harness = h })
+			a := memoryPolicy()
+			a.Memory.AutomaticIngestion = "incoming_and_replies"
+			r.save(a)
+			id := r.chatWith(a.ID)
+			sent(r.svc, alice, id, "first")
+			until("harness start", func() bool { return len(h.Sent()) == 1 })
+			p := sent(r.svc, alice, id, "accepted original")
+			Expect(r.svc.EditPending(context.Background(), alice, id, p.PendingID, "edited for answering")).To(Succeed())
+			if ending == "stopped" {
+				Expect(r.svc.CancelPending(context.Background(), alice, id, p.PendingID)).To(Succeed())
+				Expect(r.svc.Stop(context.Background(), alice, id)).To(Succeed())
+			} else {
+				h.Gate <- struct{}{}
+			}
+			idle(r.svc, alice, id)
+			records, err := st.ListCaptures(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			texts := []string{}
+			for _, rec := range records {
+				Expect(rec.Identity.Kind).To(Equal("incoming"))
+				texts = append(texts, rec.RawText)
+			}
+			Expect(texts).To(ConsistOf("first", "accepted original"))
+		})
+	}
+	It("summarizes consumed pending input at acceptance, not its edit or older history", func() {
+		var st store.Store
+		h := studiotest.NewGateHarness()
+		r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store; d.Harness = h })
+		a := memoryPolicy()
+		a.Memory.AutomaticIngestion = "summary"
+		r.save(a)
+		id := r.chatWith(a.ID)
+		sent(r.svc, alice, id, "first")
+		until("harness start", func() bool { return len(h.Sent()) == 1 })
+		p := sent(r.svc, alice, id, "accepted original")
+		Expect(r.svc.EditPending(context.Background(), alice, id, p.PendingID, "edited")).To(Succeed())
+		h.Gate <- struct{}{}
+		idle(r.svc, alice, id)
+		records, err := st.ListCaptures(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(HaveLen(1))
+		Expect(records[0].RawText).To(Equal("first\n\naccepted original\n\nworking on: firstdone"))
+		sent(r.svc, alice, id, "second")
+		until("second start", func() bool { return len(h.Sent()) == 2 })
+		h.Gate <- struct{}{}
+		idle(r.svc, alice, id)
+		records, err = st.ListCaptures(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(HaveLen(2))
+		texts := []string{}
+		for _, rec := range records {
+			texts = append(texts, rec.RawText)
+		}
+		Expect(texts).To(ContainElement("second\n\nworking on: seconddone"))
+	})
+	for _, origin := range []string{session.OriginConnector, session.OriginTrigger} {
+		It("captures explicit incoming text on a worker for "+origin, func() {
+			var st store.Store
+			r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store })
+			a := memoryPolicy()
+			a.Memory.AutomaticIngestion = "incoming_and_replies"
+			r.save(a)
+			rec, err := r.svc.CreateAs(context.Background(), alice, studio.CreateInput{Model: "m", AgentID: a.ID}, studio.Origin{Kind: origin, ID: "source-binding"})
+			Expect(err).NotTo(HaveOccurred())
+			reply := r.svc.ServeStart(context.Background(), workerctl.ChatStartRequest{Principal: alice, ChatID: rec.ID, Text: "explicit incoming"})
+			Expect(reply.Error).To(BeEmpty())
+			idle(r.svc, alice, rec.ID)
+			records, err := st.ListCaptures(context.Background(), alice, rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(records).To(HaveLen(2))
+			for _, record := range records {
+				Expect(record.Origin.Kind).To(Equal(origin))
+				Expect(record.Origin.ConnectorID).To(Equal("source-binding"))
+			}
+			chat, err := r.svc.Get(context.Background(), alice, rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(chat.Model).To(Equal("m"))
+		})
+	}
+	It("regenerates a distinct reply without accepting the input again", func() {
+		var st store.Store
+		r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store })
+		a := memoryPolicy()
+		a.Memory.AutomaticIngestion = "incoming_and_replies"
+		r.save(a)
+		id := r.chatWith(a.ID)
+		sent(r.svc, alice, id, "one input")
+		idle(r.svc, alice, id)
+		_, err := r.svc.Regenerate(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		idle(r.svc, alice, id)
+		records, err := st.ListCaptures(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(HaveLen(3))
+		kinds := []string{}
+		sources := map[string]bool{}
+		for _, record := range records {
+			kinds = append(kinds, record.Identity.Kind)
+			sources[record.Identity.Source] = true
+		}
+		Expect(kinds).To(ConsistOf("incoming", "reply", "reply"))
+		Expect(sources).To(HaveLen(3))
+	})
+
+	It("does not capture plain chats", func() {
+		var st store.Store
+		r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store })
+		rec, err := r.svc.Create(context.Background(), alice, studio.CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		sent(r.svc, alice, rec.ID, "plain")
+		idle(r.svc, alice, rec.ID)
+		records, err := st.ListCaptures(context.Background(), alice, rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(BeEmpty())
+	})
+})
