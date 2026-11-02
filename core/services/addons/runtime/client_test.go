@@ -55,6 +55,10 @@ var _ = Describe("Authenticated runtime client", func() {
 	})
 	It("bounds output streams cancellation deadlines and stop admission", func() {
 		s := supervisor()
+		// Process startup and successful stream headers are setup, not the
+		// deadline under test. Allow the same startup budget as host-op specs.
+		s.config.ReadyTimeout = 2 * time.Second
+		s.config.Limits.ReadTimeout = 2 * time.Second
 		i, e := s.Start(context.Background(), fixture("normal", service), 1)
 		Expect(e).NotTo(HaveOccurred())
 		stream, e := i.Client.OpenOutput(context.Background(), envelope("output"), "file")
@@ -69,10 +73,13 @@ var _ = Describe("Authenticated runtime client", func() {
 		Expect(e).To(HaveOccurred())
 		slow := envelope("read")
 		slow.Request.Action = "delay"
+		client := i.Client.(*Client)
+		client.limits.ReadTimeout = 300 * time.Millisecond
 		start := time.Now()
 		_, e = i.Client.Read(context.Background(), slow)
 		Expect(e).To(HaveOccurred())
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+		client.limits.ReadTimeout = 2 * time.Second
 		stream, e = i.Client.OpenOutput(context.Background(), envelope("output"), "slow")
 		Expect(e).NotTo(HaveOccurred())
 		start = time.Now()
@@ -325,6 +332,8 @@ var _ = Describe("Action calls", func() {
 	})
 	It("never sends a call that is not an act call or has another scope", func() {
 		s := supervisor()
+		// This spec tests admission, not the speed of starting a child.
+		s.config.ReadyTimeout = 2 * time.Second
 		i, e := s.Start(context.Background(), fixture("normal", withActions), 1)
 		Expect(e).NotTo(HaveOccurred())
 		bad := actEnvelope()

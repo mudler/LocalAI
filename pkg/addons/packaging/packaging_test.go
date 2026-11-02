@@ -930,6 +930,9 @@ var _ = Describe("catalog template", func() {
 			Expect(entries).To(HaveLen(2), id)
 			for _, e := range entries {
 				Expect(e.ID).To(Equal(id))
+				if id == "office" {
+					Expect(e.Name).To(Equal("Simple Office"))
+				}
 				Expect(e.Artifact).To(Equal("oci://" + repoName + ":" + id + "-1.2.3"))
 				Expect(e.Policy.RequireSignature).To(BeTrue())
 			}

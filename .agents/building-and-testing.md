@@ -55,3 +55,10 @@ Rules (both gates):
 - **Shipped bundle:** specs tagged `@production-chunks` (stale chunk recovery, `e2e/production-bundle.spec.js`) run on the production code-split build through `make test-ui-stale-chunk`; the coverage build inlines dynamic imports and skips them.
 - **Distributed:** `tests-e2e-distributed.yml` runs `make test-e2e-distributed` (PostgreSQL and NATS in containers) and `make test-distributed-fakebus` (the in-process bus, race detector) nightly and on changes to the distributed code.
 - **Auth modes:** `core/http/route_authmodes_test.go` runs every `/api/chats` and `/api/addons` route as the local owner, with a shared API key, and with accounts (session, per-user API key, revoked feature, non-administrator).
+
+### Office PDF regression tests
+
+The Office text-input tests inspect actual PDF glyphs with Poppler’s
+`pdftotext`. Install `poppler-utils` on Ubuntu/Debian or `poppler` with
+Homebrew before running `go test ./addons/office/...` or the main Go suites.
+Missing PDF inspection tools are test failures, not skipped checks.
