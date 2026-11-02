@@ -842,7 +842,8 @@ func joinPending(taken []store.Pending, msg session.Message) session.Message {
 // starts sub-agent conversations through it.
 func (s *Service) send(ctx context.Context, user, conv string, msg session.Message) (SendResult, error) {
 	p := principal(user)
-	if _, err := s.d.Store.GetChat(ctx, p, conv); err != nil {
+	rec, err := s.d.Store.GetChat(ctx, p, conv)
+	if err != nil {
 		return SendResult{}, err
 	}
 	unlock := s.lock(key(p, conv))
@@ -857,6 +858,11 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 			s.log.Warn("studio: delivery receipt lookup unavailable", "chat", conv)
 		}
 		if !found {
+			// A refused delivery is not accepted. Look up old receipts first so
+			// replay still returns its original disposition after access changes.
+			if err := s.admitChatFolders(ctx, rec); err != nil {
+				return SendResult{}, err
+			}
 			in, eligible := s.memoryAcceptance(ctx, p, conv, msg.Text)
 			if !eligible {
 				// Delivery receipts are independent of automatic capture policy.
@@ -911,6 +917,9 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 			_, err = s.startFromPending(ctx, p, conv)
 			return SendResult{Started: accepted.Started, PendingID: accepted.ID}, err
 		}
+	}
+	if err := s.admitChatFolders(ctx, rec); err != nil {
+		return SendResult{}, err
 	}
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {

@@ -136,6 +136,10 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   never drops shared folders to fit. If the complete set exceeds the limit,
   `POST /api/chats` and the next message to an existing chat answer `409` with
   type `agent_folder_limit`. This is a capacity refusal, not a missing folder.
+  Refused messages create no waiting message, delivery receipt, or memory
+  capture intent. After access changes, retrying the same delivery ID can
+  succeed. Replaying an already accepted delivery returns its original result
+  without another answer, even if folder access now exceeds the limit.
   Ask an administrator to reduce the shared folders available to you, then
   retry. The Tools panel exposes no file access while this check fails, even
   before the chat folder exists. Each turn checks access again, so a smaller

@@ -164,6 +164,17 @@ func fenceScopes(base workspace.Actor, scopes []folderScope, chatNode int64, rea
 	return a, nil
 }
 
+// admitChatFolders checks the same live root budget as turn resolution before
+// accepting a delivery. It creates neither a chat folder nor a partial fence.
+func (s *Service) admitChatFolders(ctx context.Context, rec session.ChatRecord) error {
+	scopes, _, err := s.chatScopes(ctx, rec, false)
+	if err != nil || len(scopes) == 0 {
+		return err
+	}
+	_, err = s.scopedRoots(ctx, userChatActor(rec.Principal, rec.ID), scopes)
+	return err
+}
+
 // scopedRoots resolves the complete optional read set and validates the budget
 // without making a chat folder. Creation and every turn use the same check.
 func (s *Service) scopedRoots(ctx context.Context, base workspace.Actor, scopes []folderScope) ([]workspace.FenceRoot, error) {
