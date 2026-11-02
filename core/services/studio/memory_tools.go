@@ -3,8 +3,10 @@ package studio
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"unicode/utf8"
@@ -18,20 +20,20 @@ import (
 
 const MemoryContentBytes = 32 * 1024
 
-type memoryInvocationKey struct{}
-
 // WithMemoryInvocation binds a host-assigned tool call identity to retries. Never
 // populate this identity from model arguments. Different explicit calls need
 // different identities; callers without an identity receive a fresh key.
 func WithMemoryInvocation(ctx context.Context, id string) context.Context {
-	return context.WithValue(ctx, memoryInvocationKey{}, id)
+	return session.WithToolInvocation(ctx, id)
 }
 func memoryWriteKey(ctx context.Context, a workspace.Actor) string {
-	if id, ok := ctx.Value(memoryInvocationKey{}).(string); ok && id != "" {
+	if id := session.ToolInvocation(ctx); id != "" {
 		return uuid.NewSHA1(uuid.NameSpaceURL, []byte(a.Principal+"\x00"+a.ChatID+"\x00"+id)).String()
 	}
 	return uuid.NewString()
 }
+
+var ErrMemoryConflict = errors.New("studio: memory invocation input conflict")
 
 var ErrMemoryDenied = errors.New("studio: memory access denied")
 
@@ -41,8 +43,9 @@ type MemoryAuthorization struct {
 }
 type MemoryRequest struct {
 	MemoryAuthorization
-	Content, Key string
-	Metadata     map[string]string
+	Content, Key     string
+	InputFingerprint string
+	Metadata         map[string]string
 }
 type DeleteMemoryRequest struct {
 	MemoryAuthorization
@@ -169,16 +172,37 @@ func (s *Service) memoryTools(ctx context.Context, a workspace.Actor) []session.
 			if err != nil {
 				return "", err
 			}
-			req := MemoryRequest{MemoryAuthorization: MemoryAuthorization{Principal: a.Principal, ChatID: a.ChatID, AgentID: current.ID, Source: "tool", Destination: current.Memory.Destination, Storage: current.Memory.ToolStorage}, Content: args.Content, Key: memoryWriteKey(ctx, a)}
+			key := memoryWriteKey(ctx, a)
+			fingerprint := fmt.Sprintf("%x", sha256.Sum256([]byte(args.Content)))
+			frozen, err := s.d.Store.FrozenMemory(ctx, a.Principal, a.ChatID, ag.ID, key, func() ([]byte, error) {
+				req := MemoryRequest{MemoryAuthorization: MemoryAuthorization{Principal: a.Principal, ChatID: a.ChatID, AgentID: current.ID, Source: "tool", Destination: current.Memory.Destination, Storage: current.Memory.ToolStorage}, Content: args.Content, Key: key, InputFingerprint: fingerprint}
+				if err := s.AuthorizeMemory(ctx, req.MemoryAuthorization); err != nil {
+					return nil, err
+				}
+				if req.Storage == "summary" {
+					var err error
+					req.Content, err = s.SummarizeMemory(ctx, SummaryRequest{Principal: a.Principal, ChatID: a.ChatID, Content: req.Content})
+					if err != nil {
+						return nil, err
+					}
+				}
+				return json.Marshal(req)
+			})
+			if err != nil {
+				return "", err
+			}
+			var req MemoryRequest
+			if err := json.Unmarshal(frozen, &req); err != nil {
+				return "", err
+			}
+			if req.InputFingerprint != fingerprint {
+				return "", ErrMemoryConflict
+			}
+
 			if err = s.AuthorizeMemory(ctx, req.MemoryAuthorization); err != nil {
 				return "", err
 			}
-			if req.Storage == "summary" {
-				req.Content, err = s.SummarizeMemory(ctx, SummaryRequest{Principal: a.Principal, ChatID: a.ChatID, Content: req.Content})
-				if err != nil {
-					return "", err
-				}
-			}
+
 			result, err := s.d.Collections.(Memory).WriteMemory(ctx, req, func(ctx context.Context) error { return s.AuthorizeMemory(ctx, req.MemoryAuthorization) })
 			if err != nil {
 				return "", err

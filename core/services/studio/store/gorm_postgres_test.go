@@ -29,7 +29,7 @@ var _ = Describe("the GORM store on PostgreSQL", func() {
 		DeferCleanup(func() { _ = sqlDB.Close() })
 		s, err := store.NewGORM(db)
 		Expect(err).NotTo(HaveOccurred())
-		for _, tbl := range []string{"studio_pending", "studio_entries", "studio_chats"} {
+		for _, tbl := range []string{"studio_memory_requests", "studio_pending", "studio_entries", "studio_chats"} {
 			Expect(db.Exec("DELETE FROM " + tbl).Error).NotTo(HaveOccurred())
 		}
 		return s

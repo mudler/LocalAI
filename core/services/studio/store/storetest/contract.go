@@ -47,6 +47,51 @@ func texts(ps []store.Pending) []string {
 
 // Run registers the specs that check stores from newStore.
 func Run(newStore New) {
+	It("freezes one durable memory request across concurrent duplicates without rerunning preparation", func() {
+		s := newStore()
+		chat(s, "memory-c1", "alice")
+		var calls atomic.Int32
+		var wg sync.WaitGroup
+		for i := 0; i < 8; i++ {
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				got, err := s.FrozenMemory(context.Background(), "alice", "memory-c1", "agent", "call", func() ([]byte, error) {
+					calls.Add(1)
+					return []byte(`{"destination":"original","storage":"summary","content":"first","metadata":{"source":"tool"},"input_fingerprint":"abc"}`), nil
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(string(got)).To(ContainSubstring(`"content":"first"`))
+			}()
+		}
+		wg.Wait()
+		Expect(calls.Load()).To(Equal(int32(1)))
+		_, err := s.FrozenMemory(context.Background(), "bob", "memory-c1", "agent", "call", nil)
+		Expect(err).To(MatchError(session.ErrNotFound))
+		Expect(s.DeleteChat(context.Background(), "alice", "memory-c1")).To(Succeed())
+		chat(s, "memory-c1", "alice")
+		got, err := s.FrozenMemory(context.Background(), "alice", "memory-c1", "agent", "call", nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(BeEmpty(), "deleted chat must not resurrect old receipts")
+	})
+
+	It("allows frozen memory preparation to read current authorization from the store", func() {
+		s := newStore()
+		chat(s, "memory-auth", "alice")
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		got, err := s.FrozenMemory(ctx, "alice", "memory-auth", "agent", "call", func() ([]byte, error) {
+			rec, err := s.GetChat(ctx, "alice", "memory-auth")
+			if err != nil {
+				return nil, err
+			}
+			return []byte(rec.Principal), nil
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(got)).To(Equal("alice"))
+	})
+
 	// The loop's own transcript contract.
 	sessiontest.RunStoreSuite(func() session.Store { return newStore() })
 

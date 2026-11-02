@@ -28,7 +28,11 @@ func openSQLite(path string) *gorm.DB {
 
 var _ = Describe("the GORM store on SQLite", func() {
 	storetest.Run(func() store.Store {
-		s, err := store.NewGORM(openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db")))
+		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
+		sqlDB, err := db.DB()
+		Expect(err).NotTo(HaveOccurred())
+		sqlDB.SetMaxOpenConns(1)
+		s, err := store.NewGORM(db)
 		Expect(err).NotTo(HaveOccurred())
 		return s
 	})

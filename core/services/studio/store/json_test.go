@@ -45,6 +45,20 @@ var _ = Describe("the JSON store", func() {
 		})
 	})
 
+	It("preserves a frozen memory request after response loss and restart", func() {
+		dir := GinkgoT().TempDir()
+		first, err := store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		newChat(first, "memory-restart")
+		_, err = first.FrozenMemory(context.Background(), "alice", "memory-restart", "agent", "call", func() ([]byte, error) { return []byte("first summary and destination"), nil })
+		Expect(err).NotTo(HaveOccurred())
+		second, err := store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		got, err := second.FrozenMemory(context.Background(), "alice", "memory-restart", "agent", "call", func() ([]byte, error) { Fail("must not rerun summary"); return nil, nil })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(got)).To(Equal("first summary and destination"))
+	})
+
 	// A store reopened on the same directory sees what the first one wrote: this
 	// is what makes the JSON store a real persistence mode and not only a cache.
 	It("survives a reopen", func() {

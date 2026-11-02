@@ -6,8 +6,11 @@ import (
 	"errors"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/store"
 	"net/http"
 	"strings"
+	"sync/atomic"
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
@@ -253,4 +256,107 @@ var _ = Describe("agent memory tools", func() {
 		Expect(r.svc.AuthorizeMemory(context.Background(), req)).NotTo(Succeed())
 	})
 
+})
+
+// captureMemoryHarness keeps the real service-built tool closures, while the
+// scripted harness only opens the chat. Retries use a host-owned invocation ID.
+type captureMemoryHarness struct {
+	session.Harness
+	add session.Tool
+}
+
+func (h *captureMemoryHarness) Start(ctx context.Context, env session.HarnessEnv) (session.HarnessSession, error) {
+	for _, t := range env.Tools {
+		if t.Name == "add_memory" {
+			h.add = t
+		}
+	}
+	return h.Harness.Start(ctx, env)
+}
+
+type lostMemoryResponse struct {
+	*memoryCollections
+	saved map[string]studio.MemoryRequest
+	lost  bool
+}
+
+func (m *lostMemoryResponse) WriteMemory(ctx context.Context, req studio.MemoryRequest, check func(context.Context) error) (studio.MemoryResult, error) {
+	if err := check(ctx); err != nil {
+		return studio.MemoryResult{}, err
+	}
+	if _, ok := m.saved[req.Key]; !ok {
+		m.saved[req.Key] = req
+	}
+	if !m.lost {
+		m.lost = true
+		return studio.MemoryResult{}, errors.New("response lost after commit")
+	}
+	return studio.MemoryResult{Destination: req.Destination, EntryID: "saved-once"}, nil
+}
+
+var _ = Describe("frozen summary invocation retries", func() {
+	It("reuses a saved summary after response loss and restart, rejects input conflicts, destination edits and current revocation", func() {
+		p := provider.New()
+		var summaries atomic.Int32
+		p.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			summaries.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"first summary"},"finish_reason":"stop"}]}`))
+		}))
+		dir := GinkgoT().TempDir()
+		st, err := store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		var h *captureMemoryHarness
+		var backend *lostMemoryResponse
+		r, fc := memoryRig(sayOK, func(d *studio.Deps) {
+			d.Store, d.Provider = st, p
+			h = &captureMemoryHarness{Harness: d.Harness}
+			d.Harness = h
+			backend = &lostMemoryResponse{memoryCollections: d.Collections.(*memoryCollections), saved: map[string]studio.MemoryRequest{}}
+			d.Collections = backend
+		})
+		ag := memoryPolicy()
+		ag.Memory.ToolStorage = "summary"
+		r.save(ag)
+		id := r.chatWith("recorder")
+		sent(r.svc, alice, id, "open")
+		idle(r.svc, alice, id)
+		ctx := studio.WithMemoryInvocation(context.Background(), "same-engine-invocation")
+		args := json.RawMessage(`{"content":"original input"}`)
+		_, err = h.add.Run(ctx, args)
+		Expect(err).To(MatchError("response lost after commit"))
+		Expect(backend.saved).To(HaveLen(1))
+		Expect(r.svc.Close(context.Background())).To(Succeed())
+		st, err = store.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		r2, _ := memoryRig(sayOK, func(d *studio.Deps) {
+			d.Store, d.Provider, d.Agents, d.Collections = st, p, r.agents, backend
+			h = &captureMemoryHarness{Harness: d.Harness}
+			d.Harness = h
+		})
+		sent(r2.svc, alice, id, "resume")
+		idle(r2.svc, alice, id)
+		out, err := h.add.Run(ctx, args)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("saved-once"))
+		Expect(summaries.Load()).To(Equal(int32(1)))
+		Expect(backend.saved).To(HaveLen(1))
+		for _, saved := range backend.saved {
+			Expect(saved.Content).To(Equal("first summary"))
+			Expect(saved.Destination).To(Equal("docs"))
+		}
+		_, err = h.add.Run(ctx, json.RawMessage(`{"content":"different input"}`))
+		Expect(err).To(MatchError(studio.ErrMemoryConflict))
+		ag.Memory.Destination = "other"
+		r.save(ag)
+		_, err = h.add.Run(ctx, args)
+		Expect(err).To(MatchError(studio.ErrMemoryDenied))
+		ag.Memory.Destination = "docs"
+		r.save(ag)
+		fc.blocked[alice] = true
+		_, err = h.add.Run(ctx, args)
+		Expect(err).To(HaveOccurred())
+		Expect(summaries.Load()).To(Equal(int32(1)))
+		Expect(backend.saved).To(HaveLen(1))
+	})
 })

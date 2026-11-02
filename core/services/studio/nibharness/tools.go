@@ -69,7 +69,10 @@ func newToolServer(tools []session.Tool) (*toolServer, mcp.Transport, []string, 
 		run := tl.Run
 		srv.AddTool(&mcp.Tool{Name: wireName(tl.Name), Description: tl.Description, InputSchema: schema},
 			func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-				out, err := run(ctx, req.Params.Arguments)
+				// TODO: use cogito.MCPToolCallIDMetaKey after the standard pin
+				// includes the transport identity fix. Keep the published API buildable.
+				id, _ := req.Params.Meta["cogito.tool_call_id"].(string)
+				out, err := run(session.WithToolInvocation(ctx, id), req.Params.Arguments)
 				if err != nil {
 					return &mcp.CallToolResult{IsError: true, Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}}}, nil
 				}

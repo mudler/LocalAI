@@ -34,9 +34,10 @@ import (
 // each other. A goroutine that holds a chat lock may take mu (DeleteChat);
 // one that holds mu never takes a chat lock.
 type jsonStore struct {
-	mu    sync.Mutex
-	dir   string // empty: memory only
-	chats map[string]*chatSlot
+	memoryMu sync.Mutex // serializes explicit memory request preparation, never held by chat readers
+	mu       sync.Mutex
+	dir      string // empty: memory only
+	chats    map[string]*chatSlot
 }
 
 // chatSlot is one chat with its lock. gone is set, under the lock, when the
@@ -49,6 +50,7 @@ type chatSlot struct {
 }
 
 type chatState struct {
+	FrozenMemoryRequests map[string][]byte `json:"frozen_memory_requests,omitempty"`
 	// Rec.HarnessState is not in the record file: it is in the state file of
 	// generation StateGen. A record without StateGen keeps it inline, as the
 	// records written before the state file existed did.
