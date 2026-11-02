@@ -217,3 +217,34 @@ test('upgrade observers resume the same ID after reload and isolate account chan
  assert.equal(reloaded.getSnapshot().live.length, 0)
  assert.equal(values.has('addon-upgrades:alice'), false)
 })
+
+
+test('account change gives Bob a fresh action identity and restores Alice unknown identity on return', async () => {
+  const values = new Map()
+  const storage = { getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k) }
+  const owner = fakeOwner({ fate: { notes: async () => { throw new AddonsError({ kind: 'unknown_outcome' }) } }, status: async () => ({ phase: 'running' }) })
+  const s = store()
+  s.bind(owner.api, 'alice', storage)
+  await s.start(owner.api, pendingAddon('notes'))
+  const aliceID = owner.calls[0].body.operationId
+  s.bind(owner.api, 'bob', storage)
+  await s.start(owner.api, pendingAddon('notes'))
+  const bobID = owner.calls[1].body.operationId
+  assert.notEqual(bobID, aliceID)
+  s.bind(owner.api, 'alice', storage)
+  await new Promise(r => setImmediate(r))
+  const job = s.getSnapshot().live[0]
+  assert.equal(job.operationId, aliceID)
+  await s.retry(owner.api, job.jobID)
+  assert.equal(owner.calls.length, 2, 'restored unknown operation must only poll, never resubmit')
+})
+
+test('logout cleanup clears persisted observers even in a fresh unbound store before navigation', () => {
+  const values = new Map([['addon-upgrades:alice', '[{"operationId":"private"}]'], ['unrelated', 'keep']])
+  const storage = { get length() { return values.size }, key: i => [...values.keys()][i], getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k) }
+  const fresh = store()
+  fresh.clearSession(storage)
+  assert.equal(values.has('addon-upgrades:alice'), false)
+  assert.equal(values.get('unrelated'), 'keep')
+  assert.deepEqual(fresh.getSnapshot(), { live: [], records: [] })
+})

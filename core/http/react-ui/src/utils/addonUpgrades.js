@@ -77,6 +77,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       epoch += 1
       for (const controller of controllers.values()) controller.abort()
       controllers.clear()
+      book.clear()
       if (!principal && storage && previous) { try { storage.removeItem(`addon-upgrades:${previous}`) } catch { /* storage unavailable */ } }
       scope = principal
       storage = persistence
@@ -88,11 +89,22 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       if (!Array.isArray(pending)) return
       for (const op of pending.slice(0, 20)) {
         if (!op.operationId || !op.addonId) continue
+        book.restore(op.addonId, { key: `upgrade:${op.addonId}:${op.baseGeneration}`, operationId: op.operationId })
         const controller = new AbortController()
         controllers.set(op.jobID, controller)
         emit({ ...snapshot, live: [...snapshot.live, { ...op, isAddon: true, taskType: "upgrade", state: "running", progress: 0, cancellable: false }] })
         void store.follow(api, { jobID: op.jobID, addon: { id: op.addonId, generation: op.baseGeneration }, operationId: op.operationId, key: `upgrade:${op.addonId}:${op.baseGeneration}`, controller, submit: false })
       }
+    },
+
+    // Logout must not rely on a React state update before navigation, and may
+    // run before this store has bound a principal. Clear only our namespace.
+    clearSession(persistence) {
+      store.bind(null, '', null)
+      try {
+        const keys = Array.from({ length: persistence?.length || 0 }, (_, i) => persistence.key(i))
+        for (const key of keys) if (key?.startsWith('addon-upgrades:')) persistence.removeItem(key)
+      } catch { /* blocked storage must not prevent logout */ }
     },
 
     subscribe(listener) {
