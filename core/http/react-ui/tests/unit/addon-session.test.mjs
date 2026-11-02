@@ -98,22 +98,20 @@ for (const switchUser of [false, true]) test(`installed records reject late admi
   assert.deepEqual(h.render({ api }).installedInfo, {})
 })
 
-for (const phase of ['completed', 'failed', 'intent', 'unreadable']) test(`cancel reconciliation drops ${phase} after auth epoch changes during status read`, async () => {
+for (const phase of ['completed', 'failed', 'intent', 'unreadable']) test(`observer drops ${phase} after auth epoch changes during status read`, async () => {
   const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
   const status = deferred(), reading = deferred()
   let epoch = 1, verified = 0, reads = 0
-  const store = createUpgradeStore()
+  const store = createUpgradeStore({ waits: [] })
   const api = {
-    updates: { upgrade: (_id, _body, signal) => new Promise((_resolve, reject) => {
-      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
-    }) },
+    updates: { upgrade: async () => ({ phase: 'accepted' }) },
     operationStatus: () => { reads++; reading.resolve(); return status.promise.then(value => { if (phase === 'unreadable') throw new Error('offline'); return value }) },
     installed: async () => { verified++; return [] },
   }
   const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
   const work = store.start(api, addon, { current: () => epoch === 1 })
-  assert.equal(store.cancel(store.forAddon('notes').jobID), true)
-  await reading.promise // cancellation was authorized; its status read is pending
+  await reading.promise
+  assert.equal(store.cancel(store.forAddon('notes').jobID), false, 'accepted owner work cannot be cancelled')
   epoch = 2
   const publications = []
   store.subscribe(() => publications.push(store.getSnapshot()))
@@ -125,41 +123,37 @@ for (const phase of ['completed', 'failed', 'intent', 'unreadable']) test(`cance
   assert.ok(publications.every(s => s.records.length === 0 && s.live.length === 0))
 })
 
-test('cancel reconciliation does not read status when auth expires before the read', async () => {
+test('observer does not read status when auth expires before acceptance returns', async () => {
   const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
-  const store = createUpgradeStore()
+  const store = createUpgradeStore({ waits: [] }), accepted = deferred()
   let epoch = 1, reads = 0
   const api = {
-    updates: { upgrade: (_id, _body, signal) => new Promise((_resolve, reject) => {
-      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
-    }) },
+    updates: { upgrade: () => accepted.promise },
     operationStatus: async () => { reads++; return { phase: 'completed' } },
   }
   const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
   const work = store.start(api, addon, { current: () => epoch === 1 })
-  store.cancel(store.forAddon('notes').jobID)
+  assert.equal(store.cancel(store.forAddon('notes').jobID), false, 'disconnect cannot prove preacceptance')
   epoch = 2
+  accepted.resolve({ phase: 'accepted' })
   assert.equal(await work, null)
   assert.equal(reads, 0)
   assert.deepEqual(store.getSnapshot(), { live: [], records: [] })
 })
 
-test('expired cancel cleanup preserves a newer attempt with the same action key', async () => {
+test('expired observer cleanup preserves a newer attempt with the same action key', async () => {
   const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
   let id = 0, epoch = 1
   const book = createActionBook(() => `attempt-${++id}`)
-  const store = createUpgradeStore({ book })
+  const store = createUpgradeStore({ book, waits: [] })
   const status = deferred(), reading = deferred(), nextSubmit = deferred()
   const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
   const api = {
-    updates: { upgrade: (_id, _body, signal) => new Promise((_resolve, reject) => {
-      signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
-    }) },
+    updates: { upgrade: async () => ({ phase: 'accepted' }) },
     operationStatus: () => { reading.resolve(); return status.promise },
   }
   const oldWork = store.start(api, addon, { current: () => epoch === 1 })
   const old = store.forAddon(addon.id)
-  store.cancel(old.jobID)
   await reading.promise
   // Another follower concludes the old entry, allowing a new authorized action.
   store.conclude(old.jobID, addon, 'upgrade:notes:1', 'failed', old.operationId)
@@ -187,7 +181,7 @@ async function providerAuthority() {
   let status = { authEnabled: true, user: { id: 'admin', role: 'admin' } }
   const logoutReply = deferred()
   const h = hookHarness('../../src/context/AuthContext.jsx', 'AuthProvider', {
-    apiUrl: x => x,
+    apiUrl: x => x, addonUpgrades: (await import('../../src/utils/addonUpgrades.js')).createUpgradeStore(),
     fetch: url => url.endsWith('/logout') ? logoutReply.promise : Promise.resolve({ json: async () => status }),
     document: { cookie: '' }, window: { location: {} },
   }, source => ts.transpileModule(source.replace(/return \(\s*<AuthContext.Provider[\s\S]*?\n  \)/, 'return value'), {
@@ -209,19 +203,17 @@ async function providerAuthority() {
   }
 }
 
-for (const path of ['cancel', 'completion', 'verification']) {
+for (const path of ['observer', 'completion', 'verification']) {
   for (const change of ['same-auth', 'refresh', 'account', 'feature', 'logout', 'unmount']) {
     test(`background ${path} after origin unmount uses actual provider authority on ${change}`, async () => {
       const { createUpgradeStore } = await import('../../src/utils/addonUpgrades.js')
       const provider = await providerAuthority()
-      const store = createUpgradeStore()
+      const store = createUpgradeStore({ waits: [] })
       const reply = deferred(), reading = deferred(), verification = deferred(), verifying = deferred()
       let verified = 0, changed = 0
       const addon = { id: 'notes', digest: 'old', generation: 1, update: { state: 'update-available', digest: 'new' } }
       const api = {
-        updates: { upgrade: (_id, _body, signal) => path === 'cancel' ? new Promise((_resolve, reject) => {
-          signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true })
-        }) : reply.promise },
+        updates: { upgrade: () => path === 'observer' ? Promise.resolve({ phase: 'accepted' }) : reply.promise },
         operationStatus: () => { reading.resolve(); return reply.promise },
         installed: () => { verified++; verifying.resolve(); return verification.promise },
       }
@@ -232,9 +224,9 @@ for (const path of ['cancel', 'completion', 'verification']) {
       const origin = view.render(api, { onChanged: () => changed++ }); view.flush()
       const work = origin.upgrade(addon)
       view.unmount() // navigation must not revoke a valid background upgrade
-      if (path === 'cancel') {
-        assert.equal(store.cancel(store.forAddon(addon.id).jobID), true)
+      if (path === 'observer') {
         await reading.promise
+        assert.equal(store.cancel(store.forAddon(addon.id).jobID), false)
       }
       if (path === 'verification') {
         reply.resolve({ phase: 'completed' }); await verifying.promise
@@ -244,7 +236,7 @@ for (const path of ['cancel', 'completion', 'verification']) {
       verification.resolve([{ ...addon, generation: 2 }])
       await work
       assert.equal(changed, 0, 'unmounted view must not receive callbacks')
-      assert.equal(verified, path === 'cancel' ? 0 : path === 'verification' || change === 'same-auth' ? 1 : 0)
+      assert.equal(verified, path === 'verification' || change === 'same-auth' ? 1 : 0)
       assert.equal(store.getSnapshot().live.length, 0)
       assert.equal(store.getSnapshot().records.length, change === 'same-auth' ? 1 : 0)
     })
