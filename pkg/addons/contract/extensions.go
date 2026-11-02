@@ -63,6 +63,9 @@ type HostOperations struct {
 
 func validateExtensions(c Capabilities) error {
 	if u := c.UI; u != nil {
+		if err := ValidateModelActions(u); err != nil {
+			return err
+		}
 		if len(u.HomeCommands) > MaxHomeCommands {
 			return fmt.Errorf("too many home commands")
 		}

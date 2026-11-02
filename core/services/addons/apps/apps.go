@@ -157,6 +157,8 @@ type UIView struct {
 	Renderers []contract.Renderer `json:"renderers,omitempty"`
 	// HomeCommands contains only resolved navigation metadata for this app.
 	HomeCommands []HomeCommandView `json:"homeCommands,omitempty"`
+	// ModelActions contains only declared destinations for this installed UI.
+	ModelActions []contract.ModelAction `json:"modelActions,omitempty"`
 	// Controls are the host controls the host draws for the addon: the ones
 	// its manifest declares that its grants and tools entitle it to now. The
 	// host draws them with its own components; the addon supplies nothing.
@@ -311,6 +313,9 @@ func uiView(id, digest string, u *contract.UI) *UIView {
 	}
 	v := &UIView{Entry: asset(u.Entry), SDK: u.SDK, Pages: slices.Clone(u.Pages), Navigation: slices.Clone(u.Navigation), ChatActions: u.ChatActionIDs()}
 	v.Actions, v.Slots, v.Renderers = contributions(u)
+	if contract.ValidateModelActions(u) == nil {
+		v.ModelActions = slices.Clone(u.ModelActions)
+	}
 	for _, command := range u.HomeCommands {
 		page := command.Page
 		if page == "" {

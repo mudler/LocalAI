@@ -4922,3 +4922,31 @@ The chat `/about` card reports isolation from the selected command provider.
 When the provider status is missing or unknown, the card does not claim isolation.
 After an authentication refresh or account change, pending Apps reads and action
 results cannot populate the new session. The server still authorizes every action.
+
+### Model destinations (contract and backend metadata)
+
+An installed addon can declare optional `capabilities.ui.modelActions`:
+
+```json
+{"modelActions":[{"capability":"FLAG_IMAGE","page":"studio","path":"images"}]}
+```
+
+Each entry requires an existing non-native model capability and a declared UI
+page. The optional relative suffix must stay beneath that page. One entry per
+capability is allowed within an addon, with at most 27 entries. Native chat and
+completion cannot be shadowed; aggregate `FLAG_LLM` and `FLAG_ANY` are excluded.
+The remaining concrete host model flags form the vocabulary, guarded by parity
+tests. No labels, priorities, permissions, URLs or query templates are accepted.
+
+The combined page/suffix follows SDK routing bounds: at most 256 ASCII characters
+and eight segments, each 1–64 characters from `[A-Za-z0-9._~-]`; `.` and `..`
+segments are forbidden. Absolute paths, empty suffixes, percent escapes, queries,
+fragments, unknown keys, duplicate keys and noncanonical keys are rejected.
+Installed Apps metadata preserves these typed declarations and existing
+unavailable-UI omission; it does not discover or promote catalog entries.
+
+Studio declares its existing image, video, speech and sound tabs. Talk declares
+its transcription landing page, Face face recognition and Voice speaker
+recognition. Talk currently has no selected-model query semantics; its landing
+behavior is unchanged. This backend milestone does not yet alter model Open
+dispatch or remove historical frontend routes.

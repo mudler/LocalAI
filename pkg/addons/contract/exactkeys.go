@@ -55,7 +55,7 @@ func (c *Capabilities) UnmarshalJSON(b []byte) error {
 }
 
 func (u *UI) UnmarshalJSON(b []byte) error {
-	if err := rejectExtensionAliases(b, "homeCommands"); err != nil {
+	if err := rejectExtensionAliases(b, "homeCommands", "modelActions"); err != nil {
 		return err
 	}
 	type wire UI

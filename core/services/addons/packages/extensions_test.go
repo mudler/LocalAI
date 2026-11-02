@@ -14,14 +14,20 @@ import (
 )
 
 var _ = Describe("typed package declarations", func() {
-	It("persists typed declarations together separately and absent in verified immutable manifests and receipts", func() {
-		for mask := 0; mask < 8; mask++ {
+	It("persists model actions and typed declarations together separately and absent in verified immutable manifests and receipts", func() {
+		for mask := 0; mask < 16; mask++ {
 			b, e := os.ReadFile("../../../../tests/addons/fixtures/packages/manifest.json")
 			Expect(e).NotTo(HaveOccurred())
 			var m contract.Manifest
 			Expect(json.Unmarshal(b, &m)).To(Succeed())
 			if mask&1 != 0 {
 				m.Capabilities.UI = &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 1, Max: 2}, Pages: []string{"home"}, MainPage: "home", HomeCommands: []contract.HomeCommand{{ID: "open"}}}
+			}
+			if mask&8 != 0 {
+				if m.Capabilities.UI == nil {
+					m.Capabilities.UI = &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 1, Max: 2}, Pages: []string{"home"}}
+				}
+				m.Capabilities.UI.ModelActions = []contract.ModelAction{{Capability: "FLAG_IMAGE", Page: "home", Path: "images"}}
 			}
 			if mask&2 != 0 {
 				m.Capabilities.Actions = true
@@ -53,7 +59,7 @@ var _ = Describe("typed package declarations", func() {
 			Expect(e).NotTo(HaveOccurred())
 			Expect(manifest).To(Equal(b))
 			if mask == 0 {
-				for _, key := range []string{"homeCommands", "executionProvider", "hostOperations"} {
+				for _, key := range []string{"homeCommands", "executionProvider", "hostOperations", "modelActions"} {
 					Expect(string(disk)).NotTo(ContainSubstring(key))
 				}
 			}

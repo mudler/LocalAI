@@ -16,6 +16,7 @@
       "sdk": { "min": 2, "max": 2 },
       "pages": ["recognition"],
       "navigation": [],
+      "modelActions": [{"capability": "FLAG_FACE_RECOGNITION", "page": "recognition"}],
       "mainPage": "recognition",
       "icon": "ui/icon.png",
       "title": "Face",

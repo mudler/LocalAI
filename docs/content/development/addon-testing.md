@@ -537,3 +537,22 @@ The gateway compares current selection inputs and runtime identity before dispat
 and after the reply. The reducer binds explicit actor, credential, conversation,
 provider, tools and runtime identity. These checks are advisory, not a transaction
 or a guarantee to detect revoke-and-restore changes between reads.
+
+### Model action contract milestone
+
+Run from the repository root (these packages share the root Go module):
+
+```sh
+go test -count=1 -v -tags auth ./pkg/addons/contract ./core/services/addons/apps ./core/services/addons/packages ./core/services/addons/runtime ./addons/internal/protocol ./core/config
+```
+
+`modelactions_test.go` covers strict keys, capability exclusion, traversal and
+SDK path/count bounds, full manifest round trips and owning manifests. Apps
+specs exercise actual installed projection and slice isolation. The package and
+protocol declaration matrices include model actions independently and together
+with all other extensions. Runtime specs verify exact registration equality,
+crash recovery, receipt replay and immutable registry snapshots. Core/config
+owns vocabulary parity; the contract package does not import core/config.
+Exact contract, Apps, package and protocol spec names are in
+`scripts/addons/suites.json`. These unit checks do not certify browser dispatch,
+PostgreSQL services, or full-system harness prerequisites.

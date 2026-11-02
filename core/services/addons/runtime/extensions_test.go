@@ -20,13 +20,13 @@ import (
 )
 
 func typedCapabilities() contract.Capabilities {
-	return contract.Capabilities{Service: true, Actions: true, Tools: []string{"run", "health"}, ToolDefinitions: []contract.ToolDefinition{{Name: "run", Description: "Run", Kind: "action", Shadows: "bash", InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)}, {Name: "health", Description: "Status", Kind: "read", UIOnly: true, InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)}}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 2, Max: 2}, Pages: []string{"home"}, MainPage: "home", HomeCommands: []contract.HomeCommand{{ID: "open"}}}, ExecutionProvider: &contract.ExecutionProvider{Tools: []string{"run"}, StatusTool: "health"}, HostOperations: &contract.HostOperations{Required: []string{"workspace.materialize"}, Optional: []string{"egress.check"}}}
+	return contract.Capabilities{Service: true, Actions: true, Tools: []string{"run", "health"}, ToolDefinitions: []contract.ToolDefinition{{Name: "run", Description: "Run", Kind: "action", Shadows: "bash", InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)}, {Name: "health", Description: "Status", Kind: "read", UIOnly: true, InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)}}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 2, Max: 2}, Pages: []string{"home"}, MainPage: "home", HomeCommands: []contract.HomeCommand{{ID: "open"}}, ModelActions: []contract.ModelAction{{Capability: "FLAG_IMAGE", Page: "home", Path: "images"}}}, ExecutionProvider: &contract.ExecutionProvider{Tools: []string{"run"}, StatusTool: "health"}, HostOperations: &contract.HostOperations{Required: []string{"workspace.materialize"}, Optional: []string{"egress.check"}}}
 }
 
 var _ = Describe("typed runtime declarations", func() {
 	It("requires exact typed capability equality on authenticated registration health", func() {
 		original := typedCapabilities()
-		for _, change := range []func(*contract.Capabilities){func(c *contract.Capabilities) { c.UI.HomeCommands[0].ID = "changed" }, func(c *contract.Capabilities) { c.ExecutionProvider.StatusTool = "other" }, func(c *contract.Capabilities) { c.HostOperations.Required = []string{"other.op"} }, func(c *contract.Capabilities) { c.UI.HomeCommands = nil }, func(c *contract.Capabilities) { c.ExecutionProvider = nil }, func(c *contract.Capabilities) { c.HostOperations = nil }} {
+		for _, change := range []func(*contract.Capabilities){func(c *contract.Capabilities) { c.UI.ModelActions[0].Path = "changed" }, func(c *contract.Capabilities) { c.UI.ModelActions = nil }, func(c *contract.Capabilities) { c.UI.HomeCommands[0].ID = "changed" }, func(c *contract.Capabilities) { c.ExecutionProvider.StatusTool = "other" }, func(c *contract.Capabilities) { c.HostOperations.Required = []string{"other.op"} }, func(c *contract.Capabilities) { c.UI.HomeCommands = nil }, func(c *contract.Capabilities) { c.ExecutionProvider = nil }, func(c *contract.Capabilities) { c.HostOperations = nil }} {
 			var echo Registration
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				defer GinkgoRecover()
@@ -64,10 +64,14 @@ var _ = Describe("typed runtime declarations", func() {
 		Expect(e).NotTo(HaveOccurred())
 		Expect(regs).To(HaveLen(1))
 		Expect(regs[0].Capabilities).To(Equal(caps))
+		regs[0].Capabilities.UI.ModelActions[0].Path = "mutated"
+		fresh, e := s.Registry.Snapshot(context.Background())
+		Expect(e).NotTo(HaveOccurred())
+		Expect(fresh[0].Capabilities).To(Equal(caps))
 		Expect(regs[0].Generation).To(Equal(uint64(9)))
 		current, e := s.Current(context.Background(), "sample", 9)
 		Expect(e).NotTo(HaveOccurred())
-		Expect(current.Client.(*Client).health(context.Background(), regs[0])).To(Succeed())
+		Expect(current.Client.(*Client).health(context.Background(), fresh[0])).To(Succeed())
 	})
 
 	It("replays typed and legacy receipts across process restarts", func() {

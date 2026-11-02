@@ -23,11 +23,11 @@ func lifecycleCapabilities(label string) contract.Capabilities {
 	return contract.Capabilities{Service: true, Actions: true, Tools: []string{"run", "health"}, ToolDefinitions: []contract.ToolDefinition{
 		{Name: "run", Description: "Run", Kind: "action", Shadows: "bash", InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)},
 		{Name: "health", Description: "Health", Kind: "read", UIOnly: true, InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)},
-	}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 2, Max: 2}, Pages: []string{"home"}, MainPage: "home", HomeCommands: []contract.HomeCommand{{ID: "open", Alias: label}}}, ExecutionProvider: &contract.ExecutionProvider{Tools: []string{"run"}, StatusTool: "health"}, HostOperations: &contract.HostOperations{Required: []string{"workspace.materialize"}, Optional: []string{"egress.check"}}}
+	}, UI: &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 2, Max: 2}, Pages: []string{"home"}, MainPage: "home", HomeCommands: []contract.HomeCommand{{ID: "open", Alias: label}}, ModelActions: []contract.ModelAction{{Capability: "FLAG_IMAGE", Page: "home", Path: label}}}, ExecutionProvider: &contract.ExecutionProvider{Tools: []string{"run"}, StatusTool: "health"}, HostOperations: &contract.HostOperations{Required: []string{"workspace.materialize"}, Optional: []string{"egress.check"}}}
 }
 
 var _ = Describe("typed staged Manager lifecycle", func() {
-	It("persists and recovers all declarations through install manual and automatic upgrades and real activation rollback", func() {
+	It("persists and recovers model actions and declarations through install manual and automatic upgrades and real activation rollback", func() {
 		r := newUpdateRig(true)
 		c := r.m.catalog
 		installer := r.m.installer
@@ -93,6 +93,15 @@ var _ = Describe("typed staged Manager lifecycle", func() {
 			Expect(regs[0].Generation).To(Equal(number))
 			Expect(regs[0].Incarnation).To(Equal(instance.Incarnation))
 			Expect(regs[0].Capabilities).To(Equal(want))
+			installedApps, e := r.m.Apps(ctx, actor)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(installedApps).To(HaveLen(1))
+			Expect(installedApps[0].UI).NotTo(BeNil())
+			Expect(installedApps[0].UI.ModelActions).To(Equal(want.UI.ModelActions))
+			installedApps[0].UI.ModelActions[0].Path = "mutated"
+			freshApps, e := r.m.Apps(ctx, actor)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(freshApps[0].UI.ModelActions).To(Equal(want.UI.ModelActions))
 			return instance
 		}
 		reopen := func() {

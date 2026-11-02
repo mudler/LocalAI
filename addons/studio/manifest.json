@@ -16,6 +16,7 @@
       "sdk": { "min": 2, "max": 2 },
       "pages": ["studio"],
       "navigation": ["studio"],
+      "modelActions": [{"capability": "FLAG_IMAGE", "page": "studio", "path": "images"}, {"capability": "FLAG_VIDEO", "page": "studio", "path": "video"}, {"capability": "FLAG_TTS", "page": "studio", "path": "tts"}, {"capability": "FLAG_SOUND_GENERATION", "page": "studio", "path": "sound"}],
       "mainPage": "studio",
       "homeCommands": [{ "id": "open", "alias": "studio", "icon": "palette" }],
       "icon": "ui/icon.png",

@@ -13,11 +13,17 @@ import (
 )
 
 var _ = Describe("typed declaration echo", func() {
-	It("echoes all three typed declarations together separately and absent over authenticated health", func() {
-		for mask := 0; mask < 8; mask++ {
+	It("echoes model actions and typed declarations together separately and absent over authenticated health", func() {
+		for mask := 0; mask < 16; mask++ {
 			caps := contract.Capabilities{Service: true}
 			if mask&1 != 0 {
 				caps.UI = &contract.UI{Entry: "ui/main.js", SDK: contract.VersionRange{Min: 2, Max: 2}, Pages: []string{"home"}, MainPage: "home", HomeCommands: []contract.HomeCommand{{ID: "open"}}}
+			}
+			if mask&8 != 0 {
+				if caps.UI == nil {
+					caps.UI = &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 2, Max: 2}, Pages: []string{"home"}}
+				}
+				caps.UI.ModelActions = []contract.ModelAction{{Capability: "FLAG_IMAGE", Page: "home", Path: "images"}}
 			}
 			if mask&2 != 0 {
 				caps.Actions = true
@@ -51,7 +57,7 @@ var _ = Describe("typed declaration echo", func() {
 			Expect(json.Unmarshal(rec.Body.Bytes(), &echo)).To(Succeed())
 			Expect(echo).To(Equal(original.Registration))
 			if mask == 0 {
-				for _, key := range []string{"homeCommands", "executionProvider", "hostOperations"} {
+				for _, key := range []string{"homeCommands", "executionProvider", "hostOperations", "modelActions"} {
 					Expect(rec.Body.String()).NotTo(ContainSubstring(key))
 				}
 			}

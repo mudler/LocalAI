@@ -206,6 +206,7 @@ func validateResourceTools(c Capabilities) error {
 
 type UI struct {
 	HomeCommands []HomeCommand `json:"homeCommands,omitempty"`
+	ModelActions []ModelAction `json:"modelActions,omitempty"`
 	Entry        string        `json:"entry"`
 	CSS          []string      `json:"css,omitempty"`
 	SDK          VersionRange  `json:"sdk"`
