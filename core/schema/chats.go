@@ -1721,6 +1721,9 @@ type ChatsConnector struct {
 	// SendFiles sends the files that a turn makes to the sender, after the
 	// answer.
 	SendFiles bool `json:"send_files"`
+	// InboundMedia lists the kinds of file that the bot takes from senders:
+	// photo, voice, audio, video_note, document. Empty takes every kind.
+	InboundMedia []string `json:"inbound_media"`
 	// ReplyLanguage is the language of the sentences the bot writes itself in
 	// the chat (confirmations, refusals, notes about files): auto (the
 	// language of the sender's message), en, it, de, es, fr or pt-BR. The
@@ -2213,6 +2216,11 @@ type ChatsConnectorWrite struct {
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`
+	// InboundMedia lists the kinds of file that the bot takes from senders
+	// (photo, voice, audio, video_note, document); a file of another kind is
+	// never read, and the sender is told. Empty takes every kind. Absent
+	// means every kind for a new binding and unchanged for an update.
+	InboundMedia *[]string `json:"inbound_media,omitempty"`
 	// Options are the choices for the options of the kind, by option id. Absent
 	// means the defaults for a new binding and unchanged for an update.
 	Options map[string]string `json:"options,omitempty"`

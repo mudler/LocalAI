@@ -145,6 +145,13 @@ the name beside the ID and falls back to the ID when it has none.
   reaches your files. Another type gets a sentence that the file could not be read.
 - **Size.** The [file limit](#file-limits) of the binding. A larger file gets a sentence
   that names the limit and which limit it is, and the caption still reaches the agent.
+- **Limit the kinds (`inbound_media`).** A binding can take only some kinds of file:
+  `photo`, `voice`, `audio`, `video_note`, `document` (a file sent as a file). For a
+  bot that should hear voice messages but never see receipts or other papers, set
+  `"inbound_media": ["voice"]`. A file of another kind is never downloaded and never
+  reaches the chat: the sender gets one sentence, for example "This bot does not
+  accept photos.", and the caption still reaches the agent. Empty or absent takes
+  every kind. See [Limit the files a person can send](#limit-the-files-a-person-can-send-inbound_media).
 
 ### Voice messages
 
@@ -995,6 +1002,38 @@ always read by the host before any model turn, so it never reaches the model.
 The value is stored with the binding. An update without `reply_language` keeps the stored
 value; an unknown value is a 400. Instructions to the model (tool descriptions, the note
 about held back tools, the thread block) stay in English.
+
+### Limit the files a person can send (`inbound_media`)
+
+Empty by default: a sender who may send files (`files.upload`) can send every kind that
+the platform hands over. A list takes only those kinds:
+
+| Kind | What it is |
+|---|---|
+| `photo` | A picture sent as a photo |
+| `voice` | A voice message recorded in the app; it is transcribed |
+| `audio` | An audio file; it is transcribed |
+| `video_note` | A short round video message |
+| `document` | Any file sent as a file: a PDF, an uncompressed picture, a text file |
+
+```
+curl -X PUT .../api/chats/connectors/<id> -d '{"name": "Support bot", "agent_id": "<id>", "enabled": true, "allow": ["12345678"], "caps": ["files.upload"], "inbound_media": ["voice"]}'
+```
+
+- The check is made by the server, before the file is read: a file of a kind that
+  the binding does not take is never downloaded, never stored and never reaches the
+  model. The sender gets one sentence that names the kind, for example "This bot
+  does not accept photos.", and the text or caption of the message still goes to the
+  agent. A message with nothing else gets only the sentence and starts no turn.
+- The add-on tells the server the kind of each file. Telegram names every kind. An
+  add-on that names none (Slack and Discord, for now) hands over files of an unknown kind, which
+  a binding with a list never reads.
+- The list narrows `files.upload`, it does not replace it: a sender still needs the
+  [capability](#capabilities-roles-and-pairing) `files.upload` to send any file, voice messages
+  included; the example above enables both.
+- An unknown or repeated kind is a `400`. An update without `inbound_media` keeps the
+  stored list; `[]` takes every kind again. The binding returns the list (`[]` when
+  it takes every kind).
 
 ## Who may use the bot
 

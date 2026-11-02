@@ -3290,9 +3290,13 @@ calls. The limits come from the platforms' own documents: see the table in
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
-`senderUsername`, `chatName`, `link`, `text`, `unsupported`, `media`, `skip`) and the next
-offset. `chatName` (the channel or group name) and `link` (an https address of the message or
+`senderUsername`, `chatName`, `link`, `text`, `unsupported`, `media`, `mediaKinds`, `skip`) and
+the next offset. `chatName` (the channel or group name) and `link` (an https address of the message or
 its thread) are optional and are only shown to the owner in the header of the chat.
+`mediaKinds` names the kind of each entry of `media` at the same index (`photo`, `voice`,
+`audio`, `video_note`, `document`); the host reads it before it fetches a file, so a binding
+that takes only some kinds (`inbound_media`) never fetches the others. An add-on that leaves
+it out hands over files of an unknown kind, which only a binding that takes every kind reads.
 `messageId` is the platform's ID of the message and `replyTo` the message it answers;
 the thread conversation mode uses them. Core keeps the offset with the binding, passes it
 to the next `poll` and stores the offset the answer names, so a new leader continues
