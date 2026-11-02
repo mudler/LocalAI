@@ -16,7 +16,7 @@ var _ = Describe("the list settings of the Sandbox network", func() {
 		Expect(good.AllowedHosts).To(Equal([]egress.AllowedHost{{Host: "api.example.com"}, {Host: "git.example.org", Port: 8443}}))
 		Expect(good.Ports).To(Equal([]int{443}))
 
-		cfg.ChatsEgressAllowedHosts = "*.example.com"
+		cfg.ChatsEgressAllowedHosts = "api.*.example.com"
 		cfg.ChatsEgressExtraRegistries = "https://bad"
 		cfg.ChatsEgressPorts = "22"
 		bad := a.localStudioEgressSettings()

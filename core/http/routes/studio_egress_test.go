@@ -29,8 +29,8 @@ var _ = Describe("Chats Sandbox network routes", func() {
 			d.IsAdmin = func(_ context.Context, user string) bool { return user == "root" }
 			d.AddonTools = routeAddons{}
 			d.EgressAudit = lines
-			d.EgressSettings = func() egress.Settings {
-				return egress.Settings{Ceiling: egress.PresetRegistries, ExtraRegistries: []string{"mirror.example.org"}}
+			d.EgressSettings = func(context.Context) (egress.Settings, error) {
+				return egress.Settings{Ceiling: egress.PresetRegistries, ExtraRegistries: []string{"mirror.example.org"}}, nil
 			}
 		})
 	})
