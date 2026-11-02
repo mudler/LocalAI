@@ -31,7 +31,7 @@ Each list is an exact grant. An empty list grants nothing: a chat with an agent
 that names no add-ons has no add-on tools, even when you could use some. A
 plain chat, with no agent, is not changed.
 
-#Document selections keep the names `docx`, `pptx`, `pdf`, and `xlsx`.
+Document selections keep the names `docx`, `pptx`, `pdf`, and `xlsx`.
 Selecting a skill does not grant its provider or command execution.
 Grant Simple Office explicitly for its tool-based procedures; no command runner is required.
 For Sandbox procedures, grant Sandbox and allow its selected, usable isolated `bash` tool.
@@ -40,7 +40,7 @@ Without an eligible provider, the selected skill is unavailable; no built-in doc
 An unavailable provider pin never silently selects another provider.
 See [Document skills]({{%relref "features/chats#document-skills" %}}) for provider choices and OFF preferences.
 
-## Add-on changes apply at once
+### Add-on changes apply at once
 
 An add-on you turn on for a chat, or name in an agent, is allowed to change
 your data in that chat. A tool call that adds rows, changes a schema, creates a
