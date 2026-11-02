@@ -4867,6 +4867,11 @@ Provider explanations are bounded plain text. Dismissing a notice applies only
 to that mounted chat context and exact provider binding, including generation,
 incarnation, selection revision and observation. Loading, switching providers,
 changing isolation, changing actors or logging out resets the dismissal.
+Actor or authentication-session changes also invalidate pending status reads
+before the next effect runs; logging in as the same user starts a new epoch.
+Built-in command execution, including fallback from an unavailable provider,
+shows the generic host warning without Sandbox installation or repair advice.
+This warning does not change command consent or administrator settings.
 
 The network panel retains the configured policy when the backend cannot verify
 its enforcement. It explicitly says that the policy does not apply to commands.

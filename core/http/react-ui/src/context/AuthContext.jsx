@@ -5,6 +5,7 @@ import { addonUpgrades } from '../utils/addonUpgrades'
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
+    sessionEpoch: 0,
     loading: true,
     authEnabled: false,
     staticApiKeyRequired: false,
@@ -18,16 +19,17 @@ export function AuthProvider({ children }) {
       .then(data => {
         const user = data.user || null
         const permissions = user?.permissions || {}
-        setState({
+        setState(previous => ({
+          sessionEpoch: previous.sessionEpoch + 1,
           loading: false,
           authEnabled: data.authEnabled || false,
           staticApiKeyRequired: data.staticApiKeyRequired || false,
           user,
           permissions,
-        })
+        }))
       })
       .catch(() => {
-        setState({ loading: false, authEnabled: false, staticApiKeyRequired: false, user: null, permissions: {} })
+        setState(previous => ({ sessionEpoch: previous.sessionEpoch + 1, loading: false, authEnabled: false, staticApiKeyRequired: false, user: null, permissions: {} }))
       })
   }
 
@@ -41,6 +43,8 @@ export function AuthProvider({ children }) {
     let persistence
     try { persistence = window.sessionStorage } catch { /* storage blocked */ }
     addonUpgrades.clearSession(persistence)
+    // Invalidate in-flight observations before waiting for logout or navigation.
+    setState(previous => ({ ...previous, sessionEpoch: previous.sessionEpoch + 1, user: null, permissions: {} }))
     try {
       await fetch(apiUrl('/api/auth/logout'), { method: 'POST' })
     } catch (_) { /* ignore */ }
@@ -60,6 +64,8 @@ export function AuthProvider({ children }) {
   }
 
   const value = {
+    // A local, non-secret epoch: even same-user authentication refreshes invalidate observations.
+    sessionEpoch: state.sessionEpoch,
     loading: state.loading,
     authEnabled: state.authEnabled,
     staticApiKeyRequired: state.staticApiKeyRequired,

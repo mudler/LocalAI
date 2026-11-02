@@ -24,7 +24,7 @@ export { skillKey }
 // the new chat: the lists come from the draft endpoints, a switch changes only
 // the screen, and draftSwitches() gives the choices for the create request
 // (utils/chatDraftSwitches.js). Choices outlive a change of model or agent.
-export function useChatSwitches(chatId, filesOn, draft = null) {
+export function useChatSwitches(chatId, filesOn, draft = null, actorSession = '') {
   const draftOn = !chatId && !!draft
   const draftModel = draft?.model || ''
   const draftAgent = draft?.agentId || ''
@@ -33,7 +33,7 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
   const [addons, setAddons] = useState([])
   // Whether the chat can run commands, from the same list (see utils/chatCommands.js).
   const commandEpoch = useRef(0)
-  const context = JSON.stringify([chatId, draftModel, draftAgent, filesOn])
+  const context = JSON.stringify([actorSession, chatId, draftModel, draftAgent, filesOn])
   const commandContext = useRef(context)
   if (commandContext.current !== context) { commandContext.current = context; commandEpoch.current++ }
   const [commands, storeCommands] = useState(noCommands)
@@ -78,7 +78,7 @@ export function useChatSwitches(chatId, filesOn, draft = null) {
       })
       .catch(() => { if (live) { setMcp(noMCP); setBuiltins([]); setFallbacks([]) } })
     return () => { live = false }
-  }, [chatId, filesOn, draftOn, draftModel, draftAgent])
+  }, [chatId, filesOn, draftOn, draftModel, draftAgent, actorSession])
 
   useEffect(() => {
     if ((!chatId && !draftOn) || !filesOn) { setSkills([]); setReplaced([]); return undefined }

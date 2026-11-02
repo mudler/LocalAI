@@ -59,18 +59,15 @@ test('chat commands: the built-in bash on this machine is a state of its own', a
   assert.deepEqual(commandsState(undefined), { state: '', reason: '' })
 })
 
-test('chat commands: a chat that runs commands here keeps a warning notice with the install link', async () => {
-  const { SANDBOX_INSTALL_LINK } = await import('../../src/utils/chatCommands.js')
-  const admin = commandsNotice('host', { isAdmin: true })
-  assert.equal(admin.titleKey, 'hostTitle')
-  assert.equal(admin.textKey, 'host')
-  assert.equal(admin.tone, 'warn')
-  assert.deepEqual(admin.link, { to: SANDBOX_INSTALL_LINK, labelKey: 'install' })
-  assert.equal(commandsNotice('host', { isAdmin: false }).askKey, 'askInstall')
-  assert.equal(commandsNotice('host-off', { isAdmin: true }).link, null, 'the person switches the Sandbox on in the menu')
-  const why = commandsNotice('host-unavailable', { isAdmin: true, reason: 'no backend works' })
-  assert.equal(why.textKey, 'hostUnavailableWhy')
-  assert.deepEqual(why.link, { to: '/app/addons?detail=sandbox', labelKey: 'openSandbox' })
+test('chat commands: actual host execution keeps a generic isolation warning', () => {
+  for (const state of ['host', 'host-off', 'host-unavailable']) {
+    const info = commandsNotice(state, { isAdmin: true, reason: 'no backend works' })
+    assert.equal(info.titleKey, 'hostTitle')
+    assert.equal(info.textKey, 'providerHost')
+    assert.equal(info.tone, 'warn')
+    assert.equal(info.link, null)
+    assert.equal(info.askKey, null)
+  }
 })
 
 test('chat commands: the tool line says who served a call', async () => {
@@ -168,5 +165,95 @@ test('typed safety: nonavailable and inaccessible observations never suggest ins
     assert.ok(notice)
     assert.equal(notice.link, null)
     assert.equal(notice.askKey, null)
+  }
+})
+
+test('typed safety: builtin and all fallback notices have no Sandbox advice for any role', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  const { readFileSync } = await import('node:fs')
+  const translations = JSON.parse(readFileSync(new URL('../../public/locales/en/chats.json', import.meta.url))).tools.commands
+  for (const isAdmin of [true, false]) {
+    for (const fallback of [undefined, 'off', 'unavailable']) {
+      const projected = commandsState({ commands: 'available', commands_provider: 'builtin', commands_fallback: fallback && 'renamed', commands_fallback_reason: fallback })
+      const notice = commandsNotice(projected.state, { isAdmin, reason: projected.reason })
+      assert.equal(notice.tone, 'warn')
+      assert.equal(notice.link, null)
+      assert.equal(notice.askKey, null)
+      assert.match(translations[notice.textKey], /without isolation/)
+      assert.doesNotMatch(translations[notice.textKey], /sandbox|install|repair|switch.*on/i)
+    }
+  }
+})
+
+test('typed safety: actual switches reject late actor replies and hide old status before effects', async () => {
+  const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches']
+  const imports = Object.assign({}, ...await Promise.all(names.map(name => import(`../../src/utils/${name}.js`))))
+  const requests = []
+  const list = () => new Promise(resolve => requests.push(resolve))
+  const h = hookHarness('../../src/hooks/useChatSwitches.js', 'useChatSwitches', {
+    ...imports, chatAddonsApi: { list }, chatToolsApi: { list: async () => ({}) }, chatSkillsApi: { list: async () => ({}) },
+  })
+  const render = actor => h.render('same-chat', false, null, actor)
+  const isolated = { commands: 'available', commands_provider: 'renamed', commands_isolation: 'isolated' }
+  render('A:1'); h.flush()
+  assert.equal(requests.length, 1)
+  assert.equal(render('B:1').commands.state, 'unknown', 'render invalidates A before effect cleanup')
+  requests[0](isolated); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(render('B:1').commands.state, 'unknown', 'late A cannot publish in B even before effects')
+  h.flush()
+  assert.equal(requests.length, 2, 'actor change starts a new request')
+  requests[1](isolated); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(render('B:1').commands.state, 'available')
+  assert.equal(render('logged-out:2').commands.state, 'unknown')
+  h.flush()
+  assert.equal(render('B:3').commands.state, 'unknown', 'same user login does not reuse the old session')
+  h.flush()
+  requests[2](isolated); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(render('B:3').commands.state, 'unknown', 'logout reply cannot populate new login')
+  requests[3](isolated); await new Promise(resolve => setImmediate(resolve))
+  assert.equal(render('B:3').commands.state, 'available')
+})
+
+test('typed safety: actual auth epoch reaches composer and changes on same-user logout/login', async () => {
+  const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+  const originalFetch = globalThis.fetch
+  const originalDocument = globalThis.document
+  const originalWindow = globalThis.window
+  try {
+    globalThis.fetch = async () => ({ json: async () => ({ authEnabled: true, user: { id: 'A' } }) })
+    globalThis.document = { cookie: '' }
+    globalThis.window = { location: {} }
+    const auth = hookHarness('../../src/context/AuthContext.jsx', 'AuthProvider', { apiUrl: path => path }, source => source.replace(/return \(\s*<AuthContext.Provider[\s\S]*?\n  \)/, 'return value'))
+    auth.render({}); auth.flush()
+    await new Promise(resolve => setImmediate(resolve))
+    let currentAuth = auth.render({})
+    const seen = []
+    const composer = hookHarness('../../src/hooks/useChatComposer.js', 'useChatComposer', {
+      useAuth: () => currentAuth,
+      useChatDrafts: () => ({ setFiles() {} }),
+      useModels: () => ({ models: [] }), CAP_CHAT: 'chat',
+      useChatSwitches: (...args) => { seen.push(args); return {} },
+    })
+    composer.render({ chatId: 'same-chat', userId: 'A' })
+    const initial = seen.at(-1)[3]
+    assert.ok(initial)
+    const beforeLogout = currentAuth.sessionEpoch
+    const logout = currentAuth.logout()
+    currentAuth = auth.render({})
+    assert.equal(currentAuth.user, null, 'logout invalidates before network completion')
+    assert.ok(currentAuth.sessionEpoch > beforeLogout)
+    composer.render({ chatId: 'same-chat', userId: 'A' })
+    assert.notEqual(seen.at(-1)[3], initial)
+    await logout
+    await currentAuth.refresh()
+    currentAuth = auth.render({})
+    assert.equal(currentAuth.user.id, 'A')
+    composer.render({ chatId: 'same-chat', userId: 'A' })
+    assert.notEqual(seen.at(-1)[3], initial, 'same actor has a new epoch after login')
+  } finally {
+    globalThis.fetch = originalFetch
+    globalThis.document = originalDocument
+    globalThis.window = originalWindow
   }
 })

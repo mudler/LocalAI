@@ -72,22 +72,11 @@ export function commandsNotice(commands, { isAdmin = false, reason = '' } = {}) 
         link: isAdmin ? { to: SANDBOX_INSTALL_LINK, labelKey: 'install' } : null,
         askKey: isAdmin ? null : 'askInstall',
       }
-    // Commands run, but on this machine: a quiet notice that stays.
+    // Actual host execution never implies that one particular add-on is the fix.
     case 'host':
-      return {
-        state: 'host', titleKey: 'hostTitle', textKey: 'host', reason: '', tone: 'warn',
-        link: isAdmin ? { to: SANDBOX_INSTALL_LINK, labelKey: 'install' } : null,
-        askKey: isAdmin ? null : 'askInstall',
-      }
     case 'host-off':
-      return { state: 'host-off', titleKey: 'hostTitle', textKey: 'hostOff', reason: '', tone: 'warn', link: null, askKey: null }
     case 'host-unavailable':
-      return {
-        state: 'host-unavailable', titleKey: 'hostTitle', textKey: reason ? 'hostUnavailableWhy' : 'hostUnavailable',
-        reason: typeof reason === 'string' ? reason.slice(0, 200) : '', tone: 'warn',
-        link: isAdmin ? { to: `/app/addons?detail=${SANDBOX_ADDON_ID}`, labelKey: 'openSandbox' } : null,
-        askKey: isAdmin ? null : 'askFix',
-      }
+      return { state: commands, titleKey: 'hostTitle', textKey: 'providerHost', reason: plainExplanation(reason), tone: 'warn', link: null, askKey: null }
     default:
       return null
   }
