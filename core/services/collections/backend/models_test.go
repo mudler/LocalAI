@@ -134,6 +134,44 @@ var _ = Describe("Per-collection model settings", func() {
 		Expect(fake.lastModel()).To(Equal("changed"))
 	})
 
+	DescribeTable("uses the new model while another collection keeps the chromem root alive",
+		func(failedSwitch bool) {
+			selected := CollectionModelSettings{}
+			b, st, fake := newModelBackend(&selected)
+			Expect(b.CreateCollection("agent")).To(Succeed())
+			// A separate collection must retain the shared root throughout the
+			// reset/reopen. Closing every handle would hide stale callbacks.
+			Expect(storeText(b, "keeper", "keeper document")).To(Succeed())
+			keeper := st.Collections["keeper"]
+			DeferCleanup(keeper.Close)
+			DeferCleanup(func() {
+				if current := st.Collections["agent"]; current != nil {
+					current.Close()
+				}
+			})
+
+			selected.EmbeddingModel = "changed"
+			if failedSwitch {
+				b.cfg.VectorEngine = "unavailable"
+				Expect(b.CreateCollection("agent")).ToNot(Succeed())
+				b.cfg.VectorEngine = "chromem"
+			} else {
+				Expect(b.Reset("agent")).To(Succeed())
+			}
+			// Exercise the production reset/switch path without manually closing
+			// retired handles; each Recall handle must use its own callback.
+			Expect(st.Collections["keeper"]).To(BeIdenticalTo(keeper))
+			Expect(keeper.Count()).To(BeNumerically(">", 0))
+			Expect(storeText(b, "agent", "new identity document")).To(Succeed())
+			Expect(fake.lastModel()).To(Equal("changed"))
+			_, err := b.Search(context.Background(), "agent", "new identity query", 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fake.lastModel()).To(Equal("changed"))
+		},
+		Entry("after reset", false),
+		Entry("after failed switch and recovery", true),
+	)
+
 	It("keeps the identity file inside its directory", func() {
 		b := &backendInProcess{cfg: &Config{CollectionDBPath: GinkgoT().TempDir()}}
 		Expect(b.identityPath("../../outside")).To(HavePrefix(b.cfg.CollectionDBPath + "/embedding-models/"))
@@ -421,9 +459,10 @@ var _ = Describe("Reranking", func() {
 		b := serve(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.1},{"index":1,"relevance_score":0.9}]}`))
 		})
-		out, err := b.rerank(context.Background(), "ranker", "query", []SearchResult{{ID: "first", Content: "one"}, {ID: "second", Content: "two", Metadata: map[string]string{"source": "citation"}}}, 2)
+		out, err := b.rerank(context.Background(), "ranker", "query", []SearchResult{{ID: "first", Content: "one"}, {ID: "second", EntryID: "parent", Content: "two", Metadata: map[string]string{"source": "citation"}}}, 2)
 		Expect(err).ToNot(HaveOccurred())
 		Expect(out[0].ID).To(Equal("second"))
+		Expect(out[0].EntryID).To(Equal("parent"))
 		Expect(out[0].Metadata).To(HaveKeyWithValue("source", "citation"))
 	})
 

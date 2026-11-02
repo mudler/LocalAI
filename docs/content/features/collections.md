@@ -125,3 +125,48 @@ Add the names of your collections to the `collections` list of a
 [saved agent](/features/chats-agents/). A chat with that agent can then search
 only those collections. If a listed collection is deleted, the chat still starts
 and the model is told that it is not available.
+
+## Durable memory adapter (Go)
+
+The in-process collections backend optionally implements
+`backend.MemoryBackend`. This is a Go interface, not a new REST endpoint or an
+automatic chat-memory feature. Callers must supply an existing, principal-scoped
+collection; the adapter does not create one or fall back to ordinary uploads.
+
+- Probe `MemoryCapabilities` before writing. Chromem supports durable receipts
+  with single-process journal ownership. PostgreSQL additionally supports
+  distributed fencing. Other engines fail closed with `ErrMemoryUnsupported`.
+- Compute `MemoryWrite.PayloadHash` with `MemoryPayloadHash` over the exact content
+  and application metadata. Replaying a key with the same payload returns the
+  existing receipt; a different payload returns `ErrMemoryConflict`.
+- `WriteMemory` is for synchronous callers. Distributed workers must reserve an
+  attempt with `BeginMemoryAttempt`, persist its fence, and use
+  `WriteMemoryFenced`. Backend fencing alone does not claim a chat queue item or
+  coordinate queue takeover.
+- `ReconcileMemory` recovers a preparing write from its durable manifest.
+  `DeleteMemoryEntry` accepts the exact parent entry ID and retains a tombstone,
+  so replay cannot recreate a deleted entry. Reset must not bypass these receipts.
+
+Search responses retain `id` as the passage/chunk identity and add `entry_id`
+when the parent document is known. Use the parent identity for exact memory
+entry deletion, never a passage ID, filename, wildcard, or path guess. Reranking
+preserves both identities.
+
+The adapter uses the existing per-collection model and operation locks. It does
+not change backend shutdown: `Close` stops source scheduling but does not drain
+in-flight source fetches or close collection handles. Do not close handles while
+requests or sources may still use them. Memory-only callers that need a reopen
+must first quiesce their operations and release their owned engine handles;
+source-bearing backends require process shutdown for that ownership boundary.
+
+The adapter contract tests use real chromem and PostgreSQL stores, with a local
+HTTP fixture only for deterministic embeddings. Set `MEMORY_DATABASE_URL` to a
+**disposable PostgreSQL database** (including its actual port) before running:
+
+```bash
+MEMORY_DATABASE_URL='postgres://postgres@localhost:5433/postgres?sslmode=disable' \
+  go test -race -count=1 -tags 'debug auth' ./core/services/collections/backend/...
+```
+
+The PostgreSQL cases fail rather than silently skipping when the fixture URL is
+missing.

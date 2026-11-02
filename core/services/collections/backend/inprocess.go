@@ -272,6 +272,7 @@ func (b *backendInProcess) vectorSearch(collection, query string, maxResults int
 	for _, r := range results {
 		out = append(out, SearchResult{
 			ID:         r.ID,
+			EntryID:    r.ParentEntryID(),
 			Content:    r.Content,
 			Metadata:   r.Metadata,
 			Similarity: r.Similarity,

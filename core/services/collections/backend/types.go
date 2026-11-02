@@ -11,7 +11,8 @@ import (
 type SearchResult struct {
 	Content    string            `json:"content"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
-	ID         string            `json:"id,omitempty"`
+	ID         string            `json:"id,omitempty"`       // Passage identity, not a deletion target.
+	EntryID    string            `json:"entry_id,omitempty"` // Exact parent document identity.
 	Similarity float32           `json:"similarity,omitempty"`
 }
 

@@ -1084,6 +1084,10 @@ github.com/mudler/localrecall v0.6.6 h1:yN0vSeAnKjJ0BthkQuMpailWXHKs4W8yZcW8SVsf
 github.com/mudler/localrecall v0.6.6/go.mod h1:28k5n19raUrkuwXkacdNsBlj8yuSnGhpT16tu+2+4dU=
 github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488 h1:GJaZ5gmSuR6occMy9Ae+o1m2Gx0wNRBZB8nz8KwLAE0=
 github.com/mudler/localrecall v0.6.7-0.20261012155221-88432ad54488/go.mod h1:MRyhZMDZOBn1zmTmpVNB0F4Qjjx1tn9fK5CIWH6PyEA=
+github.com/mudler/localrecall v0.6.7-0.20261102003903-bc133c71113e h1:Uo9ApYihn8JC4/XuHVkTUKN+oXgiWWKebZa9gV588Es=
+github.com/mudler/localrecall v0.6.7-0.20261102003903-bc133c71113e/go.mod h1:MRyhZMDZOBn1zmTmpVNB0F4Qjjx1tn9fK5CIWH6PyEA=
+github.com/mudler/localrecall v0.6.7-0.20261102005035-a79a4780a181 h1:jTm6KV4VU1MDJXMUsqr4YZxFOucDTEVWTnedHyH6quA=
+github.com/mudler/localrecall v0.6.7-0.20261102005035-a79a4780a181/go.mod h1:MRyhZMDZOBn1zmTmpVNB0F4Qjjx1tn9fK5CIWH6PyEA=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8 h1:Ry8RiWy8fZ6Ff4E7dPmjRsBrnHOnPeOOj2LhCgyjQu0=
 github.com/mudler/memory v0.0.0-20260406210934-424c1ecf2cf8/go.mod h1:EA8Ashhd56o32qN7ouPKFSRUs/Z+LrRCF4v6R2Oarm8=
 github.com/mudler/nib v0.12.1 h1:7yKZeOWcIac62UoNb3J2R/oEtFYzebFwgap9HPjIJdI=
