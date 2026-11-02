@@ -74,7 +74,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			work = s.subWorkBlock(ctx, rec, x)
 		}
 		prompt = joinBlocks(prompt, webBlock(tools), work)
-		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
+		return session.TurnTools{Tools: tools, Prompt: prompt, Note: s.todayLine()}, nil
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
 	if err != nil {
@@ -207,6 +207,12 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 			note = strings.TrimSpace(line + " " + note)
 		}
 	}
+	// Today's date: a model knows only the date of its training data. It goes
+	// in the note, not the prompt, so the harness does not restart each day,
+	// and first, so the cut of a long note keeps it.
+	if line := s.todayLine(); line != "" {
+		note = strings.TrimSpace(line + " " + note)
+	}
 	// What the chat can run comes before the other blocks: the prompt is cut at
 	// its end, and this block must reach the model.
 	// What the chat can see follows it, for the same reason. Images reach a
@@ -249,6 +255,23 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// files or run commands on this machine are checked at each call.
 	tools = s.gateBuiltinActs(ctx, rec, tools)
 	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
+}
+
+// todayLine is the line of the turn note that tells the model the date, in
+// the zone of the clock: "Today is Monday, 2 November 2026 (Europe/Berlin)."
+// It is empty while the setting chats_date_note is off.
+func (s *Service) todayLine() string {
+	if s.d.DateNote == nil || !s.d.DateNote() {
+		return ""
+	}
+	now := s.now()
+	zone := now.Location().String()
+	if zone == "Local" {
+		// time.Local is always named "Local": name the zone by its
+		// abbreviation and offset instead ("CET +01:00").
+		zone = now.Format("MST -07:00")
+	}
+	return "Today is " + now.Format("Monday, 2 January 2006") + " (" + zone + ")."
 }
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets

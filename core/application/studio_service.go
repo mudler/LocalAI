@@ -105,6 +105,7 @@ func (a *Application) initStudioService() {
 		Allowed:  a.studioFeatureAllowed,
 		// Read at each turn, so the runtime setting applies at once.
 		SuggestionsDefault: func() bool { return !a.applicationConfig.DisableChatSuggestions },
+		DateNote:           func() bool { return a.applicationConfig.ChatsDateNote },
 		StateDir:           stateDir,
 		MCP:                a.studioMCP,
 		MCPServers:         a.studioModelMCPServers,

@@ -200,6 +200,9 @@ export const FIELDS = [
   { key: 'chats_suggestions', group: 'agents', was: 'chats', kind: 'bool', label: 'Offers from the assistant',
     desc: 'Let the assistant offer, at most once a day and never during a task, to remember something a user said, make a shortcut or update a Home widget on a schedule. This is the default for users who did not choose; each user can switch it in Account, About you and the assistant.',
     default: true, fallback: true, apply: 'live' },
+  { key: 'chats_date_note', group: 'agents', was: 'chats', kind: 'bool', label: "Today's date in chats",
+    desc: "Start each chat turn by telling the model today's date in the server's time zone, so it does not answer with the date of its training data.",
+    default: false, fallback: false, apply: 'live' },
   // ---- Tools (the Tools tab draws these two with its own controls) ----------
   { key: 'chats_host_exec', group: 'tools', was: 'chats', kind: 'select', options: ['', 'off', 'ask', 'on'], label: 'Commands on this machine',
     desc: 'Who gets the chats\' built-in bash, which runs commands directly on this machine with no isolation and with its network, when no add-on serves bash: off, ask (administrators, who allow each command) or on (every user, no card). Empty is the default: off with accounts, ask without.',
