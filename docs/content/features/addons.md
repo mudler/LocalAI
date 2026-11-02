@@ -37,6 +37,40 @@ Trust has three parts, and they are different:
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
+## Internal host policy store
+
+`core/services/addons/hostsettings` provides internal, host-owned durable policy
+infrastructure. It is not yet connected to the settings UI, owner carrier or runtime
+consumers; the behavior described elsewhere on this page remains unchanged.
+
+The schema is limited to six network fields (`chats_egress_ceiling`,
+`chats_egress_default`, `chats_egress_allow_private`, `chats_egress_ports`,
+`chats_egress_extra_registries`, `chats_egress_allowed_hosts`), provider pins
+(`chats_tool_providers`) and the owner's upgrade switch (`auto_upgrade_addons`).
+Audit retention is excluded. The intended consumers are the Sandbox's host network
+checks, chat tool and replaceable-skill selection, and the owner's upgrade loop.
+Provider pins name replaceable tools (`bash`, `web_search`, `web_fetch`) or skills
+(`xlsx`, `docx`, `pptx`, `pdf`), not protected or plain add-on skills.
+
+The store uses one private file on trusted owner storage, with an exclusive lock,
+atomic replacement and file/directory sync. It is owner-only state, not a replicated
+frontend cache; the host must authenticate and authorize callers before updates.
+For a standalone combined instance, initial migration requires exactly one effective
+owner policy as its sole source. Distributed migration additionally requires an
+explicit operator selection of the owner source, never a frontend replica's copy.
+Migration records source/version provenance. Missing or ambiguous migration input
+fails closed, and a corrupt existing file never triggers re-import or defaults.
+
+Updates use an expected revision (compare-and-swap), presence-aware patches and an
+operation ID. Omitted fields stay unchanged; explicit empty strings and false values
+clear their fields, and a null provider entry deletes that pin. Stale revisions
+conflict rather than overwrite another edit. A matching operation ID and body replay
+the saved result; reusing a retained ID with a different body fails. The store keeps
+at most 1,024 durable receipts and prunes the oldest revisions. A retry after its
+receipt is pruned conflicts on its stale revision rather than applying again.
+Acknowledgement follows durable persistence; uncertain durability requires reopening
+and reconciling the operation before further use.
+
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an
