@@ -147,6 +147,7 @@ add_subdirectory("${AUDIO_CPP_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/audio-cpp" EXCL
 
 add_executable(${TARGET}
     grpc-server.cpp
+    music_adapter.cpp
     model_options.cpp
     capability_routing.cpp
     family_gate.cpp
@@ -226,6 +227,10 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_adapter_ctest music_adapter_ctest.cpp music_adapter.cpp capability_routing.cpp)
+    target_link_libraries(music_adapter_ctest PRIVATE hw_grpc_proto)
+    add_test(NAME music_adapter COMMAND music_adapter_ctest)
+    set_tests_properties(music_adapter PROPERTIES TIMEOUT 45)
     add_executable(music_yue2_vae_ctest music_yue2_vae_ctest.cpp)
     target_include_directories(music_yue2_vae_ctest PRIVATE "${AUDIO_CPP_DIR}")
     target_compile_options(music_yue2_vae_ctest PRIVATE -ffunction-sections -fdata-sections)

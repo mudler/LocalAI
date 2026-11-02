@@ -8,6 +8,8 @@ option java_outer_classname = "LocalAIBackend";
 package backend;
 
 service Backend {
+  rpc MusicTranscription(MusicTranscriptionRequest) returns (MusicTranscriptionResponse) {}
+  rpc MusicGeneration(MusicGenerationRequest) returns (MusicGenerationResponse) {}
   rpc Health(HealthMessage) returns (Reply) {}
   rpc Free(HealthMessage) returns (Result) {}
   rpc Predict(PredictOptions) returns (Reply) {}
@@ -1699,4 +1701,37 @@ message MotionResponse {
   bytes output = 1; // Serialized public localai.motion.v1.Output.
   // Backend-only bounded stage timings; not part of the public wire protocol.
   map<string, double> stage_ms = 2;
+}
+
+// Typed music transport. Defaults are materialized by the calling service.
+message MusicTranscriptionRequest {
+  string request_id = 1;
+  string model_identity = 2;
+  string trusted_source = 3;
+}
+message MusicTranscriptionResponse { string abc = 1; }
+enum MusicCOT {
+  MUSIC_COT_UNSPECIFIED = 0;
+  MUSIC_COT_OFF = 1;
+  MUSIC_COT_MELODY = 2;
+  MUSIC_COT_FULL = 3;
+}
+message MusicGenerationParams {
+  MusicCOT cot = 1;
+  uint32 seed = 2;
+  double guidance_scale = 3;
+  uint32 num_inference_steps = 4;
+}
+message MusicGenerationRequest {
+  string request_id = 1;
+  string model_identity = 2;
+  string style = 3;
+  string lyrics = 4;
+  optional string abc = 5;
+  MusicGenerationParams params = 6;
+  string trusted_output_destination = 7;
+}
+message MusicGenerationResponse {
+  bool success = 1;
+  optional string generated_abc = 2;
 }

@@ -1,3 +1,4 @@
+#include "music_adapter.h"
 // audio.cpp LocalAI gRPC backend.
 //
 // Links 0xShug0/audio.cpp's engine_runtime through its public
@@ -559,6 +560,30 @@ GStatus to_status(const std::exception &err) {
 
 class AudioCppBackend final : public backend::Backend::Service {
 public:
+    // Counted snapshot and strict identity precede readiness. Never instantiate
+    // a session to query readiness: session access requires an owned lane.
+    template<class Request> GStatus deny_music(ServerContext *ctx,const Request *request,audiocpp_backend::Rpc rpc){
+        if(!request)return GStatus(grpc::StatusCode::INVALID_ARGUMENT,"missing typed music request");
+        auto invalid=audiocpp_backend::validate_music(*request);
+        if(!invalid.empty())return GStatus(grpc::StatusCode::INVALID_ARGUMENT,invalid);
+        auto model=snapshot_unchecked();
+        if(!model||model->identity().empty())return GStatus(grpc::StatusCode::FAILED_PRECONDITION,"music requires a nonempty loaded identity");
+        if(model->identity()!=request->model_identity())return GStatus(grpc::StatusCode::NOT_FOUND,"audio-cpp: model identity mismatch");
+        if(ctx->IsCancelled())return GStatus(grpc::StatusCode::CANCELLED,"music request cancelled");
+        audiocpp_backend::MusicAdmissionFacts facts;
+        facts.loaded_identity=model->identity();facts.capabilities=model->capabilities();facts.pinned_task=model->pinned_task();
+        // Unknown remains denied. No immutable declaration can establish an
+        // actual session's CompleteOffline support outside its owned lane.
+        (void)audiocpp_backend::music_eligible(facts,rpc,request->model_identity(),false);
+        return GStatus(grpc::StatusCode::FAILED_PRECONDITION,"music CompleteOffline readiness is not established; execution disabled");
+    }
+    GStatus MusicTranscription(ServerContext *ctx,const backend::MusicTranscriptionRequest *request,backend::MusicTranscriptionResponse *) override {
+        return deny_music(ctx,request,audiocpp_backend::Rpc::MusicTranscription);
+    }
+    GStatus MusicGeneration(ServerContext *ctx,const backend::MusicGenerationRequest *request,backend::MusicGenerationResponse *) override {
+        return deny_music(ctx,request,audiocpp_backend::Rpc::MusicGeneration);
+    }
+
     GStatus Health(ServerContext *, const backend::HealthMessage *,
                    backend::Reply *reply) override {
         reply->set_message("OK");
