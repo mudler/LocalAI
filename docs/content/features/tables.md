@@ -144,15 +144,24 @@ and a repeated operation applies once. Because nothing waits for a confirmation,
 undo is the safety net: Tables keeps a change set for every row and schema change
 a chat makes, and the chat shows an Undo button on it (see
 [Undo of a chat change](#undo-of-a-chat-change)). On every other surface (the OpenAI-compatible
-API, MCP, an API key), a change made from chat is a proposal: the model asks,
-LocalAI previews the change, and a person confirms it in the host confirmation
-card. A rename uses
-the standard proposal path. Creating a database from chat is a proposal too
-(`databases-create` with a `name`, no resource ID). LocalAI reserves a pending
-resource for the person who asked, shows the requested name in the card, and
-creates the database only when that person confirms it. Cancelling or letting
-the proposal expire removes the reservation. Sharing and deleting a database
-are not tools.
+API, MCP, an API key), changes normally return proposals for human confirmation.
+Authorized server-side chats can also apply database creation and schema changes
+with undo. Check the actual result kind: `proposal` is not completion; `applied`
+confirms a change. The model cannot manufacture approval or identity arguments.
+Sharing and whole-database deletion are not model tools.
+
+## Bundled discovery skill
+
+Tables packages the `tables-readonly` skill for structured-data questions and
+table searches. Load it to learn the workflow: list existing databases when
+needed, disambiguate names, inspect tables and columns, then query relevant rows
+or aggregate totals. Database listing is bounded to 100 and has no pagination;
+row queries have their own cursor.
+
+The skill needs no command runner. Existing installation, running-state, chat
+switch and agent-grant gates control its availability. Its read-only guidance
+does not revoke other tools granted to the chat. It never creates a database or
+changes conversation selection as a discovery fallback.
 
 ## Model tools and approval cards
 
