@@ -25,6 +25,10 @@ import (
 
 type unavailableCaptureStore struct{ store.Store }
 
+func (s unavailableCaptureStore) MemoryInput(context.Context, string, string, string) (store.AcceptedInput, bool, error) {
+	return store.AcceptedInput{}, false, errors.New("capture lookup unavailable")
+}
+
 func (s unavailableCaptureStore) AcceptMemoryInput(context.Context, store.MemoryAcceptance) (store.AcceptedInput, error) {
 	return store.AcceptedInput{}, errors.New("capture unavailable")
 }

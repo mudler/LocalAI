@@ -185,6 +185,35 @@ var _ = Describe("automatic memory lifecycle", func() {
 })
 
 var _ = Describe("durable worker delivery identity", func() {
+	for _, kind := range []string{"off", "plain"} {
+		It("deduplicates "+kind+" worker deliveries without capture intents", func() {
+			var st store.Store
+			r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store })
+			a := memoryPolicy()
+			a.Memory.AutomaticIngestion = "off"
+			r.save(a)
+			agent := a.ID
+			if kind == "plain" {
+				agent = ""
+			}
+			id := r.chatWith(agent)
+			req := workerctl.ChatStartRequest{Principal: alice, ChatID: id, Text: "same words", RequestID: "generic-1"}
+			first := r.svc.ServeStart(context.Background(), req)
+			Expect(first.Error).To(BeEmpty())
+			idle(r.svc, alice, id)
+			Expect(r.svc.ServeStart(context.Background(), req)).To(Equal(first))
+			idle(r.svc, alice, id)
+			Expect(r.h.Sent(id)).To(HaveLen(1))
+			req.RequestID = "generic-2"
+			Expect(r.svc.ServeStart(context.Background(), req).Error).To(BeEmpty())
+			idle(r.svc, alice, id)
+			Expect(r.h.Sent(id)).To(HaveLen(2))
+			records, err := st.ListCaptures(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(records).To(BeEmpty())
+		})
+	}
+
 	It("replays accepted worker delivery after automatic memory is switched off", func() {
 		r, _ := memoryRig(sayOK, func(d *studio.Deps) {})
 		a := memoryPolicy()

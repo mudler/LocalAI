@@ -852,30 +852,39 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 		// still requires current eligibility, but replaying old work does not.
 		accepted, found, lookupErr := s.d.Store.MemoryInput(ctx, p, conv, "memory:"+id)
 		if lookupErr != nil {
-			return SendResult{}, lookupErr
+			// A capture/receipt outage must not take ordinary answering down.
+			// Without durable storage this delivery has degraded replay safety.
+			s.log.Warn("studio: delivery receipt lookup unavailable", "chat", conv)
 		}
 		if !found {
-			if in, ok := s.memoryAcceptance(ctx, p, conv, msg.Text); ok {
-				// Persist paths in the model payload, never in the accepted text.
-				// A replay found above must not save the same uploads again.
-				if len(msg.Files) > 0 {
-					saved, err := s.attachWhileRunning(ctx, p, conv, msg.Files)
-					if err != nil {
-						return SendResult{}, err
-					}
-					msg.Attachments = append(slices.Clip(msg.Attachments), saved...)
-					msg.Files = nil
-				}
-				in.PendingText = session.ComposeMessage(msg.Text, msg.Note, msg.Attachments)
-				var err error
-				accepted, err = s.d.Store.AcceptMemoryInput(ctx, in)
+			in, eligible := s.memoryAcceptance(ctx, p, conv, msg.Text)
+			if !eligible {
+				// Delivery receipts are independent of automatic capture policy.
+				// The empty policy creates no capture intent, including for plain chats.
+				in = store.MemoryAcceptance{Principal: p, ChatID: conv, SourceID: "memory:" + id, Text: msg.Text}
+			}
+			// Persist paths in the model payload, never in the accepted text.
+			// A replay found above must not save the same uploads again.
+			if len(msg.Files) > 0 {
+				saved, err := s.attachWhileRunning(ctx, p, conv, msg.Files)
 				if err != nil {
-					// Capture-only outages must not block the ordinary chat path.
-					// Persist metadata-only status independently of acceptance.
-					s.recordAcceptanceFailure(ctx, in)
-				} else {
-					found = true
+					return SendResult{}, err
 				}
+				msg.Attachments = append(slices.Clip(msg.Attachments), saved...)
+				msg.Files = nil
+			}
+			in.PendingText = session.ComposeMessage(msg.Text, msg.Note, msg.Attachments)
+			var err error
+			accepted, err = s.d.Store.AcceptMemoryInput(ctx, in)
+			if err != nil {
+				// Capture-only outages must not block the ordinary chat path.
+				// Persist metadata-only status independently of acceptance.
+				if eligible {
+					s.recordAcceptanceFailure(ctx, in)
+				}
+				s.log.Warn("studio: delivery receipt persistence unavailable", "chat", conv)
+			} else {
+				found = true
 			}
 		}
 		if found {

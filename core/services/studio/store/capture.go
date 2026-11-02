@@ -814,18 +814,36 @@ func (s *gormStore) BindMemoryTurn(ctx context.Context, p, c, r string, ids []st
 
 // MemoryInput is scoped by the chat store's principal check. Replay reads do not
 // authorize capture writes; those still require the worker's current policy.
-func memoryInput(ctx context.Context, p, c, id string, edit captureEdit) (AcceptedInput, bool, error) {
-	var out AcceptedInput
-	var found bool
-	err := edit(ctx, p, c, func(d *captureData, _ *chatState) error {
-		out, found = d.Accepted[id]
-		return nil
-	})
-	return out, found, err
-}
 func (s *jsonStore) MemoryInput(ctx context.Context, p, c, id string) (AcceptedInput, bool, error) {
-	return memoryInput(ctx, p, c, id, s.editCapture)
+	if err := ctx.Err(); err != nil {
+		return AcceptedInput{}, false, err
+	}
+	slot, unlock, err := s.get(p, c)
+	if err != nil {
+		return AcceptedInput{}, false, err
+	}
+	defer unlock()
+	out, found := slot.Capture.Accepted[id]
+	return out, found, nil
 }
 func (s *gormStore) MemoryInput(ctx context.Context, p, c, id string) (AcceptedInput, bool, error) {
-	return memoryInput(ctx, p, c, id, s.editCapture)
+	// One principal-scoped SELECT; replay must work with a read-only connection.
+	var row captureStateRow
+	err := s.db.WithContext(ctx).Table("studio_capture_states AS capture").
+		Select("capture.*").Joins("JOIN studio_chats AS chat ON chat.id = capture.chat_id").
+		Where("chat.id = ? AND chat.principal = ?", c, p).Limit(1).Find(&row).Error
+	if err != nil {
+		return AcceptedInput{}, false, err
+	}
+	// An absent capture state is normal before the first accepted delivery.
+	if len(row.Data) == 0 {
+		_, err = s.GetChat(ctx, p, c)
+		return AcceptedInput{}, false, err
+	}
+	var d captureData
+	if err = json.Unmarshal(row.Data, &d); err != nil {
+		return AcceptedInput{}, false, err
+	}
+	out, found := d.Accepted[id]
+	return out, found, nil
 }

@@ -768,7 +768,10 @@ Queued work retains its original destination and is authorized again before
 writing; changing an agent's destination never reroutes existing work.
 
 Worker dispatch carries a delivery request identity. Redelivery of that request
-keeps the original accepted text and delivery disposition; a new request with
+keeps the original accepted text and delivery disposition, including for plain
+chats and agents with automatic ingestion off. These principal/chat/request-scoped
+receipts reuse accepted-input storage but create no capture intents when capture
+is disabled. A new request with
 identical text is a separate input. Consumed input identities are persisted with
 pending delivery, so completing a recovered execution does not depend on the
 worker's in-memory list. Direct inputs enter the same durable pending queue
@@ -776,8 +779,7 @@ before transcript delivery. A crash before transcript delivery leaves the input
 available for recovery rather than marking it delivered at acceptance.
 
 Connector messages reuse the platform message ID, scoped to the binding and
-conversation, as their background delivery identity. For capture-enabled text-only
-deliveries, redelivering that ID does
+conversation, as their background delivery identity. Redelivering that ID does
 not accept another input; a different ID with identical text is a separate input.
 Connectors without a platform message ID retain per-delivery behavior. Replay of
 an already accepted request still returns its original disposition after automatic
@@ -787,7 +789,10 @@ continues with a metadata-only failure marker if the independent status write
 succeeds. This is bounded best effort: if the whole chat database is unavailable,
 no durable marker can be guaranteed; a safe warning is logged without retrying or
 blocking the answer path. A marker is not a transport delivery receipt and does
-not guarantee answer deduplication for a degraded delivery. An outage of ordinary
+not guarantee answer deduplication for a degraded delivery. Receipt lookup is read-only. If receipt/capture storage alone is unavailable,
+ordinary answering remains available while chat storage is healthy, but durable
+answer deduplication cannot be guaranteed for that degraded delivery. This is not
+an exactly-once guarantee during a receipt database outage. An outage of ordinary
 chat storage can still prevent answering.
 
 Connector delivery identity also covers messages with attachments: replaying the
