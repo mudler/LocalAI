@@ -170,45 +170,131 @@ func (r CaptureRecord) ReducerState() (memory.State, error) {
 	default:
 		return nil, fmt.Errorf("unknown capture input %q", r.InputType)
 	}
-	// Populate the interface before decoding: encoding/json then decodes its concrete pointer.
-	j := memory.Job{Input: input}
-	w := memory.Work{Job: j}
+	// Decode the input separately so null/absent interfaces cannot erase a
+	// preinitialized concrete pointer (or silently retain its zero value).
+	var fields struct {
+		Job  *struct{ Input json.RawMessage }
+		Work *struct {
+			Job *struct{ Input json.RawMessage }
+		}
+	}
+	if err := json.Unmarshal(r.StateJSON, &fields); err != nil {
+		return nil, err
+	}
+	job := fields.Job
+	switch r.State {
+	case "Authorizing", "Transforming", "PersistingPayload", "Writing":
+		job = nil
+		if fields.Work != nil {
+			job = fields.Work.Job
+		}
+	}
+	if job == nil || len(job.Input) == 0 || string(job.Input) == "null" {
+		return nil, errors.New("capture state requires a job with concrete input")
+	}
+	if err := json.Unmarshal(job.Input, input); err != nil {
+		return nil, err
+	}
+	concrete := input
+	// Reducer constructors use values, never pointers or typed nil inputs.
+	switch v := input.(type) {
+	case *memory.ContentInput:
+		input = *v
+	case *memory.SummaryInput:
+		input = *v
+	case *memory.PendingPayload:
+		input = *v
+	case *memory.FrozenPayload:
+		input = *v
+	}
+	// Decode the remaining state fields with a concrete pointer in the interface,
+	// then explicitly install the validated value constructor.
 	var s memory.State
 	switch r.State {
 	case "Queued":
-		s = &memory.Queued{Job: j}
+		v := memory.Queued{}
+		v.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Job.Input = input
+		s = v
 	case "Authorizing":
-		s = &memory.Authorizing{Work: w}
+		v := memory.Authorizing{}
+		v.Work.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Work.Job.Input = input
+		s = v
 	case "Transforming":
-		s = &memory.Transforming{Work: w}
+		v := memory.Transforming{}
+		v.Work.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Work.Job.Input = input
+		s = v
 	case "PersistingPayload":
-		s = &memory.PersistingPayload{Work: w}
+		v := memory.PersistingPayload{}
+		v.Work.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Work.Job.Input = input
+		s = v
 	case "Writing":
-		s = &memory.Writing{Work: w}
+		v := memory.Writing{}
+		v.Work.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Work.Job.Input = input
+		s = v
 	case "RetryWaiting":
-		s = &memory.RetryWaiting{Job: j}
+		v := memory.RetryWaiting{}
+		v.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Job.Input = input
+		s = v
 	case "Saved":
-		s = &memory.Saved{Job: j}
+		v := memory.Saved{}
+		v.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Job.Input = input
+		s = v
 	case "Failed":
-		s = &memory.Failed{Job: j}
+		v := memory.Failed{}
+		v.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Job.Input = input
+		s = v
 	case "Skipped":
-		s = &memory.Skipped{Job: j}
+		v := memory.Skipped{}
+		v.Job.Input = concrete
+		if err := json.Unmarshal(r.StateJSON, &v); err != nil {
+			return nil, err
+		}
+		v.Job.Input = input
+		s = v
 	default:
 		return nil, fmt.Errorf("unknown capture state %q", r.State)
 	}
-	if err := json.Unmarshal(r.StateJSON, s); err != nil {
+	if err := memory.CheckInvariants(s); err != nil {
 		return nil, err
 	}
-	// Reducer uses value constructors, including its nested input union.
-	v := reflect.ValueOf(s).Elem()
-	job := v.FieldByName("Job")
-	if !job.IsValid() {
-		job = v.FieldByName("Work").FieldByName("Job")
+	if stateJob(s).Identity != r.Identity {
+		return nil, ErrCaptureConflict
 	}
-	ip := job.FieldByName("Input")
-	ip.Set(reflect.ValueOf(reflect.ValueOf(ip.Interface()).Elem().Interface()))
-	return v.Interface().(memory.State), nil
+	return s, nil
 }
+
 func project(r CaptureRecord, s memory.State, rule string) (CaptureRecord, error) {
 	if err := memory.CheckInvariants(s); err != nil {
 		return r, err

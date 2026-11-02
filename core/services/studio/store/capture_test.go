@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -334,3 +335,83 @@ var id string
 func acceptance(mode store.CaptureMode) store.MemoryAcceptance {
 	return store.MemoryAcceptance{Principal: "alice", ChatID: id, SourceID: "message", Text: "remember", Policy: store.CapturePolicy{AgentID: "agent", Destination: "collection", Mode: mode}}
 }
+
+var _ = Describe("capture state decoding", func() {
+	It("preserves all state constructors and input constructors", func() {
+		for _, original := range memory.SampleStates() {
+			v := reflect.ValueOf(original)
+			j := v.FieldByName("Job")
+			if !j.IsValid() {
+				j = v.FieldByName("Work").FieldByName("Job")
+			}
+			job := j.Interface().(memory.Job)
+			raw, err := json.Marshal(original)
+			Expect(err).NotTo(HaveOccurred())
+			r := store.CaptureRecord{Identity: job.Identity, State: v.Type().Name(), InputType: reflect.TypeOf(job.Input).Name(), StateJSON: raw}
+			decoded, err := r.ReducerState()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(decoded).To(Equal(original))
+		}
+		for _, input := range []memory.Input{memory.ContentInput{Text: "content"}, memory.SummaryInput{Text: "summary"}, memory.PendingPayload{Payload: memory.FrozenPayload{Text: "pending"}}, memory.SampleStates()[4].(memory.Writing).Work.Job.Input} {
+			original := memory.SampleStates()[0].(memory.Queued)
+			original.Job.Input = input
+			raw, err := json.Marshal(original)
+			Expect(err).NotTo(HaveOccurred())
+			r := store.CaptureRecord{Identity: original.Job.Identity, State: "Queued", InputType: reflect.TypeOf(input).Name(), StateJSON: raw}
+			decoded, err := r.ReducerState()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(decoded).To(Equal(original))
+		}
+	})
+	It("rejects malformed queued and work states", func() {
+		for _, state := range []string{"Queued", "Authorizing", "Transforming", "PersistingPayload", "Writing", "RetryWaiting", "Saved", "Failed", "Skipped"} {
+			for _, job := range []string{`null`, `{}`, `{"Input":null}`, `{"Input":17}`, `{"Input":[]}`, `{"Input":{"Text":17}}`} {
+				raw := `{"Job":` + job + `}`
+				if state == "Authorizing" || state == "Transforming" || state == "PersistingPayload" || state == "Writing" {
+					raw = `{"Work":` + raw + `}`
+				}
+				r := store.CaptureRecord{State: state, InputType: "ContentInput", StateJSON: json.RawMessage(raw)}
+				var err error
+				Expect(func() { _, err = r.ReducerState() }).NotTo(Panic(), state+raw)
+				Expect(err).To(HaveOccurred(), state+raw)
+			}
+		}
+		for _, raw := range []string{`null`, `{}`, `{"Job":`, `{"Work":null}`, `{"Work":{}}`, `[]`} {
+			for _, state := range []string{"Queued", "Authorizing"} {
+				r := store.CaptureRecord{State: state, InputType: "ContentInput", StateJSON: json.RawMessage(raw)}
+				var err error
+				Expect(func() { _, err = r.ReducerState() }).NotTo(Panic())
+				Expect(err).To(HaveOccurred())
+			}
+		}
+	})
+	It("rejects unknown constructors, broken invariants and identity substitution", func() {
+		original := memory.SampleStates()[0].(memory.Queued)
+		raw, err := json.Marshal(original)
+		Expect(err).NotTo(HaveOccurred())
+		r := store.CaptureRecord{Identity: original.Job.Identity, State: "Queued", InputType: "ContentInput", StateJSON: raw}
+		r.State = "Unknown"
+		_, err = r.ReducerState()
+		Expect(err).To(HaveOccurred())
+		r.State, r.InputType = "Queued", "Unknown"
+		_, err = r.ReducerState()
+		Expect(err).To(HaveOccurred())
+		r.InputType = "ContentInput"
+		r.Identity.Principal = "another"
+		_, err = r.ReducerState()
+		Expect(err).To(MatchError(store.ErrCaptureConflict))
+		r.Identity = original.Job.Identity
+		original.Job.Expires = 0
+		r.StateJSON, err = json.Marshal(original)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = r.ReducerState()
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("rejects a null input without panicking", func() {
+		r := store.CaptureRecord{State: "Queued", InputType: "ContentInput", StateJSON: json.RawMessage(`{"Job":{"Input":null}}`)}
+		var err error
+		Expect(func() { _, err = r.ReducerState() }).NotTo(Panic())
+		Expect(err).To(HaveOccurred())
+	})
+})
