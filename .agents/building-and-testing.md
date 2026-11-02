@@ -62,3 +62,14 @@ The Office text-input tests inspect actual PDF glyphs with Poppler’s
 `pdftotext`. Install `poppler-utils` on Ubuntu/Debian or `poppler` with
 Homebrew before running `go test ./addons/office/...` or the main Go suites.
 Missing PDF inspection tools are test failures, not skipped checks.
+
+## Testing CI selection without product builds
+
+Run `make test-ci-scripts` and `python3 scripts/ci/test-workflow-selection.py`
+(the latter requires PyYAML). These exercise changed-path/event classification,
+stable job wiring, failure propagation and same-run artifact integrity.
+See [ci-caching.md](ci-caching.md#selective-validation-prs-and-master) for the
+selection table and publishing policy. Heavyweight validation has full manual and
+scheduled routes; manual add-on packaging validates all packages but never
+publishes. Production fixture sharing does not replace the instrumented UI
+coverage build or change coverage ratchets and test inventories.

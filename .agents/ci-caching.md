@@ -390,3 +390,118 @@ When changing `image_build.yml`, `backend_build.yml`, any of the `backend/Docker
 5. **Keep `provenance: false` on push-by-digest steps** — multi-registry digest divergence is the Bug We Already Fixed; reintroducing provenance attestation re-breaks the merge.
 6. **`install-base-deps.sh` is the single source of truth for base contents.** Both `Dockerfile.base-grpc-builder` (CI) and the variant Dockerfiles' `builder-fromsource` (local) bind-mount and execute it. If you add a package to one path, add it to the script — don't fork the logic into a Dockerfile RUN.
 7. **After adding a `base-images.yml` matrix variant, run the workflow on your branch before merging consumer changes** that depend on the new tag — otherwise the consumer's CI fails "image not found."
+
+## Selective validation (PRs and master)
+
+The heavyweight validation workflows `test.yml`, `build-test.yaml`,
+`tests-ui-e2e.yml`, `tests-e2e.yml`, `tests-e2e-distributed.yml` and
+`addons-tests.yml` use `.github/actions/ci-select`. They start on every PR and
+master push, without workflow-level path filters. Existing job names and matrices
+remain present; only expensive steps are gated. An always-run check in each job
+requires the selector and every selected mandatory step to succeed. A failure,
+cancellation or unexpected skip cannot become a successful omission. Cheap lint,
+UI unit and YAML validation remain broad; YAML validation also runs on master.
+
+`scripts/lib/ci-select.mjs` is the pure dependency classifier.
+`scripts/ci/select.mjs` is its local-git adapter. The JSON log explains every
+selected domain and package ID:
+
+- PR: diff the merge base of the payload's base SHA and head SHA against that
+  head, not against the synthetic merge commit. The tested tree remains the
+  normal checkout merge commit.
+- Master push: diff the payload's complete `before` and `after` trees. This avoids
+  the truncated commit/file lists in event payloads and compare APIs.
+- Renames are deliberately represented as deletion plus addition, so both
+  dependency domains are selected. Deleted files do not need to exist on disk.
+- Bad/zero SHAs, missing objects, diff errors, empty diffs and unknown inputs run
+  broadly. Malformed event JSON or a selector execution error fails the job.
+- Manual, scheduled, tag and release events bypass selection and run full checks
+  relevant to the workflow. Validation workflows have weekly schedules (the
+  distributed suite retains its nightly schedule) and manual dispatch.
+
+Selection is intentionally conservative, not a fine-grained test matrix:
+
+| Input | Selection |
+|---|---|
+| Docs/site/agent guides and root Markdown only | Omit migrated heavyweight validation; cheap checks remain |
+| Gallery | Full core Go gate, including gallery invariants; add-on catalogs also select all package IDs and host add-on suites |
+| Backend C++/Python implementation | Backend E2E, standalone C++ tests, core Go and release-build validation |
+| Backend Go implementation | Broad: `make test` names backend Go roots and their transitive host imports |
+| Host Go, tests, shared add-on code, unknown inputs | Broad, including all add-on packages and all five host-suite groups |
+| Host UI | Core/embed, UI, host add-on suites, distributed/backend E2E and build validation; all add-on packages because they use the host bundler |
+| One known add-on | Host integration checks and all five add-on test groups; package/build/publish legs only for that add-on |
+| `go.mod`, `go.sum`, Makefile, proto/schema, CI/scripts/build tooling | Broad |
+
+Examples are not treated as documentation: they may be executable fixtures.
+Core Go changes still select the backend E2E domain; proving a narrower import
+closure is deferred. UI style-only precision is also deferred rather than guessing
+which bundler dependencies a package observes. `test-extra.yml` and the existing
+backend/image matrix selectors are unchanged; this does not claim new per-backend
+matrix precision. Registry cache safeguards remain unchanged.
+
+### Add-on packaging events
+
+`addons-package.yml` starts for PRs, master pushes, `v*` tag pushes, published
+releases and manual dispatch. Other branch pushes no longer duplicate PR
+validation. PR/master package matrices use the selected IDs; all catalog and
+packaging rule checks still run once, and the validation check names remain
+present. Tags/releases and manual dispatch select every package ID. The guest
+image dependency runs only when Sandbox is selected; its failure or cancellation
+fails the final package result. The final result also rejects unexpected skips
+of selected package, publish, promotion and release catalog jobs.
+
+Manual add-on package dispatch is **validate-only even on master**. It maps the
+package channel decision to PR validation and passes `validate-only: true` to the
+reusable guest image workflow. That input blocks registry login, push and cache
+writes. The guest workflow's established standalone dispatch publishing policy
+is unchanged. PRs use read-only selection with no API token or
+`pull_request_target`. PR package runs supersede older PR runs; other workflow
+runs have unique groups. Existing per-add-on publishing and promotion locks
+remain non-cancelling. Master publishes development for affected IDs; tag pushes
+prepare all immutable versions and the full pinned catalog; published stable
+releases retain their existing latest-promotion rules. Draft behavior is unchanged.
+
+### Same-run add-on production fixtures
+
+The five `addons-tests.yml` groups consume one immutable artifact from the same
+workflow run, never from another run or cache. The producer builds the production
+UI, generated Go stubs, mock backend and UI test server once. It does not install
+Chromium or browser system libraries (`prepare.sh --prepare-build` skips only
+the browser download). Consumers still provision their pinned
+Go/Node/protoc tools, offline Go modules, npm dependencies and browser because
+suites compile Go tests and bundle add-on UI themselves. This saves four repeated
+production UI/server builds, not all five dependency installations; the producer
+adds one dependency preparation. No large cross-run module or compiler cache is
+enabled.
+
+`scripts/ci/fixtures.py` preserves relative paths and executable bits in a tar,
+limits the archive to 512 MiB, rejects links/unexpected paths, and checks every
+file checksum and normalized mode. Its manifest binds the actual checkout SHA,
+Go/Node/protoc versions and the Ubuntu amd64/auth/production configuration.
+Artifacts expire after one day. A missing or mismatched artifact fails rather
+than silently rebuilding it. Consumers run `prepare.sh --check`, which inspects
+inputs and pinned plugins without regenerating sources or rebuilding the restored
+bundle. Other embedded sources come from the same checkout. Add-on bundles are
+still built by the existing suites. Instrumented UI coverage stays in its separate
+workflow and never consumes this production artifact.
+
+### Local acceptance
+
+No product build is required for the selector/wiring tests:
+
+```sh
+make test-ci-scripts
+python3 scripts/ci/test-workflow-selection.py  # requires PyYAML
+sh -n scripts/addons/prepare.sh
+sh scripts/ci/test-prepare-build.sh
+git diff --check
+# If installed; disable optional shellcheck when checking Actions wiring only:
+actionlint -shellcheck='' .github/workflows/{addons-package,addons-tests,sandbox-images,test,tests-ui-e2e,tests-e2e,tests-e2e-distributed,lint,tests-ui-unit,yaml-check}.yml .github/workflows/build-test.yaml
+```
+
+The Node tests include real-git rename/deletion fixtures and failure propagation.
+The Python tests check workflow identity/matrix preservation, event wiring,
+publish locks, manual guest safety and artifact roundtrip/tamper rejection.
+The lint workflow runs both. Real CI still verifies platform builds, browser/native
+runtime behavior and the existing coverage/no-skip inventories. Measure actual
+runner time after landing; these changes do not establish a runtime speedup locally.

@@ -3,23 +3,21 @@ name: 'E2E Backend Tests'
 
 on:
   pull_request:
-    # The e2e suite drives backends over gRPC directly and reads none of these
-    # paths, so a diff confined to them cannot move it.
-    # See .agents/ci-caching.md.
-    paths-ignore:
-      - 'gallery/**'
-      - 'docs/**'
-      - 'examples/**'
-      - '**/*.md'
   push:
     branches:
       - master
     tags:
       - '*'
+  workflow_dispatch:
+  schedule:
+    - cron: '43 4 * * 1'
 
 concurrency:
   group: ci-tests-e2e-backend-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   tests-e2e-backend:
@@ -31,17 +29,32 @@ jobs:
       - name: Clone
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           submodules: true
+      - name: Select affected validation
+        id: affected
+        uses: ./.github/actions/ci-select
+      - name: Explain omitted work
+        if: steps.affected.outputs.backend == 'false'
+        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Configure apt mirror on runner
+        id: work4
+        if: steps.affected.outputs.backend == 'true'
         uses: ./.github/actions/configure-apt-mirror
       - name: Setup Go ${{ matrix.go-version }}
+        id: work5
+        if: steps.affected.outputs.backend == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
       - name: Display Go version
+        id: work6
+        if: steps.affected.outputs.backend == 'true'
         run: go version
       - name: Proto Dependencies
+        id: work7
+        if: steps.affected.outputs.backend == 'true'
         run: |
           # Install protoc
           curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
@@ -51,16 +64,24 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Dependencies
+        id: work8
+        if: steps.affected.outputs.backend == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libopus-dev
       - name: Setup Node.js
+        id: work9
+        if: steps.affected.outputs.backend == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Build React UI
+        id: work10
+        if: steps.affected.outputs.backend == 'true'
         run: make react-ui
       - name: Test Backend E2E
+        id: work11
+        if: steps.affected.outputs.backend == 'true'
         run: |
           PATH="$PATH:$HOME/go/bin" make build-mock-backend test-e2e
       # tmate keeps the runner busy until the 6 hour job limit, so a single
@@ -68,10 +89,17 @@ jobs:
       # asked for one by labelling the pull request `ci-debug`, and cap the
       # session so a forgotten label cannot idle a runner either.
       - name: Setup tmate session if tests fail
-        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        if: ${{ (failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug')) && steps.affected.outputs.backend == 'true' }}
         timeout-minutes: 30
         uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
+      - name: Require selected work to succeed
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          DOMAIN: backend
+          REQUIRED: work4 work5 work6 work7 work8 work9 work10 work11
+        run: node scripts/ci/check-steps.mjs

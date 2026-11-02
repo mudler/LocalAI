@@ -8,10 +8,16 @@ on:
       - master
     tags:
       - '*'
+  workflow_dispatch:
+  schedule:
+    - cron: '43 4 * * 1'
 
 concurrency:
   group: ci-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   tests-linux:
@@ -44,6 +50,7 @@ jobs:
       - name: Clone
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           submodules: true
       # No free-disk-space step here on purpose. That action exists to make room
       # for docker buildx layers, and this job runs no buildx step. It was also
@@ -52,15 +59,27 @@ jobs:
       # reorg it does neither (see the Makefile test target). It cost ~3min of
       # every run, and its tool-cache:true wipe also forced setup-go and
       # setup-node to re-download toolchains that ship preinstalled.
+      - name: Select affected validation
+        id: affected
+        uses: ./.github/actions/ci-select
+      - name: Explain omitted work
+        if: steps.affected.outputs.core == 'false'
+        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Setup Go ${{ matrix.go-version }}
+        id: work4
+        if: steps.affected.outputs.core == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
       # You can test your matrix by printing the current Go version
       - name: Display Go version
+        id: work5
+        if: steps.affected.outputs.core == 'true'
         run: go version
       - name: Proto Dependencies
+        id: work6
+        if: steps.affected.outputs.core == 'true'
         run: |
           # Install protoc
           curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
@@ -70,39 +89,53 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Dependencies
+        id: work7
+        if: steps.affected.outputs.core == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install curl ffmpeg libopus-dev poppler-utils
       - name: Setup Node.js
+        id: work8
+        if: steps.affected.outputs.core == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Build React UI
+        id: work9
+        if: steps.affected.outputs.core == 'true'
         run: make react-ui
       # Runs the core suite with coverage and fails if total coverage dropped
       # below the committed baseline (coverage-baseline.txt). The gate is
       # strict — any decrease fails. Raise the baseline with
       # `make test-coverage-baseline` and commit it when coverage rises.
       - name: Test (with coverage gate)
+        id: work10
+        if: steps.affected.outputs.core == 'true'
         run: |
           PATH="$PATH:/root/go/bin" make --jobs 5 --output-sync=target test-coverage-check
       # The coverage run above set the URL, but a skipped test is a passed test
       # to it. This runs the PostgreSQL stores alone and fails on any skip.
       - name: Test the PostgreSQL stores (no skips)
+        id: work11
+        if: steps.affected.outputs.core == 'true'
         run: PATH="$PATH:$HOME/go/bin" make test-postgres
       # tests/integration is outside the coverage roots because its store specs
       # need a live backend. test-stores builds and installs local-store before
       # running the complete suite, so new local-store specs are collected
       # automatically without adding another workflow entry.
       - name: Test local-store integration
+        id: work12
+        if: steps.affected.outputs.core == 'true'
         run: PATH="$PATH:$HOME/go/bin" make test-stores
       # Runs the real local-ai binary (MCP connectors and apps, collections,
       # process flags, route permissions). The suite builds the binary, the
       # mock backend and an MCP fixture itself and needs no Docker.
       - name: Test platform e2e
+        id: work13
+        if: steps.affected.outputs.core == 'true'
         run: PATH="$PATH:$HOME/go/bin" make test-e2e-platform
       - name: Upload coverage report
-        if: ${{ always() }}
+        if: ${{ (always()) && steps.affected.outputs.core == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-linux
@@ -115,13 +148,20 @@ jobs:
       # asked for one by labelling the pull request `ci-debug`, and cap the
       # session so a forgotten label cannot idle a runner either.
       - name: Setup tmate session if tests fail
-        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        if: ${{ (failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug')) && steps.affected.outputs.core == 'true' }}
         timeout-minutes: 30
         uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
+      - name: Require selected work to succeed
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          DOMAIN: core
+          REQUIRED: work4 work5 work6 work7 work8 work9 work10 work11 work12 work13
+        run: node scripts/ci/check-steps.mjs
 
   tests-apple:
     runs-on: macos-latest
@@ -132,26 +172,45 @@ jobs:
       - name: Clone
         uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           submodules: true
+      - name: Select affected validation
+        id: affected
+        uses: ./.github/actions/ci-select
+      - name: Explain omitted work
+        if: steps.affected.outputs.core == 'false'
+        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Setup Go ${{ matrix.go-version }}
+        id: work4
+        if: steps.affected.outputs.core == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
       # You can test your matrix by printing the current Go version
       - name: Display Go version
+        id: work5
+        if: steps.affected.outputs.core == 'true'
         run: go version
       - name: Dependencies
+        id: work6
+        if: steps.affected.outputs.core == 'true'
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg poppler
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Setup Node.js
+        id: work7
+        if: steps.affected.outputs.core == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Build React UI
+        id: work8
+        if: steps.affected.outputs.core == 'true'
         run: make react-ui
       - name: Test
+        id: work9
+        if: steps.affected.outputs.core == 'true'
         run: |
           export C_INCLUDE_PATH=/usr/local/include
           export CPLUS_INCLUDE_PATH=/usr/local/include
@@ -165,7 +224,7 @@ jobs:
       # asked for one by labelling the pull request `ci-debug`, and cap the
       # session so a forgotten label cannot idle a runner either.
       - name: Setup tmate session if tests fail
-        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
+        if: ${{ (failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug')) && steps.affected.outputs.core == 'true' }}
         timeout-minutes: 30
         uses: mxschmitt/action-tmate@v3.23
         with:
@@ -181,10 +240,35 @@ jobs:
   # C++ stdlib + nlohmann/json, so they run on every PR without the full
   # llama.cpp + gRPC backend build. (The same suite is also wired as an opt-in
   # CMake/ctest target, -DLLAMA_GRPC_BUILD_TESTS=ON, for in-backend-build runs.)
+      - name: Require selected work to succeed
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          DOMAIN: core
+          REQUIRED: work4 work5 work6 work7 work8 work9
+        run: node scripts/ci/check-steps.mjs
+
   tests-backend-cpp:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Select affected validation
+        id: affected
+        uses: ./.github/actions/ci-select
+      - name: Explain omitted work
+        if: steps.affected.outputs.cpp == 'false'
+        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Run backend C++ unit tests
+        id: work4
+        if: steps.affected.outputs.cpp == 'true'
         run: make test-backend-cpp
+      - name: Require selected work to succeed
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          DOMAIN: cpp
+          REQUIRED: work4
+        run: node scripts/ci/check-steps.mjs

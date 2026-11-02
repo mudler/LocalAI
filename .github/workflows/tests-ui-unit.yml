@@ -7,15 +7,10 @@ name: 'UI Unit Tests'
 # UI or to an add-on UI package, ahead of the browser suites.
 on:
   pull_request:
-    paths:
-      - 'core/http/react-ui/**'
-      - 'addons/*/ui/**'
-      - 'addons/internal/**'
-      - 'Makefile'
-      - '.github/workflows/tests-ui-unit.yml'
   push:
     branches:
       - master
+  workflow_dispatch:
 
 concurrency:
   group: ci-tests-ui-unit-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}

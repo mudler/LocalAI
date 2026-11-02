@@ -10,7 +10,7 @@ name: 'add-on packages'
 # Event policy (the rules live in scripts/addons/channel.sh):
 #   pull_request          validate and build legs, publish nothing, no secrets
 #   push to master        publish the development channel
-#   push to other branch  publish nothing
+#   workflow_dispatch    validate only, including manual master runs
 #   push of a v<semver> tag  prepare the immutable version, move no alias
 #   release published     promote latest, for a stable non-draft release only
 #
@@ -48,37 +48,18 @@ name: 'add-on packages'
 
 on:
   push:
-    branches: ['**']
+    branches: [master]
     tags: ['v*']
-    paths:
-      - 'addons/**'
-      - 'pkg/addons/**'
-      - 'scripts/addons/**'
-      - 'gallery/addons/**'
-      - 'tests/addons/packaging/**'
-      - 'core/services/addons/**'
-      - 'core/http/react-ui/package.json'
-      - 'core/http/react-ui/package-lock.json'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/addons-package.yml'
-      - '.github/workflows/sandbox-images.yml'
   pull_request:
-    paths:
-      - 'addons/**'
-      - 'pkg/addons/**'
-      - 'scripts/addons/**'
-      - 'gallery/addons/**'
-      - 'tests/addons/packaging/**'
-      - 'core/services/addons/**'
-      - 'core/http/react-ui/package.json'
-      - 'core/http/react-ui/package-lock.json'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/addons-package.yml'
-      - '.github/workflows/sandbox-images.yml'
+  workflow_dispatch:
   release:
     types: [published]
+
+# Only PR runs share a cancellation group. Publishing events are unique per run;
+# the per-add-on publish/promote locks below still serialize mutable operations.
+concurrency:
+  group: addons-package-${{ github.event.pull_request.number || github.run_id }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -98,13 +79,19 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - id: affected
+        uses: ./.github/actions/ci-select
       - uses: actions/setup-go@v6
+        if: matrix.addon == 'tables' || contains(fromJSON(steps.affected.outputs.addons-json), matrix.addon)
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@v7
+        if: matrix.addon == 'tables' || contains(fromJSON(steps.affected.outputs.addons-json), matrix.addon)
         with:
           node-version: '22'
       - name: Install the host UI build tools
+        if: matrix.addon == 'tables' || contains(fromJSON(steps.affected.outputs.addons-json), matrix.addon)
         # The package checks build the add-on UI with the bundler the host UI
         # already installs.
         run: npm ci --prefix core/http/react-ui
@@ -120,6 +107,7 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Build the UI of this add-on
+        if: contains(fromJSON(steps.affected.outputs.addons-json), matrix.addon)
         env:
           ADDON: ${{ matrix.addon }}
         run: node "addons/$ADDON/ui/build.mjs"
@@ -139,11 +127,15 @@ jobs:
         run: sh scripts/addons/catalog.sh --channel development --check
 
   sandbox-image:
+    needs: plan
+    if: needs.plan.outputs.sandbox == 'true'
     name: sandbox guest image
     # Builds the guest image of the Sandbox add-on. The reusable workflow
     # decides from the event whether it pushes and signs, as this workflow
     # does, and exposes the reference of the image by digest as "digest".
     uses: ./.github/workflows/sandbox-images.yml
+    with:
+      validate-only: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' }}
     secrets: inherit
     permissions:
       contents: read
@@ -159,6 +151,7 @@ jobs:
     env:
       ADDON_OCI_REPOSITORY: ${{ vars.ADDON_OCI_REPOSITORY }}
     outputs:
+      sandbox: ${{ steps.affected.outputs.sandbox }}
       publish: ${{ steps.plan.outputs.publish }}
       immutable: ${{ steps.plan.outputs.immutable }}
       aliases: ${{ steps.plan.outputs.aliases }}
@@ -172,13 +165,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 0
+      - id: affected
+        uses: ./.github/actions/ci-select
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: Decide what this event may publish
         id: plan
         env:
-          EVENT: ${{ github.event_name }}
+          # Dispatch is explicitly validate-only, even on master.
+          EVENT: ${{ github.event_name == 'workflow_dispatch' && 'pull_request' || github.event_name }}
+          SELECTED_ADDONS: ${{ steps.affected.outputs.addons-list }}
           REF: ${{ github.ref }}
           SHA: ${{ github.sha }}
           DRAFT: ${{ github.event.release.draft || false }}
@@ -212,7 +210,7 @@ jobs:
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
           include='[]'
-          for id in tables voice face fine-tuning quantization studio talk telegram slack office sandbox web; do
+          for id in $SELECTED_ADDONS; do
             cfg="addons/$id/package/platforms.yaml"
             err="matrix-$id.err"
             if rows=$(go run ./scripts/addons/cmd/addonpkg matrix --config "$cfg" 2>"$err"); then
@@ -245,7 +243,7 @@ jobs:
   package:
     name: package ${{ matrix.addon }} ${{ matrix.platform }}
     needs: [plan, validate, sandbox-image]
-    if: needs.plan.outputs.has_platforms == 'true'
+    if: ${{ always() && needs.plan.result == 'success' && needs.validate.result == 'success' && (needs.sandbox-image.result == 'success' || needs.sandbox-image.result == 'skipped') && needs.plan.outputs.has_platforms == 'true' }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     permissions:
@@ -323,7 +321,7 @@ jobs:
   publish:
     name: publish and sign ${{ matrix.addon }}
     needs: [plan, validate, package]
-    if: needs.plan.outputs.publish == 'true'
+    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.has_platforms == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     concurrency:
@@ -431,7 +429,7 @@ jobs:
   promote:
     name: promote channel aliases ${{ matrix.addon }}
     needs: [plan, validate, publish]
-    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.aliases != ''
+    if: needs.plan.outputs.publish == 'true' && needs.plan.outputs.has_platforms == 'true' && needs.plan.outputs.aliases != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     # One promotion at a time per channel, and a queued run never cancels a
@@ -562,3 +560,20 @@ jobs:
           gh run download "$run" --name addons-release-index --dir index
           test -s index/addons-index.yaml
           gh release upload "$TAG" index/addons-index.yaml --clobber
+
+  result:
+    name: check package dependency results
+    if: always()
+    needs: [plan, validate, sandbox-image, package, publish, promote, catalog, release-index]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Reject failed, cancelled or unexpectedly skipped dependencies
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          DRAFT: ${{ github.event.release.draft || false }}
+        run: node scripts/ci/package-result.mjs

@@ -3,17 +3,10 @@ name: 'lint'
 
 on:
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - 'examples/**'
-      - 'README.md'
-      - '**/*.md'
-      # golangci-lint runs new-from-merge-base, so a diff with no touched Go
-      # lines can only ever be a no-op. See .agents/ci-caching.md.
-      - 'gallery/**'
   push:
     branches:
       - master
+  workflow_dispatch:
 
 concurrency:
   group: ci-lint-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
@@ -124,6 +117,15 @@ jobs:
           node-version: '20'
       - name: run CI script tests
         run: make test-ci-scripts
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: test selective workflow wiring and fixture transfer
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          python3 scripts/ci/test-workflow-selection.py
+          sh scripts/ci/test-prepare-build.sh
 
       # Exercise the actual publication gate without building any images.
       - name: test image publication gate

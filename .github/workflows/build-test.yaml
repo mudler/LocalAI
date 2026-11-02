@@ -5,32 +5,21 @@ on:
     branches:
       - master
   pull_request:
-    # GoReleaser and the darwin launcher take no gallery, docs or markdown
-    # input, so a diff confined to these paths cannot change either binary.
-    # The darwin job matters here: macOS is the scarcest runner class.
-    #
-    # backend/{cpp,go,python}/**: GoReleaser builds ./cmd/local-ai and the
-    # launcher builds ./cmd/launcher; neither compiles a backend. The
-    # before-hooks still matter, but their input is backend/backend.proto
-    # (protogen-go) and go.mod/go.sum (go mod tidy), none of which live under
-    # these prefixes, so a change to any of those still triggers a full run.
-    # See .agents/ci-caching.md.
-    paths-ignore:
-      - 'gallery/**'
-      - 'docs/**'
-      - 'examples/**'
-      - '**/*.md'
-      - 'backend/cpp/**'
-      - 'backend/go/**'
-      - 'backend/python/**'
 
 # Supersede an in-flight run when a PR gets a new push. Keyed on the PR number
 # so every push to the same PR shares a group; on a master push the key falls
 # back to github.sha (unique per commit) and cancel-in-progress is false, so
 # master runs never cancel each other -- each commit is built on its own.
+  workflow_dispatch:
+  schedule:
+    - cron: '43 4 * * 1'
+
 concurrency:
   group: ci-build-test-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 jobs:
   build-test:
@@ -40,7 +29,15 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Select affected validation
+        id: affected
+        uses: ./.github/actions/ci-select
+      - name: Explain omitted work
+        if: steps.affected.outputs.build == 'false'
+        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Set up Go
+        id: work4
+        if: steps.affected.outputs.build == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
@@ -51,8 +48,18 @@ jobs:
       # "is the release build broken" signal is unchanged. master and tags still
       # build everything.
       - name: Run GoReleaser
+        id: work5
+        if: steps.affected.outputs.build == 'true'
         run: |
           make ${{ github.event_name == 'pull_request' && 'dev-dist-single' || 'dev-dist' }}
+      - name: Require selected work to succeed
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          DOMAIN: build
+          REQUIRED: work4 work5
+        run: node scripts/ci/check-steps.mjs
+
   launcher-build-darwin:
     runs-on: macos-latest
     steps:
@@ -60,21 +67,40 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Select affected validation
+        id: affected
+        uses: ./.github/actions/ci-select
+      - name: Explain omitted work
+        if: steps.affected.outputs.build == 'false'
+        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Set up Go
+        id: work4
+        if: steps.affected.outputs.build == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
       - name: Build launcher for macOS ARM64
+        id: work5
+        if: steps.affected.outputs.build == 'true'
         run: |
           make build-launcher-darwin
           ls -liah dist
       - name: Upload macOS launcher artifacts
+        id: work6
+        if: steps.affected.outputs.build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: launcher-macos
           path: dist/
           retention-days: 30
-      
+      - name: Require selected work to succeed
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          DOMAIN: build
+          REQUIRED: work4 work5 work6
+        run: node scripts/ci/check-steps.mjs
+
   launcher-build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -82,20 +108,41 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Select affected validation
+        id: affected
+        uses: ./.github/actions/ci-select
+      - name: Explain omitted work
+        if: steps.affected.outputs.build == 'false'
+        run: echo 'No affected dependencies; see selector reasons above.'
       - name: Configure apt mirror on runner
+        id: work4
+        if: steps.affected.outputs.build == 'true'
         uses: ./.github/actions/configure-apt-mirror
       - name: Set up Go
+        id: work5
+        if: steps.affected.outputs.build == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: 1.25
       - name: Build launcher for Linux
+        id: work6
+        if: steps.affected.outputs.build == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
           make build-launcher-linux
       - name: Upload Linux launcher artifacts
+        id: work7
+        if: steps.affected.outputs.build == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: launcher-linux
           path: local-ai-launcher-linux.tar.xz
           retention-days: 30
+      - name: Require selected work to succeed
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          DOMAIN: build
+          REQUIRED: work4 work5 work6 work7
+        run: node scripts/ci/check-steps.mjs

@@ -1,0 +1,90 @@
+{
+  "test.yml": {
+    "tests-linux": {
+      "strategy": {
+        "matrix": {
+          "go-version": [
+            "1.26.x"
+          ]
+        }
+      }
+    },
+    "tests-apple": {
+      "strategy": {
+        "matrix": {
+          "go-version": [
+            "1.26.x"
+          ]
+        }
+      }
+    },
+    "tests-backend-cpp": {}
+  },
+  "build-test.yaml": {
+    "build-test": {},
+    "launcher-build-darwin": {},
+    "launcher-build-linux": {}
+  },
+  "tests-ui-e2e.yml": {
+    "tests-ui-e2e": {
+      "strategy": {
+        "matrix": {
+          "go-version": [
+            "1.26.x"
+          ]
+        }
+      }
+    }
+  },
+  "tests-e2e.yml": {
+    "tests-e2e-backend": {
+      "strategy": {
+        "matrix": {
+          "go-version": [
+            "1.25.x"
+          ]
+        }
+      }
+    }
+  },
+  "tests-e2e-distributed.yml": {
+    "fakebus": {
+      "name": "multi-frontend over the in-process bus"
+    },
+    "distributed": {
+      "name": "PostgreSQL and NATS in containers"
+    }
+  },
+  "addons-tests.yml": {
+    "suites": {
+      "name": "${{ matrix.group }}",
+      "strategy": {
+        "fail-fast": "false",
+        "matrix": {
+          "include": [
+            {
+              "group": "contracts and gateway",
+              "suites": "prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps"
+            },
+            {
+              "group": "host pages",
+              "suites": "gallery-ui esm-ui host-slots library-sources updates recovery"
+            },
+            {
+              "group": "foundation",
+              "suites": "foundation-acceptance"
+            },
+            {
+              "group": "tables",
+              "suites": "tables-databases tables-schema tables-rows tables-tools tables-admin"
+            },
+            {
+              "group": "tables pages",
+              "suites": "tables-ui tables-csv tables-acceptance"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

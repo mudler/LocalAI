@@ -1,6 +1,9 @@
 name: 'Yamllint GitHub Actions'
 on:
-  - pull_request
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
 
 concurrency:
   group: ci-yamllint-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
