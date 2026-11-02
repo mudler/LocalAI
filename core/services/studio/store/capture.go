@@ -805,6 +805,28 @@ func bindMemoryTurn(d *captureData, c *chatState, run string, ids []string) erro
 	}
 	return nil
 }
+
+// restoreMemoryTurn removes only the provisional members returned to pending by
+// this delivery attempt. Confirmed inputs and prior turns remain consumed.
+func restoreMemoryTurn(d *captureData, run string, ids []string) {
+	removed := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		removed[id] = true
+	}
+	members := d.Turns[run]
+	kept := members[:0]
+	for _, id := range members {
+		if !removed[id] {
+			kept = append(kept, id)
+		}
+	}
+	if len(kept) == 0 {
+		delete(d.Turns, run)
+	} else {
+		d.Turns[run] = kept
+	}
+}
+
 func (s *jsonStore) BindMemoryTurn(ctx context.Context, p, c, r string, ids []string) error {
 	return s.editCapture(ctx, p, c, func(d *captureData, state *chatState) error { return bindMemoryTurn(d, state, r, ids) })
 }

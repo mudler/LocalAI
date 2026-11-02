@@ -183,6 +183,87 @@ var _ = Describe("durable capture", func() {
 				}
 				Expect(texts).To(ConsistOf("remember", "answer"))
 			})
+			for _, mode := range []store.CaptureMode{store.CaptureReplies, store.CaptureSummary} {
+				mode := mode
+				It("rolls back only unconfirmed pending membership for "+string(mode), func() {
+					in := acceptance(mode)
+					in.SourceID, in.Text = "source-A", "accepted A"
+					a, err := s.AcceptMemoryInput(ctx, in)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(s.ClaimTurn(ctx, "alice", id, "run-A")).To(Succeed())
+					taken, err := s.TakePending(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(taken).To(HaveLen(1))
+					Expect(taken[0].ID).To(Equal(a.ID))
+					Expect(s.ConfirmPending(ctx, "alice", id, []string{a.ID})).To(Succeed())
+					in.SourceID, in.Text = "source-B", "accepted B"
+					b, err := s.AcceptMemoryInput(ctx, in)
+					Expect(err).NotTo(HaveOccurred())
+					taken, err = s.TakePending(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(taken).To(HaveLen(1))
+					Expect(taken[0].ID).To(Equal(b.ID))
+					// The failed model-delivery callback restores B. A stale restore
+					// including confirmed A must not undo its consumed membership.
+					Expect(s.RestorePending(ctx, "alice", id, []string{b.ID, a.ID})).To(Succeed())
+					Expect(s.RestorePending(ctx, "alice", id, []string{b.ID})).To(Succeed())
+					s = open()
+					pending, err := s.Pending(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(pending).To(HaveLen(1))
+					Expect(pending[0].ID).To(Equal(b.ID))
+					for _, accepted := range []store.AcceptedInput{a, b} {
+						restored, found, err := s.MemoryInput(ctx, "alice", id, accepted.ID)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(found).To(BeTrue())
+						Expect(restored).To(Equal(accepted))
+					}
+					info, err := s.Turn(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					if !info.Running {
+						Expect(s.ClaimTurn(ctx, "alice", id, "run-A")).To(Succeed())
+					}
+					done := store.MemoryTurnCompletion{Principal: "alice", ChatID: id, RunID: "run-A", ReplyID: "reply-A", ReplyText: "answer A", Status: store.TurnDone, IncomingIDs: []string{a.ID}}
+					Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+					done.IncomingIDs = nil // recovered membership must also exclude B
+					Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+					records, err := s.ListCaptures(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					texts := []string{}
+					for _, r := range records {
+						texts = append(texts, r.RawText)
+					}
+					if mode == store.CaptureSummary {
+						Expect(texts).To(ConsistOf("accepted A\n\nanswer A"))
+					} else {
+						Expect(texts).To(ConsistOf("accepted A", "accepted B", "answer A"))
+					}
+					Expect(s.ClaimTurn(ctx, "alice", id, "run-B")).To(Succeed())
+					taken, err = s.TakePending(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(taken).To(HaveLen(1))
+					Expect(taken[0].ID).To(Equal(b.ID))
+					Expect(s.ConfirmPending(ctx, "alice", id, []string{b.ID})).To(Succeed())
+					done.RunID, done.ReplyID, done.ReplyText, done.IncomingIDs = "run-B", "reply-B", "answer B", []string{b.ID}
+					Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+					s = open()
+					Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+					taken, err = s.TakePending(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(taken).To(BeEmpty())
+					records, err = s.ListCaptures(ctx, "alice", id)
+					Expect(err).NotTo(HaveOccurred())
+					texts = nil
+					for _, r := range records {
+						texts = append(texts, r.RawText)
+					}
+					if mode == store.CaptureSummary {
+						Expect(texts).To(ConsistOf("accepted A\n\nanswer A", "accepted B\n\nanswer B"))
+					} else {
+						Expect(texts).To(ConsistOf("accepted A", "accepted B", "answer A", "answer B"))
+					}
+				})
+			}
 			It("associates only a current claim and replays the stored fence", func() {
 				_, err := s.AcceptMemoryInput(ctx, acceptance(store.CaptureIncoming))
 				Expect(err).NotTo(HaveOccurred())

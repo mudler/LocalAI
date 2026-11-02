@@ -1008,14 +1008,19 @@ func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids 
 	defer unlock()
 	next := c.chatState
 	next.Pending = append([]Pending(nil), c.Pending...)
+	next.Capture = cloneCapture(c.Capture)
+	var restored []string
 	for _, pid := range ids {
-		if i := indexOf(next.Pending, pid); i >= 0 {
+		if i := indexOf(next.Pending, pid); i >= 0 && next.Pending[i].Unconfirmed {
+			restored = append(restored, pid)
 			next.Pending[i].Delivered, next.Pending[i].Unconfirmed = false, false
 		}
 	}
+	restoreMemoryTurn(&next.Capture, next.Run, restored)
 	if err := s.save(&next); err != nil {
 		return err
 	}
+	c.Capture = next.Capture
 	c.Pending = next.Pending
 	return nil
 }

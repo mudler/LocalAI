@@ -920,7 +920,40 @@ func (s *gormStore) RestorePending(ctx context.Context, principal, id string, id
 		if len(ids) == 0 {
 			return nil
 		}
-		return tx.Model(&pendingRow{}).Where("chat_id = ? AND id IN ?", id, ids).
+		var rows []pendingRow
+		if err := tx.Where("chat_id = ? AND id IN ? AND unconfirmed = ?", id, ids, true).Find(&rows).Error; err != nil {
+			return err
+		}
+		if len(rows) == 0 {
+			return nil
+		}
+		var cr chatRow
+		if err := tx.Where("id = ?", id).First(&cr).Error; err != nil {
+			return err
+		}
+		var capture captureStateRow
+		if err := tx.Where("chat_id = ?", id).Limit(1).Find(&capture).Error; err != nil {
+			return err
+		}
+		var data captureData
+		if len(capture.Data) > 0 {
+			if err := json.Unmarshal(capture.Data, &data); err != nil {
+				return err
+			}
+		}
+		var restored []string
+		for _, row := range rows {
+			restored = append(restored, row.ID)
+		}
+		restoreMemoryTurn(&data, cr.RunID, restored)
+		raw, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		if err := tx.Save(&captureStateRow{ChatID: id, Data: raw}).Error; err != nil {
+			return err
+		}
+		return tx.Model(&pendingRow{}).Where("chat_id = ? AND id IN ?", id, restored).
 			Updates(map[string]any{"delivered": false, "unconfirmed": false}).Error
 	})
 }
