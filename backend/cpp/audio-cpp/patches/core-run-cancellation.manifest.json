@@ -87,7 +87,7 @@
     },
     "src/models/yue2/pipeline.cpp": {
       "base_sha256": "f1f856a8d1a6d4bb2647e31df695a72051219aba8f10f6478151d7cdfa544a01",
-      "final_sha256": "d66cd3517c3c20f2fd90b5d7824715516522c45821da2760e59491a0b09f8eed"
+      "final_sha256": "fcc792665f7af5fc69b490b73882260c4c7158a563af5a1e1d073b20b9ee010b"
     },
     "src/models/yue2/ar_runtime.cpp": {
       "base_sha256": "6c9b6ed1b220957082e758969baab648a945c6a4109cbdd4a0d29e97e3225aaa",
@@ -96,6 +96,10 @@
     "src/framework/modules/transformers/causal_decoder_runtime.cpp": {
       "base_sha256": "54a4170b9aedda90a531710a70f0db9a86d3235bb70a01ce726d226a6d0f3eeb",
       "final_sha256": "38e36750488988ad2f39498385bad42769e57356825b3cdd57f02f7a74ed36e0"
+    },
+    "src/models/yue2/nar_runtime.cpp": {
+      "base_sha256": "4d0dbd1238b0ed5893061dd966b997f2d41f02f762a6d4b6801acc3692e08e9e",
+      "final_sha256": "b1d594d638589e576502d80096e3d0075abd287f2508b6981f129dd3f9363ef4"
     }
   },
   "omitted_tracked_paths": {
@@ -350,6 +354,20 @@
         "src/framework/modules/transformers/causal_decoder_runtime.cpp": {
           "base_sha256": "54a4170b9aedda90a531710a70f0db9a86d3235bb70a01ce726d226a6d0f3eeb",
           "final_sha256": "38e36750488988ad2f39498385bad42769e57356825b3cdd57f02f7a74ed36e0"
+        }
+      }
+    },
+    {
+      "patch": "0013-yue2-nar-cancellation.patch",
+      "patch_sha256": "b1506c94f23663ccfc20e434c66c5b9920887e6adc390de86ce2762288e09284",
+      "files": {
+        "src/models/yue2/nar_runtime.cpp": {
+          "base_sha256": "4d0dbd1238b0ed5893061dd966b997f2d41f02f762a6d4b6801acc3692e08e9e",
+          "final_sha256": "b1d594d638589e576502d80096e3d0075abd287f2508b6981f129dd3f9363ef4"
+        },
+        "src/models/yue2/pipeline.cpp": {
+          "base_sha256": "d66cd3517c3c20f2fd90b5d7824715516522c45821da2760e59491a0b09f8eed",
+          "final_sha256": "fcc792665f7af5fc69b490b73882260c4c7158a563af5a1e1d073b20b9ee010b"
         }
       }
     }

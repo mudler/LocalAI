@@ -1,0 +1,349 @@
+diff --git a/src/models/yue2/nar_runtime.cpp b/src/models/yue2/nar_runtime.cpp
+--- a/src/models/yue2/nar_runtime.cpp
++++ b/src/models/yue2/nar_runtime.cpp
+@@ -1,4 +1,5 @@
+ #include "engine/models/yue2/nar_runtime.h"
++#include "engine/framework/runtime/session.h"
+ 
+ #include "engine/framework/core/backend.h"
+ #include "engine/framework/debug/profiler.h"
+@@ -29,6 +30,70 @@
+ namespace binding = engine::modules::binding;
+ using Clock = std::chrono::steady_clock;
+ 
++
++#ifdef ENGINE_YUE2_NAR_TESTING
++namespace nar_testing{
++void stored(int stage,size_t index,float value)noexcept;
++void phase(int stage)noexcept;
++void graph_context(ggml_cgraph*graph)noexcept;
++void before_compute(core::ExecutionContext&execution)noexcept;
++void padded_context(const std::vector<float>&padded,const std::vector<float>&source,int64_t channels)noexcept;
++void feature_context(float shifted)noexcept;
++void arithmetic_context(int stage,const std::vector<float>&state,const std::vector<float>&velocity,float factor)noexcept;
++}
++#endif
++void nar_stop(const core::RunStopHandle&stop){if(stop&&stop->cancelled())throw runtime::RunCancelled();}
++void nar_phase(int stage,const core::RunStopHandle&stop){
++#ifdef ENGINE_YUE2_NAR_TESTING
++ nar_testing::phase(stage);
++#else
++ (void)stage;
++#endif
++ nar_stop(stop);
++}
++void nar_stored(int stage,size_t index,float value){
++#ifdef ENGINE_YUE2_NAR_TESTING
++ nar_testing::stored(stage,index,value);
++#else
++ (void)stage;(void)index;(void)value;
++#endif
++}
++size_t nar_product(std::initializer_list<int64_t>dims,size_t bytes=sizeof(float)){
++ size_t total=1;const size_t limit=std::min({static_cast<size_t>(std::numeric_limits<int64_t>::max())/bytes,std::numeric_limits<size_t>::max()/bytes,static_cast<size_t>(std::numeric_limits<ptrdiff_t>::max())/bytes});
++ for(int64_t d:dims){if(d<=0||static_cast<uint64_t>(d)>limit/total)throw std::runtime_error("Yue2 NAR dimensions exceed supported range");total*=static_cast<size_t>(d);}return total;
++}
++void nar_config(const Yue2ModelConfig&c){
++ if(c.hidden_size<=0||c.layers<=0||c.attention_heads<=0||c.kv_heads<=0||c.attention_heads%c.kv_heads!=0||c.head_dim<=0||c.head_dim%2!=0||c.intermediate_size<=0||c.latent_dim<=0||c.max_latent_frames<=2||c.max_position_embeddings<=0||c.max_position_embeddings>std::numeric_limits<int32_t>::max()||c.vocab_size<=kCodecOffset+kCodecSize-1||c.vocab_size>std::numeric_limits<int32_t>::max()||!std::isfinite(c.timestep_shift)||c.timestep_shift<=0||!std::isfinite(c.rope_theta)||c.rope_theta<=0||!std::isfinite(c.rms_norm_eps)||c.rms_norm_eps<=0)throw std::runtime_error("Yue2 NAR configuration is invalid");
++ (void)nar_product({c.layers,3,c.attention_heads,c.head_dim,c.hidden_size});(void)nar_product({c.layers,2,c.kv_heads,c.head_dim,c.max_position_embeddings},sizeof(ggml_fp16_t));(void)nar_product({c.layers,3,c.hidden_size,c.intermediate_size});(void)nar_product({c.max_latent_frames,c.hidden_size});(void)nar_product({256,c.hidden_size});(void)nar_product({c.latent_dim,c.hidden_size});
++}
++void nar_request(const Yue2ModelConfig&c,const std::vector<int32_t>&prefix,const std::vector<int32_t>&codec,const std::vector<float>&noise,int64_t ode_steps,int64_t context){
++ nar_config(c);
++ if(prefix.empty()||codec.empty()||ode_steps<=0||context<=0||context>c.max_position_embeddings||prefix.size()>static_cast<uint64_t>(context)||context-static_cast<int64_t>(prefix.size())<=4||codec.size()>static_cast<uint64_t>(std::numeric_limits<int64_t>::max()))throw std::runtime_error("Yue2 NAR request shape/context/steps is invalid");
++ const int64_t chunk=std::min((context-static_cast<int64_t>(prefix.size())-3)/2,context);
++ if(chunk<=0||std::min<int64_t>(static_cast<int64_t>(codec.size()),chunk)>c.max_latent_frames-2)throw std::runtime_error("Yue2 NAR chunk exceeds latent positions");
++ const int64_t largest_chunk=std::min<int64_t>(static_cast<int64_t>(codec.size()),chunk);
++ if(largest_chunk>std::numeric_limits<int64_t>::max()-2)throw std::runtime_error("Yue2 NAR padded frames exceed supported range");
++ const size_t padded_count=nar_product({largest_chunk+2,c.latent_dim});
++ if(padded_count>std::vector<float>().max_size())throw std::runtime_error("Yue2 NAR padded vector exceeds supported range");
++ (void)nar_product({largest_chunk+2,c.attention_heads,c.head_dim});
++ (void)nar_product({c.layers,2,largest_chunk+2,c.kv_heads,c.head_dim},sizeof(ggml_fp16_t));
++ const size_t count=nar_product({static_cast<int64_t>(codec.size()),c.latent_dim});if(count>std::vector<float>().max_size()||(!noise.empty()&&noise.size()!=count))throw std::runtime_error("Yue2 nar_noise_file frame count does not match semantic codec count");
++ (void)nar_product({context,c.attention_heads,context});
++ for(int32_t token:prefix)if(token<0||token>=c.vocab_size)throw std::runtime_error("Yue2 NAR prefix token outside vocabulary");
++ for(int32_t code:codec)if(code<0||code>=kCodecSize)throw std::runtime_error("Yue2 NAR codec outside supported range");
++ for(float value:noise)if(!std::isfinite(value))throw std::runtime_error("Yue2 NAR supplied noise must be finite");
++}
++void nar_child(const Yue2ModelConfig&c,int64_t frames,const Yue2ARDevicePrefixState&ar){
++ nar_config(c);
++ if(frames<=0||frames>c.max_latent_frames-2||ar.current_end<=0||frames>c.max_position_embeddings-2||ar.current_end>c.max_position_embeddings-frames-2||ar.keys.size()!=static_cast<uint64_t>(c.layers)||ar.values.size()!=static_cast<uint64_t>(c.layers))throw std::runtime_error("Yue2 NAR prefix cache shape mismatch");
++ (void)nar_product({c.layers,2,ar.current_end,c.kv_heads,c.head_dim},sizeof(ggml_fp16_t));
++ for(size_t layer=0;layer<ar.keys.size();++layer)for(const auto*value:{&ar.keys[layer],&ar.values[layer]}){
++  if(!value->tensor||!value->tensor->data||value->type!=GGML_TYPE_F16||value->tensor->type!=GGML_TYPE_F16||value->shape.rank!=4||value->shape.dims[0]!=1||value->shape.dims[1]!=ar.current_end||value->shape.dims[2]!=c.kv_heads||value->shape.dims[3]!=c.head_dim||value->tensor->ne[0]!=c.head_dim||value->tensor->ne[1]!=c.kv_heads||value->tensor->ne[2]!=ar.current_end||value->tensor->ne[3]!=1)throw std::runtime_error("Yue2 NAR prefix cache tensor mismatch");
++ }
++}
++float nar_midpoint_value(float state,float velocity,float dt){const float value=state-velocity*(dt/2.0F);if(!std::isfinite(value))throw std::runtime_error("Yue2 NAR midpoint produced nonfinite state");return value;}
++float nar_final_value(float state,float velocity,float dt){const float value=state-velocity*dt;if(!std::isfinite(value))throw std::runtime_error("Yue2 NAR final update produced nonfinite state");return value;}
++void nar_status(ggml_status status,const core::RunStopHandle&stop){if(status==GGML_STATUS_ABORTED)throw runtime::RunCancelled();if(status!=GGML_STATUS_SUCCESS)throw std::runtime_error("Yue2 NAR graph compute failed");nar_stop(stop);}
+ struct GgmlContextDeleter {
+     void operator()(ggml_context * ctx) const noexcept {
+         if (ctx != nullptr) {
+@@ -191,6 +256,27 @@
+         }
+     }
+     return out;
++}
++
++std::vector<float> timestep_features(float shifted_t, int64_t rows,core::RunStopHandle stop) {
++    if(!std::isfinite(shifted_t))throw std::runtime_error("Yue2 NAR timestep must be finite");
++    (void)nar_product({rows,256});nar_stop(stop);
++#ifdef ENGINE_YUE2_NAR_TESTING
++    nar_testing::feature_context(shifted_t);
++#endif
++    size_t written=0;
++    constexpr int64_t kDim = 256;
++    std::vector<float> out(static_cast<size_t>(rows * kDim), 0.0F);
++    const int64_t half = kDim / 2;
++    for (int64_t i = 0; i < half; ++i) {
++        const float freq = std::exp(-std::log(10000.0F) * static_cast<float>(i) / static_cast<float>(half));
++        const float value = shifted_t * freq;
++        for (int64_t row = 0; row < rows; ++row) {
++            if(written%64==0)nar_stop(stop);out[static_cast<size_t>(row * kDim + i)] = std::cos(value);nar_stored(1,static_cast<size_t>(row*kDim+i),out[static_cast<size_t>(row*kDim+i)]);++written;
++            out[static_cast<size_t>(row * kDim + half + i)] = std::sin(value);nar_stored(1,static_cast<size_t>(row*kDim+half+i),out[static_cast<size_t>(row*kDim+half+i)]);++written;if(written%64==0)nar_stop(stop);
++        }
++    }
++    nar_phase(10,stop);return out;
+ }
+ 
+ float shifted_t_value(float raw_t, float shift) {
+@@ -473,6 +559,9 @@
+         if (!this->assets) {
+             throw std::runtime_error("Yue2 NAR runtime requires assets");
+         }
++        nar_config(this->assets->config.model);
++        if(graph_arena_bytes==0)throw std::runtime_error("Yue2 NAR graph arena must be positive");
++        nar_stop(execution.current_run_stop());
+         weights = load_nar_weights(*this->assets, execution, weight_context_bytes, weight_type);
+     }
+ 
+@@ -484,7 +573,9 @@
+             : owner(&owner),
+               frames(frames),
+               ar_length(ar_state.current_end) {
++            struct PendingResources {Graph * graph;bool complete=false;~PendingResources(){if(!complete){if(graph->gallocr){ggml_gallocr_free(graph->gallocr);graph->gallocr=nullptr;}if(graph->input_buffer){ggml_backend_buffer_free(graph->input_buffer);graph->input_buffer=nullptr;}}}} pending{this};
+             const auto & config = owner.assets->config.model;
++            nar_child(config,frames,ar_state);nar_stop(owner.execution.current_run_stop());
+             if (frames <= 0 || ar_length <= 0) {
+                 throw std::runtime_error("Yue2 NAR graph requires positive shapes");
+             }
+@@ -581,14 +672,18 @@
+             if (input_buffer == nullptr || gallocr == nullptr ||
+                 !ggml_gallocr_reserve(gallocr, graph) ||
+                 !ggml_gallocr_alloc_graph(gallocr, graph)) {
++                if(gallocr){ggml_gallocr_free(gallocr);gallocr=nullptr;}
++                if(input_buffer){ggml_backend_buffer_free(input_buffer);input_buffer=nullptr;}
+                 throw std::runtime_error("failed to allocate Yue2 NAR graph");
+             }
+             engine::debug::timing_log_scalar("yue2.nar.graph.alloc_ms", engine::debug::elapsed_ms(alloc_start));
+             std::vector<int32_t> pos_values(static_cast<size_t>(nar_length));
+             for (int64_t i = 0; i < nar_length; ++i) {
+-                pos_values[static_cast<size_t>(i)] = static_cast<int32_t>(ar_length + i);
++                if(i%64==0)nar_stop(owner.execution.current_run_stop());
++                pos_values[static_cast<size_t>(i)] = static_cast<int32_t>(ar_length + i);nar_stored(2,static_cast<size_t>(i),static_cast<float>(pos_values[static_cast<size_t>(i)]));
+             }
+             ggml_backend_tensor_set(positions.tensor, pos_values.data(), 0, pos_values.size() * sizeof(int32_t));
++            nar_stop(owner.execution.current_run_stop());
+             engine::debug::timing_log_scalar("yue2.nar.graph.frames", frames);
+             engine::debug::timing_log_scalar(
+                 "yue2.nar.graph.buffer_bytes", ggml_gallocr_get_buffer_size(gallocr, 0));
+@@ -600,6 +695,7 @@
+                         attention_score_bytes_per_row(total_length, config.attention_heads, 1),
+                         owner.attention_tile_rows));
+             }
++            pending.complete=true;
+         }
+ 
+         ~Graph() {
+@@ -636,16 +732,22 @@
+                 static_cast<int64_t>(time_features.size()) != 256) {
+                 throw std::runtime_error("Yue2 NAR step input shape mismatch");
+             }
+-            core::write_tensor_f32(state, padded_state);
+-            core::write_tensor_f32(time, time_features);
+-            const auto status = core::compute_backend_graph(owner->execution.backend(), graph, nullptr, "yue2.nar.velocity");
++            nar_phase(22,owner->execution.current_run_stop());core::write_tensor_f32(state, padded_state);nar_phase(23,owner->execution.current_run_stop());
++            core::write_tensor_f32(time, time_features);nar_phase(24,owner->execution.current_run_stop());
++            nar_phase(20,owner->execution.current_run_stop());
++#ifdef ENGINE_YUE2_NAR_TESTING
++            nar_testing::graph_context(graph);
++#endif
++#ifdef ENGINE_YUE2_NAR_TESTING
++            nar_testing::before_compute(owner->execution);
++#endif
++            const auto status = core::compute_backend_graph(owner->execution, graph, nullptr, "yue2.nar.velocity");
+             ggml_backend_synchronize(owner->execution.backend());
+-            if (status != GGML_STATUS_SUCCESS) {
+-                throw std::runtime_error("Yue2 NAR graph compute failed");
+-            }
++            nar_status(status,owner->execution.current_run_stop());
+             std::vector<float> out;
+             core::read_tensor_f32_into(output.tensor, out);
+-            return out;
++            for(float value:out)if(!std::isfinite(value))throw std::runtime_error("Yue2 NAR velocity produced nonfinite output");
++            nar_phase(21,owner->execution.current_run_stop());return out;
+         }
+ 
+         Impl * owner = nullptr;
+@@ -682,9 +784,13 @@
+             throw std::runtime_error("Yue2 NAR graph shape changed during chunk solve");
+         }
+         std::vector<float> padded(static_cast<size_t>((frames + 2) * config.latent_dim), 0.0F);
+-        std::copy(state.begin(), state.end(), padded.begin() + static_cast<std::ptrdiff_t>(config.latent_dim));
++        const auto stop=execution.current_run_stop();nar_stop(stop);
++        for(size_t begin=0;begin<state.size();){nar_stop(stop);size_t end=begin+std::min<size_t>(256,state.size()-begin);std::copy(state.begin()+begin,state.begin()+end,padded.begin()+static_cast<ptrdiff_t>(config.latent_dim)+begin);nar_stored(3,end-1,padded[size_t(config.latent_dim)+end-1]);nar_stop(stop);begin=end;}
++#ifdef ENGINE_YUE2_NAR_TESTING
++        nar_testing::padded_context(padded,state,config.latent_dim);
++#endif
+         const auto shifted = shifted_t_value(raw_t, config.timestep_shift);
+-        auto features = timestep_features(shifted, 1);
++        auto features = timestep_features(shifted, 1,stop);
+         return graph.run(padded, features);
+     }
+ 
+@@ -692,6 +798,7 @@
+         const Yue2ARDevicePrefixState & ar_state,
+         const std::vector<float> & noise,
+         int64_t ode_steps) {
++        const auto stop=execution.current_run_stop();nar_child(assets->config.model,static_cast<int64_t>(noise.size()/assets->config.model.latent_dim),ar_state);nar_stop(stop);
+         auto state = noise;
+         const auto & config = assets->config.model;
+         const int64_t frames = static_cast<int64_t>(state.size()) / config.latent_dim;
+@@ -700,20 +807,29 @@
+             graph = std::make_unique<Graph>(*this, frames, ar_state);
+         }
+         auto & chunk_graph = *graph;
++        if(ode_steps<=0)throw std::runtime_error("Yue2 NAR ODE steps must be positive");
+         const float dt = 1.0F / static_cast<float>(ode_steps);
+         for (int64_t step = 0; step < ode_steps; ++step) {
++            nar_phase(30,stop);
+             const float t = 1.0F - static_cast<float>(step) * dt;
+             const auto first = velocity(chunk_graph, ar_state, state, logit_clamped(t));
++#ifdef ENGINE_YUE2_NAR_TESTING
++            nar_testing::arithmetic_context(4,state,first,dt/2.0F);
++#endif
+             std::vector<float> mid(state.size(), 0.0F);
+             for (size_t i = 0; i < state.size(); ++i) {
+-                mid[i] = state[i] - first[i] * (dt / 2.0F);
+-            }
++                if(i%64==0)nar_stop(stop);mid[i] = nar_midpoint_value(state[i],first[i],dt);nar_stored(4,i,mid[i]);if((i+1)%64==0)nar_stop(stop);
++            }
++            nar_phase(31,stop);
+             const auto second = velocity(chunk_graph, ar_state, mid, logit_clamped(t - dt / 2.0F));
++#ifdef ENGINE_YUE2_NAR_TESTING
++            nar_testing::arithmetic_context(5,state,second,dt);
++#endif
+             for (size_t i = 0; i < state.size(); ++i) {
+-                state[i] -= second[i] * dt;
+-            }
+-        }
+-        return state;
++                if(i%64==0)nar_stop(stop);state[i] = nar_final_value(state[i],second[i],dt);nar_stored(5,i,state[i]);if((i+1)%64==0)nar_stop(stop);
++            }
++        }
++        nar_phase(32,stop);return state;
+     }
+ 
+     std::vector<float> synthesize(
+@@ -724,6 +840,8 @@
+         uint64_t seed,
+         int64_t ode_steps,
+         int64_t context) {
++        nar_request(assets->config.model,prefix,codec,noise,ode_steps,context);
++        const auto stop=execution.current_run_stop();nar_stop(stop);
+         const auto total_start = Clock::now();
+         const auto & config = assets->config.model;
+         const auto ranges = chunk_ranges(static_cast<int64_t>(codec.size()), static_cast<int64_t>(prefix.size()), context);
+@@ -734,44 +852,46 @@
+         if (noise.empty()) {
+             std::mt19937 rng(static_cast<uint32_t>(seed));
+             std::normal_distribution<float> normal(0.0F, 1.0F);
+-            for (float & value : full_noise) {
+-                value = normal(rng);
++            size_t drawn=0;for (float & value : full_noise) {
++                if(drawn%64==0)nar_stop(stop);value = normal(rng);nar_stored(0,drawn,value);++drawn;if(drawn%64==0)nar_stop(stop);
+             }
+         } else {
+             if (noise.size() != full_noise.size()) {
+                 throw std::runtime_error("Yue2 nar_noise_file frame count does not match semantic codec count");
+             }
+-            full_noise = noise;
++            for(size_t begin=0;begin<noise.size();){nar_stop(stop);size_t end=begin+std::min<size_t>(256,noise.size()-begin);std::copy(noise.begin()+begin,noise.begin()+end,full_noise.begin()+begin);nar_stored(6,end-1,full_noise[end-1]);nar_stop(stop);begin=end;}
+         }
+         std::vector<float> out;
+         out.reserve(full_noise.size());
+         double prefill_ms = 0.0;
+         double solve_ms = 0.0;
+         for (const auto & [begin, end] : ranges) {
+-            std::vector<int32_t> ar_tokens = prefix;
++            nar_phase(33,stop);
++            graph.reset(); // discard borrowed AR tensor/data pointers BEFORE next AR prefill can reset them
++            std::vector<int32_t> ar_tokens;ar_tokens.reserve(prefix.size()+static_cast<size_t>(end-begin)+1);
++            for(size_t i=0;i<prefix.size();++i){if(i%64==0)nar_stop(stop);ar_tokens.push_back(prefix[i]);nar_stored(7,i,static_cast<float>(ar_tokens.back()));}
+             ar_tokens.reserve(prefix.size() + static_cast<size_t>(end - begin) + 1);
+             for (int64_t i = begin; i < end; ++i) {
+-                ar_tokens.push_back(codec[static_cast<size_t>(i)] + kCodecOffset);
+-            }
+-            ar_tokens.push_back(kMusicEndToken);
++                if((i-begin)%64==0)nar_stop(stop);ar_tokens.push_back(codec[static_cast<size_t>(i)] + kCodecOffset);nar_stored(7,ar_tokens.size()-1,static_cast<float>(ar_tokens.back()));
++            }
++            ar_tokens.push_back(kMusicEndToken);nar_stored(7,ar_tokens.size()-1,static_cast<float>(ar_tokens.back()));nar_phase(34,stop);
+             const size_t begin_elem = static_cast<size_t>(begin * config.latent_dim);
+             const size_t end_elem = static_cast<size_t>(end * config.latent_dim);
+             std::vector<float> noise(end_elem - begin_elem);
+-            std::copy(full_noise.begin() + static_cast<std::ptrdiff_t>(begin_elem),
+-                      full_noise.begin() + static_cast<std::ptrdiff_t>(end_elem),
+-                      noise.begin());
++            for(size_t pos=0;pos<noise.size();){nar_stop(stop);size_t next=pos+std::min<size_t>(256,noise.size()-pos);std::copy(full_noise.begin()+begin_elem+pos,full_noise.begin()+begin_elem+next,noise.begin()+pos);nar_stored(8,next-1,noise[next-1]);nar_stop(stop);pos=next;}
+             const auto prefill_start = Clock::now();
+-            auto ar_state = prefill_state(ar_tokens);
++            nar_phase(35,stop);auto ar_state = prefill_state(ar_tokens);
++            nar_child(config,end-begin,ar_state);nar_phase(36,stop);
+             prefill_ms += engine::debug::elapsed_ms(prefill_start);
+             const auto solve_start = Clock::now();
+             auto chunk = solve_chunk(ar_state, noise, ode_steps);
+             solve_ms += engine::debug::elapsed_ms(solve_start);
+-            out.insert(out.end(), chunk.begin(), chunk.end());
++            nar_phase(37,stop);for(size_t pos=0;pos<chunk.size();){nar_stop(stop);size_t next=pos+std::min<size_t>(256,chunk.size()-pos);out.insert(out.end(),chunk.begin()+pos,chunk.begin()+next);nar_stored(9,out.size()-1,out.back());nar_stop(stop);pos=next;}
+         }
+         engine::debug::timing_log_scalar("yue2.nar.synthesize.prefill_state_ms", prefill_ms);
+         engine::debug::timing_log_scalar("yue2.nar.synthesize.solve_chunks_ms", solve_ms);
+         engine::debug::timing_log_scalar("yue2.nar.synthesize.total_ms", engine::debug::elapsed_ms(total_start));
+-        return out;
++        nar_phase(38,stop);return out;
+     }
+ 
+     core::ExecutionContext & execution;
+@@ -810,7 +930,7 @@
+     uint64_t seed,
+     int64_t ode_steps,
+     int64_t context) {
+-    return impl_->synthesize(prefix, codec, prefill_state, noise, seed, ode_steps, context);
++    try{return impl_->synthesize(prefix, codec, prefill_state, noise, seed, ode_steps, context);}catch(...){release_runtime_graphs();throw;}
+ }
+ 
+ void Yue2NARRuntime::release_runtime_graphs() {
+diff --git a/src/models/yue2/pipeline.cpp b/src/models/yue2/pipeline.cpp
+--- a/src/models/yue2/pipeline.cpp
++++ b/src/models/yue2/pipeline.cpp
+@@ -240,16 +240,20 @@
+         }
+         yue2_stage_barrier(*execution);ensure_nar();
+         ensure_ar();
+-        return nar->synthesize(
++        yue2_stage_barrier(*execution);
++        auto result=nar->synthesize(
+             semantic.plan.prefix,
+             codec,
+             [this](const std::vector<int32_t> & tokens) {
++                nar->release_runtime_graphs(); // NAR borrows device KV owned by AR
++                yue2_stage_barrier(*execution);
+                 return ar->prefill_device_state(tokens);
+             },
+             noise,
+             seed,
+             generation.ode_steps,
+             generation.context);
++        yue2_stage_barrier(*execution);return result;
+     }
+ 
+     runtime::AudioBuffer decode_audio(const std::vector<float> & latents, int64_t frames) {

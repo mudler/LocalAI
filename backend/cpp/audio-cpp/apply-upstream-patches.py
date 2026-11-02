@@ -22,7 +22,7 @@ import subprocess
 import sys
 
 PIN = 'ad14f0c4dbd5b12b7711bb7b46abb8d94f78f067'
-MANIFEST_SHA256 = 'e0c30ce29641452ef7e5c34ee19f66e89a66b21a4ffc75f49731db4b660c461b'
+MANIFEST_SHA256 = '45517ee2b901c45e74e683fff12c8c418f8ddb348694b659681e04d93412a724'
 PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('include/engine/framework/core', ('backend.h', 'execution_context.h')),
     ('src/framework/core', ('backend.cpp', 'execution_context.cpp')),
@@ -31,7 +31,7 @@ PATHS = frozenset(f'{root}/{name}' for root, names in (
     ('src/models/sheetsage', ('session.cpp', 'runtime.cpp', 'audio_frontend.cpp', 'processing.cpp')),
     ('src/framework/runtime', ('graph_executor.cpp',)),
     ('include/engine/models/yue2', ('session.h',)),
-    ('src/models/yue2', ('session.cpp', 'pipeline.cpp', 'ar_runtime.cpp')),
+    ('src/models/yue2', ('session.cpp', 'pipeline.cpp', 'ar_runtime.cpp', 'nar_runtime.cpp')),
     ('src/framework/modules/transformers', ('causal_decoder_runtime.cpp',)),
     ('include/engine/framework/audio', ('fft.h', 'dsp.h')),
     ('src/framework/audio', ('fft.cpp', 'dsp.cpp')),
