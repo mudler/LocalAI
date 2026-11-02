@@ -959,9 +959,20 @@ func (s *jsonStore) TakePending(_ context.Context, principal, id string) ([]Pend
 			next.Pending[i].Delivered, next.Pending[i].Unconfirmed = true, true
 		}
 	}
+	next.Capture = cloneCapture(next.Capture)
+	if next.Run != "" {
+		ids := []string{}
+		for _, v := range taken {
+			ids = append(ids, v.ID)
+		}
+		if err := bindMemoryTurn(&next.Capture, &next, next.Run, ids); err != nil {
+			return nil, err
+		}
+	}
 	if err := s.save(&next); err != nil {
 		return nil, err
 	}
+	c.Capture = next.Capture
 	c.Pending = next.Pending
 	for i := range taken {
 		taken[i].Delivered, taken[i].Unconfirmed = true, true

@@ -37,10 +37,11 @@ var ErrWorkerFull = errors.New("studio: the chat worker runs as many turns as it
 // here. A message with files is sent here too: the files are saved before the
 // turn starts, and they would have to cross the bus.
 func (s *Service) SendBackground(ctx context.Context, user, conv, text string, up []session.Upload) (SendResult, error) {
+	ctx = withMemoryDelivery(ctx, "")
 	if s.d.Workers == nil || len(up) > 0 {
 		return s.SendWithFiles(ctx, user, conv, text, up)
 	}
-	reply, err := s.d.Workers.StartChat(ctx, workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text})
+	reply, err := s.d.Workers.StartChat(ctx, workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text, RequestID: ctx.Value(memoryDeliveryKey{}).(string)})
 	switch {
 	case errors.Is(err, nodes.ErrNoRoute):
 		s.log.Info("studio: no chat worker took the start, running it here", "chat", conv)
@@ -69,6 +70,7 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 			return workerctl.ChatStartReply{Error: err.Error()}
 		}
 	}
+	ctx = withMemoryDelivery(ctx, req.RequestID)
 	res, err := s.SendWithFiles(ctx, req.Principal, req.ChatID, req.Text, nil)
 	if err != nil {
 		return workerctl.ChatStartReply{Error: err.Error()}

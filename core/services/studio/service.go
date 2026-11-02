@@ -843,6 +843,37 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 	}
 	unlock := s.lock(key(p, conv))
 	defer unlock()
+	if id, _ := ctx.Value(memoryDeliveryKey{}).(string); id != "" && !msg.Goal && msg.Loop == nil && len(msg.Files) == 0 {
+		if in, ok := s.memoryAcceptance(ctx, p, conv, msg.Text); ok {
+			in.PendingText = session.ComposeMessage(msg.Text, msg.Note, msg.Attachments)
+			accepted, err := s.d.Store.AcceptMemoryInput(ctx, in)
+			if err != nil {
+				return SendResult{}, err
+			}
+			pending, err := s.d.Store.Pending(ctx, p, conv)
+			if err != nil {
+				return SendResult{}, err
+			}
+			waiting := false
+			for _, v := range pending {
+				if v.ID == accepted.ID {
+					waiting = true
+				}
+			}
+			if !waiting {
+				return SendResult{Started: accepted.Started, PendingID: accepted.ID}, nil
+			}
+			info, err := s.d.Store.Turn(ctx, p, conv)
+			if err != nil {
+				return SendResult{}, err
+			}
+			if info.Running {
+				return SendResult{Started: accepted.Started, PendingID: accepted.ID}, nil
+			}
+			_, err = s.startFromPending(ctx, p, conv)
+			return SendResult{Started: accepted.Started, PendingID: accepted.ID}, err
+		}
+	}
 	runID := newID()
 	switch err := s.d.Store.ClaimTurn(ctx, p, conv, runID); {
 	case err == nil:
@@ -891,8 +922,13 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 // lock of the chat.
 func (s *Service) startClaimed(ctx context.Context, p, conv, runID string, msg session.Message) error {
 	if !msg.Goal && msg.Loop == nil && len(msg.MemoryInputs) == 0 {
-		if id := s.acceptDirectMemory(ctx, p, conv, msg.Text); id != "" {
-			msg.MemoryInputs = []string{id}
+		if in, ok := s.memoryAcceptance(ctx, p, conv, msg.Text); ok {
+			_, err := s.d.Store.AcceptMemoryInput(ctx, in)
+			if err != nil {
+				s.log.Warn("studio: could not persist incoming memory intent", "chat", conv, "error", err)
+			} else {
+				msg.Text = ""
+			}
 		}
 	}
 	taken, err := s.d.Store.TakePending(ctx, p, conv)
@@ -1074,6 +1110,11 @@ func (s *Service) startFromPending(ctx context.Context, p, conv string) (bool, e
 
 // startTurn runs msg as a turn the claim runID already covers.
 func (s *Service) startTurn(ctx context.Context, p, conv, runID string, msg session.Message) error {
+	if len(msg.MemoryInputs) > 0 {
+		if err := s.d.Store.BindMemoryTurn(ctx, p, conv, runID, msg.MemoryInputs); err != nil {
+			return err
+		}
+	}
 	chat, err := s.chat(ctx, p, conv)
 	if err != nil {
 		_ = s.d.Store.ReleaseTurn(ctx, p, conv, runID, store.TurnFailed)

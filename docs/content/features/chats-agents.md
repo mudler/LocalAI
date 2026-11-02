@@ -761,3 +761,11 @@ and summarization run independently of answering. Capture persistence failures
 are logged and do not prevent an otherwise successful answer or connector reply.
 Queued work retains its original destination and is authorized again before
 writing; changing an agent's destination never reroutes existing work.
+
+Worker dispatch carries a delivery request identity. Redelivery of that request
+keeps the original accepted text and delivery disposition; a new request with
+identical text is a separate input. Consumed input identities are persisted with
+pending delivery, so completing a recovered execution does not depend on the
+worker's in-memory list. Direct inputs enter the same durable pending queue
+before transcript delivery. A crash before transcript delivery leaves the input
+available for recovery rather than marking it delivered at acceptance.

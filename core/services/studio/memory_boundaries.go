@@ -7,6 +7,18 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
 
+type memoryDeliveryKey struct{}
+
+func withMemoryDelivery(ctx context.Context, id string) context.Context {
+	if id == "" {
+		id, _ = ctx.Value(memoryDeliveryKey{}).(string)
+		if id == "" {
+			id = newID()
+		}
+	}
+	return context.WithValue(ctx, memoryDeliveryKey{}, id)
+}
+
 // Acceptance freezes routing, not authorization. The worker reloads policy and
 // principal access immediately before mutation. Plain chats never opt in.
 func (s *Service) memoryAcceptance(ctx context.Context, p, conv, text string) (store.MemoryAcceptance, bool) {
@@ -22,7 +34,11 @@ func (s *Service) memoryAcceptance(ctx context.Context, p, conv, text string) (s
 	if err != nil || ag.Memory.AutomaticIngestion == "off" {
 		return store.MemoryAcceptance{}, false
 	}
-	return store.MemoryAcceptance{Principal: p, ChatID: conv, SourceID: "memory:" + newID(), Text: text,
+	id, _ := ctx.Value(memoryDeliveryKey{}).(string)
+	if id == "" {
+		id = newID()
+	}
+	return store.MemoryAcceptance{Principal: p, ChatID: conv, SourceID: "memory:" + id, Text: text,
 		Policy: store.CapturePolicy{AgentID: ag.ID, Destination: ag.Memory.Destination, Mode: store.CaptureMode(ag.Memory.AutomaticIngestion)},
 		Origin: store.CaptureOrigin{Kind: rec.Origin, ConnectorID: rec.OriginID}}, true
 }
@@ -57,7 +73,7 @@ func (s *Service) acceptPendingMemory(ctx context.Context, p, conv, text, payloa
 
 func (s *Service) completeMemoryRun(ctx context.Context, p, conv string, r *run, status store.TurnStatus) error {
 	if len(r.memoryInputs) > 0 {
-		err := s.d.Store.CompleteMemoryTurn(ctx, store.MemoryTurnCompletion{Principal: p, ChatID: conv, RunID: r.id, ReplyID: r.id, ReplyText: r.memoryReply, Status: status, IncomingIDs: r.memoryInputs})
+		err := s.d.Store.CompleteMemoryTurn(ctx, store.MemoryTurnCompletion{Principal: p, ChatID: conv, RunID: r.id, ReplyID: r.id, ReplyText: r.memoryReply, Status: status, IncomingIDs: nil})
 		if err == nil {
 			return nil
 		}

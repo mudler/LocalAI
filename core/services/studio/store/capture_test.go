@@ -96,6 +96,74 @@ var _ = Describe("durable capture", func() {
 				id = "capture-" + time.Now().Format("150405.000000000")
 				Expect(s.CreateChat(ctx, session.ChatRecord{ID: id, Principal: "alice", AgentID: "agent", HarnessState: []byte(`{}`)})).To(Succeed())
 			})
+
+			It("recovers an interrupted accepted input before transcript delivery", func() {
+				in := acceptance(store.CaptureSummary)
+				first, err := s.AcceptMemoryInput(ctx, in)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(s.ClaimTurn(ctx, "alice", id, "lost-run")).To(Succeed())
+				taken, err := s.TakePending(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(taken).To(HaveLen(1))
+				// No transcript append/confirmation happened before the process died.
+				s = open()
+				_, err = s.ReapTurns(ctx, time.Now().Add(time.Hour))
+				Expect(err).NotTo(HaveOccurred())
+				pending, err := s.Pending(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(pending).To(HaveLen(1))
+				Expect(pending[0].ID).To(Equal(first.ID))
+				in.Text = "retry must not replace accepted text"
+				replay, err := s.AcceptMemoryInput(ctx, in)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(replay.Text).To(Equal("remember"))
+				Expect(s.ClaimTurn(ctx, "alice", id, "recovery-run")).To(Succeed())
+				taken, err = s.TakePending(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(taken).To(HaveLen(1))
+				done := store.MemoryTurnCompletion{Principal: "alice", ChatID: id, RunID: "recovery-run", ReplyID: "recovery-reply", ReplyText: "answer", Status: store.TurnDone}
+				Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+				Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+				records, err := s.ListCaptures(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(records).To(HaveLen(1))
+				Expect(records[0].RawText).To(Equal("remember\n\nanswer"))
+			})
+			It("recovers durable consumed membership and replays the same outcome after reopening", func() {
+				in := acceptance(store.CaptureReplies)
+				first, err := s.AcceptMemoryInput(ctx, in)
+				Expect(err).NotTo(HaveOccurred())
+				in.Text = "changed retry"
+				replay, err := s.AcceptMemoryInput(ctx, in)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(replay).To(Equal(first))
+				Expect(s.ClaimTurn(ctx, "alice", id, "durable-run")).To(Succeed())
+				taken, err := s.TakePending(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(taken).To(HaveLen(1))
+				Expect(s.ConfirmPending(ctx, "alice", id, []string{first.ID})).To(Succeed())
+				s = open()
+				// Completion has no caller-memory membership after reopening.
+				done := store.MemoryTurnCompletion{Principal: "alice", ChatID: id, RunID: "durable-run", ReplyID: "durable-reply", ReplyText: "answer", Status: store.TurnDone}
+				// JSON startup marks the abandoned run interrupted. Reclaim the same
+				// durable execution identity to finish an externally recovered result.
+				info, err := s.Turn(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				if !info.Running {
+					Expect(s.ClaimTurn(ctx, "alice", id, "durable-run")).To(Succeed())
+				}
+				Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+				s = open()
+				Expect(s.CompleteMemoryTurn(ctx, done)).To(Succeed())
+				records, err := s.ListCaptures(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(records).To(HaveLen(2))
+				texts := []string{}
+				for _, v := range records {
+					texts = append(texts, v.RawText)
+				}
+				Expect(texts).To(ConsistOf("remember", "answer"))
+			})
 			It("associates only a current claim and replays the stored fence", func() {
 				_, err := s.AcceptMemoryInput(ctx, acceptance(store.CaptureIncoming))
 				Expect(err).NotTo(HaveOccurred())

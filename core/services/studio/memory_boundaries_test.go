@@ -3,6 +3,7 @@ package studio_test
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -179,5 +180,43 @@ var _ = Describe("automatic memory lifecycle", func() {
 		records, err := st.ListCaptures(context.Background(), alice, rec.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(records).To(BeEmpty())
+	})
+})
+
+var _ = Describe("durable worker delivery identity", func() {
+	It("deduplicates a redelivered remote request without merging intentional identical inputs", func() {
+		var st store.Store
+		r, _ := memoryRig(sayOK, func(d *studio.Deps) { st = d.Store })
+		a := memoryPolicy()
+		a.Memory.AutomaticIngestion = "incoming_and_replies"
+		r.save(a)
+		id := r.chatWith(a.ID)
+		request := func(identity, text string) workerctl.ChatStartRequest {
+			raw, err := json.Marshal(map[string]string{"principal": alice, "chat_id": id, "text": text, "request_id": identity})
+			Expect(err).NotTo(HaveOccurred())
+			var req workerctl.ChatStartRequest
+			Expect(json.Unmarshal(raw, &req)).To(Succeed())
+			return req
+		}
+		first := r.svc.ServeStart(context.Background(), request("delivery-1", "frozen words"))
+		Expect(first.Error).To(BeEmpty())
+		idle(r.svc, alice, id)
+		replay := r.svc.ServeStart(context.Background(), request("delivery-1", "changed on retry"))
+		Expect(replay).To(Equal(first))
+		idle(r.svc, alice, id)
+		records, err := st.ListCaptures(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(HaveLen(2))
+		texts := []string{}
+		for _, v := range records {
+			texts = append(texts, v.RawText)
+		}
+		Expect(texts).To(ConsistOf("frozen words", "ok"))
+		next := r.svc.ServeStart(context.Background(), request("delivery-2", "frozen words"))
+		Expect(next.Error).To(BeEmpty())
+		idle(r.svc, alice, id)
+		records, err = st.ListCaptures(context.Background(), alice, id)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records).To(HaveLen(4))
 	})
 })

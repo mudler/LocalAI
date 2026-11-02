@@ -9,6 +9,8 @@ type ChatStartRequest struct {
 	Principal string `json:"principal"`
 	ChatID    string `json:"chat_id"`
 	Text      string `json:"text"`
+	// RequestID is stable across retries of this delivery, not across new messages.
+	RequestID string `json:"request_id,omitempty"`
 }
 
 // ChatStartReply is the worker's answer to a ChatStartRequest. With Error

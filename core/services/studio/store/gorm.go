@@ -874,6 +874,37 @@ func (s *gormStore) TakePending(ctx context.Context, principal, id string) ([]Pe
 			Updates(map[string]any{"delivered": true, "unconfirmed": true}).Error; err != nil {
 			return err
 		}
+		var cr chatRow
+		if err := tx.Where("id = ?", id).First(&cr).Error; err != nil {
+			return err
+		}
+		var capture captureStateRow
+		if err := tx.Where("chat_id = ?", id).Limit(1).Find(&capture).Error; err != nil {
+			return err
+		}
+		var data captureData
+		if len(capture.Data) > 0 {
+			if err := json.Unmarshal(capture.Data, &data); err != nil {
+				return err
+			}
+		}
+		data = cloneCapture(data)
+		ids := []string{}
+		for _, r := range rows {
+			ids = append(ids, r.ID)
+		}
+		if cr.RunID != "" {
+			if err := bindMemoryTurn(&data, &chatState{Run: cr.RunID}, cr.RunID, ids); err != nil {
+				return err
+			}
+		}
+		raw, err := json.Marshal(data)
+		if err != nil {
+			return err
+		}
+		if err := tx.Save(&captureStateRow{ChatID: id, Data: raw}).Error; err != nil {
+			return err
+		}
 		for _, r := range rows {
 			p := toPending(r)
 			p.Delivered, p.Unconfirmed = true, true

@@ -49,6 +49,8 @@ type MemoryAcceptance struct {
 	Origin    CaptureOrigin
 }
 type AcceptedInput struct {
+	// Started records the original delivery disposition for transport replay.
+	Started bool
 	ID      string
 	Pending Pending
 	Text    string
@@ -91,6 +93,7 @@ type CaptureClaim struct {
 	Transition memory.Transition
 }
 type captureData struct {
+	Turns       map[string][]string
 	DeadSources map[string]bool
 	DeadKeys    map[string]bool
 	Accepted    map[string]AcceptedInput
@@ -102,6 +105,9 @@ func cloneCapture(d captureData) captureData {
 	b, _ := json.Marshal(d)
 	var n captureData
 	_ = json.Unmarshal(b, &n)
+	if n.Turns == nil {
+		n.Turns = map[string][]string{}
+	}
 	if n.DeadSources == nil {
 		n.DeadSources = map[string]bool{}
 	}
@@ -381,7 +387,7 @@ func acceptMemory(ctx context.Context, in MemoryAcceptance, edit captureEdit) (A
 		}
 		p := Pending{ID: in.SourceID, Text: payload, Delivered: in.Delivered, Seq: c.NextPending, At: time.Now().UTC()}
 		c.Pending = append(c.Pending, p)
-		out = AcceptedInput{ID: in.SourceID, Pending: p, Text: in.Text, Policy: in.Policy, Origin: in.Origin}
+		out = AcceptedInput{Started: c.Run == "", ID: in.SourceID, Pending: p, Text: in.Text, Policy: in.Policy, Origin: in.Origin}
 		d.Accepted[in.SourceID] = out
 		if strings.TrimSpace(in.Text) != "" && (in.Policy.Mode == CaptureIncoming || in.Policy.Mode == CaptureReplies) {
 			return addCapture(d, out, in.Principal, in.ChatID, in.SourceID, "incoming", in.Text, p.At)
@@ -396,6 +402,9 @@ func completeMemory(ctx context.Context, in MemoryTurnCompletion, edit captureEd
 	}
 	return edit(ctx, in.Principal, in.ChatID, func(d *captureData, c *chatState) error {
 		if old, ok := d.Outcomes[in.ReplyID]; ok {
+			if len(in.IncomingIDs) == 0 {
+				in.IncomingIDs = append([]string(nil), d.Turns[in.RunID]...)
+			}
 			a, _ := json.Marshal(old)
 			b, _ := json.Marshal(in)
 			if string(a) != string(b) {
@@ -405,6 +414,12 @@ func completeMemory(ctx context.Context, in MemoryTurnCompletion, edit captureEd
 		}
 		if c.Run != in.RunID {
 			return ErrNotClaimed
+		}
+		if ids := d.Turns[in.RunID]; len(ids) > 0 {
+			if len(in.IncomingIDs) > 0 && !reflect.DeepEqual(ids, in.IncomingIDs) {
+				return ErrCaptureConflict
+			}
+			in.IncomingIDs = append([]string(nil), ids...)
 		}
 		// Validate all membership before mutating anything, including non-success outcomes.
 		var accepted []AcceptedInput
@@ -758,4 +773,31 @@ func (s *jsonStore) RetryCapture(ctx context.Context, p, c, id string) error {
 }
 func (s *gormStore) RetryCapture(ctx context.Context, p, c, id string) error {
 	return retryCapture(ctx, p, c, id, s.editCapture)
+}
+
+// bindMemoryTurn freezes consumed membership under the same chat lock as delivery.
+func bindMemoryTurn(d *captureData, c *chatState, run string, ids []string) error {
+	if c.Run != run || run == "" {
+		return ErrNotClaimed
+	}
+	seen := map[string]bool{}
+	for _, id := range d.Turns[run] {
+		seen[id] = true
+	}
+	for _, id := range ids {
+		if _, ok := d.Accepted[id]; !ok {
+			continue
+		}
+		if !seen[id] {
+			d.Turns[run] = append(d.Turns[run], id)
+			seen[id] = true
+		}
+	}
+	return nil
+}
+func (s *jsonStore) BindMemoryTurn(ctx context.Context, p, c, r string, ids []string) error {
+	return s.editCapture(ctx, p, c, func(d *captureData, state *chatState) error { return bindMemoryTurn(d, state, r, ids) })
+}
+func (s *gormStore) BindMemoryTurn(ctx context.Context, p, c, r string, ids []string) error {
+	return s.editCapture(ctx, p, c, func(d *captureData, state *chatState) error { return bindMemoryTurn(d, state, r, ids) })
 }

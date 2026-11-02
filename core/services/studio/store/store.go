@@ -79,6 +79,7 @@ type TurnInfo struct {
 type Store interface {
 	session.Store
 	AcceptMemoryInput(context.Context, MemoryAcceptance) (AcceptedInput, error)
+	BindMemoryTurn(context.Context, string, string, string, []string) error
 	CompleteMemoryTurn(context.Context, MemoryTurnCompletion) error
 	ClaimCapture(context.Context, string, time.Time, time.Duration) (CaptureClaim, error)
 	ApplyCapture(context.Context, CaptureClaim, memory.Transition) error
