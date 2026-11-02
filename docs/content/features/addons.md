@@ -3895,8 +3895,29 @@ the add-on's ID to decide.
 
 | Control | Where the host draws it | The add-on must |
 |---|---|---|
-| `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, audit retention and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare a tool that replaces `bash`. |
+| `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare a tool that replaces `bash`. |
 | `tool-providers` | On the add-on's **Settings** tab: the rows of Settings > Tools for the built-in tools it replaces (who serves the tool, the choice when several add-ons replace it, and the switch of the built-in tool). | Declare at least one tool that replaces a built-in tool (`shadows`). |
+
+The network controls read the durable policy from the add-on owner, not the
+frontend's runtime settings. The form displays the owner's revision. **Apply** sends
+only changed policy fields with that revision, then reads the owner again after a
+successful write. Enabling private access still requires the typed confirmation;
+the confirmation phrase stays in the browser, outside the policy patch. Audit
+retention remains a runtime setting, not an editable owner-policy field here.
+
+If another administrator changes the policy, the owner rejects the stale revision.
+Choose **Reload and rebase edits**, review your retained edits against the current
+owner policy, then apply them. If the owner is unavailable, the form keeps your
+draft and blocks saving; it does not substitute local runtime settings. If a write's
+outcome is uncertain, **Retry same operation** reuses its original identity and
+payload. Reloading alone does not clear an uncertain write.
+
+Always allowed hosts accept exact names, `*.example.com` for descendants, or `*`
+for public destinations. Add `example.com` separately to include the apex. Patterns
+can specify a port, such as `*.example.com:8443`. They still obey the network
+ceiling, allowed ports, and private-address guard. Extra registries require exact
+names. The owner validates every change; see [Network access](#network-access).
+These controls do not change native add-on settings declared in `settings.sections`.
 
 The apps list carries the controls in `ui.controls`, with only those the add-on is
 entitled to now. A control whose grant was removed is dropped from the list, without an
