@@ -4,6 +4,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
@@ -139,7 +140,7 @@ var _ = Describe("principal memory application adapter", func() {
 		Expect(records[0].Generation).To(BeNumerically(">", before[0].Generation))
 	}, Entry("queued", false), Entry("expired Writing", true))
 
-	DescribeTable("captures text through the real worker and fenced application adapter", func(engine string, crash bool) {
+	DescribeTable("captures text through the real worker and fenced application adapter", func(engine string, crash, summary bool) {
 		ctx := context.Background()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -180,7 +181,30 @@ var _ = Describe("principal memory application adapter", func() {
 		if crash {
 			backend = lost
 		}
-		svc, err := studio.New(studio.Deps{StateDir: GinkgoT().TempDir(), Store: chats, Agents: as, Provider: provider.New(), Collections: backend,
+		var summaryCalls atomic.Int32
+		const summaryText = "Frozen summary of this exchange"
+		summaryProvider := provider.New()
+		summaryProvider.Transport().SetHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			summaryCalls.Add(1)
+			var request struct {
+				Model    string `json:"model"`
+				Messages []struct {
+					Content string `json:"content"`
+				} `json:"messages"`
+				Tools json.RawMessage `json:"tools"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			if request.Model != "m" || len(request.Messages) != 2 || request.Messages[1].Content != "Remember this exact incoming text\n\nSuccessful final answer" || len(request.Tools) > 0 {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{"choices":[{"index":0,"message":{"role":"assistant","content":%q},"finish_reason":"stop"}]}`, summaryText)
+		}))
+		svc, err := studio.New(studio.Deps{StateDir: GinkgoT().TempDir(), Store: chats, Agents: as, Provider: summaryProvider, Collections: backend,
 			CaptureWorker: studio.CaptureWorkerOptions{Owner: "first-worker", Now: func() time.Time { return time.Unix(clock.Load(), 0) }, Publish: func(record store.CaptureRecord, status memory.PublishStatus) {
 				if status.Status == "Saved" {
 					saved <- record
@@ -194,12 +218,31 @@ var _ = Describe("principal memory application adapter", func() {
 			Expect(svc.Close(stop)).To(Succeed())
 		})
 		ag := agents.Agent{ID: "writer", Principal: studio.AnonymousPrincipal, Name: "writer", CollectionPermissions: &agents.CollectionPermissions{Version: 1, Grants: []agents.CollectionGrant{{Collection: name}}}, Memory: &agents.MemorySettings{Version: 1, Destination: name, ToolStorage: "content", AutomaticIngestion: "incoming_only"}}
+		if summary {
+			ag.Memory.AutomaticIngestion = "summary"
+		}
 		Expect(as.Put(ctx, ag)).To(Succeed())
 		chat, err := svc.Create(ctx, studio.AnonymousPrincipal, studio.CreateInput{AgentID: ag.ID, Model: "m"})
 		Expect(err).NotTo(HaveOccurred())
 		const text = "Remember this exact incoming text"
-		_, err = chats.AcceptMemoryInput(ctx, store.MemoryAcceptance{Principal: studio.AnonymousPrincipal, ChatID: chat.ID, SourceID: "incoming-1", Text: text, Policy: store.CapturePolicy{AgentID: ag.ID, Destination: name, Mode: store.CaptureIncoming}})
+		mode := store.CaptureIncoming
+		if summary {
+			mode = store.CaptureSummary
+		}
+		_, err = chats.AcceptMemoryInput(ctx, store.MemoryAcceptance{Principal: studio.AnonymousPrincipal, ChatID: chat.ID, SourceID: "incoming-1", Text: text, Policy: store.CapturePolicy{AgentID: ag.ID, Destination: name, Mode: mode}})
 		Expect(err).NotTo(HaveOccurred())
+		expectedText := text
+		if summary {
+			expectedText = summaryText
+			Expect(chats.ClaimTurn(ctx, studio.AnonymousPrincipal, chat.ID, "summary-run")).To(Succeed())
+			Expect(chats.CompleteMemoryTurn(ctx, store.MemoryTurnCompletion{Principal: studio.AnonymousPrincipal, ChatID: chat.ID, RunID: "summary-run", ReplyID: "answer-1", ReplyText: "Successful final answer", Status: store.TurnDone, IncomingIDs: []string{"incoming-1"}})).To(Succeed())
+			queued, e := chats.ListCaptures(ctx, studio.AnonymousPrincipal, chat.ID)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(queued).To(HaveLen(1))
+			Expect(queued[0].InputType).To(Equal("SummaryInput"))
+			Expect(queued[0].SummaryModel).To(Equal("m"))
+		}
+		var frozenBefore memory.FrozenPayload
 		done := make(chan error, 1)
 		go func() { done <- svc.ProcessMemoryCaptures(workerCtx) }()
 		var record store.CaptureRecord
@@ -211,11 +254,19 @@ var _ = Describe("principal memory application adapter", func() {
 			Expect(before[0].State).To(Equal("Writing"))
 			Expect(before[0].InputType).To(Equal("FrozenPayload"))
 			Expect(lost.committed.EntryID).NotTo(BeEmpty())
+			if summary {
+				Expect(summaryCalls.Load()).To(Equal(int32(1)))
+				frozenState, e := before[0].ReducerState()
+				Expect(e).NotTo(HaveOccurred())
+				frozenBefore = frozenState.(memory.Writing).Work.Job.Input.(memory.FrozenPayload)
+				Expect(frozenBefore.Text).To(Equal(summaryText))
+				Expect(frozenBefore.Hash).NotTo(BeEmpty())
+			}
 			// A new service/store instance recovers the expired durable claim.
 			clock.Store(before[0].Deadline.Add(time.Second).Unix())
 			chats, err = store.NewJSON(queuePath)
 			Expect(err).NotTo(HaveOccurred())
-			restarted, err := studio.New(studio.Deps{StateDir: GinkgoT().TempDir(), Store: chats, Agents: as, Provider: provider.New(), Collections: adapter,
+			restarted, err := studio.New(studio.Deps{StateDir: GinkgoT().TempDir(), Store: chats, Agents: as, Provider: summaryProvider, Collections: adapter,
 				CaptureWorker: studio.CaptureWorkerOptions{Owner: "restarted-worker", Now: func() time.Time { return time.Unix(clock.Load(), 0) }, Publish: func(r store.CaptureRecord, status memory.PublishStatus) {
 					if status.Status == "Saved" {
 						saved <- r
@@ -259,7 +310,12 @@ var _ = Describe("principal memory application adapter", func() {
 		hits, err := adapter.Search(ctx, studio.AnonymousPrincipal, name, text, 10)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(hits).To(HaveLen(1))
-		Expect(hits[0].Content).To(Equal(text))
+		Expect(hits[0].Content).To(Equal(expectedText))
+		if summary {
+			Expect(summaryCalls.Load()).To(Equal(int32(1)))
+			Expect(state.(memory.Saved).Job.Input).To(Equal(frozenBefore))
+			Expect(receipt.PayloadHash).To(Equal(lost.committed.PayloadHash))
+		}
 		Expect(hits[0].EntryID).To(Equal(receipt.EntryID))
 		// A current policy revocation must also close the adapter boundary.
 		ag.Memory.AutomaticIngestion = "off"
@@ -267,10 +323,12 @@ var _ = Describe("principal memory application adapter", func() {
 		_, err = adapter.ReconcileCapture(ctx, records[0].Identity, records[0].ID)
 		Expect(errors.Is(err, studio.ErrMemoryDenied)).To(BeTrue())
 	},
-		Entry("chromem happy text", "chromem", false),
-		Entry("PostgreSQL happy text", "postgres", false),
-		Entry("chromem committed response lost and restart recovery", "chromem", true),
-		Entry("PostgreSQL committed response lost and restart recovery", "postgres", true),
+		Entry("chromem happy text", "chromem", false, false),
+		Entry("PostgreSQL happy text", "postgres", false, false),
+		Entry("chromem committed response lost and restart recovery", "chromem", true, false),
+		Entry("PostgreSQL committed response lost and restart recovery", "postgres", true, false),
+		Entry("chromem summary committed response lost and restart recovery", "chromem", true, true),
+		Entry("PostgreSQL summary committed response lost and restart recovery", "postgres", true, true),
 	)
 
 	It("writes, retries, and deletes exact documents with content-free outcomes on a real PostgreSQL backend", func() {
