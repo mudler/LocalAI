@@ -86,8 +86,16 @@ failures retain their existing behavior; an optional connector failure does not
 abort the turn. With add-ons disabled, Studio continues to use its local
 `chats_tool_providers` configuration.
 
-Public settings routes, the settings UI and the upgrade policy consumer are not
-yet connected to this store.
+The legacy `/api/settings` route does not read or update owner policy. With
+add-ons enabled, `GET /api/settings` omits the eight migrated fields listed below
+and returns `addon_host_settings_authority: "owner_required"`, even if the owner
+is unavailable. `POST /api/settings` returns `409 Conflict` if any migrated field
+is present, including `null`, case-insensitive names or duplicate keys. A mixed
+patch is rejected atomically before any local setting is applied or persisted.
+Unrelated local settings remain readable and writable; `chats_egress_audit_days`
+is local audit retention, not migrated owner policy. With add-ons disabled, the
+legacy GET and POST behavior is unchanged. The settings UI is not yet connected
+to the owner store.
 
 The schema is limited to six network fields (`chats_egress_ceiling`,
 `chats_egress_default`, `chats_egress_allow_private`, `chats_egress_ports`,
