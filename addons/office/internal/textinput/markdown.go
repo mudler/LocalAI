@@ -10,11 +10,8 @@ import (
 
 	"github.com/mudler/LocalAI/addons/office/internal/docx"
 	"github.com/mudler/LocalAI/addons/office/internal/pdf"
-	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
-	"github.com/yuin/goldmark/extension"
 	east "github.com/yuin/goldmark/extension/ast"
-	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 )
 
@@ -46,10 +43,13 @@ func ParseMarkdown(ctx context.Context, source string) (MarkdownDocument, error)
 		return MarkdownDocument{}, errors.New("markdown: supply nonempty text")
 	}
 	p := markdownParser{ctx: ctx, source: []byte(source)}
-	root := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser().Parse(text.NewReader(p.source))
+	root, err := guardedParse(ctx, p.source)
+	if err != nil {
+		return MarkdownDocument{}, err
+	}
 	// Bound the whole AST, including inline containers and semantic children.
 	depth := 0
-	err := ast.Walk(root, func(n ast.Node, enter bool) (ast.WalkStatus, error) {
+	err = ast.Walk(root, func(n ast.Node, enter bool) (ast.WalkStatus, error) {
 		if err := ctx.Err(); err != nil {
 			return ast.WalkStop, err
 		}
