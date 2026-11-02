@@ -423,7 +423,8 @@ Selection is intentionally conservative, not a fine-grained test matrix:
 
 | Input | Selection |
 |---|---|
-| Docs/site/agent guides and root Markdown only | Omit migrated heavyweight validation; cheap checks remain |
+| Site/agent guides and root Markdown only | Omit migrated heavyweight validation; cheap checks remain |
+| `docs/**` | Broad: add-on tests read documentation as test contracts, including `docs/content/features/addons.md` and `tables.md` |
 | Gallery | Full core Go gate, including gallery invariants; add-on catalogs also select all package IDs and host add-on suites |
 | Backend C++/Python implementation | Backend E2E, standalone C++ tests, core Go and release-build validation |
 | Backend Go implementation | Broad: `make test` names backend Go roots and their transitive host imports |
@@ -432,7 +433,14 @@ Selection is intentionally conservative, not a fine-grained test matrix:
 | One known add-on | Host integration checks and all five add-on test groups; package/build/publish legs only for that add-on |
 | `go.mod`, `go.sum`, Makefile, proto/schema, CI/scripts/build tooling | Broad |
 
-Examples are not treated as documentation: they may be executable fixtures.
+Documentation is not uniformly inert: Tables administration and recovery tests
+read the feature guides directly. Other readers include core gallery image
+generation tests, add-on endpoint/consumer/packaging and Sandbox tests,
+`pkg/diagnostics/docs_test.go`, and the website installation/container review
+script. All `docs/**` inputs therefore select broadly,
+including unfamiliar or deleted docs, rather than maintaining an incomplete
+allowlist. Narrower documentation selection requires an explicit dependency
+inventory. Examples also select broadly because they may be executable fixtures.
 Core Go changes still select the backend E2E domain; proving a narrower import
 closure is deferred. UI style-only precision is also deferred rather than guessing
 which bundler dependencies a package observes. `test-extra.yml` and the existing

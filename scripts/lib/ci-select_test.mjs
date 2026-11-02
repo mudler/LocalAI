@@ -6,7 +6,7 @@ import { selectEvent } from '../ci/select.mjs';
 const all = r => assert.ok(domains.every(d => r.selected[d]));
 test('known path fixtures explain selections', () => {
   for (const [path, yes, no] of [
-    ['README.md', [], domains], ['docs/guide.md', [], domains],
+    ['README.md', [], domains], ['website/content/guide.md', [], domains],
     ['gallery/foo.yaml', ['core'], ['ui', 'packages']],
     ['gallery/addons/index.yaml', ['core', 'addons', 'packages'], ['build']],
     ['backend/python/foo/run.py', ['backend', 'cpp', 'core', 'build'], ['ui', 'packages']],
@@ -77,4 +77,14 @@ test('malformed event JSON is a hard CLI failure, never a green omission', async
     const result = spawnSync(process.execPath, [new URL('../ci/select.mjs', import.meta.url).pathname], { env: { ...process.env, GITHUB_EVENT_PATH: event } });
     assert.notEqual(result.status, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('documentation is a test contract, including deleted and unfamiliar docs', () => {
+  for (const path of ['docs/content/features/addons.md', 'docs/content/features/tables.md', 'docs/content/features/image-generation.md', 'docs/content/getting-started/install.md', 'docs/content/getting-started/containers.md', 'docs/guide.md', 'docs/deleted-contract.md']) {
+    const result = classify([path]);
+    all(result);
+    assert.deepEqual(result.addons, addonIDs);
+    for (const d of domains) assert.ok(result.reasons[d].includes(`documentation contract/test input: ${path}`));
+  }
+  all(classify(['website/content/guide.md', 'docs/content/features/addons.md']));
 });

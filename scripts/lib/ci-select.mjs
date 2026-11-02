@@ -15,7 +15,11 @@ export function classify(paths, fallback = '') {
     if (!p || p.startsWith('/') || p.split('/').includes('..')) { broad(`unknown path: ${p}`); continue; }
     if (/^(go\.(mod|sum)|Makefile|CMakeLists.txt)$/.test(p) || /(^|\/)([^/]*\.proto|[^/]*schema[^/]*)$/.test(p) || /^(scripts\/|\.github\/|\.docker\/|Dockerfile|\.goreleaser|vendor\/)/.test(p)) {
       broad(`shared build/tool/schema input: ${p}`);
-    } else if (/^(docs\/|website\/|\.agents\/)/.test(p) || /^[^/]+\.md$/.test(p)) {
+    } else if (p.startsWith('docs/')) {
+      // Add-on recovery/Tables tests read documentation as executable contracts.
+      // Keep all docs broad until their complete dependency closure is explicit.
+      broad(`documentation contract/test input: ${p}`);
+    } else if (/^(website\/|\.agents\/)/.test(p) || /^[^/]+\.md$/.test(p)) {
       // YAML validation remains always present in its existing workflow.
     } else if (p.startsWith('gallery/')) {
       select(['core'], `gallery Go invariants: ${p}`);
