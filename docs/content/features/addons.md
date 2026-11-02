@@ -77,10 +77,14 @@ administrator tool/skill views read current pins with the request context. An
 owner update takes effect on the next read without restarting frontends or chat
 workers. When the owner or store cannot supply policy, these operations return
 an error rather than use frontend pins, a cached choice or a built-in fallback.
+A mandatory provider-policy failure during chat-tool priming prevents the
+harness from starting. On a running chat, that failure aborts the turn with a
+fatal error before the model receives the message or any tool executes.
 This differs from a stopped or unusable add-on: with policy available, the
-existing built-in fallback rules still apply. Optional skill-listing failures
-also retain their existing behavior. With add-ons disabled, Studio continues to
-use its local `chats_tool_providers` configuration.
+existing built-in fallback rules still apply. Optional connector and skill-listing
+failures retain their existing behavior; an optional connector failure does not
+abort the turn. With add-ons disabled, Studio continues to use its local
+`chats_tool_providers` configuration.
 
 Public settings routes, the settings UI and the upgrade policy consumer are not
 yet connected to this store.

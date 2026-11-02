@@ -309,7 +309,9 @@ func (c *Chat) isRunning() bool {
 // harness cannot read, or a missing state in a chat that has a transcript,
 // starts a fresh session with the transcript in the system prompt.
 func (c *Chat) startHarness(ctx context.Context) error {
-	c.primeChatTools(ctx)
+	if err := c.primeChatTools(ctx); err != nil {
+		return err
+	}
 	c.mu.Lock()
 	rec := c.rec
 	c.mu.Unlock()
@@ -856,9 +858,10 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 	c.emit(Event{Kind: KindTurnStart, Turn: n})
 	c.endMu.Unlock()
 	note := ""
+	var turnErr error
 	if !skip {
 		var hookRefresh bool
-		note, hookRefresh = c.applyChatTools(ctx)
+		note, hookRefresh, turnErr = c.applyChatTools(ctx)
 		c.mu.Lock()
 		hs = c.hs // a changed set of tools restarted the harness
 		c.mu.Unlock()
@@ -866,19 +869,22 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		// them, as it sees an upload.
 		refresh = refresh || hookRefresh
 	}
-	if refresh && !skip && ctx.Err() == nil {
+	if refresh && !skip && turnErr == nil && ctx.Err() == nil {
 		if err := c.refresh(ctx); err != nil {
 			c.m.log.Warn("session: refresh before the turn", "chat", c.id, "error", err)
 			c.emit(Event{Kind: KindError, Turn: n, Text: reasonRefresh})
 		}
 	}
-	if !skip && hs != nil {
+	if !skip && (hs != nil || turnErr != nil) {
 		toModel := text
 		if note != "" {
 			// The note is for the model only: the transcript keeps the user's words.
 			toModel = "(System note: " + note + ")\n\n" + text
 		}
-		err := safeSend(ctx, hs, toModel, media, c.m.log)
+		err := turnErr
+		if err == nil {
+			err = safeSend(ctx, hs, toModel, media, c.m.log)
+		}
 		c.mu.Lock()
 		stopped := c.stopped
 		c.mu.Unlock()

@@ -167,3 +167,6 @@ type providerPolicyError struct {
 
 func (e *providerPolicyError) Error() string { return "studio: provider policy: " + e.err.Error() }
 func (e *providerPolicyError) Unwrap() error { return e.err }
+
+// Mandatory prevents a session from running without the owner policy.
+func (e *providerPolicyError) Mandatory() bool { return true }
