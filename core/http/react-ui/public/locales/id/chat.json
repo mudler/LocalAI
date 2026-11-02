@@ -584,7 +584,8 @@
     "context": "Konteks",
     "contextOf": "{{used}} dari {{limit}} token",
     "contextUsed": "{{used}} token",
-    "unknown": "Belum diketahui"
+    "unknown": "Belum diketahui",
+    "commandsUnknown": "Isolasi perintah tidak diketahui"
   },
   "agentFolder": {
     "home": "Beranda",

@@ -584,7 +584,8 @@
     "context": "上下文",
     "contextOf": "{{used}} / {{limit}} 个 token",
     "contextUsed": "{{used}} 个 token",
-    "unknown": "尚不清楚"
+    "unknown": "尚不清楚",
+    "commandsUnknown": "命令隔离状态未知"
   },
   "agentFolder": {
     "home": "主页",

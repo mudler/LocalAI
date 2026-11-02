@@ -96,7 +96,8 @@ export default function AppsView({ api, adapter, onSummary }) {
 
   // The installed record of an add-on, for the administrator's Details in the
   // pane. A change reads it again.
-  const [installedInfo, setInstalledInfo] = useState({})
+  const [installedRecords, setInstalledInfo] = useState({})
+  const installedInfo = installedRecords.actor === actor ? installedRecords.value : {}
   const [installedReload, setInstalledReload] = useState(0)
   const actions = useAddonActions(api, {
     onSettled: () => {
@@ -154,12 +155,16 @@ export default function AppsView({ api, adapter, onSummary }) {
   // Reads the library of every installed add-on again. Only reads: it never
   // applies anything, and one add-on that cannot be checked does not stop the
   // rest.
-  const [checkingAll, setCheckingAll] = useState(false)
+  const [checkingActor, setCheckingActor] = useState(null)
+  const checkingAll = checkingActor === actor
   const checkAll = useCallback(async () => {
+    const current = () => scope.current === actor
+    if (!current()) return
     const signal = aborter.current.signal
-    setCheckingAll(true)
+    setCheckingActor(actor)
     let failed = 0
     for (const addon of installedList) {
+      if (!current()) return
       try {
         await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
       } catch (error) {
@@ -167,10 +172,11 @@ export default function AppsView({ api, adapter, onSummary }) {
         failed += 1
       }
     }
-    setCheckingAll(false)
+    if (!current()) return
+    setCheckingActor(null)
     setInstalledReload(n => n + 1)
     addToast?.(failed > 0 ? t('updates.checkAllFailed', { count: failed }) : t('updates.checkAllDone', { count: installedList.length }), failed > 0 ? 'error' : 'info')
-  }, [api, installedList, addToast, t])
+  }, [api, installedList, addToast, t, actor])
 
   const nav = useNavigation()
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
@@ -206,11 +212,12 @@ export default function AppsView({ api, adapter, onSummary }) {
   useEffect(() => {
     if (!isAdmin || !canList || !appsKey) return undefined
     const ctl = new AbortController()
+    const current = () => scope.current === actor && !ctl.signal.aborted
     api.installed(ctl.signal)
-      .then(list => setInstalledInfo(Object.fromEntries(list.map(a => [a.id, a]))))
+      .then(list => { if (current()) setInstalledInfo({ actor, value: Object.fromEntries(list.map(a => [a.id, a])) }) })
       .catch(() => { /* the pane says the source is not known */ })
     return () => ctl.abort()
-  }, [api, isAdmin, canList, appsKey, installedReload])
+  }, [api, isAdmin, canList, appsKey, installedReload, actor])
 
   // Everything that has an update notice, for "Upgrade all": the owner's
   // record when the administrator can read it, with the reason when the
@@ -228,7 +235,7 @@ export default function AppsView({ api, adapter, onSummary }) {
     runOne: async (item) => {
       if (!item.addon) return { ok: false, message: upgradeFailureWords('stale_installed', t) }
       const out = await upgrade.upgrade(item.addon)
-      return out.ok ? { ok: true } : { ok: false, message: upgradeFailureWords(out.message, t) }
+      return out?.ok ? { ok: true } : { ok: false, message: upgradeFailureWords(out?.message, t) }
     },
   })
 

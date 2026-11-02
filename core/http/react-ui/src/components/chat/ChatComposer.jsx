@@ -270,12 +270,15 @@ export default function ChatComposer({
       const on = (rows) => rows.filter((r) => !r.off && r.usable !== false).length
       const tools = on(switches.builtins) + switches.addons.filter((a) => !a.off).reduce((n, a) => n + (a.tools || 0), 0)
         + on(switches.servers) + on(switches.connectors)
-      const runs = switches.commands.state === 'available' ? (sandbox?.state === 'host' ? 'host' : 'isolated') : 'none'
+      const selected = switches.commands?.state
+      const runs = selected === 'available' ? 'isolated'
+        : ['host', 'host-off', 'host-unavailable', 'provider-host'].includes(selected) ? 'host'
+          : ['none', 'off', 'switched_off', 'unavailable', 'provider-unavailable'].includes(selected) ? 'none' : 'unknown'
       onRunAction?.(id, { about: { tools, skills: usableSkills(switches.skills).length, commands: runs } })
       return
     }
     onRunAction?.(id, item?.addonId ? { ...item, addonOptions: { nativeNames: reservedNames(), skillNames: usableSkills(switches.skills).map(s => s.name) } } : item)
-  }, [chatId, onPickModel, setDraftModel, pickerRef, switches, setText, onRunAction, slash, sandbox])
+  }, [chatId, onPickModel, setDraftModel, pickerRef, switches, setText, onRunAction, slash])
 
   const effectivePlaceholder = placeholder || (effectiveModel
     ? t('input.placeholderModel', { model: effectiveModel })

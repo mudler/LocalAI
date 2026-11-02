@@ -1,3 +1,4 @@
+import { useAuth } from '../../context/AuthContext'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { newOperationId } from '../catalog/catalogState'
 import { addonUpgrades } from '../../utils/addonUpgrades'
@@ -14,16 +15,34 @@ import { useAddonUpgrades } from '../../hooks/useAddonUpgrades'
 // `onChanged` runs after a check or an upgrade ends, so the view can read the
 // installed records again.
 export function useAddonUpgrade(api, { onChanged } = {}) {
-  const [confirm, setConfirm] = useState(null)
-  const [checks, setChecks] = useState({})
+
+  const { user, isAdmin, sessionEpoch } = useAuth()
+  const actor = JSON.stringify([user?.id, isAdmin, sessionEpoch])
+  const authority = useRef(null)
+  if (authority.current?.actor !== actor) {
+    authority.current = { actor, controller: new AbortController() }
+  }
+  const origin = authority.current
+  const current = useCallback(() => authority.current === origin && !origin.controller.signal.aborted, [origin])
+  const [storedConfirm, saveConfirm] = useState({ actor, value: null })
+  const confirm = storedConfirm.actor === actor ? storedConfirm.value : null
+  const setConfirm = useCallback(value => {
+    if (!current()) return
+    saveConfirm(old => ({ actor, value: typeof value === 'function' ? value(old.actor === actor ? old.value : null) : value }))
+  }, [actor, current])
+  const [storedChecks, saveChecks] = useState({ actor, value: {} })
+  const checks = storedChecks.actor === actor ? storedChecks.value : {}
+  const setChecks = useCallback(value => {
+    if (!current()) return
+    saveChecks(old => ({ actor, value: typeof value === 'function' ? value(old.actor === actor ? old.value : {}) : value }))
+  }, [actor, current])
   const upgrades = useAddonUpgrades()
-  const aborter = useRef(null)
   const changed = useRef(onChanged)
   changed.current = onChanged
   useEffect(() => {
-    aborter.current = new AbortController()
-    return () => aborter.current.abort()
-  }, [])
+    if (origin.controller.signal.aborted) origin.controller = new AbortController()
+    return () => origin.controller.abort()
+  }, [origin])
 
   // The explicit upgrade: the digest of the installed package the page showed
   // and the digest of the candidate the owner's check resolved. The owner
@@ -31,26 +50,30 @@ export function useAddonUpgrade(api, { onChanged } = {}) {
   // and resolves { ok, outcome, message }, where message is the key of the
   // words of a failure (see upgradeFailureWords).
   const upgrade = useCallback(async (addon) => {
-    const out = await addonUpgrades.start(api, addon)
+    if (!current()) return null
+    const out = await addonUpgrades.start(api, addon, { current: () => authority.current === origin })
+    if (!current()) return null
     if (changed.current) changed.current(addon)
     return out
-  }, [api])
+  }, [api, current, origin])
 
   // Asks the owner to read the library again. It never applies anything.
   const check = useCallback(async (addon) => {
-    const signal = aborter.current.signal
+    if (!current()) return null
+    const signal = origin.controller.signal
     setChecks(c => ({ ...c, [addon.id]: { phase: 'working' } }))
     try {
       const status = await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
+      if (!current()) return null
       // The answer is kept so the card can say what the check found and
       // when, even when the records read again show no notice any more.
       setChecks(c => ({ ...c, [addon.id]: { phase: 'done', throttled: Boolean(status && status.throttled), status: status && typeof status === 'object' ? status : null } }))
       if (changed.current) changed.current(addon)
     } catch (error) {
-      if (error && error.name === 'AbortError') return
+      if (!current() || (error && error.name === 'AbortError')) return
       setChecks(c => ({ ...c, [addon.id]: { phase: 'error', error } }))
     }
-  }, [api])
+  }, [api, current, setChecks, origin])
 
   // The upgrade of one add-on the store follows, or null.
   const opOf = useCallback((id) => upgrades.live.find(op => op.addonId === id) || null, [upgrades.live])

@@ -731,7 +731,8 @@
     "context": "Context",
     "contextOf": "{{used}} of {{limit}} tokens",
     "contextUsed": "{{used}} tokens",
-    "unknown": "Not known yet"
+    "unknown": "Not known yet",
+    "commandsUnknown": "Command isolation is unknown"
   },
   "agentFolder": {
     "home": "Home",

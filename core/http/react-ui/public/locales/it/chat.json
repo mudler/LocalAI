@@ -584,7 +584,8 @@
     "context": "Contesto",
     "contextOf": "{{used}} di {{limit}} token",
     "contextUsed": "{{used}} token",
-    "unknown": "Non ancora noto"
+    "unknown": "Non ancora noto",
+    "commandsUnknown": "L’isolamento dei comandi è sconosciuto"
   },
   "agentFolder": {
     "home": "Home",

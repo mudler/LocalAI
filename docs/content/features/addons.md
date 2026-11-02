@@ -4913,3 +4913,8 @@ its enforcement. It explicitly says that the policy does not apply to commands.
 Provider-reported isolation alone does not establish network enforcement.
 Missing current authorization, selection or runtime context yields unknown;
 installing an app does not confer authority or prove network enforcement.
+
+The chat `/about` card reports isolation from the selected command provider.
+When the provider status is missing or unknown, the card does not claim isolation.
+After an authentication refresh or account change, pending Apps reads and action
+results cannot populate the new session. The server still authorizes every action.

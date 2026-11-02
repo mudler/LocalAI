@@ -116,7 +116,8 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     // Upgrades one installed add-on (the record of `addons-installed`). Never
     // throws: resolves { ok, message, outcome } where message is the key of the
     // words of a failure (see updateErrorKey) and is empty on success.
-    async start(api, addon) {
+    async start(api, addon, { current = () => true } = {}) {
+      if (!current()) return null
       const view = updateView(addon && addon.update)
       if (!view.canUpgrade || !addon.digest) return { ok: false, outcome: 'invalid', message: 'incompatible' }
       if (snapshot.live.some(op => op.addonId === addon.id && op.state !== 'failed')) return { ok: false, outcome: 'busy', message: 'operation_conflict' }
@@ -150,15 +151,26 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         ...snapshot,
         live: [...withoutOld, { ...base, jobID, operationId, state: 'running', phase: 'submitting', progress: 0, cancellable: false, error: '', errorKey: '' }],
       })
-      return store.follow(api, { jobID, addon, operationId, key, controller, submit: true })
+      return store.follow(api, { jobID, addon, operationId, key, controller, submit: true, current })
     },
 
     // Runs the submit (or, with submit false, only reads the earlier operation)
     // and turns its end into the entry of a list.
-    async follow(api, { jobID, addon, operationId, key, controller, submit }) {
+    async follow(api, { jobID, addon, operationId, key, controller, submit, current = () => true }) {
       const followingEpoch = epoch
       const signal = controller.signal
-      const tracked = trackPhases(api, jobID)
+      const tracked = trackPhases({ ...api, operationStatus: async (...args) => {
+        if (!current()) throw new DOMException('Aborted', 'AbortError')
+        const status = await api.operationStatus(...args)
+        if (!current()) throw new DOMException('Aborted', 'AbortError')
+        return status
+      } }, jobID)
+      const expired = () => {
+        if (current()) return false
+        emit({ ...snapshot, live: snapshot.live.filter(op => op.jobID !== jobID) })
+        book.resolve(addon.id, key)
+        return true
+      }
       try {
         let outcome
         // While the add-on service does not answer, the entry says that it
@@ -180,6 +192,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         } else {
           outcome = (await settleOperation(tracked, { operationId, addonId: addon.id, signal, waits: pollWaits, sleep: sleepOf(jobID), onWait })).outcome
         }
+        if (expired()) return null
         let verified
         if (outcome === 'completed') {
           try {
@@ -191,8 +204,10 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
           }
         }
         if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
+        if (expired()) return null
         return store.conclude(jobID, addon, key, effectOutcome(outcome, verified), operationId)
       } catch (e) {
+        if (expired()) return null
         if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
         if (e && e.name === 'AbortError' && cancelled.has(jobID)) return store.afterCancel(api, { jobID, addon, operationId, key })
         const kind = e && e.kind ? e.kind : 'unavailable'
