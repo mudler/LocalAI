@@ -74,9 +74,8 @@ var _ = Describe("MCP connector call timeout", func() {
 		Expect(config.DefaultMCPToolTimeout).To(BeNumerically(">", mcpconns.DefaultCallTimeout))
 	})
 
-	It("lets a tool run longer than the connector default when the MCP tool timeout allows it", func() {
-		// The tool takes 1.2 s; the MCP tool timeout is 3 s. With a 1 s cap the
-		// call would fail, with the MCP tool timeout it returns.
+	It("lets a tool finish within the configured MCP tool timeout", func() {
+		// The tool takes 1.2 s and completes within the configured 3 s timeout.
 		a := connectorApp(3 * time.Second)
 		out, err := runSlow(a, slowMCPServer(1200*time.Millisecond).URL)
 		Expect(err).NotTo(HaveOccurred())
