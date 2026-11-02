@@ -39,6 +39,10 @@ func (a *Application) resolveExecutionBinding(ctx context.Context, actor contrac
 		principal = studio.AnonymousPrincipal
 	}
 	cfg := a.applicationConfig.ChatSelectionSnapshot()
+	pins, err := a.studioToolPins(ctx)
+	if err != nil {
+		return empty, err
+	}
 	rec, err := a.studioStore.GetChat(ctx, principal, claim.ConversationID)
 	if err != nil || rec.Principal != principal || rec.ID != claim.ConversationID {
 		return empty, gateway.ErrForbidden
@@ -86,7 +90,7 @@ func (a *Application) resolveExecutionBinding(ctx context.Context, actor contrac
 		}
 		eligible = append(eligible, d)
 	}
-	selected, ok := studio.SelectExecutionProvider(eligible, installed, rec, grants, cfg.ToolProviders["bash"])
+	selected, ok := studio.SelectExecutionProvider(eligible, installed, rec, grants, pins["bash"])
 	if !ok {
 		return empty, gateway.ErrForbidden
 	} // Native bash is not an addon binding; no host fallback.
@@ -125,7 +129,7 @@ func (a *Application) resolveExecutionBinding(ctx context.Context, actor contrac
 		return empty, err
 	}
 	// Compare current selection inputs even when they resolve to the same provider.
-	selection, _ := json.Marshal([]any{rec.Principal, rec.AgentID, rec.Origin, rec.AddonsOff, grants, cfg.HostExec, cfg.ToolProviders})
+	selection, _ := json.Marshal([]any{rec.Principal, rec.AgentID, rec.Origin, rec.AddonsOff, grants, cfg.HostExec, pins})
 	digest := sha256.Sum256(selection)
 	return gateway.ExecutionStatusBinding{ConversationID: rec.ID, Actor: actor, AddonID: selected.AddonID, Generation: instance.Generation, Incarnation: instance.Incarnation, ExecutionTool: tool, StatusTool: provider.StatusTool, CurrentSelection: hex.EncodeToString(digest[:])}, nil
 }

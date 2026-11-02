@@ -1758,14 +1758,6 @@
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
       "names every typed cause of a failed install in the 403 of the dispatch route",
-      "selects the oldest real provider then pins a second distinct manifest and runtime",
-      "binds the actual renamed running provider and rejects forged bindings and foreign actors",
-      "observes the actual renamed provider through the Studio typed adapter and withdraws stale facts",
-      "invalidates old bindings after pins and chat switch ABA",
-      "denies foreign chat access and named-user contexts",
-      "uses owner agent snapshots, denies unattended actions, and fences agent ABA",
-      "rejects stale runtime incarnations and previous owner lifetimes",
-      "fails unsupported snapshots closed without changing ordinary chat access",
       "keeps one scope through prompt/status/egress and isolates priming and subsequent turns",
       "closes pending observations at the real turn boundary (stop=false)",
       "closes pending observations at the real turn boundary (stop=true)",
@@ -1883,7 +1875,22 @@
       "keeps today's prompt for an unscoped chat",
       "validates current selection and authenticated actor",
       "rejects aliases, duplicate fields and null claims",
-      "accepts canonical bindings and rejects aliases and duplicates"
+      "accepts canonical bindings and rejects aliases and duplicates",
+      "projects private policy safely",
+      "forwards authenticated owner decisions",
+      "validates strict request payloads",
+      "checks CAS and administrator authority",
+      "uses owner CAS pins for execution and typed status and fails closed on policy outage",
+      "resolves local-owner SQLite using current chat and agent reads",
+      "resolves named SQLite chats and rechecks current accounts and credentials",
+      "selects the oldest real provider then pins a second distinct manifest and runtime",
+      "binds the actual renamed running provider and rejects forged bindings and foreign actors",
+      "observes the actual renamed provider through the Studio typed adapter and withdraws stale facts",
+      "validates current pins and chat switches without historical ABA guarantees",
+      "denies foreign chat access and invalid named credentials",
+      "uses current agent grants and denies unattended actions",
+      "rejects stale runtime incarnations without owner callback nonces",
+      "uses the ordinary chat store interface"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -2007,7 +2014,11 @@
           "reports an unclassified account check error as unavailable on every path and a wrapped denial as forbidden",
           "validates current selection and authenticated actor",
           "rejects aliases, duplicate fields and null claims",
-          "accepts canonical bindings and rejects aliases and duplicates"
+          "accepts canonical bindings and rejects aliases and duplicates",
+          "projects private policy safely",
+          "forwards authenticated owner decisions",
+          "validates strict request payloads",
+          "checks CAS and administrator authority"
         ]
       },
       {
@@ -2131,14 +2142,17 @@
       {
         "path": ".cache/addons/logs/gateway-owner-binding.json",
         "cases": [
+          "uses owner CAS pins for execution and typed status and fails closed on policy outage",
+          "resolves local-owner SQLite using current chat and agent reads",
+          "resolves named SQLite chats and rechecks current accounts and credentials",
           "selects the oldest real provider then pins a second distinct manifest and runtime",
           "binds the actual renamed running provider and rejects forged bindings and foreign actors",
           "observes the actual renamed provider through the Studio typed adapter and withdraws stale facts",
-          "invalidates old bindings after pins and chat switch ABA",
-          "denies foreign chat access and named-user contexts",
-          "uses owner agent snapshots, denies unattended actions, and fences agent ABA",
-          "rejects stale runtime incarnations and previous owner lifetimes",
-          "fails unsupported snapshots closed without changing ordinary chat access"
+          "validates current pins and chat switches without historical ABA guarantees",
+          "denies foreign chat access and invalid named credentials",
+          "uses current agent grants and denies unattended actions",
+          "rejects stale runtime incarnations without owner callback nonces",
+          "uses the ordinary chat store interface"
         ],
         "focus": "execution binding owner resolver"
       },
@@ -3615,6 +3629,8 @@
       "projects two non-Studio addon pages without identity dispatch",
       "projects home commands with resolved declared pages display metadata immutable icons and generation",
       "keeps disabled home apps installed without UI and never invents a destination",
+      "projects typed model actions without sharing manifest or view slices",
+      "keeps unavailable installed records and omits unavailable or absent model metadata",
       "denies enable and disable for a stale generation without recording anything",
       "lists the identifiers of installed addons, disabled ones included",
       "refuses to list installed identifiers while recovery is required",
@@ -3686,9 +3702,11 @@
       "does nothing without an update checker",
       "keeps the manual upgrade closed to a caller who is not an administrator",
       "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum",
+      "distinguishes healthy empty connector discovery from loss of runtime ownership",
       "persists and recovers model actions and declarations through install manual and automatic upgrades and real activation rollback",
       "does not retain the caller's map or prefix slices",
       "keeps an explicitly empty startup policy immutable",
+      "publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms",
       "registers only ready generation bound service headless and UI capabilities",
       "rejects forged registration nonloopback and stale incarnation handshakes",
       "bounds readiness and handles exit during start and stop",
@@ -3738,6 +3756,21 @@
       "goes to the log line by line with the add-on ID and a cap per line",
       "records the chat with the envelope of a read and of an action while it runs",
       "sends the add-on an envelope without a new field",
+      "requires exact typed capability equality on authenticated registration health",
+      "keeps all typed declarations on automatic crash restart with a fresh incarnation",
+      "replays typed and legacy receipts across process restarts",
+      "refuses missing wire tool discriminators before any read",
+      "serializes exact identity admission with withdrawal and never dispatches the replacement",
+      "cannot observe a restarted same-generation process through the captured client",
+      "rejects output handles before they can reach storage or output-open",
+      "settles callback denial as failure even if the addon returns a valid positive payload",
+      "cleans up after cancellation and rejects repeat correlation",
+      "keeps an ordinary concurrent read authorized while an observation is pending",
+      "error",
+      "malformed/artifact payload",
+      "success",
+      "timeout",
+      "cancels an admitted observation when the runtime withdraws",
       "rejects anonymous and forged forwarding authority through real authentication",
       "lets callers through only when the deployment selected local-owner mode",
       "keeps authentication, the feature gate and administration when accounts exist",
@@ -3850,12 +3883,7 @@
       "returns the SDK refusal text, the unverified-package text and the missing-release text to the administrator",
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
-      "names every typed cause of a failed install in the 403 of the dispatch route",
-      "records the chat with the envelope of a read and of an action while it runs",
-      "sends the add-on an envelope without a new field",
-      "distinguishes healthy empty connector discovery from loss of runtime ownership",
-      "projects typed model actions without sharing manifest or view slices",
-      "keeps unavailable installed records and omits unavailable or absent model metadata"
+      "names every typed cause of a failed install in the 403 of the dispatch route"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -3962,7 +3990,8 @@
           "serializes synchronous disable against an accepted upgrade without overwriting its journal",
           "persists and recovers model actions and declarations through install manual and automatic upgrades and real activation rollback",
           "does not retain the caller's map or prefix slices",
-          "keeps an explicitly empty startup policy immutable"
+          "keeps an explicitly empty startup policy immutable",
+          "publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms"
         ]
       },
       {
@@ -4016,7 +4045,22 @@
           "kills an add-on that ignores the closing of its startup channel, within the grace period",
           "goes to the log line by line with the add-on ID and a cap per line",
           "records the chat with the envelope of a read and of an action while it runs",
-          "sends the add-on an envelope without a new field"
+          "sends the add-on an envelope without a new field",
+          "requires exact typed capability equality on authenticated registration health",
+          "keeps all typed declarations on automatic crash restart with a fresh incarnation",
+          "replays typed and legacy receipts across process restarts",
+          "refuses missing wire tool discriminators before any read",
+          "serializes exact identity admission with withdrawal and never dispatches the replacement",
+          "cannot observe a restarted same-generation process through the captured client",
+          "rejects output handles before they can reach storage or output-open",
+          "settles callback denial as failure even if the addon returns a valid positive payload",
+          "cleans up after cancellation and rejects repeat correlation",
+          "keeps an ordinary concurrent read authorized while an observation is pending",
+          "error",
+          "malformed/artifact payload",
+          "success",
+          "timeout",
+          "cancels an admitted observation when the runtime withdraws"
         ]
       },
       {

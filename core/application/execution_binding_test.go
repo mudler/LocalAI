@@ -21,6 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -35,6 +36,17 @@ var _ = Describe("execution binding owner resolver", func() {
 	var ctx context.Context
 	var actor contract.Actor
 	var claim gateway.ExecutionBindingClaim
+	setOwnerPin := func(pin string) {
+		snap, err := a.addonHostSettings.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		var value *string
+		if pin != "" {
+			value = &pin
+		}
+		_, err = a.addonHostSettings.Update(ctx, hostsettings.Patch{ToolProviders: map[string]*string{"bash": value}}, snap.Revision, fmt.Sprintf("pin-%d", snap.Revision))
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	BeforeEach(func() {
 		requireAddonRuntime()
 		ctx = context.Background()
@@ -136,6 +148,34 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(a.addonGateway.ResolveExecutionBinding).NotTo(BeNil())
 		Expect(a.addonGateway.AuthorizeExecutionStatus).NotTo(BeNil())
 	})
+	It("uses owner CAS pins for execution and typed status and fails closed on policy outage", func() {
+		first, err := a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		a.applicationConfig.SetChatsToolProviders(map[string]string{"bash": "renamed-runner"})
+		snap, err := a.addonHostSettings.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		pin := "alternate-worker"
+		_, err = a.addonHostSettings.Update(ctx, hostsettings.Patch{ToolProviders: map[string]*string{"bash": &pin}}, snap.Revision, "pin-alternate")
+		Expect(err).NotTo(HaveOccurred())
+		pins, err := a.studioToolPins(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(pins["bash"]).To(Equal(pin))
+		second, err := a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(second.AddonID).To(Equal(pins["bash"]))
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, first)).NotTo(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, second)).To(Succeed())
+		_, err = a.addonHostSettings.Update(ctx, hostsettings.Patch{}, snap.Revision, "stale-pin")
+		Expect(err).To(MatchError(hostsettings.ErrConflict))
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, second)).To(Succeed())
+		Expect(a.addonHostSettings.Close()).To(Succeed())
+		_, err = a.studioToolPins(ctx)
+		Expect(err).To(HaveOccurred())
+		_, err = a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).To(HaveOccurred())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, second)).NotTo(Succeed())
+	})
+
 	It("resolves local-owner SQLite using current chat and agent reads", func() {
 		db, err := auth.InitDB(filepath.Join(realTempDir(), "identity.db"))
 		Expect(err).NotTo(HaveOccurred())
@@ -169,7 +209,7 @@ var _ = Describe("execution binding owner resolver", func() {
 		// Install current named-account validation without restarting the runtime.
 		originalGateway := a.addonGateway
 		DeferCleanup(func() { a.addonGateway = originalGateway })
-		a.addonGateway = &gateway.Gateway{Manager: a.addonManager, Runtime: originalGateway.Runtime, Tools: originalGateway.Tools, Revalidate: auth.AddonRevalidate(db, auth.AddonModeNamedUser)}
+		a.addonGateway = &gateway.Gateway{Manager: a.addonManager, Runtime: originalGateway.Runtime, Tools: originalGateway.Tools, HostSettings: originalGateway.HostSettings, Revalidate: auth.AddonRevalidate(db, auth.AddonModeNamedUser)}
 		Expect(a.wireExecutionBinding(a.addonGateway)).To(Succeed())
 		a.studioStore, err = store.NewGORM(db)
 		Expect(err).NotTo(HaveOccurred())
@@ -219,7 +259,7 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(first.AddonID).To(Equal("renamed-runner"))
 		Expect(first.ExecutionTool).To(Equal("execute"))
 		Expect(first.StatusTool).To(Equal("inspect"))
-		a.applicationConfig.SetChatsToolProviders(map[string]string{"bash": "alternate-worker"})
+		setOwnerPin("alternate-worker")
 		second, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(second.AddonID).To(Equal("alternate-worker"))
@@ -277,9 +317,9 @@ var _ = Describe("execution binding owner resolver", func() {
 	It("validates current pins and chat switches without historical ABA guarantees", func() {
 		b, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
-		a.applicationConfig.SetChatsToolProviders(map[string]string{"bash": "alternate-worker"})
+		setOwnerPin("alternate-worker")
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
-		a.applicationConfig.SetChatsToolProviders(nil)
+		setOwnerPin("")
 		b, err = a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner", "alternate-worker"})).To(Succeed())

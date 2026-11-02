@@ -4864,6 +4864,9 @@ conversation ID. Callers cannot choose the provider, tools, runtime incarnation,
 agent grants, or consent. The resolver uses the chat's current add-on switches,
 agent grants, provider pins, and installed-provider ordering. An installed but
 idle pinned provider does not fall through to another add-on.
+Execution observations read the same current owner policy as normal execution,
+not frontend-local provider pins. Owner policy outages fail closed; a CAS pin
+change invalidates a binding whose current selection no longer matches.
 
 The binding path uses existing principal-scoped chat and agent reads on the
 owner, supporting JSON and SQL/GORM stores. Named actors use their account ID;
