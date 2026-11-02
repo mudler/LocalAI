@@ -17,14 +17,15 @@ import (
 // ExecutionStatusBinding contains opaque authenticated identities, not credentials.
 // Every component is a precondition; readiness never authorizes execution.
 type ExecutionStatusBinding struct {
-	ConversationID    string         `json:"conversationId,omitempty"`
-	Actor             contract.Actor `json:"actor"`
-	AddonID           string         `json:"addonId"`
-	Generation        uint64         `json:"generation"`
-	Incarnation       string         `json:"incarnation"`
-	ExecutionTool     string         `json:"executionTool"`
-	StatusTool        string         `json:"statusTool"`
-	SelectionRevision string         `json:"selectionRevision"`
+	ConversationID string         `json:"conversationId,omitempty"`
+	Actor          contract.Actor `json:"actor"`
+	AddonID        string         `json:"addonId"`
+	Generation     uint64         `json:"generation"`
+	Incarnation    string         `json:"incarnation"`
+	ExecutionTool  string         `json:"executionTool"`
+	StatusTool     string         `json:"statusTool"`
+	// SelectionRevision is transitional current selection identity, not history.
+	SelectionRevision string `json:"selectionRevision"`
 }
 
 // Version belongs to this host-to-host DTO, not the addon protocol (still v1).

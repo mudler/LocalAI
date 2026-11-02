@@ -138,6 +138,83 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(a.addonGateway.ResolveExecutionBinding).NotTo(BeNil())
 		Expect(a.addonGateway.AuthorizeExecutionStatus).NotTo(BeNil())
 	})
+	It("resolves local-owner SQLite using current chat and agent reads", func() {
+		db, err := auth.InitDB(filepath.Join(realTempDir(), "identity.db"))
+		Expect(err).NotTo(HaveOccurred())
+		sqlDB, err := db.DB()
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(sqlDB.Close)
+		originalChats, originalAgents := a.studioStore, a.studioAgents
+		DeferCleanup(func() { a.studioStore, a.studioAgents = originalChats, originalAgents })
+		a.authDB = db
+		a.studioStore, err = store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		a.studioAgents, err = agents.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(a.studioStore.CreateChat(ctx, session.ChatRecord{ID: claim.ConversationID, Principal: studio.AnonymousPrincipal, Created: time.Now(), Updated: time.Now()})).To(Succeed())
+		binding, err := a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(binding.AddonID).To(Equal("renamed-runner"))
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, binding)).To(Succeed())
+	})
+
+	It("resolves named SQLite chats and rechecks current accounts and credentials", func() {
+		db, err := auth.InitDB(filepath.Join(realTempDir(), "named.db"))
+		Expect(err).NotTo(HaveOccurred())
+		sqlDB, err := db.DB()
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(sqlDB.Close)
+		originalChats, originalAgents := a.studioStore, a.studioAgents
+		DeferCleanup(func() { a.studioStore, a.studioAgents = originalChats, originalAgents })
+		a.authDB = db
+		a.applicationConfig.Addons.OwnershipMode = auth.AddonModeNamedUser
+		// Install current named-account validation without restarting the runtime.
+		originalGateway := a.addonGateway
+		DeferCleanup(func() { a.addonGateway = originalGateway })
+		a.addonGateway = &gateway.Gateway{Manager: a.addonManager, Runtime: originalGateway.Runtime, Tools: originalGateway.Tools, Revalidate: auth.AddonRevalidate(db, auth.AddonModeNamedUser)}
+		Expect(a.wireExecutionBinding(a.addonGateway)).To(Succeed())
+		a.studioStore, err = store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		a.studioAgents, err = agents.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		user := auth.User{ID: "runner", Role: auth.RoleUser, Status: auth.StatusActive}
+		Expect(db.Create(&user).Error).To(Succeed())
+		permissions := auth.UserPermission{UserID: user.ID, Permissions: auth.PermissionMap{auth.FeatureAddons: true}}
+		Expect(db.Create(&permissions).Error).To(Succeed())
+		actor = contract.Actor{UserID: user.ID, CredentialID: auth.AddonChatsCredential, Mode: auth.AddonModeNamedUser}
+		Expect(a.studioStore.CreateChat(ctx, session.ChatRecord{ID: claim.ConversationID, Principal: user.ID, Created: time.Now(), Updated: time.Now()})).To(Succeed())
+		binding, err := a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(binding.AddonID).To(Equal("renamed-runner"))
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, binding)).To(Succeed())
+		_, err = a.addonGateway.BindingForActor(ctx, actor, gateway.ExecutionBindingClaim{ConversationID: "foreign"})
+		Expect(err).To(HaveOccurred())
+		Expect(db.Model(&user).Update("status", "disabled").Error).To(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, binding)).NotTo(Succeed())
+		Expect(db.Model(&user).Update("status", auth.StatusActive).Error).To(Succeed())
+		permissions.Permissions = auth.PermissionMap{}
+		Expect(db.Model(&auth.UserPermission{}).Where("user_id = ?", user.ID).Update("permissions", permissions.Permissions).Error).To(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, binding)).NotTo(Succeed())
+		permissions.Permissions = auth.PermissionMap{auth.FeatureAddons: true}
+		Expect(db.Model(&auth.UserPermission{}).Where("user_id = ?", user.ID).Update("permissions", permissions.Permissions).Error).To(Succeed())
+		_, err = a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		_, key, err := auth.CreateAPIKey(db, user.ID, "test", auth.RoleUser, "secret", nil)
+		Expect(err).NotTo(HaveOccurred())
+		actor.CredentialID = "key:" + key.ID
+		binding, err = a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		expired := time.Now().Add(-time.Hour)
+		Expect(db.Model(key).Update("expires_at", expired).Error).To(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, binding)).NotTo(Succeed())
+		Expect(db.Create(&auth.Session{ID: "browser", UserID: user.ID, ExpiresAt: time.Now().Add(time.Hour)}).Error).To(Succeed())
+		actor.CredentialID = "session:browser"
+		binding, err = a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(db.Delete(&auth.Session{}, "id = ?", "browser").Error).To(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, binding)).NotTo(Succeed())
+	})
+
 	It("selects the oldest real provider then pins a second distinct manifest and runtime", func() {
 		first, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
@@ -192,30 +269,36 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner", "alternate-worker"})).To(Succeed())
 		Expect(string(request.Observe(ctx).Isolation)).To(Equal("unknown"))
 		Expect(broker.Isolation(ctx, studio.AnonymousPrincipal, "renamed-runner")).To(BeEmpty())
+		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, nil)).To(Succeed())
+		fresh, selected, _ := broker.NewExecutionObservation(ctx, studio.AnonymousPrincipal, claim.ConversationID)
+		Expect(fresh).NotTo(BeNil())
+		defer fresh.Close()
+		Expect(selected).To(Equal("renamed-runner"))
+		Expect(string(fresh.Observe(ctx).Readiness)).To(Equal("available"))
 	})
-	It("invalidates old bindings after pins and chat switch ABA", func() {
+	It("validates current pins and chat switches without historical ABA guarantees", func() {
 		b, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
-		a.applicationConfig.SetChatsToolProviders(map[string]string{"bash": "renamed-runner"})
-		a.applicationConfig.SetChatsToolProviders(nil)
+		a.applicationConfig.SetChatsToolProviders(map[string]string{"bash": "alternate-worker"})
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
+		a.applicationConfig.SetChatsToolProviders(nil)
 		b, err = a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner", "alternate-worker"})).To(Succeed())
 		_, err = a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).To(HaveOccurred())
 		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, nil)).To(Succeed())
-		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).To(Succeed())
 	})
-	It("denies foreign chat access and named-user contexts", func() {
+	It("denies foreign chat access and invalid named credentials", func() {
 		Expect(a.studioStore.CreateChat(ctx, session.ChatRecord{ID: "foreign", Principal: "someone", Created: time.Now(), Updated: time.Now()})).To(Succeed())
 		_, err := a.addonGateway.BindingForActor(ctx, actor, gateway.ExecutionBindingClaim{ConversationID: "foreign"})
 		Expect(err).To(HaveOccurred())
 		a.applicationConfig.Addons.OwnershipMode = auth.AddonModeNamedUser
 		_, err = a.addonGateway.ResolveExecutionBinding(ctx, actor, claim)
-		Expect(err).To(MatchError(gateway.ErrUnavailable))
+		Expect(err).To(HaveOccurred())
 	})
-	It("uses owner agent snapshots, denies unattended actions, and fences agent ABA", func() {
+	It("uses current agent grants and denies unattended actions", func() {
 		ag := agents.Agent{ID: "agent", Principal: studio.AnonymousPrincipal, Name: "Runner", Addons: []string{"renamed-runner"}}
 		Expect(a.studioAgents.Put(ctx, ag)).To(Succeed())
 		Expect(a.studioStore.CreateChat(ctx, session.ChatRecord{ID: "agent-chat", Principal: studio.AnonymousPrincipal, AgentID: ag.ID, Origin: "trigger", Created: time.Now(), Updated: time.Now()})).To(Succeed())
@@ -228,7 +311,7 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(err).To(HaveOccurred())
 		ag.Addons = []string{"renamed-runner"}
 		Expect(a.studioAgents.Put(ctx, ag)).To(Succeed())
-		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).To(Succeed())
 		Expect(a.studioStore.CreateChat(ctx, session.ChatRecord{ID: "unattended", Principal: studio.AnonymousPrincipal, Origin: "trigger", Created: time.Now(), Updated: time.Now()})).To(Succeed())
 		_, err = a.addonGateway.BindingForActor(ctx, actor, gateway.ExecutionBindingClaim{ConversationID: "unattended"})
 		Expect(err).To(HaveOccurred())
@@ -237,11 +320,11 @@ var _ = Describe("execution binding owner resolver", func() {
 		_, err = a.addonGateway.BindingForActor(ctx, actor, gateway.ExecutionBindingClaim{ConversationID: "foreign-agent-chat"})
 		Expect(err).To(HaveOccurred())
 	})
-	It("rejects stale runtime incarnations and previous owner lifetimes", func() {
+	It("rejects stale runtime incarnations without owner callback nonces", func() {
 		b, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(a.wireExecutionBinding(a.addonGateway)).To(Succeed())
-		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).To(Succeed())
 		b, err = a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = a.addonManager.Submit(ctx, actor, addons.LifecycleCommand{OperationID: "disable", AddonID: b.AddonID, Action: "disable", Generation: b.Generation})
@@ -254,11 +337,11 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(now.Incarnation).NotTo(Equal(b.Incarnation))
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
 	})
-	It("fails unsupported snapshots closed without changing ordinary chat access", func() {
+	It("does not require optional historical snapshots for ordinary chat stores", func() {
 		original := a.studioStore
 		a.studioStore = unsupportedBindingStore{original}
 		_, err := a.addonGateway.BindingForActor(ctx, actor, claim)
-		Expect(err).To(MatchError(gateway.ErrUnavailable))
+		Expect(err).NotTo(HaveOccurred())
 		rec, err := a.studioStore.GetChat(ctx, studio.AnonymousPrincipal, claim.ConversationID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.ID).To(Equal(claim.ConversationID))
@@ -267,8 +350,7 @@ var _ = Describe("execution binding owner resolver", func() {
 
 })
 
-// Models the explicit unsupported contract of the SQL backend without inventing
-// an authority counter or requiring a database for this owner integration test.
+// Optional historical snapshot support must not gate current store reads.
 type unsupportedBindingStore struct{ store.Store }
 
 func (unsupportedBindingStore) SelectionSnapshot(context.Context, string, string) (session.ChatRecord, string, error) {

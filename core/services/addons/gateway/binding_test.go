@@ -47,9 +47,9 @@ func TestOwnerBinding(t *testing.T) {
 	if g.ValidateExecutionBinding(ctx, frontActor, forged) == nil || calls != before {
 		t.Fatal("forged actor reached resolver")
 	}
-	b.SelectionRevision = "owner:1:2:3:6" // includes ABA mutations, not current-state hash
+	b.SelectionRevision = "current-selection" // The resolver reports a different current selection.
 	if g.ValidateExecutionBinding(ctx, frontActor, got) == nil {
-		t.Fatal("ABA binding survived")
+		t.Fatal("changed current selection survived")
 	}
 }
 func TestBindingClaimStrict(t *testing.T) {

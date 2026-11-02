@@ -547,3 +547,16 @@ The epoch tests cover provider and host-mode ABA, detached maps, config value
 copies, lifecycle ABA, and real candidate rollback/recovery process changes.
 This is mutation tracking only. Request binding and session integration remain
 separate work; readiness never grants execution authority.
+
+### Current-read execution bindings
+
+Typed execution status uses the owner's ordinary principal-scoped chat and agent
+stores and current `AddonRevalidate` checks, including named-user credentials.
+JSON and SQL/GORM require no historical selection snapshots. Gateway hooks
+re-resolve current selection before dispatch and positive publication, retaining
+exact runtime incarnation/client binding and status effect denial. Tests should
+assert refusal while current authorization or selection differs, then successful
+fresh requests after restore, not historical revoke-and-restore detection.
+`selectionRevision` is transitional current identity, not a durable ABA token.
+Config/manager mutation epochs above remain for now but are not prerequisites
+of this resolver; their removal is a separate cleanup.

@@ -256,11 +256,13 @@ standalone command-status or egress requests have separate, bounded scopes.
 Consumer cancellation stops that wait; turn completion cancels the observation.
 Failed reads settle as unknown and do not retry within the same scope. Each
 consumption revalidates the complete owner binding, including conversation,
-selection revision and runtime incarnation.
+current selection identity and runtime incarnation.
 
-The current application resolver supports **local-owner JSON stores only**.
-**Scope gap: named-user and SQL/GORM selection snapshots are currently unavailable.** They fail
-closed for typed observations. Ordinary chat access is unchanged. An undeclared
+The application resolver reads the current principal-scoped chat and agent from
+JSON or SQL/GORM stores and revalidates current account credentials in named-user
+mode. Local-owner mode maps to the anonymous chat principal. Reads are advisory,
+not transactional snapshots: revoke-and-restore changes between reads are not
+remembered. Ordinary execution authority and consent remain unchanged. An undeclared
 legacy provider does not acquire an isolation claim. Sandbox retains its existing
 private Settings status response and separately declares the typed page-only
 `execution-status` read. Unknown backends report unknown, never inferred isolation.
@@ -4866,21 +4868,21 @@ agent grants, or consent. The resolver uses the chat's current add-on switches,
 agent grants, provider pins, and installed-provider ordering. An installed but
 idle pinned provider does not fall through to another add-on.
 
-This binding path currently supports unauthenticated **local-owner** mode with
-memory JSON stores or exclusively owned persistent JSON stores. The owner loads
-both chat and agent selection snapshots and checks their mutation tokens before
-publishing a binding. Configuration and manager epochs, the actual running
-process incarnation, and a fresh owner-lifetime nonce invalidate stale bindings.
-The status gateway recomputes and compares every binding component before and
-after its read. A binding does not authorize command execution or host consent.
+The binding path uses existing principal-scoped chat and agent reads on the
+owner, supporting JSON and SQL/GORM stores. Named actors use their account ID;
+the local owner uses the anonymous chat principal. Current account status,
+feature permissions and credentials are checked through normal authorization.
+The owner must have these stores; frontend tool lists are never authority.
 
-Named-user mode returns unavailable until authorization storage exposes an
-authoritative access revision that detects revoke-and-restore changes. SQL/GORM
-selection snapshots also remain unsupported until shared, ABA-safe revisions
-exist. These cases must produce unknown observations, not a timestamp-based
-fallback. Ordinary chat access does not depend on this observation support.
-Request/session integration shares observations within a turn. Producer declarations
-and conservative egress projection do not remove these storage and authorization gaps.
+The status gateway re-resolves current authorization and selection before
+dispatch and before publishing positive facts, and compares the exact generation,
+runtime incarnation and tools. A changed current selection withdraws old facts;
+a fresh request can succeed after access is restored. This is current-read
+consistency, not a historical revoke-and-restore (ABA) guarantee or a database
+transaction spanning the read. The transitional `selectionRevision` field encodes
+current selection identity only; it is not a durable revision or owner nonce.
+A binding does not authorize command execution, grant access or replace consent.
+Request/session integration shares observations only within a bounded request.
 
 ### Execution safety notices
 
@@ -4903,5 +4905,5 @@ This warning does not change command consent or administrator settings.
 The network panel retains the configured policy when the backend cannot verify
 its enforcement. It explicitly says that the policy does not apply to commands.
 Provider-reported isolation alone does not establish network enforcement.
-Named-user and SQL-backed selections without authoritative revision support
-remain unknown; installing an app does not resolve that limitation.
+Missing current authorization, selection or runtime context yields unknown;
+installing an app does not confer authority or prove network enforcement.
