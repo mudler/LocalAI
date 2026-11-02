@@ -1745,6 +1745,16 @@ test-postgres:
 	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'a PostgreSQL test skipped' >&2; exit 1; fi; \
 	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -ge 6 || { echo 'fewer PostgreSQL stores ran than expected' >&2; exit 1; }
 
+## Memory acceptance uses real PostgreSQL pools even when the chat store is
+## JSON or SQLite. Ordinary suites may skip these specs; this gate must not.
+.PHONY: test-memory-postgres
+test-memory-postgres:
+	@test -n "$$LOCALAI_TEST_POSTGRES_URL" && test -n "$$MEMORY_DATABASE_URL" || { echo 'LOCALAI_TEST_POSTGRES_URL and MEMORY_DATABASE_URL must point to disposable PostgreSQL fixtures' >&2; exit 1; }
+	@out=$$($(GOCMD) test -count=1 -v -tags "$(COVERAGE_TAGS)" ./core/services/collections/backend ./core/services/studio/store ./core/application -ginkgo.focus 'Durable memory adapter.*[Pp]ostgre[sS]|hands off real postgres|principal memory application adapter.*PostgreSQL' -ginkgo.v -ginkgo.no-color 2>&1) || { printf '%s\n' "$$out"; exit 1; }; \
+	printf '%s\n' "$$out" | grep -E '^(Ran [0-9]+ of|ok |FAIL|\s*\[SKIPPED\])' ; \
+	if printf '%s\n' "$$out" | grep -q -- '\[SKIPPED\]'; then echo 'a PostgreSQL memory test skipped' >&2; exit 1; fi; \
+	test "$$(printf '%s\n' "$$out" | grep -c -- '^Ran [1-9]')" -eq 3 || { echo 'fewer PostgreSQL memory suites ran than expected' >&2; exit 1; }
+
 ## The multi-frontend paths run against the in-process bus (testutil.FakeBus)
 ## under the race detector: two frontends, a worker and the cluster state, with
 ## no containers. The container-based suite is test-e2e-distributed. The

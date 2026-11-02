@@ -20,9 +20,6 @@ import (
 // a cluster, so every frontend writes the same audit, or a file under the data
 // path, or memory.
 
-// maxEventsPage bounds one page of the audit.
-const maxEventsPage = 500
-
 // maxFileEvents bounds the audit that the file store keeps.
 const maxFileEvents = 10000
 

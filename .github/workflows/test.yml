@@ -40,6 +40,7 @@ jobs:
           --health-retries 10
     env:
       LOCALAI_TEST_POSTGRES_URL: postgres://localai:localai@localhost:5432/localai_test?sslmode=disable
+      MEMORY_DATABASE_URL: postgres://localai:localai@localhost:5432/localai_test?sslmode=disable
     steps:
       - name: Clone
         uses: actions/checkout@v7
@@ -89,7 +90,7 @@ jobs:
       # The coverage run above set the URL, but a skipped test is a passed test
       # to it. This runs the PostgreSQL stores alone and fails on any skip.
       - name: Test the PostgreSQL stores (no skips)
-        run: PATH="$PATH:$HOME/go/bin" make test-postgres
+        run: PATH="$PATH:$HOME/go/bin" make test-postgres test-memory-postgres
       # tests/integration is outside the coverage roots because its store specs
       # need a live backend. test-stores builds and installs local-store before
       # running the complete suite, so new local-store specs are collected

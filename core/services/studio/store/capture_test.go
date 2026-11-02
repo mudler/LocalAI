@@ -152,7 +152,7 @@ var _ = Describe("durable capture", func() {
 					pause := pause
 					It("hands off real "+engine+" fences paused "+pause+" reservation", func() {
 						if engine == "postgres" && os.Getenv("MEMORY_DATABASE_URL") == "" {
-							Fail("real PostgreSQL fixture required")
+							Skip("MEMORY_DATABASE_URL is not set")
 						}
 						cfg := config.NewApplicationConfig()
 						cfg.DataPath = GinkgoT().TempDir()
@@ -169,9 +169,10 @@ var _ = Describe("durable capture", func() {
 						// PostgreSQL backend uses an independent pool, like another frontend.
 						nextSvc := svc
 						if engine == "postgres" {
-							cfg2 := *cfg
+							cfg2 := config.NewApplicationConfig()
+							cfg2.Collections = cfg.Collections
 							cfg2.DataPath = GinkgoT().TempDir()
-							nextSvc, err = collections.New(&cfg2, nil, collections.WithHTTPClient(client))
+							nextSvc, err = collections.New(cfg2, nil, collections.WithHTTPClient(client))
 							Expect(err).NotTo(HaveOccurred())
 							DeferCleanup(nextSvc.Close)
 							Expect(nextSvc.CreateForUser("", collection)).To(Succeed())

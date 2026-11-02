@@ -34,6 +34,9 @@ var _ = Describe("Generated viewer", func() {
 		var stderr bytes.Buffer
 		Expect(run([]string{"--check", "--output", path}, &stderr)).NotTo(Succeed())
 		Expect(run([]string{"--output", path}, &stderr)).To(Succeed())
+		info, err := os.Stat(path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(info.Mode().Perm()&0077).To(BeZero(), "new output must be private to its owner")
 		original, err := os.ReadFile(path)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(run([]string{"--check", "--output", path}, &stderr)).To(Succeed())

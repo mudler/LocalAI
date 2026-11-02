@@ -83,7 +83,7 @@ func run(args []string, stderr io.Writer) error {
 		}
 		return nil
 	}
-	return os.WriteFile(*output, data, 0644)
+	return os.WriteFile(*output, data, 0600)
 }
 func main() {
 	if err := run(os.Args[1:], os.Stderr); err != nil {
