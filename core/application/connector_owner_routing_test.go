@@ -16,6 +16,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
@@ -109,6 +110,71 @@ func (s *ownerConnectorSource) requests() []contract.ConnectorRequest {
 }
 
 var _ = Describe("connector owner routing", func() {
+	It("reports healthy empty connector kinds when add-ons are explicitly disabled", func() {
+		app := &Application{applicationConfig: &config.ApplicationConfig{}}
+		Expect(app.startAddons()).To(Succeed())
+		Expect(app.addonGateway).To(BeNil())
+		kinds, err := (connectorTransport{app}).Kinds(context.Background())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kinds).To(BeEmpty())
+	})
+
+	It("persists an offline Telegram connector with the real transport when add-ons are disabled", func() {
+		ctx := context.Background()
+		app := &Application{applicationConfig: &config.ApplicationConfig{}}
+		Expect(app.startAddons()).To(Succeed())
+		tr := connectorTransport{app}
+		chatStore, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		agentStore, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc, err := studio.New(studio.Deps{Store: chatStore, Agents: agentStore, Provider: provider.New(), Harness: studiotest.NewGateHarness(), StateDir: GinkgoT().TempDir()})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(svc.Close(ctx)).To(Succeed()) })
+		dir := GinkgoT().TempDir()
+		bindings, err := connectors.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		client, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: bindings, Transport: tr, VerifyToken: studio.VerifyTokenWithMe(tr)})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(client.Close)
+		ag, err := svc.SaveAgent(ctx, studio.AnonymousPrincipal, agents.Agent{Name: "Offline", Model: "fake"})
+		Expect(err).NotTo(HaveOccurred())
+		created, err := client.CreateConnector(ctx, studio.AnonymousPrincipal, studio.ConnectorInput{Kind: connectors.KindTelegram, Name: "Telegram", AgentID: ag.ID, Token: "offline-secret", AcceptAny: true})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(created.Active).To(BeFalse())
+		reopened, err := connectors.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		persisted, err := reopened.GetBinding(ctx, created.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(persisted.Kind).To(Equal(connectors.KindTelegram))
+		Expect(persisted.AddonID).To(Equal("telegram"))
+		Expect(persisted.AgentID).To(Equal(ag.ID))
+		Expect(persisted.Token).NotTo(BeEmpty())
+	})
+
+	It("keeps configured missing gateways and unreachable nonowners unavailable", func() {
+		ctx := context.Background()
+		for _, app := range []*Application{
+			{}, // A fixture without config is not an explicitly disabled install.
+			{applicationConfig: &config.ApplicationConfig{Addons: config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner"}}},
+			{applicationConfig: &config.ApplicationConfig{Addons: config.AddonConfig{Enabled: true, Frontend: true, InstanceID: "frontend", OwnerID: "owner"}}},
+		} {
+			_, err := (connectorTransport{app}).Kinds(ctx)
+			Expect(err).To(MatchError(gateway.ErrUnavailable))
+		}
+		keys := filepath.Join(GinkgoT().TempDir(), "keys")
+		Expect(gateway.GenerateCarrierKeys(keys, []string{"127.0.0.1"})).To(Succeed())
+		server := httptest.NewServer(http.NotFoundHandler())
+		server.Close()
+		cfg, err := gateway.LoadCarrierConfig(keys, "frontend", strings.Replace(server.URL, "http://", "https://", 1))
+		Expect(err).NotTo(HaveOccurred())
+		carrier, err := gateway.NewCarrier(*cfg)
+		Expect(err).NotTo(HaveOccurred())
+		app := &Application{applicationConfig: &config.ApplicationConfig{Addons: config.AddonConfig{Enabled: true, Frontend: true}}, addonGateway: &gateway.Gateway{Forward: carrier}}
+		_, err = (connectorTransport{app}).Kinds(ctx)
+		Expect(err).To(MatchError(gateway.ErrUnavailable))
+	})
+
 	It("uses real peer admission, owner authority and stored credentials through a runtime-free frontend", func() {
 		ctx := context.Background()
 		keys := filepath.Join(GinkgoT().TempDir(), "keys")
