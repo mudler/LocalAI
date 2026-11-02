@@ -226,6 +226,33 @@ set_target_properties(${TARGET} PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE)
 
 if(AUDIO_CPP_GRPC_BUILD_TESTS)
+    add_executable(music_shared_mel_cancellation_ctest
+        music_shared_mel_cancellation_ctest.cpp
+        "${AUDIO_CPP_DIR}/src/framework/audio/dsp.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/audio/fft.cpp"
+        "${AUDIO_CPP_DIR}/src/models/sheetsage/session.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/assets/resource_bundle.cpp"
+        "${AUDIO_CPP_DIR}/src/framework/debug/trace.cpp")
+    target_compile_definitions(music_shared_mel_cancellation_ctest PRIVATE
+        ENGINE_MEL_TESTING=1 ENGINE_STFT_TESTING=1 ENGINE_FFT_TESTING=1)
+    target_include_directories(music_shared_mel_cancellation_ctest PRIVATE "${AUDIO_CPP_DIR}/include")
+    # The actual session helper lives with model-loading functions. Discard only
+    # unused sections, rather than link an engine or duplicate frontend code.
+    if(APPLE)
+        target_compile_options(music_shared_mel_cancellation_ctest PRIVATE -ffunction-sections -fdata-sections)
+        target_link_options(music_shared_mel_cancellation_ctest PRIVATE -Wl,-dead_strip)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(music_shared_mel_cancellation_ctest PRIVATE -ffunction-sections -fdata-sections)
+        target_link_options(music_shared_mel_cancellation_ctest PRIVATE -Wl,--gc-sections)
+    endif()
+    target_link_libraries(music_shared_mel_cancellation_ctest PRIVATE ggml Threads::Threads)
+    find_package(OpenMP QUIET)
+    if(OpenMP_CXX_FOUND)
+        target_link_libraries(music_shared_mel_cancellation_ctest PRIVATE OpenMP::OpenMP_CXX)
+    endif()
+    add_test(NAME music_shared_mel_cancellation COMMAND music_shared_mel_cancellation_ctest)
+    set_tests_properties(music_shared_mel_cancellation PROPERTIES TIMEOUT 45)
+
     add_executable(music_shared_stft_cancellation_ctest
         music_shared_stft_cancellation_ctest.cpp
         "${AUDIO_CPP_DIR}/src/framework/audio/dsp.cpp"

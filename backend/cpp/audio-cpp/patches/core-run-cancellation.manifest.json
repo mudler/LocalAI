@@ -47,7 +47,7 @@
     },
     "src/models/sheetsage/session.cpp": {
       "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
-      "final_sha256": "6e29eaed2492b362b24c6c1d75200be756198bd007cb07c13944b32196f1ada0"
+      "final_sha256": "5f18605e8affa1c5e8098aa5cfef52b2a06db0fdcebecba700722c19f5bfd350"
     },
     "include/engine/framework/audio/fft.h": {
       "base_sha256": "5a63de2ab9d7361f186b9c9b7b6ba390526b4cb5122fa1174921295c2f2b7f55",
@@ -63,11 +63,11 @@
     },
     "include/engine/framework/audio/dsp.h": {
       "base_sha256": "2283025fe130de4fd3b0011d51babaa4b2c33b38408826ce82a37f1b28740e7d",
-      "final_sha256": "ca243d295e2c10dde55c4537959b72587ff3444559c2a1b74bec58ef174944f0"
+      "final_sha256": "5064ea0ef2d92940c92a9ae92d7c698ea4fe9101b736bf76611513f84b48f57f"
     },
     "src/framework/audio/dsp.cpp": {
       "base_sha256": "9087fa5de390365e4e7c4fea7fde4c068c882a16568ab775bdcdbcefae36f494",
-      "final_sha256": "dd93661513c14245f508615eeac2fb0e79d4a3a34fcadf5a4227ac4bade4d689"
+      "final_sha256": "b7eb3e1d88624d8f3d4e0b2f37c3699b5b8978376706f1f08bc99d534377aa9d"
     }
   },
   "omitted_tracked_paths": {
@@ -220,6 +220,24 @@
         "src/framework/audio/dsp.cpp": {
           "base_sha256": "9087fa5de390365e4e7c4fea7fde4c068c882a16568ab775bdcdbcefae36f494",
           "final_sha256": "dd93661513c14245f508615eeac2fb0e79d4a3a34fcadf5a4227ac4bade4d689"
+        }
+      }
+    },
+    {
+      "patch": "0006-shared-mel-cancellation.patch",
+      "patch_sha256": "a9bd74e09105eb019eb405a87a00c8d6b89168598a0a620c9a41cadd03d87388",
+      "files": {
+        "include/engine/framework/audio/dsp.h": {
+          "base_sha256": "ca243d295e2c10dde55c4537959b72587ff3444559c2a1b74bec58ef174944f0",
+          "final_sha256": "5064ea0ef2d92940c92a9ae92d7c698ea4fe9101b736bf76611513f84b48f57f"
+        },
+        "src/framework/audio/dsp.cpp": {
+          "base_sha256": "dd93661513c14245f508615eeac2fb0e79d4a3a34fcadf5a4227ac4bade4d689",
+          "final_sha256": "b7eb3e1d88624d8f3d4e0b2f37c3699b5b8978376706f1f08bc99d534377aa9d"
+        },
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "6e29eaed2492b362b24c6c1d75200be756198bd007cb07c13944b32196f1ada0",
+          "final_sha256": "5f18605e8affa1c5e8098aa5cfef52b2a06db0fdcebecba700722c19f5bfd350"
         }
       }
     }

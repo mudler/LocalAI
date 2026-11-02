@@ -1,0 +1,333 @@
+diff --git a/include/engine/framework/audio/dsp.h b/include/engine/framework/audio/dsp.h
+--- a/include/engine/framework/audio/dsp.h
++++ b/include/engine/framework/audio/dsp.h
+@@ -143,6 +143,11 @@
+         int64_t stft_frames,
+         int64_t output_frames,
+         const SparseMelFilterbank & filterbank) const;
++
++    STFTResult compute_custom_sparse_from_magnitude(
++        const std::vector<float> & magnitude, int64_t batch, int64_t freq_bins,
++        int64_t stft_frames, int64_t output_frames,
++        const SparseMelFilterbank & filterbank, FFTStop stop) const;
+ };
+ 
+ class WhisperLogMelExtractor {
+diff --git a/src/framework/audio/dsp.cpp b/src/framework/audio/dsp.cpp
+--- a/src/framework/audio/dsp.cpp
++++ b/src/framework/audio/dsp.cpp
+@@ -957,6 +957,113 @@
+     return result;
+ }
+ 
++#ifdef ENGINE_MEL_TESTING
++namespace mel_testing {
++// 0: four-wide contributions, 1: scalar contributions, 2: completed cells.
++void worked(int stage, size_t worker, size_t count, double value) noexcept;
++}
++namespace {
++size_t mel_worker() noexcept {
++#ifdef _OPENMP
++    return static_cast<size_t>(omp_get_thread_num());
++#else
++    return 0;
++#endif
++}
++}
++#endif
++
++STFTResult MelFilterbank::compute_custom_sparse_from_magnitude(
++    const std::vector<float> & magnitude,
++    int64_t batch,
++    int64_t freq_bins,
++    int64_t stft_frames,
++    int64_t output_frames,
++    const SparseMelFilterbank & filterbank, FFTStop callback) const {
++    if (batch <= 0 || freq_bins <= 0 || stft_frames <= 0 || output_frames <= 0 || output_frames > stft_frames ||
++        static_cast<int64_t>(magnitude.size()) != stft_product({batch, freq_bins, stft_frames})) {
++        throw std::runtime_error("SparseMelFilterbank magnitude input size mismatch");
++    }
++    if (filterbank.dense.shape.size() != 2 || filterbank.dense.shape[1] != freq_bins) {
++        throw std::runtime_error("SparseMelFilterbank filterbank shape mismatch");
++    }
++    const int64_t n_mels = filterbank.dense.shape[0];
++    if (static_cast<int64_t>(filterbank.dense.values.size()) != stft_product({n_mels, freq_bins}) ||
++        static_cast<int64_t>(filterbank.starts.size()) != n_mels ||
++        static_cast<int64_t>(filterbank.ends.size()) != n_mels) {
++        throw std::runtime_error("SparseMelFilterbank metadata shape mismatch");
++    }
++    for (int64_t m = 0; m < n_mels; ++m) {
++        const int64_t start = filterbank.starts[static_cast<size_t>(m)];
++        const int64_t end = filterbank.ends[static_cast<size_t>(m)];
++        if (start < 0 || end < start || end > freq_bins) {
++            throw std::runtime_error("SparseMelFilterbank metadata range mismatch");
++        }
++    }
++
++    // M1 validation is complete before the valid-input allocation boundary.
++    const int64_t cells = stft_product({batch, n_mels, output_frames});
++    STFTStopLatch stop{callback};
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    AudioTensor result;
++    result.shape = {batch, n_mels, output_frames};
++    result.values.assign(static_cast<size_t>(cells), 0.0f);
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++#ifdef _OPENMP
++    #pragma omp parallel for collapse(3) if(cells >= 4096)
++#endif
++    for (int64_t b = 0; b < batch; ++b) {
++        for (int64_t m = 0; m < n_mels; ++m) {
++            for (int64_t t = 0; t < output_frames; ++t) {
++                if (stop.poll()) continue; // mel cell boundary
++                double sum = 0.0;
++                size_t tile = 0;
++                int64_t f = filterbank.starts[static_cast<size_t>(m)];
++                const int64_t end = filterbank.ends[static_cast<size_t>(m)];
++                for (; f + 3 < end; f += 4) {
++                    if (tile == 64) { tile = 0; if (stop.poll()) break; } // mel four tile
++                    const size_t filter_base = static_cast<size_t>(m * freq_bins + f);
++                    const size_t mag_base = static_cast<size_t>(((b * freq_bins) + f) * stft_frames + t);
++                    const float mag0 = magnitude[mag_base];
++                    const float mag1 = magnitude[mag_base + static_cast<size_t>(stft_frames)];
++                    const float mag2 = magnitude[mag_base + static_cast<size_t>(2 * stft_frames)];
++                    const float mag3 = magnitude[mag_base + static_cast<size_t>(3 * stft_frames)];
++                    sum += static_cast<double>(mag0 * mag0) *
++                           static_cast<double>(filterbank.dense.values[filter_base]);
++                    sum += static_cast<double>(mag1 * mag1) *
++                           static_cast<double>(filterbank.dense.values[filter_base + 1]);
++                    sum += static_cast<double>(mag2 * mag2) *
++                           static_cast<double>(filterbank.dense.values[filter_base + 2]);
++                    sum += static_cast<double>(mag3 * mag3) *
++                           static_cast<double>(filterbank.dense.values[filter_base + 3]);
++                    tile += 4;
++#ifdef ENGINE_MEL_TESTING
++                    mel_testing::worked(0, mel_worker(), 4, sum);
++#endif
++                }
++                for (; f < end; ++f) {
++                    if (tile == 64) { tile = 0; if (stop.poll()) break; } // mel tail tile
++                    if (stop.cancelled.load(std::memory_order_acquire)) break;
++                    const float mag = magnitude[static_cast<size_t>(((b * freq_bins) + f) * stft_frames + t)];
++                    sum += static_cast<double>(mag * mag) *
++                           static_cast<double>(filterbank.dense.values[static_cast<size_t>(m * freq_bins + f)]);
++                    ++tile;
++#ifdef ENGINE_MEL_TESTING
++                    mel_testing::worked(1, mel_worker(), 1, sum);
++#endif
++                }
++                if (stop.poll()) continue; // mel cell publication
++                result.values[static_cast<size_t>(((b * n_mels) + m) * output_frames + t)] = static_cast<float>(sum);
++#ifdef ENGINE_MEL_TESTING
++                mel_testing::worked(2, mel_worker(), 1, static_cast<float>(sum));
++#endif
++            }
++        }
++    }
++    if (stop.poll()) return {FFTStatus::Cancelled, std::nullopt};
++    return {FFTStatus::Completed, std::move(result)};
++}
++
+ WhisperLogMelExtractor::WhisperLogMelExtractor(WhisperLogMelConfig config)
+     : config_(config),
+       filterbank_(MelFilterbank().build_sparse(
+diff --git a/src/models/sheetsage/session.cpp b/src/models/sheetsage/session.cpp
+--- a/src/models/sheetsage/session.cpp
++++ b/src/models/sheetsage/session.cpp
+@@ -8,6 +8,7 @@
+ #include "engine/framework/runtime/options.h"
+ #include "engine/framework/runtime/spec_backed_model.h"
+ 
++#include <atomic>
+ #include <algorithm>
+ #include <array>
+ #include <chrono>
+@@ -26,6 +27,14 @@
+ #include <vector>
+ 
+ namespace engine::models::sheetsage {
++#ifdef ENGINE_MEL_TESTING
++namespace mel_testing {
++void normalized(size_t index, float value) noexcept;
++void child_returned(int child, engine::audio::FFTStatus status) noexcept;
++void consuming() noexcept;
++}
++#endif
++
+ namespace {
+ 
+ using Clock = std::chrono::steady_clock;
+@@ -804,6 +813,130 @@
+     return normalized;
+ }
+ 
++
++struct NormalizedMelStop {
++    engine::audio::FFTStop upstream;
++    std::atomic<bool> cancelled{false};
++    static bool requested(void * p) noexcept {
++        auto & self = *static_cast<NormalizedMelStop *>(p);
++        if (self.upstream.requested && self.upstream.requested(self.upstream.data))
++            self.cancelled = true;
++        return self.cancelled.load(std::memory_order_acquire);
++    }
++    engine::audio::FFTStop bridge() noexcept { return {requested, this}; }
++    void check() { if (requested(this)) throw runtime::RunCancelled(); }
++};
++
++std::vector<float> prepare_normalized_mel(
++    const std::vector<float> & waveform,
++    const SheetSage2Assets & assets,
++    size_t threads,
++    int64_t & mel_frames_out, engine::audio::FFTStop callback) {
++    if (static_cast<int64_t>(waveform.size()) <= assets.config.n_fft) {
++        throw std::runtime_error("SheetSage2 window audio is too short for the audio frontend");
++    }
++    if (assets.config.mel_bins <= 0 ||
++        assets.mel_mean.size() != static_cast<size_t>(assets.config.mel_bins) ||
++        assets.mel_std.size() != static_cast<size_t>(assets.config.mel_bins))
++        throw std::runtime_error("SheetSage2 mel normalization shape mismatch");
++    const auto & bank = assets.mel_filterbank;
++    const int64_t bins = assets.config.n_fft / 2 + 1;
++    if (bank.dense.shape.size() != 2 || bank.dense.shape[1] != bins)
++        throw std::runtime_error("SparseMelFilterbank filterbank shape mismatch");
++    if (bank.dense.shape[0] != assets.config.mel_bins || bins <= 0 ||
++        assets.config.mel_bins > std::numeric_limits<int64_t>::max() / bins ||
++        bank.dense.values.size() != static_cast<size_t>(assets.config.mel_bins * bins) ||
++        bank.starts.size() != static_cast<size_t>(assets.config.mel_bins) ||
++        bank.ends.size() != static_cast<size_t>(assets.config.mel_bins))
++        throw std::runtime_error("SparseMelFilterbank metadata shape mismatch");
++    for (int64_t m = 0; m < assets.config.mel_bins; ++m) {
++        if (bank.starts[m] < 0 || bank.ends[m] < bank.starts[m] || bank.ends[m] > bins)
++            throw std::runtime_error("SparseMelFilterbank metadata range mismatch");
++    }
++    NormalizedMelStop stop{callback};
++    const int64_t target_samples = static_cast<int64_t>(waveform.size());
++    const engine::audio::STFTConfig stft_config{
++        assets.config.n_fft,
++        assets.config.hop_length,
++        assets.config.win_length,
++        true,
++        engine::audio::STFTPadMode::Reflect,
++        engine::audio::STFTFamily::Default,
++    };
++    auto magnitude = engine::audio::STFT().compute_magnitude(
++        waveform,
++        assets.stft_window,
++        1,
++        target_samples,
++        stft_config,
++        threads, stop.bridge());
++#ifdef ENGINE_MEL_TESTING
++    mel_testing::child_returned(0, magnitude.status);
++#endif
++    if (magnitude.status == engine::audio::FFTStatus::Cancelled)
++        throw runtime::RunCancelled();
++    const int64_t freq_bins = assets.config.n_fft / 2 + 1;
++    const int64_t stft_frames = magnitude.output.value().shape.at(2);
++    const int64_t mel_frames = stft_frames - 1;
++    auto mel = engine::audio::MelFilterbank().compute_custom_sparse_from_magnitude(
++        magnitude.output.value().values,
++        1,
++        freq_bins,
++        stft_frames,
++        mel_frames,
++        assets.mel_filterbank, stop.bridge());
++#ifdef ENGINE_MEL_TESTING
++    mel_testing::child_returned(1, mel.status);
++#endif
++    if (mel.status == engine::audio::FFTStatus::Cancelled)
++        throw runtime::RunCancelled();
++    if (mel.output.value().shape.size() != 3 || mel.output.value().shape[1] != assets.config.mel_bins || mel.output.value().shape[2] != mel_frames) {
++        throw std::runtime_error("SheetSage2 mel frontend produced invalid shape");
++    }
++    stop.check();
++    if (mel_frames > std::numeric_limits<int64_t>::max() / assets.config.mel_bins)
++        throw std::runtime_error("SheetSage2 normalized mel size overflow");
++    std::vector<float> normalized(static_cast<size_t>(mel_frames * assets.config.mel_bins), 0.0F);
++    stop.check();
++    size_t writes = 0;
++    for (int64_t t = 0; t < mel_frames; ++t) {
++        for (int64_t m = 0; m < assets.config.mel_bins; ++m) {
++            if (writes % 64 == 0) stop.check(); // normalized write tile
++            const float power = std::max(mel.output.value().values[static_cast<size_t>(m * mel.output.value().shape[2] + t)], 1.0e-10F);
++            const float db = 10.0F * std::log10(power);
++            const float stdv = std::max(assets.mel_std[static_cast<size_t>(m)], 1.0e-5F);
++            normalized[static_cast<size_t>(t * assets.config.mel_bins + m)] =
++                (db - assets.mel_mean[static_cast<size_t>(m)]) / stdv;
++            ++writes;
++#ifdef ENGINE_MEL_TESTING
++            mel_testing::normalized(writes - 1, normalized[writes - 1]);
++#endif
++        }
++    }
++    stop.check(); // final short tile and publication
++    mel_frames_out = mel_frames;
++    return normalized;
++}
++
++std::vector<float> prepare_owned_normalized_mel(
++    const std::vector<float> & waveform, const SheetSage2Assets & assets,
++    size_t threads, int64_t & frames, core::RunStopHandle handle) {
++    if (!handle) return prepare_normalized_mel(waveform, assets, threads, frames);
++    const auto requested = [](void * p) noexcept {
++        return static_cast<core::RunStopState *>(p)->cancelled();
++    };
++    return prepare_normalized_mel(waveform, assets, threads, frames,
++                                  {requested, handle.get()});
++}
++
++
++void normalized_mel_consumer_boundary(const core::RunStopHandle & handle) {
++    if (handle && handle->cancelled()) throw runtime::RunCancelled();
++#ifdef ENGINE_MEL_TESTING
++    mel_testing::consuming();
++#endif
++}
++
+ std::vector<int32_t> generate_tokens(
+     SheetSage2DecoderRuntime & decoder,
+     const std::vector<float> & memory,
+@@ -1042,14 +1175,15 @@
+         const auto window_frontend_start = Clock::now();
+         const auto window_audio = slice_window_audio(waveform, window.start_sample, assets_->config.input_audio_length_samples);
+         int64_t mel_frames = 0;
+-        const auto normalized_mel = prepare_normalized_mel(
++        const auto normalized_mel = prepare_owned_normalized_mel(
+             window_audio,
+             *assets_,
+             static_cast<size_t>(std::max(1, RuntimeSessionBase::options().backend.threads)),
+-            mel_frames);
++            mel_frames, execution_context().current_run_stop());
+         frontend_windows_ms += engine::debug::elapsed_ms(window_frontend_start, Clock::now());
+ 
+         const auto encoder_start = Clock::now();
++        normalized_mel_consumer_boundary(execution_context().current_run_stop());
+         const auto mixed = encoder_.encode_mel(normalized_mel, mel_frames);
+         const int64_t memory_steps = static_cast<int64_t>(mixed.size()) / assets_->config.encoder_hidden_size;
+         encoder_ms += engine::debug::elapsed_ms(encoder_start, Clock::now());
+@@ -1146,4 +1280,25 @@
+     return runtime::make_spec_backed_voice_loader(std::move(config));
+ }
+ 
++
++#ifdef ENGINE_MEL_TESTING
++std::vector<float> test_normalized_mel(
++    const std::vector<float> & waveform, const SheetSage2Assets & assets,
++    size_t threads, int64_t & frames, engine::audio::FFTStop stop) {
++    return prepare_normalized_mel(waveform, assets, threads, frames, stop);
++}
++std::vector<float> test_legacy_normalized_mel(
++    const std::vector<float> & waveform, const SheetSage2Assets & assets,
++    size_t threads, int64_t & frames) {
++    return prepare_normalized_mel(waveform, assets, threads, frames);
++}
++std::vector<float> test_owned_normalized_mel(
++    const std::vector<float> & waveform, const SheetSage2Assets & assets,
++    size_t threads, int64_t & frames, core::RunStopHandle stop) {
++    auto output = prepare_owned_normalized_mel(waveform, assets, threads, frames, stop);
++    normalized_mel_consumer_boundary(stop);
++    return output;
++}
++#endif
++
+ }  // namespace engine::models::sheetsage

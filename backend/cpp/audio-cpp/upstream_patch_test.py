@@ -526,12 +526,62 @@ class FivePatchTests(FourPatchTests):
         self.assert_rejected_without_writes()
 
 
+class SixPatchTests(FivePatchTests):
+    """Sixth step changes existing union paths; every exact prefix upgrades."""
+    def setUp(self):
+        super().setUp()
+        for step in self.chain:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        delivery.git(self.source, 'add', '.')
+        old = self.files['one']['final_sha256']
+        (self.source / 'one').write_text('one patched six\n')
+        self.sixth = self.root / 'sixth.patch'
+        self.sixth.write_bytes(delivery.git(self.source, 'diff', '--binary', '--'))
+        self.files['one']['final_sha256'] = delivery.digest((self.source / 'one').read_bytes())
+        self.chain.append({'patch': self.sixth.name,
+                           'patch_sha256': delivery.digest(self.sixth.read_bytes()),
+                           'files': {'one': {'base_sha256': old,
+                                             'final_sha256': self.files['one']['final_sha256']}}})
+        delivery.git(self.source, 'read-tree', self.pin)
+        for name in self.files: (self.source / name).write_text(name + '\n')
+        self.save_chain()
+
+    def test_clean_apply(self):
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched six\n')
+
+    def test_prefix_upgrade(self):
+        self.prefix()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual((self.source / 'one').read_text(), 'one patched six\n')
+
+    def test_fifth_prefix_upgrade(self):
+        for step in self.chain[:5]:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        self.assert_rejected_without_writes(True)
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual(self.run_prepare(True), 'verified')
+        before = self.snapshot()
+        self.assertEqual(self.run_prepare(), 'verified')
+        self.assertEqual(before, self.snapshot())
+
+    def test_partial_sixth(self):
+        for step in self.chain[:5]:
+            delivery.git(self.source, 'apply', str(self.root / step['patch']))
+        (self.source / 'one').write_text('partial sixth\n')
+        self.assert_rejected_without_writes()
+
+    def test_sixth_tamper(self):
+        self.sixth.write_bytes(self.sixth.read_bytes() + b'bad')
+        self.assert_rejected_without_writes()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--require-min-tests', type=int, default=7)
     args = parser.parse_args()
     suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromTestCase(case)
-                               for case in (DeliveryTests, ChainTests, ThreePatchTests, FourPatchTests, FivePatchTests))
+                               for case in (DeliveryTests, ChainTests, ThreePatchTests, FourPatchTests, FivePatchTests, SixPatchTests))
     if suite.countTestCases() < args.require_min_tests:
         raise SystemExit('insufficient discovered delivery tests')
     raise SystemExit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())
