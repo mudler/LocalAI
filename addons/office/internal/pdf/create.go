@@ -72,7 +72,9 @@ type Bullets struct {
 	RichItems [][]Run
 	Ordered   bool
 	Start     int
-	Indent    int
+	// StartSet distinguishes an explicit zero from the legacy default of one.
+	StartSet bool
+	Indent   int
 }
 
 // Table is a grid with a header row and body rows. Every row has as many
@@ -495,6 +497,12 @@ func (l *layout) richLines(runs []Run, width, size float64, bold bool) [][]Run {
 	return lines
 }
 func (l *layout) drawLines(lines [][]Run, x, line, size float64, bold, paginate bool) {
+	// Widths above are glyph advances, and table padding is already explicit.
+	// CellFormat's implicit inset otherwise pushes the final glyph past the
+	// measured right edge, especially when mixed styles meet at a cell wrap.
+	margin := l.pdf.GetCellMargin()
+	l.pdf.SetCellMargin(0)
+	defer l.pdf.SetCellMargin(margin)
 	for _, runs := range lines {
 		if paginate {
 			l.ensure(line)
@@ -522,7 +530,7 @@ func (p Paragraph) render(l *layout) {
 }
 func (b Bullets) render(l *layout) {
 	number := b.Start
-	if number == 0 {
+	if number == 0 && !b.StartSet {
 		number = 1
 	}
 	x := l.left + float64(b.Indent)*bulletIndent

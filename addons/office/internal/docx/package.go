@@ -122,7 +122,7 @@ func (b *builder) numberingXML() []byte {
 	for _, blk := range b.doc.Blocks {
 		if v, ok := blk.(Bullets); ok && v.Ordered {
 			start := v.Start
-			if start == 0 {
+			if start == 0 && !v.StartSet {
 				start = 1
 			}
 			fmt.Fprintf(&ordered, `<w:abstractNum w:abstractNumId="%d"><w:multiLevelType w:val="singleLevel"/><w:lvl w:ilvl="0"><w:start w:val="%d"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%%1."/><w:lvlJc w:val="left"/></w:lvl></w:abstractNum><w:num w:numId="%d"><w:abstractNumId w:val="%d"/></w:num>`, id, start, id, id)
@@ -230,7 +230,28 @@ func runXML(r Run) string {
 	if rpr != "" {
 		rpr = `<w:rPr>` + rpr + `</w:rPr>`
 	}
-	return `<w:r>` + rpr + `<w:t xml:space="preserve">` + ooxml.Escape(r.Text) + `</w:t></w:r>`
+	// WordprocessingML represents layout controls as elements, not character
+	// references inside w:t. Keep them in the same run to retain emphasis.
+	var content strings.Builder
+	start := 0
+	for i, ch := range r.Text {
+		if ch != '\n' && ch != '\t' {
+			continue
+		}
+		if i > start {
+			content.WriteString(`<w:t xml:space="preserve">` + ooxml.Escape(r.Text[start:i]) + `</w:t>`)
+		}
+		if ch == '\n' {
+			content.WriteString(`<w:br/>`)
+		} else {
+			content.WriteString(`<w:tab/>`)
+		}
+		start = i + 1
+	}
+	if start < len(r.Text) || len(r.Text) == 0 {
+		content.WriteString(`<w:t xml:space="preserve">` + ooxml.Escape(r.Text[start:]) + `</w:t>`)
+	}
+	return `<w:r>` + rpr + content.String() + `</w:r>`
 }
 
 // columnWidths returns the grid widths: the given widths, or an equal split of

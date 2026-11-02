@@ -243,10 +243,13 @@ func (p *markdownParser) block(n ast.Node, indent int) error {
 			return p.fail(n, "list exceeds 100 items")
 		}
 		number := v.Start
-		if number == 0 {
-			number = 1
-		}
 		for item := v.FirstChild(); item != nil; item = item.NextSibling() {
+			// Reject marker-only items, including parents containing only a nested
+			// list, rather than silently dropping their marker or returning no file.
+			firstText := item.FirstChild()
+			if firstText == nil || (firstText.Kind() != ast.KindParagraph && firstText.Kind() != ast.KindTextBlock) {
+				return p.fail(item, "empty list item; supply text after each marker")
+			}
 			first := true
 			for c := item.FirstChild(); c != nil; c = c.NextSibling() {
 				if c.Kind() == ast.KindList {
@@ -263,7 +266,10 @@ func (p *markdownParser) block(n ast.Node, indent int) error {
 					return e
 				}
 				if first {
-					p.add(docx.Bullets{RichItems: [][]docx.Run{r}, Ordered: v.IsOrdered(), Start: number, Indent: indent}, pdf.Bullets{RichItems: [][]pdf.Run{pdfRuns(r)}, Ordered: v.IsOrdered(), Start: number, Indent: indent})
+					if strings.TrimSpace(runText(r)) == "" {
+						return p.fail(item, "empty list item; supply text after each marker")
+					}
+					p.add(docx.Bullets{RichItems: [][]docx.Run{r}, Ordered: v.IsOrdered(), Start: number, StartSet: true, Indent: indent}, pdf.Bullets{RichItems: [][]pdf.Run{pdfRuns(r)}, Ordered: v.IsOrdered(), Start: number, StartSet: true, Indent: indent})
 					first = false
 				} else {
 					p.add(docx.Paragraph{Runs: r}, pdf.Paragraph{Runs: pdfRuns(r)})

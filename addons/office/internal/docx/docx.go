@@ -65,7 +65,9 @@ type Bullets struct {
 	RichItems [][]Run
 	Ordered   bool
 	Start     int
-	Indent    int
+	// StartSet distinguishes an explicit zero from the legacy default of one.
+	StartSet bool
+	Indent   int
 }
 
 // Table is a table with a header row and body rows. Every row has as many
