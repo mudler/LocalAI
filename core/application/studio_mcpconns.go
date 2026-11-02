@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"time"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -28,11 +29,21 @@ func (a *Application) initStudioMCPConnectors() {
 		AllowPrivate: func() bool { return a.applicationConfig.MCPConnectorsAllowPrivate },
 		// A local command would run on whichever frontend serves the request.
 		Distributed: a.Distributed() != nil,
+		CallTimeout: a.studioMCPCallTimeout(),
 	})
 	if err != nil {
 		return
 	}
 	a.studioMCPConns = svc
+}
+
+// studioMCPCallTimeout is how long a connector tool call may run: the MCP tool
+// timeout the model's MCP servers have (360 s unless the distributed config
+// sets another), not the connector package default of 60 s. A research or
+// document tool behind a connector takes minutes; at 60 s the chat dropped it
+// ("client is closing").
+func (a *Application) studioMCPCallTimeout() time.Duration {
+	return a.applicationConfig.Distributed.MCPToolTimeoutOrDefault()
 }
 
 // studioMCPPermitted says whether a user may use MCP now: the server has not
