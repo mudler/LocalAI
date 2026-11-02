@@ -16,8 +16,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/egresspolicy"
 )
 
 const SchemaVersion = 1
@@ -235,16 +235,16 @@ func validate(p Policy) error {
 			return ErrInvalid
 		}
 	}
-	if !config.ValidEgressPreset(p.Ceiling) || !config.ValidEgressPreset(p.Default) {
+	if !egresspolicy.ValidEgressPreset(p.Ceiling) || !egresspolicy.ValidEgressPreset(p.Default) {
 		return ErrInvalid
 	}
-	if _, err := config.ParseEgressPorts(p.Ports); err != nil {
+	if _, err := egresspolicy.ParseEgressPorts(p.Ports); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
-	if _, err := config.ParseEgressHosts(p.ExtraRegistries); err != nil {
+	if _, err := egresspolicy.ParseEgressHosts(p.ExtraRegistries); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
-	if _, err := config.ParseEgressAllowedHosts(p.AllowedHosts, p.AllowPrivate); err != nil {
+	if _, err := egresspolicy.ParseEgressAllowedHosts(p.AllowedHosts, p.AllowPrivate); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
 	if len(p.ToolProviders) > 128 {

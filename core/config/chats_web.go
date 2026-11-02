@@ -4,34 +4,15 @@ import (
 	"fmt"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
+
+	"github.com/mudler/LocalAI/pkg/egresspolicy"
 )
 
 // ParsePorts reads a comma list of TCP ports, as the chats_web_ports setting
 // holds it. An empty list means 80 and 443.
 func ParsePorts(s string) ([]int, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return []int{80, 443}, nil
-	}
-	var out []int
-	seen := map[int]bool{}
-	for f := range strings.SplitSeq(s, ",") {
-		f = strings.TrimSpace(f)
-		n, err := strconv.Atoi(f)
-		if err != nil || n < 1 || n > 65535 {
-			return nil, fmt.Errorf("%q is not a port (1 to 65535)", f)
-		}
-		if !seen[n] {
-			seen[n] = true
-			out = append(out, n)
-		}
-	}
-	if len(out) > 32 {
-		return nil, fmt.Errorf("at most 32 ports")
-	}
-	return out, nil
+	return egresspolicy.ParsePorts(s)
 }
 
 // ValidateSearXNGURL checks the chats_web_searxng_url setting: empty, or an
