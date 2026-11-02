@@ -496,7 +496,9 @@
       "reconciles durable accepted work to interrupted without replay",
       "Close cancels and joins an accepted owner worker before releasing storage",
       "traces completion, retries, detach, interruption and late delivery without replay",
-      "keeps terminals immutable for every event and gives each active state a terminal exit"
+      "keeps terminals immutable for every event and gives each active state a terminal exit",
+      "Close cancels a backup in flight and joins its cleanup before releasing ownership",
+      "serializes synchronous disable against an accepted upgrade without overwriting its journal"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -2606,7 +2608,9 @@
       "reconciles durable accepted work to interrupted without replay",
       "Close cancels and joins an accepted owner worker before releasing storage",
       "traces completion, retries, detach, interruption and late delivery without replay",
-      "keeps terminals immutable for every event and gives each active state a terminal exit"
+      "keeps terminals immutable for every event and gives each active state a terminal exit",
+      "Close cancels a backup in flight and joins its cleanup before releasing ownership",
+      "serializes synchronous disable against an accepted upgrade without overwriting its journal"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -2703,7 +2707,9 @@
           "reconciles durable accepted work to interrupted without replay",
           "Close cancels and joins an accepted owner worker before releasing storage",
           "traces completion, retries, detach, interruption and late delivery without replay",
-          "keeps terminals immutable for every event and gives each active state a terminal exit"
+          "keeps terminals immutable for every event and gives each active state a terminal exit",
+          "Close cancels a backup in flight and joins its cleanup before releasing ownership",
+          "serializes synchronous disable against an accepted upgrade without overwriting its journal"
         ]
       },
       {

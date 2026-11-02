@@ -4452,7 +4452,8 @@ With add-ons enabled, Settings → Backends uses the owner policy for automatic 
 Browser upgrades are accepted durably by the add-on owner before the submission
 returns. The response identifies the same operation used by subsequent status
 reads. Closing a page, refreshing, or losing the acceptance reply does not cancel
-accepted work. A retry with the same operation ID, actor and payload observes that
+accepted work. Accepted upgrades cannot be cancelled from the UI.
+The Activity entry has no Cancel control after submission. A retry with the same operation ID, actor and payload observes that
 operation; a changed payload conflicts. Only one asynchronous upgrade is admitted
 at a time; competing submissions receive a conflict instead of entering a queue.
 Other lifecycle service callers retain their synchronous contract.

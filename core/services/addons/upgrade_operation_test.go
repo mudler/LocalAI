@@ -3,6 +3,7 @@ package addons
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -15,11 +16,17 @@ import (
 // The policy export happens inside the real verified-backup path, before
 // Installer.Commit. Cancelling here reproduces a caller going away while a
 // backup completes, without relying on a large directory or a wall-clock race.
-type upgradePolicy struct{ exporting func() }
+type upgradePolicy struct {
+	exporting        func()
+	exportingContext func(context.Context)
+}
 
 func (*upgradePolicy) Mode() string                                 { return "named-user" }
 func (*upgradePolicy) Hold(context.Context, string) (func(), error) { return func() {}, nil }
-func (p *upgradePolicy) Export(context.Context, string) (recovery.PolicyExport, error) {
+func (p *upgradePolicy) Export(ctx context.Context, _ string) (recovery.PolicyExport, error) {
+	if p.exportingContext != nil {
+		p.exportingContext(ctx)
+	}
 	if p.exporting != nil {
 		p.exporting()
 	}
@@ -156,6 +163,128 @@ var _ = Describe("owner-managed upgrade operations", func() {
 		Expect(e).NotTo(HaveOccurred())
 		Expect(status.Phase).To(Equal(string(lifecycleFailed)))
 		Expect(status.FailureCode).To(Equal("interrupted"))
+	})
+
+	It("Close cancels a backup in flight and joins its cleanup before releasing ownership", func() {
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		_, e := m.Submit(ctx, actor, command("initial", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		dir := filepath.Join(cfg.Root, "data", "sample")
+		Expect(os.MkdirAll(dir, 0700)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(dir, "retained"), []byte("last good data"), 0600)).To(Succeed())
+		entered, cancelled, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
+		defer func() {
+			select {
+			case <-release:
+			default:
+				close(release)
+			}
+		}()
+		r, e := recovery.New(recovery.Config{Root: cfg.Root, Host: m.RecoveryHost(), Policy: &upgradePolicy{exportingContext: func(work context.Context) { close(entered); <-work.Done(); close(cancelled); <-release }}, Admin: admin})
+		Expect(e).NotTo(HaveOccurred())
+		m.SetRecovery(r)
+		_, e = m.SubmitUpgrade(ctx, actor, command("shutdown-backup", "upgrade"))
+		Expect(e).NotTo(HaveOccurred())
+		Eventually(entered).Should(BeClosed())
+		done := make(chan error, 1)
+		go func() { done <- m.Close() }()
+		Eventually(cancelled).Should(BeClosed())
+		// Cancellation reached real backup I/O, but its callback has not returned.
+		select {
+		case e := <-done:
+			Fail("Close returned before backup cleanup: " + fmt.Sprint(e))
+		default:
+		}
+		_, e = NewManager(ctx, cfg, c, i, admin)
+		Expect(e).To(MatchError(ErrOwnerBusy))
+		close(release)
+		Eventually(done).Should(Receive(BeNil()))
+		second := open(cfg, c, i)
+		Expect(second.Reconcile(ctx)).To(Succeed())
+		status, e := second.OperationStatus(ctx, actor, "shutdown-backup")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(status.Phase).To(Equal(string(lifecycleFailed)))
+		st, e := second.Status(ctx, "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.Generation).To(Equal(uint64(1)))
+		data, e := os.ReadFile(filepath.Join(dir, "retained"))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(data)).To(Equal("last good data"))
+	})
+	It("serializes synchronous disable against an accepted upgrade without overwriting its journal", func() {
+		// An accepted journal loaded before restart reconciliation has no worker.
+		// This pins the guard itself independently of opMu waiter ordering below.
+		cfgPending, cPending, iPending := fixture()
+		pending := open(cfgPending, cPending, iPending)
+		_, err := pending.Submit(ctx, actor, command("initial", "install"))
+		Expect(err).NotTo(HaveOccurred())
+		acceptedCmd := command("pending", "upgrade")
+		pending.mu.Lock()
+		pending.journal.Operations[acceptedCmd.OperationID] = journalOperation{Command: acceptedCmd, Actor: actor, Async: true, Status: OperationStatus{OperationID: acceptedCmd.OperationID, AddonID: acceptedCmd.AddonID, Phase: string(lifecycleAccepted)}}
+		Expect(pending.persist(string(lifecycleAccepted))).To(Succeed())
+		pending.mu.Unlock()
+		Expect(pending.Close()).To(Succeed())
+		loaded := open(cfgPending, cPending, iPending)
+		_, err = loaded.Submit(ctx, actor, command("must-not-overtake", "disable"))
+		Expect(err).To(MatchError(ErrRecoveryRequired))
+		loaded.mu.Lock()
+		Expect(loaded.journal.Operations[acceptedCmd.OperationID].Status.Phase).To(Equal(string(lifecycleAccepted)))
+		_, exists := loaded.journal.Operations["must-not-overtake"]
+		Expect(exists).To(BeFalse())
+		Expect(loaded.journal.Addons["sample"].Generation).To(Equal(uint64(1)))
+		loaded.mu.Unlock()
+
+		cfg, c, i := fixture()
+		m := open(cfg, c, i)
+		_, e := m.Submit(ctx, actor, command("initial", "install"))
+		Expect(e).NotTo(HaveOccurred())
+		m.opMu.Lock()
+		locked := true
+		defer func() {
+			if locked {
+				m.opMu.Unlock()
+			}
+		}()
+		cmd := command("accepted-disable", "upgrade")
+		_, e = m.SubmitUpgrade(ctx, actor, cmd)
+		Expect(e).NotTo(HaveOccurred())
+		status, e := m.OperationStatus(ctx, actor, cmd.OperationID)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(status.Phase).To(Equal(string(lifecycleAccepted)))
+		done := make(chan error, 1)
+		started := make(chan struct{})
+		go func() {
+			close(started)
+			_, err := m.Submit(ctx, actor, command("concurrent-disable", "disable"))
+			done <- err
+		}()
+		<-started
+		m.opMu.Unlock()
+		locked = false
+		var submitErr error
+		Eventually(done).Should(Receive(&submitErr))
+		// Either the journal guard rejects the unresolved acceptance, or opMu runs
+		// disable after the upgrade completes. Neither ordering may overtake it.
+		if submitErr != nil {
+			Expect(submitErr).To(MatchError(ErrRecoveryRequired))
+		}
+		Eventually(func() string {
+			st, e := m.OperationStatus(ctx, actor, cmd.OperationID)
+			Expect(e).NotTo(HaveOccurred())
+			return st.Phase
+		}).Should(Equal(string(lifecycleCompleted)))
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		Expect(m.journal.Operations[cmd.OperationID].Command).To(Equal(cmd))
+		Expect(m.journal.Addons["sample"].Generation).To(Equal(uint64(2)))
+		if submitErr != nil {
+			_, exists := m.journal.Operations["concurrent-disable"]
+			Expect(exists).To(BeFalse())
+		} else {
+			Expect(m.journal.Operations["concurrent-disable"].Status.Phase).To(Equal(string(lifecycleCompleted)))
+			Expect(m.journal.Addons["sample"].DesiredEnabled).To(BeFalse())
+		}
 	})
 
 })
