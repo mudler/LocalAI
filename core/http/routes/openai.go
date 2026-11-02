@@ -22,6 +22,7 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	re *middleware.RequestExtractor,
 	application *application.Application,
 ) {
+	RegisterMusicOutputRoutes(app, application.MusicOutputStore(), application.AuthDB(), application.ApplicationConfig())
 	// openAI compatible API endpoint
 	traceMiddleware := middleware.TraceMiddleware(application)
 	usageMiddleware := middleware.UsageMiddleware(application.StatsRecorder(), application.FallbackUser())

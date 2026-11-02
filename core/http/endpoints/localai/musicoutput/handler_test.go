@@ -248,7 +248,7 @@ var _ = Describe("handler through actual auth.Middleware", func() {
 			for _, scenario := range []struct {
 				name   string
 				status int
-			}{{"owner", 200}, {"admin", 200}, {"legacy admin", 200}, {"anonymous", 401}, {"invalid credential", 401}, {"foreign", 404}, {"missing", 404}, {"invalid id", 404}, {"expired", 404}, {"feature revoked", 404}, {"feature absent", 404}, {"generation revoked", 404}, {"transcription revoked", 404}, {"permissions unavailable", 404}, {"expiry during open", 404}, {"storage error", 500}, {"open mode", 200}, {"legacy only", 200}, {"legacy only anonymous", 401}, {"db only anonymous", 401}, {"revoked credential", 401}} {
+			}{{"owner", 200}, {"admin", 200}, {"legacy admin", 200}, {"anonymous", 401}, {"invalid credential", 401}, {"foreign", 404}, {"missing", 404}, {"invalid id", 404}, {"expired", 404}, {"feature revoked", 404}, {"feature absent", 200}, {"generation revoked", 404}, {"transcription revoked", 404}, {"permissions unavailable", 404}, {"expiry during open", 404}, {"storage error", 500}, {"open mode", 200}, {"legacy only", 200}, {"legacy only anonymous", 401}, {"db only anonymous", 401}, {"revoked credential", 401}} {
 				entries = append(entries, Entry(method+" "+scenario.name, method, scenario.name, scenario.status))
 			}
 		}

@@ -249,6 +249,15 @@ func GetSource(c echo.Context) string {
 	return s
 }
 
+// MusicOutputAudioRoute is the only route whose manifest-scoped authorization
+// replaces generic feature/query-model checks. It is NOT a public auth exemption.
+const MusicOutputAudioRoute = "/v1/music/outputs/:output_id/audio"
+
+func isMusicOutputAudio(c echo.Context) bool {
+	method := c.Request().Method
+	return c.Path() == MusicOutputAudioRoute && (method == http.MethodGet || method == http.MethodHead)
+}
+
 // RequireRouteFeature returns a global middleware that checks the user has access
 // to the feature required by the matched route. It uses the RouteFeatureRegistry
 // to look up the required feature for each route pattern + HTTP method.
@@ -264,6 +273,12 @@ func RequireRouteFeature(db *gorm.DB) echo.MiddlewareFunc {
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// The delivery handler checks current permissions and canonical manifest
+			// models, returning opaque 404 rather than generic middleware's 403.
+			if isMusicOutputAudio(c) {
+				return next(c)
+			}
+
 			path := c.Path() // Echo route pattern (e.g. "/v1/engines/:model/completions")
 			method := c.Request().Method
 			feature := lookup[method+":"+path]
@@ -325,6 +340,12 @@ func RequireModelAccess(db *gorm.DB) echo.MiddlewareFunc {
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			// The delivery handler checks current permissions and canonical manifest
+			// models, returning opaque 404 rather than generic middleware's 403.
+			if isMusicOutputAudio(c) {
+				return next(c)
+			}
+
 			user := GetUser(c)
 			if user == nil {
 				return next(c)
@@ -583,6 +604,18 @@ func isExemptPath(path string, appConfig *config.ApplicationConfig) bool {
 // authError returns an appropriate error response.
 func authError(c echo.Context, appConfig *config.ApplicationConfig) error {
 	c.Response().Header().Set("WWW-Authenticate", "Bearer")
+
+	if isMusicOutputAudio(c) {
+		c.Response().Header().Set("Cache-Control", "private, no-store")
+		c.Response().Header().Set("X-Content-Type-Options", "nosniff")
+		c.Response().Header().Set("Content-Type", echo.MIMEApplicationJSON)
+		if c.Request().Method == http.MethodHead {
+			return c.NoContent(http.StatusUnauthorized)
+		}
+		return c.JSON(http.StatusUnauthorized, map[string]any{
+			"error": map[string]any{"message": "Authentication required", "code": http.StatusUnauthorized, "type": "music_stage_error", "stage": "delivery", "reason": "authentication_required"},
+		})
+	}
 
 	if appConfig.OpaqueErrors {
 		return c.NoContent(http.StatusUnauthorized)
