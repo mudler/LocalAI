@@ -5,14 +5,23 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services/collections"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/memory"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -87,6 +96,219 @@ var _ = Describe("durable capture", func() {
 				id = "capture-" + time.Now().Format("150405.000000000")
 				Expect(s.CreateChat(ctx, session.ChatRecord{ID: id, Principal: "alice", AgentID: "agent", HarnessState: []byte(`{}`)})).To(Succeed())
 			})
+			It("associates only a current claim and replays the stored fence", func() {
+				_, err := s.AcceptMemoryInput(ctx, acceptance(store.CaptureIncoming))
+				Expect(err).NotTo(HaveOccurred())
+				now := time.Now().Truncate(time.Second)
+				claim, err := s.ClaimCapture(ctx, "owner", now, time.Second)
+				Expect(err).NotTo(HaveOccurred())
+				fs := s.(store.CaptureMemoryStore)
+				calls := 0
+				reserve := func(_ context.Context, key, owner string) (lagi.MemoryFence, error) {
+					calls++
+					return lagi.MemoryFence{Key: key, Owner: owner, Generation: uint64(calls)}, nil
+				}
+				clock := func() time.Time { return now }
+				fence, err := fs.ReserveCaptureMemory(ctx, claim, clock, reserve)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fence.Generation).To(Equal(uint64(1)))
+				replay, err := fs.ReserveCaptureMemory(ctx, claim, clock, reserve)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(replay).To(Equal(fence))
+				Expect(calls).To(Equal(1))
+				clock = func() time.Time { return now.Add(time.Second) }
+				_, err = fs.ReserveCaptureMemory(ctx, claim, clock, reserve)
+				Expect(err).To(MatchError(store.ErrCaptureConflict))
+				Expect(calls).To(Equal(1))
+			})
+			It("rejects expiry during reservation and recovers the unassociated reservation", func() {
+				_, err := s.AcceptMemoryInput(ctx, acceptance(store.CaptureIncoming))
+				Expect(err).NotTo(HaveOccurred())
+				now := time.Now().Truncate(time.Second)
+				claim, err := s.ClaimCapture(ctx, "old", now, time.Second)
+				Expect(err).NotTo(HaveOccurred())
+				clock := now
+				reserve := func(_ context.Context, key, owner string) (lagi.MemoryFence, error) {
+					clock = now.Add(time.Second)
+					return lagi.MemoryFence{Key: key, Owner: owner, Generation: 1}, nil
+				}
+				_, err = s.(store.CaptureMemoryStore).ReserveCaptureMemory(ctx, claim, func() time.Time { return clock }, reserve)
+				Expect(err).To(MatchError(store.ErrCaptureConflict))
+				records, err := s.ListCaptures(ctx, "alice", id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(records[0].BackendFence).To(BeNil())
+				next, err := s.ClaimCapture(ctx, "new", clock, time.Minute)
+				Expect(err).NotTo(HaveOccurred())
+				fresh, err := s.(store.CaptureMemoryStore).ReserveCaptureMemory(ctx, next, func() time.Time { return clock }, func(_ context.Context, key, owner string) (lagi.MemoryFence, error) {
+					return lagi.MemoryFence{Key: key, Owner: owner, Generation: 2}, nil
+				})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(fresh.Generation).To(Equal(uint64(2)))
+			})
+
+			for _, engine := range []string{"chromem", "postgres"} {
+				engine := engine
+				for _, pause := range []string{"before", "after", "crash"} {
+					pause := pause
+					It("hands off real "+engine+" fences paused "+pause+" reservation", func() {
+						if engine == "postgres" && os.Getenv("MEMORY_DATABASE_URL") == "" {
+							Fail("real PostgreSQL fixture required")
+						}
+						cfg := config.NewApplicationConfig()
+						cfg.DataPath = GinkgoT().TempDir()
+						cfg.Collections.VectorEngine = engine
+						cfg.Collections.DatabaseURL = os.Getenv("MEMORY_DATABASE_URL")
+						cfg.Collections.EmbeddingModel = "deterministic"
+						cfg.Collections.APIURL = "http://embedding.invalid"
+						client := &http.Client{Transport: captureEmbedding{}}
+						svc, err := collections.New(cfg, nil, collections.WithHTTPClient(client))
+						Expect(err).NotTo(HaveOccurred())
+						DeferCleanup(svc.Close)
+						collection := fmt.Sprintf("handoff_%d", time.Now().UnixNano())
+						Expect(svc.CreateForUser("", collection)).To(Succeed())
+						// PostgreSQL backend uses an independent pool, like another frontend.
+						nextSvc := svc
+						if engine == "postgres" {
+							cfg2 := *cfg
+							cfg2.DataPath = GinkgoT().TempDir()
+							nextSvc, err = collections.New(&cfg2, nil, collections.WithHTTPClient(client))
+							Expect(err).NotTo(HaveOccurred())
+							DeferCleanup(nextSvc.Close)
+							Expect(nextSvc.CreateForUser("", collection)).To(Succeed())
+						}
+						other := s
+						if backend != "JSON" {
+							other = open()
+						}
+						_, err = s.AcceptMemoryInput(ctx, acceptance(store.CaptureIncoming))
+						Expect(err).NotTo(HaveOccurred())
+						now := time.Now().Truncate(time.Second)
+						old, err := s.ClaimCapture(ctx, "old", now, time.Second)
+						Expect(err).NotTo(HaveOccurred())
+						var ticks atomic.Int64
+						ticks.Store(now.UnixNano())
+						clock := func() time.Time { return time.Unix(0, ticks.Load()) }
+						entered, release := make(chan struct{}), make(chan struct{})
+						done := make(chan error, 1)
+						var orphan lagi.MemoryFence
+						go func() {
+							_, e := s.(store.CaptureMemoryStore).ReserveCaptureMemory(ctx, old, clock, func(c context.Context, key, owner string) (lagi.MemoryFence, error) {
+								if pause == "before" {
+									close(entered)
+									<-release
+								}
+								f, e := svc.BeginMemoryAttempt(c, "", collection, key, owner)
+								orphan = f
+								if pause != "before" {
+									close(entered)
+									<-release
+								}
+								if pause == "crash" && e == nil {
+									return f, errors.New("crash before association")
+								}
+								return f, e
+							})
+							done <- e
+						}()
+						<-entered
+						ticks.Store(now.Add(time.Second).UnixNano())
+						taking := make(chan struct{})
+						type result struct {
+							claim store.CaptureClaim
+							err   error
+						}
+						taken := make(chan result, 1)
+						go func() {
+							close(taking)
+							c, e := other.ClaimCapture(ctx, "new", clock(), time.Minute)
+							taken <- result{c, e}
+						}()
+						<-taking
+						close(release)
+						e := <-done
+						if pause == "crash" {
+							Expect(e).To(MatchError("crash before association"))
+						} else {
+							Expect(e).To(MatchError(store.ErrCaptureConflict))
+						}
+						next := <-taken
+						Expect(next.err).NotTo(HaveOccurred())
+						Expect(next.claim.Record.BackendFence).To(BeNil())
+						fresh, err := other.(store.CaptureMemoryStore).ReserveCaptureMemory(ctx, next.claim, clock, func(c context.Context, key, owner string) (lagi.MemoryFence, error) {
+							return nextSvc.BeginMemoryAttempt(c, "", collection, key, owner)
+						})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(fresh.Generation).To(BeNumerically(">", orphan.Generation))
+						replay, err := other.(store.CaptureMemoryStore).ReserveCaptureMemory(ctx, next.claim, clock, func(context.Context, string, string) (lagi.MemoryFence, error) {
+							return lagi.MemoryFence{}, errors.New("must not reserve again")
+						})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(replay).To(Equal(fresh))
+						_, err = s.(store.CaptureMemoryStore).ReserveCaptureMemory(ctx, old, clock, func(c context.Context, key, owner string) (lagi.MemoryFence, error) {
+							return svc.BeginMemoryAttempt(c, "", collection, key, owner)
+						})
+						Expect(err).To(MatchError(store.ErrCaptureConflict))
+						hash, err := lagi.MemoryPayloadHash("one memory", nil)
+						Expect(err).NotTo(HaveOccurred())
+						req := lagi.MemoryWrite{Key: old.Record.ID, Content: "one memory", PayloadHash: hash}
+						allow := func(context.Context) error { return nil }
+						_, err = svc.WriteMemoryFenced(ctx, "", collection, orphan, req, allow)
+						Expect(err).To(MatchError(lagi.ErrMemoryStaleFence))
+						err = s.(store.CaptureMemoryStore).WithCaptureMemory(ctx, old, clock, func(context.Context, lagi.MemoryFence) error { return errors.New("stale callback invoked") })
+						Expect(err).To(MatchError(store.ErrCaptureConflict))
+						var agentStore agents.Store
+						if backend != "JSON" {
+							agentStore, err = agents.NewGORM(dbHandle)
+							Expect(err).NotTo(HaveOccurred())
+							Expect(agentStore.Put(ctx, agents.Agent{ID: "agent", Principal: "alice", Name: "Current agent"})).To(Succeed())
+						}
+						// A callback authorization read must share the held SQL transaction,
+						// even with a single pool connection; otherwise it deadlocks.
+						if backend != "JSON" {
+							pool, e := dbHandle.DB()
+							Expect(e).NotTo(HaveOccurred())
+							pool.SetMaxOpenConns(1)
+						}
+						writeCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+						defer cancel()
+						authorize := func(c context.Context) error {
+							if _, e := other.GetChat(c, "bob", id); !errors.Is(e, session.ErrNotFound) {
+								return fmt.Errorf("cross-principal chat read: %v", e)
+							}
+							if agentStore != nil {
+								if _, e := agentStore.Get(c, "bob", "agent"); !errors.Is(e, agents.ErrNotFound) {
+									return fmt.Errorf("cross-principal agent read: %v", e)
+								}
+								if _, e := agentStore.Get(c, "alice", "agent"); e != nil {
+									return e
+								}
+							}
+							_, e := other.GetChat(c, "alice", id)
+							return e
+						}
+						var receipt lagi.MemoryReceipt
+						err = other.(store.CaptureMemoryStore).WithCaptureMemory(writeCtx, next.claim, clock, func(c context.Context, f lagi.MemoryFence) error {
+							var e error
+							receipt, e = nextSvc.WriteMemoryFenced(c, "", collection, f, req, authorize)
+							return e
+						})
+						Expect(err).NotTo(HaveOccurred())
+						Expect(receipt.EntryID).NotTo(BeEmpty())
+						again, err := nextSvc.WriteMemoryFenced(ctx, "", collection, fresh, req, allow)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(again.EntryID).To(Equal(receipt.EntryID))
+						got, err := nextSvc.ReconcileMemory(ctx, "", collection, req.Key)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(got.EntryID).To(Equal(receipt.EntryID))
+						b, err := nextSvc.Backend("")
+						Expect(err).NotTo(HaveOccurred())
+						entries, err := b.ListEntries(collection)
+						Expect(err).NotTo(HaveOccurred())
+						Expect(entries).To(HaveLen(1))
+					})
+				}
+			}
+
 			It("upgrades a pre-capture store without losing chat state", func() {
 				if backend == "JSON" {
 					raw, e := os.ReadFile(filepath.Join(diskPath, "chats", base64.RawURLEncoding.EncodeToString([]byte(id))+".json"))
@@ -415,3 +637,10 @@ var _ = Describe("capture state decoding", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+// Only the model endpoint is synthetic; LocalRecall reservations and writes are real.
+type captureEmbedding struct{}
+
+func (captureEmbedding) RoundTrip(r *http.Request) (*http.Response, error) {
+	return &http.Response{StatusCode: 200, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"data":[{"embedding":[1,0,0],"index":0}]}`)), Request: r}, nil
+}

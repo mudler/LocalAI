@@ -55,3 +55,37 @@ func (s *Service) DeleteMemory(ctx context.Context, user, collection, entry stri
 	}
 	return mb.DeleteMemoryEntry(ctx, collection, entry)
 }
+
+// BeginMemoryAttempt is only a backend reservation. Queue workers must invoke it
+// inside CaptureMemoryStore.ReserveCaptureMemory, never before checking a claim.
+func (s *Service) BeginMemoryAttempt(ctx context.Context, user, collection, key, owner string) (lagi.MemoryFence, error) {
+	mb, err := s.memoryBackend(user, collection)
+	if err != nil {
+		return lagi.MemoryFence{}, err
+	}
+	return mb.BeginMemoryAttempt(ctx, collection, key, owner)
+}
+
+// WriteMemoryFenced must be called inside CaptureMemoryStore.WithCaptureMemory.
+// Authorization is rechecked at the backend boundary, not reused from reservation.
+func (s *Service) WriteMemoryFenced(ctx context.Context, user, collection string, fence lagi.MemoryFence, req lagi.MemoryWrite, authorize func(context.Context) error) (lagi.MemoryReceipt, error) {
+	mb, err := s.memoryBackend(user, collection)
+	if err != nil {
+		return lagi.MemoryReceipt{}, err
+	}
+	if authorize == nil {
+		return lagi.MemoryReceipt{}, errors.New("memory authorization required")
+	}
+	if err = authorize(ctx); err != nil {
+		return lagi.MemoryReceipt{}, err
+	}
+	return mb.WriteMemoryFenced(ctx, collection, fence, req)
+}
+
+func (s *Service) ReconcileMemory(ctx context.Context, user, collection, key string) (lagi.MemoryReceipt, error) {
+	mb, err := s.memoryBackend(user, collection)
+	if err != nil {
+		return lagi.MemoryReceipt{}, err
+	}
+	return mb.ReconcileMemory(ctx, collection, key)
+}

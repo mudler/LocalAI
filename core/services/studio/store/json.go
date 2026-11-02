@@ -53,6 +53,7 @@ type chatSlot struct {
 }
 
 type chatState struct {
+	captureContext       context.Context   `json:"-"`
 	Capture              captureData       `json:"capture,omitempty"`
 	Deleted              bool              `json:"deleted,omitempty"`
 	FrozenMemoryRequests map[string][]byte `json:"frozen_memory_requests,omitempty"`
@@ -480,7 +481,13 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 	return nil
 }
 
-func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.ChatRecord, error) {
+func (s *jsonStore) GetChat(ctx context.Context, principal, id string) (session.ChatRecord, error) {
+	if rec, ok := captureChatRead(ctx, s, principal, id); ok {
+		if rec.Principal != principal {
+			return session.ChatRecord{}, session.ErrNotFound
+		}
+		return rec, ctx.Err()
+	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return session.ChatRecord{}, err

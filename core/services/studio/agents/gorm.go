@@ -153,7 +153,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 
 func (s *gormStore) Get(ctx context.Context, principal, id string) (Agent, error) {
 	var r agentRow
-	err := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Take(&r).Error
+	err := dberr.ReadDB(ctx, s.db).Where("id = ? AND principal = ?", id, principal).Take(&r).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return Agent{}, ErrNotFound
 	}

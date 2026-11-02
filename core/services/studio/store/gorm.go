@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
+
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/egress"
@@ -285,7 +287,7 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 
 func (s *gormStore) GetChat(ctx context.Context, principal, id string) (session.ChatRecord, error) {
 	var row chatRow
-	err := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Take(&row).Error
+	err := dberr.ReadDB(ctx, s.db).Where("id = ? AND principal = ?", id, principal).Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return session.ChatRecord{}, session.ErrNotFound
 	}

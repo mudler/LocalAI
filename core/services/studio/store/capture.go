@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
 	"github.com/mudler/LocalAI/core/services/studio/memory"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -60,6 +61,7 @@ type MemoryTurnCompletion struct {
 // State/InputType discriminate concrete values; StateJSON never decodes an
 // untrusted interface or substitutes a second lifecycle implementation.
 type CaptureRecord struct {
+	BackendFence     *CaptureBackendFence `json:",omitempty"`
 	ID               string
 	Identity         memory.Identity
 	RawText          string
@@ -498,6 +500,8 @@ func (s *jsonStore) editCapture(ctx context.Context, p, c string, f func(*captur
 	return s.edit(p, c, func(next *chatState) error {
 		d := cloneCapture(next.Capture)
 		next.Pending = append([]Pending(nil), next.Pending...)
+		next.captureContext = withCaptureChatRead(ctx, s, next.Rec)
+		defer func() { next.captureContext = nil }()
 		if err := f(&d, next); err != nil {
 			return err
 		}
@@ -527,6 +531,7 @@ func (s *gormStore) editCapture(ctx context.Context, p, c string, f func(*captur
 			return err
 		}
 		state := chatState{Rec: rec, NextPending: cr.NextPending, Run: cr.RunID, Last: TurnStatus(cr.LastTurn)}
+		state.captureContext = dberr.WithReadTransaction(ctx, s.db, tx)
 		if err = f(&d, &state); err != nil {
 			return err
 		}
@@ -625,6 +630,7 @@ func claimRecord(d *captureData, owner string, now time.Time, lease time.Duratio
 			continue
 		}
 		tr.State = leaseState(tr.State, now, lease)
+		r.BackendFence = nil
 		r.Lease = lease
 		r, err = project(r, tr.State, tr.RuleID)
 		if err != nil {
