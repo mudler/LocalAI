@@ -156,7 +156,7 @@ func TestBindingDTOCompatibility(t *testing.T) {
 }
 
 var _ = Describe("generic execution provider identity", func() {
-	It("resolves two renamed providers with distinct status tools without product dispatch", func() {
+	It("passes through owner-resolved bindings with distinct provider and status names", func() {
 		for _, pair := range [][2]string{{"runner-one", "inspect"}, {"runner-two", "readiness"}} {
 			want := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: pair[0], Generation: 2, Incarnation: "live", ExecutionTool: "execute", StatusTool: pair[1], SelectionRevision: "owner:revision"}
 			g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }, ResolveExecutionBinding: func(context.Context, contract.Actor, ExecutionBindingClaim) (ExecutionStatusBinding, error) {

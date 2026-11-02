@@ -8,7 +8,7 @@ mkdir -p "$TMPDIR"
 fixture=$(mktemp -d)
 trap 'rm -rf "$fixture"' EXIT HUP INT TERM
 mkdir -p "$fixture/scripts/addons" "$fixture/bin"
-for file in prepare.sh verify.sh suites.json ui_cases.py; do
+for file in prepare.sh verify.sh suites.json ui_cases.py ginkgo_report.py; do
     test -f "$root/scripts/addons/$file" || { echo "missing implementation: $file" >&2; exit 1; }
     cp "$root/scripts/addons/$file" "$fixture/scripts/addons/$file"
 done
@@ -101,6 +101,11 @@ TOOL
 reject ginkgo-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[]' sh "$verify" prerequisites
 reject ginkgo-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" prerequisites
 reject ginkgo-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='{}' sh "$verify" prerequisites
+# Valid JSON is insufficient: the actual comparator must reject a missing case
+# and a missing report artifact, even when the child exits successfully.
+reject ginkgo-inventory-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It","LeafNodeText":"different case"}]}]' sh "$verify" prerequisites
+printf '#!/bin/sh\nexit 0\n' > "$fixture/bin/go"
+reject ginkgo-artifact-missing 'Ginkgo report' env PATH="$fixture/bin:$PATH" sh "$verify" prerequisites
 # A failed Ginkgo run names its failed spec and the first line of its failure.
 cat > "$fixture/bin/go" <<'TOOL'
 #!/bin/sh
@@ -130,6 +135,13 @@ cat > "$fixture/scripts/addons/suites.json" <<'JSON'
 JSON
 reject gateway-missing-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
 reject gateway-skipped-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
+# Pin/browser setup fixtures never build or download: make their disk
+# prerequisite deterministic without bypassing the real preparation gate.
+cat > "$fixture/bin/df" <<'TOOL'
+#!/bin/sh
+printf 'Filesystem 1024-blocks Used Available Capacity Mounted on\nfixture 41943040 0 41943040 0%% /\n'
+TOOL
+chmod +x "$fixture/bin/df"
 # A commit at a tagged module resolves to the tag, with an exact module sum.
 cat > "$fixture/bin/go" <<'TOOL'
 #!/bin/sh

@@ -7,8 +7,51 @@ description = "Prepare and verify the toolchain for focused addon tests."
 The addon verification scripts separate explicit dependency setup from offline checks.
 Run all commands from the repository root. `scripts/addons/suites.json` lists the available suites and their exact case inventories.
 For typed extensions, run `contracts`, `apps`, `runtime`, `gateway`, and `host-slots`.
-The `contracts` suite includes all official package manifests and generic architecture guards.
+The `contracts` suite includes all official package manifests and generic architecture guards. It runs `./pkg/addons/contract`,
+`./pkg/addons/packaging`, and the root architecture suite, each with an exact
+Ginkgo report inventory (including twelve official manifest audits, two policy
+packaging checks, and two architecture guards). `apps` inventories the generic
+UI fixtures; `gateway` inventories the real application owner binding fixture.
+The latter installs two differently named packages through the actual catalog
+and Manager, uses JSON chat/agent stores, selects the oldest provider, then pins
+the second and checks each declared execution/status tool and runtime identity.
+The gateway callback-only test separately checks honest binding pass-through.
+
+The shared `scripts/addons/ginkgo_report.py` comparator checks actual report
+artifacts, not just JSON syntax. Every required case must pass exactly once.
+A report may declare an explicit `focus` matching its command's Ginkgo focus;
+only excluded specs may be skipped, never required cases. Harness self-tests
+exercise missing artifacts, missing required cases, and skipped reports.
 Unknown suites, empty selections, skipped required tests, and failed commands return a nonzero status.
+
+## Direct verification evidence and limits
+
+The bounded review verification used offline caches, `GOMAXPROCS=2`, and
+`GOFLAGS='-mod=readonly -p=2 "-ldflags=-s -w"'`. Direct commands used
+`go test -timeout=5m -count=1 -tags auth PACKAGE -ginkgo.json-report=REPORT`
+for `./pkg/addons/contract`, `./pkg/addons/packaging`, `.`,
+`./core/services/addons/apps`,
+`./core/services/addons/gateway`, and `./core/application`.
+Actual reports compared with the harness comparator contain 196 contract,
+174 packaging, 2 architecture, 10 apps, and 115 gateway cases, all passed.
+The focused `execution binding owner resolver` run passed all 8 required cases;
+its excluded specs are not required cases. Full application testing exited zero
+with 256 passed and 3 PostgreSQL-dependent Files cases skipped because
+`LOCALAI_TEST_POSTGRES_URL` was unset; it is not an all-cases acceptance pass.
+
+`sh scripts/addons/prerequisites_test.sh` passed its exact 38-case inventory,
+including missing/skipped report rejection. Model race testing and viewer tests
+passed, and `go run ./pkg/addons/model/executionstatus/cmd/viewer -check`
+verified trace coverage and deterministic data. Focused real owner artifacts
+with a removed or skipped required case were also rejected by the comparator.
+Existing contract coverage passed without an invented failing baseline.
+
+These are direct checks, **not a full harness pass**. The commands and report
+inventories are wired, but `sh scripts/addons/prepare.sh --check` remains blocked
+by missing `protoc` 26.1. No downloads or integration preparation were performed.
+Browser acceptance and named-user SQL authority integration remain unverified;
+the JSON owner fixture does not establish either. Local evidence reports and
+logs are under `.cache/addons/logs/review2-*` and are not product artifacts.
 
 ## Required tools
 

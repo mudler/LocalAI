@@ -57,28 +57,38 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(err).NotTo(HaveOccurred())
 		var manifest map[string]any
 		Expect(json.Unmarshal(raw, &manifest)).To(Succeed())
-		manifest["id"] = "renamed-runner"
-		manifest["capabilities"] = contract.Capabilities{Service: true, Actions: true, Tools: []string{"execute", "inspect"}, ExecutionProvider: &contract.ExecutionProvider{Tools: []string{"execute"}, StatusTool: "inspect"}, ToolDefinitions: []contract.ToolDefinition{
-			{Name: "execute", Kind: contract.ToolKindAction, Shadows: "bash", Description: "Run a command", InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)},
-			{Name: "inspect", Kind: contract.ToolKindRead, UIOnly: true, Description: "Inspect execution", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
-		}}
-		raw, err = json.Marshal(manifest)
-		Expect(err).NotTo(HaveOccurred())
-		var archive bytes.Buffer
-		tw := tar.NewWriter(&archive)
-		for name, data := range map[string][]byte{"manifest.json": raw, "bin/sample": executable, "fixture.json": []byte(`{"mode":"execution-status"}`)} {
-			Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
-			_, err = tw.Write(data)
+		providers := []struct{ id, execute, status string }{{"renamed-runner", "execute", "inspect"}, {"alternate-worker", "launch", "readiness"}}
+		archives := map[string][]byte{}
+		for _, provider := range providers {
+			manifest["id"] = provider.id
+			manifest["capabilities"] = contract.Capabilities{Service: true, Actions: true, Tools: []string{provider.execute, provider.status}, ExecutionProvider: &contract.ExecutionProvider{Tools: []string{provider.execute}, StatusTool: provider.status}, ToolDefinitions: []contract.ToolDefinition{
+				{Name: provider.execute, Kind: contract.ToolKindAction, Shadows: "bash", Description: "Run a command", InputSchema: json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)},
+				{Name: provider.status, Kind: contract.ToolKindRead, UIOnly: true, Description: "Inspect execution", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
+			}}
+			raw, err = json.Marshal(manifest)
 			Expect(err).NotTo(HaveOccurred())
+			var archive bytes.Buffer
+			tw := tar.NewWriter(&archive)
+			for name, data := range map[string][]byte{"manifest.json": raw, "bin/sample": executable, "fixture.json": []byte(`{"mode":"execution-status"}`)} {
+				Expect(tw.WriteHeader(&tar.Header{Name: name, Mode: 0755, Size: int64(len(data))})).To(Succeed())
+				_, err = tw.Write(data)
+				Expect(err).NotTo(HaveOccurred())
+			}
+			Expect(tw.Close()).To(Succeed())
+			archives[provider.id] = append([]byte(nil), archive.Bytes()...)
 		}
-		Expect(tw.Close()).To(Succeed())
 		var url string
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/package.tar" {
-				_, _ = w.Write(archive.Bytes())
-				return
+			var releases []catalog.Release
+			for _, provider := range providers {
+				data := archives[provider.id]
+				if r.URL.Path == "/"+provider.id+".tar" {
+					_, _ = w.Write(data)
+					return
+				}
+				releases = append(releases, catalog.Release{ID: provider.id, Name: provider.id, Version: "1.2.3", OS: "linux", Arch: "amd64", Artifact: url + "/" + provider.id + ".tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(data))})
 			}
-			_ = catalog.WriteIndex(w, []catalog.Release{{ID: "renamed-runner", Name: "Renamed", Version: "1.2.3", OS: "linux", Arch: "amd64", Artifact: url + "/package.tar", Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(archive.Bytes()))}})
+			_ = catalog.WriteIndex(w, releases)
 		}))
 		DeferCleanup(server.Close)
 		url = server.URL
@@ -107,10 +117,16 @@ var _ = Describe("execution binding owner resolver", func() {
 		a.applicationConfig.Addons.Transport = transport
 		Expect(a.startAddons()).To(Succeed())
 		DeferCleanup(a.Shutdown)
-		_, err = a.addonManager.Submit(ctx, actor, addons.LifecycleCommand{OperationID: "install", AddonID: "renamed-runner", Action: "install", SourceID: "test", Version: "1.2.3"})
-		Expect(err).NotTo(HaveOccurred())
-		_, err = a.addonManager.Submit(ctx, actor, addons.LifecycleCommand{OperationID: "enable", AddonID: "renamed-runner", Action: "enable", Generation: 1})
-		Expect(err).NotTo(HaveOccurred())
+		for index, provider := range providers {
+			// Install timestamps have second precision; separate them to test age, not ID tie-breaking.
+			if index > 0 {
+				time.Sleep(time.Second)
+			}
+			_, err = a.addonManager.Submit(ctx, actor, addons.LifecycleCommand{OperationID: "install-" + provider.id, AddonID: provider.id, Action: "install", SourceID: "test", Version: "1.2.3"})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = a.addonManager.Submit(ctx, actor, addons.LifecycleCommand{OperationID: "enable-" + provider.id, AddonID: provider.id, Action: "enable", Generation: 1})
+			Expect(err).NotTo(HaveOccurred())
+		}
 		a.studioStore, err = store.NewJSON(filepath.Join(root, "chats"))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(a.studioStore.(interface{ Close() error }).Close()).To(Succeed()) })
@@ -121,6 +137,27 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(a.studioStore.CreateChat(ctx, session.ChatRecord{ID: claim.ConversationID, Principal: studio.AnonymousPrincipal, Created: time.Now(), Updated: time.Now()})).To(Succeed())
 		Expect(a.addonGateway.ResolveExecutionBinding).NotTo(BeNil())
 		Expect(a.addonGateway.AuthorizeExecutionStatus).NotTo(BeNil())
+	})
+	It("selects the oldest real provider then pins a second distinct manifest and runtime", func() {
+		first, err := a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(first.AddonID).To(Equal("renamed-runner"))
+		Expect(first.ExecutionTool).To(Equal("execute"))
+		Expect(first.StatusTool).To(Equal("inspect"))
+		a.applicationConfig.SetChatsToolProviders(map[string]string{"bash": "alternate-worker"})
+		second, err := a.addonGateway.BindingForActor(ctx, actor, claim)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(second.AddonID).To(Equal("alternate-worker"))
+		Expect(second.ExecutionTool).To(Equal("launch"))
+		Expect(second.StatusTool).To(Equal("readiness"))
+		for _, binding := range []gateway.ExecutionStatusBinding{first, second} {
+			runtime, err := a.addonManager.Runtime(ctx, binding.AddonID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(binding.Generation).To(Equal(runtime.Generation))
+			Expect(binding.Incarnation).To(Equal(runtime.Incarnation))
+		}
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, first)).NotTo(Succeed())
+		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, second)).To(Succeed())
 	})
 	It("binds the actual renamed running provider and rejects forged bindings and foreign actors", func() {
 		b, err := a.addonGateway.BindingForActor(ctx, actor, claim)
@@ -152,7 +189,7 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(string(value.Isolation)).To(Equal("isolated"))
 		Expect(explanation()).To(BeEmpty())
 		Expect(request.Observe(ctx)).To(Equal(value))
-		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner"})).To(Succeed())
+		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner", "alternate-worker"})).To(Succeed())
 		Expect(string(request.Observe(ctx).Isolation)).To(Equal("unknown"))
 		Expect(broker.Isolation(ctx, studio.AnonymousPrincipal, "renamed-runner")).To(BeEmpty())
 	})
@@ -164,7 +201,7 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
 		b, err = a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner"})).To(Succeed())
+		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner", "alternate-worker"})).To(Succeed())
 		_, err = a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).To(HaveOccurred())
 		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, nil)).To(Succeed())
