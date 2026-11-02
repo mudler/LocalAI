@@ -5,7 +5,7 @@ description = "Prepare and verify the toolchain for focused addon tests."
 +++
 
 The addon verification scripts separate explicit dependency setup from offline checks.
-Run all commands from the repository root. Only the `prerequisites` suite is currently available.
+Run all commands from the repository root. `scripts/addons/suites.json` lists the available suites and their exact case inventories.
 Unknown suites, empty selections, skipped required tests, and failed commands return a nonzero status.
 
 ## Required tools
@@ -420,3 +420,44 @@ and that the database and the backups are untouched.
 ### Settings authority in both topologies
 
 For every add-on settings surface, run combined-mode and owner-with-two-frontends cases. Save through one frontend and verify the other frontend and the real consumer agree. Repeat a restrictive update, restart the owner, and interrupt owner access. Assert explicit errors rather than frontend-local settings or built-in fallback. Exercise CAS conflicts, per-key provider deletion, uncertain retries, and preservation of unrelated fields. Network policy tests must use new HTTP and CONNECT sockets after revocation; established streams may finish. Add rendered-form tests for the actual dispatch payload and disabled controls during failed reconciliation. Follow the existing distributed-state checklist before introducing a new settings path.
+
+## Document skill migration checks
+
+Run the contract, package, and packaging gates separately:
+
+```sh
+sh scripts/addons/verify.sh contracts
+sh scripts/addons/verify.sh packages
+sh scripts/addons/verify.sh packaging
+```
+
+The packaging tests use the actual skill-tree validator on Sandbox assets.
+They check reference coverage, local links, notices, receipt hashes, and existing file and byte limits.
+Package lifecycle tests cover install, upgrade, materialization, and uninstall.
+Core tests cover stale built-in cleanup, preserved user overrides, and unchanged document extraction.
+
+For guest execution, supply a real package whose guest image includes the document helpers:
+
+```sh
+sh scripts/addons/sandbox_smoke.sh --layout "$SANDBOX_DOCUMENT_LAYOUT" --require isolated
+```
+
+This smoke runs the generated PDF fixture checker through the real Sandbox command route.
+It requires gVisor or KVM; an unavailable runtime is a failure, not evidence of helper execution.
+The checker lives at `/usr/local/lib/localai/document-skills/check-document-skills.py` in the guest.
+A stand-in image reference from `--local-check` cannot establish guest execution.
+
+Run the focused UI checks with Node 22 and a dedicated server built from the current tree:
+
+```sh
+cd core/http/react-ui
+node tests/unit/run.mjs chatskills.test.mjs
+PLAYWRIGHT_EXTERNAL_SERVER=1 PW_WORKERS=2 ./node_modules/.bin/playwright test \
+  e2e/chats-skills-picker.spec.js e2e/agents-skills-real.spec.js e2e/skills.spec.js
+```
+
+Build the UI and test server first, as described above. Start your own server on the configured free port.
+The picker specs exercise rendering and switches; they do not alone establish real provider eligibility.
+Also test actual provider resolution, grants, pins, OFF persistence, and index/load agreement against the application.
+Require native linux/amd64 and linux/arm64 execution evidence before claiming release verification.
+Cross-compilation or a configured CI matrix alone does not establish native execution.

@@ -691,7 +691,9 @@
     "installNamed": "Instalar {{name}}",
     "shadowWarning": "Este complemento reemplaza el {{tool}} integrado. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas. Hasta que elijas, lo sirve el que se instaló primero.",
     "skillShadow": "Este complemento reemplaza la habilidad integrada {{skill}}.",
-    "skillShadowWarning": "Este complemento reemplaza la habilidad integrada {{skill}}. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas. Hasta que elijas, lo sirve el que se instaló primero."
+    "skillShadowWarning": "Este complemento reemplaza la habilidad integrada {{skill}}. Otro complemento ({{name}}) ya lo hace. Solo uno puede estar activo; eliges cuál en Ajustes > Herramientas. Hasta que elijas, lo sirve el que se instaló primero.",
+    "skillProvides": "Este complemento proporciona la habilidad {{skill}}.",
+    "skillProvidesWarning": "Este complemento proporciona la habilidad {{skill}}. Otro complemento ({{name}}) también la proporciona. Solo uno puede estar activo; elige en Configuración > Herramientas. Sin una elección, se usa el instalado primero."
   },
   "family": {
     "pages": "¿Buscas páginas que creaste tú o un agente? Están en <go>Páginas</go>."
@@ -731,6 +733,7 @@
   "skills": {
     "title_one": "{{count}} habilidad de chat",
     "title_other": "{{count}} habilidades de chat",
+    "provides": "proporciona la habilidad {{skill}}",
     "replaces": "reemplaza la habilidad integrada",
     "serves": "se usa en los chats",
     "notServing": "no se usa ahora",

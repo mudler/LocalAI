@@ -156,7 +156,7 @@ curl -s localhost:8080/api/chats -H 'Content-Type: application/json' -d '{
     "mcp_off": ["crm", "connector:c1"],
     "builtins_off": ["web"],
     "builtins_on": ["saved_agents"],
-    "skills_off": ["builtin:pdf"]
+    "skills_off": ["addon:pdf"]
   }
 }'
 ```
@@ -671,8 +671,8 @@ chat's attachments. It is a normal, visible folder.
   document, the spreadsheet, the image) goes where you said, or at the top of
   your home, and nowhere else; no new top-level folders for scripts; a command
   that runs once needs no file (`python3 -c`, a heredoc). The descriptions of
-  `bash` and `write_file` and the built-in `docx`, `xlsx`, `pptx`, `pdf`,
-  `localai-apps` and `localai-workspace` skills say the same. Pages
+  `bash` and `write_file` and the Sandbox document skills say the same. The built-in
+  `localai-apps` and `localai-workspace` skills also give this guidance. Pages
   (`pages/<name>/`) and the `LocalAI/` settings folder are not working files.
 - **When the folder is made.** The chat takes the name of its folder at its
   first turn, but makes the folder only when it is used: before a `bash`
@@ -944,9 +944,9 @@ shown when the Sandbox is already installed, or when add-ons are off.
   your home and a shared folder is `../shared-<name>`. The skills are there
   too, read-only, at the names the file tools use: `shared-skills/` (shared by
   an administrator), `shared-builtin-skills/` (built in) and
-  `shared-addon-skills/` (from add-ons), so a skill's scripts run in place, for
-  example
-  `python3 ../shared-builtin-skills/pdf/scripts/verify_pdf.py report.pdf`. A
+  `shared-addon-skills/` (from add-ons), so user-written skill scripts can run in place. Sandbox document
+  procedures require the Sandbox guest instead; host commands do not provide
+  its dependencies. A
   shared folder named `skills` is at `shared-skills 2/`. After each call, what the command changed is saved to your
   files as one change of the chat, which you can undo in Files, History; a
   file you or the file tools changed meanwhile is read again before the next
@@ -1394,7 +1394,47 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills`, `localai-workspace` and `localai-apps`. `localai-workspace` tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). `localai-apps` tells it to build an app, a tracker or a tool as a [Page]({{%relref "features/pages" %}}) and not as a program. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox, so they have `requires: [exec]` and are unavailable in a chat that cannot run commands. When the Office add-on runs, its own skills replace these four: they use its tools, which read, edit and create Word, Excel and PowerPoint files, and read and create PDF files, in your files, with no command runner.
+The server ships three built-in skills: `writing-skills`, `localai-workspace`, and `localai-apps`.
+`localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
+see [Make LocalAI yours](/features/make-localai-yours/).
+`localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
+
+### Document skills
+
+The familiar names `docx`, `pptx`, `pdf`, and `xlsx` identify document authoring skills from add-ons, not built-in skills.
+[Sandbox]({{%relref "features/addons#sandbox" %}}) supplies Python/Paper procedures and their references.
+[Simple Office]({{%relref "features/addons#simple-office" %}}) supplies separate procedures for its document tools, without command execution.
+
+1. Install and enable a provider on the **Add-ons** page.
+2. Switch the provider on in the chat's **Tools** menu.
+3. For a saved agent, grant that add-on explicitly and select the required skill names.
+4. For Sandbox procedures, select Sandbox for `bash` and allow command execution in the chat or agent.
+
+Sandbox procedures require usable isolated commands from the selected Sandbox provider.
+An installed Sandbox or a host command runner alone is not enough.
+These selections never grant add-ons or command execution automatically.
+
+With both providers eligible, the existing provider choice in **Settings > Tools** applies.
+Without a choice, the eligible provider installed first serves each name.
+A pinned provider that is unavailable does not switch silently to another provider.
+The Skills menu shows its unavailable reason.
+Folder, personal, and shared skills keep their existing precedence over add-on skills.
+
+With neither provider eligible, LocalAI offers no built-in document authoring fallback.
+Document-text extraction and the `read_file` and `search_files` tools remain available independently of these authoring skills.
+
+Existing saved agent selections keep the same names.
+Existing `builtin:docx`, `builtin:pptx`, `builtin:pdf`, and `builtin:xlsx` OFF preferences become corresponding `addon:<name>` OFF preferences.
+LocalAI persists this change before selecting providers. Existing add-on and plain-name OFF preferences remain effective.
+You can explicitly switch a skill on again; subsequent reads do not turn it off again.
+Other skill preferences remain unchanged.
+
+Sandbox installs PDF helpers inside its guest:
+`/usr/local/lib/localai/document-skills/pdf/content_qa.py` and
+`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`.
+Run them with `python3` through Sandbox commands, not through paths in host skill folders.
+Upgrades remove stale built-in document trees, but preserve user-written skills.
+Use `load_skill` by name; historical physical paths are not a compatibility interface.
 
 ## Web
 

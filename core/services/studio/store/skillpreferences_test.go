@@ -195,7 +195,7 @@ var _ = Describe("document OFF preferences", func() {
 					before := snapshot()
 					forced := errors.New("forced locking update failure")
 					Expect(db.Callback().Update().Before("gorm:update").Register("document:reject-lock", func(tx *gorm.DB) {
-						tx.AddError(forced)
+						_ = tx.AddError(forced)
 					})).To(Succeed())
 					DeferCleanup(func() { _ = db.Callback().Update().Remove("document:reject-lock") })
 					_, err := s.GetChat(ctx, "alice", "prefs")

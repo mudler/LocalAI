@@ -691,7 +691,9 @@
     "installNamed": "Installa {{name}}",
     "shadowWarning": "Questo componente sostituisce lo strumento integrato {{tool}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo.",
     "skillShadow": "Questo componente sostituisce la skill integrata {{skill}}.",
-    "skillShadowWarning": "Questo componente sostituisce la skill integrata {{skill}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo."
+    "skillShadowWarning": "Questo componente sostituisce la skill integrata {{skill}}. Un altro componente ({{name}}) lo fa già. Solo uno può essere attivo; scegli quale in Impostazioni > Strumenti. Finché non scegli, lo fornisce quello installato per primo.",
+    "skillProvides": "Questo componente aggiuntivo fornisce la competenza {{skill}}.",
+    "skillProvidesWarning": "Questo componente aggiuntivo fornisce la competenza {{skill}}. Anche un altro componente aggiuntivo ({{name}}) la fornisce. Solo uno può essere attivo; scegli in Impostazioni > Strumenti. Senza una scelta, viene usato quello installato per primo."
   },
   "family": {
     "pages": "Cerchi le pagine create da te o da un agente? Sono in <go>Pagine</go>."
@@ -731,6 +733,7 @@
   "skills": {
     "title_one": "{{count}} skill della chat",
     "title_other": "{{count}} skill della chat",
+    "provides": "fornisce la competenza {{skill}}",
     "replaces": "sostituisce la skill integrata",
     "serves": "usata nelle chat",
     "notServing": "non usata ora",

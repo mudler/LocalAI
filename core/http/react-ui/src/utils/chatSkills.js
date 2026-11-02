@@ -66,3 +66,15 @@ export function fallbackNotice(skills) {
   if (on.length === 0) return null
   return { skills: on.map((s) => s.name), addons: [...new Set(on.map((s) => s.fallback))] }
 }
+
+// These stable names are provider slots; none has a core implementation.
+export function skillDeclarationLabel(skill) {
+  if (!skill.replaces) return null
+  return ['docx', 'pptx', 'pdf', 'xlsx'].includes(skill.name) ? 'provides' : 'replaces'
+}
+
+// Only document slots lack a core fallback; other shadows still replace one.
+export function skillInstallNoticeKey({ skill, name }) {
+  const provides = skillDeclarationLabel({ name: skill, replaces: true }) === 'provides'
+  return `flow.${provides ? 'skillProvides' : 'skillShadow'}${name ? 'Warning' : ''}`
+}
