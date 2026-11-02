@@ -9,7 +9,7 @@ export GOCACHE="$root/.cache/addons/go-build" GOBIN="$root/.cache/addons/bin"
 export npm_config_cache="$root/.cache/addons/npm" PLAYWRIGHT_BROWSERS_PATH="$root/.cache/addons/browsers"
 export PATH="$GOBIN:$PATH"
 mode=${1:-}
-case "$mode" in --check|--prepare|--integration) ;; *) echo 'usage: prepare.sh --check|--prepare|--integration' >&2; exit 2;; esac
+case "$mode" in --check|--prepare|--prepare-build|--integration) ;; *) echo 'usage: prepare.sh --check|--prepare|--prepare-build|--integration' >&2; exit 2;; esac
 [ "$#" -eq 1 ] || exit 2
 fail() { echo "$*" >&2; exit 1; }
 go version 2>/dev/null | grep -Eq '^go version go1\.26\.[0-9]+ ' || fail 'Go 1.26.x required (GOTOOLCHAIN=local)'
@@ -28,7 +28,7 @@ space() {
     available=$(df -Pk "$root" | awk 'END {print $4}')
     [ "$available" -ge 20971520 ] || fail 'stop: at least 20 GiB free required before setup/build'
 }
-if [ "$mode" = --prepare ]; then
+if [ "$mode" = --prepare ] || [ "$mode" = --prepare-build ]; then
     space
     mkdir -p "$GOBIN" "$root/.cache/addons/tmp"
     export TMPDIR="$root/.cache/addons/tmp"
@@ -42,7 +42,11 @@ if [ "$mode" = --prepare ]; then
     (cd core/http/react-ui && npm ci --no-audit --no-fund)
     # Explicit setup only: the lockfile-pinned local CLI selects the browser
     # revision. Never use npx or install host OS packages here.
-    if [ -z "${PLAYWRIGHT_CHROMIUM_PATH:-}" ]; then
+    # A producer that only compiles fixtures needs no browser. Test consumers
+    # still use --prepare and the unchanged browser readiness checks.
+    if [ "$mode" = --prepare-build ]; then
+        :
+    elif [ -z "${PLAYWRIGHT_CHROMIUM_PATH:-}" ]; then
         space
         core/http/react-ui/node_modules/.bin/playwright install chromium
     else

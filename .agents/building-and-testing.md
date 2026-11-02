@@ -62,3 +62,12 @@ The Office text-input tests inspect actual PDF glyphs with Poppler’s
 `pdftotext`. Install `poppler-utils` on Ubuntu/Debian or `poppler` with
 Homebrew before running `go test ./addons/office/...` or the main Go suites.
 Missing PDF inspection tools are test failures, not skipped checks.
+
+### Lightweight CI workflow checks
+
+Run `make test-ci-scripts`, `python3 scripts/ci/test-native-paths.py` (PyYAML),
+`python3 scripts/ci/test-fixtures.py`, and
+`sh scripts/ci/test-prepare-build.sh` without building the product. Run
+`sh scripts/addons/prerequisites_test.sh` for the original readiness regressions.
+See [ci-caching.md](ci-caching.md#native-validation-paths) for path maintenance,
+required-check migration and same-run production fixture constraints.

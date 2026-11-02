@@ -3,11 +3,68 @@ name: 'tests'
 
 on:
   pull_request:
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'backend/cpp/**'
+      - 'gallery/**'
+      - 'docs/content/features/addons.md'
+      - 'docs/content/features/tables.md'
+      - 'docs/content/features/image-generation.md'
+      - 'docs/content/features/diagnostics.md'
+      - 'docs/content/reference/cli-reference.md'
+      - 'docs/content/getting-started/troubleshooting.md'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/test.yml'
+      - 'backend/index.yaml'
+      - 'coverage-baseline.txt'
   push:
-    branches:
-      - master
-    tags:
-      - '*'
+    branches: [master]
+    tags: ['*']
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'backend/cpp/**'
+      - 'gallery/**'
+      - 'docs/content/features/addons.md'
+      - 'docs/content/features/tables.md'
+      - 'docs/content/features/image-generation.md'
+      - 'docs/content/features/diagnostics.md'
+      - 'docs/content/reference/cli-reference.md'
+      - 'docs/content/getting-started/troubleshooting.md'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/test.yml'
+      - 'backend/index.yaml'
+      - 'coverage-baseline.txt'
+  workflow_dispatch:
 
 concurrency:
   group: ci-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}

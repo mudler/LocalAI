@@ -3,25 +3,46 @@ name: 'UI E2E Tests'
 
 on:
   pull_request:
-    # The suite builds the add-on UI bundles from addons/<id>/ui (global-setup)
-    # and drives the real chats service, the add-on host and the studio
-    # services through the test server, so a change to any of them can break a
-    # spec without touching core/http.
     paths:
-      - 'core/http/**'
-      - 'core/application/**'
-      - 'core/services/studio/**'
-      - 'core/services/addons/**'
-      - 'pkg/addons/**'
       - 'addons/**'
-      - 'tests/e2e-ui/**'
-      - 'tests/e2e/mock-backend/**'
-      - 'tests/addons/fixture/**'
-      - 'scripts/ensure-playwright-browser.sh'
       - '.github/workflows/tests-ui-e2e.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
   push:
-    branches:
-      - master
+    branches: [master]
+    paths:
+      - 'addons/**'
+      - '.github/workflows/tests-ui-e2e.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
 
 concurrency:
   group: ci-tests-ui-e2e-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
