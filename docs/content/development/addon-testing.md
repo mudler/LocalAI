@@ -480,3 +480,25 @@ The recovery suite above remains required for crash boundaries during backup,
 staging, migration and publication, including format-changing recovery-required
 outcomes. The focused submission tests do not replace the real executable,
 real-auth HTTP or rendered-browser acceptance gates.
+
+### Execution selection mutation epochs
+
+`ApplicationConfig.ChatSelectionSnapshot` returns detached provider pins, the
+host-command mode, and a monotonic epoch. Runtime settings and
+`WithChatsHostExec` use the synchronized setters. Config value copies share
+selection ownership; they do not copy a live mutex. Public selection fields
+remain legacy startup inputs and serialization mirrors. Set them only before
+construction/first snapshot; use setters for subsequent changes. Direct field
+writes after initialization are not supported selection mutations.
+
+`Manager.SelectionEpoch` advances at changed lifecycle publication, runtime
+ownership transitions, recovery quiescence/resume/release, and owner close.
+Reads and unchanged lifecycle publications do not advance it. Both epochs are
+per-instance lifetime tokens, not persisted revisions or execution grants.
+An owner binding must still validate the actual current runtime incarnation:
+a supervisor restart can change incarnation without a Manager mutation.
+
+The epoch tests cover provider and host-mode ABA, detached maps, config value
+copies, lifecycle ABA, and real candidate rollback/recovery process changes.
+This is mutation tracking only. Request binding and session integration remain
+separate work; readiness never grants execution authority.

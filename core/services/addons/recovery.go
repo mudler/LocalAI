@@ -104,8 +104,10 @@ func (h *managerHost) Quiesce(ctx context.Context, id string) (recovery.Quiesced
 		if e := m.runtime.Stop(dctx, instance); e != nil {
 			return nil, e
 		}
+		m.selectionEpoch++
 		delete(m.instances, id)
 	}
+	m.selectionEpoch++
 	m.quiesced[id] = true
 	return &quiesced{h: &managerHost{m: m, locked: h.locked}, id: id}, nil
 }
@@ -113,6 +115,9 @@ func (h *managerHost) Quiesce(ctx context.Context, id string) (recovery.Quiesced
 func (q *quiesced) Resume(ctx context.Context) error {
 	defer q.h.lock()()
 	m := q.h.m
+	if m.quiesced[q.id] {
+		m.selectionEpoch++
+	}
 	delete(m.quiesced, q.id)
 	if m.closed || m.uncertain || m.runtimeRecoveryRequired {
 		return nil
@@ -123,6 +128,9 @@ func (q *quiesced) Resume(ctx context.Context) error {
 
 func (q *quiesced) Release() {
 	defer q.h.lock()()
+	if q.h.m.quiesced[q.id] {
+		q.h.m.selectionEpoch++
+	}
 	delete(q.h.m.quiesced, q.id)
 }
 
@@ -165,6 +173,7 @@ func (h *managerHost) StartCandidate(ctx context.Context, id string, receipt pac
 	if e != nil {
 		return e
 	}
+	m.selectionEpoch++
 	m.instances[id] = started
 	delete(m.startFailed, id)
 	return nil
@@ -180,6 +189,7 @@ func (h *managerHost) StopCandidate(ctx context.Context, id string) error {
 	if e := m.runtime.Stop(ctx, instance); e != nil {
 		return e
 	}
+	m.selectionEpoch++
 	delete(m.instances, id)
 	return nil
 }

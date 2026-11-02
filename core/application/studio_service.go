@@ -410,7 +410,7 @@ func (a *Application) studioRemoteModel(model string) bool {
 // studioHostExecMode is chats_host_exec as it applies now. Empty is the
 // default: off on a server with accounts (several people), ask without.
 func (a *Application) studioHostExecMode() string {
-	if m := a.applicationConfig.ChatsHostExec; m != "" {
+	if m := a.applicationConfig.ChatSelectionSnapshot().HostExec; m != "" {
 		return m
 	}
 	if a.authDB != nil {
