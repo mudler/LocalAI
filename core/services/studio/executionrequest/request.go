@@ -160,6 +160,12 @@ func (r *Request) Observe(ctx context.Context) model.Value {
 			if r.ctx.Err() != nil {
 				r.step(model.Close{})
 			}
+			// A canceled consumer cannot establish freshness failure for peers.
+			// Parent cancellation above still closes the shared observation.
+			if ctx.Err() != nil {
+				r.mu.Unlock()
+				return model.Unknown()
+			}
 			if !fresh {
 				r.step(model.Invalidate{Cause: "stale-binding"})
 			}

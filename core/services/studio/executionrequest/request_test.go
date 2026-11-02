@@ -50,6 +50,24 @@ func (c *clock) advance(d time.Duration) {
 	}
 }
 
+// deadlineConsumer delivers an expiry at the validation boundary without a wall timer.
+type deadlineConsumer struct {
+	context.Context
+	deadline time.Time
+	done     chan struct{}
+}
+
+func (c *deadlineConsumer) Deadline() (time.Time, bool) { return c.deadline, true }
+func (c *deadlineConsumer) Done() <-chan struct{}       { return c.done }
+func (c *deadlineConsumer) Err() error {
+	select {
+	case <-c.done:
+		return context.DeadlineExceeded
+	default:
+		return nil
+	}
+}
+
 var _ = Describe("Reducer shell", func() {
 	var b model.Binding
 	var c *clock
@@ -256,6 +274,54 @@ var _ = Describe("Reducer shell", func() {
 		defer r.Close()
 		Expect(r.Observe(ctx)).To(Equal(model.Unknown()))
 	})
+
+	for _, kind := range []string{"canceled", "deadline-exceeded"} {
+		It("keeps consumer validation "+kind+" local to the consumer", func() {
+			var consumer context.Context
+			var expire func()
+			wantErr := context.Canceled
+			if kind == "canceled" {
+				consumer, expire = context.WithCancel(context.Background())
+				defer expire()
+			} else {
+				ctx := &deadlineConsumer{Context: context.Background(), deadline: c.Now().Add(time.Second), done: make(chan struct{})}
+				consumer = ctx
+				expire = func() { close(ctx.done) }
+				wantErr = context.DeadlineExceeded
+			}
+			reads := 0
+			io.Read = func(context.Context, model.Binding, model.ObservationID, time.Time) (model.Payload, error) {
+				reads++
+				return model.ValidPayload(model.Value{Readiness: model.Available, Isolation: model.Isolated}), nil
+			}
+			io.Validate = func(ctx context.Context, _ model.Binding) error {
+				if ctx == consumer {
+					expire()
+					return ctx.Err()
+				}
+				return nil
+			}
+			r := shell.New(context.Background(), b, "q", model.Eligible, io, c)
+			defer r.Close()
+			Expect(r.Observe(context.Background()).Isolation).To(Equal(model.Isolated))
+			Expect(r.Observe(consumer)).To(Equal(model.Unknown()))
+			Expect(consumer.Err()).To(Equal(wantErr))
+			Expect(r.Observe(context.Background()).Isolation).To(Equal(model.Isolated))
+			Expect(reads).To(Equal(1))
+			rules := []model.Rule{}
+			readEffects := 0
+			for _, tr := range r.Trace() {
+				rules = append(rules, tr.Rule)
+				for _, effect := range tr.Effects {
+					if _, ok := effect.(model.Read); ok {
+						readEffects++
+					}
+				}
+			}
+			Expect(rules).To(Equal([]model.Rule{model.R1, model.R2, model.R3, model.R7, model.R7}))
+			Expect(readEffects).To(Equal(1))
+		})
+	}
 
 	It("matches the normative success/duplicate-probe/close rule and effect trace", func() {
 		r := shell.New(context.Background(), b, "q", model.Eligible, io, c)
