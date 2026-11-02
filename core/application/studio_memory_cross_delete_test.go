@@ -116,6 +116,23 @@ var _ = Describe("cross-producer memory deletion application acceptance", func()
 		Expect(tombstone.State).To(Equal(lagi.MemoryDeleted))
 		Expect(tombstone.EntryID).To(Equal(entryID))
 		Expect(cs.EntryExistsForUser(principal, name, entryID)).To(BeFalse())
+		// Tool results precede the final Say. Join both original turns and close
+		// the original service before another JSON store owns this directory.
+		// Independent JSON stores hold whole snapshots, not merged row views.
+		for _, chatID := range []string{writer.ID, peer.ID} {
+			Eventually(func(g Gomega) {
+				turn, e := svc.Turn(ctx, principal, chatID)
+				g.Expect(e).NotTo(HaveOccurred())
+				g.Expect(turn.Running).To(BeFalse())
+				g.Expect(turn.Last).To(Equal(store.TurnDone))
+			}, 5*time.Second).Should(Succeed())
+		}
+		Expect(svc.Close(ctx)).To(Succeed())
+		abandoned, err := chats.ListCaptures(ctx, principal, writer.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(abandoned).To(HaveLen(1))
+		Expect(abandoned[0].State).To(Equal("Writing"))
+		Expect(abandoned[0].ID).To(Equal(before[0].ID))
 		// Reopen the actual queue while the original claim remains Writing. A new
 		// owner must reconcile the exact tombstone instead of writing a replacement.
 		clock.Store(before[0].Deadline.Add(time.Second).Unix())
@@ -133,7 +150,13 @@ var _ = Describe("cross-producer memory deletion application acceptance", func()
 		recoveryCtx, stop := context.WithCancel(ctx)
 		recoveryDone := make(chan error, 1)
 		go func() { recoveryDone <- restarted.ProcessMemoryCaptures(recoveryCtx) }()
-		DeferCleanup(func() { stop(); Eventually(recoveryDone, 3*time.Second).Should(Receive(MatchError(context.Canceled))) })
+		recoveryJoined := false
+		DeferCleanup(func() {
+			if !recoveryJoined {
+				stop()
+				Eventually(recoveryDone, 3*time.Second).Should(Receive(MatchError(context.Canceled)))
+			}
+		})
 		var skipped store.CaptureRecord
 		Eventually(terminal, 5*time.Second).Should(Receive(&skipped))
 		Expect(skipped.ID).To(Equal(before[0].ID))
@@ -142,7 +165,24 @@ var _ = Describe("cross-producer memory deletion application acceptance", func()
 		Expect(skipped.RuleID).To(Equal("R07-deleted"))
 		Expect(skipped.Generation).To(BeNumerically(">", before[0].Generation))
 		Expect(skipped.BackendFence.Owner).To(Equal("recovery-worker"))
-		Expect(lost.writes.Load()).To(Equal(int32(1)))
+		Expect(lost.writes.Load()).To(Equal(int32(1)), "counts only the original lost-response writer")
+		stop()
+		Eventually(recoveryDone, 3*time.Second).Should(Receive(MatchError(context.Canceled)))
+		recoveryJoined = true
+		Expect(restarted.Close(ctx)).To(Succeed())
+		// Reload only after all service/worker writers are stopped. The on-disk
+		// terminal record, not merely a publication callback, proves recovery.
+		persisted, e := store.NewJSON(queuePath)
+		Expect(e).NotTo(HaveOccurred())
+		disk, e := persisted.ListCaptures(ctx, principal, writer.ID)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(disk).To(HaveLen(1))
+		Expect(disk[0].ID).To(Equal(before[0].ID))
+		Expect(disk[0].Identity).To(Equal(before[0].Identity))
+		Expect(disk[0].State).To(Equal("Skipped"))
+		Expect(disk[0].RuleID).To(Equal("R07-deleted"))
+		Expect(disk[0].Revision).To(Equal(skipped.Revision))
+		Expect(disk[0].Generation).To(Equal(skipped.Generation))
 		final, err := cs.ReconcileMemory(ctx, principal, name, before[0].ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(final.State).To(Equal(lagi.MemoryDeleted))
