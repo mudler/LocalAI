@@ -47,6 +47,98 @@ func (b *lostCaptureResponse) WriteCapture(ctx context.Context, i memory.Identit
 }
 
 var _ = Describe("principal memory application adapter", func() {
+	DescribeTable("preserves captures while collections start and saves after readiness", func(expiredWriting bool) {
+		ctx := context.Background()
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, `{"data":[{"embedding":[1,0,0],"index":0}]}`)
+		}))
+		DeferCleanup(server.Close)
+		cfg := config.NewApplicationConfig()
+		cfg.DataPath = GinkgoT().TempDir()
+		cfg.Collections.Enabled = true
+		cfg.Collections.VectorEngine = "chromem"
+		cfg.Collections.APIURL = server.URL + "/v1"
+		cfg.Collections.EmbeddingModel = "test"
+		cs, err := collections.New(cfg, nil)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(cs.Close)
+		Expect(cs.CreateForUser("", "startup_memory")).To(Succeed())
+		chats, err := store.NewJSON(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		as, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		a := &Application{applicationConfig: cfg}
+		adapter := studioCollections{a}
+		clock := time.Now().Truncate(time.Second)
+		saved := make(chan store.CaptureRecord, 1)
+		svc, err := studio.New(studio.Deps{StateDir: GinkgoT().TempDir(), Store: chats, Agents: as, Provider: provider.New(), Collections: adapter,
+			CaptureWorker: studio.CaptureWorkerOptions{Owner: "startup-worker", Now: func() time.Time { return clock }, Publish: func(r store.CaptureRecord, status memory.PublishStatus) {
+				if status.Status == "Saved" {
+					saved <- r
+				}
+			}}})
+		Expect(err).NotTo(HaveOccurred())
+		a.studioService = svc
+		DeferCleanup(func() { Expect(svc.Close(ctx)).To(Succeed()) })
+		ag := agents.Agent{ID: "writer", Principal: studio.AnonymousPrincipal, Name: "writer", CollectionPermissions: &agents.CollectionPermissions{Version: 1, Grants: []agents.CollectionGrant{{Collection: "startup_memory"}}}, Memory: &agents.MemorySettings{Version: 1, Destination: "startup_memory", ToolStorage: "content", AutomaticIngestion: "incoming_only"}}
+		Expect(as.Put(ctx, ag)).To(Succeed())
+		chat, err := svc.Create(ctx, studio.AnonymousPrincipal, studio.CreateInput{AgentID: ag.ID, Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = chats.AcceptMemoryInput(ctx, store.MemoryAcceptance{Principal: studio.AnonymousPrincipal, ChatID: chat.ID, SourceID: "startup-input", Text: "remember after startup", Policy: store.CapturePolicy{AgentID: ag.ID, Destination: "startup_memory", Mode: store.CaptureIncoming}})
+		Expect(err).NotTo(HaveOccurred())
+		if expiredWriting {
+			claim, e := chats.ClaimCapture(ctx, "previous-worker", clock, time.Minute)
+			Expect(e).NotTo(HaveOccurred())
+			for _, event := range []memory.Event{memory.AuthorizationGranted{}, memory.PayloadPersisted{}, memory.AuthorizationGranted{}} {
+				state, e := claim.Record.ReducerState()
+				Expect(e).NotTo(HaveOccurred())
+				var env memory.Envelope
+				switch v := state.(type) {
+				case memory.Authorizing:
+					env = v.Work.Fence
+				case memory.PersistingPayload:
+					env = v.Work.Fence
+				}
+				env.Now = clock.Unix()
+				switch event.(type) {
+				case memory.AuthorizationGranted:
+					event = memory.AuthorizationGranted{Envelope: env}
+				case memory.PayloadPersisted:
+					event = memory.PayloadPersisted{Envelope: env}
+				}
+				transition := memory.Reduce(state, event)
+				Expect(transition.IgnoredReason).To(BeEmpty())
+				Expect(chats.ApplyCapture(ctx, claim, transition)).To(Succeed())
+				records, e := chats.ListCaptures(ctx, studio.AnonymousPrincipal, chat.ID)
+				Expect(e).NotTo(HaveOccurred())
+				claim.Record = records[0]
+			}
+			records, e := chats.ListCaptures(ctx, studio.AnonymousPrincipal, chat.ID)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(records[0].State).To(Equal("Writing"))
+			clock = records[0].Deadline.Add(time.Second)
+		}
+		before, err := chats.ListCaptures(ctx, studio.AnonymousPrincipal, chat.ID)
+		Expect(err).NotTo(HaveOccurred())
+		workerCtx, cancel := context.WithCancel(ctx)
+		done := make(chan error, 1)
+		go func() { done <- svc.ProcessMemoryCaptures(workerCtx) }()
+		DeferCleanup(func() { cancel(); Eventually(done).Should(Receive(MatchError(context.Canceled))) })
+		// This is the real startup window, even before AwaitCollections is called.
+		Consistently(func() []store.CaptureRecord {
+			r, e := chats.ListCaptures(ctx, studio.AnonymousPrincipal, chat.ID)
+			Expect(e).NotTo(HaveOccurred())
+			return r
+		}, 150*time.Millisecond, 10*time.Millisecond).Should(Equal(before))
+		a.collectionsService.Store(cs)
+		Eventually(saved, 4*time.Second).Should(Receive())
+		records, err := chats.ListCaptures(ctx, studio.AnonymousPrincipal, chat.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(records[0].State).To(Equal("Saved"))
+		Expect(records[0].Generation).To(BeNumerically(">", before[0].Generation))
+	}, Entry("queued", false), Entry("expired Writing", true))
+
 	DescribeTable("captures text through the real worker and fenced application adapter", func(engine string, crash bool) {
 		ctx := context.Background()
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

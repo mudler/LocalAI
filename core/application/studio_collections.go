@@ -18,6 +18,12 @@ import (
 // It asks for the pool at each call: the service starts after the chats service.
 type studioCollections struct{ a *Application }
 
+// CaptureReady distinguishes enabled collections still opening from a live
+// permission denial. The worker polls without claiming durable work in this window.
+func (c studioCollections) CaptureReady() bool {
+	return c.a.CollectionsService() != nil || c.a.applicationConfig == nil || !c.a.applicationConfig.Collections.Enabled
+}
+
 // owner maps the chat's user to the user the collections are kept under. The
 // chats name the unauthenticated user "anonymous"; the collections name it "".
 func (studioCollections) owner(user string) string {

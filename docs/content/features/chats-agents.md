@@ -729,3 +729,10 @@ nothing. Separate successful explicit calls create separate entries. Internal
 adapter callers can reuse a host-assigned invocation identity and frozen request
 key for retries; this is not a model argument. Queue-based automatic capture and
 its retry/status UI are separate work.
+
+The capture worker leaves durable queued jobs and expired write claims unchanged
+while an enabled collections service is still unavailable during startup. Once
+collections are ready, it resumes claims and checks current permissions before
+writing or reconciling previous writes. Readiness does not grant access: a live
+permission or policy denial still skips the capture. Status notifications describe
+the persisted capture revision and are emitted before the next processing effect.

@@ -14,6 +14,8 @@ import (
 
 // CaptureMemory is optional: synchronous tool writes alone do not establish a
 // fenced automatic-capture backend. Implementations must not retain contexts.
+// An adapter may additionally implement CaptureReady() bool to defer claims
+// during dependency startup, without treating unavailability as revoked access.
 type CaptureMemory interface {
 	BeginCapture(context.Context, memory.Identity, string, string, func(context.Context) error) (lagi.MemoryFence, error)
 	ReconcileCapture(context.Context, memory.Identity, string) (lagi.MemoryReceipt, error)
@@ -93,7 +95,14 @@ func (s *Service) ProcessMemoryCaptures(ctx context.Context) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		claim, err := s.d.Store.ClaimCapture(ctx, owner, now(), 60*time.Second)
+		// Startup readiness is not an authorization decision. Do not consume a
+		// claim (including expired Writing recovery) until the adapter can check
+		// live permissions and reconcile the backend.
+		var claim store.CaptureClaim
+		err := store.ErrNoCapture
+		if ready, ok := s.d.Collections.(interface{ CaptureReady() bool }); !ok || ready.CaptureReady() {
+			claim, err = s.d.Store.ClaimCapture(ctx, owner, now(), 60*time.Second)
+		}
 		if err == nil {
 			err = s.runCapture(ctx, claim, backend, fenced, now, options.Publish)
 		}
@@ -116,15 +125,23 @@ func (s *Service) ProcessMemoryCaptures(ctx context.Context) error {
 func (s *Service) runCapture(ctx context.Context, claim store.CaptureClaim, backend CaptureMemory, fenced store.CaptureMemoryStore, now func() time.Time, publish func(store.CaptureRecord, memory.PublishStatus)) error {
 	tr := claim.Transition
 	for len(tr.Effects) > 0 {
+		// The transition is already durable. Publish its projection before any
+		// effect can apply the next revision, regardless of reducer effect order.
+		// Store callbacks have returned: subscribers may safely reload the record.
+		for _, effect := range tr.Effects {
+			if status, ok := effect.(memory.PublishStatus); ok && publish != nil {
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+				publish(claim.Record, status)
+			}
+		}
 		var next *memory.Transition
 		for _, effect := range tr.Effects {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			if status, ok := effect.(memory.PublishStatus); ok {
-				if publish != nil {
-					publish(claim.Record, status)
-				}
+			if _, ok := effect.(memory.PublishStatus); ok {
 				continue
 			}
 			if _, ok := effect.(memory.ScheduleRetry); ok {
