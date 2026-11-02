@@ -490,7 +490,13 @@
       "needs a state root for the owner only",
       "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum",
       "distinguishes healthy empty connector discovery from loss of runtime ownership",
-      "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts"
+      "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts",
+      "finishes a real backup and commit after the submitting request is cancelled",
+      "polls and retries during a blocked backup, rejects conflicting IDs, and retains the receipt on restart",
+      "reconciles durable accepted work to interrupted without replay",
+      "Close cancels and joins an accepted owner worker before releasing storage",
+      "traces completion, retries, detach, interruption and late delivery without replay",
+      "keeps terminals immutable for every event and gives each active state a terminal exit"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -803,7 +809,8 @@
       "projects private policy safely",
       "forwards authenticated owner decisions",
       "validates strict request payloads",
-      "checks CAS and administrator authority"
+      "checks CAS and administrator authority",
+      "accepts before a slow backup, detaches the request and polls through either frontend"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -911,7 +918,8 @@
           "projects private policy safely",
           "forwards authenticated owner decisions",
           "validates strict request payloads",
-          "checks CAS and administrator authority"
+          "checks CAS and administrator authority",
+          "accepts before a slow backup, detaches the request and polls through either frontend"
         ]
       },
       {
@@ -2027,7 +2035,8 @@
       "projects private policy safely",
       "forwards authenticated owner decisions",
       "validates strict request payloads",
-      "checks CAS and administrator authority"
+      "checks CAS and administrator authority",
+      "accepts before a slow backup, detaches the request and polls through either frontend"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -2177,7 +2186,8 @@
           "projects private policy safely",
           "forwards authenticated owner decisions",
           "validates strict request payloads",
-          "checks CAS and administrator authority"
+          "checks CAS and administrator authority",
+          "accepts before a slow backup, detaches the request and polls through either frontend"
         ]
       },
       {
@@ -2590,7 +2600,13 @@
       "records the chat with the envelope of a read and of an action while it runs",
       "sends the add-on an envelope without a new field",
       "distinguishes healthy empty connector discovery from loss of runtime ownership",
-      "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts"
+      "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts",
+      "finishes a real backup and commit after the submitting request is cancelled",
+      "polls and retries during a blocked backup, rejects conflicting IDs, and retains the receipt on restart",
+      "reconciles durable accepted work to interrupted without replay",
+      "Close cancels and joins an accepted owner worker before releasing storage",
+      "traces completion, retries, detach, interruption and late delivery without replay",
+      "keeps terminals immutable for every event and gives each active state a terminal exit"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -2681,7 +2697,13 @@
           "keeps the manual upgrade closed to a caller who is not an administrator",
           "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum",
           "distinguishes healthy empty connector discovery from loss of runtime ownership",
-          "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts"
+          "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts",
+          "finishes a real backup and commit after the submitting request is cancelled",
+          "polls and retries during a blocked backup, rejects conflicting IDs, and retains the receipt on restart",
+          "reconciles durable accepted work to interrupted without replay",
+          "Close cancels and joins an accepted owner worker before releasing storage",
+          "traces completion, retries, detach, interruption and late delivery without replay",
+          "keeps terminals immutable for every event and gives each active state a terminal exit"
         ]
       },
       {

@@ -124,6 +124,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
 
           <div className="operation-card__sub">
             <span className="operation-card__verb">{verb}</span>
+            {operation.isAddon && operation.fromVersion && operation.toVersion && <span>{operation.fromVersion} to {operation.toVersion}</span>}
             {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
             {cancelling && <span>{t('activity.cancelling')}</span>}
             {failed && <span className="operation-card__error" title={operation.error}>{operation.isAddon && operation.failureCode ? t(`activity.addonFailure.${operation.failureCode}`, { defaultValue: operation.error }) : operation.error}</span>}

@@ -39,6 +39,13 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		}
 		return old.Status, nil
 	}
+	// Identify the same pinned transition from immutable projections even
+	// while execution owns mu; callers receive the same typed conflict then.
+	for _, old := range m.upgradeViews {
+		if cmd.ExpectedDigest != "" && old.Command.Action == "upgrade" && old.Command.AddonID == cmd.AddonID && old.Command.ExpectedDigest == cmd.ExpectedDigest && old.Command.CandidateDigest == cmd.CandidateDigest && old.Status.Phase != string(lifecycleFailed) {
+			return OperationStatus{}, ErrTransitionConflict
+		}
+	}
 	if m.upgradeActive || !m.mu.TryLock() {
 		return OperationStatus{}, ErrConflict
 	}
@@ -67,6 +74,14 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		}
 		if op.Command.AddonID == cmd.AddonID && op.Status.Phase != string(lifecycleCompleted) && op.Status.Phase != string(lifecycleFailed) {
 			return OperationStatus{}, ErrConflict
+		}
+	}
+	// Preserve typed precondition refusals without accepting invalid work. The
+	// worker rechecks the pins before effects, since acceptance is not a promise
+	// that a mutable library candidate will stay unchanged.
+	if cmd.ExpectedDigest != "" {
+		if _, err := m.checkPins(ctx, cmd, m.journal.Addons[cmd.AddonID]); err != nil {
+			return OperationStatus{}, err
 		}
 	}
 	op := journalOperation{Command: cmd, Actor: actor, Async: true, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleAccepted)}}
