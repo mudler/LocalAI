@@ -38,6 +38,8 @@ type jsonStore struct {
 	mu       sync.Mutex
 	dir      string // empty: memory only
 	chats    map[string]*chatSlot
+	// removeChatFile is an internal cleanup fault seam; nil uses os.Remove.
+	removeChatFile func(string) error
 }
 
 // chatSlot is one chat with its lock. gone is set, under the lock, when the
@@ -420,19 +422,37 @@ func (s *jsonStore) records(keep func(session.ChatRecord) bool) []session.ChatRe
 	return out
 }
 
-// CreateChat holds the map lock while it writes the new chat's files: the ID
-// must stay taken until the chat exists or the write failed. Creating a chat
-// is rare next to the other operations.
+// CreateChat holds the map lock while writing a new chat, as creation is rare.
+// For an existing ID it first takes that slot's lock without holding mu, then
+// rechecks the map. This waits through deletion's file cleanup before reusing
+// paths, and follows the slot-before-map order without blocking other IDs
+// while waiting. A competing creator may have replaced the slot meanwhile.
 func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	var retained captureData
-	if old, ok := s.chats[rec.ID]; ok {
+	for {
+		s.mu.Lock()
+		old, ok := s.chats[rec.ID]
+		if !ok {
+			break
+		}
+		s.mu.Unlock()
+		old.mu.Lock()
+		s.mu.Lock()
+		if s.chats[rec.ID] != old {
+			s.mu.Unlock()
+			old.mu.Unlock()
+			continue
+		}
 		if !old.Deleted {
+			s.mu.Unlock()
+			old.mu.Unlock()
 			return session.ErrExists
 		}
 		retained = old.Capture
+		defer old.mu.Unlock()
+		break
 	}
+	defer s.mu.Unlock()
 	c := chatState{Rec: rec, Capture: retained}
 	c.Rec.HarnessState = nil
 	c.Rec.Egress = rec.Egress.Clone()
@@ -689,7 +709,11 @@ func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
 			files = append(files, s.stateFile(id, oldGen))
 		}
 		for _, file := range files {
-			if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
+			remove := s.removeChatFile
+			if remove == nil {
+				remove = os.Remove
+			}
+			if err := remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
 				return err
 			}
 		}
