@@ -218,9 +218,9 @@ func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand,
 		}
 		op.Next = next
 		op.Status.Generation = next.Generation
-		op.Status.Phase = "prepared"
+		op.Status.Phase = string(lifecyclePrepared)
 		m.journal.Operations[cmd.OperationID] = op
-		if e := m.persist("prepared"); e != nil {
+		if e := m.persist(string(lifecyclePrepared)); e != nil {
 			applyErr = e
 			result = op.Status
 			return e
@@ -234,7 +234,7 @@ func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand,
 		applied = true
 		return nil
 	}
-	_, e := m.recovery.With(host).UpgradeReceipt(ctx, cmd.AddonID, staged)
+	_, e := m.recovery.With(host).WithProgress(func(stage string) error { return m.upgradeStage(cmd.OperationID, stage) }).UpgradeReceipt(ctx, cmd.AddonID, staged)
 	switch {
 	case applyErr != nil:
 		if m.runtime != nil {
@@ -246,7 +246,7 @@ func (m *Manager) upgradeWithRecovery(ctx context.Context, cmd LifecycleCommand,
 		m.syncSkills(ctx, cmd.AddonID)
 		return result, m.syncFor(ctx, cmd.AddonID)
 	case e != nil:
-		return fail()
+		return fail(e)
 	}
 	return fail()
 }

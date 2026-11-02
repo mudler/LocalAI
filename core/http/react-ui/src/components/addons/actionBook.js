@@ -19,6 +19,10 @@ import { newOperationId } from '../catalog/catalogState.js'
 export function createActionBook(makeId = newOperationId) {
   const held = new Map()
   return {
+    restore(subject, entry) {
+      held.set(subject, { ...entry, unknown: true })
+    },
+    clear() { held.clear() },
     begin(subject, key, meta) {
       const cur = held.get(subject)
       if (cur && cur.key === key) {

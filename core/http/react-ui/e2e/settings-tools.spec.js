@@ -179,7 +179,7 @@ test.describe('The skills of an add-on in its details', () => {
     })
     await mockSettings(page)
     let rows = [
-      { id: 'xlsx', provider: 'sheets', candidates: ['office', 'sheets'], titles: { office: 'Office', sheets: 'Sheets' } },
+      { id: 'xlsx', provider: 'sheets', default: 'sheets', candidates: ['office', 'sheets'], titles: { office: 'Office', sheets: 'Sheets' } },
       { id: 'docx', provider: 'office', candidates: ['office'], titles: { office: 'Office' } },
     ]
     await page.route('**/api/chats/admin/tools', route => route.fulfill({ json: { tools: [], skills: rows } }))

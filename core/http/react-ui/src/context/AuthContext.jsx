@@ -1,6 +1,7 @@
 import { useContext, useState, useEffect } from 'react'
 import { apiUrl } from '../utils/basePath'
 import { AuthContext } from './authState'
+import { addonUpgrades } from '../utils/addonUpgrades'
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
@@ -35,6 +36,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   const logout = async () => {
+    // Detach observers and remove stored identities before leaving this page.
+    // An auth-state effect may never run when navigation unloads the app.
+    let persistence
+    try { persistence = window.sessionStorage } catch { /* storage blocked */ }
+    addonUpgrades.clearSession(persistence)
     try {
       await fetch(apiUrl('/api/auth/logout'), { method: 'POST' })
     } catch (_) { /* ignore */ }

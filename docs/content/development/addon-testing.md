@@ -461,3 +461,22 @@ The picker specs exercise rendering and switches; they do not alone establish re
 Also test actual provider resolution, grants, pins, OFF persistence, and index/load agreement against the application.
 Require native linux/amd64 and linux/arm64 execution evidence before claiming release verification.
 Cross-compilation or a configured CI matrix alone does not establish native execution.
+
+## Upgrade submission and observation regressions
+
+- [ ] `go test -race ./core/services/addons ./core/services/addons/gateway ./core/services/addons/recovery -count=1`
+- [ ] `cd core/http/react-ui && node --test tests/unit/updatereview.test.mjs`
+- [ ] `cd core/http/react-ui && npm run build`
+- [ ] Verify cancellation during the real verified-backup path does not cancel
+      an accepted upgrade or prevent its package commit.
+- [ ] Verify status reads and same-ID retries through two real mTLS frontends
+      remain available while backup exceeds an injected ordinary client deadline.
+- [ ] Verify payload conflicts, actor isolation, terminal receipt replay after
+      restart, interruption without replay, and Close cancellation/join behavior.
+- [ ] Verify browser reload observes the stored ID, account switching isolates
+      records, logout clears records, and progress does not invent percentages.
+
+The recovery suite above remains required for crash boundaries during backup,
+staging, migration and publication, including format-changing recovery-required
+outcomes. The focused submission tests do not replace the real executable,
+real-auth HTTP or rendered-browser acceptance gates.

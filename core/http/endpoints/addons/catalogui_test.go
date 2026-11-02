@@ -261,7 +261,8 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 			generation := uint64(before["generation"].(float64))
 			r := send(e, "POST", "/api/addons/dispatch", dispatchBody("upgrade-"+name, "headless", "upgrade", 0, `{"sourceId":"test","version":"1.0.0"}`), admin)
 			Expect(r.code).To(Equal(200), name)
-			Expect(payloadOf(r)).To(HaveKeyWithValue("Phase", "completed"))
+			Expect(payloadOf(r)).To(HaveKeyWithValue("Phase", "accepted"))
+			Expect(awaitLifecycle(e, "headless", "upgrade-"+name, admin)).To(HaveKeyWithValue("Phase", "completed"))
 			after := byID(listOf(payloadOf(send(e, "POST", "/api/addons/dispatch", dispatchBody("up-after-"+name, "", "addons-installed", 0, `{}`), admin)), "addons"), "id", "headless")
 			Expect(uint64(after["generation"].(float64))).To(Equal(generation + 1))
 			Expect(after).To(HaveKeyWithValue("generations", BeNumerically("==", generation+1)))
@@ -271,6 +272,7 @@ var _ = Describe("catalog and management actions", Label("catalogui"), func() {
 		// The same operation replays and never upgrades twice.
 		r := send(s.frontends["owner"], "POST", "/api/addons/dispatch", dispatchBody("upgrade-replay", "headless", "upgrade", 0, `{"sourceId":"test","version":"1.0.0"}`), bearerOf(s.tokens["alice"]))
 		Expect(r.code).To(Equal(200))
+		Expect(awaitLifecycle(s.frontends["owner"], "headless", "upgrade-replay", bearerOf(s.tokens["alice"]))).To(HaveKeyWithValue("Phase", "completed"))
 		first, err := s.manager.Status(context.Background(), "headless")
 		Expect(err).NotTo(HaveOccurred())
 		again := send(s.frontends["front-a"], "POST", "/api/addons/dispatch", dispatchBody("upgrade-replay", "headless", "upgrade", 0, `{"sourceId":"test","version":"1.0.0"}`), bearerOf(s.tokens["alice"]))

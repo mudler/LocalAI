@@ -7,10 +7,7 @@
 // identity per action, never a second submit after an unknown outcome), reads
 // the operation until it settles, and keeps what it saw so a list can show it.
 //
-// Cancel aborts the request. The owner treats a canceled upgrade request as a
-// cancellation (the last good generation is kept), and the store then reads
-// the operation once more, so what it reports is the owner's answer and not
-// the click.
+// Disconnecting only detaches the observer; accepted work belongs to the owner.
 import { createActionBook, effectOutcome } from '../components/addons/actionBook.js'
 import { runLifecycle, settleOperation } from '../components/addons/lifecycleFlow.js'
 import { updateErrorKey, updateView, upgradeBody } from '../components/addons/updateState.js'
@@ -18,17 +15,20 @@ import { AddonsError } from './addonsApi.js'
 
 // How far along an operation phase is, for the progress bar. The owner reports
 // phases, not percentages.
-const PHASE_PROGRESS = { intent: 10, prepared: 50, applied: 85 }
+const PHASE_PROGRESS = {}
 const MAX_RECORDS = 50
 const POLL_MS = 2000
 const POLL_ATTEMPTS = 300
 
 export function phaseProgress(phase) {
-  return PHASE_PROGRESS[phase] || 5
+  return PHASE_PROGRESS[phase] || 0
 }
 
 export function createUpgradeStore({ now = Date.now, waits, sleep, book = createActionBook() } = {}) {
   let snapshot = { live: [], records: [] }
+ let scope = ""
+ let storage = null
+ let epoch = 0
   const listeners = new Set()
   const controllers = new Map()
   const cancelled = new Set()
@@ -51,6 +51,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
 
   const emit = (next) => {
     snapshot = next
+    if (storage && scope) { try { storage.setItem(`addon-upgrades:${scope}`, JSON.stringify(next.live.map(({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration }) => ({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration })))) } catch { /* unavailable storage only loses observer recovery */ } }
     for (const listener of listeners) listener()
   }
   const patch = (jobID, fields) => {
@@ -64,12 +65,48 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     ...api,
     async operationStatus(...args) {
       const status = await api.operationStatus(...args)
-      if (status && status.phase) patch(jobID, { phase: status.phase, progress: phaseProgress(status.phase) })
+      if (status && status.phase) patch(jobID, { phase: status.phase, stage: status.stage, failureCode: status.failureCode, message: status.stage || status.phase, progress: 0 })
       return status
     },
   })
 
   const store = {
+    bind(api, principal, persistence) {
+      if (scope === principal && storage === persistence) return
+      const previous = scope
+      epoch += 1
+      for (const controller of controllers.values()) controller.abort()
+      controllers.clear()
+      book.clear()
+      if (!principal && storage && previous) { try { storage.removeItem(`addon-upgrades:${previous}`) } catch { /* storage unavailable */ } }
+      scope = principal
+      storage = persistence
+      snapshot = { live: [], records: [] }
+      for (const listener of listeners) listener()
+      if (!scope || !storage) return
+      let pending = []
+      try { pending = JSON.parse(storage.getItem(`addon-upgrades:${scope}`) || "[]") } catch { return }
+      if (!Array.isArray(pending)) return
+      for (const op of pending.slice(0, 20)) {
+        if (!op.operationId || !op.addonId) continue
+        book.restore(op.addonId, { key: `upgrade:${op.addonId}:${op.baseGeneration}`, operationId: op.operationId })
+        const controller = new AbortController()
+        controllers.set(op.jobID, controller)
+        emit({ ...snapshot, live: [...snapshot.live, { ...op, isAddon: true, taskType: "upgrade", state: "running", progress: 0, cancellable: false }] })
+        void store.follow(api, { jobID: op.jobID, addon: { id: op.addonId, generation: op.baseGeneration }, operationId: op.operationId, key: `upgrade:${op.addonId}:${op.baseGeneration}`, controller, submit: false })
+      }
+    },
+
+    // Logout must not rely on a React state update before navigation, and may
+    // run before this store has bound a principal. Clear only our namespace.
+    clearSession(persistence) {
+      store.bind(null, '', null)
+      try {
+        const keys = Array.from({ length: persistence?.length || 0 }, (_, i) => persistence.key(i))
+        for (const key of keys) if (key?.startsWith('addon-upgrades:')) persistence.removeItem(key)
+      } catch { /* blocked storage must not prevent logout */ }
+    },
+
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -94,6 +131,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         fullName: addon.id,
         isAddon: true,
         taskType: 'upgrade',
+        baseGeneration: addon.generation,
         fromVersion: addon.version || '',
         toVersion: view.version,
         startedAt: new Date(now()).toISOString(),
@@ -110,7 +148,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       controllers.set(jobID, controller)
       emit({
         ...snapshot,
-        live: [...withoutOld, { ...base, jobID, operationId, state: 'running', phase: 'intent', progress: phaseProgress('intent'), cancellable: true, error: '', errorKey: '' }],
+        live: [...withoutOld, { ...base, jobID, operationId, state: 'running', phase: 'submitting', progress: 0, cancellable: false, error: '', errorKey: '' }],
       })
       return store.follow(api, { jobID, addon, operationId, key, controller, submit: true })
     },
@@ -118,6 +156,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     // Runs the submit (or, with submit false, only reads the earlier operation)
     // and turns its end into the entry of a list.
     async follow(api, { jobID, addon, operationId, key, controller, submit }) {
+      const followingEpoch = epoch
       const signal = controller.signal
       const tracked = trackPhases(api, jobID)
       try {
@@ -151,8 +190,10 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
             verified = undefined
           }
         }
+        if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
         return store.conclude(jobID, addon, key, effectOutcome(outcome, verified), operationId)
       } catch (e) {
+        if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
         if (e && e.name === 'AbortError' && cancelled.has(jobID)) return store.afterCancel(api, { jobID, addon, operationId, key })
         const kind = e && e.kind ? e.kind : 'unavailable'
         if (kind === 'denied' || kind === 'invalid' || kind === 'auth') book.resolve(addon.id, key)
@@ -216,7 +257,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
 
     cancel(jobID) {
       const controller = controllers.get(jobID)
-      if (!controller) return false
+      if (!controller || !snapshot.live.find(op => op.jobID === jobID)?.cancellable) return false
       cancelled.add(jobID)
       patch(jobID, { state: 'cancelling', cancellable: false })
       controller.abort()
