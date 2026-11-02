@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
 	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
 	"io"
 	"net/http"
@@ -871,24 +870,24 @@ func (c *Carrier) artifactStatus(ctx context.Context, a contract.Actor, id strin
 
 // HostSettingsSnapshot reads owner policy for trusted host consumers over pinned
 // mTLS. This route has no mutation counterpart and carries no caller flags.
-func (c *Carrier) HostSettingsSnapshot(ctx context.Context) (hostsettings.Snapshot, error) {
+func (c *Carrier) HostSettingsSnapshot(ctx context.Context) (HostSettingsPolicy, error) {
 	ctx, cancel := context.WithTimeout(ctx, ReachableTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/host-settings", nil)
 	if err != nil {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	return DecodeHostSettingsResult(contract.Result{Payload: raw})
 }

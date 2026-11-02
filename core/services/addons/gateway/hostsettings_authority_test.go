@@ -2,6 +2,7 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -14,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sync/atomic"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestAddonSettingsAuthorityCarrier(t *testing.T) {
+	t.Run("projection", testSettingsProjection)
 	t.Run("forwarding", testSettingsForwarding)
 	t.Run("validation", testSettingsValidation)
 	ctx := context.Background()
@@ -274,5 +277,142 @@ func testSettingsValidation(t *testing.T) {
 	}
 	if mutation(ActionHostSettingsRead) || !mutation(ActionHostSettingsUpdate) || !mutation("future-host-action") {
 		t.Fatal("unsafe mutation classification")
+	}
+}
+
+// Synthetic provenance must remain durable without becoming part of host policy.
+func testSettingsProjection(t *testing.T) {
+	for _, forwarded := range []bool{false, true} {
+		name := "local"
+		if forwarded {
+			name = "carrier"
+		}
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			path := filepath.Join(t.TempDir(), "host.json")
+			provenance := hostsettings.Provenance{Mode: string(hostsettings.Standalone), Source: "/synthetic-private/owner-config.json", Version: "synthetic-internal-release"}
+			store, err := hostsettings.Open(path, &hostsettings.Migration{Mode: hostsettings.Mode(provenance.Mode), Source: provenance.Source, Version: provenance.Version, Candidates: []hostsettings.Policy{{Ceiling: "off", Default: "off"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer store.Close()
+			admin := contract.Actor{UserID: "admin", CredentialID: "key:admin", Mode: "named-user"}
+			user := contract.Actor{UserID: "ordinary-user", CredentialID: "key:ordinary", Mode: "named-user"}
+			owner := &Gateway{HostSettings: store, Revalidate: func(context.Context, contract.Actor) error { return nil }, HostSettingsAdmin: func(_ context.Context, a contract.Actor) error {
+				if a != admin {
+					return ErrForbidden
+				}
+				return nil
+			}}
+			g := owner
+			if forwarded {
+				server, carrier := settingsCarrier(t, owner)
+				defer server.Close()
+				g = &Gateway{Forward: carrier, Revalidate: func(context.Context, contract.Actor) error { return nil }}
+			}
+			assertProjection := func(value any, revision uint64) {
+				t.Helper()
+				raw, e := json.Marshal(value)
+				if e != nil {
+					t.Fatal(e)
+				}
+				var fields map[string]json.RawMessage
+				if e = json.Unmarshal(raw, &fields); e != nil {
+					t.Fatal(e)
+				}
+				if len(fields) != 3 || fields["schema_version"] == nil || fields["revision"] == nil || fields["policy"] == nil {
+					t.Errorf("policy projection must contain only schema, revision and policy: %s", raw)
+				}
+				var gotRevision uint64
+				if json.Unmarshal(fields["revision"], &gotRevision) != nil || gotRevision != revision {
+					t.Errorf("revision: %s", raw)
+				}
+				if bytes.Contains(raw, []byte(provenance.Source)) || bytes.Contains(raw, []byte(provenance.Version)) || fields["migration"] != nil {
+					t.Errorf("projection exposes migration provenance: %s", raw)
+				}
+			}
+			s, err := g.ReadHostSettings(ctx, user)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertProjection(s, 1)
+			alias, err := g.HostSettingsSnapshot(ctx, user)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertProjection(alias, 1)
+			// Inspect the actual action payload, not only the helper's decoded result.
+			r, err := g.Dispatch(ctx, user, contract.Request{Action: ActionHostSettingsRead, OperationID: "projection-read", Arguments: json.RawMessage(`{}`)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var envelope map[string]json.RawMessage
+			if err = json.Unmarshal(r.Payload, &envelope); err != nil {
+				t.Fatal(err)
+			}
+			assertProjection(envelope["data"], 1)
+			internal, err := g.HostSettingsInternalSnapshot(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertProjection(internal, 1)
+			if forwarded {
+				resp, e := g.Forward.client.Get(g.Forward.config.OwnerAddress + "/addons/host-settings")
+				if e != nil {
+					t.Fatal(e)
+				}
+				e = json.NewDecoder(resp.Body).Decode(&envelope)
+				resp.Body.Close()
+				if e != nil || resp.StatusCode != http.StatusOK {
+					t.Fatalf("internal wire: %v %d", e, resp.StatusCode)
+				}
+				assertProjection(envelope["data"], 1)
+			}
+			yes := true
+			patch := hostsettings.Patch{AutoUpgradeAddons: &yes}
+			args, err := json.Marshal(map[string]any{"expectedRevision": 1, "patch": patch})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := 0; i < 2; i++ {
+				updated, e := g.UpdateHostSettings(ctx, admin, patch, 1, "projection-update")
+				if e != nil {
+					t.Fatal(e)
+				}
+				assertProjection(updated, 2)
+				r, e = g.Dispatch(ctx, admin, contract.Request{Action: ActionHostSettingsUpdate, OperationID: "projection-update", Arguments: args})
+				if e != nil {
+					t.Fatal(e)
+				}
+				if e = json.Unmarshal(r.Payload, &envelope); e != nil {
+					t.Fatal(e)
+				}
+				assertProjection(envelope["data"], 2)
+			}
+			// Reads and receipt replay must not strip provenance from private storage.
+			private, err := store.Snapshot(ctx)
+			if err != nil || private.Migration != provenance || private.Revision != 2 || !private.Policy.AutoUpgradeAddons {
+				t.Fatalf("private snapshot: %+v %v", private, err)
+			}
+			disk, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Contains(disk, []byte(provenance.Source)) || !bytes.Contains(disk, []byte(provenance.Version)) {
+				t.Fatal("durable provenance lost")
+			}
+			_, err = g.UpdateHostSettings(ctx, admin, hostsettings.Patch{}, 1, "projection-update")
+			if !errors.Is(err, hostsettings.ErrOperationMismatch) {
+				t.Fatalf("typed mismatch: %v", err)
+			}
+			_, err = g.UpdateHostSettings(ctx, admin, patch, 1, "projection-stale")
+			if !errors.Is(err, hostsettings.ErrConflict) {
+				t.Fatalf("typed conflict: %v", err)
+			}
+			_, err = g.UpdateHostSettings(ctx, user, patch, 2, "projection-denied")
+			if !errors.Is(err, ErrForbidden) {
+				t.Fatalf("typed forbidden: %v", err)
+			}
+		})
 	}
 }

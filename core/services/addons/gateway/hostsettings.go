@@ -26,9 +26,21 @@ type HostSettingsService interface {
 	Update(context.Context, hostsettings.Patch, uint64, string) (hostsettings.Snapshot, error)
 }
 
+// HostSettingsPolicy is the bounded policy projection shared by callers and
+// trusted host consumers. Migration provenance belongs only to owner storage.
+type HostSettingsPolicy struct {
+	SchemaVersion int                 `json:"schema_version"`
+	Revision      uint64              `json:"revision"`
+	Policy        hostsettings.Policy `json:"policy"`
+}
+
+func projectHostSettings(s hostsettings.Snapshot) HostSettingsPolicy {
+	return HostSettingsPolicy{SchemaVersion: s.SchemaVersion, Revision: s.Revision, Policy: s.Policy}
+}
+
 type hostSettingsEnvelope struct {
-	Data  *hostsettings.Snapshot `json:"data,omitempty"`
-	Error string                 `json:"error,omitempty"`
+	Data  *HostSettingsPolicy `json:"data,omitempty"`
+	Error string              `json:"error,omitempty"`
 }
 
 var hostSettingsFailures = map[string]error{
@@ -39,69 +51,69 @@ var hostSettingsFailures = map[string]error{
 
 // DecodeHostSettingsResult preserves definite store refusals across the carrier.
 // Unavailable or uncertain writes instead use the carrier's unknown-outcome path.
-func DecodeHostSettingsResult(r contract.Result) (hostsettings.Snapshot, error) {
+func DecodeHostSettingsResult(r contract.Result) (HostSettingsPolicy, error) {
 	var env hostSettingsEnvelope
 	if decode(bytes.NewReader(r.Payload), &env) != nil {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	if env.Error != "" {
 		if e, ok := hostSettingsFailures[env.Error]; ok && env.Data == nil {
-			return hostsettings.Snapshot{}, e
+			return HostSettingsPolicy{}, e
 		}
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	if env.Data == nil || env.Data.SchemaVersion != hostsettings.SchemaVersion || env.Data.Revision == 0 {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	return *env.Data, nil
 }
 
-func (g *Gateway) ReadHostSettings(ctx context.Context, actor contract.Actor) (hostsettings.Snapshot, error) {
+func (g *Gateway) ReadHostSettings(ctx context.Context, actor contract.Actor) (HostSettingsPolicy, error) {
 	var identity [16]byte
 	if _, err := rand.Read(identity[:]); err != nil {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	r, err := g.Dispatch(ctx, actor, contract.Request{OperationID: "s" + hex.EncodeToString(identity[:]), Action: ActionHostSettingsRead, Arguments: json.RawMessage(`{}`)})
 	if err != nil {
-		return hostsettings.Snapshot{}, err
+		return HostSettingsPolicy{}, err
 	}
 	return DecodeHostSettingsResult(r)
 }
 
 // HostSettingsSnapshot is the authenticated read entry point.
-func (g *Gateway) HostSettingsSnapshot(ctx context.Context, actor contract.Actor) (hostsettings.Snapshot, error) {
+func (g *Gateway) HostSettingsSnapshot(ctx context.Context, actor contract.Actor) (HostSettingsPolicy, error) {
 	return g.ReadHostSettings(ctx, actor)
 }
 
-func (g *Gateway) UpdateHostSettings(ctx context.Context, actor contract.Actor, patch hostsettings.Patch, revision uint64, operationID string) (hostsettings.Snapshot, error) {
+func (g *Gateway) UpdateHostSettings(ctx context.Context, actor contract.Actor, patch hostsettings.Patch, revision uint64, operationID string) (HostSettingsPolicy, error) {
 	raw, err := json.Marshal(struct {
 		Revision uint64             `json:"expectedRevision"`
 		Patch    hostsettings.Patch `json:"patch"`
 	}{revision, patch})
 	if err != nil {
-		return hostsettings.Snapshot{}, hostsettings.ErrInvalid
+		return HostSettingsPolicy{}, hostsettings.ErrInvalid
 	}
 	r, err := g.Dispatch(ctx, actor, contract.Request{Action: ActionHostSettingsUpdate, OperationID: operationID, Arguments: raw})
 	if err != nil {
-		return hostsettings.Snapshot{}, err
+		return HostSettingsPolicy{}, err
 	}
 	return DecodeHostSettingsResult(r)
 }
 
 // HostSettingsInternalSnapshot is for trusted in-process host consumers, not
 // add-ons or public handlers. It cannot mutate or silently use a replica's store.
-func (g *Gateway) HostSettingsInternalSnapshot(ctx context.Context) (hostsettings.Snapshot, error) {
+func (g *Gateway) HostSettingsInternalSnapshot(ctx context.Context) (HostSettingsPolicy, error) {
 	if g.Forward != nil {
 		return g.Forward.HostSettingsSnapshot(ctx)
 	}
 	if g.HostSettings == nil {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
 	s, err := g.HostSettings.Snapshot(ctx)
 	if err != nil {
-		return hostsettings.Snapshot{}, ErrUnavailable
+		return HostSettingsPolicy{}, ErrUnavailable
 	}
-	return s, nil
+	return projectHostSettings(s), nil
 }
 
 // hostSettingsArguments rejects duplicate keys, aliases, missing fields, nulls,
@@ -175,7 +187,8 @@ func (g *Gateway) hostSettingsAction(ctx context.Context, actor contract.Actor, 
 			return contract.Result{}, ErrUnavailable
 		}
 	} else {
-		env.Data = &s
+		policy := projectHostSettings(s)
+		env.Data = &policy
 	}
 	raw, err := json.Marshal(env)
 	return contract.Result{Payload: raw}, err

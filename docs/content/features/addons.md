@@ -48,6 +48,7 @@ unknown-outcome behavior, with operation IDs and durable receipts for reconcilia
 Trusted host consumers can also read snapshots over a pinned mutual-TLS internal
 route, without impersonating an end user. Frontends never fall back to local policy
 when the owner or its store is unavailable.
+All read, update and replay results expose only schema version, revision and policy, excluding private migration provenance retained in owner storage.
 
 These are internal service interfaces only: application initialization, public
 settings routes, the settings UI and runtime consumers are not yet connected.
