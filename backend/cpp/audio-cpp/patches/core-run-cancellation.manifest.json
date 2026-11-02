@@ -47,7 +47,7 @@
     },
     "src/models/sheetsage/session.cpp": {
       "base_sha256": "67a658b48821e9ca88ab92f839549077c3a0461d71b35c2296e685fcb47395de",
-      "final_sha256": "ec9eb9b069514a56c7a6f687828eaf40fc9df63c72cbbe995cd5ba5cad2d28c9"
+      "final_sha256": "1228def38d836edaac9b95d862007c05f03e42768a686950197fc71066b96ca2"
     },
     "include/engine/framework/audio/fft.h": {
       "base_sha256": "5a63de2ab9d7361f186b9c9b7b6ba390526b4cb5122fa1174921295c2f2b7f55",
@@ -68,6 +68,14 @@
     "src/framework/audio/dsp.cpp": {
       "base_sha256": "9087fa5de390365e4e7c4fea7fde4c068c882a16568ab775bdcdbcefae36f494",
       "final_sha256": "b7eb3e1d88624d8f3d4e0b2f37c3699b5b8978376706f1f08bc99d534377aa9d"
+    },
+    "src/models/sheetsage/processing.cpp": {
+      "base_sha256": "75017425f5f207e6ec2a8cddfcc4b9a78cea2f047ec0fff0097474fa067bf2cd",
+      "final_sha256": "1d098dd26d7a03fc5e133c6d9babd91c7a1d5334ccddf3dd3e901790e6e3904f"
+    },
+    "include/engine/models/sheetsage/processing.h": {
+      "base_sha256": "c4fcd5a98970c0dfed084ea54cf71178d5a5d0a22be6ead80b21b61f476a9c72",
+      "final_sha256": "8c2f96998bfb4ea43aca959a44046c397ba2b603c543cece03ad536039619f41"
     }
   },
   "omitted_tracked_paths": {
@@ -278,6 +286,24 @@
         "src/models/sheetsage/session.cpp": {
           "base_sha256": "3613ab53600aae2daea168b91f4cadca776cfd82ba26e324b6fbbbbf2327dd2e",
           "final_sha256": "ec9eb9b069514a56c7a6f687828eaf40fc9df63c72cbbe995cd5ba5cad2d28c9"
+        }
+      }
+    },
+    {
+      "patch": "0011-sheetsage-output-host-cancellation.patch",
+      "patch_sha256": "06c38f03efd0ef1b04166f0c67cfd1e653d818fab44765a6cda3da8bd5a78f8d",
+      "files": {
+        "src/models/sheetsage/session.cpp": {
+          "base_sha256": "ec9eb9b069514a56c7a6f687828eaf40fc9df63c72cbbe995cd5ba5cad2d28c9",
+          "final_sha256": "1228def38d836edaac9b95d862007c05f03e42768a686950197fc71066b96ca2"
+        },
+        "src/models/sheetsage/processing.cpp": {
+          "base_sha256": "75017425f5f207e6ec2a8cddfcc4b9a78cea2f047ec0fff0097474fa067bf2cd",
+          "final_sha256": "1d098dd26d7a03fc5e133c6d9babd91c7a1d5334ccddf3dd3e901790e6e3904f"
+        },
+        "include/engine/models/sheetsage/processing.h": {
+          "base_sha256": "c4fcd5a98970c0dfed084ea54cf71178d5a5d0a22be6ead80b21b61f476a9c72",
+          "final_sha256": "8c2f96998bfb4ea43aca959a44046c397ba2b603c543cece03ad536039619f41"
         }
       }
     }

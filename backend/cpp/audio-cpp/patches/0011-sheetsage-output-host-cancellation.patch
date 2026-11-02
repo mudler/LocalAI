@@ -1,0 +1,1641 @@
+diff --git a/src/models/sheetsage/session.cpp b/src/models/sheetsage/session.cpp
+--- a/src/models/sheetsage/session.cpp
++++ b/src/models/sheetsage/session.cpp
+@@ -1284,6 +1284,451 @@
+ #endif
+ }
+ 
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++namespace session_output_testing {void progress(int family,size_t unit,size_t value) noexcept;void snapshot(int family,const void*value)noexcept;}
++#endif
++struct SessionOutputOwner : std::enable_shared_from_this<SessionOutputOwner> {
++    core::RunStopHandle stop;SheetSage2OutputDomain domain;size_t units=0;int comparison_family=3;
++    SessionOutputOwner(core::RunStopHandle s,SheetSage2OutputDomain d):stop(std::move(s)),domain(d){}
++    void check(int family=0){
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++        session_output_testing::progress(family,units,0);
++#endif
++        if(stop && stop->cancelled())throw runtime::RunCancelled();
++    }
++    void work(int family=1,size_t value=0){if(units%64==0 && stop && stop->cancelled())throw runtime::RunCancelled();++units;
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++        session_output_testing::progress(family,units,value);
++#endif
++        if(units%64==0 && stop && stop->cancelled())throw runtime::RunCancelled();
++    }
++    size_t budget()const {
++        if(domain.context_per_window<=0||domain.window_count<=0||static_cast<uint64_t>(domain.context_per_window)>std::numeric_limits<size_t>::max()/static_cast<uint64_t>(domain.window_count))throw std::runtime_error("SheetSage2 output request domain is invalid");
++        return static_cast<size_t>(domain.context_per_window)*static_cast<size_t>(domain.window_count);
++    }
++    void validate_events(const std::vector<SheetSage2Event>&events,double duration)const {validate_sheetsage2_output(events,duration,domain);}
++    void validate_tokens(const std::vector<int32_t>&tokens,const SheetSage2Tokenizer&tokenizer)const {
++        if(tokens.size()>budget()+1)throw std::runtime_error("SheetSage2 output token count exceeds request domain");
++        int64_t total=0;
++        for(int32_t token:tokens)if(token>=tokenizer.subbeat_start&&token<tokenizer.subbeat_end){int64_t delta=token-tokenizer.subbeat_start;if(total>std::numeric_limits<int64_t>::max()-delta)throw std::runtime_error("SheetSage2 output subbeat overflow");total+=delta;}
++    }
++    template<class T>T completed(T value,int family){
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++        session_output_testing::snapshot(family,&value);
++#endif
++        check(family);return value;
++    }
++    struct Visit{SessionOutputOwner & owner;~Visit()noexcept{++owner.units;
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++        session_output_testing::progress(1,owner.units,0);
++#endif
++    }};
++    Visit visit(){if(stop && stop->cancelled())throw runtime::RunCancelled();return {*this};}
++    template<class It,class Compare>void sort(It begin,It end,Compare compare){check(2);std::sort(begin,end,[&](const auto&a,const auto&b){bool value=compare(a,b);work(comparison_family,value?1:0);return value;});check(2);}
++    template<class It>void sort(It begin,It end){sort(begin,end,[](const auto&a,const auto&b){return a<b;});}
++    template<class T>void append(std::vector<T>&to,const std::vector<T>&from){for(size_t begin=0;begin<from.size();){check();size_t end=begin+std::min<size_t>(256,from.size()-begin);to.insert(to.end(),from.begin()+begin,from.begin()+end);work(23,end-begin);begin=end;}}
++std::vector<SheetSage2Event> decode_events(
++    const SheetSage2Tokenizer & tokenizer,
++    const std::vector<int32_t> & tokens) {
++    validate_tokens(tokens,tokenizer);check();
++    std::vector<SheetSage2Event> events;
++    auto out_it=tokens.begin();for(;out_it!=tokens.end();++out_it){work();if(*out_it==tokenizer.out)break;}
++    if (out_it == tokens.end()) {
++        return completed(events,26);
++    }
++    int64_t current_step = 0;
++    size_t pos = static_cast<size_t>(std::distance(tokens.begin(), out_it)) + 1;
++    while (pos < tokens.size()) {
++        auto completed_visit=visit();
++        int64_t token = tokens[pos];
++        if (token == tokenizer.eos) {
++            break;
++        }
++        if (token_type(tokenizer, token) != SheetSage2TokenType::Subbeat) {
++            ++pos;
++            continue;
++        }
++        int64_t shift = 0;
++        while (pos < tokens.size() && token_type(tokenizer, tokens[pos]) == SheetSage2TokenType::Subbeat) {
++        auto completed_visit=visit();
++            shift += tokens[pos] - tokenizer.subbeat_start;
++            ++pos;
++        }
++        current_step += shift;
++        SheetSage2Event event;
++        event.subbeat = current_step;
++        while (pos < tokens.size()) {
++        auto completed_visit=visit();
++            token = tokens[pos];
++            const auto type = token_type(tokenizer, token);
++            if (token == tokenizer.eos || type == SheetSage2TokenType::Subbeat) {
++                break;
++            }
++            if (type == SheetSage2TokenType::Time) {
++                event.timestamp = static_cast<float>(token - tokenizer.time_start) / static_cast<float>(kTimeHz);
++                event.timestamp_tokens.push_back(static_cast<int32_t>(token));
++            } else if (type == SheetSage2TokenType::Meter) {
++                const int64_t index = token - tokenizer.meter_start;
++                static constexpr std::array<int, 6> denominators = {1, 2, 4, 8, 16, 32};
++                event.meter = {static_cast<int>(index / 6 + 1), denominators[static_cast<size_t>(index % 6)]};
++                event.rhythm_tokens.push_back(static_cast<int32_t>(token));
++            } else if (type == SheetSage2TokenType::Eighth) {
++                event.eighth_position = token - tokenizer.eighth_start;
++                event.rhythm_tokens.push_back(static_cast<int32_t>(token));
++            } else if (type == SheetSage2TokenType::Structure) {
++                const int64_t index = token - tokenizer.structure_start;
++                event.structure = sheetsage2_structure_label(index);
++                event.structure_tokens.push_back(static_cast<int32_t>(token));
++            } else if (type == SheetSage2TokenType::Key) {
++                const int64_t index = token - tokenizer.key_start;
++                event.key = sheetsage2_key_label(index);
++                event.key_tokens.push_back(static_cast<int32_t>(token));
++            } else if (type == SheetSage2TokenType::Chord) {
++                if (token >= tokenizer.full_chord_start && token < tokenizer.full_chord_end) {
++                    const int64_t index = token - tokenizer.full_chord_start;
++                    event.chord = sheetsage2_chord_label(true, index);
++                } else {
++                    const int64_t index = token - tokenizer.majmin_chord_start;
++                    event.chord = sheetsage2_chord_label(false, index);
++                }
++                event.chord_tokens.push_back(static_cast<int32_t>(token));
++            } else if (type == SheetSage2TokenType::Pitch) {
++                const int pitch_id = static_cast<int>(token - tokenizer.pitch_start);
++                int duration_bin = 0;
++                event.melody_tokens.push_back(static_cast<int32_t>(token));
++                if (pos + 1 < tokens.size() && token_type(tokenizer, tokens[pos + 1]) == SheetSage2TokenType::Duration) {
++                    const int64_t bin = tokens[pos + 1] - tokenizer.duration_start;
++                    duration_bin = static_cast<int>(std::clamp<int64_t>(
++                        bin,
++                        0,
++                        sheetsage2_duration_bin_count() - 1));
++                    event.melody_tokens.push_back(tokens[pos + 1]);
++                    ++pos;
++                }
++                event.notes.push_back(sheetsage2_note_from_pitch_duration(pitch_id, duration_bin));
++            }
++            ++pos;
++        }
++        events.push_back(std::move(event));work(20,events.size());
++    }
++    return completed(events,26);
++}
++
++std::vector<int32_t> subbeat_shift_tokens(const SheetSage2Tokenizer & tokenizer, int64_t shift) {
++    if (shift < 0) {
++        throw std::runtime_error("SheetSage2 prefix events are not sorted by subbeat");
++    }
++    std::vector<int32_t> tokens;
++    while (shift > kMaxSubbeatShift) {
++        auto completed_visit=visit();
++        tokens.push_back(static_cast<int32_t>(tokenizer.subbeat_start + kMaxSubbeatShift));
++        shift -= kMaxSubbeatShift;
++    }
++    tokens.push_back(static_cast<int32_t>(tokenizer.subbeat_start + shift));
++    check(29);return tokens;
++}
++
++std::vector<int32_t> encode_events(
++    const SheetSage2Tokenizer & tokenizer,
++    const std::vector<SheetSage2Event> & events,
++    bool include_eos) {
++    double event_duration=0;for(const auto&e:events)event_duration=std::max(event_duration,static_cast<double>(e.time));validate_events(events,event_duration);
++    int64_t previous=0;size_t shifts=0;
++    for(const auto&e:events){if(e.subbeat<previous)throw std::runtime_error("SheetSage2 prefix events are not sorted by subbeat");size_t add=static_cast<size_t>((e.subbeat-previous)/kMaxSubbeatShift)+1;if(add>budget()-shifts)throw std::runtime_error("SheetSage2 shift tokens exceed request domain");shifts+=add;previous=e.subbeat;}check();
++    auto ids = prompt_prefix(tokenizer);
++    int64_t previous_step = 0;
++    for (const auto & event : events) {
++        auto completed_visit=visit();
++        auto shift = subbeat_shift_tokens(tokenizer, event.subbeat - previous_step);
++        append(ids,shift);
++        previous_step = event.subbeat;
++        append(ids,event.timestamp_tokens);
++        append(ids,event.rhythm_tokens);
++        append(ids,event.structure_tokens);
++        append(ids,event.key_tokens);
++        append(ids,event.chord_tokens);
++        append(ids,event.melody_tokens);
++    }
++    if (include_eos) {
++        ids.push_back(static_cast<int32_t>(tokenizer.eos));
++    }
++    return completed(ids,27);
++}
++
++float event_time_value(const SheetSage2Event & event) {
++    return event.time;
++}
++
++std::function<double(int64_t)> make_event_time_lookup(
++    const std::vector<SheetSage2Event> & events,
++    double target_seconds) {
++    validate_events(events,target_seconds);check();
++    std::vector<std::pair<int64_t, double>> anchors;
++    for (const auto & event : events) {
++        auto completed_visit=visit();
++        if (event.timestamp.has_value()) {
++            anchors.push_back({event.subbeat, *event.timestamp});
++        }
++    }
++    if (anchors.empty()) {
++        return [target_seconds, owner=shared_from_this()](int64_t step) {
++            owner->check();
++            double result=std::min(target_seconds, std::max(0.0, static_cast<double>(step) * kDefaultStepSeconds));return owner->completed(result,28);
++        };
++    }
++    comparison_family=4;sort(anchors.begin(), anchors.end());
++    anchors.erase(
++        std::unique(
++            anchors.begin(),
++            anchors.end(),
++            [&](const auto & a, const auto & b) { work();return a.first == b.first; }),
++        anchors.end());
++    double step_seconds = kDefaultStepSeconds;
++    if (anchors.size() >= 2) {
++        std::vector<double> slopes;
++        slopes.reserve(anchors.size() - 1);
++        for (size_t i = 1; i < anchors.size(); ++i) {
++        auto completed_visit=visit();
++            const double step_delta = static_cast<double>(std::max<int64_t>(1, anchors[i].first - anchors[i - 1].first));
++            slopes.push_back((anchors[i].second - anchors[i - 1].second) / step_delta);
++        }
++        comparison_family=5;sort(slopes.begin(), slopes.end());
++        step_seconds = slopes[slopes.size() / 2];
++        if (!std::isfinite(step_seconds) || step_seconds <= 0.0) {
++            step_seconds = kDefaultStepSeconds;
++        }
++    }
++    return [anchors, target_seconds, step_seconds, owner=shared_from_this()](int64_t step) {
++        owner->check();
++        const auto checked=[&](double result){return owner->completed(result,28);};
++        const double value = static_cast<double>(step);
++        if (value <= static_cast<double>(anchors.front().first)) {
++            return checked(std::clamp(
++                anchors.front().second + (value - static_cast<double>(anchors.front().first)) * step_seconds,
++                0.0,
++                target_seconds));
++        }
++        if (value >= static_cast<double>(anchors.back().first)) {
++            return checked(std::clamp(
++                anchors.back().second + (value - static_cast<double>(anchors.back().first)) * step_seconds,
++                0.0,
++                target_seconds));
++        }
++        for (size_t i = 1; i < anchors.size(); ++i) {
++        auto completed_visit=owner->visit();
++            if (value <= static_cast<double>(anchors[i].first)) {
++                const double left_step = static_cast<double>(anchors[i - 1].first);
++                const double right_step = static_cast<double>(anchors[i].first);
++                const double alpha = (value - left_step) / std::max(1.0, right_step - left_step);
++                return checked(anchors[i - 1].second + alpha * (anchors[i].second - anchors[i - 1].second));
++            }
++        }
++        return checked(anchors.back().second);
++    };
++}
++
++void set_event_local_timestamp(
++    SheetSage2Event & event,
++    const SheetSage2Tokenizer & tokenizer,
++    double local_time) {
++    if(!std::isfinite(local_time) || static_cast<long double>(local_time)*kTimeHz < std::numeric_limits<int64_t>::min() || static_cast<long double>(local_time)*kTimeHz > std::numeric_limits<int64_t>::max()) throw std::runtime_error("SheetSage2 timestamp exceeds supported range");
++    int64_t time_id = static_cast<int64_t>(std::llround(local_time * static_cast<double>(kTimeHz)));
++    time_id = std::clamp<int64_t>(time_id, 0, tokenizer.time_end - tokenizer.time_start - 1);
++    event.timestamp_tokens.clear();
++    event.timestamp_tokens.push_back(static_cast<int32_t>(tokenizer.time_start + time_id));
++    event.timestamp = static_cast<float>(time_id) / static_cast<float>(kTimeHz);
++}
++
++std::vector<SheetSage2Event> build_overlap_prefix_events(
++    const std::vector<SheetSage2Event> & stitched_events,
++    const SheetSage2Tokenizer & tokenizer,
++    const SheetSage2Window & window,
++    int64_t & published_base) {
++    validate_events(stitched_events,std::max(window.end,window.accept_end));
++    if(!std::isfinite(window.start)||!std::isfinite(window.prefix_end)||window.start<0||window.prefix_end<0)throw std::runtime_error("SheetSage2 overlap window is invalid");
++    check();int64_t base_subbeat=published_base;
++    constexpr double eps = 1.0e-4;
++    std::vector<SheetSage2Event> source_events;
++    for (const auto & event : stitched_events) {
++        auto completed_visit=visit();
++        const double t = event_time_value(event);
++        if (window.start - eps <= t && t < window.prefix_end - eps) {
++            source_events.push_back(event);
++        }
++    }
++    comparison_family=6;sort(source_events.begin(), source_events.end(), [&](const auto & a, const auto & b) {
++        if (a.global_subbeat != b.global_subbeat) {
++            return a.global_subbeat < b.global_subbeat;
++        }
++        return a.time < b.time;
++    });
++    auto first_beat = std::find_if(source_events.begin(), source_events.end(), [&](const auto & event) {
++        auto completed_visit=visit();return event.timestamp.has_value() || !event.rhythm_tokens.empty();
++    });
++    if (first_beat == source_events.end()) {
++        base_subbeat = 0;check(24);published_base=base_subbeat;
++        return {};
++    }
++    source_events.erase(source_events.begin(), first_beat);
++    base_subbeat = source_events.front().global_subbeat;
++
++    std::optional<std::vector<int32_t>> context_structure;
++    std::optional<std::vector<int32_t>> context_key;
++    std::optional<std::vector<int32_t>> context_chord;
++    std::optional<std::vector<int32_t>> context_meter;
++    for (const auto & event : stitched_events) {
++        auto completed_visit=visit();
++        if (event.time > source_events.front().time + eps) {
++            continue;
++        }
++        if (!event.structure_tokens.empty()) {
++            context_structure = event.structure_tokens;
++        }
++        if (!event.key_tokens.empty()) {
++            context_key = event.key_tokens;
++        }
++        if (!event.chord_tokens.empty()) {
++            context_chord = event.chord_tokens;
++        }
++        for (const auto token : event.rhythm_tokens) {
++        auto completed_visit=visit();
++            if (token_type(tokenizer, token) == SheetSage2TokenType::Meter) {
++                context_meter = std::vector<int32_t>{token};
++                break;
++            }
++        }
++    }
++
++    std::vector<SheetSage2Event> prefix_events;
++    prefix_events.reserve(source_events.size());
++    for (auto event : source_events) {
++        auto completed_visit=visit();
++        event.subbeat = std::max<int64_t>(0, event.global_subbeat - base_subbeat);
++        if (!event.timestamp_tokens.empty()) {
++            set_event_local_timestamp(event, tokenizer, static_cast<double>(event.time) - window.start);
++        }
++        prefix_events.push_back(std::move(event));work(21,prefix_events.size());
++    }
++    if (!prefix_events.empty()) {
++        auto & first = prefix_events.front();
++        if (first.structure_tokens.empty() && context_structure.has_value()) {
++            first.structure_tokens = *context_structure;
++        }
++        if (first.key_tokens.empty() && context_key.has_value()) {
++            first.key_tokens = *context_key;
++        }
++        if (first.chord_tokens.empty() && context_chord.has_value()) {
++            first.chord_tokens = *context_chord;
++        }
++        const bool has_meter = std::any_of(first.rhythm_tokens.begin(), first.rhythm_tokens.end(), [&](int32_t token) {
++            auto completed_visit=visit();return token_type(tokenizer, token) == SheetSage2TokenType::Meter;
++        });
++        const bool has_eighth = std::any_of(first.rhythm_tokens.begin(), first.rhythm_tokens.end(), [&](int32_t token) {
++            auto completed_visit=visit();return token_type(tokenizer, token) == SheetSage2TokenType::Eighth;
++        });
++        if (!has_meter && has_eighth && context_meter.has_value()) {
++            first.rhythm_tokens.insert(first.rhythm_tokens.begin(), context_meter->begin(), context_meter->end());
++        }
++    }
++    auto result=completed(prefix_events,24);published_base=base_subbeat;return result;
++}
++
++std::vector<SheetSage2Event> stitched_window_events(
++    const std::vector<SheetSage2Event> & decoded_events,
++    const std::function<double(int64_t)> & time_lookup,
++    const SheetSage2Window & window,
++    double song_duration,
++    int64_t global_subbeat_base) {
++    constexpr double eps = 1.0e-4;
++    validate_events(decoded_events,song_duration);
++    if(!std::isfinite(window.start)||!std::isfinite(window.accept_start)||!std::isfinite(window.accept_end)||window.index<0||window.index>std::numeric_limits<int>::max()||window.start<0||global_subbeat_base<0)throw std::runtime_error("SheetSage2 stitch window is invalid");
++    for(const auto&e:decoded_events)if(e.subbeat>std::numeric_limits<int64_t>::max()-global_subbeat_base)throw std::runtime_error("SheetSage2 global subbeat overflow");
++    check();std::vector<SheetSage2Event> accepted;
++    for (auto event : decoded_events) {
++        auto completed_visit=visit();
++        const double local_time = time_lookup(event.subbeat);
++        const double abs_time = window.start + local_time;
++        if (abs_time < window.accept_start - eps ||
++            abs_time >= window.accept_end - eps ||
++            abs_time >= song_duration - eps) {
++            continue;
++        }
++        event.time = static_cast<float>(std::clamp(abs_time, 0.0, song_duration));
++        event.window_index = static_cast<int>(window.index);
++        event.window_start = static_cast<float>(window.start);
++        event.source_subbeat = event.subbeat;
++        if(global_subbeat_base<0 || event.subbeat>std::numeric_limits<int64_t>::max()-global_subbeat_base)throw std::runtime_error("SheetSage2 global subbeat overflow");
++        event.global_subbeat = global_subbeat_base + event.subbeat;
++        if (event.timestamp.has_value()) {
++            event.timestamp = event.time;
++        }
++        event.note_end_times.clear();
++        event.note_end_times.reserve(event.notes.size());
++        for (const auto & note : event.notes) {
++        auto completed_visit=visit();
++            const double local_end = time_lookup(event.subbeat + note.duration_steps);
++            const double end_time = std::min(song_duration, std::max(abs_time + 0.04, window.start + local_end));
++            event.note_end_times.push_back(static_cast<float>(end_time));
++        }
++        accepted.push_back(std::move(event));work(22,accepted.size());
++    }
++    return completed(accepted,25);
++}
++
++
++};
++runtime::TaskResult finish_sheetsage_output(const std::vector<SheetSage2Event> & source_events,double duration,
++    size_t token_count,int64_t last_memory_steps,size_t window_count,SheetSage2OutputDomain domain,core::RunStopHandle stop){
++    validate_sheetsage2_output(source_events,duration,domain);
++    // Canonical validation sorting is deliberately uninterruptible and private:
++    // renderer errors must win over a pre-existing stop on the actual finish path.
++    auto canonical=source_events;
++    std::sort(canonical.begin(),canonical.end(),[](const auto&a,const auto&b){if(a.time!=b.time)return a.time<b.time;return a.global_subbeat<b.global_subbeat;});
++    validate_sheetsage2_render_output(canonical,duration,domain);
++    auto owner=std::make_shared<SessionOutputOwner>(stop,domain);owner->check();
++    auto stitched_events=source_events;owner->check();
++    owner->comparison_family=7;owner->sort(stitched_events.begin(), stitched_events.end(), [](const auto & a, const auto & b) {
++        if (a.time != b.time) {
++            return a.time < b.time;
++        }
++        return a.global_subbeat < b.global_subbeat;
++    });
++
++    const auto abc = events_to_abc(
++        stitched_events,
++        duration,domain,stop);
++    const auto json = events_json(stitched_events,domain,stop);
++
++    owner->check(30);
++    runtime::TaskResult result;
++    result.text_output = runtime::Transcript{abc, "abc"};
++    owner->check(31);
++    result.artifact_output = runtime::make_text_artifact(
++        runtime::ArtifactKind::Custom,
++        "score",
++        abc,
++        {
++            {"mime", "text/vnd.abc"},
++            {"format", "abc"},
++            {"extension", "abc"},
++            {"tokens", std::to_string(token_count)},
++            {"memory_steps", std::to_string(last_memory_steps)},
++            {"windows", std::to_string(window_count)},
++        });
++    owner->check(32);
++    result.output_artifacts.push_back(runtime::make_text_artifact(
++        runtime::ArtifactKind::Custom,
++        "events",
++        json,
++        {
++            {"mime", "application/json"},
++            {"format", "sheetsage2-events-json"},
++            {"extension", "json"},
++        }));
++    owner->check(33);
++    return result;
++}
++
+ std::vector<int32_t> generate_tokens(
+     SheetSage2DecoderRuntime & decoder,
+     const std::vector<float> & memory,
+@@ -1544,6 +1989,8 @@
+     const double window_seconds =
+         static_cast<double>(assets_->config.input_audio_length_samples) / static_cast<double>(assets_->config.sampling_rate);
+ 
++    auto output_owner=std::make_shared<SessionOutputOwner>(execution_context().current_run_stop(),
++        SheetSage2OutputDomain{max_tokens,static_cast<int64_t>(windows.size())});
+     for (const auto & window : windows) {
+         const auto window_frontend_start = Clock::now();
+         const auto window_audio = acquire_window_before_mel(
+@@ -1567,9 +2014,9 @@
+         int64_t base_subbeat = 0;
+         std::vector<int32_t> prefix_tokens;
+         if (window.index > 0) {
+-            const auto prefix_events = build_overlap_prefix_events(stitched_events, tokenizer, window, base_subbeat);
++            const auto prefix_events = output_owner->build_overlap_prefix_events(stitched_events, tokenizer, window, base_subbeat);
+             if (!prefix_events.empty()) {
+-                prefix_tokens = encode_events(tokenizer, prefix_events, false);
++                prefix_tokens = output_owner->encode_events(tokenizer, prefix_events, false);
+             }
+         }
+ 
+@@ -1585,18 +2032,16 @@
+             execution_context().current_run_stop());
+         generation_ms += engine::debug::elapsed_ms(generation_start, Clock::now());
+ 
+-        const auto decoded = decode_events(tokenizer, last_ids);
+-        const auto time_lookup = make_event_time_lookup(decoded, window_seconds);
+-        auto accepted = stitched_window_events(
++        const auto decoded = output_owner->decode_events(tokenizer, last_ids);
++        const auto time_lookup = output_owner->make_event_time_lookup(decoded, window_seconds);
++        auto accepted = output_owner->stitched_window_events(
+             decoded,
+             time_lookup,
+             window,
+             static_cast<double>(waveform.size()) / static_cast<double>(assets_->config.sampling_rate),
+             base_subbeat);
+-        stitched_events.insert(
+-            stitched_events.end(),
+-            std::make_move_iterator(accepted.begin()),
+-            std::make_move_iterator(accepted.end()));
++        output_owner->append(stitched_events,accepted);
++        output_owner->check();
+         engine::debug::trace_log_scalar("sheetsage2.window.index", window.index);
+         engine::debug::trace_log_scalar("sheetsage2.window.prefix_tokens", static_cast<int64_t>(prefix_tokens.size()));
+         engine::debug::trace_log_scalar("sheetsage2.window.tokens", static_cast<int64_t>(last_ids.size()));
+@@ -1604,48 +2049,10 @@
+     encoder_.release_runtime_graphs();
+     decoder_.release_runtime_graphs();
+ 
+-    std::sort(stitched_events.begin(), stitched_events.end(), [](const auto & a, const auto & b) {
+-        if (a.time != b.time) {
+-            return a.time < b.time;
+-        }
+-        return a.global_subbeat < b.global_subbeat;
+-    });
+-    engine::debug::timing_log_scalar("sheetsage2.frontend_windows_ms", frontend_windows_ms);
+-    engine::debug::timing_log_scalar("sheetsage2.encoder.total_ms", encoder_ms);
+-    engine::debug::timing_log_scalar("sheetsage2.decoder.generate_ms", generation_ms);
+-
+-    const auto post_start = Clock::now();
+-    const auto abc = events_to_abc(
+-        stitched_events,
+-        static_cast<double>(waveform.size()) / static_cast<double>(assets_->config.sampling_rate));
+-    const auto json = events_json(stitched_events);
+-    engine::debug::timing_log_scalar("sheetsage2.postprocess_ms", engine::debug::elapsed_ms(post_start, Clock::now()));
+-
+-    runtime::TaskResult result;
+-    result.text_output = runtime::Transcript{abc, "abc"};
+-    result.artifact_output = runtime::make_text_artifact(
+-        runtime::ArtifactKind::Custom,
+-        "score",
+-        abc,
+-        {
+-            {"mime", "text/vnd.abc"},
+-            {"format", "abc"},
+-            {"extension", "abc"},
+-            {"tokens", std::to_string(last_ids.size())},
+-            {"memory_steps", std::to_string(last_memory_steps)},
+-            {"windows", std::to_string(windows.size())},
+-        });
+-    result.output_artifacts.push_back(runtime::make_text_artifact(
+-        runtime::ArtifactKind::Custom,
+-        "events",
+-        json,
+-        {
+-            {"mime", "application/json"},
+-            {"format", "sheetsage2-events-json"},
+-            {"extension", "json"},
+-        }));
+-    engine::debug::timing_log_scalar("session.wall_ms", engine::debug::elapsed_ms(total_start, Clock::now()));
+-    return result;
++    return finish_sheetsage_output(std::move(stitched_events),
++        static_cast<double>(waveform.size())/static_cast<double>(assets_->config.sampling_rate),
++        last_ids.size(),last_memory_steps,windows.size(),
++        {max_tokens,static_cast<int64_t>(windows.size())},execution_context().current_run_stop());
+ }
+ 
+ std::shared_ptr<runtime::IVoiceModelLoader> make_sheetsage2_loader() {
+diff --git a/src/models/sheetsage/processing.cpp b/src/models/sheetsage/processing.cpp
+--- a/src/models/sheetsage/processing.cpp
++++ b/src/models/sheetsage/processing.cpp
+@@ -1,6 +1,8 @@
+ #include "engine/models/sheetsage/processing.h"
+ 
+ #include <algorithm>
++#include <limits>
++#include "engine/framework/runtime/session.h"
+ #include <array>
+ #include <cmath>
+ #include <cstddef>
+@@ -940,4 +942,1045 @@
+     return out.str();
+ }
+ 
++namespace {
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++namespace output_testing {
++void progress(int family, size_t unit, size_t value) noexcept;
++void snapshot(int family,const void* value) noexcept;
++}
++#endif
++struct OutputRenderOwner {
++    core::RunStopHandle stop;
++    size_t units=0;int comparison_family=3;
++    void check(int family=0) {
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++        output_testing::progress(family,units,0);
++#endif
++        if(stop && stop->cancelled()) throw runtime::RunCancelled();
++    }
++    void work(int family=1,size_t value=0) {
++        if(units%64==0 && stop && stop->cancelled()) throw runtime::RunCancelled();
++        ++units;
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++        output_testing::progress(family,units,value);
++#endif
++        if(units%64==0 && stop && stop->cancelled()) throw runtime::RunCancelled();
++    }
++    template<class T>T completed(T value,int family){
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++        output_testing::snapshot(family,&value);
++#endif
++        check(family+100);return value;
++    }
++    struct Visit {
++        OutputRenderOwner & owner;
++        int family;
++        ~Visit() noexcept {
++            ++owner.units;
++#ifdef ENGINE_SHEETSAGE_OUTPUT_TESTING
++            output_testing::progress(family,owner.units,0);
++#endif
++        }
++    };
++    Visit visit(int family=1){if(stop && stop->cancelled())throw runtime::RunCancelled();return {*this,family};}
++    template<class It,class Compare>void sort(It begin,It end,Compare compare) {
++        check(2);
++        std::sort(begin,end,[&](const auto&a,const auto&b){bool result=compare(a,b);work(comparison_family,result?1:0);return result;});
++        check(2);
++    }
++    template<class It>void sort(It begin,It end){sort(begin,end,[](const auto&a,const auto&b){return a<b;});}
++int key_accidental_count(const std::string & key) {
++    static const std::map<std::string, int> values = {
++        {"C", 0}, {"G", 1}, {"D", 2}, {"A", 3}, {"E", 4}, {"B", 5}, {"F#", 6}, {"C#", 7},
++        {"F", -1}, {"Bb", -2}, {"Eb", -3}, {"Ab", -4}, {"Db", -5}, {"Gb", -6}, {"Cb", -7},
++        {"Am", 0}, {"Em", 1}, {"Bm", 2}, {"F#m", 3}, {"C#m", 4}, {"G#m", 5}, {"D#m", 6}, {"A#m", 7},
++        {"Dm", -1}, {"Gm", -2}, {"Cm", -3}, {"Fm", -4}, {"Bbm", -5}, {"Ebm", -6}, {"Abm", -7},
++    };
++    const auto it = values.find(key);
++    return it == values.end() ? 0 : it->second;
++}
++
++std::array<int, 7> key_accidentals(const std::string & key) {
++    std::array<int, 7> accidentals{};
++    const int count = key_accidental_count(key);
++    const std::string order = count > 0 ? "FCGDAEB" : "BEADGCF";
++    for (int i = 0; i < std::abs(count); ++i) {
++        auto completed_visit=visit(100);
++        const auto index = std::string("CDEFGAB").find(order[static_cast<size_t>(i)]);
++        accidentals[index] = count > 0 ? 1 : -1;
++    }
++    return completed(accidentals,100);
++}
++
++std::string key_relative_pitch_name(int accidental_count, int pitch_class) {
++    static const std::map<int, std::array<const char *, 12>> names = {
++        {7, {"B#", "C#", "C##", "D#", "D##", "E#", "F#", "F##", "G#", "G##", "A#", "B"}},
++        {6, {"B#", "C#", "C##", "D#", "E", "E#", "F#", "F##", "G#", "G##", "A#", "B"}},
++        {5, {"B#", "C#", "C##", "D#", "E", "E#", "F#", "F##", "G#", "A", "A#", "B"}},
++        {4, {"B#", "C#", "D", "D#", "E", "E#", "F#", "F##", "G#", "A", "A#", "B"}},
++        {3, {"B#", "C#", "D", "D#", "E", "E#", "F#", "G", "G#", "A", "A#", "B"}},
++        {2, {"C", "C#", "D", "D#", "E", "E#", "F#", "G", "G#", "A", "A#", "B"}},
++        {1, {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"}},
++        {0, {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}},
++        {-1, {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "G#", "A", "Bb", "B"}},
++        {-2, {"C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"}},
++        {-3, {"C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"}},
++        {-4, {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"}},
++        {-5, {"C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "Cb"}},
++        {-6, {"C", "Db", "D", "Eb", "Fb", "F", "Gb", "G", "Ab", "A", "Bb", "Cb"}},
++        {-7, {"C", "Db", "D", "Eb", "Fb", "F", "Gb", "G", "Ab", "Bbb", "Bb", "Cb"}},
++    };
++    return names.at(accidental_count)[static_cast<size_t>(pitch_class)];
++}
++
++std::string note_to_abc(
++    int midi,
++    const std::array<int, 7> & key_accidentals,
++    std::map<int, int> & measure_accidentals) {
++    const int accidental_count = std::accumulate(key_accidentals.begin(), key_accidentals.end(), 0);
++    const int pitch_class = ((midi % 12) + 12) % 12;
++    const std::string pitch_name = key_relative_pitch_name(accidental_count, pitch_class);
++    const char letter = pitch_name[0];
++    const std::string accidental = pitch_name.substr(1);
++    const int accidental_number =
++        accidental == "bb" ? -2 : accidental == "b" ? -1 : accidental == "#" ? 1 : accidental == "##" ? 2 : 0;
++    int octave = (midi - 60) / 12;
++    if (pitch_class == 11 && accidental_number == -1) {
++        ++octave;
++    } else if (pitch_class == 0 && accidental_number == 1) {
++        --octave;
++    }
++    const int scale_index = static_cast<int>(std::string("CDEFGAB").find(letter));
++    const auto it = measure_accidentals.find(scale_index);
++    const int current = it == measure_accidentals.end() ? key_accidentals[static_cast<size_t>(scale_index)] : it->second;
++    std::string prefix;
++    if (current != accidental_number) {
++        measure_accidentals[scale_index] = accidental_number;
++        prefix = accidental_number == -2 ? "__" :
++                 accidental_number == -1 ? "_" :
++                 accidental_number == 0 ? "=" :
++                 accidental_number == 1 ? "^" : "^^";
++    }
++    std::string note(1, letter);
++    if (octave > 0) {
++        note[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(note[0])));
++        note.append(static_cast<size_t>(std::max(0, octave - 1)), '\'');
++    } else if (octave < 0) {
++        note.append(static_cast<size_t>(-octave), ',');
++    }
++    return completed(prefix + note,101);
++}
++
++bool same_note_segment(int value, int next_value) {
++    if (value == 0) {
++        return next_value == 0;
++    }
++    const int pitch = value / 2 - 1;
++    return next_value == pitch * 2 + 2;
++}
++
++bool continues_pitch(int value, int next_value) {
++    if (value <= 0) {
++        return false;
++    }
++    const int pitch = value / 2 - 1;
++    return next_value == pitch * 2 + 2;
++}
++
++std::string abc_duration(int units) {
++    return units == 1 ? std::string{} : std::to_string(units);
++}
++
++std::string key_symbol_to_abc(std::string key) {
++    const auto colon = key.find(':');
++    if (colon != std::string::npos) {
++        auto root = key.substr(0, colon);
++        const auto mode = key.substr(colon + 1);
++        // The tokenizer uses sharp roots, including nonportable major keys.
++        if (mode == "major") {
++            static const std::map<std::string, std::string> portable = {
++                {"A#", "Bb"}, {"D#", "Eb"}, {"G#", "Ab"},
++            };
++            const auto it = portable.find(root);
++            if (it != portable.end()) root = it->second;
++        }
++        return completed(root + (mode == "minor" ? "m" : ""),102);
++    }
++    return completed(key,102);
++}
++
++std::string chord_symbol_to_abc(const std::string & chord) {
++    if (chord.empty() || chord == "N" || chord == "X" || chord == "?") {
++        return {};
++    }
++    const auto colon = chord.find(':');
++    if (colon == std::string::npos) {
++        return {};
++    }
++    const auto root = chord.substr(0, colon);
++    auto quality = chord.substr(colon + 1);
++    const auto slash = quality.find('/');
++    std::string bass;
++    if (slash != std::string::npos) {
++        bass = quality.substr(slash + 1);
++        quality = quality.substr(0, slash);
++        constexpr std::array<int, 7> natural = {0, 2, 4, 5, 7, 9, 11};
++        const std::string letters = "CDEFGAB";
++        const int root_letter = static_cast<int>(letters.find(root[0]));
++        const int root_pitch = natural[static_cast<size_t>(root_letter)] +
++            static_cast<int>(std::count(root.begin(), root.end(), '#')) -
++            static_cast<int>(std::count(root.begin(), root.end(), 'b'));
++        const auto degree_start = bass.find_first_of("123456789");
++        const int degree = std::stoi(bass.substr(degree_start));
++        const int alteration = static_cast<int>(std::count(bass.begin(), bass.end(), '#')) -
++            static_cast<int>(std::count(bass.begin(), bass.end(), 'b'));
++        const int letter = (root_letter + degree - 1) % 7;
++        const int pitch = (root_pitch + natural[static_cast<size_t>((degree - 1) % 7)] + alteration + 12) % 12;
++        const int accidental = (pitch - natural[static_cast<size_t>(letter)] + 18) % 12 - 6;
++        bass = std::string(1, letters[static_cast<size_t>(letter)]) +
++            std::string(static_cast<size_t>(std::abs(accidental)), accidental < 0 ? 'b' : '#');
++    }
++    static const std::map<std::string, std::string> quality_map = {
++        {"maj", ""}, {"min", "m"}, {"dim", "dim"}, {"aug", "aug"}, {"7", "7"},
++        {"maj7", "maj7"}, {"min7", "m7"}, {"dim7", "dim7"}, {"hdim7", "m7b5"},
++        {"sus4", "sus4"}, {"sus2", "sus2"}, {"maj6", "6"}, {"min6", "m6"},
++        {"sus4(b7)", "7sus4"}, {"minmaj7", "m(maj7)"},
++    };
++    const auto it = quality_map.find(quality);
++    if (it == quality_map.end()) {
++        return {};
++    }
++    return completed(bass.empty() ? root + it->second : root + it->second + "/" + bass,103);
++}
++
++struct BeatRow {
++    double time = 0.0;
++    int beat = 1;
++    int numerator = 4;
++    int denominator = 4;
++};
++
++struct NotationMeasure {
++    int start_beat = 0;
++    int end_beat = 0;
++    int numerator = 4;
++    int denominator = 4;
++    int abc_numerator = 4;
++    int abc_denominator = 4;
++    bool pad_before = false;
++};
++
++struct TextInterval {
++    double start = 0.0;
++    double end = 0.0;
++    std::string value;
++};
++
++std::vector<BeatRow> rhythm_rows(const std::vector<SheetSage2Event> & events) {
++    std::vector<BeatRow> rows;
++    std::optional<std::pair<int, int>> meter;
++    for (const auto & event : events) {
++        auto completed_visit=visit(104);
++        if (event.meter.has_value()) {
++            meter = event.meter;
++        }
++        if (!event.eighth_position.has_value() || !meter.has_value()) {
++            continue;
++        }
++        const int64_t scaled = *event.eighth_position * meter->second;
++        if (scaled % 8 != 0) {
++            continue;
++        }
++        const int beat = static_cast<int>(scaled / 8) + 1;
++        if (beat < 1 || beat > meter->first) {
++            continue;
++        }
++        rows.push_back({event.time, beat, meter->first, meter->second});
++    }
++    return completed(rows,104);
++}
++
++std::vector<TextInterval> interval_rows(
++    const std::vector<SheetSage2Event> & events,
++    const char * field,
++    double duration) {
++    std::vector<TextInterval> rows;
++    for (const auto & event : events) {
++        auto completed_visit=visit(105);
++        const std::optional<std::string> * value = nullptr;
++        if (std::string(field) == "key") {
++            value = &event.key;
++        } else if (std::string(field) == "chord") {
++            value = &event.chord;
++        } else if (std::string(field) == "structure") {
++            value = &event.structure;
++        }
++        if (value != nullptr && value->has_value()) {
++            rows.push_back({event.time, duration, **value});
++        }
++    }
++    for (size_t i = 0; i < rows.size(); ++i) {
++        auto completed_visit=visit(105);
++        rows[i].end = i + 1 < rows.size() ? rows[i + 1].start : duration;
++    }
++    rows.erase(
++        std::remove_if(rows.begin(), rows.end(), [&](const auto & row) { work();return row.end <= row.start; }),
++        rows.end());
++    return completed(rows,105);
++}
++
++std::vector<NotationMeasure> infer_measures(const std::vector<BeatRow> & beats) {
++    std::vector<int> downbeats;
++    for (size_t i = 0; i < beats.size(); ++i) {
++        auto completed_visit=visit(106);
++        if (beats[i].beat == 1) {
++            downbeats.push_back(static_cast<int>(i));
++        }
++    }
++    if (downbeats.empty()) {
++        return {};
++    }
++    std::vector<NotationMeasure> measures;
++    const auto add_span = [&](int start, int end) {
++        if (end <= start) {
++            return;
++        }
++        std::map<int, int> denom_counts;
++        std::map<int, int> numerator_counts;
++        for (int i = start; i < end; ++i) {
++        auto completed_visit=visit(106);
++            ++denom_counts[beats[static_cast<size_t>(i)].denominator];
++            ++numerator_counts[beats[static_cast<size_t>(i)].numerator];
++        }
++        const auto best = [&](const std::map<int, int> & counts, int fallback) {
++            int value = fallback;
++            int count = -1;
++            for (const auto & [candidate, observed] : counts) {
++        auto completed_visit=visit(106);
++                if (observed > count) {
++                    value = candidate;
++                    count = observed;
++                }
++            }
++            return value;
++        };
++        const int beat_count = end - start;
++        const int denominator = best(denom_counts, 4);
++        const int declared = best(numerator_counts, beat_count);
++        NotationMeasure measure;
++        measure.start_beat = start;
++        measure.end_beat = end;
++        measure.numerator = beat_count;
++        measure.denominator = denominator;
++        measure.abc_numerator = (end == static_cast<int>(beats.size()) - 1 && declared >= beat_count) ? declared : beat_count;
++        measure.abc_denominator = denominator;
++        measures.push_back(measure);
++    };
++    if (downbeats.front() > 0) {
++        add_span(0, downbeats.front());
++    }
++    for (size_t i = 1; i < downbeats.size(); ++i) {
++        auto completed_visit=visit(106);
++        add_span(downbeats[i - 1], downbeats[i]);
++    }
++    if (downbeats.back() < static_cast<int>(beats.size()) - 1) {
++        add_span(downbeats.back(), static_cast<int>(beats.size()) - 1);
++    }
++    if (measures.size() >= 2) {
++        const double first = static_cast<double>(measures.front().numerator) / measures.front().denominator;
++        const double following = static_cast<double>(measures[1].abc_numerator) / measures[1].abc_denominator;
++        if (first < following) {
++            measures.front().abc_numerator = measures[1].abc_numerator;
++            measures.front().abc_denominator = measures[1].abc_denominator;
++            measures.front().pad_before = true;
++        }
++    }
++    return completed(measures,106);
++}
++
++std::vector<double> subbeat_times_from_beats(const std::vector<BeatRow> & beats) {
++    std::vector<double> times;
++    if (beats.size() < 2) {
++        return times;
++    }
++    for (size_t i = 0; i + 1 < beats.size(); ++i) {
++        auto completed_visit=visit(107);
++        const double start = beats[i].time;
++        const double end = beats[i + 1].time;
++        for (int j = 0; j < 4; ++j) {
++        auto completed_visit=visit(107);
++            times.push_back(start + (end - start) * static_cast<double>(j) / 4.0);
++        }
++    }
++    times.push_back(beats.back().time);
++    return completed(times,107);
++}
++
++int quantize_time(double time, const std::vector<double> & subbeat_times) {
++    if (subbeat_times.size() < 2) {
++        return 0;
++    }
++    std::vector<double> boundaries;
++    boundaries.reserve(subbeat_times.size() - 1);
++    for (size_t i = 0; i + 1 < subbeat_times.size(); ++i) {
++        auto completed_visit=visit(108);
++        boundaries.push_back((subbeat_times[i] + subbeat_times[i + 1]) * 0.5);
++    }
++    int result=static_cast<int>(std::distance(
++        boundaries.begin(),
++        std::lower_bound(boundaries.begin(), boundaries.end(), time,[&](double a,double b){bool result=a<b;work(12,result?1:0);return result;})));
++    return completed(result,108);
++}
++
++std::vector<std::string> fill_text_intervals(
++    const std::vector<TextInterval> & rows,
++    const std::vector<double> & subbeat_times,
++    const std::string & fallback) {
++    std::vector<std::string> out(subbeat_times.size(), fallback);
++    for (const auto & row : rows) {
++        auto completed_visit=visit(109);
++        int start = std::clamp(quantize_time(row.start, subbeat_times), 0, static_cast<int>(out.size()) - 1);
++        int end = std::clamp(quantize_time(row.end, subbeat_times), 0, static_cast<int>(out.size()) - 1);
++        if (end <= start) {
++            continue;
++        }
++        for(int j=start;j<end;++j){out[static_cast<size_t>(j)]=row.value;work(4,static_cast<size_t>(j));}
++    }
++    if (out.size() > 1) {
++        out.back() = out[out.size() - 2];
++    }
++    return completed(out,109);
++}
++
++std::array<std::vector<int>, 2> build_voice_arrays(
++    const std::vector<SheetSage2Event> & events,
++    const std::vector<double> & subbeat_times,
++    double duration) {
++    std::array<std::vector<int>, 2> voices = {
++        std::vector<int>(subbeat_times.size(), 0),
++        std::vector<int>(subbeat_times.size(), 0),
++    };
++    struct TimedNote {
++        double start = 0.0;
++        double end = 0.0;
++        int pitch = 0;
++        int track = 0;
++    };
++    std::vector<TimedNote> notes;
++    for (const auto & event : events) {
++        auto completed_visit=visit(110);
++        for (size_t i = 0; i < event.notes.size(); ++i) {
++        auto completed_visit=visit(110);
++            const double end = i < event.note_end_times.size()
++                                 ? event.note_end_times[i]
++                                 : std::min(duration, static_cast<double>(event.time) + 0.04);
++            notes.push_back({event.time, std::min(duration, end), event.notes[i].pitch, event.notes[i].track});
++        }
++    }
++    comparison_family=14;
++    sort(notes.begin(), notes.end(), [&](const auto & a, const auto & b) {
++        if (a.track != b.track) {
++            return a.track < b.track;
++        }
++        if (a.start != b.start) {
++            return a.start < b.start;
++        }
++        if (a.pitch != b.pitch) {
++            return a.pitch < b.pitch;
++        }
++        return a.end < b.end;
++    });
++    for (size_t i = 0; i < notes.size(); ++i) {
++        auto completed_visit=visit(110);
++        if (i + 1 < notes.size() && notes[i].track == notes[i + 1].track && notes[i].end > notes[i + 1].start) {
++            notes[i].end = notes[i + 1].start;
++        }
++        if (notes[i].end <= notes[i].start) {
++            continue;
++        }
++        const int track = std::clamp(notes[i].track, 0, 1);
++        int start = std::clamp(quantize_time(notes[i].start, subbeat_times), 0, static_cast<int>(subbeat_times.size()) - 1);
++        int end = std::clamp(quantize_time(notes[i].end, subbeat_times), 0, static_cast<int>(subbeat_times.size()) - 1);
++        if (end <= start) {
++            end = std::min<int>(static_cast<int>(subbeat_times.size()) - 1, start + 1);
++        }
++        const int sustain = notes[i].pitch * 2 + 2;
++        for (int t = start; t < end; ++t) {
++        auto completed_visit=visit(110);
++            if (voices[static_cast<size_t>(track)][static_cast<size_t>(t)] == 0) {
++                voices[static_cast<size_t>(track)][static_cast<size_t>(t)] = sustain;work(5,static_cast<size_t>(t));
++            }
++        }
++        voices[static_cast<size_t>(track)][static_cast<size_t>(start)] = sustain + 1;
++    }
++    return completed(voices,110);
++}
++
++std::vector<int> subbeat_denominators_from_measures(
++    const std::vector<BeatRow> & beats,
++    const std::vector<NotationMeasure> & measures,
++    size_t subbeat_count) {
++    std::vector<int> out(subbeat_count, 4);
++    for (const auto & measure : measures) {
++        auto completed_visit=visit(111);
++        for (int beat = measure.start_beat; beat < measure.end_beat; ++beat) {
++        auto completed_visit=visit(111);
++            for (int j = 0; j < 4; ++j) {
++        auto completed_visit=visit(111);
++                const size_t index = static_cast<size_t>(beat * 4 + j);
++                if (index < out.size()) {
++                    out[index] = measure.denominator;
++                }
++            }
++        }
++    }
++    if (out.size() > 1) {
++        out.back() = out[out.size() - 2];
++    }
++    (void)beats;
++    return completed(out,111);
++}
++
++int duration_units(
++    const std::vector<int> & denominators,
++    int start_t,
++    int end_t,
++    int unit_denominator) {
++    int units = 0;
++    for (int t = start_t; t < end_t; ++t) {
++        auto completed_visit=visit(112);
++        const int divisor = denominators[static_cast<size_t>(t)] * 4;
++        units += unit_denominator / divisor;
++    }
++    return completed(std::max(1, units),112);
++}
++
++std::vector<int> split_duration_units(int duration) {
++    static constexpr std::array<int, 11> supported = {48, 32, 24, 16, 12, 8, 6, 4, 3, 2, 1};
++    std::vector<int> out;
++    int remaining = std::max(1, duration);
++    while (remaining > 0) {
++        auto completed_visit=visit(113);
++        int chunk = 1;
++        for (const int candidate : supported) {
++        auto completed_visit=visit(113);
++            if (candidate <= remaining) {
++                chunk = candidate;
++                break;
++            }
++        }
++        out.push_back(chunk);
++        remaining -= chunk;work(6,static_cast<size_t>(chunk));
++    }
++    return completed(out,113);
++}
++
++std::vector<std::string> render_duration_tokens(
++    const std::string & prefix,
++    const std::string & note,
++    int duration,
++    bool tie_out) {
++    const auto chunks = split_duration_units(duration);
++    std::vector<std::string> out;
++    out.reserve(chunks.size());
++    for (size_t i = 0; i < chunks.size(); ++i) {
++        auto completed_visit=visit(114);
++        const bool tie = note != "z" && (i + 1 < chunks.size() || tie_out);
++        out.push_back((i == 0 ? prefix : std::string{}) + note + abc_duration(chunks[i]) + (tie ? "-" : ""));
++    }
++    return completed(out,114);
++}
++
++std::string render_voice_measure(
++    const std::vector<int> & voice,
++    const std::vector<std::string> & keys,
++    const std::vector<std::string> & chords,
++    const std::vector<int> & denominators,
++    const NotationMeasure & measure,
++    int unit_denominator,
++    bool show_chords) {
++    std::ostringstream out;
++    int t = measure.start_beat * 4;
++    const int end_t = measure.end_beat * 4;
++    std::string current_key = keys[static_cast<size_t>(t)];
++    auto active_key_accidentals = key_accidentals(current_key);
++    std::map<int, int> measure_accidentals;
++    int padding = measure.abc_numerator * unit_denominator / measure.abc_denominator -
++                  measure.numerator * unit_denominator / measure.denominator;
++    int leading_padding = measure.pad_before ? padding : 0;
++    if (measure.pad_before) {
++        padding = 0;
++    }
++    while (t < end_t && t < static_cast<int>(voice.size())) {
++        auto completed_visit=visit(115);
++        int next_t = std::min(end_t, static_cast<int>(voice.size()));
++        for (int probe = t + 1; probe < next_t; ++probe) {
++        auto completed_visit=visit(115);
++            const bool note_change = !same_note_segment(
++                voice[static_cast<size_t>(probe - 1)],
++                voice[static_cast<size_t>(probe)]);
++            const bool attack = voice[static_cast<size_t>(probe)] > 0 && voice[static_cast<size_t>(probe)] % 2 == 1;
++            const bool key_change = keys[static_cast<size_t>(probe)] != keys[static_cast<size_t>(probe - 1)];
++            const bool chord_change = show_chords && chords[static_cast<size_t>(probe)] != chords[static_cast<size_t>(probe - 1)];
++            if (note_change || attack || key_change || chord_change) {
++                next_t = probe;
++                break;
++            }
++        }
++        std::string prefix;
++        if (t > measure.start_beat * 4 && keys[static_cast<size_t>(t)] != keys[static_cast<size_t>(t - 1)]) {
++            current_key = keys[static_cast<size_t>(t)];
++            active_key_accidentals = key_accidentals(current_key);
++            measure_accidentals.clear();
++            prefix += "[K:" + current_key + "]";
++        }
++        if (show_chords && (t == measure.start_beat * 4 ||
++                            chords[static_cast<size_t>(t)] != chords[static_cast<size_t>(t - 1)])) {
++            const auto chord = chord_symbol_to_abc(chords[static_cast<size_t>(t)]);
++            if (!chord.empty()) {
++                prefix += "\"" + chord + "\"";
++            }
++        }
++        const int value = voice[static_cast<size_t>(t)];
++        const std::string note = value == 0 ? "z" : note_to_abc(value / 2 - 1, active_key_accidentals, measure_accidentals);
++        int units = duration_units(denominators, t, next_t, unit_denominator);
++        if (t == measure.start_beat * 4 && leading_padding > 0) {
++            if (value == 0 && prefix.empty()) {
++                units += leading_padding;
++            } else {
++                for (const auto & token : render_duration_tokens("", "z", leading_padding, false)) {
++        auto completed_visit=visit(115);
++                    out << token;work(7,static_cast<size_t>(token.size()));
++                }
++            }
++            leading_padding = 0;
++        }
++        if (value == 0 && next_t == end_t && padding > 0) {
++            units += padding;
++            padding = 0;
++        }
++        const bool tie_out = value > 0 && next_t < static_cast<int>(voice.size()) &&
++                             continues_pitch(value, voice[static_cast<size_t>(next_t)]);
++        for (const auto & token : render_duration_tokens(prefix, note, units, tie_out)) {
++        auto completed_visit=visit(115);
++            out << token;work(7,static_cast<size_t>(token.size()));
++        }
++        t = next_t;
++    }
++    if (padding > 0) {
++        for (const auto & token : render_duration_tokens("", "z", padding, false)) {
++        auto completed_visit=visit(115);
++            out << token;work(7,static_cast<size_t>(token.size()));
++        }
++    }
++    return completed(out.str(),115);
++}
++
++bool is_full_rest_measure(const std::string & text) {
++    if(text.empty())return false;
++    for(char c:text){auto completed_visit=visit(116);if(c!='z'&&(c<'0'||c>'9'))return false;}
++    return completed(true,116);
++}
++
++std::string render_voice_group(
++    const std::vector<int> & voice,
++    const std::vector<std::string> & keys,
++    const std::vector<std::string> & chords,
++    const std::vector<int> & denominators,
++    const std::vector<NotationMeasure> & measures,
++    int unit_denominator,
++    bool show_chords) {
++    std::ostringstream out;
++    std::vector<std::string> rendered;
++    rendered.reserve(measures.size());
++    for (const auto & measure : measures) {
++        auto completed_visit=visit(117);
++        rendered.push_back(render_voice_measure(
++            voice,
++            keys,
++            chords,
++            denominators,
++            measure,
++            unit_denominator,
++            show_chords));
++    }
++    size_t index = 0;
++    while (index < rendered.size()) {
++        auto completed_visit=visit(117);
++        if (!is_full_rest_measure(rendered[index])) {
++            out << rendered[index] << "|";
++            ++index;
++            continue;
++        }
++        size_t end = index + 1;
++        while (end < rendered.size() && is_full_rest_measure(rendered[end])) {
++        auto completed_visit=visit(117);
++            ++end;
++        }
++        const size_t count = end - index;
++        out << "Z";
++        if (count > 1) {
++            out << count;
++        }
++        out << "|";
++        index = end;
++    }
++    return completed(out.str(),117);
++}
++
++struct MeasureGroup {
++    std::vector<NotationMeasure> measures;
++    std::vector<std::string> structure_labels;
++    bool meter_changed = false;
++    bool key_changed = false;
++};
++
++std::string sanitize_structure_label(const std::string & value) {
++    std::istringstream in(value);
++    std::ostringstream out;
++    std::string part;
++    while (in >> part) {
++        auto completed_visit=visit(118);
++        if (out.tellp() > 0) {
++            out << " ";
++        }
++        out << part;
++    }
++    return completed(out.str(),118);
++}
++
++std::vector<MeasureGroup> measure_groups(
++    const std::vector<NotationMeasure> & measures,
++    const std::vector<std::string> & keys,
++    const std::vector<std::pair<int, std::string>> & structure_events) {
++    if (measures.empty()) {
++        return {};
++    }
++    std::pair<int, int> active_meter{measures.front().abc_numerator, measures.front().abc_denominator};
++    std::string active_key = keys[static_cast<size_t>(measures.front().start_beat * 4)];
++    std::string active_structure;
++    std::vector<MeasureGroup> groups;
++    for (const auto & measure : measures) {
++        auto completed_visit=visit(119);
++        const auto meter = std::make_pair(measure.abc_numerator, measure.abc_denominator);
++        const std::string key = keys[static_cast<size_t>(measure.start_beat * 4)];
++        std::vector<std::string> labels;
++        for (const auto & [t, label] : structure_events) {
++        auto completed_visit=visit(119);
++            if (t < measure.start_beat * 4 || t >= measure.end_beat * 4) {
++                continue;
++            }
++            const auto clean = sanitize_structure_label(label);
++            if (!clean.empty() && clean != active_structure) {
++                labels.push_back(clean);
++                active_structure = clean;
++            }
++        }
++        const bool meter_changed = meter != active_meter;
++        const bool key_changed = key != active_key;
++        const bool start_group =
++            groups.empty() ||
++            groups.back().measures.size() >= 4 ||
++            meter_changed ||
++            key_changed ||
++            !labels.empty();
++        if (start_group) {
++            groups.push_back({{measure}, labels, meter_changed, key_changed});
++        } else {
++            groups.back().measures.push_back(measure);
++        }
++        active_meter = meter;
++        active_key = keys[static_cast<size_t>(std::max(0, measure.end_beat * 4 - 1))];
++    }
++    return completed(groups,119);
++}
++
++std::string events_to_abc(const std::vector<SheetSage2Event> & events, double duration) {
++    auto beats = rhythm_rows(events);
++    if (beats.size() < 2) {
++        return "X:1\nT:\nM:4/4\nL:1/16\nQ:1/4=120\nV: Vocal clef=treble name=\"Vocal Melody\" snm=\"Vocal\"\nV: Ins clef=treble name=\"Ins Melody\" snm=\"Inst.\"\nK:C\nV: Vocal\nZ|\nV: Ins\nZ|\n";
++    }
++    std::vector<double> final_periods;
++    for (size_t i = beats.size() > 9 ? beats.size() - 8 : 1; i < beats.size(); ++i) {
++        auto completed_visit=visit(120);
++        final_periods.push_back(beats[i].time - beats[i - 1].time);
++    }
++    comparison_family=15;
++    sort(final_periods.begin(), final_periods.end());
++    const size_t middle = final_periods.size() / 2;
++    const double period = final_periods.size() % 2 == 0
++        ? (final_periods[middle - 1] + final_periods[middle]) * 0.5
++        : final_periods[middle];
++    if (period <= 0.0) {
++        throw std::runtime_error("SheetSage2 decoded beats must increase in time");
++    }
++    const double note_end = [&] {
++        double end = duration;
++        for (const auto & event : events) {
++        auto completed_visit=visit(120);
++            for (const auto value : event.note_end_times) {
++        auto completed_visit=visit(120);
++                end = std::max(end, static_cast<double>(value));
++            }
++        }
++        return end;
++    }();
++    while (beats.back().time < note_end - 1.0e-6) {
++        auto completed_visit=visit(120);
++        auto next = beats.back();
++        const double next_time=next.time+period;
++        if(!std::isfinite(next_time)||next_time<=next.time)throw std::runtime_error("SheetSage2 beat extension cannot progress");
++        next.time += period;work(8,beats.size());
++        next.beat = next.beat % next.numerator + 1;
++        beats.push_back(next);
++    }
++    auto measures = infer_measures(beats);
++    if (measures.empty()) {
++        return {};
++    }
++    const auto subbeat_times = subbeat_times_from_beats(beats);
++    const auto denominators = subbeat_denominators_from_measures(beats, measures, subbeat_times.size());
++    int unit_denominator = 1;
++    for (const auto & measure : measures) {
++        auto completed_visit=visit(120);
++        unit_denominator = std::lcm(unit_denominator, measure.denominator * 4);
++        unit_denominator = std::lcm(unit_denominator, measure.abc_denominator * 4);
++    }
++    const auto key_rows = interval_rows(events, "key", duration);
++    const auto chord_rows = interval_rows(events, "chord", duration);
++    const auto structure_rows = interval_rows(events, "structure", duration);
++    auto keys = fill_text_intervals(
++        key_rows,
++        subbeat_times,
++        key_rows.empty() ? std::string("C") : key_symbol_to_abc(key_rows.front().value));
++    auto chords = fill_text_intervals(chord_rows, subbeat_times, "N");
++    for (auto & key : keys) {
++        auto completed_visit=visit(120);
++        key = key_symbol_to_abc(key);
++    }
++    const auto voices = build_voice_arrays(events, subbeat_times, std::max(duration, note_end));
++    const double seconds = subbeat_times.back() - subbeat_times.front();
++    const double quarters = std::accumulate(denominators.begin(), denominators.end() - 1, 0.0, [&](double sum, int denominator) {
++        work();return sum + 4.0 / static_cast<double>(denominator) / 4.0;
++    });
++    if(seconds>0 && (!std::isfinite(quarters/seconds*60.0)||quarters/seconds*60.0>std::numeric_limits<int>::max()))throw std::runtime_error("SheetSage2 tempo exceeds supported arithmetic range");
++    const int tempo = seconds > 0.0 ? static_cast<int>(std::llround(quarters / seconds * 60.0)) : 120;
++    std::ostringstream out;
++    out << "X:1\n"
++        << "T:\n"
++        << "M:" << measures.front().abc_numerator << "/" << measures.front().abc_denominator << "\n"
++        << "L:1/" << unit_denominator << "\n"
++        << "Q:1/4=" << tempo << "\n"
++        << "V: Vocal clef=treble name=\"Vocal Melody\" snm=\"Vocal\"\n"
++        << "V: Ins clef=treble name=\"Ins Melody\" snm=\"Inst.\"\n"
++        << "K:" << keys[static_cast<size_t>(measures.front().start_beat * 4)] << "\n";
++    std::vector<std::pair<int, std::string>> structure_events;
++    structure_events.reserve(structure_rows.size());
++    for (const auto & row : structure_rows) {
++        auto completed_visit=visit(120);
++        structure_events.push_back({quantize_time(row.start, subbeat_times), row.value});
++    }
++    for (const auto & group : measure_groups(measures, keys, structure_events)) {
++        auto completed_visit=visit(120);
++        for (const auto & label : group.structure_labels) {
++        auto completed_visit=visit(120);
++            out << "% " << label << "\n";
++        }
++        const auto & first = group.measures.front();
++        out << "V: Vocal\n";
++        if (group.meter_changed) {
++            out << "M:" << first.abc_numerator << "/" << first.abc_denominator << "\n";
++        }
++        if (group.key_changed) {
++            out << "K:" << keys[static_cast<size_t>(first.start_beat * 4)] << "\n";
++        }
++        out << render_voice_group(voices[0], keys, chords, denominators, group.measures, unit_denominator, true) << "\n"
++            << "V: Ins\n";
++        if (group.meter_changed) {
++            out << "M:" << first.abc_numerator << "/" << first.abc_denominator << "\n";
++        }
++        if (group.key_changed) {
++            out << "K:" << keys[static_cast<size_t>(first.start_beat * 4)] << "\n";
++        }
++        out << render_voice_group(voices[1], keys, chords, denominators, group.measures, unit_denominator, false) << "\n";
++    }
++    return completed(out.str(),120);
++}
++
++std::string events_json(const std::vector<SheetSage2Event> & events) {
++    const auto write_i32_array = [&](std::ostringstream & out, const std::vector<int32_t> & values) {
++        out << "[";
++        for (size_t i = 0; i < values.size(); ++i) {
++        auto completed_visit=visit(121);
++            if (i != 0) {
++                out << ",";
++            }
++            out << values[i];
++        }
++        out << "]";
++    };
++    std::ostringstream out;
++    out << "{\"events\":[";
++    for (size_t i = 0; i < events.size(); ++i) {
++        auto completed_visit=visit(121);
++        if (i != 0) {
++            out << ",";
++        }
++        const auto & event = events[i];
++        out << "{\"subbeat\":" << event.subbeat
++            << ",\"time\":" << event.time
++            << ",\"window_index\":" << event.window_index
++            << ",\"source_subbeat\":" << event.source_subbeat
++            << ",\"global_subbeat\":" << event.global_subbeat
++            << ",\"tokens_by_field\":{";
++        bool wrote = false;
++        const auto write_field = [&](const char * name, const std::vector<int32_t> & values) {
++            if (values.empty()) {
++                return;
++            }
++            if (wrote) {
++                out << ",";
++            }
++            wrote = true;
++            out << "\"" << name << "\":";
++            write_i32_array(out, values);
++        };
++        write_field("timestamp", event.timestamp_tokens);
++        write_field("rhythm", event.rhythm_tokens);
++        write_field("structure", event.structure_tokens);
++        write_field("key", event.key_tokens);
++        write_field("chord", event.chord_tokens);
++        write_field("melody", event.melody_tokens);
++        out << "},\"notes\":[";
++        for (size_t n = 0; n < event.notes.size(); ++n) {
++        auto completed_visit=visit(121);
++            if (n != 0) {
++                out << ",";
++            }
++            out << "{\"pitch\":" << event.notes[n].pitch
++                << ",\"track\":" << event.notes[n].track
++                << ",\"duration_bin\":" << event.notes[n].duration_bin
++                << ",\"duration_steps\":" << event.notes[n].duration_steps;
++            if (n < event.note_end_times.size()) {
++                out << ",\"end_time\":" << event.note_end_times[n];
++            }
++            out << "}";
++        }
++        out << "]}";
++    }
++    out << "]}";
++    return completed(out.str(),121);
++}
++
++};
++} // namespace
++
++void validate_sheetsage2_output(const std::vector<SheetSage2Event> & events,
++    double duration,const SheetSage2OutputDomain & domain) {
++    if(domain.context_per_window<=0 || domain.window_count<=0 ||
++       static_cast<uint64_t>(domain.context_per_window)>(std::numeric_limits<size_t>::max()-1)/static_cast<uint64_t>(domain.window_count) ||
++       !std::isfinite(duration) || duration<0 || duration>std::numeric_limits<float>::max())
++        throw std::runtime_error("SheetSage2 output request domain is invalid");
++    const size_t budget=static_cast<size_t>(domain.context_per_window)*static_cast<size_t>(domain.window_count);
++    if(events.size()>budget)throw std::runtime_error("SheetSage2 events exceed request domain");
++    if(budget>(std::numeric_limits<size_t>::max()-static_cast<size_t>(domain.window_count))/8)throw std::runtime_error("SheetSage2 output expansion exceeds supported range");
++    const size_t field_budget=8*budget+static_cast<size_t>(domain.window_count);
++    size_t tokens=0,notes=0;double note_end=duration;int unit=1;std::optional<std::pair<int,int>> inherited_meter;
++    const auto add=[&](size_t & total,size_t count){if(count>field_budget-total)throw std::runtime_error("SheetSage2 output fields exceed request domain");total+=count;};
++    for(const auto&e:events){
++        if(!std::isfinite(e.time)||e.time<0 || !std::isfinite(e.window_start)|| e.window_index<0 ||
++           static_cast<int64_t>(e.window_index)>=domain.window_count || e.subbeat<0||e.global_subbeat<0||e.source_subbeat<0 ||
++           e.subbeat>std::numeric_limits<int64_t>::max()-4096 ||
++           static_cast<long double>(e.time)*100>std::numeric_limits<int64_t>::max() ||
++           (e.timestamp && (!std::isfinite(*e.timestamp)||*e.timestamp<0)))
++            throw std::runtime_error("SheetSage2 event arithmetic domain is invalid");
++        if(e.time>duration+1e-4)throw std::runtime_error("SheetSage2 event time exceeds request duration");
++        if(e.meter) inherited_meter=e.meter;
++        if(e.meter){int n=e.meter->first,d=e.meter->second;if(n<=0||d<=0||d>std::numeric_limits<int>::max()/4 || static_cast<int64_t>(n)*d>std::numeric_limits<int>::max()/4)throw std::runtime_error("SheetSage2 meter arithmetic domain is invalid");
++            int divisor=d*4,g=std::gcd(unit,divisor);if(unit/g>std::numeric_limits<int>::max()/divisor)throw std::runtime_error("SheetSage2 output LCM exceeds supported range");unit=(unit/g)*divisor;}
++        if(e.eighth_position && (*e.eighth_position<0 || (inherited_meter && (*e.eighth_position>std::numeric_limits<int64_t>::max()/inherited_meter->second || *e.eighth_position>static_cast<int64_t>(std::numeric_limits<int>::max()-1)*8/inherited_meter->second))))
++            throw std::runtime_error("SheetSage2 rhythm index exceeds supported range");
++        if(e.chord && !e.chord->empty() && *e.chord!="N" && *e.chord!="X" && *e.chord!="?") {
++            const auto colon=e.chord->find(':');
++            if(colon!=std::string::npos){
++                const auto root=e.chord->substr(0,colon);const auto slash=e.chord->find('/',colon+1);
++                if(slash!=std::string::npos){
++                    if(root.empty() || std::string("CDEFGAB").find(root[0])==std::string::npos)
++                        throw std::runtime_error("SheetSage2 chord root is invalid");
++                    for(size_t i=1;i<root.size();++i)if(root[i]!='#'&&root[i]!='b')throw std::runtime_error("SheetSage2 chord root is invalid");
++                    const auto bass=e.chord->substr(slash+1);size_t digit=bass.find_first_of("123456789");
++                    if(digit==std::string::npos)throw std::runtime_error("SheetSage2 chord bass degree is invalid");
++                    for(size_t i=0;i<digit;++i)if(bass[i]!='#'&&bass[i]!='b')throw std::runtime_error("SheetSage2 chord bass alteration is invalid");
++                    int64_t degree=0;for(size_t i=digit;i<bass.size();++i){if(bass[i]<'0'||bass[i]>'9'||degree>(std::numeric_limits<int>::max()-6-(bass[i]-'0'))/10)throw std::runtime_error("SheetSage2 chord degree exceeds supported range");degree=degree*10+(bass[i]-'0');}
++                    if(degree<=0||root.size()>static_cast<size_t>(std::numeric_limits<int>::max()/4)||bass.size()>static_cast<size_t>(std::numeric_limits<int>::max()/4))throw std::runtime_error("SheetSage2 chord arithmetic exceeds supported range");
++                }
++            }
++        }
++        for(const auto *v:{&e.timestamp_tokens,&e.rhythm_tokens,&e.structure_tokens,&e.key_tokens,&e.chord_tokens,&e.melody_tokens})add(tokens,v->size());
++        add(notes,e.notes.size());if(e.note_end_times.size()>e.notes.size())throw std::runtime_error("SheetSage2 note endpoints mismatch");
++        for(const auto&n:e.notes)if(n.pitch<0||n.pitch>127||n.track<0||n.track>1||n.duration_steps<=0||n.duration_bin<0||n.duration_bin>=24||e.subbeat>std::numeric_limits<int64_t>::max()-n.duration_steps)
++            throw std::runtime_error("SheetSage2 note arithmetic domain is invalid");
++        for(float end:e.note_end_times){if(!std::isfinite(end)||end<0)throw std::runtime_error("SheetSage2 note endpoint is invalid");note_end=std::max(note_end,static_cast<double>(end));}
++    }
++ }
++namespace {
++void validate_sheetsage2_render(const std::vector<SheetSage2Event>&events,double duration){
++    double note_end=duration;int unit=1,max_numerator=1;
++    for(const auto&e:events){for(float end:e.note_end_times)note_end=std::max(note_end,static_cast<double>(end));if(e.meter){max_numerator=std::max(max_numerator,e.meter->first);int divisor=e.meter->second*4;unit=(unit/std::gcd(unit,divisor))*divisor;}}
++    for(const auto&e:events)if(e.meter && static_cast<int64_t>(e.meter->first)*unit>std::numeric_limits<int>::max())throw std::runtime_error("SheetSage2 measure padding exceeds supported arithmetic range");
++    size_t text_bytes=0;
++    for(const auto&e:events)for(const auto*value:{&e.structure,&e.key,&e.chord})if(*value){if((*value)->size()>std::string().max_size()-text_bytes)throw std::runtime_error("SheetSage2 output text count exceeds supported range");text_bytes+=(*value)->size();}
++    // Nonmutating bounded preflight uses original rhythm/median arithmetic.
++    auto beats=rhythm_rows(events);
++    if(beats.size()<2)return;
++    for(size_t i=1;i<beats.size();++i)if(beats[i].time<beats[i-1].time)throw std::runtime_error("SheetSage2 decoded beats must increase in time");
++    std::vector<double>periods;
++    for(size_t i=beats.size()>9?beats.size()-8:1;i<beats.size();++i)periods.push_back(beats[i].time-beats[i-1].time);
++    std::sort(periods.begin(),periods.end());size_t middle=periods.size()/2;
++    double period=periods.size()%2==0?(periods[middle-1]+periods[middle])*.5:periods[middle];
++    if(!std::isfinite(period)||period<=0)throw std::runtime_error("SheetSage2 decoded beats must increase in time");
++    const long double extra=std::max<long double>(0,std::ceil((static_cast<long double>(note_end)-1e-6L-beats.back().time)/period))+1;
++    const long double count=beats.size()+extra;
++    if(!std::isfinite(extra)||!std::isfinite(count)||count>std::numeric_limits<int>::max()/4 || (count*4+max_numerator)*unit>std::numeric_limits<int>::max() ||
++       count*4>std::vector<double>().max_size())throw std::runtime_error("SheetSage2 rendered grid exceeds supported arithmetic range");
++    // Prove every actual addition progresses; finite derived count bounds this validation.
++    double last=beats.back().time;size_t remaining=static_cast<size_t>(extra);
++    while(last<note_end-1e-6){double next=last+period;if(!std::isfinite(next)||next<=last||remaining--==0)throw std::runtime_error("SheetSage2 beat extension cannot progress");last=next;}
++    // Validate the actual renderer expression, not a unit-denominator upper
++    // bound: that bound rejects safe short periods (e.g. one 4/4 beat at 1us).
++    // Derived count/index/padding limits above make these private validation
++    // helpers safe; this pass is deliberately completed before observing stop.
++    auto tempo_beats=beats;
++    while(tempo_beats.back().time<note_end-1.0e-6){
++        auto next=tempo_beats.back();
++        next.time+=period;
++        next.beat=next.beat%next.numerator+1;
++        tempo_beats.push_back(next);
++    }
++    const auto tempo_measures=infer_measures(tempo_beats);
++    if(!tempo_measures.empty()){
++        const auto tempo_times=subbeat_times_from_beats(tempo_beats);
++        const auto tempo_denominators=subbeat_denominators_from_measures(tempo_beats,tempo_measures,tempo_times.size());
++        const double seconds=tempo_times.back()-tempo_times.front();
++        const double quarters=std::accumulate(tempo_denominators.begin(),tempo_denominators.end()-1,0.0,[](double sum,int denominator){
++            return sum+4.0/static_cast<double>(denominator)/4.0;
++        });
++        const double tempo=seconds>0.0?quarters/seconds*60.0:120.0;
++        if(!std::isfinite(tempo)||tempo<0.0||tempo>std::numeric_limits<int>::max())
++            throw std::runtime_error("SheetSage2 tempo exceeds supported arithmetic range");
++    }
++}
++} // namespace
++
++void validate_sheetsage2_render_output(const std::vector<SheetSage2Event>&events,double duration,const SheetSage2OutputDomain&domain){validate_sheetsage2_output(events,duration,domain);validate_sheetsage2_render(events,duration);}
++std::string events_to_abc(const std::vector<SheetSage2Event>& events,double duration,
++    const SheetSage2OutputDomain&domain,core::RunStopHandle stop){
++    validate_sheetsage2_output(events,duration,domain);validate_sheetsage2_render(events,duration);OutputRenderOwner owner{std::move(stop)};owner.check();auto text=owner.events_to_abc(events,duration);owner.check(11);return text;
++}
++std::string events_json(const std::vector<SheetSage2Event>&events,
++    const SheetSage2OutputDomain&domain,core::RunStopHandle stop){
++    double duration=0;for(const auto&e:events)duration=std::max(duration,static_cast<double>(e.time));
++    validate_sheetsage2_output(events,duration,domain);OutputRenderOwner owner{std::move(stop)};owner.check();auto text=owner.events_json(events);owner.check(11);return text;
++}
++
+ }  // namespace engine::models::sheetsage
+diff --git a/include/engine/models/sheetsage/processing.h b/include/engine/models/sheetsage/processing.h
+--- a/include/engine/models/sheetsage/processing.h
++++ b/include/engine/models/sheetsage/processing.h
+@@ -1,6 +1,7 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include "engine/framework/core/execution_context.h"
+ #include <optional>
+ #include <string>
+ #include <utility>
+@@ -48,4 +49,18 @@
+ std::string events_to_abc(const std::vector<SheetSage2Event> & events, double duration);
+ std::string events_json(const std::vector<SheetSage2Event> & events);
+ 
++// Internal request-derived bounds; no user-facing configuration surface.
++struct SheetSage2OutputDomain {
++    int64_t context_per_window = 0;
++    int64_t window_count = 0;
++};
++void validate_sheetsage2_output(const std::vector<SheetSage2Event> & events,
++    double duration, const SheetSage2OutputDomain & domain);
++void validate_sheetsage2_render_output(const std::vector<SheetSage2Event> & events,double duration,
++    const SheetSage2OutputDomain & domain);
++std::string events_to_abc(const std::vector<SheetSage2Event> & events, double duration,
++    const SheetSage2OutputDomain & domain, core::RunStopHandle stop);
++std::string events_json(const std::vector<SheetSage2Event> & events,
++    const SheetSage2OutputDomain & domain, core::RunStopHandle stop);
++
+ }  // namespace engine::models::sheetsage
