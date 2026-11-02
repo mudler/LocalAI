@@ -119,7 +119,7 @@ To reuse the same token later, restart the server with `--p2ptoken` or `P2P_TOKE
 2. Start the workers. Copy the `local-ai` binary to other hosts and run as many workers as needed using the token:
 
 ```bash
-TOKEN=XXX ./local-ai worker p2p-llama-cpp-rpc --llama-cpp-args="-m <memory>" 
+TOKEN=XXX ./local-ai p2p-worker p2p-llama-cpp-rpc --llama-cpp-args="-m <memory>" 
 ```
 
 (Note: You can also supply the token via command-line arguments)

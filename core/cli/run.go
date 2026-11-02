@@ -32,6 +32,13 @@ import (
 // When renaming flags, add the old name as an alias for backward compatibility
 // and document the deprecation in the help text.
 
+// p2pWorkerCommand is the command a user runs on another node to join the
+// P2P network with a llama.cpp worker. It is printed after `run --p2p`
+// generates a token, and a test parses it against the CLI so it cannot drift
+// from the command tree again (it named the pre-v4 `worker` command for a
+// release cycle).
+const p2pWorkerCommand = "local-ai p2p-worker p2p-llama-cpp-rpc"
+
 type RunCMD struct {
 	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" default:"fine-tuning=finetune.,quantization=quantize.,sandbox=workspace.,sandbox=egress.,office=workspace.,web=workspace.,telegram=connector." help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
 	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
@@ -627,7 +634,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 			fmt.Println(token)
 
 			xlog.Info("To use the token, you can run the following command in another node or terminal:")
-			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
+			fmt.Printf("export TOKEN=\"%s\"\n%s\n", token, p2pWorkerCommand)
 		}
 		opts = append(opts, config.WithP2PToken(token))
 	}
