@@ -33,6 +33,21 @@ func (s *Service) scopeConfig(cfg *lagi.Config, user string) {
 	cfg.LegacyCollectionDBPath = cfg.CollectionDBPath
 	cfg.CollectionDBPath = filepath.Join(cfg.CollectionDBPath, "scoped-v1", cfg.PostgresScope.Schema)
 	cfg.FileAssets = filepath.Join(cfg.FileAssets, "scoped-v1", cfg.PostgresScope.Schema)
+	cfg.AdmitExisting = func(name string) error {
+		if err := s.admitLegacy(cfg, name); err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), collectionRegistryTimeout)
+		defer cancel()
+		exists, err := engine.PostgresCollectionExists(ctx, cfg.DatabaseURL, name, cfg.PostgresScope)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return fmt.Errorf("collection not found: %s", name)
+		}
+		return nil
+	}
 }
 func (s *Service) admitLegacy(cfg *lagi.Config, name string) error {
 	if name == "" || strings.ContainsAny(name, "/\\\x00") || name == "." || name == ".." {

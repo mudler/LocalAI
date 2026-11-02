@@ -56,6 +56,9 @@ type CollectionModelSettings struct {
 
 // Config holds the configuration for the in-process collections backend.
 type Config struct {
+	// AdmitExisting runs before startup autoload performs any engine, model or
+	// external-source work. Rejected sidecars are not cached or registered.
+	AdmitExisting          func(name string) error
 	PostgresScope          engine.PostgresScope
 	LegacyCollectionDBPath string
 	// ModelSettings resolves models before an operation acquires backend locks.

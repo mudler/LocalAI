@@ -249,3 +249,9 @@ needed). Administrator `user_groups` include the same status. A status warning
 never labels ambiguous legacy names as belonging to an account. Resolve ownership
 and preserve backups explicitly before any separately reviewed migration; there
 is no automatic migration or ownership-claim option in this change.
+
+Startup autoload applies legacy admission and verifies scoped registry existence
+before opening persisted collection sidecars. Denied or stale sidecars do not
+start external-source refreshes, call embeddings, write embedding identity files,
+or recreate registry rows. Admission errors fail closed, including during a
+whole-database outage; cached availability is not a bypass for failed admission.

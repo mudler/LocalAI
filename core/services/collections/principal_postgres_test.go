@@ -6,15 +6,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/localrecall/rag"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/mudler/LocalAI/core/config"
 	lagi "github.com/mudler/LocalAI/core/services/collections/backend"
+	"github.com/mudler/LocalAI/core/services/messaging"
 	"github.com/mudler/LocalAI/core/services/testutil"
 	"github.com/mudler/localrecall/rag/engine"
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +28,7 @@ import (
 
 // The production Service, registry and vector store are real. Only embeddings
 // and the cluster transport are fixtures. Each frontend has a separate disk.
-func principalPostgresServices() (*Service, *Service, string) {
+func principalPostgresServices(withoutBus ...bool) (*Service, *Service, string) {
 	raw := os.Getenv("MEMORY_DATABASE_URL")
 	if raw == "" {
 		Skip("MEMORY_DATABASE_URL is not set")
@@ -44,7 +49,10 @@ func principalPostgresServices() (*Service, *Service, string) {
 	q := u.Query()
 	q.Set("search_path", schema+",public")
 	u.RawQuery = q.Encode()
-	bus := testutil.NewFakeBus()
+	var bus messaging.Broadcaster = testutil.NewFakeBus()
+	if len(withoutBus) > 0 && withoutBus[0] {
+		bus = nil
+	}
 	open := func() *Service {
 		cfg := config.NewApplicationConfig()
 		cfg.DataPath = GinkgoT().TempDir()
@@ -186,6 +194,14 @@ var _ = Describe("PostgreSQL principal isolation reproduction", func() {
 			func() error { return b.AddSourceForUser(userA, "ambiguous", "http://invalid", 10) },
 			func() error { return b.RemoveSourceForUser(userA, "ambiguous", "http://invalid") },
 			func() error { _, e := b.ListSourcesForUser(userA, "ambiguous"); return e },
+			func() error {
+				_, e := b.WriteMemory(ctx, userA, "ambiguous", lagi.MemoryWrite{Key: "key", Content: "fresh content", PayloadHash: hash}, func(context.Context) error { return nil })
+				return e
+			},
+			func() error {
+				_, e := b.WriteMemoryFenced(ctx, userA, "ambiguous", lagi.MemoryFence{Key: "key", Owner: "owner", Generation: 1}, lagi.MemoryWrite{Key: "key", Content: "fresh content", PayloadHash: hash}, func(context.Context) error { return nil })
+				return e
+			},
 			func() error { _, e := b.BeginMemoryAttempt(ctx, userA, "ambiguous", "key", "owner"); return e },
 			func() error { _, e := b.ReconcileMemory(ctx, userA, "ambiguous", "key"); return e },
 			func() error {
@@ -203,6 +219,80 @@ var _ = Describe("PostgreSQL principal isolation reproduction", func() {
 		var count int
 		Expect(conn.QueryRow(ctx, "SELECT count(*) FROM collection_config WHERE collection_name='ambiguous'").Scan(&count)).To(Succeed())
 		Expect(count).To(Equal(1))
+	})
+
+	It("rejects startup autoload before external sources, embeddings or identity writes", func() {
+		a, _, raw := principalPostgresServices()
+		ctx := context.Background()
+		var sourceCalls, embeddingCalls atomic.Int32
+		source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			sourceCalls.Add(1)
+			_, _ = fmt.Fprint(w, "source content")
+		}))
+		DeferCleanup(source.Close)
+		Expect(a.CreateForUser(userA, "restart_denied")).To(Succeed())
+		Expect(a.CreateForUser(userA, "stale_sidecar")).To(Succeed())
+		backend, err := a.Backend(userA)
+		Expect(err).NotTo(HaveOccurred())
+		shared := backend.(*sharedCollections)
+		kb := shared.state.Collections["restart_denied"]
+		// Persist source configuration without scheduling a fetch in this process.
+		Expect(kb.AddExternalSource(&rag.ExternalSource{URL: source.URL, UpdateInterval: time.Hour})).To(Succeed())
+		cfg := a.config(a.storage.CollectionsDir(userA), a.storage.AssetsDir(userA))
+		a.scopeConfig(cfg, userA)
+		a.Close()
+		Expect(os.RemoveAll(filepath.Join(cfg.CollectionDBPath, "embedding-models"))).To(Succeed())
+		conn, err := pgx.Connect(ctx, raw)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { Expect(conn.Close(ctx)).To(Succeed()) })
+		_, err = conn.Exec(ctx, `CREATE TABLE collection_config(collection_name text PRIMARY KEY);INSERT INTO collection_config VALUES('restart_denied')`)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = conn.Exec(ctx, "DELETE FROM "+pgx.Identifier{cfg.PostgresScope.Schema, "collection_config"}.Sanitize()+" WHERE collection_name='stale_sidecar'")
+		Expect(err).NotTo(HaveOccurred())
+		client := embeddingClient()
+		original := client.Transport
+		client.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) { embeddingCalls.Add(1); return original.RoundTrip(r) })
+		restarted, err := New(a.appConfig, a.bus, WithHTTPClient(client))
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(restarted.Close)
+		opened, err := restarted.Backend(userA)
+		Expect(err).NotTo(HaveOccurred())
+		restartedState := opened.(*sharedCollections).state
+		// Constructor completion is the synchronous side-effect boundary: neither
+		// rejected name may enter the source manager or the engine cache.
+		Expect(restartedState.Collections).NotTo(HaveKey("restart_denied"))
+		Expect(restartedState.Collections).NotTo(HaveKey("stale_sidecar"))
+		Consistently(func() int32 { return sourceCalls.Load() }, 200*time.Millisecond, 10*time.Millisecond).Should(BeZero())
+		Expect(embeddingCalls.Load()).To(BeZero())
+		_, err = os.Stat(filepath.Join(cfg.CollectionDBPath, "embedding-models"))
+		Expect(os.IsNotExist(err)).To(BeTrue())
+		var count int
+		Expect(conn.QueryRow(ctx, "SELECT count(*) FROM "+pgx.Identifier{cfg.PostgresScope.Schema, "collection_config"}.Sanitize()+" WHERE collection_name='stale_sidecar'").Scan(&count)).To(Succeed())
+		Expect(count).To(BeZero())
+		Expect(errors.Is(restarted.CheckForUser(ctx, userA, "restart_denied"), ErrLegacyCollectionActionRequired)).To(BeTrue())
+		Expect(restarted.CheckForUser(ctx, userA, "stale_sidecar")).To(MatchError(ContainSubstring("collection not found")))
+	})
+	It("discovers warmed principal collections through PostgreSQL without a bus", func() {
+		a, b, _ := principalPostgresServices(true)
+		ctx := context.Background()
+		warm, err := b.Backend(userA)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(a.CreateForUser(userA, "busless")).To(Succeed())
+		names, err := b.ListForUser(userA)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(names).To(Equal([]string{"busless"}))
+		Expect(b.CheckForUser(ctx, userA, "busless")).To(Succeed())
+		same, err := b.Backend(userA)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(same).To(BeIdenticalTo(warm))
+		hash, err := lagi.MemoryPayloadHash("busless memory", nil)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = b.WriteMemory(ctx, userA, "busless", lagi.MemoryWrite{Key: "key", Content: "busless memory", PayloadHash: hash}, func(context.Context) error { return nil })
+		Expect(err).NotTo(HaveOccurred())
+		hits, err := a.SearchForUser(ctx, userA, "busless", "memory", 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(hits).To(HaveLen(1))
+		Expect(hits[0].Content).To(Equal("busless memory"))
 	})
 
 	It("discovers a collection after another frontend warms the principal backend", func() {

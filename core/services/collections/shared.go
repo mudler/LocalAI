@@ -221,8 +221,8 @@ func (s *sharedCollections) ensure(name string) error {
 	defer cancel()
 	exists, err := s.registry.Exists(ctx, name)
 	if err != nil {
-		// Legacy wrappers preserve cached availability. Scoped backends must
-		// surface registry failures rather than treating failed admission as absence.
+		// Cached availability applies only after admission succeeds. An outage
+		// of the legacy-admission database still fails closed before this point.
 		xlog.Warn("Could not check the collection registry", "collection", name, "error", err)
 		if s.namespace == "" || (s.cached(name) && !errors.Is(err, engine.ErrPostgresScope)) {
 			return nil

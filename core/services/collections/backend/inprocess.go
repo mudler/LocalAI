@@ -405,6 +405,12 @@ func NewInProcessBackend(cfg *Config) (Backend, *State) {
 
 	colls := rag.ListAllCollections(cfg.CollectionDBPath)
 	for _, c := range colls {
+		if cfg.AdmitExisting != nil {
+			if err := cfg.AdmitExisting(c); err != nil {
+				xlog.Warn("Skipping collection startup autoload: admission failed", "collection", c, "error", err)
+				continue
+			}
+		}
 		collection, _ := backend.construct(c, cfg.EmbeddingModel)
 		// Register every on-disk collection — even when the engine wrapper
 		// failed to construct (e.g. the embedding service was momentarily
