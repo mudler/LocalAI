@@ -9,7 +9,7 @@ import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } f
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
 // the real packages. No page is built in today, so `builtin` is empty unless a
 // spec makes one up to check the built-in rules.
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases, features = { addon_navigation: true } } = {}) {
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases, hostSettings, features = { addon_navigation: true } } = {}) {
   let saved = pins
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
   await page.route('**/api/features', route => route.fulfill({ json: features }))
@@ -18,7 +18,7 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
   // The packages are served from the build output, so a page that opens one runs it.
   let mocked = null
   if (studio) mocked = await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
-  else mocked = await mockAddons(page, { apps, installed, releases })
+  else mocked = await mockAddons(page, { apps, installed, releases, hostSettings })
   await page.route('**/api/addons/pins', async route => {
     if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
     await route.fulfill({ json: saved })
@@ -188,7 +188,7 @@ test.describe('Add-on navigation', () => {
 
   test('an administrator gets a Settings tab in the details of an add-on with settings, with the host controls it has', async ({ page }) => {
     const controlled = withSettings({ shadows: ['bash'], ui: { entry: `/api/addons/sandbox/assets/${'a'.repeat(64)}/ui.js`, sdk: { min: 2, max: 2 }, controls: ['network-policy'] } })
-    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [controlled, app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()] })
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [controlled, app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()], hostSettings: { chats_egress_ceiling: 'registries' } })
     await page.route('**/api/settings', route => route.fulfill({ json: { chats_egress_ceiling: 'registries', chats_egress_audit_days: 14 } }))
     await page.route('**/api/chats/admin/egress', route => route.fulfill({ json: { ceiling: 'registries', default: 'off', ports: [80, 443], audit_days: 14, registries: [], allowed_24h: 0, blocked_24h: 0 } }))
     await page.goto('/app/addons?detail=sandbox')
@@ -200,7 +200,8 @@ test.describe('Add-on navigation', () => {
     const block = pane.getByTestId('host-control-network-policy')
     await expect(block).toBeVisible()
     await expect(block.locator('[data-field="chats_egress_ceiling"] select')).toHaveValue('registries')
-    await expect(block.locator('[data-field="chats_egress_audit_days"] input')).toHaveValue('14')
+    // The audit retention stays on the Settings page: it is not owner policy.
+    await expect(block.locator('[data-field="chats_egress_audit_days"]')).toHaveCount(0)
     await expect(pane.getByTestId('addon-server-settings')).toHaveCount(0)
     // Arrow keys move between the two tabs.
     await pane.getByTestId('addon-detail-tab-settings').press('ArrowLeft')
