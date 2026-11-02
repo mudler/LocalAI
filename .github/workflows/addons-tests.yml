@@ -13,10 +13,52 @@ name: 'Add-on Tests'
 # tests-ui-unit.yml.
 on:
   pull_request:
+    paths:
+      - 'addons/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/addons-tests.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'gallery/addons/**'
+      - 'docs/content/features/addons.md'
+      - 'docs/content/features/tables.md'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
   push:
-    branches:
-      - master
-  workflow_dispatch:
+    branches: [master]
+    paths:
+      - 'addons/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/addons-tests.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'gallery/addons/**'
+      - 'docs/content/features/addons.md'
+      - 'docs/content/features/tables.md'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
 
 concurrency:
   group: ci-addons-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
@@ -26,45 +68,7 @@ permissions:
   contents: read
 
 jobs:
-  classify:
-    name: classify affected validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      core: ${{ steps.affected.outputs.core }}
-      cpp: ${{ steps.affected.outputs.cpp }}
-      ui: ${{ steps.affected.outputs.ui }}
-      addons: ${{ steps.affected.outputs.addons }}
-      distributed: ${{ steps.affected.outputs.distributed }}
-      backend: ${{ steps.affected.outputs.backend }}
-      build: ${{ steps.affected.outputs.build }}
-      launcher: ${{ steps.affected.outputs.launcher }}
-      packages: ${{ steps.affected.outputs.packages }}
-      contracts: ${{ steps.affected.outputs.contracts }}
-      addons-json: ${{ steps.affected.outputs.addons-json }}
-      addons-list: ${{ steps.affected.outputs.addons-list }}
-      sandbox: ${{ steps.affected.outputs.sandbox }}
-      groups-json: ${{ steps.affected.outputs.groups-json }}
-      contract-tests-json: ${{ steps.affected.outputs.contract-tests-json }}
-      validation-json: ${{ steps.affected.outputs.validation-json }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          # Read only the selector and import metadata, not submodules/assets.
-          sparse-checkout: |
-            scripts/ci
-            scripts/lib
-            **/*.go
-            go.mod
-          sparse-checkout-cone-mode: false
-      - id: affected
-        run: node scripts/ci/select.mjs
-
   prepare:
-    needs: classify
-    if: needs.classify.outputs.addons == 'true'
     name: prepare shared production fixtures
     runs-on: ubuntu-24.04
     timeout-minutes: 60
@@ -72,7 +76,6 @@ jobs:
       - name: Clone
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           persist-credentials: false
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -96,10 +99,8 @@ jobs:
           sudo unzip -j -d /usr/local/bin protoc.zip bin/protoc
           rm protoc.zip
           protoc --version
-      - name: Prepare the toolchain
-        # Downloads the Go modules, installs the pinned protobuf plugins, runs
-        # npm ci and installs the Playwright Chromium. Nothing later reaches
-        # the network.
+      - name: Prepare the build toolchain
+        # The producer installs build inputs only; consumers install Chromium.
         run: sh scripts/addons/prepare.sh --prepare-build
       - name: Build the UI, the mock backend and the UI test server
         run: COVERAGE=false COVERAGE_V8=false sh scripts/addons/prepare.sh --integration
@@ -114,23 +115,33 @@ jobs:
           retention-days: 1
 
   suites:
-    needs: [classify, prepare]
-    if: always() && needs.classify.result == 'success' && needs.prepare.result == 'success' && needs.classify.outputs.addons == 'true'
+    needs: prepare
     name: ${{ matrix.group }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.classify.outputs.groups-json) }}
+      matrix:
+        include:
+          # Go suites over the owner, the carrier, the gateway and the policy.
+          - group: contracts and gateway
+            suites: prerequisites contracts catalog packages lifecycle runtime gateway policy proposals artifacts apps
+          # Browser suites over the host pages of the add-ons.
+          - group: host pages
+            suites: gallery-ui esm-ui host-slots library-sources updates recovery
+          # Two frontends and an owner, with real authentication.
+          - group: foundation
+            suites: foundation-acceptance
+          # The Tables add-on: stores, tools and administration.
+          - group: tables
+            suites: tables-databases tables-schema tables-rows tables-tools tables-admin
+          # The Tables add-on: pages, CSV export and the end-to-end acceptance.
+          - group: tables pages
+            suites: tables-ui tables-csv tables-acceptance
     steps:
-      - name: Require successful fixture preparation
-        env:
-          PREPARE_RESULT: ${{ needs.prepare.result }}
-        run: test "$PREPARE_RESULT" = success
       - name: Clone
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           persist-credentials: false
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -187,7 +198,7 @@ jobs:
             exit 1
           fi
       - name: Upload the suite logs
-        if: ${{ (failure()) }}
+        if: ${{ failure() }}
         uses: actions/upload-artifact@v7
         with:
           name: addons-suite-logs-${{ strategy.job-index }}
@@ -197,18 +208,3 @@ jobs:
             core/http/react-ui/test-results/
           if-no-files-found: ignore
           retention-days: 7
-
-  result:
-    name: validation result
-    if: always()
-    needs: [classify, prepare, suites]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          sparse-checkout: scripts/ci
-      - env:
-          RESULTS: ${{ toJSON(needs) }}
-          JOB_DOMAINS: '{"prepare": "addons", "suites": "addons"}'
-        run: node scripts/ci/job-result.mjs

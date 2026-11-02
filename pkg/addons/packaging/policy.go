@@ -188,15 +188,9 @@ func checkWorkflow(data []byte) []string {
 	}
 	for _, n := range []string{"package", "publish", "promote"} {
 		cond := fmt.Sprint(job(n)["if"])
-		// Package must run when the optional guest job skips, but only after
-		// explicit successful validation. Recognize one exact expression, not
-		// substring presence: an OR could otherwise bypass the success guards.
-		guardedPackage := n == "package" && cond == "${{ always() && needs.plan.result == 'success' && needs.validate.result == 'success' && (needs.sandbox-image.result == 'success' || needs.sandbox-image.result == 'skipped') && needs.plan.outputs.has_platforms == 'true' }}"
-		if !guardedPackage {
-			for _, bad := range []string{"always()", "cancelled()", "failure()"} {
-				if strings.Contains(cond, bad) {
-					add("P_VALIDATE_GATE", "%s must not use %s without explicit successful dependencies", n, bad)
-				}
+		for _, bad := range []string{"always()", "cancelled()", "failure()"} {
+			if strings.Contains(cond, bad) {
+				add("P_VALIDATE_GATE", "%s must not use %s: it would run after a failed validate", n, bad)
 			}
 		}
 		if c, ok := job(n)["continue-on-error"]; ok && fmt.Sprint(c) != "false" {

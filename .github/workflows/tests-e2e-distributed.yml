@@ -8,10 +8,42 @@ name: 'Distributed E2E Tests'
 # specs only because it recurses, and only after it has built the e2e image.
 on:
   pull_request:
+    paths:
+      - 'tests/e2e/distributed/**'
+      - 'Makefile'
+      - '.github/workflows/tests-e2e-distributed.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'configuration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'scripts/**'
+      - '.github/actions/**'
   push:
-    branches:
-      - master
+    branches: [master]
+    paths:
+      - 'tests/e2e/distributed/**'
+      - 'Makefile'
+      - '.github/workflows/tests-e2e-distributed.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'configuration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'scripts/**'
+      - '.github/actions/**'
   schedule:
+    # Pre-existing nightly coverage of the distributed suites.
     - cron: '17 3 * * *'
   workflow_dispatch:
 
@@ -23,45 +55,7 @@ permissions:
   contents: read
 
 jobs:
-  classify:
-    name: classify affected validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      core: ${{ steps.affected.outputs.core }}
-      cpp: ${{ steps.affected.outputs.cpp }}
-      ui: ${{ steps.affected.outputs.ui }}
-      addons: ${{ steps.affected.outputs.addons }}
-      distributed: ${{ steps.affected.outputs.distributed }}
-      backend: ${{ steps.affected.outputs.backend }}
-      build: ${{ steps.affected.outputs.build }}
-      launcher: ${{ steps.affected.outputs.launcher }}
-      packages: ${{ steps.affected.outputs.packages }}
-      contracts: ${{ steps.affected.outputs.contracts }}
-      addons-json: ${{ steps.affected.outputs.addons-json }}
-      addons-list: ${{ steps.affected.outputs.addons-list }}
-      sandbox: ${{ steps.affected.outputs.sandbox }}
-      groups-json: ${{ steps.affected.outputs.groups-json }}
-      contract-tests-json: ${{ steps.affected.outputs.contract-tests-json }}
-      validation-json: ${{ steps.affected.outputs.validation-json }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          # Read only the selector and import metadata, not submodules/assets.
-          sparse-checkout: |
-            scripts/ci
-            scripts/lib
-            **/*.go
-            go.mod
-          sparse-checkout-cone-mode: false
-      - id: affected
-        run: node scripts/ci/select.mjs
-
   fakebus:
-    needs: classify
-    if: needs.classify.outputs.distributed == 'true'
     # No containers: the in-process bus carries the messages between two
     # frontends, a worker and the cluster state, with the race detector on.
     name: multi-frontend over the in-process bus
@@ -71,7 +65,6 @@ jobs:
       - name: Clone
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           persist-credentials: false
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -99,8 +92,6 @@ jobs:
         run: PATH="$PATH:$HOME/go/bin" make test-distributed-fakebus
 
   distributed:
-    needs: classify
-    if: needs.classify.outputs.distributed == 'true'
     name: PostgreSQL and NATS in containers
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -108,7 +99,6 @@ jobs:
       - name: Clone
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           persist-credentials: false
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -133,18 +123,3 @@ jobs:
       - name: Run the distributed e2e suite
         # protogen-go is a prerequisite of the target.
         run: PATH="$PATH:$HOME/go/bin" make test-e2e-distributed
-
-  result:
-    name: validation result
-    if: always()
-    needs: [classify, fakebus, distributed]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          sparse-checkout: scripts/ci
-      - env:
-          RESULTS: ${{ toJSON(needs) }}
-          JOB_DOMAINS: '{"fakebus": "distributed", "distributed": "distributed"}'
-        run: node scripts/ci/job-result.mjs

@@ -3,60 +3,54 @@ name: 'E2E Backend Tests'
 
 on:
   pull_request:
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/tests-e2e.yml'
   push:
-    branches:
-      - master
-    tags:
-      - '*'
-  workflow_dispatch:
+    branches: [master]
+    tags: ['*']
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/tests-e2e.yml'
 
 concurrency:
   group: ci-tests-e2e-backend-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
-
 jobs:
-  classify:
-    name: classify affected validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      core: ${{ steps.affected.outputs.core }}
-      cpp: ${{ steps.affected.outputs.cpp }}
-      ui: ${{ steps.affected.outputs.ui }}
-      addons: ${{ steps.affected.outputs.addons }}
-      distributed: ${{ steps.affected.outputs.distributed }}
-      backend: ${{ steps.affected.outputs.backend }}
-      build: ${{ steps.affected.outputs.build }}
-      launcher: ${{ steps.affected.outputs.launcher }}
-      packages: ${{ steps.affected.outputs.packages }}
-      contracts: ${{ steps.affected.outputs.contracts }}
-      addons-json: ${{ steps.affected.outputs.addons-json }}
-      addons-list: ${{ steps.affected.outputs.addons-list }}
-      sandbox: ${{ steps.affected.outputs.sandbox }}
-      groups-json: ${{ steps.affected.outputs.groups-json }}
-      contract-tests-json: ${{ steps.affected.outputs.contract-tests-json }}
-      validation-json: ${{ steps.affected.outputs.validation-json }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          # Read only the selector and import metadata, not submodules/assets.
-          sparse-checkout: |
-            scripts/ci
-            scripts/lib
-            **/*.go
-            go.mod
-          sparse-checkout-cone-mode: false
-      - id: affected
-        run: node scripts/ci/select.mjs
-
   tests-e2e-backend:
-    needs: classify
-    if: needs.classify.outputs.backend == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -65,7 +59,6 @@ jobs:
       - name: Clone
         uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           submodules: true
       - name: Configure apt mirror on runner
         uses: ./.github/actions/configure-apt-mirror
@@ -103,25 +96,10 @@ jobs:
       # asked for one by labelling the pull request `ci-debug`, and cap the
       # session so a forgotten label cannot idle a runner either.
       - name: Setup tmate session if tests fail
-        if: ${{ (failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug')) }}
+        if: ${{ failure() && contains(github.event.pull_request.labels.*.name, 'ci-debug') }}
         timeout-minutes: 30
         uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
           connect-timeout-seconds: 180
           limit-access-to-actor: true
-
-  result:
-    name: validation result
-    if: always()
-    needs: [classify, tests-e2e-backend]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          sparse-checkout: scripts/ci
-      - env:
-          RESULTS: ${{ toJSON(needs) }}
-          JOB_DOMAINS: '{"tests-e2e-backend": "backend"}'
-        run: node scripts/ci/job-result.mjs

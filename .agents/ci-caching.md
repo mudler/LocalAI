@@ -391,172 +391,57 @@ When changing `image_build.yml`, `backend_build.yml`, any of the `backend/Docker
 6. **`install-base-deps.sh` is the single source of truth for base contents.** Both `Dockerfile.base-grpc-builder` (CI) and the variant Dockerfiles' `builder-fromsource` (local) bind-mount and execute it. If you add a package to one path, add it to the script — don't fork the logic into a Dockerfile RUN.
 7. **After adding a `base-images.yml` matrix variant, run the workflow on your branch before merging consumer changes** that depend on the new tag — otherwise the consumer's CI fails "image not found."
 
-## Selective validation (PRs and master)
+## Native validation paths
 
-The validation workflows classify once in a five-minute Ubuntu job, then gate
-whole expensive jobs before runner allocation. Classification uses a sparse
-checkout of the selector and Go import metadata, without submodules. The add-on
-host groups and package validation matrices contain only selected entries.
-Cheap lint, UI unit and YAML validation remain broad.
+The core, build, backend E2E, distributed, UI E2E, add-on test and add-on
+package workflows use native workflow-level `paths` on PRs and master pushes.
+Their YAML lists the consuming areas and shared inputs (`go.mod`, `go.sum`,
+`Makefile`, scripts, local actions and each workflow). Integration workflows
+include broad `core/**` and `pkg/**` areas because their fixture binaries import
+them. Matching changes run the original complete suites and matrices; there is
+no classifier job, dependency graph or focused documentation runner. The
+existing backend image selector and matrices are unchanged.
 
-Each workflow has an always-run aggregate that requires successful classification
-and successful selected dependencies. Only an explicit false selection permits a
-skip. Failed/cancelled preparation, missing outputs and unexpected skips fail the
-aggregate. The suites do not start after failed fixture preparation.
+Ordinary docs and website edits skip these workflows. Executable documentation
+contracts remain explicit inputs:
 
-#### Required-check migration
+- `features/addons.md`: packaging, Sandbox tools, add-on endpoints, recovery
+  and Tables administration (core tests, add-on tests and packaging).
+- `features/tables.md`: Tables tools and administration (core and add-on tests).
+- `features/image-generation.md`: gallery entries (core tests).
+- `features/diagnostics.md`, `reference/cli-reference.md` and
+  `getting-started/troubleshooting.md`: diagnostics (core tests).
 
-Protected-master settings are not available here; compatibility is **not verified**.
-Do not keep allocating old expensive jobs merely to emit their check names.
-Before enforcing this revision, replace required individual/matrix checks with
-these stable workflow/job pairs (confirm GitHub's displayed contexts in a trial run):
+These paths are under `docs/content/`. Gallery edits still run core gallery
+invariants. Host CSS does not trigger package publishing; the package workflow
+retains its original add-on inputs plus shared build and documentation inputs.
+Package pushes run on master, not every feature branch. Tags remain exempt
+from GitHub path filtering, and release events retain the original publishing
+jobs and failure dependencies. PR cancellation does not cancel master runs or
+replace the per-channel publishing locks.
 
-- `tests` / `validation result`
-- `Build test` / `validation result`
-- `UI E2E Tests` / `validation result`
-- `E2E Backend Tests` / `validation result`
-- `Distributed E2E Tests` / `validation result`
-- `Add-on Tests` / `validation result`
-- `add-on packages` / `check package dependency results`
+**Maintenance rule:** when adding or moving source, generated inputs, fixtures,
+build configuration or documentation readers, update both event path lists of
+each consuming workflow in the same change. These are closed allowlists:
+unknown future directories do not automatically trigger validation. Do not add
+a catchall to hide that maintenance requirement. The core workflow has a
+manual full-test entry; distributed tests retain their existing manual and
+nightly entries. No new scheduled runs are added.
 
-Retain unrelated required checks. The old Linux/macOS/C++/launcher/browser and
-add-on group checks can now be skipped or absent from a reduced matrix.
+GitHub considers at most 300 changed files for path filtering; a relevant file
+outside that list can be missed. Diffs over 1,000 commits, or diff timeouts,
+run workflows regardless of paths. PR and push diff semantics also differ.
+The small static path tests cover representative patterns, not GitHub's diff
+service or expression engine.
 
-`scripts/lib/ci-select.mjs` is the readable dependency map;
-`scripts/ci/select.mjs` adapts local Git trees:
+**Required checks:** a path-skipped workflow can leave its required check
+pending. Before merging, maintainers must review branch protection/rulesets
+for these workflow checks and the removed classifier/result checks. Preserve
+the original suite check names and do not require a path-filtered workflow on
+every PR. Repository settings are not verified by these tests.
 
-- PR: diff the merge base of payload base/head SHAs against the actual PR head,
-  including forks. Validation still tests the normal merge checkout.
-- Master: diff the complete payload `before` and `after` trees, not truncated
-  event/API file lists. Missing objects, zero SHAs and diff errors run broadly.
-- Renames select both deletion and addition. A deleted file in a known package
-  uses that package's import consumers; a removed/unknown package runs broadly.
-- Malformed event JSON or an execution failure cannot produce a green omission.
-- Manual dispatch, existing schedules, tags and releases run full applicable
-  validation. No weekly schedule is added; the pre-existing distributed nightly
-  schedule remains. Manual Sandbox package dispatch remains validate-only.
-
-| Input | Expensive eligibility |
-|---|---|
-| Unrelated docs/site/root Markdown | None in migrated workflows |
-| `features/addons.md` | One Linux contracts job, focused on five actual readers; no browser/macos/packages |
-| `features/tables.md` | Contracts: consumer matrix and Tables administration documentation specs |
-| Image-generation guide or model gallery | Contracts: gallery invariants, no full core/browser/macOS |
-| Diagnostics guide, CLI reference, troubleshooting | Contracts: diagnostics documentation specs |
-| Host UI CSS/src | UI coverage, host release build, three host/browser groups; no package legs/backend/distributed |
-| Host package.json/lock or Vite config | Same host work plus all add-on package IDs (shared bundler dependencies) |
-| One add-on Go | Core coverage/Linux+macOS, two host groups, that add-on's package validation/native platforms |
-| One add-on UI | Two host groups and only that add-on's package validation/native platforms |
-| Tables add-on | Also Tables/foundation groups |
-| Python backend | Backend E2E only; C++ changes also select standalone C++ helpers |
-| Core config | Core, host build/UI/backend/distributed/host integration; no independent add-on packages/C++/launchers |
-| Unrelated `pkg/addons/model/proposalflow` | Core and host build only |
-| Shared module/Makefile/proto/tooling or unknown source | Conservative full validation |
-
-Documentation readers are inventoried in `docContracts` and `contractFocus`:
-`core/gallery/esrgan_entries_test.go`, add-on endpoint `catalogui_test.go`, tools
-`consumer_matrix_test.go`, packaging/Sandbox tools specs, diagnostics docs specs,
-and Tables administration/recovery docs specs. Documentation jobs use non-empty
-Ginkgo focus checks, not entire integration/browser suites. The unused embed
-placeholder only permits compilation; these selected specs test documentation,
-routes and fields, not production bundles. Production/browser checks still use
-real production fixtures. `.github/ci/test-website-review-143.sh` separately reads
-installation/container guides; it is not invoked by these migrated workflows.
-New prose has no implicit heavy consumer; adding a file reader requires updating
-the explicit contract map.
-
-`scripts/ci/dependencies.mjs` indexes local Go imports without a toolchain or
-module downloads. It unions all OS/build-tag files, follows production imports
-transitively, and includes test imports only for tested roots (dependency tests
-are not linked into importing binaries). It separates independent add-on binaries
-from host integration. Explicit executable roots also connect Playwright and
-add-on readiness to the UI test server and mock backend, add-on host suites to
-the protocol fixture/Tables/cluster commands, and backend E2E to the built proxy
-commands. Their production imports are followed transitively, without pulling
-executable test imports into runtime consumers. The MCP fixture is exclusive to
-`test-e2e-platform`, which these migrated workflows do not invoke; it does not
-select unrelated UI/package jobs. Same-directory embedded/non-Go inputs inherit package
-consumers; unknown nested asset directories conservatively run broadly. Generated
-protobuf inputs and build tooling select broadly. This is lexical import metadata,
-not a replacement for Go compilation; tests cover tags, root tests, generated
-imports, moved/deleted packages and embeds. No backend matrix redesign is claimed.
-
-`python3 scripts/ci/test-workflow-selection.py --table` evaluates the actual YAML
-job guards and dynamic matrices against checked-in cases, including native package
-platforms. It compares eligible base workflows using their original trigger rules.
-Necessary expansions include documentation readers previously omitted by path
-filters, config consumers compiled into integration binaries, and shared module/
-Makefile consumers omitted by old filters. Unknown sources deliberately expand.
-The table excludes cheap classify/result jobs, unchanged workflows, and master
-publish/promote operations; those retain their event policy and result guards.
-
-### Add-on packaging events
-
-`addons-package.yml` starts for PRs, master pushes, `v*` tag pushes, published
-releases and manual dispatch. Other branch pushes no longer duplicate PR
-validation. PR/master package matrices use the selected IDs; all catalog and
-packaging rule checks still run once when packaging is selected. The aggregate
-remains present even when no package is selected. Tags/releases and manual dispatch select every package ID. The guest
-image dependency runs only when Sandbox is selected; its failure or cancellation
-fails the final package result. The final result also rejects unexpected skips
-of selected package, publish, promotion and release catalog jobs.
-
-Manual add-on package dispatch is **validate-only even on master**. It maps the
-package channel decision to PR validation and passes `validate-only: true` to the
-reusable guest image workflow. That input blocks registry login, push and cache
-writes. The guest workflow's established standalone dispatch publishing policy
-is unchanged. PRs use read-only selection with no API token or
-`pull_request_target`. PR package runs supersede older PR runs; other workflow
-runs have unique groups. Existing per-add-on publishing and promotion locks
-remain non-cancelling. Master publishes development for affected IDs; tag pushes
-prepare all immutable versions and the full pinned catalog; published stable
-releases retain their existing latest-promotion rules. Draft behavior is unchanged.
-
-### Same-run add-on production fixtures
-
-The five `addons-tests.yml` groups consume one immutable artifact from the same
-workflow run, never from another run or cache. The producer builds the production
-UI, generated Go stubs, mock backend and UI test server once. It does not install
-Chromium or browser system libraries (`prepare.sh --prepare-build` skips only
-the browser download). Consumers still provision their pinned
-Go/Node/protoc tools, offline Go modules, npm dependencies and browser because
-suites compile Go tests and bundle add-on UI themselves. This saves four repeated
-production UI/server builds, not all five dependency installations; the producer
-adds one dependency preparation. No large cross-run module or compiler cache is
-enabled.
-
-`scripts/ci/fixtures.py` preserves relative paths and executable bits in a tar,
-limits the archive to 512 MiB, rejects links/unexpected paths, and checks every
-file checksum and normalized mode. Its manifest binds the actual checkout SHA,
-Go/Node/protoc versions and the Ubuntu amd64/auth/production configuration.
-After SHA/tool/config/checksum validation, restoration rebases generated mtimes
-onto the later consumer checkout, with server binaries newer than embedded dist.
-Source mtimes are untouched: a subsequent edit still fails existing freshness
-checks. Failed identity validation never marks the restored files fresh.
-Artifacts expire after one day. A missing or mismatched artifact fails rather
-than silently rebuilding it. Consumers run `prepare.sh --check`, which inspects
-inputs and pinned plugins without regenerating sources or rebuilding the restored
-bundle. Other embedded sources come from the same checkout. Add-on bundles are
-still built by the existing suites. Instrumented UI coverage stays in its separate
-workflow and never consumes this production artifact.
-
-### Local acceptance
-
-No product build is required for the selector/wiring tests:
-
-```sh
-make test-ci-scripts
-python3 scripts/ci/test-workflow-selection.py  # requires PyYAML
-sh -n scripts/addons/prepare.sh
-sh scripts/ci/test-prepare-build.sh
-git diff --check
-# If installed; disable optional shellcheck when checking Actions wiring only:
-actionlint -shellcheck='' .github/workflows/{addons-package,addons-tests,sandbox-images,test,tests-ui-e2e,tests-e2e,tests-e2e-distributed,lint,tests-ui-unit,yaml-check}.yml .github/workflows/build-test.yaml
-```
-
-The Node tests include real-git rename/deletion fixtures and failure propagation.
-The Python tests check workflow identity/matrix preservation, event wiring,
-publish locks, manual guest safety and artifact roundtrip/tamper rejection.
-The lint workflow runs both. Real CI still verifies platform builds, browser/native
-runtime behavior and the existing coverage/no-skip inventories. Measure actual
-runner time after landing; these changes do not establish a runtime speedup locally.
+Add-on tests build production fixtures once for the original five groups.
+Same-run artifacts verify SHA, configuration, tool versions, paths, checksums
+and executable modes before rebasing generated timestamps to the consumer
+checkout. Subsequent source edits still fail freshness guards. This does not
+share or replace the instrumented UI coverage build or alter case inventories.

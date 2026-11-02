@@ -1,64 +1,54 @@
 name: Build test
 
 on:
-  push:
-    branches:
-      - master
   pull_request:
-
-# Supersede an in-flight run when a PR gets a new push. Keyed on the PR number
-# so every push to the same PR shares a group; on a master push the key falls
-# back to github.sha (unique per commit) and cancel-in-progress is false, so
-# master runs never cancel each other -- each commit is built on its own.
-  workflow_dispatch:
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - '.goreleaser*'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/build-test.yaml'
+      - 'Entitlements.plist'
+  push:
+    branches: [master]
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - '.goreleaser*'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/build-test.yaml'
+      - 'Entitlements.plist'
 
 concurrency:
   group: ci-build-test-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-permissions:
-  contents: read
-
 jobs:
-  classify:
-    name: classify affected validation
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      core: ${{ steps.affected.outputs.core }}
-      cpp: ${{ steps.affected.outputs.cpp }}
-      ui: ${{ steps.affected.outputs.ui }}
-      addons: ${{ steps.affected.outputs.addons }}
-      distributed: ${{ steps.affected.outputs.distributed }}
-      backend: ${{ steps.affected.outputs.backend }}
-      build: ${{ steps.affected.outputs.build }}
-      launcher: ${{ steps.affected.outputs.launcher }}
-      packages: ${{ steps.affected.outputs.packages }}
-      contracts: ${{ steps.affected.outputs.contracts }}
-      addons-json: ${{ steps.affected.outputs.addons-json }}
-      addons-list: ${{ steps.affected.outputs.addons-list }}
-      sandbox: ${{ steps.affected.outputs.sandbox }}
-      groups-json: ${{ steps.affected.outputs.groups-json }}
-      contract-tests-json: ${{ steps.affected.outputs.contract-tests-json }}
-      validation-json: ${{ steps.affected.outputs.validation-json }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          # Read only the selector and import metadata, not submodules/assets.
-          sparse-checkout: |
-            scripts/ci
-            scripts/lib
-            **/*.go
-            go.mod
-          sparse-checkout-cone-mode: false
-      - id: affected
-        run: node scripts/ci/select.mjs
-
   build-test:
-    needs: classify
-    if: needs.classify.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -78,10 +68,7 @@ jobs:
       - name: Run GoReleaser
         run: |
           make ${{ github.event_name == 'pull_request' && 'dev-dist-single' || 'dev-dist' }}
-
   launcher-build-darwin:
-    needs: classify
-    if: needs.classify.outputs.launcher == 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout
@@ -104,8 +91,6 @@ jobs:
           retention-days: 30
 
   launcher-build-linux:
-    needs: classify
-    if: needs.classify.outputs.launcher == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -129,18 +114,3 @@ jobs:
           name: launcher-linux
           path: local-ai-launcher-linux.tar.xz
           retention-days: 30
-
-  result:
-    name: validation result
-    if: always()
-    needs: [classify, build-test, launcher-build-darwin, launcher-build-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          sparse-checkout: scripts/ci
-      - env:
-          RESULTS: ${{ toJSON(needs) }}
-          JOB_DOMAINS: '{"build-test": "build", "launcher-build-darwin": "launcher", "launcher-build-linux": "launcher"}'
-        run: node scripts/ci/job-result.mjs

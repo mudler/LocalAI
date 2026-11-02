@@ -63,13 +63,11 @@ The Office text-input tests inspect actual PDF glyphs with Poppler’s
 Homebrew before running `go test ./addons/office/...` or the main Go suites.
 Missing PDF inspection tools are test failures, not skipped checks.
 
-## Testing CI selection without product builds
+### Lightweight CI workflow checks
 
-Run `make test-ci-scripts` and `python3 scripts/ci/test-workflow-selection.py`
-(the latter requires PyYAML). These exercise changed-path/event classification,
-whole-job eligibility, failure propagation and same-run artifact integrity.
-See [ci-caching.md](ci-caching.md#selective-validation-prs-and-master) for the
-selection table and publishing policy. Heavyweight validation has full manual
-routes and the pre-existing distributed nightly route. Manual add-on packaging
-validates all packages but never publishes. Production fixture sharing does not replace the instrumented UI
-coverage build or change coverage ratchets and test inventories.
+Run `make test-ci-scripts`, `python3 scripts/ci/test-native-paths.py` (PyYAML),
+`python3 scripts/ci/test-fixtures.py`, and
+`sh scripts/ci/test-prepare-build.sh` without building the product. Run
+`sh scripts/addons/prerequisites_test.sh` for the original readiness regressions.
+See [ci-caching.md](ci-caching.md#native-validation-paths) for path maintenance,
+required-check migration and same-run production fixture constraints.

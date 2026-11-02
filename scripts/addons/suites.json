@@ -4537,8 +4537,7 @@
       "package.sh refuses a foreign platform without an executable: web",
       "package.sh refuses a guest image that is not by digest",
       "package.sh refuses a sandbox release build without SANDBOX_GUEST_IMAGE",
-      "package.sh stamps the sandbox executable with a guest image in a local check",
-      "go: rejects a package status override without explicit successful dependencies"
+      "package.sh stamps the sandbox executable with a guest image in a local check"
     ]
   },
   "updates": {
