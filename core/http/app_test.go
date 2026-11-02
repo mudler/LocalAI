@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
-	"github.com/mudler/xlog"
 	openaigo "github.com/otiai10/openaigo"
 	"github.com/sashabaranov/go-openai"
 )
@@ -302,6 +301,7 @@ const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b8
 var _ = Describe("API test", func() {
 
 	var app *echo.Echo
+	var baseURL string
 	var client *openai.Client
 	var client2 *openaigo.Client
 	var c context.Context
@@ -382,14 +382,10 @@ var _ = Describe("API test", func() {
 			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
-			go func() {
-				if err := app.Start(testHTTPAddr); err != nil && err != http.ErrServerClosed {
-					xlog.Error("server error", "error", err)
-				}
-			}()
+			baseURL = startTestHTTPServer(app)
 
 			defaultConfig := openai.DefaultConfig(apiKey)
-			defaultConfig.BaseURL = "http://" + testHTTPAddr + "/v1"
+			defaultConfig.BaseURL = baseURL + "/v1"
 
 			client2 = openaigo.NewClient("")
 			client2.BaseURL = defaultConfig.BaseURL
@@ -418,7 +414,7 @@ var _ = Describe("API test", func() {
 
 		Context("Auth Tests", func() {
 			It("Should fail if the api key is missing", func() {
-				err, sc := postInvalidRequest("http://" + testHTTPAddr + "/models/available")
+				err, sc := postInvalidRequest(baseURL + "/models/available")
 				Expect(err).ToNot(BeNil())
 				Expect(sc).To(Equal(401))
 			})
@@ -427,7 +423,7 @@ var _ = Describe("API test", func() {
 		Context("URL routing Tests", func() {
 			It("Should support reverse-proxy when unauthenticated", func() {
 
-				err, sc, body := getRequest("http://"+testHTTPAddr+"/myprefix/", http.Header{
+				err, sc, body := getRequest(baseURL+"/myprefix/", http.Header{
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
 					"X-Forwarded-Prefix": {"/myprefix/"},
@@ -441,7 +437,7 @@ var _ = Describe("API test", func() {
 
 			It("Should support reverse-proxy when authenticated", func() {
 
-				err, sc, body := getRequest("http://"+testHTTPAddr+"/myprefix/", http.Header{
+				err, sc, body := getRequest(baseURL+"/myprefix/", http.Header{
 					"Authorization":      {bearerKey},
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
@@ -459,7 +455,7 @@ var _ = Describe("API test", func() {
 			// requests them through the proxy.
 			It("Should support reverse-proxy when prefix is stripped by the proxy", func() {
 
-				err, sc, body := getRequest("http://"+testHTTPAddr+"/app", http.Header{
+				err, sc, body := getRequest(baseURL+"/app", http.Header{
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
 					"X-Forwarded-Prefix": {"/myprefix"},
@@ -478,7 +474,7 @@ var _ = Describe("API test", func() {
 			// from a foreign origin. BasePathPrefix must reject these via
 			// SafeForwardedPrefix and fall back to "/".
 			It("Should ignore an unsafe X-Forwarded-Prefix and not poison asset URLs", func() {
-				err, sc, body := getRequest("http://"+testHTTPAddr+"/app", http.Header{
+				err, sc, body := getRequest(baseURL+"/app", http.Header{
 					"X-Forwarded-Proto":  {"https"},
 					"X-Forwarded-Host":   {"example.org"},
 					"X-Forwarded-Prefix": {"//evil.com"},
@@ -493,13 +489,13 @@ var _ = Describe("API test", func() {
 		Context("Applying models", func() {
 
 			It("applies models from a gallery", func() {
-				models, err := getModels("http://" + testHTTPAddr + "/models/available")
+				models, err := getModels(baseURL + "/models/available")
 				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Installed).To(BeFalse(), fmt.Sprint(models))
 				Expect(models[1].Installed).To(BeFalse(), fmt.Sprint(models))
 
-				response := postModelApplyRequest("http://"+testHTTPAddr+"/models/apply", modelApplyRequest{
+				response := postModelApplyRequest(baseURL+"/models/apply", modelApplyRequest{
 					ID: "test@bert2",
 				})
 
@@ -508,7 +504,7 @@ var _ = Describe("API test", func() {
 				uuid := response["uuid"].(string)
 				resp := map[string]any{}
 				Eventually(func() bool {
-					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
+					response := getModelStatus(baseURL + "/models/jobs/" + uuid)
 					fmt.Println(response)
 					resp = response
 					return response["processed"].(bool)
@@ -527,7 +523,7 @@ var _ = Describe("API test", func() {
 				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 				Expect(content["foo"]).To(Equal("bar"))
 
-				models, err = getModels("http://" + testHTTPAddr + "/models/available")
+				models, err = getModels(baseURL + "/models/available")
 				Expect(err).To(BeNil())
 				Expect(len(models)).To(Equal(2), fmt.Sprint(models))
 				Expect(models[0].Name).To(Or(Equal("bert"), Equal("bert2")))
@@ -542,7 +538,7 @@ var _ = Describe("API test", func() {
 			})
 			It("overrides models", func() {
 
-				response := postModelApplyRequest("http://"+testHTTPAddr+"/models/apply", modelApplyRequest{
+				response := postModelApplyRequest(baseURL+"/models/apply", modelApplyRequest{
 					URL:  bertEmbeddingsURL,
 					Name: "bert",
 					Overrides: map[string]any{
@@ -555,7 +551,7 @@ var _ = Describe("API test", func() {
 				uuid := response["uuid"].(string)
 
 				Eventually(func() bool {
-					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
+					response := getModelStatus(baseURL + "/models/jobs/" + uuid)
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
@@ -568,7 +564,7 @@ var _ = Describe("API test", func() {
 				Expect(content["backend"]).To(Equal("llama"))
 			})
 			It("apply models without overrides", func() {
-				response := postModelApplyRequest("http://"+testHTTPAddr+"/models/apply", modelApplyRequest{
+				response := postModelApplyRequest(baseURL+"/models/apply", modelApplyRequest{
 					URL:       bertEmbeddingsURL,
 					Name:      "bert",
 					Overrides: map[string]any{},
@@ -579,7 +575,7 @@ var _ = Describe("API test", func() {
 				uuid := response["uuid"].(string)
 
 				Eventually(func() bool {
-					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
+					response := getModelStatus(baseURL + "/models/jobs/" + uuid)
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
 
@@ -623,14 +619,14 @@ parameters:
 				}
 
 				var response schema.GalleryResponse
-				err := postRequestResponseJSON("http://"+testHTTPAddr+"/models/import-uri", &importReq, &response)
+				err := postRequestResponseJSON(baseURL+"/models/import-uri", &importReq, &response)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.ID).ToNot(BeEmpty())
 
 				uuid := response.ID
 				resp := map[string]any{}
 				Eventually(func() bool {
-					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
+					response := getModelStatus(baseURL + "/models/jobs/" + uuid)
 					resp = response
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
@@ -658,7 +654,7 @@ parameters:
 				}
 
 				var response schema.GalleryResponse
-				err := postRequestResponseJSON("http://"+testHTTPAddr+"/models/import-uri", &importReq, &response)
+				err := postRequestResponseJSON(baseURL+"/models/import-uri", &importReq, &response)
 				// The endpoint should return an error immediately
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("failed to discover model config"))
@@ -694,14 +690,14 @@ parameters:
 				}
 
 				var response schema.GalleryResponse
-				err := postRequestResponseJSON("http://"+testHTTPAddr+"/models/import-uri", &importReq, &response)
+				err := postRequestResponseJSON(baseURL+"/models/import-uri", &importReq, &response)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(response.ID).ToNot(BeEmpty())
 
 				uuid := response.ID
 				resp := map[string]any{}
 				Eventually(func() bool {
-					response := getModelStatus("http://" + testHTTPAddr + "/models/jobs/" + uuid)
+					response := getModelStatus(baseURL + "/models/jobs/" + uuid)
 					resp = response
 					return response["processed"].(bool)
 				}, "360s", "10s").Should(Equal(true))
@@ -763,14 +759,10 @@ chat_template_kwargs:
 			localAIApp.ModelLoader().SetExternalBackend("mock-backend", mockBackendPath)
 			app, err = API(localAIApp)
 			Expect(err).ToNot(HaveOccurred())
-			go func() {
-				if err := app.Start(testHTTPAddr); err != nil && err != http.ErrServerClosed {
-					xlog.Error("server error", "error", err)
-				}
-			}()
+			baseURL = startTestHTTPServer(app)
 
 			defaultConfig := openai.DefaultConfig("")
-			defaultConfig.BaseURL = "http://" + testHTTPAddr + "/v1"
+			defaultConfig.BaseURL = baseURL + "/v1"
 
 			client2 = openaigo.NewClient("")
 			client2.BaseURL = defaultConfig.BaseURL
@@ -814,7 +806,7 @@ chat_template_kwargs:
 			// Mock-backend is registered via SetExternalBackend so it appears
 			// alongside any built-in entries; verifying that string proves the
 			// endpoint is wired up regardless of which real backends exist.
-			resp, err := http.Get("http://" + testHTTPAddr + "/system")
+			resp, err := http.Get(baseURL + "/system")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp.StatusCode).To(Equal(200))
 			dat, err := io.ReadAll(resp.Body)
@@ -852,7 +844,7 @@ chat_template_kwargs:
 					} `json:"message"`
 				} `json:"choices"`
 			}
-			err := postRequestResponseJSON("http://"+testHTTPAddr+"/v1/chat/completions", &reqBody, &chatResp)
+			err := postRequestResponseJSON(baseURL+"/v1/chat/completions", &reqBody, &chatResp)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(chatResp.Choices).ToNot(BeEmpty())
 
@@ -928,14 +920,10 @@ chat_template_kwargs:
 			app, err = API(localAIApp)
 			Expect(err).ToNot(HaveOccurred())
 
-			go func() {
-				if err := app.Start(testHTTPAddr); err != nil && err != http.ErrServerClosed {
-					xlog.Error("server error", "error", err)
-				}
-			}()
+			baseURL = startTestHTTPServer(app)
 
 			defaultConfig := openai.DefaultConfig("")
-			defaultConfig.BaseURL = "http://" + testHTTPAddr + "/v1"
+			defaultConfig.BaseURL = baseURL + "/v1"
 			client2 = openaigo.NewClient("")
 			client2.BaseURL = defaultConfig.BaseURL
 			// Wait for API to be ready
