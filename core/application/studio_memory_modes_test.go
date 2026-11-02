@@ -25,6 +25,24 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// claimObservedStore delegates real queue/fencing behavior and acknowledges the
+// result only after ClaimCapture actually executes. Empty cases must not pass
+// merely because the worker goroutine was cancelled before its first iteration.
+type claimObservedStore struct {
+	store.Store
+	store.CaptureMemoryStore
+	attempts chan error
+}
+
+func (s *claimObservedStore) ClaimCapture(ctx context.Context, owner string, now time.Time, lease time.Duration) (store.CaptureClaim, error) {
+	claim, err := s.Store.ClaimCapture(ctx, owner, now, lease)
+	select {
+	case s.attempts <- err:
+	default:
+	}
+	return claim, err
+}
+
 var _ = Describe("memory modes runtime application acceptance", func() {
 	DescribeTable("stores only content enabled by the mode and actual answer outcome", func(scenario string) {
 		ctx := context.Background()
@@ -48,6 +66,7 @@ var _ = Describe("memory modes runtime application acceptance", func() {
 		Expect(cs.CreateForUser("", name)).To(Succeed())
 		chats, err := store.NewJSON(GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
+		observed := &claimObservedStore{Store: chats, CaptureMemoryStore: chats.(store.CaptureMemoryStore), attempts: make(chan error, 4)}
 		as, err := agents.NewJSON("")
 		Expect(err).NotTo(HaveOccurred())
 		app := &Application{}
@@ -63,7 +82,7 @@ var _ = Describe("memory modes runtime application acceptance", func() {
 			return []studiotest.ToolStep{{Say: reply}}
 		}}
 		saved := make(chan store.CaptureRecord, 2)
-		svc, err := studio.New(studio.Deps{StateDir: GinkgoT().TempDir(), Store: chats, Agents: as, Provider: provider.New(), Collections: adapter, Harness: h, CaptureWorker: studio.CaptureWorkerOptions{Owner: "mode-worker", Publish: func(r store.CaptureRecord, status memory.PublishStatus) {
+		svc, err := studio.New(studio.Deps{StateDir: GinkgoT().TempDir(), Store: observed, Agents: as, Provider: provider.New(), Collections: adapter, Harness: h, CaptureWorker: studio.CaptureWorkerOptions{Owner: "mode-worker", Publish: func(r store.CaptureRecord, status memory.PublishStatus) {
 			if status.Status == "Saved" {
 				saved <- r
 			}
@@ -73,7 +92,7 @@ var _ = Describe("memory modes runtime application acceptance", func() {
 		DeferCleanup(func() { Expect(svc.Close(ctx)).To(Succeed()) })
 		mode := "off"
 		if scenario == "incoming_failed" {
-			mode = "incoming_only"
+			mode = "incoming_and_replies"
 		}
 		if scenario == "incoming_replies" {
 			mode = "incoming_and_replies"
@@ -138,6 +157,9 @@ var _ = Describe("memory modes runtime application acceptance", func() {
 				Eventually(done, 3*time.Second).Should(Receive(MatchError(context.Canceled)))
 			}
 		})
+		if expectedCaptures == 0 {
+			Eventually(observed.attempts, 5*time.Second).Should(Receive(MatchError(store.ErrNoCapture)))
+		}
 		for i := 0; i < expectedCaptures; i++ {
 			Eventually(saved, 5*time.Second).Should(Receive())
 		}
@@ -178,5 +200,5 @@ var _ = Describe("memory modes runtime application acceptance", func() {
 			Expect(hit.EntryID).NotTo(BeEmpty())
 		}
 		Expect(actual).To(ConsistOf(expectedContents))
-	}, Entry("off stores neither ordinary input nor answer", "off"), Entry("tool-only writes explicitly but never captures ordinary turns", "tool_only"), Entry("incoming capture survives an actual failed answer", "incoming_failed"), Entry("successful incoming and final reply are separate documents", "incoming_replies"))
+	}, Entry("off stores neither ordinary input nor answer", "off"), Entry("tool-only writes explicitly but never captures ordinary turns", "tool_only"), Entry("incoming survives failure while enabled reply capture excludes partial answer", "incoming_failed"), Entry("successful incoming and final reply are separate documents", "incoming_replies"))
 })
