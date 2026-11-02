@@ -6,7 +6,7 @@ import BuiltinToolsSection from '../settings/BuiltinToolsSection'
 export default function ToolProvidersSettings({ app, settings, onChange }) {
   return (
     <div className="ad-host-control" data-testid="host-control-tool-providers">
-      <BuiltinToolsSection settings={settings} onChange={onChange} only={app.shadows || []} />
+      <BuiltinToolsSection settings={settings} onChange={onChange} only={app.shadows || []} providersOnly />
     </div>
   )
 }

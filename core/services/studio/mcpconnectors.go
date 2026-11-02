@@ -125,15 +125,21 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRecord) (ToolsPanel, error) {
 	conv := rec.ID
 	sc := s.scopeOf(ctx, rec)
+	var err error
 	var shadowing []session.Tool
 	if sc == nil || !sc.deleted {
-		shadowing, _ = s.addonTools(ctx, s.chatActorFor(ctx, rec), rec, sc)
+		shadowing, _, err = s.addonTools(ctx, s.chatActorFor(ctx, rec), rec, sc)
+		if err != nil {
+			return ToolsPanel{}, err
+		}
 	}
 	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(ctx, rec, shadowing)}
 	if s.d.AddonTools != nil && (sc == nil || !sc.deleted) {
-		p.Fallbacks = s.toolFallbacks(ctx, rec, shadowing, s.shadowersFor(ctx, principal(user)))
+		p.Fallbacks, err = s.toolFallbacks(ctx, rec, shadowing, s.shadowersFor(ctx, principal(user)))
+		if err != nil {
+			return ToolsPanel{}, err
+		}
 	}
-	var err error
 	if p.Addons, err = s.addonsFor(ctx, user, rec); err != nil {
 		return p, err
 	}

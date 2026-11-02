@@ -77,6 +77,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
 	if err != nil {
+		var policyErr *providerPolicyError
+		if errors.As(err, &policyErr) {
+			return session.TurnTools{}, err
+		}
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
 	sc := s.scopeOf(ctx, rec)
@@ -110,7 +114,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
+	if err != nil {
+		return session.TurnTools{}, err
+	}
 	if !canWrite {
 		prompt = withoutWriteHint(prompt)
 	}
@@ -173,7 +180,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// The network of the Sandbox commands, in one line: it follows the
 	// chat's preset at each turn and needs no restart of the harness.
 	if cmds.State == CommandsAvailable && cmds.Isolation == "isolated" && cmds.Provider != BuiltinProvider {
-		note = strings.TrimSpace(s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName)) + " " + note)
+		line, err := s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName))
+		if err != nil {
+			return session.TurnTools{}, err
+		}
+		note = strings.TrimSpace(line + " " + note)
 	}
 	// The AGENTS.md files of the chat's folder and the home: a pointer, first,
 	// so the cut of a long note keeps it. A chat that cannot read them is

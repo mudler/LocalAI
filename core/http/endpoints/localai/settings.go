@@ -24,11 +24,39 @@ import (
 	"github.com/mudler/xlog"
 )
 
+// These keys belong to the add-on owner, not the local runtime settings file.
+// Keep GET filtering and presence-aware POST rejection on the same list.
+var addonHostSettingsKeys = [...]string{
+	"chats_egress_ceiling", "chats_egress_default", "chats_egress_allow_private",
+	"chats_egress_ports", "chats_egress_extra_registries", "chats_egress_allowed_hosts",
+	"chats_tool_providers", "auto_upgrade_addons",
+}
+
 // GetSettingsEndpoint returns current settings with precedence (env > file > defaults)
 func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		appConfig := app.ApplicationConfig()
 		settings := appConfig.ToRuntimeSettings()
+		if appConfig.Addons.Enabled {
+			// Do not expose stale local values as policy, even when the owner is
+			// unavailable. Unrelated settings remain readable without an owner RPC.
+			// This administrative endpoint already returns RuntimeSettings (including
+			// API keys) below. Preserve that authorized contract while removing the
+			// owner-only fields; this projection is not a public policy response.
+			body, err := json.Marshal(settings) // #nosec G117 -- authenticated administrator settings response; same fields as the non-add-on path.
+			if err != nil {
+				return err
+			}
+			var projection map[string]json.RawMessage
+			if err := json.Unmarshal(body, &projection); err != nil {
+				return err
+			}
+			for _, key := range addonHostSettingsKeys {
+				delete(projection, key)
+			}
+			projection["addon_host_settings_authority"] = json.RawMessage(`"owner_required"`)
+			return c.JSON(http.StatusOK, projection)
+		}
 		return c.JSON(http.StatusOK, settings)
 	}
 }
@@ -49,6 +77,27 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				Success: false,
 				Error:   "Failed to read request body: " + err.Error(),
 			})
+		}
+
+		if appConfig.Addons.Enabled {
+			var fields map[string]json.RawMessage
+			if err := json.Unmarshal(body, &fields); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false, Error: "Failed to parse JSON: " + err.Error(),
+				})
+			}
+			// Check presence before typed decoding: null and even invalid typed
+			// values must reject the entire patch before any local side effects.
+			// EqualFold matches encoding/json's case-insensitive tagged names.
+			for field := range fields {
+				for _, key := range addonHostSettingsKeys {
+					if strings.EqualFold(field, key) {
+						return c.JSON(http.StatusConflict, schema.SettingsResponse{
+							Success: false, Error: key + " is set on the add-on owner, not through /api/settings",
+						})
+					}
+				}
+			}
 		}
 
 		var settings config.RuntimeSettings

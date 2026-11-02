@@ -103,14 +103,18 @@ func skillOff(off []string) func(skills.Skill) bool {
 // offered, and a built-in skill of the same name serves again. fallback is
 // one line for the turn note when a built-in skill serves because the add-on
 // skill that replaces it is off or not running here.
-func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []string, sc *scope, gate func(skills.Skill) string) (prompt, note, key, fallback string) {
+func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []string, sc *scope, gate func(skills.Skill) string) (prompt, note, key, fallback string, err error) {
 	if !s.d.Files.Available() {
-		return "", "", "", ""
+		return "", "", "", "", nil
 	}
 	list, notes, fallback, err := s.chatSkillSet(ctx, p, off, addonsOff, sc)
 	if err != nil {
+		var policyErr *providerPolicyError
+		if errors.As(err, &policyErr) {
+			return "", "", "", "", err
+		}
 		s.log.Warn("studio: skills unavailable", "user", p, "error", err)
-		return "", "", "", ""
+		return "", "", "", "", nil
 	}
 	// The key covers every valid skill file, switched off or not: a switch takes
 	// a line out of the index without changing a file, and must not refresh the
@@ -145,9 +149,9 @@ func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []stri
 		}
 	}
 	if valid == 0 {
-		return "", strings.Join(notes, "; "), "", fallback
+		return "", strings.Join(notes, "; "), "", fallback, nil
 	}
-	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback
+	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback, nil
 }
 
 // chatSkillSet resolves the skills of one chat: the user's layers, the skills
@@ -156,7 +160,10 @@ func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []stri
 // can load exactly the skills the index lists.
 func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []string, sc *scope) ([]skills.Skill, []string, string, error) {
 	skip := skillOff(off)
-	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	ad, err := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	if err != nil {
+		return nil, nil, "", err
+	}
 	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
 		Logger: s.log,
@@ -185,7 +192,10 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		}
 		off, addonsOff, sc = rec.SkillsOff, rec.AddonsOff, s.scopeOf(ctx, rec)
 	}
-	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	ad, err := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	if err != nil {
+		return nil, nil, err
+	}
 	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,

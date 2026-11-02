@@ -306,6 +306,13 @@ func (a *Application) startAddonGateway() error {
 		go a.runModelsProbe(a.applicationConfig.Context)
 		return nil
 	}
+	g.HostSettings = a.addonHostSettings
+	g.HostSettingsAdmin = func(ctx context.Context, actor contract.Actor) error {
+		if mode == auth.AddonModeLocalOwner {
+			return auth.ValidateLocalOwnerActor(actor)
+		}
+		return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
+	}
 	// Only the owner holds the policy store. Other frontends reach it through the
 	// gateway, and without it the gateway keeps denying every resource.
 	if !filepath.IsAbs(cfg.Root) || cfg.ListenAddress == "" {

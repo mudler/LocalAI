@@ -210,27 +210,31 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 	if err != nil {
 		return Commands{}, err
 	}
-	return s.commandsFor(ctx, p, rec), nil
+	return s.commandsFor(ctx, p, rec)
 }
 
 // commandsFor says whether the chat of rec can run commands at its next turn.
-func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) Commands {
+func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) (Commands, error) {
 	conv := rec.ID
 	a := s.chatActorFor(ctx, rec)
 	if rec.Kind == session.KindSubAgent {
 		s.mu.Lock()
 		tools := s.allowed[key(p, conv)]
 		s.mu.Unlock()
-		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil)
+		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil), nil
 	}
 	sc := s.scopeOf(ctx, rec)
 	var tools []session.Tool
 	if sc == nil || !sc.deleted {
-		tools, _ = s.addonTools(ctx, a, rec, sc)
+		var err error
+		tools, _, err = s.addonTools(ctx, a, rec, sc)
+		if err != nil {
+			return Commands{}, err
+		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
 	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
-	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec))
+	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec)), nil
 }
 
 // sandboxWhere is where a command of the Sandbox starts and what it keeps.

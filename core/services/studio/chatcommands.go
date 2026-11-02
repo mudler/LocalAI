@@ -72,7 +72,10 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 	}
 	sc := s.scopeOf(ctx, rec)
 	skip := skillOff(rec.SkillsOff)
-	ad := s.addonSkillsFor(ctx, p, rec.AddonsOff, sc)
+	ad, err := s.addonSkillsFor(ctx, p, rec.AddonsOff, sc)
+	if err != nil {
+		return nil, err
+	}
 	list, _, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
 		Logger: s.log,
@@ -117,7 +120,11 @@ func (s *Service) skillDirective(ctx context.Context, p string, rec session.Chat
 		return "", nil, fmt.Errorf("%w: no skill %q in this chat; its skills are: %s", ErrBadCommand, name, strings.Join(names, ", "))
 	}
 	if slices.Contains(found.Requires, skills.RequireExec) {
-		if c := s.commandsFor(ctx, p, rec); c.State != CommandsAvailable {
+		c, err := s.commandsFor(ctx, p, rec)
+		if err != nil {
+			return "", nil, err
+		}
+		if c.State != CommandsAvailable {
 			return "", nil, fmt.Errorf("%w: the skill %q needs to run commands, and this chat cannot", ErrBadCommand, name)
 		}
 	}

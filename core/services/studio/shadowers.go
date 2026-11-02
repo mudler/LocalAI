@@ -109,13 +109,13 @@ type ToolFallback struct {
 // that no add-on serves in this chat, so the user can see why the built-in
 // serves (or why there is no such tool). tools are the add-on tools of the
 // chat after shadows are resolved.
-func (s *Service) toolFallbacks(ctx context.Context, rec session.ChatRecord, tools []session.Tool, sh shadowers) []ToolFallback {
+func (s *Service) toolFallbacks(ctx context.Context, rec session.ChatRecord, tools []session.Tool, sh shadowers) ([]ToolFallback, error) {
 	if len(sh.byName) == 0 {
-		return nil
+		return nil, nil
 	}
-	var pins map[string]string
-	if s.d.ToolPins != nil {
-		pins = s.d.ToolPins()
+	pins, err := s.toolPins(ctx)
+	if err != nil {
+		return nil, err
 	}
 	offList, onList := s.switchesOf(ctx, rec)
 	off, on := set(offList), set(onList)
@@ -146,5 +146,27 @@ func (s *Service) toolFallbacks(ctx context.Context, rec session.ChatRecord, too
 		}
 		out = append(out, f)
 	}
-	return out
+	return out, nil
 }
+
+func (s *Service) toolPins(ctx context.Context) (map[string]string, error) {
+	if s.d.ToolPins == nil {
+		return nil, nil
+	}
+	pins, err := s.d.ToolPins(ctx)
+	if err != nil {
+		return nil, &providerPolicyError{err: err}
+	}
+	return pins, nil
+}
+
+// providerPolicyError distinguishes mandatory owner policy from optional services.
+type providerPolicyError struct {
+	err error
+}
+
+func (e *providerPolicyError) Error() string { return "studio: provider policy: " + e.err.Error() }
+func (e *providerPolicyError) Unwrap() error { return e.err }
+
+// Mandatory prevents a session from running without the owner policy.
+func (e *providerPolicyError) Mandatory() bool { return true }

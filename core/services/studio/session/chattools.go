@@ -204,20 +204,28 @@ func (c *Chat) hostWrappers() []Tool {
 	return out
 }
 
+// mandatoryChatToolsError recognizes policy failures without coupling the session
+// to the product that owns the policy. Wrapping must not make a failure optional.
+func mandatoryChatToolsError(err error) bool {
+	var mandatory interface{ Mandatory() bool }
+	return errors.As(err, &mandatory) && mandatory.Mandatory()
+}
+
 // applyChatTools runs at the start of a turn. It asks the product for the host
 // tools and the prompt block, remembers the closures for this turn, and
 // restarts the harness from its saved state when the set of tools (names,
 // descriptions, schemas) or the prompt block differs from the one the harness
 // runs with. It returns the note for the model, and whether the turn must
 // refresh the sandbox: the RefreshKey changed from a non-empty earlier key.
-// A failed or stopped hook changes nothing and never asks for a refresh.
+// A mandatory failure aborts the turn; optional failures retain the sandbox
+// fallback. A stopped hook changes nothing and never asks for a refresh.
 //
 // The turn is already reserved (the chat is running), so nothing else changes
 // the harness. A change that arrives while a turn runs is seen at the next turn.
-func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool) {
+func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool, policyErr error) {
 	f := c.m.o.ChatTools
 	if f == nil {
-		return "", false
+		return "", false, nil
 	}
 	c.accMu.RLock()
 	x := c.acc
@@ -226,12 +234,15 @@ func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool) {
 	if ctx.Err() != nil {
 		// The turn was stopped while the hook ran. Its result is partial: keep
 		// the state of the last turn, so that the next turn does not see a change.
-		return "", false
+		return "", false, nil
 	}
 	note = oneLine(tt.Note)
 	var tools []Tool
 	prompt := ""
 	if err != nil {
+		if mandatoryChatToolsError(err) {
+			return "", false, err
+		}
 		c.m.log.Warn("session: ChatTools failed; the turn runs with the sandbox tools", "chat", c.id, "error", err)
 		note = noteChatToolsFailed
 	} else {
@@ -261,7 +272,7 @@ func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool) {
 	}
 	c.hostMu.Unlock()
 	if !changed {
-		return note, refresh
+		return note, refresh, nil
 	}
 	// Run the swap and the fallback to the end even when the turn is stopped:
 	// stopping must not leave the chat without a harness.
@@ -284,11 +295,11 @@ func (c *Chat) applyChatTools(ctx context.Context) (note string, refresh bool) {
 		c.host.defs, c.host.cur, c.host.prompt, c.host.fp = nil, nil, "", fingerprint(nil, "")
 		c.hostMu.Unlock()
 		if err := c.restartHarness(ctx); err != nil {
-			return note, false
+			return note, false, nil
 		}
-		return noteChatToolsFailed, false
+		return noteChatToolsFailed, false, nil
 	}
-	return note, refresh
+	return note, refresh, nil
 }
 
 // cardSlotKey is the context key of the slot that SetToolCard fills.
@@ -542,19 +553,22 @@ func (c *Chat) clearCards() {
 }
 
 // primeChatTools asks the ChatTools hook once before the harness starts, so a
-// chat opens with its host tools and its first turn needs no restart. A failed
-// hook changes nothing: the turn hook asks again.
-func (c *Chat) primeChatTools(ctx context.Context) {
+// chat opens with its host tools and its first turn needs no restart. Mandatory
+// failures prevent harness startup; optional failures are retried by the turn hook.
+func (c *Chat) primeChatTools(ctx context.Context) error {
 	f := c.m.o.ChatTools
 	if f == nil {
-		return
+		return nil
 	}
 	c.accMu.RLock()
 	x := c.acc
 	c.accMu.RUnlock()
 	tt, err := callChatTools(ctx, f, x, c.m.log)
+	if mandatoryChatToolsError(err) {
+		return err
+	}
 	if err != nil || ctx.Err() != nil {
-		return
+		return nil
 	}
 	tools := acceptHostTools(tt.Tools, c.m.log, c.id, c.m.o.Sandbox != nil)
 	prompt := c.turnPrompt(ctx, tt, false)
@@ -570,4 +584,5 @@ func (c *Chat) primeChatTools(ctx context.Context) {
 		c.host.key = tt.RefreshKey
 	}
 	c.hostMu.Unlock()
+	return nil
 }

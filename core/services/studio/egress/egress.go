@@ -8,13 +8,12 @@
 package egress
 
 import (
-	"net"
 	"net/netip"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/egresspolicy"
 	"github.com/mudler/LocalAI/pkg/web/safehttp"
 )
 
@@ -293,28 +292,14 @@ type Settings struct {
 	Ports []int
 	// ExtraRegistries are host names added to the registries list.
 	ExtraRegistries []string
-	// AllowedHosts are the exact hosts an administrator always allows: any
+	// AllowedHosts are exact hosts or wildcard patterns an administrator allows: any
 	// chat whose effective preset is registries or all may reach them, on any
 	// request kind. They pass the same guard as everything else.
 	AllowedHosts []AllowedHost
 }
 
-// AllowedHost is one entry of the administrator's always-allowed list: a
-// canonical host and, when pinned, the only port it is allowed on (0: the
-// ports setting decides).
-type AllowedHost struct {
-	Host string
-	Port int
-}
-
-// String is the canonical entry: host, then ":port" when pinned (an IPv6
-// literal in brackets).
-func (h AllowedHost) String() string {
-	if h.Port == 0 {
-		return h.Host
-	}
-	return net.JoinHostPort(h.Host, strconv.Itoa(h.Port))
-}
+// AllowedHost shares the parser's canonical exact or wildcard representation.
+type AllowedHost = egresspolicy.EgressAllowedHost
 
 // AllowedHostList is the list as canonical entries, never nil.
 func (s Settings) AllowedHostList() []string {
@@ -329,7 +314,7 @@ func (s Settings) AllowedHostList() []string {
 // ports setting still applies; Decide checks it first.
 func (s Settings) AllowsHost(host string, port int) bool {
 	for _, h := range s.AllowedHosts {
-		if h.Host == host && (h.Port == 0 || h.Port == port) {
+		if h.Matches(host, port) {
 			return true
 		}
 	}
@@ -435,8 +420,14 @@ func Decide(s Settings, c Chat, r Request, reg *Registries) Verdict {
 	// The list comes before a chat's deny rule: the administrator's word wins
 	// over a rule stored earlier. It never reaches a private address; that
 	// stays with the private switch and an administrator's rule or answer.
-	if !private && eff.Rank() >= PresetRegistries.Rank() && s.AllowsHost(r.Host, r.Port) {
-		return Verdict{Action: Allow, Reason: ReasonAllowedHost}
+	if !private && eff.Rank() >= PresetRegistries.Rank() {
+		for _, h := range s.AllowedHosts {
+			// Exact hosts retain their historical registries exception. A
+			// wildcard must not turn a registries ceiling into public-all.
+			if h.Matches(r.Host, r.Port) && (!h.Pattern() || ceiling.Rank() >= needs(r, reg, s.ExtraRegistries).Rank()) {
+				return Verdict{Action: Allow, Reason: ReasonAllowedHost}
+			}
+		}
 	}
 	for _, x := range c.Rules {
 		if x.Host == r.Host && x.Port == r.Port && !x.Allow {

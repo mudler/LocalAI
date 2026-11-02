@@ -104,11 +104,14 @@ export function runChecks(changes, initial, draft) {
       const err = vramBudgetError(to)
       checks.push(err ? { level: 'error', text: `${field.label}: ${err}` } : { level: 'ok', text: `${String(to).trim() || 'No cap'} is a valid GPU memory budget.` })
     }
+    if (field.key === 'chats_egress_extra_registries' && String(to || '').includes('*')) {
+      checks.push({ level: 'error', text: 'Extra package registries require exact host names, not patterns.' })
+    }
     if (field.kind === 'hosts') {
       const entries = hostEntries(to)
       const allowPrivate = !!draft?.chats_egress_allow_private
       const bad = entries.find(e => { const r = checkHost(e, { allowPrivate }); return r.error && r.error !== 'duplicate' && r.error !== 'full' })
-      if (bad) checks.push({ level: 'error', text: `${field.label}: "${bad}" is not an exact host name. Write host or host:port, with no pattern, scheme or path.` })
+      if (bad) checks.push({ level: 'error', text: `${field.label}: "${bad}" is not a valid host or whole-label pattern. Write host, *.domain or *, optionally with :port; no scheme or path.` })
       else if (entries.length > MAX_ALLOWED_HOSTS) checks.push({ level: 'error', text: `${field.label}: at most ${MAX_ALLOWED_HOSTS} hosts.` })
       else checks.push({ level: 'ok', text: `${field.label}: ${entries.length} ${entries.length === 1 ? 'host' : 'hosts'}.` })
     }

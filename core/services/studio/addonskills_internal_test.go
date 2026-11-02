@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -67,7 +68,7 @@ func newSkillService(b *skillBroker, pins ...map[string]string) (*Service, *file
 	st, _ := store.NewJSON("")
 	d := Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, AddonTools: b}
 	if len(pins) > 0 {
-		d.ToolPins = func() map[string]string { return pins[0] }
+		d.ToolPins = func(context.Context) (map[string]string, error) { return pins[0], nil }
 	}
 	svc, err := New(d)
 	Expect(err).NotTo(HaveOccurred())
@@ -99,8 +100,26 @@ var _ = Describe("add-on skills in a chat", func() {
 		b.set(AddonSkillSet{AddonID: "notes", Title: "Notes", Skills: []string{"notes", "notes-quick"}, Running: true})
 	})
 
+	It("fails the turn rather than substituting built-ins when provider policy is unavailable", func() {
+		unavailable := errors.New("owner policy unavailable")
+		svc.d.ToolPins = func(context.Context) (map[string]string, error) { return nil, unavailable }
+		prompt, _, _, fallback, err := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		Expect(prompt).To(BeEmpty())
+		Expect(fallback).To(BeEmpty())
+
+		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		tt, err := svc.chatTools(ctx, x)
+		Expect(errors.Is(err, unavailable)).To(BeTrue())
+		Expect(tt.Tools).To(BeEmpty())
+	})
+
 	It("offers the skills of a usable add-on, by name", func() {
-		prompt, _, key, _ := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		prompt, _, key, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(prompt).To(ContainSubstring("\n- notes: Use for notes."))
 		Expect(prompt).NotTo(ContainSubstring("shared-addon-skills"), "the index names no path")
 		Expect(prompt).To(ContainSubstring("notes-quick"))
@@ -108,32 +127,40 @@ var _ = Describe("add-on skills in a chat", func() {
 	})
 
 	It("offers nothing for an add-on the chat switched off, that stopped or that cannot work", func() {
-		prompt, _, _, _ := svc.skillTurn(ctx, "alice", nil, []string{"notes"}, nil, nil)
+		prompt, _, _, _, err := svc.skillTurn(ctx, "alice", nil, []string{"notes"}, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(prompt).NotTo(ContainSubstring("- notes:"), "addons_off removes the add-on's root")
 		b.reasons = map[string]string{"notes": "the Files workspace is off"}
-		prompt, _, _, _ = svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		prompt, _, _, _, err = svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(prompt).NotTo(ContainSubstring("- notes:"), "an unavailable add-on gives no skills")
 		b.reasons = nil
 		b.set(AddonSkillSet{AddonID: "notes", Title: "Notes", Skills: []string{"notes", "notes-quick"}}) // stopped
-		prompt, _, _, _ = svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		prompt, _, _, _, err = svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(prompt).NotTo(ContainSubstring("- notes:"), "a stopped add-on gives no skills; the files stay")
 	})
 
 	It("moves the refresh key when the add-on starts or stops, not on a switch", func() {
-		_, _, running, _ := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
-		_, _, switched, _ := svc.skillTurn(ctx, "alice", []string{"addon:notes"}, nil, nil, nil)
+		_, _, running, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
+		_, _, switched, _, err := svc.skillTurn(ctx, "alice", []string{"addon:notes"}, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(switched).To(Equal(running), "a switch changed the key")
 		b.set()
-		_, _, stopped, _ := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		_, _, stopped, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(stopped).NotTo(Equal(running), "a stop left the key as it was")
 	})
 
 	It("keeps an agent's grant: an add-on the agent does not grant gives no skills", func() {
 		sc := &scope{addons: map[string]bool{}, skills: map[string]bool{"notes": true}}
-		prompt, _, _, _ := svc.skillTurn(ctx, "alice", nil, nil, sc, nil)
+		prompt, _, _, _, err := svc.skillTurn(ctx, "alice", nil, nil, sc, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(prompt).NotTo(ContainSubstring("- notes:"))
 		sc.addons["notes"] = true
-		prompt, _, _, _ = svc.skillTurn(ctx, "alice", nil, nil, sc, nil)
+		prompt, _, _, _, err = svc.skillTurn(ctx, "alice", nil, nil, sc, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(prompt).To(ContainSubstring("- notes: Use for notes."))
 		Expect(prompt).NotTo(ContainSubstring("notes-quick"), "the agent grants the skill notes only")
 	})
@@ -202,7 +229,8 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 		})).To(Succeed())
 	})
 	turn := func(off, addonsOff []string) (string, string, string) {
-		prompt, _, key, fallback := svc.skillTurn(ctx, "alice", off, addonsOff, nil, nil)
+		prompt, _, key, fallback, err := svc.skillTurn(ctx, "alice", off, addonsOff, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		return prompt, key, fallback
 	}
 
@@ -258,14 +286,16 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 		prompt, _, _ := turn(nil, nil)
 		Expect(prompt).To(ContainSubstring("Sheets sheets."), "sheets was installed first")
 		Expect(prompt).NotTo(ContainSubstring("Office sheets."))
-		list := svc.AdminBuiltinSkills(ctx, "alice")
+		list, err := svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
 		Expect(list[0].Candidates).To(Equal([]string{"sheets", "office"}))
 		Expect(list[0].Default).To(Equal("sheets"))
 		Expect(list[0].InstalledAt).To(HaveKeyWithValue("sheets", "2026-10-01T10:00:00Z"))
 		pins["xlsx"] = "office"
 		prompt, _, _ = turn(nil, nil)
 		Expect(prompt).To(ContainSubstring("Office sheets."))
-		list = svc.AdminBuiltinSkills(ctx, "alice")
+		list, err = svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
 		Expect(list[0].Provider).To(Equal("office"))
 		Expect(list[0].Default).To(Equal("sheets"), "the default does not follow the pin")
 		pins["xlsx"] = ""
@@ -293,7 +323,8 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 
 	It("lists the replaced skills for Settings > Tools, with who serves each and the candidates", func() {
 		b.set(office(true), sheets(false))
-		list := svc.AdminBuiltinSkills(ctx, "alice")
+		list, err := svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
 		Expect(list).To(HaveLen(2))
 		Expect(list[0].ID).To(Equal("xlsx"))
 		Expect(list[0].Candidates).To(Equal([]string{"office", "sheets"}))
@@ -301,7 +332,8 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 		Expect(list[0].Provider).To(Equal("office"))
 		Expect(list[1].ID).To(Equal("docx"))
 		pins["xlsx"] = "sheets"
-		list = svc.AdminBuiltinSkills(ctx, "alice")
+		list, err = svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
 		Expect(list[0].Pinned).To(Equal("sheets"))
 		Expect(list[0].Provider).To(Equal(BuiltinProvider), "the pinned add-on is stopped")
 		Expect(list[0].Note).NotTo(BeEmpty())
@@ -314,14 +346,17 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 		other, err := New(Deps{Store: svc.d.Store, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, AddonTools: b})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = other.Close(ctx) })
-		one, _, k1, _ := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
-		two, _, k2, _ := other.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		one, _, k1, _, err := svc.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
+		two, _, k2, _, err := other.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(two).To(Equal(one))
 		Expect(k2).To(Equal(k1))
 		down, err := New(Deps{Store: svc.d.Store, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, AddonTools: &skillBroker{}})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = down.Close(ctx) })
-		prompt, _, _, _ := down.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		prompt, _, _, _, err := down.skillTurn(ctx, "alice", nil, nil, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 		Expect(prompt).To(ContainSubstring("Built-in sheets."))
 	})
 })

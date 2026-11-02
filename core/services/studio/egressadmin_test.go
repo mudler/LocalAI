@@ -22,7 +22,7 @@ var _ = Describe("the add-on that the network settings apply to", func() {
 	service := func(fa *fakeAddons, list []studio.AddonShadower, pins map[string]string) *studio.Service {
 		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, func(d *studio.Deps) {
 			d.AddonTools = listedAddons{fa, list}
-			d.ToolPins = func() map[string]string { return pins }
+			d.ToolPins = func(context.Context) (map[string]string, error) { return pins, nil }
 		})
 		return svc
 	}

@@ -175,7 +175,7 @@ func (a *Application) initStudioService() {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()
 	}
 	deps.IsAdmin = a.studioIsAdmin
-	deps.ToolPins = func() map[string]string { return a.applicationConfig.ChatsToolProviders }
+	deps.ToolPins = a.studioToolPins
 	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
 		deps.Workers = nodes.NewNATSChatStarter(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout))
 	}
@@ -443,7 +443,7 @@ func (a *Application) studioHostExecAudit() hostexec.AuditStore {
 
 // studioEgressSettings is the chats_egress_* settings as they apply now. A
 // list value that does not parse keeps the last valid one (see lastGood).
-func (a *Application) studioEgressSettings() egress.Settings {
+func (a *Application) localStudioEgressSettings() egress.Settings {
 	cfg := a.applicationConfig
 	a.studioEgressListsOnce.Do(a.initStudioEgressLists)
 	return egress.Settings{

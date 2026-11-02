@@ -77,7 +77,10 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	if err != nil {
 		return EgressView{}, err
 	}
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return EgressView{}, err
+	}
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	if err != nil {
 		return EgressView{}, err
@@ -137,7 +140,11 @@ func (s *Service) SetEgressPreset(ctx context.Context, user, conv string, preset
 	if rec.Kind == session.KindSubAgent {
 		return ErrSubAgentReadOnly
 	}
-	if preset.Rank() > egress.Min(s.egressSettings().Ceiling, egress.PresetAll).Rank() {
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if preset.Rank() > egress.Min(set.Ceiling, egress.PresetAll).Rank() {
 		return ErrEgressAboveCeiling
 	}
 	if err := s.d.Store.UpdateEgress(ctx, p, conv, func(st *egress.ChatState) error {
@@ -192,7 +199,10 @@ type EgressAdmin struct {
 // AdminEgress returns the settings in force, the registries list with the
 // extra hosts, whether a Sandbox serves and the counts of the last 24 hours.
 func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, error) {
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return EgressAdmin{}, err
+	}
 	set.Ceiling = egress.Min(set.Ceiling, egress.PresetAll)
 	set.Default = set.DefaultPreset()
 	if len(set.Ports) == 0 {
@@ -204,7 +214,10 @@ func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, er
 			out.AuditDays = d
 		}
 	}
-	out.Sandbox = s.servingRunner(ctx, principal(user))
+	out.Sandbox, err = s.servingRunner(ctx, principal(user))
+	if err != nil {
+		return EgressAdmin{}, err
+	}
 	if out.Sandbox != "" {
 		if iso, ok := s.d.AddonTools.(CommandIsolation); ok {
 			out.Isolation = iso.Isolation(ctx, principal(user), out.Sandbox)
@@ -228,13 +241,17 @@ func (s *Service) EgressEvents(ctx context.Context, q audit.Query) ([]audit.Even
 // install, or "" when none runs or the pinned one is stopped (the built-in
 // serves). It asks the broker, so every frontend of a cluster answers the
 // same, also right after a restart, and an add-on that was removed is gone.
-func (s *Service) servingRunner(ctx context.Context, user string) string {
+func (s *Service) servingRunner(ctx context.Context, user string) (string, error) {
+	pins, err := s.toolPins(ctx)
+	if err != nil {
+		return "", err
+	}
 	if s.d.AddonTools == nil {
-		return ""
+		return "", nil
 	}
 	defs, err := s.d.AddonTools.Tools(ctx, user)
 	if err != nil {
-		return ""
+		return "", nil
 	}
 	var running []string
 	installed := map[string]string{}
@@ -245,14 +262,11 @@ func (s *Service) servingRunner(ctx context.Context, user string) string {
 		}
 	}
 	if len(running) == 0 {
-		return ""
+		return "", nil
 	}
-	var pin string
-	if s.d.ToolPins != nil {
-		pin = s.d.ToolPins()[commandTool]
-	}
+	pin := pins[commandTool]
 	if s.shadowersFor(ctx, user).pinnedButIdle(commandTool, pin, running) {
-		return ""
+		return "", nil
 	}
-	return ChooseProvider(running, installed, pin)
+	return ChooseProvider(running, installed, pin), nil
 }

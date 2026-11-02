@@ -37,6 +37,105 @@ Trust has three parts, and they are different:
 
 Every addon requires an executable; a UI bundle alone is not an addon.
 
+## Internal host policy store
+
+`core/services/addons/hostsettings` provides internal, host-owned durable policy
+infrastructure. The gateway now provides typed read/update actions over the existing
+owner carrier. The owner revalidates the authenticated actor and checks current host
+administrator authority before updates; caller-supplied role flags are rejected.
+Reads are explicitly read-only. Lost mutation responses retain the carrier's
+unknown-outcome behavior, with operation IDs and durable receipts for reconciliation.
+Trusted host consumers can also read snapshots over a pinned mutual-TLS internal
+route, without impersonating an end user. Frontends never fall back to local policy
+when the owner or its store is unavailable.
+All read, update and replay results expose only schema version, revision and policy, excluding private migration provenance retained in owner storage.
+
+Application initialization opens `host-settings.json` under the add-on owner root
+after acquiring the owner storage guard and attaches it to the gateway. Frontends
+only forward requests; they never open or import this store. Startup failure,
+context cancellation and application shutdown close the store once. A restart
+retains the saved policy and revision rather than importing configuration again.
+Studio now reads the owner's network policy for new-chat defaults, administrator
+network views, chat network settings, approval-card decisions and connection checks.
+These reads carry the request context and return errors. A frontend uses the pinned
+mutual-TLS internal route; an owner reads its durable store directly. Each host check
+reads current policy, so tightening applies to the next request on an existing
+frontend without restarting it. A waiting approval card rechecks policy when it
+wakes or polls, including after an answer. The Sandbox proxy's existing short-lived
+verdict cache still bounds reuse of an earlier connection verdict as described below.
+
+An unavailable owner or store does not substitute frontend settings or a cached allow.
+Defaults, views and card decisions return an error; connection checks and waiting
+cards return a blocking verdict with a policy-unavailable error. When add-ons are
+disabled, Studio retains its existing local configuration behavior, including the
+last valid parsed lists. An enabled add-on deployment with no owner gateway instead
+fails closed.
+
+Studio also reads the owner's `chats_tool_providers` map for replaceable tools
+and skills. Provider selection, command availability, skill indexes and
+administrator tool/skill views read current pins with the request context. An
+owner update takes effect on the next read without restarting frontends or chat
+workers. When the owner or store cannot supply policy, these operations return
+an error rather than use frontend pins, a cached choice or a built-in fallback.
+A mandatory provider-policy failure during chat-tool priming prevents the
+harness from starting. On a running chat, that failure aborts the turn with a
+fatal error before the model receives the message or any tool executes.
+This differs from a stopped or unusable add-on: with policy available, the
+existing built-in fallback rules still apply. Optional connector and skill-listing
+failures retain their existing behavior; an optional connector failure does not
+abort the turn. With add-ons disabled, Studio continues to use its local
+`chats_tool_providers` configuration.
+
+The legacy `/api/settings` route does not read or update owner policy. With
+add-ons enabled, `GET /api/settings` omits the eight migrated fields listed below
+and returns `addon_host_settings_authority: "owner_required"`, even if the owner
+is unavailable. `POST /api/settings` returns `409 Conflict` if any migrated field
+is present, including `null`, case-insensitive names or duplicate keys. A mixed
+patch is rejected atomically before any local setting is applied or persisted.
+Unrelated local settings remain readable and writable; `chats_egress_audit_days`
+is local audit retention, not migrated owner policy. With add-ons disabled, the
+legacy GET and POST behavior is unchanged. The settings UI is not yet connected
+to the owner store.
+
+The schema is limited to six network fields (`chats_egress_ceiling`,
+`chats_egress_default`, `chats_egress_allow_private`, `chats_egress_ports`,
+`chats_egress_extra_registries`, `chats_egress_allowed_hosts`), provider pins
+(`chats_tool_providers`) and the owner's upgrade switch (`auto_upgrade_addons`).
+Audit retention is excluded. The intended consumers are the Sandbox's host network
+checks, chat tool and replaceable-skill selection, and the owner's upgrade loop.
+Provider pins name replaceable tools (`bash`, `web_search`, `web_fetch`) or skills
+(`xlsx`, `docx`, `pptx`, `pdf`), not protected or plain add-on skills.
+
+The store uses one private file on trusted owner storage, with an exclusive lock,
+atomic replacement and file/directory sync. It is owner-only state, not a replicated
+frontend cache; the host must authenticate and authorize callers before updates.
+On first start, the default standalone `--addons-role=combined` instance imports
+its sole effective host configuration automatically, including legacy runtime
+settings. A fresh dedicated `--addons-role=owner` with no legacy host policy
+starts with restrictive defaults. If that owner has non-default legacy policy,
+startup requires explicit selection with `--addons-migrate-host-settings`
+(or `LOCALAI_ADDONS_MIGRATE_HOST_SETTINGS=true`). This owner-only option selects
+only that process's effective configuration; it never selects, merges or imports
+frontend copies. Review the owner configuration before enabling it. The option
+is unnecessary after migration: an existing valid store remains authoritative.
+
+Migration records private source/version provenance. Missing or ambiguous migration
+input fails closed, and a corrupt existing file never triggers re-import or
+defaults. Keep this state on trusted owner storage with working exclusive file
+locks, atomic rename and file/directory sync; do not share it as a frontend cache
+or run multiple owners against it. Existing singleton-owner deployment constraints
+still apply.
+
+Updates use an expected revision (compare-and-swap), presence-aware patches and an
+operation ID. Omitted fields stay unchanged; explicit empty strings and false values
+clear their fields, and a null provider entry deletes that pin. Stale revisions
+conflict rather than overwrite another edit. A matching operation ID and body replay
+the saved result; reusing a retained ID with a different body fails. The store keeps
+at most 1,024 durable receipts and prunes the oldest revisions. A retry after its
+receipt is pruned conflicts on its stale revision rather than applying again.
+Acknowledgement follows durable persistence; uncertain durability requires reopening
+and reconciling the operation before further use.
+
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an
@@ -3466,7 +3565,9 @@ checks, the data backup and the recovery behavior above all apply, and an upgrad
 fails any of them changes nothing and is written to the log. An automatic upgrade never
 changes the library, the channel or the trusted signer. A candidate that failed is not
 tried again until the library lists a different one. With the setting off, nothing
-upgrades by itself.
+upgrades by itself. Each scheduled pass reads the current owner-host policy, so
+changes take effect without a restart. If the owner policy is unavailable, the
+pass skips upgrades and logs an error; it does not use frontend-local settings.
 
 ### In the page
 
@@ -3794,8 +3895,29 @@ the add-on's ID to decide.
 
 | Control | Where the host draws it | The add-on must |
 |---|---|---|
-| `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, audit retention and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare a tool that replaces `bash`. |
+| `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare a tool that replaces `bash`. |
 | `tool-providers` | On the add-on's **Settings** tab: the rows of Settings > Tools for the built-in tools it replaces (who serves the tool, the choice when several add-ons replace it, and the switch of the built-in tool). | Declare at least one tool that replaces a built-in tool (`shadows`). |
+
+The network controls read the durable policy from the add-on owner, not the
+frontend's runtime settings. The form displays the owner's revision. **Apply** sends
+only changed policy fields with that revision, then reads the owner again after a
+successful write. Enabling private access still requires the typed confirmation;
+the confirmation phrase stays in the browser, outside the policy patch. Audit
+retention remains a runtime setting, not an editable owner-policy field here.
+
+If another administrator changes the policy, the owner rejects the stale revision.
+Choose **Reload and rebase edits**, review your retained edits against the current
+owner policy, then apply them. If the owner is unavailable, the form keeps your
+draft and blocks saving; it does not substitute local runtime settings. If a write's
+outcome is uncertain, **Retry same operation** reuses its original identity and
+payload. Reloading alone does not clear an uncertain write.
+
+Always allowed hosts accept exact names, `*.example.com` for descendants, or `*`
+for public destinations. Add `example.com` separately to include the apex. Patterns
+can specify a port, such as `*.example.com:8443`. They still obey the network
+ceiling, allowed ports, and private-address guard. Extra registries require exact
+names. The owner validates every change; see [Network access](#network-access).
+These controls do not change native add-on settings declared in `settings.sections`.
 
 The apps list carries the controls in `ui.controls`, with only those the add-on is
 entitled to now. A control whose grant was removed is dropped from the list, without an
@@ -4229,7 +4351,12 @@ The preset of a chat is the lower of its own choice and the ceiling (`chats_egre
 
 **Package registries.** The list ships with LocalAI (`core/services/studio/egress/registries.json`) and changes only by a reviewed pull request that also changes this table and is named in the release notes. Every entry is an exact host name, HTTPS on port 443, with no pattern. Upload hosts (such as `upload.pypi.org`) are not on it, and neither is `raw.githubusercontent.com`, which serves any user's content. An administrator adds exact hosts with `chats_egress_extra_registries`, for example an internal mirror (which is private and so also needs the private switch and an administrator's rule). Extra registries are registries: they follow the Package registries rules (HTTPS only, and only with that preset or a card). To allow one more host for any request, use the list below.
 
-**Always allowed hosts.** An administrator can list exact hosts in `chats_egress_allowed_hosts` (at most 64; `host` or `host:port` to pin the port; no pattern). A host on the list is allowed, with no card, in every chat whose effective preset is Package registries only or Allow all, on any request kind (plain HTTP as well as HTTPS) and on the allowed ports (`chats_egress_ports`), or only on the pinned port. With the preset off in a chat nothing on the list is allowed there, and with the ceiling off the list does nothing at all. The list does not widen the guard: a private, loopback, link-local, metadata or server address is not allowed by it, only by the private switch together with an administrator's rule or card answer, and the TLS server name must still match, on the pinned port as on 443. An administrator's entry also wins over a deny the person stored in one chat before the host was listed. The audit line of a request this way has the reason `allowed_host`. The chat's Network panel shows the list to the person, read only.
+**Always allowed hosts.** An administrator can list exact hosts or whole-label patterns in `chats_egress_allowed_hosts` (at most 64; an optional `:port` pins the port). A host on the list is allowed, with no card, in every chat whose effective preset is Package registries only or Allow all, on any request kind (plain HTTP as well as HTTPS) and on the allowed ports (`chats_egress_ports`), or only on the pinned port. With the preset off in a chat nothing on the list is allowed there, and with the ceiling off the list does nothing at all. The list does not widen the guard: a private, loopback, link-local, metadata or server address is not allowed by it, only by the private switch together with an administrator's rule or card answer, and the TLS server name must still match, on the pinned port as on 443. An administrator's entry also wins over a deny the person stored in one chat before the host was listed. The audit line of a request this way has the reason `allowed_host`. The chat's Network panel shows the list to the person, read only.
+
+Patterns are `*.example.com` (every descendant, including `a.b.example.com`, but **not** `example.com`) or `*` (any public destination). List the apex separately when needed. Names normalize case, IDNA and a trailing dot. Patterns support an exact port, such as `*.example.com:8443` or `*:443`; the configured allowed ports still apply. Partial-label globs, wildcard ports, URLs and paths are invalid. Extra registries remain exact hosts only.
+
+Wildcard grants remain inside the administrator's ceiling: a **Package registries only** ceiling requires a listed registry and TLS, **Allow all** permits public destinations, and **Off** blocks them all. For compatibility, existing **exact** entries retain their exception for non-registry public hosts under the registries ceiling, including plain HTTP. Wildcards never grant private access, even with the private switch enabled. DNS resolution, rebinding protection, metadata/server exclusions and TLS server-name checks still apply; a name match alone never authorizes a dial.
+
 
 | Registry | Hosts |
 |---|---|
@@ -4247,7 +4374,7 @@ The preset of a chat is the lower of its own choice and the ceiling (`chats_egre
 
 **What the model reads.** The Sandbox `bash` says that the network is HTTP and HTTPS through the proxy only. When the Sandbox serves `bash`, each turn tells the model the preset in one line, such as *Network for commands: package registries only (Python (PyPI), ...). A blocked host asks the user; do not try to get around the proxy.* When no card can appear (a ceiling no wider than the preset, an unattended run, a sub-agent), the line says instead that a blocked host is refused and nothing asks the user, so the model names the host it needs in its answer. A blocked request gets `403` with one line of text in the tool output, for example *Blocked by LocalAI: example.com:443 is not allowed for this chat (off). Ask the user to allow it.* With ceiling `off`, or a chat preset above the ceiling, the note of the turn says that the server's setting keeps the network narrower, that no approval changes it, and that the model should tell the user instead of waiting or retrying. A request blocked for that reason gets the line *blocked by the server's setting for the Sandbox network, not by a missing approval*; a block that waits on a person keeps the *the user did not answer* line.
 
-**Only while a command runs.** The proxy knows the call in progress of each sandbox. A connection while no call runs (a background process left by an earlier command) is blocked with the reason `idle`, nothing is asked, and it is audited at the next call. When a call ends, every tunnel it opened is closed. An allow verdict is cached for the call in progress for at most 30 seconds; a block is never cached.
+**Only while a command runs.** The proxy knows the call in progress of each sandbox. A connection while no call runs (a background process left by an earlier command) is blocked with the reason `idle`, nothing is asked, and it is audited at the next call. When a call ends, every tunnel it opened is closed. The proxy caches no verdicts. Every new upstream connection requires a fresh `egress.check` from the owner, including each HTTP request on a kept-alive guest connection and every CONNECT tunnel. A tightened policy or an unavailable owner blocks the next connection immediately, even for the same host, port and command. Already-established streams may finish under their original authorization; a policy change does not interrupt them. Idle, byte and call-end limits still apply, but no verdict TTL bounds stream lifetime.
 
 **Limits.** These are fixed in this release:
 
@@ -4275,14 +4402,14 @@ The preset of a chat is the lower of its own choice and the ceiling (`chats_egre
 
 | State | Mode |
 |---|---|
-| Ceiling, private switch, ports, extra registries, default | shared: runtime settings, like the other `chats_*` settings |
+| Ceiling, private switch, ports, extra registries, allowed hosts, default | owner-authoritative durable host policy when add-ons are enabled; Studio reads it per request. With add-ons disabled, existing local runtime settings apply |
 | A chat's preset, rules and cards | shared and durable: the chat record in the chat store (the database in a cluster) |
 | A card that waits | stateless per request: the host operation on the owner waits; it wakes on the answer's bus message or on a re-read of the card every two seconds |
 | The decision of one connection | stateless per request: the host operation reads the settings and the chat record at each check |
 | The map from a call's resource to its chat | per instance: a cache of a fixed mapping (a hash of the chat ID); each frontend fills its own, and a miss only costs a search of the user's chats |
 | Audit | shared: the `studio_egress_events` table in a cluster, a JSON file under the data path, or memory without one |
 | Audit pruning | single-runner: one frontend at each daily tick, under an advisory lock |
-| Verdict cache, rate limits, connection counts | per instance: the add-on process on the owner; an allow lives at most 30 seconds and only within one call, so a settings change applies within 30 seconds |
+| Rate limits, connection counts | per instance: the add-on process on the owner; verdicts are not cached, so each new upstream connection checks the current owner policy |
 
 With `--addons-role frontend` a frontend runs no proxy; the owner does, and the host operations run on the owner's host.
 
@@ -4317,3 +4444,9 @@ gVisor, KVM and the host backend refuse to run as root, so the sandbox needs the
 - **Cluster.** The add-on runs on the add-on owner node only. In Kubernetes, give that pod the settings above; a node pool dedicated to it is the way to keep the isolation requirements off the other nodes.
 
 What the source tree does not prove: the images and the `runsc` download are not built in the test suite, and the gVisor and KVM backends need a host that allows them. Their tests skip with the reason on a host that does not. The host backend and the whole path from a chat to a file in the user's files run in the tests.
+
+### Provider choices and automatic upgrades
+
+Add-on skill switches and tool-provider choices read the owner policy and update only the changed provider keys. Clearing a choice removes that pin without changing other add-ons. Revision conflicts retain edits for an explicit reload and rebase. Uncertain writes retry the same operation; an owner outage disables writes until reconciliation. Native add-on configuration remains separate.
+
+With add-ons enabled, Settings → Backends uses the owner policy for automatic upgrades rather than the frontend runtime file. Combined mode uses the embedded owner through the same API.

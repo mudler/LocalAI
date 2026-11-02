@@ -56,7 +56,8 @@ var _ = Describe("packaged Tables skill in a chat", func() {
 		load := svc.loadSkillRun(userChatActor("alice", rec.ID), loadOpts{})
 		args := json.RawMessage(`{"name":"tables-readonly"}`)
 		index := func(off, addonsOff []string, sc *scope) string {
-			prompt, _, _, _ := svc.skillTurn(ctx, "alice", off, addonsOff, sc, nil)
+			prompt, _, _, _, err := svc.skillTurn(ctx, "alice", off, addonsOff, sc, nil)
+			Expect(err).NotTo(HaveOccurred())
 			return prompt
 		}
 		allow := func() {

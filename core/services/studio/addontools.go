@@ -144,17 +144,21 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 // name, into chat tools. A host that cannot answer gives no tools and a warning;
 // it never fails the chat. The second result names the add-ons the agent grants
 // that the user cannot use.
-func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope) ([]session.Tool, []string) {
+func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope) ([]session.Tool, []string, error) {
+	pins, err := s.toolPins(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
 	if s.d.AddonTools == nil {
 		if sc != nil {
-			return nil, prefixed("add-on", sc.addonNames)
+			return nil, prefixed("add-on", sc.addonNames), nil
 		}
-		return nil, nil
+		return nil, nil, nil
 	}
 	defs, err := s.d.AddonTools.Tools(ctx, a.Principal)
 	if err != nil {
 		s.log.Warn("studio: add-on tools unavailable", "chat", a.ChatID, "error", err)
-		return nil, nil
+		return nil, nil, nil
 	}
 	off := make(map[string]bool, len(rec.AddonsOff))
 	for _, id := range rec.AddonsOff {
@@ -215,10 +219,6 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			},
 		})
 	}
-	var pins map[string]string
-	if s.d.ToolPins != nil {
-		pins = s.d.ToolPins()
-	}
 	installed := map[string]string{}
 	for _, d := range defs {
 		installed[d.AddonID] = d.InstalledAt
@@ -232,7 +232,7 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			}
 		}
 	}
-	return tools, missing
+	return tools, missing, nil
 }
 
 // unavailableTool is the one tool a chat gets for an add-on that cannot work:

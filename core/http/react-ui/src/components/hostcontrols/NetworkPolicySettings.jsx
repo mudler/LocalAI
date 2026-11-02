@@ -11,9 +11,10 @@ import { NETWORK_POLICY_FIELDS } from '../../addons/hostControls'
 export default function NetworkPolicySettings({ settings, initial, onChange, pending }) {
   return (
     <div className="ad-host-control" data-testid="host-control-network-policy">
+      <p className="st-note">Allowed hosts accept exact names, *.example.com (descendants only; add example.com separately for the apex), or * (public destinations only). Wildcards still obey the ceiling, allowed ports and private-address guard. Extra registries require exact names. The owner validates every change.</p>
       <EgressSection settings={settings} initial={initial} onChange={onChange} />
       <div className="st-list">
-        {NETWORK_POLICY_FIELDS.map(key => FIELD_BY_KEY[key] && (
+        {NETWORK_POLICY_FIELDS.filter(key => key !== 'chats_egress_audit_days').map(key => FIELD_BY_KEY[key] && (
           <SettingField key={key} field={FIELD_BY_KEY[key]} settings={settings} onChange={onChange} pending={pending.has(key)} />
         ))}
       </div>

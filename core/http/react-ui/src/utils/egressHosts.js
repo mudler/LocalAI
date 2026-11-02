@@ -1,5 +1,5 @@
 // The "Always allowed hosts" list of Settings > Tools (chats_egress_allowed_hosts).
-// The setting is a comma separated string of exact host names, each with an
+// The setting is a comma separated string of exact hosts or whole-label patterns, each with an
 // optional ":port". The server checks the same rules again and has the last
 // word (core/config/chats_egress.go); the checks here only tell the person
 // what is wrong before they apply.
@@ -30,7 +30,6 @@ function privateV4(parts) {
 export function checkHost(raw, { existing = [], allowPrivate = false } = {}) {
   let text = String(raw || '').trim()
   if (!text) return { error: 'empty' }
-  if (text.includes('*')) return { error: 'wildcard' }
   if (text.includes('://') || /[/?#@\\\s]/.test(text)) return { error: 'shape' }
   let port = ''
   let host = text
@@ -48,8 +47,14 @@ export function checkHost(raw, { existing = [], allowPrivate = false } = {}) {
     const n = Number(port)
     if (n < 1 || n > 65535 || n === 22 || n === 25) return { error: 'port' }
   }
+  let prefix = ''
+  if (host.startsWith('*.')) { prefix = '*.'; host = host.slice(2) }
+  if (host !== '*' && host.includes('*')) return { error: 'wildcard' }
+  if (prefix && (!host || host === '*' || host.includes(':') || /^[0-9.]+$/.test(host))) return { error: 'wildcard' }
   host = host.toLowerCase().replace(/\.$/, '')
-  if (host.includes(':')) {
+  if (host === '*' && !prefix) {
+    // Public-address, ceiling and port enforcement belong to the owner.
+  } else if (host.includes(':')) {
     // An IPv6 literal.
     if (!allowPrivate || !/^[0-9a-f:.]+$/.test(host)) return { error: 'private' }
   } else if (/^[0-9.]+$/.test(host)) {
@@ -69,7 +74,9 @@ export function checkHost(raw, { existing = [], allowPrivate = false } = {}) {
     if (!ascii || ascii.length > 253 || !ascii.split('.').every(l => l.length <= 63 && LABEL.test(l))) return { error: 'shape' }
     if (/^[0-9x.]+$/.test(ascii)) return { error: 'numeric' }
     host = ascii
+    if (prefix && !host.split('.').every(l => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(l))) return { error: 'wildcard' }
   }
+  host = prefix + host
   const entry = port ? (host.includes(':') ? `[${host}]:${port}` : `${host}:${port}`) : (host.includes(':') ? `[${host}]` : host)
   if (existing.includes(entry)) return { error: 'duplicate', entry }
   if (existing.length >= MAX_ALLOWED_HOSTS) return { error: 'full' }
