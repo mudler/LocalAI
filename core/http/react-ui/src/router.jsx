@@ -102,6 +102,7 @@ const AgentTasks = page('agent-tasks', () => import('./pages/AgentTasks'))
 const ChatsAdmin = page('chats-admin', () => import('./pages/ChatsAdmin'))
 const ChatConnectors = page('chats', () => import('./pages/ChatConnectors'))
 const ChatConversion = page('chats', () => import('./pages/ChatConversion'))
+const GroupChat = page(null, () => import('./pages/GroupChat'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 // Referenced only from JSX below — same blind spot as Activity further down.
@@ -323,6 +324,7 @@ const appChildren = [
   { path: 'triggers/:id/edit', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
   { path: 'triggers/:id', element: <Feature feature="triggers"><AgentTaskDetails /></Feature> },
   { path: 'agent-tasks', element: <Feature feature="mcp_jobs"><ServerSwitch name="agent_jobs" to="/app/agents"><AgentTasks /></ServerSwitch></Feature> },
+  { path: 'group-chat', element: <Feature feature="chats"><GroupChat /></Feature> },
   { path: 'image', element: <StudioTabRedirect legacy="image" /> },
   { path: 'image/:model', element: <StudioTabRedirect legacy="image" /> },
   { path: 'video', element: <StudioTabRedirect legacy="video" /> },
