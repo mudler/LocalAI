@@ -218,6 +218,26 @@ func (s *jsonStore) GetRun(_ context.Context, id string) (Run, error) {
 	return Run{}, ErrNotFound
 }
 
+func (s *jsonStore) BindRunChat(_ context.Context, id, chatID string) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for i, r := range s.d.Runs {
+		if r.ID != id {
+			continue
+		}
+		if r.ChatID != "" {
+			return r.ChatID, nil
+		}
+		s.d.Runs[i].ChatID = chatID
+		if err := s.save(); err != nil {
+			s.d.Runs[i] = r
+			return "", err
+		}
+		return chatID, nil
+	}
+	return "", ErrNotFound
+}
+
 func (s *jsonStore) SetRunStatus(_ context.Context, r Run) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -226,6 +246,9 @@ func (s *jsonStore) SetRunStatus(_ context.Context, r Run) error {
 			continue
 		}
 		prev := x
+		if r.ChatID == "" {
+			r.ChatID = x.ChatID
+		}
 		x.Status, x.Reason, x.ChatID, x.Started, x.Ended, x.Tokens = r.Status, r.Reason, r.ChatID, utc(r.Started), utc(r.Ended), r.Tokens
 		s.d.Runs[i] = x
 		if err := s.save(); err != nil {

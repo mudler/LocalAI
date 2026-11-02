@@ -64,8 +64,11 @@ type Store interface {
 	Claim(ctx context.Context, r Run) (bool, error)
 	// GetRun returns ErrNotFound for an unknown ID.
 	GetRun(ctx context.Context, id string) (Run, error)
+	// BindRunChat atomically assigns chatID only if the run has no chat, and
+	// returns its durable association. Unknown runs return ErrNotFound.
+	BindRunChat(ctx context.Context, id, chatID string) (string, error)
 	// SetRunStatus replaces Status, Reason, ChatID, Started and Ended of the
-	// run with the ID of r. It returns ErrNotFound for an unknown ID.
+	// run with the ID of r. An empty ChatID preserves its association. It returns ErrNotFound for an unknown ID.
 	SetRunStatus(ctx context.Context, r Run) error
 	// ListRuns returns the runs of a trigger, newest claim first, at most limit.
 	// A limit of zero or less returns every run.

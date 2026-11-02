@@ -589,6 +589,10 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 // (the zero Origin), a trigger or a connector. The agent, when named, must be
 // the user's own.
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
+	return s.createAsID(ctx, user, in, origin, newID())
+}
+
+func (s *Service) createAsID(ctx context.Context, user string, in CreateInput, origin Origin, id string) (session.ChatRecord, error) {
 	model := in.Model
 	scoped := false
 	if in.Assistant {
@@ -638,7 +642,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		title = session.DefaultTitle
 	}
 	now := time.Now().UTC()
-	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
+	rec := session.ChatRecord{ID: id, Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
 		AgentID: in.AgentID, ScopedAgent: scoped, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
 		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
 		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff)}

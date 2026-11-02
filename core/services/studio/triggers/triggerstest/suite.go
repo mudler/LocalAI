@@ -74,6 +74,41 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 	for _, o := range opts {
 		o(&res)
 	}
+	It("binds one durable chat for concurrent fire starts and preserves it through status updates", func() {
+		s := newStore()
+		Expect(s.PutTrigger(ctx, sample("t1", "1", "Morning"))).To(Succeed())
+		run := triggers.Run{ID: "r1", TriggerID: "t1", DueKey: "due", Status: triggers.StatusRunning}
+		ok, err := s.Claim(ctx, run)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		var wg sync.WaitGroup
+		ids := make([]string, 8)
+		for i := range ids {
+			wg.Add(1)
+			go func(i int) {
+				defer GinkgoRecover()
+				defer wg.Done()
+				var err error
+				ids[i], err = s.BindRunChat(ctx, run.ID, fmt.Sprintf("chat-%d", i))
+				Expect(err).NotTo(HaveOccurred())
+			}(i)
+		}
+		wg.Wait()
+		Expect(ids[0]).NotTo(BeEmpty())
+		for _, id := range ids {
+			Expect(id).To(Equal(ids[0]))
+		}
+		// Runner shutdown and finish may still hold the pre-start Run value.
+		for _, status := range []triggers.Status{triggers.StatusQueued, triggers.StatusRunning, triggers.StatusDone} {
+			run.Status = status
+			Expect(s.SetRunStatus(ctx, run)).To(Succeed())
+			saved, err := s.GetRun(ctx, run.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(saved.ChatID).To(Equal(ids[0]))
+		}
+		_, err = s.BindRunChat(ctx, "missing", "chat")
+		Expect(err).To(MatchError(triggers.ErrNotFound))
+	})
 	It("stores a trigger with every field", func() {
 		s := newStore()
 		for _, tr := range []triggers.Trigger{sample("t1", "1", "Morning"), fileTrigger("t2", "1")} {
@@ -428,8 +463,9 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 		Expect(got.ID).To(Equal("r3"))
 		r3.ChatID = ""
 		must(s.SetRunStatus(ctx, r3))
-		_, err = s.RunByChat(ctx, "chat-3")
-		Expect(err).To(MatchError(triggers.ErrNotFound), "RunByChat after the chat was cleared")
+		got, err = s.RunByChat(ctx, "chat-3")
+		Expect(err).NotTo(HaveOccurred(), "an empty status ChatID must not clear a durable association")
+		Expect(got.ID).To(Equal("r3"))
 	})
 	It("replaces only the status, reason, chat and times on a status change", func() {
 		s := newStore()

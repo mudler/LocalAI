@@ -228,10 +228,23 @@ func (s *gormStore) GetRun(ctx context.Context, id string) (Run, error) {
 	return r.run(), nil
 }
 
+func (s *gormStore) BindRunChat(ctx context.Context, id, chatID string) (string, error) {
+	res := s.db.WithContext(ctx).Model(&runRow{}).Where("id = ? AND chat_id = ?", id, "").Update("chat_id", chatID)
+	if res.Error != nil {
+		return "", res.Error
+	}
+	r, err := s.GetRun(ctx, id)
+	return r.ChatID, err
+}
+
 func (s *gormStore) SetRunStatus(ctx context.Context, r Run) error {
-	res := s.db.WithContext(ctx).Model(&runRow{}).Where("id = ?", r.ID).Updates(map[string]any{
-		"status": string(r.Status), "reason": r.Reason, "chat_id": r.ChatID, "started": utc(r.Started), "ended": utc(r.Ended),
-		"tokens": r.Tokens})
+	fields := map[string]any{
+		"status": string(r.Status), "reason": r.Reason, "started": utc(r.Started), "ended": utc(r.Ended),
+		"tokens": r.Tokens}
+	if r.ChatID != "" {
+		fields["chat_id"] = r.ChatID
+	}
+	res := s.db.WithContext(ctx).Model(&runRow{}).Where("id = ?", r.ID).Updates(fields)
 	if res.Error != nil {
 		return res.Error
 	}

@@ -316,21 +316,31 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 	if err != nil {
 		return "", err
 	}
-	rec, err := h.svc.CreateAs(ctx, owner, CreateInput{Title: h.runTitle(t), Model: model, AgentID: t.AgentID},
-		Origin{Kind: session.OriginTrigger, ID: t.ID})
+	if scope != nil {
+		if _, err := h.svc.scopedRoots(ctx, userChatActor(principal(owner), ""), []folderScope{*scope}); err != nil {
+			return "", err
+		}
+	}
+	// Reserve before creating: concurrent frontends and retries use one chat,
+	// including after an ambiguous worker response or a process restart.
+	chatID, err := h.o.Store.BindRunChat(ctx, run.ID, newID())
 	if err != nil {
 		return "", err
 	}
-	started := false
-	defer func() {
-		if started {
-			return
+	rec, err := h.svc.Get(ctx, owner, chatID)
+	if errors.Is(err, session.ErrNotFound) {
+		rec, err = h.svc.createAsID(ctx, owner, CreateInput{Title: h.runTitle(t), Model: model, AgentID: t.AgentID},
+			Origin{Kind: session.OriginTrigger, ID: t.ID}, chatID)
+		if errors.Is(err, session.ErrExists) {
+			rec, err = h.svc.Get(ctx, owner, chatID)
 		}
-		bg := context.WithoutCancel(ctx)
-		if err := h.svc.Delete(bg, owner, rec.ID); err != nil {
-			h.log.Warn("studio: could not delete the chat of a failed start", "chat", rec.ID, "error", err)
-		}
-	}()
+	}
+	if err != nil {
+		return "", err
+	}
+	// Never delete a reserved chat on a start error: a worker might already
+	// have accepted it. Replaying the fire must retain its acceptance identity.
+	ctx = withMemoryDelivery(ctx, "trigger-fire:"+run.ID)
 	if t.AgentID == "" {
 		if err := h.svc.d.Store.SetSkillsOff(ctx, owner, rec.ID, srcSkills); err != nil {
 			return "", err
@@ -363,7 +373,6 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 		h.wg.Done()
 		return "", err
 	}
-	started = true
 	go h.supervise(run, t, rec.ID, events, cancel)
 	return rec.ID, nil
 }
