@@ -659,7 +659,9 @@ and records memory settings explicitly:
 ```
 
 Saved agents can use explicit memory tools and durable automatic capture. The
-capture status UI is not available yet. The example expresses tool-only memory intent:
+chat memory status panel shows capture progress and offers authorized retries
+without adding status messages to the conversation. The example expresses
+tool-only memory intent:
 `add_memory` is independent of automatic ingestion. Storage is `content` or
 `summary`; automatic ingestion is `off`, `incoming_only`,
 `incoming_and_replies`, or `summary`. Defaults are adding disabled, no destination,
@@ -731,8 +733,9 @@ parent-bound mutation tools cannot be delegated to an unnamed sub-agent.
 `automatic_ingestion: off` supports tool-only use: ordinary messages store
 nothing. Separate successful explicit calls create separate entries. Internal
 adapter callers can reuse a host-assigned invocation identity and frozen request
-key for retries; this is not a model argument. Queue-based automatic capture and
-its retry/status UI are separate work.
+key for retries; this is not a model argument. Queue-based automatic capture is
+independent of these explicit tool calls; its status and retry controls are
+described below.
 
 The capture worker leaves durable queued jobs and expired write claims unchanged
 while an enabled collections service is still unavailable during startup. Once
