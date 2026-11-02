@@ -280,15 +280,40 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 }
 
 func (s *gormStore) GetChat(ctx context.Context, principal, id string) (session.ChatRecord, error) {
-	var row chatRow
-	err := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Take(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return session.ChatRecord{}, session.ErrNotFound
-	}
+	var rec session.ChatRecord
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Lock before reading so a concurrent explicit re-enable cannot be
+		// overwritten by normalization of a stale snapshot. This also works
+		// with SQLite, which has no SELECT FOR UPDATE.
+		res := tx.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).
+			UpdateColumn("skills_off", gorm.Expr("skills_off"))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return session.ErrNotFound
+		}
+		var row chatRow
+		if err := tx.Where("id = ? AND principal = ?", id, principal).Take(&row).Error; err != nil {
+			return err
+		}
+		var err error
+		rec, err = row.record()
+		if err != nil {
+			return err
+		}
+		if off, changed := normalizeDocumentSkillsOff(rec.SkillsOff); changed {
+			if err := setListDB(tx, "skills_off", principal, id, off); err != nil {
+				return err
+			}
+			rec.SkillsOff = off
+		}
+		return nil
+	})
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
-	return row.record()
+	return rec, nil
 }
 
 func (s *gormStore) ListChats(ctx context.Context, principal string, before session.ChatCursor, limit int) ([]session.ChatRecord, error) {
@@ -337,6 +362,10 @@ func (s *gormStore) UpdateChat(ctx context.Context, rec session.ChatRecord) erro
 // setList saves a list of names in a column of the chat row; an empty list is
 // the empty text.
 func (s *gormStore) setList(ctx context.Context, column, principal, id string, list []string) error {
+	return setListDB(s.db.WithContext(ctx), column, principal, id, list)
+}
+
+func setListDB(db *gorm.DB, column, principal, id string, list []string) error {
 	raw := ""
 	if len(list) > 0 {
 		b, err := json.Marshal(list)
@@ -345,7 +374,7 @@ func (s *gormStore) setList(ctx context.Context, column, principal, id string, l
 		}
 		raw = string(b)
 	}
-	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update(column, raw)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update(column, raw)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -356,7 +385,8 @@ func (s *gormStore) setList(ctx context.Context, column, principal, id string, l
 }
 
 func (s *gormStore) SetSkillsOff(ctx context.Context, principal, id string, off []string) error {
-	return s.setList(ctx, "skills_off", principal, id, off)
+	clean, _ := normalizeDocumentSkillsOff(off)
+	return s.setList(ctx, "skills_off", principal, id, clean)
 }
 
 func (s *gormStore) SetAddonsOff(ctx context.Context, principal, id string, off []string) error {

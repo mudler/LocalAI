@@ -374,7 +374,7 @@ func Run(newStore New) {
 		Expect(got.McpOff).To(Equal([]string{"connector:k1"}))
 		Expect(got.BuiltinsOff).To(Equal([]string{"web"}))
 		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
-		Expect(got.SkillsOff).To(Equal([]string{"builtin:pdf"}))
+		Expect(got.SkillsOff).To(Equal([]string{"addon:pdf"}))
 	})
 
 	It("kind, parent, model, status and summary round-trip", func() {

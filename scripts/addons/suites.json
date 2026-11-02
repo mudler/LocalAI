@@ -207,10 +207,10 @@
       "refuses a name declared twice",
       "refuses more than 16 skills",
       "refuses a plain name that does not start with the add-on id",
-      "refuses a plain name that is a built-in skill, whatever the add-on id",
+      "refuses protected or reserved plain names, whatever the add-on id",
       "accepts a skill that replaces a replaceable built-in skill by its name",
       "refuses shadows that does not repeat the name, or names a skill that may not be replaced",
-      "keeps the built-in names covered: each is replaceable or protected, never both",
+      "keeps embedded names protected or reserved without requiring a slot fallback",
       "keeps the replaceable skills and tools apart, so one pin map holds both",
       "accepts a read tool without a resource",
       "refuses one that works on a resource or is not a read: the page has no resource to name",
@@ -220,7 +220,8 @@
       "reads ui.controls from a manifest and refuses an unknown field in it",
       "draws the network policy only for an add-on granted egress that runs bash",
       "serves a second add-on with the same controls, by its grant and not by its name",
-      "draws the tool providers for an add-on that replaces any built-in tool"
+      "draws the tool providers for an add-on that replaces any built-in tool",
+      "does not promise a core fallback for document provider names"
     ],
     "report": ".cache/addons/logs/contracts.json"
   },
