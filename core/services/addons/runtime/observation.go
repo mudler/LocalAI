@@ -2,7 +2,10 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
@@ -14,6 +17,15 @@ import (
 // incarnation. It does not grant access to uiOnly tools or admit a provider.
 func (c *Client) ReadObservation(ctx context.Context, env contract.Envelope, requestID string) (contract.ExecutionStatus, error) {
 	unknown := contract.ExecutionStatus{Readiness: "unknown", Isolation: "unknown"}
+	// This narrow host path accepts only the named-tool envelope for actual {} input.
+	var args map[string]string
+	if json.Unmarshal(env.Request.Arguments, &args) != nil || len(args) != 1 || !contract.ValidName(args["tool"]) {
+		return unknown, ErrNotSent
+	}
+	canonical, _ := json.Marshal(args)
+	if !bytes.Equal(bytes.TrimSpace(env.Request.Arguments), canonical) {
+		return unknown, ErrNotSent
+	}
 	if requestID == "" || len(requestID) > 256 || c.inflight == nil || c.valid(env, "read") != nil {
 		return unknown, ErrNotSent
 	}
@@ -58,4 +70,18 @@ func (c *Client) ReadObservation(ctx context.Context, env contract.Envelope, req
 		return unknown, err
 	}
 	return value, nil
+}
+
+// AdmitObservation checks the immutable identity and withdrawal state atomically.
+// The returned lease only pins this client; it never re-resolves a replacement.
+// Withdrawal cancels pending reads and prevents subsequent dispatch admission.
+func (c *Client) AdmitObservation(generation uint64, incarnation string) (func(), error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !c.accept || c.registration.Generation != generation || c.registration.Incarnation != incarnation {
+		return nil, ErrNotSent
+	}
+	c.observationLeases++
+	var once sync.Once
+	return func() { once.Do(func() { c.mu.Lock(); c.observationLeases--; c.mu.Unlock() }) }, nil
 }

@@ -626,7 +626,10 @@
       "error",
       "timeout",
       "malformed/artifact payload",
-      "cancels an admitted observation when the runtime withdraws"
+      "cancels an admitted observation when the runtime withdraws",
+      "refuses missing wire tool discriminators before any read",
+      "serializes exact identity admission with withdrawal and never dispatches the replacement",
+      "cannot observe a restarted same-generation process through the captured client"
     ],
     "report": ".cache/addons/logs/runtime.json",
     "reports": [
@@ -684,7 +687,19 @@
           "sends the add-on an envelope without a new field",
           "requires exact typed capability equality on authenticated registration health",
           "keeps all typed declarations on automatic crash restart with a fresh incarnation",
-          "replays typed and legacy receipts across process restarts"
+          "replays typed and legacy receipts across process restarts",
+          "refuses missing wire tool discriminators before any read",
+          "serializes exact identity admission with withdrawal and never dispatches the replacement",
+          "cannot observe a restarted same-generation process through the captured client",
+          "rejects output handles before they can reach storage or output-open",
+          "settles callback denial as failure even if the addon returns a valid positive payload",
+          "cleans up after cancellation and rejects repeat correlation",
+          "keeps an ordinary concurrent read authorized while an observation is pending",
+          "error",
+          "malformed/artifact payload",
+          "success",
+          "timeout",
+          "cancels an admitted observation when the runtime withdraws"
         ]
       },
       {
@@ -969,7 +984,16 @@
       "checks CAS and administrator authority",
       "accepts before a slow backup, detaches the request and polls through either frontend",
       "round trips installed typed home metadata over mTLS with owner actor visibility and immutable asset URLs",
-      "preserves bounded owner admission refusals over mTLS without frontend grants"
+      "preserves bounded owner admission refusals over mTLS without frontend grants",
+      "reads the exact uiOnly status tool locally and over authenticated mTLS",
+      "refuses forged identities tools selection revisions and incarnations without dispatch",
+      "rejects stale carrier replies and frontend authority fields without dispatch",
+      "refuses forged observations through the real carrier and ignores ordinary dispatch attempts",
+      "does not relay a captured old binding to a same-generation replacement",
+      "settles parent cancellation and owner permission loss as unknown",
+      "does not grant owner selection authority through wire capability support",
+      "rejects duplicate noncanonical and nested authority keys in observation DTOs",
+      "withdraws a positive late reply when exact-client admission becomes stale"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -1080,7 +1104,16 @@
           "checks CAS and administrator authority",
           "accepts before a slow backup, detaches the request and polls through either frontend",
           "round trips installed typed home metadata over mTLS with owner actor visibility and immutable asset URLs",
-          "preserves bounded owner admission refusals over mTLS without frontend grants"
+          "preserves bounded owner admission refusals over mTLS without frontend grants",
+          "reads the exact uiOnly status tool locally and over authenticated mTLS",
+          "refuses forged identities tools selection revisions and incarnations without dispatch",
+          "rejects stale carrier replies and frontend authority fields without dispatch",
+          "refuses forged observations through the real carrier and ignores ordinary dispatch attempts",
+          "does not relay a captured old binding to a same-generation replacement",
+          "settles parent cancellation and owner permission loss as unknown",
+          "does not grant owner selection authority through wire capability support",
+          "rejects duplicate noncanonical and nested authority keys in observation DTOs",
+          "withdraws a positive late reply when exact-client admission becomes stale"
         ]
       },
       {

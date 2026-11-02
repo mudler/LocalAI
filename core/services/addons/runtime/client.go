@@ -26,6 +26,7 @@ type Client struct {
 	mu                   sync.Mutex
 	accept               bool
 	active               int
+	observationLeases    int
 	observations         map[string]context.CancelFunc
 	endpoint, credential string
 	registration         Registration
@@ -62,7 +63,7 @@ func (c *Client) drain(ctx context.Context) {
 	defer ticker.Stop()
 	for {
 		c.mu.Lock()
-		n := c.active
+		n := c.active + c.observationLeases
 		c.mu.Unlock()
 		if n == 0 {
 			return

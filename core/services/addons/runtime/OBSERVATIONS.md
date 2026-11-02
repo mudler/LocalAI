@@ -1,19 +1,53 @@
-# Host observation boundary (T8)
+# Host observation boundary (T8–T9)
 
 `(*Client).ReadObservation(ctx, envelope, requestID)` is the dedicated host-only
 status read API. It returns only a validated `contract.ExecutionStatus`; errors
 return unknown/unknown and never return raw results or output handles. The read
 is bounded by the parent deadline, five seconds and the runtime read timeout.
 
-## T9 caller responsibilities
+## Authenticated owner read (T9)
 
-Before calling, authenticate the actor and authorize the exact status tool using
-ordinary feature/tool read rules. Capture the owner's current Client, generation
-and incarnation, and dispatch on that same Client. Check lifecycle/provider
-identity again when consuming the reply. Generate the operation ID and observation
-request ID on the host, and share one observation within the enclosing request.
-Cancel the context when the enclosing request closes. This API does not perform
-provider admission, bypass uiOnly filtering, or implement a host-to-host carrier.
+`Gateway.ExecutionStatusRead(ctx, actor, request)` is the host-only owner API.
+The versioned request carries the observation ID and every component of binding B:
+authenticated actor, addon, generation, incarnation, execution tool, status tool,
+and provider-selection revision. The response echoes that identity with validated status.
+No request field carries arguments, grants, administrator rights, or an operation ID.
+The owner generates the runtime operation ID independently of the observation ID.
+The wire envelope uses `{"tool":"declared-status-tool"}` for actual status input `{}`.
+
+The owner requires `AuthorizeExecutionStatus` on every admission and before publishing a reply.
+This host callback must check current selection revision, execution feature permission,
+addon access, and authority to replace the builtin provider. An absent callback denies reads.
+The addon admission checks resource-independent account access. The verified manifest
+must bind the execution action to this exact resourceless, `uiOnly` status read.
+`Manager.Runtime` also checks installed/enabled lifecycle and required host operations.
+The status path does not call `ToolAdapter.Execute` or change its `uiOnly` exclusion.
+
+The owner captures one actual client. `Client.AdmitObservation(generation, incarnation)`
+checks identity and accepting state under the same mutex that serializes withdrawal.
+Its idempotent lease pins that client through dispatch and consumption without holding
+manager or supervisor locks across network I/O. Observation leases do not consume the
+ordinary request concurrency allowance. Withdrawal rejects later admissions and cancels
+pending observations. A replacement never receives a request bound to the old client.
+The owner checks current lifecycle, client identity, selection, and permission again
+before returning a positive value. Errors return unknown/unknown.
+
+The existing authenticated mTLS carrier adds `execution-status-read-v1` as a typed call.
+Its request and response DTOs have their own version 1; addon protocol v1 remains unchanged.
+The carrier rejects mixed call variants, identity mismatches, unknown fields, duplicate
+keys, and noncanonical keys. Transport capability support cannot grant selection authority.
+Older owners without this call return unavailable. Reads have no retries or positive cache.
+
+## T10 integration responsibilities
+
+Generate the observation ID in the host request shell, never from addon or browser input.
+Share one observation within that enclosing request. T9 does not implement coalescing
+or the reducer shell. Cancel the parent context when the request closes or authority changes.
+The owner and runtime independently cap each read at five seconds.
+Recheck the current binding when consuming a returned observation, including after carrier delivery.
+A reply can become stale after the owner's final check; it is never execution authorization.
+Application integration must configure the owner callback from authoritative host selection
+and permission state. Until then, the default path denies observations.
 
 The client records observation ownership in the authoritative in-flight entry.
 The incarnation-authenticated broker checks it before dispatching any operation

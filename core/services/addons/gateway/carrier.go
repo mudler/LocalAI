@@ -128,8 +128,9 @@ func (c *Carrier) peer(r *http.Request) (PeerIdentity, error) {
 }
 
 type wireRequest struct {
-	Request contract.Request `json:"request"`
-	Relay   *RelayRequest    `json:"relay,omitempty"`
+	Observation *ExecutionStatusRequest `json:"observation,omitempty"`
+	Request     contract.Request        `json:"request"`
+	Relay       *RelayRequest           `json:"relay,omitempty"`
 	// Proposal marks a call for the owner's proposal broker. Such a call is
 	// never a typed dispatch.
 	Proposal *ProposalCall `json:"proposal,omitempty"`
@@ -268,6 +269,20 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
 			http.Error(w, "invalid binding", 400)
+			return
+		}
+		if wire.Observation != nil {
+			if wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionStatusAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+				http.Error(w, "invalid observation binding", 400)
+				return
+			}
+			out, err := g.ExecutionStatusRead(r.Context(), actor, *wire.Observation)
+			if err != nil {
+				typedError(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(out)
 			return
 		}
 		if wire.Library != nil {
@@ -779,7 +794,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != ActionHostSettingsRead && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+	return action != ActionHostSettingsRead && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
 }
 
 // Act forwards an action call to the owner and waits for its answer, up to the

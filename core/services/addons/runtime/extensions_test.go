@@ -99,3 +99,32 @@ var _ = Describe("typed runtime declarations", func() {
 		}
 	})
 })
+
+var _ = Describe("supervisor observation capture ordering", func() {
+	It("cannot observe a restarted same-generation process through the captured client", func() {
+		ctx := context.Background()
+		s := supervisor()
+		p := fixture("normal", typedCapabilities())
+		old, e := s.Start(ctx, p, 9)
+		Expect(e).NotTo(HaveOccurred())
+		captured, e := s.Current(ctx, "sample", 9)
+		Expect(e).NotTo(HaveOccurred())
+		client := captured.Client.(*Client)
+		release, e := client.AdmitObservation(captured.Generation, captured.Incarnation)
+		Expect(e).NotTo(HaveOccurred())
+		release()
+		Expect(s.Stop(ctx, old)).To(Succeed())
+		replacement, e := s.Start(ctx, p, 9)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(replacement.Incarnation).NotTo(Equal(captured.Incarnation))
+		Expect(replacement.Client).NotTo(BeIdenticalTo(captured.Client))
+		_, e = client.AdmitObservation(9, captured.Incarnation)
+		Expect(e).To(HaveOccurred())
+		env := contract.Envelope{Request: contract.Request{AddonID: "sample", Generation: 9, OperationID: "old-observation", Action: "read", Arguments: json.RawMessage(`{"tool":"health"}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "k", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Second)}}
+		value, e := client.ReadObservation(ctx, env, "q")
+		Expect(e).To(MatchError(ErrNotSent))
+		Expect(value.Readiness).To(Equal("unknown"))
+		_, e = replacement.Client.(*Client).AdmitObservation(9, captured.Incarnation)
+		Expect(e).To(HaveOccurred())
+	})
+})
