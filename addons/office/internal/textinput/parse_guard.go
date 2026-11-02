@@ -283,14 +283,23 @@ func (b *guardParagraph) preflight(n *ast.Paragraph, r text.Reader) {
 		if w, _ := util.IndentWidth(line, 0); w > 3 {
 			continue
 		}
-		s := strings.TrimSpace(string(line))
+		valid := true
+		for _, c := range line {
+			if !(util.IsSpace(c) || c == '-' || c == '|' || c == ':') {
+				valid = false
+				break
+			}
+		}
+		if !valid {
+			continue
+		}
+		s := strings.Trim(string(line), " \t\n\r")
 		s = strings.TrimPrefix(s, "|")
 		s = strings.TrimSuffix(s, "|")
 		cols := 0
-		valid := true
 		for {
 			cell, rest, more := strings.Cut(s, "|")
-			cell = strings.TrimSpace(cell)
+			cell = strings.Trim(cell, " \t\n\r")
 			cell = strings.TrimPrefix(cell, ":")
 			cell = strings.TrimSuffix(cell, ":")
 			if cell == "" {
@@ -316,17 +325,32 @@ func (b *guardParagraph) preflight(n *ast.Paragraph, r text.Reader) {
 			continue
 		}
 		headerSegment := lines.At(i - 1)
-		header := strings.TrimSpace(string(headerSegment.Value(source)))
-		header = strings.TrimPrefix(header, "|")
-		header = strings.TrimSuffix(header, "|")
-		// Match Goldmark's header cell boundaries: escaped pipes are literal.
-		headerCols := 1
-		for j := 0; j < len(header); j++ {
-			if header[j] == '|' && (j == 0 || header[j-1] != '\\') {
-				headerCols++
-			}
+		headerSegment = headerSegment.TrimLeftSpace(source)
+		headerSegment = headerSegment.TrimRightSpace(source)
+		header := headerSegment.Value(source)
+		pos, limit := 0, len(header)
+		if limit > 0 && header[0] == '|' {
+			pos++
 		}
-		if cols > 20 || headerCols > 20 || lines.Len()-i-1 > 500 {
+		if limit > 0 && header[limit-1] == '|' {
+			limit--
+		}
+		// Mirror Goldmark's parseRow, including its unconditional trailing-pipe
+		// removal and lack of an extra cell after a final separator. It pads
+		// short headers, but a wider header stops the transformer altogether.
+		headerCols := 0
+		for pos < limit {
+			b.g.poll()
+			headerCols++
+			for pos < limit && (header[pos] != '|' || (pos > 0 && header[pos-1] == '\\')) {
+				pos++
+			}
+			pos++
+		}
+		if headerCols > cols {
+			return
+		}
+		if cols > 20 || lines.Len()-i-1 > 500 {
 			b.g.reject("table exceeds 20 columns or 500 body rows")
 		}
 		if b.g.depth(n.Parent())+3 > 64 {

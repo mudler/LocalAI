@@ -157,6 +157,58 @@ var _ = Describe("Synchronous Markdown parse guards", func() {
 			Expect(called).To(BeFalse())
 		}
 	})
+	It("keeps oversized-looking non-tables as Goldmark paragraphs", func() {
+		for _, source := range []string{
+			"|" + strings.Repeat("heading|", 21) + "\n|---|\n",
+			"|a|b|\n|---|\n" + strings.Repeat("|value|\n", 501),
+			"|" + strings.Repeat("heading|", 22) + "\n|" + strings.Repeat("---|", 21) + "\n",
+			// A mismatched first delimiter stops Goldmark, even when a later
+			// delimiter could form an oversized table.
+			"|a|b|\n|---|\n|" + strings.Repeat("---|", 21) + "\n",
+			// Unicode whitespace is content, not Goldmark's row-edge whitespace.
+			"\u00a0|" + strings.Repeat("h|", 20) + "\n|" + strings.Repeat("---|", 20) + "\n" + strings.Repeat("|v|\n", 501),
+		} {
+			plain := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser().Parse(text.NewReader([]byte(source)))
+			Expect(plain.FirstChild().Kind()).To(Equal(ast.KindParagraph), source)
+			root, err := guardedParse(context.Background(), []byte(source))
+			Expect(err).NotTo(HaveOccurred(), source)
+			Expect(root.FirstChild().Kind()).To(Equal(ast.KindParagraph), source)
+			_, err = ParseMarkdown(context.Background(), source)
+			Expect(err).NotTo(HaveOccurred(), source)
+		}
+	})
+	It("matches Goldmark row counting and short-header padding before table limits", func() {
+		for _, header := range []string{"h", "|h|", " |h|| 	", `|a\|b|`, `|a\\|b|`, `|a\|`, "|", "|" + strings.Repeat("h|", 20) + "|", "|" + strings.Repeat("h|", 19) + `a\|`} {
+			source := header + "\n|" + strings.Repeat("---|", 20) + "\n|v|\n"
+			plain := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser().Parse(text.NewReader([]byte(source)))
+			Expect(plain.FirstChild().Kind().String()).To(Equal("Table"), source)
+			Expect(plain.FirstChild().FirstChild().ChildCount()).To(Equal(20), source)
+			root, err := guardedParse(context.Background(), []byte(source))
+			Expect(err).NotTo(HaveOccurred(), source)
+			Expect(root.FirstChild().FirstChild().ChildCount()).To(Equal(20), source)
+			// Padding is parser behavior only; the converter still rejects
+			// nonrectangular source instead of silently fabricating cells.
+			_, err = ParseMarkdown(context.Background(), source)
+			Expect(err).To(MatchError(ContainSubstring("table must be rectangular")), source)
+		}
+		for _, source := range []string{
+			"h\n|" + strings.Repeat("---|", 21) + "\n",
+			"h\n|---|---|\n" + strings.Repeat("|v|\n", 501),
+		} {
+			plain := goldmark.New(goldmark.WithExtensions(extension.Table)).Parser().Parse(text.NewReader([]byte(source)))
+			Expect(plain.FirstChild().Kind().String()).To(Equal("Table"), source)
+			_, err := guardedParse(context.Background(), []byte(source))
+			Expect(err).To(MatchError(ContainSubstring("table exceeds")), source)
+			// The callback stands in for the allocating Goldmark transformer.
+			root := goldmark.DefaultParser().Parse(text.NewReader([]byte(source)))
+			called := false
+			transform := &guardParagraph{ParagraphTransformer: callbackParagraph{&called}, g: &parseGuard{ctx: context.Background()}, table: true}
+			Expect(func() {
+				transform.Transform(root.FirstChild().(*ast.Paragraph), text.NewReader([]byte(source)), parser.NewContext())
+			}).To(Panic())
+			Expect(called).To(BeFalse())
+		}
+	})
 	It("accepts the exact table dimensions and escaped pipes in legal headers", func() {
 		for _, source := range []string{guardTable(20, 1, ""), guardTable(1, 500, ""), guardTable(20, 1, `a\|b`)} {
 			_, err := ParseMarkdown(context.Background(), source)
