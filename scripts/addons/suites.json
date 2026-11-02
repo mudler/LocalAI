@@ -487,7 +487,8 @@
       "refuses the upgrade when the tag moved again after the check, and installs nothing",
       "stamps the first install, keeps the time over an upgrade and stamps it again after an uninstall",
       "needs a state root for the owner only",
-      "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum"
+      "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum",
+      "distinguishes healthy empty connector discovery from loss of runtime ownership"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -2569,7 +2570,8 @@
       "logs the reason behind a generic denial and leaves the response unchanged",
       "names every typed cause of a failed install in the 403 of the dispatch route",
       "records the chat with the envelope of a read and of an action while it runs",
-      "sends the add-on an envelope without a new field"
+      "sends the add-on an envelope without a new field",
+      "distinguishes healthy empty connector discovery from loss of runtime ownership"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
@@ -2658,7 +2660,8 @@
           "does not upgrade to a release the host cannot run",
           "does nothing without an update checker",
           "keeps the manual upgrade closed to a caller who is not an administrator",
-          "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum"
+          "starts the enabled add-ons side by side, so the start takes the slowest ones and not the sum",
+          "distinguishes healthy empty connector discovery from loss of runtime ownership"
         ]
       },
       {
@@ -4014,7 +4017,22 @@
       "go: is unavailable when the owner cannot act, and never falls back to a read or a proposal",
       "go: keeps the argument rules: an identity argument is refused before anything runs",
       "go: are listed in any state, with the names they replace and whether they run",
-      "go: keeps its namespaced name and carries the built-in it shadows, only for a replaceable name"
+      "go: keeps its namespaced name and carries the built-in it shadows, only for a replaceable name",
+      "go: names the replacement string for legacy arguments at the chat boundary without sending them",
+      "go: synthesizes exactly one strict host read, without enumerating resources at discovery",
+      "go: projects only opaque IDs, optional names and caller roles through a normal data envelope",
+      "go: returns an array even for empty success and truthfully bounds sorted 100/101 results",
+      "go: rejects every input property and non-object rather than resolving selection",
+      "go: fails closed without the optional backend interface and never synthesizes for other add-ons",
+      "go: rejects a reserved Tables manifest collision in discovery and execution even if not advertised",
+      "go: rechecks missing, hidden, disabled, stopped and uninitialized Tables at execution",
+      "go: preserves typed credential, feature, owner, forwarding and registry failures after discovery",
+      "go: rejects missing principals and malformed projections instead of successful empty data",
+      "go: keeps synthesized listing behind consumer allowlists and hidden add-ons",
+      "go: does not let a listing-capable provider invent a named-user principal",
+      "go: revalidates listing failures through an already-bound consumer without namespace fallback",
+      "go: preserves the model read byte bound",
+      "go: offers the host read even when Tables has no executable definitions"
     ]
   },
   "tables-admin": {
@@ -4070,7 +4088,21 @@
       "binds an output handle to its operation, person and database",
       "fails a truncated, grown or vanished stream and never serves it",
       "fails the transfer when the store cannot write, and when the source is revoked before completion",
-      "expires the file only, enforces the quota per person and leaves the database as it was"
+      "expires the file only, enforces the quota per person and leaves the database as it was",
+      "projects only active owned/shared resources and the caller's own role, never UI management metadata",
+      "projects only active owned/shared resources and the caller's own role, never UI management metadata",
+      "excludes policy reservations and resources whose deletion has begun",
+      "excludes policy reservations and resources whose deletion has begun",
+      "rechecks grants after discovery and independently refuses inspect on a revoked database",
+      "rechecks grants after discovery and independently refuses inspect on a revoked database",
+      "revalidates real credential and feature changes after discovery, not as successful empty lists",
+      "revalidates real credential and feature changes after discovery, not as successful empty lists",
+      "preserves typed missing resource registry and app registry failures",
+      "preserves typed missing resource registry and app registry failures",
+      "uses the service's actual 100/101 bound in ID order with truthful truncation and absent names",
+      "uses the service's actual 100/101 bound in ID order with truthful truncation and absent names",
+      "rechecks credentials at the carrier owner even if the frontend still admits the old principal",
+      "reports an unavailable carrier owner after discovery instead of fabricating empty success"
     ]
   },
   "tables-ui": {

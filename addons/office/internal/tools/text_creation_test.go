@@ -24,7 +24,7 @@ func creationZip(data []byte, name string) string {
 		if f.Name == name {
 			r, err := f.Open()
 			Expect(err).NotTo(HaveOccurred())
-			defer r.Close()
+			defer func() { Expect(r.Close()).To(Succeed()) }()
 			b, err := io.ReadAll(r)
 			Expect(err).NotTo(HaveOccurred())
 			return string(b)
