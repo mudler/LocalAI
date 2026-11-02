@@ -797,7 +797,11 @@
       "names every typed cause of a failed install in the 403 of the dispatch route",
       "carries the chat binding signed and rejects a changed one",
       "signs a request without a binding as before",
-      "gives the owner the chat the frontend bound the call to"
+      "gives the owner the chat the frontend bound the call to",
+      "projects private policy safely",
+      "forwards authenticated owner decisions",
+      "validates strict request payloads",
+      "checks CAS and administrator authority"
     ],
     "report": ".cache/addons/logs/gateway.json",
     "reports": [
@@ -901,7 +905,11 @@
           "keeps any other failure to resolve a resource a plain denial, so nothing more is told",
           "carries the chat binding signed and rejects a changed one",
           "signs a request without a binding as before",
-          "gives the owner the chat the frontend bound the call to"
+          "gives the owner the chat the frontend bound the call to",
+          "projects private policy safely",
+          "forwards authenticated owner decisions",
+          "validates strict request payloads",
+          "checks CAS and administrator authority"
         ]
       },
       {
@@ -2013,7 +2021,11 @@
       "names every typed cause of a failed install in the 403 of the dispatch route",
       "carries the chat binding signed and rejects a changed one",
       "signs a request without a binding as before",
-      "gives the owner the chat the frontend bound the call to"
+      "gives the owner the chat the frontend bound the call to",
+      "projects private policy safely",
+      "forwards authenticated owner decisions",
+      "validates strict request payloads",
+      "checks CAS and administrator authority"
     ],
     "report": ".cache/addons/logs/artifacts.json",
     "reports": [
@@ -2159,7 +2171,11 @@
           "keeps any other failure to resolve a resource a plain denial, so nothing more is told",
           "carries the chat binding signed and rejects a changed one",
           "signs a request without a binding as before",
-          "gives the owner the chat the frontend bound the call to"
+          "gives the owner the chat the frontend bound the call to",
+          "projects private policy safely",
+          "forwards authenticated owner decisions",
+          "validates strict request payloads",
+          "checks CAS and administrator authority"
         ]
       },
       {
