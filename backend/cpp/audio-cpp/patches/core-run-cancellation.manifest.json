@@ -60,6 +60,14 @@
     "src/framework/audio/detail/speech_fft_internal.h": {
       "base_sha256": "f5a2d777125fbb0ebd3f407de8e516a092c065fdd61c3f6c7a5aeedb69ca271f",
       "final_sha256": "6f47dd8d23af30dd7a8926f1339dfcde905f101c831acd4424210549d1f0ea6c"
+    },
+    "include/engine/framework/audio/dsp.h": {
+      "base_sha256": "2283025fe130de4fd3b0011d51babaa4b2c33b38408826ce82a37f1b28740e7d",
+      "final_sha256": "ca243d295e2c10dde55c4537959b72587ff3444559c2a1b74bec58ef174944f0"
+    },
+    "src/framework/audio/dsp.cpp": {
+      "base_sha256": "9087fa5de390365e4e7c4fea7fde4c068c882a16568ab775bdcdbcefae36f494",
+      "final_sha256": "dd93661513c14245f508615eeac2fb0e79d4a3a34fcadf5a4227ac4bade4d689"
     }
   },
   "omitted_tracked_paths": {
@@ -198,6 +206,20 @@
         "src/framework/audio/detail/speech_fft_internal.h": {
           "base_sha256": "f5a2d777125fbb0ebd3f407de8e516a092c065fdd61c3f6c7a5aeedb69ca271f",
           "final_sha256": "6f47dd8d23af30dd7a8926f1339dfcde905f101c831acd4424210549d1f0ea6c"
+        }
+      }
+    },
+    {
+      "patch": "0005-shared-stft-cancellation.patch",
+      "patch_sha256": "7f2543796f9bb70b7ea0b3457c4f7b69f3fe0463c5bf3dc4b5d01effd8c5a714",
+      "files": {
+        "include/engine/framework/audio/dsp.h": {
+          "base_sha256": "2283025fe130de4fd3b0011d51babaa4b2c33b38408826ce82a37f1b28740e7d",
+          "final_sha256": "ca243d295e2c10dde55c4537959b72587ff3444559c2a1b74bec58ef174944f0"
+        },
+        "src/framework/audio/dsp.cpp": {
+          "base_sha256": "9087fa5de390365e4e7c4fea7fde4c068c882a16568ab775bdcdbcefae36f494",
+          "final_sha256": "dd93661513c14245f508615eeac2fb0e79d4a3a34fcadf5a4227ac4bade4d689"
         }
       }
     }
