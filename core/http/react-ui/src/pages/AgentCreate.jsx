@@ -15,6 +15,8 @@ import './library.css'
 // eslint-disable-next-line no-unused-vars
 import SearchableModelSelect from '../components/SearchableModelSelect'
 // eslint-disable-next-line no-unused-vars
+import NameList from '../components/ChatNameList'
+// eslint-disable-next-line no-unused-vars
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import { CAP_CHAT } from '../utils/capabilities'
 import Icon from '../components/Icon'

@@ -20,10 +20,17 @@ test.describe('Agent form', () => {
     await fold(page, 'PromptsGoals').locator('.ag-fold__button').click()
     await page.getByLabel('Instructions').fill('Answer in French.')
 
-    await fold(page, 'MemorySettings').locator('.ag-fold__button').click()
+    await fold(page, 'Collections').locator('.ag-fold__button').click()
     await page.getByRole('combobox', { name: 'Collections +' }).fill('handbook')
     await page.getByRole('combobox', { name: 'Collections +' }).press('Enter')
     await expect(page.getByTestId('agent-collections').getByRole('listitem')).toHaveText(['handbook'])
+    const grant = page.getByRole('group', { name: 'handbook', exact: true })
+    await expect(grant.getByLabel('Search', { exact: true })).toBeChecked()
+    await expect(grant.getByLabel('Delete entries')).not.toBeChecked()
+
+    await fold(page, 'MemorySettings').locator('.ag-fold__button').click()
+    await page.getByLabel('Memory destination').selectOption('handbook')
+    await page.getByLabel('Enable add_memory tool').check()
 
     await fold(page, 'Skills').locator('.ag-fold__button').click()
     await page.getByTestId('agent-skills').getByRole('checkbox', { name: /citations/ }).check()
@@ -36,6 +43,8 @@ test.describe('Agent form', () => {
     expect(s.calls.find(c => c.method === 'POST').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
       mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], network: 'off',
+      collection_permissions: { version: 1, grants: [{ collection: 'handbook', search: true, delete_entries: false }] },
+      memory: { version: 1, destination: 'handbook', add_memory: true, tool_storage: 'content', automatic_ingestion: 'off' },
     })
   })
 
