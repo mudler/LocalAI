@@ -24,12 +24,26 @@ admitted concurrent ordinary reads/actions retain their normal authority.
 
 Live records and cancellation registrations are removed idempotently on completion,
 error, timeout, cancellation or withdrawal. Retired correlations are kept until
-the incarnation's callback endpoint closes: otherwise a late callback could be
-relabelled as credential-only inbound work. Retention is bounded to 4096 records
-per InFlight index; observation admission fails closed at capacity, rather than
+the incarnation's callback endpoint stops admission and all admitted HTTP
+handlers drain. `http.Server.Close` alone does not wait for active handlers.
+The supervisor stops admission, closes the server to cancel network requests,
+drains admitted requests, then forgets correlations. Pending decoding requests
+retain their denial. Dispatch admission is serialized with endpoint Stop for
+all scopes, without holding a lifecycle mutex across a handler or drain.
+Pre-Stop admissions may finish, but retirement cannot complete underneath them.
+This prevents a late callback from recovering credential-only inbound authority.
+Retention is bounded to 4096 records per InFlight index; observation admission
+fails closed at capacity, rather than
 evicting a denial and restoring authority. Ordinary work is not capacity-limited
 by this observation index. A long-lived runtime reaching the limit needs restart
 before further observations; no cross-request positive result cache exists.
+
+Stop never waits for handlers. Drain runs in the endpoint cleanup goroutine,
+not in process termination or under a supervisor lock. A handler that ignores
+cancellation can delay its endpoint's drain and reclamation indefinitely, but
+cannot restore admission or block another endpoint. Retained correlations stay
+within the same 4096-record bound; no global closed-incarnation tombstones are
+created. The endpoint and its cleanup goroutine remain until its handlers exit.
 
 This is a host-mediated effect boundary, not a process sandbox or purity
 attestation. An addon may still mutate its own memory/files or perform its own I/O.

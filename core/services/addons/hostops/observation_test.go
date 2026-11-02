@@ -6,8 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -128,4 +131,137 @@ var _ = Describe("Observation identity checks", func() {
 		Expect(f.observations).To(BeEmpty())
 	})
 
+})
+
+// A body barrier runs only after authentication and after all request bytes have
+// been read. Returning EOF resumes decoding and the correlation denial check.
+type callbackBodyBarrier struct {
+	*strings.Reader
+	read   chan struct{}
+	resume chan struct{}
+}
+
+func (b *callbackBodyBarrier) Read(p []byte) (int, error) {
+	n, err := b.Reader.Read(p)
+	if err != nil {
+		close(b.read)
+		<-b.resume
+	}
+	return n, err
+}
+func (b *callbackBodyBarrier) Close() error { return nil }
+
+var _ = Describe("Callback endpoint retirement", func() {
+	It("keeps authenticated pending inbound callbacks denied while another endpoint works", func() {
+		f := NewInFlight()
+		b := New(f, always, contract.DefaultLimits())
+		var inbound, ordinary atomic.Int32
+		Expect(b.Register(Spec{Op: "connector.inbound", Scope: ScopeInbound, Handler: func(context.Context, Call) (json.RawMessage, error) {
+			inbound.Add(1)
+			return json.RawMessage(`{}`), nil
+		}})).To(Succeed())
+		Expect(b.Register(Spec{Op: "workspace.export", Scope: "read", Feature: "chats", Handler: func(context.Context, Call) (json.RawMessage, error) {
+			ordinary.Add(1)
+			return json.RawMessage(`{}`), nil
+		}})).To(Succeed())
+		end, _, err := f.BeginObservation(env("fine-tuning", "status", "read", time.Now().Add(time.Minute)), Binding{}, "inc", "q")
+		Expect(err).NotTo(HaveOccurred())
+		end()
+		h := b.EndpointForRuntime("fine-tuning", "secret", []string{"connector."}, 1, "inc")
+		body := &callbackBodyBarrier{Reader: strings.NewReader(`{"operationId":"status","op":"connector.inbound","arguments":{}}`), read: make(chan struct{}), resume: make(chan struct{})}
+		req := httptest.NewRequest(http.MethodPost, "/host", body)
+		req.Header.Set(contract.HostCredentialHeader, "secret")
+		rec := httptest.NewRecorder()
+		done := make(chan struct{})
+		go func() { h.ServeHTTP(rec, req); close(done) }()
+		<-body.read
+		h.Stop()
+		retired := make(chan struct{})
+		go func() { h.Drain(); f.ForgetRuntime("fine-tuning", "inc"); close(retired) }()
+		select {
+		case <-retired:
+			Fail("retired before callback drained")
+		default:
+		}
+		Expect(f.callbackDenied("fine-tuning", "status", 1, "inc")).To(BeTrue())
+		other := &fixture{b: b, inflight: f, h: b.HandlerForRuntime("other", "other-secret", []string{"workspace."}, 1, "other-inc")}
+		defer f.BeginRuntime(env("other", "ordinary", "read", time.Now().Add(time.Minute)), Binding{}, false, "other-inc")()
+		code, _ := other.call("other-secret", "ordinary", "workspace.export", `{}`)
+		Expect(code).To(Equal(http.StatusOK))
+		close(body.resume)
+		<-done
+		Expect(inbound.Load()).To(BeZero())
+		Expect(rec.Code).To(Equal(http.StatusForbidden))
+		Expect(ordinary.Load()).To(Equal(int32(1)))
+		<-retired
+		Expect(f.observations).To(BeEmpty())
+		Expect(f.entries).To(HaveLen(1))
+		closed := &fixture{h: h}
+		code, _ = closed.call("secret", "fresh", "connector.inbound", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		Expect(inbound.Load()).To(BeZero())
+	})
+})
+
+var _ = Describe("Decoded callback dispatch retirement", func() {
+	It("refuses an authorized decoded callback paused across endpoint Stop", func() {
+		f := NewInFlight()
+		authorized, resume := make(chan struct{}), make(chan struct{})
+		b := New(f, func(string, string) bool { close(authorized); <-resume; return true }, contract.DefaultLimits())
+		var calls atomic.Int32
+		Expect(b.Register(Spec{Op: "workspace.export", Scope: "read", Feature: "chats", Handler: func(context.Context, Call) (json.RawMessage, error) {
+			calls.Add(1)
+			return json.RawMessage(`{}`), nil
+		}})).To(Succeed())
+		h := b.EndpointForRuntime("fine-tuning", "secret", []string{"workspace."}, 1, "inc")
+		defer f.BeginRuntime(env("fine-tuning", "ordinary", "read", time.Now().Add(time.Minute)), Binding{}, false, "inc")()
+		fixture := &fixture{h: h}
+		result := make(chan int, 1)
+		go func() { code, _ := fixture.call("secret", "ordinary", "workspace.export", `{}`); result <- code }()
+		<-authorized // Decoded and correlation checked; paused in the real feature check.
+		h.Stop()
+		drained := make(chan struct{})
+		go func() { h.Drain(); close(drained) }()
+		select {
+		case <-drained:
+			Fail("drained before authorized request returned")
+		default:
+		}
+		close(resume)
+		Expect(<-result).To(Equal(http.StatusForbidden))
+		<-drained
+		Expect(calls.Load()).To(BeZero())
+	})
+	It("stops without waiting for a handler that ignores cancellation", func() {
+		f := NewInFlight()
+		b := New(f, always, contract.DefaultLimits())
+		entered, release := make(chan struct{}), make(chan struct{})
+		var h *RuntimeEndpoint
+		Expect(b.Register(Spec{Op: "connector.inbound", Scope: ScopeInbound, Handler: func(context.Context, Call) (json.RawMessage, error) {
+			close(entered)
+			<-release // Deliberately ignores request cancellation.
+			h.Stop()  // No lifecycle lock may be held across the handler or Drain.
+			return json.RawMessage(`{}`), nil
+		}})).To(Succeed())
+		h = b.EndpointForRuntime("fine-tuning", "secret", []string{"connector."}, 1, "inc")
+		fixture := &fixture{h: h}
+		done := make(chan struct{})
+		go func() { fixture.call("secret", "ordinary", "connector.inbound", `{}`); close(done) }()
+		<-entered
+		stopped := make(chan struct{})
+		go func() { h.Stop(); close(stopped) }()
+		Eventually(stopped).Should(BeClosed())
+		drained := make(chan struct{})
+		go func() { h.Drain(); close(drained) }()
+		select {
+		case <-drained:
+			Fail("drained while handler still running")
+		default:
+		}
+		code, _ := fixture.call("secret", "fresh", "connector.inbound", `{}`)
+		Expect(code).To(Equal(http.StatusForbidden))
+		close(release)
+		Eventually(done).Should(BeClosed())
+		Eventually(drained).Should(BeClosed())
+	})
 })

@@ -149,8 +149,9 @@ func (f *InFlight) callbackDenied(addon, op string, generation uint64, incarnati
 }
 
 // ForgetRuntime releases retired observation correlations only after the callback
-// endpoint has closed. Live entries are removed too; late callbacks cannot fall
-// back to inbound authority on that closed endpoint.
+// endpoint has stopped admission and all admitted HTTP handlers have drained.
+// Server.Close alone is insufficient: it does not wait for active handlers.
+// Live entries are removed too; the stopped endpoint refuses subsequent calls.
 func (f *InFlight) ForgetRuntime(addon, incarnation string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

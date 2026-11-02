@@ -5058,7 +5058,10 @@
       "cannot overwrite an observation with a forged identity or duplicate operation",
       "rejects mismatched authenticated incarnation and forged IDs without touching handlers",
       "removes retired state on endpoint close",
-      "fails closed at the retained correlation bound without restricting ordinary operations"
+      "fails closed at the retained correlation bound without restricting ordinary operations",
+      "keeps authenticated pending inbound callbacks denied while another endpoint works",
+      "refuses an authorized decoded callback paused across endpoint Stop",
+      "stops without waiting for a handler that ignores cancellation"
     ],
     "report": ".cache/addons/logs/host-admission.json"
   }
