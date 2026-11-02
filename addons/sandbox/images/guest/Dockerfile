@@ -101,6 +101,10 @@ RUN set -eux; \
     python3 /tmp/guest-python/check-python.py; \
     sh /tmp/guest-python/check-tools.sh; \
     rm -rf /tmp/guest-python
+# Helpers belong to the guest, not the documentation-only skill package.
+COPY addons/sandbox/images/guest/document-skills/ /usr/local/lib/localai/document-skills/
+COPY addons/sandbox/images/guest/check-document-skills.py /usr/local/lib/localai/document-skills/check-document-skills.py
+RUN python3 /usr/local/lib/localai/document-skills/check-document-skills.py
 # The guest has no network device. Every tool must use the proxy on the
 # loopback interface; the sandbox serves it with a host port handler.
 ENV HTTP_PROXY=http://127.0.0.1:3128 HTTPS_PROXY=http://127.0.0.1:3128 NO_PROXY=localhost,127.0.0.1 \

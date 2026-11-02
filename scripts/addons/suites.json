@@ -4346,6 +4346,7 @@
       ]
     ],
     "cases": [
+      "go: installs unchanged PDF helpers and their license with a build-time fixture check",
       "go: joins every enabled platform leg into one verified index",
       "go: never creates a partial index when an enabled platform has no leg",
       "go: refuses duplicate legs, local-check legs, other versions and extra platforms",
