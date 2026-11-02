@@ -599,5 +599,47 @@
     "missing": "La carpeta de este agente ya no existe. Elige otra carpeta en el agente.",
     "startError": "Falta la carpeta de este agente, así que el chat no puede empezar. Elige otra carpeta para el agente.",
     "editAgent": "Editar agente"
+  },
+  "memoryStatus": {
+    "title": "Capturas de memoria ({{count}})",
+    "label": "Estado de capturas de memoria",
+    "refresh": "Actualizar estado de memoria",
+    "destination": "Destino:",
+    "entry": "ID de entrada:",
+    "nextRetry": "Próximo intento:",
+    "retry": "Reintentar",
+    "retrying": "Reintentando…",
+    "retryLabel": "Reintentar captura en {{destination}}",
+    "states": {
+      "queued": "En cola",
+      "processing": "Procesando",
+      "saved": "Guardada",
+      "failed": "Fallida",
+      "skipped": "Omitida",
+      "unknown": "Estado desconocido"
+    },
+    "reasons": {
+      "exhausted_or_expired": "Intentos agotados o captura caducada.",
+      "expired": "Captura caducada.",
+      "exhausted": "Intentos agotados.",
+      "policy_revoked": "Política de memoria modificada.",
+      "authorization_denied": "Autorización denegada.",
+      "deleted": "Entrada eliminada; no se volverá a crear.",
+      "empty_input": "Entrada vacía.",
+      "empty_summary": "Resumen vacío.",
+      "summary_failed": "Error al resumir.",
+      "missing_entry_id": "ID exacto de entrada no disponible.",
+      "payload_unavailable": "Contenido capturado no disponible.",
+      "capture_failed": "Captura fallida.",
+      "capture_skipped": "Captura omitida.",
+      "unknown": "No hay más detalles disponibles."
+    },
+    "errors": {
+      "load": "No se pudo cargar el estado de memoria.",
+      "retry": "No se pudo reintentar la captura.",
+      "403": "El reintento ya no está autorizado.",
+      "404": "Captura no encontrada.",
+      "409": "No se puede reintentar en el estado actual."
+    }
   }
 }

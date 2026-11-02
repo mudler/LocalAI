@@ -602,5 +602,47 @@
     "missing": "A pasta deste agente não existe mais. Escolha outra pasta no agente.",
     "startError": "A pasta deste agente está ausente, então o chat não pode começar. Escolha outra pasta para o agente.",
     "editAgent": "Editar agente"
+  },
+  "memoryStatus": {
+    "title": "Capturas de memória ({{count}})",
+    "label": "Status das capturas de memória",
+    "refresh": "Atualizar status da memória",
+    "destination": "Destino:",
+    "entry": "ID da entrada:",
+    "nextRetry": "Próxima tentativa:",
+    "retry": "Tentar novamente",
+    "retrying": "Tentando novamente…",
+    "retryLabel": "Repetir captura em {{destination}}",
+    "states": {
+      "queued": "Na fila",
+      "processing": "Processando",
+      "saved": "Salva",
+      "failed": "Falhou",
+      "skipped": "Ignorada",
+      "unknown": "Status desconhecido"
+    },
+    "reasons": {
+      "exhausted_or_expired": "Tentativas esgotadas ou captura expirada.",
+      "expired": "Captura expirada.",
+      "exhausted": "Tentativas esgotadas.",
+      "policy_revoked": "Política de memória alterada.",
+      "authorization_denied": "Autorização negada.",
+      "deleted": "Entrada excluída; não será recriada.",
+      "empty_input": "Entrada vazia.",
+      "empty_summary": "Resumo vazio.",
+      "summary_failed": "Falha no resumo.",
+      "missing_entry_id": "ID exato da entrada indisponível.",
+      "payload_unavailable": "Conteúdo capturado indisponível.",
+      "capture_failed": "Falha na captura.",
+      "capture_skipped": "Captura ignorada.",
+      "unknown": "Nenhum outro detalhe disponível."
+    },
+    "errors": {
+      "load": "Não foi possível carregar o status da memória.",
+      "retry": "Não foi possível repetir a captura.",
+      "403": "Nova tentativa não autorizada.",
+      "404": "Captura não encontrada.",
+      "409": "Não é possível repetir no estado atual."
+    }
   }
 }

@@ -746,5 +746,47 @@
     "missing": "The folder of this agent is gone. Choose another folder in the agent.",
     "startError": "This agent's folder is missing, so the chat cannot start. Choose another folder for the agent.",
     "editAgent": "Edit agent"
+  },
+  "memoryStatus": {
+    "title": "Memory captures ({{count}})",
+    "label": "Memory capture status",
+    "refresh": "Refresh memory status",
+    "destination": "Destination:",
+    "entry": "Entry ID:",
+    "nextRetry": "Next retry:",
+    "retry": "Retry",
+    "retrying": "Retrying…",
+    "retryLabel": "Retry capture to {{destination}}",
+    "states": {
+      "queued": "Queued",
+      "processing": "Processing",
+      "saved": "Saved",
+      "failed": "Failed",
+      "skipped": "Skipped",
+      "unknown": "Unknown status"
+    },
+    "reasons": {
+      "exhausted_or_expired": "Retries exhausted or capture expired.",
+      "expired": "Capture expired.",
+      "exhausted": "Retries exhausted.",
+      "policy_revoked": "Memory policy changed.",
+      "authorization_denied": "Authorization denied.",
+      "deleted": "Entry deleted; it will not be recreated.",
+      "empty_input": "Empty input.",
+      "empty_summary": "Empty summary.",
+      "summary_failed": "Summary failed.",
+      "missing_entry_id": "Exact entry ID unavailable.",
+      "payload_unavailable": "Capture payload unavailable.",
+      "capture_failed": "Capture failed.",
+      "capture_skipped": "Capture skipped.",
+      "unknown": "No further details available."
+    },
+    "errors": {
+      "load": "Could not load memory status.",
+      "retry": "Could not retry capture.",
+      "403": "Retry is no longer authorized.",
+      "404": "Capture not found.",
+      "409": "Capture cannot be retried in its current state."
+    }
   }
 }

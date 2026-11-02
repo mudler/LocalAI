@@ -2,6 +2,7 @@ import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } fr
 import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
+import ChatMemoryStatus from '../components/chat/ChatMemoryStatus'
 import { useServerChat } from '../hooks/useServerChat'
 import { useChatComposer } from '../hooks/useChatComposer'
 import { useComposerArrival } from '../hooks/useComposerTransition'
@@ -1139,6 +1140,7 @@ function ChatPage() {
           {/* The toast stack stays above the whole dock, so a toast never
               covers the shortcut row it talks about. */}
           <div className="cx-dock__in" data-toast-anchor="">
+            <ChatMemoryStatus key={activeId || "new"} chatId={activeId} tick={chat.ticks.memory} />
             {!chat.persistent && <p className="cx-notice" role="note">{tc('memoryNotice')}</p>}
             {!chat.files.on && <p className="cx-notice" role="note">{chat.files.reason || tc('attach.off')}</p>}
             {browserStores.length > 0 && (

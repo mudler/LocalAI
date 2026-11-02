@@ -599,5 +599,47 @@
     "missing": "이 에이전트의 폴더가 더 이상 없습니다. 에이전트에서 다른 폴더를 선택하세요.",
     "startError": "이 에이전트의 폴더가 없어 채팅을 시작할 수 없습니다. 에이전트에 다른 폴더를 선택하세요.",
     "editAgent": "에이전트 편집"
+  },
+  "memoryStatus": {
+    "title": "메모리 캡처 ({{count}})",
+    "label": "메모리 캡처 상태",
+    "refresh": "메모리 상태 새로 고침",
+    "destination": "대상:",
+    "entry": "항목 ID:",
+    "nextRetry": "다음 재시도:",
+    "retry": "재시도",
+    "retrying": "재시도 중…",
+    "retryLabel": "{{destination}}에 캡처 재시도",
+    "states": {
+      "queued": "대기 중",
+      "processing": "처리 중",
+      "saved": "저장됨",
+      "failed": "실패",
+      "skipped": "건너뜀",
+      "unknown": "알 수 없는 상태"
+    },
+    "reasons": {
+      "exhausted_or_expired": "재시도 횟수를 초과했거나 캡처가 만료되었습니다.",
+      "expired": "캡처가 만료되었습니다.",
+      "exhausted": "재시도 횟수를 초과했습니다.",
+      "policy_revoked": "메모리 정책이 변경되었습니다.",
+      "authorization_denied": "권한이 거부되었습니다.",
+      "deleted": "항목이 삭제되었으며 다시 생성되지 않습니다.",
+      "empty_input": "입력이 비어 있습니다.",
+      "empty_summary": "요약이 비어 있습니다.",
+      "summary_failed": "요약에 실패했습니다.",
+      "missing_entry_id": "정확한 항목 ID를 사용할 수 없습니다.",
+      "payload_unavailable": "캡처 내용을 사용할 수 없습니다.",
+      "capture_failed": "캡처에 실패했습니다.",
+      "capture_skipped": "캡처를 건너뛰었습니다.",
+      "unknown": "추가 정보가 없습니다."
+    },
+    "errors": {
+      "load": "메모리 상태를 불러올 수 없습니다.",
+      "retry": "캡처를 재시도할 수 없습니다.",
+      "403": "더 이상 재시도 권한이 없습니다.",
+      "404": "캡처를 찾을 수 없습니다.",
+      "409": "현재 상태에서 재시도할 수 없습니다."
+    }
   }
 }

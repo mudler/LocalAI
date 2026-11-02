@@ -599,5 +599,47 @@
     "missing": "Der Ordner dieses Agenten existiert nicht mehr. Wähle im Agenten einen anderen Ordner.",
     "startError": "Der Ordner dieses Agenten fehlt, daher kann der Chat nicht starten. Wähle einen anderen Ordner für den Agenten.",
     "editAgent": "Agent bearbeiten"
+  },
+  "memoryStatus": {
+    "title": "Speichererfassungen ({{count}})",
+    "label": "Status der Speichererfassung",
+    "refresh": "Speicherstatus aktualisieren",
+    "destination": "Ziel:",
+    "entry": "Eintrags-ID:",
+    "nextRetry": "Nächster Versuch:",
+    "retry": "Erneut versuchen",
+    "retrying": "Neuer Versuch…",
+    "retryLabel": "Erfassung in {{destination}} erneut versuchen",
+    "states": {
+      "queued": "In Warteschlange",
+      "processing": "In Bearbeitung",
+      "saved": "Gespeichert",
+      "failed": "Fehlgeschlagen",
+      "skipped": "Übersprungen",
+      "unknown": "Unbekannter Status"
+    },
+    "reasons": {
+      "exhausted_or_expired": "Versuche ausgeschöpft oder Erfassung abgelaufen.",
+      "expired": "Erfassung abgelaufen.",
+      "exhausted": "Versuche ausgeschöpft.",
+      "policy_revoked": "Speicherrichtlinie geändert.",
+      "authorization_denied": "Zugriff verweigert.",
+      "deleted": "Eintrag gelöscht; er wird nicht neu erstellt.",
+      "empty_input": "Leere Eingabe.",
+      "empty_summary": "Leere Zusammenfassung.",
+      "summary_failed": "Zusammenfassung fehlgeschlagen.",
+      "missing_entry_id": "Genaue Eintrags-ID nicht verfügbar.",
+      "payload_unavailable": "Erfasster Inhalt nicht verfügbar.",
+      "capture_failed": "Erfassung fehlgeschlagen.",
+      "capture_skipped": "Erfassung übersprungen.",
+      "unknown": "Keine weiteren Details verfügbar."
+    },
+    "errors": {
+      "load": "Speicherstatus konnte nicht geladen werden.",
+      "retry": "Erfassung konnte nicht erneut versucht werden.",
+      "403": "Erneuter Versuch nicht mehr autorisiert.",
+      "404": "Erfassung nicht gefunden.",
+      "409": "Erneuter Versuch im aktuellen Zustand nicht möglich."
+    }
   }
 }

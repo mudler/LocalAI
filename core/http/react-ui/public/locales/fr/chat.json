@@ -597,5 +597,47 @@
     "missing": "Le dossier de cet agent n'existe plus. Choisissez un autre dossier dans l'agent.",
     "startError": "Le dossier de cet agent est manquant, le chat ne peut donc pas démarrer. Choisissez un autre dossier pour l'agent.",
     "editAgent": "Modifier l'agent"
+  },
+  "memoryStatus": {
+    "title": "Captures mémoire ({{count}})",
+    "label": "État des captures mémoire",
+    "refresh": "Actualiser l’état mémoire",
+    "destination": "Destination :",
+    "entry": "ID de l’entrée :",
+    "nextRetry": "Prochaine tentative :",
+    "retry": "Réessayer",
+    "retrying": "Nouvelle tentative…",
+    "retryLabel": "Réessayer la capture vers {{destination}}",
+    "states": {
+      "queued": "En attente",
+      "processing": "En cours",
+      "saved": "Enregistrée",
+      "failed": "Échec",
+      "skipped": "Ignorée",
+      "unknown": "État inconnu"
+    },
+    "reasons": {
+      "exhausted_or_expired": "Tentatives épuisées ou capture expirée.",
+      "expired": "Capture expirée.",
+      "exhausted": "Tentatives épuisées.",
+      "policy_revoked": "Politique mémoire modifiée.",
+      "authorization_denied": "Autorisation refusée.",
+      "deleted": "Entrée supprimée ; elle ne sera pas recréée.",
+      "empty_input": "Entrée vide.",
+      "empty_summary": "Résumé vide.",
+      "summary_failed": "Échec du résumé.",
+      "missing_entry_id": "ID exact de l’entrée indisponible.",
+      "payload_unavailable": "Contenu capturé indisponible.",
+      "capture_failed": "Échec de la capture.",
+      "capture_skipped": "Capture ignorée.",
+      "unknown": "Aucun autre détail disponible."
+    },
+    "errors": {
+      "load": "Impossible de charger l’état mémoire.",
+      "retry": "Impossible de réessayer la capture.",
+      "403": "Nouvelle tentative non autorisée.",
+      "404": "Capture introuvable.",
+      "409": "Impossible de réessayer dans l’état actuel."
+    }
   }
 }

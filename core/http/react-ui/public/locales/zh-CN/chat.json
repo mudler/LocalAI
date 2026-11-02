@@ -599,5 +599,47 @@
     "missing": "此智能体的文件夹已不存在。请在智能体中选择其他文件夹。",
     "startError": "此智能体的文件夹缺失，因此无法开始对话。请为智能体选择其他文件夹。",
     "editAgent": "编辑智能体"
+  },
+  "memoryStatus": {
+    "title": "记忆捕获（{{count}}）",
+    "label": "记忆捕获状态",
+    "refresh": "刷新记忆状态",
+    "destination": "目标：",
+    "entry": "条目 ID：",
+    "nextRetry": "下次重试：",
+    "retry": "重试",
+    "retrying": "正在重试…",
+    "retryLabel": "重试捕获到 {{destination}}",
+    "states": {
+      "queued": "排队中",
+      "processing": "处理中",
+      "saved": "已保存",
+      "failed": "失败",
+      "skipped": "已跳过",
+      "unknown": "未知状态"
+    },
+    "reasons": {
+      "exhausted_or_expired": "重试次数已用尽或捕获已过期。",
+      "expired": "捕获已过期。",
+      "exhausted": "重试次数已用尽。",
+      "policy_revoked": "记忆策略已更改。",
+      "authorization_denied": "授权被拒绝。",
+      "deleted": "条目已删除，不会重新创建。",
+      "empty_input": "输入为空。",
+      "empty_summary": "摘要为空。",
+      "summary_failed": "摘要生成失败。",
+      "missing_entry_id": "无法获取确切的条目 ID。",
+      "payload_unavailable": "无法获取捕获内容。",
+      "capture_failed": "捕获失败。",
+      "capture_skipped": "已跳过捕获。",
+      "unknown": "没有更多详细信息。"
+    },
+    "errors": {
+      "load": "无法加载记忆状态。",
+      "retry": "无法重试捕获。",
+      "403": "不再有权重试。",
+      "404": "未找到捕获。",
+      "409": "当前状态无法重试。"
+    }
   }
 }

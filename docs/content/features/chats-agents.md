@@ -840,6 +840,21 @@ not model-visible messages or transcript entries. Reload the memory endpoint
 after an event or reconnect: fanout is live-only and the durable API is the source
 of truth. Clients must not interpret these IDs as message IDs.
 
+In the chat UI, **Memory captures** is a compact expandable status area above
+the composer, separate from the conversation. It shows the destination, exact
+saved entry ID, safe failure or skip reason, and the next retry time in your
+local time zone. Open it with the keyboard or pointer; **Refresh memory status**
+reads the durable API again. The UI also refreshes after capture events and
+reconnects, when returning to a visible tab, and every 15 seconds while the
+chat page is visible, including when no captures have appeared yet.
+
+**Retry** appears only when the server reports current retry eligibility and
+is disabled while a retry is in flight. A successful retry reloads status from
+the server; denied, missing, or conflicting retries show an error in this
+status area, not a failed conversation turn. Switching chats discards old
+reads and retry responses. Reloading restores status from the API rather than
+browser-only state. These controls do not change the agent policy or model.
+
 There is deliberately no process-wide admin MCP mutation tool for these
 principal-scoped captures. Existing saved-agent REST/admin/MCP configuration
 DTOs and memory tool surfaces are unchanged; no new model capability flag is

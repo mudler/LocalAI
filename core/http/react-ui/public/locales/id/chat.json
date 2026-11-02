@@ -599,5 +599,47 @@
     "missing": "Folder agen ini sudah tidak ada. Pilih folder lain di agen.",
     "startError": "Folder agen ini hilang, jadi chat tidak bisa dimulai. Pilih folder lain untuk agen.",
     "editAgent": "Edit agen"
+  },
+  "memoryStatus": {
+    "title": "Rekaman memori ({{count}})",
+    "label": "Status rekaman memori",
+    "refresh": "Segarkan status memori",
+    "destination": "Tujuan:",
+    "entry": "ID entri:",
+    "nextRetry": "Percobaan berikutnya:",
+    "retry": "Coba lagi",
+    "retrying": "Mencoba lagi…",
+    "retryLabel": "Coba lagi rekaman ke {{destination}}",
+    "states": {
+      "queued": "Dalam antrean",
+      "processing": "Memproses",
+      "saved": "Tersimpan",
+      "failed": "Gagal",
+      "skipped": "Dilewati",
+      "unknown": "Status tidak diketahui"
+    },
+    "reasons": {
+      "exhausted_or_expired": "Percobaan habis atau rekaman kedaluwarsa.",
+      "expired": "Rekaman kedaluwarsa.",
+      "exhausted": "Percobaan habis.",
+      "policy_revoked": "Kebijakan memori berubah.",
+      "authorization_denied": "Otorisasi ditolak.",
+      "deleted": "Entri dihapus; tidak akan dibuat ulang.",
+      "empty_input": "Masukan kosong.",
+      "empty_summary": "Ringkasan kosong.",
+      "summary_failed": "Ringkasan gagal.",
+      "missing_entry_id": "ID entri yang tepat tidak tersedia.",
+      "payload_unavailable": "Konten rekaman tidak tersedia.",
+      "capture_failed": "Rekaman gagal.",
+      "capture_skipped": "Rekaman dilewati.",
+      "unknown": "Tidak ada detail lebih lanjut."
+    },
+    "errors": {
+      "load": "Tidak dapat memuat status memori.",
+      "retry": "Tidak dapat mencoba ulang rekaman.",
+      "403": "Percobaan ulang tidak lagi diizinkan.",
+      "404": "Rekaman tidak ditemukan.",
+      "409": "Tidak dapat mencoba ulang dalam status saat ini."
+    }
   }
 }

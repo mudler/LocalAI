@@ -599,5 +599,47 @@
     "missing": "La cartella di questo agente non esiste più. Scegli un'altra cartella nell'agente.",
     "startError": "La cartella di questo agente manca, quindi la chat non può partire. Scegli un'altra cartella per l'agente.",
     "editAgent": "Modifica agente"
+  },
+  "memoryStatus": {
+    "title": "Acquisizioni memoria ({{count}})",
+    "label": "Stato acquisizioni memoria",
+    "refresh": "Aggiorna stato memoria",
+    "destination": "Destinazione:",
+    "entry": "ID voce:",
+    "nextRetry": "Prossimo tentativo:",
+    "retry": "Riprova",
+    "retrying": "Nuovo tentativo…",
+    "retryLabel": "Riprova acquisizione in {{destination}}",
+    "states": {
+      "queued": "In coda",
+      "processing": "In elaborazione",
+      "saved": "Salvata",
+      "failed": "Non riuscita",
+      "skipped": "Ignorata",
+      "unknown": "Stato sconosciuto"
+    },
+    "reasons": {
+      "exhausted_or_expired": "Tentativi esauriti o acquisizione scaduta.",
+      "expired": "Acquisizione scaduta.",
+      "exhausted": "Tentativi esauriti.",
+      "policy_revoked": "Regole di memoria modificate.",
+      "authorization_denied": "Autorizzazione negata.",
+      "deleted": "Voce eliminata; non verrà ricreata.",
+      "empty_input": "Input vuoto.",
+      "empty_summary": "Riepilogo vuoto.",
+      "summary_failed": "Riepilogo non riuscito.",
+      "missing_entry_id": "ID esatto della voce non disponibile.",
+      "payload_unavailable": "Contenuto acquisito non disponibile.",
+      "capture_failed": "Acquisizione non riuscita.",
+      "capture_skipped": "Acquisizione ignorata.",
+      "unknown": "Nessun altro dettaglio disponibile."
+    },
+    "errors": {
+      "load": "Impossibile caricare lo stato della memoria.",
+      "retry": "Impossibile riprovare l’acquisizione.",
+      "403": "Nuovo tentativo non più autorizzato.",
+      "404": "Acquisizione non trovata.",
+      "409": "Impossibile riprovare nello stato attuale."
+    }
   }
 }

@@ -1843,3 +1843,11 @@ html[data-handoff='fade']::view-transition-new(root) {
     animation: cxFade var(--dur-slow) var(--ease-out) both;
   }
 }
+
+/* Durable capture metadata is deliberately outside the conversation thread. */
+.cx-memory { font-size: var(--fs-meta); color: var(--dk-muted); border-top: 1px solid var(--dk-edge); }
+.cx-memory summary { cursor: pointer; padding: 6px 0; }
+.cx-memory__body { max-height: 9rem; overflow: auto; padding-bottom: 6px; }
+.cx-memory ul { list-style: none; padding: 0; margin: 0; }
+.cx-memory li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 6px 0; border-bottom: 1px solid var(--dk-edge); }
+.cx-memory code { overflow-wrap: anywhere; }

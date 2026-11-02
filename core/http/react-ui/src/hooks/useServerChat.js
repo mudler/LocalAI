@@ -10,7 +10,7 @@ const EVENT_KINDS = [
   'turn_start', 'text', 'reasoning', 'tool_start', 'tool_end', 'checkpoint',
   'turn_end', 'error', 'pending_delivered', 'sub_agent_started', 'sub_agent_done', 'compacted',
   'usage', 'trigger_proposed', 'files', 'host_exec_consent', 'egress_consent', 'egress_card',
-  'paused', 'loops', 'cleared', 'goal',
+  'paused', 'loops', 'cleared', 'goal', 'memory_capture',
 ]
 
 const RECONNECT_MS = 1000 // first wait; it doubles up to 30 s
@@ -58,7 +58,7 @@ export function useServerChat({ seed = null } = {}) {
   // Counts the sub-agent starts and ends, the trigger proposals and the
   // changes to the chat's files, so the panels that list them read the server
   // again.
-  const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0, files: 0, egress: 0 })
+  const [ticks, setTicks] = useState({ subAgents: 0, proposals: 0, files: 0, egress: 0, memory: 0 })
   const [error, setErrorText] = useState('')
   // Why the last turn failed ({ code, model, retry, detail, text }), when the
   // server said. It lives and dies with the error text.
@@ -169,6 +169,7 @@ export function useServerChat({ seed = null } = {}) {
     sourceRef.current = source
 
     const on = {
+      memory_capture: () => setTicks(t => ({ ...t, memory: (t.memory || 0) + 1 })),
       turn_start: () => {
         epochRef.current++
         setError('')
@@ -260,10 +261,14 @@ export function useServerChat({ seed = null } = {}) {
         // The browser fires its own "error" event when the connection breaks:
         // it has no data and is not the server's error event.
         const payload = eventPayload(ev)
-        if (payload) on[kind]?.(payload)
+        if (payload && activeRef.current === id && sourceRef.current === source) on[kind]?.(payload)
       })
     }
-    source.onopen = () => { attemptRef.current = 0 }
+    source.onopen = () => {
+      if (activeRef.current !== id) return
+      attemptRef.current = 0
+      setTicks(t => ({ ...t, memory: (t.memory || 0) + 1 }))
+    }
     source.onerror = () => {
       // The stream carries only what happens after it connects, so a reconnect
       // reads the transcript again to close the gap.
