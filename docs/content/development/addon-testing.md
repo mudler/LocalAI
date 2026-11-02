@@ -526,37 +526,14 @@ staging, migration and publication, including format-changing recovery-required
 outcomes. The focused submission tests do not replace the real executable,
 real-auth HTTP or rendered-browser acceptance gates.
 
-### Execution selection mutation epochs
-
-`ApplicationConfig.ChatSelectionSnapshot` returns detached provider pins, the
-host-command mode, and a monotonic epoch. Runtime settings and
-`WithChatsHostExec` use the synchronized setters. Config value copies share
-selection ownership; they do not copy a live mutex. Public selection fields
-remain legacy startup inputs and serialization mirrors. Set them only before
-construction/first snapshot; use setters for subsequent changes. Direct field
-writes after initialization are not supported selection mutations.
-
-`Manager.SelectionEpoch` advances at changed lifecycle publication, runtime
-ownership transitions, recovery quiescence/resume/release, and owner close.
-Reads and unchanged lifecycle publications do not advance it. Both epochs are
-per-instance lifetime tokens, not persisted revisions or execution grants.
-An owner binding must still validate the actual current runtime incarnation:
-a supervisor restart can change incarnation without a Manager mutation.
-
-The epoch tests cover provider and host-mode ABA, detached maps, config value
-copies, lifecycle ABA, and real candidate rollback/recovery process changes.
-This is mutation tracking only. Request binding and session integration remain
-separate work; readiness never grants execution authority.
-
 ### Current-read execution bindings
 
-Typed execution status uses the owner's ordinary principal-scoped chat and agent
-stores and current `AddonRevalidate` checks, including named-user credentials.
-JSON and SQL/GORM require no historical selection snapshots. Gateway hooks
-re-resolve current selection before dispatch and positive publication, retaining
-exact runtime incarnation/client binding and status effect denial. Tests should
-assert refusal while current authorization or selection differs, then successful
-fresh requests after restore, not historical revoke-and-restore detection.
-`selectionRevision` is transitional current identity, not a durable ABA token.
-Config/manager mutation epochs above remain for now but are not prerequisites
-of this resolver; their removal is a separate cleanup.
+`ApplicationConfig.ChatSelectionSnapshot` returns synchronized, detached current
+provider pins and host execution mode. Store reads preserve actor scope and return
+detached records. JSON stores use their existing mutexes and atomic writes; SQL
+stores use ordinary current reads. No revision ledger or directory lock is needed.
+
+The gateway compares current selection inputs and runtime identity before dispatch
+and after the reply. The reducer binds explicit actor, credential, conversation,
+provider, tools and runtime identity. These checks are advisory, not a transaction
+or a guarantee to detect revoke-and-restore changes between reads.

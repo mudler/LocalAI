@@ -38,10 +38,8 @@ func (s *studioAddons) NewExecutionObservation(ctx context.Context, user, conver
 		return nil, "", nil
 	}
 	q := model.ObservationID(hex.EncodeToString(id[:]))
-	// Preserve the complete binding, including conversation and actor credential,
-	// as an opaque revision. IO retains the original DTO without reconstruction.
-	revision, _ := json.Marshal(b)
-	mb := model.Binding{Actor: actor.UserID, Addon: b.AddonID, Generation: strconv.FormatUint(b.Generation, 10), Incarnation: b.Incarnation, ExecutionTool: b.ExecutionTool, StatusTool: b.StatusTool, SelectionRevision: string(revision)}
+	// Keep actor and conversation identity explicit. IO retains the original DTO.
+	mb := model.Binding{Actor: actor.UserID, Credential: actor.CredentialID, Conversation: b.ConversationID, Mode: actor.Mode, Addon: b.AddonID, Generation: strconv.FormatUint(b.Generation, 10), Incarnation: b.Incarnation, ExecutionTool: b.ExecutionTool, StatusTool: b.StatusTool}
 	var mu sync.Mutex
 	explanation := ""
 	io := executionrequest.IO{

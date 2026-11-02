@@ -26,7 +26,7 @@ type observationProvider struct {
 }
 
 func (p *observationProvider) NewExecutionObservation(ctx context.Context, user, conv string) (*executionrequest.Request, string, func() string) {
-	b := model.Binding{Actor: user, Addon: "renamed-provider", Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "inspect", SelectionRevision: conv}
+	b := model.Binding{Actor: user, Addon: "renamed-provider", Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "inspect"}
 	r := executionrequest.New(ctx, b, "host-q", model.Eligible, executionrequest.IO{
 		Validate: func(context.Context, model.Binding) error { return nil },
 		Read: func(ctx context.Context, _ model.Binding, _ model.ObservationID, _ time.Time) (model.Payload, error) {
@@ -151,22 +151,22 @@ func TestExecutionProductScopeCancellationAndFailure(t *testing.T) {
 func TestExecutionStatusPresentationBinding(t *testing.T) {
 	p := &observationProvider{}
 	s := &Service{d: Deps{AddonTools: p}}
-	ctx, closeScope := s.executionScope(context.Background(), "alice", "revision-one")
+	ctx, closeScope := s.executionScope(context.Background(), "alice", "chat-one")
 	defer closeScope()
 	v := executionStatusView(ctx, "alice", "renamed-provider")
-	if v.Readiness != "available" || v.Isolation != "isolated" || v.Generation != "1" || v.Incarnation != "one" || v.SelectionRevision == "" || v.SelectionRevision == "revision-one" {
+	if v.Readiness != "available" || v.Isolation != "isolated" || v.Generation != "1" || v.Incarnation != "one" {
 		t.Fatal("missing or unredacted admitted presentation binding", v)
 	}
 	if again := executionStatusView(ctx, "alice", "renamed-provider"); *again != *v {
 		t.Fatal("binding changed within request")
 	}
-	if wrong := executionStatusView(ctx, "bob", "renamed-provider"); wrong.Readiness != "unknown" || wrong.SelectionRevision != "" {
+	if wrong := executionStatusView(ctx, "bob", "renamed-provider"); wrong.Readiness != "unknown" {
 		t.Fatal("actor leaked observation")
 	}
-	next, closeNext := s.executionScope(context.Background(), "alice", "revision-two")
+	next, closeNext := s.executionScope(context.Background(), "alice", "chat-two")
 	defer closeNext()
-	if executionStatusView(next, "alice", "renamed-provider").SelectionRevision == v.SelectionRevision {
-		t.Fatal("selection change reused identity")
+	if executionStatusView(next, "alice", "renamed-provider").Readiness != "available" {
+		t.Fatal("fresh request lost status")
 	}
 	if p.reads.Load() != 2 {
 		t.Fatal("DTO re-probed within request")
@@ -178,7 +178,7 @@ func TestExecutionStatusUnboundPresentation(t *testing.T) {
 	ctx, done := s.executionScope(context.Background(), "alice", "chat")
 	defer done()
 	v := executionStatusView(ctx, "alice", "")
-	if v.Readiness != "unknown" || v.Isolation != "unknown" || v.Generation != "" || v.Incarnation != "" || v.SelectionRevision != "" {
+	if v.Readiness != "unknown" || v.Isolation != "unknown" || v.Generation != "" || v.Incarnation != "" {
 		t.Fatal("unbound status manufactured identity", v)
 	}
 }

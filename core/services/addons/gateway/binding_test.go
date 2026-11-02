@@ -16,7 +16,7 @@ import (
 func TestOwnerBinding(t *testing.T) {
 	ctx := context.Background()
 	claim := ExecutionBindingClaim{ConversationID: "chat"}
-	b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", SelectionRevision: "owner:1:2:3:4"}
+	b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", CurrentSelection: "owner:1:2:3:4"}
 	g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
 	if _, err := g.BindingForActor(ctx, frontActor, claim); err == nil {
 		t.Fatal("missing resolver granted binding")
@@ -37,9 +37,9 @@ func TestOwnerBinding(t *testing.T) {
 		t.Fatal(err)
 	}
 	stale := b
-	stale.SelectionRevision = "old"
+	stale.CurrentSelection = "old"
 	if g.ValidateExecutionBinding(ctx, frontActor, stale) == nil {
-		t.Fatal("stale revision granted")
+		t.Fatal("changed selection granted")
 	}
 	forged := b
 	forged.Actor.UserID = "other"
@@ -47,7 +47,7 @@ func TestOwnerBinding(t *testing.T) {
 	if g.ValidateExecutionBinding(ctx, frontActor, forged) == nil || calls != before {
 		t.Fatal("forged actor reached resolver")
 	}
-	b.SelectionRevision = "current-selection" // The resolver reports a different current selection.
+	b.CurrentSelection = "current-selection" // The resolver reports a different current selection.
 	if g.ValidateExecutionBinding(ctx, frontActor, got) == nil {
 		t.Fatal("changed current selection survived")
 	}
@@ -63,7 +63,7 @@ func TestBindingClaimStrict(t *testing.T) {
 
 var _ = Describe("owner binding carrier", func() {
 	It("resolves only the authenticated claim over actual mTLS", func() {
-		b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", SelectionRevision: "owner:1:2:3:4"}
+		b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", CurrentSelection: "owner:1:2:3:4"}
 		calls := 0
 		g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }, ResolveExecutionBinding: func(_ context.Context, a contract.Actor, c ExecutionBindingClaim) (ExecutionStatusBinding, error) {
 			calls++
@@ -111,7 +111,7 @@ var _ = Describe("owner binding carrier", func() {
 		Expect(e).To(HaveOccurred())
 	})
 	It("fails closed on unsupported owners and mismatched binding replies", func() {
-		b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "other-chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", SelectionRevision: "rev"}
+		b := ExecutionStatusBinding{Actor: frontActor, ConversationID: "other-chat", AddonID: "renamed", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", CurrentSelection: "rev"}
 		for _, supported := range []bool{false, true} {
 			_, cs := carrierFixture(func(car *Carrier) http.Handler {
 				g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }}
@@ -137,17 +137,17 @@ var _ = Describe("owner binding carrier", func() {
 	})
 })
 
-func TestBindingDTOCompatibility(t *testing.T) {
-	legacy := `{"actor":{"userId":"u","credentialId":"c","mode":"named-user"},"addonId":"renamed","generation":1,"incarnation":"inc","executionTool":"run","statusTool":"health","selectionRevision":"rev"}`
+func TestBindingDTOStrictness(t *testing.T) {
+	rawBinding := `{"actor":{"userId":"u","credentialId":"c","mode":"named-user"},"addonId":"renamed","generation":1,"incarnation":"inc","executionTool":"run","statusTool":"health","conversationId":"chat","currentSelection":"current"}`
 	var b ExecutionStatusBinding
-	if json.Unmarshal([]byte(legacy), &b) != nil || b.ConversationID != "" {
-		t.Fatal("legacy observation binding rejected")
+	if json.Unmarshal([]byte(rawBinding), &b) != nil || b.ConversationID != "chat" {
+		t.Fatal("observation binding rejected")
 	}
 	for _, raw := range []string{
-		strings.Replace(legacy, `"addonId"`, `"AddonId"`, 1),
-		strings.Replace(legacy, `"userId"`, `"UserId"`, 1),
-		strings.Replace(legacy, `"addonId":"renamed"`, `"addonId":"renamed","addonId":"other"`, 1),
-		strings.Replace(legacy, `"actor":`, `"conversationId":"chat","ConversationID":"foreign","actor":`, 1),
+		strings.Replace(rawBinding, `"addonId"`, `"AddonId"`, 1),
+		strings.Replace(rawBinding, `"userId"`, `"UserId"`, 1),
+		strings.Replace(rawBinding, `"addonId":"renamed"`, `"addonId":"renamed","addonId":"other"`, 1),
+		strings.Replace(rawBinding, `"actor":`, `"conversationId":"chat","ConversationID":"foreign","actor":`, 1),
 	} {
 		if json.Unmarshal([]byte(raw), &b) == nil {
 			t.Fatalf("accepted alias or duplicate: %s", raw)
@@ -158,7 +158,7 @@ func TestBindingDTOCompatibility(t *testing.T) {
 var _ = Describe("generic execution provider identity", func() {
 	It("passes through owner-resolved bindings with distinct provider and status names", func() {
 		for _, pair := range [][2]string{{"runner-one", "inspect"}, {"runner-two", "readiness"}} {
-			want := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: pair[0], Generation: 2, Incarnation: "live", ExecutionTool: "execute", StatusTool: pair[1], SelectionRevision: "owner:revision"}
+			want := ExecutionStatusBinding{Actor: frontActor, ConversationID: "chat", AddonID: pair[0], Generation: 2, Incarnation: "live", ExecutionTool: "execute", StatusTool: pair[1], CurrentSelection: "current-inputs"}
 			g := &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }, ResolveExecutionBinding: func(context.Context, contract.Actor, ExecutionBindingClaim) (ExecutionStatusBinding, error) {
 				return want, nil
 			}}

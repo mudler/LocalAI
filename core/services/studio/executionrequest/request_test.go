@@ -73,7 +73,7 @@ var _ = Describe("Reducer shell", func() {
 	var c *clock
 	var io shell.IO
 	BeforeEach(func() {
-		b = model.Binding{Actor: "actor/credential", Addon: "renamed", Generation: "1", Incarnation: "first", ExecutionTool: "run", StatusTool: "health", SelectionRevision: "1"}
+		b = model.Binding{Actor: "actor/credential", Addon: "renamed", Generation: "1", Incarnation: "first", ExecutionTool: "run", StatusTool: "health"}
 		c = &clock{now: time.Now()}
 		io.Validate = func(context.Context, model.Binding) error { return nil }
 		io.Read = func(context.Context, model.Binding, model.ObservationID, time.Time) (model.Payload, error) {
@@ -187,7 +187,7 @@ var _ = Describe("Reducer shell", func() {
 		defer r.Close()
 		Expect(r.Observe(context.Background()).Isolation).To(Equal(model.Host))
 	})
-	for _, reason := range []string{"close", "parent-cancel", "disable", "same-generation-incarnation", "selection-revision"} {
+	for _, reason := range []string{"close", "parent-cancel", "disable", "same-generation-incarnation", "current-selection"} {
 		It("withdraws pending reads on "+reason, func() {
 			entered := make(chan struct{})
 			canceled := make(chan struct{})

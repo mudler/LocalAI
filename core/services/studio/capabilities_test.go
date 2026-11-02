@@ -247,7 +247,7 @@ func (p presentationAddons) NewExecutionObservation(ctx context.Context, user, c
 	if !p.bound {
 		return nil, "", nil
 	}
-	b := model.Binding{Actor: user, Addon: "sandbox", Generation: "27", Incarnation: "runtime-two", ExecutionTool: "bash", StatusTool: "status", SelectionRevision: "authoritative-mutation-token"}
+	b := model.Binding{Actor: user, Addon: "sandbox", Generation: "27", Incarnation: "runtime-two", ExecutionTool: "bash", StatusTool: "status"}
 	r := executionrequest.New(ctx, b, "q", model.Eligible, executionrequest.IO{
 		Validate: func(context.Context, model.Binding) error { return nil },
 		Read: func(context.Context, model.Binding, model.ObservationID, time.Time) (model.Payload, error) {
@@ -270,11 +270,9 @@ var _ = Describe("execution presentation DTO", func() {
 			if bound {
 				Expect(c.ExecutionStatus.Generation).To(Equal("27"))
 				Expect(c.ExecutionStatus.Incarnation).To(Equal("runtime-two"))
-				Expect(c.ExecutionStatus.SelectionRevision).NotTo(BeEmpty())
 				Expect(c.ExecutionStatus.Readiness).To(Equal("available"))
 			} else {
 				Expect(c.ExecutionStatus.Generation).To(BeEmpty())
-				Expect(c.ExecutionStatus.SelectionRevision).To(BeEmpty())
 				Expect(c.ExecutionStatus.Readiness).To(Equal("unknown"))
 			}
 		}

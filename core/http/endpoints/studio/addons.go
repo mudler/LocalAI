@@ -25,7 +25,7 @@ func writeAddonList(c echo.Context, list []studiosvc.AddonInfo, cmds studiosvc.C
 		CommandsIsolation: cmds.Isolation, CommandsProvider: cmds.Provider, CommandsConsent: cmds.Consent,
 		CommandsFallback: cmds.Fallback, CommandsFallbackReason: cmds.FallbackReason}
 	if v := cmds.ExecutionStatus; v != nil {
-		out.ExecutionStatus = &schema.ChatsExecutionStatus{Readiness: v.Readiness, Isolation: v.Isolation, Explanation: v.Explanation, Generation: v.Generation, Incarnation: v.Incarnation, SelectionRevision: v.SelectionRevision}
+		out.ExecutionStatus = &schema.ChatsExecutionStatus{Readiness: v.Readiness, Isolation: v.Isolation, Explanation: v.Explanation, Generation: v.Generation, Incarnation: v.Incarnation}
 	}
 	for _, a := range list {
 		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})

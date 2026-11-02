@@ -6,12 +6,10 @@ import (
 	"sync"
 )
 
-// ChatSelection is a detached snapshot. Epoch detects ABA changes within this
-// host lifetime; it is not durable authority or an execution permission.
+// ChatSelection is a detached current snapshot, not an execution permission.
 type ChatSelection struct {
 	HostExec      string
 	ToolProviders map[string]string
-	Epoch         uint64
 }
 
 type chatSelectionState struct {
@@ -49,7 +47,6 @@ func (o *ApplicationConfig) SetChatsHostExec(v string) {
 	defer s.mu.Unlock()
 	if s.value.HostExec != v {
 		s.value.HostExec = v
-		s.value.Epoch++
 	}
 	o.ChatsHostExec = v
 }
@@ -60,7 +57,6 @@ func (o *ApplicationConfig) SetChatsToolProviders(v map[string]string) {
 	defer s.mu.Unlock()
 	if !maps.Equal(s.value.ToolProviders, v) {
 		s.value.ToolProviders = maps.Clone(v)
-		s.value.Epoch++
 	}
 	o.ChatsToolProviders = maps.Clone(v)
 }

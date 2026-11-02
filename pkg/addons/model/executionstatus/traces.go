@@ -22,7 +22,7 @@ func RunTrace(initial State, events []Event) []Transition {
 	return out
 }
 func sampleBinding() Binding {
-	return Binding{"actor-a", "provider-a", "generation-a", "incarnation-a", "execute-a", "status-a", "selection-a"}
+	return Binding{Actor: "actor-a", Credential: "credential-a", Conversation: "conversation-a", Mode: "named-user", Addon: "provider-a", Generation: "generation-a", Incarnation: "incarnation-a", ExecutionTool: "execute-a", StatusTool: "status-a"}
 }
 func AllStates() []State {
 	b := sampleBinding()
@@ -41,7 +41,7 @@ func Traces() []Trace {
 	b.Addon = "provider-b"
 	b.ExecutionTool = "execute-b"
 	b.StatusTool = "status-b"
-	b.SelectionRevision = "selection-b"
+	b.Conversation = "conversation-b"
 	iso := Value{Available, Isolated}
 	host := Value{Available, Host}
 	unknown := Unknown()

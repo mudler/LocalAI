@@ -58,12 +58,12 @@ var _ = Describe("exact owner execution observation", func() {
 	BeforeEach(func() {
 		c = &observationClient{actor: frontActor}
 		g = &Gateway{Revalidate: func(context.Context, contract.Actor) error { return nil }, Admission: &addonAdmitted{}, Runtime: currentObservation{c}, Tools: observationCaps{toolSet{gen: 1, tools: map[string][]string{"sample": {"run", "health"}}}}, AuthorizeExecutionStatus: func(_ context.Context, a contract.Actor, b ExecutionStatusBinding) error {
-			if a != frontActor || b.SelectionRevision != "rev" {
+			if a != frontActor || b.CurrentSelection != "rev" {
 				return ErrForbidden
 			}
 			return nil
 		}}
-		r = ExecutionStatusRequest{Version: 1, Binding: ExecutionStatusBinding{Actor: frontActor, AddonID: "sample", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", SelectionRevision: "rev"}, ObservationID: "q"}
+		r = ExecutionStatusRequest{Version: 1, Binding: ExecutionStatusBinding{Actor: frontActor, AddonID: "sample", Generation: 1, Incarnation: "inc", ExecutionTool: "run", StatusTool: "health", CurrentSelection: "rev"}, ObservationID: "q"}
 	})
 	It("reads the exact uiOnly status tool locally and over authenticated mTLS", func() {
 		_, cs := carrierFixture(func(car *Carrier) http.Handler {
@@ -80,8 +80,8 @@ var _ = Describe("exact owner execution observation", func() {
 		}
 		Expect(c.calls.Load()).To(Equal(int32(2)))
 	})
-	It("refuses forged identities tools selection revisions and incarnations without dispatch", func() {
-		for _, change := range []func(*ExecutionStatusRequest){func(r *ExecutionStatusRequest) { r.Binding.Actor.UserID = "forged" }, func(r *ExecutionStatusRequest) { r.Binding.StatusTool = "settings" }, func(r *ExecutionStatusRequest) { r.Binding.SelectionRevision = "old" }, func(r *ExecutionStatusRequest) { r.Binding.Incarnation = "old" }, func(r *ExecutionStatusRequest) { r.Binding.Generation = 2 }, func(r *ExecutionStatusRequest) { r.Binding.ExecutionTool = "other" }, func(r *ExecutionStatusRequest) { r.Version = 2 }, func(r *ExecutionStatusRequest) { r.ObservationID = "" }} {
+	It("refuses forged identities tools current selections and incarnations without dispatch", func() {
+		for _, change := range []func(*ExecutionStatusRequest){func(r *ExecutionStatusRequest) { r.Binding.Actor.UserID = "forged" }, func(r *ExecutionStatusRequest) { r.Binding.StatusTool = "settings" }, func(r *ExecutionStatusRequest) { r.Binding.CurrentSelection = "old" }, func(r *ExecutionStatusRequest) { r.Binding.Incarnation = "old" }, func(r *ExecutionStatusRequest) { r.Binding.Generation = 2 }, func(r *ExecutionStatusRequest) { r.Binding.ExecutionTool = "other" }, func(r *ExecutionStatusRequest) { r.Version = 2 }, func(r *ExecutionStatusRequest) { r.ObservationID = "" }} {
 			bad := r
 			change(&bad)
 			out, e := g.ExecutionStatusRead(context.Background(), frontActor, bad)

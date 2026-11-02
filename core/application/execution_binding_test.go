@@ -129,10 +129,8 @@ var _ = Describe("execution binding owner resolver", func() {
 		}
 		a.studioStore, err = store.NewJSON(filepath.Join(root, "chats"))
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(a.studioStore.(interface{ Close() error }).Close()).To(Succeed()) })
 		a.studioAgents, err = agents.NewJSON(filepath.Join(root, "agents"))
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(a.studioAgents.(interface{ Close() error }).Close()).To(Succeed()) })
 		claim = gateway.ExecutionBindingClaim{ConversationID: "conversation"}
 		Expect(a.studioStore.CreateChat(ctx, session.ChatRecord{ID: claim.ConversationID, Principal: studio.AnonymousPrincipal, Created: time.Now(), Updated: time.Now()})).To(Succeed())
 		Expect(a.addonGateway.ResolveExecutionBinding).NotTo(BeNil())
@@ -337,9 +335,9 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(now.Incarnation).NotTo(Equal(b.Incarnation))
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, b)).NotTo(Succeed())
 	})
-	It("does not require optional historical snapshots for ordinary chat stores", func() {
+	It("uses the ordinary chat store interface", func() {
 		original := a.studioStore
-		a.studioStore = unsupportedBindingStore{original}
+		a.studioStore = ordinaryBindingStore{original}
 		_, err := a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).NotTo(HaveOccurred())
 		rec, err := a.studioStore.GetChat(ctx, studio.AnonymousPrincipal, claim.ConversationID)
@@ -350,9 +348,5 @@ var _ = Describe("execution binding owner resolver", func() {
 
 })
 
-// Optional historical snapshot support must not gate current store reads.
-type unsupportedBindingStore struct{ store.Store }
-
-func (unsupportedBindingStore) SelectionSnapshot(context.Context, string, string) (session.ChatRecord, string, error) {
-	return session.ChatRecord{}, "", store.ErrSelectionRevisionUnsupported
-}
+// The resolver needs only the ordinary current-read store interface.
+type ordinaryBindingStore struct{ store.Store }

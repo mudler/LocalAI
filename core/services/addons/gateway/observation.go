@@ -24,8 +24,9 @@ type ExecutionStatusBinding struct {
 	Incarnation    string         `json:"incarnation"`
 	ExecutionTool  string         `json:"executionTool"`
 	StatusTool     string         `json:"statusTool"`
-	// SelectionRevision is transitional current selection identity, not history.
-	SelectionRevision string `json:"selectionRevision"`
+	// CurrentSelection is a digest of current selection inputs, not mutation history.
+	// It conveys no authority and contains no raw store or configuration data.
+	CurrentSelection string `json:"currentSelection"`
 }
 
 // Version belongs to this host-to-host DTO, not the addon protocol (still v1).
@@ -53,7 +54,7 @@ func observationUnknown(r ExecutionStatusRequest) ExecutionStatusResponse {
 }
 func (r ExecutionStatusRequest) valid(a contract.Actor) bool {
 	b := r.Binding
-	return (b.ConversationID == "" || validExecutionConversation(b.ConversationID)) && r.Version == 1 && b.Actor == a && a.UserID != "" && a.CredentialID != "" && len(a.UserID) <= 256 && len(a.CredentialID) <= 256 && (a.Mode == "named-user" || a.Mode == "local-owner") && contract.ValidName(b.AddonID) && b.Generation != 0 && b.Incarnation != "" && len(b.Incarnation) <= 256 && contract.ValidName(b.ExecutionTool) && contract.ValidName(b.StatusTool) && b.SelectionRevision != "" && len(b.SelectionRevision) <= 256 && r.ObservationID != "" && len(r.ObservationID) <= 256
+	return (b.ConversationID == "" || validExecutionConversation(b.ConversationID)) && r.Version == 1 && b.Actor == a && a.UserID != "" && a.CredentialID != "" && len(a.UserID) <= 256 && len(a.CredentialID) <= 256 && (a.Mode == "named-user" || a.Mode == "local-owner") && contract.ValidName(b.AddonID) && b.Generation != 0 && b.Incarnation != "" && len(b.Incarnation) <= 256 && contract.ValidName(b.ExecutionTool) && contract.ValidName(b.StatusTool) && b.CurrentSelection != "" && len(b.CurrentSelection) <= 256 && r.ObservationID != "" && len(r.ObservationID) <= 256
 }
 
 // ExecutionStatusRead is a host-only observation door. It cannot name arguments,
@@ -242,7 +243,7 @@ func observationObject(raw []byte, keys ...string) error {
 	return nil
 }
 func (b *ExecutionStatusBinding) UnmarshalJSON(raw []byte) error {
-	if observationObject(raw, "conversationId", "actor", "addonId", "generation", "incarnation", "executionTool", "statusTool", "selectionRevision") != nil {
+	if observationObject(raw, "conversationId", "actor", "addonId", "generation", "incarnation", "executionTool", "statusTool", "currentSelection") != nil {
 		return ErrForbidden
 	}
 	var fields map[string]json.RawMessage

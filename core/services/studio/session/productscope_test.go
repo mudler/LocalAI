@@ -56,7 +56,7 @@ var _ = Describe("product request scopes", func() {
 		var serial, reads atomic.Int32
 		scopes := make(chan *productScope, 3)
 		consumed := make(chan model.ObservationID, 7)
-		b := model.Binding{Actor: "alice", Addon: "renamed-provider", Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "health", SelectionRevision: "1"}
+		b := model.Binding{Actor: "alice", Addon: "renamed-provider", Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "health"}
 		expected := model.Value{Readiness: model.Available, Isolation: model.Isolated}
 		o := session.Options{Harness: &sessiontest.FakeHarness{Turns: [][]sessiontest.Step{
 			{{Tool: "status", Args: "{}"}, {Tool: "egress", Args: "{}"}},

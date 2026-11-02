@@ -39,7 +39,7 @@ func TestBindingOptionalBackend(t *testing.T) {
 	if e := adapter.ValidateExecutionBinding(ctx, a, gateway.ExecutionStatusBinding{}); e == nil {
 		t.Fatal("ordinary backend validated binding")
 	}
-	b := &bindingBackend{binding: gateway.ExecutionStatusBinding{Actor: a, ConversationID: "chat", SelectionRevision: "owner-epoch"}}
+	b := &bindingBackend{binding: gateway.ExecutionStatusBinding{Actor: a, ConversationID: "chat", CurrentSelection: "owner-epoch"}}
 	adapter = tools.NewToolAdapter(b)
 	got, e := adapter.BindingForActor(ctx, a, claim)
 	if e != nil || got != b.binding || b.actor != a || b.claim != claim {
@@ -48,7 +48,7 @@ func TestBindingOptionalBackend(t *testing.T) {
 	if e = adapter.ValidateExecutionBinding(ctx, a, got); e != nil {
 		t.Fatal(e)
 	}
-	got.SelectionRevision = "forged"
+	got.CurrentSelection = "forged"
 	if e = adapter.ValidateExecutionBinding(ctx, a, got); e == nil {
 		t.Fatal("validation refusal lost")
 	}

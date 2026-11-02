@@ -8,8 +8,8 @@ import (
 	"sync"
 )
 
-var _ = Describe("chat selection epochs", func() {
-	It("clones pins and detects pin and host mode ABA only on mutation", func() {
+var _ = Describe("current chat selection", func() {
+	It("clones pins and applies current pin and host mode settings", func() {
 		o := config.NewApplicationConfig()
 		a := map[string]string{"bash": "alpha"}
 		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolProviders: &a})
@@ -17,18 +17,18 @@ var _ = Describe("chat selection epochs", func() {
 		a["bash"] = "caller"
 		first.ToolProviders["bash"] = "consumer"
 		Expect(o.ChatSelectionSnapshot().ToolProviders["bash"]).To(Equal("alpha"))
-		epoch := o.ChatSelectionSnapshot().Epoch
 		b := map[string]string{"bash": "beta"}
 		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolProviders: &b})
+		Expect(o.ChatSelectionSnapshot().ToolProviders["bash"]).To(Equal("beta"))
 		a["bash"] = "alpha"
 		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolProviders: &a})
-		Expect(o.ChatSelectionSnapshot().Epoch).To(Equal(epoch + 2))
 		o.ApplyRuntimeSettings(&config.RuntimeSettings{ChatsToolProviders: &a})
-		Expect(o.ChatSelectionSnapshot().Epoch).To(Equal(epoch + 2))
 		mode := o.ChatSelectionSnapshot().HostExec
+		Expect(o.ChatSelectionSnapshot().ToolProviders["bash"]).To(Equal("alpha"))
 		config.WithChatsHostExec("different")(o)
+		Expect(o.ChatSelectionSnapshot().HostExec).To(Equal("different"))
 		config.WithChatsHostExec(mode)(o)
-		Expect(o.ChatSelectionSnapshot().Epoch).To(Equal(epoch + 4))
+		Expect(o.ChatSelectionSnapshot().HostExec).To(Equal(mode))
 	})
 	It("shares synchronized selection ownership across config value copies", func() {
 		o := config.NewApplicationConfig()
@@ -51,7 +51,6 @@ var _ = Describe("chat selection epochs", func() {
 		}()
 		wg.Wait()
 		Expect(o.ChatSelectionSnapshot().HostExec).To(Equal("off"))
-		Expect(o.ChatSelectionSnapshot().Epoch).To(Equal(copied.ChatSelectionSnapshot().Epoch))
 	})
 	It("captures legacy startup values and routes startup settings through mutations", func() {
 		o := &config.ApplicationConfig{ChatsHostExec: "ask", ChatsToolProviders: map[string]string{"bash": "first"}}
@@ -62,12 +61,9 @@ var _ = Describe("chat selection epochs", func() {
 		// Startup preserves explicit legacy inputs over persisted settings.
 		o.ApplyRuntimeSettingsAtStartup(&config.RuntimeSettings{ChatsToolProviders: &pins})
 		Expect(o.ChatSelectionSnapshot().ToolProviders["bash"]).To(Equal("first"))
-		Expect(o.ChatSelectionSnapshot().Epoch).To(Equal(initial.Epoch))
 		o = config.NewApplicationConfig()
-		initial = o.ChatSelectionSnapshot()
 		o.ApplyRuntimeSettingsAtStartup(&config.RuntimeSettings{ChatsToolProviders: &pins})
 		Expect(o.ChatSelectionSnapshot().ToolProviders["bash"]).To(Equal("second"))
-		Expect(o.ChatSelectionSnapshot().Epoch).To(Equal(initial.Epoch + 1))
 	})
 
 })

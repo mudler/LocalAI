@@ -1,8 +1,8 @@
 # Execution status model and trace viewer
 
 This pure model describes one enclosing request's status observation, not
-execution authority. Bindings include actor, provider, generation, incarnation,
-tool names and provider selection revision. `Reduce` returns a state, ordered
+execution authority. Bindings include actor, credential, conversation, provider, generation,
+incarnation and tool names. `Reduce` returns a state, ordered
 effects, rule and guard. It does not perform I/O or read a clock.
 
 `Traces()` supplies independent expected rules, states, ordered effects and final

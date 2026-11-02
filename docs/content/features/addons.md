@@ -4879,7 +4879,7 @@ dispatch and before publishing positive facts, and compares the exact generation
 runtime incarnation and tools. A changed current selection withdraws old facts;
 a fresh request can succeed after access is restored. This is current-read
 consistency, not a historical revoke-and-restore (ABA) guarantee or a database
-transaction spanning the read. The transitional `selectionRevision` field encodes
+transaction spanning the read. The host compares
 current selection identity only; it is not a durable revision or owner nonce.
 A binding does not authorize command execution, grant access or replace consent.
 Request/session integration shares observations only within a bounded request.
@@ -4894,7 +4894,7 @@ permission or replace the built-in host command consent flow.
 
 Provider explanations are bounded plain text. Dismissing a notice applies only
 to that mounted chat context and exact provider binding, including generation,
-incarnation, selection revision and observation. Loading, switching providers,
+incarnation, readiness and isolation. Loading, switching providers,
 changing isolation, changing actors or logging out resets the dismissal.
 Actor or authentication-session changes also invalidate pending status reads
 before the next effect runs; logging in as the same user starts a new epoch.

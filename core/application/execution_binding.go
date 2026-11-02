@@ -124,9 +124,8 @@ func (a *Application) resolveExecutionBinding(ctx context.Context, actor contrac
 	if err = auth.AddonRevalidate(a.authDB, a.AddonOwnershipMode())(ctx, actor); err != nil {
 		return empty, err
 	}
-	// Transitional DTO field, pending removal: current identity only, not a
-	// historical revision, nonce or revoke-and-restore guarantee.
-	revision, _ := json.Marshal([]any{rec.Principal, rec.AgentID, rec.Origin, rec.AddonsOff, grants, cfg.ToolProviders["bash"]})
-	digest := sha256.Sum256(revision)
-	return gateway.ExecutionStatusBinding{ConversationID: rec.ID, Actor: actor, AddonID: selected.AddonID, Generation: instance.Generation, Incarnation: instance.Incarnation, ExecutionTool: tool, StatusTool: provider.StatusTool, SelectionRevision: hex.EncodeToString(digest[:])}, nil
+	// Compare current selection inputs even when they resolve to the same provider.
+	selection, _ := json.Marshal([]any{rec.Principal, rec.AgentID, rec.Origin, rec.AddonsOff, grants, cfg.HostExec, cfg.ToolProviders})
+	digest := sha256.Sum256(selection)
+	return gateway.ExecutionStatusBinding{ConversationID: rec.ID, Actor: actor, AddonID: selected.AddonID, Generation: instance.Generation, Incarnation: instance.Incarnation, ExecutionTool: tool, StatusTool: provider.StatusTool, CurrentSelection: hex.EncodeToString(digest[:])}, nil
 }

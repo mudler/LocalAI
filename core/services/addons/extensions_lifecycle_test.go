@@ -117,9 +117,7 @@ var _ = Describe("typed staged Manager lifecycle", func() {
 		Expect(e).NotTo(HaveOccurred())
 		attach()
 		old := check(1, first.Digest, caps)
-		stableEpoch := r.m.SelectionEpoch()
 		check(1, first.Digest, caps)
-		Expect(r.m.SelectionEpoch()).To(Equal(stableEpoch))
 		adminApps, e := r.m.Apps(ctx, actor)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(adminApps).To(HaveLen(1))
@@ -156,11 +154,9 @@ var _ = Describe("typed staged Manager lifecycle", func() {
 		caps = lifecycleCapabilities("manual")
 		manual := r.lib.publish("1.2.3-dev", "development", "typed-manual", catalog.Requirements{})
 		r.lib.refresh()
-		candidateEpoch := r.m.SelectionEpoch()
 		_, e = r.m.Submit(ctx, actor, upgrade("typed-manual", first.Digest, manual.Digest))
 		Expect(e).NotTo(HaveOccurred())
 		check(2, manual.Digest, caps)
-		Expect(r.m.SelectionEpoch()).To(BeNumerically(">", candidateEpoch))
 		caps = lifecycleCapabilities("automatic")
 		automatic := r.lib.publish("1.2.3-dev", "development", "typed-auto", catalog.Requirements{})
 		r.tick(2 * time.Second)
@@ -176,18 +172,13 @@ var _ = Describe("typed staged Manager lifecycle", func() {
 		mode = "exit-start"
 		broken := r.lib.publish("1.2.3-dev", "development", "typed-broken", catalog.Requirements{})
 		r.lib.refresh()
-		rollbackEpoch := r.m.SelectionEpoch()
 		_, e = r.m.Submit(ctx, actor, upgrade("typed-rollback", automatic.Digest, broken.Digest))
 		Expect(e).To(HaveOccurred())
 		restored := check(3, automatic.Digest, priorCaps)
-		Expect(r.m.SelectionEpoch()).To(BeNumerically(">", rollbackEpoch))
 		Expect(restored.Incarnation).NotTo(Equal(prior.Incarnation))
 		recoveryHost := &managerHost{m: r.m}
-		recoveryEpoch := r.m.SelectionEpoch()
 		q, qe := recoveryHost.Quiesce(ctx, "sample")
 		Expect(qe).NotTo(HaveOccurred())
-		Expect(r.m.SelectionEpoch()).To(BeNumerically(">", recoveryEpoch))
-		recoveryEpoch = r.m.SelectionEpoch()
 		var receipt packages.PackageReceipt
 		for _, g := range r.m.journal.Addons["sample"].Generations {
 			if g.Number == 3 {
@@ -195,13 +186,8 @@ var _ = Describe("typed staged Manager lifecycle", func() {
 			}
 		}
 		Expect(recoveryHost.StartCandidate(ctx, "sample", receipt, 3)).To(Succeed())
-		Expect(r.m.SelectionEpoch()).To(BeNumerically(">", recoveryEpoch))
-		recoveryEpoch = r.m.SelectionEpoch()
 		Expect(recoveryHost.StopCandidate(ctx, "sample")).To(Succeed())
-		Expect(r.m.SelectionEpoch()).To(BeNumerically(">", recoveryEpoch))
-		recoveryEpoch = r.m.SelectionEpoch()
 		Expect(recoveryHost.StopCandidate(ctx, "sample")).To(Succeed())
-		Expect(r.m.SelectionEpoch()).To(Equal(recoveryEpoch))
 		Expect(q.Resume(ctx)).To(Succeed())
 		check(3, automatic.Digest, priorCaps)
 		st, e := r.m.Status(ctx, "sample")

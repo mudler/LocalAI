@@ -1694,10 +1694,9 @@ type ChatsEgressEventList struct {
 
 // ChatsExecutionStatus is presentation-only; it grants no execution authority.
 type ChatsExecutionStatus struct {
-	Readiness         string `json:"readiness"`
-	Isolation         string `json:"isolation"`
-	Explanation       string `json:"explanation,omitempty"`
-	Generation        string `json:"generation,omitempty"`
-	Incarnation       string `json:"incarnation,omitempty"`
-	SelectionRevision string `json:"selection_revision,omitempty"`
+	Readiness   string `json:"readiness"`
+	Isolation   string `json:"isolation"`
+	Explanation string `json:"explanation,omitempty"`
+	Generation  string `json:"generation,omitempty"`
+	Incarnation string `json:"incarnation,omitempty"`
 }

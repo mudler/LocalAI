@@ -10,14 +10,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/gofrs/flock"
-	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/atomicfile"
@@ -27,8 +24,7 @@ import (
 // jsonStore keeps chats in memory and, when it has a directory, mirrors them to
 // files: one small record file per chat (rewritten atomically), one
 // append-only transcript file per chat and one harness state file per chat
-// (written only when the state changes). One process owns the directory: the
-// OS sidecar lock excludes cooperating writers for the store lifetime.
+// (written only when the state changes). One process owns the directory.
 // A cluster uses the GORM store.
 //
 // mu guards the map only. Each chat has its own lock, held for the whole
@@ -37,23 +33,17 @@ import (
 // each other. A goroutine that holds a chat lock may take mu (DeleteChat);
 // one that holds mu never takes a chat lock.
 type jsonStore struct {
-	lifetime  sync.RWMutex // excludes Close while any operation is in flight
-	closed    bool
-	ownership *flock.Flock
-	closeErr  error
-	mu        sync.Mutex
-	dir       string // empty: memory only
-	chats     map[string]*chatSlot
+	mu    sync.Mutex
+	dir   string // empty: memory only
+	chats map[string]*chatSlot
 }
 
 // chatSlot is one chat with its lock. gone is set, under the lock, when the
 // chat is deleted, so a caller that found the slot before the delete and
 // waited for the lock sees that it is gone.
 type chatSlot struct {
-	mu        sync.Mutex
-	gone      bool
-	selection string
-	revision  uint64
+	mu   sync.Mutex
+	gone bool
 	chatState
 }
 
@@ -76,7 +66,7 @@ type chatState struct {
 // NewJSON returns a Store. With an empty dir it keeps everything in memory and
 // loses it on exit. With a directory it creates it, loads what is there, and
 // writes every change.
-func NewJSON(dir string) (_ Store, initErr error) {
+func NewJSON(dir string) (Store, error) {
 	s := &jsonStore{dir: dir, chats: map[string]*chatSlot{}}
 	if dir == "" {
 		return s, nil
@@ -84,23 +74,6 @@ func NewJSON(dir string) (_ Store, initErr error) {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
-	// A stable sidecar, never renamed or unlinked, protects all load/repair I/O.
-	ownership := flock.New(filepath.Join(dir, ".owner.lock"))
-	locked, err := ownership.TryLock()
-	if err != nil {
-		_ = ownership.Close()
-		return nil, err
-	}
-	if !locked {
-		_ = ownership.Close()
-		return nil, fmt.Errorf("studio JSON directory already owned: %s", dir)
-	}
-	s.ownership = ownership
-	defer func() {
-		if initErr != nil {
-			_ = s.Close()
-		}
-	}()
 
 	if err := os.MkdirAll(s.chatDir(), 0o700); err != nil {
 		return nil, err
@@ -146,7 +119,7 @@ func NewJSON(dir string) (_ Store, initErr error) {
 			xlog.Warn("studio store: skipping chat with unreadable harness state", "chat", c.Rec.ID, "error", err)
 			continue
 		}
-		s.chats[c.Rec.ID] = &chatSlot{chatState: c, selection: uuid.NewString()}
+		s.chats[c.Rec.ID] = &chatSlot{chatState: c}
 	}
 	s.removeStaleStates()
 	return s, nil
@@ -446,11 +419,6 @@ func (s *jsonStore) records(keep func(session.ChatRecord) bool) []session.ChatRe
 // must stay taken until the chat exists or the write failed. Creating a chat
 // is rare next to the other operations.
 func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, ok := s.chats[rec.ID]; ok {
@@ -471,16 +439,11 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 		}
 		return err
 	}
-	s.chats[rec.ID] = &chatSlot{chatState: c, selection: uuid.NewString()}
+	s.chats[rec.ID] = &chatSlot{chatState: c}
 	return nil
 }
 
 func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.ChatRecord, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return session.ChatRecord{}, os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return session.ChatRecord{}, err
@@ -531,11 +494,6 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 }
 
 func (s *jsonStore) ListChats(_ context.Context, principal string, before session.ChatCursor, limit int) ([]session.ChatRecord, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	out := s.records(func(r session.ChatRecord) bool {
 		if r.Principal != principal {
 			return false
@@ -580,12 +538,6 @@ func (s *jsonStore) edit(principal, id string, change func(next *chatState) erro
 			xlog.Warn("studio store: could not remove an old harness state file", "chat", id, "error", err)
 		}
 	}
-	if !sameSelection(c.Rec, next.Rec) {
-		c.revision++
-		if c.revision == 0 {
-			c.selection = uuid.NewString()
-		}
-	}
 	next.Rec = cloneRec(next.Rec)
 	c.chatState = next
 	return nil
@@ -599,11 +551,6 @@ func (s *jsonStore) set(principal, id string, change func(next *chatState)) erro
 // UpdateChat writes the harness state file only when the state changed: a
 // title or a snapshot change does not rewrite the agent's whole history.
 func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.edit(rec.Principal, rec.ID, func(next *chatState) error {
 		next.Rec.Title, next.Rec.Folder, next.Rec.Snapshot = rec.Title, rec.Folder, rec.Snapshot
 		next.Rec.Turns, next.Rec.Updated = rec.Turns, rec.Updated
@@ -616,11 +563,6 @@ func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error 
 }
 
 func (s *jsonStore) SetSkillsOff(_ context.Context, principal, id string, off []string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) {
 		clean, _ := normalizeDocumentSkillsOff(off)
 		next.Rec.SkillsOff = append([]string(nil), clean...)
@@ -628,47 +570,22 @@ func (s *jsonStore) SetSkillsOff(_ context.Context, principal, id string, off []
 }
 
 func (s *jsonStore) SetAddonsOff(_ context.Context, principal, id string, off []string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) { next.Rec.AddonsOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) SetBuiltinsOff(_ context.Context, principal, id string, off []string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) SetBuiltinsOn(_ context.Context, principal, id string, on []string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOn = append([]string(nil), on...) })
 }
 
 func (s *jsonStore) SetScopedAgent(_ context.Context, principal, id string, scoped bool) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) { next.Rec.ScopedAgent = scoped })
 }
 
 func (s *jsonStore) SetHostConsent(_ context.Context, principal, id string, c *session.HostConsent) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) {
 		if c == nil {
 			next.Rec.HostConsent = nil
@@ -680,11 +597,6 @@ func (s *jsonStore) SetHostConsent(_ context.Context, principal, id string, c *s
 }
 
 func (s *jsonStore) UpdateHostConsent(_ context.Context, principal, id string, change func(*session.HostConsent) (*session.HostConsent, error)) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.edit(principal, id, func(next *chatState) error {
 		var cur *session.HostConsent
 		if next.Rec.HostConsent != nil {
@@ -705,11 +617,6 @@ func (s *jsonStore) UpdateHostConsent(_ context.Context, principal, id string, c
 }
 
 func (s *jsonStore) UpdateEgress(_ context.Context, principal, id string, change func(*egress.ChatState) error) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.edit(principal, id, func(next *chatState) error {
 		st := next.Rec.Egress.Clone()
 		if err := change(&st); err != nil {
@@ -721,11 +628,6 @@ func (s *jsonStore) UpdateEgress(_ context.Context, principal, id string, change
 }
 
 func (s *jsonStore) UpdateGoal(_ context.Context, principal, id string, change func(*session.Goal) (*session.Goal, error)) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.edit(principal, id, func(next *chatState) error {
 		g, err := change(next.Rec.Goal.Clone())
 		if err != nil {
@@ -737,20 +639,10 @@ func (s *jsonStore) UpdateGoal(_ context.Context, principal, id string, change f
 }
 
 func (s *jsonStore) SetMcpOff(_ context.Context, principal, id string, off []string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) { next.Rec.McpOff = append([]string(nil), off...) })
 }
 
 func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) ([]session.ChatRecord, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	out := s.records(func(r session.ChatRecord) bool {
 		return r.Principal == principal && r.ParentID == parentID && r.Kind == session.KindSubAgent
 	})
@@ -764,11 +656,6 @@ func (s *jsonStore) ListChildren(_ context.Context, principal, parentID string) 
 }
 
 func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m session.ChatMeta) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	return s.set(principal, id, func(next *chatState) {
 		if m.Title != nil {
 			next.Rec.Title = *m.Title
@@ -783,11 +670,6 @@ func (s *jsonStore) SetChatMeta(_ context.Context, principal, id string, m sessi
 }
 
 func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, keep int64) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -817,11 +699,6 @@ func (s *jsonStore) TruncateEntries(_ context.Context, principal, id string, kee
 }
 
 func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -846,11 +723,6 @@ func (s *jsonStore) DeleteChat(_ context.Context, principal, id string) error {
 }
 
 func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (int64, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return 0, os.ErrClosed
-	}
 	c, unlock, err := s.lock(id)
 	if err != nil {
 		return 0, err
@@ -879,11 +751,6 @@ func (s *jsonStore) AppendEntry(_ context.Context, id string, e session.Entry) (
 }
 
 func (s *jsonStore) AppendEntries(_ context.Context, id string, entries []session.Entry) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.lock(id)
 	if err != nil {
 		return err
@@ -923,11 +790,6 @@ func (s *jsonStore) AppendEntries(_ context.Context, id string, entries []sessio
 }
 
 func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int) ([]session.Entry, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	c, unlock, err := s.lock(id)
 	if err != nil {
 		return nil, err
@@ -946,11 +808,6 @@ func (s *jsonStore) Entries(_ context.Context, id string, after int64, limit int
 }
 
 func (s *jsonStore) AddPending(_ context.Context, principal, id, text string) (Pending, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return Pending{}, os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return Pending{}, err
@@ -980,11 +837,6 @@ func undelivered(ps []Pending) []Pending {
 }
 
 func (s *jsonStore) Pending(_ context.Context, principal, id string) ([]Pending, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return nil, err
@@ -1003,11 +855,6 @@ func indexOf(ps []Pending, id string) int {
 }
 
 func (s *jsonStore) EditPending(_ context.Context, principal, id, pendingID, text string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -1031,11 +878,6 @@ func (s *jsonStore) EditPending(_ context.Context, principal, id, pendingID, tex
 }
 
 func (s *jsonStore) CancelPending(_ context.Context, principal, id, pendingID string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -1058,11 +900,6 @@ func (s *jsonStore) CancelPending(_ context.Context, principal, id, pendingID st
 }
 
 func (s *jsonStore) TakePending(_ context.Context, principal, id string) ([]Pending, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return nil, err
@@ -1090,11 +927,6 @@ func (s *jsonStore) TakePending(_ context.Context, principal, id string) ([]Pend
 }
 
 func (s *jsonStore) ConfirmPending(_ context.Context, principal, id string, ids []string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -1115,11 +947,6 @@ func (s *jsonStore) ConfirmPending(_ context.Context, principal, id string, ids 
 }
 
 func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids []string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -1140,11 +967,6 @@ func (s *jsonStore) RestorePending(_ context.Context, principal, id string, ids 
 }
 
 func (s *jsonStore) ClaimTurn(_ context.Context, principal, id, runID string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -1164,11 +986,6 @@ func (s *jsonStore) ClaimTurn(_ context.Context, principal, id, runID string) er
 }
 
 func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -1183,11 +1000,6 @@ func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) er
 }
 
 func (s *jsonStore) ReapTurns(_ context.Context, olderThan time.Time) ([]ReapedTurn, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	var out []ReapedTurn
 	for _, c := range s.slots() {
 		reaped, err := s.reapTurn(c, olderThan)
@@ -1230,11 +1042,6 @@ func (s *jsonStore) reapTurn(c *chatSlot, olderThan time.Time) (*ReapedTurn, err
 }
 
 func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, status TurnStatus) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return err
@@ -1253,54 +1060,10 @@ func (s *jsonStore) ReleaseTurn(_ context.Context, principal, id, runID string, 
 }
 
 func (s *jsonStore) Turn(_ context.Context, principal, id string) (TurnInfo, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return TurnInfo{}, os.ErrClosed
-	}
 	c, unlock, err := s.get(principal, id)
 	if err != nil {
 		return TurnInfo{}, err
 	}
 	defer unlock()
 	return TurnInfo{Running: c.Run != "", RunID: c.Run, Since: c.RunSince, Beat: c.RunBeat, Last: c.Last}, nil
-}
-
-// Conservatively track all record fields except turn bookkeeping and harness
-// history. Thus switches, agent assignment (create-only), consent, egress,
-// workspace, title, model and settings invalidate selection; message appends,
-// pending queues, claims, heartbeats and turn outcomes do not.
-func sameSelection(a, b session.ChatRecord) bool {
-	a.Created, a.Updated = b.Created, b.Updated
-	a.Turns, a.Status, a.HarnessState = b.Turns, b.Status, b.HarnessState
-	return reflect.DeepEqual(a, b)
-}
-
-func (s *jsonStore) SelectionSnapshot(_ context.Context, principal, id string) (session.ChatRecord, string, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return session.ChatRecord{}, "", os.ErrClosed
-	}
-	c, unlock, err := s.get(principal, id)
-	if err != nil {
-		return session.ChatRecord{}, "", err
-	}
-	defer unlock()
-	return cloneRec(c.Rec), fmt.Sprintf("%s:%d", c.selection, c.revision), nil
-}
-
-// Close drains in-flight operations before releasing ownership. Callers must
-// first stop all external store users; a closed store cannot be reused.
-func (s *jsonStore) Close() error {
-	s.lifetime.Lock()
-	defer s.lifetime.Unlock()
-	if s.closed {
-		return s.closeErr
-	}
-	s.closed = true
-	if s.ownership != nil {
-		s.closeErr = s.ownership.Close()
-	}
-	return s.closeErr
 }

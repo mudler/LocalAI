@@ -139,5 +139,5 @@ export function plainExplanation(value) {
 
 export function noticeIdentity(res, chat, actor) {
   const v = res?.execution_status || {}
-  return JSON.stringify([actor, chat, res?.commands_provider, v.generation, v.incarnation, v.selection_revision, res?.commands, v.readiness, v.isolation || res?.commands_isolation])
+  return JSON.stringify([actor, chat, res?.commands_provider, v.generation, v.incarnation, res?.commands, v.readiness, v.isolation || res?.commands_isolation])
 }

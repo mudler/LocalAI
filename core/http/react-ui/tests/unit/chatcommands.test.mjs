@@ -97,11 +97,11 @@ test('typed safety: any actual addon host warns and unknown never appears isolat
   assert.equal(commandsNotice('switched_off').textKey, 'disabled')
 })
 
-test('typed safety: dismissal tracks binding, observation, chat and actor epoch', async () => {
+test('typed safety: dismissal tracks binding, status, chat and actor epoch', async () => {
   const { noticeIdentity } = await import('../../src/utils/chatCommands.js')
-  const base = { commands: 'available', commands_provider: 'renamed', execution_status: { readiness: 'available', isolation: 'host', generation: '1', incarnation: 'a', selection_revision: 'r1' } }
+  const base = { commands: 'available', commands_provider: 'renamed', execution_status: { readiness: 'available', isolation: 'host', generation: '1', incarnation: 'a' } }
   const id = noticeIdentity(base, 'chat', 'actor-session')
-  for (const field of ['generation', 'incarnation', 'selection_revision', 'isolation', 'readiness']) {
+  for (const field of ['generation', 'incarnation', 'isolation', 'readiness']) {
     assert.notEqual(noticeIdentity({ ...base, execution_status: { ...base.execution_status, [field]: 'changed' } }, 'chat', 'actor-session'), id)
   }
   assert.notEqual(noticeIdentity(base, 'other', 'actor-session'), id)

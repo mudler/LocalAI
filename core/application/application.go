@@ -703,12 +703,6 @@ func (a *Application) Shutdown() error {
 		if a.studioService != nil {
 			_ = a.studioService.Close(context.Background())
 		}
-		// Do not release JSON ownership here. Service.Close drains sessions,
-		// but HTTP handlers can still call Store directly and Shutdown does not
-		// drain the HTTP server. Cancellation/unsubscription also does not join
-		// every producer callback. Keep ownership until process exit rather
-		// than permit a new owner while old users may still be live.
-		// After the studio service: a chat may still search a collection.
 		if svc := a.collectionsService.Load(); svc != nil {
 			svc.Close()
 		}

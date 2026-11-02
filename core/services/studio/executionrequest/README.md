@@ -9,7 +9,7 @@ No context attachment or production entry-point integration exists yet.
 
 `IO.Read` handles the reducer's sole `Read` effect. It must preserve B/Q through
 the carrier, decode the strict typed contract, and honor cancellation.
-`IO.Validate` checks current owner authority, selection revision and exact runtime
+`IO.Validate` checks current owner authority, current selection and exact runtime
 identity. It runs after the read and before each settled observation consumption.
 Nil callbacks cannot produce a positive observation. Status never grants tool
 access or proves network-policy enforcement.

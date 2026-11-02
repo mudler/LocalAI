@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -34,7 +33,6 @@ var _ = Describe("the JSON store", func() {
 		storetest.Run(func() store.Store {
 			s, err := store.NewJSON("")
 			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() { Expect(s.(io.Closer).Close()).To(Succeed()) })
 			return s
 		})
 	})
@@ -43,7 +41,6 @@ var _ = Describe("the JSON store", func() {
 		storetest.Run(func() store.Store {
 			s, err := store.NewJSON(GinkgoT().TempDir())
 			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() { Expect(s.(io.Closer).Close()).To(Succeed()) })
 			return s
 		})
 	})
@@ -54,12 +51,9 @@ var _ = Describe("the JSON store", func() {
 		dir := GinkgoT().TempDir()
 		first, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(first.(io.Closer).Close()).To(Succeed()) })
 		storetest.Seed(first)
-		Expect(first.(io.Closer).Close()).To(Succeed())
 		second, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(second.(io.Closer).Close()).To(Succeed()) })
 		storetest.CheckSeed(second)
 	})
 
@@ -71,7 +65,6 @@ var _ = Describe("the JSON store", func() {
 		dir := GinkgoT().TempDir()
 		first, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(first.(io.Closer).Close()).To(Succeed()) })
 		active := func(*session.Goal) (*session.Goal, error) {
 			return &session.Goal{Text: "g", State: session.GoalActive}, nil
 		}
@@ -81,10 +74,8 @@ var _ = Describe("the JSON store", func() {
 		Expect(first.UpdateGoal(ctx, "alice", "idle", active)).To(Succeed())
 		Expect(first.ClaimTurn(ctx, "alice", "running", "r1")).To(Succeed())
 
-		Expect(first.(io.Closer).Close()).To(Succeed())
 		second, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(second.(io.Closer).Close()).To(Succeed()) })
 		rec, err := second.GetChat(ctx, "alice", "running")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.Goal.State).To(Equal(session.GoalPaused))
@@ -101,7 +92,6 @@ var _ = Describe("the JSON store", func() {
 		dir := GinkgoT().TempDir()
 		first, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(first.(io.Closer).Close()).To(Succeed()) })
 		newChat(first, "a")
 		for _, txt := range []string{"one", "two"} {
 			Expect(first.AppendEntry(ctx, "a", session.Entry{Role: "user", Text: txt})).Error().NotTo(HaveOccurred())
@@ -112,17 +102,13 @@ var _ = Describe("the JSON store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		_ = f.Close()
 
-		Expect(first.(io.Closer).Close()).To(Succeed())
 		second, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred(), "NewJSON with a torn transcript")
-		DeferCleanup(func() { Expect(second.(io.Closer).Close()).To(Succeed()) })
 		es, _ := second.Entries(ctx, "a", 0, 10)
 		Expect(es).To(HaveLen(2), "want the 2 complete ones")
 		Expect(second.AppendEntry(ctx, "a", session.Entry{Role: "user", Text: "three"})).Error().NotTo(HaveOccurred())
-		Expect(second.(io.Closer).Close()).To(Succeed())
 		third, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred(), "reopen after append")
-		DeferCleanup(func() { Expect(third.(io.Closer).Close()).To(Succeed()) })
 		es, _ = third.Entries(ctx, "a", 0, 10)
 		Expect(es).To(HaveLen(3), "entries after append = %+v", es)
 		Expect(es[2].Text).To(Equal("three"))
@@ -135,14 +121,11 @@ var _ = Describe("the JSON store", func() {
 		dir := GinkgoT().TempDir()
 		first, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(first.(io.Closer).Close()).To(Succeed()) })
 		newChat(first, "good")
 		newChat(first, "bad")
 		Expect(os.WriteFile(chatFile(dir, "bad", ".json"), []byte(`{"rec":{"ID":"ba`), 0o600)).To(Succeed())
-		Expect(first.(io.Closer).Close()).To(Succeed())
 		second, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred(), "NewJSON with a corrupt record")
-		DeferCleanup(func() { Expect(second.(io.Closer).Close()).To(Succeed()) })
 		_, err = second.GetChat(ctx, "alice", "good")
 		Expect(err).NotTo(HaveOccurred(), "good chat")
 		Expect(second.AppendEntry(ctx, "good", session.Entry{Role: "user", Text: "x"})).Error().NotTo(HaveOccurred())
@@ -157,7 +140,6 @@ var _ = Describe("the JSON store", func() {
 		dir := GinkgoT().TempDir()
 		first, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(first.(io.Closer).Close()).To(Succeed()) })
 		newChat(first, "a")
 		for _, txt := range []string{"m1", "m2"} {
 			Expect(first.AddPending(ctx, "alice", "a", txt)).Error().NotTo(HaveOccurred())
@@ -167,10 +149,8 @@ var _ = Describe("the JSON store", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(taken).To(HaveLen(2))
 		Expect(first.ConfirmPending(ctx, "alice", "a", []string{taken[0].ID})).To(Succeed())
-		Expect(first.(io.Closer).Close()).To(Succeed())
 		second, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(second.(io.Closer).Close()).To(Succeed()) })
 		ps, err := second.Pending(ctx, "alice", "a")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ps).To(HaveLen(1), "pending after reopen = %+v (want only the unconfirmed m2)", ps)
@@ -188,7 +168,6 @@ var _ = Describe("the JSON store", func() {
 			var err error
 			st, err = store.NewJSON(dir)
 			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() { Expect(st.(io.Closer).Close()).To(Succeed()) })
 			newChat(st, "a")
 		})
 		update := func(change func(*session.ChatRecord)) {
@@ -209,10 +188,8 @@ var _ = Describe("the JSON store", func() {
 			update(func(r *session.ChatRecord) { r.HarnessState = []byte("history-1") })
 			Expect(record()["HarnessState"]).To(BeNil(), "the record file holds the harness state")
 			Expect(os.ReadFile(chatFile(dir, "a", ".1.state"))).To(Equal([]byte("history-1")))
-			Expect(st.(io.Closer).Close()).To(Succeed())
 			again, err := store.NewJSON(dir)
 			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() { Expect(again.(io.Closer).Close()).To(Succeed()) })
 			rec, err := again.GetChat(ctx, "alice", "a")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rec.HarnessState).To(Equal([]byte("history-1")))
@@ -239,10 +216,8 @@ var _ = Describe("the JSON store", func() {
 				Created: now, Updated: now, HarnessState: []byte("inline history")}})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(os.WriteFile(chatFile(dir, "old", ".json"), legacy, 0o600)).To(Succeed())
-			Expect(st.(io.Closer).Close()).To(Succeed())
 			again, err := store.NewJSON(dir)
 			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() { Expect(again.(io.Closer).Close()).To(Succeed()) })
 			rec, err := again.GetChat(ctx, "alice", "old")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rec.HarnessState).To(Equal([]byte("inline history")))
@@ -255,10 +230,8 @@ var _ = Describe("the JSON store", func() {
 		It("drops a state file that no record names, as a crash leaves it", func() {
 			update(func(r *session.ChatRecord) { r.HarnessState = []byte("history-1") })
 			Expect(os.WriteFile(chatFile(dir, "a", ".2.state"), []byte("never saved"), 0o600)).To(Succeed())
-			Expect(st.(io.Closer).Close()).To(Succeed())
 			again, err := store.NewJSON(dir)
 			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(func() { Expect(again.(io.Closer).Close()).To(Succeed()) })
 			rec, err := again.GetChat(ctx, "alice", "a")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rec.HarnessState).To(Equal([]byte("history-1")))
@@ -281,7 +254,6 @@ var _ = Describe("the JSON store", func() {
 		dir := GinkgoT().TempDir()
 		st, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(st.(io.Closer).Close()).To(Succeed()) })
 		const n = 40
 		var wg sync.WaitGroup
 		for _, id := range []string{"a", "b"} {
@@ -297,10 +269,8 @@ var _ = Describe("the JSON store", func() {
 			}
 		}
 		wg.Wait()
-		Expect(st.(io.Closer).Close()).To(Succeed())
 		again, err := store.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(again.(io.Closer).Close()).To(Succeed()) })
 		for _, id := range []string{"a", "b"} {
 			ps, err := again.Pending(ctx, "alice", id)
 			Expect(err).NotTo(HaveOccurred())
@@ -317,7 +287,6 @@ var _ = Describe("the JSON store", func() {
 		ctx := context.Background()
 		st, err := store.NewJSON(GinkgoT().TempDir())
 		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { Expect(st.(io.Closer).Close()).To(Succeed()) })
 		newChat(st, "a")
 		var wg sync.WaitGroup
 		for range 20 {

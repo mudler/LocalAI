@@ -22,10 +22,8 @@ import (
 func openFrontend(dir string, sh *shared) *shared {
 	st, err := store.NewJSON(filepath.Join(dir, "chats"))
 	Expect(err).NotTo(HaveOccurred())
-	DeferCleanup(func() { _ = st.(interface{ Close() error }).Close() })
 	ag, err := agents.NewJSON(filepath.Join(dir, "chats", "agents"))
 	Expect(err).NotTo(HaveOccurred())
-	DeferCleanup(func() { _ = ag.(interface{ Close() error }).Close() })
 	ns, err := notify.NewJSON(filepath.Join(dir, "chats", "notifications"))
 	Expect(err).NotTo(HaveOccurred())
 	ts, err := triggers.NewJSON(filepath.Join(dir, "chats", "triggers"))
@@ -33,12 +31,10 @@ func openFrontend(dir string, sh *shared) *shared {
 	return &shared{chats: st, files: sh.files, agents: ag, notices: ns, trg: ts, clock: sh.clock, addons: sh.addons}
 }
 
-// Stop every producer before releasing file ownership to the next frontend.
+// Stop every producer before reopening the files in the next frontend.
 func closeRestartFrontend(r *trigRig) {
 	r.host.Close()
 	Expect(r.svc.Close(context.Background())).To(Succeed())
-	Expect(r.sh.chats.(interface{ Close() error }).Close()).To(Succeed())
-	Expect(r.sh.agents.(interface{ Close() error }).Close()).To(Succeed())
 }
 
 var _ = Describe("triggersrestart", func() {

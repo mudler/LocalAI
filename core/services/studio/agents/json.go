@@ -6,59 +6,29 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"sync"
 
-	"github.com/gofrs/flock"
-	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/pkg/atomicfile"
 )
 
 // jsonStore keeps the agents in memory and, with a directory, in the file
 // agents.json (rewritten atomically after every change). One process owns the
-// directory: an exclusive OS sidecar lock enforces cooperating ownership.
+// directory.
 // A cluster uses GORM.
 type jsonStore struct {
-	lifetime  sync.RWMutex // excludes Close while any operation is in flight
-	closed    bool
-	ownership *flock.Flock
-	closeErr  error
-	mu        sync.Mutex
-	path      string // empty: memory only
-	byID      map[string]Agent
-	seed      string
-	revision  uint64
+	mu   sync.Mutex
+	path string // empty: memory only
+	byID map[string]Agent
 }
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
 // With a directory it creates it and loads what is there.
-func NewJSON(dir string) (_ Store, initErr error) {
-	s := &jsonStore{byID: map[string]Agent{}, seed: uuid.NewString()}
+func NewJSON(dir string) (Store, error) {
+	s := &jsonStore{byID: map[string]Agent{}}
 	if dir == "" {
 		return s, nil
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, err
-	}
-	// A stable sidecar, never renamed or unlinked, protects all load/repair I/O.
-	ownership := flock.New(filepath.Join(dir, ".owner.lock"))
-	locked, err := ownership.TryLock()
-	if err != nil {
-		_ = ownership.Close()
-		return nil, err
-	}
-	if !locked {
-		_ = ownership.Close()
-		return nil, fmt.Errorf("studio JSON directory already owned: %s", dir)
-	}
-	s.ownership = ownership
-	defer func() {
-		if initErr != nil {
-			_ = s.Close()
-		}
-	}()
-
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil, err
 	}
@@ -93,11 +63,6 @@ func (s *jsonStore) save() error {
 }
 
 func (s *jsonStore) Put(_ context.Context, a Agent) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	old, exists := s.byID[a.ID]
@@ -122,18 +87,10 @@ func (s *jsonStore) Put(_ context.Context, a Agent) error {
 		}
 		return err
 	}
-	if !exists || !sameSelection(old, a) {
-		s.advanceSelection()
-	}
 	return nil
 }
 
 func (s *jsonStore) Get(_ context.Context, principal, id string) (Agent, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return Agent{}, os.ErrClosed
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.byID[id]
@@ -144,11 +101,6 @@ func (s *jsonStore) Get(_ context.Context, principal, id string) (Agent, error) 
 }
 
 func (s *jsonStore) List(_ context.Context, principal string) ([]Agent, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var out []Agent
@@ -168,11 +120,6 @@ func (s *jsonStore) List(_ context.Context, principal string) ([]Agent, error) {
 }
 
 func (s *jsonStore) ListAll(context.Context) ([]Agent, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return nil, os.ErrClosed
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]Agent, 0, len(s.byID))
@@ -192,11 +139,6 @@ func (s *jsonStore) ListAll(context.Context) ([]Agent, error) {
 }
 
 func (s *jsonStore) Delete(_ context.Context, principal, id string) error {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return os.ErrClosed
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	a, ok := s.byID[id]
@@ -208,50 +150,5 @@ func (s *jsonStore) Delete(_ context.Context, principal, id string) error {
 		s.byID[id] = a
 		return err
 	}
-	s.advanceSelection()
 	return nil
-}
-
-// All definition fields except caller timestamps conservatively affect agent
-// selection. A store-global counter also invalidates unrelated agents.
-func sameSelection(a, b Agent) bool {
-	a.Created, a.Updated = b.Created, b.Updated
-	return reflect.DeepEqual(a, b)
-}
-
-func (s *jsonStore) SelectionSnapshot(_ context.Context, principal, id string) (Agent, string, error) {
-	s.lifetime.RLock()
-	defer s.lifetime.RUnlock()
-	if s.closed {
-		return Agent{}, "", os.ErrClosed
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	a, ok := s.byID[id]
-	if !ok || a.Principal != principal {
-		return Agent{}, "", ErrNotFound
-	}
-	return a.clone(), fmt.Sprintf("%s:%d", s.seed, s.revision), nil
-}
-
-func (s *jsonStore) advanceSelection() {
-	s.revision++
-	if s.revision == 0 {
-		s.seed = uuid.NewString()
-	}
-}
-
-// Close drains in-flight operations before releasing ownership. Callers must
-// first stop all external store users; a closed store cannot be reused.
-func (s *jsonStore) Close() error {
-	s.lifetime.Lock()
-	defer s.lifetime.Unlock()
-	if s.closed {
-		return s.closeErr
-	}
-	s.closed = true
-	if s.ownership != nil {
-		s.closeErr = s.ownership.Close()
-	}
-	return s.closeErr
 }

@@ -7,7 +7,7 @@ package executionstatus
 // Binding contains opaque identity tokens, never credentials. All fields take
 // part in equality, including incarnation within the same package generation.
 type Binding struct {
-	Actor, Addon, Generation, Incarnation, ExecutionTool, StatusTool, SelectionRevision string
+	Actor, Credential, Conversation, Mode, Addon, Generation, Incarnation, ExecutionTool, StatusTool string
 }
 type ObservationID string
 type Cause string

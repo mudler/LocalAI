@@ -1,7 +1,6 @@
 package application
 
 import (
-	"io"
 	"path/filepath"
 
 	"github.com/mudler/xlog"
@@ -90,8 +89,6 @@ func (a *Application) initStudioStore() {
 		kind = "memory"
 	}
 	if err != nil {
-		// These stores have not been published to any users yet.
-		closeStudioStores(ms, cs, ps, nt, ag, s)
 		xlog.Warn("Chats disabled: failed to initialise its store", "kind", kind, "error", err)
 		return
 	}
@@ -105,15 +102,4 @@ func (a *Application) initStudioStore() {
 	}
 	a.initStudioJobStore()
 	a.migrateStudioPermissions()
-}
-
-// closeStudioStores is only safe before publication, or after all users drain.
-func closeStudioStores(stores ...any) {
-	for _, s := range stores {
-		if c, ok := s.(io.Closer); ok {
-			if err := c.Close(); err != nil {
-				xlog.Warn("Studio store close failed", "error", err)
-			}
-		}
-	}
 }

@@ -10,13 +10,13 @@ is bounded by the parent deadline, five seconds and the runtime read timeout.
 `Gateway.ExecutionStatusRead(ctx, actor, request)` is the host-only owner API.
 The versioned request carries the observation ID and every component of binding B:
 authenticated actor, addon, generation, incarnation, execution tool, status tool,
-and provider-selection revision. The response echoes that identity with validated status.
+conversation and current provider-selection identity. The response echoes that identity with validated status.
 No request field carries arguments, grants, administrator rights, or an operation ID.
 The owner generates the runtime operation ID independently of the observation ID.
 The wire envelope uses `{"tool":"declared-status-tool"}` for actual status input `{}`.
 
 The owner requires `AuthorizeExecutionStatus` on every admission and before publishing a reply.
-This host callback must check current selection revision, execution feature permission,
+This host callback must check current selection, execution feature permission,
 addon access, and authority to replace the builtin provider. An absent callback denies reads.
 The addon admission checks resource-independent account access. The verified manifest
 must bind the execution action to this exact resourceless, `uiOnly` status read.

@@ -114,14 +114,14 @@ var _ = Describe("supervised owner observation over authenticated carrier", func
 			}
 			return nil
 		}, AuthorizeExecutionStatus: func(_ context.Context, a contract.Actor, b ExecutionStatusBinding) error {
-			if a != frontActor || b.SelectionRevision != "rev" {
+			if a != frontActor || b.CurrentSelection != "rev" {
 				return ErrForbidden
 			}
 			return nil
 		}}
 		_, cs := carrierFixture(func(c *Carrier) http.Handler { h, e := c.OwnerHandler(g); Expect(e).NotTo(HaveOccurred()); return h })
 		front := &Gateway{Forward: cs["front-a"], Revalidate: g.Revalidate}
-		r := ExecutionStatusRequest{Version: 1, Binding: ExecutionStatusBinding{Actor: frontActor, AddonID: "sample", Generation: 1, Incarnation: first.Incarnation, ExecutionTool: "run", StatusTool: "health", SelectionRevision: "rev"}, ObservationID: "q"}
+		r := ExecutionStatusRequest{Version: 1, Binding: ExecutionStatusBinding{Actor: frontActor, AddonID: "sample", Generation: 1, Incarnation: first.Incarnation, ExecutionTool: "run", StatusTool: "health", CurrentSelection: "rev"}, ObservationID: "q"}
 		return s, p, lookup, front, r, logPath
 	}
 	records := func(path string) []observationRecord {

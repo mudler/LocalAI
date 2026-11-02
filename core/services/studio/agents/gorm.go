@@ -181,13 +181,3 @@ func (s *gormStore) Delete(ctx context.Context, principal, id string) error {
 	}
 	return nil
 }
-
-// SelectionSnapshot fails closed: another frontend can mutate this database,
-// and the existing schema has no server-owned, ABA-safe selection revision.
-func (s *gormStore) SelectionSnapshot(ctx context.Context, principal, id string) (Agent, string, error) {
-	_, err := s.Get(ctx, principal, id)
-	if err != nil {
-		return Agent{}, "", err
-	}
-	return Agent{}, "", ErrSelectionRevisionUnsupported
-}
