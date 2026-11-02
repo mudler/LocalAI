@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/mudler/LocalAI/core/cli/worker"
 	"github.com/mudler/LocalAI/core/config"
 )
 
@@ -32,5 +33,27 @@ var _ = Describe("p2p worker hint", func() {
 		ctx, err := k.Parse(args[1:])
 		Expect(err).ToNot(HaveOccurred())
 		Expect(ctx.Command()).To(Equal("p2p-worker p2p-llama-cpp-rpc"))
+	})
+})
+
+var _ = Describe("P2P limits CLI boundary", func() {
+	It("preserves exact true semantics at every entry point", func() {
+		for _, value := range []string{"", "true", "false", "1", "yes"} {
+			GinkgoT().Setenv("LOCALAI_P2P_ENABLE_LIMITS", value)
+			run := RunCMD{}
+			rpc := worker.P2P{}
+			mlx := worker.P2PMLX{}
+			explorer := ExplorerCMD{}
+			for _, entry := range []any{&run, &rpc, &mlx, &explorer} {
+				parser, err := kong.New(entry, kong.Vars{"basepath": ".", "generatedcontentpath": ".", "uploadpath": ".", "galleries": config.DefaultGalleriesJSON, "backends": config.DefaultBackendGalleriesJSON, "version": "test"})
+				Expect(err).NotTo(HaveOccurred())
+				_, err = parser.Parse(nil)
+				Expect(err).NotTo(HaveOccurred())
+			}
+			Expect(run.P2PEnableLimits == "true").To(Equal(value == "true"))
+			Expect(rpc.P2PEnableLimits == "true").To(Equal(value == "true"))
+			Expect(mlx.P2PEnableLimits == "true").To(Equal(value == "true"))
+			Expect(explorer.P2PEnableLimits == "true").To(Equal(value == "true"))
+		}
 	})
 })
