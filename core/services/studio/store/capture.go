@@ -67,19 +67,21 @@ type MemoryTurnCompletion struct {
 // State/InputType discriminate concrete values; StateJSON never decodes an
 // untrusted interface or substitutes a second lifecycle implementation.
 type CaptureRecord struct {
-	BackendFence     *CaptureBackendFence `json:",omitempty"`
-	ID               string
-	Identity         memory.Identity
-	RawText          string
-	Origin           CaptureOrigin
-	State, InputType string
-	StateJSON        json.RawMessage
-	Owner            string
-	Generation       int
-	Deadline         time.Time
-	Lease            time.Duration
-	Revision         uint64
-	RuleID           string
+	// CaptureUnavailable marks a metadata-only failure; no payload exists to retry.
+	CaptureUnavailable bool                 `json:",omitempty"`
+	BackendFence       *CaptureBackendFence `json:",omitempty"`
+	ID                 string
+	Identity           memory.Identity
+	RawText            string
+	Origin             CaptureOrigin
+	State, InputType   string
+	StateJSON          json.RawMessage
+	Owner              string
+	Generation         int
+	Deadline           time.Time
+	Lease              time.Duration
+	Revision           uint64
+	RuleID             string
 }
 
 // Now must be refreshed from the worker clock before ApplyCapture. This queue
@@ -330,6 +332,11 @@ func project(r CaptureRecord, s memory.State, rule string) (CaptureRecord, error
 func addCapture(d *captureData, a AcceptedInput, principal, chat, source, kind, text string, now time.Time) error {
 	i := memory.Identity{Principal: principal, Destination: a.Policy.Destination, Agent: a.Policy.AgentID, Chat: chat, Source: source, Kind: kind}
 	id := CaptureKey(i)
+	for _, old := range d.Records {
+		if old.CaptureUnavailable && old.Identity.Source == source && old.Identity.Kind == kind {
+			return nil
+		}
+	}
 	if d.DeadKeys[id] {
 		return ErrCaptureConflict
 	}
@@ -746,6 +753,9 @@ func retryCapture(ctx context.Context, p, c, id string, edit captureEdit) error 
 		r, ok := d.Records[id]
 		if !ok {
 			return ErrNoCapture
+		}
+		if r.CaptureUnavailable {
+			return ErrCaptureConflict
 		}
 		s, err := r.ReducerState()
 		if err != nil {

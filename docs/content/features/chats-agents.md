@@ -758,7 +758,12 @@ reply a new identity without accepting the original incoming text again.
 Incoming intent and waiting-message acceptance share one store operation;
 reply intent and the successful turn outcome share another. Collection writes
 and summarization run independently of answering. Capture persistence failures
-are logged and do not prevent an otherwise successful answer or connector reply.
+do not prevent an otherwise successful answer or connector reply. When status
+storage remains available, a separate principal-scoped write records a durable,
+metadata-only failed capture with its original source identity and destination.
+The reason is a fixed safe message, never the store error or private text. These
+markers contain no retained payload, cannot be retried into a backend write, and
+replay cannot reroute or replace an existing capture or receipt.
 Queued work retains its original destination and is authorized again before
 writing; changing an agent's destination never reroutes existing work.
 
@@ -778,9 +783,12 @@ Connectors without a platform message ID retain per-delivery behavior. Replay of
 an already accepted request still returns its original disposition after automatic
 memory is switched off; this does not grant permission for new collection writes.
 If capture acceptance alone fails while ordinary chat storage works, answering
-continues without a capture intent. That degraded delivery has no durable capture
-or replay guarantee; the failure is logged. An outage of ordinary chat storage
-can still prevent answering.
+continues with a metadata-only failure marker if the independent status write
+succeeds. This is bounded best effort: if the whole chat database is unavailable,
+no durable marker can be guaranteed; a safe warning is logged without retrying or
+blocking the answer path. A marker is not a transport delivery receipt and does
+not guarantee answer deduplication for a degraded delivery. An outage of ordinary
+chat storage can still prevent answering.
 
 Connector delivery identity also covers messages with attachments: replaying the
 same platform event does not start another answer or accept its text again. Saved

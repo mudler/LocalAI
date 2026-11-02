@@ -871,8 +871,8 @@ func (s *Service) send(ctx context.Context, user, conv string, msg session.Messa
 				accepted, err = s.d.Store.AcceptMemoryInput(ctx, in)
 				if err != nil {
 					// Capture-only outages must not block the ordinary chat path.
-					// No durable replay guarantee is possible for this failed acceptance.
-					s.log.Warn("studio: could not persist incoming memory intent", "chat", conv, "error", err)
+					// Persist metadata-only status independently of acceptance.
+					s.recordAcceptanceFailure(ctx, in)
 				} else {
 					found = true
 				}
@@ -954,7 +954,7 @@ func (s *Service) startClaimed(ctx context.Context, p, conv, runID string, msg s
 		if in, ok := s.memoryAcceptance(ctx, p, conv, msg.Text); ok {
 			_, err := s.d.Store.AcceptMemoryInput(ctx, in)
 			if err != nil {
-				s.log.Warn("studio: could not persist incoming memory intent", "chat", conv, "error", err)
+				s.recordAcceptanceFailure(ctx, in)
 			} else {
 				msg.Text = ""
 			}

@@ -51,7 +51,7 @@ func (s *Service) acceptDirectMemory(ctx context.Context, p, conv, text string) 
 	in.Delivered = true
 	accepted, err := s.d.Store.AcceptMemoryInput(ctx, in)
 	if err != nil {
-		s.log.Warn("studio: could not persist incoming memory intent", "chat", conv, "error", err)
+		s.recordAcceptanceFailure(ctx, in)
 		return ""
 	}
 	return accepted.ID
@@ -66,18 +66,29 @@ func (s *Service) acceptPendingMemory(ctx context.Context, p, conv, text, payloa
 		}
 		// Memory must not prevent an answer or connector delivery. The ordinary
 		// queue remains available even when capture persistence is unavailable.
-		s.log.Warn("studio: could not persist pending memory intent", "chat", conv, "error", err)
+		s.recordAcceptanceFailure(ctx, in)
 	}
 	return s.d.Store.AddPending(ctx, p, conv, payload)
 }
 
 func (s *Service) completeMemoryRun(ctx context.Context, p, conv string, r *run, status store.TurnStatus) error {
 	if len(r.memoryInputs) > 0 {
-		err := s.d.Store.CompleteMemoryTurn(ctx, store.MemoryTurnCompletion{Principal: p, ChatID: conv, RunID: r.id, ReplyID: r.id, ReplyText: r.memoryReply, Status: status, IncomingIDs: nil})
+		in := store.MemoryTurnCompletion{Principal: p, ChatID: conv, RunID: r.id, ReplyID: r.id, ReplyText: r.memoryReply, Status: status, IncomingIDs: r.memoryInputs}
+		err := s.d.Store.CompleteMemoryTurn(ctx, in)
 		if err == nil {
 			return nil
 		}
-		s.log.Warn("studio: could not persist completed memory intent", "chat", conv, "error", err)
+		if markerErr := s.d.Store.RecordMemoryCompletionFailure(ctx, in); markerErr != nil {
+			s.log.Warn("studio: memory failure status unavailable", "chat", conv)
+		}
 	}
 	return s.releaseTurn(ctx, p, conv, r.id, status)
+}
+
+// Bounded best effort: if the chat database itself is unavailable, a failure
+// marker cannot be persisted either. Never retry in the answer path or log bodies.
+func (s *Service) recordAcceptanceFailure(ctx context.Context, in store.MemoryAcceptance) {
+	if err := s.d.Store.RecordMemoryAcceptanceFailure(ctx, in); err != nil {
+		s.log.Warn("studio: memory failure status unavailable", "chat", in.ChatID)
+	}
 }

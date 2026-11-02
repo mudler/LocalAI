@@ -79,6 +79,8 @@ type TurnInfo struct {
 type Store interface {
 	session.Store
 	AcceptMemoryInput(context.Context, MemoryAcceptance) (AcceptedInput, error)
+	RecordMemoryAcceptanceFailure(context.Context, MemoryAcceptance) error
+	RecordMemoryCompletionFailure(context.Context, MemoryTurnCompletion) error
 	// MemoryInput reads a prior acceptance independently of current capture policy.
 	MemoryInput(context.Context, string, string, string) (AcceptedInput, bool, error)
 	BindMemoryTurn(context.Context, string, string, string, []string) error
