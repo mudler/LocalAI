@@ -281,6 +281,8 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 // commandsFor says whether the chat of rec can run commands at its next turn.
 func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) (Commands, error) {
 	conv := rec.ID
+	ctx, closeScope := s.executionScope(ctx, p, conv)
+	defer closeScope()
 	a := s.chatActorFor(ctx, rec)
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
 		s.mu.Lock()
@@ -538,6 +540,8 @@ func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspac
 	if sc != nil && sc.deleted {
 		return Commands{State: CommandsNone}, nil
 	}
+	ctx, closeScope := s.executionScope(ctx, p, rec.ID)
+	defer closeScope()
 	var tools []session.Tool
 	// Only ad-hoc children inherit a pruned tool set. Saved-agent children
 	// resolve current grants through their scope, just like their turn tools.
