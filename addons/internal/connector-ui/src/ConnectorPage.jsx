@@ -81,6 +81,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [busy, setBusy] = useState(false)
   const [toDelete, setToDelete] = useState(null)
   const [openSenders, setOpenSenders] = useState('')
+  const [kindInfo, setKindInfo] = useState(null)
 
   const fail = useCallback((e) => {
     if (e?.status === 409 && e.body?.error?.type === 'connectors_off') { setOff(e.body.error.message); return }
@@ -96,6 +97,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }, [fail, kind])
 
   useEffect(() => { load() }, [load])
+  // What the add-on of this kind can do: read a thread, and the choices it offers.
+  useEffect(() => { connectorsApi.kinds().then((r) => setKindInfo((r.kinds || []).find((k) => k.kind === kind) || null)).catch(() => {}) }, [kind])
   useEffect(() => { agentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
@@ -191,7 +194,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             <Field label={t('notifyChat')} hint={t('notifyHelp')} optional>
               {(p) => <TextInput {...p} mono inputMode={notifyMode} value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />}
             </Field>
-            <AnswerFields form={form} setForm={setForm} t={t} />
+            <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <div className="cn-actions">
               <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()))}>{t('save')}</button>
               <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setForm(null)}>{t('cancel')}</button>

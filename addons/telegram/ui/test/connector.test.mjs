@@ -66,3 +66,15 @@ test('chat connectors: a window needs 1 to 10080 minutes', () => {
   assert.equal(canSave({ ...ok, window_minutes: 0 }, false), false)
   assert.equal(canSave({ ...ok, window_minutes: 20000 }, false), false)
 })
+
+test('chat connectors: a new binding reads threads, and the request carries it with the choices of the kind', () => {
+  const c = emptyConnector()
+  assert.equal(c.thread_context, true)
+  assert.deepEqual(c.options, {})
+  const base = { ...c, name: 'B', agent_id: 'a' }
+  const body = connectorPayload({ ...base, thread_context: false, options: { followThreads: 'any', empty: '' } }, 'slack')
+  assert.equal(body.thread_context, false)
+  assert.deepEqual(body.options, { followThreads: 'any' }, 'an empty choice is left out')
+  assert.equal(connectorPayload(base, 'slack').thread_context, true)
+  assert.deepEqual(connectorPayload({ ...base, options: undefined }, 'slack').options, {})
+})

@@ -10,6 +10,7 @@ export function emptyConnector() {
   return {
     id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
     reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true,
+    thread_context: true, options: {},
   }
 }
 
@@ -28,6 +29,9 @@ export function connectorPayload(form, kind, token = form.token) {
     reply_mode: form.reply_mode || 'progress',
     conversation: form.conversation || 'sender',
     send_files: form.send_files !== false,
+    thread_context: form.thread_context !== false,
+    // The choices for the options of the kind; a missing one has its default.
+    options: Object.fromEntries(Object.entries(form.options || {}).filter(([, v]) => v)),
   }
   if (body.conversation === 'window') body.window_minutes = Number(form.window_minutes) || 0
   const secret = (token || '').trim()
