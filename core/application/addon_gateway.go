@@ -273,6 +273,15 @@ func confirmCredential(mode string) func(contract.Actor) bool {
 	}
 }
 
+// confirmPerson says which credentials stand for a person at a host surface:
+// confirmCredential without the credential of a chat turn.
+func confirmPerson(mode string) func(contract.Actor) bool {
+	inner := confirmCredential(mode)
+	return func(a contract.Actor) bool {
+		return a.CredentialID != auth.AddonChatsCredential && inner(a)
+	}
+}
+
 func (a *Application) startAddonGateway() error {
 	cfg := a.applicationConfig.Addons
 	if cfg.Transport == nil {
@@ -345,6 +354,10 @@ func (a *Application) startAddonGateway() error {
 	// so the chats' own credential may confirm what the chats adapter has just
 	// stored. No request carries it: sessions and API keys build their own.
 	brokerOpts.ConfirmCredential = confirmCredential(mode)
+	// A change under a credential that waits for a person is applied from a
+	// host surface only, never by a chat turn.
+	brokerOpts.ConfirmPerson = confirmPerson(mode)
+	brokerOpts.Credentials = credentialSource{a}
 	// A deletion trusts only an explicit answer of the add-on.
 	confirmed := a.addonResourceExists
 	if confirmed == nil {
@@ -954,7 +967,7 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 	var notAllowed *connectors.NotAllowedError
 	switch {
 	case err == nil:
-		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID}, nil
+		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID, WriteMode: grant.WriteMode}, nil
 	case errors.Is(err, connectors.ErrNoCredential):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
 	case errors.As(err, &notAllowed):

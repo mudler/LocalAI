@@ -7,8 +7,10 @@
 package githubtest
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -28,6 +30,9 @@ type Server struct {
 	calls   []Call
 	limit   *limit
 	failing map[string]int // path prefix -> status
+	// dropWrites makes the fake apply a change and then cut the connection
+	// before it answers, as a network failure does.
+	dropWrites bool
 }
 
 // Call is one request the fake served.
@@ -37,6 +42,9 @@ type Call struct {
 	Token string
 	// Accept is the media type the caller asked for.
 	Accept string
+	// Method is the HTTP method and Body the request body of a change.
+	Method string
+	Body   string
 }
 
 type limit struct {
@@ -68,6 +76,9 @@ type Issue struct {
 	Labels   []string
 	Comments []string
 	IsPR     bool
+	Locked   bool
+	// Reason is the state_reason set when the issue was closed.
+	Reason string
 }
 
 // PR is a pull request of the fake.
@@ -81,6 +92,16 @@ type PR struct {
 	Head    string
 	Files   []PRFile
 	Reviews []Review
+	// HeadSHA is the commit of the head; empty means "abc123".
+	HeadSHA string
+	// Inline are the review comments posted on the diff.
+	Inline []InlineComment
+}
+
+// InlineComment is a comment on a line of a pull request.
+type InlineComment struct {
+	Body, Path, Side, CommitID string
+	Line                       int
 }
 
 // PRFile is a changed file.
@@ -104,6 +125,14 @@ func New() *Server {
 	s := &Server{tokens: map[string]string{}, repos: map[string]*Repo{}, failing: map[string]int{}}
 	s.Server = httptest.NewServer(http.HandlerFunc(s.serve))
 	return s
+}
+
+// DropWrites makes the fake apply each change and then cut the connection
+// without an answer.
+func (s *Server) DropWrites(on bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dropWrites = on
 }
 
 // AddToken makes a token valid for a login.
@@ -175,8 +204,13 @@ func (s *Server) Fail(prefix string, status int) {
 
 func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	var reqBody []byte
+	if r.Body != nil {
+		reqBody, _ = io.ReadAll(io.LimitReader(r.Body, 1<<20))
+		r.Body = io.NopCloser(bytes.NewReader(reqBody))
+	}
 	s.mu.Lock()
-	s.calls = append(s.calls, Call{Path: r.URL.Path, Query: r.URL.RawQuery, Token: token, Accept: r.Header.Get("Accept")})
+	s.calls = append(s.calls, Call{Path: r.URL.Path, Query: r.URL.RawQuery, Token: token, Accept: r.Header.Get("Accept"), Method: r.Method, Body: string(reqBody)})
 	login, ok := s.tokens[token]
 	lim := s.limit
 	var fail int
@@ -240,6 +274,8 @@ func (s *Server) repoRoute(w http.ResponseWriter, r *http.Request, rest string) 
 		s.contents(w, r, repo, strings.TrimPrefix(strings.TrimPrefix(sub, "contents"), "/"))
 	case strings.HasPrefix(sub, "git/trees/"):
 		s.tree(w, r, repo)
+	case sub == "issues" && r.Method == http.MethodPost:
+		s.createIssue(w, r, repo)
 	case sub == "issues":
 		s.listIssues(w, r, repo)
 	case strings.HasPrefix(sub, "issues/"):
@@ -357,7 +393,9 @@ func (s *Server) listIssues(w http.ResponseWriter, r *http.Request, repo *Repo) 
 		if state != "" && state != "all" && i.State != state {
 			continue
 		}
-		list = append(list, issueJSON(i, false))
+		e := issueJSON(i, false)
+		e["body"] = i.Body
+		list = append(list, e)
 	}
 	page, per := pageOf(r)
 	lo, hi := (page-1)*per, page*per
@@ -379,6 +417,10 @@ func (s *Server) issue(w http.ResponseWriter, r *http.Request, repo *Repo, rest 
 	for _, i := range repo.Issues {
 		if i.Number != n {
 			continue
+		}
+		if r.Method != http.MethodGet {
+			s.changeIssue(w, r, repo, i, tail)
+			return
 		}
 		if tail == "comments" {
 			var list []map[string]any
@@ -412,6 +454,10 @@ func (s *Server) pull(w http.ResponseWriter, r *http.Request, repo *Repo, rest s
 		if p.Number != n {
 			continue
 		}
+		if r.Method == http.MethodPost && tail == "comments" {
+			s.inlineComment(w, r, repo, p)
+			return
+		}
 		switch tail {
 		case "":
 			add, del := 0, 0
@@ -420,7 +466,7 @@ func (s *Server) pull(w http.ResponseWriter, r *http.Request, repo *Repo, rest s
 				del += f.Deletions
 			}
 			writeJSON(w, map[string]any{"number": p.Number, "title": p.Title, "body": p.Body, "state": p.State, "draft": false, "merged": false,
-				"user": map[string]any{"login": p.User}, "base": map[string]any{"ref": p.Base}, "head": map[string]any{"ref": p.Head},
+				"user": map[string]any{"login": p.User}, "base": map[string]any{"ref": p.Base}, "head": map[string]any{"ref": p.Head, "sha": headSHA(p)},
 				"additions": add, "deletions": del, "changed_files": len(p.Files), "commits": 1, "comments": 0, "review_comments": 0,
 				"created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-02T00:00:00Z", "html_url": "https://github.com/" + repo.FullName + "/pull/" + num})
 		case "files":
@@ -468,10 +514,154 @@ func issueJSON(i *Issue, full bool) map[string]any {
 	if i.IsPR {
 		out["pull_request"] = map[string]any{"url": "x"}
 	}
+	out["locked"] = i.Locked
 	if full {
 		out["body"] = i.Body
 	}
 	return out
+}
+
+func headSHA(p *PR) string {
+	if p.HeadSHA != "" {
+		return p.HeadSHA
+	}
+	return "abc123"
+}
+
+func (s *Server) dropIfAsked(w http.ResponseWriter) bool {
+	s.mu.Lock()
+	drop := s.dropWrites
+	s.mu.Unlock()
+	if !drop {
+		return false
+	}
+	if h, ok := w.(http.Hijacker); ok {
+		if conn, _, err := h.Hijack(); err == nil {
+			_ = conn.Close()
+		}
+	}
+	return true
+}
+
+func readBody(r *http.Request) map[string]any {
+	var in map[string]any
+	_ = json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&in)
+	return in
+}
+
+func str(in map[string]any, k string) string { v, _ := in[k].(string); return v }
+
+func (s *Server) createIssue(w http.ResponseWriter, r *http.Request, repo *Repo) {
+	in := readBody(r)
+	if str(in, "title") == "" {
+		jsonError(w, http.StatusUnprocessableEntity, "Validation Failed")
+		return
+	}
+	s.mu.Lock()
+	n := 1
+	for _, i := range repo.Issues {
+		n = max(n, i.Number+1)
+	}
+	i := &Issue{Number: n, Title: str(in, "title"), Body: str(in, "body"), State: "open", User: "octo"}
+	if ls, ok := in["labels"].([]any); ok {
+		for _, l := range ls {
+			if name, ok := l.(string); ok {
+				i.Labels = append(i.Labels, name)
+			}
+		}
+	}
+	repo.Issues = append(repo.Issues, i)
+	s.mu.Unlock()
+	if s.dropIfAsked(w) {
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, issueJSON(i, true))
+}
+
+func (s *Server) changeIssue(w http.ResponseWriter, r *http.Request, repo *Repo, i *Issue, tail string) {
+	in := readBody(r)
+	s.mu.Lock()
+	switch {
+	case tail == "comments" && r.Method == http.MethodPost:
+		if i.Locked {
+			s.mu.Unlock()
+			jsonError(w, http.StatusForbidden, "Issue is locked")
+			return
+		}
+		i.Comments = append(i.Comments, str(in, "body"))
+		id := 1000 + len(i.Comments) - 1
+		s.mu.Unlock()
+		if s.dropIfAsked(w) {
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		writeJSON(w, map[string]any{"id": id, "body": str(in, "body"), "html_url": "https://github.com/" + repo.FullName + "/issues/" + strconv.Itoa(i.Number) + "#issuecomment-" + strconv.Itoa(id)})
+		return
+	case tail == "labels" && r.Method == http.MethodPost:
+		if ls, ok := in["labels"].([]any); ok {
+			for _, l := range ls {
+				name, _ := l.(string)
+				have := false
+				for _, x := range i.Labels {
+					have = have || strings.EqualFold(x, name)
+				}
+				if name != "" && !have {
+					i.Labels = append(i.Labels, name)
+				}
+			}
+		}
+		out := issueLabels(i)
+		s.mu.Unlock()
+		if s.dropIfAsked(w) {
+			return
+		}
+		writeJSON(w, out)
+		return
+	case tail == "" && r.Method == http.MethodPatch:
+		if v := str(in, "title"); v != "" {
+			i.Title = v
+		}
+		if v := str(in, "state"); v != "" {
+			i.State = v
+			i.Reason = str(in, "state_reason")
+		}
+		out := issueJSON(i, true)
+		s.mu.Unlock()
+		if s.dropIfAsked(w) {
+			return
+		}
+		writeJSON(w, out)
+		return
+	}
+	s.mu.Unlock()
+	jsonError(w, http.StatusNotFound, "Not Found")
+}
+
+func issueLabels(i *Issue) []map[string]any {
+	out := make([]map[string]any, 0, len(i.Labels))
+	for _, l := range i.Labels {
+		out = append(out, map[string]any{"name": l})
+	}
+	return out
+}
+
+func (s *Server) inlineComment(w http.ResponseWriter, r *http.Request, repo *Repo, p *PR) {
+	in := readBody(r)
+	line, _ := in["line"].(float64)
+	if str(in, "path") == "" || line < 1 || str(in, "commit_id") == "" {
+		jsonError(w, http.StatusUnprocessableEntity, "Validation Failed")
+		return
+	}
+	s.mu.Lock()
+	p.Inline = append(p.Inline, InlineComment{Body: str(in, "body"), Path: str(in, "path"), Side: str(in, "side"), CommitID: str(in, "commit_id"), Line: int(line)})
+	id := 3000 + len(p.Inline)
+	s.mu.Unlock()
+	if s.dropIfAsked(w) {
+		return
+	}
+	w.WriteHeader(http.StatusCreated)
+	writeJSON(w, map[string]any{"id": id, "body": str(in, "body"), "html_url": "https://github.com/" + repo.FullName + "/pull/" + strconv.Itoa(p.Number) + "#discussion_r" + strconv.Itoa(id)})
 }
 
 func pageOf(r *http.Request) (page, per int) {

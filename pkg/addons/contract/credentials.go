@@ -51,8 +51,11 @@ type CredentialSlot struct {
 
 // validateCredentials checks the credentials of the manifest. The binding that
 // holds a credential belongs to a connector kind, so the add-on declares one.
-// Every tool of such an add-on is a read tool: a change under a credential
-// needs the write mode of the binding, which this version does not have.
+// A tool of such an add-on is a read tool or a write tool. A write tool names
+// its resource with the slot argument, which must be required; the write mode
+// of the person's binding decides whether it runs at all, whether it waits for
+// a confirmation, and the host holds it to the list of the binding like a
+// read. Schema, create and action tools cannot carry a credential.
 func validateCredentials(c Capabilities, api VersionRange) error {
 	if len(c.Credentials) == 0 {
 		return nil
@@ -78,17 +81,23 @@ func validateCredentials(c Capabilities, api VersionRange) error {
 	}
 	slot := c.Credentials[0]
 	for _, d := range c.ToolDefinitions {
-		if d.Kind != ToolKindRead {
-			return fmt.Errorf("tool %s: an add-on with credentials declares read tools only", d.Name)
+		if d.Kind != ToolKindRead && d.Kind != ToolKindWrite {
+			return fmt.Errorf("tool %s: an add-on with credentials declares read and write tools only", d.Name)
 		}
 		if _, has := toolProperties(d)[ResourceArgument]; has {
 			return fmt.Errorf("tool %s: an add-on with credentials names its resources with %s, not %s", d.Name, slot.ResourceArgument, ResourceArgument)
 		}
 		if slot.ResourceArgument == "" {
+			if d.Kind == ToolKindWrite {
+				return fmt.Errorf("tool %s: a write tool needs the credential slot to name a resource argument", d.Name)
+			}
 			continue
 		}
 		prop, has := toolProperties(d)[slot.ResourceArgument]
 		if !has {
+			if d.Kind == ToolKindWrite {
+				return fmt.Errorf("tool %s: a write tool must declare %s", d.Name, slot.ResourceArgument)
+			}
 			continue
 		}
 		var p struct {

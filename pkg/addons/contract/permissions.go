@@ -33,6 +33,10 @@ const (
 	CapSkillsWrite      = "skills.write"
 	CapPagesWrite       = "pages.write"
 	CapDashboardWrite   = "dashboard.write"
+	// CapToolsWrite lets a sender make an add-on tool change something outside
+	// LocalAI, such as a comment on an issue. It is for the tools of a kind
+	// whose binding holds a credential.
+	CapToolsWrite = "tools.write"
 )
 
 // capabilities maps each name to whether it is sensitive. A sensitive
@@ -49,6 +53,7 @@ var capabilities = map[string]bool{
 	CapSkillsWrite:      true,
 	CapPagesWrite:       true,
 	CapDashboardWrite:   true,
+	CapToolsWrite:       false,
 }
 
 // KnownCapability reports whether name is in the closed list of capabilities.

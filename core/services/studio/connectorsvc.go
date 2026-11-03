@@ -59,6 +59,9 @@ type ConnectorInput struct {
 	// conversation (see connectors.Channel). Nil: new binding none, update
 	// unchanged. An empty list clears it.
 	Channels []connectors.Channel
+	// WriteMode is one of connectors.WriteOff, WritePropose and WriteAuto. Nil:
+	// new binding off, update unchanged.
+	WriteMode *string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -91,6 +94,9 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.Resources != nil {
 		b.Resources = connectors.NewResources(in.Resources)
+	}
+	if in.WriteMode != nil {
+		b.WriteMode = *in.WriteMode
 	}
 }
 

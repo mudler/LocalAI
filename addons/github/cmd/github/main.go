@@ -2,8 +2,8 @@
 
 // Command github is the executable of the GitHub add-on. It reads repositories
 // for the chats and the agents with a token that the host keeps for the person
-// and hands over with each call. The add-on stores no token and writes nothing
-// to GitHub.
+// and hands over with each call. The add-on stores no token. It changes GitHub
+// only through its write tools, and only as far as the host allows.
 package main
 
 import (
@@ -28,8 +28,8 @@ func (r runtime) Connector(ctx context.Context, req contract.ConnectorRequest) (
 }
 
 func main() {
-	os.Exit(protocol.Run(os.Args, func(protocol.Startup) contract.Runtime {
+	os.Exit(protocol.Run(os.Args, func(st protocol.Startup) contract.Runtime {
 		api := ghapi.New()
-		return runtime{Runtime: tools.New(api), platform: platform.Platform{API: api}}
+		return runtime{Runtime: tools.New(api).WithDataDir(st.DataDir), platform: platform.Platform{API: api}}
 	}))
 }

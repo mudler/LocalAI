@@ -18,6 +18,17 @@ const (
 	// CodeNoCredential means the person has no binding that holds a
 	// credential for the add-on.
 	CodeNoCredential = "no_credential"
+	// CodeWriteNotAllowed means the binding that holds the credential has its
+	// write mode off, so a write tool does not run.
+	CodeWriteNotAllowed = "write_not_allowed"
+)
+
+// Write modes of a binding, as the host stores them. A binding with none is
+// WriteOff.
+const (
+	WriteOff     = "off"
+	WritePropose = "propose"
+	WriteAuto    = "auto"
 )
 
 // CredentialGrant is what the owner adds to a call of an add-on that declares
@@ -29,6 +40,10 @@ type CredentialGrant struct {
 	// ResourceKey and ResourceID are the entry of the list that matched. Both
 	// are empty for a call that names no resource.
 	ResourceKey, ResourceID string
+	// WriteMode is the write mode of the binding the credential comes from:
+	// WriteOff, WritePropose or WriteAuto. Empty means WriteOff. It decides
+	// whether a write tool runs and whether a person must confirm it.
+	WriteMode string
 }
 
 // CredentialSource finds the credential and the allowed resource for a call.

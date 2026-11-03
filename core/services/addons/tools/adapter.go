@@ -191,6 +191,13 @@ const CodeNoCredential = gateway.CodeNoCredential
 // NoCredentialNote is what the model is told when the person has no credential for the add-on.
 const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
 
+// CodeWriteNotAllowed is the Code of a ResultError for a write tool of an add-on
+// whose binding has its write mode off. The add-on was not called.
+const CodeWriteNotAllowed = gateway.CodeWriteNotAllowed
+
+// WriteNotAllowedNote is what the model is told when writes are off.
+const WriteNotAllowedNote = "The person has not allowed this add-on to change anything, so nothing was sent. Tell them they can turn on writes on the add-on page, choosing to confirm each change or to allow them. Do not repeat the call and do not report an outage."
+
 // CodeResourceUnreachable is the Code of a ResultError for a resource the person cannot reach.
 const CodeResourceUnreachable = "resource_unreachable"
 
@@ -592,7 +599,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	}
 	// The owner validated the manifest at install; it is checked again here
 	// because a schema is what a model is told to obey.
-	if contract.ValidateToolSchema(d.InputSchema, d.Kind) != nil {
+	if contract.ValidateDefinitionSchema(d) != nil {
 		return ToolDefinition{}, false
 	}
 	var params map[string]any
@@ -801,7 +808,7 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	if err != nil {
 		return refusedResult(name, err)
 	}
-	if t.apply != nil {
+	if t.apply != nil && !p.AwaitsPerson {
 		return t.applyNow(ctx, actor, name, p)
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
@@ -871,6 +878,8 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeRateLimited, Note: RateLimitedNote, RetryAfter: limited.Seconds()}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeWriteNotAllowed:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeWriteNotAllowed, Note: WriteNotAllowedNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeNoCredential:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNoCredential, Note: NoCredentialNote}, nil
 	case errors.Is(err, gateway.ErrNotPermitted):

@@ -36,6 +36,11 @@ var _ = Describe("the manifest", func() {
 		Expect(contract.ValidateManifest(m, h)).To(Succeed())
 		Expect(m.Capabilities.Tools).To(ConsistOf(tools.Declared()))
 		for _, d := range m.Capabilities.ToolDefinitions {
+			if d.Kind == contract.ToolKindWrite {
+				Expect(tools.WriteTools()).To(ContainElement(d.Name))
+				Expect(d.Description).To(ContainSubstring("public to everyone who can see the repository"), d.Name)
+				continue
+			}
 			Expect(d.Kind).To(Equal(contract.ToolKindRead), d.Name)
 			if d.UIOnly {
 				continue

@@ -81,4 +81,32 @@ var _ = Describe("connector credentials for tool calls", func() {
 		_, err = r.conns.UpdateConnector(ctx, alice, b.ID, in)
 		Expect(err).To(MatchError(connectors.ErrInvalid))
 	})
+
+	It("defaults the write mode to off, keeps and changes it, and refuses an unknown one", func() {
+		r := newConnRig(newShared(), connStore(), newScriptedBot(), connSay("x"), nil)
+		b := r.bind(studio.ConnectorInput{Token: "t", Resources: []string{"a/b"}})
+		Expect(b.Writes()).To(Equal(connectors.WriteOff))
+		grant, err := r.conns.CredentialFor(ctx, alice, "telegram", "a/b")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(grant.WriteMode).To(Equal(connectors.WriteOff))
+
+		in := studio.ConnectorInput{Name: "Support bot", AgentID: b.AgentID, Enabled: true}
+		mode := connectors.WritePropose
+		in.WriteMode = &mode
+		got, err := r.conns.UpdateConnector(ctx, alice, b.ID, in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Writes()).To(Equal(connectors.WritePropose))
+		in.WriteMode = nil
+		got, err = r.conns.UpdateConnector(ctx, alice, b.ID, in)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Writes()).To(Equal(connectors.WritePropose), "an update without the field keeps the mode")
+		grant, err = r.conns.CredentialFor(ctx, alice, "telegram", "a/b")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(grant.WriteMode).To(Equal(connectors.WritePropose))
+
+		bad := "always"
+		in.WriteMode = &bad
+		_, err = r.conns.UpdateConnector(ctx, alice, b.ID, in)
+		Expect(err).To(MatchError(connectors.ErrInvalid))
+	})
 })

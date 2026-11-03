@@ -15704,6 +15704,19 @@
                 }
             }
         },
+        "contract.LegacyArgument": {
+            "type": "object",
+            "properties": {
+                "hint": {
+                    "description": "Hint is one plain sentence on what to send instead, such as \"use the\nmarkdown string\".",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the old argument name. The tool's schema must not declare it.",
+                    "type": "string"
+                }
+            }
+        },
         "contract.ModelAction": {
             "type": "object",
             "properties": {
@@ -15871,14 +15884,53 @@
                     "type": "string"
                 },
                 "shadows": {
-                    "description": "Shadows names the document-provider slot this skill supplies. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
+                    "description": "Shadows names the document-provider slot this skill supplies. It must equal Name\nand name a slot: one the skill declares (Slot) or a default one\n(DefaultSlots). It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
                     "type": "string"
+                },
+                "slot": {
+                    "description": "Slot describes the slot this skill serves: the files it covers and the\nwords to say about them (see SlotDefinition). It needs Shadows and\nmanifest API 2. A skill that shadows a default slot may leave it out.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.SlotDefinition"
+                        }
+                    ]
+                }
+            }
+        },
+        "contract.SlotDefinition": {
+            "type": "object",
+            "properties": {
+                "extensions": {
+                    "description": "Extensions are the file extensions the skill covers, lower case with the\ndot, such as \".docx\".",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "kind": {
+                    "description": "Kind is SlotKindDocuments.",
+                    "type": "string"
+                },
+                "library": {
+                    "description": "Library names what a script can use to read these files, shown as a hint.",
+                    "type": "string"
+                },
+                "words": {
+                    "description": "Words are lower-case words that a skill of this slot has in its name.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
         "contract.ToolDefinition": {
             "type": "object",
             "properties": {
+                "approval": {
+                    "description": "Approval, when it is ApprovalAlways, is a ceiling the person cannot lift:\nthe host stores a proposal for a write tool of this kind and applies it\nonly when a person confirms it at a host surface. A chat or an agent\nnever applies it, even when the person allowed writes without asking.\nOnly a write tool may set it.",
+                    "type": "string"
+                },
                 "description": {
                     "description": "Description is plain text for the model.",
                     "type": "string"
@@ -15898,6 +15950,13 @@
                 "kind": {
                     "description": "Kind is read, write, schema or create.",
                     "type": "string"
+                },
+                "legacyArgs": {
+                    "description": "LegacyArgs name arguments that an older version of the tool took and\nthat it refuses now, with a hint for the model (see LegacyArgument). The\nmanifest must accept API 2 (see MinLegacyArgsAPI).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.LegacyArgument"
+                    }
                 },
                 "name": {
                     "description": "Name is one of capabilities.tools.",
@@ -16796,6 +16855,10 @@
                 "arguments": {
                     "description": "Arguments are the canonical stored arguments. They are the only\narguments that can ever be submitted for this proposal.",
                     "type": "object"
+                },
+                "awaitsPerson": {
+                    "description": "AwaitsPerson reports a proposal that only a person may apply, from a\nhost surface such as the browser: a chat or an agent never applies it.\nThe write mode of the binding or the approval of the tool asks for it.",
+                    "type": "boolean"
                 },
                 "blocked": {
                     "description": "Blocked reports that another operation on the resource has an\nunresolved outcome, so confirming is denied until it is resolved. The\noperation itself belongs to its proposer and is shown only to the\nresource's owner role, in the unresolved listing and in the denial.",
@@ -18657,6 +18720,15 @@
                 },
                 "window_minutes": {
                     "type": "integer"
+                },
+                "write_mode": {
+                    "description": "WriteMode says what the tools of the add-on may change with this\nbinding's credential: off (nothing), propose (each change waits for your\nconfirmation) or auto (a chat of yours applies it at once, except a tool\nthe add-on marks as always needing your confirmation).",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "propose",
+                        "auto"
+                    ]
                 }
             }
         },
@@ -19587,6 +19659,15 @@
                 },
                 "window_minutes": {
                     "type": "integer"
+                },
+                "write_mode": {
+                    "description": "WriteMode says what the tools of the add-on may change with this\nbinding's credential: off (nothing), propose (each change waits for your\nconfirmation) or auto (a chat of yours applies it at once, except a tool\nthe add-on marks as always needing your confirmation).",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "propose",
+                        "auto"
+                    ]
                 }
             }
         },
@@ -20054,6 +20135,15 @@
                 "window_minutes": {
                     "description": "WindowMinutes is the time window of the window mode, 1 to 10080.",
                     "type": "integer"
+                },
+                "write_mode": {
+                    "description": "WriteMode is off, propose or auto (see the connector record). Absent\nmeans off for a new binding and unchanged for an update.",
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "propose",
+                        "auto"
+                    ]
                 }
             }
         },

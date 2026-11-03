@@ -61,13 +61,56 @@ var _ = Describe("The credential slot of an add-on", func() {
 			Expect(ValidateManifest(manifest(mod), host())).NotTo(Succeed())
 		}
 	})
-	It("allows read tools only until a write mode exists", func() {
-		m := manifest(func(m *Manifest) {
-			m.Capabilities.Tools = append(m.Capabilities.Tools, "comment")
-			m.Capabilities.ToolDefinitions = append(m.Capabilities.ToolDefinitions, ToolDefinition{Name: "comment", Description: "Comment.", Kind: ToolKindWrite,
-				InputSchema: json.RawMessage(`{"type":"object","properties":{"resourceId":{"type":"string"}},"required":["resourceId"],"additionalProperties":false}`)})
+	Describe("write tools", func() {
+		const writeSchema = `{"type":"object","properties":{"repo":{"type":"string"},"body":{"type":"string"}},"required":["repo","body"],"additionalProperties":false}`
+		withWrite := func(schema, approval string) Manifest {
+			return manifest(func(m *Manifest) {
+				m.Capabilities.Tools = append(m.Capabilities.Tools, "comment")
+				m.Capabilities.ToolDefinitions = append(m.Capabilities.ToolDefinitions, ToolDefinition{Name: "comment", Description: "Comment.", Kind: ToolKindWrite,
+					InputSchema: json.RawMessage(schema), Approval: approval})
+			})
+		}
+		It("are allowed when they name the resource with the slot argument", func() {
+			Expect(ValidateManifest(withWrite(writeSchema, ""), host())).To(Succeed())
+			Expect(ValidateManifest(withWrite(writeSchema, ApprovalAlways), host())).To(Succeed())
 		})
-		Expect(ValidateManifest(m, host())).NotTo(Succeed())
+		It("never take the host resource argument", func() {
+			s := `{"type":"object","properties":{"repo":{"type":"string"},"resourceId":{"type":"string"}},"required":["repo","resourceId"],"additionalProperties":false}`
+			Expect(ValidateManifest(withWrite(s, ""), host())).NotTo(Succeed())
+		})
+		It("must require the slot argument", func() {
+			s := `{"type":"object","properties":{"body":{"type":"string"}},"required":["body"],"additionalProperties":false}`
+			Expect(ValidateManifest(withWrite(s, ""), host())).NotTo(Succeed())
+		})
+		It("refuse an approval value the host does not know", func() {
+			Expect(ValidateManifest(withWrite(writeSchema, "sometimes"), host())).NotTo(Succeed())
+		})
+		It("are the only change a credential allows: schema, create and action tools are refused", func() {
+			for _, kind := range []string{ToolKindSchema, ToolKindCreate, ToolKindAction} {
+				m := manifest(func(m *Manifest) {
+					m.Capabilities.Actions = true
+					m.Capabilities.Tools = append(m.Capabilities.Tools, "x")
+					m.Capabilities.ToolDefinitions = append(m.Capabilities.ToolDefinitions, ToolDefinition{Name: "x", Description: "X.", Kind: kind, InputSchema: json.RawMessage(writeSchema)})
+				})
+				Expect(ValidateManifest(m, host())).NotTo(Succeed(), kind)
+			}
+		})
+		It("are refused in an add-on without a credential when they lack resourceId", func() {
+			m := manifest(func(m *Manifest) {
+				m.Capabilities.Credentials = nil
+				m.Capabilities.Tools = append(m.Capabilities.Tools, "comment")
+				m.Capabilities.ToolDefinitions = append(m.Capabilities.ToolDefinitions, ToolDefinition{Name: "comment", Description: "Comment.", Kind: ToolKindWrite, InputSchema: json.RawMessage(writeSchema)})
+			})
+			Expect(ValidateManifest(m, host())).NotTo(Succeed())
+		})
+		It("accept the approval field on a write tool only", func() {
+			m := manifest(func(m *Manifest) { m.Capabilities.ToolDefinitions[0].Approval = ApprovalAlways })
+			Expect(ValidateManifest(m, host())).NotTo(Succeed())
+		})
+		It("may be checked on their own with ValidateCredentialedToolSchema", func() {
+			Expect(ValidateCredentialedToolSchema(json.RawMessage(writeSchema), ToolKindWrite)).To(Succeed())
+			Expect(ValidateToolSchema(json.RawMessage(writeSchema), ToolKindWrite)).NotTo(Succeed())
+		})
 	})
 	It("makes a tool require the resource argument as a string", func() {
 		for _, s := range []string{

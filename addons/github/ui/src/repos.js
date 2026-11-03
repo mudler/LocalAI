@@ -44,10 +44,18 @@ export function reposProblem(text) {
   return ''
 }
 
+// What the agent may change on GitHub with this connection. The host keeps it
+// on the binding and enforces it: off runs no write tool, propose stores each
+// change for you to confirm, auto lets a chat of yours make it at once.
+export const WRITE_MODES = ['off', 'propose', 'auto']
+
+// The mode of a saved binding, off for one that has none or an unknown one.
+export const writeModeOf = (m) => (WRITE_MODES.includes(m) ? m : 'off')
+
 // The fields this page adds to a binding: its form values, the request body
 // they make, and whether they allow saving.
-export const extraForm = (c) => ({ repos_text: (c.resources || []).join('\n') })
-export const extraBody = (form) => ({ resources: parseRepos(form.repos_text) })
+export const extraForm = (c) => ({ repos_text: (c.resources || []).join('\n'), write_mode: writeModeOf(c.write_mode) })
+export const extraBody = (form) => ({ resources: parseRepos(form.repos_text), write_mode: writeModeOf(form.write_mode) })
 export const extraValid = (form) => !reposProblem(form.repos_text)
 
 // The line the Test button adds for each repository, from the check tool.

@@ -97,6 +97,19 @@ func Run(newStore NewStore) {
 		again, _ := s.GetBinding(ctx, "res")
 		Expect(again.Resources[0].Key).To(Equal("Acme/Widgets"))
 	})
+	It("keeps the write mode of a binding", func() {
+		s := newStore()
+		b := binding("wm", "u1", "WriteMode")
+		b.WriteMode = connectors.WriteAuto
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "wm")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.WriteMode).To(Equal(connectors.WriteAuto))
+		old := binding("old", "u1", "Old")
+		Expect(s.PutBinding(ctx, old)).To(Succeed())
+		got, _ = s.GetBinding(ctx, "old")
+		Expect(got.Writes()).To(Equal(connectors.WriteOff))
+	})
 	It("keeps the file limits an owner set for a binding", func() {
 		s := newStore()
 		b := binding("limits", "u1", "Limits")

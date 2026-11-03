@@ -94,6 +94,10 @@ type Proposal struct {
 	// operation itself belongs to its proposer and is shown only to the
 	// resource's owner role, in the unresolved listing and in the denial.
 	Blocked bool `json:"blocked,omitempty"`
+	// AwaitsPerson reports a proposal that only a person may apply, from a
+	// host surface such as the browser: a chat or an agent never applies it.
+	// The write mode of the binding or the approval of the tool asks for it.
+	AwaitsPerson bool `json:"awaitsPerson,omitempty"`
 	// Resolution is present once the resource owner stopped waiting for an
 	// unresolved outcome. It stays after a late receipt is recorded.
 	Resolution *ProposalResolution `json:"resolution,omitempty"`

@@ -400,7 +400,7 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
 		}
 	}
-	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
+	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0); e != nil {
 		return e
 	}
 	if e := validateExtensions(c); e != nil {

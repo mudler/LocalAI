@@ -61,6 +61,30 @@ const (
 	ConversationThread = "thread"
 )
 
+// Write modes: what the tools of an add-on with a credential may change at the
+// service behind the binding. The mode belongs to the person, who picks it on
+// the add-on page.
+const (
+	// WriteOff lets no write tool run. It is the default, so a binding stored
+	// before the option stays read-only.
+	WriteOff = "off"
+	// WritePropose stores each write as a proposal that the person confirms.
+	WritePropose = "propose"
+	// WriteAuto lets a chat of the person apply a write at once. A tool that
+	// declares approval "always" still waits for a confirmation.
+	WriteAuto = "auto"
+)
+
+// ValidWriteMode reports whether s is a write mode. The empty string is
+// WriteOff.
+func ValidWriteMode(s string) bool {
+	switch s {
+	case "", WriteOff, WritePropose, WriteAuto:
+		return true
+	}
+	return false
+}
+
 // Limits.
 const (
 	// MaxWindowMinutes is the longest time window: one week.
@@ -165,6 +189,9 @@ type Binding struct {
 	// zero value is an empty list: an add-on that declares credentials then
 	// refuses every resource call.
 	Resources []ResourceEntry
+	// WriteMode is one of WriteOff, WritePropose and WriteAuto. Empty means
+	// WriteOff.
+	WriteMode string
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
@@ -329,6 +356,9 @@ func Validate(b Binding) error {
 	if err := validateChannels(b.Channels); err != nil {
 		return err
 	}
+	if !ValidWriteMode(b.WriteMode) {
+		return bad("the write mode must be %s, %s or %s", WriteOff, WritePropose, WriteAuto)
+	}
 	if len(b.Options) > MaxOptions {
 		return bad("a binding has at most %d options", MaxOptions)
 	}
@@ -397,6 +427,14 @@ func (b Binding) ConversationMode() string {
 
 // SendsFiles tells whether the files a turn makes go to the sender.
 func (b Binding) SendsFiles() bool { return !b.FilesOff }
+
+// Writes is the write mode in effect: WriteOff for a binding that has none.
+func (b Binding) Writes() string {
+	if b.WriteMode == "" {
+		return WriteOff
+	}
+	return b.WriteMode
+}
 
 // Allows tells whether a sender is on the allowlist. A match is by ID or, for an
 // @name entry, by username, ignoring case.

@@ -30,7 +30,13 @@
       "get-issue",
       "get-pr",
       "get-pr-diff",
-      "check"
+      "check",
+      "comment-issue",
+      "comment-pr",
+      "create-issue",
+      "edit-issue",
+      "add-labels",
+      "review-comment-pr"
     ],
     "toolDefinitions": [
       {
@@ -322,6 +328,241 @@
           "additionalProperties": false
         },
         "uiOnly": true
+      },
+      {
+        "name": "comment-issue",
+        "description": "Post a comment on an issue (not a pull request). Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. The change may wait for the person to confirm; do not say it was posted until the result says so.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "The repository as owner/name. It must be on the list you allowed on the GitHub add-on page.",
+              "maxLength": 201
+            },
+            "number": {
+              "type": "integer",
+              "description": "Issue number.",
+              "minimum": 1
+            },
+            "body": {
+              "type": "string",
+              "description": "The comment, Markdown, up to 16 KiB.",
+              "maxLength": 16384
+            }
+          },
+          "required": [
+            "repo",
+            "number",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "comment-pr",
+        "description": "Post a comment on the conversation of a pull request. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. The change may wait for the person to confirm; do not say it was posted until the result says so.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "The repository as owner/name. It must be on the list you allowed on the GitHub add-on page.",
+              "maxLength": 201
+            },
+            "number": {
+              "type": "integer",
+              "description": "Pull request number.",
+              "minimum": 1
+            },
+            "body": {
+              "type": "string",
+              "description": "The comment, Markdown, up to 16 KiB.",
+              "maxLength": 16384
+            }
+          },
+          "required": [
+            "repo",
+            "number",
+            "body"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "create-issue",
+        "description": "Open a new issue. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. Search with list-issues first so you do not open a duplicate. The change may wait for the person to confirm.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "The repository as owner/name. It must be on the list you allowed on the GitHub add-on page.",
+              "maxLength": 201
+            },
+            "title": {
+              "type": "string",
+              "description": "One line title.",
+              "maxLength": 256
+            },
+            "body": {
+              "type": "string",
+              "description": "The issue text, Markdown, up to 16 KiB.",
+              "maxLength": 16384
+            },
+            "labels": {
+              "type": "array",
+              "description": "Label names, at most 10.",
+              "items": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "minItems": 1,
+              "maxItems": 10
+            }
+          },
+          "required": [
+            "repo",
+            "title"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "edit-issue",
+        "description": "Change the title of an issue or pull request, or close or reopen it. It cannot edit the text. Closing is visible to everyone. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "The repository as owner/name. It must be on the list you allowed on the GitHub add-on page.",
+              "maxLength": 201
+            },
+            "number": {
+              "type": "integer",
+              "description": "Issue or pull request number.",
+              "minimum": 1
+            },
+            "title": {
+              "type": "string",
+              "description": "The new title.",
+              "maxLength": 256
+            },
+            "state": {
+              "type": "string",
+              "description": "open or closed.",
+              "enum": [
+                "open",
+                "closed"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "description": "With closed: completed or not_planned.",
+              "enum": [
+                "completed",
+                "not_planned"
+              ]
+            }
+          },
+          "required": [
+            "repo",
+            "number"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "add-labels",
+        "description": "Add labels to an issue or pull request. It never removes labels. A name that does not exist is created by GitHub. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "The repository as owner/name. It must be on the list you allowed on the GitHub add-on page.",
+              "maxLength": 201
+            },
+            "number": {
+              "type": "integer",
+              "description": "Issue or pull request number.",
+              "minimum": 1
+            },
+            "labels": {
+              "type": "array",
+              "description": "Label names, at most 10.",
+              "items": {
+                "type": "string",
+                "maxLength": 50
+              },
+              "minItems": 1,
+              "maxItems": 10
+            }
+          },
+          "required": [
+            "repo",
+            "number",
+            "labels"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "review-comment-pr",
+        "description": "Post one comment on a line of a pull request diff, as a review comment. It cannot approve, request changes or merge. Everything you write is public to everyone who can see the repository: never include secrets, tokens or private details. Read the diff first; path and line must be in it.",
+        "kind": "write",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "repo": {
+              "type": "string",
+              "description": "The repository as owner/name. It must be on the list you allowed on the GitHub add-on page.",
+              "maxLength": 201
+            },
+            "number": {
+              "type": "integer",
+              "description": "Pull request number.",
+              "minimum": 1
+            },
+            "path": {
+              "type": "string",
+              "description": "Path of the changed file.",
+              "maxLength": 400
+            },
+            "line": {
+              "type": "integer",
+              "description": "Line number in the file.",
+              "minimum": 1
+            },
+            "side": {
+              "type": "string",
+              "description": "RIGHT (new file, default) or LEFT (old file).",
+              "enum": [
+                "RIGHT",
+                "LEFT"
+              ]
+            },
+            "body": {
+              "type": "string",
+              "description": "The comment, Markdown, up to 16 KiB.",
+              "maxLength": 16384
+            }
+          },
+          "required": [
+            "repo",
+            "number",
+            "path",
+            "line",
+            "body"
+          ],
+          "additionalProperties": false
+        }
       }
     ],
     "credentials": [
@@ -337,10 +578,25 @@
         {
           "id": "github",
           "title": "GitHub",
-          "description": "Let your agents read the repositories you choose, with a fine-grained access token.",
+          "description": "Let your agents read the repositories you choose, and comment on issues and pull requests if you allow it, with a fine-grained access token.",
           "senderHint": "Not used yet: this connection does not listen for mentions",
           "delivery": "pull",
-          "page": "apps"
+          "page": "apps",
+          "roles": [
+            {
+              "id": "writer",
+              "title": "Writer",
+              "description": "A collaborator with write access to the repository."
+            },
+            {
+              "id": "maintainer",
+              "title": "Maintainer",
+              "description": "A collaborator with maintain or admin access to the repository."
+            }
+          ],
+          "permissions": [
+            "tools.write"
+          ]
         }
       ]
     },
@@ -359,7 +615,7 @@
       "mainPage": "apps",
       "icon": "ui/icon.png",
       "title": "GitHub",
-      "description": "Let your agents read the code, issues and pull requests of the repositories you choose."
+      "description": "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
     }
   }
 }

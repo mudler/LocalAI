@@ -822,6 +822,18 @@ definitions:
           type: string
         type: array
     type: object
+  contract.LegacyArgument:
+    properties:
+      hint:
+        description: |-
+          Hint is one plain sentence on what to send instead, such as "use the
+          markdown string".
+        type: string
+      name:
+        description: Name is the old argument name. The tool's schema must not declare
+          it.
+        type: string
+    type: object
   contract.ModelAction:
     properties:
       capability:
@@ -950,14 +962,53 @@ definitions:
       shadows:
         description: |-
           Shadows names the document-provider slot this skill supplies. It must equal Name
-          and be one of ReplaceableSkills. It repeats the name on purpose: the
+          and name a slot: one the skill declares (Slot) or a default one
+          (DefaultSlots). It repeats the name on purpose: the
           replacement is an explicit act, which the install warning and the check
           read from the manifest without opening the package. Empty: a plain
           add-on skill.
         type: string
+      slot:
+        allOf:
+        - $ref: '#/definitions/contract.SlotDefinition'
+        description: |-
+          Slot describes the slot this skill serves: the files it covers and the
+          words to say about them (see SlotDefinition). It needs Shadows and
+          manifest API 2. A skill that shadows a default slot may leave it out.
+    type: object
+  contract.SlotDefinition:
+    properties:
+      extensions:
+        description: |-
+          Extensions are the file extensions the skill covers, lower case with the
+          dot, such as ".docx".
+        items:
+          type: string
+        type: array
+      kind:
+        description: Kind is SlotKindDocuments.
+        type: string
+      library:
+        description: Library names what a script can use to read these files, shown
+          as a hint.
+        type: string
+      words:
+        description: Words are lower-case words that a skill of this slot has in its
+          name.
+        items:
+          type: string
+        type: array
     type: object
   contract.ToolDefinition:
     properties:
+      approval:
+        description: |-
+          Approval, when it is ApprovalAlways, is a ceiling the person cannot lift:
+          the host stores a proposal for a write tool of this kind and applies it
+          only when a person confirms it at a host surface. A chat or an agent
+          never applies it, even when the person allowed writes without asking.
+          Only a write tool may set it.
+        type: string
       description:
         description: Description is plain text for the model.
         type: string
@@ -977,6 +1028,14 @@ definitions:
       kind:
         description: Kind is read, write, schema or create.
         type: string
+      legacyArgs:
+        description: |-
+          LegacyArgs name arguments that an older version of the tool took and
+          that it refuses now, with a hint for the model (see LegacyArgument). The
+          manifest must accept API 2 (see MinLegacyArgsAPI).
+        items:
+          $ref: '#/definitions/contract.LegacyArgument'
+        type: array
       name:
         description: Name is one of capabilities.tools.
         type: string
@@ -1668,6 +1727,12 @@ definitions:
           Arguments are the canonical stored arguments. They are the only
           arguments that can ever be submitted for this proposal.
         type: object
+      awaitsPerson:
+        description: |-
+          AwaitsPerson reports a proposal that only a person may apply, from a
+          host surface such as the browser: a chat or an agent never applies it.
+          The write mode of the binding or the approval of the tool asks for it.
+        type: boolean
       blocked:
         description: |-
           Blocked reports that another operation on the resource has an
@@ -3055,6 +3120,17 @@ definitions:
         type: boolean
       window_minutes:
         type: integer
+      write_mode:
+        description: |-
+          WriteMode says what the tools of the add-on may change with this
+          binding's credential: off (nothing), propose (each change waits for your
+          confirmation) or auto (a chat of yours applies it at once, except a tool
+          the add-on marks as always needing your confirmation).
+        enum:
+        - "off"
+        - propose
+        - auto
+        type: string
     type: object
   schema.ChatsAdminConnectorList:
     properties:
@@ -3823,6 +3899,17 @@ definitions:
         type: boolean
       window_minutes:
         type: integer
+      write_mode:
+        description: |-
+          WriteMode says what the tools of the add-on may change with this
+          binding's credential: off (nothing), propose (each change waits for your
+          confirmation) or auto (a chat of yours applies it at once, except a tool
+          the add-on marks as always needing your confirmation).
+        enum:
+        - "off"
+        - propose
+        - auto
+        type: string
     type: object
   schema.ChatsConnectorAccess:
     properties:
@@ -4179,6 +4266,15 @@ definitions:
       window_minutes:
         description: WindowMinutes is the time window of the window mode, 1 to 10080.
         type: integer
+      write_mode:
+        description: |-
+          WriteMode is off, propose or auto (see the connector record). Absent
+          means off for a new binding and unchanged for an update.
+        enum:
+        - "off"
+        - propose
+        - auto
+        type: string
     type: object
   schema.ChatsContextResult:
     properties:

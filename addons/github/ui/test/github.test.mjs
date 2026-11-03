@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { checkLine, extraBody, extraForm, extraValid, githubSecret, parseRepos, reposProblem, tokenProblem } from '../src/repos.js'
+import { checkLine, extraBody, extraForm, extraValid, githubSecret, parseRepos, reposProblem, tokenProblem, WRITE_MODES, writeModeOf } from '../src/repos.js'
 import { canSave, connectorPayload, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/github.en.json' with { type: 'json' }
 
@@ -42,11 +42,33 @@ test('github: the Test lines say reachable, read only, or not reachable', () => 
   const t = (key, o = {}) => en.check[key.replace('check.', '')].replace(/\{\{(\w+)\}\}/g, (_, k) => o[k])
   assert.match(checkLine({ repo: 'a/b', reachable: false }, t), /not reachable/)
   assert.match(checkLine({ repo: 'a/b', reachable: true, fullName: 'a/b', canWrite: false }, t), /read only/)
-  assert.match(checkLine({ repo: 'a/b', reachable: true, fullName: 'a/b', canWrite: true }, t), /read access only/)
+  assert.match(checkLine({ repo: 'a/b', reachable: true, fullName: 'a/b', canWrite: true }, t), /can write/)
 })
 
 test('github: every word the page asks for exists', () => {
-  for (const key of ['title', 'intro', 'new', 'token', 'tokenHelp', 'tokenShape', 'tokenSpace', 'repos', 'reposHelp', 'reposShape', 'reposMany', 'writeOff', 'test', 'testOk', 'save', 'cancel', 'empty', 'noRepos', 'reposOf', 'agentOf', 'confirmDelete', 'setup']) {
+  for (const key of ['title', 'intro', 'new', 'token', 'tokenHelp', 'tokenShape', 'tokenSpace', 'repos', 'reposHelp', 'reposShape', 'reposMany', 'writeMode', 'test', 'testOk', 'save', 'cancel', 'empty', 'noRepos', 'reposOf', 'agentOf', 'confirmDelete', 'setup']) {
     assert.ok(en[key], key)
   }
+})
+
+test('github: the write mode defaults to off, rides in the request and reads back from a saved binding', () => {
+  assert.deepEqual(WRITE_MODES, ['off', 'propose', 'auto'])
+  assert.equal(writeModeOf(undefined), 'off')
+  assert.equal(writeModeOf('always'), 'off', 'an unknown value is never taken as a permission')
+  assert.equal(extraForm({}).write_mode, 'off')
+  assert.equal(extraForm({ write_mode: 'propose' }).write_mode, 'propose')
+  assert.equal(extraBody({ repos_text: 'a/b', write_mode: 'auto' }).write_mode, 'auto')
+  assert.equal(extraBody({ repos_text: 'a/b' }).write_mode, 'off', 'a form without the field sends off')
+  const body = connectorPayload({ ...emptyConnector(), id: 'b1', name: 'Work', agent_id: 'a' }, 'github', '', extraBody({ repos_text: 'a/b', write_mode: 'propose' }))
+  assert.equal(body.write_mode, 'propose')
+})
+
+test('github: every write mode has its words, and the note says the text is public', () => {
+  for (const m of WRITE_MODES) {
+    assert.ok(en.writeMode[m], m)
+    assert.ok(en.writeMode.note[m], m)
+    assert.ok(en.writeMode.row[m], m)
+  }
+  assert.match(en.writeMode.note.propose, /public/)
+  assert.match(en.writeMode.note.auto, /public/)
 })

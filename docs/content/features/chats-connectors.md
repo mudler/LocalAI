@@ -136,17 +136,31 @@ A binding says `active: false` and gives a `reason` while its add-on does not ru
 
 ## GitHub
 
-The GitHub add-on lets your [saved agents](/features/chats-agents/) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. It reads only. It cannot write, merge or delete anything on GitHub.
+The GitHub add-on lets your [saved agents](/features/chats-agents/) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. If you allow it, they can also write: comment on issues and pull requests, open issues, change a title or close an issue, add labels, and comment on a line of a pull request diff. It cannot merge, delete, push code, approve or request changes on a review.
 
 1. Install the **GitHub** add-on from the add-on gallery.
-2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. Give it read access to Contents, Issues and Pull requests. Classic tokens are not accepted.
+2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. Give it read access to Contents, Issues and Pull requests. To let the agent write, also give read and write access to Issues and Pull requests. Classic tokens are not accepted.
 3. On the add-on page, choose **New GitHub connection**. Pick an agent, paste the token and list the repositories, one `owner/name` per line (at most 50). Press **Test** to see whose token it is and which listed repositories it reaches.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not on it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. With several connections, a call uses the first one that lists the repository.
 
 What GitHub returns (issue text, comments, file content) is written by other people. Every result is marked as untrusted data for the model. Long files are cut at 96 KiB and long patches at 64 KiB; the result says what was cut and how to ask for the rest. When GitHub limits the rate of calls, the agent is told how long to wait.
 
-This version does not listen for mentions and has no write tools.
+### Writing to GitHub
+
+On the connection you choose what the agent may change. The choice is stored with the connection and enforced by LocalAI before the add-on is called, so a model cannot raise it.
+
+- **Nothing (read only)** is the default. A write tool is refused and the agent is told to ask you to turn writes on.
+- **Ask me each time** stores each change as a proposal. You see the repository, the issue or pull request, its title and the text, and you confirm in the approvals of the web interface. A chat or an agent cannot confirm it.
+- **Allowed** lets a chat of yours make the change at once. A run without you present, such as an agent started by a trigger, still leaves a proposal for you to confirm.
+
+The write tools are `comment-issue`, `comment-pr`, `create-issue`, `edit-issue` (title, close or reopen), `add-labels` and `review-comment-pr`. They work only on the repositories listed on the connection, the same list as for reading. The change is also refused when the target moved after the preview: for example the title changed, the issue is locked, or a pull request has a new commit.
+
+Everything the agent writes is public to everyone who can see the repository. The tool descriptions tell the model so. Text is limited to 16 KiB, and a text that holds the token or something shaped like a secret is refused. Every comment and new issue carries a hidden marker (`<!-- localai-op:... -->`) that lets the add-on find an earlier attempt if GitHub took a change but the answer was lost. In that case the proposal shows an unknown outcome and nothing is sent twice.
+
+Over the API the connection has a `write_mode` field: `off`, `propose` or `auto`. Absent means off for a new connection and unchanged for an update.
+
+This version does not listen for mentions.
 
 ## Slack
 
@@ -471,7 +485,7 @@ add-on.
 
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
-  `triggers.run`, `talkback.channels`, and the sensitive `talkback.new_channel`,
+  `triggers.run`, `talkback.channels`, `tools.write`, and the sensitive `talkback.new_channel`,
   `profile.write`, `skills.write`, `pages.write`, `dashboard.write`). The default is
   no: a binding with none enabled lets a sender talk to the agent, but the agent can
   not use any of these on the sender's behalf.

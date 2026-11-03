@@ -1,11 +1,11 @@
 {
   "title": "GitHub",
-  "intro": "Let your agents read the code, issues and pull requests of the repositories you list. The agent can read only those, with the token you save here. Nothing is written to GitHub.",
+  "intro": "Let your agents read the code, issues and pull requests of the repositories you list, and, if you allow it, comment and open issues there. The agent reaches only those repositories, with the token you save here.",
   "new": "New GitHub connection",
   "edit": "Edit GitHub connection",
   "name": "Name",
   "token": "Fine-grained access token",
-  "tokenHelp": "Starts with github_pat_. Give it read access to the repositories below only: Contents, Issues and Pull requests. It is kept sealed and never shown again.",
+  "tokenHelp": "Starts with github_pat_. Give it access to the repositories below only. Reading needs Contents, Issues and Pull requests (read). Writing also needs Issues and Pull requests (write). It is kept sealed and never shown again.",
   "tokenSaved": "Saved. Type a token to replace it.",
   "tokenShape": "Use a fine-grained token: it starts with github_pat_.",
   "tokenSpace": "The token has no spaces.",
@@ -13,7 +13,6 @@
   "reposHelp": "One per line, as owner/name. {{count}} listed. The agent is refused any other repository, even if the token could reach it.",
   "reposShape": "Each repository is written owner/name.",
   "reposMany": "At most 50 repositories.",
-  "writeOff": "Write access is off: this connection only reads.",
   "agent": "Agent",
   "agentNone": "Choose an agent",
   "agentNoModel": "{{name}} (needs a model)",
@@ -23,7 +22,7 @@
   "check": {
     "unreachable": "{{repo}}: not reachable with this token.",
     "readOnly": "{{repo}}: reachable, read only.",
-    "readWrite": "{{repo}}: reachable. The token could also write, so give it read access only."
+    "readWrite": "{{repo}}: reachable, and the token can write."
   },
   "save": "Save",
   "cancel": "Cancel",
@@ -36,14 +35,31 @@
   "inactive": "Not running: {{reason}}.",
   "confirmDelete": {
     "title": "Delete {{name}}?",
-    "message": "The agent can no longer read these repositories, and the token saved with it is deleted. To set it up again you must enter the token again.",
+    "message": "The agent can no longer reach these repositories, and the token saved with it is deleted. To set it up again you must enter the token again.",
     "confirm": "Delete"
   },
   "setup": {
     "title": "How to make the token",
     "step1": "On GitHub, open Settings, Developer settings, Fine-grained personal access tokens, and make a new token.",
     "step2": "Under Repository access, choose Only select repositories and pick the ones you list here.",
-    "step3": "Under Permissions, give Read access to Contents, Issues and Pull requests. Leave everything else off."
+    "step3": "Under Permissions, give Read access to Contents, Issues and Pull requests. To let the agent write, give Read and write to Issues and Pull requests. Leave everything else off."
   },
-  "back": "Back to connectors"
+  "back": "Back to connectors",
+  "writeMode": {
+    "label": "What the agent may change on GitHub",
+    "hint": "Applies to comments, new issues, labels, closing issues and line comments on pull requests. The agent cannot merge, delete or push code.",
+    "off": "Nothing (read only)",
+    "propose": "Ask me each time",
+    "auto": "Allowed",
+    "note": {
+      "off": "Write access is off: this connection only reads.",
+      "propose": "Each change waits in your approvals until you confirm it. Anything an agent writes is public to everyone who can see the repository.",
+      "auto": "A chat of yours posts the change at once, without asking. Anything the agent writes is public to everyone who can see the repository. Runs without you present still wait for your confirmation."
+    },
+    "row": {
+      "off": "Read only.",
+      "propose": "Changes wait for your confirmation.",
+      "auto": "Changes are allowed without asking."
+    }
+  }
 }

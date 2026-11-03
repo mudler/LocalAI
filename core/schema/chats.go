@@ -1235,6 +1235,11 @@ type ChatsConnector struct {
 	// Channels are the chats where the agent may write besides the
 	// conversation. Only you can change the list.
 	Channels []ChatsConnectorChannel `json:"channels"`
+	// WriteMode says what the tools of the add-on may change with this
+	// binding's credential: off (nothing), propose (each change waits for your
+	// confirmation) or auto (a chat of yours applies it at once, except a tool
+	// the add-on marks as always needing your confirmation).
+	WriteMode string `json:"write_mode" enums:"off,propose,auto"`
 	// Caps are the capabilities you enabled for this binding: the ceiling of
 	// what any sender can use. Grants give roles of the kind some of them.
 	Caps   []string                  `json:"caps"`
@@ -1447,6 +1452,9 @@ type ChatsConnectorWrite struct {
 	// means none for a new binding and unchanged for an update; an empty list
 	// clears it.
 	Channels []ChatsConnectorChannel `json:"channels,omitempty"`
+	// WriteMode is off, propose or auto (see the connector record). Absent
+	// means off for a new binding and unchanged for an update.
+	WriteMode *string `json:"write_mode,omitempty" enums:"off,propose,auto"`
 }
 
 // ChatsConnectorChannel is a chat of the platform where the agent may write.

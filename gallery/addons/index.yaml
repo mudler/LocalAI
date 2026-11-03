@@ -212,7 +212,7 @@
     description: "Let your agents read the code, issues and pull requests of the repositories you choose."
     mainPage: "apps"
     icon: "ui/icon.png"
-  toolCount: 8
+  toolCount: 14
   tools:
     - "search-code"
     - "read-file"
@@ -222,6 +222,12 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "comment-issue"
+    - "comment-pr"
+    - "create-issue"
+    - "edit-issue"
+    - "add-labels"
+    - "review-comment-pr"
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose."
@@ -240,7 +246,7 @@
     description: "Let your agents read the code, issues and pull requests of the repositories you choose."
     mainPage: "apps"
     icon: "ui/icon.png"
-  toolCount: 8
+  toolCount: 14
   tools:
     - "search-code"
     - "read-file"
@@ -250,6 +256,12 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "comment-issue"
+    - "comment-pr"
+    - "create-issue"
+    - "edit-issue"
+    - "add-labels"
+    - "review-comment-pr"
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose."
@@ -268,7 +280,7 @@
     description: "Let your agents read the code, issues and pull requests of the repositories you choose."
     mainPage: "apps"
     icon: "ui/icon.png"
-  toolCount: 8
+  toolCount: 14
   tools:
     - "search-code"
     - "read-file"
@@ -278,6 +290,12 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "comment-issue"
+    - "comment-pr"
+    - "create-issue"
+    - "edit-issue"
+    - "add-labels"
+    - "review-comment-pr"
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose."
@@ -296,7 +314,7 @@
     description: "Let your agents read the code, issues and pull requests of the repositories you choose."
     mainPage: "apps"
     icon: "ui/icon.png"
-  toolCount: 8
+  toolCount: 14
   tools:
     - "search-code"
     - "read-file"
@@ -306,6 +324,12 @@
     - "get-pr"
     - "get-pr-diff"
     - "check"
+    - "comment-issue"
+    - "comment-pr"
+    - "create-issue"
+    - "edit-issue"
+    - "add-labels"
+    - "review-comment-pr"
 - id: "memory"
   name: Short memory
   description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."

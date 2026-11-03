@@ -3,9 +3,9 @@ import { RouteProvider } from 'react-router-dom'
 import { getSdk, } from '../../../internal/host-compat/src/runtime.js'
 import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
-import { Field, FieldError, Notice, TextInput } from '../../../internal/connector-ui/src/controls'
+import { Field, FieldError, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/github.en.json'
-import { checkLine, extraBody, extraForm, extraValid, githubSecret, parseRepos, reposProblem, tokenProblem } from './repos'
+import { checkLine, extraBody, extraForm, extraValid, githubSecret, parseRepos, reposProblem, tokenProblem, WRITE_MODES, writeModeOf } from './repos'
 
 registerLocales({ github: { en } })
 
@@ -39,8 +39,24 @@ function GitHubFields({ form, setForm, t }) {
         )}
       </Field>
       {problem && <FieldError role="status" data-testid="repos-problem">{t(problem)}</FieldError>}
-      <Notice tone="info" role="note" testId="github-write-mode">{t('writeOff')}</Notice>
+      <WriteMode form={form} setForm={setForm} t={t} />
     </>
+  )
+}
+
+// The write mode: the host enforces it for every write tool of this add-on.
+function WriteMode({ form, setForm, t }) {
+  const mode = writeModeOf(form.write_mode)
+  return (
+    <div data-testid="github-write-mode">
+      <Field label={t('writeMode.label')} hint={t('writeMode.hint')}>
+        {() => (
+          <RadioCards name="write-mode" legend={t('writeMode.label')} value={mode} onChange={(m) => setForm({ ...form, write_mode: m })}
+            options={WRITE_MODES.map((m) => ({ value: m, label: t(`writeMode.${m}`) }))} />
+        )}
+      </Field>
+      <Notice tone={mode === 'off' ? 'info' : 'warn'} role="note" testId="github-write-note">{t(`writeMode.note.${mode}`)}</Notice>
+    </div>
   )
 }
 
@@ -59,7 +75,12 @@ function Help({ t }) {
 
 function RowInfo({ c, t }) {
   const repos = c.resources || []
-  return <span className="cn-muted" data-testid="github-row-repos">{repos.length === 0 ? t('noRepos') : t('reposOf', { count: repos.length, list: repos.join(', ') })}</span>
+  return (
+    <>
+      <span className="cn-muted" data-testid="github-row-repos">{repos.length === 0 ? t('noRepos') : t('reposOf', { count: repos.length, list: repos.join(', ') })}</span>
+      <span className="cn-muted" data-testid="github-row-write">{t(`writeMode.row.${writeModeOf(c.write_mode)}`)}</span>
+    </>
+  )
 }
 
 // The Test button: the host asks who the token is; this asks, for each listed

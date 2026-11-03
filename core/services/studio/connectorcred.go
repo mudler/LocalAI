@@ -14,6 +14,8 @@ type CredentialGrant struct {
 	// Resource is the list entry the call named, or the zero value for a call
 	// that named none.
 	Resource connectors.ResourceEntry
+	// WriteMode is the write mode of the binding the secret comes from.
+	WriteMode string
 }
 
 // CredentialFor finds the binding that a tool call of an add-on uses and
@@ -40,5 +42,5 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, key strin
 	if err != nil {
 		return CredentialGrant{}, err
 	}
-	return CredentialGrant{Secret: secret, Resource: entry}, nil
+	return CredentialGrant{Secret: secret, Resource: entry, WriteMode: b.Writes()}, nil
 }

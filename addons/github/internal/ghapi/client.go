@@ -10,6 +10,7 @@
 package ghapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -51,6 +52,8 @@ var (
 	ErrInvalid = errors.New("github refused the request")
 	// ErrUnavailable means a failure on the way or on the GitHub side.
 	ErrUnavailable = errors.New("github is not reachable now")
+	// ErrUnreadable means a change was accepted but its answer could not be read.
+	ErrUnreadable = errors.New("github accepted the change but its answer was not readable")
 	// ErrTooLarge means an answer above MaxBody.
 	ErrTooLarge = errors.New("the answer of github is too large")
 )
@@ -91,6 +94,32 @@ func (r Response) NextPage() bool {
 // asked for; empty means JSON. A non-2xx answer is an error from the list
 // above, or a *contract.ErrRateLimited.
 func (c *Client) Get(ctx context.Context, token, path string, query url.Values, accept string) (Response, error) {
+	return c.do(ctx, http.MethodGet, token, path, query, accept, nil)
+}
+
+// SendJSON calls a path with a method that changes something (POST, PATCH),
+// with body encoded as JSON, and decodes the answer into v when v is not nil.
+// A change is never repeated here: a failed attempt is reported to the caller,
+// which decides, since GitHub has no idempotency key.
+func (c *Client) SendJSON(ctx context.Context, method, token, path string, body, v any) (Response, error) {
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return Response{}, ErrInvalid
+	}
+	r, err := c.do(ctx, method, token, path, nil, "", raw)
+	if err != nil {
+		return r, err
+	}
+	if v != nil {
+		if err := json.Unmarshal(r.Body, v); err != nil {
+			// The change went through; only the answer is unreadable.
+			return r, ErrUnreadable
+		}
+	}
+	return r, nil
+}
+
+func (c *Client) do(ctx context.Context, method, token, path string, query url.Values, accept string, payload []byte) (Response, error) {
 	if token == "" {
 		return Response{}, ErrUnauthorized
 	}
@@ -98,9 +127,16 @@ func (c *Client) Get(ctx context.Context, token, path string, query url.Values, 
 	if len(query) > 0 {
 		u += "?" + query.Encode()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	var rd io.Reader
+	if payload != nil {
+		rd = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, u, rd)
 	if err != nil {
 		return Response{}, ErrInvalid
+	}
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	if accept == "" {
 		accept = "application/vnd.github+json"
