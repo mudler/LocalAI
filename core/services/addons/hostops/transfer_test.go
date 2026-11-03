@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/storage"
@@ -25,10 +26,19 @@ import (
 type xferFixture struct {
 	t      *Transfers
 	h      http.Handler
+	mu     sync.Mutex
 	outs   []TransferOutcome
 	blobs  blob.Store
 	dir    string
 	shared *storage.FilesystemStore
+}
+
+// outcomes copies the audited outcomes: the audit hook runs on the goroutine
+// that closes a transfer.
+func (f *xferFixture) outcomes() []TransferOutcome {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]TransferOutcome(nil), f.outs...)
 }
 
 func newXferFixture() *xferFixture {
@@ -40,7 +50,7 @@ func newXferFixture() *xferFixture {
 	blobs := blob.NewObjectStore(shared, filepath.Join(dir, "owner-cache"))
 	f := &xferFixture{blobs: blobs, dir: dir, shared: shared}
 	f.t = NewTransfers(blobs)
-	f.t.Audit = func(o TransferOutcome) { f.outs = append(f.outs, o) }
+	f.t.Audit = func(o TransferOutcome) { f.mu.Lock(); f.outs = append(f.outs, o); f.mu.Unlock() }
 	b := New(NewInFlight(), always, contract.DefaultLimits())
 	Expect(RegisterConnectorTransfer(b, f.t)).To(Succeed())
 	f.h = b.Handler("slack", "secret", []string{"connector."})
@@ -163,7 +173,7 @@ var _ = Describe("connector file transfer by handle", func() {
 		Expect(hex.EncodeToString(hh.Sum(nil))).To(Equal(want))
 		Expect(peak).To(BeNumerically("<", base+16*mb))
 		Expect(end2().Result).To(Equal(TransferDone))
-		Expect(f.outs).To(HaveLen(2))
+		Expect(f.outcomes()).To(HaveLen(2))
 	})
 
 	It("resumes at the offset the host has after a gap", func() {
@@ -230,7 +240,7 @@ var _ = Describe("connector file transfer by handle", func() {
 		Expect(err).To(HaveOccurred())
 		end()
 		end() // idempotent
-		Expect(f.outs).To(HaveLen(1))
+		Expect(f.outcomes()).To(HaveLen(1))
 		_, err = f.t.Begin(TransferGrant{Handle: "h", Direction: TransferIn, AddonID: "slack", MaxBytes: 100})
 		Expect(err).NotTo(HaveOccurred(), "a handle of an ended call is free; a new call makes its own random one")
 	})
@@ -245,8 +255,8 @@ var _ = Describe("connector file transfer by handle", func() {
 		Eventually(f.t.Live, "2s", "20ms").Should(BeZero())
 		code, _ = f.put("h", 7, []byte("x"), false)
 		Expect(code).To(Equal(http.StatusNotFound))
-		Expect(f.outs).To(HaveLen(1))
-		Expect(f.outs[0].Result).To(Equal(TransferExpired))
+		Expect(f.outcomes()).To(HaveLen(1))
+		Expect(f.outcomes()[0].Result).To(Equal(TransferExpired))
 		tmp, _ := filepath.Glob(filepath.Join(f.dir, "owner-cache", "tmp", "*"))
 		Expect(tmp).To(BeEmpty(), "no partial file is left")
 	})
