@@ -8,10 +8,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/egresspolicy"
 )
 
-// MinNetworkAPI is the first manifest API version that knows the network
-// capability. A manifest that declares one must accept it.
-const MinNetworkAPI uint64 = 2
-
 // NetworkKindEgressCheck is the one kind of network policy today: the add-on
 // runs commands behind a proxy that asks the host about each connection with
 // the host operation egress.check, and the host answers from the
@@ -61,9 +57,6 @@ func (n *NetworkCapability) validate(m Manifest) error {
 	}
 	if n.Kind != NetworkKindEgressCheck {
 		return fmt.Errorf("unknown network kind")
-	}
-	if m.API.Max < MinNetworkAPI {
-		return fmt.Errorf("a network capability needs api %d", MinNetworkAPI)
 	}
 	if ops := m.Capabilities.HostOperations; ops == nil || !(slices.Contains(ops.Required, egressCheckOp) || slices.Contains(ops.Optional, egressCheckOp)) {
 		return fmt.Errorf("a network capability of kind %s needs the host operation %s", NetworkKindEgressCheck, egressCheckOp)

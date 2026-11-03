@@ -6,10 +6,6 @@ import (
 	"slices"
 )
 
-// MinExecutionAPI is the first manifest API version that knows the execution
-// descriptor. A manifest that declares one must accept it.
-const MinExecutionAPI uint64 = 2
-
 // ExecutionClassCommands is the class of a tool that runs shell commands and
 // code: the tool that shadows bash.
 const ExecutionClassCommands = "commands"

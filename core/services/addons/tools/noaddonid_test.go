@@ -13,19 +13,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// Core offers abilities to add-ons by declaration. It names no add-on: the
-// only exception is the marked compatibility file listed below.
+// Core offers abilities to add-ons by declaration. It names no add-on.
 var _ = Describe("add-on ids in core code", func() {
 	dirs := []string{".", "../apps", "../gateway", "../resources", "../../../../pkg/addons/contract"}
-	allowed := map[string]bool{"legacy_resource_list.go": true}
 
-	It("keeps the id of the Tables add-on out of string literals, outside tests and the marked shim", func() {
+	It("keeps the id of the Tables add-on out of string literals, outside tests", func() {
 		var hits []string
 		for _, dir := range dirs {
 			files, err := filepath.Glob(filepath.Join(dir, "*.go"))
 			Expect(err).NotTo(HaveOccurred())
 			for _, path := range files {
-				if strings.HasSuffix(path, "_test.go") || allowed[filepath.Base(path)] {
+				if strings.HasSuffix(path, "_test.go") {
 					continue
 				}
 				f, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)

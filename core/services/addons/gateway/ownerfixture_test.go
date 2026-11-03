@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const uiManifest = `{"schemaVersion":1,"id":"sample","version":"1.2.3","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"ui":{"entry":"ui.js","css":["ui.css"],"sdk":{"min":1,"max":1}}}}`
+const uiManifest = `{"schemaVersion":1,"id":"sample","version":"1.2.3","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"ui":{"entry":"ui.js","css":["ui.css"],"sdk":{"min":1,"max":1}}}}`
 
 // ownerManager builds a real owner journal. With a UI package it also installs
 // the addon "sample" through the real catalog and installer, operation "install".
@@ -72,7 +72,7 @@ func ownerManagerPackage(actor contract.Actor, install bool, manifest string, fi
 	Expect(e).NotTo(HaveOccurred())
 	c := catalog.Catalog{Sources: sources, TargetOS: "linux", TargetArch: "amd64"}
 	cfg := addons.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: filepath.Join(root, "owner")}
-	i := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: sdk, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+	i := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: sdk, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 	DeferCleanup(func() {
 		_ = filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
 			if e == nil && info.IsDir() {

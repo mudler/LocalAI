@@ -19,7 +19,7 @@ const secretDir = "/srv/owner-only/packages/package-abc"
 
 func snapshot(id string, enabled bool, state string, ui *contract.UI, tools ...string) Snapshot {
 	v := contract.VersionRange{Min: 1, Max: 1}
-	m := contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.2.3", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, Tools: tools, UI: ui}}
+	m := contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.2.3", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, Tools: tools, UI: ui}}
 	r := packages.PackageReceipt{Digest: "sha256:aaaa", SourceID: "main", SourceURL: "https://catalog.example/private", Reference: "oci://registry.example/x", Manifest: m, Directory: secretDir}
 	if ui != nil && ui.Icon != "" {
 		r.Icon = &packages.PackageIcon{Path: ui.Icon, Digest: "sha256:bbbb", Size: 10, MediaType: "image/png"}

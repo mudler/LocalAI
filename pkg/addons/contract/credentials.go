@@ -8,10 +8,6 @@ import (
 	"unicode/utf8"
 )
 
-// MinCredentialsAPI is the first manifest API version that knows the
-// credentials declaration. A manifest that declares one must accept it.
-const MinCredentialsAPI uint64 = 2
-
 // Kinds of a credential slot. Only the token exists in this version; a kind
 // the host does not know is refused at install.
 const CredentialKindToken = "token"
@@ -56,12 +52,9 @@ type CredentialSlot struct {
 // of the person's binding decides whether it runs at all, whether it waits for
 // a confirmation, and the host holds it to the list of the binding like a
 // read. Schema, create and action tools cannot carry a credential.
-func validateCredentials(c Capabilities, api VersionRange) error {
+func validateCredentials(c Capabilities) error {
 	if len(c.Credentials) == 0 {
 		return nil
-	}
-	if api.Max < MinCredentialsAPI {
-		return fmt.Errorf("credentials need api %d", MinCredentialsAPI)
 	}
 	if len(c.Credentials) > MaxCredentialSlots {
 		return fmt.Errorf("at most %d credential slots", MaxCredentialSlots)

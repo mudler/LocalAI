@@ -341,7 +341,7 @@ out and the chat says why. A tool descriptor may leave `providesRuntimeFor`
 out to opt out of that check, because its skills do not need its commands.
 
 The field is optional and does not change the protocol. A manifest that
-declares a descriptor must accept API 2 (`"api": {"min": 1, "max": 2}`). The
+declares a descriptor must accept API 2 (`"api": {"min": 2, "max": 2}`). The
 host speaks API 2 and still accepts add-ons that declare `{1,1}`. An add-on
 whose commands tool declares no descriptor works as before: the host treats it
 as a provider of commands under the add-on's own title, with no note, and keeps
@@ -405,7 +405,7 @@ control to an add-on that asks for `network-policy` in `ui.controls`, is granted
 `egress.check` and declares a tool that replaces `bash`; it names the network
 by the title of that tool. This is the shape of the manifests written before
 this field existed. The field is optional and does not change the protocol: the
-manifest must accept API 2 (`"api": {"min": 1, "max": 2}`), and the host still
+manifest must accept API 2 (`"api": {"min": 2, "max": 2}`), and the host still
 accepts add-ons that declare `{1,1}`.
 
 ### Requested host operations are not grants
@@ -485,7 +485,7 @@ own record of the grants.
 
 ```json
 {
-  "api": {"min": 1, "max": 2},
+  "api": {"min": 2, "max": 2},
   "capabilities": {
     "resources": {
       "noun": "board",
@@ -2647,7 +2647,7 @@ An add-on declares its sources in the manifest instead, as `capabilities.context
 
 ```json
 {
-  "api": { "min": 2, "max": 2 },
+  "api": {"min": 2, "max": 2},
   "capabilities": {
     "contextFiles": [
       { "scope": "user", "path": "Memory/index.md" },

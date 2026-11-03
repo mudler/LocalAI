@@ -132,7 +132,7 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(sources.Save(ctx, actor, catalog.Source{ID: "test", Name: "Test", URL: url, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 		runCtx, cancel := context.WithCancel(ctx)
 		DeferCleanup(cancel)
-		a = &Application{applicationConfig: &config.ApplicationConfig{Context: runCtx, Addons: config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: ownerRoot, AdminCheck: admin, OwnershipMode: auth.AddonModeLocalOwner, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}}}
+		a = &Application{applicationConfig: &config.ApplicationConfig{Context: runCtx, Addons: config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: ownerRoot, AdminCheck: admin, OwnershipMode: auth.AddonModeLocalOwner, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}}}
 
 		keys := filepath.Join(root, "keys")
 		Expect(gateway.GenerateCarrierKeys(keys, []string{"127.0.0.1"})).To(Succeed())

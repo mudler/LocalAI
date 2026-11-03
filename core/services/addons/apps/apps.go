@@ -419,8 +419,7 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 	return actions, slots, slices.Clone(u.Renderers)
 }
 
-// resourceTools copies the resource mapping of the manifest and fills the
-// listing declaration an older manifest implied (see legacyResourceList).
+// resourceTools copies the resource mapping of the manifest.
 func resourceTools(m contract.Manifest) *contract.ResourceTools {
 	if m.Capabilities.Resources == nil {
 		return nil
@@ -429,8 +428,6 @@ func resourceTools(m contract.Manifest) *contract.ResourceTools {
 	if r.List != nil {
 		l := *r.List
 		r.List = &l
-	} else {
-		r.List = legacyResourceList(m)
 	}
 	return &r
 }

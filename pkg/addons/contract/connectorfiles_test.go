@@ -17,13 +17,12 @@ var _ = Describe("the files ability of a connector kind", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err = ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		m.API = VersionRange{Min: 1, Max: 2}
+		m.API = VersionRange{Min: 2, Max: 2}
 		m.Capabilities.UI = nil
 		m.Capabilities.Connector = &ConnectorCapability{Kinds: []ConnectorKind{{ID: "telegram", Title: "Telegram", Delivery: DeliveryPull}}}
 	})
 	host := func() HostCompatibility {
 		h := compatible()
-		h.API, h.APIMin = HostAPIVersion, HostAPIMin
 		h.SDK = HostSDKVersion
 		return h
 	}
@@ -42,12 +41,6 @@ var _ = Describe("the files ability of a connector kind", func() {
 		Expect(ValidateManifest(m, host())).To(Succeed())
 		declare(nil)
 		Expect(ValidateManifest(m, host())).To(Succeed())
-	})
-
-	It("needs a manifest that accepts API 2 to declare files", func() {
-		declare(&ConnectorFiles{Receive: &FileAbility{MaxBytes: 1 << 20}})
-		m.API = VersionRange{Min: 1, Max: 1}
-		Expect(ValidateManifest(m, host())).To(MatchError(ContainSubstring("api 2")))
 	})
 
 	DescribeTable("refuses",

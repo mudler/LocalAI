@@ -17,12 +17,12 @@ var _ = Describe("Host controls", func() {
 	// Any ID works: the host never looks at it.
 	runner := func(id string, controls ...string) Manifest {
 		return Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/" + id, OS: "linux", Arch: "amd64",
-			Host: VersionRange{Min: 1, Max: 1}, API: VersionRange{Min: 1, Max: 1}, Protocol: VersionRange{Min: 1, Max: 1}, DataFormat: VersionRange{Min: 1, Max: 1},
+			Host: VersionRange{Min: 1, Max: 1}, API: VersionRange{Min: 2, Max: 2}, Protocol: VersionRange{Min: 1, Max: 1}, DataFormat: VersionRange{Min: 1, Max: 1},
 			Capabilities: Capabilities{Actions: true, Tools: []string{"bash"},
 				ToolDefinitions: []ToolDefinition{{Name: "bash", Description: "Run a command.", Kind: ToolKindAction, InputSchema: json.RawMessage(bashSchema), Shadows: "bash"}},
 				UI:              &UI{Entry: "ui/main.js", SDK: VersionRange{Min: 2, Max: 2}, Controls: controls}}}
 	}
-	host := HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: HostSDKVersion, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	host := HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: HostSDKVersion, DataFormat: 1, OS: "linux", Arch: "amd64"}
 
 	It("accepts known controls and refuses an unknown or repeated one", func() {
 		Expect(ValidateManifest(runner("sandbox", ControlNetworkPolicy, ControlToolProviders), host)).To(Succeed())

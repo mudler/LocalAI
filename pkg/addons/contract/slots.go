@@ -10,10 +10,6 @@ import (
 	"sync"
 )
 
-// MinSlotAPI is the first manifest API version that knows the slot
-// declaration of a skill. A manifest that declares one must accept it.
-const MinSlotAPI uint64 = 2
-
 // SlotKindDocuments is the kind of a slot for a document format: the skill
 // that serves it needs a commands provider that reports isolated execution.
 const SlotKindDocuments = SkillKindDocuments

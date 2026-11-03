@@ -24,18 +24,11 @@ var _ = Describe("The context files declaration", func() {
 	}
 	host := func() HostCompatibility {
 		h := compatible()
-		h.API, h.APIMin = HostAPIVersion, HostAPIMin
 		return h
 	}
 
 	It("is valid with one file for each scope", func() {
 		Expect(ValidateManifest(withFiles(notes), host())).To(Succeed())
-	})
-
-	It("needs a manifest that accepts API 2 to declare context files", func() {
-		m := withFiles(notes)
-		m.API = VersionRange{Min: 1, Max: 1}
-		Expect(ValidateManifest(m, host())).To(MatchError(ContainSubstring("api 2")))
 	})
 
 	It("refuses a path outside the Memory folder, an unsafe path and a wrong placeholder", func() {

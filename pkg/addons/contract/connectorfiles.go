@@ -6,10 +6,6 @@ import (
 	"regexp"
 )
 
-// MinFilesAPI is the first manifest API version that knows the files ability
-// of a connector kind. A manifest that declares one must accept it.
-const MinFilesAPI uint64 = 2
-
 // Limits of the files ability.
 const (
 	// MaxDeclaredFileBytes is the largest limit a kind may declare: 1 TiB.
@@ -69,12 +65,9 @@ func (a *FileAbility) validate(dir string) error {
 	return nil
 }
 
-func (f *ConnectorFiles) validate(api VersionRange) error {
+func (f *ConnectorFiles) validate() error {
 	if f == nil {
 		return nil
-	}
-	if api.Max < MinFilesAPI {
-		return fmt.Errorf("a connector kind that declares files needs api %d", MinFilesAPI)
 	}
 	if f.Receive == nil && f.Send == nil {
 		return fmt.Errorf("files must declare receive, send or both")

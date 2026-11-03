@@ -19,7 +19,7 @@ var _ = Describe("The network capability", func() {
 	withNetwork := func(n *NetworkCapability, shadowsBash bool) Manifest {
 		m, err := ParseManifest(fixture())
 		Expect(err).NotTo(HaveOccurred())
-		m.API = VersionRange{Min: 1, Max: 2}
+		m.API = VersionRange{Min: 2, Max: 2}
 		m.Capabilities = Capabilities{
 			Service:        true,
 			Network:        n,
@@ -36,7 +36,6 @@ var _ = Describe("The network capability", func() {
 	}
 	host := func() HostCompatibility {
 		h := compatible()
-		h.API, h.APIMin = HostAPIVersion, HostAPIMin
 		h.SDK = HostSDKVersion
 		return h
 	}
@@ -45,12 +44,6 @@ var _ = Describe("The network capability", func() {
 
 	It("is valid when the manifest accepts API 2 and lists the egress check", func() {
 		Expect(ValidateManifest(withNetwork(declared, false), host())).To(Succeed())
-	})
-
-	It("needs a manifest that accepts API 2", func() {
-		m := withNetwork(declared, false)
-		m.API = VersionRange{Min: 1, Max: 1}
-		Expect(ValidateManifest(m, host())).To(MatchError(ContainSubstring("api 2")))
 	})
 
 	It("needs the egress check among the host operations", func() {

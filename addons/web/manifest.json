@@ -1,7 +1,7 @@
 {
   "api": {
-    "max": 1,
-    "min": 1
+    "max": 2,
+    "min": 2
   },
   "arch": "amd64",
   "capabilities": {

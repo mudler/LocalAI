@@ -83,7 +83,7 @@ func fixture(mode string, capabilities contract.Capabilities) packages.PackageRe
 	Expect(os.WriteFile(filepath.Join(dir, "fixture"), b, 0500)).To(Succeed())
 	Expect(os.WriteFile(filepath.Join(dir, "fixture.json"), []byte(`{"mode":"`+mode+`"}`), 0600)).To(Succeed())
 	v := contract.VersionRange{Min: 1, Max: 1}
-	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: goruntime.GOOS, Arch: goruntime.GOARCH, Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: capabilities}
+	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: goruntime.GOOS, Arch: goruntime.GOARCH, Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: capabilities}
 	p := packages.PackageReceipt{Manifest: m, Directory: dir, Digest: "sha256:fixture"}
 	b, e = json.Marshal(p)
 	Expect(e).NotTo(HaveOccurred())

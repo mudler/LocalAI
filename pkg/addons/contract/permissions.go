@@ -6,10 +6,6 @@ import (
 	"slices"
 )
 
-// MinPermissionsAPI is the first manifest API version that knows the roles and
-// permissions of a connector kind.
-const MinPermissionsAPI uint64 = 2
-
 // Limits of the permissions of a connector kind.
 const (
 	MaxConnectorRoles       = 8
@@ -175,12 +171,9 @@ func (k ConnectorKind) FilterRoles(ids []string) []string {
 	return out
 }
 
-func validatePermissions(k ConnectorKind, api VersionRange) error {
+func validatePermissions(k ConnectorKind) error {
 	if len(k.Roles) == 0 && len(k.Permissions) == 0 {
 		return nil
-	}
-	if api.Max < MinPermissionsAPI {
-		return fmt.Errorf("connector roles and permissions need api %d", MinPermissionsAPI)
 	}
 	if len(k.Roles) > MaxConnectorRoles {
 		return fmt.Errorf("a connector kind has at most %d roles", MaxConnectorRoles)

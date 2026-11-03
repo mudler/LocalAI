@@ -6,10 +6,6 @@ import (
 	"slices"
 )
 
-// MinResourceListAPI is the first manifest API version that knows the
-// resource listing declaration. A manifest that declares one must accept it.
-const MinResourceListAPI uint64 = 2
-
 // MaxListedResources bounds the entries of the listing the host builds. The
 // answer says when it is cut short.
 const MaxListedResources = 100
@@ -39,14 +35,11 @@ func (l ResourceList) ItemsKey() string {
 	return l.Items
 }
 
-func validateResourceList(c Capabilities, api VersionRange) error {
+func validateResourceList(c Capabilities) error {
 	if c.Resources == nil || c.Resources.List == nil {
 		return nil
 	}
 	l := c.Resources.List
-	if api.Max < MinResourceListAPI {
-		return fmt.Errorf("resources list needs api %d", MinResourceListAPI)
-	}
 	if !namespace.MatchString(l.Tool) || (l.Items != "" && !toolPropertyName.MatchString(l.Items)) {
 		return fmt.Errorf("invalid resources list")
 	}

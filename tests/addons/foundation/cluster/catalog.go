@@ -105,16 +105,10 @@ func (l *Library) Add(p Package, effectsDir string) error {
 	if binary == nil {
 		binary = l.exe
 	}
-	// A resource listing is declared from manifest API 2 on. Every other
-	// fixture package keeps API 1.
-	apiMax := 1
-	if res, ok := p.Capabilities["resources"].(map[string]any); ok && res["list"] != nil {
-		apiMax = 2
-	}
 	manifest := map[string]any{
 		"schemaVersion": 1, "id": p.ID, "version": p.Version, "executable": executable,
 		"os": runtime.GOOS, "arch": runtime.GOARCH,
-		"host": map[string]int{"min": 1, "max": 2}, "api": map[string]int{"min": 1, "max": apiMax},
+		"host": map[string]int{"min": 1, "max": 2}, "api": map[string]int{"min": 2, "max": 2},
 		"protocol": map[string]int{"min": 1, "max": 1}, "dataFormat": map[string]int{"min": 1, "max": 2},
 		"launchMode": "always", "capabilities": p.Capabilities,
 	}

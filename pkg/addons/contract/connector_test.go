@@ -17,7 +17,7 @@ var _ = Describe("the connector capability", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err = ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		m.Capabilities.UI.SDK = VersionRange{Min: 1, Max: 2}
+		m.Capabilities.UI.SDK = VersionRange{Min: 2, Max: 2}
 		m.Capabilities.UI.Pages = []string{"bot"}
 		m.Capabilities.UI.Navigation = nil
 		m.Capabilities.UI.MainPage = ""
@@ -44,17 +44,12 @@ var _ = Describe("the connector capability", func() {
 	})
 	Describe("the history ability", func() {
 		kind := func() *ConnectorKind { return &m.Capabilities.Connector.Kinds[0] }
-		BeforeEach(func() { m.API = VersionRange{Min: 1, Max: 2} })
+		BeforeEach(func() { m.API = VersionRange{Min: 2, Max: 2} })
 
 		It("accepts a thread history with the manifest api 2", func() {
 			kind().History = &ConnectorHistory{Thread: true, MaxMessages: 50}
 			Expect(ValidateManifest(m, host())).To(Succeed())
 			Expect(kind().ServesThreadHistory()).To(BeTrue())
-		})
-		It("refuses it under the manifest api 1", func() {
-			m.API = VersionRange{Min: 1, Max: 1}
-			kind().History = &ConnectorHistory{Thread: true}
-			Expect(ValidateManifest(m, host())).NotTo(Succeed())
 		})
 		It("refuses an ability that says nothing and a limit out of bounds", func() {
 			kind().History = &ConnectorHistory{}
@@ -81,17 +76,14 @@ var _ = Describe("the connector capability", func() {
 			return ConnectorOption{ID: "followThreads", Title: "Follow threads", Default: "own",
 				Values: []ConnectorOptionValue{{ID: "own", Title: "Own"}, {ID: "any", Title: "Any"}, {ID: "never", Title: "Never"}}}
 		}
-		BeforeEach(func() { m.API = VersionRange{Min: 1, Max: 2} })
+		BeforeEach(func() { m.API = VersionRange{Min: 2, Max: 2} })
 
 		It("accepts an option with a default among its values", func() {
 			kind().Options = []ConnectorOption{follow()}
 			Expect(ValidateManifest(m, host())).To(Succeed())
 		})
-		It("refuses options under api 1, a bad default, one value, a repeated id and too many", func() {
+		It("refuses a bad default, one value, a repeated id and too many", func() {
 			kind().Options = []ConnectorOption{follow()}
-			m.API = VersionRange{Min: 1, Max: 1}
-			Expect(ValidateManifest(m, host())).NotTo(Succeed())
-			m.API = VersionRange{Min: 1, Max: 2}
 			for _, edit := range []func(*ConnectorOption){
 				func(o *ConnectorOption) { o.Default = "sometimes" },
 				func(o *ConnectorOption) { o.Values = o.Values[:1] },

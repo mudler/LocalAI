@@ -722,7 +722,6 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	var app apps.App
 	var def ToolDefinition
 	var found bool
-	var declared contract.ToolDefinition
 	for _, a := range list {
 		if a.ID != addonID {
 			continue
@@ -738,7 +737,7 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 				continue // not offered to this consumer, so not there
 			}
 			if x, ok := definition(a, d); ok {
-				app, def, found, declared = a, x, true, d
+				app, def, found = a, x, true
 			}
 		}
 	}
@@ -747,11 +746,6 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	}
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
-		if errors.Is(err, ErrInvalidArguments) {
-			if message := contract.LegacyMessage(declared, arguments); message != "" {
-				return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Message: message}, nil
-			}
-		}
 		return ToolResult{}, err
 	}
 	if resource == "" && conversationID != "" && requiresResource(def) {

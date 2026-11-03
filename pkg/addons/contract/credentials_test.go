@@ -33,16 +33,11 @@ var _ = Describe("The credential slot of an add-on", func() {
 	host := func() HostCompatibility {
 		h := compatible()
 		h.SDK = 0
-		h.API, h.APIMin = HostAPIVersion, HostAPIMin
 		return h
 	}
 
 	It("is valid with API 2, a connector kind and read tools", func() {
 		Expect(ValidateManifest(manifest(nil), host())).To(Succeed())
-	})
-	It("needs the manifest to accept API 2", func() {
-		m := manifest(func(m *Manifest) { m.API = VersionRange{Min: 1, Max: 1} })
-		Expect(ValidateManifest(m, host())).NotTo(Succeed())
 	})
 	It("needs a connector kind to hold the binding", func() {
 		m := manifest(func(m *Manifest) { m.Capabilities.Connector = nil })

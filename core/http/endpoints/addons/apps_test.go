@@ -64,14 +64,14 @@ func newAppsStack() *appsStack {
 	archives := map[string][]byte{}
 	for id, files := range map[string]map[string][]byte{
 		"notes": {
-			"manifest.json": []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add","list"],"ui":{"entry":"ui.js","css":["ui/style.css"],"sdk":{"min":1,"max":1},"pages":["home"],"navigation":["home"],"chatActions":["summarize"],"mainPage":"home","icon":"ui/icon.png","title":{"en":"Notes","it":"Appunti"},"description":"Keep notes."}}}`),
+			"manifest.json": []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add","list"],"ui":{"entry":"ui.js","css":["ui/style.css"],"sdk":{"min":1,"max":1},"pages":["home"],"navigation":["home"],"chatActions":["summarize"],"mainPage":"home","icon":"ui/icon.png","title":{"en":"Notes","it":"Appunti"},"description":"Keep notes."}}}`),
 			"ui.js":         []byte("export default {};"),
 			"ui/style.css":  []byte(".notes{color:red}"),
 			"ui/icon.png":   s.icon,
 			"secret.txt":    []byte("owner only"),
 		},
 		"headless": {
-			"manifest.json": []byte(`{"schemaVersion":1,"id":"headless","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"tools":["query"]}}`),
+			"manifest.json": []byte(`{"schemaVersion":1,"id":"headless","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"tools":["query"]}}`),
 		},
 	} {
 		var b bytes.Buffer
@@ -105,7 +105,7 @@ func newAppsStack() *appsStack {
 	Expect(err).NotTo(HaveOccurred())
 	c := catalog.Catalog{Sources: sources, TargetOS: "linux", TargetArch: "amd64"}
 	cfg := managerpkg.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: filepath.Join(root, "owner")}
-	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 	DeferCleanup(func() {
 		_ = filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
 			if e == nil && info.IsDir() {

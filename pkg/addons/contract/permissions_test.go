@@ -15,13 +15,12 @@ var _ = Describe("the roles and permissions of a connector kind", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err = ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		m.API = VersionRange{Min: 1, Max: 2}
+		m.API = VersionRange{Min: 2, Max: 2}
 		m.Capabilities.UI = nil
 		m.Capabilities.Connector = &ConnectorCapability{Kinds: []ConnectorKind{{ID: "chat", Title: "Chat", Delivery: DeliveryPull}}}
 	})
 	host := func() HostCompatibility {
 		h := compatible()
-		h.API, h.APIMin = HostAPIVersion, HostAPIMin
 		h.SDK = HostSDKVersion
 		return h
 	}
@@ -31,17 +30,6 @@ var _ = Describe("the roles and permissions of a connector kind", func() {
 		kind().Roles = []ConnectorRole{{ID: "admin", Title: "Admin", Description: "Workspace admin"}}
 		kind().Permissions = []string{CapProposalsConfirm, CapMemoryWrite, CapProfileWrite}
 		Expect(ValidateManifest(m, host())).To(Succeed())
-	})
-
-	It("accepts a kind that declares neither, on api 1", func() {
-		m.API = VersionRange{Min: 1, Max: 1}
-		Expect(ValidateManifest(m, host())).To(Succeed())
-	})
-
-	It("needs api 2", func() {
-		m.API = VersionRange{Min: 1, Max: 1}
-		kind().Permissions = []string{CapMemoryWrite}
-		Expect(ValidateManifest(m, host())).To(MatchError(ContainSubstring("api 2")))
 	})
 
 	It("refuses an unknown or repeated permission", func() {

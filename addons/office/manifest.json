@@ -1,7 +1,7 @@
 {
   "api": {
     "max": 2,
-    "min": 1
+    "min": 2
   },
   "arch": "amd64",
   "capabilities": {
@@ -377,13 +377,7 @@
             "markdown"
           ],
           "type": "object"
-        },
-        "legacyArgs": [
-          {
-            "hint": "use the markdown string",
-            "name": "blocks"
-          }
-        ]
+        }
       },
       {
         "name": "create-xlsx",
@@ -414,13 +408,7 @@
             "csv"
           ],
           "type": "object"
-        },
-        "legacyArgs": [
-          {
-            "hint": "use the csv string",
-            "name": "sheets"
-          }
-        ]
+        }
       },
       {
         "name": "create-pptx",
@@ -496,13 +484,7 @@
             "markdown"
           ],
           "type": "object"
-        },
-        "legacyArgs": [
-          {
-            "hint": "use the markdown string",
-            "name": "blocks"
-          }
-        ]
+        }
       }
     ],
     "tools": [

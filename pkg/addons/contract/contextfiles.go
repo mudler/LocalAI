@@ -8,10 +8,6 @@ import (
 	"unicode"
 )
 
-// MinContextFilesAPI is the first manifest API version that knows the context
-// files field. A manifest that declares one must accept it.
-const MinContextFilesAPI uint64 = 2
-
 // Limits of the context files an add-on declares.
 const (
 	// MaxContextFiles is the most files one add-on declares: one for each
@@ -104,9 +100,6 @@ func validateContextFiles(m Manifest) error {
 	files := m.Capabilities.ContextFiles
 	if len(files) == 0 {
 		return nil
-	}
-	if m.API.Max < MinContextFilesAPI {
-		return fmt.Errorf("context files need api %d", MinContextFilesAPI)
 	}
 	if len(files) > MaxContextFiles {
 		return fmt.Errorf("too many context files: at most %d", MaxContextFiles)

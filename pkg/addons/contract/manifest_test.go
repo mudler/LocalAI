@@ -16,7 +16,7 @@ func fixture() []byte {
 	return b
 }
 func compatible() HostCompatibility {
-	return HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	return HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
 }
 
 var _ = Describe("Manifest", func() {
@@ -362,17 +362,31 @@ var _ = Describe("Resource list declaration", func() {
 		Expect(e).NotTo(HaveOccurred())
 		return m
 	}
-	It("accepts a listing declared with API 2", func() {
+	It("accepts only the manifest API of the host, exactly", func() {
 		m := load()
-		m.API = VersionRange{Min: 1, Max: MinResourceListAPI}
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		for name, api := range map[string]VersionRange{
+			"absent":   {},
+			"api 1":    {Min: 1, Max: 1},
+			"1 to 2":   {Min: 1, Max: 2},
+			"2 to 3":   {Min: 2, Max: 3},
+			"api 3":    {Min: 3, Max: 3},
+			"inverted": {Min: 2, Max: 1},
+		} {
+			m.API = api
+			Expect(ValidateManifest(m, compatible())).To(MatchError(ContainSubstring(`"min": 2, "max": 2`)), name)
+		}
+	})
+	It("accepts a declared listing", func() {
+		m := load()
+		m.API = VersionRange{Min: 2, Max: 2}
 		m.Capabilities.Resources.List = &ResourceList{Tool: "things-list", Items: "things"}
 		Expect(ValidateManifest(m, compatible())).To(Succeed())
 		Expect(m.Capabilities.Resources.List.ItemsKey()).To(Equal("things"))
 		Expect((ResourceList{Tool: "x"}).ItemsKey()).To(Equal(DefaultResourceListItems))
 	})
-	It("refuses a listing without API 2, with a bad name, or that names a declared tool", func() {
+	It("refuses a listing with a bad name, or that names a declared tool", func() {
 		for name, mutate := range map[string]func(*Manifest){
-			"api 1":        func(m *Manifest) { m.API.Max = 1 },
 			"bad tool":     func(m *Manifest) { m.Capabilities.Resources.List.Tool = "Bad Name" },
 			"bad items":    func(m *Manifest) { m.Capabilities.Resources.List.Items = "no spaces" },
 			"declared":     func(m *Manifest) { m.Capabilities.Resources.List.Tool = m.Capabilities.Tools[0] },
@@ -380,7 +394,7 @@ var _ = Describe("Resource list declaration", func() {
 			"empty record": func(m *Manifest) { m.Capabilities.Resources.List.Tool = "" },
 		} {
 			m := load()
-			m.API = VersionRange{Min: 1, Max: MinResourceListAPI}
+			m.API = VersionRange{Min: 2, Max: 2}
 			m.Capabilities.Resources.List = &ResourceList{Tool: "things-list"}
 			mutate(&m)
 			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), name)

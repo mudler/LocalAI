@@ -17,7 +17,7 @@ import (
 )
 
 func host() contract.HostCompatibility {
-	return contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
+	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
 }
 
 // manifestWith validates the Tables manifest after a change to its tool

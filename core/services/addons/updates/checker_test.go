@@ -143,7 +143,7 @@ func installed(version, selection, channel, digest string) updates.Installation 
 	}}
 }
 
-var host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: osName, Arch: archName}
+var host = contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: osName, Arch: archName}
 
 type rig struct {
 	lib     *library
@@ -337,7 +337,7 @@ var _ = Describe("Update detection", func() {
 		It("names the host, SDK and data format ranges a candidate does not fit", func() {
 			for reason, requires := range map[string]catalog.Requirements{
 				updates.ReasonHost:       {Host: contract.VersionRange{Min: 2, Max: 3}},
-				updates.ReasonAPI:        {API: contract.VersionRange{Min: 2, Max: 2}},
+				updates.ReasonAPI:        {API: contract.VersionRange{Min: 3, Max: 3}},
 				updates.ReasonProtocol:   {Protocol: contract.VersionRange{Min: 2, Max: 2}},
 				updates.ReasonSDK:        {SDK: contract.VersionRange{Min: 2, Max: 2}},
 				updates.ReasonDataFormat: {DataFormat: contract.VersionRange{Min: 2, Max: 3}},

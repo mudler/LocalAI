@@ -95,9 +95,6 @@ const (
 	// MinPreviewMs and MaxPreviewMs bound ConnectorKind.PreviewMs.
 	MinPreviewMs = 250
 	MaxPreviewMs = 10000
-	// MinHistoryAPI is the first manifest API version that knows the History
-	// ability of a connector kind.
-	MinHistoryAPI uint64 = 2
 	// DefaultHistoryMessages is how many messages the host asks the op
 	// history for when the kind declares no limit of its own.
 	DefaultHistoryMessages = 30
@@ -133,13 +130,12 @@ type ConnectorKind struct {
 	PreviewMs int `json:"previewMs,omitempty"`
 	// History declares that the add-on serves the op history. A kind without
 	// it keeps the behaviour of a platform that cannot be asked for old
-	// messages. It needs manifest api MinHistoryAPI.
+	// messages.
 	History *ConnectorHistory `json:"history,omitempty"`
 	// Options are the choices of the add-on that each binding of this kind
 	// makes, such as how the bot follows a thread. The host shows them next to
 	// the other settings of the binding, keeps the choice, checks it against
-	// this declaration and sends it with the op poll. It needs manifest api
-	// MinHistoryAPI.
+	// this declaration and sends it with the op poll.
 	Options []ConnectorOption `json:"options,omitempty"`
 	// Files declares the files the kind can receive and send, with a limit
 	// for each direction. Without it, the host moves files inline and caps
@@ -147,13 +143,11 @@ type ConnectorKind struct {
 	Files *ConnectorFiles `json:"files,omitempty"`
 	// Roles are the roles the kind can give to a sender. The add-on owns
 	// the membership and sends the role IDs with each message; the owner of
-	// a binding maps each role to capabilities. It needs manifest api
-	// MinPermissionsAPI.
+	// a binding maps each role to capabilities.
 	Roles []ConnectorRole `json:"roles,omitempty"`
 	// Permissions are the capabilities (see ConnectorCapabilityNames) that the kind can
 	// grant to a role. A sensitive name may be listed to explain the pairing
-	// path, but it is never granted to a role. It needs manifest api
-	// MinPermissionsAPI.
+	// path, but it is never granted to a role.
 	Permissions []string `json:"permissions,omitempty"`
 }
 
@@ -261,7 +255,7 @@ type ConnectorCapability struct {
 	Kinds []ConnectorKind `json:"kinds"`
 }
 
-func validateConnector(c *ConnectorCapability, ui *UI, api VersionRange) error {
+func validateConnector(c *ConnectorCapability, ui *UI) error {
 	if c == nil {
 		return nil
 	}
@@ -284,25 +278,19 @@ func validateConnector(c *ConnectorCapability, ui *UI, api VersionRange) error {
 			return fmt.Errorf("connector previewMs must be 0 or %d to %d", MinPreviewMs, MaxPreviewMs)
 		}
 		if h := k.History; h != nil {
-			if api.Max < MinHistoryAPI {
-				return fmt.Errorf("connector history needs api %d", MinHistoryAPI)
-			}
 			if !h.Thread || h.MaxMessages < 0 || h.MaxMessages > MaxHistoryMessages {
 				return fmt.Errorf("connector history needs thread and maxMessages 0 to %d", MaxHistoryMessages)
 			}
 		}
 		if len(k.Options) > 0 {
-			if api.Max < MinHistoryAPI {
-				return fmt.Errorf("connector options need api %d", MinHistoryAPI)
-			}
 			if err := validateOptions(k.Options); err != nil {
 				return err
 			}
 		}
-		if err := k.Files.validate(api); err != nil {
+		if err := k.Files.validate(); err != nil {
 			return err
 		}
-		if err := validatePermissions(k, api); err != nil {
+		if err := validatePermissions(k); err != nil {
 			return err
 		}
 		if k.Page != "" {

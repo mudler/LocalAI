@@ -23,7 +23,7 @@ export function installedAddon(over = {}) {
     id: 'notes', title: 'Notes', description: 'Keep notes.', icon: '/api/addons/apps/notes/icon?generation=3',
     version: '1.2.0', generation: 3, enabled: true, state: 'running', sourceId: 'main', selection: '1.2.0',
     verification: 'sha256+sigstore', digest: 'sha256:0123456789abcdef0123456789abcdef', platform: { os: 'linux', arch: 'amd64' },
-    compatibility: { host: { min: 1, max: 2 }, api: { min: 1, max: 1 }, protocol: { min: 1, max: 1 }, dataFormat: { min: 1, max: 2 } },
+    compatibility: { host: { min: 1, max: 2 }, api: { min: 2, max: 2 }, protocol: { min: 1, max: 1 }, dataFormat: { min: 1, max: 2 } },
     tools: ['add', 'list'], toolCount: 2, hasUI: true, mainPage: '/app/addons/notes/home', launchMode: 'always',
     generations: 3, restarts: 0, storage: { bytes: 12288, truncated: false }, ...over,
   }
