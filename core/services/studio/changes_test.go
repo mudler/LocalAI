@@ -226,6 +226,28 @@ var _ = Describe("change proposals", func() {
 			Expect(ok).To(BeFalse())
 		})
 
+		It("writes the owner's own text when the owner edits before confirming", func() {
+			r := changeShared(nil).rig(changeScript("user", "- home: Rome\n"), studio.TriggerOptions{})
+			ctx := context.Background()
+			id := create(r.svc, alice)
+			sent(r.svc, alice, id, "remember")
+			idle(r.svc, alice, id)
+			p := onlyProposal(r)
+			_, err := r.svc.Changes().ConfirmEdited(ctx, alice, p.ID, strings.Repeat("x", 16<<10+1))
+			Expect(err).To(MatchError(studio.ErrBadChange))
+			got, _ := r.svc.Changes().Get(ctx, alice, p.ID)
+			Expect(got.Status).To(Equal(contract.ProposalPending), "a refused edit leaves the proposal waiting")
+			done, err := r.svc.Changes().ConfirmEdited(ctx, alice, p.ID, "- home: Milan\n")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(done.Status).To(Equal(contract.ProposalApplied))
+			text, _ := readHome(r, "Memory/index.md")
+			Expect(text).To(Equal("- home: Milan\n"))
+			_, err = r.svc.Changes().Revert(ctx, alice, p.ID)
+			Expect(err).NotTo(HaveOccurred())
+			_, ok := readHome(r, "Memory/index.md")
+			Expect(ok).To(BeFalse())
+		})
+
 		It("refuses a stale proposal and keeps the newer file", func() {
 			r := changeShared(nil).rig(changeScript("user", "- home: Rome\n"), studio.TriggerOptions{})
 			ctx := context.Background()

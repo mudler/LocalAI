@@ -60,6 +60,11 @@ var _ = Describe("Chats proposed changes", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/files/content?path=/Memory/a.md", nil).Code).To(Equal(http.StatusNotFound))
 		Expect(s.do("alice", http.MethodPost, url+"/undo", nil).Code).To(Equal(http.StatusConflict))
 
+		c := propose("c.md")
+		edited := s.do("alice", http.MethodPost, "/api/chats/changes/"+c+"/confirm", map[string]string{"content": "- mine\n"})
+		Expect(edited.Code).To(Equal(http.StatusOK), edited.Body.String())
+		Expect(s.do("alice", http.MethodGet, "/api/chats/files/content?path=/Memory/c.md", nil).Body.String()).To(Equal("- mine\n"))
+
 		b := propose("b.md")
 		dis := s.do("alice", http.MethodPost, "/api/chats/changes/"+b+"/dismiss", nil)
 		Expect(dis.Code).To(Equal(http.StatusOK), dis.Body.String())
@@ -70,7 +75,7 @@ var _ = Describe("Chats proposed changes", func() {
 		rec := s.do("alice", http.MethodGet, "/api/chats/changes/audit", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(json.Unmarshal(rec.Body.Bytes(), &audit)).To(Succeed())
-		Expect(audit).To(HaveLen(5), "propose, confirm, revert, propose, dismiss: %v", audit)
+		Expect(audit).To(HaveLen(7), "propose, confirm, revert, propose, confirm, propose, dismiss: %v", audit)
 		Expect(rec.Body.String()).NotTo(ContainSubstring("fact"))
 		var none []map[string]any
 		Expect(json.Unmarshal(s.do("bob", http.MethodGet, "/api/chats/changes", nil).Body.Bytes(), &none)).To(Succeed())

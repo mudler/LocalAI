@@ -14464,9 +14464,10 @@ paths:
       - chats
   /api/chats/changes/{id}/confirm:
     post:
-      description: Writes the change to your files as one change set that Undo can
-        take back. It is refused with 409 when the file changed since the proposal,
-        or when the proposal expired or was answered.
+      description: 'Writes the change to your files as one change set that Undo can
+        take back. A JSON body {"content": "..."} writes your own text in place of
+        the proposed one; it has the same size limit. It is refused with 409 when
+        the file changed since the proposal, or when the proposal expired or was answered.'
       parameters:
       - description: the proposal
         in: path

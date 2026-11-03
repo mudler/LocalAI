@@ -1,6 +1,9 @@
 package studio
 
 import (
+	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strconv"
 
@@ -67,7 +70,7 @@ func (h *Handlers) GetChange(c echo.Context) error {
 
 // ConfirmChange writes a proposed change.
 // @Summary Confirm a proposed change.
-// @Description Writes the change to your files as one change set that Undo can take back. It is refused with 409 when the file changed since the proposal, or when the proposal expired or was answered.
+// @Description Writes the change to your files as one change set that Undo can take back. A JSON body {"content": "..."} writes your own text in place of the proposed one; it has the same size limit. It is refused with 409 when the file changed since the proposal, or when the proposal expired or was answered.
 // @Tags chats
 // @Param id path string true "the proposal"
 // @Success 200 {object} contract.ChangeProposal "The applied proposal"
@@ -75,7 +78,21 @@ func (h *Handlers) GetChange(c echo.Context) error {
 // @Failure 409 {object} schema.ErrorResponse "Stale, expired or answered"
 // @Router /api/chats/changes/{id}/confirm [post]
 func (h *Handlers) ConfirmChange(c echo.Context) error {
-	p, err := h.svc.Changes().Confirm(c.Request().Context(), userID(c), c.Param("id"))
+	var body struct {
+		Content *string `json:"content"`
+	}
+	if c.Request().ContentLength != 0 {
+		if err := json.NewDecoder(io.LimitReader(c.Request().Body, 2*contract.MaxChangeBytes)).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+			return fail(c, http.StatusBadRequest, typeInvalid, "the body must be JSON")
+		}
+	}
+	var p contract.ChangeProposal
+	var err error
+	if body.Content != nil {
+		p, err = h.svc.Changes().ConfirmEdited(c.Request().Context(), userID(c), c.Param("id"), *body.Content)
+	} else {
+		p, err = h.svc.Changes().Confirm(c.Request().Context(), userID(c), c.Param("id"))
+	}
 	if err != nil {
 		return failChange(c, err)
 	}
@@ -133,7 +150,6 @@ func (h *Handlers) ChangeAudit(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, evs)
 }
-
 
 // ListContextFiles lists the notes the host puts in the prompt of a chat.
 // @Summary List your context files.

@@ -216,6 +216,18 @@ func notPending(p contract.ChangeProposal) error {
 
 // Confirm writes a pending proposal as the owner, in one change set.
 func (c *Changes) Confirm(ctx context.Context, user, id string) (contract.ChangeProposal, error) {
+	return c.confirm(ctx, user, id, nil)
+}
+
+// ConfirmEdited writes the pending proposal with the owner's own text in place
+// of the model's. The text has the same limits as a proposal. The stored
+// proposal keeps what the model asked for; the file and the audit hash hold
+// what was written.
+func (c *Changes) ConfirmEdited(ctx context.Context, user, id, content string) (contract.ChangeProposal, error) {
+	return c.confirm(ctx, user, id, &content)
+}
+
+func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) (contract.ChangeProposal, error) {
 	if err := c.ready(); err != nil {
 		return contract.ChangeProposal{}, err
 	}
@@ -230,6 +242,15 @@ func (c *Changes) Confirm(ctx context.Context, user, id string) (contract.Change
 	kind, ok := c.kinds.Lookup(string(p.Kind))
 	if !ok {
 		return contract.ChangeProposal{}, fmt.Errorf("%w: this server no longer offers %s changes", ErrBadChange, p.Kind)
+	}
+	if edited != nil {
+		switch {
+		case len(*edited) > kind.Limit():
+			return contract.ChangeProposal{}, fmt.Errorf("%w: the text is %d bytes and a %s change may have %d", ErrBadChange, len(*edited), kind.Name, kind.Limit())
+		case !utf8.ValidString(*edited) || strings.ContainsRune(*edited, 0):
+			return contract.ChangeProposal{}, fmt.Errorf("%w: the text must be text", ErrBadChange)
+		}
+		p.Content = *edited
 	}
 	cur, exists, err := c.s.d.Files.ReadHome(ctx, owner, p.Target, maxTargetRead)
 	if err != nil {
