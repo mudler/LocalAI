@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/mudler/xlog"
@@ -59,19 +60,33 @@ func (t connectorTransport) Call(ctx context.Context, scope studio.ConnectorCall
 // RegisterAddonConnector registers the host operation with which a connector
 // add-on pushes a message. It registers nothing when this process has no host
 // operation channel or no connector manager. The message goes through the same
-// function as a message the manager pulls itself.
+// function as a message the manager pulls itself. A dedicated add-on owner
+// refuses it instead.
 func (a *Application) RegisterAddonConnector() error {
 	if a.addonHostOps == nil || a.studioConnectors == nil {
 		return nil
 	}
+	if a.ownsAddonsOnly() {
+		// A pushed message would start its chat turn here, and the owner has no
+		// models. Nothing forwards it to a frontend, so refuse it and let the
+		// add-on see the failure.
+		xlog.Warn("Connectors: this add-on owner refuses connector.inbound; push connector add-ons need a combined or distributed process")
+		return a.addonHostOps.Broker.Register(hostops.Spec{Op: contract.ConnectorInboundOp, Scope: hostops.ScopeInbound, Handler: refuseConnectorInbound})
+	}
 	return hostops.RegisterConnector(a.addonHostOps.Broker, a.studioConnectors)
+}
+
+// refuseConnectorInbound is connector.inbound on a dedicated add-on owner.
+func refuseConnectorInbound(context.Context, hostops.Call) (json.RawMessage, error) {
+	return nil, hostops.ErrForbidden
 }
 
 // StudioConnectors returns the connector manager of the chats, or nil.
 func (a *Application) StudioConnectors() *studio.Connectors { return a.studioConnectors }
 
 // startStudioConnectors builds the connector manager and starts its loop. In a
-// cluster the polling runs on the one frontend that holds the advisory lock.
+// cluster the polling runs on the one frontend that holds the advisory lock. A
+// dedicated add-on owner builds the manager but never starts the loop.
 func (a *Application) startStudioConnectors(svc *studio.Service) {
 	if a.studioConnStore == nil {
 		return
@@ -96,9 +111,16 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 		return
 	}
 	svc.SetConnectors(c)
+	a.studioConnectorsHook.Store(c)
+	if a.ownsAddonsOnly() {
+		// The manager stays: frontends get the stored bot credentials from it
+		// and add-ons push messages to it. Only the polling is left to the
+		// frontends, which have the models.
+		a.studioConnectors = c
+		return
+	}
 	ctx := a.backgroundContext()
 	ctx, cancel := context.WithCancel(ctx)
 	a.studioConnectors, a.studioConnectorsStop = c, cancel
-	a.studioConnectorsHook.Store(c)
 	go c.Run(ctx)
 }

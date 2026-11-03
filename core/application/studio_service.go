@@ -199,10 +199,21 @@ func (a *Application) initStudioService() {
 		return
 	}
 	a.startStudioConnectors(svc)
-	a.startStudioTriggers(svc)
-	a.startStudioLoops(svc)
-	a.startStudioJobs(svc)
+	if a.ownsAddonsOnly() {
+		xlog.Info("Chats: this is the add-on owner; connectors, triggers, loops and agent jobs run on the frontends")
+	} else {
+		a.startStudioTriggers(svc)
+		a.startStudioLoops(svc)
+		a.startStudioJobs(svc)
+	}
 	a.prepareStudioConversion(svc)
+}
+
+// ownsAddonsOnly says whether this process is a dedicated add-on owner
+// (--addons-role=owner). It hosts the add-ons and has no models, so the
+// background work that starts chat turns belongs to the frontends.
+func (a *Application) ownsAddonsOnly() bool {
+	return a.applicationConfig.Addons.DedicatedOwner
 }
 
 // errStudioStarting is the error of a command hook called before the chat
