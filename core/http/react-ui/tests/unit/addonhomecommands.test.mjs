@@ -210,7 +210,9 @@ async function registrySessionHarness() {
  render(); h.flush()
  await new Promise(resolve => setImmediate(resolve))
  render(); h.flush(); render()
- return { h, render, reads, paths, revalidated, refreshSession(user = auth.user) { auth = {...auth,user,sessionEpoch:auth.sessionEpoch + 1}; return render() } }
+ return { h, render, reads, paths, revalidated,
+  refreshSession(user = auth.user) { auth = {...auth,user,sessionEpoch:auth.sessionEpoch + 1}; return render() },
+  discardRefresh() { const live = auth; auth = {...auth,sessionEpoch:auth.sessionEpoch + 1}; try { return h.renderDiscarded({api}) } finally { auth = live } } }
 }
 
 test('Home addons: actual registry rejects same-user refresh late poll before effect cleanup', async () => {
@@ -274,4 +276,19 @@ for (const accountSwitch of [false, true]) test(`Apps registry: late list cannot
  h.flush(); reads[1].resolve([app()]); await new Promise(resolve=>setImmediate(resolve))
  assert.equal(render().apps[0].id, 'paint')
  assert.equal(r.render().apps[0].id, 'paint')
+})
+
+test('Home addons: a discarded render does not change the scope of live requests', async () => {
+ const r = await registrySessionHarness()
+ const value = r.render()
+ value.acquire(); r.render(); r.h.flush()
+ const poll = r.reads[0]
+ const shown = r.discardRefresh() // React renders a new session epoch and throws the render away.
+ assert.deepEqual(shown.apps, [], 'the discarded render itself never shows the old list')
+ assert.equal(poll.signal.aborted, false, 'the live request keeps its scope')
+ poll.resolve([app()])
+ await new Promise(resolve => setImmediate(resolve))
+ assert.equal(r.revalidated.length, 1, 'the live read still publishes')
+ r.refreshSession() // The same epoch committed for real moves the scope at once.
+ assert.equal(r.reads.length, 1)
 })

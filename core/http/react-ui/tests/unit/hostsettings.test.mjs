@@ -168,7 +168,7 @@ test('malformed reload never publishes a partial snapshot and successful read re
 // Load the real JSX form and network-policy block. Only routing, translation
 // and the unrelated egress telemetry read are stubbed; owner reads/writes use
 // the real client and dispatch serializer against a strict fetch boundary.
-test('mounted HostControlsForm confirms private access locally and sends only the owner policy patch', async () => {
+test('mounted HostControlsForm asks for the private access phrase and sends it to the owner with the policy patch', async () => {
   const server = await createServer({
     configFile: false,
     ssr: { noExternal: ['react-i18next'] },
@@ -205,7 +205,7 @@ test('mounted HostControlsForm confirms private access locally and sends only th
       }
       if (body.action === 'host-settings-read') return reply(dto(revision, { chats_egress_allow_private: allowPrivate }))
       assert.equal(body.action, 'host-settings-update')
-      const unknown = Object.keys(body.arguments.patch).filter(key => key !== 'chats_egress_allow_private')
+      const unknown = Object.keys(body.arguments.patch).filter(key => !['chats_egress_allow_private', 'chats_egress_private_confirm'].includes(key))
       if (unknown.length) {
         rejected.push(...unknown)
         return new Response(JSON.stringify({ payload: { error: 'unknown_policy_field' } }))
@@ -233,7 +233,8 @@ test('mounted HostControlsForm confirms private access locally and sends only th
     await act(async () => apply().click())
     assert.deepEqual(rejected, [], 'strict owner rejected unknown policy fields')
     assert.deepEqual(calls.map(c => c.body.action), ['host-settings-read', 'host-settings-update', 'host-settings-read'])
-    assert.deepEqual(calls[1].body.arguments, { expectedRevision: 7, patch: { chats_egress_allow_private: true } })
+    // The owner checks the phrase too, so a direct call cannot skip it.
+    assert.deepEqual(calls[1].body.arguments, { expectedRevision: 7, patch: { chats_egress_allow_private: true, chats_egress_private_confirm: EGRESS_PRIVATE_PHRASE } })
     assert.ok(calls.every(c => c.url !== '/api/settings'))
     assert.match(document.body.textContent, /revision 8/)
     assert.equal(document.querySelector('[data-testid="settings-pending"]'), null)
