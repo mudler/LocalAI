@@ -423,9 +423,13 @@ What a run holds:
   grants of its agent (`builtins`). A trigger without an agent has no ceiling but
   its own `acts`. Set `acts` in the body of `POST /api/chats/triggers` or
   `PUT /api/chats/triggers/{id}`: leave it out to keep the value, send `[]` to
-  clear it. Only a person can set it. A trigger that a model proposes in a chat
-  never carries `acts`, and neither does the trigger a connector makes without
-  asking. A trigger whose plan names a file it writes (`plan.writes`) also holds
+  clear it. The trigger form (the **Permissions** section on the Triggers page)
+  edits the same list. A model can ask for `acts` only when it proposes a trigger
+  (`propose_trigger` takes an optional `acts` list), and only for what its own
+  agent holds; no tool changes the `acts` of a trigger afterwards. The proposal
+  card lists them, and confirming it grants exactly those. A trigger that a
+  connection makes without asking never carries `acts`: a proposal with `acts` is
+  always left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
   `act.files`, because you saw that file on the proposal card. Triggers that exist
   before this change keep running, but they now read only unless they set `acts`
   or `plan.writes`.
@@ -439,6 +443,14 @@ What a run holds:
   connection that cannot be read is treated as `auto_readonly`.
 - **Sub-agents.** A sub-agent of an unattended run has the same limits as its
   parent. A run that nobody watches cannot start a saved agent as a sub-agent.
+
+The trigger as REST returns it says what applies: `acts` is the list the trigger
+holds, `acts_held` the part of it that applies to a run (within the grants of the
+agent, plus `act.files` for a plan that writes a file), `read_only` whether a run
+can only read and `read_only_why` why: `no_acts` (it holds none), `agent` (its
+agent holds none of them), `declared` (the proposal said `read_only`) or `binding`
+(a connection in `auto_readonly` mode made it). The Triggers page shows the same:
+a "Read only" mark on each row, and the reason on the trigger.
 
 A refused tool stays in the tool list and answers with one plain sentence instead
 of running, for example "I did not run write_file: nobody is here to approve it

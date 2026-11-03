@@ -38,7 +38,9 @@ const proposeTriggerDescription = "Propose a trigger: a task that runs by itself
 	"A schedule runs at most once an hour; a shorter one is refused. " +
 	"time_zone is an IANA name such as Europe/Rome; when absent, the person's own zone is used when they confirm. " +
 	"Fill reads, writes, widget and estimated_tokens so the person sees what a run does and costs before they confirm: " +
-	"writes is the data file a run rewrites and widget the id of the Home widget in home.json that shows it."
+	"writes is the data file a run rewrites and widget the id of the Home widget in home.json that shows it. " +
+	"A run with nobody present only reads unless acts lists what it may also do; ask for the least it needs, and only for what the user's request needs. " +
+	"The proposal shows the acts to the user before they confirm."
 
 const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
@@ -51,6 +53,7 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words: Mail from the last 24 hours."},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites, such as data/inbox.json."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget in home.json that shows the file."},` +
+	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"What a run may do when nobody is present: act.files writes files in the agent's folders, act.addons uses the actions of its add-ons, act.send sends messages beyond the delivery target, act.spend uses paid or external tools and the network. Leave it out for a run that only reads and reports. Only what your agent holds; the person sees the list on the proposal before they confirm, and nothing can widen it afterwards."},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses, prompt and answer."}},` +
 	`"required":["name","prompt","when"]}`
 
@@ -70,6 +73,7 @@ const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words."},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget that shows the file."},` +
+	`"acts":{"type":"array","maxItems":8,"items":{"type":"string","enum":["act.files","act.addons","act.send","act.spend"]},"description":"What a run may do when nobody is present: act.files writes files in the agent's folders, act.addons uses the actions of its add-ons, act.send sends messages beyond the delivery target, act.spend uses paid or external tools and the network. Leave it out for a run that only reads and reports. Only what your agent holds; the person sees the list on the proposal before they confirm, and nothing can widen it afterwards."},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses."},` +
 	`"delivery":{"type":"object","description":"Where the answer of each run goes. Default: the owner's Inbox.","properties":{` +
 	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in this chat and thread, inbox in the owner's Inbox, channel in a channel the owner listed and approved (name it in channel)."},` +
@@ -310,6 +314,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		Widget   string          `json:"widget"`
 		Tokens   int             `json:"estimated_tokens"`
 		Access   string          `json:"access"`
+		Acts     []string        `json:"acts"`
 		Delivery *struct {
 			Target  string `json:"target"`
 			Mode    string `json:"mode"`
@@ -374,6 +379,9 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	} else if args.Delivery != nil {
 		return "", errors.New("delivery is for a chat in a messaging app; the answer of a run goes to the Inbox")
 	}
+	if in.Acts, err = checkProposedActs(args.Acts, agentID, c.Grants, in.Route.ReadOnly); err != nil {
+		return "", toolErr(err)
+	}
 	sc, err := h.toolScope(ctx, a, agentID)
 	if err != nil {
 		return "", toolErr(err)
@@ -417,6 +425,8 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		Writes    string `json:"writes,omitempty"`
 		Widget    string `json:"widget,omitempty"`
 		EstTokens int    `json:"estimated_tokens,omitempty"`
+		// Acts are shown so the model can tell the person; no tool changes them.
+		Acts []string `json:"acts,omitempty"`
 	}
 	type row struct {
 		Ref     string  `json:"ref"`
@@ -468,7 +478,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID stri
 		}
 		if args.IncludePrompt {
 			r.Detail = &detail{Prompt: t.Prompt, Schedule: t.Schedule, TimeZone: t.TZ, Folder: h.RelFolder(t), DailyCap: t.DailyCap,
-				Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens}
+				Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts}
 		}
 		rows = append(rows, r)
 	}

@@ -585,6 +585,12 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   with the grant); a message from any other sender, or text the agent read, never answers
   a proposal. A code is used once, and a proposal lapses after 24 hours. Studio always
   works as well.
+- **Permissions are in the text.** The proposal says what a run may do with nobody
+  present, in plain words: "Permissions: read only", or the `act.*` classes the
+  agent asked for (`acts` of `propose_trigger`, limited to what the agent holds), with
+  the sensitive ones marked. A `yes` grants exactly the listed ones, and the
+  confirmation repeats them. A proposal that asks to act is never set up without a yes,
+  whatever the approval mode. The model cannot change them after the confirmation.
 - **Limits.** A binding can make 3 proposals an hour, and an owner can have 10 waiting.
 - **One-off timers.** For "in 10 minutes" or "at 18:00", the agent proposes a trigger
   that runs once: `when` is `{"in": "10 minutes"}` or `{"at": "18:00"}` (this one needs a

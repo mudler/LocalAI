@@ -1056,6 +1056,14 @@ type ChatsTrigger struct {
 	// act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
 	// without any only reads.
 	Acts []string `json:"acts,omitempty"`
+	// ActsHeld are the act.* names that apply to a run now: Acts within the
+	// grants of the agent, plus act.files when the plan names a file it writes.
+	// ReadOnly is true when a run can only read, and ReadOnlyWhy says why:
+	// declared (the proposal said so), binding (a connection in read only mode
+	// made it), no_acts (it holds none) or agent (its agent holds none of them).
+	ActsHeld    []string `json:"acts_held,omitempty"`
+	ReadOnly    bool     `json:"read_only"`
+	ReadOnlyWhy string   `json:"read_only_why,omitempty"`
 }
 
 // ChatsTriggerProposal is a trigger a chat proposed and what became of it.

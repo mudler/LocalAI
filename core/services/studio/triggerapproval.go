@@ -158,6 +158,10 @@ func (h *Triggers) autoVerdict(ctx context.Context, ap connectors.Approval, t tr
 			return "its runs write a file"
 		}
 	}
+	if len(t.Acts) > 0 {
+		// A run that may act is never set up without a yes.
+		return "its runs ask for permission to act on their own"
+	}
 	if t.Route.TargetOrDefault() == triggers.TargetChannel {
 		return "it would write to another channel"
 	}

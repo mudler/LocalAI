@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/triggers"
 )
 
 // The action policy of an unattended run (a trigger or an agent job). The
@@ -54,6 +55,13 @@ func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builti
 	if err != nil || t.Owner != rec.Principal {
 		return builtins.ActPolicy{ReadOnly: true}, true
 	}
+	return s.triggerPolicy(ctx, t, ceiling, rec.AgentID != ""), true
+}
+
+// triggerPolicy is the rights of the runs of trigger t: its acts within the
+// ceiling (the grants of its agent), when it has an agent. The proposal card,
+// the REST view and the run itself all read it, so they cannot disagree.
+func (s *Service) triggerPolicy(ctx context.Context, t triggers.Trigger, ceiling []string, hasAgent bool) builtins.ActPolicy {
 	want := slices.Clone(t.Acts)
 	if t.Writes != "" && !slices.Contains(want, builtins.ClassFiles) {
 		want = append(want, builtins.ClassFiles)
@@ -63,11 +71,11 @@ func (s *Service) actPolicy(ctx context.Context, rec session.ChatRecord) (builti
 		pol.ReadOnly = true
 	}
 	for _, n := range want {
-		if rec.AgentID == "" || withinCeiling(n, ceiling) {
+		if !hasAgent || withinCeiling(n, ceiling) {
 			pol.Held = append(pol.Held, n)
 		}
 	}
-	return pol, true
+	return pol
 }
 
 // bindingMode is the approval mode of a binding. A binding that cannot be read

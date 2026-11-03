@@ -43,6 +43,8 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 		Plan: schema.ChatsTriggerPlan{Reads: t.Reads, Writes: t.Writes, Widget: t.Widget},
 		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)},
 		Acts: t.Acts}
+	av := host.ActsView(ctx, t)
+	out.ActsHeld, out.ReadOnly, out.ReadOnlyWhy = av.Held, av.ReadOnly, av.Why
 	if t.Kind == triggers.KindFile {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}

@@ -307,7 +307,7 @@ func (h *Triggers) answerProposal(ctx context.Context, from PhraseFrom, p trigge
 		return fmt.Sprintf(sentProposalFailed, toolErr(err)), true
 	}
 	h.audit(ctx, proposals.ActionConfirm, t, detail)
-	return fmt.Sprintf("Confirmed. %q is on: %s. Cost: %s.", t.Name, h.whenText(t), h.costText(t)), true
+	return fmt.Sprintf("Confirmed. %q is on: %s. Cost: %s. %s", t.Name, h.whenText(t), h.costText(t), actsText(t)), true
 }
 
 // cancelAuto removes a trigger that was made without asking.
@@ -354,9 +354,9 @@ func (h *Triggers) proposalText(t triggers.Trigger, note string) string {
 	if note != "" {
 		extra = "I did not start it by myself: " + note + ".\n"
 	}
-	return fmt.Sprintf("Proposal %s: %q, %s. It will: %s\nCost: %s. Results go to %s%s.\n%sNothing runs until you approve. Reply \"yes\" to start it or \"cancel\" to drop it, here, within 24 hours, or open Studio. "+
+	return fmt.Sprintf("Proposal %s: %q, %s. It will: %s\nCost: %s. Results go to %s%s.\n%s\n%sNothing runs until you approve. Reply \"yes\" to start it or \"cancel\" to drop it, here, within 24 hours, or open Studio. "+
 		"If more than one proposal waits, reply \"confirm %s\" or \"cancel %s\".",
-		t.Route.Code, t.Name, when, prompt, h.costText(t), where, mode, extra, t.Route.Code, t.Route.Code)
+		t.Route.Code, t.Name, when, prompt, h.costText(t), where, mode, actsText(t), extra, t.Route.Code, t.Route.Code)
 }
 
 // Announce writes the proposal, with its code, in the chat where it was made.
