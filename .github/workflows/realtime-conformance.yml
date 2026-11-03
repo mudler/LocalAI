@@ -1,4 +1,10 @@
 ---
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
 name: 'realtime-conformance'
 
 # Verifies the realtime state-machine implementations conform to their formal
@@ -36,8 +42,8 @@ on:
       - 'scripts/realtime-conformance.sh'
 
 concurrency:
-  group: realtime-conformance-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: realtime-conformance-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 jobs:
   conformance:

@@ -289,6 +289,26 @@ concurrency:
 - **PR events** group by PR number → newer pushes to the same PR cancel old runs (intended).
 - **Push events** group by `github.sha` → each master commit gets its own run; rapid-fire merges don't cancel each other (this was a real issue prior — two master pushes 11 seconds apart would cancel the first's CI).
 
+### Test, lint and E2E workflows cancel superseded master runs
+
+`test.yml`, `lint.yml`, `build-test.yaml`, `test-extra.yml`, `tests-e2e.yml`, `tests-ui-e2e.yml`, `tests-aio.yml`, `tests-pii-ner-e2e.yml`, `realtime-conformance.yml` and `ci-tools-tests.yaml` use this instead:
+
+```yaml
+concurrency:
+  group: ci-<workflow>-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+```
+
+- A newer push to master cancels the older in-flight run of the same workflow. Tests are cumulative, so the newest commit is the one worth testing. This stops a burst of merges from leaving hundreds of queued runs.
+- Tag pushes group by their own tag ref, and schedule and `workflow_dispatch` runs group by SHA, so a master push never cancels them.
+- The cost: the run of an older commit shows as cancelled, so a failure that the newer commit also contains is reported by the newer run, not the older one.
+
+### Image workflows are deliberately not cancelled
+
+`image.yml` and `backend.yml` keep the per-SHA group. Both decide what to build from the diff of one push (`event.before` to `sha`): the `changes` job in `image.yml`, `scripts/changed-backends.js` in `backend.yml`. If a queued run were replaced by a newer one, the newer run would only see its own diff. A code commit followed by a gallery-only commit would then build nothing. Do not add a pending-replacement group to them until the diff base is the last commit that was actually built.
+
+`generate_intel_image.yaml` pushes one fixed tag, so its group is `intel-cache-<event>-<repo>` with `cancel-in-progress: false`: a running build finishes, and a newer pending run replaces an older pending one.
+
 ## Self-warming, no separate populator
 
 There is no cron job that pre-warms the BuildKit cache for individual backends. The production builds *are* the populators. The first master build of a given matrix entry pays the cold cost; subsequent same-entry master builds reuse everything that hasn't changed (apt installs, gRPC compile in the variant `builder-fromsource` stage or skipped entirely when consuming `base-grpc-*`, Python wheel installs, etc.). The base-images workflow's weekly cron is the closest thing to a populator and only refreshes the prebuilt builder bases.
