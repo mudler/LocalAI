@@ -867,6 +867,7 @@ var errAgentGone = errors.New("the agent was deleted")
 func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, name string, fresh bool) (string, bool, error) {
 	if id, ok, err := c.o.Store.ChatOf(ctx, b.ID, key); err == nil && ok && !fresh {
 		if rec, err := c.svc.Get(ctx, b.Owner, id); err == nil && rec.AgentID == b.AgentID {
+			c.followAgentModel(ctx, b, rec)
 			return id, false, nil
 		}
 	}
@@ -882,6 +883,20 @@ func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, nam
 		return "", false, err
 	}
 	return rec.ID, true, nil
+}
+
+// followAgentModel gives a kept chat the model its agent has now. A chat takes
+// the agent's model when it is made, so a later change of that model would not
+// reach the sender's chat. A chat that is busy keeps its model until the next
+// message.
+func (c *Connectors) followAgentModel(ctx context.Context, b connectors.Binding, rec session.ChatRecord) {
+	ag, err := c.svc.Agent(ctx, b.Owner, b.AgentID)
+	if err != nil || strings.TrimSpace(ag.Model) == "" || ag.Model == rec.Model {
+		return
+	}
+	if _, err := c.svc.Update(ctx, b.Owner, rec.ID, UpdateInput{Model: &ag.Model}); err != nil {
+		c.log.Warn("studio: could not move a connector chat to the model of its agent", "binding", b.ID, "error", err)
+	}
 }
 
 // deliver hands the message to the chat and makes sure that the answer goes

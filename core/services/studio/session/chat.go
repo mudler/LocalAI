@@ -512,7 +512,7 @@ func fixedReason(text string) string {
 	case reasonAgent, reasonTranscript, reasonSave, reasonRefresh, reasonCheckpoint, ReasonNotAllowed, ReasonQuota:
 		return text
 	}
-	if strings.HasPrefix(text, reasonContextPrefix) || strings.HasPrefix(text, reasonModelFailedPrefix) || strings.HasPrefix(text, reasonUnknownToolPrefix) {
+	if strings.HasPrefix(text, reasonContextPrefix) || strings.HasPrefix(text, reasonModelFailedPrefix) || strings.HasPrefix(text, reasonUnknownToolPrefix) || strings.HasPrefix(text, reasonToolSchemaPrefix) {
 		return text
 	}
 	return reasonAgent
@@ -529,6 +529,7 @@ const (
 	reasonContextPrefix     = "The model's context window is too small"
 	reasonModelFailedPrefix = "The model failed"
 	reasonUnknownToolPrefix = "The model called a tool that is not available"
+	reasonToolSchemaPrefix  = "The model refused a tool"
 )
 
 var (

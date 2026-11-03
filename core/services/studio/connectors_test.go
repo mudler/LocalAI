@@ -376,6 +376,29 @@ var _ = Describe("connectors", func() {
 	})
 })
 
+var _ = Describe("connectors", func() {
+	It("a kept chat follows a change of the model of its agent", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		bot.say(1, 11, "Ada", "ada", "one")
+		waitFor("the first answer", func() bool { return len(bot.answers()) == 1 })
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(HaveLen(1))
+		ag := r.agent
+		ag.Model = "other-model"
+		_, err := r.svc.SaveAgent(context.Background(), alice, ag)
+		Expect(err).NotTo(HaveOccurred())
+		bot.say(2, 11, "Ada", "ada", "two")
+		waitFor("the second answer", func() bool { return len(bot.answers()) == 2 })
+		again, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(again).To(HaveLen(1))
+		rec, err := r.svc.Get(context.Background(), alice, again[0].ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Model).To(Equal("other-model"))
+	})
+})
+
 func hasName(l []string, s string) bool {
 	return slices.Contains(l, s)
 }
