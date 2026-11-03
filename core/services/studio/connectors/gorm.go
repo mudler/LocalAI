@@ -138,7 +138,7 @@ func (r bindingRow) binding() (Binding, error) {
 			return b, err
 		}
 	}
-	return Normalize(b), nil
+	return b, nil
 }
 
 func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {

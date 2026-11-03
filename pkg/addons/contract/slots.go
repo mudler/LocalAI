@@ -58,7 +58,7 @@ var defaultSlots = sync.OnceValue(func() []Slot {
 
 // DefaultSlots are the slots the host knows without any declaration, read
 // from data. A skill that shadows one of them and declares no slot of its own
-// (a manifest of API 1) is served by these.
+// is served by these.
 func DefaultSlots() []Slot { return slices.Clone(defaultSlots()) }
 
 // DefaultSlot returns the default slot called name.

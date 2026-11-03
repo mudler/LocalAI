@@ -32,8 +32,7 @@ type SkillDefinition struct {
 	// add-on skill.
 	Shadows string `json:"shadows,omitempty"`
 	// Slot describes the slot this skill serves: the files it covers and the
-	// words to say about them (see SlotDefinition). It needs Shadows and
-	// manifest API 2. A skill that shadows a default slot may leave it out.
+	// words to say about them (see SlotDefinition). It needs Shadows. A skill that shadows a default slot may leave it out.
 	Slot *SlotDefinition `json:"slot,omitempty"`
 }
 

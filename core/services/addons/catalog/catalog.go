@@ -111,9 +111,7 @@ type Release struct {
 	SourceURL string `json:"sourceUrl,omitempty"`
 	// ID is the identifier of the entry for every kind, the same field the
 	// shared envelope uses. For a backend it is the backend name, which is also
-	// its directory name. An index written before the envelope names it
-	// addonId; ReadIndex still reads that name (see LegacyIDField) and every
-	// writer emits id.
+	// its directory name.
 	ID          string `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`

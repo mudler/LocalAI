@@ -15,8 +15,8 @@ import (
 
 // ConnectorInput is the definition of a connector binding as its owner writes it.
 type ConnectorInput struct {
-	// Kind is the platform of the binding, such as telegram. It is fixed when the
-	// binding is made. Empty means telegram, for clients older than the add-ons.
+	// Kind is the platform of the binding, as a connector add-on declares it. It
+	// is required and fixed when the binding is made.
 	Kind string
 	Name string
 	// Token is the bot token. It is needed to create a binding; an update
@@ -145,10 +145,6 @@ func (c *Connectors) verifyToken(ctx context.Context, b connectors.Binding, toke
 	return c.o.VerifyToken(ctx, b, token)
 }
 
-// legacyTitles name the platforms core served before connectors became
-// add-ons, for a binding whose add-on is not installed.
-var legacyTitles = map[string]string{"telegram": "Telegram"}
-
 // ConnectorInfo is a binding without its token.
 type ConnectorInfo struct {
 	connectors.Binding
@@ -178,11 +174,7 @@ func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorIn
 	if _, ok := kindFor(kinds, i.Binding); ok {
 		return i
 	}
-	title := legacyTitles[i.Kind]
-	if title == "" {
-		title = i.AddonID
-	}
-	i.Active, i.Reason = false, "install the "+title+" add-on"
+	i.Active, i.Reason = false, "install the "+i.AddonID+" add-on"
 	return i
 }
 
@@ -193,9 +185,6 @@ func (c *Connectors) kindTitle(ctx context.Context, b connectors.Binding) string
 			return k.Title
 		}
 	}
-	if t := legacyTitles[b.Kind]; t != "" {
-		return t
-	}
 	return b.Kind
 }
 
@@ -205,9 +194,7 @@ func (c *Connectors) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error
 	return c.o.Transport.Kinds(ctx)
 }
 
-// resolveAddon finds the add-on that serves a kind. A kind core served before
-// the add-ons keeps its add-on even when it is not installed, so the binding
-// can be made now and starts when the add-on is installed.
+// resolveAddon finds the add-on that serves a kind.
 func (c *Connectors) resolveAddon(ctx context.Context, kind string) (string, error) {
 	kinds, err := c.o.Transport.Kinds(ctx)
 	if err != nil {
@@ -217,9 +204,6 @@ func (c *Connectors) resolveAddon(ctx context.Context, kind string) (string, err
 		if k.ID == kind {
 			return k.AddonID, nil
 		}
-	}
-	if a := connectors.LegacyAddon[kind]; a != "" {
-		return a, nil
 	}
 	return "", connectorBad("no installed add-on serves the kind %q", kind)
 }
@@ -341,7 +325,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	owner := principal(user)
 	kind := in.Kind
 	if kind == "" {
-		kind = connectors.KindTelegram
+		return ConnectorInfo{}, connectorBad("a binding needs a kind")
 	}
 	addon, err := c.resolveAddon(ctx, kind)
 	if err != nil {

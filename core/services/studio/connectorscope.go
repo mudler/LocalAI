@@ -19,7 +19,6 @@ const (
 
 // BindingConnectorScope also covers background calls with fresh contexts.
 func BindingConnectorScope(b connectors.Binding) ConnectorCallScope {
-	b = connectors.Normalize(b)
 	return ConnectorCallScope{Purpose: ConnectorPurposeBinding, Principal: b.Owner, BindingID: b.ID, AgentID: b.AgentID, AddonID: b.AddonID, Kind: b.Kind}
 }
 func verificationScope(b connectors.Binding) ConnectorCallScope {
@@ -46,7 +45,6 @@ func (c *Connectors) AuthorizeConnector(ctx context.Context, s ConnectorCallScop
 	if s.BindingID != "" {
 		var err error
 		b, err = c.o.Store.GetBinding(ctx, s.BindingID)
-		b = connectors.Normalize(b)
 		if err != nil || b.Owner != s.Principal || b.AddonID != s.AddonID || b.Kind != s.Kind || b.AgentID != s.AgentID {
 			return deny()
 		}

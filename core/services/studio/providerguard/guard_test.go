@@ -158,31 +158,11 @@ var knownDebt = []debt{
 		"kinds of change declared by the add-ons that handle them (contract change-kind registry)"},
 	{entry{ui + "pages/Account.jsx", "'memory'", "the Account page has a fixed Memory tab"},
 		"the Memory add-on gives the memory page through its own page declaration"},
-
-	// Migration of the Telegram connectors core carried before connectors became add-ons.
-	{entry{"core/services/studio/connectors/types.go", `telegram`, "LegacyAddon and KindTelegram map the old kind to its add-on"},
-		"end of the support window of the Telegram connector conversion: delete the conversion, LegacyAddon and KindTelegram"},
-	{entry{"core/services/studio/connectorsvc.go", "Telegram", "the conversion names the old kind and its title"},
-		"end of the support window of the Telegram connector conversion: delete the conversion, LegacyAddon and KindTelegram"},
-	{entry{"core/services/studio/connectorsvc.go", `telegram`, "the conversion names the old kind"},
-		"end of the support window of the Telegram connector conversion: delete the conversion, LegacyAddon and KindTelegram"},
-	{entry{"core/services/studio/convert/run.go", "Telegram", "the conversion names the old kind and its title"},
-		"end of the support window of the Telegram connector conversion: delete the conversion, LegacyAddon and KindTelegram"},
-	{entry{"core/services/studio/convert/run.go", `telegram`, "the conversion names the old kind"},
-		"end of the support window of the Telegram connector conversion: delete the conversion, LegacyAddon and KindTelegram"},
-	{entry{"core/http/endpoints/localai/api_instructions.go", "Telegram connectors", "the note about the one-time conversion names the old kind"},
-		"end of the support window of the Telegram connector conversion: delete the conversion, LegacyAddon and KindTelegram"},
-	{entry{locales, "conversionPage.intro", "the conversion page names the old Telegram connectors"},
-		"end of the support window of the Telegram connector conversion: delete the conversion, LegacyAddon and KindTelegram"},
-
-	// Shim for an old manifest of one add-on.
-	{entry{"core/services/addons/apps/legacy_resource_list.go", `tables`, "builds the resource listing for manifests of the Tables add-on that predate the list declaration"},
-		"the minimum supported manifest API reaches contract.MinResourceListAPI: delete the shim"},
 }
 
 // maxKnownDebt is the size of knownDebt now. Lower it when an entry goes; a
 // higher number is a new special case that is excused instead of fixed.
-const maxKnownDebt = 13
+const maxKnownDebt = 5
 
 var _ = Describe("the names of the shipped add-ons in core", func() {
 	It("reads every add-on from its manifest and marks the ones with a role", func() {

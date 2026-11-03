@@ -128,8 +128,7 @@ type Capabilities struct {
 	// (see network.go). It attaches the network-policy host control.
 	Network *NetworkCapability `json:"network,omitempty"`
 	// ContextFiles name small index files of the user's home that the host
-	// loads into the prompt of a chat (see contextfiles.go). They need
-	// manifest API 2.
+	// loads into the prompt of a chat (see contextfiles.go).
 	ContextFiles []ContextFile `json:"contextFiles,omitempty"`
 
 	// Credentials declare the secret that the host keeps for the person and
@@ -157,7 +156,7 @@ type ResourceTools struct {
 	// backing data. It is reachable only from the UI-only delete endpoint.
 	Delete string `json:"delete,omitempty"`
 	// List asks the host for a read tool that lists the resources the caller
-	// may use (see ResourceList). It needs manifest API 2.
+	// may use (see ResourceList).
 	List *ResourceList `json:"list,omitempty"`
 }
 

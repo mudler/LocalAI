@@ -36,7 +36,7 @@ var _ = Describe("The credential slot of an add-on", func() {
 		return h
 	}
 
-	It("is valid with API 2, a connector kind and read tools", func() {
+	It("is valid with a connector kind and read tools", func() {
 		Expect(ValidateManifest(manifest(nil), host())).To(Succeed())
 	})
 	It("needs a connector kind to hold the binding", func() {

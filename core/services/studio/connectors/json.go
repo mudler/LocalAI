@@ -97,7 +97,7 @@ func (s *jsonStore) GetBinding(_ context.Context, id string) (Binding, error) {
 	if !ok {
 		return Binding{}, ErrNotFound
 	}
-	return Normalize(b.clone()), nil
+	return b.clone(), nil
 }
 
 func (s *jsonStore) list(keep func(Binding) bool) []Binding {
@@ -106,7 +106,7 @@ func (s *jsonStore) list(keep func(Binding) bool) []Binding {
 	var out []Binding
 	for _, b := range s.d.Bindings {
 		if keep(b) {
-			out = append(out, Normalize(b.clone()))
+			out = append(out, b.clone())
 		}
 	}
 	sort.Slice(out, func(i, j int) bool {

@@ -22,7 +22,7 @@ type NewStore func() connectors.Store
 var t0 = time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 
 func binding(id, owner, name string) connectors.Binding {
-	return connectors.Binding{ID: id, Owner: owner, Kind: connectors.KindTelegram, Name: name, AgentID: "ag1", Enabled: true,
+	return connectors.Binding{ID: id, Owner: owner, Kind: "chat", Name: name, AgentID: "ag1", Enabled: true,
 		Allow: []string{"123", "@alice"}, NotifyChat: "456", Token: []byte("sealed-bytes-" + id), Created: t0, Updated: t0}
 }
 
@@ -118,26 +118,6 @@ func Run(newStore NewStore) {
 		got, err := s.GetBinding(ctx, "limits")
 		Expect(err).NotTo(HaveOccurred())
 		Expect([]int64{got.FileReceiveMax, got.FileSendMax}).To(Equal([]int64{512 << 10, 2 << 20}))
-	})
-	It("gives an old binding the add-on of its kind", func() {
-		// A binding stored before connectors became add-ons has no add-on ID.
-		s := newStore()
-		_ = s.PutBinding(ctx, binding("old", "u1", "Old"))
-		other := binding("new", "u1", "New")
-		other.Kind, other.AddonID = "slack", "slack-addon"
-		_ = s.PutBinding(ctx, other)
-		got, _ := s.GetBinding(ctx, "old")
-		Expect(got.AddonID).To(Equal("telegram"), "old binding add-on")
-		list, _ := s.ListBindings(ctx, "u1")
-		enabled, _ := s.EnabledBindings(ctx)
-		for _, l := range [][]connectors.Binding{list, enabled} {
-			byID := map[string]string{}
-			for _, b := range l {
-				byID[b.ID] = b.AddonID
-			}
-			Expect(byID).To(HaveKeyWithValue("old", "telegram"))
-			Expect(byID).To(HaveKeyWithValue("new", "slack-addon"))
-		}
 	})
 	It("keeps the capabilities, grants and paired senders", func() {
 		s := newStore()

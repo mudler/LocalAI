@@ -336,7 +336,7 @@
   },
   "conversionPage": {
     "title": "Converted from the old chat",
-    "intro": "The old chat, agents, tasks, skills and Telegram connectors were converted when this server started. Triggers and connectors are switched off until you turn them on. A chat keeps what was said, not what the model remembered.",
+    "intro": "The old chat, agents, tasks and skills were converted when this server started. Triggers are switched off until you turn them on. Connectors are not converted: add the bot again in the Connectors page. A chat keeps what was said, not what the model remembered.",
     "notRun": "No conversion has run on this server.",
     "nothing": "Nothing of yours needed converting.",
     "allUsers": "All users:",

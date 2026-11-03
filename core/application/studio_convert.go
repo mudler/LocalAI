@@ -253,15 +253,6 @@ func (t studioTargets) DiscardChat(ctx context.Context, user, title string, crea
 	return nil
 }
 
-func (t studioTargets) CreateBinding(ctx context.Context, user string, in convert.BindingIn) error {
-	c := t.svc.Connectors()
-	if c == nil {
-		return errors.New("connectors are not available")
-	}
-	_, err := c.CreateConnector(ctx, user, studio.ConnectorInput{Name: in.Name, Token: in.Token, AgentID: in.AgentID, Allow: in.Allow, Enabled: false})
-	return invalid(err)
-}
-
 func connectorRefs(ids []string) []string {
 	var out []string
 	for _, id := range ids {

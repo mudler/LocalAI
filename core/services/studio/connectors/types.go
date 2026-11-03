@@ -1,7 +1,7 @@
 // Package connectors binds messaging platforms to saved agents. A person who
 // messages a bot talks to the agent of the binding, in a conversation of their
 // own, and the answer goes back to the platform. The platform's API is spoken by
-// a connector add-on (the Telegram add-on first); this package keeps what is
+// a connector add-on; this package keeps what is
 // generic: the bindings, the sealed tokens, the allowlist and the sender log.
 //
 // Two stores exist: NewJSON (files under a data directory, or memory) and
@@ -22,14 +22,6 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
-
-// LegacyAddon is the add-on that serves the kinds core carried before
-// connectors became add-ons. A binding of such a kind that has no add-on ID
-// belongs to it.
-var LegacyAddon = map[string]string{"telegram": "telegram"}
-
-// KindTelegram is the kind core carried before connectors became add-ons.
-const KindTelegram = "telegram"
 
 // Reply modes: what a sender sees while a turn runs.
 const (
@@ -452,16 +444,6 @@ func (b Binding) Allows(senderID, username string) bool {
 		}
 	}
 	return false
-}
-
-// Normalize gives a binding of an old kind the add-on that serves it. Stores
-// call it on every read, so a binding made before connectors became add-ons
-// keeps working once its add-on is installed.
-func Normalize(b Binding) Binding {
-	if b.AddonID == "" {
-		b.AddonID = LegacyAddon[b.Kind]
-	}
-	return b
 }
 
 func (b Binding) clone() Binding {

@@ -4426,7 +4426,7 @@ Expected: a `failed` line: `Cannot find module '../build.mjs'`.
   "os": "linux",
   "arch": "amd64",
   "host": { "min": 1, "max": 1 },
-  "api": {"min": 2, "max": 2},
+  "api": { "min": 1, "max": 1 },
   "protocol": { "min": 1, "max": 1 },
   "dataFormat": { "min": 1, "max": 1 },
   "capabilities": {

@@ -46,7 +46,7 @@ var _ = Describe("the connector capability", func() {
 		kind := func() *ConnectorKind { return &m.Capabilities.Connector.Kinds[0] }
 		BeforeEach(func() { m.API = VersionRange{Min: 2, Max: 2} })
 
-		It("accepts a thread history with the manifest api 2", func() {
+		It("accepts a thread history", func() {
 			kind().History = &ConnectorHistory{Thread: true, MaxMessages: 50}
 			Expect(ValidateManifest(m, host())).To(Succeed())
 			Expect(kind().ServesThreadHistory()).To(BeTrue())

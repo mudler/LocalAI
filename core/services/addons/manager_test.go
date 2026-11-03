@@ -505,12 +505,6 @@ var _ = Describe("owner identity file", func() {
 		Expect(json.Unmarshal(b, &fields)).To(Succeed())
 		Expect(fields).To(Equal(map[string]any{"OwnerID": "owner", "StorageID": "disk-one"}))
 	})
-	It("loads a file written in the old format with an address", func() {
-		cfg, _, _ := fixture()
-		Expect(os.MkdirAll(cfg.Root, 0700)).To(Succeed())
-		Expect(os.WriteFile(identityPath(cfg), []byte(`{"OwnerID":"owner","Address":"https://old.example","StorageID":"disk-one"}`), 0600)).To(Succeed())
-		Expect(acquire(cfg)).To(Succeed())
-	})
 	It("loads when only the address changed", func() {
 		cfg, _, _ := fixture()
 		Expect(acquire(cfg)).To(Succeed())

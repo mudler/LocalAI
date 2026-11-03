@@ -188,6 +188,7 @@ var _ = Describe("apps list", func() {
 			ui.Controls = []string{contract.ControlNetworkPolicy, contract.ControlToolProviders}
 			s := snapshot(id, true, "running", ui, "bash")
 			s.Receipt.Manifest.Capabilities.ToolDefinitions = []contract.ToolDefinition{bash}
+			s.Receipt.Manifest.Capabilities.Network = &contract.NetworkCapability{Kind: contract.NetworkKindEgressCheck}
 			s.HostOps = grants
 			s.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
 			return s

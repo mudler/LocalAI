@@ -53,7 +53,7 @@ var _ = Describe("source configuration", func() {
 	It("rejects secret URLs invalid digests duplicate identities and malformed catalogs", func() {
 		s := setup()
 		Expect(s.Save(ctx, admin, Source{ID: "one", Name: "one", URL: "https://user:secret@example.org"})).To(HaveOccurred())
-		for _, body := range []string{`[{"addonId":"tables"}]`, `[] trailing`, `{"secret":"value"}`} {
+		for _, body := range []string{`[{"id":"tables"}]`, `[] trailing`, `{"secret":"value"}`} {
 			server := library(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(body)) })
 			save(s, "one", server.URL)
 			_, e := s.Refresh(ctx, "one")
