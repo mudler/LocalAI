@@ -261,6 +261,7 @@ var _ = Describe("Sandbox tools", func() {
 		// add-on's own page, with the default grant of egress.check.
 		Expect(m.Capabilities.UI.Controls).To(Equal([]string{contract.ControlNetworkPolicy, contract.ControlToolProviders}))
 		Expect(contract.EntitledControls(m, []string{"workspace.", "egress."})).To(Equal(m.Capabilities.UI.Controls))
+		Expect(m.API.Max).To(BeNumerically(">=", contract.MinExecutionAPI), "the execution descriptor needs api 2")
 		want := tools.Definitions()
 		Expect(m.Capabilities.ToolDefinitions).To(HaveLen(len(want)))
 		for i, d := range m.Capabilities.ToolDefinitions {
@@ -272,6 +273,7 @@ var _ = Describe("Sandbox tools", func() {
 			Expect(d.Description).To(Equal(want[i].Description), "definition %s differs from the runtime", d.Name)
 			Expect(d.UIOnly).To(Equal(want[i].UIOnly), "definition %s differs from the runtime", d.Name)
 			Expect(d.Shadows).To(Equal(want[i].Shadows), "definition %s differs from the runtime", d.Name)
+			Expect(d.Execution).To(Equal(want[i].Execution), "definition %s differs from the runtime", d.Name)
 			Expect(a).To(Equal(b), "definition %s differs from the runtime", d.Name)
 			Expect(contract.ValidateToolSchema(d.InputSchema, d.Kind)).To(Succeed(), "schema of %s", d.Name)
 		}

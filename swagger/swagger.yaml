@@ -166,8 +166,6 @@ definitions:
         type: boolean
       canStop:
         type: boolean
-      hostOperations:
-        $ref: '#/definitions/hostops.RequestSummary'
       managementUrl:
         description: ManagementURL opens the management view of the addon.
         example: /app/addons?manage=notes
@@ -353,23 +351,6 @@ definitions:
         example: summarize
         type: string
     type: object
-  apps.HomeCommandView:
-    properties:
-      alias:
-        type: string
-      icon:
-        type: string
-      id:
-        type: string
-      label:
-        type: string
-      labels:
-        additionalProperties:
-          type: string
-        type: object
-      page:
-        type: string
-    type: object
   apps.List:
     properties:
       apps:
@@ -460,18 +441,6 @@ definitions:
           package digest, so a new package is a new URL.
         example: /api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js
         type: string
-      homeCommands:
-        description: HomeCommands contains only resolved navigation metadata for this
-          app.
-        items:
-          $ref: '#/definitions/apps.HomeCommandView'
-        type: array
-      modelActions:
-        description: ModelActions contains only declared destinations for this installed
-          UI.
-        items:
-          $ref: '#/definitions/contract.ModelAction'
-        type: array
       navigation:
         items:
           type: string
@@ -743,14 +712,36 @@ definitions:
       thread:
         type: string
     type: object
-  contract.ModelAction:
+  contract.ExecutionDescriptor:
     properties:
-      capability:
+      class:
+        description: Class is ExecutionClassCommands.
         type: string
-      page:
+      note:
+        description: |-
+          Note is one plain sentence for the model when the provider reports
+          isolated execution, such as the programs its environment has.
         type: string
-      path:
+      skills:
+        allOf:
+        - $ref: '#/definitions/contract.ExecutionSkills'
+        description: Skills says which skills run on this provider.
+      title:
+        description: |-
+          Title names the provider in the text the host shows the person and the
+          model, for example "Sandbox". It falls back to the add-on's title.
         type: string
+    type: object
+  contract.ExecutionSkills:
+    properties:
+      providesRuntimeFor:
+        description: |-
+          ProvidesRuntimeFor lists skill kinds (SkillKindDocuments). The host
+          offers the add-on's skills of those kinds only while the provider
+          reports isolated execution.
+        items:
+          type: string
+        type: array
     type: object
   contract.OutputDescription:
     properties:
@@ -849,11 +840,11 @@ definitions:
           Name is the skill's name and the name of its folder. A plain skill is
           named after the add-on: the add-on ID, or the ID and a dash and more
           (office-quickstart), so two add-ons never ship one plain name. A skill
-          for a reserved document slot has the slot's name (see Shadows).
+          that replaces a built-in one has the built-in's name (see Shadows).
         type: string
       shadows:
         description: |-
-          Shadows names the document-provider slot this skill supplies. It must equal Name
+          Shadows names the built-in skill this skill replaces. It must equal Name
           and be one of ReplaceableSkills. It repeats the name on purpose: the
           replacement is an explicit act, which the install warning and the check
           read from the manifest without opening the package. Empty: a plain
@@ -865,6 +856,13 @@ definitions:
       description:
         description: Description is plain text for the model.
         type: string
+      execution:
+        allOf:
+        - $ref: '#/definitions/contract.ExecutionDescriptor'
+        description: |-
+          Execution declares that this tool runs commands and what the host may
+          say about the provider. Only a tool that shadows bash may declare it, and
+          the manifest must then accept API 2 (see MinExecutionAPI).
       inputSchema:
         description: |-
           InputSchema is the JSON schema of the arguments object. It is an
@@ -1870,35 +1868,6 @@ definitions:
         example: 4f1c
         type: string
     type: object
-  hostops.RequestSummary:
-    properties:
-      granted:
-        items:
-          type: string
-        type: array
-      grantedCount:
-        type: integer
-      missingOptional:
-        items:
-          type: string
-        type: array
-      missingRequired:
-        items:
-          type: string
-        type: array
-      optional:
-        items:
-          type: string
-        type: array
-      optionalCount:
-        type: integer
-      required:
-        items:
-          type: string
-        type: array
-      requiredCount:
-        type: integer
-    type: object
   library.Info:
     properties:
       authReference:
@@ -2784,8 +2753,6 @@ definitions:
       commands_reason:
         description: CommandsReason is why commands cannot run, when Commands is unavailable.
         type: string
-      execution_status:
-        $ref: '#/definitions/schema.ChatsExecutionStatus'
     type: object
   schema.ChatsAddonSwitches:
     properties:
@@ -3033,10 +3000,8 @@ definitions:
         type: string
       path:
         description: |-
-          Path is home-relative ("/" is the whole home), or /shared/<name>/...
-          for a followed readable shared folder. It is absent when missing,
-          not chosen, or readable outside these public locations; a readable
-          folder without a public path still has state ok.
+          Path is the folder's path in your files now ("/" is all of them). It
+          is absent when the folder is missing or not chosen.
         type: string
       state:
         description: |-
@@ -3163,9 +3128,7 @@ definitions:
         description: |-
           Folder chooses the one folder the agent's chats work in. A write
           without it keeps the folder the agent has; {"path": ""} clears it. In
-          an export file it is the home-relative path and mode when the file was
-          made. A missing, unchosen or non-home folder has an empty export path;
-          import preserves its mode as unset and warns instead of clearing scope.
+          an export file it is the folder's path and mode when the file was made.
       instructions:
         type: string
       mcp_servers:
@@ -3883,10 +3846,8 @@ definitions:
         type: array
       applies:
         description: |-
-          Applies is true when the add-on that runs the commands reports that it
-          enforces the network policy. It is false when commands run on this
-          machine (applies_reason host), or no Sandbox serves bash or the add-on
-          does not report enforcement (none).
+          Applies is false when commands run on this machine (applies_reason
+          host) or no Sandbox serves bash (none).
         type: boolean
       applies_reason:
         type: string
@@ -4103,26 +4064,6 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsUsage'
         description: 'Usage is set on usage events: what one model request used.'
-    type: object
-  schema.ChatsExecutionStatus:
-    properties:
-      explanation:
-        type: string
-      generation:
-        type: string
-      incarnation:
-        type: string
-      isolation:
-        type: string
-      readiness:
-        type: string
-      unknown_reason:
-        description: |-
-          UnknownReason says why the status is unknown: owner_unreachable,
-          not_reported, stale, invalid_status, not_selected, no_answer or
-          reported_unknown. Absent when the status is known.
-        example: owner_unreachable
-        type: string
     type: object
   schema.ChatsExport:
     properties:
@@ -12306,8 +12247,7 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: The saved agent's folder is missing or not chosen (agent_folder_missing),
-            or its complete file access exceeds the folder limit (agent_folder_limit)
+          description: The saved agent's folder is missing or not chosen (agent_folder_missing)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Start a chat.
@@ -13445,8 +13385,7 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
           description: A turn is running for a command, or the saved agent's folder
-            is missing (agent_folder_missing), or its complete file access exceeds
-            the folder limit (agent_folder_limit)
+            is missing (agent_folder_missing)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Send a message to a chat.
@@ -14309,11 +14248,10 @@ paths:
     get:
       description: Returns the definition as a JSON file (version, kind localai-agent,
         agent). It holds no ID, owner or time. An agent with a folder is version 2
-        and carries folder {path, mode}, the folder's home-relative path now (empty
-        when the folder is missing, not chosen, or outside your home, even if readable);
-        importing an empty path preserves the scope as unset with a warning; a server
-        that knows only version 1 refuses it. An agent without a folder is version
-        1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
+        and carries folder {path, mode}, the folder's path in your files now (empty
+        when the folder is missing or not chosen); a server that knows only version
+        1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import
+        reads it. This replaces the old /api/agents/{name}/export.
       parameters:
       - description: the agent's id
         in: path

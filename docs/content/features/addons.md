@@ -139,7 +139,8 @@ and reconciling the operation before further use.
 ## Optional typed manifest extensions
 
 These declarations extend the strict manifest contract. They keep
-`schemaVersion: 1`, host/API/protocol/data-format level 1 and UI SDK 2.
+`schemaVersion: 1`, host/protocol/data-format level 1 and UI SDK 2. The manifest
+`api` range is 1 to 2: only the execution descriptor below needs 2.
 The Go contract parser is authoritative; there is no separate JSON Schema.
 The fragments below merge into an otherwise valid manifest, not a complete
 installable package. Existing executable, identity, compatibility and UI
@@ -286,6 +287,53 @@ session epoch. A same-user refresh or account switch immediately hides the old
 list and rejects its pending responses, even before effect cleanup. A new list
 request can populate the refreshed session. These in-memory scopes contain no
 credentials.
+
+### Execution descriptor of a commands tool
+
+Needs manifest `api` 2. On the definition of a tool that shadows `bash`:
+
+```json
+{
+  "name": "bash",
+  "kind": "action",
+  "shadows": "bash",
+  "description": "...",
+  "inputSchema": { "...": "..." },
+  "execution": {
+    "class": "commands",
+    "title": "Runbox",
+    "note": "The environment has python3, jq and sqlite3.",
+    "skills": { "providesRuntimeFor": ["documents"] }
+  }
+}
+```
+
+The descriptor says what the add-on is, so that the host can write about it
+without knowing its ID. It grants no authority. Whether commands are ready and
+isolated stays what the provider reports in its execution status (see above);
+the host decides from that report.
+
+| Field | Meaning |
+|---|---|
+| `class` | Required. `commands`: the tool runs shell commands and code. |
+| `title` | Optional, at most 40 characters of plain text. The host calls the provider by this name in the prompt and in the Tools menu text ("Runbox runs commands in an isolated environment", "switch the Runbox add-on on"). Without it, the host uses the add-on's own title. |
+| `note` | Optional, at most 600 characters of plain text. One sentence for the model, such as the programs the environment has. The host adds it to the Commands block only while the provider reports `isolated`. |
+| `skills.providesRuntimeFor` | Optional list of skill kinds. `documents` means the add-on's document skills (`xlsx`, `docx`, `pptx`, `pdf`) run on this provider. |
+
+The host offers the document skills of an add-on only while that add-on serves
+the chat's commands and its status reports `isolated`. When the status is
+`host` or unknown, or another provider serves the commands, the skills are left
+out and the chat says why. A tool descriptor may leave `providesRuntimeFor`
+out to opt out of that check, because its skills do not need its commands.
+
+The field is optional and does not change the protocol. A manifest that
+declares a descriptor must accept API 2 (`"api": {"min": 1, "max": 2}`). The
+host speaks API 2 and still accepts add-ons that declare `{1,1}`. An add-on
+whose commands tool declares no descriptor works as before: the host treats it
+as a provider of commands under the add-on's own title, with no note, and keeps
+the isolation check for its document skills. The host never compares the add-on
+ID with a fixed name for any of this, so a second add-on that runs commands gets
+the same behavior with its own title.
 
 ### Requested host operations are not grants
 

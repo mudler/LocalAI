@@ -15,7 +15,7 @@ import (
 // bash, which shadows the built-in bash, and status under its add-on name.
 func shadowingSandbox() []studio.AddonTool {
 	bash := addonTool("sandbox", "bash")
-	bash.Action, bash.Shadows = true, "bash"
+	bash.Action, bash.Shadows, bash.Execution = true, "bash", sandboxExecution
 	return []studio.AddonTool{bash, addonTool("sandbox", "status")}
 }
 
@@ -105,6 +105,6 @@ var _ = Describe("an add-on tool that shadows a built-in", func() {
 		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: shadowingSandbox()}}
 		svc, h, _ := newCapsChat(isolatedAddons{fa, "isolated"}, nil)
 		id := create(svc, alice)
-		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: bash runs commands and code in an isolated sandbox."))
+		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: bash runs commands and code in an isolated environment (Sandbox)."))
 	})
 })

@@ -113,6 +113,10 @@ type ToolDefinition struct {
 	// contract.ToolDefinition.Shadows), or empty. Only the chat consumer acts
 	// on it; every other consumer keeps the namespaced Name.
 	Shadows string `json:"shadows,omitempty"`
+	// Execution is what the add-on declares about a tool that shadows bash. It
+	// is never nil on such a tool: a manifest without a descriptor gets one
+	// with the add-on's title.
+	Execution *contract.ExecutionDescriptor `json:"execution,omitempty"`
 	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
 	// empty. The chat consumer ranks the add-ons that shadow one name by it.
 	InstalledAt string `json:"installedAt,omitempty"`
@@ -400,6 +404,9 @@ type AddonSkills struct {
 	// InstalledAt is when the add-on was first installed, or empty.
 	InstalledAt string
 	Skills      []contract.SkillDefinition
+	// Isolated are the skills that need the add-on's own commands tool to
+	// report isolated execution (see contract.IsolatedSkills).
+	Isolated []string
 	// Running is true when the add-on may serve now: enabled and running, as
 	// Discover requires for tools.
 	Running bool
@@ -423,7 +430,8 @@ func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]Addon
 			continue
 		}
 		running := a.Enabled && a.State == "running" && a.Generation > 0
-		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: slices.Clone(a.Skills), Running: running})
+		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: slices.Clone(a.Skills),
+			Isolated: contract.IsolatedSkills(a.ToolDefinitions, a.Skills), Running: running})
 	}
 	slices.SortFunc(out, func(x, y AddonSkills) int { return strings.Compare(x.AddonID, y.AddonID) })
 	return out, nil
@@ -496,8 +504,25 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	// shadows it.
 	if d.Shadows != "" && contract.ValidateShadow(d) == nil {
 		def.Shadows = d.Shadows
+		if d.Shadows == "bash" {
+			def.Execution = executionOf(a, d)
+		}
 	}
 	return def, true
+}
+
+// executionOf is the descriptor of a commands tool as the chat consumer sees
+// it. A manifest that declares none behaves as a provider of commands under the
+// add-on's title.
+func executionOf(a apps.App, d contract.ToolDefinition) *contract.ExecutionDescriptor {
+	e := contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands}
+	if d.Execution != nil {
+		e = *d.Execution
+	}
+	if e.Title == "" {
+		e.Title = a.Title
+	}
+	return &e
 }
 
 // Discover returns the tools the actor may offer a model now, in a stable

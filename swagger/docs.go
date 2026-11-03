@@ -3708,7 +3708,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
+                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -4690,7 +4690,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's path in your files now (empty when the folder is missing or not chosen); a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -9579,7 +9579,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -14816,9 +14816,6 @@ const docTemplate = `{
                 "canStop": {
                     "type": "boolean"
                 },
-                "hostOperations": {
-                    "$ref": "#/definitions/hostops.RequestSummary"
-                },
                 "managementUrl": {
                     "description": "ManagementURL opens the management view of the addon.",
                     "type": "string",
@@ -15018,32 +15015,6 @@ const docTemplate = `{
                 }
             }
         },
-        "apps.HomeCommandView": {
-            "type": "object",
-            "properties": {
-                "alias": {
-                    "type": "string"
-                },
-                "icon": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                },
-                "labels": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "page": {
-                    "type": "string"
-                }
-            }
-        },
         "apps.List": {
             "type": "object",
             "properties": {
@@ -15146,20 +15117,6 @@ const docTemplate = `{
                     "description": "Entry is the URL of the packaged ES module. Every asset URL names the\npackage digest, so a new package is a new URL.",
                     "type": "string",
                     "example": "/api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js"
-                },
-                "homeCommands": {
-                    "description": "HomeCommands contains only resolved navigation metadata for this app.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/apps.HomeCommandView"
-                    }
-                },
-                "modelActions": {
-                    "description": "ModelActions contains only declared destinations for this installed UI.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/contract.ModelAction"
-                    }
                 },
                 "navigation": {
                     "type": "array",
@@ -15523,17 +15480,40 @@ const docTemplate = `{
                 }
             }
         },
-        "contract.ModelAction": {
+        "contract.ExecutionDescriptor": {
             "type": "object",
             "properties": {
-                "capability": {
+                "class": {
+                    "description": "Class is ExecutionClassCommands.",
                     "type": "string"
                 },
-                "page": {
+                "note": {
+                    "description": "Note is one plain sentence for the model when the provider reports\nisolated execution, such as the programs its environment has.",
                     "type": "string"
                 },
-                "path": {
+                "skills": {
+                    "description": "Skills says which skills run on this provider.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.ExecutionSkills"
+                        }
+                    ]
+                },
+                "title": {
+                    "description": "Title names the provider in the text the host shows the person and the\nmodel, for example \"Sandbox\". It falls back to the add-on's title.",
                     "type": "string"
+                }
+            }
+        },
+        "contract.ExecutionSkills": {
+            "type": "object",
+            "properties": {
+                "providesRuntimeFor": {
+                    "description": "ProvidesRuntimeFor lists skill kinds (SkillKindDocuments). The host\noffers the add-on's skills of those kinds only while the provider\nreports isolated execution.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -15671,11 +15651,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nfor a reserved document slot has the slot's name (see Shadows).",
+                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nthat replaces a built-in one has the built-in's name (see Shadows).",
                     "type": "string"
                 },
                 "shadows": {
-                    "description": "Shadows names the document-provider slot this skill supplies. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
+                    "description": "Shadows names the built-in skill this skill replaces. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
                     "type": "string"
                 }
             }
@@ -15686,6 +15666,14 @@ const docTemplate = `{
                 "description": {
                     "description": "Description is plain text for the model.",
                     "type": "string"
+                },
+                "execution": {
+                    "description": "Execution declares that this tool runs commands and what the host may\nsay about the provider. Only a tool that shadows bash may declare it, and\nthe manifest must then accept API 2 (see MinExecutionAPI).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.ExecutionDescriptor"
+                        }
+                    ]
                 },
                 "inputSchema": {
                     "description": "InputSchema is the JSON schema of the arguments object. It is an\nobject schema with explicit properties, additionalProperties false at\nthe top level and the keywords the host allows only.",
@@ -16982,50 +16970,6 @@ const docTemplate = `{
                 }
             }
         },
-        "hostops.RequestSummary": {
-            "type": "object",
-            "properties": {
-                "granted": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "grantedCount": {
-                    "type": "integer"
-                },
-                "missingOptional": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "missingRequired": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "optional": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "optionalCount": {
-                    "type": "integer"
-                },
-                "required": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "requiredCount": {
-                    "type": "integer"
-                }
-            }
-        },
         "library.Info": {
             "type": "object",
             "properties": {
@@ -18248,9 +18192,6 @@ const docTemplate = `{
                 "commands_reason": {
                     "description": "CommandsReason is why commands cannot run, when Commands is unavailable.",
                     "type": "string"
-                },
-                "execution_status": {
-                    "$ref": "#/definitions/schema.ChatsExecutionStatus"
                 }
             }
         },
@@ -18586,7 +18527,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
-                    "description": "Path is home-relative (\"/\" is the whole home), or /shared/\u003cname\u003e/...\nfor a followed readable shared folder. It is absent when missing,\nnot chosen, or readable outside these public locations; a readable\nfolder without a public path still has state ok.",
+                    "description": "Path is the folder's path in your files now (\"/\" is all of them). It\nis absent when the folder is missing or not chosen.",
                     "type": "string"
                 },
                 "state": {
@@ -18745,7 +18686,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "folder": {
-                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the home-relative path and mode when the file was\nmade. A missing, unchosen or non-home folder has an empty export path;\nimport preserves its mode as unset and warns instead of clearing scope.",
+                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the folder's path and mode when the file was made.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
@@ -19643,7 +19584,7 @@ const docTemplate = `{
                     }
                 },
                 "applies": {
-                    "description": "Applies is true when the add-on that runs the commands reports that it\nenforces the network policy. It is false when commands run on this\nmachine (applies_reason host), or no Sandbox serves bash or the add-on\ndoes not report enforcement (none).",
+                    "description": "Applies is false when commands run on this machine (applies_reason\nhost) or no Sandbox serves bash (none).",
                     "type": "boolean"
                 },
                 "applies_reason": {
@@ -19952,31 +19893,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsUsage"
                         }
                     ]
-                }
-            }
-        },
-        "schema.ChatsExecutionStatus": {
-            "type": "object",
-            "properties": {
-                "explanation": {
-                    "type": "string"
-                },
-                "generation": {
-                    "type": "string"
-                },
-                "incarnation": {
-                    "type": "string"
-                },
-                "isolation": {
-                    "type": "string"
-                },
-                "readiness": {
-                    "type": "string"
-                },
-                "unknown_reason": {
-                    "description": "UnknownReason says why the status is unknown: owner_unreachable,\nnot_reported, stale, invalid_status, not_selected, no_answer or\nreported_unknown. Absent when the status is known.",
-                    "type": "string",
-                    "example": "owner_unreachable"
                 }
             }
         },

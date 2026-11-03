@@ -43,8 +43,12 @@ type loadOpts struct {
 	files bool
 	// exec is true when the chat can run commands. A skill that requires
 	// them is refused with the reason when it cannot.
-	exec    bool
-	sandbox *bool
+	exec bool
+	// provided is true when an add-on, not the built-in bash, serves the
+	// chat's commands in the final tool list. Without it the commands count as
+	// absent when the skills resolve, so a skill that needs an add-on's
+	// isolation is not loaded on the strength of a stale descriptor.
+	provided *bool
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -96,8 +100,8 @@ func (s *Service) fitLoadSkill(a workspace.Actor, tools []session.Tool) []sessio
 		return tools
 	}
 	// Final tools may only narrow the freshly checked descriptor at call time.
-	sandbox := addonRunner(tools) == "sandbox"
-	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), sandbox: &sandbox})
+	provided := addonRunner(tools) != ""
+	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), provided: &provided})
 	return tools
 }
 
@@ -160,12 +164,12 @@ func (s *Service) loadSkillRun(a workspace.Actor, o loadOpts) func(context.Conte
 		if err != nil {
 			return "", err
 		}
-		list, notes, err := s.loadableSkillsAndNotes(ctx, a, o.sandbox)
+		list, notes, err := s.loadableSkillsAndNotes(ctx, a, o.provided)
 		if err != nil {
 			return "", fmt.Errorf("the skills cannot be read now: %w", err)
 		}
 		// The tool was offered because the chat had this skill; a document
-		// skill is missing now only because the Sandbox is not known to be
+		// skill is missing now only because its add-on is not known to be
 		// isolated, and the model must say so rather than "no skills".
 		if _, ok := skills.Find(list, in.Name); !ok && contract.DocumentSkill(skills.Clean(in.Name)) {
 			if i := slices.IndexFunc(notes, func(n string) bool { return strings.HasPrefix(n, documentNotePrefix) }); i >= 0 {

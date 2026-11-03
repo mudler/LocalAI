@@ -73,6 +73,10 @@ type ToolDefinition struct {
 	// Only a name in ReplaceableTools may be shadowed. A tool without it keeps
 	// its add-on name (addon__<id>__<tool>).
 	Shadows string `json:"shadows,omitempty"`
+	// Execution declares that this tool runs commands and what the host may
+	// say about the provider. Only a tool that shadows bash may declare it, and
+	// the manifest must then accept API 2 (see MinExecutionAPI).
+	Execution *ExecutionDescriptor `json:"execution,omitempty"`
 }
 
 // ReplaceableTool says what a tool that shadows a built-in chat tool must look
@@ -221,6 +225,9 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 		}
 		if d.UIOnly && !IsResourceless(d) {
 			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
+		}
+		if err := d.Execution.validate(d); err != nil {
+			return err
 		}
 		if d.Shadows != "" {
 			if err := ValidateShadow(d); err != nil {

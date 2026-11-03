@@ -387,7 +387,17 @@
           "names every kind and status once",
           "tells a settled status from a pending one",
           "keeps the wire version and omits empty fields",
-          "has the limits the owner decided"
+          "has the limits the owner decided",
+          "is valid for a tool that shadows bash when the manifest accepts API 2",
+          "needs the manifest to accept API 2",
+          "is refused on a tool that does not shadow bash, with another class or with bad text",
+          "keeps a manifest of API 1 valid on a host that speaks API 2, and refuses one that needs API 3",
+          "names the document skills of a provider that declares it supplies their runtime",
+          "fails closed for a commands tool without a descriptor",
+          "names nothing for a descriptor that does not supply the runtime of documents",
+          "names nothing for an add-on without a commands tool",
+          "reports network-policy enforcement only for an available isolated provider",
+          "refuses a non-boolean enforcement claim"
         ]
       },
       {
