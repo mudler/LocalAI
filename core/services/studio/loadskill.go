@@ -134,6 +134,10 @@ func (s *Service) loadableSkillsForActor(ctx context.Context, a workspace.Actor,
 }
 
 func (s *Service) loadableSkillsAndNotesForActor(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, []string, error) {
+	// The harness calls a tool with a context of its own, without the turn's
+	// scope. The status of the commands is read here, so the scope is too.
+	ctx, closeScope := s.executionScope(ctx, a.Principal, a.ChatID)
+	defer closeScope()
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil, nil, err

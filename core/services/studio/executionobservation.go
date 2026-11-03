@@ -4,6 +4,8 @@ package studio
 import (
 	"cmp"
 	"context"
+	"log/slog"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -101,12 +103,28 @@ func ExecutionObservation(ctx context.Context, user, addon string) (model.Value,
 	return value, detail.Explanation
 }
 
+var scopelessOnce sync.Once
+
+// onScopeless is called when a status is read from a context that has no
+// execution scope. That is a programming error: the read cannot succeed and
+// the caller would report "not selected" for an add-on that is fine. It logs
+// once; the tests replace it to fail.
+var onScopeless = func() {
+	scopelessOnce.Do(func() {
+		slog.Error("studio: the execution status was read outside an execution scope; the status is reported as not selected", "stack", string(debug.Stack()))
+	})
+}
+
 // ObserveExecution is ExecutionObservation with the whole detail. Failure says
 // why the value is unknown; Explanation and NetworkPolicyEnforced are set only
 // when the provider answered.
 func ObserveExecution(ctx context.Context, user, addon string) (model.Value, ExecutionDetail) {
 	scope, ok := ctx.Value(executionObservationKey{}).(*executionObservation)
-	if !ok || user != scope.user {
+	if !ok {
+		onScopeless()
+		return model.Unknown(), ExecutionDetail{Failure: UnknownNotSelected}
+	}
+	if user != scope.user {
 		return model.Unknown(), ExecutionDetail{Failure: UnknownNotSelected}
 	}
 	scope.mu.Lock()
