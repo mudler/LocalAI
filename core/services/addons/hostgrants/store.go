@@ -143,6 +143,21 @@ func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	return s.doc.Snapshot.Clone(), nil
 }
 
+// View returns the current document without copying it, for the per-call
+// check of the broker. The snapshot is immutable: every Update publishes a new
+// one and nothing modifies a published one, so the caller must treat it as
+// read-only. A closed or uncertain store yields an empty document at revision
+// 0, which grants nothing from the UI and denies nothing; the policy file
+// deny rules do not depend on it.
+func (s *Store) View() Snapshot {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.usable() != nil {
+		return emptySnapshot()
+	}
+	return s.doc.Snapshot
+}
+
 // Update applies patch if the document is at expectedRevision. A repeated
 // operationID with the same patch returns Replayed without a write, checked
 // before the revision; the same ID with another patch is ErrOperationMismatch.
