@@ -141,6 +141,10 @@ type ConnectorKind struct {
 	// this declaration and sends it with the op poll. It needs manifest api
 	// MinHistoryAPI.
 	Options []ConnectorOption `json:"options,omitempty"`
+	// Files declares the files the kind can receive and send, with a limit
+	// for each direction. Without it, the host moves files inline and caps
+	// them at MaxConnectorFileBytes. It needs manifest api MinFilesAPI.
+	Files *ConnectorFiles `json:"files,omitempty"`
 }
 
 // ConnectorOption is one choice among a few values.
@@ -284,6 +288,9 @@ func validateConnector(c *ConnectorCapability, ui *UI, api VersionRange) error {
 			if err := validateOptions(k.Options); err != nil {
 				return err
 			}
+		}
+		if err := k.Files.validate(api); err != nil {
+			return err
 		}
 		if k.Page != "" {
 			ok := false
