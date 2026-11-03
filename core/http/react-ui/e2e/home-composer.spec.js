@@ -69,7 +69,8 @@ test.describe('Home composer', () => {
     await expect(card).toHaveCSS('box-shadow', /inset/)
     await expect(box).toHaveCSS('outline-style', 'none')
     await expect(box).toHaveCSS('box-shadow', 'none')
-    expect((await card.boundingBox()).height).toBe(before)
+    // Layout rounds to 1/64 px, so compare with a sub-pixel tolerance.
+    expect(Math.abs((await card.boundingBox()).height - before)).toBeLessThan(0.5)
     // the control that takes keyboard focus next keeps its own ring
     await page.keyboard.press('Shift+Tab')
     await expect(card.locator(':focus-visible')).toHaveCSS('outline-style', 'solid')
