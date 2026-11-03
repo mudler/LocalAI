@@ -9,6 +9,7 @@
 // generation anyway, so a copy of old code that stays in memory can do nothing.
 
 import { resourceOperationId, resourceRequest } from './resourceCalls.js'
+import { userSettingsRequest } from './userSettingsCalls.js'
 
 export const SDK_VERSION = 2
 
@@ -309,6 +310,22 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     resourceRequest(body)
     return host.api.resource(body, anySignal(signal, options?.signal))
   }
+  // The settings this add-on declared for the signed-in person (manifest
+  // userSettings). The host keeps the answers and validates every write against
+  // the declaration; this binding reaches only this add-on's own settings. A
+  // write is the person's own action from their browser session.
+  const userSettingsCall = async (call, options) => {
+    alive()
+    const body = { ...call, addonId }
+    // A malformed call is refused here, before the host sees it.
+    userSettingsRequest(body)
+    return host.api.userSettings(body, anySignal(signal, options?.signal))
+  }
+  const userSettings = Object.freeze({
+    // Resolves to { settings: [{ key, values, default, value }] }.
+    get: (options) => userSettingsCall({ op: 'get' }, options),
+    set: (key, value, options) => userSettingsCall({ op: 'set', key: text(key), value: text(value) }, options),
+  })
   const operation = (options) => (typeof options?.operationId === 'string' && options.operationId ? options.operationId : resourceOperationId())
   const text = (v) => (typeof v === 'string' ? v : '')
   const resources = Object.freeze({
@@ -452,6 +469,7 @@ export function createHostSDK({ addonId, generation, signal, pages = [], binding
     // sheet). It is the host's portal; the node must be in the page.
     portal: (children, node) => (host.createPortal && node ? host.createPortal(children, node) : children),
     resources,
+    userSettings,
     // Reads that answer with private files. The result is the host's own
     // description of each file (identifier, name, media type, size): the
     // add-on's handle, a path or a URL never reaches the add-on's page. The

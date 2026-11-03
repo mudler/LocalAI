@@ -130,6 +130,9 @@ type Capabilities struct {
 	// ContextFiles name small index files of the user's home that the host
 	// loads into the prompt of a chat (see contextfiles.go).
 	ContextFiles []ContextFile `json:"contextFiles,omitempty"`
+	// UserSettings declare the choices that each person makes for the add-on
+	// (see usersettings.go). The host keeps the answers and validates them.
+	UserSettings []UserSetting `json:"userSettings,omitempty"`
 
 	// Credentials declare the secret that the host keeps for the person and
 	// hands to each call (see credentials.go). It needs a connector
@@ -395,6 +398,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateContextFiles(m); e != nil {
+		return e
+	}
+	if e := validateUserSettings(c.UserSettings); e != nil {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {

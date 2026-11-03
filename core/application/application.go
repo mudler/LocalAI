@@ -34,6 +34,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/updates"
+	"github.com/mudler/LocalAI/core/services/addons/usersettings"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
@@ -130,6 +131,12 @@ type Application struct {
 	// libraryStore is the library sources file when no add-on owner runs here.
 	libraryStore   *catalog.Sources
 	libraryStoreMu sync.Mutex
+
+	// The per-person add-on settings are built once: the routes and the chats
+	// read the same store.
+	addonUserSettingsOnce sync.Once
+	addonUserSettings     usersettings.Store
+	addonUserSettingsErr  error
 
 	// The pin store is built once so the routes and the retention sweep share it.
 	addonPinStoreOnce    sync.Once

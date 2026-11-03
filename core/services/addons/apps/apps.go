@@ -137,6 +137,9 @@ type App struct {
 	// the prompt of a chat, from the verified manifest. The host reads them as
 	// the person; the add-on is not called.
 	ContextFiles []contract.ContextFile `json:"contextFiles,omitempty"`
+	// UserSettings are the per-person choices the add-on declares, from the
+	// verified manifest. The host keeps the answers; the add-on is not called.
+	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
@@ -284,6 +287,10 @@ func build(s Snapshot, admin bool) App {
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
+	for _, us := range m.Capabilities.UserSettings {
+		us.Values = slices.Clone(us.Values)
+		a.UserSettings = append(a.UserSettings, us)
+	}
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
 		if u.Title != nil {

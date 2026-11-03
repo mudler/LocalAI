@@ -585,6 +585,37 @@ func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([
 	return out, nil
 }
 
+// AddonUserSettings is the per-person settings one add-on declares.
+type AddonUserSettings struct {
+	AddonID  string
+	Settings []contract.UserSetting
+	// Running is true when the add-on may serve now: enabled and running.
+	Running bool
+}
+
+// UserSettings lists the installed add-ons that declare per-person settings and
+// that the actor can see, running or not. The host reads the answers itself;
+// the add-on is not called.
+func (t *ToolAdapter) UserSettings(ctx context.Context, actor contract.Actor) ([]AddonUserSettings, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonUserSettings
+	for _, a := range list.Apps {
+		if len(a.UserSettings) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonUserSettings{AddonID: a.ID, Settings: slices.Clone(a.UserSettings), Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonUserSettings) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
 // AddonListing is the title and description an add-on declares for people.
 type AddonListing struct {
 	AddonID, Title, Description string

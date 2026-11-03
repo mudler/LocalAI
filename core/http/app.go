@@ -503,6 +503,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		if err := routes.RegisterAddonNavigationRoutes(e, application, gate); err != nil {
 			return nil, fmt.Errorf("register the add-on navigation routes: %w", err)
 		}
+		if err := routes.RegisterAddonUserSettingsRoutesFor(e, application, gate); err != nil {
+			return nil, fmt.Errorf("register the add-on user settings routes: %w", err)
+		}
 	} else {
 		routes.RegisterAddonsUnavailable(e, "/api/addons")
 	}
