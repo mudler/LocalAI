@@ -60,7 +60,7 @@ var _ = Describe("install from a local zip file", func() {
 		return r.m.FileFinish(ctx, a, id)
 	}
 	fileCmd := func(op, action string, v FileView) LifecycleCommand {
-		return LifecycleCommand{OperationID: op, AddonID: "sample", Action: action, SourceID: zipformat.SourceID, Version: v.FileID}
+		return LifecycleCommand{OperationID: op, AddonID: "sample", Action: action, SourceID: zipformat.SourceID, Version: v.FileID, Approval: &HostApproval{Digest: "sha256:" + v.SHA256}}
 	}
 
 	It("installs through the manager and records an unsigned local file", func() {
@@ -88,6 +88,25 @@ var _ = Describe("install from a local zip file", func() {
 		Expect(list).To(HaveLen(1))
 		Expect(list[0].Update).To(BeNil())
 		Expect(list[0].SourceID).To(Equal("local-file"))
+	})
+
+	It("never installs a file from the plain typed install, which a key or a tool can make", func() {
+		v, e := upload("admin", zipFor("2.0.0", "linux"))
+		Expect(e).NotTo(HaveOccurred())
+		cmd := fileCmd("p1", "install", v)
+		cmd.Approval = nil
+		_, e = r.m.Submit(ctx, actor, cmd)
+		Expect(e).To(MatchError(ErrForbidden))
+		_, e = r.m.submit(ctx, actor, fileCmd("p2", "install", v), true)
+		Expect(e).To(MatchError(ErrForbidden), "the automatic upgrade of the owner does not take files either")
+		st, _ := r.m.Status(ctx, "sample")
+		Expect(st.Installed).To(BeFalse())
+		r.m.mu.Lock()
+		Expect(r.m.journal.Operations).To(BeEmpty(), "a refused command leaves nothing in the journal")
+		r.m.mu.Unlock()
+		// The file is still staged for the dialog.
+		_, e = r.m.FileDescribe(ctx, actor, v.FileID)
+		Expect(e).NotTo(HaveOccurred())
 	})
 
 	It("keeps a file for the user that uploaded it", func() {

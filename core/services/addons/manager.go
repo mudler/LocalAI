@@ -436,6 +436,13 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	if !addonID.MatchString(cmd.AddonID) || cmd.OperationID == "" || len(cmd.OperationID) > 256 {
 		return OperationStatus{}, ErrConflict
 	}
+	// A package from a local file has no library and no signature behind it.
+	// It installs only with the approval the administrator gave in the dialog
+	// of their own browser session; the plain typed install, which an API key
+	// or a tool can make, never takes a file.
+	if cmd.SourceID == zipformat.SourceID && (cmd.Action == "install" || cmd.Action == "upgrade") && (cmd.Approval == nil || owner) {
+		return OperationStatus{}, ErrForbidden
+	}
 	if old, ok := m.journal.Operations[cmd.OperationID]; ok {
 		if !old.Command.same(cmd) || old.Actor != actor {
 			return OperationStatus{}, ErrConflict
