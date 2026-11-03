@@ -108,6 +108,14 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	var tr studio.ConnectorTransport = connectorTransport{a}
 	if connectorTransportForTests != nil {
 		tr = connectorTransportForTests
+		// A test transport that can move files by handle gets the table of
+		// this application, so its add-ons declare the files ability.
+		if x, ok := tr.(interface {
+			EnableTransfers(*hostops.Transfers) func()
+		}); ok {
+			// The servers it starts live as long as the test process.
+			_ = x.EnableTransfers(a.transfers())
+		}
 	}
 	// A token is checked with the platform when it is saved, so a typo is
 	// refused at once instead of switching the binding off later.
