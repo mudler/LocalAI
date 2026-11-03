@@ -8,6 +8,9 @@ import { addonsApi, addonsCatalog } from '../utils/addonsClient'
 import AppsView from '../components/addons/AppsView'
 import BrowseView from '../components/addons/BrowseView'
 import LibrariesView from '../components/addons/LibrariesView'
+import HostAccessView from '../components/addons/HostAccessView'
+import { useHostGrants } from '../components/addons/useHostGrants'
+import { pendingApprovals } from '../components/addons/hostGrantsState'
 import { resolveManage, resolveTab, visibleTabs } from '../components/addons/addonState'
 import '../components/addons/addons.css'
 
@@ -26,6 +29,10 @@ export default function Addons() {
   const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin)
   const tabs = visibleTabs(isAdmin)
   const refs = useRef({})
+  // Host access is read once here: the tab shows how many approvals wait, and
+  // the list of add-ons shows the same banners.
+  const grants = useHostGrants({ enabled: Boolean(isAdmin) })
+  const waiting = grants.data ? pendingApprovals(grants.data).length : 0
 
   const select = useCallback((next) => {
     setParams(prev => {
@@ -81,15 +88,17 @@ export default function Addons() {
             >
               {t(`tabs.${id}`)}
               {id === 'apps' && summary && summary.count > 0 && <span className="ad-tab__count">{summary.count}</span>}
+              {id === 'access' && waiting > 0 && <span className="ad-tab__count ad-tab__count--warn" data-testid="access-waiting" aria-label={t('hostAccess.tabWaiting', { count: waiting })}>{waiting}</span>}
             </button>
           ))}
         </div>
       )}
 
       <div role="tabpanel" id={`ad-panel-${tab}`} aria-labelledby={tabs.length > 1 ? `ad-tab-${tab}` : undefined} aria-label={tabs.length > 1 ? undefined : t('tabs.apps')} className="ad-panel">
-        {tab === 'apps' && <AppsView api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} />}
+        {tab === 'apps' && <AppsView api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} grants={grants} />}
         {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}
+        {tab === 'access' && <HostAccessView grants={grants} />}
       </div>
     </Page>
   )

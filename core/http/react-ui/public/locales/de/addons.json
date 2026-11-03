@@ -357,7 +357,8 @@
     "apps": "Installiert",
     "browse": "Add-ons finden",
     "label": "Bereiche der Add-ons",
-    "libraries": "Quellen"
+    "libraries": "Quellen",
+    "access": "Host-Zugriff"
   },
   "title": "Add-ons",
   "trust": {
@@ -749,6 +750,150 @@
     "controls": {
       "loadFailed": "Die Einstellungen konnten nicht gelesen werden",
       "saveFailed": "Die Einstellungen konnten nicht gespeichert werden: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Add-ons",
+    "approve": {
+      "action": "Freigeben und aktualisieren",
+      "body": "Version {{current}} von {{name}} läuft weiter. Gibst du frei, darf die neue Version diese Aktionen ausführen. Neue sind markiert.",
+      "done": "{{name}} wurde aktualisiert.",
+      "title": "Host-Zugriff für {{name}} {{version}} freigeben"
+    },
+    "asksNothing": "Dieses Add-on fordert keinen Host-Zugriff an.",
+    "blanket": {
+      "alsoRevoke": "Auch die erteilten Freigaben widerrufen",
+      "alsoRevokeHint": "Add-ons, die Zugriff verlören: {{names}}. Ein Add-on, das nötigen Zugriff verliert, hält an.",
+      "applyInstalled": "Auch auf bereits installierte Add-ons anwenden",
+      "applyInstalledHint": "Aus: Nur neue Installationen und Updates.",
+      "change": "Ändern",
+      "fixed": "Vom Deployment festgelegt. Du kannst es hier nicht ändern.",
+      "held": "Add-ons mit Freigaben des Pauschalschalters: {{count}}",
+      "includeOptional": "Optionale Operationen einschließen",
+      "includeOptionalHint": "Aus: Nur erforderliche Operationen werden erteilt.",
+      "intro": "Standardmäßig aus. Wenn an, erhält ein Add-on, das du installierst oder aktualisierst, die Host-Operationen, die sein Manifest verlangt, ohne den Schritt im Installationsdialog. Operationen unter Nie erlauben bleiben blockiert.",
+      "modeAny": "Jede Bibliothek",
+      "modeLabel": "Umfang",
+      "modeOfficial": "Offizielle Bibliothek",
+      "nowOff": "Die pauschale Freigabe ist aus. Die Freigaben, die sie erteilt hat, bleiben.",
+      "nowOn": "Die pauschale Freigabe ist an.",
+      "offBody": "Neue Installationen brauchen wieder deine Freigabe. Die Freigaben, die der Schalter schon erteilt hat, bleiben, als pauschal markiert, damit nichts überraschend anhält.",
+      "offText": "Aus. Du gibst jedes Add-on bei der Installation frei.",
+      "offTitle": "Pauschale Freigabe ausschalten",
+      "onTitle": "Pauschale Freigabe einschalten",
+      "revokeAll": "Alle pauschalen Freigaben widerrufen",
+      "revoked": "Pauschale Freigaben widerrufen.",
+      "risk": {
+        "any": "Ist dies an, erhält jedes Add-on, das du aus einer beliebigen von dir eingerichteten Bibliothek installierst, die Host-Operationen, die sein Manifest verlangt, ohne dass du sie prüfst. Jeder Eintrag jeder Bibliothek erhält, was er angibt. Ein bösartiger oder kompromittierter Eintrag bekommt diese Operationen also sofort. Operationen, die du unter Nie erlauben blockierst, bleiben blockiert.",
+        "official": "Ist dies an, erhält jedes Add-on, das du aus der offiziellen Bibliothek installierst, die Host-Operationen, die sein Manifest verlangt, ohne dass du sie prüfst. Ein kompromittierter Eintrag erhält dann genau die Operationen, die er angibt. Operationen, die du unter Nie erlauben blockierst, bleiben blockiert."
+      },
+      "scope": {
+        "any": "An für Add-ons aus jeder Bibliothek.",
+        "official": "An für Add-ons aus der offiziellen Bibliothek."
+      },
+      "switch": "Pauschale Freigabe",
+      "title": "Alles freigeben, was ein Add-on anfordert",
+      "turnOff": "Ausschalten",
+      "turnOn": "Einschalten",
+      "typeLabel": "Zur Bestätigung tippe: {{phrase}}",
+      "withOptional": "Optionale Operationen sind eingeschlossen."
+    },
+    "cannotInstallBlocked": "Dieses Add-on braucht {{ops}}, was deine Administratorrichtlinie blockiert. Es kann nicht installiert werden.",
+    "cannotInstallUnsupported": "Dieses Add-on braucht {{ops}}, was dieses LocalAI nicht unterstützt. Es kann nicht installiert werden.",
+    "chip": "Wartet auf Freigabe",
+    "confirm": {
+      "revokeBody": "{{name}} verliert alles, was du oder der Pauschalschalter erlaubt hast. Freigaben des Deployments bleiben. Verliert es einen Zugriff, den es braucht, hält es an.",
+      "revokeTitle": "Den gesamten Host-Zugriff von {{name}} widerrufen?",
+      "stopAction": "Ausschalten und anhalten",
+      "stopBody": "{{name}} läuft nicht ohne {{op}}. Es hält an und bleibt angehalten, bis du es wieder erlaubst.",
+      "stopTitle": "Zugriff ausschalten, den {{name}} braucht?"
+    },
+    "deny": {
+      "add": "Regel hinzufügen",
+      "added": "Regel hinzugefügt.",
+      "affectsNone": "Kein installiertes Add-on verliert Zugriff.",
+      "allAddons": "Alle Add-ons",
+      "checkFailed": "Es konnte nicht geprüft werden, was diese Regel ändert. Nichts wurde gespeichert.",
+      "confirmAction": "Regel hinzufügen",
+      "confirmBody": "Gilt für: {{target}}. Wirkt sofort. Laufende Aufrufe werden beendet.",
+      "confirmTitle": "{{entry}} nie erlauben?",
+      "entry": "Operation, Familie oder *",
+      "everything": "Alles",
+      "fromFile": "Im Deployment festgelegt",
+      "hint": "Eine Familie endet mit einem Punkt, zum Beispiel egress. Ein genauer Name sieht aus wie egress.check. Ein Stern blockiert alles.",
+      "intro": "Operationen, die kein Add-on nutzen darf, egal was sie sonst erlaubt. Eine Regel hier gewinnt immer.",
+      "invalid": "Schreibe eine Operation wie egress.check, eine Familie wie egress. oder *.",
+      "none": "Noch keine Regel.",
+      "remove": "Entfernen",
+      "removeNamed": "Die Regel {{entry}} für {{target}} entfernen",
+      "removed": "Regel entfernt.",
+      "target": "Gilt für",
+      "title": "Nie erlauben",
+      "willStop": "hält an, es braucht dies"
+    },
+    "emptyBody": "Add-ons, die Host-Zugriff anfordern, erscheinen hier nach der Installation.",
+    "emptyTitle": "Kein Add-on installiert",
+    "errors": {
+      "approval_required": "Dieses Add-on braucht Host-Zugriff. Gib ihn im Installationsdialog im Browser frei.",
+      "approval_stale": "Das Paket hat sich geändert, seit du es angesehen hast. Prüfe die neue Liste und gib erneut frei.",
+      "blocked_by_policy": "Die Administratorrichtlinie blockiert eine Operation, die dieses Add-on braucht. Nichts wurde geändert.",
+      "locked_by_deployment": "Das Deployment hat den Host-Zugriff gesperrt. Du kannst ihn hier nicht ändern.",
+      "not_human_surface": "Ein Administrator muss diese Änderung in diesem Browser vornehmen. Ein API-Schlüssel oder ein Werkzeug kann das nicht.",
+      "revision_conflict": "Der Host-Zugriff hat sich anderswo geändert. Die Seite wurde neu gelesen. Prüfe sie und versuche es erneut."
+    },
+    "family": {
+      "connector": "Konnektoren",
+      "egress": "Netzwerkprüfungen",
+      "finetune": "Feintuning",
+      "quantize": "Quantisierung",
+      "workspace": "Workspace-Dateien"
+    },
+    "fileEntry": "In der Richtliniendatei oder den Flags des Deployments festgelegt.",
+    "identityMismatch": "Diese Freigaben wurden für ein anderes Paket mit demselben Namen erteilt. Sie haben keine Wirkung. Entferne sie.",
+    "intro": "Die Aktionen, die Add-ons auf diesem Server ausführen dürfen, wer jede erlaubt hat und wie du sie zurücknimmst. Ein Add-on hat nur, was du freigibst.",
+    "keepOwn": "Als eigene behalten",
+    "keepOwnNamed": "Die pauschalen Freigaben von {{name}} als eigene behalten",
+    "loadError": "Der Host-Zugriff wurde nicht geladen",
+    "loading": "Lese, was dieses Add-on anfordert...",
+    "loadingPage": "Host-Zugriff wird geladen",
+    "locked": "Das Deployment hat Änderungen am Host-Zugriff abgeschaltet. Du kannst diese Seite lesen, aber nicht ändern.",
+    "newOptional": "Die neue Version fordert auch {{ops}} an. Diese sind optional und nicht erlaubt.",
+    "noLongerRequested": "Diese Version fordert es nicht mehr an. Du kannst es ausschalten.",
+    "notOfficial": "Dieses Add-on stammt aus {{library}}, nicht aus der offiziellen Bibliothek.",
+    "op": {
+      "alreadyAllowed": "Bereits erlaubt",
+      "blocked": "Von der Administratorrichtlinie blockiert",
+      "byDeployment": "Bereits vom Deployment erlaubt",
+      "new": "Neu in dieser Version",
+      "optional": "Optional. Das Add-on läuft auch ohne, mit weniger Funktionen.",
+      "required": "Erforderlich. Das Add-on läuft ohne nicht.",
+      "unsupported": "Von diesem LocalAI nicht unterstützt"
+    },
+    "previewFailed": "Der Host-Zugriff, den dieses Add-on anfordert, konnte nicht gelesen werden. Versuche es erneut. Braucht es einen Zugriff, den du nicht freigegeben hast, wird die Installation abgelehnt und nichts ändert sich.",
+    "removeStale": "Entfernen",
+    "revokeAll": "Alle widerrufen",
+    "revokeAllNamed": "Den gesamten Host-Zugriff von {{name}} widerrufen",
+    "risk": {
+      "changes_data": "Ändert Daten",
+      "network": "Netzwerk",
+      "read": "Liest",
+      "runs_jobs": "Startet Aufträge"
+    },
+    "source": {
+      "blanket": "Pauschal",
+      "deployment": "Deployment",
+      "you": "Du"
+    },
+    "stepFooter": "Mit der Freigabe darf dieses Add-on diese Aktionen auf diesem Server für die Personen ausführen, die es nutzen. Du kannst sie auf der Seite Host-Zugriff prüfen oder widerrufen.",
+    "stepIntro": "{{name}} möchte diese Aktionen auf diesem Server ausführen. Die erforderlichen braucht es, damit es funktioniert. Optionale bleiben aus, bis du sie einschaltest.",
+    "stepTitle": "Host-Zugriff",
+    "stopped": "Angehalten: Es braucht {{ops}}, was nicht mehr erlaubt ist.",
+    "tabWaiting": "Wartende Freigaben: {{count}}",
+    "waiting": {
+      "body": "Die neue Version fordert Host-Zugriff an, den die aktuelle nicht hat. Version {{current}} läuft weiter, bis du freigibst. Hinzukommende Operationen: {{count}}.",
+      "review": "Prüfen und freigeben",
+      "reviewNamed": "Den Host-Zugriff von {{name}} prüfen und freigeben",
+      "title": "{{name}} {{version}} wartet auf deine Freigabe"
     }
   }
 }

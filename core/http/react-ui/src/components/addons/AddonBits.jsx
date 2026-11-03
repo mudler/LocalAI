@@ -35,6 +35,18 @@ export function UpdateChip({ version }) {
   )
 }
 
+// An upgrade that waits for the administrator to approve the host access the new
+// version asks for. The old version keeps running.
+export function ApprovalChip() {
+  const { t } = useTranslation('addons')
+  const text = t('hostAccess.chip')
+  return (
+    <span className="ad-state" data-tone="warn" data-state="approval-pending" data-testid="approval-chip" role="img" aria-label={t('state.label', { state: text })}>
+      <StatusChip status="update-available" label={text} />
+    </span>
+  )
+}
+
 // The identity tile of an add-on: its icon from the host's own icon route, or
 // its first letter on a colour of its own (a hue from its id), so two add-ons
 // in the sidebar or the list never look the same. Never a remote address: the

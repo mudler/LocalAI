@@ -495,3 +495,52 @@
 @media (max-width: 639px) {
   .ad-split[data-view="settings"] .ad-pane { width: 100%; }
 }
+
+/* ---- Host access: the install step, the approval and the page ------------- */
+
+.ad-tab__count--warn { background: var(--dk-warn-wash); color: var(--dk-warn-text, var(--dk-warn)); }
+/* Dialogs that carry a list or a field: wider than a confirmation, and the
+   body scrolls so the actions stay in view on a phone. */
+.ad-dialog { max-width: 560px; width: min(560px, calc(100vw - 2 * var(--sp-4))); max-height: calc(100dvh - 2 * var(--sp-4)); display: flex; flex-direction: column; }
+.ad-dialog .confirm-dialog-body { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+.ad-dialog .confirm-dialog-header, .ad-dialog .confirm-dialog-actions { flex: none; }
+.ad-dialog:focus { outline: none; }
+.ad-hostaccess { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ad-hostaccess__title { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--dk-text); }
+.ad-hostlist { display: flex; flex-direction: column; gap: var(--sp-2); }
+.ad-hostlist .swl-row { padding-inline: var(--sp-2); }
+
+.ad-host { display: flex; flex-direction: column; gap: var(--sp-5); min-width: 0; }
+.ad-host__intro { margin: 0; color: var(--dk-muted); max-width: 70ch; }
+.ad-host__section { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.ad-host__heading { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--dk-text); }
+.ad-host-card { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); background: var(--dk-surface, transparent); min-width: 0; }
+.ad-host-card__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.ad-host-card__title { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--dk-text); }
+.ad-host-card__acts { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.ad-host-card .swl-row[data-source="deployment"] .swl-row__src { color: var(--dk-muted); }
+.ad-host-card .swl-row[data-source="blanket"] .swl-row__src { color: var(--dk-warn-text, var(--dk-warn)); }
+
+.ad-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.ad-toggle-row__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ad-toggle-row__label { color: var(--dk-text); font-weight: 500; }
+.ad-toggle-row--main { padding: var(--sp-3); border: 1px solid var(--dk-edge); border-radius: var(--r-md); }
+.ad-blanket-held { display: flex; flex-direction: column; gap: var(--sp-2); align-items: flex-start; }
+.ad-blanket-held p { margin: 0; }
+.ad-plain-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.ad-warn-text { color: var(--dk-warn-text, var(--dk-warn)); }
+.ad-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.ad-field > span { color: var(--dk-text); font-size: var(--fs-small); }
+
+.ad-deny-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.ad-deny-row { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); border: 1px solid var(--dk-edge); border-radius: var(--r-sm); min-width: 0; }
+.ad-deny-row__text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+.ad-deny-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: var(--sp-2); align-items: end; }
+@media (max-width: 639px) {
+  .ad-deny-form { grid-template-columns: minmax(0, 1fr); }
+  .ad-toggle-row { align-items: flex-start; }
+}
+/* Operation names are short sentences: let them wrap instead of cutting them. */
+.ad-hostlist .swl-row__name, .ad-host-card .swl-row__name { white-space: normal; overflow: visible; text-overflow: clip; }
+.ad-host-card .swl-row__src, .ad-hostlist .swl-row__src { white-space: normal; text-align: right; max-width: 40%; }
+.ad-dialog .confirm-dialog-body { padding: 2px; margin-inline: -2px; }

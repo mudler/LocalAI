@@ -361,7 +361,8 @@
     "apps": "Installés",
     "browse": "Trouver des add-ons",
     "label": "Sections des modules",
-    "libraries": "Sources"
+    "libraries": "Sources",
+    "access": "Accès à l'hôte"
   },
   "title": "Modules",
   "trust": {
@@ -753,6 +754,150 @@
     "controls": {
       "loadFailed": "Les paramètres n’ont pas pu être lus",
       "saveFailed": "Les paramètres n’ont pas pu être enregistrés : {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Modules",
+    "approve": {
+      "action": "Approuver et mettre à jour",
+      "body": "La version {{current}} de {{name}} continue de tourner. Si vous approuvez, la nouvelle version peut exécuter ces actions. Les nouvelles sont signalées.",
+      "done": "{{name}} a été mis à jour.",
+      "title": "Approuver l'accès à l'hôte pour {{name}} {{version}}"
+    },
+    "asksNothing": "Ce module ne demande aucun accès à l'hôte.",
+    "blanket": {
+      "alsoRevoke": "Révoquer aussi les autorisations données",
+      "alsoRevokeHint": "Modules qui perdraient l'accès : {{names}}. Un module qui perd un accès nécessaire s'arrête.",
+      "applyInstalled": "Appliquer aussi aux modules déjà installés",
+      "applyInstalledHint": "Désactivé : seulement les nouvelles installations et mises à jour.",
+      "change": "Modifier",
+      "fixed": "Défini par le déploiement. Vous ne pouvez pas le changer ici.",
+      "held": "Modules détenant des autorisations de l'interrupteur général : {{count}}",
+      "includeOptional": "Inclure les opérations facultatives",
+      "includeOptionalHint": "Désactivé : seules les opérations obligatoires sont accordées.",
+      "intro": "Désactivé par défaut. Activé, un module que vous installez ou mettez à jour reçoit les opérations d'hôte que son manifeste dit nécessaires, sans l'étape de la fenêtre d'installation. Les opérations de Ne jamais autoriser restent bloquées.",
+      "modeAny": "Toute bibliothèque",
+      "modeLabel": "Portée",
+      "modeOfficial": "Bibliothèque officielle",
+      "nowOff": "L'approbation générale est désactivée. Les autorisations qu'elle a données restent.",
+      "nowOn": "L'approbation générale est activée.",
+      "offBody": "Les nouvelles installations demandent de nouveau votre approbation. Les autorisations déjà données par l'interrupteur restent, marquées comme générales, pour que rien ne s'arrête par surprise.",
+      "offText": "Désactivée. Vous approuvez chaque module à l'installation.",
+      "offTitle": "Désactiver l'approbation générale",
+      "onTitle": "Activer l'approbation générale",
+      "revokeAll": "Révoquer toutes les autorisations générales",
+      "revoked": "Autorisations générales révoquées.",
+      "risk": {
+        "any": "Activée, chaque module que vous installez depuis n'importe quelle bibliothèque configurée reçoit les opérations d'hôte que son manifeste dit nécessaires, sans que vous les examiniez. Toute entrée de toute bibliothèque reçoit ce qu'elle déclare : une entrée malveillante ou compromise obtient donc ces opérations aussitôt. Les opérations que vous bloquez dans Ne jamais autoriser restent bloquées.",
+        "official": "Activée, chaque module que vous installez depuis la bibliothèque officielle reçoit les opérations d'hôte que son manifeste dit nécessaires, sans que vous les examiniez. Une entrée compromise reçoit alors exactement les opérations qu'elle déclare. Les opérations que vous bloquez dans Ne jamais autoriser restent bloquées."
+      },
+      "scope": {
+        "any": "Activée pour les modules de toute bibliothèque.",
+        "official": "Activée pour les modules de la bibliothèque officielle."
+      },
+      "switch": "Approbation générale",
+      "title": "Approuver tout ce qu'un module demande",
+      "turnOff": "Désactiver",
+      "turnOn": "Activer",
+      "typeLabel": "Pour confirmer, saisissez : {{phrase}}",
+      "withOptional": "Les opérations facultatives sont incluses."
+    },
+    "cannotInstallBlocked": "Ce module a besoin de {{ops}}, que la politique de l'administrateur bloque. Il ne peut pas être installé.",
+    "cannotInstallUnsupported": "Ce module a besoin de {{ops}}, que ce LocalAI ne prend pas en charge. Il ne peut pas être installé.",
+    "chip": "En attente d'approbation",
+    "confirm": {
+      "revokeBody": "{{name}} perd tout ce que vous ou l'interrupteur général avez autorisé. Les autorisations du déploiement restent. S'il perd un accès nécessaire, il s'arrête.",
+      "revokeTitle": "Révoquer tout l'accès à l'hôte de {{name}} ?",
+      "stopAction": "Désactiver et arrêter",
+      "stopBody": "{{name}} ne fonctionne pas sans {{op}}. Il s'arrête et reste arrêté tant que vous ne l'autorisez pas de nouveau.",
+      "stopTitle": "Désactiver l'accès dont {{name}} a besoin ?"
+    },
+    "deny": {
+      "add": "Ajouter une règle",
+      "added": "Règle ajoutée.",
+      "affectsNone": "Aucun module installé ne perd l'accès.",
+      "allAddons": "Tous les modules",
+      "checkFailed": "Impossible de vérifier ce que cette règle change. Rien n'a été enregistré.",
+      "confirmAction": "Ajouter la règle",
+      "confirmBody": "S'applique à : {{target}}. Effet immédiat. Les appels en cours se terminent.",
+      "confirmTitle": "Ne jamais autoriser {{entry}} ?",
+      "entry": "Opération, famille ou *",
+      "everything": "Tout",
+      "fromFile": "Définie dans le déploiement",
+      "hint": "Une famille se termine par un point, par exemple egress. Un nom exact ressemble à egress.check. Une étoile bloque tout.",
+      "intro": "Opérations qu'aucun module ne peut utiliser, quoi qu'il les autorise par ailleurs. Une règle ici l'emporte toujours.",
+      "invalid": "Saisissez une opération comme egress.check, une famille comme egress. ou *.",
+      "none": "Aucune règle pour l'instant.",
+      "remove": "Retirer",
+      "removeNamed": "Retirer la règle {{entry}} pour {{target}}",
+      "removed": "Règle retirée.",
+      "target": "S'applique à",
+      "title": "Ne jamais autoriser",
+      "willStop": "s'arrêtera, il en a besoin"
+    },
+    "emptyBody": "Les modules qui demandent un accès à l'hôte apparaissent ici après leur installation.",
+    "emptyTitle": "Aucun module installé",
+    "errors": {
+      "approval_required": "Ce module a besoin d'un accès à l'hôte. Approuvez-le dans la fenêtre d'installation du navigateur.",
+      "approval_stale": "Le paquet a changé depuis que vous l'avez consulté. Examinez la nouvelle liste et approuvez de nouveau.",
+      "blocked_by_policy": "La politique de l'administrateur bloque une opération dont ce module a besoin. Rien n'a été modifié.",
+      "locked_by_deployment": "Le déploiement a verrouillé l'accès à l'hôte. Vous ne pouvez pas le changer ici.",
+      "not_human_surface": "Un administrateur doit faire ce changement dans ce navigateur. Une clé d'API ou un outil ne le peut pas.",
+      "revision_conflict": "L'accès à l'hôte a changé ailleurs. La page a été relue. Vérifiez et réessayez."
+    },
+    "family": {
+      "connector": "Connecteurs",
+      "egress": "Contrôles réseau",
+      "finetune": "Fine-tuning",
+      "quantize": "Quantification",
+      "workspace": "Fichiers de l'espace de travail"
+    },
+    "fileEntry": "Défini dans le fichier de politique ou les options du déploiement.",
+    "identityMismatch": "Ces autorisations ont été données à un autre paquet du même nom. Elles n'ont aucun effet. Retirez-les.",
+    "intro": "Les actions que les modules peuvent exécuter sur ce serveur, qui a autorisé chacune et comment la retirer. Un module ne détient que ce que vous approuvez.",
+    "keepOwn": "Garder comme les miennes",
+    "keepOwnNamed": "Garder comme les miennes les autorisations générales de {{name}}",
+    "loadError": "L'accès à l'hôte ne s'est pas chargé",
+    "loading": "Lecture de ce que demande ce module...",
+    "loadingPage": "Chargement de l'accès à l'hôte",
+    "locked": "Le déploiement a désactivé les changements d'accès à l'hôte. Vous pouvez lire cette page, pas la modifier.",
+    "newOptional": "La nouvelle version demande aussi {{ops}}. Elles sont facultatives et non autorisées.",
+    "noLongerRequested": "Cette version ne le demande plus. Vous pouvez le désactiver.",
+    "notOfficial": "Ce module vient de {{library}}, pas de la bibliothèque officielle.",
+    "op": {
+      "alreadyAllowed": "Déjà autorisé",
+      "blocked": "Bloqué par la politique de l'administrateur",
+      "byDeployment": "Déjà autorisé par le déploiement",
+      "new": "Nouveau dans cette version",
+      "optional": "Facultatif. Le module fonctionne sans, avec moins de fonctions.",
+      "required": "Obligatoire. Le module ne fonctionne pas sans.",
+      "unsupported": "Non pris en charge par ce LocalAI"
+    },
+    "previewFailed": "Impossible de lire l'accès à l'hôte que demande ce module. Réessayez. S'il exige un accès que vous n'avez pas approuvé, l'installation est refusée et rien ne change.",
+    "removeStale": "Retirer",
+    "revokeAll": "Tout révoquer",
+    "revokeAllNamed": "Révoquer tout l'accès à l'hôte de {{name}}",
+    "risk": {
+      "changes_data": "Modifie des données",
+      "network": "Réseau",
+      "read": "Lit",
+      "runs_jobs": "Lance des tâches"
+    },
+    "source": {
+      "blanket": "Générale",
+      "deployment": "Déploiement",
+      "you": "Vous"
+    },
+    "stepFooter": "Accorder l'accès permet à ce module d'exécuter ces actions sur ce serveur pour les personnes qui l'utilisent. Vous pouvez le vérifier ou le révoquer sur la page Accès à l'hôte.",
+    "stepIntro": "{{name}} demande d'exécuter ces actions sur ce serveur. Les obligatoires sont nécessaires à son fonctionnement. Les facultatives restent désactivées tant que vous ne les activez pas.",
+    "stepTitle": "Accès à l'hôte",
+    "stopped": "Arrêté : il a besoin de {{ops}}, qui n'est plus autorisé.",
+    "tabWaiting": "Approbations en attente : {{count}}",
+    "waiting": {
+      "body": "La nouvelle version demande un accès à l'hôte que l'actuelle n'a pas. La version {{current}} continue de tourner jusqu'à votre approbation. Opérations ajoutées : {{count}}.",
+      "review": "Examiner et approuver",
+      "reviewNamed": "Examiner et approuver l'accès à l'hôte de {{name}}",
+      "title": "{{name}} {{version}} attend votre approbation"
     }
   }
 }

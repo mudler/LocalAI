@@ -357,7 +357,8 @@
     "apps": "Instalados",
     "browse": "Encontrar complementos",
     "label": "Seções de complementos",
-    "libraries": "Fontes"
+    "libraries": "Fontes",
+    "access": "Acesso ao host"
   },
   "title": "Complementos",
   "trust": {
@@ -749,6 +750,150 @@
     "controls": {
       "loadFailed": "Não foi possível ler as configurações",
       "saveFailed": "Não foi possível salvar as configurações: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Add-ons",
+    "approve": {
+      "action": "Aprovar e atualizar",
+      "body": "A versão {{current}} de {{name}} continua rodando. Se você aprovar, a nova versão pode executar estas ações. As novas estão marcadas.",
+      "done": "{{name}} foi atualizado.",
+      "title": "Aprovar o acesso ao host de {{name}} {{version}}"
+    },
+    "asksNothing": "Este add-on não pede acesso ao host.",
+    "blanket": {
+      "alsoRevoke": "Revogar também as permissões que ela deu",
+      "alsoRevokeHint": "Add-ons que perderiam acesso: {{names}}. Um add-on que perde um acesso de que precisa para.",
+      "applyInstalled": "Aplicar também aos add-ons já instalados",
+      "applyInstalledHint": "Desligado: só novas instalações e atualizações.",
+      "change": "Alterar",
+      "fixed": "Definido pela implantação. Você não pode alterar aqui.",
+      "held": "Add-ons com permissões dadas pela chave geral: {{count}}",
+      "includeOptional": "Incluir operações opcionais",
+      "includeOptionalHint": "Desligado: só as operações obrigatórias são concedidas.",
+      "intro": "Desligado por padrão. Ligado, um add-on que você instala ou atualiza recebe as operações do host que seu manifesto diz precisar, sem a etapa da janela de instalação. As operações em Nunca permitir continuam bloqueadas.",
+      "modeAny": "Qualquer biblioteca",
+      "modeLabel": "Alcance",
+      "modeOfficial": "Biblioteca oficial",
+      "nowOff": "A aprovação geral está desligada. As permissões que ela deu ficam.",
+      "nowOn": "A aprovação geral está ligada.",
+      "offBody": "Novas instalações voltam a precisar da sua aprovação. As permissões que a chave já deu ficam, marcadas como gerais, para que nada pare de surpresa.",
+      "offText": "Desligada. Você aprova cada add-on ao instalar.",
+      "offTitle": "Desligar a aprovação geral",
+      "onTitle": "Ligar a aprovação geral",
+      "revokeAll": "Revogar todas as permissões gerais",
+      "revoked": "Permissões gerais revogadas.",
+      "risk": {
+        "any": "Com isto ligado, cada add-on que você instala de qualquer biblioteca configurada recebe as operações do host que seu manifesto diz precisar, sem você revisar. Qualquer entrada de qualquer biblioteca recebe o que declara, então uma entrada maliciosa ou comprometida obtém essas operações na hora. As operações que você bloqueia em Nunca permitir continuam bloqueadas.",
+        "official": "Com isto ligado, cada add-on que você instala da biblioteca oficial recebe as operações do host que seu manifesto diz precisar, sem você revisar. Uma entrada comprometida recebe exatamente as operações que declara. As operações que você bloqueia em Nunca permitir continuam bloqueadas."
+      },
+      "scope": {
+        "any": "Ligada para add-ons de qualquer biblioteca.",
+        "official": "Ligada para add-ons da biblioteca oficial."
+      },
+      "switch": "Aprovação geral",
+      "title": "Aprovar tudo o que um add-on pede",
+      "turnOff": "Desligar",
+      "turnOn": "Ligar",
+      "typeLabel": "Para confirmar, digite: {{phrase}}",
+      "withOptional": "As operações opcionais estão incluídas."
+    },
+    "cannotInstallBlocked": "Este add-on precisa de {{ops}}, que a política do administrador bloqueia. Ele não pode ser instalado.",
+    "cannotInstallUnsupported": "Este add-on precisa de {{ops}}, que este LocalAI não suporta. Ele não pode ser instalado.",
+    "chip": "Aguardando aprovação",
+    "confirm": {
+      "revokeBody": "{{name}} perde tudo o que você ou a chave geral permitiu. As permissões da implantação ficam. Se perder um acesso de que precisa, ele para.",
+      "revokeTitle": "Revogar todo o acesso ao host de {{name}}?",
+      "stopAction": "Desligar e parar",
+      "stopBody": "{{name}} não funciona sem {{op}}. Ele para e continua parado até você permitir de novo.",
+      "stopTitle": "Desligar o acesso de que {{name}} precisa?"
+    },
+    "deny": {
+      "add": "Adicionar regra",
+      "added": "Regra adicionada.",
+      "affectsNone": "Nenhum add-on instalado perde acesso.",
+      "allAddons": "Todos os add-ons",
+      "checkFailed": "Não foi possível verificar o que esta regra muda. Nada foi salvo.",
+      "confirmAction": "Adicionar regra",
+      "confirmBody": "Vale para: {{target}}. Tem efeito na hora. As chamadas em andamento terminam.",
+      "confirmTitle": "Nunca permitir {{entry}}?",
+      "entry": "Operação, família ou *",
+      "everything": "Tudo",
+      "fromFile": "Definida na implantação",
+      "hint": "Uma família termina com ponto, por exemplo egress. Um nome exato é como egress.check. Um asterisco bloqueia tudo.",
+      "intro": "Operações que nenhum add-on pode usar, não importa o que mais as permita. Uma regra aqui sempre vence.",
+      "invalid": "Escreva uma operação como egress.check, uma família como egress. ou *.",
+      "none": "Ainda sem regras.",
+      "remove": "Remover",
+      "removeNamed": "Remover a regra {{entry}} para {{target}}",
+      "removed": "Regra removida.",
+      "target": "Vale para",
+      "title": "Nunca permitir",
+      "willStop": "vai parar, precisa disto"
+    },
+    "emptyBody": "Os add-ons que pedem acesso ao host aparecem aqui depois de instalados.",
+    "emptyTitle": "Nenhum add-on instalado",
+    "errors": {
+      "approval_required": "Este add-on precisa de acesso ao host. Aprove na janela de instalação do navegador.",
+      "approval_stale": "O pacote mudou desde que você o viu. Revise a nova lista e aprove de novo.",
+      "blocked_by_policy": "A política do administrador bloqueia uma operação de que este add-on precisa. Nada foi alterado.",
+      "locked_by_deployment": "A implantação bloqueou o acesso ao host. Você não pode alterá-lo aqui.",
+      "not_human_surface": "Um administrador precisa fazer esta mudança neste navegador. Uma chave de API ou uma ferramenta não pode.",
+      "revision_conflict": "O acesso ao host mudou em outro lugar. A página foi lida de novo. Confira e tente de novo."
+    },
+    "family": {
+      "connector": "Conectores",
+      "egress": "Verificações de rede",
+      "finetune": "Ajuste fino",
+      "quantize": "Quantização",
+      "workspace": "Arquivos do espaço de trabalho"
+    },
+    "fileEntry": "Definido no arquivo de política ou nas opções da implantação.",
+    "identityMismatch": "Estas permissões foram dadas a outro pacote com o mesmo nome. Não têm efeito. Remova-as.",
+    "intro": "As ações que os add-ons podem executar neste servidor, quem permitiu cada uma e como retirá-la. Um add-on só tem o que você aprova.",
+    "keepOwn": "Manter como meu",
+    "keepOwnNamed": "Manter como minhas as permissões gerais de {{name}}",
+    "loadError": "O acesso ao host não carregou",
+    "loading": "Lendo o que este add-on pede...",
+    "loadingPage": "Carregando o acesso ao host",
+    "locked": "A implantação desativou mudanças no acesso ao host. Você pode ler esta página, mas não alterá-la.",
+    "newOptional": "A nova versão também pede {{ops}}. São opcionais e não permitidas.",
+    "noLongerRequested": "Esta versão não pede mais. Você pode desligar.",
+    "notOfficial": "Este add-on vem de {{library}}, não da biblioteca oficial.",
+    "op": {
+      "alreadyAllowed": "Já permitido",
+      "blocked": "Bloqueado pela política do administrador",
+      "byDeployment": "Já permitido pela implantação",
+      "new": "Novo nesta versão",
+      "optional": "Opcional. O add-on funciona sem isso, com menos recursos.",
+      "required": "Obrigatório. O add-on não funciona sem isso.",
+      "unsupported": "Não suportado por este LocalAI"
+    },
+    "previewFailed": "Não foi possível ler o acesso ao host que este add-on pede. Tente de novo. Se ele precisar de um acesso que você não aprovou, a instalação é recusada e nada muda.",
+    "removeStale": "Remover",
+    "revokeAll": "Revogar tudo",
+    "revokeAllNamed": "Revogar todo o acesso ao host de {{name}}",
+    "risk": {
+      "changes_data": "Altera dados",
+      "network": "Rede",
+      "read": "Lê",
+      "runs_jobs": "Executa tarefas"
+    },
+    "source": {
+      "blanket": "Geral",
+      "deployment": "Implantação",
+      "you": "Você"
+    },
+    "stepFooter": "Conceder o acesso permite que este add-on execute estas ações neste servidor para quem o usa. Você pode revisar ou revogar na página Acesso ao host.",
+    "stepIntro": "{{name}} pede para executar estas ações neste servidor. As obrigatórias são necessárias para ele funcionar. As opcionais ficam desligadas até você ligá-las.",
+    "stepTitle": "Acesso ao host",
+    "stopped": "Parado: precisa de {{ops}}, que não é mais permitido.",
+    "tabWaiting": "Aprovações pendentes: {{count}}",
+    "waiting": {
+      "body": "A nova versão pede um acesso ao host que a atual não tem. A versão {{current}} continua rodando até você aprovar. Operações adicionadas: {{count}}.",
+      "review": "Revisar e aprovar",
+      "reviewNamed": "Revisar e aprovar o acesso ao host de {{name}}",
+      "title": "{{name}} {{version}} aguarda sua aprovação"
     }
   }
 }

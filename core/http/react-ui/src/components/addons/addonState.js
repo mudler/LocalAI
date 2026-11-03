@@ -5,8 +5,8 @@ import { updateView } from './updateState.js'
 // the server checks administration again on every call they make. What the old
 // Installed tab showed is now the Details of an add-on in My add-ons, so an old
 // ?tab=installed address lands on My add-ons.
-export const TABS = ['apps', 'browse', 'libraries']
-export const ADMIN_TABS = new Set(['browse', 'libraries'])
+export const TABS = ['apps', 'browse', 'libraries', 'access']
+export const ADMIN_TABS = new Set(['browse', 'libraries', 'access'])
 
 export function resolveTab(requested, isAdmin) {
   if (requested && TABS.includes(requested) && (isAdmin || !ADMIN_TABS.has(requested))) return requested

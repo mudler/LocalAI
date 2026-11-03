@@ -29,6 +29,8 @@ import { upgradeFailureWords } from './updateReview'
 import FirstRun from './FirstRun'
 import { addedByAddon, attentionOf, filterByState, listState, sortByAttention, STATE_FILTERS } from './addonState'
 import { describeError, describeOutcome } from './errors'
+import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
+import { pendingApprovals } from './hostGrantsState'
 import { useAddonActions } from './useAddonActions'
 
 // The apps every caller with the add-ons feature may use. The owner decides
@@ -36,7 +38,7 @@ import { useAddonActions } from './useAddonActions'
 // cadence, slower in a hidden tab and backing off while the owner is
 // unreachable. Start and stop are offered to administrators and the server
 // refuses everyone else whatever this view shows.
-export default function AppsView({ api, adapter, onSummary }) {
+export default function AppsView({ api, adapter, onSummary, grants }) {
   const { t, i18n } = useTranslation('addons')
   const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
@@ -122,6 +124,7 @@ export default function AppsView({ api, adapter, onSummary }) {
   // Remove is the typed uninstall action: the data is kept, so installing the
   // add-on again picks it up. The owner refuses anyone but an administrator.
   const [removing, setRemoving] = useState(null)
+  const [approving, setApproving] = useState(null)
   const remove = useCallback((tile) => {
     actions.run(`uninstall:${tile.id}:${tile.app.generation}`, {
       addonId: tile.id,
@@ -304,7 +307,12 @@ export default function AppsView({ api, adapter, onSummary }) {
 
   const view = listState({ apps: state.apps, shownCount: shown.length, query, isAdmin, canList })
   const firstRun = view === 'first-run'
-  const showAttention = !firstRun && (attention.failed.length > 0 || attention.updates.length > 0)
+  // Upgrades held for host access: the old version runs on, and the
+  // administrator approves what the new one asks for. The plain Upgrade of
+  // such an add-on would be refused, so only the banner offers it.
+  const approvals = isAdmin && grants && grants.data ? pendingApprovals(grants.data) : []
+  const waitingIds = new Set(approvals.map(a => a.id))
+  const showAttention = !firstRun && (attention.failed.length > 0 || attention.updates.length > 0 || approvals.length > 0)
   return (
     <div className="ad-apps">
       {state.stale && (
@@ -337,7 +345,8 @@ export default function AppsView({ api, adapter, onSummary }) {
                   </Callout>
                 )
               })}
-              {attention.updates.map(({ tile, rec, version }) => {
+              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} onReview={() => setApproving(a)} />)}
+              {attention.updates.filter(({ tile }) => !waitingIds.has(tile.id)).map(({ tile, rec, version }) => {
                 const working = Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id)
                 return (
                   <Callout
@@ -408,6 +417,7 @@ export default function AppsView({ api, adapter, onSummary }) {
                     attention={tile.app ? attentionOf(tile.app, rec) : ''}
                     source={isAdmin ? rec : undefined}
                     updateVersion={uv && uv.state === 'update-available' ? uv.version : ''}
+                    waitingApproval={waitingIds.has(tile.id)}
                     onPin={onPin}
                     onMove={nav.move}
                     onOpenDetail={openDetail}
@@ -481,6 +491,16 @@ export default function AppsView({ api, adapter, onSummary }) {
         <Callout tone="info" role="status" className="ad-callout">{t('installed.missing', { id: manageId })}</Callout>
       )}
       <UpgradeConfirm upgrade={upgrade} />
+      {approving && (
+        <ApproveUpgradeDialog
+          addon={approving}
+          sourceId={installedInfo[approving.id]?.sourceId}
+          api={api}
+          actions={actions}
+          onClose={() => setApproving(null)}
+          onDone={() => { setApproving(null); grants?.reload(); reloadRef.current() }}
+        />
+      )}
       <BulkUpgradeDialog bulk={bulk} />
       {limit && (
         <SideSheet title={t('drawer.limitTitle')} onClose={() => setLimit(false)} closeLabel={t('drawer.close')} testId="pin-limit">

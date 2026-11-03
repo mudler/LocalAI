@@ -357,7 +357,8 @@
     "apps": "Instalados",
     "browse": "Buscar complementos",
     "label": "Secciones de complementos",
-    "libraries": "Fuentes"
+    "libraries": "Fuentes",
+    "access": "Acceso al host"
   },
   "title": "Complementos",
   "trust": {
@@ -749,6 +750,150 @@
     "controls": {
       "loadFailed": "No se pudieron leer los ajustes",
       "saveFailed": "No se pudieron guardar los ajustes: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Complementos",
+    "approve": {
+      "action": "Aprobar y actualizar",
+      "body": "La versión {{current}} de {{name}} sigue funcionando. Si apruebas, la nueva versión puede ejecutar estas acciones. Las nuevas están marcadas.",
+      "done": "{{name}} se actualizó.",
+      "title": "Aprobar el acceso al host de {{name}} {{version}}"
+    },
+    "asksNothing": "Este complemento no pide acceso al host.",
+    "blanket": {
+      "alsoRevoke": "Revocar también los permisos que dio",
+      "alsoRevokeHint": "Complementos que perderían acceso: {{names}}. Un complemento que pierde un acceso que necesita se detiene.",
+      "applyInstalled": "Aplicar también a los complementos ya instalados",
+      "applyInstalledHint": "Desactivado: solo instalaciones y actualizaciones nuevas.",
+      "change": "Cambiar",
+      "fixed": "Definido por el despliegue. No puedes cambiarlo aquí.",
+      "held": "Complementos con permisos dados por el interruptor general: {{count}}",
+      "includeOptional": "Incluir las operaciones opcionales",
+      "includeOptionalHint": "Desactivado: solo se conceden las operaciones obligatorias.",
+      "intro": "Desactivado por defecto. Si se activa, un complemento que instales o actualices recibe las operaciones del host que su manifiesto dice necesitar, sin el paso del cuadro de instalación. Las operaciones de Nunca permitir siguen bloqueadas.",
+      "modeAny": "Cualquier biblioteca",
+      "modeLabel": "Alcance",
+      "modeOfficial": "Biblioteca oficial",
+      "nowOff": "La aprobación general está desactivada. Los permisos que dio se mantienen.",
+      "nowOn": "La aprobación general está activada.",
+      "offBody": "Las nuevas instalaciones vuelven a necesitar tu aprobación. Los permisos que el interruptor ya dio se mantienen, marcados como generales, para que nada se detenga por sorpresa.",
+      "offText": "Desactivada. Apruebas cada complemento al instalarlo.",
+      "offTitle": "Desactivar la aprobación general",
+      "onTitle": "Activar la aprobación general",
+      "revokeAll": "Revocar todos los permisos generales",
+      "revoked": "Permisos generales revocados.",
+      "risk": {
+        "any": "Con esto activado, cada complemento que instales desde cualquier biblioteca que hayas configurado recibe las operaciones del host que su manifiesto dice necesitar, sin que las revises. Cualquier entrada de cualquier biblioteca recibe lo que declara, así que una entrada maliciosa o comprometida obtiene esas operaciones de inmediato. Las operaciones que bloqueas en Nunca permitir siguen bloqueadas.",
+        "official": "Con esto activado, cada complemento que instales desde la biblioteca oficial recibe las operaciones del host que su manifiesto dice necesitar, sin que las revises. Una entrada comprometida recibe exactamente las operaciones que declara. Las operaciones que bloqueas en Nunca permitir siguen bloqueadas."
+      },
+      "scope": {
+        "any": "Activada para complementos de cualquier biblioteca.",
+        "official": "Activada para complementos de la biblioteca oficial."
+      },
+      "switch": "Aprobación general",
+      "title": "Aprobar todo lo que pide un complemento",
+      "turnOff": "Desactivar",
+      "turnOn": "Activar",
+      "typeLabel": "Para confirmar, escribe: {{phrase}}",
+      "withOptional": "Se incluyen las operaciones opcionales."
+    },
+    "cannotInstallBlocked": "Este complemento necesita {{ops}}, que la política del administrador bloquea. No se puede instalar.",
+    "cannotInstallUnsupported": "Este complemento necesita {{ops}}, que este LocalAI no admite. No se puede instalar.",
+    "chip": "Esperando aprobación",
+    "confirm": {
+      "revokeBody": "{{name}} pierde todo lo que permitiste tú o el interruptor general. Los permisos del despliegue se mantienen. Si pierde un acceso que necesita, se detiene.",
+      "revokeTitle": "¿Revocar todo el acceso al host de {{name}}?",
+      "stopAction": "Desactivar y detener",
+      "stopBody": "{{name}} no funciona sin {{op}}. Se detiene y sigue detenido hasta que lo permitas de nuevo.",
+      "stopTitle": "¿Desactivar el acceso que necesita {{name}}?"
+    },
+    "deny": {
+      "add": "Añadir regla",
+      "added": "Regla añadida.",
+      "affectsNone": "Ningún complemento instalado pierde acceso.",
+      "allAddons": "Todos los complementos",
+      "checkFailed": "No se pudo comprobar qué cambia esta regla. No se guardó nada.",
+      "confirmAction": "Añadir regla",
+      "confirmBody": "Se aplica a: {{target}}. Tiene efecto de inmediato. Las llamadas en curso terminan.",
+      "confirmTitle": "¿Nunca permitir {{entry}}?",
+      "entry": "Operación, familia o *",
+      "everything": "Todo",
+      "fromFile": "Definida en el despliegue",
+      "hint": "Una familia termina en punto, por ejemplo egress. Un nombre exacto es como egress.check. Un asterisco bloquea todo.",
+      "intro": "Operaciones que ningún complemento puede usar, sin importar qué más las permita. Una regla aquí siempre gana.",
+      "invalid": "Escribe una operación como egress.check, una familia como egress. o *.",
+      "none": "Aún no hay reglas.",
+      "remove": "Quitar",
+      "removeNamed": "Quitar la regla {{entry}} para {{target}}",
+      "removed": "Regla quitada.",
+      "target": "Se aplica a",
+      "title": "Nunca permitir",
+      "willStop": "se detendrá, lo necesita"
+    },
+    "emptyBody": "Los complementos que piden acceso al host aparecen aquí tras instalarlos.",
+    "emptyTitle": "No hay ningún complemento instalado",
+    "errors": {
+      "approval_required": "Este complemento necesita acceso al host. Apruébalo en el cuadro de instalación del navegador.",
+      "approval_stale": "El paquete cambió desde que lo viste. Revisa la nueva lista y aprueba de nuevo.",
+      "blocked_by_policy": "La política del administrador bloquea una operación que este complemento necesita. No se cambió nada.",
+      "locked_by_deployment": "El despliegue bloqueó el acceso al host. No puedes cambiarlo aquí.",
+      "not_human_surface": "Un administrador debe hacer este cambio en este navegador. Una clave de API o una herramienta no pueden.",
+      "revision_conflict": "El acceso al host cambió en otro lugar. Se volvió a leer la página. Revísala e inténtalo de nuevo."
+    },
+    "family": {
+      "connector": "Conectores",
+      "egress": "Comprobaciones de red",
+      "finetune": "Ajuste fino",
+      "quantize": "Cuantización",
+      "workspace": "Archivos del espacio de trabajo"
+    },
+    "fileEntry": "Definido en el archivo de política o en los parámetros del despliegue.",
+    "identityMismatch": "Estos permisos se dieron a un paquete distinto con el mismo nombre. No tienen efecto. Quítalos.",
+    "intro": "Las acciones que los complementos pueden ejecutar en este servidor, quién permitió cada una y cómo retirarla. Un complemento solo tiene lo que apruebas.",
+    "keepOwn": "Conservar como mío",
+    "keepOwnNamed": "Conservar como míos los permisos generales de {{name}}",
+    "loadError": "El acceso al host no se cargó",
+    "loading": "Leyendo lo que pide este complemento...",
+    "loadingPage": "Cargando el acceso al host",
+    "locked": "El despliegue desactivó los cambios en el acceso al host. Puedes leer esta página, pero no cambiarla.",
+    "newOptional": "La nueva versión también pide {{ops}}. Son opcionales y no están permitidos.",
+    "noLongerRequested": "Esta versión ya no lo pide. Puedes desactivarlo.",
+    "notOfficial": "Este complemento viene de {{library}}, no de la biblioteca oficial.",
+    "op": {
+      "alreadyAllowed": "Ya permitido",
+      "blocked": "Bloqueado por la política del administrador",
+      "byDeployment": "Ya permitido por el despliegue",
+      "new": "Nuevo en esta versión",
+      "optional": "Opcional. El complemento funciona sin esto, con menos funciones.",
+      "required": "Obligatorio. El complemento no funciona sin esto.",
+      "unsupported": "No admitido por este LocalAI"
+    },
+    "previewFailed": "No se pudo leer el acceso al host que pide este complemento. Inténtalo de nuevo. Si necesita un acceso que no has aprobado, la instalación se rechaza y no cambia nada.",
+    "removeStale": "Quitar",
+    "revokeAll": "Revocar todo",
+    "revokeAllNamed": "Revocar todo el acceso al host de {{name}}",
+    "risk": {
+      "changes_data": "Cambia datos",
+      "network": "Red",
+      "read": "Lee",
+      "runs_jobs": "Ejecuta trabajos"
+    },
+    "source": {
+      "blanket": "General",
+      "deployment": "Despliegue",
+      "you": "Tú"
+    },
+    "stepFooter": "Conceder el acceso permite que este complemento ejecute estas acciones en este servidor para quienes lo usan. Puedes revisarlo o revocarlo en la página Acceso al host.",
+    "stepIntro": "{{name}} pide ejecutar estas acciones en este servidor. Las obligatorias son necesarias para que funcione. Las opcionales quedan desactivadas hasta que las actives.",
+    "stepTitle": "Acceso al host",
+    "stopped": "Detenido: necesita {{ops}}, que ya no está permitido.",
+    "tabWaiting": "Aprobaciones pendientes: {{count}}",
+    "waiting": {
+      "body": "La nueva versión pide un acceso al host que la actual no tiene. La versión {{current}} sigue funcionando hasta que apruebes. Operaciones que añade: {{count}}.",
+      "review": "Revisar y aprobar",
+      "reviewNamed": "Revisar y aprobar el acceso al host de {{name}}",
+      "title": "{{name}} {{version}} espera tu aprobación"
     }
   }
 }

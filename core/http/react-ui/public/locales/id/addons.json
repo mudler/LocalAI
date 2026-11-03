@@ -357,7 +357,8 @@
     "apps": "Terpasang",
     "browse": "Cari add-on",
     "label": "Bagian add-on",
-    "libraries": "Sumber"
+    "libraries": "Sumber",
+    "access": "Akses host"
   },
   "title": "Add-on",
   "trust": {
@@ -749,6 +750,150 @@
     "controls": {
       "loadFailed": "Pengaturan tidak dapat dibaca",
       "saveFailed": "Pengaturan tidak dapat disimpan: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Add-on",
+    "approve": {
+      "action": "Setujui dan tingkatkan",
+      "body": "Versi {{current}} dari {{name}} tetap berjalan. Jika Anda setuju, versi baru dapat menjalankan aksi ini. Yang baru ditandai.",
+      "done": "{{name}} telah ditingkatkan.",
+      "title": "Setujui akses host untuk {{name}} {{version}}"
+    },
+    "asksNothing": "Add-on ini tidak meminta akses host.",
+    "blanket": {
+      "alsoRevoke": "Cabut juga izin yang diberikannya",
+      "alsoRevokeHint": "Add-on yang akan kehilangan akses: {{names}}. Add-on yang kehilangan akses yang dibutuhkan akan berhenti.",
+      "applyInstalled": "Terapkan juga ke add-on yang sudah terpasang",
+      "applyInstalledHint": "Mati: hanya instalasi dan peningkatan baru.",
+      "change": "Ubah",
+      "fixed": "Ditetapkan oleh deployment. Anda tidak dapat mengubahnya di sini.",
+      "held": "Add-on yang memegang izin dari sakelar umum: {{count}}",
+      "includeOptional": "Sertakan operasi opsional",
+      "includeOptionalHint": "Mati: hanya operasi wajib yang diberikan.",
+      "intro": "Mati secara bawaan. Jika menyala, add-on yang Anda pasang atau tingkatkan mendapat operasi host yang menurut manifesnya dibutuhkan, tanpa langkah di dialog instalasi. Operasi di Jangan pernah izinkan tetap diblokir.",
+      "modeAny": "Pustaka mana pun",
+      "modeLabel": "Cakupan",
+      "modeOfficial": "Pustaka resmi",
+      "nowOff": "Persetujuan umum mati. Izin yang telah diberikannya tetap ada.",
+      "nowOn": "Persetujuan umum menyala.",
+      "offBody": "Instalasi baru kembali membutuhkan persetujuan Anda. Izin yang sudah diberikan sakelar tetap ada, ditandai sebagai umum, agar tidak ada yang berhenti tiba-tiba.",
+      "offText": "Mati. Anda menyetujui tiap add-on saat memasangnya.",
+      "offTitle": "Matikan persetujuan umum",
+      "onTitle": "Nyalakan persetujuan umum",
+      "revokeAll": "Cabut semua izin umum",
+      "revoked": "Izin umum dicabut.",
+      "risk": {
+        "any": "Jika ini menyala, setiap add-on yang Anda pasang dari pustaka mana pun yang Anda atur mendapat operasi host yang menurut manifesnya dibutuhkan, tanpa Anda meninjaunya. Entri mana pun di pustaka mana pun menerima apa yang dideklarasikannya, jadi entri berbahaya atau yang disusupi langsung mendapat operasi itu. Operasi yang Anda blokir di Jangan pernah izinkan tetap diblokir.",
+        "official": "Jika ini menyala, setiap add-on yang Anda pasang dari pustaka resmi mendapat operasi host yang menurut manifesnya dibutuhkan, tanpa Anda meninjaunya. Entri yang disusupi lalu mendapat persis operasi yang dideklarasikannya. Operasi yang Anda blokir di Jangan pernah izinkan tetap diblokir."
+      },
+      "scope": {
+        "any": "Menyala untuk add-on dari pustaka mana pun.",
+        "official": "Menyala untuk add-on dari pustaka resmi."
+      },
+      "switch": "Persetujuan umum",
+      "title": "Setujui semua yang diminta add-on",
+      "turnOff": "Matikan",
+      "turnOn": "Nyalakan",
+      "typeLabel": "Untuk mengonfirmasi, ketik: {{phrase}}",
+      "withOptional": "Operasi opsional disertakan."
+    },
+    "cannotInstallBlocked": "Add-on ini butuh {{ops}}, yang diblokir oleh kebijakan administrator. Add-on tidak dapat dipasang.",
+    "cannotInstallUnsupported": "Add-on ini butuh {{ops}}, yang tidak didukung LocalAI ini. Add-on tidak dapat dipasang.",
+    "chip": "Menunggu persetujuan",
+    "confirm": {
+      "revokeBody": "{{name}} kehilangan semua yang Anda atau sakelar umum izinkan. Izin dari deployment tetap. Jika kehilangan akses yang dibutuhkan, add-on berhenti.",
+      "revokeTitle": "Cabut semua akses host {{name}}?",
+      "stopAction": "Matikan dan hentikan",
+      "stopBody": "{{name}} tidak berjalan tanpa {{op}}. Add-on berhenti dan tetap berhenti sampai Anda mengizinkannya lagi.",
+      "stopTitle": "Matikan akses yang dibutuhkan {{name}}?"
+    },
+    "deny": {
+      "add": "Tambah aturan",
+      "added": "Aturan ditambahkan.",
+      "affectsNone": "Tidak ada add-on terpasang yang kehilangan akses.",
+      "allAddons": "Semua add-on",
+      "checkFailed": "Tidak dapat memeriksa apa yang diubah aturan ini. Tidak ada yang disimpan.",
+      "confirmAction": "Tambah aturan",
+      "confirmBody": "Berlaku untuk: {{target}}. Langsung berlaku. Panggilan yang sedang berjalan diselesaikan.",
+      "confirmTitle": "Jangan pernah izinkan {{entry}}?",
+      "entry": "Operasi, keluarga, atau *",
+      "everything": "Semuanya",
+      "fromFile": "Ditetapkan di deployment",
+      "hint": "Keluarga diakhiri titik, misalnya egress. Nama persis seperti egress.check. Tanda bintang memblokir semuanya.",
+      "intro": "Operasi yang tidak boleh dipakai add-on mana pun, apa pun yang mengizinkannya. Aturan di sini selalu menang.",
+      "invalid": "Tulis operasi seperti egress.check, keluarga seperti egress., atau *.",
+      "none": "Belum ada aturan.",
+      "remove": "Hapus",
+      "removeNamed": "Hapus aturan {{entry}} untuk {{target}}",
+      "removed": "Aturan dihapus.",
+      "target": "Berlaku untuk",
+      "title": "Jangan pernah izinkan",
+      "willStop": "akan berhenti, membutuhkannya"
+    },
+    "emptyBody": "Add-on yang meminta akses host muncul di sini setelah dipasang.",
+    "emptyTitle": "Belum ada add-on terpasang",
+    "errors": {
+      "approval_required": "Add-on ini butuh akses host. Setujui di dialog instalasi di browser.",
+      "approval_stale": "Paket berubah sejak Anda melihatnya. Tinjau daftar baru dan setujui lagi.",
+      "blocked_by_policy": "Kebijakan administrator memblokir operasi yang dibutuhkan add-on ini. Tidak ada yang diubah.",
+      "locked_by_deployment": "Deployment mengunci akses host. Anda tidak dapat mengubahnya di sini.",
+      "not_human_surface": "Administrator harus membuat perubahan ini di browser ini. Kunci API atau alat tidak bisa.",
+      "revision_conflict": "Akses host berubah di tempat lain. Halaman dibaca ulang. Periksa lalu coba lagi."
+    },
+    "family": {
+      "connector": "Konektor",
+      "egress": "Pemeriksaan jaringan",
+      "finetune": "Fine-tuning",
+      "quantize": "Kuantisasi",
+      "workspace": "Berkas ruang kerja"
+    },
+    "fileEntry": "Ditetapkan di berkas kebijakan atau flag deployment.",
+    "identityMismatch": "Izin ini diberikan untuk paket lain dengan nama yang sama. Izin tidak berlaku. Hapus.",
+    "intro": "Aksi yang boleh dijalankan add-on di server ini, siapa yang mengizinkan tiap aksi, dan cara menariknya kembali. Add-on hanya memegang apa yang Anda setujui.",
+    "keepOwn": "Jadikan milik saya",
+    "keepOwnNamed": "Jadikan izin umum {{name}} sebagai milik saya",
+    "loadError": "Akses host tidak termuat",
+    "loading": "Membaca apa yang diminta add-on ini...",
+    "loadingPage": "Memuat akses host",
+    "locked": "Deployment mematikan perubahan akses host. Anda dapat membaca halaman ini tetapi tidak mengubahnya.",
+    "newOptional": "Versi baru juga meminta {{ops}}. Ini opsional dan tidak diizinkan.",
+    "noLongerRequested": "Versi ini tidak lagi memintanya. Anda dapat mematikannya.",
+    "notOfficial": "Add-on ini berasal dari {{library}}, bukan pustaka resmi.",
+    "op": {
+      "alreadyAllowed": "Sudah diizinkan",
+      "blocked": "Diblokir oleh kebijakan administrator",
+      "byDeployment": "Sudah diizinkan oleh deployment",
+      "new": "Baru di versi ini",
+      "optional": "Opsional. Add-on berjalan tanpanya, dengan fitur lebih sedikit.",
+      "required": "Wajib. Add-on tidak berjalan tanpanya.",
+      "unsupported": "Tidak didukung LocalAI ini"
+    },
+    "previewFailed": "Tidak dapat membaca akses host yang diminta add-on ini. Coba lagi. Jika add-on butuh akses yang belum Anda setujui, instalasi ditolak dan tidak ada yang berubah.",
+    "removeStale": "Hapus",
+    "revokeAll": "Cabut semua",
+    "revokeAllNamed": "Cabut semua akses host {{name}}",
+    "risk": {
+      "changes_data": "Mengubah data",
+      "network": "Jaringan",
+      "read": "Membaca",
+      "runs_jobs": "Menjalankan tugas"
+    },
+    "source": {
+      "blanket": "Umum",
+      "deployment": "Deployment",
+      "you": "Anda"
+    },
+    "stepFooter": "Memberi akses mengizinkan add-on ini menjalankan aksi tersebut di server ini bagi orang yang memakainya. Anda dapat meninjau atau mencabutnya di halaman Akses host.",
+    "stepIntro": "{{name}} meminta menjalankan aksi ini di server ini. Yang wajib dibutuhkan agar add-on berfungsi. Yang opsional tetap mati sampai Anda menyalakannya.",
+    "stepTitle": "Akses host",
+    "stopped": "Berhenti: butuh {{ops}}, yang tidak lagi diizinkan.",
+    "tabWaiting": "Persetujuan menunggu: {{count}}",
+    "waiting": {
+      "body": "Versi baru meminta akses host yang tidak dimiliki versi sekarang. Versi {{current}} tetap berjalan sampai Anda menyetujui. Operasi yang ditambahkan: {{count}}.",
+      "review": "Tinjau dan setujui",
+      "reviewNamed": "Tinjau dan setujui akses host {{name}}",
+      "title": "{{name}} {{version}} menunggu persetujuan Anda"
     }
   }
 }

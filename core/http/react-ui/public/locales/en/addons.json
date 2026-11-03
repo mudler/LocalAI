@@ -357,7 +357,8 @@
     "apps": "Installed",
     "browse": "Find add-ons",
     "label": "Add-ons sections",
-    "libraries": "Sources"
+    "libraries": "Sources",
+    "access": "Host access"
   },
   "title": "Add-ons",
   "trust": {
@@ -749,6 +750,150 @@
     "controls": {
       "loadFailed": "The settings could not be read",
       "saveFailed": "The settings could not be saved: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "Add-ons",
+    "approve": {
+      "action": "Approve and upgrade",
+      "body": "Version {{current}} of {{name}} keeps running. If you approve, the new version can run these actions. New ones are marked.",
+      "done": "{{name}} was upgraded.",
+      "title": "Approve host access for {{name}} {{version}}"
+    },
+    "asksNothing": "This add-on asks for no host access.",
+    "blanket": {
+      "alsoRevoke": "Also revoke the grants it made",
+      "alsoRevokeHint": "Add-ons that would lose access: {{names}}. An add-on that loses access it requires stops.",
+      "applyInstalled": "Also apply to add-ons already installed",
+      "applyInstalledHint": "Off: only new installs and upgrades.",
+      "change": "Change",
+      "fixed": "Set by the deployment. You cannot change it here.",
+      "held": "Add-ons that hold grants made by the blanket switch: {{count}}",
+      "includeOptional": "Include optional operations",
+      "includeOptionalHint": "Off: only required operations are granted.",
+      "intro": "Off by default. When on, an add-on you install or upgrade gets the host operations its manifest says it needs, without the step in the install dialog. Operations in Never allow stay blocked.",
+      "modeAny": "Any library",
+      "modeLabel": "Scope",
+      "modeOfficial": "Official library",
+      "nowOff": "Blanket approval is off. The grants it made are kept.",
+      "nowOn": "Blanket approval is on.",
+      "offBody": "New installs need your approval again. The grants the switch already made stay, marked as blanket, so nothing stops by surprise.",
+      "offText": "Off. You approve each add-on when you install it.",
+      "offTitle": "Turn off blanket approval",
+      "onTitle": "Turn on blanket approval",
+      "revokeAll": "Revoke all blanket grants",
+      "revoked": "Blanket grants revoked.",
+      "risk": {
+        "any": "With this on, every add-on you install from any library you configured gets the host operations its manifest says it needs, without you reviewing them. Any entry of any library receives what it declares, so a malicious or compromised entry gets those operations at once. Operations you block in Never allow stay blocked.",
+        "official": "With this on, every add-on you install from the official library gets the host operations its manifest says it needs, without you reviewing them. A compromised entry then gets exactly the operations it declares. Operations you block in Never allow stay blocked."
+      },
+      "scope": {
+        "any": "On for add-ons from any library.",
+        "official": "On for add-ons from the official library."
+      },
+      "switch": "Blanket approval",
+      "title": "Approve everything an add-on asks for",
+      "turnOff": "Turn off",
+      "turnOn": "Turn on",
+      "typeLabel": "To confirm, type: {{phrase}}",
+      "withOptional": "Optional operations are included."
+    },
+    "cannotInstallBlocked": "This add-on needs {{ops}}, which your administrator policy blocks. It cannot be installed.",
+    "cannotInstallUnsupported": "This add-on needs {{ops}}, which this LocalAI does not support. It cannot be installed.",
+    "chip": "Waiting for approval",
+    "confirm": {
+      "revokeBody": "{{name}} loses everything you or the blanket switch allowed. Grants of the deployment stay. If it loses access it requires, it stops.",
+      "revokeTitle": "Revoke all host access of {{name}}?",
+      "stopAction": "Turn off and stop",
+      "stopBody": "{{name}} cannot run without {{op}}. It stops, and it stays stopped until you allow this again.",
+      "stopTitle": "Turn off access that {{name}} needs?"
+    },
+    "deny": {
+      "add": "Add rule",
+      "added": "Rule added.",
+      "affectsNone": "No installed add-on loses access.",
+      "allAddons": "All add-ons",
+      "checkFailed": "Could not check what this rule changes. Nothing was saved.",
+      "confirmAction": "Add rule",
+      "confirmBody": "Applies to: {{target}}. It takes effect at once. Calls already running finish.",
+      "confirmTitle": "Never allow {{entry}}?",
+      "entry": "Operation, family or *",
+      "everything": "Everything",
+      "fromFile": "Set in the deployment",
+      "hint": "A family ends with a dot, for example egress. An exact name looks like egress.check. A star blocks everything.",
+      "intro": "Operations that no add-on may use, whatever else allows them. A rule here always wins.",
+      "invalid": "Write an operation such as egress.check, a family such as egress., or *.",
+      "none": "No rule yet.",
+      "remove": "Remove",
+      "removeNamed": "Remove the rule {{entry}} for {{target}}",
+      "removed": "Rule removed.",
+      "target": "Applies to",
+      "title": "Never allow",
+      "willStop": "will stop, it needs this"
+    },
+    "emptyBody": "Add-ons that ask for host access appear here after you install them.",
+    "emptyTitle": "No add-on is installed",
+    "errors": {
+      "approval_required": "This add-on needs host access. Approve it in the install dialog in the browser.",
+      "approval_stale": "The package changed since you looked at it. Review the new list and approve again.",
+      "blocked_by_policy": "The administrator policy blocks an operation this add-on needs. Nothing was changed.",
+      "locked_by_deployment": "The deployment locked host access. You cannot change it here.",
+      "not_human_surface": "An administrator must make this change in this browser. An API key or a tool cannot.",
+      "revision_conflict": "Host access changed elsewhere. The page was read again. Check it and try again."
+    },
+    "family": {
+      "connector": "Connectors",
+      "egress": "Network checks",
+      "finetune": "Fine-tuning",
+      "quantize": "Quantization",
+      "workspace": "Workspace files"
+    },
+    "fileEntry": "Set in the deployment's policy file or flags.",
+    "identityMismatch": "These grants were made for a different package under the same name. They have no effect. Remove them.",
+    "intro": "The actions add-ons may run on this server, who allowed each one, and how to take it back. An add-on holds only what you approve.",
+    "keepOwn": "Keep as my own",
+    "keepOwnNamed": "Keep the blanket grants of {{name}} as my own",
+    "loadError": "Host access did not load",
+    "loading": "Reading what this add-on asks for...",
+    "loadingPage": "Loading host access",
+    "locked": "The deployment turned off changes to host access. You can read this page but not change it.",
+    "newOptional": "The new version also asks for {{ops}}. These are optional and not allowed.",
+    "noLongerRequested": "This version no longer asks for it. You can turn it off.",
+    "notOfficial": "This add-on comes from {{library}}, not the official library.",
+    "op": {
+      "alreadyAllowed": "Already allowed",
+      "blocked": "Blocked by the administrator policy",
+      "byDeployment": "Already allowed by the deployment",
+      "new": "New in this version",
+      "optional": "Optional. The add-on runs without it, with fewer features.",
+      "required": "Required. The add-on cannot run without it.",
+      "unsupported": "Not supported by this LocalAI"
+    },
+    "previewFailed": "Could not read the host access this add-on asks for. Try again. If it needs access you have not approved, the install is refused and nothing changes.",
+    "removeStale": "Remove",
+    "revokeAll": "Revoke all",
+    "revokeAllNamed": "Revoke all host access of {{name}}",
+    "risk": {
+      "changes_data": "Changes data",
+      "network": "Network",
+      "read": "Reads",
+      "runs_jobs": "Runs jobs"
+    },
+    "source": {
+      "blanket": "Blanket",
+      "deployment": "Deployment",
+      "you": "You"
+    },
+    "stepFooter": "Granting lets this add-on run these actions on this server for the people who use it. You can review or revoke it on the Host access page.",
+    "stepIntro": "{{name}} asks to run these actions on this server. Required ones are needed for it to work. Optional ones stay off until you turn them on.",
+    "stepTitle": "Host access",
+    "stopped": "Stopped: it needs {{ops}}, which is no longer allowed.",
+    "tabWaiting": "Approvals waiting: {{count}}",
+    "waiting": {
+      "body": "The new version asks for host access that the current one does not have. Version {{current}} keeps running until you approve. Operations it adds: {{count}}.",
+      "review": "Review and approve",
+      "reviewNamed": "Review and approve the host access of {{name}}",
+      "title": "{{name}} {{version}} waits for your approval"
     }
   }
 }
