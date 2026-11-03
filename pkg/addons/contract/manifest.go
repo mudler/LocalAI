@@ -151,6 +151,9 @@ type ResourceTools struct {
 	// Delete is a tool of AdminTools that removes the resource and its
 	// backing data. It is reachable only from the UI-only delete endpoint.
 	Delete string `json:"delete,omitempty"`
+	// List asks the host for a read tool that lists the resources the caller
+	// may use (see ResourceList). It needs manifest API 2.
+	List *ResourceList `json:"list,omitempty"`
 }
 
 // MaxAdminTools bounds capabilities.adminTools.
@@ -186,7 +189,7 @@ func validateResourceTools(c Capabilities) error {
 		}
 		return nil
 	}
-	if r.Create == "" && r.Rename == "" && r.Inspect == "" && r.Delete == "" {
+	if r.Create == "" && r.Rename == "" && r.Inspect == "" && r.Delete == "" && r.List == nil {
 		return fmt.Errorf("empty resources mapping")
 	}
 	if r.Noun != "" && !plainText(r.Noun, 40) {
@@ -389,6 +392,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {
+		return e
+	}
+	if e := validateResourceList(c, m.API); e != nil {
 		return e
 	}
 	if e := validateConnector(c.Connector, c.UI); e != nil {

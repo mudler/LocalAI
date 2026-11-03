@@ -353,3 +353,43 @@ var _ = Describe("Manifest", func() {
 		Expect(ValidAddonID("pins")).To(BeFalse())
 	})
 })
+
+var _ = Describe("Resource list declaration", func() {
+	load := func() Manifest {
+		raw, e := os.ReadFile("../../../addons/tables/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		m, e := ParseManifest(raw)
+		Expect(e).NotTo(HaveOccurred())
+		return m
+	}
+	It("accepts a listing declared with API 2", func() {
+		m := load()
+		m.API = VersionRange{Min: 1, Max: MinResourceListAPI}
+		m.Capabilities.Resources.List = &ResourceList{Tool: "things-list", Items: "things"}
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		Expect(m.Capabilities.Resources.List.ItemsKey()).To(Equal("things"))
+		Expect((ResourceList{Tool: "x"}).ItemsKey()).To(Equal(DefaultResourceListItems))
+	})
+	It("refuses a listing without API 2, with a bad name, or that names a declared tool", func() {
+		for name, mutate := range map[string]func(*Manifest){
+			"api 1":        func(m *Manifest) { m.API.Max = 1 },
+			"bad tool":     func(m *Manifest) { m.Capabilities.Resources.List.Tool = "Bad Name" },
+			"bad items":    func(m *Manifest) { m.Capabilities.Resources.List.Items = "no spaces" },
+			"declared":     func(m *Manifest) { m.Capabilities.Resources.List.Tool = m.Capabilities.Tools[0] },
+			"admin tool":   func(m *Manifest) { m.Capabilities.Resources.List.Tool = m.Capabilities.AdminTools[0] },
+			"empty record": func(m *Manifest) { m.Capabilities.Resources.List.Tool = "" },
+		} {
+			m := load()
+			m.API = VersionRange{Min: 1, Max: MinResourceListAPI}
+			m.Capabilities.Resources.List = &ResourceList{Tool: "things-list"}
+			mutate(&m)
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), name)
+		}
+	})
+	It("rejects unknown keys in the declaration", func() {
+		var r ResourceTools
+		Expect(strictJSON([]byte(`{"list":{"tool":"a-list","items":"as"}}`), &r, 1024)).To(Succeed())
+		Expect(r.List).To(Equal(&ResourceList{Tool: "a-list", Items: "as"}))
+		Expect(strictJSON([]byte(`{"list":{"tool":"a-list","extra":1}}`), &r, 1024)).NotTo(Succeed())
+	})
+})
