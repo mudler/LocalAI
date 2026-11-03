@@ -5362,7 +5362,7 @@
         },
         "/api/chats/conversion": {
             "get": {
-                "description": "At start the server converts the old chat page, agents, tasks, skills and Telegram connectors into chats, saved agents, triggers, skills and connector bindings. Triggers and connectors are made switched off. This lists the items that belong to you, with what was dropped and why; an administrator also gets the totals of all users. It never holds a token or the text of a prompt.",
+                "description": "At start the server converts the old chat page, agents, tasks, skills and connectors into chats, saved agents, triggers and skills. Triggers are made switched off; connectors are listed as dropped and are made again in the Connectors page. This lists the items that belong to you, with what was dropped and why; an administrator also gets the totals of all users. It never holds a token or the text of a prompt.",
                 "tags": [
                     "chats"
                 ],
@@ -14949,6 +14949,10 @@
                         "$ref": "#/definitions/contract.ContextFile"
                     }
                 },
+                "credentialed": {
+                    "description": "Credentialed is true when the manifest declares credentials: the tools\nwork with a secret that the person keeps in a connector binding. A\nconnector chat holds its write tools to contract.ToolPermission.",
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "string",
                     "example": "Keep notes."
@@ -15721,19 +15725,6 @@
                 }
             }
         },
-        "contract.LegacyArgument": {
-            "type": "object",
-            "properties": {
-                "hint": {
-                    "description": "Hint is one plain sentence on what to send instead, such as \"use the\nmarkdown string\".",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "Name is the old argument name. The tool's schema must not declare it.",
-                    "type": "string"
-                }
-            }
-        },
         "contract.ModelAction": {
             "type": "object",
             "properties": {
@@ -15905,7 +15896,7 @@
                     "type": "string"
                 },
                 "slot": {
-                    "description": "Slot describes the slot this skill serves: the files it covers and the\nwords to say about them (see SlotDefinition). It needs Shadows and\nmanifest API 2. A skill that shadows a default slot may leave it out.",
+                    "description": "Slot describes the slot this skill serves: the files it covers and the\nwords to say about them (see SlotDefinition). It needs Shadows. A skill that shadows a default slot may leave it out.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/contract.SlotDefinition"
@@ -15953,7 +15944,7 @@
                     "type": "string"
                 },
                 "execution": {
-                    "description": "Execution declares that this tool runs commands and what the host may\nsay about the provider. Only a tool that shadows bash may declare it, and\nthe manifest must then accept API 2 (see MinExecutionAPI).",
+                    "description": "Execution declares that this tool runs commands and what the host may\nsay about the provider. Only a tool that shadows bash may declare it.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/contract.ExecutionDescriptor"
@@ -15967,13 +15958,6 @@
                 "kind": {
                     "description": "Kind is read, write, schema or create.",
                     "type": "string"
-                },
-                "legacyArgs": {
-                    "description": "LegacyArgs name arguments that an older version of the tool took and\nthat it refuses now, with a hint for the model (see LegacyArgument). The\nmanifest must accept API 2 (see MinLegacyArgsAPI).",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/contract.LegacyArgument"
-                    }
                 },
                 "name": {
                     "description": "Name is one of capabilities.tools.",
@@ -19904,7 +19888,7 @@
                     "type": "integer"
                 },
                 "effective_bytes": {
-                    "description": "EffectiveBytes is the largest file that moves now: the smallest of the\nhost ceiling, the declared ability, your limit and the inline cap.",
+                    "description": "EffectiveBytes is the largest file that moves now: the smallest of the\nhost ceiling, the declared ability and your limit.",
                     "type": "integer"
                 },
                 "layer": {
@@ -19918,10 +19902,6 @@
             "properties": {
                 "host_ceiling_bytes": {
                     "description": "HostCeilingBytes is the ceiling of the server for a connector file, set\nby the add-on owner; no limit above it applies.",
-                    "type": "integer"
-                },
-                "inline_bytes": {
-                    "description": "InlineBytes is the cap of the inline path. Until the add-on can stream\na file, nothing larger moves, whatever the other limits are.",
                     "type": "integer"
                 },
                 "receive": {
@@ -20233,7 +20213,7 @@
                     }
                 },
                 "kind": {
-                    "description": "Kind is the platform, such as telegram. It is used to create a binding and\nignored by an update. Empty means telegram.",
+                    "description": "Kind is the platform, as a connector add-on declares it (see the kinds\ncall). It is required to create a binding and ignored by an update.",
                     "type": "string"
                 },
                 "name": {

@@ -7,16 +7,14 @@ The typed declarations remain additive strict v1 fields, not a new protocol vers
 - `capabilities.ui.homeCommands` names installed pages, never tools or install actions.
 - `capabilities.executionProvider` names execution tools and one declared UI-only read status tool.
 - `capabilities.hostOperations.required` and `.optional` request exact operation names, never grants.
-- `capabilities.network` declares the egress policy of the commands an add-on runs (kind `egress-check`, a title, preset titles). It attaches the `network-policy` host control and needs manifest api 2.
+- `capabilities.network` declares the egress policy of the commands an add-on runs (kind `egress-check`, a title, preset titles). It attaches the `network-policy` host control.
 
 `ValidHostOp` validates syntax only. The host's registered vocabulary determines support.
 Administrator policy and request admission remain authoritative, including for optional operations.
 Status is advisory; an isolation report does not prove network enforcement or authorize execution.
 
 See [the addon guide](../../../docs/content/features/addons.md#optional-typed-manifest-extensions)
-for JSON examples, bounds, collision rules, lifecycle behavior, policy migration, and old-host staging refusal.
-Old hosts must retain the old package when an extension-bearing upgrade is refused.
-Release maintainers select the minimum supporting release and the duration of any legacy package support.
+for JSON examples, bounds, collision rules, lifecycle behavior, and policy migration.
 
 Typed owner observations currently support local-owner JSON selections only.
 Named-user and SQL selections remain unavailable and fail closed; they are not completed scope.
@@ -64,7 +62,7 @@ FLAG_UPSCALE FLAG_MOTION FLAG_FORECAST
 
 ## Context files
 
-`capabilities.contextFiles` names up to three small index files (one for each scope: user, agent, channel) that the host loads into the prompt of a chat. It needs manifest api 2.
+`capabilities.contextFiles` names up to three small index files (one for each scope: user, agent, channel) that the host loads into the prompt of a chat.
 
 ```json
 {"contextFiles":[{"scope":"user","path":"Memory/index.md"},{"scope":"agent","path":"Memory/agents/{agent}/index.md","cap":1024}]}

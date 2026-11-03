@@ -716,8 +716,7 @@ restart). The JSON store is for one process.
 ### For add-on authors: sending files
 
 A connector add-on does not choose which files reach a person. The host does, and it
-sends each one with the typed `send_file` op: the file is in the request (`name`, `mime`
-and at most 1 MiB of `data`; a kind that declares `files.transfer` gets a `transfer` handle and no `data`, see [File abilities and limits](/features/addons/#file-abilities-and-limits)) with the chat and the thread of the message it answers. The
+sends each one with the typed `send_file` op: the request carries a `transfer` handle for the bytes (`name`, `mime` and `size` of the file; see [File abilities and limits](/features/addons/#file-abilities-and-limits)) with the chat and the thread of the message it answers. The
 host chooses the files in two ways:
 
 - The files that the turn made or changed go on their own, after the answer.

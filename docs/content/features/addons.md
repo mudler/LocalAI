@@ -140,10 +140,10 @@ and reconciling the operation before further use.
 
 These declarations extend the strict manifest contract. They keep
 `schemaVersion: 1`, host/protocol/data-format level 1 and UI SDK 2. The manifest
-`api` range is 1 to 2: the execution descriptor, the resource listing, the network capability, the slot of a skill and the legacy arguments of a tool below need 2.
+`api` range is exactly 2 (`"api": {"min": 2, "max": 2}`). A manifest with another range, or with none, is refused at install.
 The Go contract parser is authoritative; there is no separate JSON Schema.
 The fragments below merge into an otherwise valid manifest, not a complete
-installable package. Existing executable, identity, compatibility and UI
+installable package. The executable, identity, compatibility and UI
 entry/SDK fields remain required.
 
 ### Home page commands
@@ -288,23 +288,9 @@ list and rejects its pending responses, even before effect cleanup. A new list
 request can populate the refreshed session. These in-memory scopes contain no
 credentials.
 
-### Legacy arguments of a tool
-
-Needs manifest `api` 2. A tool can name arguments that an older version took
-and that it refuses now. When a call fails the schema check and carries one of
-them, the host answers with the hint instead of a bare refusal. The argument is
-never forwarded, and the schema must not declare it.
-
-```json
-{ "name": "create-docx", "legacyArgs": [ { "name": "blocks", "hint": "use the markdown string" } ] }
-```
-
-The answer is `blocks is no longer supported; use the markdown string`. At most
-8 entries; the hint is one plain sentence of at most 200 characters.
-
 ### Execution descriptor of a commands tool
 
-Needs manifest `api` 2. On the definition of a tool that shadows `bash`:
+On the definition of a tool that shadows `bash`:
 
 ```json
 {
@@ -340,10 +326,8 @@ the chat's commands and its status reports `isolated`. When the status is
 out and the chat says why. A tool descriptor may leave `providesRuntimeFor`
 out to opt out of that check, because its skills do not need its commands.
 
-The field is optional and does not change the protocol. A manifest that
-declares a descriptor must accept API 2 (`"api": {"min": 2, "max": 2}`). The
-host speaks API 2 and still accepts add-ons that declare `{1,1}`. An add-on
-whose commands tool declares no descriptor works as before: the host treats it
+The field is optional and does not change the protocol. An add-on
+whose commands tool declares no descriptor still works: the host treats it
 as a provider of commands under the add-on's own title, with no note, and keeps
 the isolation check for its document skills. The host never compares the add-on
 ID with a fixed name for any of this, so a second add-on that runs commands gets
@@ -400,13 +384,10 @@ host settings, not settings of one add-on. The setting `chats_host_exec`, which
 lets the host run commands when no add-on provides `bash`, is also a host
 setting and names no add-on.
 
-A manifest that declares no `network` works as before. The host attaches the
-control to an add-on that asks for `network-policy` in `ui.controls`, is granted
-`egress.check` and declares a tool that replaces `bash`; it names the network
-by the title of that tool. This is the shape of the manifests written before
-this field existed. The field is optional and does not change the protocol: the
-manifest must accept API 2 (`"api": {"min": 2, "max": 2}`), and the host still
-accepts add-ons that declare `{1,1}`.
+The host attaches the control to an add-on that asks for `network-policy` in
+`ui.controls`, declares `network` and is granted `egress.check`. A manifest
+that declares no `network` gets no network control, whatever tools it replaces.
+The field does not change the protocol.
 
 ### Requested host operations are not grants
 
@@ -461,20 +442,12 @@ The shipped deployment policy covers every official required operation.
 The package tests compare all twelve manifests with this source audit and the host's registered vocabulary.
 Their package-builder fixtures use temporary executable and UI bytes, not official release binaries or frontend build artifacts.
 
-### Compatibility and release packaging
+### Release packaging
 
-New hosts accept old manifests without these fields. Old hosts reject unknown
-extension fields during staging. Extension-bearing packages therefore require
-the host release introducing these contracts; document that minimum LocalAI
-release beside each addon release. An older host must retain its installed
-package on refusal. Do not add automatic install retries or promise new error
-wording from old binaries.
-
-Catalog version ranges do not negotiate individual fields and cannot guarantee
-eligibility before staging. SDK 2 does not signal support for these manifest
-extensions. If older hosts need support, release maintainers must decide whether
-and how long to publish separate legacy packages. These declarations alone do
-not install packages, grant operations or activate runtime/UI integrations.
+Every package declares manifest `api` 2, which is the only version the host
+speaks. Catalog version ranges do not negotiate individual fields and cannot
+guarantee eligibility before staging. These declarations alone do not install
+packages, grant operations or activate runtime/UI integrations.
 
 ### Resource listing
 
@@ -1483,7 +1456,6 @@ and `library` is the hint it gives for a script:
 provider reports isolated execution. At most 8 extensions (lower case, with the
 dot) and 8 words. A slot may not be the name of a protected core skill.
 
-Existing Office packages with these declarations remain compatible; you do not need to reinstall them to change naming metadata.
 Unknown unprefixed names remain invalid. Ordinary add-on skills keep the add-on namespace rule.
 
 - **In a chat.** `load_skill xlsx` returns the eligible provider's instructions.
@@ -1762,7 +1734,7 @@ refresh time and prevents stale cached releases from resolving successfully.
 ### Catalog document and limits
 
 A catalog (the library index) is one YAML document: a block list of releases with
-`id` (an index written before this name may still use `addonId`, which is read for one release), `name`, optional `description`, `version`, `artifact`
+`id`, `name`, optional `description`, `version`, `artifact`
 (`oci://host/repository`), `digest` (`sha256:` plus 64 lowercase hex characters),
 `os` and `arch`. It uses the same format as the model and backend gallery indexes:
 
@@ -2154,8 +2126,8 @@ person to confirm.
 A verified manifest can request exact operation names with
 `capabilities.hostOperations.required` and `.optional`. These are requests,
 **not grants**. The owner compares them with the host operation vocabulary
-and the immutable host policy selected at startup. Legacy manifests without
-requests retain their configured behavior.
+and the immutable host policy selected at startup. A manifest without
+requests keeps its configured behavior.
 
 Coverage uses the broker's literal, nonempty prefix rule. For example,
 `workspace.` covers the requested name `workspace.materialize`;
@@ -2316,10 +2288,11 @@ with the same bearer credential and incarnation header as every other route and 
 `{"op", "kind", "token", ...}`. The ops are `poll` (`offset`, `timeoutSeconds` up to
 25), `send` (`chat`, `thread`, `text`, and optionally `messageId`), `edit` (`chat`,
 `messageId`, `text`), `typing` (`chat`, `thread`, and optionally `messageId`),
-`send_file` (`chat`, `thread`, `file`: `{"name", "mime", "data"}`), `me` (who the bot
+`send_file` (`chat`, `thread`, `transfer`: the handle of the file, see
+[Moving a file by handle](#moving-a-file-by-handle)), `me` (who the bot
 is, for the token check on save and the Test button), `media` (`media`: one
-reference of a message's `media`; the answer is `{"file": {"name", "mime", "data"}}`
-with at most `contract.MaxConnectorFileBytes`, 1 MiB, of data) and, for a kind that declares `drafts`, `draft`
+reference of a message's `media`, and a `transfer` handle; the answer is
+`{"received": {"name", "mime"}}`) and, for a kind that declares `drafts`, `draft`
 (`chat`, `thread`, `draftId`, `text`).
 
 - **Options.** A `poll` carries `options`, a map from each declared option id to the
@@ -2362,25 +2335,25 @@ with at most `contract.MaxConnectorFileBytes`, 1 MiB, of data) and, for a kind t
   once, as before.
 - A `typing` with a `messageId` says that the host already shows a working message
   with that ID. A platform without a typing indicator (Slack) then posts nothing.
-- `send_file` carries one file of 1 byte to 1 MiB whose `name` is
+- `send_file` carries a `transfer` whose `name` is
   `contract.SafeFileName` of itself (no path, no control characters, at most 128
-  bytes). The route refuses any other file, and a platform that cannot send files.
+  bytes). The route refuses any other file, a call without a handle, and a platform
+  that cannot send files.
   The answer names the message (Telegram) or the file (Slack) in `messageId`. The token is the
 unsealed bot token of one binding. It is passed on each call and the add-on must not
-write it anywhere. The answer is `{"updates", "nextOffset", "messageId", "botId", "botUsername", "file"}` or
+write it anywhere. The answer is `{"updates", "nextOffset", "messageId", "botId", "botUsername", "received"}` or
 `{"error": {"code", "retryAfter"}}` with a code of `unauthorized`, `conflict`,
 `rate_limited`, `too_large` or `failed`. The host maps `unauthorized` to switching the binding off,
 repeated `conflict` to the same, and `rate_limited` to a wait. `too_large` is the
-answer of a `media` whose file is larger than 1 MiB or than the platform lets a bot
+answer of a `media` whose file is larger than the bound of the handle or than the platform lets a bot
 download; the host tells the sender that the file is too large. A runtime that
 implements `contract.ConnectorRuntime` has the route; others get a 404. The add-on
 cuts a long `text` to the limit of its platform.
 
 ### File abilities and limits
 
-The bytes of a file travel inside the connector envelope, as base64 in JSON. The
-envelope is at most 2 MiB, so the contract caps a file at
-`contract.MaxConnectorFileBytes` (1 MiB). That is the *inline cap*. A kind declares
+The bytes of a file never travel inside the connector envelope: they move by a
+handle (see [Moving a file by handle](#moving-a-file-by-handle)). A kind declares
 what its platform can move, and the host decides how large a file may be, from the
 number and the layer that sets it:
 
@@ -2389,34 +2362,31 @@ number and the layer that sets it:
   "id": "telegram",
   "files": {
     "receive": { "maxBytes": 20971520, "types": ["image/*", "application/pdf"] },
-    "send":    { "maxBytes": 52428800 },
-    "transfer": true
+    "send":    { "maxBytes": 52428800 }
   }
 }]
 ```
 
-Add the field only with manifest `"api": {"min": 2, "max": 2}` (or a range that
-reaches 2); a manifest that declares `files` with API 1 is refused. Both directions are optional, but `files`
-needs at least one. `maxBytes` is 1 to 1 TiB. `types` is up to 32 distinct media types
-such as `application/pdf` or `image/*`; it says what the kind moves. For a kind with `transfer`, the host
-refuses an inbound file whose type the add-on states and the list does not allow, and
-does not send an outbound file whose type (from its extension) is not in the list. The
+A kind that declares no `files` moves no files: the host does not ask it for
+one and tells a sender who attaches a file that the platform takes none. Both
+directions are optional, but `files` needs at least one. `maxBytes` is 1 to 1 TiB.
+`types` is up to 32 distinct media types such as `application/pdf` or `image/*`;
+it says what the kind moves. The host refuses an inbound file whose type the add-on
+states and the list does not allow, and does not send an outbound file whose type
+(from its extension) is not in the list. The
 host also never sends a file whose first bytes are an HTML page. The host uses a declared size as an upper bound that the
 owner can lower. It does not prove that a transfer works.
 
-The limit in effect for one direction of one binding is the smallest of four layers:
+The limit in effect for one direction of one binding is the smallest of three layers:
 
 | Layer | Set by | Named in the text to people as |
 |---|---|---|
 | Owner | The owner of the bot, in the **Files** section of the binding. It can only lower the limit of the kind. | "limit set for this bot" |
 | Add-on | The kind, with `files.receive.maxBytes` or `files.send.maxBytes`. | "limit of" the kind's title |
 | Host | The owner policy key `connector_files_ceiling_bytes`; zero means the default, 100 MB (100 MiB). | "limit of the platform" |
-| Inline | The cap of the inline path, `contract.MaxConnectorFileBytes`. Only a kind without `files.transfer` has it. | "limit of this add-on version" |
 
-An add-on that declares nothing, or declares `files` without `transfer`, gets the inline
-cap, whatever the other layers say, and keeps the inline path. A kind that declares
-`"transfer": true` has no inline cap. When a layer ties, the text names the one
-a person can change first (owner, add-on, host, inline). One function in core
+When a layer ties, the text names the one
+a person can change first (owner, add-on, host). One function in core
 (`EffectiveFileLimit`) decides this for every kind, so a connector never carries a size
 of its own, and the sentences that the sender and the model read are built from its
 result. An add-on that gets a file it cannot read answers `too_large`; the sender then
@@ -2424,9 +2394,8 @@ reads the limit in effect.
 
 #### Moving a file by handle
 
-`"transfer": true` says that the add-on moves file bytes by a handle, so a file larger
-than the envelope can move, in both directions, with no more than one chunk in memory.
-The add-on needs the host operation prefix `connector.` in its host policy, as it does
+The add-on moves file bytes by a handle, in both directions, with no more than one
+chunk in memory. The add-on needs the host operation prefix `connector.` in its host policy, as it does
 for `connector.inbound`.
 
 The host adds `transfer` to the request of the op `media` or `send_file`, and no bytes:
@@ -2438,7 +2407,7 @@ The host adds `transfer` to the request of the op `media` or `send_file`, and no
 
 - **Inbound (`media`).** The add-on downloads the file and streams it with
   `connector.file.put` `{"handle", "offset", "data", "final"}`, at most 256 KiB of data
-  per call; it answers `{"received": {"name", "mime"}}` and no `file`. An `offset` that is
+  per call; it answers `{"received": {"name", "mime"}}`. An `offset` that is
   not the number of bytes the host has gets `{"received": n}` and nothing is written, so
   the add-on resumes there. The host stops at `maxBytes` (HTTP 413, code `too_large`).
   The host overwrites the size and the SHA-256 of `received` with its own record, so
@@ -2456,8 +2425,8 @@ its partial bytes. It also ends after two minutes with no call. Where the add-on
 in a cluster the frontend and the add-on node share objects and need no shared disk.
 Outbound, the frontend checks the access of the chat to the file before it makes the
 handle and gives the owner the hash and size of that content only. Do not use a
-`connector.file.*` call outside a connector call. An add-on that does not declare
-`transfer` is never sent a handle.
+`connector.file.*` call outside a connector call. An add-on that declares no `files`
+is never sent a handle.
 
 The SDK of the first-party add-ons (`addons/internal/connector`) has `Put` and `Get`;
 a platform implements `StreamReader` and `StreamSender` and keeps only its own HTTP
@@ -2658,7 +2627,7 @@ An add-on declares its sources in the manifest instead, as `capabilities.context
 }
 ```
 
-The field needs manifest API 2. An add-on declares at most three files, one for each
+An add-on declares at most three files, one for each
 scope. Every path lies under `Memory/`, ends in `.md` and holds no parent segment; an
 add-on cannot name any other part of the home. `cap` can only lower the 2 KiB cap. A
 declaration gives the add-on no access: the host reads the files as the user, and the

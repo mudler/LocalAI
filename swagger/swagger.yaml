@@ -187,6 +187,12 @@ definitions:
         items:
           $ref: '#/definitions/contract.ContextFile'
         type: array
+      credentialed:
+        description: |-
+          Credentialed is true when the manifest declares credentials: the tools
+          work with a secret that the person keeps in a connector binding. A
+          connector chat holds its write tools to contract.ToolPermission.
+        type: boolean
       description:
         example: Keep notes.
         type: string
@@ -822,18 +828,6 @@ definitions:
           type: string
         type: array
     type: object
-  contract.LegacyArgument:
-    properties:
-      hint:
-        description: |-
-          Hint is one plain sentence on what to send instead, such as "use the
-          markdown string".
-        type: string
-      name:
-        description: Name is the old argument name. The tool's schema must not declare
-          it.
-        type: string
-    type: object
   contract.ModelAction:
     properties:
       capability:
@@ -973,8 +967,7 @@ definitions:
         - $ref: '#/definitions/contract.SlotDefinition'
         description: |-
           Slot describes the slot this skill serves: the files it covers and the
-          words to say about them (see SlotDefinition). It needs Shadows and
-          manifest API 2. A skill that shadows a default slot may leave it out.
+          words to say about them (see SlotDefinition). It needs Shadows. A skill that shadows a default slot may leave it out.
     type: object
   contract.SlotDefinition:
     properties:
@@ -1017,8 +1010,7 @@ definitions:
         - $ref: '#/definitions/contract.ExecutionDescriptor'
         description: |-
           Execution declares that this tool runs commands and what the host may
-          say about the provider. Only a tool that shadows bash may declare it, and
-          the manifest must then accept API 2 (see MinExecutionAPI).
+          say about the provider. Only a tool that shadows bash may declare it.
       inputSchema:
         description: |-
           InputSchema is the JSON schema of the arguments object. It is an
@@ -1028,14 +1020,6 @@ definitions:
       kind:
         description: Kind is read, write, schema or create.
         type: string
-      legacyArgs:
-        description: |-
-          LegacyArgs name arguments that an older version of the tool took and
-          that it refuses now, with a hint for the model (see LegacyArgument). The
-          manifest must accept API 2 (see MinLegacyArgsAPI).
-        items:
-          $ref: '#/definitions/contract.LegacyArgument'
-        type: array
       name:
         description: Name is one of capabilities.tools.
         type: string
@@ -4070,7 +4054,7 @@ definitions:
       effective_bytes:
         description: |-
           EffectiveBytes is the largest file that moves now: the smallest of the
-          host ceiling, the declared ability, your limit and the inline cap.
+          host ceiling, the declared ability and your limit.
         type: integer
       layer:
         description: |-
@@ -4085,11 +4069,6 @@ definitions:
         description: |-
           HostCeilingBytes is the ceiling of the server for a connector file, set
           by the add-on owner; no limit above it applies.
-        type: integer
-      inline_bytes:
-        description: |-
-          InlineBytes is the cap of the inline path. Until the add-on can stream
-          a file, nothing larger moves, whatever the other limits are.
         type: integer
       receive:
         allOf:
@@ -4327,8 +4306,8 @@ definitions:
         type: array
       kind:
         description: |-
-          Kind is the platform, such as telegram. It is used to create a binding and
-          ignored by an update. Empty means telegram.
+          Kind is the platform, as a connector add-on declares it (see the kinds
+          call). It is required to create a binding and ignored by an update.
         type: string
       name:
         type: string
@@ -15646,11 +15625,11 @@ paths:
   /api/chats/conversion:
     get:
       description: At start the server converts the old chat page, agents, tasks,
-        skills and Telegram connectors into chats, saved agents, triggers, skills
-        and connector bindings. Triggers and connectors are made switched off. This
-        lists the items that belong to you, with what was dropped and why; an administrator
-        also gets the totals of all users. It never holds a token or the text of a
-        prompt.
+        skills and connectors into chats, saved agents, triggers and skills. Triggers
+        are made switched off; connectors are listed as dropped and are made again
+        in the Connectors page. This lists the items that belong to you, with what
+        was dropped and why; an administrator also gets the totals of all users. It
+        never holds a token or the text of a prompt.
       responses:
         "200":
           description: The report
