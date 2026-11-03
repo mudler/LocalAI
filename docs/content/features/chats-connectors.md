@@ -99,8 +99,8 @@ curl -X POST .../api/chats/connectors/<id>/senders/<sender>/allow   # add a send
 ### What a person can send
 
 - **Text.** Up to 8,000 characters.
-- **Photos.** The add-on downloads the largest size of the photo that is at most 1 MB
-  and attaches it to the chat. The caption is the text of the message. An album is
+- **Photos.** The add-on downloads the largest size of the photo that is within the
+  [file limit](#file-limits) and attaches it to the chat. The caption is the text of the message. An album is
   one message, with all its photos (at most 8; more start a second message, which
   the agent reads after the first). The add-on waits about a second for the rest of
   an album; an album that takes longer to arrive can become two messages.
@@ -111,10 +111,8 @@ curl -X POST .../api/chats/connectors/<id>/senders/<sender>/allow   # add a send
   attached. The add-on checks the bytes of each file, not only its name, and names the
   file itself, for example `photo-AQADxyz.jpg`, so a name that the sender chose never
   reaches your files. Another type gets a sentence that the file could not be read.
-- **Size.** At most 1 MB a file. Telegram lets a bot download at most 20 MB; the
-  add-on hands over less, so that the file fits one call of the connector route. A
-  larger file gets a sentence that it is too large, and the caption still reaches the
-  agent.
+- **Size.** The [file limit](#file-limits) of the binding. A larger file gets a sentence
+  that names the limit and which limit it is, and the caption still reaches the agent.
 
 ### Voice messages
 
@@ -200,7 +198,7 @@ curl -X POST .../api/chats/connectors -d '{"kind": "slack", "name": "Team app", 
   lists, code blocks) and split at 4,000 characters, the limit Slack asks for. A turn
   shows a "Working…" message at once, and the answer replaces it in place (see
   [How the bot answers](#how-the-bot-answers)).
-- **Files.** A file attached to a message (up to 1 MiB, at most 8) is downloaded with
+- **Files.** A file attached to a message (within the [file limit](#file-limits), at most 8) is downloaded with
   the bot token and attached to the chat, as an upload on the chat page would be: a
   document is read, an image goes to a model that can see. A larger file gets a
   sentence that it is too large. An audio file is transcribed like a Telegram voice
@@ -270,8 +268,8 @@ gives the same events without one.
   [Slack](#slack)). A file is attached to the chat as if you had attached it on the
   chat page: it is in **Files**, and an image goes to a model that can see. A voice
   message (any audio file) is transcribed, and the transcript is what the agent reads
-  (see [Voice messages](#voice-messages)). A file over 1 MB gets a sentence that it is
-  too large. With the files of the chats turned off, a message with a file gets a
+  (see [Voice messages](#voice-messages)). A file over the [file limit](#file-limits) gets a
+  sentence that it is too large. With the files of the chats turned off, a message with a file gets a
   sentence that files are off, and its text still reaches the agent; a voice message
   is still transcribed. A sticker, a poll or a location gets a sentence that names
   what the bot reads. A message longer than 8,000 characters is refused. A sender may
@@ -371,14 +369,42 @@ bot follows**). They appear under **How it answers**, and in the API as `options
 map from the option id to a value. The add-on declares the allowed values, and an
 unknown option or value is a 400. An update without `options` keeps the stored values.
 
+### File limits
+
+A file that a person sends to the bot, and a file that the bot sends, has a size
+limit. The limit is the smallest of four layers, and every sentence about it names the
+number and the layer that set it, for example "That file is too large (3 MiB): I can
+read files of up to 1 MiB here (limit of this add-on version)." The layers are the
+limit of this add-on version (the cap of the inline path, 1 MiB), the limit the add-on
+declares for its platform, the limit of the platform (the host ceiling that the
+administrator sets) and the limit that you set for the bot. The agent reads the same
+number in its instructions, so it does not promise a file that cannot go.
+
+The bytes of a file still travel inline for now. Until an add-on supports streaming, a
+file larger than the inline cap does not move, whatever you set. The **Files** section
+of the binding page says so: "Files up to 1 MiB are sent now; larger files need the
+add-on to support streaming."
+
+- **Per bot.** The **Files** section of a binding has one field for the largest file the
+  bot reads and one for the largest it sends, in MiB. Leave a field empty to use the
+  limit of the add-on. A value can only lower that limit. The API takes
+  `file_receive_max_bytes` and `file_send_max_bytes` (0 clears), and a value above
+  `files.<direction>.allowed_bytes` is a `400`. A binding and a kind show the limit in
+  effect as `files.receive` and `files.send` with `effective_bytes`, `layer`
+  (`owner`, `addon`, `host` or `inline`), `declared_bytes` and `allowed_bytes`.
+- **For the server.** The add-on owner sets the host ceiling with the policy key
+  `connector_files_ceiling_bytes` (1 KiB to 1 TiB; 0 or unset means 100 MB). It is under
+  **Settings** next to the add-on upgrade setting, as "Largest file a connector may
+  move". No bot goes above it.
+
 ### Files the agent makes (`send_files`)
 
 On by default. After the answer, the files that the turn wrote or changed go to the
 sender: the files listed in the chat's **Files** with the turn's number, not the files
 the sender attached.
 
-- At most 5 files a turn, each of at most 1 MB. A larger file stays in the chat's
-  files, and the sender gets a sentence that names it.
+- At most 5 files a turn, each within the [file limit](#file-limits). A larger file
+  stays in the chat's files, and the sender gets a sentence that names it and the limit.
 - Only documents, data, pictures, sound, video and `.zip` archives go: `.txt`, `.md`,
   `.log`, `.csv`, `.tsv`, `.json`, `.yaml`, `.yml`, `.xml`, `.pdf`, `.docx`, `.xlsx`,
   `.pptx`, `.odt`, `.ods`, `.odp`, `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.mp3`,

@@ -2230,6 +2230,7 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].previewMs` | Optional. The shortest time between two previews (edits or drafts) of one binding, 250 to 10000 ms. Without it the host waits one second. |
 | `kinds[].history` | Optional, manifest `api` 2. `{"thread": true, "maxMessages": N}`: the add-on serves the op `history` for threads, and returns at most `maxMessages` (1 to 200; without it the host asks for 30). A kind without it is never asked, so it keeps the behaviour of a platform that cannot give old messages. |
 | `kinds[].options` | Optional, manifest `api` 2, at most 4. A choice that each binding of the kind makes: `{"id", "title", "description", "values": [{"id", "title"}], "default"}` with 2 to 8 values and a default among them. The host shows the choice on the binding page, checks the owner's value against the declaration, stores it, and sends the value in effect to the add-on in `options` of every `poll`. What the option means is the add-on's own rule. |
+| `kinds[].files` | Optional. The files the kind can receive and send, with a limit for each. Needs manifest `api` 2. See [File abilities and limits](#file-abilities-and-limits). |
 
 **Outbound: the connector route.** The host calls `POST /connector` on the add-on
 with the same bearer credential and incarnation header as every other route and a body
@@ -2239,7 +2240,7 @@ with the same bearer credential and incarnation header as every other route and 
 `send_file` (`chat`, `thread`, `file`: `{"name", "mime", "data"}`), `me` (who the bot
 is, for the token check on save and the Test button), `media` (`media`: one
 reference of a message's `media`; the answer is `{"file": {"name", "mime", "data"}}`
-with at most 1 MiB of data) and, for a kind that declares `drafts`, `draft`
+with at most `contract.MaxConnectorFileBytes`, 1 MiB, of data) and, for a kind that declares `drafts`, `draft`
 (`chat`, `thread`, `draftId`, `text`).
 
 - **Options.** A `poll` carries `options`, a map from each declared option id to the
@@ -2295,6 +2296,51 @@ answer of a `media` whose file is larger than 1 MiB or than the platform lets a 
 download; the host tells the sender that the file is too large. A runtime that
 implements `contract.ConnectorRuntime` has the route; others get a 404. The add-on
 cuts a long `text` to the limit of its platform.
+
+### File abilities and limits
+
+The bytes of a file travel inside the connector envelope, as base64 in JSON. The
+envelope is at most 2 MiB, so the contract caps a file at
+`contract.MaxConnectorFileBytes` (1 MiB). That is the *inline cap*. A kind declares
+what its platform can move, and the host decides how large a file may be, from the
+number and the layer that sets it:
+
+```json
+"kinds": [{
+  "id": "telegram",
+  "files": {
+    "receive": { "maxBytes": 20971520, "types": ["image/*", "application/pdf"] },
+    "send":    { "maxBytes": 52428800 }
+  }
+}]
+```
+
+Add the field only with manifest `"api": {"min": 1, "max": 2}`; a manifest that
+declares `files` with API 1 is refused. Both directions are optional, but `files`
+needs at least one. `maxBytes` is 1 to 1 TiB. `types` is up to 32 distinct media types
+such as `application/pdf` or `image/*`; it says what the kind moves, and the first
+slice does not enforce it yet. The host uses a declared size as an upper bound that the
+owner can lower. It does not prove that a transfer works.
+
+The limit in effect for one direction of one binding is the smallest of four layers:
+
+| Layer | Set by | Named in the text to people as |
+|---|---|---|
+| Owner | The owner of the bot, in the **Files** section of the binding. It can only lower the limit of the kind. | "limit set for this bot" |
+| Add-on | The kind, with `files.receive.maxBytes` or `files.send.maxBytes`. | "limit of" the kind's title |
+| Host | The owner policy key `connector_files_ceiling_bytes`; zero means the default, 100 MB (100 MiB). | "limit of the platform" |
+| Inline | The cap of the inline path, `contract.MaxConnectorFileBytes`. | "limit of this add-on version" |
+
+An add-on that declares nothing gets the inline cap, whatever the other layers say, and
+keeps today's behaviour. While bytes still travel inline, the inline cap is below the
+default host ceiling, so it applies to every kind that declares a larger size: the
+text then says "limit of this add-on version", and the binding page says that larger
+files need the add-on to support streaming. When a layer ties, the text names the one
+a person can change first (owner, add-on, host, inline). One function in core
+(`EffectiveFileLimit`) decides this for every kind, so a connector never carries a size
+of its own, and the sentences that the sender and the model read are built from its
+result. An add-on that gets a file it cannot read answers `too_large`; the sender then
+reads the limit in effect.
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,
