@@ -153,6 +153,8 @@ type Manager struct {
 	// automatic upgrade that failed. In memory only: a restart tries again.
 	autoMu       sync.Mutex
 	autoFailures map[string]string
+	// heldUpgrades holds, per add-on, an upgrade that waits for approval.
+	heldUpgrades map[string]heldUpgrade
 	// skillSync keeps the chats' skill layer in step with the installed
 	// packages. Nil until the chats' files exist (see SetSkillSync).
 	skillSync SkillSync

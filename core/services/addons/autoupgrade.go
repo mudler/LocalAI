@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -80,6 +81,9 @@ func (m *Manager) AutoUpgrade(ctx context.Context) []AutoUpgradeResult {
 		if r.Err != nil {
 			var refusal *HostRequirementsRefusal
 			r.HeldForApproval = errors.As(r.Err, &refusal) && !refusal.Blocked()
+			if r.HeldForApproval {
+				m.holdUpgrade(id, st.CandidateVersion, append(slices.Clone(refusal.Summary.MissingRequired), refusal.Summary.MissingOptional...))
+			}
 			m.rememberAutoFailure(id, st.CandidateDigest)
 			xlog.Error("Failed to auto-upgrade add-on", "addon", id, "from", st.InstalledVersion, "to", st.CandidateVersion, "error", r.Err)
 		} else {
