@@ -1177,6 +1177,10 @@ type ChatsConnector struct {
 	// SendFiles sends the files that a turn makes to the sender, after the
 	// answer.
 	SendFiles bool `json:"send_files"`
+	// ThreadContext lets the bot read the earlier messages of the thread in
+	// which it is mentioned. It has an effect only on a platform that can
+	// give them.
+	ThreadContext bool `json:"thread_context"`
 	// Active is false when the add-on that serves the binding is not running. The
 	// binding is kept and works once the add-on is installed.
 	Active bool `json:"active"`
@@ -1193,6 +1197,9 @@ type ChatsConnectorKind struct {
 	SenderHint  string `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
+	// ThreadHistory is true when the platform can give the earlier messages
+	// of a thread, so a binding of this kind has the thread_context option.
+	ThreadHistory bool `json:"thread_history,omitempty"`
 }
 
 // ChatsConnectorKindList lists the connector kinds of the add-ons that run now.
@@ -1227,6 +1234,9 @@ type ChatsConnectorWrite struct {
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`
+	// ThreadContext turns the reading of the earlier messages of a thread on
+	// or off. Absent means on for a new binding and unchanged for an update.
+	ThreadContext *bool `json:"thread_context,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

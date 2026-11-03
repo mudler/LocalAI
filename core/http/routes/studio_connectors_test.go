@@ -163,6 +163,19 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(s.do("alice", http.MethodPost, "/api/chats/connectors/"+id+"/senders/99/allow", nil).Code).To(Equal(http.StatusBadRequest))
 	})
 
+	It("stores the thread context switch: on for a new binding, kept by an update that omits it", func() {
+		ag := agent("alice", "Context", "test-model")
+		rec := create("alice", map[string]any{"name": "Context bot", "token": specToken, "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("thread_context", true), "the default")
+		id := decodeJSON(rec)["id"].(string)
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Context bot", "agent_id": ag, "thread_context": false})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("thread_context", false))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Context bot", "agent_id": ag})
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("thread_context", false), "an update without the field keeps it")
+	})
+
 	It("stores the reply mode, the conversation mode and the file switch, and refuses unknown ones", func() {
 		ag := agent("alice", "Modes", "test-model")
 		rec := create("alice", map[string]any{"name": "Modes bot", "token": specToken, "agent_id": ag})

@@ -18329,6 +18329,10 @@ const docTemplate = `{
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
                 },
+                "thread_context": {
+                    "description": "ThreadContext lets the bot read the earlier messages of the thread in\nwhich it is mentioned. It has an effect only on a platform that can\ngive them.",
+                    "type": "boolean"
+                },
                 "window_minutes": {
                     "type": "integer"
                 }
@@ -19130,6 +19134,10 @@ const docTemplate = `{
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
                     "type": "boolean"
                 },
+                "thread_context": {
+                    "description": "ThreadContext lets the bot read the earlier messages of the thread in\nwhich it is mentioned. It has an effect only on a platform that can\ngive them.",
+                    "type": "boolean"
+                },
                 "window_minutes": {
                     "type": "integer"
                 }
@@ -19153,6 +19161,10 @@ const docTemplate = `{
                 },
                 "sender_hint": {
                     "type": "string"
+                },
+                "thread_history": {
+                    "description": "ThreadHistory is true when the platform can give the earlier messages\nof a thread, so a binding of this kind has the thread_context option.",
+                    "type": "boolean"
                 },
                 "title": {
                     "type": "string"
@@ -19268,6 +19280,10 @@ const docTemplate = `{
                 },
                 "send_files": {
                     "description": "SendFiles turns the sending of a turn's files on or off. Absent means\non for a new binding and unchanged for an update.",
+                    "type": "boolean"
+                },
+                "thread_context": {
+                    "description": "ThreadContext turns the reading of the earlier messages of a thread on\nor off. Absent means on for a new binding and unchanged for an update.",
                     "type": "boolean"
                 },
                 "token": {

@@ -37,6 +37,10 @@ type ConnectorInput struct {
 	// SendFiles sends the files a turn makes to the sender. Nil means on for
 	// a new binding and unchanged for an update.
 	SendFiles *bool
+	// ThreadContext lets the bot read the earlier messages of the thread in
+	// which it is mentioned. Nil means on for a new binding and unchanged for
+	// an update.
+	ThreadContext *bool
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -48,6 +52,9 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.SendFiles != nil {
 		b.FilesOff = !*in.SendFiles
+	}
+	if in.ThreadContext != nil {
+		b.ThreadContextOff = !*in.ThreadContext
 	}
 }
 

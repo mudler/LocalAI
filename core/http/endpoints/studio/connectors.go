@@ -24,7 +24,7 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	}
 	return schema.ChatsConnector{ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
-		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles()}
+		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ThreadContext: i.ReadsThread()}
 }
 
 // acceptAnyConfirmation is what a request must say to turn on accept_any.
@@ -38,7 +38,7 @@ func failAcceptAny(c echo.Context) error {
 func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
-		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles}
+		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ThreadContext: req.ThreadContext}
 }
 
 var connectorRules = []errRule{
@@ -99,14 +99,14 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	}
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	for _, k := range kinds {
-		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page})
+		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, ThreadHistory: k.ServesThreadHistory()})
 	}
 	return c.JSON(http.StatusOK, out)
 }
 
 // CreateConnector creates a binding.
 // @Summary Create a connector binding.
-// @Description Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender) and send_files (default true) say how the bot answers. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 10 bindings.
+// @Description Needs the kind (the platform), the bot token (kept sealed, never returned) and an agent of yours that names a model. The token is checked with the platform when its add-on runs: a token that the platform refuses is a 400. reply_mode (off, progress, stream; default progress), conversation (sender, chat, window with window_minutes, thread; default sender) and send_files (default true) say how the bot answers. thread_context (default true) lets the bot read the earlier messages of the thread in which it is mentioned, on a platform that can give them. The allowlist is empty at first, so nobody is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone who can message the bot then uses the agent's tools; the request that turns it on must also carry confirm_accept_any set to "accept any message", or it is a 400). At most 10 bindings.
 // @Tags chats
 // @Param request body schema.ChatsConnectorWrite true "the binding"
 // @Success 201 {object} schema.ChatsConnector "The binding"

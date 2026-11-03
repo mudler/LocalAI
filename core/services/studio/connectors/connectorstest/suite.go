@@ -70,6 +70,16 @@ func Run(newStore NewStore) {
 		got, _ = s.GetBinding(ctx, "modes")
 		Expect(got.ReplyMode()).To(Equal(connectors.ReplyProgress))
 		Expect(got.SendsFiles()).To(BeTrue())
+		Expect(got.ReadsThread()).To(BeTrue(), "a binding that says nothing reads the thread")
+	})
+	It("keeps the thread context switch", func() {
+		s := newStore()
+		b := binding("ctx", "u1", "Context")
+		b.ThreadContextOff = true
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "ctx")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ReadsThread()).To(BeFalse())
 	})
 	It("gives an old binding the add-on of its kind", func() {
 		// A binding stored before connectors became add-ons has no add-on ID.

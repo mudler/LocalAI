@@ -28,9 +28,12 @@ type bindingRow struct {
 	Conversation  string `gorm:"size:16"`
 	WindowMinutes int
 	FilesOff      bool
-	Token         []byte
-	Created       time.Time
-	Updated       time.Time
+	// ThreadContextOff is added by AutoMigrate; a row stored before it reads
+	// the thread.
+	ThreadContextOff bool
+	Token            []byte
+	Created          time.Time
+	Updated          time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -84,7 +87,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
-		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff,
+		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ThreadContextOff: r.ThreadContextOff,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
@@ -102,7 +105,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 	}
 	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
-		FilesOff: b.FilesOff, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		FilesOff: b.FilesOff, ThreadContextOff: b.ThreadContextOff, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {
