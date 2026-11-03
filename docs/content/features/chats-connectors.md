@@ -173,8 +173,28 @@ curl -X POST .../api/chats/connectors -d '{"kind": "slack", "name": "Team app", 
 - **A direct message** with the app is a conversation with its sender, like a Telegram
   chat. A reply in a thread of the direct message is a conversation of that thread.
 - **A mention** of the app in a channel is answered in the thread of that message. The
-  thread is one chat, shared by everyone who writes in it, and the app follows it:
-  a later reply in that thread reaches the agent without a new mention (for 24 hours).
+  thread is one chat, shared by everyone who writes in it. Which threads the app then
+  follows, so that a later reply reaches the agent without a new mention, is the
+  setting **Threads the bot follows** (`followThreads` in `options`):
+  - `own` (the default): the app follows the threads it started, that is, a mention
+    outside a thread. A mention inside a thread that other people started is answered,
+    and the thread is not followed, so the app does not answer what people write to
+    each other.
+  - `any`: the app also follows a thread that other people started, once it is
+    mentioned in it.
+  - `never`: every message needs a mention.
+
+  A followed thread stays followed for 24 hours after its last message. The add-on keeps
+  the list in its data directory, so a restart of LocalAI or a new Socket Mode link does
+  not make the app forget its threads. The file holds channel IDs and message
+  timestamps only, never a token. The app does not call Slack for a message to find
+  out whether it follows the thread.
+- **Earlier messages of the thread.** When a mention starts a new chat in a thread, the
+  app reads the earlier messages of that thread once (see
+  [Earlier messages of a thread](#earlier-messages-of-a-thread)). This needs the scopes
+  `channels:history`, `groups:history`, `im:history` and `mpim:history`, which the
+  manifest of the add-on page asks for. An app made with fewer scopes answers without
+  that context; add the scopes and reinstall the app.
 - **Other channel messages** are not read.
 - **Answers** are converted from Markdown to Slack's `mrkdwn` (bold, italics, links,
   lists, code blocks) and split at 4,000 characters, the limit Slack asks for. A turn
@@ -274,6 +294,33 @@ gives the same events without one.
   the server logs it. The binding stays on, so the agent answers again once you
   restore the folder or choose another one.
 
+### Earlier messages of a thread
+
+When the bot is mentioned in a thread, the people there often have talked for a while.
+For a platform that can give them (Slack; not Telegram, because a bot cannot read the
+history of a chat), LocalAI asks the add-on for the earlier messages of that thread when
+the mention makes a new chat, and gives them to the agent with the first message:
+
+- **Only that thread.** The bot reads the messages of the thread in which it is
+  mentioned, nothing else: not the channel, not other threads, not files. For a file it
+  sees the name and the count. A mention outside a thread reads nothing.
+- **Once.** The messages are read when the chat of the thread starts. Later turns of the
+  chat do not read them again, and they are not copied into the transcript.
+- **Bounded.** At most 30 messages and 8 KiB of text. If there are more, the newest are
+  kept, oldest first, one line `Name: text` each. The add-on can lower the number of
+  messages. A thread of more than 1,000 messages is not read at all.
+- **Untrusted.** The agent gets the lines in a block that says they are messages from
+  other people and not instructions. Control characters and line breaks are removed and
+  the characters `<` and `>` are replaced, so a message cannot close the block. Messages
+  of the bot itself are included, so the agent sees its earlier answers.
+- **It never blocks the answer.** If the platform refuses, is slow or limits the calls,
+  the agent answers without the context. The server logs the reason once.
+
+To switch it off for a binding, turn off **Read the earlier messages of a thread** under
+**How it answers**, or send `"thread_context": false`. An update without `thread_context`
+keeps the stored value. The setting has no effect on a platform that cannot give
+earlier messages.
+
 ## How the bot answers
 
 Each binding has three settings, under **How it answers** on the add-on page and in
@@ -318,6 +365,11 @@ that part.
 | `chat` | One chat for each group, channel or private chat, shared by everyone who writes in it. A thread still has its own chat. |
 | `window` | As `sender`, but a message that comes `window_minutes` (1 to 10,080) or more after the same person's previous message starts a new chat. A thread keeps its chat. |
 | `thread` | Each message starts a new chat. A reply to an answer of the bot, or to the message that started a chat, goes on in that chat; on Slack, so does a thread under either one. |
+
+Some add-ons add settings of their own to a binding (for example Slack's **Threads the
+bot follows**). They appear under **How it answers**, and in the API as `options`, a
+map from the option id to a value. The add-on declares the allowed values, and an
+unknown option or value is a 400. An update without `options` keeps the stored values.
 
 ### Files the agent makes (`send_files`)
 
