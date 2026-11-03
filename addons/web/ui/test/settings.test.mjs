@@ -14,6 +14,7 @@ const status = (over = {}) => ({
       { name: 'brave', keyed: true, keySet: true, ready: true },
       { name: 'tavily', keyed: true, keySet: false, ready: false, missing: 'no key' },
       { name: 'google', keyed: true, keySet: false, ready: false, missing: 'no key and no search engine ID' },
+      { name: 'keenable', keyed: true, keySet: false, ready: true },
       { name: 'searxng', keyed: false, keySet: false, ready: false, missing: 'no address' },
       { name: 'duckduckgo', keyed: false, keySet: false, ready: true },
     ],
@@ -34,7 +35,7 @@ test('settings: the providers of the order come first, in order', async () => {
   const { settingsModel, draftOf, rows, move, toggle } = await lib()
   const m = settingsModel(status())
   let d = draftOf(m)
-  assert.deepEqual(rows(m, d).map(r => [r.name, r.on]), [['brave', true], ['duckduckgo', true], ['tavily', false], ['google', false], ['searxng', false]])
+  assert.deepEqual(rows(m, d).map(r => [r.name, r.on]), [['brave', true], ['duckduckgo', true], ['tavily', false], ['google', false], ['keenable', false], ['searxng', false]])
   d = move(d, 'duckduckgo', -1)
   assert.deepEqual(d.order, ['duckduckgo', 'brave'])
   assert.deepEqual(move(d, 'duckduckgo', -1).order, ['duckduckgo', 'brave'], 'the first stays first')
