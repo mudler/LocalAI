@@ -69,6 +69,8 @@ type FileLimits struct {
 	// ReceiveDeclared and SendDeclared are the abilities the kind declares;
 	// zero when it declares none.
 	ReceiveDeclared, SendDeclared int64
+	// HostCeiling is the host ceiling in effect, in bytes.
+	HostCeiling int64
 	// KindTitle is the name of the platform, for the sentences.
 	KindTitle string
 }
@@ -112,7 +114,7 @@ func resolveFileLimits(ceiling int64, files *contract.ConnectorFiles, title stri
 	if files == nil {
 		files = &contract.ConnectorFiles{}
 	}
-	l := FileLimits{KindTitle: title}
+	l := FileLimits{KindTitle: title, HostCeiling: cmp.Or(ceiling, contract.DefaultFileCeilingBytes)}
 	l.Receive = EffectiveFileLimit(ceiling, files.Receive, b.FileReceiveMax)
 	l.Send = EffectiveFileLimit(ceiling, files.Send, b.FileSendMax)
 	l.ReceiveMax = ownerMax(ceiling, files.Receive)

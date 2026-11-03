@@ -1208,6 +1208,9 @@ type ChatsConnectorFiles struct {
 	// InlineBytes is the cap of the inline path. Until the add-on can stream
 	// a file, nothing larger moves, whatever the other limits are.
 	InlineBytes int64 `json:"inline_bytes"`
+	// HostCeilingBytes is the ceiling of the server for a connector file, set
+	// by the add-on owner; no limit above it applies.
+	HostCeilingBytes int64 `json:"host_ceiling_bytes"`
 }
 
 // ChatsConnectorFileLimit is the limit of one direction.

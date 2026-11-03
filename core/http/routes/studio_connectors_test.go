@@ -117,7 +117,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		kinds := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["kinds"].([]any)
 		files := kinds[0].(map[string]any)["files"].(map[string]any)
 		// The Telegram add-on declares no ability: the inline cap is the limit.
-		Expect(files).To(HaveKeyWithValue("inline_bytes", BeNumerically("==", 1<<20)))
+		Expect(files).To(And(HaveKeyWithValue("inline_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("host_ceiling_bytes", BeNumerically("==", 100<<20))))
 		send := files["send"].(map[string]any)
 		Expect(send).To(And(HaveKeyWithValue("effective_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("layer", "inline"),
 			HaveKeyWithValue("allowed_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("declared_bytes", BeNumerically("==", 0))))
