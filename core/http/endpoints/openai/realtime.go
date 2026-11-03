@@ -2351,9 +2351,7 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 	// transcription event emitted above (debugging, client display), but are
 	// stripped from the LLM context — the per-utterance tag is unreliable for
 	// short/ambiguous utterances (a German "Hallo." tagged <en-US>), and the
-	// LLM treats it as a language signal (the agent's language rule then
-	// switches the reply language; see CallcenterAiAgent agent.py,
-	// 17.10.2026).
+	// LLM treats it as a language signal and may switch the reply language.
 	transcript = stripEOULanguageTags(transcript)
 
 	// Sound-event detection is additive to transcription: classify the same
