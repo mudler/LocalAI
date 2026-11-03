@@ -631,7 +631,7 @@ test.describe('Chat tools menu: MCP', () => {
     let web = { group: 'web', tools: ['web_search', 'web_fetch'], off: false, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' } }
     await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
     await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { builtins: [web], addons: [], servers: [], connectors: [], off: [] } }))
-    const row = () => page.getByTestId('chat-tools-item').filter({ has: page.getByRole('switch', { name: 'Web' }) })
+    const row = () => page.getByTestId('chat-tools-item').filter({ has: page.getByRole('switch', { name: 'Look things up online' }) })
     const open = async () => {
       await page.goto('/app/chats/c1')
       await page.getByTestId('chat-tools-button').click()
@@ -685,7 +685,7 @@ test.describe('Chat tools menu: built-in groups', () => {
     })
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByRole('switch', { name: 'Web' })).toBeChecked()
+    await expect(page.getByRole('switch', { name: 'Look things up online' })).toBeChecked()
     await expect(page.getByRole('switch', { name: 'Saved agents' })).not.toBeChecked()
     await page.getByRole('switch', { name: 'Saved agents' }).check()
     await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: ['saved_agents'] })
@@ -765,7 +765,7 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await stubGroups(page)
     await open(page)
     const names = await page.getByTestId('chat-tools-group-builtins').locator('.swl-row__name').allTextContents()
-    expect(names).toEqual(['Run commands', 'Your files', 'Web', 'Images and audio', 'Collections', 'Sub-agents', 'Triggers'])
+    expect(names).toEqual(['Run commands', 'Your files', 'Look things up online', 'Images and audio', 'Collections', 'Sub-agents', 'Triggers'])
     await expect(row(page, 'Run commands').getByTestId('chat-tools-note')).toHaveText(['Served by add-on sandbox', 'Commands run isolated'])
     await expect(row(page, 'Your files')).toHaveAttribute('title', 'list_files, read_file, write_file · built-in')
     await expect(sw(page, 'Collections')).toBeDisabled()
@@ -791,8 +791,8 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     const n = await rows.count()
     expect(n).toBe(10)
     for (let i = 0; i < n; i++) await expect(rows.nth(i).getByTestId('chat-tools-blurb')).not.toBeEmpty()
-    await sw(page, 'Web').click()
-    await expect(row(page, 'Web')).toContainText('The model cannot look anything up online.')
+    await sw(page, 'Look things up online').click()
+    await expect(row(page, 'Look things up online')).toContainText('The model cannot look anything up online.')
   })
 
   test('switching a group off and on sends the list of groups that are off', async ({ page }) => {
@@ -908,7 +908,7 @@ test.describe('Chat tools menu: switches and bulk actions', () => {
     await expect(manual).toHaveAttribute('aria-checked', 'false')
     await expect(manual).toHaveAccessibleDescription('the model does not use this server unless a saved agent names it')
     // The add-on that serves the web tools is a chip next to the name.
-    const web = page.getByTestId('chat-tools-item').filter({ has: sw(page, 'Web') })
+    const web = page.getByTestId('chat-tools-item').filter({ has: sw(page, 'Look things up online') })
     await expect(web.getByTestId('chat-tools-note')).toHaveText('Served by add-on searx')
     await expect(web.locator('.ui-chip')).toBeVisible()
     // The opt-in row says that Select all leaves it.

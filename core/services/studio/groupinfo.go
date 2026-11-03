@@ -24,7 +24,7 @@ func (s *Service) describeGroups() {
 			WhenOff: "The model cannot see or change your files.",
 		},
 		builtins.GroupWeb: {
-			Title:       "Web",
+			Title:       "Look things up online",
 			Description: "The model can search the web and read a public page by its address. Addresses inside your network are refused unless an administrator allows them.",
 			WhenOff:     "The model cannot look anything up online.",
 		},

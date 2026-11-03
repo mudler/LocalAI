@@ -66,7 +66,7 @@ test.describe('Chat tools menu: the Triggers group', () => {
     await open(page)
     await page.getByTestId('chat-tools-none').click()
     await expect(sw(page, 'Triggers')).toHaveAttribute('aria-checked', 'false')
-    await expect(sw(page, 'Web')).toHaveAttribute('aria-checked', 'false')
+    await expect(sw(page, 'Look things up online')).toHaveAttribute('aria-checked', 'false')
     await expect.poll(() => state.puts).toEqual([{ off: ['triggers', 'web'] }])
     await page.getByTestId('chat-tools-all').click()
     await expect(sw(page, 'Triggers')).toHaveAttribute('aria-checked', 'true')

@@ -148,7 +148,7 @@ test.describe('Home composer', () => {
     await ready(page)
     await page.getByTestId('chat-tools-button').click()
     const tools = page.getByTestId('chat-tools-menu')
-    for (const name of ['Your files', 'Web', 'Images and audio', 'Sub-agents']) {
+    for (const name of ['Your files', 'Look things up online', 'Images and audio', 'Sub-agents']) {
       await expect(tools.getByRole('switch', { name, exact: true })).toHaveAttribute('aria-checked', 'true')
     }
     await tools.getByRole('switch', { name: 'Your files', exact: true }).click()

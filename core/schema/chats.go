@@ -1664,7 +1664,7 @@ type ChatsBuiltinGroup struct {
 	// Title and Description say what the group is and what the model can do
 	// when its switch is on; WhenOff says what it cannot do when it is off.
 	// They are English; the interface may translate them by group.
-	Title       string `json:"title,omitempty" example:"Web"`
+	Title       string `json:"title,omitempty" example:"Look things up online"`
 	Description string `json:"description,omitempty" example:"The model can search the web and read a public page by its address."`
 	WhenOff     string `json:"when_off,omitempty" example:"The model cannot look anything up online."`
 }

@@ -65,7 +65,17 @@ var _ = Describe("Chats built-in web tools endpoints", func() {
 		Expect(panel.Code).To(Equal(http.StatusOK), panel.Body.String())
 		// The panel lists more groups (shell, saved agents): the order is the
 		// registry's, so the spec finds the web group by name.
-		Expect(groupOf(decodeJSON(panel), "web")).To(Equal(map[string]any{
+		web := groupOf(decodeJSON(panel), "web")
+		// The picker texts come from the group info; the spec pins the title
+		// and only requires the other two to be present, so rewording the
+		// description does not break the routing check.
+		Expect(web).To(HaveKeyWithValue("title", "Look things up online"))
+		Expect(web["description"]).NotTo(BeEmpty())
+		Expect(web["when_off"]).NotTo(BeEmpty())
+		delete(web, "title")
+		delete(web, "description")
+		delete(web, "when_off")
+		Expect(web).To(Equal(map[string]any{
 			"group": "web", "tools": []any{"web_search", "web_fetch"}, "off": false, "usable": true, "provider": "builtin",
 			"providers": map[string]any{"web_search": "builtin", "web_fetch": "builtin"},
 		}))
