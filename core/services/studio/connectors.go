@@ -697,7 +697,7 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		}
 	}
 	key := c.conversationOf(ctx, b, m)
-	chatID, err := c.chatFor(ctx, b, key, name, fresh)
+	chatID, created, err := c.chatFor(ctx, b, key, name, fresh)
 	if err != nil {
 		switch {
 		case errors.Is(err, errAgentGone):
@@ -719,7 +719,13 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		return
 	}
 	// One reply goroutine serves a conversation; the rate limit stays the sender's.
-	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up)
+	// The earlier messages of a thread go to the first turn of a chat that
+	// the thread just started, once.
+	var earlier string
+	if created {
+		earlier = c.threadDirective(ctx, b, token, m)
+	}
+	c.deliver(ctx, b, token, m, c.sender(b.ID, "\x01"+key), chatID, up, earlier)
 }
 
 // inputs turns the files of a message into what the turn gets: the uploads
@@ -831,31 +837,31 @@ var errAgentGone = errors.New("the agent was deleted")
 
 // chatFor returns the chat of a conversation (see conversationOf), making it
 // when there is none, when it ran with another agent than the binding has
-// now, or when fresh asks for a new one.
-func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, name string, fresh bool) (string, error) {
+// now, or when fresh asks for a new one. created says that the chat is new.
+func (c *Connectors) chatFor(ctx context.Context, b connectors.Binding, key, name string, fresh bool) (string, bool, error) {
 	if id, ok, err := c.o.Store.ChatOf(ctx, b.ID, key); err == nil && ok && !fresh {
 		if rec, err := c.svc.Get(ctx, b.Owner, id); err == nil && rec.AgentID == b.AgentID {
-			return id, nil
+			return id, false, nil
 		}
 	}
 	title := c.kindTitle(ctx, b) + " · " + name
 	rec, err := c.svc.CreateAs(ctx, b.Owner, CreateInput{Title: title, AgentID: b.AgentID}, Origin{Kind: session.OriginConnector, ID: b.ID})
 	if err != nil {
 		if isAgentMissing(err) {
-			return "", errAgentGone
+			return "", false, errAgentGone
 		}
-		return "", err
+		return "", false, err
 	}
 	if err := c.o.Store.SetChat(ctx, b.ID, key, rec.ID); err != nil {
-		return "", err
+		return "", false, err
 	}
-	return rec.ID, nil
+	return rec.ID, true, nil
 }
 
 // deliver hands the message to the chat and makes sure that the answer goes
 // back. One reply goroutine serves a conversation at a time: it sends the
 // answer of each turn until the chat is idle.
-func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string, up []session.Upload) {
+func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string, up []session.Upload, earlier string) {
 	c.smu.Lock()
 	was := st.active
 	st.active = true
@@ -872,7 +878,7 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			return
 		}
 	}
-	if _, err := c.svc.SendBackground(ctx, b.Owner, chatID, m.Text, up); err != nil {
+	if _, err := c.start(ctx, b, chatID, m.Text, up, earlier); err != nil {
 		if !was {
 			cancel()
 			c.smu.Lock()
@@ -905,6 +911,20 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 		st.active = false
 		c.smu.Unlock()
 	}
+}
+
+// start gives the chat the message. earlier, when set, comes with this
+// message only (session.Message.Directive): the model reads it before the
+// text and the transcript does not keep it. A turn that is already running
+// cannot take a directive, so the message then goes without it.
+func (c *Connectors) start(ctx context.Context, b connectors.Binding, chatID, text string, up []session.Upload, earlier string) (SendResult, error) {
+	if earlier != "" {
+		res, err := c.svc.sendWithFiles(ctx, b.Owner, chatID, text, up, earlier, nil)
+		if !errors.Is(err, ErrCommandBusy) {
+			return res, err
+		}
+	}
+	return c.svc.SendBackground(ctx, b.Owner, chatID, text, up)
 }
 
 // reply follows each turn of the chat and sends its answer. While a turn runs
