@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/studio"
@@ -203,7 +204,11 @@ var _ = Describe("a binding whose add-on is missing", func() {
 		Expect(list[0].AddonID).To(Equal("telegram"))
 		Expect(list[0].Active).To(BeFalse())
 		Expect(list[0].Reason).To(Equal("install the telegram add-on"))
-		Consistently(func() int { return bot.pollCount() }, "300ms").Should(BeZero(), "no add-on, no poll")
+		// The loop may have started a poll before the add-on stopped, and that
+		// request can still end after it. Count from the quiet that follows.
+		time.Sleep(100 * time.Millisecond)
+		quiet := bot.pollCount()
+		Consistently(func() int { return bot.pollCount() }, "300ms").Should(Equal(quiet), "no add-on, no poll")
 
 		r.tr.SetRunning(true)
 		r.conns.Notify()
