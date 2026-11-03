@@ -121,7 +121,8 @@ func (m *Manager) markCompleted(operationID string) {
 	m.completed[operationID] = true
 }
 
-// rebuildCompleted reads the completed operations from the journal just loaded.
+// rebuildCompleted reads the completed operations and the identities of the
+// installed add-ons from the journal just loaded.
 func (m *Manager) rebuildCompleted() {
 	m.grantsMu.Lock()
 	defer m.grantsMu.Unlock()
@@ -131,6 +132,36 @@ func (m *Manager) rebuildCompleted() {
 			m.completed[id] = true
 		}
 	}
+	m.identities = map[string]string{}
+	for id, st := range m.journal.Addons {
+		if st.Installed {
+			m.identities[id] = st.Identity
+		}
+	}
+}
+
+// TrustedIdentity returns the trusted identity of the installed package of an
+// add-on, or empty when it is not installed. A grant of the owner is bound to
+// it. Like OperationCompleted it never takes the manager lock, so an Authority
+// may call it from inside a check that the manager makes under that lock.
+func (m *Manager) TrustedIdentity(addonID string) string {
+	m.grantsMu.Lock()
+	defer m.grantsMu.Unlock()
+	return m.identities[addonID]
+}
+
+// noteIdentity records the identity an applied operation left behind.
+func (m *Manager) noteIdentity(addonID string, st Status) {
+	m.grantsMu.Lock()
+	defer m.grantsMu.Unlock()
+	if m.identities == nil {
+		m.identities = map[string]string{}
+	}
+	if st.Installed {
+		m.identities[addonID] = st.Identity
+		return
+	}
+	delete(m.identities, addonID)
 }
 
 // pendingAuthority adds the operations an install or upgrade in flight is

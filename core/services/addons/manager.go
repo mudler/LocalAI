@@ -172,6 +172,9 @@ type Manager struct {
 	pending  map[string][]string
 	// completed holds the operations that completed; see OperationCompleted.
 	completed map[string]bool
+	// identities maps an installed add-on to its trusted identity; see
+	// TrustedIdentity.
+	identities map[string]string
 }
 
 // SetAuthority sets the Authority that admission and the apps list ask. The
@@ -816,6 +819,9 @@ func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	m.journal.Operations[op.Command.OperationID] = op
 	e := m.persist(string(lifecycleCompleted))
 	if e == nil {
+		// The identity first: an entry whose operation completed must not meet
+		// an add-on the Authority does not know yet.
+		m.noteIdentity(op.Command.AddonID, m.journal.Addons[op.Command.AddonID])
 		m.markCompleted(op.Command.OperationID)
 	}
 	if e == nil && uninstall {
