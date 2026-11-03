@@ -3495,8 +3495,6 @@
       "go: are listed in any state, with the names they replace and whether they run",
       "go: are listed in any state, with their files and whether they run",
       "go: keeps its namespaced name and carries the built-in it shadows, only for a replaceable name",
-      "go: names the replacement string for the legacy arguments the shipped Office manifest declares, without sending them",
-      "go: works for any add-on that declares legacyArgs, and for none that does not",
       "go: synthesizes exactly one strict host read, without enumerating resources at discovery",
       "go: projects only opaque IDs, optional names and caller roles through a normal data envelope",
       "go: returns an array even for empty success and truthfully bounds sorted 100/101 results",
@@ -3514,7 +3512,23 @@
       "go: keeps declared uiOnly execution status tools out of generic adapters",
       "go: round trips valid components and enforces the callable length boundary",
       "go: rejects malformed qualified identities while reserving their namespace",
-      "go: forwards bindings only through an explicit binding backend"
+      "go: forwards bindings only through an explicit binding backend",
+      "go: keeps the id of the Tables add-on out of string literals, outside tests",
+      "go: builds the same tool for a second add-on from its declaration alone",
+      "go: lists the resources of that add-on under its own result key",
+      "go: answers under the default key and refuses a result of another add-on",
+      "go: offers nothing to an add-on that declares no listing, even with resources",
+      "go: lets a manifest without the declaration keep the tool of the old name only through the apps list",
+      "go: rejects a declared listing that collides with a tool of the manifest",
+      "go: leaves a proposal that awaits a person for the person, even for the chat adapter",
+      "go: tells the model that writes are off when the host refuses the call for that reason",
+      "go: tells the model to wait when the service rate limits, and not to retry before then",
+      "go: tells the model a resource is not on the list, with the allowed ones, and when no credential exists",
+      "go: is tools.write for the tools that change things, in an add-on that holds a credential",
+      "go: is empty for every tool of an add-on without a credential",
+      "go: reaches the chat as the add-on declared it",
+      "go: falls back to the add-on's title for a manifest that declares none",
+      "go: lists the skills that need isolation for the add-on that owns the commands tool"
     ]
   },
   "tables-admin": {
