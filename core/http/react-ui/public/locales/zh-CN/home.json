@@ -136,7 +136,10 @@
     "complete": "补全"
   },
   "notice": {
-    "appUnavailable": "应用已不可用。"
+    "appUnavailable": "应用已不可用。",
+    "addonsDownTitle": "插件暂时没有响应",
+    "addonsDownBody": "{{name}} 是一个插件。请稍后再试。",
+    "addonsRetry": "重试"
   },
   "picker": {
     "aliasOf": "{{target}} 的别名",

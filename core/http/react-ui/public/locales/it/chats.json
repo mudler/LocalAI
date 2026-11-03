@@ -358,7 +358,9 @@
     "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
     "serverDescribe": "Un server MCP del modello: i suoi strumenti sono offerti al modello.",
     "connectorDescribe": "Uno dei tuoi connettori MCP: i suoi strumenti sono offerti al modello.",
-    "gone": "Non più disponibile qui. Spegnilo per rimuoverlo."
+    "gone": "Non più disponibile qui. Spegnilo per rimuoverlo.",
+    "grants": "Cosa può modificare l'agente",
+    "grantSensitive": "Sensibile: cambia ciò che l'agente potrà fare o raggiungere in seguito."
   },
   "vision": {
     "describedBy": "Questo modello non può guardare le immagini. Scegli un altro modello, oppure l'immagine sarà descritta da {{model}}.",

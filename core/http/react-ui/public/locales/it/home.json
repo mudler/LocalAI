@@ -136,7 +136,10 @@
     "complete": "completa"
   },
   "notice": {
-    "appUnavailable": "L’app non è più disponibile."
+    "appUnavailable": "L’app non è più disponibile.",
+    "addonsDownTitle": "I componenti aggiuntivi non rispondono ora",
+    "addonsDownBody": "{{name}} è un componente aggiuntivo. Riprova tra un momento.",
+    "addonsRetry": "Riprova"
   },
   "picker": {
     "aliasOf": "alias di {{target}}",

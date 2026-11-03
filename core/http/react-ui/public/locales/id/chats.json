@@ -358,7 +358,9 @@
     "addonDescribe_other": "Memberi model {{count}} alat dari add-on ini.",
     "serverDescribe": "Server MCP milik model: alatnya ditawarkan kepada model.",
     "connectorDescribe": "Salah satu konektor MCP Anda: alatnya ditawarkan kepada model.",
-    "gone": "Tidak tersedia lagi di sini. Matikan untuk menghapusnya."
+    "gone": "Tidak tersedia lagi di sini. Matikan untuk menghapusnya.",
+    "grants": "Yang boleh diubah agen",
+    "grantSensitive": "Sensitif: ini mengubah apa yang boleh dilakukan atau dijangkau agen nanti."
   },
   "vision": {
     "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",

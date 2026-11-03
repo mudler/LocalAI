@@ -358,7 +358,9 @@
     "addonDescribe_other": "向模型提供此附加组件的 {{count}} 个工具。",
     "serverDescribe": "模型的一个 MCP 服务器:其工具会提供给模型。",
     "connectorDescribe": "你的 MCP 连接器之一:其工具会提供给模型。",
-    "gone": "此处已不可用。关闭它即可移除。"
+    "gone": "此处已不可用。关闭它即可移除。",
+    "grants": "智能体可以更改的内容",
+    "grantSensitive": "敏感：这会改变智能体之后可以做或可以访问的内容。"
   },
   "vision": {
     "describedBy": "此模型无法查看图片。请选择其他模型，否则图片将由 {{model}} 描述。",

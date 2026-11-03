@@ -139,7 +139,10 @@
     "complete": "compléter"
   },
   "notice": {
-    "appUnavailable": "L’application n’est plus disponible."
+    "appUnavailable": "L’application n’est plus disponible.",
+    "addonsDownTitle": "Les modules complémentaires ne répondent pas pour le moment",
+    "addonsDownBody": "{{name}} est un module complémentaire. Réessayez dans un instant.",
+    "addonsRetry": "Réessayer"
   },
   "picker": {
     "aliasOf": "alias de {{target}}",

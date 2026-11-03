@@ -358,7 +358,9 @@
     "addonDescribe_other": "Da al modelo {{count}} herramientas de este add-on.",
     "serverDescribe": "Un servidor MCP del modelo: sus herramientas se ofrecen al modelo.",
     "connectorDescribe": "Uno de tus conectores MCP: sus herramientas se ofrecen al modelo.",
-    "gone": "Ya no está disponible aquí. Apágalo para quitarlo."
+    "gone": "Ya no está disponible aquí. Apágalo para quitarlo.",
+    "grants": "Lo que el agente puede cambiar",
+    "grantSensitive": "Sensible: esto cambia lo que el agente podrá hacer o alcanzar más adelante."
   },
   "vision": {
     "describedBy": "Este modelo no puede ver imágenes. Elige otro modelo o la imagen la describirá {{model}}.",

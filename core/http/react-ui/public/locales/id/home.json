@@ -136,7 +136,10 @@
     "complete": "lengkapi"
   },
   "notice": {
-    "appUnavailable": "Aplikasi tidak lagi tersedia."
+    "appUnavailable": "Aplikasi tidak lagi tersedia.",
+    "addonsDownTitle": "Add-on tidak merespons saat ini",
+    "addonsDownBody": "{{name}} adalah add-on. Coba lagi sebentar lagi.",
+    "addonsRetry": "Coba lagi"
   },
   "picker": {
     "aliasOf": "alias dari {{target}}",

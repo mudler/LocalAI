@@ -136,7 +136,10 @@
     "complete": "완성"
   },
   "notice": {
-    "appUnavailable": "앱을 더 이상 사용할 수 없습니다."
+    "appUnavailable": "앱을 더 이상 사용할 수 없습니다.",
+    "addonsDownTitle": "지금 애드온이 응답하지 않습니다",
+    "addonsDownBody": "{{name}}은(는) 애드온입니다. 잠시 후 다시 시도하세요.",
+    "addonsRetry": "다시 시도"
   },
   "picker": {
     "aliasOf": "{{target}}의 별칭",

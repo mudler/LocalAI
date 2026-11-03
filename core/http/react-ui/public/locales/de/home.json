@@ -136,7 +136,10 @@
     "complete": "ergänzen"
   },
   "notice": {
-    "appUnavailable": "Die App ist nicht mehr verfügbar."
+    "appUnavailable": "Die App ist nicht mehr verfügbar.",
+    "addonsDownTitle": "Add-ons antworten gerade nicht",
+    "addonsDownBody": "{{name}} ist ein Add-on. Versuche es gleich noch einmal.",
+    "addonsRetry": "Erneut versuchen"
   },
   "picker": {
     "aliasOf": "Alias von {{target}}",
