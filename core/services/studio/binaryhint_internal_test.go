@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -45,6 +46,20 @@ var _ = Describe("hints on binary files", func() {
 	It("suggests a script when there is no skill and the chat can run commands", func() {
 		Expect(advice("report.docx", true, "xlsx")).To(HaveSuffix("Run a script with the commands tool instead, for example with python-docx."))
 		Expect(advice("data.bin", true)).To(HaveSuffix("Run a script with the commands tool instead."))
+	})
+
+	It("learns the files of a format from the add-on that declares its slot", func() {
+		ctx := context.Background()
+		b := &skillBroker{}
+		b.set(AddonSkillSet{AddonID: "odfkit", Title: "ODF", Skills: []string{"odt"}, Shadows: []string{"odt"}, Running: true,
+			Slots: []contract.Slot{{Name: "odt", SlotDefinition: contract.SlotDefinition{Kind: contract.SlotKindDocuments, Extensions: []string{".odt"}, Words: []string{"odt"}, Library: "odfpy"}}}})
+		svc, f := newSkillService(b)
+		binary := func(context.Context, json.RawMessage) (string, error) {
+			return "", &files.NotTextError{Name: "memo.odt", Size: 10}
+		}
+		tools := svc.binaryHintTools(f.Actor("alice"), true, []session.Tool{{Name: "read_file", Run: binary}})
+		_, err := tools[0].Run(ctx, json.RawMessage(`{"path":"/x"}`))
+		Expect(err).To(MatchError(HaveSuffix("for example with odfpy.")))
 	})
 
 	It("says so when the chat has neither", func() {

@@ -77,6 +77,10 @@ type ToolDefinition struct {
 	// say about the provider. Only a tool that shadows bash may declare it, and
 	// the manifest must then accept API 2 (see MinExecutionAPI).
 	Execution *ExecutionDescriptor `json:"execution,omitempty"`
+	// LegacyArgs name arguments that an older version of the tool took and
+	// that it refuses now, with a hint for the model (see LegacyArgument). The
+	// manifest must accept API 2 (see MinLegacyArgsAPI).
+	LegacyArgs []LegacyArgument `json:"legacyArgs,omitempty"`
 }
 
 // ReplaceableTool says what a tool that shadows a built-in chat tool must look
@@ -227,6 +231,9 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
 		}
 		if err := d.Execution.validate(d); err != nil {
+			return err
+		}
+		if err := validateLegacyArgs(d); err != nil {
 			return err
 		}
 		if d.Shadows != "" {

@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Office creation compatibility", func() {
-	It("names the replacement string for legacy arguments at the chat boundary without sending them", func() {
+var _ = Describe("Legacy arguments declared by a tool", func() {
+	It("names the replacement string for the legacy arguments the shipped Office manifest declares, without sending them", func() {
 		raw, err := os.ReadFile("../../../../addons/office/manifest.json")
 		Expect(err).NotTo(HaveOccurred())
 		m, err := contract.ParseManifest(raw)
@@ -40,5 +40,24 @@ var _ = Describe("Office creation compatibility", func() {
 		}
 		Expect(f.acts).To(BeEmpty())
 		Expect(f.calls()).To(BeZero())
+	})
+
+	It("works for any add-on that declares legacyArgs, and for none that does not", func() {
+		schema := json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"},"text":{"type":"string"}},"required":["path","text"],"additionalProperties":false}`)
+		def := func(legacy ...contract.LegacyArgument) contract.ToolDefinition {
+			return contract.ToolDefinition{Name: "make-note", Description: "Make a note.", Kind: contract.ToolKindAction, InputSchema: schema, LegacyArgs: legacy}
+		}
+		call := func(d contract.ToolDefinition) tools.ToolResult {
+			f := &actFake{fake: &fake{list: apps.List{Apps: []apps.App{{ID: "notes", Enabled: true, State: "running", Generation: 1, Tools: []string{"make-note"}, ToolDefinitions: []contract.ToolDefinition{d}}}}}}
+			res, err := tools.NewChatToolAdapter(f).ExecuteChat(context.Background(), member, tools.NewChatCall("bob", "conv1"), tools.ToolName("notes", "make-note"), json.RawMessage(`{"path":"/n","body":"PRIVATE"}`))
+			if err != nil {
+				return tools.ToolResult{}
+			}
+			return res
+		}
+		res := call(def(contract.LegacyArgument{Name: "body", Hint: "use the text string"}))
+		Expect(res.Code).To(Equal(tools.CodeInvalidRequest))
+		Expect(res.Message).To(Equal("body is no longer supported; use the text string"))
+		Expect(call(def()).Message).To(BeEmpty(), "a tool that declares nothing keeps the plain refusal")
 	})
 })

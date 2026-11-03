@@ -140,7 +140,7 @@ and reconciling the operation before further use.
 
 These declarations extend the strict manifest contract. They keep
 `schemaVersion: 1`, host/protocol/data-format level 1 and UI SDK 2. The manifest
-`api` range is 1 to 2: the execution descriptor, the resource listing and the network capability below need 2.
+`api` range is 1 to 2: the execution descriptor, the resource listing, the network capability, the slot of a skill and the legacy arguments of a tool below need 2.
 The Go contract parser is authoritative; there is no separate JSON Schema.
 The fragments below merge into an otherwise valid manifest, not a complete
 installable package. Existing executable, identity, compatibility and UI
@@ -287,6 +287,20 @@ session epoch. A same-user refresh or account switch immediately hides the old
 list and rejects its pending responses, even before effect cleanup. A new list
 request can populate the refreshed session. These in-memory scopes contain no
 credentials.
+
+### Legacy arguments of a tool
+
+Needs manifest `api` 2. A tool can name arguments that an older version took
+and that it refuses now. When a call fails the schema check and carries one of
+them, the host answers with the hint instead of a bare refusal. The argument is
+never forwarded, and the schema must not declare it.
+
+```json
+{ "name": "create-docx", "legacyArgs": [ { "name": "blocks", "hint": "use the markdown string" } ] }
+```
+
+The answer is `blocks is no longer supported; use the markdown string`. At most
+8 entries; the hint is one plain sentence of at most 200 characters.
 
 ### Execution descriptor of a commands tool
 
@@ -1412,7 +1426,8 @@ refreshed:
 | Name | `[a-z][a-z0-9-]{0,63}`, unique in the manifest |
 | A plain name | the add-on ID, or the ID and `-` and more (`office-quickstart`), so two add-ons never ship one name |
 | A reserved name | refused for a plain skill: core names `writing-skills`, `localai-workspace`, `localai-apps`, and document names `docx`, `pptx`, `pdf`, `xlsx` |
-| `shadows` | optional; must repeat `name` and identify a supported document-provider slot: `xlsx`, `docx`, `pptx`, or `pdf` |
+| `shadows` | optional; must repeat `name` and name a slot: one the skill declares with `slot` (needs `api` 2), or a default slot (`xlsx`, `docx`, `pptx`, `pdf`) |
+| `slot` | optional, needs `shadows` and `api` 2; see Document skill providers |
 
 Staging checks the files against the manifest. The folders under `skills/`
 must be the declared names, and a package that declares no skills must have
@@ -1439,7 +1454,11 @@ with a saved agent only when the agent grants the add-on.
 
 #### Document skill providers
 
-The names `docx`, `pptx`, `pdf`, and `xlsx` are reserved document-provider slots.
+A slot is a skill name that one add-on serves in place of another. The host
+holds no list of formats: the add-on that provides a skill declares its slot.
+For manifests that declare nothing, the host reads four default slots (`docx`,
+`pptx`, `pdf`, `xlsx`) from a data file in the contract, so existing packages
+keep working.
 Core does not embed these document procedures. Its three remaining built-in skills cannot be replaced.
 The existing `shadows` declaration identifies a document provider:
 
@@ -1449,6 +1468,20 @@ The existing `shadows` declaration identifies a document provider:
   { "name": "docx", "shadows": "docx" }
 ]
 ```
+
+A manifest of `api` 2 can declare the slot, which also adds a format the host
+has never heard of. `extensions` and `words` tell the host which files the
+skill covers and how to find the skill by name when a chat meets such a file,
+and `library` is the hint it gives for a script:
+
+```json
+{ "name": "odt", "shadows": "odt",
+  "slot": { "kind": "documents", "extensions": [".odt"], "words": ["odt"], "library": "odfpy" } }
+```
+
+`kind` is `documents`: the skill is offered only while the add-on's commands
+provider reports isolated execution. At most 8 extensions (lower case, with the
+dot) and 8 words. A slot may not be the name of a protected core skill.
 
 Existing Office packages with these declarations remain compatible; you do not need to reinstall them to change naming metadata.
 Unknown unprefixed names remain invalid. Ordinary add-on skills keep the add-on namespace rule.

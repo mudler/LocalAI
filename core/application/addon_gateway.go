@@ -819,7 +819,7 @@ func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.A
 			continue
 		}
 		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: contract.SkillNames(a.Skills), Isolated: a.Isolated,
-			Shadows: contract.ShadowedSkills(a.Skills), Running: a.Running})
+			Shadows: contract.ShadowedSkills(a.Skills), Slots: a.Slots, Running: a.Running})
 	}
 	return out, nil
 }

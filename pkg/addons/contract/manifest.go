@@ -393,6 +393,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		if d.Execution != nil && m.API.Max < MinExecutionAPI {
 			return fmt.Errorf("tool %s declares an execution descriptor, which needs api %d", d.Name, MinExecutionAPI)
 		}
+		if len(d.LegacyArgs) > 0 && m.API.Max < MinLegacyArgsAPI {
+			return fmt.Errorf("tool %s declares legacy arguments, which need api %d", d.Name, MinLegacyArgsAPI)
+		}
 		if d.Kind == ToolKindAction && !c.Actions {
 			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
 		}
@@ -420,6 +423,11 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	}
 	if e := validateConnector(c.Connector, c.UI, m.API); e != nil {
 		return e
+	}
+	for _, d := range c.SkillDefinitions {
+		if d.Slot != nil && m.API.Max < MinSlotAPI {
+			return fmt.Errorf("skill %s declares a slot, which needs api %d", d.Name, MinSlotAPI)
+		}
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
 		return e

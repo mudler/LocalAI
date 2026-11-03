@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // loadSkillName is the name of the tool that loads a skill by its name.
@@ -175,8 +174,9 @@ func (s *Service) loadSkillRun(a workspace.Actor, o loadOpts) func(context.Conte
 		// The tool was offered because the chat had this skill; a document
 		// skill is missing now only because its add-on is not known to be
 		// isolated, and the model must say so rather than "no skills".
-		if _, ok := skills.Find(list, in.Name); !ok && contract.DocumentSkill(skills.Clean(in.Name)) {
-			if i := slices.IndexFunc(notes, func(n string) bool { return strings.HasPrefix(n, documentNotePrefix) }); i >= 0 {
+		if _, ok := skills.Find(list, in.Name); !ok {
+			name := skills.Clean(in.Name)
+			if i := slices.IndexFunc(notes, func(n string) bool { return hiddenDocumentNote(n, name) }); i >= 0 {
 				return "", fmt.Errorf("unknown skill %q: %s", skills.Clean(in.Name), notes[i])
 			}
 		}

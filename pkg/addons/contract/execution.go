@@ -98,5 +98,11 @@ func IsolatedSkills(defs []ToolDefinition, skills []SkillDefinition) []string {
 	if e := tool.Execution; e != nil && (e.Skills == nil || !slices.Contains(e.Skills.ProvidesRuntimeFor, SkillKindDocuments)) {
 		return nil
 	}
-	return ShadowedSkills(skills)
+	var out []string
+	for _, s := range SlotsOf(skills) {
+		if s.Kind == SlotKindDocuments {
+			out = append(out, s.Name)
+		}
+	}
+	return out
 }

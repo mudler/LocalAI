@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -50,7 +51,7 @@ var _ = Describe("the command execution code of the host", func() {
 
 	It("compares no string with the ID of the add-on that runs commands", func() {
 		// Other add-on IDs join this list as their special cases are removed.
-		ids := []string{"sandbox"}
+		ids := []string{"sandbox", "office"}
 		for _, dir := range []string{".", "../addons/tools"} {
 			for path, values := range literals(dir) {
 				for _, v := range values {
@@ -64,6 +65,20 @@ var _ = Describe("the command execution code of the host", func() {
 		for path, values := range literals(".", "capabilities.go", "addonskills.go", "loadskill.go", "shadow.go") {
 			for _, v := range values {
 				Expect(strings.ToLower(v)).NotTo(ContainSubstring("sandbox"), "%s writes a provider name into a sentence; take it from the manifest", path)
+			}
+		}
+	})
+
+	It("holds no list of document formats: slots come from the add-ons and from data", func() {
+		var formats []string
+		for _, sl := range contract.DefaultSlots() {
+			formats = append(formats, sl.Name, sl.Library)
+			formats = append(formats, sl.Extensions...)
+			formats = append(formats, sl.Words...)
+		}
+		for path, values := range literals(".", "binaryhint.go", "addonskills.go", "loadskill.go", "toolsadmin.go") {
+			for _, v := range values {
+				Expect(formats).NotTo(ContainElement(v), "%s names a document format; read it from the slot", path)
 			}
 		}
 	})

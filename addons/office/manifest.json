@@ -1,6 +1,6 @@
 {
   "api": {
-    "max": 1,
+    "max": 2,
     "min": 1
   },
   "arch": "amd64",
@@ -15,19 +15,62 @@
     "skillDefinitions": [
       {
         "name": "xlsx",
-        "shadows": "xlsx"
+        "shadows": "xlsx",
+        "slot": {
+          "extensions": [
+            ".xlsx"
+          ],
+          "kind": "documents",
+          "library": "openpyxl",
+          "words": [
+            "xlsx",
+            "excel"
+          ]
+        }
       },
       {
         "name": "docx",
-        "shadows": "docx"
+        "shadows": "docx",
+        "slot": {
+          "extensions": [
+            ".docx"
+          ],
+          "kind": "documents",
+          "library": "python-docx",
+          "words": [
+            "docx",
+            "word"
+          ]
+        }
       },
       {
         "name": "pptx",
-        "shadows": "pptx"
+        "shadows": "pptx",
+        "slot": {
+          "extensions": [
+            ".pptx"
+          ],
+          "kind": "documents",
+          "library": "python-pptx",
+          "words": [
+            "pptx",
+            "powerpoint"
+          ]
+        }
       },
       {
         "name": "pdf",
-        "shadows": "pdf"
+        "shadows": "pdf",
+        "slot": {
+          "extensions": [
+            ".pdf"
+          ],
+          "kind": "documents",
+          "library": "pypdf",
+          "words": [
+            "pdf"
+          ]
+        }
       }
     ],
     "toolDefinitions": [
@@ -334,7 +377,13 @@
             "markdown"
           ],
           "type": "object"
-        }
+        },
+        "legacyArgs": [
+          {
+            "hint": "use the markdown string",
+            "name": "blocks"
+          }
+        ]
       },
       {
         "name": "create-xlsx",
@@ -365,7 +414,13 @@
             "csv"
           ],
           "type": "object"
-        }
+        },
+        "legacyArgs": [
+          {
+            "hint": "use the csv string",
+            "name": "sheets"
+          }
+        ]
       },
       {
         "name": "create-pptx",
@@ -441,7 +496,13 @@
             "markdown"
           ],
           "type": "object"
-        }
+        },
+        "legacyArgs": [
+          {
+            "hint": "use the markdown string",
+            "name": "blocks"
+          }
+        ]
       }
     ],
     "tools": [

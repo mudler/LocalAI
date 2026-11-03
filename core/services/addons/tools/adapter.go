@@ -452,6 +452,8 @@ type AddonSkills struct {
 	// Isolated are the skills that need the add-on's own commands tool to
 	// report isolated execution (see contract.IsolatedSkills).
 	Isolated []string
+	// Slots are the slots the add-on's skills serve (see contract.SlotsOf).
+	Slots []contract.Slot
 	// Running is true when the add-on may serve now: enabled and running, as
 	// Discover requires for tools.
 	Running bool
@@ -476,7 +478,7 @@ func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]Addon
 		}
 		running := a.Enabled && a.State == "running" && a.Generation > 0
 		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: slices.Clone(a.Skills),
-			Isolated: contract.IsolatedSkills(a.ToolDefinitions, a.Skills), Running: running})
+			Isolated: contract.IsolatedSkills(a.ToolDefinitions, a.Skills), Slots: contract.SlotsOf(a.Skills), Running: running})
 	}
 	slices.SortFunc(out, func(x, y AddonSkills) int { return strings.Compare(x.AddonID, y.AddonID) })
 	return out, nil
@@ -709,6 +711,7 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	var app apps.App
 	var def ToolDefinition
 	var found bool
+	var declared contract.ToolDefinition
 	for _, a := range list {
 		if a.ID != addonID {
 			continue
@@ -724,7 +727,7 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 				continue // not offered to this consumer, so not there
 			}
 			if x, ok := definition(a, d); ok {
-				app, def, found = a, x, true
+				app, def, found, declared = a, x, true, d
 			}
 		}
 	}
@@ -734,7 +737,7 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
 		if errors.Is(err, ErrInvalidArguments) {
-			if message := officeCreationDiagnostic(addonID, tool, arguments); message != "" {
+			if message := contract.LegacyMessage(declared, arguments); message != "" {
 				return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Message: message}, nil
 			}
 		}
