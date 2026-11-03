@@ -51,8 +51,30 @@ func PlanReconcile(snap Snapshot, in ReconcileInput) (Patch, []Removal) {
 			reason = RemovedNotInstalled
 		case identity != entry.Identity:
 			reason = RemovedIdentityMismatch
-		case in.OperationCompleted != nil && !in.OperationCompleted(entry.OperationID):
-			reason = RemovedOperationIncomplete
+		}
+		if reason == "" && in.OperationCompleted != nil {
+			// An operation added by an upgrade is pending on its own; the
+			// operations the entry held before keep working.
+			var kept []OpGrant
+			var dropped []string
+			for _, op := range entry.Ops {
+				if in.OperationCompleted(EffectiveOperationID(entry, op)) {
+					kept = append(kept, op)
+				} else {
+					dropped = append(dropped, op.Name)
+				}
+			}
+			switch {
+			case len(dropped) == 0:
+			case len(kept) == 0:
+				reason = RemovedOperationIncomplete
+			default:
+				trimmed := entry
+				trimmed.Ops = kept
+				patch.Addons[id] = &trimmed
+				removals = append(removals, Removal{AddonID: id, Reason: RemovedOperationIncomplete, Ops: dropped})
+				continue
+			}
 		}
 		if reason == "" {
 			continue

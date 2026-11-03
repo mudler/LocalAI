@@ -119,10 +119,20 @@ func (f Floor) Decide(doc Snapshot, c Context, addonID, op string) Decision {
 	if c.Identity == "" || entry.Identity != c.Identity {
 		return Decision{Reason: ReasonIdentityMismatch}
 	}
-	if c.Completed != nil && !c.Completed(entry.OperationID) {
+	if c.Completed != nil && !c.Completed(EffectiveOperationID(entry, entry.Ops[i])) {
 		return Decision{Reason: ReasonNotGranted}
 	}
 	return Decision{Allowed: true, Source: entry.Ops[i].Source}
+}
+
+// EffectiveOperationID is the lifecycle operation whose completion makes one
+// operation of an entry effective: its own, when an upgrade added it to an
+// existing entry, else the one that created the entry.
+func EffectiveOperationID(entry AddonGrants, op OpGrant) string {
+	if op.OperationID != "" {
+		return op.OperationID
+	}
+	return entry.OperationID
 }
 
 // OpStatus is a Decision for one named operation.

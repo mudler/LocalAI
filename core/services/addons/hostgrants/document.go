@@ -89,6 +89,11 @@ type OpGrant struct {
 	// BlanketRevision names the blanket switch revision that produced a
 	// grant with Source blanket, so the group can be told apart and revoked.
 	BlanketRevision uint64 `json:"blanketRevision,omitempty"`
+	// OperationID is set when the operation was added to an entry that already
+	// existed, by the lifecycle operation of an upgrade. It takes effect only
+	// once that operation completed, while the other operations of the entry
+	// keep working. Empty means the operation of the entry counts.
+	OperationID string `json:"operationId,omitempty"`
 }
 
 // AddonGrants is the UI-made grant entry of one add-on.
@@ -343,6 +348,9 @@ func validate(s Snapshot) error {
 				return invalid("operation %q of %q", op.Name, id)
 			}
 			seen[op.Name] = true
+			if op.OperationID != "" && !validOperationID(op.OperationID) {
+				return invalid("operation ID of %q for %q", op.Name, id)
+			}
 			if !validText(op.By) || !validText(op.Version) || !validTime(op.At) {
 				return invalid("metadata of %q for %q", op.Name, id)
 			}

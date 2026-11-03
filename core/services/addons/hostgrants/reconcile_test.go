@@ -161,3 +161,40 @@ func TestAuditAppendsFsyncedLines(t *testing.T) {
 		t.Error("a symlink must be refused")
 	}
 }
+
+func TestUpgradeAddedOperationIsPendingOnItsOwn(t *testing.T) {
+	entry := *grant("install-op", "workspace.materialize")
+	entry.Ops = append(entry.Ops, OpGrant{Name: "egress.check", Source: SourceUpgrade, OperationID: "upgrade-op"})
+	snap := emptySnapshot()
+	snap.Grants["a"] = entry
+	completed := map[string]bool{"install-op": true}
+	ctx := Context{Identity: "id-1", Completed: func(id string) bool { return completed[id] }}
+
+	// Before the upgrade completes, the old operation works and the new one does not.
+	var f Floor
+	if !f.Decide(snap, ctx, "a", "workspace.materialize").Allowed {
+		t.Fatal("the operation held before the upgrade stopped working")
+	}
+	if d := f.Decide(snap, ctx, "a", "egress.check"); d.Allowed || d.Reason != ReasonNotGranted {
+		t.Fatalf("%+v", d)
+	}
+	completed["upgrade-op"] = true
+	if !f.Decide(snap, ctx, "a", "egress.check").Allowed {
+		t.Fatal("the operation of a completed upgrade is not effective")
+	}
+
+	// A crash before the upgrade completed removes only what it added.
+	delete(completed, "upgrade-op")
+	in := ReconcileInput{
+		Installed:          func(string) (string, bool) { return "id-1", true },
+		OperationCompleted: func(id string) bool { return completed[id] },
+	}
+	patch, removals := PlanReconcile(snap, in)
+	if len(removals) != 1 || !reflect.DeepEqual(removals[0].Ops, []string{"egress.check"}) || removals[0].Reason != RemovedOperationIncomplete {
+		t.Fatalf("%+v", removals)
+	}
+	kept := patch.Addons["a"]
+	if kept == nil || len(kept.Ops) != 1 || kept.Ops[0].Name != "workspace.materialize" {
+		t.Fatalf("%+v", kept)
+	}
+}
