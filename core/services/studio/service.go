@@ -28,6 +28,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
+	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
@@ -214,6 +215,12 @@ type Deps struct {
 	// requests the goal's turns make, before the goal pauses. Read when a turn
 	// ends. Nil or a value below 1: DefaultGoalMaxTurns, DefaultGoalMaxSteps.
 	GoalLimits func() (turns, steps int)
+	// Proposals keeps the change proposals (propose_change) and their audit.
+	// Nil: a store in memory, for a single process and tests.
+	Proposals proposals.Store
+	// ProposalGate decides whether a chat may propose or revert a change. Nil:
+	// proposals.DefaultGate, which refuses a chat that runs a saved agent.
+	ProposalGate proposals.Gate
 	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
 	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.
@@ -308,6 +315,7 @@ type Service struct {
 	admit sync.Mutex
 
 	// Sub-agents; see subagent.go.
+	changes    *Changes         // the change proposals
 	triggers   *Triggers        // set once by SetTriggers
 	loops      *Loops           // set once by SetLoops
 	jobs       *Jobs            // set once by SetJobs
@@ -398,6 +406,14 @@ func New(d Deps) (*Service, error) {
 		return nil, err
 	}
 	if err := s.registerTriggerTools(); err != nil {
+		return nil, err
+	}
+	changes, err := newChanges(s)
+	if err != nil {
+		return nil, err
+	}
+	s.changes = changes
+	if err := s.registerChangeTools(); err != nil {
 		return nil, err
 	}
 	if err := s.registerLoadSkill(); err != nil {

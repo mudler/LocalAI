@@ -362,7 +362,7 @@ func (s *Service) Builtins() *builtins.Registry { return s.builtins }
 // builtinsFor builds the built-in tools of a chat.
 func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, subAgent bool) []builtins.Built {
 	off, on := s.switchesOf(ctx, rec)
-	return s.builtins.Build(ctx, builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
+	return s.builtins.Build(ctx, builtins.Chat{Actor: a, Origin: rec.Origin, OriginID: rec.OriginID, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
 		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, GoalActive: goalActive(rec) && !subAgent})
 }
 

@@ -165,6 +165,9 @@ func (s *gormStore) List(ctx context.Context, owner string, statuses ...contract
 
 func (s *gormStore) Settle(ctx context.Context, owner, id string, from, to contract.ProposalStatus, at time.Time, rev int64) (bool, error) {
 	set := map[string]any{"status": string(to), "answered": at}
+	if at.IsZero() {
+		set["answered"] = nil
+	}
 	if to == contract.ProposalReverted {
 		set["revert_rev"] = rev
 	}

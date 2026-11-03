@@ -43,6 +43,9 @@ const (
 	GroupMedia = "media"
 	// GroupCollections holds list_collections and search_collection.
 	GroupCollections = "collections"
+	// GroupChanges holds propose_change and revert_change: a chat can ask to
+	// change the person's memory or an agent profile, and the person confirms.
+	GroupChanges = "changes"
 	// GroupSubAgents holds spawn_agent.
 	GroupSubAgents = "subagents"
 )
@@ -65,6 +68,9 @@ type Chat struct {
 	Actor workspace.Actor
 	// Origin is "" for a chat a person watches, or trigger, connector, job.
 	Origin string
+	// OriginID names the trigger, the connector binding or the job that
+	// started the chat.
+	OriginID string
 	// Agent is true when the chat runs a saved agent, whose grants the owner
 	// chose: an unattended run without one gets no tool that acts at once.
 	Agent bool
