@@ -357,9 +357,7 @@ func validate(s Snapshot) error {
 			if !validText(op.By) || !validText(op.Version) || !validTime(op.At) {
 				return invalid("metadata of %q for %q", op.Name, id)
 			}
-			// Revision 0 on a blanket grant means the deployment fixed the mode and
-			// the document never held it.
-			if (op.Source != SourceBlanket && op.BlanketRevision != 0) || op.BlanketRevision > s.Blanket.Revision {
+			if (op.Source == SourceBlanket) != (op.BlanketRevision != 0) || op.BlanketRevision > s.Blanket.Revision {
 				return invalid("blanket revision of %q for %q", op.Name, id)
 			}
 		}

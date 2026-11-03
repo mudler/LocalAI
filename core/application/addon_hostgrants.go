@@ -363,7 +363,12 @@ func (g *addonHostGrants) Stage(ctx context.Context, s addons.GrantStage) error 
 		}
 		blanketMode = m[1]
 		blanketRev, _ = strconv.ParseUint(m[2], 10, 64)
-		source = hostgrants.SourceBlanket
+		// Revision 0 means the switch was never set in the document: the
+		// deployment fixed the mode. Those grants stay the install's own, since
+		// a blanket grant must name a revision of the document.
+		if blanketRev != 0 {
+			source = hostgrants.SourceBlanket
+		}
 	}
 	for range 3 {
 		snap, err := g.store.Snapshot(ctx)
@@ -414,7 +419,7 @@ func (g *addonHostGrants) Stage(ctx context.Context, s addons.GrantStage) error 
 		patch.Addons = map[string]*hostgrants.AddonGrants{s.AddonID: &entry}
 		ev := hostgrants.AuditGrant
 		tag := ""
-		if source == hostgrants.SourceBlanket {
+		if s.Blanket != "" {
 			ev, tag = hostgrants.AuditBlanketGrant, blanketMode+"@rev"+strconv.FormatUint(blanketRev, 10)
 		}
 		_, err = g.store.UpdateAudited(ctx, patch, snap.Revision, "stage-"+s.OperationID+"-r"+strconv.FormatUint(snap.Revision, 10), func(n hostgrants.Snapshot) error {
