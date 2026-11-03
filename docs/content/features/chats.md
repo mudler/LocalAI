@@ -1511,7 +1511,8 @@ With authentication off, chats belong to one anonymous owner.
 ## Memory settings
 
 Your settings page (Account) has a **Memory** tab. It lists the notes that the host
-puts in the prompt of your chats: your own index and its topic files, the notes of
+puts in the prompt of your chats when the [Short memory add-on](/features/short-memory/)
+(or another add-on that declares context files) is installed: your own index and its topic files, the notes of
 each saved agent and of each connector conversation, and the agent profiles. Each
 index shows its size against the caps (at most 40 lines and 2 KiB for an index,
 4 KiB for a profile, 6 KiB of notes in one turn). You can open a file, edit it,

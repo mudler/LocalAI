@@ -194,6 +194,78 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+- id: "memory"
+  name: Short memory
+  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Short memory"
+    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    mainPage: "memory"
+    icon: "ui/icon.png"
+- id: "memory"
+  name: Short memory
+  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Short memory"
+    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    mainPage: "memory"
+    icon: "ui/icon.png"
+- id: "memory"
+  name: Short memory
+  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Short memory"
+    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    mainPage: "memory"
+    icon: "ui/icon.png"
+- id: "memory"
+  name: Short memory
+  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Short memory"
+    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    mainPage: "memory"
+    icon: "ui/icon.png"
 - id: "office"
   name: Simple Office
   description: "Lightweight basic Word, Excel, PowerPoint and PDF file work from your chats, without requiring Sandbox."

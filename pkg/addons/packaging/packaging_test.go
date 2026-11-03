@@ -916,7 +916,7 @@ var _ = Describe("catalog template", func() {
 		Expect(err).To(MatchError(ContainSubstring("development channel only")))
 	})
 	It("renders an entry for every first-party add-on from its own template", func() {
-		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "office", "sandbox", "web"} {
+		for _, id := range []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "office", "sandbox", "web", "memory"} {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
 			repoName := newRegistry().repo("addons")
@@ -939,7 +939,7 @@ var _ = Describe("catalog template", func() {
 		}
 	})
 	It("reports the chat tools of the manifest on each entry and not the admin tools", func() {
-		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 5, "web": 5}
+		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 5, "web": 5, "memory": 0}
 		for id, want := range counts {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
@@ -1013,7 +1013,7 @@ var _ = Describe("catalog template", func() {
 		for _, e := range entries {
 			got[e.ID] = e.ToolCount
 		}
-		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "office": 11, "sandbox": 5, "web": 5}))
+		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "office": 11, "sandbox": 5, "web": 5, "memory": 0}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()
@@ -1175,7 +1175,7 @@ var _ = Describe("workflow policy", func() {
 	})
 	It("rejects a workflow that names one add-on by path or skips an add-on in the matrix", func() {
 		expect(mutate("node \"addons/$ADDON/ui/build.mjs\"\n      - name: Fill", "node addons/tables/ui/build.mjs\n      - name: Fill"), "P_ADDON_PATH")
-		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, office, sandbox, web]\n", "        platform: [x]\n"), "P_MATRIX")
+		expect(mutate("        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, office, sandbox, web, memory]\n", "        platform: [x]\n"), "P_MATRIX")
 	})
 	It("rejects a plan that does not refuse an add-on without an enabled platform", func() {
 		expect(mutate("has no enabled platform; refusing to publish", "has no platform"), "P_FAIL_CLOSED")
@@ -1225,7 +1225,7 @@ var _ = Describe("workflow policy", func() {
 
 // firstPartyAddons are the add-ons the release workflow packages. The list is
 // written out so a new add-on is a deliberate change here and in the workflow.
-var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "office", "sandbox", "web"}
+var firstPartyAddons = []string{"tables", "voice", "face", "fine-tuning", "quantization", "studio", "talk", "telegram", "slack", "office", "sandbox", "web", "memory"}
 
 func readWorkflow() string {
 	GinkgoHelper()

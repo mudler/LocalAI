@@ -882,7 +882,7 @@ consequences:
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,
 LocalAI registers one library with the ID `official`. It is a YAML index of the
 first-party add-ons (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Simple Office,
-Sandbox and Web). The index has one entry for each enabled platform of each add-on, so an
+Sandbox, Web and Short memory). The index has one entry for each enabled platform of each add-on, so an
 install on Linux (amd64 or arm64) and on macOS (Apple silicon or Intel) finds the add-ons for
 its own platform. The Sandbox add-on is Linux only. No add-on is built for Windows yet, so the
 official library lists nothing there.
@@ -2474,7 +2474,7 @@ memory when there is no data path.
 A context file is a short index in the user's home folder that the host puts in the
 prompt of a chat, so the model knows what the user has saved without a tool call. The
 details of each topic stay in files next to the index and the model reads them on demand
-with the `memory_read` tool. The mechanism belongs to the host, not to one app: a plain
+with the `context_read` tool. The mechanism belongs to the host, not to one app: a plain
 chat in Studio, a chat that a Slack binding started and a chat that a Telegram binding
 started all go through the same loader. An add-on does not add code to the host; it
 declares a source.
@@ -2495,8 +2495,38 @@ For example, a memory add-on declares three sources: `Memory/index.md` for the u
 for the channel. A path with a parent segment, an absolute path, an unknown placeholder
 or a file that does not end in `.md` is refused. A host holds at most 8 sources.
 
-Today a source is registered in process, with `Service.ContextSources().Register`. A
-declaration in the add-on manifest is a separate change.
+A host component registers a source in process, with `Service.ContextSources().Register`.
+An add-on declares its sources in the manifest instead, as `capabilities.contextFiles`
+(see below).
+
+### Declare context files in a manifest
+
+```json
+{
+  "api": { "min": 2, "max": 2 },
+  "capabilities": {
+    "contextFiles": [
+      { "scope": "user", "path": "Memory/index.md" },
+      { "scope": "agent", "path": "Memory/agents/{agent}/index.md" },
+      { "scope": "channel", "path": "Memory/channels/{channel}/index.md", "cap": 1024 }
+    ]
+  }
+}
+```
+
+The field needs manifest API 2. An add-on declares at most three files, one for each
+scope. Every path lies under `Memory/`, ends in `.md` and holds no parent segment; an
+add-on cannot name any other part of the home. `cap` can only lower the 2 KiB cap. A
+declaration gives the add-on no access: the host reads the files as the user, and the
+add-on process is never called for them.
+
+A turn loads the files of an add-on with the rules it uses for the skills of an add-on. A
+stopped add-on, one the chat switched off, one the chat's saved agent does not grant and
+one that cannot work for the user bring nothing. The Memory tab lists the files of an
+installed add-on whether or not it runs, because the files belong to the user. The
+channel folder is `<binding>-<hash of the chat>`, the folder `propose_change` writes for a
+conversation, so a note the user confirmed is read back by the conversation that proposed
+it.
 
 ### The index format
 
@@ -2507,7 +2537,7 @@ An index is a Markdown file with one line per topic:
 - style: short answers, no emoji -> style.md
 ```
 
-The file `home.md` sits in the same folder as the index. `memory_read` takes a `topic`
+The file `home.md` sits in the same folder as the index. `context_read` takes a `topic`
 (the name before the colon, or the file name) and an optional `scope`; without a scope it
 looks in the channel, then the agent, then the user. A topic name is letters, digits, `-`
 and `_`, at most 64 characters.
@@ -2526,7 +2556,7 @@ prompt, after the agent instructions, the persona and the agent profile:
 
 The text is the same at each turn until a file changes, so the transcript does not grow.
 A change to an index restarts the model session at the next turn, like a change to the
-persona does. `memory_read` returns at most 8 KiB of one topic.
+persona does. `context_read` returns at most 8 KiB of one topic.
 
 A saved agent can also have a profile at `LocalAI/agents/<agent>/profile.md`, at most
 4 KiB. The host adds it after the agent instructions and the persona. It needs no
@@ -2538,9 +2568,9 @@ The host reads the files as the user, outside the fence of the chat. A chat of a
 agent that works in one folder therefore still reads the user index and the index of its
 own agent, and gains no access to the files: its file tools still cannot read or write
 `Memory/` or the profile. The path comes from the chat, so a chat never reads the index
-of another agent or another channel. This change adds only read paths. A component that
-saves notes plugs in through `Service.SetContextWriter` (the header then names its save
-tool) and uses `contextfiles.CheckIndex` and `contextfiles.CheckProfile`: over a cap they
+of another agent or another channel. The header names the save tool, `propose_change`,
+only in a chat that has it. A component that
+saves notes uses `contextfiles.CheckIndex` and `contextfiles.CheckProfile`: over a cap they
 return the current entries in the error, so the model merges them instead of adding.
 
 ## Owner forwarding and HTTP relays
