@@ -71,6 +71,7 @@ var _ = Describe("host access routes", func() {
 		registerHostGrants(e, &gateway.Gateway{HostGrantsOwner: svc, Revalidate: func(context.Context, contract.Actor) error { return nil }})
 	})
 
+	// confirm is the value the confirm header must carry.
 	type req struct{ method, path, body, op string }
 	// browser is the administrator's own tab: same-origin fetch, the confirm header.
 	browser := func(r *http.Request, op string) {
@@ -104,16 +105,16 @@ var _ = Describe("host access routes", func() {
 	asHuman := func(q req) (int, map[string]any) { return do(q, func(r *http.Request) { browser(r, q.op) }) }
 
 	edit := func(op string, rev int, ops string) req {
-		return req{"PUT", "/api/addons/host-grants/sandbox", `{"operationId":"` + op + `","revision":` + itoa(rev) + `,"ops":` + ops + `}`, op}
+		return req{"PUT", "/api/addons/host-grants/sandbox", `{"operationId":"` + op + `","revision":` + itoa(rev) + `,"ops":` + ops + `}`, "sandbox"}
 	}
 
 	// The write routes, each with a body that decodes, for the guard table.
 	writes := []req{
 		edit("w1", 0, `["egress.check"]`),
-		{"DELETE", "/api/addons/host-grants/sandbox?revision=0&operationId=w2", "", "w2"},
-		{"PUT", "/api/addons/host-grants/blanket", `{"operationId":"w3","revision":0,"mode":"off"}`, "w3"},
-		{"PUT", "/api/addons/host-grants/deny", `{"operationId":"w4","revision":0,"deny":{}}`, "w4"},
-		{"POST", "/api/addons/host-grants/install", `{"operationId":"w5","action":"install","sourceId":"official","addonId":"newone","version":"1.0.0","approve":{"digest":"sha256:aa","ops":[],"revision":0,"nonce":"n"}}`, "w5"},
+		{"DELETE", "/api/addons/host-grants/sandbox?revision=0&operationId=w2", "", "sandbox"},
+		{"PUT", "/api/addons/host-grants/blanket", `{"operationId":"w3","revision":0,"mode":"off"}`, "blanket"},
+		{"PUT", "/api/addons/host-grants/deny", `{"operationId":"w4","revision":0,"deny":{}}`, "deny"},
+		{"POST", "/api/addons/host-grants/install", `{"operationId":"w5","action":"install","sourceId":"official","addonId":"newone","version":"1.0.0","approve":{"digest":"sha256:aa","ops":[],"revision":0,"nonce":"n"}}`, "newone@sha256:aa"},
 	}
 
 	It("serves the reads to an administrator by API key as well", func() {
@@ -125,6 +126,28 @@ var _ = Describe("host access routes", func() {
 			})
 			Expect(code).To(Equal(200), q.method+" "+q.path)
 			Expect(out).NotTo(BeEmpty())
+		}
+	})
+
+	It("answers the shapes the React client reads", func() {
+		_, ov := do(req{"GET", "/api/addons/host-grants", "", ""}, func(r *http.Request) { browser(r, "") })
+		for _, k := range []string{"revision", "locked", "blanket", "floor", "deny", "addons"} {
+			Expect(ov).To(HaveKey(k))
+		}
+		Expect(ov["blanket"]).To(HaveKeyWithValue("setBy", "ui"))
+		sbx := ov["addons"].([]any)[0].(map[string]any)
+		for _, k := range []string{"id", "title", "version", "sourceId", "state", "requested", "ops", "noLongerRequested", "newOptional", "identityMismatch", "stopped"} {
+			if k == "sourceId" {
+				continue // empty until the manager reports the library
+			}
+			Expect(sbx).To(HaveKey(k), k)
+		}
+		for _, o := range sbx["ops"].([]any) {
+			Expect(o.(map[string]any)["status"]).To(BeElementOf("allowed", "not_allowed", "blocked", "unsupported"))
+		}
+		_, pv := do(req{"POST", "/api/addons/host-grants/preview", `{"sourceId":"official","addonId":"newone","version":"1.0.0"}`, ""}, func(r *http.Request) { browser(r, "") })
+		for _, k := range []string{"digest", "version", "revision", "nonce", "official", "added", "requested", "ops", "blockedRequired", "canInstall"} {
+			Expect(pv).To(HaveKey(k), k)
 		}
 	})
 
@@ -177,23 +200,23 @@ var _ = Describe("host access routes", func() {
 		code, out := asHuman(edit("e1", 0, `["connector.inbound"]`))
 		Expect(code).To(Equal(400), "not declared by the manifest")
 		Expect(errType(out)).To(Equal("invalid_request"))
-		code, out = asHuman(req{"PUT", "/api/addons/host-grants/ghost", `{"operationId":"e2","revision":0,"ops":["egress.check"]}`, "e2"})
+		code, out = asHuman(req{"PUT", "/api/addons/host-grants/ghost", `{"operationId":"e2","revision":0,"ops":["egress.check"]}`, "ghost"})
 		Expect(code).To(Equal(404))
 		Expect(errType(out)).To(Equal("not_found"))
-		code, _ = asHuman(req{"PUT", "/api/addons/host-grants/sandbox", `{"operationId":"e3","revision":0,"ops":[],"surprise":1}`, "e3"})
+		code, _ = asHuman(req{"PUT", "/api/addons/host-grants/sandbox", `{"operationId":"e3","revision":0,"ops":[],"surprise":1}`, "sandbox"})
 		Expect(code).To(Equal(400), "an unknown field")
-		code, _ = asHuman(req{"PUT", "/api/addons/host-grants/sandbox", `{"revision":0,"ops":[]}`, ""})
-		Expect(code).To(Equal(400), "an operation ID is required")
-		code, _ = asHuman(req{"DELETE", "/api/addons/host-grants/sandbox?operationId=r1", "", "r1"})
+		code, _ = asHuman(req{"PUT", "/api/addons/host-grants/sandbox", `{"revision":0,"ops":[]}`, "sandbox"})
+		Expect(code).To(Equal(200), "the host makes an operation ID when the caller sent none")
+		code, _ = asHuman(req{"DELETE", "/api/addons/host-grants/sandbox?operationId=r1", "", "sandbox"})
 		Expect(code).To(Equal(400), "the revision is required")
 	})
 
 	It("revokes with the revision in the query", func() {
 		asHuman(edit("e1", 0, `["egress.check"]`))
-		code, out := asHuman(req{"DELETE", "/api/addons/host-grants/sandbox?revision=0&operationId=r1", "", "r1"})
+		code, out := asHuman(req{"DELETE", "/api/addons/host-grants/sandbox?revision=0&operationId=r1", "", "sandbox"})
 		Expect(code).To(Equal(409), "stale")
 		Expect(errType(out)).To(Equal("revision_conflict"))
-		code, out = asHuman(req{"DELETE", "/api/addons/host-grants/sandbox?revision=1&operationId=r2", "", "r2"})
+		code, out = asHuman(req{"DELETE", "/api/addons/host-grants/sandbox?revision=1&operationId=r2", "", "sandbox"})
 		Expect(code).To(Equal(200))
 		Expect(out["revision"]).To(BeEquivalentTo(2))
 	})
@@ -203,29 +226,29 @@ var _ = Describe("host access routes", func() {
 		Expect(code).To(Equal(200))
 		nonce := prev["nonce"].(string)
 		body := `{"operationId":"i1","action":"install","sourceId":"official","addonId":"newone","version":"1.0.0","approve":{"digest":"sha256:aa","ops":["workspace.materialize"],"revision":0,"nonce":"` + nonce + `"}}`
-		code, out := do(req{"POST", "/api/addons/host-grants/install", body, "i1"}, func(r *http.Request) { browser(r, "i1"); r.Header.Set("Authorization", "Bearer k") })
+		code, out := do(req{"POST", "/api/addons/host-grants/install", body, "i1"}, func(r *http.Request) { browser(r, "newone@sha256:aa"); r.Header.Set("Authorization", "Bearer k") })
 		Expect(code).To(Equal(403))
 		Expect(errType(out)).To(Equal("not_human_surface"))
 		Expect(mgr.submitted).To(BeEmpty())
-		code, out = asHuman(req{"POST", "/api/addons/host-grants/install", body, "i1"})
+		code, out = asHuman(req{"POST", "/api/addons/host-grants/install", body, "newone@sha256:aa"})
 		Expect(code).To(Equal(200))
 		Expect(out["Phase"]).To(Equal("completed"))
 		Expect(mgr.submitted).To(HaveLen(1))
-		code, out = asHuman(req{"POST", "/api/addons/host-grants/install", strings.Replace(body, `"i1"`, `"i2"`, 1), "i2"})
+		code, out = asHuman(req{"POST", "/api/addons/host-grants/install", strings.Replace(body, `"i1"`, `"i2"`, 1), "newone@sha256:aa"})
 		Expect(code).To(Equal(409), "the nonce is used up")
 		Expect(errType(out)).To(Equal("approval_stale"))
 	})
 
 	It("needs the typed text for the blanket, and a human surface for a deny, but not for its dry run", func() {
-		q := req{"PUT", "/api/addons/host-grants/blanket", `{"operationId":"b1","revision":0,"mode":"any","confirm":"yes"}`, "b1"}
+		q := req{"PUT", "/api/addons/host-grants/blanket", `{"operationId":"b1","revision":0,"mode":"any","confirm":"yes"}`, "blanket"}
 		code, out := asHuman(q)
 		Expect(code).To(Equal(400))
 		Expect(errType(out)).To(Equal("confirmation_mismatch"))
 		q.body = `{"operationId":"b2","revision":0,"mode":"any","confirm":"` + gateway.BlanketConfirmAny + `"}`
-		q.op = "b2"
+		q.op = "blanket"
 		code, _ = asHuman(q)
 		Expect(code).To(Equal(200))
-		code, out = asHuman(req{"PUT", "/api/addons/host-grants/deny", `{"operationId":"d1","revision":1,"deny":{"sandbox":["workspace."]}}`, "d1"})
+		code, out = asHuman(req{"PUT", "/api/addons/host-grants/deny", `{"operationId":"d1","revision":1,"deny":{"sandbox":["workspace."]}}`, "deny"})
 		Expect(code).To(Equal(200))
 		Expect(out["revision"]).To(BeEquivalentTo(2))
 	})

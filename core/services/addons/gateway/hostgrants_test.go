@@ -174,8 +174,8 @@ var _ = Describe("The host access owner service", func() {
 			Expect(v.Ops).To(HaveLen(2))
 			Expect(v.Ops[1].Name).To(Equal("workspace.materialize"))
 			Expect(v.Ops[1].Required).To(BeTrue())
-			Expect(v.Ops[1].Status).To(Equal("grantable"))
-			Expect(v.Ops[0].Status).To(Equal("grantable"))
+			Expect(v.Ops[1].Status).To(Equal("not_allowed"))
+			Expect(v.Ops[0].Status).To(Equal("not_allowed"))
 			Expect(v.Blanket.Applies).To(BeFalse())
 		})
 		It("shows a deny winning over everything, and cannot install a blocked required operation", func() {
@@ -206,10 +206,10 @@ var _ = Describe("The host access owner service", func() {
 			for _, o := range v.Ops {
 				switch o.Name {
 				case "egress.check":
-					Expect(o.Status).To(Equal("held"))
+					Expect(o.Status).To(Equal("allowed"))
 				case "workspace.materialize":
-					Expect(o.Status).To(Equal("grantable"))
-					Expect(o.Hinted).To(BeTrue())
+					Expect(o.Status).To(Equal("not_allowed"))
+					Expect(o.Hint).To(BeTrue())
 				}
 			}
 		})
@@ -449,9 +449,11 @@ var _ = Describe("The host access owner service", func() {
 		})
 		It("rejects options that do not fit the mode", func() {
 			f := newHGFixture()
-			_, err := b(f, "b1", 0, HostGrantsBlanketRequest{Mode: "off", IncludeOptional: true})
+			_, err := b(f, "b1", 0, HostGrantsBlanketRequest{Mode: "off", IncludeOptional: true, ApplyToInstalled: true})
+			Expect(err).NotTo(HaveOccurred(), "off ignores the scope options")
+			_, err = b(f, "b4", 1, HostGrantsBlanketRequest{Mode: "official", RevokeOnOff: true, Confirm: BlanketConfirmOfficial})
 			Expect(typeOf(err)).To(Equal("invalid_request"))
-			_, err = b(f, "b2", 0, HostGrantsBlanketRequest{Mode: "sometimes"})
+			_, err = b(f, "b2", 1, HostGrantsBlanketRequest{Mode: "sometimes"})
 			Expect(typeOf(err)).To(Equal("invalid_request"))
 		})
 	})
@@ -528,6 +530,60 @@ var _ = Describe("host access actions on the typed dispatch", func() {
 		for _, action := range []string{"hostgrants-edit", "hostgrants-install", "hostgrants-blanket", "hostgrants-read"} {
 			_, err := g.Dispatch(human, admin, contract.Request{OperationID: "op", Action: action, Arguments: json.RawMessage(`{}`)})
 			Expect(err).To(MatchError(ErrForbidden), action)
+		}
+	})
+})
+
+var _ = Describe("host access as the pages read it", func() {
+	It("names what an upgrade adds, using the installed package to tell what is held", func() {
+		f := newHGFixture()
+		_, err := f.svc.Serve(human, admin, call(HostGrantsEdit, "e1", "sandbox", HostGrantsEditRequest{OperationID: "e1", Ops: []string{"workspace.materialize"}}))
+		Expect(err).NotTo(HaveOccurred())
+		f.mgr.release = ReleaseAccess{AddonID: "sandbox", Title: "Sandbox", Version: "1.1.0", Digest: "sha256:bb", Installed: true,
+			Required: []string{"workspace.materialize", "workspace.export"}, Optional: []string{"egress.check"}}
+		v := data[HostGrantsPreviewView](f.svc.Serve(context.Background(), admin, call(HostGrantsPreview, "", "", HostGrantsPreviewRequest{SourceID: "official", AddonID: "sandbox", Version: "1.1.0"})))
+		Expect(v.Added).To(Equal([]string{"workspace.export"}))
+		status := map[string]string{}
+		for _, o := range v.Ops {
+			status[o.Name] = o.Status
+		}
+		Expect(status).To(Equal(map[string]string{"workspace.materialize": "allowed", "workspace.export": "not_allowed", "egress.check": "not_allowed"}))
+	})
+
+	It("says why an add-on is stopped, and carries its library and new optional access", func() {
+		f := newHGFixture()
+		f.mgr.installed[0].SourceID = "official"
+		f.mgr.installed[0].NewOptional = []string{"egress.check"}
+		v := data[HostGrantsView](f.svc.Serve(context.Background(), admin, call(HostGrantsRead, "", "", nil)))
+		var sbx HostGrantsAddon
+		for _, a := range v.Addons {
+			if a.ID == "sandbox" {
+				sbx = a
+			}
+		}
+		Expect(sbx.Stopped).To(Equal("workspace.materialize"))
+		Expect(sbx.SourceID).To(Equal("official"))
+		Expect(sbx.NewOptional).To(Equal([]string{"egress.check"}))
+	})
+
+	It("keeps a blanket grant as the administrator's own, so revoking the blanket grants leaves it", func() {
+		f := newHGFixture()
+		_, err := f.svc.Serve(human, admin, call(HostGrantsBlanket, "b1", "", HostGrantsBlanketRequest{OperationID: "b1", Mode: "any", ApplyToInstalled: true, Confirm: BlanketConfirmAny}))
+		Expect(err).NotTo(HaveOccurred())
+		r := data[HostGrantsAddonResult](f.svc.Serve(human, admin, call(HostGrantsEdit, "e1", "sandbox", HostGrantsEditRequest{OperationID: "e1", Revision: 1, Ops: []string{"workspace.materialize"}, Keep: []string{"workspace.materialize"}})))
+		Expect(r.Addon.Ops[2].Name).To(Equal("workspace.materialize"))
+		Expect(r.Addon.Ops[2].Source).To(Equal("edit"))
+		_, err = f.svc.Serve(human, admin, call(HostGrantsBlanket, "b2", "", HostGrantsBlanketRequest{OperationID: "b2", Revision: 2, Mode: "off", RevokeOnOff: true}))
+		Expect(err).NotTo(HaveOccurred())
+		v := data[HostGrantsView](f.svc.Serve(context.Background(), admin, call(HostGrantsRead, "", "", nil)))
+		for _, a := range v.Addons {
+			if a.ID == "sandbox" {
+				for _, o := range a.Ops {
+					if o.Name == "workspace.materialize" {
+						Expect(o.Status).To(Equal("allowed"))
+					}
+				}
+			}
 		}
 	})
 })

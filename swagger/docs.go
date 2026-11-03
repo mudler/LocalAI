@@ -792,7 +792,7 @@ const docTemplate = `{
         },
         "/api/addons/host-grants/blanket": {
             "put": {
-                "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to the operationId). Mode off, official or any. With it on, an install or upgrade grants the add-on the operations its verified manifest declares as required (also the optional ones with includeOptional) without the dialog step; it never grants an undeclared or unregistered operation and never overrides a deny rule. Mode official covers only the official library with its official signer. Mode any covers every library the administrator configured: ANY LIBRARY ENTRY THEN RECEIVES EXACTLY THE OPERATIONS ITS MANIFEST DECLARES, with no review, so a malicious or compromised entry gets what it asks for. Turning it on, or widening it, needs confirm equal to \"grant official add-ons what they declare\" (official) or \"grant any library add-on what it declares\" (any), else 400 confirmation_mismatch. applyToInstalled also grants the installed add-ons in the same revision. Turning it off keeps the grants it made, marked blanket; revokeOnOff revokes them all. When the deployment fixes the mode the answer is 403 locked_by_deployment.",
+                "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to \"blanket\"). Mode off, official or any. With it on, an install or upgrade grants the add-on the operations its verified manifest declares as required (also the optional ones with includeOptional) without the dialog step; it never grants an undeclared or unregistered operation and never overrides a deny rule. Mode official covers only the official library with its official signer. Mode any covers every library the administrator configured: ANY LIBRARY ENTRY THEN RECEIVES EXACTLY THE OPERATIONS ITS MANIFEST DECLARES, with no review, so a malicious or compromised entry gets what it asks for. Turning it on, or widening it, needs confirm equal to \"grant official add-ons what they declare\" (official) or \"grant any library add-on what it declares\" (any), else 400 confirmation_mismatch. applyToInstalled also grants the installed add-ons in the same revision. Turning it off keeps the grants it made, marked blanket; revokeOnOff revokes them all. When the deployment fixes the mode the answer is 403 locked_by_deployment.",
                 "consumes": [
                     "application/json"
                 ],
@@ -856,7 +856,7 @@ const docTemplate = `{
         },
         "/api/addons/host-grants/deny": {
             "put": {
-                "description": "Administrators only. A deny rule beats every grant. deny maps an add-on ID, or \"*\" for all, to prefixes (\"egress.\"), exact operation names or the single token \"*\". The rules of the policy file and flags are not editable here and are unioned with these. With dryRun true the answer is the affected add-ons only (affects: the operations each would lose and whether it will stop because a required one is lost) and nothing changes; a dry run needs the administrator but not the browser session. Without dryRun the change needs the administrator's own browser session (X-LocalAI-Confirm equal to the operationId), the revision the caller read (409 revision_conflict otherwise), and applies to the next call with no restart.",
+                "description": "Administrators only. A deny rule beats every grant. deny maps an add-on ID, or \"*\" for all, to prefixes (\"egress.\"), exact operation names or the single token \"*\". The rules of the policy file and flags are not editable here and are unioned with these. With dryRun true the answer is the affected add-ons only (affects: the operations each would lose and whether it will stop because a required one is lost) and nothing changes; a dry run needs the administrator but not the browser session. Without dryRun the change needs the administrator's own browser session (X-LocalAI-Confirm equal to \"deny\"), the revision the caller read (409 revision_conflict otherwise), and applies to the next call with no restart.",
                 "consumes": [
                     "application/json"
                 ],
@@ -920,7 +920,7 @@ const docTemplate = `{
         },
         "/api/addons/host-grants/install": {
             "post": {
-                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to the operationId). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Carries the approval the dialog collected: the digest of the previewed package, the operations ticked, the revision of the grants document and the preview nonce. The owner stages the package again and grants only the operations that are approved AND declared by that verified manifest AND registered by the host AND not denied; a different package is 409 approval_stale, a changed document 409 revision_conflict, an expired or reused nonce 409 approval_stale. A required operation that is neither held nor approved is refused (approval_required) and one that a deny rule blocks is 403 blocked_by_policy; nothing is written then. For action upgrade, expectedDigest and candidateDigest pin the upgrade as in the plain upgrade. The plain dispatch install carries no approval. Repeating the operationId with the same request returns the recorded operation. After outcome_unknown keep the operationId and poll the operation status.",
+                "description": "Administrators only, from their own browser session (same-origin fetch, X-LocalAI-Confirm equal to addonId@digest, the add-on and the digest of the approved package). API keys, bearer tokens, MCP sessions and tool calls are refused with 403 not_human_surface. Carries the approval the dialog collected: the digest of the previewed package, the operations ticked, the revision of the grants document and the preview nonce. The owner stages the package again and grants only the operations that are approved AND declared by that verified manifest AND registered by the host AND not denied; a different package is 409 approval_stale, a changed document 409 revision_conflict, an expired or reused nonce 409 approval_stale. A required operation that is neither held nor approved is refused (approval_required) and one that a deny rule blocks is 403 blocked_by_policy; nothing is written then. For action upgrade, expectedDigest and candidateDigest pin the upgrade as in the plain upgrade. The plain dispatch install carries no approval. Repeating the operationId with the same request returns the recorded operation. After outcome_unknown keep the operationId and poll the operation status.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1042,7 +1042,7 @@ const docTemplate = `{
         },
         "/api/addons/host-grants/{addonId}": {
             "put": {
-                "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to the operationId). ops is the full set the add-on keeps: operations left out are revoked, new ones must be declared by the installed manifest, registered by the host and not denied (403 blocked_by_policy). Grants made by the policy file or flags are not editable here. keepBlanketAsOwn relabels the blanket grants as the administrator's own. revision is the revision the caller read; a stale one is 409 revision_conflict. Takes effect for the next call of the add-on with no restart.",
+                "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to the add-on ID). operationId is optional (the host makes one); send your own to make a retry the same change. ops is the full set the add-on keeps: operations left out are revoked, new ones must be declared by the installed manifest, registered by the host and not denied (403 blocked_by_policy). Grants made by the policy file or flags are not editable here. keep names held blanket grants to relabel as the administrator's own. revision is the revision the caller read; a stale one is 409 revision_conflict. Takes effect for the next call of the add-on with no restart.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1117,7 +1117,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to the operationId). Removes the UI and blanket grants of the add-on; grants of the policy file stay. Query: revision (the revision the caller read) and operationId. Takes effect for the next call with no restart; a running call finishes. An add-on whose required operation is revoked becomes unavailable.",
+                "description": "Administrators only, from their own browser session (X-LocalAI-Confirm equal to the add-on ID). Removes the UI and blanket grants of the add-on; grants of the policy file stay. Query: revision (the revision the caller read) and, optionally, operationId. Takes effect for the next call with no restart; a running call finishes. An add-on whose required operation is revoked becomes unavailable.",
                 "produces": [
                     "application/json"
                 ],
@@ -1142,10 +1142,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Operation ID",
+                        "description": "Operation ID (optional)",
                         "name": "operationId",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -17414,6 +17413,12 @@ const docTemplate = `{
                 "identityMismatch": {
                     "type": "boolean"
                 },
+                "newOptional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "noLongerRequested": {
                     "type": "array",
                     "items": {
@@ -17432,7 +17437,14 @@ const docTemplate = `{
                 "requested": {
                     "$ref": "#/definitions/gateway.HostRequested"
                 },
+                "sourceId": {
+                    "type": "string"
+                },
                 "state": {
+                    "type": "string"
+                },
+                "stopped": {
+                    "description": "Stopped lists the required operations the add-on lacks, which keep it\nfrom running (\"stopped: needs X\").",
                     "type": "string"
                 },
                 "title": {
@@ -17607,15 +17619,17 @@ const docTemplate = `{
         "gateway.HostGrantsEditRequest": {
             "type": "object",
             "properties": {
-                "keepBlanketAsOwn": {
-                    "description": "KeepBlanketAsOwn relabels the blanket grants of the add-on as the\nadministrator's own, so revoking the blanket grants leaves them.",
-                    "type": "boolean"
+                "keep": {
+                    "description": "Keep names held blanket grants to relabel as the administrator's own,\nso revoking the blanket grants leaves them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "operationId": {
                     "type": "string"
                 },
                 "ops": {
-                    "description": "Ops is the full set of operations the add-on keeps through the UI.",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -17688,6 +17702,13 @@ const docTemplate = `{
         "gateway.HostGrantsPreviewView": {
             "type": "object",
             "properties": {
+                "added": {
+                    "description": "Added are the operations this version asks for that the installed\nversion did not. Empty on an install.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "addonId": {
                     "type": "string"
                 },
@@ -17784,8 +17805,8 @@ const docTemplate = `{
                 "by": {
                     "type": "string"
                 },
-                "hinted": {
-                    "description": "Hinted is true in a preview when the operation was granted before an\nearlier uninstall, so the dialog may tick it.",
+                "hint": {
+                    "description": "Hint is true in a preview when the operation was granted before an\nearlier uninstall, so the dialog may tick it. It grants nothing.",
                     "type": "boolean"
                 },
                 "name": {
@@ -17804,7 +17825,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status": {
-                    "description": "Status is allowed, not_allowed, blocked or unsupported. In a preview it\nis held, grantable, blocked or unsupported.",
+                    "description": "Status is allowed, not_allowed, blocked or unsupported, in the page and\nin a preview alike. In a preview not_allowed means the dialog may grant it.",
                     "type": "string"
                 },
                 "text": {

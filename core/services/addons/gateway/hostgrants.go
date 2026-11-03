@@ -228,6 +228,11 @@ type InstalledAccess struct {
 	Official           bool
 	Required, Optional []string
 	PendingUpgrade     *PendingUpgrade
+	// SourceID is the library the add-on came from.
+	SourceID string
+	// NewOptional are optional operations the installed version asks for
+	// that an upgrade added and that nothing grants yet.
+	NewOptional []string
 }
 
 // HostAccessManager is what the owner service needs from the add-on manager.
@@ -279,13 +284,12 @@ type HostGrantsInstallRequest struct {
 
 // HostGrantsEditRequest is the body of PUT /api/addons/host-grants/{addonId}.
 type HostGrantsEditRequest struct {
-	OperationID string `json:"operationId"`
-	Revision    uint64 `json:"revision"`
-	// Ops is the full set of operations the add-on keeps through the UI.
-	Ops []string `json:"ops"`
-	// KeepBlanketAsOwn relabels the blanket grants of the add-on as the
-	// administrator's own, so revoking the blanket grants leaves them.
-	KeepBlanketAsOwn bool `json:"keepBlanketAsOwn,omitempty"`
+	OperationID string   `json:"operationId"`
+	Revision    uint64   `json:"revision"`
+	Ops         []string `json:"ops"`
+	// Keep names held blanket grants to relabel as the administrator's own,
+	// so revoking the blanket grants leaves them.
+	Keep []string `json:"keep,omitempty"`
 }
 
 // HostGrantsRevokeRequest is the body the route builds from the query of
@@ -331,17 +335,17 @@ type HostOpView struct {
 	Title string `json:"title,omitempty"`
 	Text  string `json:"text,omitempty"`
 	Risk  string `json:"risk,omitempty"`
-	// Status is allowed, not_allowed, blocked or unsupported. In a preview it
-	// is held, grantable, blocked or unsupported.
+	// Status is allowed, not_allowed, blocked or unsupported, in the page and
+	// in a preview alike. In a preview not_allowed means the dialog may grant it.
 	Status   string `json:"status"`
 	Source   string `json:"source,omitempty"`
 	Reason   string `json:"reason,omitempty"`
 	At       string `json:"at,omitempty"`
 	By       string `json:"by,omitempty"`
 	Required bool   `json:"required,omitempty"`
-	// Hinted is true in a preview when the operation was granted before an
-	// earlier uninstall, so the dialog may tick it.
-	Hinted bool `json:"hinted,omitempty"`
+	// Hint is true in a preview when the operation was granted before an
+	// earlier uninstall, so the dialog may tick it. It grants nothing.
+	Hint bool `json:"hint,omitempty"`
 }
 
 // HostRequested lists what a manifest asks for.
@@ -352,16 +356,21 @@ type HostRequested struct {
 
 // HostGrantsAddon is the entry of one installed add-on.
 type HostGrantsAddon struct {
-	ID                 string          `json:"id"`
-	Title              string          `json:"title"`
-	Version            string          `json:"version"`
-	State              string          `json:"state"`
-	Requested          HostRequested   `json:"requested"`
-	Ops                []HostOpView    `json:"ops"`
-	NoLongerRequested  []HostOpView    `json:"noLongerRequested"`
-	IdentityMismatch   bool            `json:"identityMismatch"`
-	PendingUpgrade     *PendingUpgrade `json:"pendingUpgrade,omitempty"`
-	BlanketGrantsCount int             `json:"blanketGrants"`
+	ID                string          `json:"id"`
+	Title             string          `json:"title"`
+	Version           string          `json:"version"`
+	State             string          `json:"state"`
+	Requested         HostRequested   `json:"requested"`
+	Ops               []HostOpView    `json:"ops"`
+	NoLongerRequested []HostOpView    `json:"noLongerRequested"`
+	IdentityMismatch  bool            `json:"identityMismatch"`
+	PendingUpgrade    *PendingUpgrade `json:"pendingUpgrade,omitempty"`
+	SourceID          string          `json:"sourceId,omitempty"`
+	NewOptional       []string        `json:"newOptional"`
+	// Stopped lists the required operations the add-on lacks, which keep it
+	// from running ("stopped: needs X").
+	Stopped            string `json:"stopped,omitempty"`
+	BlanketGrantsCount int    `json:"blanketGrants"`
 }
 
 // HostBlanketView is the blanket switch as the page shows it.
@@ -409,12 +418,15 @@ type HostBlanketPreview struct {
 
 // HostGrantsPreviewView is the response of the preview.
 type HostGrantsPreviewView struct {
-	AddonID     string             `json:"addonId"`
-	Title       string             `json:"title"`
-	Digest      string             `json:"digest"`
-	Version     string             `json:"version"`
-	Installed   bool               `json:"installed"`
-	Official    bool               `json:"official"`
+	AddonID   string `json:"addonId"`
+	Title     string `json:"title"`
+	Digest    string `json:"digest"`
+	Version   string `json:"version"`
+	Installed bool   `json:"installed"`
+	Official  bool   `json:"official"`
+	// Added are the operations this version asks for that the installed
+	// version did not. Empty on an install.
+	Added       []string           `json:"added"`
 	Requested   HostRequested      `json:"requested"`
 	Ops         []HostOpView       `json:"ops"`
 	CanInstall  bool               `json:"canInstall"`

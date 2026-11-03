@@ -334,7 +334,7 @@ func (o *HostGrantsOwner) addonView(doc hostgrants.Snapshot, in InstalledAccess)
 	for _, g := range entry.Ops {
 		grant[g.Name] = g
 	}
-	v := HostGrantsAddon{ID: in.AddonID, Title: in.Title, Version: in.Version, State: in.State, PendingUpgrade: in.PendingUpgrade,
+	v := HostGrantsAddon{ID: in.AddonID, Title: in.Title, Version: in.Version, State: in.State, PendingUpgrade: in.PendingUpgrade, SourceID: in.SourceID, NewOptional: nonNil(sorted(in.NewOptional)),
 		Requested: HostRequested{Required: nonNil(sorted(in.Required)), Optional: nonNil(sorted(in.Optional))},
 		Ops:       []HostOpView{}, NoLongerRequested: []HostOpView{}}
 	view := func(op string) HostOpView {
@@ -352,9 +352,15 @@ func (o *HostGrantsOwner) addonView(doc hostgrants.Snapshot, in InstalledAccess)
 		o.describe(&ov)
 		return ov
 	}
+	var lacking []string
 	for _, op := range declared {
-		v.Ops = append(v.Ops, view(op))
+		ov := view(op)
+		v.Ops = append(v.Ops, ov)
+		if ov.Required && ov.Status != "allowed" {
+			lacking = append(lacking, op)
+		}
 	}
+	v.Stopped = strings.Join(lacking, ", ")
 	for _, g := range entry.Ops {
 		if g.Source == hostgrants.SourceBlanket {
 			v.BlanketGrantsCount++
@@ -432,10 +438,23 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 	if err != nil {
 		return HostGrantsPreviewView{}, err
 	}
-	// The verified manifest of the staged package is the only truth. The
-	// identity of a not yet installed package is unknown, so a UI entry of an
-	// older install of the same ID never counts as held here.
-	c := o.context("")
+	// The verified manifest of the staged package is the only truth. For an
+	// upgrade the identity of the installed package says what is held already;
+	// a package that is not installed yet holds nothing from the UI.
+	var installed InstalledAccess
+	identity := ""
+	if rel.Installed {
+		list, lerr := o.cfg.Manager.HostAccess(ctx)
+		if lerr != nil {
+			return HostGrantsPreviewView{}, lerr
+		}
+		for _, in := range list {
+			if in.AddonID == rel.AddonID {
+				installed, identity = in, in.Identity
+			}
+		}
+	}
+	c := o.context(identity)
 	declared := unique(rel.Required, rel.Optional)
 	plan := o.cfg.Floor.Plan(doc, c, hostgrants.PlanInput{AddonID: rel.AddonID, Required: rel.Required, Optional: rel.Optional, Wanted: declared})
 	req := map[string]bool{}
@@ -444,10 +463,11 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 	}
 	hint := doc.Hints[rel.AddonID]
 	v := HostGrantsPreviewView{AddonID: rel.AddonID, Title: rel.Title, Digest: rel.Digest, Version: rel.Version, Installed: rel.Installed,
-		Official: rel.Official, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: nonNil(plan.BlockedRequired),
+		Official: rel.Official, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: nonNil(plan.BlockedRequired), Added: []string{},
 		Requested: HostRequested{Required: nonNil(sorted(rel.Required)), Optional: nonNil(sorted(rel.Optional))}}
+	before := unique(installed.Required, installed.Optional)
 	for _, op := range declared {
-		ov := HostOpView{Name: op, Required: req[op], Hinted: slices.Contains(hint, op)}
+		ov := HostOpView{Name: op, Required: req[op], Hint: slices.Contains(hint, op)}
 		switch {
 		case slices.Contains(plan.Denied, op):
 			_, why := o.cfg.Floor.Denied(doc, rel.AddonID, op)
@@ -455,13 +475,16 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 		case slices.Contains(plan.Unsupported, op):
 			ov.Status = "unsupported"
 		case slices.Contains(plan.Held, op):
-			ov.Status = "held"
-			ov.Source = string(hostgrants.SourceDeployment)
+			ov.Status = "allowed"
+			ov.Source = string(o.cfg.Floor.Decide(doc, c, rel.AddonID, op).Source)
 		default:
-			ov.Status = "grantable"
+			ov.Status = "not_allowed"
 		}
 		o.describe(&ov)
 		v.Ops = append(v.Ops, ov)
+		if rel.Installed && !slices.Contains(before, op) {
+			v.Added = append(v.Added, op)
+		}
 	}
 	v.CanInstall = onlyGrantableMissing(plan, rel.Required)
 	b := o.cfg.Floor.EvaluateBlanket(doc, c, o.cfg.BlanketOverride, hostgrants.BlanketInput{AddonID: rel.AddonID, Official: rel.Official, Required: rel.Required, Optional: rel.Optional})
@@ -602,8 +625,17 @@ func (o *HostGrantsOwner) edit(ctx context.Context, a contract.Actor, id string,
 			removed = append(removed, g.Name)
 		}
 	}
-	if r.KeepBlanketAsOwn {
-		next = hostgrants.KeepAsOwn(next, o.now(), a.UserID)
+	if len(r.Keep) != 0 {
+		// Relabel only the blanket grants the caller named and still keeps.
+		keep := map[string]bool{}
+		for _, k := range r.Keep {
+			keep[k] = true
+		}
+		for i, g := range next.Ops {
+			if keep[g.Name] && g.Source == hostgrants.SourceBlanket {
+				next.Ops[i] = hostgrants.OpGrant{Name: g.Name, Source: hostgrants.SourceEdit, At: o.now(), By: a.UserID, Version: g.Version}
+			}
+		}
 	}
 	var patch hostgrants.Patch
 	if len(next.Ops) == 0 {
@@ -682,7 +714,11 @@ func (o *HostGrantsOwner) blanket(ctx context.Context, a contract.Actor, r HostG
 	default:
 		return nil, o.invalid()
 	}
-	if (r.Mode == hostgrants.BlanketOff && (r.IncludeOptional || r.ApplyToInstalled)) || (r.Mode != hostgrants.BlanketOff && r.RevokeOnOff) {
+	if r.Mode == hostgrants.BlanketOff {
+		// Off has no scope to widen: the options are ignored, not refused.
+		r.IncludeOptional, r.ApplyToInstalled = false, false
+	}
+	if r.Mode != hostgrants.BlanketOff && r.RevokeOnOff {
 		return nil, o.invalid()
 	}
 	doc, err := o.cfg.Store.Snapshot(ctx)

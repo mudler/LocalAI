@@ -67,7 +67,7 @@ var _ = Describe("host access routes with real sessions and API keys", func() {
 				r.Header.Set("Sec-Fetch-Site", "same-origin")
 				r.Header.Set("Sec-Fetch-Dest", "empty")
 				r.Header.Set("Sec-Fetch-Mode", "cors")
-				r.Header.Set(ConfirmHeader, "op1")
+				r.Header.Set(ConfirmHeader, "sandbox")
 			}
 		}
 		// The session of an administrator passes every gate.
@@ -75,7 +75,7 @@ var _ = Describe("host access routes with real sessions and API keys", func() {
 		Expect(put(func(r *http.Request) {
 			r.Header.Set("Authorization", "Bearer "+adminKey)
 			r.Header.Set("Sec-Fetch-Site", "same-origin")
-			r.Header.Set(ConfirmHeader, "op1")
+			r.Header.Set(ConfirmHeader, "sandbox")
 		})).To(Equal(403), "an administrator API key")
 		Expect(put(func(r *http.Request) {
 			tab(adminSession)(r)
