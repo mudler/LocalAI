@@ -89,7 +89,8 @@ var _ = Describe("studio service at startup", func() {
 		size := 4096
 		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{{Name: "small", LLMConfig: config.LLMConfig{ContextSize: &size}}, {Name: "unset"}})
 		Expect(app.studioContextTokens("small")).To(Equal(4096))
-		Expect(app.studioContextTokens("unset")).To(Equal(0))
+		// No context_size: the backend runs with its default window.
+		Expect(app.studioContextTokens("unset")).To(Equal(config.DefaultContextSize))
 		Expect(app.studioContextTokens("missing")).To(Equal(0))
 	})
 
