@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 )
 
@@ -55,6 +56,10 @@ const (
 
 var fileNameRE = regexp.MustCompile(`[^A-Za-z0-9._-]`)
 
+// Limits returns the byte and file caps of a package, the ones that apply to
+// a library package and to a local file alike.
+func (i *Installer) Limits() (bytes int64, files int) { return i.byteLimit(), i.fileLimit() }
+
 // FileSummary is what a verified zip says about itself. It is computed without
 // writing the package to disk.
 type FileSummary struct {
@@ -63,6 +68,9 @@ type FileSummary struct {
 	Size   int64  `json:"size"`
 	Files  int    `json:"files"`
 	zipformat.Manifest
+	// Package is manifest.json of the add-on, parsed. InspectFile fills it; it
+	// is not checked against a host there.
+	Package contract.Manifest `json:"package"`
 }
 
 // zipSink receives each file of the package after the path and type checks.
@@ -223,10 +231,34 @@ func (c *countingReader) Read(b []byte) (int, error) {
 // installer; zero takes the defaults.
 func InspectFile(ctx context.Context, p string, maxBytes int64, maxFiles int) (FileSummary, error) {
 	i := &Installer{MaxBytes: maxBytes, MaxFiles: maxFiles}
-	return readZip(ctx, p, i.byteLimit(), i.fileLimit(), nil, func(_ string, _ bool, r io.Reader) error {
-		_, e := io.Copy(io.Discard, r)
-		return e
+	var pkg contract.Manifest
+	sum, e := readZip(ctx, p, i.byteLimit(), i.fileLimit(), nil, func(n string, _ bool, r io.Reader) error {
+		if n != "manifest.json" {
+			_, e := io.Copy(io.Discard, r)
+			return e
+		}
+		b, e := io.ReadAll(io.LimitReader(r, contract.DefaultLimits().ManifestBytes+1))
+		if e != nil {
+			return e
+		}
+		if int64(len(b)) > contract.DefaultLimits().ManifestBytes {
+			return fileErr(FileBadManifest, "manifest.json is too large")
+		}
+		m, e := contract.ParseManifest(b)
+		if e != nil {
+			return fileErr(FileBadManifest, "manifest.json is not a valid add-on manifest")
+		}
+		pkg = m
+		return nil
 	})
+	if e != nil {
+		return sum, e
+	}
+	if pkg.ID == "" || pkg.ID != sum.ID || pkg.Version != sum.Version || pkg.OS != sum.OS || pkg.Arch != sum.Arch {
+		return sum, fileErr(FileBadManifest, "The manifest of the add-on does not match the digest manifest of the zip")
+	}
+	sum.Package = pkg
+	return sum, nil
 }
 
 // SafeFileName reduces the name a client gave a file to characters that are

@@ -60,6 +60,9 @@ type LifecycleCommand struct {
 	// registers. It carries no authority by itself: the caller must be a human
 	// surface, which the gateway checks before it sets this field.
 	Approval *HostApproval `json:",omitempty"`
+	// Downgrade confirms that a local file may install an older version than
+	// the one installed. Without it such a file is refused.
+	Downgrade bool `json:",omitempty"`
 }
 
 // HostApproval binds an approval to one staged package and one revision of the

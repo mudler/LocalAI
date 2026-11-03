@@ -4,6 +4,7 @@ package addons
 import (
 	"context"
 	"errors"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
@@ -55,7 +56,9 @@ func (r *updateReader) Installation(ctx context.Context, id string) (updates.Ins
 		return updates.Installation{}, false, nil
 	}
 	receipt, ok := currentReceipt(st)
-	if !ok {
+	if !ok || receipt.SourceID == zipformat.SourceID {
+		// A package from a local file has no library to ask, so no check can
+		// answer for it. The page reads that as unknown, never as current.
 		return updates.Installation{}, false, nil
 	}
 	return updates.Installation{AddonID: id, Generation: st.Generation, Receipt: receipt}, true, nil

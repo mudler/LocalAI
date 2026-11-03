@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 )
 
 // OfficialReceipt reports whether a package came from the official add-on
@@ -137,6 +138,10 @@ func (m *Manager) PreviewRelease(ctx context.Context, sourceID, addonID, version
 	}
 	installed := m.journal.Addons[addonID].Installed
 	m.mu.Unlock()
+	if sourceID == zipformat.SourceID {
+		// A local file: the version field names the staged file.
+		return m.previewFile(ctx, version)
+	}
 	r, e := m.resolveRelease(ctx, LifecycleCommand{SourceID: sourceID, AddonID: addonID, Version: version})
 	if e != nil {
 		return HostAccessRelease{}, e

@@ -27,7 +27,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/updates"
+	"github.com/mudler/LocalAI/core/services/addons/uploads"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 )
 
 var (
@@ -75,6 +77,14 @@ const (
 	CausePackageFetch = "package_fetch_failed"
 	// CauseInstallStorage: the verified package could not be written to disk.
 	CauseInstallStorage = "install_storage_failed"
+	// CauseFileMissing: the staged file of a local file install is gone, has
+	// expired or belongs to another user.
+	CauseFileMissing = "staged_file_missing"
+	// CauseVersionNotNewer: the file holds the version that is installed.
+	CauseVersionNotNewer = "version_not_newer"
+	// CauseDowngradeRefused: the file holds an older version and the request
+	// did not confirm the downgrade.
+	CauseDowngradeRefused = "downgrade_refused"
 )
 
 // FailureCause is the typed cause of a failed operation. Its text is fixed and
@@ -177,6 +187,9 @@ type Manager struct {
 	// identities maps an installed add-on to its trusted identity; see
 	// TrustedIdentity.
 	identities map[string]string
+	// uploads holds the zip files waiting for an install. Nil means the owner
+	// does not install from a file.
+	uploads atomic.Pointer[uploads.Store]
 }
 
 // SetAuthority sets the Authority that admission and the apps list ask. The
@@ -614,22 +627,46 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				return op.Status, e
 			}
 			m.mu.Unlock()
-			if release != nil {
-				r = *release
-			} else {
-				r, resolveErr = m.resolveRelease(ctx, cmd)
-			}
+			fromFile := cmd.SourceID == zipformat.SourceID
 			var staged packages.StagedPackage
 			var stageErr error
-			if resolveErr == nil {
-				staged, stageErr = m.installer.Stage(ctx, r, nil)
+			if fromFile {
+				// A local file has no library entry: the staged file is the
+				// release, and the same Stage checks apply to its contents.
+				staged, stageErr = m.stageUpload(ctx, actor, cmd.Version)
+			} else {
+				if release != nil {
+					r = *release
+				} else {
+					r, resolveErr = m.resolveRelease(ctx, cmd)
+				}
+				if resolveErr == nil {
+					staged, stageErr = m.installer.Stage(ctx, r, nil)
+				}
 			}
 			m.mu.Lock()
 			if resolveErr != nil {
 				return fail(resolveErr, &FailureCause{Code: resolveCauseCode(resolveErr), detail: resolveErr})
 			}
 			if stageErr != nil {
+				if errors.Is(stageErr, uploads.ErrNotFound) {
+					return fail(stageErr, &FailureCause{Code: CauseFileMissing, detail: stageErr})
+				}
 				return fail(stageErr, &FailureCause{Code: CausePackageFetch, detail: stageErr})
+			}
+			if fromFile {
+				if cause := m.fileVersionRefusal(cmd, next, staged.Receipt()); cause != nil {
+					if discardErr := m.installer.Discard(staged); discardErr != nil {
+						xlog.Warn("Could not discard refused addon stage", "addon", cmd.AddonID, "error", discardErr)
+					}
+					return fail(cause)
+				}
+				if staged.Receipt().Manifest.ID != cmd.AddonID {
+					if discardErr := m.installer.Discard(staged); discardErr != nil {
+						xlog.Warn("Could not discard refused addon stage", "addon", cmd.AddonID, "error", discardErr)
+					}
+					return fail(packages.ErrPackage)
+				}
 			}
 			if m.uncertain || m.runtimeRecoveryRequired {
 				return op.Status, ErrRecoveryRequired
@@ -763,6 +800,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	switch cmd.Action {
 	case "install", "upgrade", "uninstall":
 		m.syncSkills(ctx, cmd.AddonID)
+	}
+	if cmd.SourceID == zipformat.SourceID && (cmd.Action == "install" || cmd.Action == "upgrade") {
+		// The package is installed; the staged file has done its work.
+		m.dropUpload(actor, cmd.Version)
 	}
 	return result, m.syncFor(ctx, cmd.AddonID)
 }

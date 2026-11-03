@@ -35,6 +35,7 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/updates"
 	"github.com/mudler/LocalAI/core/services/addons/usersettings"
+	"github.com/mudler/LocalAI/core/services/addons/uploads"
 	"github.com/mudler/LocalAI/core/services/advisorylock"
 	"github.com/mudler/LocalAI/core/services/cloudproxy/mitm"
 	"github.com/mudler/LocalAI/core/services/facerecognition"
@@ -1051,6 +1052,11 @@ func (a *Application) startAddons() error {
 		// The update check reads the libraries and the journal the owner
 		// holds; it applies nothing, and its cache is bounded.
 		m.EnableUpdates(updates.Config{TTL: c.UpdateCacheTTL, MinRefresh: c.UpdateRefreshInterval})
+		// The staging area of zip files waits empty at start: a file that was
+		// uploaded before a restart has to be uploaded again.
+		files := &uploads.Store{Root: filepath.Join(c.Root, "uploads")}
+		files.Purge()
+		m.SetUploads(files)
 		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
 			return err
 		}
