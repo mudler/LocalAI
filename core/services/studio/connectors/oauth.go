@@ -152,6 +152,9 @@ type OAuthStore interface {
 	// step, only while the grant has the given version and no live lease. It
 	// reports whether owner holds the lease.
 	LeaseGrant(ctx context.Context, binding string, version int64, owner string, now time.Time, ttl time.Duration) (bool, error)
+	// ReleaseGrant ends the lease that owner holds on the grant at version,
+	// so another refresher need not wait for it to run out.
+	ReleaseGrant(ctx context.Context, binding string, version int64, owner string) error
 	// DeleteGrant removes the grant of a binding. A missing one is no error.
 	DeleteGrant(ctx context.Context, binding string) error
 

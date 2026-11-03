@@ -107,6 +107,23 @@ func runOAuth(newStore NewStore) {
 		Expect(ok).To(BeTrue())
 	})
 
+	It("releases a lease only for its owner and version", func() {
+		s := newStore()
+		_, _ = s.PutGrant(ctx, grant("b1"))
+		ok, _ := s.LeaseGrant(ctx, "b1", 1, "front-a", t0, time.Minute)
+		Expect(ok).To(BeTrue())
+		Expect(s.ReleaseGrant(ctx, "b1", 1, "front-b")).To(Succeed())
+		Expect(s.ReleaseGrant(ctx, "b1", 2, "front-a")).To(Succeed())
+		ok, _ = s.LeaseGrant(ctx, "b1", 1, "front-b", t0.Add(time.Second), time.Minute)
+		Expect(ok).To(BeFalse(), "another owner or version released the lease")
+		Expect(s.ReleaseGrant(ctx, "b1", 1, "front-a")).To(Succeed())
+		ok, _ = s.LeaseGrant(ctx, "b1", 1, "front-b", t0.Add(time.Second), time.Minute)
+		Expect(ok).To(BeTrue(), "a released lease is free")
+		got, _ := s.GetGrant(ctx, "b1")
+		Expect(got.Version).To(BeEquivalentTo(1), "a lease does not change the version")
+		Expect(s.ReleaseGrant(ctx, "missing", 1, "x")).To(Succeed())
+	})
+
 	It("lets only one of many racing refreshers lease a grant", func() {
 		s := newStore()
 		_, _ = s.PutGrant(ctx, grant("race"))

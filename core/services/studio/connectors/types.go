@@ -429,6 +429,9 @@ func ValidateKind(b Binding, agentOptional bool) error {
 	if err := validAuthKind(b); err != nil {
 		return bad("%v", err)
 	}
+	if b.UsesOAuth() && b.Enabled {
+		return bad("a connection that uses a login does not listen to messages")
+	}
 	if err := validateResources(b.Resources); err != nil {
 		return err
 	}

@@ -130,6 +130,11 @@ func (s *gormStore) LeaseGrant(ctx context.Context, binding string, version int6
 	return res.RowsAffected == 1, res.Error
 }
 
+func (s *gormStore) ReleaseGrant(ctx context.Context, binding string, version int64, owner string) error {
+	return s.db.WithContext(ctx).Model(&grantRow{}).Where("binding = ? AND version = ? AND lease_owner = ?", binding, version, owner).
+		Updates(map[string]any{"lease_owner": "", "lease_until": time.Time{}}).Error
+}
+
 func (s *gormStore) DeleteGrant(ctx context.Context, binding string) error {
 	return s.db.WithContext(ctx).Where("binding = ?", binding).Delete(&grantRow{}).Error
 }

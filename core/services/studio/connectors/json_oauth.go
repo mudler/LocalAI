@@ -72,6 +72,17 @@ func (s *jsonStore) LeaseGrant(_ context.Context, binding string, version int64,
 	return true, nil
 }
 
+func (s *jsonStore) ReleaseGrant(_ context.Context, binding string, version int64, owner string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cur, ok := s.d.Grants[binding]
+	if !ok || cur.Version != version || cur.LeaseOwner != owner {
+		return nil
+	}
+	cur.LeaseOwner, cur.LeaseUntil = "", time.Time{}
+	return s.mutate(func() { s.d.Grants[binding] = cur })
+}
+
 func (s *jsonStore) DeleteGrant(_ context.Context, binding string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
