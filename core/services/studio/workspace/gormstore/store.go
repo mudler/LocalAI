@@ -53,6 +53,8 @@ type Workspace struct {
 	now              func() time.Time
 	grace            time.Duration
 	sharedFilesystem bool
+	life             context.Context // ends the removals that wait for their grace
+	endLife          context.CancelFunc
 }
 
 var (
@@ -89,7 +91,16 @@ func New(db *gorm.DB, blobs blob.Store, o Options) (*Workspace, error) {
 		now = time.Now
 	}
 	fs, direct := blobs.(blob.Filesystem)
-	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace, sharedFilesystem: direct && fs.IsFilesystem() && d.name == "postgres"}, nil
+	life, endLife := context.WithCancel(context.Background())
+	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace, sharedFilesystem: direct && fs.IsFilesystem() && d.name == "postgres", life: life, endLife: endLife}, nil
+}
+
+// Close ends the blob removals that still wait for their grace. It does not
+// close the database, which the caller owns. The blobs stay; a later purge
+// finds them again.
+func (s *Workspace) Close() error {
+	s.endLife()
+	return nil
 }
 
 // limit returns the smaller non-zero of the store limit and a per-call limit.

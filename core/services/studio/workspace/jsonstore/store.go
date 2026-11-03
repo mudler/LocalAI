@@ -82,6 +82,8 @@ type Store struct {
 	now       func() time.Time
 	compactAt int64
 	blobGrace time.Duration
+	life      context.Context // ends the removals that wait for their grace
+	endLife   context.CancelFunc
 }
 
 var (
@@ -102,6 +104,7 @@ func New(dir string, blobs blob.Store, o Options) (*Store, error) {
 		return nil, errors.New("workspace: a blob store is required")
 	}
 	s := &Store{d: newData(), blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: o.Now, compactAt: o.CompactAt, blobGrace: o.BlobGrace}
+	s.life, s.endLife = context.WithCancel(context.Background())
 	if s.now == nil {
 		s.now = time.Now
 	}
@@ -133,6 +136,7 @@ func New(dir string, blobs blob.Store, o Options) (*Store, error) {
 
 // Close releases the folder. The store must not be used afterwards.
 func (s *Store) Close() error {
+	s.endLife()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.dir == "" {

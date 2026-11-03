@@ -219,12 +219,16 @@ func addonSkillSync(f *files.Service) addons.SkillSync {
 
 // openWorkspaceIndex opens the index of the workspace: the GORM store on the
 // auth database when there is one, and the JSON store in a folder under root
-// otherwise. The returned closer is nil for the shared database, which the
-// application closes itself.
+// otherwise. The closer ends the removals that wait for their grace and, for
+// the JSON store, releases its folder. The shared database is closed by the
+// application itself.
 func (a *Application) openWorkspaceIndex(root string, blobs blob.Store) (workspace.Store, io.Closer, error) {
 	if a.authDB != nil {
 		ws, err := gormstore.New(a.authDB, blobs, gormstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})
-		return ws, nil, err
+		if err != nil {
+			return nil, nil, err
+		}
+		return ws, ws, nil
 	}
 	ws, err := jsonstore.New(filepath.Join(root, "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})
 	if err != nil {

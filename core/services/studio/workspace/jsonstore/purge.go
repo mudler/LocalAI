@@ -67,7 +67,8 @@ func (s *Store) purge(ctx context.Context, a workspace.Actor, dryRun bool, pick 
 		return res, err
 	}
 	// Outside the lock: the check of the blobs takes the read lock.
-	blob.RemoveLater(s.blobs, freed, blob.Grace(s.blobGrace), s.blobsInUse)
+	blob.Sweep{Store: s.blobs, Grace: blob.Grace(s.blobGrace), InUse: s.blobsInUse, Life: s.life}.
+		RemoveLater(context.Background(), freed)
 	return res, nil
 }
 
@@ -180,9 +181,9 @@ func deletedSubtree(d *data, root int64) (ids []int64, whole bool) {
 }
 
 // blobsInUse tells which of shas a node or a journal row refers to.
-func (s *Store) blobsInUse(ctx context.Context, shas []string) (map[string]bool, error) {
+func (s *Store) blobsInUse(ctx context.Context, shas []string) (map[string]bool, func(), error) {
 	if err := ctx.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	want := make(map[string]bool, len(shas))
 	for _, sha := range shas {
@@ -202,5 +203,5 @@ func (s *Store) blobsInUse(ctx context.Context, shas []string) (map[string]bool,
 		mark(r.Old.Blob)
 		mark(r.New.Blob)
 	}
-	return want, nil
+	return want, nil, nil
 }

@@ -182,7 +182,7 @@ type Application struct {
 	studioTempDir         string                 // removed at shutdown; set only in memory-only mode
 	studioHostExec        *hostexec.Runner       // the chats' built-in bash on this machine
 	studioFiles           *files.Service
-	studioFilesIndex      io.Closer          // the JSON index of the workspace; nil when it uses the database
+	studioFilesIndex      io.Closer          // closes the workspace index: ends pending blob removals, frees the JSON folder
 	studioFilesTemp       string             // blob cache folder of a cluster with no data path; removed at shutdown
 	studioTextIndex       *textindex.Indexer // the text of the documents in the files; nil when files are off
 	authDB                *gorm.DB

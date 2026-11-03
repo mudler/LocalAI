@@ -181,39 +181,82 @@ func Grace(d time.Duration) time.Duration {
 	return d
 }
 
-// RemoveLater removes the blobs in shas from st after grace, but only those
-// that inUse still reports as free at that moment. The wait covers a Put that
-// found the blob already stored and has not yet written the row that refers to
-// it. A grace of zero or less removes at once. A store without Remove keeps
-// its blobs.
-func RemoveLater(st Store, shas []string, grace time.Duration, inUse func(ctx context.Context, shas []string) (map[string]bool, error)) int {
-	rm, ok := st.(Remover)
+// SweepTimeout bounds one removal pass: the wait for a connection and for a
+// lock, the check and the removals together.
+const SweepTimeout = 30 * time.Second
+
+// InUse tells which of shas something still refers to. A store whose answer
+// must stay true until the blobs are gone, for example because the check
+// holds a lock, returns a release func; RemoveLater calls it after the last
+// removal. The release func may be nil.
+type InUse func(ctx context.Context, shas []string) (used map[string]bool, release func(), err error)
+
+// Sweep removes unreferenced blobs from a Store after a purge.
+type Sweep struct {
+	Store Store
+	// Grace is the wait before the removal. It covers a Put that found the
+	// blob already stored and has not yet written the row that refers to it.
+	// Zero or less removes at once.
+	Grace time.Duration
+	InUse InUse
+	// Life ends the removals that still wait for their grace, for example at
+	// shutdown. Nil means they always run.
+	Life context.Context
+}
+
+// RemoveLater removes the blobs in shas, but only those that InUse reports as
+// free at that moment. With no grace it runs now, in ctx, and returns how many
+// blobs it removed. Otherwise it runs after the grace, outside ctx and bounded
+// by Life, and returns the number of blobs it will check. A Store without
+// Remove keeps its blobs.
+func (sw Sweep) RemoveLater(ctx context.Context, shas []string) int {
+	rm, ok := sw.Store.(Remover)
 	if !ok || len(shas) == 0 {
 		return 0
 	}
-	run := func() int {
-		ctx := context.Background()
-		used, err := inUse(ctx, shas)
-		if err != nil {
-			xlog.Warn("workspace: could not check the blobs of a purge", "error", err)
-			return 0
-		}
-		n := 0
-		for _, sha := range shas {
-			if used[sha] {
-				continue
-			}
-			if err := rm.Remove(ctx, sha); err != nil {
-				xlog.Warn("workspace: could not remove a blob", "sha", sha, "error", err)
-				continue
-			}
-			n++
-		}
-		return n
+	if sw.Grace <= 0 {
+		return sw.run(ctx, rm, shas)
 	}
-	if grace <= 0 {
-		return run()
+	life := sw.Life
+	if life == nil {
+		life = context.Background()
 	}
-	time.AfterFunc(grace, func() { run() })
+	timer := time.NewTimer(sw.Grace)
+	go func() {
+		select {
+		case <-timer.C:
+			sw.run(life, rm, shas)
+		case <-life.Done():
+			timer.Stop()
+		}
+	}()
 	return len(shas)
+}
+
+func (sw Sweep) run(ctx context.Context, rm Remover, shas []string) int {
+	ctx, cancel := context.WithTimeout(ctx, SweepTimeout)
+	defer cancel()
+	used, release, err := sw.InUse(ctx, shas)
+	if release != nil {
+		defer release()
+	}
+	if err != nil {
+		xlog.Warn("workspace: could not check the blobs of a purge", "error", err)
+		return 0
+	}
+	n := 0
+	for _, sha := range shas {
+		if used[sha] {
+			continue
+		}
+		if ctx.Err() != nil {
+			break
+		}
+		if err := rm.Remove(ctx, sha); err != nil {
+			xlog.Warn("workspace: could not remove a blob", "sha", sha, "error", err)
+			continue
+		}
+		n++
+	}
+	return n
 }

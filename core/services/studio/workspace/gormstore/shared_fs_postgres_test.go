@@ -145,7 +145,7 @@ var _ = Describe("PostgreSQL shared filesystem", func() {
 		cleanup, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 		defer cancel()
 		done := make(chan struct{})
-		go func() { b.removePGBlobsNow(cleanup, []string{sha}, bb); close(done) }()
+		go func() { b.removeBlobs(cleanup, []string{sha}); close(done) }()
 		waitSharedLock(ba.pool)
 		Eventually(done, 2*time.Second).Should(BeClosed())
 		Eventually(func() int { return bb.pool.Stats().InUse }, time.Second).Should(BeZero())
@@ -160,7 +160,7 @@ var _ = Describe("PostgreSQL shared filesystem", func() {
 		Expect(err).NotTo(HaveOccurred())
 		caller, cancel := context.WithCancel(ctx)
 		cancel()
-		b.removePGBlobs(caller, []string{sha})
+		b.removeBlobs(caller, []string{sha})
 		exists, err := bb.Store.Exists(ctx, sha)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(exists).To(BeTrue())
@@ -174,7 +174,7 @@ var _ = Describe("PostgreSQL shared filesystem", func() {
 		b.grace = 20 * time.Millisecond
 		caller, cancel := context.WithCancel(ctx)
 		cancel()
-		b.removePGBlobs(caller, []string{sha})
+		b.removeBlobs(caller, []string{sha})
 		Eventually(func() bool {
 			exists, err := bb.Store.Exists(ctx, sha)
 			Expect(err).NotTo(HaveOccurred())

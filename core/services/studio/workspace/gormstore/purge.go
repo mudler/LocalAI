@@ -6,10 +6,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"github.com/mudler/xlog"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
@@ -251,17 +249,27 @@ func (s *Workspace) purge(ctx context.Context, a Actor, dryRun bool, pick func(q
 	for sha := range freed {
 		shas = append(shas, sha)
 	}
-	if s.sharedFilesystem {
-		s.removePGBlobs(ctx, shas)
-	} else {
-		blob.RemoveLater(s.blobs, shas, blob.Grace(s.grace), s.blobsInUse)
-	}
+	s.removeBlobs(ctx, shas)
 	return res, nil
 }
 
+// removeBlobs removes the blobs that nothing refers to any more. On a shared
+// filesystem the removal runs in the caller's scope when there is no grace,
+// and under the revision lock; see blobsInUseLocked.
+func (s *Workspace) removeBlobs(ctx context.Context, shas []string) {
+	sw := blob.Sweep{Store: s.blobs, Grace: blob.Grace(s.grace), InUse: s.blobsInUse, Life: s.life}
+	if s.sharedFilesystem {
+		sw.InUse = s.blobsInUseLocked
+	} else {
+		ctx = context.Background()
+	}
+	sw.RemoveLater(ctx, shas)
+}
+
 // blobsInUse tells which of shas a node or a journal row refers to.
-func (s *Workspace) blobsInUse(ctx context.Context, shas []string) (map[string]bool, error) {
-	return blobsInUse(ctx, s.db, shas)
+func (s *Workspace) blobsInUse(ctx context.Context, shas []string) (map[string]bool, func(), error) {
+	used, err := blobsInUse(ctx, s.db, shas)
+	return used, nil, err
 }
 func blobsInUse(ctx context.Context, q querier, shas []string) (map[string]bool, error) {
 	used := make(map[string]bool, len(shas))
@@ -292,52 +300,26 @@ func scanStrings(rows *sql.Rows, into map[string]bool) error {
 	return rows.Err()
 }
 
-// The revision row covers ingest through reference publication and this entire
-// check/delete interval across PostgreSQL connections. Grace alone cannot do so.
-func (s *Workspace) removePGBlobs(ctx context.Context, shas []string) {
-	rm, ok := s.blobs.(blob.Remover)
-	if !ok || len(shas) == 0 {
-		return
-	}
-	if grace := blob.Grace(s.grace); grace > 0 {
-		// Delayed work outlives the request; its timeout starts after grace.
-		time.AfterFunc(grace, func() { s.removePGBlobsNow(context.Background(), shas, rm) })
-	} else {
-		s.removePGBlobsNow(ctx, shas, rm)
-	}
-}
-
-// removePGBlobsNow keeps the check/delete transaction in one cancellation scope.
-func (s *Workspace) removePGBlobsNow(caller context.Context, shas []string, rm blob.Remover) {
-	// Bound pool acquisition, revision-lock waiting and reference checks together.
-	ctx, cancel := context.WithTimeout(caller, 30*time.Second)
-	defer cancel()
+// blobsInUseLocked is blobsInUse under the revision row lock, which stays held
+// until release. A writer publishes a blob and the row that refers to it under
+// the same lock, so no writer can reference a blob between this check and its
+// removal on any PostgreSQL connection. Grace alone cannot do that.
+func (s *Workspace) blobsInUseLocked(ctx context.Context, shas []string) (map[string]bool, func(), error) {
 	t, err := s.db.BeginTx(ctx)
 	if err != nil {
-		xlog.Warn("workspace: could not begin blob purge", "error", err)
-		return
+		return nil, nil, err
 	}
-	defer func() { _ = t.Rollback() }()
-	if _, err = t.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`); err != nil {
-		xlog.Warn("workspace: could not lock blob purge", "error", err)
-		return
+	// Nothing is written: the transaction only holds the lock, so release
+	// rolls it back.
+	release := func() { _ = t.Rollback() }
+	if _, err := t.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`); err != nil {
+		release()
+		return nil, nil, err
 	}
 	used, err := blobsInUse(ctx, t, shas)
 	if err != nil {
-		xlog.Warn("workspace: could not check the blobs of a purge", "error", err)
-		return
+		release()
+		return nil, nil, err
 	}
-	for _, sha := range shas {
-		if ctx.Err() != nil {
-			return
-		}
-		if !used[sha] {
-			if err := rm.Remove(ctx, sha); err != nil {
-				xlog.Warn("workspace: could not remove a purged blob", "error", err)
-			}
-		}
-	}
-	if err := t.Commit(); err != nil {
-		xlog.Warn("workspace: could not finish blob purge", "error", err)
-	}
+	return used, release, nil
 }
