@@ -96,7 +96,9 @@ test('library drafts accept references and refuse secrets before sending', () =>
 
 test('tabs: the server decides, the page only avoids showing what it will refuse', () => {
   assert.deepEqual(visibleTabs(false), ['apps'])
-  assert.deepEqual(visibleTabs(true), ['apps', 'browse', 'libraries'])
+  assert.deepEqual(visibleTabs(true), ['apps', 'browse', 'libraries', 'access'])
+  assert.equal(resolveTab('access', false), 'apps')
+  assert.equal(resolveTab('access', true), 'access')
   // The Installed tab is folded into My add-ons; an old address lands there.
   assert.equal(resolveTab('installed', true), 'apps')
   assert.equal(resolveTab('installed', false), 'apps')
