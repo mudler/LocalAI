@@ -26,7 +26,7 @@ type observationProvider struct {
 	fail     bool
 }
 
-func (p *observationProvider) NewExecutionObservation(ctx context.Context, user, conv string) (*executionrequest.Request, string, func() string) {
+func (p *observationProvider) NewExecutionObservation(ctx context.Context, user, conv string) (*executionrequest.Request, string, func() ExecutionDetail) {
 	b := model.Binding{Actor: user, Addon: "renamed-provider", Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "inspect"}
 	r := executionrequest.New(ctx, b, "host-q", model.Eligible, executionrequest.IO{
 		Validate: func(context.Context, model.Binding) error { return nil },
@@ -50,7 +50,7 @@ func (p *observationProvider) NewExecutionObservation(ctx context.Context, user,
 	if p.requests != nil {
 		p.requests <- r
 	}
-	return r, b.Addon, func() string { return "" }
+	return r, b.Addon, func() ExecutionDetail { return ExecutionDetail{} }
 }
 
 var _ = Describe("execution status product scope", func() {
@@ -157,5 +157,146 @@ var _ = Describe("execution status product scope", func() {
 		defer done()
 		v := executionStatusView(ctx, "alice", "")
 		Expect(v.Readiness != "unknown" || v.Isolation != "unknown" || v.Generation != "" || v.Incarnation != "").To(BeFalse(), "unbound status manufactured identity", v)
+	})
+})
+
+// reasonProvider returns a fixed observation, or none with a failure.
+type reasonProvider struct {
+	AddonTools
+	request *executionrequest.Request
+	addon   string
+	detail  func() ExecutionDetail
+}
+
+func (p reasonProvider) NewExecutionObservation(context.Context, string, string) (*executionrequest.Request, string, func() ExecutionDetail) {
+	return p.request, p.addon, p.detail
+}
+
+var _ = Describe("why an execution status is unknown", func() {
+	view := func(p reasonProvider, addon string) *ExecutionStatusView {
+		s := &Service{d: Deps{AddonTools: p}}
+		ctx, done := s.executionScope(context.Background(), "alice", "chat")
+		DeferCleanup(done)
+		return executionStatusView(ctx, "alice", addon)
+	}
+	request := func(payload model.Payload, err error) *executionrequest.Request {
+		b := model.Binding{Actor: "alice", Addon: "runner", Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "inspect"}
+		r := executionrequest.New(context.Background(), b, "q", model.Eligible, executionrequest.IO{
+			Validate: func(context.Context, model.Binding) error { return nil },
+			Read: func(context.Context, model.Binding, model.ObservationID, time.Time) (model.Payload, error) {
+				return payload, err
+			}}, nil)
+		DeferCleanup(r.Close)
+		return r
+	}
+
+	It("carries the failure the provider recorded when it could not admit a request", func() {
+		for _, reason := range []UnknownReason{UnknownOwnerUnreachable, UnknownNotReported, UnknownStale} {
+			v := view(reasonProvider{detail: func() ExecutionDetail { return ExecutionDetail{Failure: reason} }}, "runner")
+			Expect(v.Readiness).To(Equal("unknown"))
+			Expect(v.UnknownReason).To(Equal(string(reason)))
+		}
+	})
+	It("says the status was not reported when the provider recorded nothing", func() {
+		Expect(view(reasonProvider{}, "runner").UnknownReason).To(Equal(string(UnknownNotReported)))
+	})
+	It("says the add-on does not run the chat's commands when another add-on was admitted", func() {
+		p := reasonProvider{request: request(model.ValidPayload(model.Value{Readiness: model.Available, Isolation: model.Isolated}), nil), addon: "runner", detail: func() ExecutionDetail { return ExecutionDetail{} }}
+		Expect(view(p, "other").UnknownReason).To(Equal(string(UnknownNotSelected)))
+		Expect(view(p, "").UnknownReason).To(Equal(string(UnknownNotSelected)))
+	})
+	It("carries the failure of a read the add-on did not answer", func() {
+		p := reasonProvider{request: request(model.InvalidPayload(), errors.New("boom")), addon: "runner",
+			detail: func() ExecutionDetail { return ExecutionDetail{Failure: UnknownInvalid} }}
+		Expect(view(p, "runner").UnknownReason).To(Equal(string(UnknownInvalid)))
+	})
+	It("says the add-on reported unknown when it answered unknown", func() {
+		p := reasonProvider{request: request(model.ValidPayload(model.Unknown()), nil), addon: "runner", detail: func() ExecutionDetail { return ExecutionDetail{} }}
+		Expect(view(p, "runner").UnknownReason).To(Equal(string(UnknownReportedUnknown)))
+	})
+	It("gives no reason once the status is known, and trusts enforcement only for available isolated", func() {
+		for value, want := range map[model.Value]bool{
+			{Readiness: model.Available, Isolation: model.Isolated}: true,
+			{Readiness: model.Available, Isolation: model.Host}:     false,
+		} {
+			p := reasonProvider{request: request(model.ValidPayload(value), nil), addon: "runner",
+				detail: func() ExecutionDetail { return ExecutionDetail{NetworkPolicyEnforced: true, Failure: UnknownStale} }}
+			v := view(p, "runner")
+			Expect(v.UnknownReason).To(BeEmpty())
+			Expect(v.NetworkPolicyEnforced).To(Equal(want))
+		}
+	})
+})
+
+// flakyProvider fails to admit its first observations, then succeeds.
+type flakyProvider struct {
+	AddonTools
+	failures int
+	failure  UnknownReason
+	calls    atomic.Int32
+}
+
+func (p *flakyProvider) NewExecutionObservation(ctx context.Context, user, _ string) (*executionrequest.Request, string, func() ExecutionDetail) {
+	if int(p.calls.Add(1)) <= p.failures {
+		return nil, "", func() ExecutionDetail { return ExecutionDetail{Failure: p.failure} }
+	}
+	b := model.Binding{Actor: user, Addon: "runner", Generation: "2", Incarnation: "two", ExecutionTool: "run", StatusTool: "inspect"}
+	r := executionrequest.New(ctx, b, "q", model.Eligible, executionrequest.IO{
+		Validate: func(context.Context, model.Binding) error { return nil },
+		Read: func(context.Context, model.Binding, model.ObservationID, time.Time) (model.Payload, error) {
+			return model.ValidPayload(model.Value{Readiness: model.Available, Isolation: model.Isolated}), nil
+		}}, nil)
+	return r, b.Addon, func() ExecutionDetail { return ExecutionDetail{} }
+}
+
+var _ = Describe("observing again after the add-on owner restarted", func() {
+	scopeOf := func(p ExecutionObserver) context.Context {
+		s := &Service{d: Deps{AddonTools: p.(AddonTools)}}
+		ctx, done := s.executionScope(context.Background(), "alice", "chat")
+		DeferCleanup(done)
+		return ctx
+	}
+	BeforeEach(func() {
+		old := observationRetryAfter
+		observationRetryAfter = 20 * time.Millisecond
+		DeferCleanup(func() { observationRetryAfter = old })
+	})
+
+	It("keeps the first answer inside the interval, then binds and reads again", func() {
+		p := &flakyProvider{failures: 1, failure: UnknownOwnerUnreachable}
+		ctx := scopeOf(p)
+		v, d := ObserveExecution(ctx, "alice", "runner")
+		Expect(v).To(Equal(model.Unknown()))
+		Expect(d.Failure).To(Equal(UnknownOwnerUnreachable))
+		_, _ = ObserveExecution(ctx, "alice", "runner")
+		Expect(p.calls.Load()).To(BeEquivalentTo(1), "no second admission within the interval")
+		time.Sleep(2 * observationRetryAfter)
+		v, d = ObserveExecution(ctx, "alice", "runner")
+		Expect(v.Isolation).To(Equal(model.Isolated))
+		Expect(d.Failure).To(BeEmpty())
+		Expect(p.calls.Load()).To(BeEquivalentTo(2))
+		_, _ = ObserveExecution(ctx, "alice", "runner")
+		Expect(p.calls.Load()).To(BeEquivalentTo(2), "a good status is not read again")
+	})
+	It("does not retry a refusal that waiting will not fix", func() {
+		p := &flakyProvider{failures: 1, failure: UnknownNotReported}
+		ctx := scopeOf(p)
+		_, _ = ObserveExecution(ctx, "alice", "runner")
+		time.Sleep(2 * observationRetryAfter)
+		v, d := ObserveExecution(ctx, "alice", "runner")
+		Expect(v).To(Equal(model.Unknown()))
+		Expect(d.Failure).To(Equal(UnknownNotReported))
+		Expect(p.calls.Load()).To(BeEquivalentTo(1))
+	})
+	It("does not start again once the scope is closed", func() {
+		p := &flakyProvider{failures: 1, failure: UnknownStale}
+		s := &Service{d: Deps{AddonTools: p}}
+		ctx, done := s.executionScope(context.Background(), "alice", "chat")
+		_, _ = ObserveExecution(ctx, "alice", "runner")
+		done()
+		time.Sleep(2 * observationRetryAfter)
+		v, _ := ObserveExecution(ctx, "alice", "runner")
+		Expect(v).To(Equal(model.Unknown()))
+		Expect(p.calls.Load()).To(BeEquivalentTo(1))
 	})
 })

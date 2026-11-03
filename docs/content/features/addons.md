@@ -235,9 +235,17 @@ The existing result envelope carries this JSON in `payload`:
 {
   "readiness": "available",
   "isolation": "isolated",
-  "explanation": "Commands use the configured isolated backend."
+  "explanation": "Commands use the configured isolated backend.",
+  "networkPolicyEnforced": true
 }
 ```
+
+`networkPolicyEnforced` is optional and false when absent. A provider sets it to
+true only when every network connection of its commands goes through the host's
+network policy (the Sandbox does, through its proxy). The host honors it only
+for a status that is `available` and `isolated`; it then shows the chat's
+Network row. Without the report the chat says that network-policy enforcement is
+not verified for the provider.
 
 `contract.DecodeExecutionStatus` accepts at most 2048 UTF-8 bytes. Both enums
 are required: readiness is `available`, `unavailable` or `unknown`; isolation
@@ -254,7 +262,7 @@ not an addon ID or a private settings payload. Prompt construction, command
 status and nested egress reads share one observation within a turn. Priming and
 standalone command-status or egress requests have separate, bounded scopes.
 Consumer cancellation stops that wait; turn completion cancels the observation.
-Failed reads settle as unknown and do not retry within the same scope. Each
+A failed read settles as unknown with a reason (`unknown_reason`: `owner_unreachable`, `not_reported`, `stale`, `invalid_status`, `not_selected`, `no_answer` or `reported_unknown`), which the Tools menu shows. It is not retried at once. After a failure that a restart of the add-on owner can cause (`owner_unreachable`, `no_answer`, `stale`), a scope that is still open (a long turn) binds and reads again, at most once every five seconds. A refusal of the binding or of the payload is not retried. Each
 consumption revalidates the complete owner binding, including conversation,
 current selection identity and runtime incarnation.
 
@@ -4894,6 +4902,11 @@ A binding does not authorize command execution, grant access or replace consent.
 Request/session integration shares observations only within a bounded request.
 
 ### Execution safety notices
+
+The Sandbox document skills (`docx`, `xlsx`, `pdf`, `pptx`) are offered only
+while the Sandbox reports an isolated backend. When it runs the chat's commands
+and is not known to be isolated, the skill list and `load_skill` say so, with the
+reason the status is unknown, instead of saying the chat has no skills.
 
 The chat Tools menu and command chip describe the actual selected execution
 provider, not an installed app's name. Any provider that reports host execution

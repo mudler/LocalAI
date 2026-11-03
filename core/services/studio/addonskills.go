@@ -61,6 +61,23 @@ type addonSkills struct {
 	known []AddonSkillSet
 	// pins are the administrator's choices, by name.
 	pins map[string]string
+	// hiddenDocuments are the document skills of the Sandbox left out because
+	// it runs the chat's commands without isolation.
+	hiddenDocuments []string
+	// documentsWhy is why the Sandbox is not known to be isolated.
+	documentsWhy string
+}
+
+// withNotes adds to notes the line that says why the Sandbox document skills
+// are missing, so the person is not left to guess.
+// documentNotePrefix starts the note that explains the missing document skills.
+const documentNotePrefix = "the document skills "
+
+func (a addonSkills) withNotes(notes []string) []string {
+	if len(a.hiddenDocuments) == 0 {
+		return notes
+	}
+	return append(notes, documentNotePrefix+strings.Join(a.hiddenDocuments, ", ")+" need an isolated Sandbox; "+a.documentsWhy)
 }
 
 // addonSkillsFor lists the add-ons of the user that ship skills and decides
@@ -102,6 +119,10 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 			continue
 		}
 		if set.AddonID == "sandbox" && !sandboxDocumentEligible(command) {
+			if command.State == CommandsAvailable && command.Provider == "sandbox" {
+				out.documentsWhy = s.documentsWhy(ctx, p, command)
+				out.hiddenDocuments = append(out.hiddenDocuments, slices.DeleteFunc(slices.Clone(set.Skills), func(n string) bool { return !contract.DocumentSkill(n) })...)
+			}
 			set.Skills = slices.DeleteFunc(slices.Clone(set.Skills), contract.DocumentSkill)
 			set.Shadows = slices.DeleteFunc(slices.Clone(set.Shadows), contract.DocumentSkill)
 		}
@@ -216,4 +237,24 @@ func (a addonSkills) markFallbacks(list []skills.Skill) string {
 		return ""
 	}
 	return "The built-in skills " + strings.Join(parts, ", ") + " serve because the add-on's own skill is off or not running in this chat."
+}
+
+// documentsWhy says why the Sandbox that runs the chat's commands is not known
+// to be isolated: it runs them on the host, or its status could not be read.
+func (s *Service) documentsWhy(ctx context.Context, p string, command Commands) string {
+	if command.Isolation == "host" {
+		return "its commands run on the server without isolation"
+	}
+	value, d := ObserveExecution(ctx, p, command.Addon)
+	if value.Readiness == "unavailable" {
+		return "the Sandbox reports that it cannot run commands"
+	}
+	why := d.Failure.Text()
+	if d.Failure == "" {
+		why = "its status says isolation is unknown"
+	}
+	if d.Explanation != "" {
+		why += " (" + d.Explanation + ")"
+	}
+	return "its status could not be read: " + why
 }

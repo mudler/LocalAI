@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -331,11 +332,16 @@ var _ = Describe("execution binding owner resolver", func() {
 		value := request.Observe(ctx)
 		Expect(string(value.Readiness)).To(Equal("available"))
 		Expect(string(value.Isolation)).To(Equal("isolated"))
-		Expect(explanation()).To(BeEmpty())
+		Expect(explanation().Explanation).To(BeEmpty())
 		Expect(request.Observe(ctx)).To(Equal(value))
 		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, []string{"renamed-runner", "alternate-worker"})).To(Succeed())
 		Expect(string(request.Observe(ctx).Isolation)).To(Equal("unknown"))
+		Expect(explanation().Failure).To(Equal(studio.UnknownStale))
 		Expect(broker.Isolation(ctx, studio.AnonymousPrincipal, "renamed-runner")).To(BeEmpty())
+		none, selectedNone, noneDetail := broker.NewExecutionObservation(ctx, studio.AnonymousPrincipal, claim.ConversationID)
+		Expect(none).To(BeNil())
+		Expect(selectedNone).To(BeEmpty())
+		Expect(noneDetail().Failure).To(Equal(studio.UnknownNotReported))
 		Expect(a.studioStore.SetAddonsOff(ctx, studio.AnonymousPrincipal, claim.ConversationID, nil)).To(Succeed())
 		fresh, selected, _ := broker.NewExecutionObservation(ctx, studio.AnonymousPrincipal, claim.ConversationID)
 		Expect(fresh).NotTo(BeNil())
@@ -438,4 +444,27 @@ var _ = Describe("workspace operation declarations", func() {
 		Entry("bare workspace", []string{"workspace"}, false),
 		Entry("similar prefix", []string{"workspaces.read", "workspace-other.read", "Workspace.read", "other.workspace.read"}, false),
 	)
+})
+
+var _ = Describe("why an execution status could not be read", func() {
+	DescribeTable("names the reason", func(stage string, err error, want studio.UnknownReason) {
+		Expect(executionFailureReason(stage, err)).To(Equal(want))
+	},
+		Entry("owner down", "read", gateway.ErrUnavailable, studio.UnknownOwnerUnreachable),
+		Entry("owner not sent to", "read", gateway.ErrNotSent, studio.UnknownOwnerUnreachable),
+		Entry("owner down while binding", "binding", gateway.ErrUnavailable, studio.UnknownOwnerUnreachable),
+		Entry("carrier error", "read", errors.New("carrier"), studio.UnknownOwnerUnreachable),
+		Entry("no status tool bound", "binding", gateway.ErrForbidden, studio.UnknownNotReported),
+		Entry("binding mismatch on read", "read", gateway.ErrForbidden, studio.UnknownStale),
+		Entry("binding changed on validate", "validate", gateway.ErrForbidden, studio.UnknownStale),
+		Entry("payload refused", "decode", errors.New("invalid execution readiness"), studio.UnknownInvalid),
+		Entry("no answer in time", "read", context.DeadlineExceeded, studio.UnknownNoAnswer),
+	)
+	It("logs each reason at most once a minute", func() {
+		t := time.Now()
+		Expect(failureLogDue("test-reason", t)).To(BeTrue())
+		Expect(failureLogDue("test-reason", t.Add(failureLogEvery/2))).To(BeFalse())
+		Expect(failureLogDue("other-reason", t.Add(failureLogEvery/2))).To(BeTrue())
+		Expect(failureLogDue("test-reason", t.Add(failureLogEvery))).To(BeTrue())
+	})
 })

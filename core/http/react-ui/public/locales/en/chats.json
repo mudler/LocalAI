@@ -412,6 +412,15 @@
       "hostChipTitle": "Commands in this chat run on this machine, not isolated. Select for details.",
       "providerHost": "Commands run on the server without isolation.",
       "unknown": "Execution readiness or isolation is unknown.",
+      "unknownBy": {
+        "owner_unreachable": "Execution readiness or isolation is unknown: the add-on owner could not be reached.",
+        "not_reported": "Execution readiness or isolation is unknown: the add-on has not reported its execution status.",
+        "stale": "Execution readiness or isolation is unknown: the status did not match the add-on's current version.",
+        "invalid_status": "Execution readiness or isolation is unknown: the add-on sent a status the host could not accept.",
+        "not_selected": "Execution readiness or isolation is unknown: the add-on is not the one that runs this chat's commands.",
+        "no_answer": "Execution readiness or isolation is unknown: the add-on did not answer in time.",
+        "reported_unknown": "Execution readiness or isolation is unknown: the add-on reported that it cannot tell."
+      },
       "providerUnavailable": "The selected execution provider is unavailable.",
       "disabled": "Running commands is switched off for this chat."
     },

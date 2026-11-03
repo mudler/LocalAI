@@ -269,7 +269,7 @@ for (const provider of ['copper-runner', 'violet-executor']) test(`typed safety:
   })
   const composer = hookHarness('../../src/components/chat/ChatComposer.jsx', 'ChatComposer', {
     useTranslation:() => ({t:key => key}), useAuth:() => ({isAdmin:true,user:{id:'alice'}}),
-    useModelFit:() => ({}), useCommandsNotice:() => ({info:null}),
+    useModelFit:() => ({}), useCommandsNotice:() => ({info:null}), unknownTextKey: imports.unknownTextKey,
     // Only the original code needs these; keeping them permits a genuine RED run.
     SANDBOX_ADDON:'sandbox', useSandboxStatus:() => null,
   }, source => source.replace('export default function', 'function').split('  // What a row of the model list')[0] + 'return shellNote\n}')
@@ -302,4 +302,21 @@ for (const provider of ['copper-runner', 'violet-executor']) test(`typed safety:
   // Built-in bash remains a primitive choice, not an add-on identity.
   group.providers.bash = 'builtin'
   assert.equal(render('bob:3', {state:'host',provider:'builtin'}).warn, true)
+})
+
+test('unknown status: each reason code has its own text key, and a code from a newer server falls back', async () => {
+  const { commandsState, unknownTextKey } = await import('../../src/utils/chatCommands.js')
+  const locale = JSON.parse((await import('node:fs')).readFileSync(new URL('../../public/locales/en/chats.json', import.meta.url), 'utf8'))
+  for (const code of ['owner_unreachable', 'not_reported', 'stale', 'invalid_status', 'not_selected', 'no_answer', 'reported_unknown']) {
+    const res = { commands: 'available', commands_provider: 'sandbox', execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: code } }
+    const state = commandsState(res)
+    assert.equal(state.state, 'unknown')
+    assert.equal(state.code, code)
+    const info = commandsNotice('unknown', { code: state.code })
+    assert.equal(info.textKey, `unknownBy.${code}`)
+    assert.ok(locale.tools.commands.unknownBy[code], `missing text for ${code}`)
+  }
+  assert.equal(unknownTextKey('from_the_future'), 'unknown')
+  assert.equal(unknownTextKey(''), 'unknown')
+  assert.equal(commandsState({ commands: 'available', commands_provider: 'sandbox', execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'x' } }).code, '')
 })

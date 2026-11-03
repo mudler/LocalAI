@@ -123,6 +123,23 @@ test.describe('Chat that cannot run commands', () => {
     await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
   })
 
+  test('an unknown status says why the host could not read it', async ({ page }) => {
+    await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 1, off: false }], commands: 'available', commands_provider: 'sandbox', execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'owner_unreachable' } }))
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    const notice = page.getByTestId('chat-commands-notice')
+    await expect(notice).toContainText('Execution readiness or isolation is unknown: the add-on owner could not be reached.')
+    await shot(page, 'commands-unknown-reason')
+  })
+
+  test('an unknown status without a reason keeps the generic text', async ({ page }) => {
+    await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 1, off: false }], commands: 'available', commands_provider: 'sandbox', execution_status: { readiness: 'unknown', isolation: 'unknown' } }))
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-commands-notice')).toContainText('Execution readiness or isolation is unknown.')
+    await expect(page.getByTestId('chat-commands-notice')).not.toContainText('add-on')
+  })
+
   test('a chat that runs commands shows neither the chip nor the notice', async ({ page }) => {
     await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 7, off: false }], commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' }))
     await page.goto('/app/chats/c1')

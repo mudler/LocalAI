@@ -1622,8 +1622,10 @@ type ChatsEgress struct {
 	Preset    string `json:"preset"`    // off, registries, all
 	Ceiling   string `json:"ceiling"`   // the administrator's limit
 	Effective string `json:"effective"` // the lower of the two
-	// Applies is false when commands run on this machine (applies_reason
-	// host) or no Sandbox serves bash (none).
+	// Applies is true when the add-on that runs the commands reports that it
+	// enforces the network policy. It is false when commands run on this
+	// machine (applies_reason host), or no Sandbox serves bash or the add-on
+	// does not report enforcement (none).
 	Applies       bool   `json:"applies"`
 	AppliesReason string `json:"applies_reason,omitempty"`
 	// Addon is the add-on that runs the chat's commands and carries the
@@ -1697,6 +1699,10 @@ type ChatsExecutionStatus struct {
 	Readiness   string `json:"readiness"`
 	Isolation   string `json:"isolation"`
 	Explanation string `json:"explanation,omitempty"`
-	Generation  string `json:"generation,omitempty"`
-	Incarnation string `json:"incarnation,omitempty"`
+	// UnknownReason says why the status is unknown: owner_unreachable,
+	// not_reported, stale, invalid_status, not_selected, no_answer or
+	// reported_unknown. Absent when the status is known.
+	UnknownReason string `json:"unknown_reason,omitempty" example:"owner_unreachable"`
+	Generation    string `json:"generation,omitempty"`
+	Incarnation   string `json:"incarnation,omitempty"`
 }

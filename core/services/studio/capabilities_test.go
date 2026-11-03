@@ -243,7 +243,7 @@ type presentationAddons struct {
 	bound bool
 }
 
-func (p presentationAddons) NewExecutionObservation(ctx context.Context, user, conv string) (*executionrequest.Request, string, func() string) {
+func (p presentationAddons) NewExecutionObservation(ctx context.Context, user, conv string) (*executionrequest.Request, string, func() studio.ExecutionDetail) {
 	if !p.bound {
 		return nil, "", nil
 	}
@@ -255,7 +255,7 @@ func (p presentationAddons) NewExecutionObservation(ctx context.Context, user, c
 		},
 	}, nil)
 	Expect(r.Binding()).To(Equal(b))
-	return r, b.Addon, func() string { return "plain explanation" }
+	return r, b.Addon, func() studio.ExecutionDetail { return studio.ExecutionDetail{Explanation: "plain explanation"} }
 }
 
 var _ = Describe("execution presentation DTO", func() {

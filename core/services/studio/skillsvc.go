@@ -172,7 +172,7 @@ func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []s
 	if err != nil {
 		return nil, nil, "", err
 	}
-	return list, notes, ad.markFallbacks(list), nil
+	return list, ad.withNotes(notes), ad.markFallbacks(list), nil
 }
 
 // Skills lists the skills the user has: every layer, with shadowed and skipped
@@ -211,7 +211,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		return nil, nil, err
 	}
 	ad.markFallbacks(list)
-	return list, notes, nil
+	return list, ad.withNotes(notes), nil
 }
 
 // WellKnown returns the well-known files of the users' homes: persona.json,

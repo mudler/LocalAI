@@ -1,6 +1,14 @@
 // Command availability and isolation come from the selected provider DTO, not
 // an add-on's private discovery response or its name.
 
+// Why the host has no execution status (execution_status.unknown_reason).
+// Each code has its own sentence under chats:tools.commands.unknownBy.
+const UNKNOWN_REASONS = ['owner_unreachable', 'not_reported', 'stale', 'invalid_status', 'not_selected', 'no_answer', 'reported_unknown']
+
+// The text key of the notice of an unknown state, with the reason when known.
+export const unknownTextKey = (code) => (UNKNOWN_REASONS.includes(code) ? `unknownBy.${code}` : 'unknown')
+const reasonCode = (observation) => (UNKNOWN_REASONS.includes(observation?.unknown_reason) ? observation.unknown_reason : '')
+
 // commandsState reads the commands fields of an add-on list as one state and
 // its reason.
 export function commandsState(res) {
@@ -15,11 +23,11 @@ export function commandsState(res) {
   const observation = res?.execution_status
   if (state === 'available') {
     const isolation = observation?.isolation || res?.commands_isolation
-    if (observation && observation.readiness !== 'available') return { state: 'unknown', reason: plainExplanation(observation.explanation) }
+    if (observation && observation.readiness !== 'available') return { state: 'unknown', reason: plainExplanation(observation.explanation), code: reasonCode(observation) }
     if (isolation === 'host') return { state: 'provider-host', reason: plainExplanation(observation?.explanation) }
-    if (isolation !== 'isolated') return { state: 'unknown', reason: plainExplanation(observation?.explanation) }
+    if (isolation !== 'isolated') return { state: 'unknown', reason: plainExplanation(observation?.explanation), code: reasonCode(observation) }
   }
-  if (state === 'none' && observation) return { state: 'unknown', reason: plainExplanation(observation.explanation) }
+  if (state === 'none' && observation) return { state: 'unknown', reason: plainExplanation(observation.explanation), code: reasonCode(observation) }
   if (state === 'unavailable' && (observation || res?.commands_provider)) return { state: 'provider-unavailable', reason: plainExplanation(observation?.explanation || reason) }
   return { state, reason }
 }
@@ -27,14 +35,14 @@ export function commandsState(res) {
 // The notice for a state, or null when commands run (or the state is unknown).
 // keys are under chats:tools.commands. link is for administrators only; a
 // person who is not one is told to ask one, unless the fix is theirs.
-export function commandsNotice(commands, { isAdmin = false, reason = '' } = {}) {
+export function commandsNotice(commands, { isAdmin = false, reason = '', code = '' } = {}) {
   switch (commands) {
     case 'provider-host':
     case 'unknown':
     case 'loading':
     case 'provider-unavailable':
     case 'switched_off':
-      return { state: commands, titleKey: commands === 'provider-host' ? 'hostTitle' : 'title', textKey: commands === 'switched_off' ? 'disabled' : commands === 'provider-host' ? 'providerHost' : commands === 'provider-unavailable' ? 'providerUnavailable' : 'unknown', reason: plainExplanation(reason), tone: 'warn', link: null, askKey: null }
+      return { state: commands, titleKey: commands === 'provider-host' ? 'hostTitle' : 'title', textKey: commands === 'switched_off' ? 'disabled' : commands === 'provider-host' ? 'providerHost' : commands === 'provider-unavailable' ? 'providerUnavailable' : unknownTextKey(code), reason: plainExplanation(reason), tone: 'warn', link: null, askKey: null }
 
     case 'off':
       return { state: 'off', textKey: 'disabled', link: null, askKey: null, reason: '' }
@@ -121,5 +129,5 @@ export function plainExplanation(value) {
 
 export function noticeIdentity(res, chat, actor) {
   const v = res?.execution_status || {}
-  return JSON.stringify([actor, chat, res?.commands_provider, v.generation, v.incarnation, res?.commands, v.readiness, v.isolation || res?.commands_isolation])
+  return JSON.stringify([actor, chat, res?.commands_provider, v.generation, v.incarnation, res?.commands, v.readiness, v.isolation || res?.commands_isolation, v.unknown_reason])
 }

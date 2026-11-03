@@ -47,6 +47,24 @@ var _ = Describe("Execution status payload", func() {
 		Entry("direction", `{"readiness":"available","isolation":"host","explanation":"a\u202eb"}`),
 		Entry("oversized payload", strings.Repeat(" ", 2049)+`{}`),
 	)
+	It("reports network-policy enforcement only for an available isolated provider", func() {
+		for raw, want := range map[string]bool{
+			`{"readiness":"available","isolation":"isolated","networkPolicyEnforced":true}`:   true,
+			`{"readiness":"available","isolation":"isolated","networkPolicyEnforced":false}`:  false,
+			`{"readiness":"available","isolation":"isolated"}`:                                false,
+			`{"readiness":"available","isolation":"host","networkPolicyEnforced":true}`:       false,
+			`{"readiness":"unavailable","isolation":"isolated","networkPolicyEnforced":true}`: false,
+		} {
+			v, err := DecodeExecutionStatus([]byte(raw))
+			Expect(err).NotTo(HaveOccurred(), raw)
+			Expect(v.NetworkPolicyEnforced).To(Equal(want), raw)
+		}
+	})
+	It("refuses a non-boolean enforcement claim", func() {
+		v, err := DecodeExecutionStatus([]byte(`{"readiness":"available","isolation":"isolated","networkPolicyEnforced":"yes"}`))
+		Expect(err).To(HaveOccurred())
+		Expect(v.NetworkPolicyEnforced).To(BeFalse())
+	})
 	It("bridges validation into the existing pure model boundary", func() {
 		for _, tc := range []struct {
 			raw   string

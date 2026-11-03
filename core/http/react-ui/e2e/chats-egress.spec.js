@@ -30,7 +30,7 @@ const DETAIL = {
   id: 'c1', title: 'Packages', model: 'qwen3-8b', kind: 'chat', created: '2026-10-30T10:00:00Z', updated: '2026-10-30T10:00:00Z',
   running: false, last_turn: 'done', pending: [],
 }
-const sandbox = { addons: [{ id: 'sandbox', tools: 2, off: false }], commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated' }
+const sandbox = { addons: [{ id: 'sandbox', tools: 2, off: false }], commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated', execution_status: { readiness: 'available', isolation: 'isolated' } }
 const view = (over = {}) => ({
   preset: 'off', ceiling: 'registries', effective: 'off', applies: true, applies_reason: '', addon: 'sandbox',
   registries: [{ id: 'pypi', title: 'Python (PyPI)', hosts: ['pypi.org', 'files.pythonhosted.org'] }], allowed_hosts: [], rules: [], cards: [], ...over,
@@ -152,6 +152,17 @@ test.describe('Network of the Sandbox commands', () => {
     await page.getByTestId('chat-tools-button').click()
     await expect(page.getByTestId('chat-network-unenforced')).toContainText('Commands run on this machine and use its network.')
     await expect(page.getByTestId('chat-network')).toHaveCount(0)
+  })
+
+  test('a runner that does not report enforcement shows the not-enforced line and no switcher', async ({ page }) => {
+    // What the server sends when the isolated provider's status has no
+    // network-policy enforcement report.
+    await stubChat(page, { egress: view({ applies: false, applies_reason: 'none' }) })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network-unenforced')).toContainText('Network-policy enforcement is not verified')
+    await expect(page.getByTestId('chat-network')).toHaveCount(0)
+    await shot(page, 'network-not-enforced')
   })
 
   test('with no add-on that draws the network controls, the Tools menu has no Network row', async ({ page }) => {

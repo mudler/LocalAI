@@ -28,6 +28,30 @@ var _ = Describe("document command eligibility", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(skills.Names(skills.Usable(list))).NotTo(ContainElement("docx"))
 	})
+	DescribeTable("tells the person why the Sandbox document skills are missing", func(command Commands, off []string, wantNote bool) {
+		ctx := context.Background()
+		b := &skillBroker{}
+		svc, f := newSkillService(b)
+		Expect(f.SyncAddonSkills(ctx, "sandbox", fstest.MapFS{
+			"docx/SKILL.md": {Data: md("docx", "Sandbox document.")},
+			"pdf/SKILL.md":  {Data: md("pdf", "Sandbox pdf.")},
+			"plot/SKILL.md": {Data: md("plot", "Sandbox plots.")},
+		})).To(Succeed())
+		b.set(AddonSkillSet{AddonID: "sandbox", Skills: []string{"docx", "pdf", "plot"}, Shadows: []string{"docx", "pdf"}, Running: true})
+		_, notes, err := chatSkillNotes(svc, ctx, off, command)
+		Expect(err).NotTo(HaveOccurred())
+		if wantNote {
+			Expect(notes).To(ContainElement(HavePrefix("the document skills docx, pdf need an isolated Sandbox; ")))
+		} else {
+			Expect(strings.Join(notes, ";")).NotTo(ContainSubstring("isolated Sandbox"))
+		}
+	},
+		Entry("commands run on the host", Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "host"}, nil, true),
+		Entry("isolation unknown", Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox"}, nil, true),
+		Entry("isolated", Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "isolated"}, nil, false),
+		Entry("another provider runs the commands", Commands{State: CommandsAvailable, Addon: "other", Provider: "other", Isolation: "host"}, nil, false),
+		Entry("the Sandbox is off for the chat", Commands{State: CommandsAvailable, Addon: "sandbox", Provider: "sandbox", Isolation: "host"}, []string{"sandbox"}, false),
+	)
 	It("does not switch a missing pinned document provider to Office", func() {
 		a := addonSkills{pins: map[string]string{"docx": "sandbox"}, usable: []AddonSkillSet{{AddonID: "office", Shadows: []string{"docx"}}}}
 		id, chosen := a.provider("docx")
@@ -174,6 +198,40 @@ var _ = Describe("document provider matrix", func() {
 		Expect(saved.Skills).To(Equal([]string{"docx"}))
 	}, Entry("permitted then revoked Sandbox", true), Entry("absent Sandbox grant", false))
 
+	It("says why a document skill is missing when the status cannot be read after the tool was offered", func() {
+		ctx := context.Background()
+		b := &documentBroker{skillBroker: &skillBroker{}, isolation: "isolated", defs: []AddonTool{{AddonID: "sandbox", Name: "addon__sandbox__exec", Shadows: "bash"}}}
+		svc, f := newSkillService(b.skillBroker)
+		svc.d.AddonTools = b
+		agentsStore, err := agents.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc.d.Agents = agentsStore
+		Expect(f.SyncAddonSkills(ctx, "sandbox", fstest.MapFS{"pptx/SKILL.md": {Data: skillMD("pptx", "Sandbox slides.", "Slides body.", "requires: [exec]")}})).To(Succeed())
+		b.set(AddonSkillSet{AddonID: "sandbox", Skills: []string{"pptx"}, Shadows: []string{"pptx"}, Running: true})
+		agent, err := svc.SaveAgent(ctx, "alice", agents.Agent{Name: "Slides", Model: "m", Addons: []string{"sandbox"}, Skills: []string{"pptx"}})
+		Expect(err).NotTo(HaveOccurred())
+		parent, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		rec := session.ChatRecord{ID: "slides-child", Principal: "alice", Model: "m", Kind: session.KindSubAgent, ParentID: parent.ID, AgentID: agent.ID}
+		Expect(svc.d.Store.CreateChat(ctx, rec)).To(Succeed())
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		turn, err := svc.chatTools(ctx, x)
+		Expect(err).NotTo(HaveOccurred())
+		var loader session.Tool
+		for _, tool := range turn.Tools {
+			if tool.Name == "load_skill" {
+				loader = tool
+			}
+		}
+		Expect(loader.Run).NotTo(BeNil(), "the tool is offered while the status reads as isolated")
+		// The status can no longer be read when the model calls the tool.
+		b.isolation = ""
+		_, err = loader.Run(ctx, json.RawMessage(`{"name":"pptx"}`))
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).NotTo(ContainSubstring("has no skills now"))
+		Expect(err.Error()).To(ContainSubstring("need an isolated Sandbox; its status could not be read"))
+	})
 	It("opens a scoped chat with load_skill without reentering session access resolution", func() {
 		ctx := context.Background()
 		// A stub harness: the spec checks that Open builds the chat tools
@@ -303,4 +361,11 @@ func documentCommands(s *Service, ctx context.Context, p string, rec session.Cha
 	c, err := s.addonCommandDescriptor(ctx, p, rec, sc)
 	Expect(err).NotTo(HaveOccurred())
 	return c
+}
+
+// chatSkillNotes resolves the skills of a chat as the turn does and returns
+// the notes it gets.
+func chatSkillNotes(svc *Service, ctx context.Context, off []string, command Commands) ([]skills.Skill, []string, error) {
+	list, notes, _, err := svc.chatSkillSet(ctx, "alice", nil, off, nil, command)
+	return list, notes, err
 }

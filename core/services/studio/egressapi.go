@@ -28,19 +28,21 @@ var (
 // The reasons the network settings do not apply to a chat.
 const (
 	EgressAppliesHost = "host" // commands run on this machine, with its network
-	EgressAppliesNone = "none" // no Sandbox serves bash in this chat
+	EgressAppliesNone = "none" // no Sandbox serves bash, or it does not report that it enforces the policy
 )
 
 // EgressView is the network of one chat, as its network panel shows it.
 type EgressView struct {
 	Preset, Ceiling, Effective egress.Preset
-	// Applies is false when commands run on this machine or no Sandbox serves
-	// bash; AppliesReason then says which.
+	// Applies is true when the provider that runs the commands reports that it
+	// enforces the network policy. It is false when commands run on this
+	// machine, no Sandbox serves bash, or the provider does not report
+	// enforcement; AppliesReason then says which.
 	Applies       bool
 	AppliesReason string
 	// Addon is the add-on that runs the chat's commands and carries the
 	// network-policy host control, which draws the network row of the chat:
-	// set only while Applies. Without it no add-on draws the controls, and
+	// set only for a provider that carries it. Without it no add-on draws the controls, and
 	// the policy still holds.
 	Addon      string
 	Registries []egress.Registry
@@ -118,8 +120,13 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	case cmds.State == CommandsAvailable && (cmds.Provider == BuiltinProvider || cmds.Isolation == "host"):
 		v.AppliesReason = EgressAppliesHost
 	case cmds.State == CommandsAvailable:
-		// Provider isolation does not establish host network-policy enforcement.
-		v.AppliesReason = EgressAppliesNone
+		// Isolation alone does not establish network-policy enforcement: the
+		// settings apply only when the provider reports that it enforces them
+		// in a status that is available and isolated.
+		v.Applies = cmds.ExecutionStatus != nil && cmds.ExecutionStatus.NetworkPolicyEnforced
+		if !v.Applies {
+			v.AppliesReason = EgressAppliesNone
+		}
 		if c, ok := s.d.AddonTools.(AddonControls); ok && slices.Contains(c.Controls(ctx, p, cmds.Provider), contract.ControlNetworkPolicy) {
 			v.Addon = cmds.Provider
 		}

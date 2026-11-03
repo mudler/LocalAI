@@ -17,6 +17,11 @@ type ExecutionStatus struct {
 	Readiness   string `json:"readiness"`
 	Isolation   string `json:"isolation"`
 	Explanation string `json:"explanation,omitempty"`
+	// NetworkPolicyEnforced is the provider's report that every network
+	// connection of its commands goes through the host's network policy. It is
+	// kept only for an available, isolated provider; the host still decides
+	// whether to rely on it.
+	NetworkPolicyEnforced bool `json:"networkPolicyEnforced,omitempty"`
 }
 
 // DecodeExecutionStatus decodes Result.Payload, never the result envelope.
@@ -28,7 +33,7 @@ func DecodeExecutionStatus(b []byte) (ExecutionStatus, error) {
 	if !utf8.Valid(b) {
 		return unknown, fmt.Errorf("invalid execution status UTF-8")
 	}
-	fields, err := exactObjectFields(b, MaxExecutionStatusBytes, "readiness", "isolation", "explanation")
+	fields, err := exactObjectFields(b, MaxExecutionStatusBytes, "readiness", "isolation", "explanation", "networkPolicyEnforced")
 	if err != nil {
 		return unknown, err
 	}
@@ -47,6 +52,9 @@ func DecodeExecutionStatus(b []byte) (ExecutionStatus, error) {
 	}
 	if v.Readiness != "available" {
 		v.Isolation = "unknown"
+	}
+	if v.Readiness != "available" || v.Isolation != "isolated" {
+		v.NetworkPolicyEnforced = false
 	}
 	return v, nil
 }

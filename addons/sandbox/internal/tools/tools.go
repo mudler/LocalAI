@@ -184,15 +184,24 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	// The typed observation is callback-free, including administrator lookups.
 	if a.Tool == ToolExecutionStatus {
 		status := contract.ExecutionStatus{Readiness: "unknown", Isolation: "unknown"}
-		if r.settings != nil {
+		// The add-on starts without settings only when it could not read them
+		// or start its manager: it can run nothing, and says so.
+		if r.settings == nil {
+			status.Readiness, status.Explanation = "unavailable", "The Sandbox could not start."
+		} else {
 			switch r.settings.Status().Active {
 			case "gvisor", "kvm":
 				status.Readiness, status.Isolation = "available", "isolated"
+				// The guest has no network device: its connections reach the
+				// network only through the proxy that asks the host.
+				status.NetworkPolicyEnforced = true
 			case "host":
 				status.Readiness, status.Isolation = "available", "host"
 			case "":
 				status.Readiness = "unavailable"
 				status.Explanation = "No execution backend is available."
+			default:
+				status.Explanation = "The active execution backend is not recognized."
 			}
 		}
 		return contract.Result{Payload: protocol.Payload(status)}, nil
