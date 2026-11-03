@@ -135,6 +135,98 @@ type Trigger struct {
 	// that a model asked for in a chat (see Change). Such a record is also
 	// Proposed and never enabled, so it never runs. The package only stores it.
 	Change Change
+	// Route says where a trigger that a connector chat proposed came from and
+	// where its runs report. The zero value is a trigger made in Studio, whose
+	// runs go to the Inbox. The package only stores it.
+	Route Route
+}
+
+// Where the runs of a trigger report. Inbox is the default: the owner's Inbox
+// and the chat the owner chose for notices. Origin is the chat and thread
+// where the trigger was proposed.
+const (
+	TargetInbox  = "inbox"
+	TargetOrigin = "origin"
+)
+
+// When a run is reported. Always reports every run, OnChange a run whose
+// answer differs from the one before, and OnProblem only a run that failed.
+const (
+	ModeAlways    = "always"
+	ModeOnChange  = "on_change"
+	ModeOnProblem = "on_problem"
+)
+
+// MaxRefBytes bounds the binding, chat and thread of a Route: the width of
+// the sender column of the connector stores.
+const MaxRefBytes = 64
+
+// Route is the connector side of a trigger: the place it was proposed from
+// and the delivery of its runs. Binding, Chat and Thread name the place in
+// the host's own words, with no platform in them; they are set only for a
+// trigger that a connector chat proposed. Code is what a person types in that
+// place to confirm or cancel the proposal while it waits. Expires is when a
+// waiting proposal lapses; zero means it never does.
+type Route struct {
+	Binding string `json:",omitempty"`
+	Chat    string `json:",omitempty"`
+	Thread  string `json:",omitempty"`
+	Code    string `json:",omitempty"`
+	// ProposedAt is when the proposal was made.
+	ProposedAt time.Time `json:",omitzero"`
+	Expires    time.Time `json:",omitzero"`
+	// Target and Mode are the delivery; empty means TargetInbox and
+	// ModeAlways.
+	Target string `json:",omitempty"`
+	Mode   string `json:",omitempty"`
+}
+
+// FromConnector says whether a connector chat proposed the trigger.
+func (r Route) FromConnector() bool { return r.Binding != "" }
+
+// TargetOrDefault gives Target, or TargetInbox when it is empty.
+func (r Route) TargetOrDefault() string {
+	if r.Target == "" {
+		return TargetInbox
+	}
+	return r.Target
+}
+
+// ModeOrDefault gives Mode, or ModeAlways when it is empty.
+func (r Route) ModeOrDefault() string {
+	if r.Mode == "" {
+		return ModeAlways
+	}
+	return r.Mode
+}
+
+// Validate checks the delivery and the place of a Route.
+func (r Route) Validate() error {
+	switch r.Target {
+	case "", TargetInbox:
+	case TargetOrigin:
+		if r.Binding == "" || r.Chat == "" {
+			return errors.New("a run can report to the chat of the proposal only when a connector chat proposed it")
+		}
+	default:
+		return fmt.Errorf("delivery target must be %q or %q", TargetInbox, TargetOrigin)
+	}
+	switch r.Mode {
+	case "", ModeAlways, ModeOnChange, ModeOnProblem:
+	default:
+		return fmt.Errorf("delivery mode must be %q, %q or %q", ModeAlways, ModeOnChange, ModeOnProblem)
+	}
+	for _, v := range []string{r.Binding, r.Chat, r.Thread, r.Code} {
+		if len(v) > MaxRefBytes || hasControl(v, false) {
+			return errors.New("the connector place of a trigger is too long or has control characters")
+		}
+	}
+	return nil
+}
+
+// Expired says whether t is a proposal that waited past its time at now.
+func (t Trigger) Expired(now time.Time) bool {
+	return t.Pending() && !t.Route.Expires.IsZero() && !now.Before(t.Route.Expires)
 }
 
 // Change says what a change record does to the trigger it names. While it
@@ -175,6 +267,8 @@ const (
 	OutcomeAccepted = "accepted"
 	OutcomeDeclined = "declined"
 	OutcomeUndone   = "undone"
+	// OutcomeExpired is a proposal that nobody answered in time.
+	OutcomeExpired = "expired"
 )
 
 // Pending says whether t is a proposal that waits for an answer.
@@ -261,6 +355,9 @@ func (t Trigger) Validate() error {
 		return errors.New("widget is the id of a Home widget: lowercase letters, digits and dashes")
 	case t.EstTokens < 0 || t.EstTokens > MaxEstTokens:
 		return fmt.Errorf("estimated tokens must be 0 to %d", MaxEstTokens)
+	}
+	if err := t.Route.Validate(); err != nil {
+		return err
 	}
 	switch t.Kind {
 	case KindSchedule:

@@ -316,11 +316,12 @@ type Service struct {
 	admit sync.Mutex
 
 	// Sub-agents; see subagent.go.
-	changes    *Changes    // the change proposals
-	triggers   *Triggers   // set once by SetTriggers
-	loops      *Loops      // set once by SetLoops
-	jobs       *Jobs       // set once by SetJobs
-	connectors *Connectors // set once by SetConnectors
+	changes    *Changes       // the change proposals
+	triggers   *Triggers      // set once by SetTriggers
+	loops      *Loops         // set once by SetLoops
+	jobs       *Jobs          // set once by SetJobs
+	connectors *Connectors    // set once by SetConnectors
+	capGate    CapabilityGate // set once by SetCapabilityGate; nil denies
 	ctxfiles   *contextfiles.Loader
 	conversion ConversionSource // set once by SetConversion
 

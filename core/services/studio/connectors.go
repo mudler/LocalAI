@@ -102,7 +102,10 @@ type ConnectorOptions struct {
 	// FileCeiling reads the host ceiling of a connector file from the owner
 	// policy, in bytes. Nil or zero: contract.DefaultFileCeilingBytes.
 	FileCeiling func(ctx context.Context) (int64, error)
-	Logger      *slog.Logger
+	// OutboxPoll is how often a queued message looks again for room under
+	// the limit of its binding; zero means one second.
+	OutboxPoll time.Duration
+	Logger     *slog.Logger
 }
 
 // Connectors runs the bindings of the chats. A message becomes a chat of the
@@ -139,6 +142,8 @@ type Connectors struct {
 
 	emu      sync.Mutex
 	nextEdit map[string]time.Time // by binding: when its next edit may go
+
+	outbox outboxes // text the host writes on its own, by binding
 
 	amu      sync.Mutex
 	attached map[string][]string // by chat: files that attach_file marked for the answer of the turn
@@ -729,6 +734,11 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			return
 		}
 	}
+	// "confirm 7K2Q" or "cancel 7K2Q" answers a proposal that this binding made;
+	// it is decided here, before any model turn, and the model never reads it.
+	if len(m.Media) == 0 && c.answerPhrase(ctx, b, m, say) {
+		return
+	}
 	// A scoped agent whose folder is missing does not run, on any frontend
 	// or worker: one plain reply, and the binding stays on, so it works
 	// again once the folder is back.
@@ -768,6 +778,7 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		say(sentUnavailable)
 		return
 	}
+	c.rememberPlace(ctx, b, chatID, m)
 	// One reply goroutine serves a conversation; the rate limit stays the sender's.
 	// The earlier messages of a thread go to the first turn of a chat that
 	// the thread just started, once.

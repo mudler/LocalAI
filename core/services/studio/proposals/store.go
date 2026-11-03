@@ -60,6 +60,12 @@ const (
 	ActionExpire  = "expire"
 	ActionStale   = "stale"
 	ActionRevert  = "revert"
+	// The actions of the reports that a trigger made from a connector chat
+	// sends: a run delivered, a trigger paused because its capability is
+	// off, and resumed.
+	ActionDeliver = "deliver"
+	ActionPause   = "pause"
+	ActionResume  = "resume"
 )
 
 // Store keeps proposals and their audit. It is safe for concurrent use.

@@ -22,6 +22,7 @@
       "undone": "Diurungkan:",
       "again": "Jadwalkan lagi",
       "declined": "Ditolak:",
+      "expired": "Kedaluwarsa:",
       "restore": "Pulihkan",
       "blocked": {
         "ran": "Pemicu ini sudah pernah berjalan; hapus dari halaman Pemicu.",

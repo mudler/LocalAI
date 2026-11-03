@@ -22,6 +22,7 @@
       "undone": "취소됨:",
       "again": "다시 예약",
       "declined": "거절됨:",
+      "expired": "만료됨:",
       "restore": "복원",
       "blocked": {
         "ran": "이미 한 번 실행되었습니다. 트리거 페이지에서 삭제하세요.",

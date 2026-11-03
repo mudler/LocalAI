@@ -22,6 +22,7 @@
       "undone": "Deshecho:",
       "again": "Programarlo de nuevo",
       "declined": "Rechazado:",
+      "expired": "Caducada:",
       "restore": "Restaurar",
       "blocked": {
         "ran": "Ya se ejecutó una vez; elimínalo desde la página Disparadores.",

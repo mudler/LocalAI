@@ -87,7 +87,7 @@ var triggerRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrTooManyTriggers, studiosvc.ErrTooManyProposals),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrTooManyChanges, studiosvc.ErrChangeStale),
 	sentinelText(http.StatusConflict, typeConflict, studiosvc.ErrCannotUndo),
-	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrProposalAnswered),
+	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrProposalAnswered, studiosvc.ErrProposalExpired),
 	verbatim(http.StatusConflict, typeTriggersOff, "", studiosvc.ErrTriggersOff),
 	fixed(http.StatusServiceUnavailable, typeServerError, "the server is shutting down", studiosvc.ErrTriggersClosed),
 }

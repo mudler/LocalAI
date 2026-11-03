@@ -22,6 +22,7 @@
       "undone": "Annulé :",
       "again": "Le planifier de nouveau",
       "declined": "Refusé :",
+      "expired": "Expirée :",
       "restore": "Restaurer",
       "blocked": {
         "ran": "Il s'est déjà exécuté une fois ; supprimez-le depuis la page Déclencheurs.",

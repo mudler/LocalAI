@@ -22,6 +22,7 @@
       "undone": "Desfeito:",
       "again": "Agendar de novo",
       "declined": "Recusado:",
+      "expired": "Expirada:",
       "restore": "Restaurar",
       "blocked": {
         "ran": "Ele já foi executado uma vez; remova-o na página Gatilhos.",

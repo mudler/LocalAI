@@ -86,6 +86,13 @@ type Triggers struct {
 
 	wmu sync.Mutex // serialises writes of triggers
 
+	// Guarded by mu: when the proposals past their time were last swept, the
+	// triggers whose capability to run is off now, and when a trigger last
+	// raised its failure alert.
+	swept   time.Time
+	paused  map[string]bool
+	alerted map[string]time.Time
+
 	wake chan struct{}
 	done chan struct{}
 	once sync.Once
@@ -224,6 +231,7 @@ func (h *Triggers) Pass(ctx context.Context) error {
 	}
 	err = r.Sync(ctx)
 	h.reconcile(ctx)
+	h.expireProposals(ctx)
 	return err
 }
 
@@ -269,7 +277,7 @@ func (h *Triggers) start(ctx context.Context, t triggers.Trigger, run triggers.R
 	if err != nil && ctx.Err() != nil && !errors.As(err, &skip) {
 		return "", ctx.Err() // the host stops: the Runner puts the run back
 	}
-	if err != nil {
+	if err != nil && !(errors.As(err, &skip) && skip.Reason == reasonCapOff) {
 		h.tell(context.WithoutCancel(ctx), t, "", notify.KindRunFailed, notify.StatusFailed, t.Name+" did not run", err.Error())
 	}
 	return id, err
@@ -279,6 +287,12 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 	owner := t.Owner
 	if err := h.checkOwner(ctx, t); err != nil {
 		return "", err
+	}
+	// A trigger that a connector chat proposed runs only while its capability
+	// is on. The record stays and so does Enabled; a run that falls due while
+	// the capability is off is skipped and is not made up for later.
+	if h.capOff(ctx, t) {
+		return "", &triggers.SkipError{Reason: reasonCapOff}
 	}
 	// The folder of a scoped agent is checked before anything is read for
 	// the run: a run never falls back to the whole home.
@@ -639,11 +653,15 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 	}
 	if status == triggers.StatusFailed {
 		h.tell(ctx, t, chatID, notify.KindRunFailed, notify.StatusFailed, t.Name+" failed", reason)
+		h.reportFailure(ctx, t, reason)
 		return
 	}
 	body := reason
 	if body == "" {
 		body = h.svc.finalText(ctx, chatID)
+	}
+	if h.report(ctx, t, cur, body) {
+		return
 	}
 	h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
 }

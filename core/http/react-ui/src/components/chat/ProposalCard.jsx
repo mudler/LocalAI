@@ -154,13 +154,13 @@ export default function ProposalCard({ id, t, tick = 0 }) {
       </div>
     )
   }
-  if (view.kind === 'undone' || view.kind === 'declined') {
+  if (view.kind === 'undone' || view.kind === 'declined' || view.kind === 'expired') {
     const undone = view.kind === 'undone'
     return wrap(
       <div className="cx-receipt cx-receipt--quiet" data-testid="trigger-proposal" data-state={view.kind}>
         <div className="cx-receipt__main">
           <p className="cx-receipt__line">
-            <b>{t(undone ? 'proposal.receipt.undone' : 'proposal.receipt.declined')}</b>{' '}
+            <b>{t(undone ? 'proposal.receipt.undone' : view.kind === 'expired' ? 'proposal.receipt.expired' : 'proposal.receipt.declined')}</b>{' '}
             <span data-testid="receipt-title">{p.name}</span>
           </p>
           {alert}

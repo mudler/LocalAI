@@ -251,8 +251,10 @@ gives the same events without one.
 
 - **The agent's tools only.** A message gets exactly the tools the agent grants,
   intersected with what you may use now. It never gets the tool set of a chat, and
-  a message cannot change the agent. A run started by a connector never gets
-  `propose_trigger`.
+  a message cannot change the agent. A run that a trigger started never gets
+  `propose_trigger`. A connector chat gets `propose_trigger` and `list_triggers`
+  only while the binding holds `triggers.propose` (see
+  [Triggers from a connector chat](#triggers-from-a-connector-chat)).
 - **Your account.** The chat acts as you, so the feature gate, the model
   allowlist and your quota apply. If the model refuses the request, the sender
   gets one fixed sentence, for example that your quota is used up.
@@ -478,6 +480,33 @@ Pairing needs only a stable sender ID, so an add-on without roles supports it to
 The host stores and checks these values and shows them to the add-on pages. The
 features that a capability switches on or off (triggers from chat, talk-back, and so
 on) read them as they land.
+
+## Triggers from a connector chat
+
+When the binding holds the capability `triggers.propose`, the agent can propose a
+trigger from a chat in a messaging app. The agent gets `propose_trigger` and
+`list_triggers` (the list shows only the triggers of that agent). Changing or deleting a
+trigger stays in Studio. Nothing runs before the owner confirms.
+
+- **The proposal is shown in the chat.** LocalAI writes the name, the schedule, what the
+  run will do, where the results go and a four-character code in the chat and thread
+  where the person wrote. The model does not write it.
+- **Confirm or cancel by text.** A sender writes `confirm CODE` or `cancel CODE`, as the
+  whole message, in the same chat and thread. LocalAI handles it before any model turn.
+  It needs the capability `proposals.confirm` for that sender (a paired sender, or a role
+  with the grant). A code is used once, and a proposal lapses after 24 hours. Studio
+  always works as well.
+- **Limits.** A binding can make 3 proposals an hour, and an owner can have 10 waiting.
+- **Where a run reports.** The proposal sets `delivery`: `inbox` (the default) or
+  `origin`, the chat and thread of the proposal, and a mode: `always`, `on_change` or
+  `on_problem`. LocalAI writes the last message of the run, cut to 4,000 characters,
+  with mentions that notify everyone broken. A final message of exactly `[SILENT]`
+  writes nothing. After three failed runs in a row the chat gets one alert, and not
+  more than one every 6 hours. If the binding is off or the capability is off when a run
+  ends, the Inbox gets the notice. A binding sends 20 of these messages a minute; more
+  wait in a queue and go in order.
+- **Pause.** While `triggers.run` is off for the binding, its triggers do not run. The
+  records stay and are not replayed when the capability comes back.
 
 ## Notifications in Telegram
 

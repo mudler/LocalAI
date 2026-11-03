@@ -22,6 +22,7 @@
       "undone": "Annullato:",
       "again": "Pianificalo di nuovo",
       "declined": "Rifiutato:",
+      "expired": "Scaduta:",
       "restore": "Ripristina",
       "blocked": {
         "ran": "È già stato eseguito una volta; rimuovilo dalla pagina Trigger.",

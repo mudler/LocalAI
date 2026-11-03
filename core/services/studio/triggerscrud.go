@@ -10,6 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -54,6 +55,9 @@ type TriggerInput struct {
 	// file, and about how many tokens one run uses. All optional.
 	Reads, Writes, Widget string
 	EstTokens             int
+	// Route is the connector place a proposal came from and where its runs
+	// report. A person's form leaves it empty and an edit keeps the old one.
+	Route triggers.Route
 }
 
 // keepPlan fills the fields of the plan and the gap that in leaves empty from
@@ -117,6 +121,10 @@ func (h *Triggers) pendingProposal(ctx context.Context, user, id string) (trigge
 	if err != nil {
 		return t, err
 	}
+	if t.Expired(h.o.Clock()) {
+		h.lapse(ctx, t)
+		return triggers.Trigger{}, ErrProposalExpired
+	}
 	if !t.Pending() {
 		return triggers.Trigger{}, ErrProposalAnswered
 	}
@@ -140,7 +148,7 @@ func countLive(ts []triggers.Trigger) int {
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
 		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
-		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens}
+		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route}
 	if w := strings.TrimSpace(in.Writes); w != "" {
 		// A path of the home as the person writes it, stored as they see it:
 		// the widget footer and the proposal card show it back.
@@ -269,7 +277,7 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	t.ID = old.ID
+	t.ID, t.Route = old.ID, old.Route
 	// The answer to the proposal stays, and the edit is the reason the card
 	// can no longer undo it.
 	t.Outcome, t.OutcomeAt, t.Touched = old.Outcome, old.OutcomeAt, old.Touched || old.Outcome != ""
@@ -323,7 +331,7 @@ func (h *Triggers) HasProposal(ctx context.Context, user, chatID string) bool {
 		return true
 	}
 	return slices.ContainsFunc(all, func(t triggers.Trigger) bool {
-		return (t.Pending() && t.SourceChatID == chatID) || (t.IsChange() && t.Outcome == "" && t.Change.Chat == chatID)
+		return (t.Pending() && !t.Expired(h.o.Clock()) && t.SourceChatID == chatID) || (t.IsChange() && t.Outcome == "" && t.Change.Chat == chatID)
 	})
 }
 
@@ -340,14 +348,23 @@ func (h *Triggers) Proposals(ctx context.Context, user string) ([]triggers.Trigg
 	if err != nil {
 		return nil, err
 	}
-	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return !t.Pending() }), nil
+	now := h.o.Clock()
+	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return !t.Pending() || t.Expired(now) }), nil
 }
 
 // ProposeTrigger stores a trigger that a model proposed. It is never enabled.
-// Nothing runs until the owner confirms it.
+// Nothing runs until the owner confirms it. A proposal that a connector chat
+// made (in.Route names the place) also gets a code to confirm it by text and a
+// time after which it lapses, and counts against the hourly limit of its
+// binding.
 func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerInput) (triggers.Trigger, error) {
 	owner := principal(user)
 	in.Enabled = false
+	now := h.o.Clock()
+	if in.Route.FromConnector() {
+		in.Route.ProposedAt, in.Route.Expires = now.UTC(), now.UTC().Add(ProposalTTL)
+		in.Route.Code = ""
+	}
 	t, err := h.build(ctx, owner, in)
 	if err != nil {
 		return triggers.Trigger{}, err
@@ -363,7 +380,7 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	}
 	pending := 0
 	for _, m := range mine {
-		if !m.Pending() {
+		if !m.Pending() || m.Expired(now) {
 			continue
 		}
 		// A model that proposes the same thing again, in this chat or the next,
@@ -380,9 +397,19 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	case countLive(mine) >= maxTriggersPerUser:
 		return triggers.Trigger{}, ErrTooManyTriggers
 	}
+	if t.Route.FromConnector() {
+		if proposalsInHour(mine, t.Route.Binding, now) >= MaxProposalsPerHour {
+			h.audit(ctx, proposals.ActionRefuse, t, "too many proposals from this binding in the last hour")
+			return triggers.Trigger{}, ErrProposalRate
+		}
+		t.Route.Code = freshCode(mine, t.Route.Binding)
+	}
 	t.ID, t.Proposed = newID(), true
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
 		return triggers.Trigger{}, err
+	}
+	if t.Route.FromConnector() {
+		h.audit(ctx, proposals.ActionPropose, t, "")
 	}
 	return t, nil
 }
@@ -497,7 +524,7 @@ func (h *Triggers) EditProposal(ctx context.Context, user, id string, in Trigger
 	if err := h.checkCadence(t); err != nil {
 		return triggers.Trigger{}, err
 	}
-	t.ID, t.Proposed = old.ID, true
+	t.ID, t.Proposed, t.Route = old.ID, true, old.Route
 	if t.SourceChatID == "" {
 		t.SourceChatID = old.SourceChatID
 	}

@@ -22,6 +22,7 @@
       "undone": "已撤销：",
       "again": "重新安排",
       "declined": "已拒绝：",
+      "expired": "已过期：",
       "restore": "恢复",
       "blocked": {
         "ran": "它已经运行过一次；请在触发器页面中删除。",

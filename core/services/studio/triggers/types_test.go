@@ -196,3 +196,28 @@ var _ = Describe("Trigger types", func() {
 		}
 	})
 })
+
+var _ = Describe("Route", func() {
+	It("reads the empty value as the Inbox, always", func() {
+		var r Route
+		Expect(r.TargetOrDefault()).To(Equal(TargetInbox))
+		Expect(r.ModeOrDefault()).To(Equal(ModeAlways))
+		Expect(r.FromConnector()).To(BeFalse())
+		Expect(r.Validate()).To(Succeed())
+	})
+	It("lets a run report to the origin only when a connector chat proposed it", func() {
+		Expect(Route{Target: TargetOrigin}.Validate()).NotTo(Succeed())
+		Expect(Route{Binding: "b", Chat: "C", Target: TargetOrigin, Mode: ModeOnProblem}.Validate()).To(Succeed())
+		Expect(Route{Target: "elsewhere"}.Validate()).NotTo(Succeed())
+		Expect(Route{Mode: "sometimes"}.Validate()).NotTo(Succeed())
+	})
+	It("expires a waiting proposal that has a time, and no other", func() {
+		now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+		p := Trigger{Proposed: true, Route: Route{Expires: now.Add(time.Hour)}}
+		Expect(p.Expired(now)).To(BeFalse())
+		Expect(p.Expired(now.Add(time.Hour))).To(BeTrue())
+		p.Outcome = OutcomeDeclined
+		Expect(p.Expired(now.Add(2*time.Hour))).To(BeFalse(), "an answered proposal does not expire")
+		Expect(Trigger{Proposed: true}.Expired(now.Add(1000*time.Hour))).To(BeFalse(), "a proposal without a time never does")
+	})
+})

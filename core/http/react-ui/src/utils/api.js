@@ -519,7 +519,7 @@ export const chatTriggersApi = {
   runs: (id) => fetchJSON(`/api/chats/triggers/${enc2(id)}/runs`),
   preview: (when, tz) => fetchJSON(`/api/chats/triggers/preview${q({ when, tz, n: 3 })}`),
   proposals: (chat) => fetchJSON(`/api/chats/triggers/proposals${q({ chat })}`),
-  // One proposal and what became of it: { state: pending|accepted|declined|undone, trigger, answered_at, can_undo, undo_blocked }.
+  // One proposal and what became of it: { state: pending|accepted|declined|expired|undone, trigger, answered_at, can_undo, undo_blocked }.
   proposal: (id) => fetchJSON(`/api/chats/triggers/proposals/${enc2(id)}`),
   undoProposal: (id) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/undo`, {}),
   reopenProposal: (id) => postJSON(`/api/chats/triggers/proposals/${enc2(id)}/reopen`, {}),

@@ -659,6 +659,7 @@
       "undone": "Undone:",
       "again": "Schedule it again",
       "declined": "Declined:",
+      "expired": "Expired:",
       "restore": "Restore",
       "blocked": {
         "ran": "It already ran once; remove it from the Triggers page.",

@@ -7,7 +7,7 @@ export const PROPOSAL_CARD = 'trigger_proposal'
 
 // What the card of a proposal shows, from the server's answer to
 // GET /api/chats/triggers/proposals/{id} (or the error that call raised): one of
-// pending, accepted, declined or undone, as the server keeps it, removed when
+// pending, accepted, declined, expired or undone, as the server keeps it, removed when
 // the trigger is gone from the Triggers page (404) and error otherwise. An
 // accepted proposal says whether Undo is still allowed and, if not, why
 // ('ran' or 'edited'). A state this code does not know is an error, not a guess.
@@ -16,6 +16,7 @@ export function proposalView(res, err) {
   switch (res?.state) {
     case 'pending':
     case 'declined':
+    case 'expired':
     case 'undone':
       return { kind: res.state, trigger: res.trigger, at: res.answered_at || '' }
     case 'accepted':

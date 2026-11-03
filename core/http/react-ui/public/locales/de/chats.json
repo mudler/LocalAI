@@ -22,6 +22,7 @@
       "undone": "Rückgängig gemacht:",
       "again": "Erneut planen",
       "declined": "Abgelehnt:",
+      "expired": "Abgelaufen:",
       "restore": "Wiederherstellen",
       "blocked": {
         "ran": "Er ist schon einmal gelaufen; entferne ihn auf der Seite Trigger.",
