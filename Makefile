@@ -1768,6 +1768,29 @@ test-addons-suites:
 		sh scripts/addons/verify.sh $$suite; \
 	done
 
+## Zip files of the add-ons, for "Install from a file" (Add-ons page, or
+## `local-ai addons install <file>`). Each zip holds the files of the OCI package
+## of one add-on and platform: it is made from the package that package.sh builds.
+##   make addons-zip                         every add-on, this host's platform
+##   make addons-zip ADDON=memory            one add-on
+##   make addons-zip PLATFORMS=linux/amd64,darwin/arm64 ADDON_EXECUTABLES=<dir>
+## A platform other than this host needs the native executables at
+## <dir>/<os>-<arch>/<executable name>. ADDON_VERSION overrides the manifest
+## version, ADDON_LOCAL_CHECK=1 builds a platform the matrix has not enabled.
+## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons).
+ADDON?=
+PLATFORMS?=
+ADDON_VERSION?=
+ADDON_EXECUTABLES?=
+ADDON_LOCAL_CHECK?=
+ADDONS_ZIP_DIR?=dist/addons
+.PHONY: addons-zip
+addons-zip:
+	sh scripts/addons/zip.sh --out "$(ADDONS_ZIP_DIR)" \
+		$(if $(ADDON),--addon "$(ADDON)") $(if $(PLATFORMS),--platforms "$(PLATFORMS)") \
+		$(if $(ADDON_VERSION),--version "$(ADDON_VERSION)") $(if $(ADDON_EXECUTABLES),--executables "$(ADDON_EXECUTABLES)") \
+		$(if $(ADDON_LOCAL_CHECK),--local-check)
+
 test-ui-e2e-docker:
 	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .
 	docker run --rm localai-ui-e2e
