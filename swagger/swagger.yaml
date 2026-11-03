@@ -166,6 +166,8 @@ definitions:
         type: boolean
       canStop:
         type: boolean
+      hostOperations:
+        $ref: '#/definitions/hostops.RequestSummary'
       managementUrl:
         description: ManagementURL opens the management view of the addon.
         example: /app/addons?manage=notes
@@ -351,6 +353,23 @@ definitions:
         example: summarize
         type: string
     type: object
+  apps.HomeCommandView:
+    properties:
+      alias:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      page:
+        type: string
+    type: object
   apps.List:
     properties:
       apps:
@@ -441,6 +460,18 @@ definitions:
           package digest, so a new package is a new URL.
         example: /api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js
         type: string
+      homeCommands:
+        description: HomeCommands contains only resolved navigation metadata for this
+          app.
+        items:
+          $ref: '#/definitions/apps.HomeCommandView'
+        type: array
+      modelActions:
+        description: ModelActions contains only declared destinations for this installed
+          UI.
+        items:
+          $ref: '#/definitions/contract.ModelAction'
+        type: array
       navigation:
         items:
           type: string
@@ -627,6 +658,90 @@ definitions:
       name:
         type: string
     type: object
+  contract.ChangeKind:
+    enum:
+    - memory
+    - profile
+    - skill
+    - page
+    - dashboard
+    type: string
+    x-enum-varnames:
+    - ChangeMemory
+    - ChangeProfile
+    - ChangeSkill
+    - ChangePage
+    - ChangeDashboard
+  contract.ChangeProposal:
+    properties:
+      agent:
+        type: string
+      answered:
+        type: string
+      base_hash:
+        type: string
+      content:
+        type: string
+      created:
+        type: string
+      expires:
+        type: string
+      id:
+        type: string
+      kind:
+        $ref: '#/definitions/contract.ChangeKind'
+      owner:
+        type: string
+      rev:
+        description: |-
+          Rev is the workspace change set that applying wrote; RevertRev the one
+          that reverting wrote. Zero until then.
+        type: integer
+      revert_rev:
+        type: integer
+      scope:
+        $ref: '#/definitions/contract.ChangeScope'
+      source:
+        $ref: '#/definitions/contract.ChangeSource'
+      status:
+        $ref: '#/definitions/contract.ProposalStatus'
+      summary:
+        type: string
+      target:
+        type: string
+      v:
+        type: integer
+    type: object
+  contract.ChangeScope:
+    enum:
+    - user
+    - agent
+    - channel
+    type: string
+    x-enum-varnames:
+    - ScopeUser
+    - ScopeAgent
+    - ScopeChannel
+  contract.ChangeSource:
+    properties:
+      chat:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      thread:
+        type: string
+    type: object
+  contract.ModelAction:
+    properties:
+      capability:
+        type: string
+      page:
+        type: string
+      path:
+        type: string
+    type: object
   contract.OutputDescription:
     properties:
       handle:
@@ -638,6 +753,22 @@ definitions:
       size:
         type: integer
     type: object
+  contract.ProposalStatus:
+    enum:
+    - pending
+    - applied
+    - dismissed
+    - expired
+    - reverted
+    - stale
+    type: string
+    x-enum-varnames:
+    - ProposalPending
+    - ProposalApplied
+    - ProposalDismissed
+    - ProposalExpired
+    - ProposalReverted
+    - ProposalStale
   contract.Receipt:
     properties:
       operationId:
@@ -708,11 +839,11 @@ definitions:
           Name is the skill's name and the name of its folder. A plain skill is
           named after the add-on: the add-on ID, or the ID and a dash and more
           (office-quickstart), so two add-ons never ship one plain name. A skill
-          that replaces a built-in one has the built-in's name (see Shadows).
+          for a reserved document slot has the slot's name (see Shadows).
         type: string
       shadows:
         description: |-
-          Shadows names the built-in skill this skill replaces. It must equal Name
+          Shadows names the document-provider slot this skill supplies. It must equal Name
           and be one of ReplaceableSkills. It repeats the name on purpose: the
           replacement is an explicit act, which the install warning and the check
           read from the manifest without opening the package. Empty: a plain
@@ -1729,6 +1860,35 @@ definitions:
         example: 4f1c
         type: string
     type: object
+  hostops.RequestSummary:
+    properties:
+      granted:
+        items:
+          type: string
+        type: array
+      grantedCount:
+        type: integer
+      missingOptional:
+        items:
+          type: string
+        type: array
+      missingRequired:
+        items:
+          type: string
+        type: array
+      optional:
+        items:
+          type: string
+        type: array
+      optionalCount:
+        type: integer
+      required:
+        items:
+          type: string
+        type: array
+      requiredCount:
+        type: integer
+    type: object
   library.Info:
     properties:
       authReference:
@@ -2124,6 +2284,33 @@ definitions:
         description: staging, loading, loaded, unloading, idle
         type: string
       updated_at:
+        type: string
+    type: object
+  proposals.Event:
+    properties:
+      action:
+        type: string
+      agent:
+        type: string
+      at:
+        type: string
+      detail:
+        type: string
+      hash:
+        type: string
+      kind:
+        $ref: '#/definitions/contract.ChangeKind'
+      owner:
+        type: string
+      proposal:
+        type: string
+      rev:
+        type: integer
+      scope:
+        $ref: '#/definitions/contract.ChangeScope'
+      source:
+        $ref: '#/definitions/contract.ChangeSource'
+      target:
         type: string
     type: object
   proto.MemoryUsageData:
@@ -2587,6 +2774,8 @@ definitions:
       commands_reason:
         description: CommandsReason is why commands cannot run, when Commands is unavailable.
         type: string
+      execution_status:
+        $ref: '#/definitions/schema.ChatsExecutionStatus'
     type: object
   schema.ChatsAddonSwitches:
     properties:
@@ -2834,8 +3023,10 @@ definitions:
         type: string
       path:
         description: |-
-          Path is the folder's path in your files now ("/" is all of them). It
-          is absent when the folder is missing or not chosen.
+          Path is home-relative ("/" is the whole home), or /shared/<name>/...
+          for a followed readable shared folder. It is absent when missing,
+          not chosen, or readable outside these public locations; a readable
+          folder without a public path still has state ok.
         type: string
       state:
         description: |-
@@ -2962,7 +3153,9 @@ definitions:
         description: |-
           Folder chooses the one folder the agent's chats work in. A write
           without it keeps the folder the agent has; {"path": ""} clears it. In
-          an export file it is the folder's path and mode when the file was made.
+          an export file it is the home-relative path and mode when the file was
+          made. A missing, unchosen or non-home folder has an empty export path;
+          import preserves its mode as unset and warns instead of clearing scope.
       instructions:
         type: string
       mcp_servers:
@@ -3680,8 +3873,10 @@ definitions:
         type: array
       applies:
         description: |-
-          Applies is false when commands run on this machine (applies_reason
-          host) or no Sandbox serves bash (none).
+          Applies is true when the add-on that runs the commands reports that it
+          enforces the network policy. It is false when commands run on this
+          machine (applies_reason host), or no Sandbox serves bash or the add-on
+          does not report enforcement (none).
         type: boolean
       applies_reason:
         type: string
@@ -3898,6 +4093,26 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsUsage'
         description: 'Usage is set on usage events: what one model request used.'
+    type: object
+  schema.ChatsExecutionStatus:
+    properties:
+      explanation:
+        type: string
+      generation:
+        type: string
+      incarnation:
+        type: string
+      isolation:
+        type: string
+      readiness:
+        type: string
+      unknown_reason:
+        description: |-
+          UnknownReason says why the status is unknown: owner_unreachable,
+          not_reported, stale, invalid_status, not_selected, no_answer or
+          reported_unknown. Absent when the status is known.
+        example: owner_unreachable
+        type: string
     type: object
   schema.ChatsExport:
     properties:
@@ -12025,7 +12240,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: The saved agent's folder is missing or not chosen (agent_folder_missing)
+          description: The saved agent's folder is missing or not chosen (agent_folder_missing),
+            or its complete file access exceeds the folder limit (agent_folder_limit)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Start a chat.
@@ -13163,7 +13379,8 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
           description: A turn is running for a command, or the saved agent's folder
-            is missing (agent_folder_missing)
+            is missing (agent_folder_missing), or its complete file access exceeds
+            the folder limit (agent_folder_limit)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Send a message to a chat.
@@ -14026,10 +14243,11 @@ paths:
     get:
       description: Returns the definition as a JSON file (version, kind localai-agent,
         agent). It holds no ID, owner or time. An agent with a folder is version 2
-        and carries folder {path, mode}, the folder's path in your files now (empty
-        when the folder is missing or not chosen); a server that knows only version
-        1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import
-        reads it. This replaces the old /api/agents/{name}/export.
+        and carries folder {path, mode}, the folder's home-relative path now (empty
+        when the folder is missing, not chosen, or outside your home, even if readable);
+        importing an empty path preserves the scope as unset with a warning; a server
+        that knows only version 1 refuses it. An agent without a folder is version
+        1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
       parameters:
       - description: the agent's id
         in: path
@@ -14131,6 +14349,147 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgent'
       summary: Save a starter agent as your own.
+      tags:
+      - chats
+  /api/chats/changes:
+    get:
+      description: A model proposes a change to your memory or an agent profile with
+        the propose_change tool, from a Studio chat or a connector chat. Nothing is
+        written until you confirm. A proposal expires after 24 hours. Newest first;
+        status keeps only one status.
+      parameters:
+      - description: pending, applied, dismissed, expired, reverted or stale
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: Your proposals
+          schema:
+            items:
+              $ref: '#/definitions/contract.ChangeProposal'
+            type: array
+        "400":
+          description: The status is not known
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the changes that a chat proposed.
+      tags:
+      - chats
+  /api/chats/changes/{id}:
+    get:
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The proposal, with the text it would write
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get a proposed change.
+      tags:
+      - chats
+  /api/chats/changes/{id}/confirm:
+    post:
+      description: Writes the change to your files as one change set that Undo can
+        take back. It is refused with 409 when the file changed since the proposal,
+        or when the proposal expired or was answered.
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The applied proposal
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Stale, expired or answered
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Confirm a proposed change.
+      tags:
+      - chats
+  /api/chats/changes/{id}/dismiss:
+    post:
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The dismissed proposal
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Not waiting
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Dismiss a proposed change.
+      tags:
+      - chats
+  /api/chats/changes/{id}/undo:
+    post:
+      description: Restores the file with the change set the confirmation wrote. It
+        is refused with 409 when the file was edited since.
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The reverted proposal
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Not applied, or edited since
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Undo an applied change.
+      tags:
+      - chats
+  /api/chats/changes/audit:
+    get:
+      description: Who proposed, confirmed, dismissed or reverted what, from which
+        source, newest first. It holds a hash of the text, never the text.
+      parameters:
+      - description: most lines (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Your audit lines
+          schema:
+            items:
+              $ref: '#/definitions/proposals.Event'
+            type: array
+      summary: List the audit of proposed changes.
       tags:
       - chats
   /api/chats/connectors:

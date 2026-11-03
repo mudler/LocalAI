@@ -3708,7 +3708,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing)",
+                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -4690,7 +4690,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's path in your files now (empty when the folder is missing or not chosen); a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -4741,6 +4741,212 @@ const docTemplate = `{
                         "description": "The runs and the counts",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAgentHistory"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/changes": {
+            "get": {
+                "description": "A model proposes a change to your memory or an agent profile with the propose_change tool, from a Studio chat or a connector chat. Nothing is written until you confirm. A proposal expires after 24 hours. Newest first; status keeps only one status.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the changes that a chat proposed.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "pending, applied, dismissed, expired, reverted or stale",
+                        "name": "status",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Your proposals",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/contract.ChangeProposal"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "The status is not known",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/changes/audit": {
+            "get": {
+                "description": "Who proposed, confirmed, dismissed or reverted what, from which source, newest first. It holds a hash of the text, never the text.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the audit of proposed changes.",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "most lines (default 50, at most 200)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Your audit lines",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/proposals.Event"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/changes/{id}": {
+            "get": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Get a proposed change.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The proposal, with the text it would write",
+                        "schema": {
+                            "$ref": "#/definitions/contract.ChangeProposal"
+                        }
+                    },
+                    "404": {
+                        "description": "Not yours or unknown",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/changes/{id}/confirm": {
+            "post": {
+                "description": "Writes the change to your files as one change set that Undo can take back. It is refused with 409 when the file changed since the proposal, or when the proposal expired or was answered.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Confirm a proposed change.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The applied proposal",
+                        "schema": {
+                            "$ref": "#/definitions/contract.ChangeProposal"
+                        }
+                    },
+                    "404": {
+                        "description": "Not yours or unknown",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Stale, expired or answered",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/changes/{id}/dismiss": {
+            "post": {
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Dismiss a proposed change.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The dismissed proposal",
+                        "schema": {
+                            "$ref": "#/definitions/contract.ChangeProposal"
+                        }
+                    },
+                    "404": {
+                        "description": "Not yours or unknown",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Not waiting",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/changes/{id}/undo": {
+            "post": {
+                "description": "Restores the file with the change set the confirmation wrote. It is refused with 409 when the file was edited since.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Undo an applied change.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the proposal",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The reverted proposal",
+                        "schema": {
+                            "$ref": "#/definitions/contract.ChangeProposal"
+                        }
+                    },
+                    "404": {
+                        "description": "Not yours or unknown",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Not applied, or edited since",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -9356,7 +9562,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing)",
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -14593,6 +14799,9 @@ const docTemplate = `{
                 "canStop": {
                     "type": "boolean"
                 },
+                "hostOperations": {
+                    "$ref": "#/definitions/hostops.RequestSummary"
+                },
                 "managementUrl": {
                     "description": "ManagementURL opens the management view of the addon.",
                     "type": "string",
@@ -14792,6 +15001,32 @@ const docTemplate = `{
                 }
             }
         },
+        "apps.HomeCommandView": {
+            "type": "object",
+            "properties": {
+                "alias": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "page": {
+                    "type": "string"
+                }
+            }
+        },
         "apps.List": {
             "type": "object",
             "properties": {
@@ -14894,6 +15129,20 @@ const docTemplate = `{
                     "description": "Entry is the URL of the packaged ES module. Every asset URL names the\npackage digest, so a new package is a new URL.",
                     "type": "string",
                     "example": "/api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js"
+                },
+                "homeCommands": {
+                    "description": "HomeCommands contains only resolved navigation metadata for this app.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apps.HomeCommandView"
+                    }
+                },
+                "modelActions": {
+                    "description": "ModelActions contains only declared destinations for this installed UI.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ModelAction"
+                    }
                 },
                 "navigation": {
                     "type": "array",
@@ -15140,6 +15389,124 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.ChangeKind": {
+            "type": "string",
+            "enum": [
+                "memory",
+                "profile",
+                "skill",
+                "page",
+                "dashboard"
+            ],
+            "x-enum-varnames": [
+                "ChangeMemory",
+                "ChangeProfile",
+                "ChangeSkill",
+                "ChangePage",
+                "ChangeDashboard"
+            ]
+        },
+        "contract.ChangeProposal": {
+            "type": "object",
+            "properties": {
+                "agent": {
+                    "type": "string"
+                },
+                "answered": {
+                    "type": "string"
+                },
+                "base_hash": {
+                    "type": "string"
+                },
+                "content": {
+                    "type": "string"
+                },
+                "created": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/contract.ChangeKind"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "rev": {
+                    "description": "Rev is the workspace change set that applying wrote; RevertRev the one\nthat reverting wrote. Zero until then.",
+                    "type": "integer"
+                },
+                "revert_rev": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/contract.ChangeScope"
+                },
+                "source": {
+                    "$ref": "#/definitions/contract.ChangeSource"
+                },
+                "status": {
+                    "$ref": "#/definitions/contract.ProposalStatus"
+                },
+                "summary": {
+                    "type": "string"
+                },
+                "target": {
+                    "type": "string"
+                },
+                "v": {
+                    "type": "integer"
+                }
+            }
+        },
+        "contract.ChangeScope": {
+            "type": "string",
+            "enum": [
+                "user",
+                "agent",
+                "channel"
+            ],
+            "x-enum-varnames": [
+                "ScopeUser",
+                "ScopeAgent",
+                "ScopeChannel"
+            ]
+        },
+        "contract.ChangeSource": {
+            "type": "object",
+            "properties": {
+                "chat": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "thread": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.ModelAction": {
+            "type": "object",
+            "properties": {
+                "capability": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
         "contract.OutputDescription": {
             "type": "object",
             "properties": {
@@ -15156,6 +15523,25 @@ const docTemplate = `{
                     "type": "integer"
                 }
             }
+        },
+        "contract.ProposalStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "applied",
+                "dismissed",
+                "expired",
+                "reverted",
+                "stale"
+            ],
+            "x-enum-varnames": [
+                "ProposalPending",
+                "ProposalApplied",
+                "ProposalDismissed",
+                "ProposalExpired",
+                "ProposalReverted",
+                "ProposalStale"
+            ]
         },
         "contract.Receipt": {
             "type": "object",
@@ -15255,11 +15641,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nthat replaces a built-in one has the built-in's name (see Shadows).",
+                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nfor a reserved document slot has the slot's name (see Shadows).",
                     "type": "string"
                 },
                 "shadows": {
-                    "description": "Shadows names the built-in skill this skill replaces. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
+                    "description": "Shadows names the document-provider slot this skill supplies. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
                     "type": "string"
                 }
             }
@@ -16566,6 +16952,50 @@ const docTemplate = `{
                 }
             }
         },
+        "hostops.RequestSummary": {
+            "type": "object",
+            "properties": {
+                "granted": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "grantedCount": {
+                    "type": "integer"
+                },
+                "missingOptional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missingRequired": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "optional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "optionalCount": {
+                    "type": "integer"
+                },
+                "required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "requiredCount": {
+                    "type": "integer"
+                }
+            }
+        },
         "library.Info": {
             "type": "object",
             "properties": {
@@ -17112,6 +17542,47 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "proposals.Event": {
+            "type": "object",
+            "properties": {
+                "action": {
+                    "type": "string"
+                },
+                "agent": {
+                    "type": "string"
+                },
+                "at": {
+                    "type": "string"
+                },
+                "detail": {
+                    "type": "string"
+                },
+                "hash": {
+                    "type": "string"
+                },
+                "kind": {
+                    "$ref": "#/definitions/contract.ChangeKind"
+                },
+                "owner": {
+                    "type": "string"
+                },
+                "proposal": {
+                    "type": "string"
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/contract.ChangeScope"
+                },
+                "source": {
+                    "$ref": "#/definitions/contract.ChangeSource"
+                },
+                "target": {
                     "type": "string"
                 }
             }
@@ -17747,6 +18218,9 @@ const docTemplate = `{
                 "commands_reason": {
                     "description": "CommandsReason is why commands cannot run, when Commands is unavailable.",
                     "type": "string"
+                },
+                "execution_status": {
+                    "$ref": "#/definitions/schema.ChatsExecutionStatus"
                 }
             }
         },
@@ -18082,7 +18556,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
-                    "description": "Path is the folder's path in your files now (\"/\" is all of them). It\nis absent when the folder is missing or not chosen.",
+                    "description": "Path is home-relative (\"/\" is the whole home), or /shared/\u003cname\u003e/...\nfor a followed readable shared folder. It is absent when missing,\nnot chosen, or readable outside these public locations; a readable\nfolder without a public path still has state ok.",
                     "type": "string"
                 },
                 "state": {
@@ -18241,7 +18715,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "folder": {
-                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the folder's path and mode when the file was made.",
+                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the home-relative path and mode when the file was\nmade. A missing, unchosen or non-home folder has an empty export path;\nimport preserves its mode as unset and warns instead of clearing scope.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
@@ -19139,7 +19613,7 @@ const docTemplate = `{
                     }
                 },
                 "applies": {
-                    "description": "Applies is false when commands run on this machine (applies_reason\nhost) or no Sandbox serves bash (none).",
+                    "description": "Applies is true when the add-on that runs the commands reports that it\nenforces the network policy. It is false when commands run on this\nmachine (applies_reason host), or no Sandbox serves bash or the add-on\ndoes not report enforcement (none).",
                     "type": "boolean"
                 },
                 "applies_reason": {
@@ -19448,6 +19922,31 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsUsage"
                         }
                     ]
+                }
+            }
+        },
+        "schema.ChatsExecutionStatus": {
+            "type": "object",
+            "properties": {
+                "explanation": {
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "string"
+                },
+                "incarnation": {
+                    "type": "string"
+                },
+                "isolation": {
+                    "type": "string"
+                },
+                "readiness": {
+                    "type": "string"
+                },
+                "unknown_reason": {
+                    "description": "UnknownReason says why the status is unknown: owner_unreachable,\nnot_reported, stale, invalid_status, not_selected, no_answer or\nreported_unknown. Absent when the status is known.",
+                    "type": "string",
+                    "example": "owner_unreachable"
                 }
             }
         },

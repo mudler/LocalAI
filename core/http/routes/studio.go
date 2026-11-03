@@ -179,6 +179,12 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	// The change feed of the user's files belongs to the chats feature: the
 	// files are the chats' workspace.
 	e.GET("/api/workspace/events", h.WorkspaceEvents)
+	e.GET(base+"/changes", h.ListChanges)
+	e.GET(base+"/changes/audit", h.ChangeAudit)
+	e.GET(base+"/changes/:id", h.GetChange)
+	e.POST(base+"/changes/:id/confirm", h.ConfirmChange)
+	e.POST(base+"/changes/:id/dismiss", h.DismissChange)
+	e.POST(base+"/changes/:id/undo", h.UndoChange)
 	e.GET(base+"/triggers", h.ListTriggers)
 	e.POST(base+"/triggers", h.CreateTrigger)
 	e.GET(base+"/triggers/preview", h.PreviewTrigger)
