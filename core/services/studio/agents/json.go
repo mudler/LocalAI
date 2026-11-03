@@ -45,7 +45,7 @@ func NewJSON(dir string) (Store, error) {
 		return nil, fmt.Errorf("agents: read %s: %w", s.path, err)
 	}
 	for _, a := range all {
-		s.byID[a.ID] = a
+		s.byID[a.ID] = a.clone()
 	}
 	return s, nil
 }

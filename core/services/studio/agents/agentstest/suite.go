@@ -138,6 +138,45 @@ func Run(newStore NewStore) {
 		Expect(all[0].FolderID).To(BeZero())
 		Expect(all[0].FolderMode).To(BeEmpty(), "after clearing")
 	})
+	It("round-trips a list of folders in order and mirrors the first into the old pair", func() {
+		s := newStore()
+		a := sample("a1", "u1", "Multi")
+		a.Folders = []agents.AgentFolder{{Node: 9, Mode: agents.FolderWrite}, {Node: 3, Mode: agents.FolderRead}, {Node: 5, Mode: agents.FolderRead}}
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, err := s.Get(ctx, "u1", "a1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Folders).To(Equal(a.Folders))
+		Expect(got.FolderID).To(Equal(int64(9)))
+		Expect(got.FolderMode).To(Equal(agents.FolderWrite))
+
+		// A shorter list replaces the longer one.
+		a.Folders = a.Folders[1:2]
+		Expect(s.Put(ctx, a)).To(Succeed())
+		l, _ := s.List(ctx, "u1")
+		Expect(l[0].Folders).To(Equal([]agents.AgentFolder{{Node: 3, Mode: agents.FolderRead}}))
+
+		// An agent that has only the old pair reads as a one-entry list.
+		old := sample("a2", "u1", "Old")
+		old.FolderID, old.FolderMode = 4, agents.FolderRead
+		Expect(s.Put(ctx, old)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "a2")
+		Expect(got.Folders).To(Equal([]agents.AgentFolder{{Node: 4, Mode: agents.FolderRead}}))
+
+		// No folders at all clears the list.
+		a.Folders, a.FolderID, a.FolderMode = nil, 0, ""
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "a1")
+		Expect(got.Folders).To(BeEmpty())
+		Expect(got.HasFolder()).To(BeFalse())
+		all, _ := s.ListAll(ctx)
+		Expect(all).To(HaveLen(2))
+
+		Expect(s.Delete(ctx, "u1", "a2")).To(Succeed())
+		again := sample("a2", "u1", "Old")
+		Expect(s.Put(ctx, again)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "a2")
+		Expect(got.Folders).To(BeEmpty(), "the folders of a deleted agent do not come back")
+	})
 	It("ReturnedListsAreCopies", func() {
 		s := newStore()
 		_ = s.Put(ctx, sample("a1", "u1", "x"))
