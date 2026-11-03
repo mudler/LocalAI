@@ -55,7 +55,7 @@ var _ = Describe("the files of messages", func() {
 		ups, err := f.client().Updates(ctx, secretToken, 1, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ups).To(HaveLen(7))
-		Expect(ups[0].Media).To(Equal([]string{"photo:big"}), "the largest size that fits")
+		Expect(ups[0].Media).To(Equal([]string{"photo:huge"}), "the largest size that a bot may download")
 		Expect(ups[0].Text).To(Equal("what is this?"))
 		Expect(ups[0].Unsupported).To(BeFalse())
 		Expect(ups[1].Media).To(Equal([]string{"voice:v1"}))
@@ -71,7 +71,9 @@ var _ = Describe("the files of messages", func() {
 
 	It("finds a mention of the bot in the caption of a photo in a group", func() {
 		f := newFakeBot()
-		f.reply["getMe"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"id":123456,"username":"helper_bot"}}` }
+		f.reply["getMe"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":{"id":123456,"username":"helper_bot"}}`
+		}
 		f.reply["getUpdates"] = func(map[string]any) (int, string) {
 			return 200, updates(`{"update_id":1,"message":{"chat":{"id":-300,"type":"supergroup"},"from":{"id":7},"caption":"@helper_bot read this","caption_entities":[{"type":"mention","offset":0,"length":11}],"photo":[{"file_id":"p1","file_size":10,"width":1,"height":1}]}}`)
 		}

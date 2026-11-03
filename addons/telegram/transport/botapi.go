@@ -128,14 +128,20 @@ func (t *API) post(ctx context.Context, token, method, contentType string, body 
 }
 
 func (t *API) do(ctx context.Context, token, method, contentType string, body []byte, wait time.Duration, out any) error {
+	return t.doReader(ctx, token, method, contentType, bytes.NewReader(body), int64(len(body)), wait, out)
+}
+
+// doReader is do for a body that is read as it is sent: size bytes long.
+func (t *API) doReader(ctx context.Context, token, method, contentType string, body io.Reader, size int64, wait time.Duration, out any) error {
 	base := t.BaseURL
 	if base == "" {
 		base = DefaultBase
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(base, "/")+"/bot"+url.PathEscape(token)+"/"+method, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(base, "/")+"/bot"+url.PathEscape(token)+"/"+method, io.NopCloser(body))
 	if err != nil {
 		return errors.New("telegram: could not build a Telegram request")
 	}
+	req.ContentLength = size
 	req.Header.Set("Content-Type", contentType)
 	resp, err := t.client(wait).Do(req)
 	if err != nil {
@@ -492,6 +498,52 @@ func (t *API) SendFile(ctx context.Context, token string, chatID, thread int64, 
 		return 0, err
 	}
 	return messageID(raw), nil
+}
+
+// photoMaxBytes is the largest photo that sendPhoto takes. A larger picture
+// goes as a document, which Telegram does not recompress.
+const photoMaxBytes = 10 << 20
+
+// SendFileStream is SendFile for a file that is read as it is sent: body holds
+// size bytes. The multipart head and tail are small and built here, so the
+// request has a length and the file is never held in memory. Telegram answers
+// 413 for a file over the limit of the Bot API server, which is ErrTooLarge.
+func (t *API) SendFileStream(ctx context.Context, token string, chatID, thread int64, name, mimeType string, size int64, body io.Reader) (int64, error) {
+	method, field := "sendDocument", "document"
+	if photoTypes[mimeType] && size <= photoMaxBytes {
+		method, field = "sendPhoto", "photo"
+	}
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	_ = w.WriteField("chat_id", strconv.FormatInt(chatID, 10))
+	if thread != 0 {
+		_ = w.WriteField("message_thread_id", strconv.FormatInt(thread, 10))
+	}
+	h := textproto.MIMEHeader{}
+	h.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": field, "filename": name}))
+	if mimeType == "" {
+		mimeType = "application/octet-stream"
+	}
+	h.Set("Content-Type", mimeType)
+	if _, err := w.CreatePart(h); err != nil {
+		return 0, errors.New("telegram: could not build the upload")
+	}
+	head := buf.Len()
+	if err := w.Close(); err != nil {
+		return 0, errors.New("telegram: could not build the upload")
+	}
+	raw := buf.Bytes()
+	var out json.RawMessage
+	r := io.MultiReader(bytes.NewReader(raw[:head]), io.LimitReader(body, size), bytes.NewReader(raw[head:]))
+	err := redact(t.doReader(ctx, token, method, w.FormDataContentType(), r, int64(len(raw))+size, contract.ConnectorTransferTimeout, &out), token)
+	var ce *callError
+	if errors.As(err, &ce) && ce.Code == http.StatusRequestEntityTooLarge {
+		return 0, fmt.Errorf("telegram: the file has %d bytes: %w", size, ErrTooLarge)
+	}
+	if err != nil {
+		return 0, err
+	}
+	return messageID(out), nil
 }
 
 // Edit replaces the text of a message the bot sent with plain text.

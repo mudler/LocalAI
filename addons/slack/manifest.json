@@ -18,6 +18,11 @@
           "description": "Talk to one of your saved agents from Slack, in direct messages and in channel threads.",
           "senderHint": "A user ID (U...), a channel ID (C...) or an @name",
           "delivery": "pull",
+          "files": {
+            "receive": { "maxBytes": 1073741824 },
+            "send": { "maxBytes": 1073741824 },
+            "transfer": true
+          },
           "page": "apps",
           "history": { "thread": true, "maxMessages": 30 },
           "options": [

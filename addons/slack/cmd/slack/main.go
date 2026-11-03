@@ -10,6 +10,7 @@ package main
 import (
 	"os"
 
+	"github.com/mudler/LocalAI/addons/internal/hostclient"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/slack/transport"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -19,6 +20,9 @@ func main() {
 	os.Exit(protocol.Run(os.Args, func(s protocol.Startup) contract.Runtime {
 		rt := transport.New(&transport.API{})
 		rt.Socket.StateDir = s.DataDir
+		if h := hostclient.New(s); h != nil {
+			rt.Host = h
+		}
 		return rt
 	}))
 }

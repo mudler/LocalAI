@@ -6,6 +6,7 @@
     "sandbox": ["workspace.", "egress."],
     "office": ["workspace."],
     "web": ["workspace."],
-    "telegram": ["connector."]
+    "telegram": ["connector."],
+    "slack": ["connector."]
   }
 }

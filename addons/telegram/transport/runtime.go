@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"io"
 	"strconv"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
@@ -21,6 +22,9 @@ const Kind = "telegram"
 type Runtime struct {
 	idle.Runtime
 	API *API
+	// Host is the host operation channel, with which a file moves by handle.
+	// Nil: the add-on keeps the inline path.
+	Host connector.Host
 }
 
 var _ contract.ConnectorRuntime = Runtime{}
@@ -32,7 +36,7 @@ func (r Runtime) Connector(ctx context.Context, req contract.ConnectorRequest) (
 	if api == nil {
 		api = &API{}
 	}
-	return connector.Serve(ctx, platform{api}, req)
+	return connector.ServeWith(ctx, platform{api}, r.Host, req)
 }
 
 // platform is the Bot API as a connector.Platform. Telegram names chats and
@@ -97,6 +101,21 @@ func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (
 		return "", err
 	}
 	id, err := p.api.SendFile(ctx, req.Token, chat, thread, req.File.Name, req.File.MIME, req.File.Data)
+	return messageRef(id), err
+}
+
+// MediaStream streams a file of a message to the host by handle.
+func (p platform) MediaStream(ctx context.Context, token, ref string, max int64) (connector.MediaStream, error) {
+	return p.api.MediaStream(ctx, token, ref, max)
+}
+
+// SendStream sends a file that the host hands over by handle.
+func (p platform) SendStream(ctx context.Context, req contract.ConnectorRequest, body io.Reader) (string, error) {
+	chat, thread, err := where(req)
+	if err != nil {
+		return "", err
+	}
+	id, err := p.api.SendFileStream(ctx, req.Token, chat, thread, req.Transfer.Name, req.Transfer.MIME, req.Transfer.Size, body)
 	return messageRef(id), err
 }
 
