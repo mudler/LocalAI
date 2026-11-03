@@ -12,7 +12,12 @@ inventory = json.loads((root / 'scripts/addons/suites.json').read_text())
 if suite not in inventory:
     sys.exit('unknown or unavailable suite: ' + suite)
 entry = inventory[suite]
-if not entry.get('commands') or not entry.get('cases'):
+# A suite with per-report inventories takes its required cases from them, so
+# a case is listed once. A second list drifts and breaks the gate.
+if 'reports' in entry and 'cases' in entry:
+    sys.exit('suite lists its cases twice: drop the top-level cases, the reports carry them')
+expected = [c for r in entry['reports'] for c in r['cases']] if 'reports' in entry else entry.get('cases')
+if not entry.get('commands') or not expected:
     sys.exit('empty command/test inventory')
 cache = root / '.cache/addons'
 (cache / 'logs').mkdir(parents=True, exist_ok=True)
@@ -65,7 +70,7 @@ from ginkgo_report import ginkgo_report
 
 seen = []
 if entry['kind'] == 'ginkgo':
-    reports = entry.get('reports', [dict(path=entry['report'], cases=entry['cases'])])
+    reports = entry['reports'] if 'reports' in entry else [dict(path=entry['report'], cases=entry['cases'])]
     if not reports: sys.exit('empty report inventory')
     for report in reports: (root/report['path']).unlink(missing_ok=True)
 for command in entry['commands']:
@@ -80,7 +85,7 @@ for command in entry['commands']:
 if entry['kind'] == 'ginkgo':
     seen = []
     for report in reports: seen.extend(ginkgo_report(root/report['path'], report['cases'], report.get('focus')))
-if sorted(seen) != sorted(entry['cases']):
+if sorted(seen) != sorted(expected):
     sys.exit('required case inventory mismatch: '+repr(seen))
 # Run real readiness only after the shell test inventory has passed.
 run(['sh', 'scripts/addons/prepare.sh', '--check'])
