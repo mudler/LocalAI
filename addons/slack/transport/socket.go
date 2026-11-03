@@ -414,3 +414,49 @@ func (s *Socket) user(ctx context.Context, ss *session, id string) (User, bool) 
 	ss.mu.Unlock()
 	return u, true
 }
+
+// botUser is the Slack user ID of the bot of a secret: from the open link when
+// there is one, else from the Web API. It is empty when it cannot be told.
+func (s *Socket) botUser(ctx context.Context, secret string) string {
+	t := ParseTokens(secret)
+	s.mu.Lock()
+	ss := s.sessions[keyOf(t)]
+	s.mu.Unlock()
+	if ss != nil {
+		ss.mu.Lock()
+		id := ss.bot.UserID
+		ss.mu.Unlock()
+		if id != "" {
+			return id
+		}
+	}
+	id, err := s.API.AuthTest(ctx, t.Bot)
+	if err != nil {
+		return ""
+	}
+	return id.UserID
+}
+
+// namer returns a function that looks up the name of a person. It shares the
+// cache of the link of the tokens, when one is open; else it keeps a cache
+// for the one call. It looks up at most historyNames people, then gives IDs.
+func (s *Socket) namer(t Tokens) func(ctx context.Context, id string) (User, bool) {
+	s.mu.Lock()
+	ss := s.sessions[keyOf(t)]
+	s.mu.Unlock()
+	if ss == nil {
+		ss = &session{tokens: t, users: map[string]cachedUser{}}
+	}
+	asked := 0
+	return func(ctx context.Context, id string) (User, bool) {
+		ss.mu.Lock()
+		c, ok := ss.users[id]
+		ss.mu.Unlock()
+		if !ok || time.Since(c.at) >= userLife {
+			if asked++; asked > historyNames {
+				return User{}, false
+			}
+		}
+		return s.user(ctx, ss, id)
+	}
+}

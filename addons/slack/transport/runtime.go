@@ -8,6 +8,8 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -68,10 +70,11 @@ func (r *Runtime) Close() { r.Socket.Close() }
 type platform struct{ r *Runtime }
 
 var (
-	_ connector.Formatter   = platform{}
-	_ connector.Splitter    = platform{}
-	_ connector.MediaReader = platform{}
-	_ connector.FileSender  = platform{}
+	_ connector.Formatter     = platform{}
+	_ connector.Splitter      = platform{}
+	_ connector.MediaReader   = platform{}
+	_ connector.FileSender    = platform{}
+	_ connector.HistoryReader = platform{}
 )
 
 func (platform) Kind() string                  { return Kind }
@@ -222,4 +225,78 @@ func (r *Runtime) take(req contract.ConnectorRequest) (string, bool) {
 	ph, ok := r.working[key]
 	delete(r.working, key)
 	return ph.ts, ok && time.Since(ph.at) < placeholderLife
+}
+
+// Limits of the history of a thread.
+const (
+	// repliesPage is the size of one page of conversations.replies.
+	repliesPage = 200
+	// repliesPages is how many pages one history reads. Slack returns a thread
+	// oldest first, so the newest messages are at its end: a thread longer
+	// than repliesPages pages is refused, not shown from its middle.
+	repliesPages = 5
+	// historyNames bounds the people whose names one history looks up.
+	historyNames = 30
+)
+
+// errThreadTooLong means the thread has more messages than one history reads.
+var errThreadTooLong = errors.New("slack: the thread is too long to read")
+
+// History returns the earlier messages of a thread: the newest req.Limit
+// before req.Before, oldest first, with the names of their authors. A message
+// of the bot is marked Own. Messages that no person or app wrote (joins,
+// deletions) are left out. The file bytes are never read, only their names.
+func (p platform) History(ctx context.Context, req contract.ConnectorRequest) ([]contract.ConnectorHistoryMessage, bool, error) {
+	b, err := bot(req.Token)
+	if err != nil {
+		return nil, false, err
+	}
+	var all []Reply
+	cursor := ""
+	for page := 0; ; page++ {
+		if page == repliesPages {
+			return nil, false, errThreadTooLong
+		}
+		got, next, err := p.r.API.Replies(ctx, b, req.Chat, req.Thread, req.Before, cursor, repliesPage)
+		if err != nil {
+			return nil, false, err
+		}
+		all = append(all, got...)
+		if next == "" {
+			break
+		}
+		cursor = next
+	}
+	all = slices.DeleteFunc(all, func(m Reply) bool {
+		return m.TS == req.Before || (m.Subtype != "" && !personal[m.Subtype] && m.Subtype != "bot_message")
+	})
+	more := len(all) > req.Limit
+	if more {
+		all = all[len(all)-req.Limit:]
+	}
+	self := p.r.Socket.botUser(ctx, req.Token)
+	users := p.r.Socket.namer(ParseTokens(req.Token))
+	out := make([]contract.ConnectorHistoryMessage, 0, len(all))
+	for _, m := range all {
+		h := contract.ConnectorHistoryMessage{MessageID: m.TS, SenderID: m.User, Text: Plain(m.Text, ""), Own: self != "" && m.User == self}
+		if sec, err := strconv.ParseFloat(m.TS, 64); err == nil {
+			h.TS = time.UnixMicro(int64(sec * 1e6)).UTC()
+		}
+		switch {
+		case m.User != "":
+			if u, ok := users(ctx, m.User); ok {
+				h.SenderName, h.SenderUsername = u.Display(), u.Name
+			}
+		case m.BotID != "":
+			h.SenderID, h.SenderName = m.BotID, m.Username
+		}
+		for _, f := range m.Files {
+			h.Media++
+			if len(h.MediaNames) < contract.MaxHistoryMedia && f.Name != "" {
+				h.MediaNames = append(h.MediaNames, f.Name)
+			}
+		}
+		out = append(out, h)
+	}
+	return out, more, nil
 }
