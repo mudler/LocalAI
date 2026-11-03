@@ -870,6 +870,7 @@
     "newOptional": "La nuova versione chiede anche {{ops}}. Sono facoltative e non consentite.",
     "noLongerRequested": "Questa versione non lo chiede più. Puoi spegnerlo.",
     "notOfficial": "Questo add-on viene da {{library}}, non dalla libreria ufficiale.",
+    "notOfficialWarning": "Questo add-on viene da {{library}}, non dalla libreria ufficiale. Gira come codice fidato su questo server e può usare le credenziali che gli vengono date. Installalo solo se ti fidi di chi lo ha scritto.",
     "op": {
       "alreadyAllowed": "Già consentito",
       "blocked": "Bloccato dalla politica dell'amministratore",

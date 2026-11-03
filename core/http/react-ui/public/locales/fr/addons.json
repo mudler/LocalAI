@@ -874,6 +874,7 @@
     "newOptional": "La nouvelle version demande aussi {{ops}}. Elles sont facultatives et non autorisées.",
     "noLongerRequested": "Cette version ne le demande plus. Vous pouvez le désactiver.",
     "notOfficial": "Ce module vient de {{library}}, pas de la bibliothèque officielle.",
+    "notOfficialWarning": "Ce module vient de {{library}}, pas de la bibliothèque officielle. Il s'exécute comme du code de confiance sur ce serveur et peut utiliser les identifiants qui lui sont confiés. Ne l'installez que si vous faites confiance à son auteur.",
     "op": {
       "alreadyAllowed": "Déjà autorisé",
       "blocked": "Bloqué par la politique de l'administrateur",

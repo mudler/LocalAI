@@ -870,6 +870,7 @@
     "newOptional": "Versi baru juga meminta {{ops}}. Ini opsional dan tidak diizinkan.",
     "noLongerRequested": "Versi ini tidak lagi memintanya. Anda dapat mematikannya.",
     "notOfficial": "Add-on ini berasal dari {{library}}, bukan pustaka resmi.",
+    "notOfficialWarning": "Add-on ini berasal dari {{library}}, bukan pustaka resmi. Add-on berjalan sebagai kode tepercaya di server ini dan dapat memakai kredensial yang diberikan kepadanya. Pasang hanya jika Anda memercayai penulisnya.",
     "op": {
       "alreadyAllowed": "Sudah diizinkan",
       "blocked": "Diblokir oleh kebijakan administrator",
