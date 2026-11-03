@@ -11,8 +11,9 @@ import (
 
 // connectorBlock tells the model of a chat that a messaging app started where
 // its answer goes. The person reads it there, not in Studio, and the host
-// attaches the files a turn makes (sendFiles), so the model must not say it
-// cannot send a file or quote a path of the sandbox. It is a block of the turn
+// attaches the files a turn makes (sendFiles) and the files the model marks
+// with attach_file, so the model must not say it cannot send a file or quote a
+// path of the sandbox. It is a block of the turn
 // prompt, not a note: a note is cut at 400 bytes, and the text of a block is
 // the same at each turn, so the harness is not restarted and the transcript
 // does not grow. Other chats get nothing. canWrite says whether the chat can
@@ -43,9 +44,10 @@ func (s *Service) connectorBlock(ctx context.Context, rec session.ChatRecord, ca
 	case !sends:
 		sb.WriteString(" Files are NOT sent to them: paste short content in the answer, or say you cannot attach a file. Never tell them a file path.")
 	default:
-		fmt.Fprintf(&sb, " Files you save in the chat folder during a turn are attached to your answer automatically after it. Name the file and say it is attached; never say you cannot send files, and never tell them a path."+
-			" Up to %d files per turn, %d MB each; documents, data, images, audio, video and zip only, no scripts or HTML. Keep files small, and say so if one cannot be attached.",
-			maxFilesPerTurn, contract.MaxConnectorFileBytes>>20)
+		fmt.Fprintf(&sb, " Files you make or change in a turn are attached to your answer automatically. To give them a file that already exists, call %s with its path."+
+			" Say the file is attached; never say you cannot send files, and never tell them a path."+
+			" Up to %d files per turn, %d MB each; documents, data, images, audio, video and zip only, no scripts or HTML. If one cannot be attached, say so.",
+			attachFileName, maxFilesPerTurn, contract.MaxConnectorFileBytes>>20)
 	}
 	return sb.String()
 }
