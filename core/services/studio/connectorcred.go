@@ -11,8 +11,14 @@ import (
 // CredentialGrant is the secret and the allowed resource a tool call of an
 // add-on gets from the binding that its caller selected.
 type CredentialGrant struct {
-	// Secret is the unsealed token of the binding.
+	// Secret is the unsealed token of the binding, or the access token of its
+	// OAuth login.
 	Secret string
+	// Scopes are the scopes of the OAuth login; empty for a token binding.
+	Scopes []string
+	// Version is the version of the OAuth grant the secret comes from, for
+	// RenewCredential; zero for a token binding, which cannot be renewed.
+	Version int64
 	// Resource is the list entry the call named, or the zero value for a call
 	// that named none.
 	Resource connectors.ResourceEntry
@@ -61,7 +67,9 @@ func (cs ConnectionSet) IDs() []string {
 }
 
 // Connections lists the connections of the user for an add-on: the bindings of
-// that add-on that hold a token, oldest first.
+// that add-on that hold a credential, oldest first. An OAuth binding counts
+// once it has a login, also one that needs a reconnect, so its calls get the
+// reconnect_needed refusal.
 func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]Connection, error) {
 	all, err := c.o.Store.ListBindings(ctx, principal(user))
 	if err != nil {
@@ -69,7 +77,16 @@ func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]C
 	}
 	var mine []connectors.Binding
 	for _, b := range all {
-		if b.AddonID == addonID && len(b.Token) > 0 {
+		if b.AddonID != addonID {
+			continue
+		}
+		if b.UsesOAuth() {
+			if ok, err := c.hasGrant(ctx, b); err != nil {
+				return nil, err
+			} else if ok {
+				mine = append(mine, b)
+			}
+		} else if len(b.Token) > 0 {
 			mine = append(mine, b)
 		}
 	}
@@ -172,13 +189,16 @@ func (c *Connectors) SoleConnection(ctx context.Context, user, addonID string) (
 }
 
 // CredentialFor opens the token of the binding bindingID for a tool call of an
-// add-on. It uses only that binding, which must be the user's own for that
-// add-on and hold a token, and it holds the call to the resource list of that
-// binding. An empty bindingID is connectors.ErrNoConnection: the caller has
+// add-on, or, for an OAuth binding, the access token of its login, refreshed
+// when it ends soon. It uses only that binding, which must be the user's own
+// for that add-on and hold a credential, and it holds the call to the
+// resource list of that binding. An empty bindingID is connectors.ErrNoConnection: the caller has
 // no selected connection and the host does not pick one. The error is
 // connectors.ErrNoCredential when the binding is not usable and a
 // *connectors.NotAllowedError, listing this binding's resources, when the list
-// does not hold the key.
+// does not hold the key. An OAuth login that cannot be renewed is
+// ErrReconnectNeeded; one that cannot be renewed now is
+// ErrCredentialUnavailable or a *contract.ErrRateLimited.
 func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID, key string) (CredentialGrant, error) {
 	if bindingID == "" {
 		return CredentialGrant{}, connectors.ErrNoConnection
@@ -187,16 +207,22 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 	if err != nil || b.Owner != principal(user) || b.AddonID != addonID {
 		return CredentialGrant{}, connectors.ErrNoCredential
 	}
-	entry, err := connectors.Entry(b, key)
+	usable := len(b.Token) > 0
+	if b.UsesOAuth() {
+		if usable, err = c.hasGrant(ctx, b); err != nil {
+			return CredentialGrant{}, ErrCredentialUnavailable
+		}
+	}
+	entry, err := connectors.EntryWith(b, usable, key)
 	if err != nil {
 		return CredentialGrant{}, err
 	}
-	secret, err := c.openToken(ctx, b)
+	acc, err := c.accessTokenFor(ctx, b)
 	if err != nil {
 		return CredentialGrant{}, err
 	}
 	// Which connection acted: the binding, the add-on and the resource key (a
 	// name from the person's own list, never the token).
 	c.log.Info("studio: connector credential audit", "binding", b.ID, "kind", b.Kind, "addon", b.AddonID, "resource", entry.Key)
-	return CredentialGrant{Secret: secret, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name}, nil
+	return CredentialGrant{Secret: acc.secret, Scopes: acc.scopes, Version: acc.version, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name}, nil
 }

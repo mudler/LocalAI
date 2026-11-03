@@ -13,11 +13,14 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"golang.org/x/sync/singleflight"
+
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
+	"github.com/mudler/LocalAI/core/services/studio/oauthtoken"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -97,6 +100,15 @@ type ConnectorOptions struct {
 	// OutboxPoll is how often a queued message looks again for room under
 	// the limit of its binding; zero means one second.
 	OutboxPoll time.Duration
+	// OAuthDescriptor returns the OAuth descriptor that the credential slot of
+	// an installed add-on declares now. Nil: this process cannot run OAuth
+	// logins or refreshes, and an OAuth binding is unavailable here.
+	OAuthDescriptor func(ctx context.Context, addonID string) (contract.OAuthDescriptor, error)
+	// TokenClient calls the token endpoints. Nil: oauthtoken.New.
+	TokenClient *oauthtoken.Client
+	// InstanceID names this process in the lease of a grant. Empty: a
+	// random name.
+	InstanceID string
 	Logger     *slog.Logger
 }
 
@@ -123,7 +135,13 @@ type Connectors struct {
 
 	sealMu sync.Mutex
 	sealer *connectors.Sealer
-	wmu    sync.Mutex // serialises writes of bindings
+
+	// refreshes runs one refresh per grant and version in this process; the
+	// lease in the grant row does the same across processes.
+	refreshes    singleflight.Group
+	instance     string
+	defaultToken *oauthtoken.Client
+	wmu          sync.Mutex // serialises writes of bindings
 
 	mu    sync.Mutex // guards loops and shut, and orders wg.Add before Close's Wait
 	loops map[string]context.CancelFunc
@@ -194,7 +212,10 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	if o.Logger == nil {
 		o.Logger = slog.Default()
 	}
-	return &Connectors{svc: svc, o: o, log: o.Logger, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
+	if o.InstanceID == "" {
+		o.InstanceID = newID()
+	}
+	return &Connectors{svc: svc, o: o, log: o.Logger, instance: o.InstanceID, defaultToken: oauthtoken.New(), loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
 		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc)}}, nil
 }
 

@@ -636,6 +636,83 @@ folder of a single process):
 - The tables and the `auth_kind` column are added when the server starts.
   Existing bindings have an empty kind and need no change.
 
+#### Login, refresh and disconnect
+
+An administrator saves the client ID and secret of an add-on for the descriptor
+digest they saw; the save is the approval, and the host refuses it when the
+descriptor changed in the meantime. A status read says whether a secret is
+stored and never returns it.
+
+A login starts only when the approval holds for the current descriptor. The
+host makes a 256-bit `state`, a PKCE verifier and a nonce for a cookie of the
+browser, and asks for the required scopes and the optional ones the person
+ticked. At the callback the state is used up first; then the person and the
+nonce must match the start, and the approval must still hold. The host trades
+the code at `tokenUrl`, checks that the required scopes were granted, and asks
+the add-on's connector op `me`, with the new token, who the person is. An
+`unauthorized` answer fails the login. The outcome is one of `ok`, `denied`,
+`invalid_state`, `provider_error`, `exchange_failed`, `scopes_missing` and
+`unavailable`; nothing the service wrote is copied into it.
+
+Every credentialed call reads the grant:
+
+- The access token is refreshed when less than two minutes of its life are
+  left. A service that gives no `expires_in` is refreshed only after a
+  rejection. The proposal broker reads the credential at preview and again at
+  apply, so a confirmation hours later gets a fresh token.
+- When the add-on answers `credential_rejected`, the host refreshes once and
+  retries the call once, unless the grant changed since the call began; then
+  it retries with the newer token. A second rejection ends the grant.
+- The new access token, its expiry, the granted scopes and a rotated refresh
+  token are written in one compare-and-set step before the token is used. When
+  that write fails after the service rotated the refresh token, the host tries
+  three times and then ends the grant.
+
+| The service answers | Result | Grant |
+|---|---|---|
+| Network error, timeout or 5xx | the call fails as an outage and may be repeated | unchanged |
+| 429 | `rate_limited` with the `Retry-After` of the service | unchanged |
+| `invalid_grant`, `invalid_client`, another refusal | `reconnect_needed` | secrets wiped, state `reconnect_needed` |
+| (descriptor changed since the approval) | `reconnect_needed`, reason `needs_approval`; the refresh token is not sent | secrets wiped |
+
+Disconnect revokes the refresh token (or the access token when there is no
+refresh token) at `revokeUrl` when the descriptor has one, with a 10 s limit,
+and then deletes the grant even when the revocation failed. The answer says
+whether the service was told.
+
+The token client follows no redirect, reaches public addresses only, waits at
+most 30 s and reads at most 64 KiB. It accepts bearer tokens only, an access
+token must fit in 4096 bytes, and `expires_in` is clamped to one minute through
+one day. Its errors are fixed classes: no token, code, verifier, state, client
+secret or answer of the service goes into a log, an error or a tool result.
+
+Uninstalling an add-on does not touch its grants or its client yet: the
+add-on manager has no hook for it. The bindings stay, as they do for a token
+binding.
+
+#### OAuth with several frontends
+
+State mode: stateless per request, with a claim in the database. Every
+frontend reads the OAuth records from the shared database, and the sealing key
+is in the same database, so any process with the database can open them. No
+process keeps a copy. Two things keep one refresh at a time:
+
+- In one process, one refresh per grant and version runs, and the other callers
+  wait for its result.
+- Across processes, a refresher takes a lease in the grant row (a conditional
+  update on the version, 30 s). The other callers look at the row every 200 ms
+  for up to 10 s and use the token the winner wrote. A service that rotates its
+  refresh tokens can revoke the whole login when one refresh token is used
+  twice, so this matters.
+
+In a split deployment the refresh runs on the add-on owner: the frontends
+forward credentialed tool calls to it, the owner adds the credential and calls
+the add-on, and when the add-on rejects the token the owner refreshes and
+retries before it answers. Only the final `reconnect_needed` refusal crosses
+back to the frontend. The OAuth descriptor comes from the manifest of the
+installed add-on, which only the owner reads, so the login start and callback
+also run where the add-on runs.
+
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an

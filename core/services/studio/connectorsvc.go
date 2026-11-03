@@ -20,9 +20,13 @@ type ConnectorInput struct {
 	// is required and fixed when the binding is made.
 	Kind string
 	Name string
-	// Token is the bot token. It is needed to create a binding; an update
-	// without one keeps the stored token.
+	// Token is the bot token. It is needed to create a token binding; an
+	// update without one keeps the stored token. An OAuth binding takes none.
 	Token string
+	// AuthKind is connectors.AuthToken (or empty) or connectors.AuthOAuth2. It
+	// is fixed when the binding is made. An OAuth binding gets its credential
+	// from a login (see StartLogin).
+	AuthKind string
 	// AgentID is required: the agent's grants are the only tools a message gets.
 	AgentID string
 	// AcceptAny lets anyone who can message the bot use the agent. Without it
@@ -359,7 +363,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon}
+	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon, AuthKind: in.AuthKind}
 	in.apply(&b)
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
@@ -373,7 +377,10 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
-	if strings.TrimSpace(in.Token) == "" {
+	switch {
+	case b.UsesOAuth() && strings.TrimSpace(in.Token) != "":
+		return ConnectorInfo{}, connectorBad("a connection that uses a login takes no token")
+	case !b.UsesOAuth() && strings.TrimSpace(in.Token) == "":
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
 	if err := c.checkAgentIfAny(ctx, owner, in.AgentID); err != nil {
@@ -395,12 +402,14 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := checkConnectionName(b, mine); err != nil {
 		return ConnectorInfo{}, err
 	}
-	sealer, err := c.sealerFor(ctx)
-	if err != nil {
-		return ConnectorInfo{}, err
-	}
-	if b.Token, err = sealer.Seal(connectors.AAD(b.ID, owner), []byte(strings.TrimSpace(in.Token))); err != nil {
-		return ConnectorInfo{}, err
+	if !b.UsesOAuth() {
+		sealer, err := c.sealerFor(ctx)
+		if err != nil {
+			return ConnectorInfo{}, err
+		}
+		if b.Token, err = sealer.Seal(connectors.AAD(b.ID, owner), []byte(strings.TrimSpace(in.Token))); err != nil {
+			return ConnectorInfo{}, err
+		}
 	}
 	b.Created = c.o.Clock().UTC()
 	b.Updated = b.Created
@@ -436,11 +445,15 @@ func checkConnectionName(b connectors.Binding, mine []connectors.Binding) error 
 // UpdateConnector replaces the definition of a binding of the user.
 func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in ConnectorInput) (ConnectorInfo, error) {
 	// A new token is checked before the write lock: the check asks the
-	// platform. The kind and the add-on of a binding never change.
+	// platform. The kind, the auth kind and the add-on of a binding never
+	// change.
 	if t := strings.TrimSpace(in.Token); t != "" {
 		cur, err := c.owned(ctx, user, id)
 		if err != nil {
 			return ConnectorInfo{}, err
+		}
+		if cur.UsesOAuth() {
+			return ConnectorInfo{}, connectorBad("a connection that uses a login takes no token")
 		}
 		if err := c.verifyToken(ctx, cur, t); err != nil {
 			return ConnectorInfo{}, err
@@ -566,11 +579,17 @@ func (c *Connectors) TestConnector(ctx context.Context, user, id string) (Connec
 	if !c.withState(ctx, info(b)).Active {
 		return ConnectorBot{}, ErrConnectorAddon
 	}
-	token, err := c.openToken(ctx, b)
+	acc, err := c.accessTokenFor(ctx, b)
 	if err != nil {
 		return ConnectorBot{}, err
 	}
-	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+	scope := BindingConnectorScope(b)
+	if b.UsesOAuth() {
+		// The stored binding holds no token, so the call carries the access
+		// token the way a token check does.
+		scope.Purpose = ConnectorPurposeVerifyToken
+	}
+	resp, err := c.o.Transport.Call(ctx, scope, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: acc.secret})
 	if err == nil && resp.Error != nil {
 		err = resp.Error
 	}
