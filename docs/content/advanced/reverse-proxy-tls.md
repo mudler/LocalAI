@@ -12,7 +12,7 @@ When running LocalAI behind a TLS termination reverse proxy, the Web UI may fail
 
 ## How It Works
 
-LocalAI uses the `X-Forwarded-Proto` HTTP header to determine the protocol used by clients. When this header is set to `https`, LocalAI will generate HTTPS URLs for static assets in the Web UI.
+LocalAI uses the `X-Forwarded-Proto` HTTP header to determine the protocol used by clients. When this header is set to `https`, LocalAI will generate HTTPS URLs for static assets in the Web UI. LocalAI believes this header, and the other forwarding headers, only when the request comes from a proxy listed in `--trusted-proxies` (see below).
 
 ## Running behind a reverse proxy (HTTPS / subpath)
 
@@ -29,10 +29,17 @@ LocalAI determines these in this order:
    the wrong scheme or host.
 2. Otherwise, the `X-Forwarded-Proto` and `X-Forwarded-Host` headers (or the
    RFC 7239 `Forwarded` header) sent by the proxy. Ensure your proxy forwards
-   `X-Forwarded-Proto: https`.
+   `X-Forwarded-Proto: https`. These headers are believed only when the TCP
+   peer of the request is in `--trusted-proxies` (`LOCALAI_TRUSTED_PROXIES`).
+   The list is empty by default and trusts nobody: then LocalAI uses the
+   scheme and host of the request itself and ignores the headers.
+   **If you run behind a proxy and do not set `LOCALAI_BASE_URL`, set
+   `--trusted-proxies` to the address of the proxy.**
 
 A reverse-proxy subpath mount is supported via `X-Forwarded-Prefix`; it is
-appended to `LOCALAI_BASE_URL` when both are present.
+appended to `LOCALAI_BASE_URL` when both are present. The header is read for
+the page base URL only from a trusted proxy, as for the other forwarding
+headers.
 
 ## Finding the client address
 
@@ -63,7 +70,7 @@ to come from the proxy.
 
 ## Required Headers
 
-Your reverse proxy must forward these headers to LocalAI:
+Your reverse proxy must forward these headers to LocalAI, and its address must be in `--trusted-proxies`, or LocalAI ignores them:
 
 | Header | Purpose |
 |--------|---------|

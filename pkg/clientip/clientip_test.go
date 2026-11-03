@@ -88,3 +88,26 @@ func TestParseErrors(t *testing.T) {
 		}
 	}
 }
+
+func TestTrustsPeer(t *testing.T) {
+	r, err := Parse("10.0.0.0/8")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for peer, want := range map[string]bool{
+		"10.0.0.5:1":          true,
+		"[::ffff:10.0.0.5]:1": true,
+		"192.0.2.10:1":        false,
+		"garbage":             false,
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.RemoteAddr = peer
+		if got := r.TrustsPeer(req); got != want {
+			t.Errorf("TrustsPeer(%q) = %v, want %v", peer, got, want)
+		}
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	if (*Resolver)(nil).TrustsPeer(req) || (&Resolver{}).TrustsPeer(req) {
+		t.Error("empty resolver must trust nobody")
+	}
+}

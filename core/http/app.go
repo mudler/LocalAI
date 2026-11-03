@@ -324,6 +324,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		})
 	}
 
+	// BaseURL believes X-Forwarded-Proto/Host/Prefix only from a trusted peer.
+	e.Pre(httpMiddleware.TrustedProxies(clientAddrs))
+
 	e.Pre(middleware.RemoveTrailingSlash())
 
 	if application.ApplicationConfig().MachineTag != "" {

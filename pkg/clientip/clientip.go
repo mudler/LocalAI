@@ -86,6 +86,18 @@ func (r *Resolver) isTrusted(a netip.Addr) bool {
 	return false
 }
 
+// TrustsPeer reports whether the TCP peer of req is a trusted proxy. Only then
+// may the forwarding headers of the request (X-Forwarded-For, -Proto, -Host,
+// -Prefix, Forwarded) be believed. A nil or empty Resolver trusts nobody.
+func (r *Resolver) TrustsPeer(req *http.Request) bool {
+	host, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		host = req.RemoteAddr
+	}
+	peer, err := netip.ParseAddr(host)
+	return err == nil && r.isTrusted(peer)
+}
+
 // Resolve returns the client address of req, without port. When the TCP peer
 // is not trusted, or the list is empty, that is the peer. When it is trusted,
 // the result is the right-most X-Forwarded-For entry that is not itself a
