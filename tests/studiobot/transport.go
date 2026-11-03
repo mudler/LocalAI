@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"sync"
 	"sync/atomic"
 
 	"github.com/mudler/LocalAI/addons/testhost"
@@ -62,6 +63,9 @@ func Slack(rt *slack.Runtime) Addon {
 // add-on runtimes in the process, over APIs that a test fakes. The tests of
 // the chats therefore exercise the same transport code that the add-ons run.
 type BotTransport struct {
+	// mu guards addons and gateway: EnableTransfers rewrites them while the
+	// loops of the manager already read them.
+	mu      sync.RWMutex
 	addons  []Addon
 	gateway *gateway.Gateway
 	running atomic.Bool
@@ -93,6 +97,8 @@ func (b *BotTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
 	if !b.running.Load() {
 		return nil, nil
 	}
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	out := make([]studio.ConnectorKind, len(b.addons))
 	for i, a := range b.addons {
 		out[i] = studio.ConnectorKind{AddonID: a.ID, ConnectorKind: a.Kind}
@@ -103,6 +109,8 @@ func (b *BotTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
 // DeclareFiles makes the kinds declare the files ability of their manifests,
 // for a spec that reads the limits and moves no byte.
 func (b *BotTransport) DeclareFiles() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	for i, a := range b.addons {
 		b.addons[i].Kind.Files = a.Files
 	}
@@ -120,6 +128,8 @@ func (b *BotTransport) EnableTransfers(t *hostops.Transfers) (stop func()) {
 		panic(err)
 	}
 	var hosts []*httptest.Server
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	for i, a := range b.addons {
 		b.addons[i].Kind.Files = a.Files
 		if a.WithHost == nil {
@@ -162,18 +172,28 @@ func (g gatewaySource) Connector(ctx context.Context, addonID string, req contra
 
 // Call runs the connector route of an add-on.
 func (b *BotTransport) Call(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	if b.gateway != nil && b.running.Load() {
-		return b.gateway.ConnectorCall(ctx, scope, req)
+	b.mu.RLock()
+	gw := b.gateway
+	b.mu.RUnlock()
+	if gw != nil && b.running.Load() {
+		return gw.ConnectorCall(ctx, scope, req)
 	}
 	return b.run(ctx, scope.AddonID, req)
 }
 
 func (b *BotTransport) run(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
 	if b.running.Load() {
+		b.mu.RLock()
+		var rt contract.ConnectorRuntime
 		for _, a := range b.addons {
 			if a.ID == addonID {
-				return a.Runtime.Connector(ctx, req)
+				rt = a.Runtime
+				break
 			}
+		}
+		b.mu.RUnlock()
+		if rt != nil {
+			return rt.Connector(ctx, req)
 		}
 	}
 	return contract.ConnectorResponse{}, errors.New("the add-on is not running")
