@@ -387,17 +387,22 @@ func (r *fenceRig) run(conv, key string, steps ...studiotest.ToolStep) []studiot
 	r.on(key, steps...)
 	before, turns := len(r.h.Results()), len(r.h.Sent(conv))
 	sent(r.svc, alice, conv, key)
-	until("the turn to end", func() bool {
+	untilWithin(turnLimit, "the turn to end", func() bool {
 		return len(r.h.Sent(conv)) > turns && !turn(r.svc, alice, conv).Running
 	})
 	r.settle()
 	return r.h.Results()[before:]
 }
 
+// turnLimit bounds the wait for a probe turn to end. One turn calls about a
+// hundred real file tools; that took 7 to 25 s under -race here and over 20 s
+// on a CI runner, so the default 20 s bound of until was too tight.
+const turnLimit = 5 * time.Minute
+
 // settle waits until no chat of alice runs a turn.
 func (r *fenceRig) settle() {
 	GinkgoHelper()
-	until("every chat to be idle", func() bool {
+	untilWithin(turnLimit, "every chat to be idle", func() bool {
 		list, err := r.svc.List(r.ctx, alice, 500)
 		if err != nil {
 			return false
