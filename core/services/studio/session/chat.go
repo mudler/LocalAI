@@ -689,6 +689,12 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 			c.mu.Unlock()
 			return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
 		}
+		if c.pendingFullLocked(len(msg.Text) + len(msg.Note)) {
+			// Refused before the message reaches the transcript, so a retry
+			// does not log it twice.
+			c.mu.Unlock()
+			return fmt.Errorf("%w: too many messages are waiting for the turn", ErrTurnRunning)
+		}
 		hs, turn, swapping := c.hs, c.turn, c.swapping
 		if hs == nil || swapping {
 			// The harness is being swapped: queue the message for the next
@@ -752,18 +758,39 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	return nil
 }
 
+// Limits of the queue of messages that wait for the next turn. The queue only
+// fills while a turn ends or the harness swaps, so a full one means a client
+// that sends faster than the chat can take.
+const (
+	maxPendingMessages = 32
+	maxPendingBytes    = 256 << 10
+)
+
+// pendingFullLocked says whether a message of n more bytes does not fit in the
+// queue. The caller holds c.mu.
+func (c *Chat) pendingFullLocked(n int) bool {
+	if len(c.pending) >= maxPendingMessages {
+		return true
+	}
+	total := n
+	for _, p := range c.pending {
+		total += len(p)
+	}
+	return total > maxPendingBytes
+}
+
 // queueLogged queues text, which is in the transcript already, for the next
 // turn of the running loop, or starts it when the turn has ended meanwhile.
-// When the turn was stopped meanwhile, the message waits for the turn to end
-// and starts the next one: it is in the transcript, so it must not be refused
-// any more.
+// When the turn was stopped, or the queue filled up since Send checked it, the
+// message waits for the turn to end and starts the next one: it was accepted
+// into the transcript, so it must not be refused any more.
 func (c *Chat) queueLogged(ctx context.Context, msg Message, text string) error {
 	c.mu.Lock()
 	if !c.running {
 		c.mu.Unlock()
 		return c.send(ctx, msg, true)
 	}
-	if c.stopped {
+	if c.stopped || c.pendingFullLocked(len(text)) {
 		done := c.done
 		c.mu.Unlock()
 		select {

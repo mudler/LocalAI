@@ -2,6 +2,8 @@ package session_test
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -79,5 +81,20 @@ var _ = Describe("messages that wait for the next turn", func() {
 		Eventually(stopped).Should(BeClosed())
 		Expect(userTexts()).To(ContainElement("second"), "the message is not in the transcript")
 		Eventually(func() []string { return h.Sent() }).Should(HaveLen(2), "the message never reached a turn")
+	})
+
+	It("refuses a message when too many wait, before it reaches the transcript", func() {
+		var refused error
+		for i := 0; i < 2*session.MaxPendingMessages && refused == nil; i++ {
+			refused = chat.Send(context.Background(), session.Message{Text: fmt.Sprintf("m%d", i)})
+		}
+		Expect(refused).To(MatchError(session.ErrTurnRunning))
+		Expect(userTexts()).To(HaveLen(1+session.MaxPendingMessages), "the refused message was logged")
+	})
+
+	It("refuses a message when the waiting ones are too big", func() {
+		big := strings.Repeat("x", session.MaxPendingBytes/2+1)
+		Expect(chat.Send(context.Background(), session.Message{Text: big})).To(Succeed())
+		Expect(chat.Send(context.Background(), session.Message{Text: big})).To(MatchError(session.ErrTurnRunning))
 	})
 })
