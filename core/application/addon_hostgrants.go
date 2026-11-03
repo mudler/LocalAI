@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/addons/hostgrants"
@@ -35,9 +36,11 @@ var errHostGrantsLocked = errors.New("host grants are locked by the deployment")
 // audit file, the deployment floor and the glue to the add-on manager. Only
 // the owner has one. A frontend never stores or enforces grants.
 type addonHostGrants struct {
-	floor    hostgrants.Floor
-	locked   bool
-	override string
+	floor  hostgrants.Floor
+	locked bool
+	// lockedReason is gateway.LockedByDeployment or gateway.LockedNoAuth.
+	lockedReason string
+	override     string
 
 	store    *hostgrants.Store
 	storeErr error
@@ -94,7 +97,15 @@ func (a *Application) hostGrantsFloorFromConfig() hostgrants.Floor {
 // the deny rules in it cannot be read.
 func (a *Application) openAddonHostGrants(root string) {
 	cfg := a.applicationConfig
-	g := &addonHostGrants{floor: a.hostGrantsFloorFromConfig(), locked: cfg.AddonHostUIGrantsLocked, override: cfg.AddonHostBlanket}
+	g := &addonHostGrants{floor: a.hostGrantsFloorFromConfig(), override: cfg.AddonHostBlanket}
+	switch {
+	case cfg.AddonHostUIGrantsLocked:
+		g.locked, g.lockedReason = true, gateway.LockedByDeployment
+	case a.AddonOwnershipMode() == auth.AddonModeLocalOwner && !cfg.AddonHostUIGrantsWithoutAuth:
+		// Without sign-in every caller that reaches the port is the same
+		// administrator, so a UI write proves nothing about who made it.
+		g.locked, g.lockedReason = true, gateway.LockedNoAuth
+	}
 	g.store, g.storeErr = hostgrants.Open(filepath.Join(root, addonHostGrantsFile))
 	if g.storeErr == nil {
 		var err error
@@ -107,6 +118,12 @@ func (a *Application) openAddonHostGrants(root string) {
 	}
 	a.addonGrants = g
 	g.logStartup(cfg.AddonHostOpsSource)
+	switch {
+	case g.lockedReason == gateway.LockedNoAuth:
+		xlog.Warn("Addon host grants are locked because sign-in is off: anyone who can reach this port could change them. Set them in the policy file, turn sign-in on, or pass --addon-host-ui-grants-without-auth to allow UI changes knowingly")
+	case a.AddonOwnershipMode() == auth.AddonModeLocalOwner && !g.locked:
+		xlog.Warn("Addon host grants can be changed from the UI although sign-in is off: anyone who can reach this port can grant host operations, set deny rules and turn the blanket approval on")
+	}
 	if g.storeErr == nil {
 		a.addonGrantStore = g
 	}
@@ -617,7 +634,7 @@ func (a *Application) wireHostGrantsOwner(g *gateway.Gateway) error {
 			title, text, risk, ok := hostops.DescribeOperation(op)
 			return gateway.HostOpDescription{Title: title, Text: text, Risk: risk}, ok
 		},
-		BlanketOverride: hg.override, Locked: hg.locked,
+		BlanketOverride: hg.override, Locked: hg.locked, LockedReason: hg.lockedReason,
 		Completed:   a.addonManager.OperationCompleted,
 		Admin:       g.HostSettingsAdmin,
 		AfterChange: a.AddonHostGrantsAfterChange,

@@ -42,6 +42,9 @@ type HostGrantsConfig struct {
 	BlanketOverride string
 	// Locked refuses every write: the deployment keeps the file the only source.
 	Locked bool
+	// LockedReason says why: LockedByDeployment or LockedNoAuth. It selects the
+	// text of the refusal and is shown by the page.
+	LockedReason string
 	// Completed reports whether a lifecycle operation completed. Nil counts
 	// every entry as completed.
 	Completed func(operationID string) bool
@@ -159,7 +162,7 @@ func (o *HostGrantsOwner) Serve(ctx context.Context, a contract.Actor, call Host
 		}
 		if o.cfg.Locked {
 			o.refused(a, call, "locked_by_deployment")
-			return nil, hgErr(403, HostGrantsLocked, "The deployment keeps host access in its policy file; it cannot be changed here")
+			return nil, hgErr(403, HostGrantsLocked, o.lockedText())
 		}
 	}
 	var out any
@@ -395,7 +398,7 @@ func (o *HostGrantsOwner) read(ctx context.Context) (HostGrantsView, error) {
 	if err != nil {
 		return HostGrantsView{}, err
 	}
-	v := HostGrantsView{Revision: doc.Revision, Locked: o.cfg.Locked,
+	v := HostGrantsView{Revision: doc.Revision, Locked: o.cfg.Locked, LockedReason: o.lockedReason(),
 		Blanket: HostBlanketView{Mode: o.blanketMode(doc), IncludeOptional: doc.Blanket.IncludeOptional, SetBy: "ui", Revision: doc.Blanket.Revision},
 		Floor:   HostGrantsFloor{Source: string(hostgrants.SourceDeployment), Addons: []HostFloorAddon{}},
 		Deny:    HostGrantsDenyView{File: nonNilMap(o.cfg.Floor.Deny), UI: nonNilMap(doc.Deny)},
@@ -465,6 +468,7 @@ func (o *HostGrantsOwner) preview(ctx context.Context, a contract.Actor, r HostG
 	v := HostGrantsPreviewView{AddonID: rel.AddonID, Title: rel.Title, Digest: rel.Digest, Version: rel.Version, Installed: rel.Installed,
 		Official: rel.Official, Revision: doc.Revision, Ops: []HostOpView{}, BlockedReq: nonNil(plan.BlockedRequired), Added: []string{},
 		Requested: HostRequested{Required: nonNil(sorted(rel.Required)), Optional: nonNil(sorted(rel.Optional))}}
+	v.Locked, v.LockedReason = o.cfg.Locked, o.lockedReason()
 	before := unique(installed.Required, installed.Optional)
 	for _, op := range declared {
 		ov := HostOpView{Name: op, Required: req[op], Hint: slices.Contains(hint, op)}
@@ -571,6 +575,24 @@ func (o *HostGrantsOwner) find(ctx context.Context, id string) (InstalledAccess,
 		}
 	}
 	return InstalledAccess{}, o.notFound()
+}
+
+// lockedReason is the reason the page shows, or "" when writes are open.
+func (o *HostGrantsOwner) lockedReason() string {
+	if !o.cfg.Locked {
+		return ""
+	}
+	if o.cfg.LockedReason == "" {
+		return LockedByDeployment
+	}
+	return o.cfg.LockedReason
+}
+
+func (o *HostGrantsOwner) lockedText() string {
+	if o.lockedReason() == LockedNoAuth {
+		return LockedNoAuthText
+	}
+	return "The deployment keeps host access in its policy file; it cannot be changed here"
 }
 
 func (o *HostGrantsOwner) now() string { return o.cfg.Now().UTC().Format(time.RFC3339) }

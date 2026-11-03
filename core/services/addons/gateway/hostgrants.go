@@ -402,12 +402,14 @@ type HostGrantsDenyView struct {
 
 // HostGrantsView is the response of GET /api/addons/host-grants.
 type HostGrantsView struct {
-	Revision uint64             `json:"revision"`
-	Locked   bool               `json:"locked"`
-	Blanket  HostBlanketView    `json:"blanket"`
-	Floor    HostGrantsFloor    `json:"floor"`
-	Deny     HostGrantsDenyView `json:"deny"`
-	Addons   []HostGrantsAddon  `json:"addons"`
+	Revision uint64 `json:"revision"`
+	Locked   bool   `json:"locked"`
+	// LockedReason is LockedByDeployment or LockedNoAuth when Locked.
+	LockedReason string             `json:"lockedReason,omitempty"`
+	Blanket      HostBlanketView    `json:"blanket"`
+	Floor        HostGrantsFloor    `json:"floor"`
+	Deny         HostGrantsDenyView `json:"deny"`
+	Addons       []HostGrantsAddon  `json:"addons"`
 }
 
 // HostBlanketPreview says whether the blanket switch would grant on install.
@@ -426,15 +428,17 @@ type HostGrantsPreviewView struct {
 	Official  bool   `json:"official"`
 	// Added are the operations this version asks for that the installed
 	// version did not. Empty on an install.
-	Added       []string           `json:"added"`
-	Requested   HostRequested      `json:"requested"`
-	Ops         []HostOpView       `json:"ops"`
-	CanInstall  bool               `json:"canInstall"`
-	BlockedReq  []string           `json:"blockedRequired"`
-	Revision    uint64             `json:"revision"`
-	Nonce       string             `json:"nonce"`
-	Blanket     HostBlanketPreview `json:"blanket"`
-	NonceExpiry string             `json:"nonceExpiresAt"`
+	Added        []string           `json:"added"`
+	Requested    HostRequested      `json:"requested"`
+	Ops          []HostOpView       `json:"ops"`
+	CanInstall   bool               `json:"canInstall"`
+	BlockedReq   []string           `json:"blockedRequired"`
+	Revision     uint64             `json:"revision"`
+	Nonce        string             `json:"nonce"`
+	Locked       bool               `json:"locked"`
+	LockedReason string             `json:"lockedReason,omitempty"`
+	Blanket      HostBlanketPreview `json:"blanket"`
+	NonceExpiry  string             `json:"nonceExpiresAt"`
 }
 
 // HostGrantsAddonResult is the response of an edit.
@@ -540,3 +544,14 @@ func (c *Carrier) HostGrants(ctx context.Context, a contract.Actor, call HostGra
 	}
 	return reply.Data, nil
 }
+
+// Reasons the UI grants are locked.
+const (
+	// LockedByDeployment: the policy file and flags are the only source.
+	LockedByDeployment = "deployment"
+	// LockedNoAuth: sign-in is off, so anyone who can reach the server could
+	// change the grants.
+	LockedNoAuth = "no_auth"
+	// LockedNoAuthText is the sentence shown with the refusal.
+	LockedNoAuthText = "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file"
+)

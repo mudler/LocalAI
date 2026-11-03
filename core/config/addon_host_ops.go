@@ -134,6 +134,12 @@ func WithAddonHostBlanket(mode string) AppOption {
 	return func(o *ApplicationConfig) { o.AddonHostBlanket = mode }
 }
 
+// WithAddonHostUIGrantsWithoutAuth lets the UI change host grants although
+// authentication is off.
+func WithAddonHostUIGrantsWithoutAuth(on bool) AppOption {
+	return func(o *ApplicationConfig) { o.AddonHostUIGrantsWithoutAuth = on }
+}
+
 // WithAddonHostUIGrantsLocked makes the UI grant store read-only.
 func WithAddonHostUIGrantsLocked(locked bool) AppOption {
 	return func(o *ApplicationConfig) { o.AddonHostUIGrantsLocked = locked }

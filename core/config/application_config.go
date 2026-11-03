@@ -114,6 +114,10 @@ type ApplicationConfig struct {
 	// AddonHostUIGrantsLocked makes the UI grant store read-only, so the
 	// policy file and flags are the only source of grants.
 	AddonHostUIGrantsLocked bool `json:"-" yaml:"-"`
+	// AddonHostUIGrantsWithoutAuth turns UI host grants on although
+	// authentication is off. Without it they are locked in that mode, since
+	// anyone who can reach the port could change them.
+	AddonHostUIGrantsWithoutAuth bool `json:"-" yaml:"-"`
 
 	// DiagnosticsRecorder is startup-only and local to this frontend process.
 	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`

@@ -110,7 +110,9 @@ var _ = Describe("host grants on the owner", func() {
 		transport, e := gateway.LoadCarrierConfig(keys, "owner", "https://127.0.0.1:"+port)
 		Expect(e).NotTo(HaveOccurred())
 		ctx, cancel := context.WithCancel(context.Background())
-		cfg := &config.ApplicationConfig{Context: ctx, DataPath: ownerData}
+		// The suite runs in local-owner mode, where UI grants are locked unless the
+		// administrator turns them on knowingly. Most specs test the grants.
+		cfg := &config.ApplicationConfig{Context: ctx, DataPath: ownerData, AddonHostUIGrantsWithoutAuth: true}
 		for _, o := range opts {
 			o(cfg)
 		}
@@ -355,6 +357,47 @@ var _ = Describe("host grants on the owner", func() {
 		st, e := a.addonManager.Status(context.Background(), "sample")
 		Expect(e).NotTo(HaveOccurred())
 		Expect(st.Installed).To(BeFalse())
+	})
+
+	It("locks the UI grants while sign-in is off, and opens them only when the administrator says so", func() {
+		a, stop := startOwner(func(c *config.ApplicationConfig) {
+			c.AddonHostUIGrantsWithoutAuth = false
+			c.AddonHostOps = map[string][]string{"sample": {"workspace."}}
+		})
+		out, e := call(a, gateway.HostGrantsCall{Op: gateway.HostGrantsRead})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(out["locked"]).To(BeTrue())
+		Expect(out["lockedReason"]).To(Equal(gateway.LockedNoAuth))
+		// Every write is refused with the typed code, and nothing is stored.
+		before := revision(a)
+		for _, c := range []gateway.HostGrantsCall{
+			{Op: gateway.HostGrantsEdit, AddonID: "sample", OperationID: "e-1", Body: body(gateway.HostGrantsEditRequest{OperationID: "e-1", Ops: []string{"egress.check"}})},
+			{Op: gateway.HostGrantsRevoke, AddonID: "sample", OperationID: "r-1", Body: body(gateway.HostGrantsRevokeRequest{OperationID: "r-1"})},
+			{Op: gateway.HostGrantsDeny, OperationID: "d-1", Body: body(gateway.HostGrantsDenyRequest{OperationID: "d-1", Deny: map[string][]string{"sample": {"egress."}}})},
+			{Op: gateway.HostGrantsBlanket, OperationID: "b-1", Body: body(gateway.HostGrantsBlanketRequest{OperationID: "b-1", Mode: "any", Confirm: gateway.BlanketConfirmAny})},
+		} {
+			_, e = call(a, c)
+			var he *gateway.HostGrantsError
+			Expect(errors.As(e, &he)).To(BeTrue(), c.Op)
+			Expect(he.Type).To(Equal(gateway.HostGrantsLocked), c.Op)
+			Expect(he.Message).To(ContainSubstring("Sign-in is off"))
+		}
+		Expect(revision(a)).To(Equal(before))
+		// The preview tells the install dialog, and the policy file still grants.
+		pv, e := call(a, gateway.HostGrantsCall{Op: gateway.HostGrantsPreview, Body: body(gateway.HostGrantsPreviewRequest{SourceID: "test", AddonID: "sample", Version: "1.2.3"})})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(pv["locked"]).To(BeTrue())
+		Expect(submit(a, "i-1", "install", "1.2.3", "", "")).To(Succeed())
+		Expect(ask(a, "workspace.materialize")).To(Equal(http.StatusOK))
+		stop()
+
+		// Turned on knowingly, the same server accepts the write.
+		open, _ := startOwner()
+		out, e = call(open, gateway.HostGrantsCall{Op: gateway.HostGrantsRead})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(out["locked"]).To(BeFalse())
+		_, e = call(open, gateway.HostGrantsCall{Op: gateway.HostGrantsEdit, AddonID: "sample", OperationID: "e-2", Body: body(gateway.HostGrantsEditRequest{OperationID: "e-2", Revision: revision(open), Ops: []string{"egress.check"}})})
+		Expect(e).NotTo(HaveOccurred())
 	})
 
 	It("keeps the grants of a split deployment on the owner only", func() {
