@@ -42,6 +42,13 @@ var allowed = []struct{ file, text, why string }{
 	{"core/services/studio/convert/run.go", "Telegram", "one-time migration of the legacy Telegram bindings"},
 	{"core/cli/run.go", "Telegram, Slack", "help text that gives the connector platforms as examples"},
 	{"core/http/auth/features.go", "Telegram bots", "the name of a feature permission; the platform is the content"},
+	{"core/cli/run.go", "GitHub OAuth App", "help text of the OAuth login: GitHub the service, not the add-on"},
+	{"core/services/routing/piipattern/builtins.go", "GitHub access token", "a secret pattern: GitHub is the issuer of the token, not a provider"},
+	{"core/services/routing/piipattern/builtins.go", "GitHub fine-grained personal access token", "a secret pattern: GitHub is the issuer of the token, not a provider"},
+	{"pkg/addons/packaging/catalog.go", "GitHub owner/repository", "release signing: GitHub Actions is the build system, not a provider"},
+	{"pkg/addons/packaging/catalog.go", "GitHub Actions OIDC issuer", "release signing: GitHub Actions is the build system, not a provider"},
+	{"pkg/addons/packaging/channel.go", "GitHub event name", "release tooling: GitHub Actions is the build system, not a provider"},
+	{"pkg/addons/packaging/registry.go", "GitHub event name", "release tooling: GitHub Actions is the build system, not a provider"},
 	{"core/services/routing/piipattern/builtins.go", "Slack token", "a secret pattern: Slack is the issuer of the token, not a provider"},
 }
 

@@ -44,8 +44,11 @@ var _ = Describe("the prompts that talk about the add-on that runs commands", fu
 			}
 		}
 		texts = append(texts, scopedHostBashReason, hostBashDescription)
+		// "GitHub releases" is the service that a package registry preset
+		// allows, not the add-on of the same name.
+		service := strings.NewReplacer("github releases and archives", "releases and archives")
 		for _, text := range texts {
-			Expect(re.FindStringSubmatch(strings.ToLower(text))).To(BeNil(), "a prompt names a shipped add-on: %q", text)
+			Expect(re.FindStringSubmatch(service.Replace(strings.ToLower(text)))).To(BeNil(), "a prompt names a shipped add-on: %q", text)
 		}
 	})
 
