@@ -267,6 +267,71 @@ func Run(newStore NewStore) {
 		id, _, _ = s.ChatOf(ctx, "b1", "2")
 		Expect(id).To(Equal("c2"))
 	})
+	It("sets the capabilities only while a binding has none", func() {
+		s := newStore()
+		Expect(s.PutBinding(ctx, binding("none", "u1", "None"))).To(Succeed())
+		withCaps := binding("has", "u1", "Has")
+		withCaps.Caps = []string{"memory.write"}
+		Expect(s.PutBinding(ctx, withCaps)).To(Succeed())
+		ok, err := s.SetCapsIfEmpty(ctx, "none", []string{"files.upload", "memory.write"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		ok, _ = s.SetCapsIfEmpty(ctx, "none", []string{"triggers.run"})
+		Expect(ok).To(BeFalse(), "a second write must not replace the first")
+		ok, _ = s.SetCapsIfEmpty(ctx, "has", []string{"triggers.run"})
+		Expect(ok).To(BeFalse())
+		ok, err = s.SetCapsIfEmpty(ctx, "missing", []string{"triggers.run"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		got, _ := s.GetBinding(ctx, "none")
+		Expect(got.Caps).To(Equal([]string{"files.upload", "memory.write"}))
+		got, _ = s.GetBinding(ctx, "has")
+		Expect(got.Caps).To(Equal([]string{"memory.write"}))
+	})
+	It("lets one caller claim a migration, once, until a stale claim is taken over", func() {
+		s := newStore()
+		lease := 10 * time.Minute
+		ok, err := s.ClaimMigration(ctx, "m1", t0, lease)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+		ok, _ = s.ClaimMigration(ctx, "m1", t0.Add(time.Minute), lease)
+		Expect(ok).To(BeFalse(), "a live claim blocks another caller")
+		ok, _ = s.ClaimMigration(ctx, "m2", t0, lease)
+		Expect(ok).To(BeTrue(), "another name is another migration")
+		ok, _ = s.ClaimMigration(ctx, "m1", t0.Add(lease+time.Second), lease)
+		Expect(ok).To(BeTrue(), "an unfinished claim past its lease is taken over")
+		Expect(s.FinishMigration(ctx, "m1", t0.Add(lease+time.Minute))).To(Succeed())
+		ok, _ = s.ClaimMigration(ctx, "m1", t0.Add(100*time.Hour), lease)
+		Expect(ok).To(BeFalse(), "a finished migration is never claimed again")
+		Expect(s.ReleaseMigration(ctx, "m1")).To(Succeed())
+		ok, _ = s.ClaimMigration(ctx, "m1", t0.Add(200*time.Hour), lease)
+		Expect(ok).To(BeFalse(), "release does not undo a finished migration")
+		Expect(s.ReleaseMigration(ctx, "m2")).To(Succeed())
+		ok, _ = s.ClaimMigration(ctx, "m2", t0.Add(time.Second), lease)
+		Expect(ok).To(BeTrue(), "a released claim can be made again")
+	})
+	It("lets only one of many racing callers claim a migration", func() {
+		s := newStore()
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		wins := 0
+		for range 8 {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				defer GinkgoRecover()
+				ok, err := s.ClaimMigration(ctx, "race", t0, time.Hour)
+				Expect(err).NotTo(HaveOccurred())
+				if ok {
+					mu.Lock()
+					wins++
+					mu.Unlock()
+				}
+			}()
+		}
+		wg.Wait()
+		Expect(wins).To(Equal(1))
+	})
 	It("makes the key once even when calls race", func() {
 		s := newStore()
 		var mu sync.Mutex

@@ -136,6 +136,11 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 		c.AddCapabilitySwitch(studio.TalkbackSwitch("turned off on this server (LOCALAI_DISABLE_CONNECTOR_TALKBACK)"))
 	}
 	a.studioConnectorsHook.Store(c)
+	if a.applicationConfig.SkipBindingCapsMigration {
+		xlog.Info("Connectors: the grant of the usual permissions to old bindings is skipped (LOCALAI_SKIP_BINDING_CAPS_MIGRATION)")
+	} else {
+		go a.migrateBindingCaps(a.backgroundContext(), tr)
+	}
 	if a.ownsAddonsOnly() {
 		// The manager stays: frontends get the stored bot credentials from it
 		// and add-ons push messages to it. Only the polling is left to the
@@ -161,4 +166,45 @@ func (a *Application) transfers() *hostops.Transfers {
 		a.addonTransfers = t
 	})
 	return a.addonTransfers
+}
+
+// bindingCapsRetry bounds how long a start waits for the connector kinds, which
+// come from add-ons that may still be starting.
+const (
+	bindingCapsRetryEvery = 5 * time.Second
+	bindingCapsRetryFor   = 10 * time.Minute
+)
+
+// migrateBindingCaps gives the usual permissions, once, to the connector
+// bindings saved before permissions were enforced. The store decides who runs
+// it, so any number of processes on one store may call this at start. It needs
+// the kinds that add-ons serve, to leave out a binding whose kind declares no
+// permissions, so it waits for them. With none (add-ons off, or none installed)
+// it does nothing and tries again at the next start.
+func (a *Application) migrateBindingCaps(ctx context.Context, tr studio.ConnectorTransport) {
+	deadline := time.Now().Add(bindingCapsRetryFor)
+	for {
+		kinds, err := tr.Kinds(ctx)
+		if err == nil && len(kinds) > 0 {
+			rep, err := studio.MigrateBindingCaps(ctx, a.studioConnStore, kinds, time.Now(), nil)
+			if err == nil {
+				if !rep.Ran {
+					xlog.Debug("Connectors: the permissions migration already ran")
+				}
+				return
+			}
+			xlog.Warn("Connectors: could not give the usual permissions to old bindings; it is tried again at the next start", "error", err)
+			return
+		}
+		// No kinds yet, or the add-on gateway is not up: wait, as an add-on that
+		// serves a kind may be about to start.
+		if time.Now().After(deadline) {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(bindingCapsRetryEvery):
+		}
+	}
 }

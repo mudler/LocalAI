@@ -99,6 +99,17 @@ type keyRow struct {
 
 func (keyRow) TableName() string { return "studio_connector_keys" }
 
+// migrationRow records a one-time migration. Done is set when it finished;
+// until then Started is the lease of the process that runs it.
+type migrationRow struct {
+	Name     string `gorm:"primaryKey;size:64"`
+	Started  time.Time
+	Finished time.Time
+	Done     bool
+}
+
+func (migrationRow) TableName() string { return "studio_connector_migrations" }
+
 type gormStore struct{ db *gorm.DB }
 
 // NewGORM returns a Store on db (SQLite or PostgreSQL) and creates its tables.
@@ -106,7 +117,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("connectors: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}); err != nil {
+	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{}); err != nil {
 		return nil, fmt.Errorf("connectors: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -323,4 +334,43 @@ func (s *gormStore) ConsumePairing(ctx context.Context, binding, hash string, no
 	// cannot match.
 	res := s.db.WithContext(ctx).Where("binding = ? AND hash = ? AND expires > ?", binding, hash, now.UTC()).Delete(&pairingRow{})
 	return res.RowsAffected == 1, res.Error
+}
+
+func (s *gormStore) SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error) {
+	if len(caps) == 0 {
+		return false, nil
+	}
+	raw, _ := json.Marshal(caps)
+	// Caps is "" when a row has none (PutBinding writes it so), NULL for a row
+	// from before the column existed, and "[]" is never written but is
+	// accepted for safety.
+	res := s.db.WithContext(ctx).Model(&bindingRow{}).
+		Where("id = ? AND (caps IS NULL OR caps = '' OR caps = '[]' OR caps = 'null')", id).
+		Update("caps", string(raw))
+	return res.RowsAffected == 1, res.Error
+}
+
+func (s *gormStore) ClaimMigration(ctx context.Context, name string, now time.Time, lease time.Duration) (bool, error) {
+	db := s.db.WithContext(ctx)
+	res := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&migrationRow{Name: name, Started: now.UTC()})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected == 1 {
+		return true, nil
+	}
+	// A claim that was never finished and has outlived its lease is taken
+	// over with a conditional update, so two takers cannot both win.
+	res = db.Model(&migrationRow{}).Where("name = ? AND done = ? AND started <= ?", name, false, now.Add(-lease).UTC()).
+		Update("started", now.UTC())
+	return res.RowsAffected == 1, res.Error
+}
+
+func (s *gormStore) FinishMigration(ctx context.Context, name string, now time.Time) error {
+	return s.db.WithContext(ctx).Model(&migrationRow{}).Where("name = ?", name).
+		Updates(map[string]any{"done": true, "finished": now.UTC()}).Error
+}
+
+func (s *gormStore) ReleaseMigration(ctx context.Context, name string) error {
+	return s.db.WithContext(ctx).Where("name = ? AND done = ?", name, false).Delete(&migrationRow{}).Error
 }

@@ -32,10 +32,18 @@ type jsonData struct {
 	Senders  map[string][]Sender `json:"senders"`
 	Chats    map[string]string   `json:"chats"` // binding + "\x00" + sender
 	Pairings map[string]Pairing  `json:"pairings,omitempty"`
+	// Migrations are the one-time migrations that ran or are running.
+	Migrations map[string]migrationRecord `json:"migrations,omitempty"`
+}
+
+type migrationRecord struct {
+	Started  time.Time `json:"started"`
+	Finished time.Time `json:"finished,omitzero"`
+	Done     bool      `json:"done"`
 }
 
 func newData() jsonData {
-	return jsonData{Bindings: map[string]Binding{}, Offsets: map[string]int64{}, Senders: map[string][]Sender{}, Chats: map[string]string{}, Pairings: map[string]Pairing{}}
+	return jsonData{Bindings: map[string]Binding{}, Offsets: map[string]int64{}, Senders: map[string][]Sender{}, Chats: map[string]string{}, Pairings: map[string]Pairing{}, Migrations: map[string]migrationRecord{}}
 }
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
@@ -63,6 +71,9 @@ func NewJSON(dir string) (Store, error) {
 	}
 	if s.d.Pairings == nil {
 		s.d.Pairings = map[string]Pairing{}
+	}
+	if s.d.Migrations == nil {
+		s.d.Migrations = map[string]migrationRecord{}
 	}
 	return s, nil
 }
@@ -265,4 +276,60 @@ func (s *jsonStore) ConsumePairing(_ context.Context, binding, hash string, now 
 		return false, err
 	}
 	return true, nil
+}
+
+func (s *jsonStore) SetCapsIfEmpty(_ context.Context, id string, caps []string) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	b, ok := s.d.Bindings[id]
+	if !ok || len(b.Caps) > 0 || len(caps) == 0 {
+		return false, nil
+	}
+	old := b
+	b.Caps = append([]string(nil), caps...)
+	s.d.Bindings[id] = b
+	if err := s.save(); err != nil {
+		s.d.Bindings[id] = old
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *jsonStore) ClaimMigration(_ context.Context, name string, now time.Time, lease time.Duration) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old, had := s.d.Migrations[name]
+	if had && (old.Done || now.Sub(old.Started) < lease) {
+		return false, nil
+	}
+	s.d.Migrations[name] = migrationRecord{Started: now.UTC()}
+	if err := s.save(); err != nil {
+		if had {
+			s.d.Migrations[name] = old
+		} else {
+			delete(s.d.Migrations, name)
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (s *jsonStore) FinishMigration(_ context.Context, name string, now time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r := s.d.Migrations[name]
+	r.Done, r.Finished = true, now.UTC()
+	s.d.Migrations[name] = r
+	return s.save()
+}
+
+func (s *jsonStore) ReleaseMigration(_ context.Context, name string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.d.Migrations[name]
+	if !ok || r.Done {
+		return nil
+	}
+	delete(s.d.Migrations, name)
+	return s.save()
 }

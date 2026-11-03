@@ -353,6 +353,9 @@ type ApplicationConfig struct {
 	// chat of its connection and stops the reports of triggers to a channel.
 	// Owner notices keep working.
 	DisableConnectorTalkback bool
+	// SkipBindingCapsMigration keeps the one-time grant of the usual
+	// permissions to old connector bindings from running.
+	SkipBindingCapsMigration bool
 	// AgentJobRetentionDays is how long finished agent jobs are kept. Zero
 	// means DefaultAgentJobRetentionDays.
 	AgentJobRetentionDays int
@@ -1407,6 +1410,8 @@ var (
 	DisableConnectors = func(o *ApplicationConfig) { o.DisableConnectors = true }
 	// DisableConnectorTalkback is the option of LOCALAI_DISABLE_CONNECTOR_TALKBACK.
 	DisableConnectorTalkback = func(o *ApplicationConfig) { o.DisableConnectorTalkback = true }
+	// SkipBindingCapsMigration is the option of LOCALAI_SKIP_BINDING_CAPS_MIGRATION.
+	SkipBindingCapsMigration = func(o *ApplicationConfig) { o.SkipBindingCapsMigration = true }
 )
 
 // WithAgentJobRetentionDays sets how long finished agent jobs are kept.

@@ -504,7 +504,16 @@ add-on.
   `triggers.run`, `talkback.channels`, `tools.write`, and the sensitive `talkback.new_channel`,
   `profile.write`, `skills.write`, `pages.write`, `dashboard.write`). The default is
   no: a binding with none enabled lets a sender talk to the agent, but the agent can
-  not use any of these on the sender's behalf.
+  not use any of these on the sender's behalf. A binding saved before permissions
+  were enforced has none, so the first start after the upgrade gives it the usual set
+  once, the same six that **Allow the usual** turns on (`proposals.confirm`,
+  `memory.write`, `files.upload`, `triggers.propose`, `triggers.run`,
+  `talkback.channels`; never a sensitive one). It only touches a binding with no
+  capability whose kind lists permissions, and it logs one line for each binding it
+  changes. It runs once for the whole store, also with several frontends, and never
+  again, so a binding you clear later stays cleared. A binding you cleared before that
+  start cannot be told from one never set and gets the set too. To keep the strict
+  state, set `LOCALAI_SKIP_BINDING_CAPS_MIGRATION=true` before the first start.
 - **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
   a workspace, and report the roles of each sender. You map a role to capabilities
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind

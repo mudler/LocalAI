@@ -291,6 +291,22 @@ type Store interface {
 	// leaves the code in place. The check and the removal are one step, so a
 	// code works once on any frontend.
 	ConsumePairing(ctx context.Context, binding, hash string, now time.Time) (bool, error)
+
+	// SetCapsIfEmpty sets the capabilities of a binding only while it has none,
+	// as one step, so it never overwrites a choice that an owner saved at the
+	// same time. It reports whether it wrote. A missing binding is false.
+	SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error)
+
+	// ClaimMigration lets one caller, on any frontend, run the named one-time
+	// migration. It is true for the first caller, and for a later one only when
+	// an earlier claim was never finished and is older than lease. A finished
+	// migration is never claimed again.
+	ClaimMigration(ctx context.Context, name string, now time.Time, lease time.Duration) (bool, error)
+	// FinishMigration records that the claimed migration is done for good.
+	FinishMigration(ctx context.Context, name string, now time.Time) error
+	// ReleaseMigration drops an unfinished claim so that the next start can
+	// claim it again. It does nothing for a finished migration.
+	ReleaseMigration(ctx context.Context, name string) error
 }
 
 // An entry of the allowlist is a numeric ID (Telegram), an @username, or an

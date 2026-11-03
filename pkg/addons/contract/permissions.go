@@ -104,6 +104,20 @@ var usualCapabilities = map[string]bool{
 	CapTriggersPropose: true, CapTriggersRun: true, CapTalkbackChannels: true,
 }
 
+// UsualConnectorCapabilities returns what the "Allow the usual" preset of a
+// settings page turns on, sorted: the capabilities marked usual, never a
+// sensitive one. A migration that applies the preset uses this list so it
+// grants exactly what the button grants.
+func UsualConnectorCapabilities() []string {
+	var out []string
+	for _, n := range ConnectorCapabilityNames() {
+		if usualCapabilities[n] && !capabilities[n] {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
 // ConnectorCapabilities returns the closed list with its texts, in the order of
 // ConnectorCapabilityNames.
 func ConnectorCapabilities() []CapabilityInfo {
