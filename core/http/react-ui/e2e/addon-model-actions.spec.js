@@ -56,11 +56,13 @@ for (const surface of ['installed','gallery','detail']) {
   expect(new URL(page.url()).pathname).not.toContain('/app/addons/')
  })
 }
-test('removed addon addresses reach NotFound rather than addon or install promotion',async({page})=>{
- await setup(page,[])
- for (const path of ['studio','talk','image','video','3d','tts','sound','diarization','transform','face','voice','voice-library','fine-tune','quantize']) {
+// One test per address: each loads the whole app, and a slow runner needs
+// several seconds for every load, more than one test may spend on fourteen.
+for (const path of ['studio','talk','image','video','3d','tts','sound','diarization','transform','face','voice','voice-library','fine-tune','quantize']) {
+ test(`removed addon address /app/${path} reaches NotFound rather than addon or install promotion`,async({page})=>{
+  await setup(page,[])
   await page.goto(`/app/${path}`)
   await expect(page.getByTestId('not-found')).toBeVisible()
   expect(new URL(page.url()).pathname).toBe(`/app/${path}`)
- }
-})
+ })
+}
