@@ -454,7 +454,10 @@
     "itemUnread": "{{title}}, non lue",
     "arrived": "Nouvelle notification : {{title}}",
     "arrivedMany_one": "{{count}} nouvelle notification",
-    "arrivedMany_other": "{{count}} nouvelles notifications"
+    "arrivedMany_other": "{{count}} nouvelles notifications",
+    "proposalsWaiting_one": "{{count}} modification vous attend",
+    "proposalsWaiting_other": "{{count}} modifications vous attendent",
+    "proposalsBody": "Un modèle a proposé une modification. Rien n'est enregistré avant votre réponse."
   },
   "change": {
     "loading": "Lecture de la modification du déclencheur...",
@@ -583,5 +586,123 @@
       "stopped_one": "{{count}} boucle arrêtée.",
       "stopped_other": "{{count}} boucles arrêtées."
     }
+  },
+  "changes": {
+    "loading": "Lecture de la modification proposée...",
+    "unread": "Impossible de lire la modification proposée : {{message}}",
+    "removed": "Cette proposition n'existe plus.",
+    "kind": {
+      "memory": "Mémoire",
+      "profile": "Profil",
+      "skill": "Skill",
+      "page": "Page",
+      "dashboard": "Tableau de bord"
+    },
+    "scope": {
+      "user": "Toutes vos conversations",
+      "agent": "Agent {{agent}}",
+      "agentAny": "Un agent",
+      "channel": "Cette conversation"
+    },
+    "help": "Rien n'est enregistré avant votre confirmation.",
+    "row": {
+      "kind": "Type",
+      "target": "Fichier",
+      "source": "De",
+      "expires": "Expire dans"
+    },
+    "source": {
+      "chat": "Une conversation",
+      "connector": "Connecteur {{name}}",
+      "connectorFrom": "Connecteur {{name}}, de {{sender}}"
+    },
+    "expiresHours": "{{hours}} h {{minutes}} min",
+    "expiresMinutes": "{{minutes}} min",
+    "diff": {
+      "label": "Modifications de {{target}}",
+      "newFile": "Nouveau fichier",
+      "added_one": "{{count}} ligne ajoutée",
+      "added_other": "{{count}} lignes ajoutées",
+      "removed_one": "{{count}} ligne supprimée",
+      "removed_other": "{{count}} lignes supprimées",
+      "same": "Aucune différence avec le texte actuel.",
+      "gap_one": "{{count}} ligne inchangée",
+      "gap_other": "{{count}} lignes inchangées",
+      "more_one": "{{count}} ligne de plus non affichée",
+      "more_other": "{{count}} lignes de plus non affichées",
+      "srAdded": "Ajoutée :",
+      "srRemoved": "Supprimée :"
+    },
+    "unreadFile": "Le fichier actuel n'a pas pu être lu : tout le texte compte comme nouveau.",
+    "confirm": "Confirmer",
+    "edit": "Modifier puis confirmer",
+    "confirmEdited": "Confirmer avec mon texte",
+    "editLabel": "Texte à enregistrer dans {{target}}",
+    "failed": "Impossible d'enregistrer la modification : {{message}}. Elle attend toujours votre réponse.",
+    "receipt": {
+      "applied": "Appliquée :",
+      "reverted": "Annulée :",
+      "dismissed": "Refusée :",
+      "expired": "Expirée :",
+      "stale": "Non appliquée :"
+    },
+    "why": {
+      "expired": "Elle a attendu plus d'un jour. Rien n'a été enregistré.",
+      "stale": "Le fichier a changé après la proposition : rien n'a été enregistré."
+    },
+    "askAgain": "Redemander",
+    "askAgainText": "Merci de proposer à nouveau cette modification, le fichier a changé entre-temps : {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Modification appliquée.",
+      "dismissed": "Modification refusée.",
+      "undone": "Modification annulée.",
+      "asked": "L'assistant a été prié de la proposer à nouveau."
+    }
+  },
+  "proposalsPage": {
+    "title": "Propositions",
+    "supporting": "Modifications demandées par les modèles et en attente de votre réponse.",
+    "emptyTitle": "Rien en attente",
+    "emptyBody": "Quand un modèle propose une modification de votre mémoire ou du profil d'un agent, elle apparaît ici jusqu'à votre réponse.",
+    "loadError": "Impossible de charger les propositions."
+  },
+  "memoryPage": {
+    "lede": "Les notes que LocalAI ajoute au prompt de vos conversations. Un modèle ne les modifie qu'après votre confirmation d'une proposition. Ici, vous pouvez les lire, les modifier et les supprimer.",
+    "limits": "Limites : un index compte au plus {{lines}} lignes et {{index}}, un profil {{profile}}, et un tour transporte au plus {{turn}} de notes.",
+    "proposalsLink": "Voir les modifications en attente",
+    "emptyTitle": "Pas encore de notes",
+    "emptyBody": "Quand vous demandez à un assistant de retenir quelque chose et que vous confirmez, les notes apparaissent ici.",
+    "loadError": "Impossible de charger vos notes.",
+    "use": "{{size}} sur {{max}} · {{lines}} sur {{maxLines}} lignes",
+    "useBytes": "{{size}} sur {{max}}",
+    "useLabel": "Taille de l'index par rapport à sa limite",
+    "over": "Au-delà de la limite : la fin n'est pas envoyée au modèle.",
+    "index": "Index",
+    "group": {
+      "user": "Vos notes",
+      "agent": "Notes de l'agent {{key}}",
+      "channel": "Notes de la conversation {{key}}",
+      "profile": "Profil de l'agent {{key}}"
+    },
+    "edit": "Modifier",
+    "save": "Enregistrer",
+    "editLabel": "Texte de {{name}}",
+    "editSizeIndex": "{{size}} sur {{max}} · {{lines}} sur {{maxLines}} lignes",
+    "editSize": "{{size}} sur {{max}}",
+    "tooBig": "Trop long : raccourcissez pour enregistrer.",
+    "saveFailed": "Impossible d'enregistrer : {{message}}",
+    "saved": "{{name}} enregistré.",
+    "emptyFile": "(vide)",
+    "delete": "Supprimer {{name}}",
+    "deleteYes": "Supprimer",
+    "confirmDelete": "Supprimer {{name}} ?",
+    "deleted": "{{name}} déplacé dans la corbeille.",
+    "clear": "Effacer toutes les notes",
+    "clearAsk_one": "Supprimer {{count}} fichier ? Il va dans la corbeille et se restaure depuis Fichiers.",
+    "clearAsk_other": "Supprimer {{count}} fichiers ? Ils vont dans la corbeille et se restaurent depuis Fichiers.",
+    "clearYes_one": "Supprimer {{count}} fichier",
+    "clearYes_other": "Supprimer {{count}} fichiers",
+    "cleared_one": "{{count}} fichier déplacé dans la corbeille.",
+    "cleared_other": "{{count}} fichiers déplacés dans la corbeille."
   }
 }

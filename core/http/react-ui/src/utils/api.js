@@ -533,6 +533,18 @@ export const chatTriggersApi = {
   dismissChange: (id) => fetchJSON(`/api/chats/triggers/changes/${enc2(id)}`, { method: 'DELETE' }),
 }
 
+// The changes a model proposed to your memory, profile and other files, and
+// the notes the host puts in the prompt. confirm may carry the person's own
+// text, which is written in place of the proposed one.
+export const chatChangesApi = {
+  list: (status) => fetchJSON(`/api/chats/changes${q({ status })}`),
+  get: (id) => fetchJSON(`/api/chats/changes/${enc2(id)}`),
+  confirm: (id, content) => postJSON(`/api/chats/changes/${enc2(id)}/confirm`, content === undefined ? {} : { content }),
+  dismiss: (id) => postJSON(`/api/chats/changes/${enc2(id)}/dismiss`, {}),
+  undo: (id) => postJSON(`/api/chats/changes/${enc2(id)}/undo`, {}),
+  contextFiles: () => fetchJSON('/api/chats/context-files'),
+}
+
 // The inbox: what ended while the user was elsewhere.
 export const chatNotificationsApi = {
   list: (unread, limit = 50) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit })}`),

@@ -102,6 +102,7 @@ const AgentTasks = page('agent-tasks', () => import('./pages/AgentTasks'))
 const ChatsAdmin = page('chats-admin', () => import('./pages/ChatsAdmin'))
 const ChatConnectors = page('chats', () => import('./pages/ChatConnectors'))
 const ChatConversion = page('chats', () => import('./pages/ChatConversion'))
+const Proposals = page('chats', () => import('./pages/Proposals'))
 const Models = page('models', () => import('./pages/Models'))
 const ManageRedirect = page('manage', () => import('./pages/ManageRedirect'))
 // Referenced only from JSX below — same blind spot as Activity further down.
@@ -255,6 +256,7 @@ const appChildren = [
   { path: 'chats/triggers', element: <ChatsRedirect /> },
   { path: 'chats/connectors', element: <Feature feature="connectors"><ChatConnectors /></Feature> },
   { path: 'chats/conversion', element: <Feature feature="chats"><ChatConversion /></Feature> },
+  { path: 'chats/proposals', element: <Feature feature="chats"><Proposals /></Feature> },
   // One route for a new chat and an open one, so the page stays mounted when a
   // chat starts or is left (a delete waiting for its Undo survives the move).
   { path: 'chats/all', element: <Feature feature="chats"><AllChats /></Feature> },

@@ -454,7 +454,10 @@
     "itemUnread": "{{title}}，未读",
     "arrived": "新通知：{{title}}",
     "arrivedMany_one": "{{count}} 条新通知",
-    "arrivedMany_other": "{{count}} 条新通知"
+    "arrivedMany_other": "{{count}} 条新通知",
+    "proposalsWaiting_one": "{{count}} 项更改等待你处理",
+    "proposalsWaiting_other": "{{count}} 项更改等待你处理",
+    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。"
   },
   "change": {
     "loading": "正在读取触发器更改...",
@@ -583,5 +586,123 @@
       "stopped_one": "已停止 {{count}} 个循环。",
       "stopped_other": "已停止 {{count}} 个循环。"
     }
+  },
+  "changes": {
+    "loading": "正在读取提议的更改...",
+    "unread": "无法读取提议的更改：{{message}}",
+    "removed": "此提议已不存在。",
+    "kind": {
+      "memory": "记忆",
+      "profile": "配置文件",
+      "skill": "技能",
+      "page": "页面",
+      "dashboard": "仪表板"
+    },
+    "scope": {
+      "user": "你的所有聊天",
+      "agent": "智能体 {{agent}}",
+      "agentAny": "一个智能体",
+      "channel": "此对话"
+    },
+    "help": "确认之前不会保存任何内容。",
+    "row": {
+      "kind": "类型",
+      "target": "文件",
+      "source": "来源",
+      "expires": "剩余时间"
+    },
+    "source": {
+      "chat": "聊天",
+      "connector": "连接器 {{name}}",
+      "connectorFrom": "连接器 {{name}}，来自 {{sender}}"
+    },
+    "expiresHours": "{{hours}} 小时 {{minutes}} 分钟",
+    "expiresMinutes": "{{minutes}} 分钟",
+    "diff": {
+      "label": "对 {{target}} 的更改",
+      "newFile": "新文件",
+      "added_one": "新增 {{count}} 行",
+      "added_other": "新增 {{count}} 行",
+      "removed_one": "删除 {{count}} 行",
+      "removed_other": "删除 {{count}} 行",
+      "same": "与当前文本没有差异。",
+      "gap_one": "{{count}} 行未变",
+      "gap_other": "{{count}} 行未变",
+      "more_one": "另有 {{count}} 行未显示",
+      "more_other": "另有 {{count}} 行未显示",
+      "srAdded": "新增：",
+      "srRemoved": "删除："
+    },
+    "unreadFile": "无法读取当前文件，因此全部文本都视为新内容。",
+    "confirm": "确认",
+    "edit": "编辑后确认",
+    "confirmEdited": "用我的文本确认",
+    "editLabel": "保存到 {{target}} 的文本",
+    "failed": "无法保存更改：{{message}}。它仍在等待你处理。",
+    "receipt": {
+      "applied": "已应用：",
+      "reverted": "已撤销：",
+      "dismissed": "已拒绝：",
+      "expired": "已过期：",
+      "stale": "未应用："
+    },
+    "why": {
+      "expired": "已等待超过一天，未保存任何内容。",
+      "stale": "文件在提议之后发生了变化，因此未保存任何内容。"
+    },
+    "askAgain": "重新请求",
+    "askAgainText": "请重新提议这项更改，文件此后已变化：{{summary}}（{{target}}）",
+    "announce": {
+      "applied": "更改已应用。",
+      "dismissed": "更改已拒绝。",
+      "undone": "更改已撤销。",
+      "asked": "已请助手重新提议。"
+    }
+  },
+  "proposalsPage": {
+    "title": "提议",
+    "supporting": "模型提出、等待你回应的更改。",
+    "emptyTitle": "没有待处理的内容",
+    "emptyBody": "当模型提议更改你的记忆或智能体配置文件时，会显示在这里，直到你作出回应。",
+    "loadError": "无法加载提议。"
+  },
+  "memoryPage": {
+    "lede": "LocalAI 放入你聊天提示词中的笔记。只有在你确认提议后，模型才会修改它们。你可以在这里查看、编辑和删除。",
+    "limits": "上限：索引最多 {{lines}} 行和 {{index}}，配置文件 {{profile}}，每轮对话最多携带 {{turn}} 的笔记。",
+    "proposalsLink": "查看等待处理的更改",
+    "emptyTitle": "还没有笔记",
+    "emptyBody": "当你让助手记住某事并确认后，笔记会显示在这里。",
+    "loadError": "无法加载你的笔记。",
+    "use": "{{size}} / {{max}} · {{lines}} / {{maxLines}} 行",
+    "useBytes": "{{size}} / {{max}}",
+    "useLabel": "索引大小与上限",
+    "over": "超出上限：末尾部分不会发送给模型。",
+    "index": "索引",
+    "group": {
+      "user": "你的笔记",
+      "agent": "智能体 {{key}} 的笔记",
+      "channel": "对话 {{key}} 的笔记",
+      "profile": "智能体 {{key}} 的配置文件"
+    },
+    "edit": "编辑",
+    "save": "保存",
+    "editLabel": "{{name}} 的文本",
+    "editSizeIndex": "{{size}} / {{max}} · {{lines}} / {{maxLines}} 行",
+    "editSize": "{{size}} / {{max}}",
+    "tooBig": "太长：请缩短后再保存。",
+    "saveFailed": "无法保存：{{message}}",
+    "saved": "已保存 {{name}}。",
+    "emptyFile": "（空）",
+    "delete": "删除 {{name}}",
+    "deleteYes": "删除",
+    "confirmDelete": "删除 {{name}}？",
+    "deleted": "已将 {{name}} 移到回收站。",
+    "clear": "清除所有笔记",
+    "clearAsk_one": "删除 {{count}} 个文件？文件会移到回收站，可在“文件”中恢复。",
+    "clearAsk_other": "删除 {{count}} 个文件？文件会移到回收站，可在“文件”中恢复。",
+    "clearYes_one": "删除 {{count}} 个文件",
+    "clearYes_other": "删除 {{count}} 个文件",
+    "cleared_one": "已将 {{count}} 个文件移到回收站。",
+    "cleared_other": "已将 {{count}} 个文件移到回收站。"
   }
 }

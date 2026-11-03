@@ -72,6 +72,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ChatsMenu from '../components/ChatsMenu'
 // eslint-disable-next-line no-unused-vars
 import ChatInbox from '../components/ChatInbox'
+import { ChatSendContext } from '../components/chat/chatSendContext'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
@@ -1060,6 +1061,7 @@ function ChatPage() {
             {isEmpty && <EmptyHead name={activeId ? title : (pickedAgent?.name || '')} manage={manage} />}
             <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
               <EgressCardsContext.Provider value={egressCards}>
+              <ChatSendContext.Provider value={sendLive}>
               {rows.map((row, i) => {
                 if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
@@ -1083,6 +1085,7 @@ function ChatPage() {
                   fileChipsFor(row),
                 ]
               })}
+              </ChatSendContext.Provider>
               </EgressCardsContext.Provider>
 
               {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (

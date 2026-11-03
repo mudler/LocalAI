@@ -454,7 +454,10 @@
     "itemUnread": "{{title}}, 읽지 않음",
     "arrived": "새 알림: {{title}}",
     "arrivedMany_one": "새 알림 {{count}}개",
-    "arrivedMany_other": "새 알림 {{count}}개"
+    "arrivedMany_other": "새 알림 {{count}}개",
+    "proposalsWaiting_one": "변경 {{count}}개가 기다리고 있습니다",
+    "proposalsWaiting_other": "변경 {{count}}개가 기다리고 있습니다",
+    "proposalsBody": "모델이 변경을 제안했습니다. 답하기 전에는 아무것도 저장되지 않습니다."
   },
   "change": {
     "loading": "트리거 변경 사항을 읽는 중...",
@@ -583,5 +586,123 @@
       "stopped_one": "반복 {{count}}개를 멈췄습니다.",
       "stopped_other": "반복 {{count}}개를 멈췄습니다."
     }
+  },
+  "changes": {
+    "loading": "제안된 변경을 읽는 중...",
+    "unread": "제안된 변경을 읽을 수 없습니다: {{message}}",
+    "removed": "이 제안은 더 이상 없습니다.",
+    "kind": {
+      "memory": "메모리",
+      "profile": "프로필",
+      "skill": "스킬",
+      "page": "페이지",
+      "dashboard": "대시보드"
+    },
+    "scope": {
+      "user": "내 모든 채팅",
+      "agent": "에이전트 {{agent}}",
+      "agentAny": "에이전트 하나",
+      "channel": "이 대화"
+    },
+    "help": "확인하기 전에는 아무것도 저장되지 않습니다.",
+    "row": {
+      "kind": "종류",
+      "target": "파일",
+      "source": "출처",
+      "expires": "만료까지"
+    },
+    "source": {
+      "chat": "채팅",
+      "connector": "커넥터 {{name}}",
+      "connectorFrom": "커넥터 {{name}}, 보낸 사람 {{sender}}"
+    },
+    "expiresHours": "{{hours}}시간 {{minutes}}분",
+    "expiresMinutes": "{{minutes}}분",
+    "diff": {
+      "label": "{{target}}의 변경 사항",
+      "newFile": "새 파일",
+      "added_one": "{{count}}줄 추가",
+      "added_other": "{{count}}줄 추가",
+      "removed_one": "{{count}}줄 삭제",
+      "removed_other": "{{count}}줄 삭제",
+      "same": "현재 텍스트와 다른 점이 없습니다.",
+      "gap_one": "변경 없는 {{count}}줄",
+      "gap_other": "변경 없는 {{count}}줄",
+      "more_one": "표시되지 않은 {{count}}줄 더",
+      "more_other": "표시되지 않은 {{count}}줄 더",
+      "srAdded": "추가됨:",
+      "srRemoved": "삭제됨:"
+    },
+    "unreadFile": "현재 파일을 읽을 수 없어 전체 텍스트를 새 내용으로 봅니다.",
+    "confirm": "확인",
+    "edit": "편집 후 확인",
+    "confirmEdited": "내 텍스트로 확인",
+    "editLabel": "{{target}}에 저장할 텍스트",
+    "failed": "변경을 저장하지 못했습니다: {{message}}. 아직 답을 기다리고 있습니다.",
+    "receipt": {
+      "applied": "적용됨:",
+      "reverted": "되돌림:",
+      "dismissed": "거절됨:",
+      "expired": "만료됨:",
+      "stale": "적용되지 않음:"
+    },
+    "why": {
+      "expired": "하루 넘게 기다렸습니다. 아무것도 저장되지 않았습니다.",
+      "stale": "제안 이후 파일이 바뀌어 아무것도 저장되지 않았습니다."
+    },
+    "askAgain": "다시 요청",
+    "askAgainText": "파일이 그 사이 바뀌었으니 이 변경을 다시 제안해 주세요: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "변경을 적용했습니다.",
+      "dismissed": "변경을 거절했습니다.",
+      "undone": "변경을 되돌렸습니다.",
+      "asked": "어시스턴트에게 다시 제안하도록 요청했습니다."
+    }
+  },
+  "proposalsPage": {
+    "title": "제안",
+    "supporting": "모델이 요청했고 당신의 답을 기다리는 변경입니다.",
+    "emptyTitle": "대기 중인 항목이 없습니다",
+    "emptyBody": "모델이 메모리나 에이전트 프로필 변경을 제안하면 답할 때까지 여기에 표시됩니다.",
+    "loadError": "제안을 불러오지 못했습니다."
+  },
+  "memoryPage": {
+    "lede": "LocalAI가 채팅 프롬프트에 넣는 메모입니다. 모델은 당신이 제안을 확인한 뒤에만 이를 바꿉니다. 여기서 읽고, 편집하고, 삭제할 수 있습니다.",
+    "limits": "한도: 색인은 최대 {{lines}}줄과 {{index}}, 프로필은 {{profile}}, 한 턴에는 최대 {{turn}}의 메모가 들어갑니다.",
+    "proposalsLink": "대기 중인 변경 보기",
+    "emptyTitle": "아직 메모가 없습니다",
+    "emptyBody": "어시스턴트에게 무언가를 기억하도록 요청하고 확인하면 메모가 여기에 나타납니다.",
+    "loadError": "메모를 불러오지 못했습니다.",
+    "use": "{{size}} / {{max}} · {{lines}} / {{maxLines}}줄",
+    "useBytes": "{{size}} / {{max}}",
+    "useLabel": "색인 크기와 한도",
+    "over": "한도 초과: 끝부분은 모델에 전달되지 않습니다.",
+    "index": "색인",
+    "group": {
+      "user": "내 메모",
+      "agent": "에이전트 {{key}}의 메모",
+      "channel": "대화 {{key}}의 메모",
+      "profile": "에이전트 {{key}}의 프로필"
+    },
+    "edit": "편집",
+    "save": "저장",
+    "editLabel": "{{name}}의 텍스트",
+    "editSizeIndex": "{{size}} / {{max}} · {{lines}} / {{maxLines}}줄",
+    "editSize": "{{size}} / {{max}}",
+    "tooBig": "너무 깁니다. 저장하려면 줄여 주세요.",
+    "saveFailed": "저장하지 못했습니다: {{message}}",
+    "saved": "{{name}}을(를) 저장했습니다.",
+    "emptyFile": "(비어 있음)",
+    "delete": "{{name}} 삭제",
+    "deleteYes": "삭제",
+    "confirmDelete": "{{name}}을(를) 삭제할까요?",
+    "deleted": "{{name}}을(를) 휴지통으로 옮겼습니다.",
+    "clear": "모든 메모 지우기",
+    "clearAsk_one": "파일 {{count}}개를 삭제할까요? 휴지통으로 이동하며 파일에서 복원할 수 있습니다.",
+    "clearAsk_other": "파일 {{count}}개를 삭제할까요? 휴지통으로 이동하며 파일에서 복원할 수 있습니다.",
+    "clearYes_one": "파일 {{count}}개 삭제",
+    "clearYes_other": "파일 {{count}}개 삭제",
+    "cleared_one": "파일 {{count}}개를 휴지통으로 옮겼습니다.",
+    "cleared_other": "파일 {{count}}개를 휴지통으로 옮겼습니다."
   }
 }

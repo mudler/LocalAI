@@ -454,7 +454,10 @@
     "itemUnread": "{{title}}, da leggere",
     "arrived": "Nuova notifica: {{title}}",
     "arrivedMany_one": "{{count}} nuova notifica",
-    "arrivedMany_other": "{{count}} nuove notifiche"
+    "arrivedMany_other": "{{count}} nuove notifiche",
+    "proposalsWaiting_one": "{{count}} modifica attende te",
+    "proposalsWaiting_other": "{{count}} modifiche attendono te",
+    "proposalsBody": "Un modello ha proposto una modifica. Non viene salvato nulla finché non rispondi."
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",
@@ -583,5 +586,123 @@
       "stopped_one": "Fermato {{count}} ciclo.",
       "stopped_other": "Fermati {{count}} cicli."
     }
+  },
+  "changes": {
+    "loading": "Lettura della modifica proposta...",
+    "unread": "Impossibile leggere la modifica proposta: {{message}}",
+    "removed": "Questa proposta non esiste più.",
+    "kind": {
+      "memory": "Memoria",
+      "profile": "Profilo",
+      "skill": "Skill",
+      "page": "Pagina",
+      "dashboard": "Dashboard"
+    },
+    "scope": {
+      "user": "Tutte le tue chat",
+      "agent": "Agente {{agent}}",
+      "agentAny": "Un agente",
+      "channel": "Questa conversazione"
+    },
+    "help": "Non viene salvato nulla finché non confermi.",
+    "row": {
+      "kind": "Tipo",
+      "target": "File",
+      "source": "Da",
+      "expires": "Scade tra"
+    },
+    "source": {
+      "chat": "Una chat",
+      "connector": "Connettore {{name}}",
+      "connectorFrom": "Connettore {{name}}, da {{sender}}"
+    },
+    "expiresHours": "{{hours}} h {{minutes}} min",
+    "expiresMinutes": "{{minutes}} min",
+    "diff": {
+      "label": "Modifiche a {{target}}",
+      "newFile": "Nuovo file",
+      "added_one": "{{count}} riga aggiunta",
+      "added_other": "{{count}} righe aggiunte",
+      "removed_one": "{{count}} riga rimossa",
+      "removed_other": "{{count}} righe rimosse",
+      "same": "Nessuna differenza dal testo attuale.",
+      "gap_one": "{{count}} riga invariata",
+      "gap_other": "{{count}} righe invariate",
+      "more_one": "Altra {{count}} riga non mostrata",
+      "more_other": "Altre {{count}} righe non mostrate",
+      "srAdded": "Aggiunta:",
+      "srRemoved": "Rimossa:"
+    },
+    "unreadFile": "Non è stato possibile leggere il file attuale, quindi tutto il testo conta come nuovo.",
+    "confirm": "Conferma",
+    "edit": "Modifica e conferma",
+    "confirmEdited": "Conferma con il mio testo",
+    "editLabel": "Testo da salvare in {{target}}",
+    "failed": "Impossibile salvare la modifica: {{message}}. È ancora in attesa di te.",
+    "receipt": {
+      "applied": "Applicata:",
+      "reverted": "Annullata:",
+      "dismissed": "Rifiutata:",
+      "expired": "Scaduta:",
+      "stale": "Non applicata:"
+    },
+    "why": {
+      "expired": "Ha atteso più di un giorno. Non è stato salvato nulla.",
+      "stale": "Il file è cambiato dopo la proposta, quindi non è stato salvato nulla."
+    },
+    "askAgain": "Chiedi di nuovo",
+    "askAgainText": "Per favore proponi di nuovo questa modifica, il file è cambiato nel frattempo: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Modifica applicata.",
+      "dismissed": "Modifica rifiutata.",
+      "undone": "Modifica annullata.",
+      "asked": "Ho chiesto all'assistente di riproporla."
+    }
+  },
+  "proposalsPage": {
+    "title": "Proposte",
+    "supporting": "Modifiche richieste dai modelli che attendono la tua risposta.",
+    "emptyTitle": "Niente in attesa",
+    "emptyBody": "Quando un modello propone una modifica alla tua memoria o al profilo di un agente, appare qui finché non rispondi.",
+    "loadError": "Impossibile caricare le proposte."
+  },
+  "memoryPage": {
+    "lede": "Le note che LocalAI inserisce nel prompt delle tue chat. Un modello le modifica solo dopo che confermi una proposta. Qui puoi leggerle, modificarle ed eliminarle.",
+    "limits": "Limiti: un indice ha al massimo {{lines}} righe e {{index}}, un profilo {{profile}}, e un turno porta al massimo {{turn}} di note.",
+    "proposalsLink": "Vedi le modifiche in attesa",
+    "emptyTitle": "Ancora nessuna nota",
+    "emptyBody": "Quando chiedi a un assistente di ricordare qualcosa e confermi, le note appaiono qui.",
+    "loadError": "Impossibile caricare le tue note.",
+    "use": "{{size}} di {{max}} · {{lines}} di {{maxLines}} righe",
+    "useBytes": "{{size}} di {{max}}",
+    "useLabel": "Dimensione dell'indice rispetto al limite",
+    "over": "Oltre il limite: la parte finale non viene inviata al modello.",
+    "index": "Indice",
+    "group": {
+      "user": "Le tue note",
+      "agent": "Note dell'agente {{key}}",
+      "channel": "Note della conversazione {{key}}",
+      "profile": "Profilo dell'agente {{key}}"
+    },
+    "edit": "Modifica",
+    "save": "Salva",
+    "editLabel": "Testo di {{name}}",
+    "editSizeIndex": "{{size}} di {{max}} · {{lines}} di {{maxLines}} righe",
+    "editSize": "{{size}} di {{max}}",
+    "tooBig": "Troppo lungo: accorcialo per salvare.",
+    "saveFailed": "Impossibile salvare: {{message}}",
+    "saved": "{{name}} salvato.",
+    "emptyFile": "(vuoto)",
+    "delete": "Elimina {{name}}",
+    "deleteYes": "Elimina",
+    "confirmDelete": "Eliminare {{name}}?",
+    "deleted": "{{name}} spostato nel Cestino.",
+    "clear": "Cancella tutte le note",
+    "clearAsk_one": "Eliminare {{count}} file? Va nel Cestino e puoi ripristinarlo da File.",
+    "clearAsk_other": "Eliminare {{count}} file? Vanno nel Cestino e puoi ripristinarli da File.",
+    "clearYes_one": "Elimina {{count}} file",
+    "clearYes_other": "Elimina {{count}} file",
+    "cleared_one": "{{count}} file spostato nel Cestino.",
+    "cleared_other": "{{count}} file spostati nel Cestino."
   }
 }

@@ -454,7 +454,10 @@
     "itemUnread": "{{title}}, ungelesen",
     "arrived": "Neue Benachrichtigung: {{title}}",
     "arrivedMany_one": "{{count}} neue Benachrichtigung",
-    "arrivedMany_other": "{{count}} neue Benachrichtigungen"
+    "arrivedMany_other": "{{count}} neue Benachrichtigungen",
+    "proposalsWaiting_one": "{{count}} Änderung wartet auf dich",
+    "proposalsWaiting_other": "{{count}} Änderungen warten auf dich",
+    "proposalsBody": "Ein Modell hat eine Änderung vorgeschlagen. Nichts wird gespeichert, bevor du antwortest."
   },
   "change": {
     "loading": "Die Trigger-Änderung wird gelesen...",
@@ -583,5 +586,123 @@
       "stopped_one": "{{count}} Schleife gestoppt.",
       "stopped_other": "{{count}} Schleifen gestoppt."
     }
+  },
+  "changes": {
+    "loading": "Der vorgeschlagene Änderung wird gelesen...",
+    "unread": "Die vorgeschlagene Änderung konnte nicht gelesen werden: {{message}}",
+    "removed": "Dieser Vorschlag existiert nicht mehr.",
+    "kind": {
+      "memory": "Gedächtnis",
+      "profile": "Profil",
+      "skill": "Skill",
+      "page": "Seite",
+      "dashboard": "Dashboard"
+    },
+    "scope": {
+      "user": "Alle deine Chats",
+      "agent": "Agent {{agent}}",
+      "agentAny": "Ein Agent",
+      "channel": "Diese Unterhaltung"
+    },
+    "help": "Nichts wird gespeichert, bevor du bestätigst.",
+    "row": {
+      "kind": "Art",
+      "target": "Datei",
+      "source": "Von",
+      "expires": "Läuft ab in"
+    },
+    "source": {
+      "chat": "Ein Chat",
+      "connector": "Connector {{name}}",
+      "connectorFrom": "Connector {{name}}, von {{sender}}"
+    },
+    "expiresHours": "{{hours}} Std. {{minutes}} Min.",
+    "expiresMinutes": "{{minutes}} Min.",
+    "diff": {
+      "label": "Änderungen an {{target}}",
+      "newFile": "Neue Datei",
+      "added_one": "{{count}} Zeile hinzugefügt",
+      "added_other": "{{count}} Zeilen hinzugefügt",
+      "removed_one": "{{count}} Zeile entfernt",
+      "removed_other": "{{count}} Zeilen entfernt",
+      "same": "Kein Unterschied zum aktuellen Text.",
+      "gap_one": "{{count}} unveränderte Zeile",
+      "gap_other": "{{count}} unveränderte Zeilen",
+      "more_one": "{{count}} weitere Zeile nicht angezeigt",
+      "more_other": "{{count}} weitere Zeilen nicht angezeigt",
+      "srAdded": "Hinzugefügt:",
+      "srRemoved": "Entfernt:"
+    },
+    "unreadFile": "Die aktuelle Datei konnte nicht gelesen werden, daher gilt der ganze Text als neu.",
+    "confirm": "Bestätigen",
+    "edit": "Bearbeiten und bestätigen",
+    "confirmEdited": "Mit meinem Text bestätigen",
+    "editLabel": "Text zum Speichern in {{target}}",
+    "failed": "Die Änderung konnte nicht gespeichert werden: {{message}}. Sie wartet weiter auf dich.",
+    "receipt": {
+      "applied": "Angewendet:",
+      "reverted": "Rückgängig gemacht:",
+      "dismissed": "Abgelehnt:",
+      "expired": "Abgelaufen:",
+      "stale": "Nicht angewendet:"
+    },
+    "why": {
+      "expired": "Sie hat mehr als einen Tag gewartet. Nichts wurde gespeichert.",
+      "stale": "Die Datei hat sich seit dem Vorschlag geändert, daher wurde nichts gespeichert."
+    },
+    "askAgain": "Erneut anfragen",
+    "askAgainText": "Bitte schlage diese Änderung noch einmal vor, die Datei hat sich inzwischen geändert: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Änderung angewendet.",
+      "dismissed": "Änderung abgelehnt.",
+      "undone": "Änderung rückgängig gemacht.",
+      "asked": "Der Assistent wurde gebeten, es erneut vorzuschlagen."
+    }
+  },
+  "proposalsPage": {
+    "title": "Vorschläge",
+    "supporting": "Änderungen, die Modelle vorgeschlagen haben und die auf deine Antwort warten.",
+    "emptyTitle": "Nichts wartet",
+    "emptyBody": "Wenn ein Modell eine Änderung an deinem Gedächtnis oder einem Agentenprofil vorschlägt, erscheint sie hier, bis du antwortest.",
+    "loadError": "Die Vorschläge konnten nicht geladen werden."
+  },
+  "memoryPage": {
+    "lede": "Die Notizen, die LocalAI in den Prompt deiner Chats legt. Ein Modell ändert sie erst, nachdem du einen Vorschlag bestätigt hast. Hier kannst du sie lesen, bearbeiten und löschen.",
+    "limits": "Grenzen: Ein Index hat höchstens {{lines}} Zeilen und {{index}}, ein Profil {{profile}}, und ein Zug enthält höchstens {{turn}} Notizen.",
+    "proposalsLink": "Wartende Änderungen ansehen",
+    "emptyTitle": "Noch keine Notizen",
+    "emptyBody": "Wenn du einen Assistenten bittest, sich etwas zu merken, und das bestätigst, erscheinen die Notizen hier.",
+    "loadError": "Deine Notizen konnten nicht geladen werden.",
+    "use": "{{size}} von {{max}} · {{lines}} von {{maxLines}} Zeilen",
+    "useBytes": "{{size}} von {{max}}",
+    "useLabel": "Größe des Index im Verhältnis zur Grenze",
+    "over": "Über der Grenze: das Ende wird nicht an das Modell gesendet.",
+    "index": "Index",
+    "group": {
+      "user": "Deine Notizen",
+      "agent": "Notizen von Agent {{key}}",
+      "channel": "Notizen der Unterhaltung {{key}}",
+      "profile": "Profil von Agent {{key}}"
+    },
+    "edit": "Bearbeiten",
+    "save": "Speichern",
+    "editLabel": "Text von {{name}}",
+    "editSizeIndex": "{{size}} von {{max}} · {{lines}} von {{maxLines}} Zeilen",
+    "editSize": "{{size}} von {{max}}",
+    "tooBig": "Zu lang: kürze den Text, um zu speichern.",
+    "saveFailed": "Speichern fehlgeschlagen: {{message}}",
+    "saved": "{{name}} gespeichert.",
+    "emptyFile": "(leer)",
+    "delete": "{{name}} löschen",
+    "deleteYes": "Löschen",
+    "confirmDelete": "{{name}} löschen?",
+    "deleted": "{{name}} in den Papierkorb verschoben.",
+    "clear": "Alle Notizen löschen",
+    "clearAsk_one": "{{count}} Datei löschen? Sie kommt in den Papierkorb und lässt sich unter Dateien wiederherstellen.",
+    "clearAsk_other": "{{count}} Dateien löschen? Sie kommen in den Papierkorb und lassen sich unter Dateien wiederherstellen.",
+    "clearYes_one": "{{count}} Datei löschen",
+    "clearYes_other": "{{count}} Dateien löschen",
+    "cleared_one": "{{count}} Datei in den Papierkorb verschoben.",
+    "cleared_other": "{{count}} Dateien in den Papierkorb verschoben."
   }
 }

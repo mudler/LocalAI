@@ -454,7 +454,10 @@
     "itemUnread": "{{title}}, não lida",
     "arrived": "Nova notificação: {{title}}",
     "arrivedMany_one": "{{count}} nova notificação",
-    "arrivedMany_other": "{{count}} novas notificações"
+    "arrivedMany_other": "{{count}} novas notificações",
+    "proposalsWaiting_one": "{{count}} alteração aguarda você",
+    "proposalsWaiting_other": "{{count}} alterações aguardam você",
+    "proposalsBody": "Um modelo propôs uma alteração. Nada é salvo até você responder."
   },
   "change": {
     "loading": "Lendo a alteração do gatilho...",
@@ -583,5 +586,123 @@
       "stopped_one": "{{count}} loop parado.",
       "stopped_other": "{{count}} loops parados."
     }
+  },
+  "changes": {
+    "loading": "Lendo a alteração proposta...",
+    "unread": "Não foi possível ler a alteração proposta: {{message}}",
+    "removed": "Esta proposta não existe mais.",
+    "kind": {
+      "memory": "Memória",
+      "profile": "Perfil",
+      "skill": "Skill",
+      "page": "Página",
+      "dashboard": "Painel"
+    },
+    "scope": {
+      "user": "Todos os seus chats",
+      "agent": "Agente {{agent}}",
+      "agentAny": "Um agente",
+      "channel": "Esta conversa"
+    },
+    "help": "Nada é salvo até você confirmar.",
+    "row": {
+      "kind": "Tipo",
+      "target": "Arquivo",
+      "source": "De",
+      "expires": "Expira em"
+    },
+    "source": {
+      "chat": "Um chat",
+      "connector": "Conector {{name}}",
+      "connectorFrom": "Conector {{name}}, de {{sender}}"
+    },
+    "expiresHours": "{{hours}} h {{minutes}} min",
+    "expiresMinutes": "{{minutes}} min",
+    "diff": {
+      "label": "Alterações em {{target}}",
+      "newFile": "Arquivo novo",
+      "added_one": "{{count}} linha adicionada",
+      "added_other": "{{count}} linhas adicionadas",
+      "removed_one": "{{count}} linha removida",
+      "removed_other": "{{count}} linhas removidas",
+      "same": "Nenhuma diferença do texto atual.",
+      "gap_one": "{{count}} linha sem alteração",
+      "gap_other": "{{count}} linhas sem alteração",
+      "more_one": "Mais {{count}} linha não exibida",
+      "more_other": "Mais {{count}} linhas não exibidas",
+      "srAdded": "Adicionada:",
+      "srRemoved": "Removida:"
+    },
+    "unreadFile": "Não foi possível ler o arquivo atual, então todo o texto conta como novo.",
+    "confirm": "Confirmar",
+    "edit": "Editar e confirmar",
+    "confirmEdited": "Confirmar com meu texto",
+    "editLabel": "Texto a salvar em {{target}}",
+    "failed": "Não foi possível salvar a alteração: {{message}}. Ela continua aguardando você.",
+    "receipt": {
+      "applied": "Aplicada:",
+      "reverted": "Desfeita:",
+      "dismissed": "Dispensada:",
+      "expired": "Expirada:",
+      "stale": "Não aplicada:"
+    },
+    "why": {
+      "expired": "Aguardou mais de um dia. Nada foi salvo.",
+      "stale": "O arquivo mudou depois da proposta, então nada foi salvo."
+    },
+    "askAgain": "Pedir de novo",
+    "askAgainText": "Por favor, proponha esta alteração de novo; o arquivo mudou desde então: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Alteração aplicada.",
+      "dismissed": "Alteração dispensada.",
+      "undone": "Alteração desfeita.",
+      "asked": "O assistente foi solicitado a propor de novo."
+    }
+  },
+  "proposalsPage": {
+    "title": "Propostas",
+    "supporting": "Alterações que os modelos pediram e que aguardam sua resposta.",
+    "emptyTitle": "Nada aguardando",
+    "emptyBody": "Quando um modelo propõe uma alteração na sua memória ou no perfil de um agente, ela aparece aqui até você responder.",
+    "loadError": "Não foi possível carregar as propostas."
+  },
+  "memoryPage": {
+    "lede": "As notas que o LocalAI coloca no prompt dos seus chats. Um modelo só as altera depois que você confirma uma proposta. Aqui você pode lê-las, editá-las e excluí-las.",
+    "limits": "Limites: um índice tem no máximo {{lines}} linhas e {{index}}, um perfil {{profile}}, e um turno leva no máximo {{turn}} de notas.",
+    "proposalsLink": "Ver as alterações pendentes",
+    "emptyTitle": "Ainda não há notas",
+    "emptyBody": "Quando você pede a um assistente que lembre de algo e confirma, as notas aparecem aqui.",
+    "loadError": "Não foi possível carregar suas notas.",
+    "use": "{{size}} de {{max}} · {{lines}} de {{maxLines}} linhas",
+    "useBytes": "{{size}} de {{max}}",
+    "useLabel": "Tamanho do índice em relação ao limite",
+    "over": "Acima do limite: o final não é enviado ao modelo.",
+    "index": "Índice",
+    "group": {
+      "user": "Suas notas",
+      "agent": "Notas do agente {{key}}",
+      "channel": "Notas da conversa {{key}}",
+      "profile": "Perfil do agente {{key}}"
+    },
+    "edit": "Editar",
+    "save": "Salvar",
+    "editLabel": "Texto de {{name}}",
+    "editSizeIndex": "{{size}} de {{max}} · {{lines}} de {{maxLines}} linhas",
+    "editSize": "{{size}} de {{max}}",
+    "tooBig": "Longo demais: encurte para salvar.",
+    "saveFailed": "Não foi possível salvar: {{message}}",
+    "saved": "{{name}} salvo.",
+    "emptyFile": "(vazio)",
+    "delete": "Excluir {{name}}",
+    "deleteYes": "Excluir",
+    "confirmDelete": "Excluir {{name}}?",
+    "deleted": "{{name}} movido para a Lixeira.",
+    "clear": "Limpar todas as notas",
+    "clearAsk_one": "Excluir {{count}} arquivo? Ele vai para a Lixeira e você pode restaurá-lo em Arquivos.",
+    "clearAsk_other": "Excluir {{count}} arquivos? Eles vão para a Lixeira e você pode restaurá-los em Arquivos.",
+    "clearYes_one": "Excluir {{count}} arquivo",
+    "clearYes_other": "Excluir {{count}} arquivos",
+    "cleared_one": "{{count}} arquivo movido para a Lixeira.",
+    "cleared_other": "{{count}} arquivos movidos para a Lixeira."
   }
 }

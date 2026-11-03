@@ -4,6 +4,8 @@ import { renderMarkdown, highlightAll } from '../../utils/markdown'
 import { toolLine, toolOutput } from '../../utils/chatThread'
 import { addonChange, toolRefusal } from '../../utils/addonChange'
 import { CHANGE_CARD, triggerCards } from '../../utils/chatProposal'
+import { changeProposalIds } from '../../utils/changeProposal'
+import ChangeProposalCard from './ChangeProposalCard'
 import { toolLabel, formatDuration, runTimes } from '../../utils/toolLabels'
 import Icon from '../Icon'
 import { openChatFile } from './chatActions'
@@ -357,9 +359,13 @@ function NetworkCards({ items }) {
 // ends; a run with no message after it (ActivityRow) draws them with the fold.
 export function ActivityProposals({ items, proposalTick = 0 }) {
   const { t: tc } = useTranslation('chats')
-  return triggerCards(items).map(({ kind, id }) => (kind === CHANGE_CARD
-    ? <TriggerChangeCard key={`tc-${id}`} id={id} t={tc} tick={proposalTick} />
-    : <ProposalCard key={`p-${id}`} id={id} t={tc} tick={proposalTick} />))
+  return [
+    ...triggerCards(items).map(({ kind, id }) => (kind === CHANGE_CARD
+      ? <TriggerChangeCard key={`tc-${id}`} id={id} t={tc} tick={proposalTick} />
+      : <ProposalCard key={`p-${id}`} id={id} t={tc} tick={proposalTick} />)),
+    // A change a model proposed to a memory note, a profile or another kind.
+    ...changeProposalIds(items).map((id) => <ChangeProposalCard key={`cp-${id}`} id={id} t={tc} tick={proposalTick} />),
+  ]
 }
 
 // A tool call that has an MCP App: the tool line, then the app in its frame.

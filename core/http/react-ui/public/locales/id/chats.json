@@ -454,7 +454,10 @@
     "itemUnread": "{{title}}, belum dibaca",
     "arrived": "Notifikasi baru: {{title}}",
     "arrivedMany_one": "{{count}} notifikasi baru",
-    "arrivedMany_other": "{{count}} notifikasi baru"
+    "arrivedMany_other": "{{count}} notifikasi baru",
+    "proposalsWaiting_one": "{{count}} perubahan menunggu Anda",
+    "proposalsWaiting_other": "{{count}} perubahan menunggu Anda",
+    "proposalsBody": "Model mengusulkan perubahan. Tidak ada yang disimpan sampai Anda menjawab."
   },
   "change": {
     "loading": "Membaca perubahan pemicu...",
@@ -583,5 +586,123 @@
       "stopped_one": "{{count}} perulangan dihentikan.",
       "stopped_other": "{{count}} perulangan dihentikan."
     }
+  },
+  "changes": {
+    "loading": "Membaca perubahan yang diusulkan...",
+    "unread": "Perubahan yang diusulkan tidak dapat dibaca: {{message}}",
+    "removed": "Usulan ini sudah tidak ada.",
+    "kind": {
+      "memory": "Memori",
+      "profile": "Profil",
+      "skill": "Skill",
+      "page": "Halaman",
+      "dashboard": "Dasbor"
+    },
+    "scope": {
+      "user": "Semua obrolan Anda",
+      "agent": "Agen {{agent}}",
+      "agentAny": "Satu agen",
+      "channel": "Percakapan ini"
+    },
+    "help": "Tidak ada yang disimpan sampai Anda mengonfirmasi.",
+    "row": {
+      "kind": "Jenis",
+      "target": "Berkas",
+      "source": "Dari",
+      "expires": "Kedaluwarsa dalam"
+    },
+    "source": {
+      "chat": "Obrolan",
+      "connector": "Konektor {{name}}",
+      "connectorFrom": "Konektor {{name}}, dari {{sender}}"
+    },
+    "expiresHours": "{{hours}} j {{minutes}} mnt",
+    "expiresMinutes": "{{minutes}} mnt",
+    "diff": {
+      "label": "Perubahan pada {{target}}",
+      "newFile": "Berkas baru",
+      "added_one": "{{count}} baris ditambahkan",
+      "added_other": "{{count}} baris ditambahkan",
+      "removed_one": "{{count}} baris dihapus",
+      "removed_other": "{{count}} baris dihapus",
+      "same": "Tidak ada perbedaan dari teks saat ini.",
+      "gap_one": "{{count}} baris tidak berubah",
+      "gap_other": "{{count}} baris tidak berubah",
+      "more_one": "{{count}} baris lagi tidak ditampilkan",
+      "more_other": "{{count}} baris lagi tidak ditampilkan",
+      "srAdded": "Ditambahkan:",
+      "srRemoved": "Dihapus:"
+    },
+    "unreadFile": "Berkas saat ini tidak dapat dibaca, jadi seluruh teks dianggap baru.",
+    "confirm": "Konfirmasi",
+    "edit": "Edit lalu konfirmasi",
+    "confirmEdited": "Konfirmasi dengan teks saya",
+    "editLabel": "Teks yang disimpan di {{target}}",
+    "failed": "Perubahan tidak dapat disimpan: {{message}}. Masih menunggu Anda.",
+    "receipt": {
+      "applied": "Diterapkan:",
+      "reverted": "Dibatalkan:",
+      "dismissed": "Ditolak:",
+      "expired": "Kedaluwarsa:",
+      "stale": "Tidak diterapkan:"
+    },
+    "why": {
+      "expired": "Menunggu lebih dari sehari. Tidak ada yang disimpan.",
+      "stale": "Berkas berubah setelah usulan dibuat, jadi tidak ada yang disimpan."
+    },
+    "askAgain": "Minta lagi",
+    "askAgainText": "Tolong usulkan perubahan ini lagi, berkas sudah berubah sejak itu: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Perubahan diterapkan.",
+      "dismissed": "Perubahan ditolak.",
+      "undone": "Perubahan dibatalkan.",
+      "asked": "Asisten diminta mengusulkannya lagi."
+    }
+  },
+  "proposalsPage": {
+    "title": "Usulan",
+    "supporting": "Perubahan yang diminta model dan menunggu jawaban Anda.",
+    "emptyTitle": "Tidak ada yang menunggu",
+    "emptyBody": "Saat model mengusulkan perubahan pada memori Anda atau profil agen, usulan itu tampil di sini sampai Anda menjawab.",
+    "loadError": "Usulan tidak dapat dimuat."
+  },
+  "memoryPage": {
+    "lede": "Catatan yang dimasukkan LocalAI ke prompt obrolan Anda. Model hanya mengubahnya setelah Anda mengonfirmasi usulan. Di sini Anda dapat membaca, mengedit, dan menghapusnya.",
+    "limits": "Batas: indeks maksimal {{lines}} baris dan {{index}}, profil {{profile}}, dan satu giliran membawa maksimal {{turn}} catatan.",
+    "proposalsLink": "Lihat perubahan yang menunggu",
+    "emptyTitle": "Belum ada catatan",
+    "emptyBody": "Saat Anda meminta asisten mengingat sesuatu dan mengonfirmasinya, catatan muncul di sini.",
+    "loadError": "Catatan Anda tidak dapat dimuat.",
+    "use": "{{size}} dari {{max}} · {{lines}} dari {{maxLines}} baris",
+    "useBytes": "{{size}} dari {{max}}",
+    "useLabel": "Ukuran indeks terhadap batasnya",
+    "over": "Melebihi batas: bagian akhir tidak dikirim ke model.",
+    "index": "Indeks",
+    "group": {
+      "user": "Catatan Anda",
+      "agent": "Catatan agen {{key}}",
+      "channel": "Catatan percakapan {{key}}",
+      "profile": "Profil agen {{key}}"
+    },
+    "edit": "Edit",
+    "save": "Simpan",
+    "editLabel": "Teks {{name}}",
+    "editSizeIndex": "{{size}} dari {{max}} · {{lines}} dari {{maxLines}} baris",
+    "editSize": "{{size}} dari {{max}}",
+    "tooBig": "Terlalu panjang: persingkat untuk menyimpan.",
+    "saveFailed": "Tidak dapat menyimpan: {{message}}",
+    "saved": "{{name}} disimpan.",
+    "emptyFile": "(kosong)",
+    "delete": "Hapus {{name}}",
+    "deleteYes": "Hapus",
+    "confirmDelete": "Hapus {{name}}?",
+    "deleted": "{{name}} dipindahkan ke Tempat Sampah.",
+    "clear": "Hapus semua catatan",
+    "clearAsk_one": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
+    "clearAsk_other": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
+    "clearYes_one": "Hapus {{count}} berkas",
+    "clearYes_other": "Hapus {{count}} berkas",
+    "cleared_one": "{{count}} berkas dipindahkan ke Tempat Sampah.",
+    "cleared_other": "{{count}} berkas dipindahkan ke Tempat Sampah."
   }
 }
