@@ -505,7 +505,8 @@ used to probe the internal network, a connector may reach only public hosts:
 An administrator can allow private addresses with the runtime setting
 `mcp_connectors_allow_private` (Settings, Access and security; default off; no
 restart needed). Turn it on only when your users are trusted: with it, a connector
-can reach services on the server's own network. Turning it off closes the open
+can reach services on the server's own network. Cloud metadata addresses stay
+refused even then, and a request does not use a proxy from the environment. Turning it off closes the open
 sessions that were made to such addresses: a tool handed out before is refused,
 and the next turn connects again under the new rule. Likewise, a user who stops
 being an administrator loses their running local commands at their next use.
