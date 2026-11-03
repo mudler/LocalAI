@@ -5379,21 +5379,73 @@ accepted; path validation does not prove that the file is administrator-owned.
 local-ai run --addon-host-policy=/etc/localai/addon-host-policy.json
 # Equivalent selection:
 LOCALAI_ADDON_HOST_POLICY=/etc/localai/addon-host-policy.json local-ai run
-# Explicitly grant nothing, without opening any selected policy:
+# Explicitly grant nothing from the file (its deny rules, if any, still apply):
 local-ai run --addon-host-ops=
 # Disable policy selection inherited from the environment:
 local-ai run --addon-host-policy=
 ```
 
-The file requires exactly `schemaVersion` (integer `1`) and `grants` (an object).
-Keys are case-sensitive. Unknown fields, duplicate keys, duplicate prefixes,
-malformed JSON and trailing data are errors. An empty `grants` object is valid.
-The limits are 128 addon IDs and 32 prefixes per addon. IDs use lowercase ASCII
-letters, digits and hyphens and start with a letter or digit. Prefixes use the
-same grammar as `--addon-host-ops`: lowercase ASCII letter segments, each ending
-in a dot, such as `workspace.` or `workspace.files.`. They are not regular
-expressions or exact operation names. The broker must still register an
-operation before any prefix can authorize it.
+The file requires `schemaVersion`. Version `1` also requires `grants` (an object)
+and has no `deny`. Version `2` adds an optional `deny` object and makes `grants`
+optional, so a file that only denies is valid. Keys are case-sensitive. Unknown
+fields, duplicate keys, duplicate entries, malformed JSON and trailing data are
+errors. An empty `grants` object is valid.
+The limits are 128 addon IDs and 32 prefixes (or deny entries) per addon. IDs use
+lowercase ASCII letters, digits and hyphens and start with a letter or digit.
+Grant prefixes use the same grammar as `--addon-host-ops`: lowercase ASCII letter
+segments, each ending in a dot, such as `workspace.` or `workspace.files.`. They
+are not regular expressions or exact operation names. The broker must still
+register an operation before any prefix can authorize it.
+
+| Field | Version | Meaning |
+| --- | --- | --- |
+| `schemaVersion` | 1, 2 | Integer `1` or `2`. A larger number stops startup with `policy requires a newer LocalAI`. |
+| `grants` | 1 (required), 2 (optional) | Addon ID to list of operation prefixes. |
+| `deny` | 2 | Addon ID, or `"*"` for every addon, to a list of deny entries. |
+
+Keep the file at `schemaVersion` `1` until you need a deny rule. A LocalAI binary
+that predates version 2 refuses a version 2 file and does not start. That is
+intended: an older binary must never start and silently drop a deny rule.
+Remove the `deny` object and set the version back to `1` before you run an older
+binary.
+
+### Deny rules
+
+A deny rule forbids host operations for good, whatever grants them: the policy
+file, `--addon-host-ops`, a grant that an administrator makes in the UI, or the
+blanket approval. Deny always wins. A deny entry is one of:
+
+- a prefix such as `egress.`, which names every operation that starts with it;
+- an exact operation name such as `workspace.admin`;
+- the single token `"*"`, which names every operation. It must be the only entry
+  of its list.
+
+The key `"*"` applies a rule to every addon. It cannot be an addon ID.
+
+```json
+{
+  "schemaVersion": 2,
+  "grants": {"sandbox": ["workspace.", "egress."]},
+  "deny": {
+    "*": ["connector."],
+    "web": ["workspace.admin"],
+    "telegram": ["*"]
+  }
+}
+```
+
+`--addon-host-deny` (environment: `LOCALAI_ADDON_HOST_DENY`) gives the same rules
+as a comma list of `addon-id=entry` pairs, and `*=entry` for every addon:
+
+```sh
+local-ai run --addon-host-deny='*=connector.,web=workspace.admin,telegram=*'
+```
+
+The deny rules of the file and of the flag are added together. They are read once
+at startup, so a change needs a restart. A deny rule that an administrator adds
+in the UI applies at once and can be removed in the UI. A rule from the file or
+the flag cannot be removed from a browser. An install or upgrade that needs a
+denied operation is refused.
 
 Selection uses presence, not string length:
 
@@ -5402,14 +5454,29 @@ Selection uses presence, not string length:
 3. Otherwise, the selected policy supplies the complete grant map.
 4. The generic configuration resolver grants nothing when unconfigured.
 
-Overrides replace grants; they never merge with the file. LocalAI does not open
-an ignored policy and logs that it was ignored. An invalid selected policy stops
-startup. An explicitly empty `--addon-host-policy` disables an environment policy
-and supplies no grants. Startup logs report the source and counts, not file
-contents. Manifests, addon requests and libraries cannot grant host operations.
-In split deployments, the owner enforces authority; frontend settings cannot add
-grants. Programmatic `WithAddonHostOps`, including an empty map, is an exact
-startup decision and takes a copy of the supplied map and prefix slices.
+Overrides replace the grants of the file; they never merge with them. The
+selected file is always opened, even when a flat list replaces its grants,
+because it may hold deny rules and a deny must not disappear when someone adds a
+flag. LocalAI then logs `grants ignored, deny applied`. A file at `schemaVersion`
+`1` has no deny rules, so a deployment that sets both a v1 file and a flat list
+sees no change except that the file must now be valid. An invalid selected file
+stops startup. An explicitly empty `--addon-host-policy` disables an environment
+policy and supplies no grants. Startup logs report the source and counts, not
+file contents. Manifests, addon requests and libraries cannot grant host
+operations. In split deployments, the owner enforces authority; frontend settings
+cannot add grants. Programmatic `WithAddonHostOps`, including an empty map, is an
+exact startup decision and takes a copy of the supplied map and prefix slices.
+
+Grants that an administrator makes in the UI add to the file and flag grants.
+The effective set of an addon is the grants of the file and flags, plus the grants
+of the UI, plus blanket grants, minus every deny rule. The file and flags stay a
+read-only floor in the UI.
+
+| Setting | Environment | Effect |
+| --- | --- | --- |
+| `--addon-host-deny` | `LOCALAI_ADDON_HOST_DENY` | Deny rules, added to those of the file. |
+| `--addon-host-ui-grants=false` | `LOCALAI_ADDON_HOST_UI_GRANTS` | Makes the UI grant store read-only, so the file and flags are the only source of grants. On by default. |
+| `--addon-host-blanket=off\|official\|any` | `LOCALAI_ADDON_HOST_BLANKET` | Fixes the blanket approval mode. The UI then shows it as set by the deployment. Unset leaves the choice to the administrator. |
 
 ### Breaking upgrade change: standalone and custom deployments
 
@@ -5421,8 +5488,8 @@ any addon is installed. LocalAI does not infer consent from installed addons,
 write migration grants into addon storage, or automatically restore old grants.
 
 Existing explicit flag or environment settings keep their effective grants,
-including explicitly empty settings. An override replaces the complete policy;
-it never unions with it. A missing or invalid selected file fails startup.
+including explicitly empty settings. An override replaces the grants of the
+file; it never unions with them. A missing or invalid selected file fails startup.
 
 To retain the former grants, review `deploy/addons/host-policy.json` from your
 trusted LocalAI release, then install and explicitly select it:
