@@ -116,6 +116,9 @@ type App struct {
 	// the argument schema and the kind of each tool. The host serves them to
 	// chat from the verified manifest; the add-on process is never asked.
 	ToolDefinitions []contract.ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Resources is the resource mapping of the manifest, with the listing
+	// declaration the host acts on. It is not part of the apps API.
+	Resources *contract.ResourceTools `json:"-"`
 	// Skills are the skills the package ships, from the verified manifest.
 	// The owner copies their files into the chats' skill layer.
 	Skills []contract.SkillDefinition `json:"skills,omitempty"`
@@ -246,6 +249,7 @@ func build(s Snapshot, admin bool) App {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
+	a.Resources = resourceTools(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
 	if u := m.Capabilities.UI; u != nil {
@@ -376,4 +380,20 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
+}
+
+// resourceTools copies the resource mapping of the manifest and fills the
+// listing declaration an older manifest implied (see legacyResourceList).
+func resourceTools(m contract.Manifest) *contract.ResourceTools {
+	if m.Capabilities.Resources == nil {
+		return nil
+	}
+	r := *m.Capabilities.Resources
+	if r.List != nil {
+		l := *r.List
+		r.List = &l
+	} else {
+		r.List = legacyResourceList(m)
+	}
+	return &r
 }
