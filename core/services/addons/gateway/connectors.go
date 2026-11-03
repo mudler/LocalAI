@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -32,6 +33,11 @@ type connectorCall struct {
 // The file payload is base64 encoded only once; no signed envelope is needed on
 // this pinned, peer-authenticated host-only route. Do not raise global limits.
 const connectorWireLimit = 2 << 20
+
+// connectorTimeout bounds one connector round trip. It is set once per hop: by
+// the forwarding carrier on a frontend, and by the owner when it runs the call,
+// since the owner must bound the work whichever door the call came through.
+const connectorTimeout = 45 * time.Second
 
 func (g *Gateway) connectorSource() ConnectorSource {
 	if g.Connectors != nil {
@@ -66,8 +72,6 @@ func (g *Gateway) localConnectorKinds(ctx context.Context) ([]connectors.Kind, e
 	return out, nil
 }
 func (g *Gateway) ConnectorCall(ctx context.Context, s connectors.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	defer cancel()
 	if g.Forward != nil {
 		if s.Purpose == connectors.ConnectorPurposeBinding {
 			req.Token = ""
@@ -79,7 +83,7 @@ func (g *Gateway) ConnectorCall(ctx context.Context, s connectors.ConnectorCallS
 	return g.localConnectorCall(ctx, s, req)
 }
 func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, connectorTimeout)
 	defer cancel()
 	source := g.connectorSource()
 	if source == nil || g.ConnectorAuthority == nil {
@@ -89,16 +93,11 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 	if err != nil {
 		return contract.ConnectorResponse{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
-	found := false
-	for _, k := range kinds {
-		if k.AddonID == s.AddonID && k.ID == s.Kind {
-			found = true
-			if req.Op == contract.ConnectorOpPoll && k.Delivery != contract.DeliveryPull {
-				return contract.ConnectorResponse{}, ErrForbidden
-			}
-		}
+	i := slices.IndexFunc(kinds, func(k addons.ConnectorKind) bool { return k.AddonID == s.AddonID && k.ID == s.Kind })
+	if i < 0 {
+		return contract.ConnectorResponse{}, ErrForbidden
 	}
-	if !found {
+	if req.Op == contract.ConnectorOpPoll && kinds[i].Delivery != contract.DeliveryPull {
 		return contract.ConnectorResponse{}, ErrForbidden
 	}
 	req, err = g.ConnectorAuthority.AuthorizeConnector(ctx, s, req)
@@ -122,7 +121,7 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 	return out, nil
 }
 func (c *Carrier) connectorRequest(ctx context.Context, method, path string, body any, out any) error {
-	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, connectorTimeout)
 	defer cancel()
 	var raw []byte
 	if body != nil {
