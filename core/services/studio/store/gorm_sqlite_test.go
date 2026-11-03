@@ -60,6 +60,23 @@ var _ = Describe("the GORM store on SQLite", func() {
 		storetest.CheckSeed(open())
 	})
 
+	// The beat of a turn and the cutoff of the reaper come from the database
+	// clock, so the reap does not depend on the clock of the calling machine.
+	It("measures how long a turn is idle on the database clock", func() {
+		ctx := context.Background()
+		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
+		s, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		now := time.Now().UTC()
+		Expect(s.CreateChat(ctx, session.ChatRecord{ID: "a", Principal: "alice", Created: now, Updated: now})).To(Succeed())
+		Expect(s.ClaimTurn(ctx, "alice", "a", "r1")).To(Succeed())
+		Expect(db.Exec("UPDATE studio_chats SET run_beat = ? WHERE id = ?", now.Add(-10*time.Minute), "a").Error).To(Succeed())
+		Expect(s.ReapTurns(ctx, 15*time.Minute)).To(BeEmpty(), "a turn idle for 10 minutes was reaped at 15")
+		Expect(s.TouchTurn(ctx, "alice", "a", "r1")).To(Succeed())
+		Expect(db.Exec("UPDATE studio_chats SET run_beat = ? WHERE id = ?", now.Add(-10*time.Minute), "a").Error).To(Succeed())
+		Expect(s.ReapTurns(ctx, 5*time.Minute)).To(HaveLen(1))
+	})
+
 	// ReapTurns frees the chat and restores its messages in one transaction: when
 	// the restore fails the chat must stay claimed, or the lost messages could
 	// never be given back.
@@ -75,7 +92,7 @@ var _ = Describe("the GORM store on SQLite", func() {
 		Expect(s.TakePending(ctx, "alice", "a")).Error().NotTo(HaveOccurred())
 		Expect(db.Exec(`CREATE TRIGGER no_restore BEFORE UPDATE ON studio_pending
 		BEGIN SELECT RAISE(ABORT, 'forced'); END`).Error).NotTo(HaveOccurred())
-		Expect(s.ReapTurns(ctx, time.Now().Add(time.Hour))).Error().To(HaveOccurred(), "ReapTurns should fail when the restore fails")
+		Expect(s.ReapTurns(ctx, -time.Hour)).Error().To(HaveOccurred(), "ReapTurns should fail when the restore fails")
 		info, err := s.Turn(ctx, "alice", "a")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(info.Running).To(BeTrue(), "turn after failed reap = %+v; want still running", info)

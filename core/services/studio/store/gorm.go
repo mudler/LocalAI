@@ -894,10 +894,35 @@ func (s *gormStore) ConfirmPending(ctx context.Context, principal, id string, id
 	})
 }
 
+// now returns the time of the database server. A turn's beat is written by the
+// frontend that runs it and read by the one that reaps, so both use this one
+// clock: a skew between the machines must not end a live turn.
+func (s *gormStore) now(ctx context.Context) (time.Time, error) {
+	switch s.db.Dialector.Name() {
+	case "sqlite":
+		var v string
+		if err := s.db.WithContext(ctx).Raw("SELECT strftime('%Y-%m-%d %H:%M:%f', 'now')").Scan(&v).Error; err != nil {
+			return time.Time{}, err
+		}
+		return time.ParseInLocation("2006-01-02 15:04:05.000", v, time.UTC)
+	case "postgres":
+		var t time.Time
+		if err := s.db.WithContext(ctx).Raw("SELECT now()").Scan(&t).Error; err != nil {
+			return time.Time{}, err
+		}
+		return t.UTC(), nil
+	}
+	return time.Now().UTC(), nil
+}
+
 func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL)", id, principal, "").
-		Updates(map[string]any{"run_id": runID, "run_since": time.Now().UTC(), "run_beat": time.Now().UTC()})
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -939,9 +964,13 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 }
 
 func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
-		Update("run_beat", time.Now().UTC())
+		Update("run_beat", now)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -954,9 +983,14 @@ func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) 
 	return ErrNotClaimed
 }
 
-func (s *gormStore) ReapTurns(ctx context.Context, olderThan time.Time) ([]ReapedTurn, error) {
+func (s *gormStore) ReapTurns(ctx context.Context, idle time.Duration) ([]ReapedTurn, error) {
+	now, err := s.now(ctx)
+	if err != nil {
+		return nil, err
+	}
+	olderThan := now.Add(-idle)
 	var rows []chatRow
-	err := s.db.WithContext(ctx).
+	err = s.db.WithContext(ctx).
 		Where("run_id <> ? AND run_id IS NOT NULL AND run_beat < ?", "", olderThan).
 		Find(&rows).Error
 	if err != nil {

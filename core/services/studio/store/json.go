@@ -999,7 +999,8 @@ func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) er
 	return nil
 }
 
-func (s *jsonStore) ReapTurns(_ context.Context, olderThan time.Time) ([]ReapedTurn, error) {
+func (s *jsonStore) ReapTurns(_ context.Context, idle time.Duration) ([]ReapedTurn, error) {
+	olderThan := time.Now().UTC().Add(-idle)
 	var out []ReapedTurn
 	for _, c := range s.slots() {
 		reaped, err := s.reapTurn(c, olderThan)

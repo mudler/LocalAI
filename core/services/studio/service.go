@@ -1125,7 +1125,7 @@ func (s *Service) heartbeat(ctx context.Context, p, conv, runID string) {
 // startup with a zero duration, because every claim then belongs to a process
 // that no longer exists.
 func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, error) {
-	reaped, err := s.d.Store.ReapTurns(ctx, time.Now().Add(-olderThan))
+	reaped, err := s.d.Store.ReapTurns(ctx, olderThan)
 	for _, r := range reaped {
 		k := key(r.Principal, r.ChatID)
 		// The frontend that ran the turn is gone; so are the waiters of its

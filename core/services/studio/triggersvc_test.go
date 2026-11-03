@@ -494,7 +494,7 @@ var _ = Describe("triggersvc", func() {
 		})
 		// The frontend that runs it dies: its host stops, and the reaper frees its chat.
 		Expect(a.sh.chats).NotTo(BeNil(), "no store")
-		reaped, err := sh.chats.ReapTurns(ctx, sh.clock.Now().Add(24*time.Hour).Add(time.Now().Sub(sh.clock.Now())))
+		reaped, err := sh.chats.ReapTurns(ctx, -time.Hour)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(reaped).NotTo(BeEmpty(), "the reaper found no running turn")
 		// Whichever host supervised the run, the next pass of the new leader ends it.

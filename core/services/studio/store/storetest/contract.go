@@ -580,12 +580,10 @@ func Run(newStore New) {
 		chat(s, "alive", "alice")
 		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-stale")).To(Succeed())
 		Expect(s.ClaimTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
-		time.Sleep(40 * time.Millisecond)
-		cutoff := time.Now()
-		time.Sleep(40 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
 
-		got, err := s.ReapTurns(ctx(), cutoff)
+		got, err := s.ReapTurns(ctx(), 50*time.Millisecond)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(HaveLen(1), "reaped = %+v, want only the chat that stopped beating", got)
 		Expect(got[0].ChatID).To(Equal("stale"))
@@ -599,7 +597,7 @@ func Run(newStore New) {
 		// The run that was reaped can no longer beat or release, and the chat is free.
 		Expect(s.TouchTurn(ctx(), "alice", "stale", "r-stale")).To(MatchError(store.ErrNotClaimed), "TouchTurn on a reaped run")
 		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-next")).To(Succeed(), "claim after reap")
-		again, _ := s.ReapTurns(ctx(), cutoff)
+		again, _ := s.ReapTurns(ctx(), 50*time.Millisecond)
 		Expect(again).To(BeEmpty(), "a second reap found %+v", again)
 	})
 
@@ -611,7 +609,7 @@ func Run(newStore New) {
 		kept, _ := s.AddPending(ctx(), "alice", "c1", "taken and recorded")
 		Expect(s.TakePending(ctx(), "alice", "c1")).Error().NotTo(HaveOccurred())
 		Expect(s.ConfirmPending(ctx(), "alice", "c1", []string{kept.ID})).To(Succeed())
-		got, _ := s.ReapTurns(ctx(), time.Now().Add(time.Hour))
+		got, _ := s.ReapTurns(ctx(), -time.Hour)
 		Expect(got).To(HaveLen(1), "reaped = %+v, want the one turn", got)
 		pend, _ := s.Pending(ctx(), "alice", "c1")
 		Expect(pend).To(HaveLen(1), "pending after the reap = %+v, want only the unconfirmed message, undelivered", pend)
