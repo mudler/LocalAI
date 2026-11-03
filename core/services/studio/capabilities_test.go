@@ -294,6 +294,38 @@ var _ = Describe("the execution status of a chat that does not exist yet", func(
 	})
 })
 
+// observingAddons reads the execution status in Unavailable, as the real
+// gateway does, so a call outside an execution scope trips the guard.
+type observingAddons struct{ presentationAddons }
+
+func (b observingAddons) Unavailable(ctx context.Context, user, addon string, _ bool) string {
+	studio.ExecutionObservation(ctx, user, addon)
+	return ""
+}
+
+var _ = Describe("the draft lists of a chat that does not exist yet", func() {
+	// The scopeless guard of this suite fails the spec when a draft path reads
+	// the execution status outside an execution scope.
+	It("reads the add-on status inside a scope for the tools list", func() {
+		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, err := svc.DraftTools(context.Background(), alice, "m", "")
+		Expect(err).NotTo(HaveOccurred())
+	})
+	It("reads the add-on status inside a scope for the tools of a stored chat", func() {
+		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, err := svc.Tools(context.Background(), alice, create(svc, alice))
+		Expect(err).NotTo(HaveOccurred())
+	})
+	It("reads the add-on status inside a scope for the add-on list", func() {
+		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, _, err := svc.DraftAddons(context.Background(), alice, "m", "")
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
 var _ = Describe("a second provider of commands", func() {
 	runbox := func() []studio.AddonTool {
 		bash := addonTool("runbox", "bash")

@@ -327,3 +327,44 @@ test('a draft chat has no execution status to warn about', async () => {
   assert.equal(commandsNotice(available.state), null)
   assert.equal(commandsState({ commands: 'none', execution_status: draft }).state, 'none')
 })
+
+test('the hide button hides a notice whose state has no binding identity yet', async () => {
+  const { readFileSync } = await import('node:fs')
+  const source = readFileSync(new URL('../../src/hooks/useCommandsNotice.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function')
+  let hidden = ''
+  const hook = new Function('useState', 'useEffect', 'useCallback', 'commandsNotice', `${source}; return useCommandsNotice`)(
+    () => [hidden, v => { hidden = v }], () => {}, fn => fn, commandsNotice)
+  const read = () => hook({ state: 'unknown', reason: '', identity: '' }, false, ['user', null, 'm', ''])
+  assert.ok(read().info)
+  assert.equal(read().hidden, false)
+  read().hide()
+  assert.equal(read().hidden, true, 'a click on Hide must hide the notice even with no identity')
+})
+
+test('a draft chat keeps its commands state when a tool is switched on and off', async () => {
+  const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches']
+  const imports = Object.assign({}, ...await Promise.all(names.map(name => import(`../../src/utils/${name}.js`))))
+  const draftReply = { commands: 'available', commands_provider: 'sandbox', addons: [{ id: 'sandbox', tools: 1 }], execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' } }
+  let draftCalls = 0
+  const h = hookHarness('../../src/hooks/useChatSwitches.js', 'useChatSwitches', {
+    ...imports,
+    chatAddonsApi: { draft: async () => { draftCalls++; return draftReply }, list: async () => ({}), setOff: async () => ({}) },
+    chatToolsApi: { draft: async () => ({ builtins: [{ group: 'shell', off: false }] }), list: async () => ({}), setBuiltinsOff: async () => ({}) },
+    chatSkillsApi: { list: async () => ({ skills: [] }) },
+  })
+  const render = () => h.render(null, true, { model: 'm', agentId: '' }, 'A:1')
+  const settle = () => new Promise(resolve => setImmediate(resolve))
+  render(); h.flush(); await settle()
+  assert.equal(render().commands.state, 'draft')
+  assert.equal(commandsNotice(render().commands.state), null, 'no banner for a draft that is ready at its first message')
+  for (const step of ['builtin off', 'builtin on', 'addon off', 'addon on']) {
+    const s = render()
+    if (step.startsWith('builtin')) await s.toggleBuiltin('shell', step.endsWith('on'))
+    else await s.toggleAddon('sandbox', step.endsWith('on'))
+    h.flush(); await settle()
+    const now = render()
+    assert.equal(commandsNotice(now.commands.state), null, `${step}: no banner`)
+    assert.ok(now.commands.identity, `${step}: the state is the list's, not a reset`)
+  }
+})

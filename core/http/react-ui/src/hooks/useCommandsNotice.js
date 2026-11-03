@@ -9,7 +9,10 @@ export function useCommandsNotice(commands, isAdmin, context) {
   const [hiddenIdentity, setHiddenIdentity] = useState('')
   useEffect(() => { setHiddenIdentity('') }, [identity])
   const hide = useCallback(() => {
-    if (info && commands.identity) setHiddenIdentity(identity)
-  }, [info, commands.identity, identity])
-  return { info, hidden: !!commands.identity && !!info && hiddenIdentity === identity, hide }
+    if (info) setHiddenIdentity(identity)
+  }, [info, identity])
+  // A state with no binding yet (loading, a failed read) can be hidden too: the
+  // identity then holds the state and the reason, and a new reading brings the
+  // notice back.
+  return { info, hidden: !!info && hiddenIdentity === identity, hide }
 }

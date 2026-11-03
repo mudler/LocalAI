@@ -182,9 +182,11 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     const next = withOn(before, (b) => b.group, new Set(groups), on)
     putBuiltins(next)
     setError('')
+    // A draft has no status to read and keeps the state the list gave it: a
+    // reset here would never be refilled, and the notice would stay unknown.
+    if (draftOn) { groups.forEach((group) => choose('builtins', group, !on)); return }
     const epoch = ++commandEpoch.current
     setCommands(noCommands)
-    if (draftOn) { groups.forEach((group) => choose('builtins', group, !on)); return }
     try {
       const off = next.filter((b) => b.off && !b.opt_in).map((b) => b.group).sort()
       const optIn = next.filter((b) => b.opt_in)

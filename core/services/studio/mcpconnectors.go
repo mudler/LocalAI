@@ -124,6 +124,8 @@ func (s *Service) Tools(ctx context.Context, user, conv string) (ToolsPanel, err
 // toolsFor lists what the chat of rec can use, with its switches.
 func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRecord) (ToolsPanel, error) {
 	conv := rec.ID
+	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
+	defer closeScope()
 	sc := s.scopeOf(ctx, rec)
 	var err error
 	var shadowing []session.Tool

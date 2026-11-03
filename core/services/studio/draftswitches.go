@@ -19,6 +19,10 @@ func (s *Service) DraftTools(ctx context.Context, user, model, agentID string) (
 	if err != nil {
 		return ToolsPanel{}, err
 	}
+	// The add-on gate reads the execution status. A draft has no chat, so the
+	// scope has no conversation and the status says "draft".
+	ctx, closeScope := s.executionScope(ctx, principal(user), rec.ID)
+	defer closeScope()
 	return s.toolsFor(ctx, user, rec)
 }
 
@@ -29,6 +33,8 @@ func (s *Service) DraftAddons(ctx context.Context, user, model, agentID string) 
 	if err != nil {
 		return nil, Commands{}, err
 	}
+	ctx, closeScope := s.executionScope(ctx, principal(user), rec.ID)
+	defer closeScope()
 	list, err := s.addonsFor(ctx, user, rec)
 	if err != nil {
 		return nil, Commands{}, err
