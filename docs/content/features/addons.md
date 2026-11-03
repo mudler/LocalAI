@@ -2252,6 +2252,15 @@ scope (today `connector.inbound`):
 Every other operation keeps all its checks. An operation cannot become inbound by
 a field of the request: the scope is part of its registration.
 
+### How the pieces fit
+
+The owner process holds everything about host grants. A frontend stores nothing and enforces nothing, and it forwards the host access routes to the owner.
+
+- **Files.** The owner writes `host-grants.json` and the audit file `host-grants-audit.jsonl` in its add-on state directory, next to `host-settings.json`. A missing document is the first start: it is created at the first write. A document that cannot be read does not stop the owner, but then no add-on can call any host operation, because the deny rules inside it are unknown. The startup log says so. The audit file records who changed what, never a policy path or a secret.
+- **The check on each call.** The broker asks one Authority for every operation. It combines the floor (policy file and flags, read once at startup), the deny rules of the file, the flags and the UI, and the grants of the UI document. A deny always wins. A UI grant counts only for the package it was made for, and only after the install or upgrade that created it completed. A revoke or a deny applies to the next call, with no restart. A call that already runs finishes.
+- **At install and upgrade.** The routes under `/api/addons/host-grants` stage the package, and the owner grants only what the administrator approved, the verified manifest declares and the host registers. An upgrade adds its operations next to the old ones. If the upgrade does not complete, only the added operations are removed, and the running version keeps what it had.
+- **Startup log.** The owner logs where the floor came from (flag, environment or file), how many add-ons, prefixes and deny rules it holds, how many add-ons and operations the UI document holds, the blanket mode and whether UI grants are locked.
+
 ## Connector add-ons
 
 A connector add-on carries the messages of a messaging platform between the platform
