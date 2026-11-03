@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { applyChoices, draftSwitches, emptyChoices, withChoice } from '../../src/utils/chatDraftSwitches.js'
+import { applyChoices, draftListSwitches, draftSwitches, emptyChoices, withChoice } from '../../src/utils/chatDraftSwitches.js'
 
 const ref = (id) => `connector:${id}`
 
@@ -53,4 +53,24 @@ test('draft switches: the choices survive a list read again for another model', 
 test('draft switches: a choice for a row the list no longer has is ignored', () => {
   const c = withChoice(emptyChoices(), 'addons', 'gone', true)
   assert.deepEqual(applyChoices({ addons: [{ id: 'office', off: false }] }, c).addons, [{ id: 'office', off: false }])
+})
+
+test('draft list switches: a plain draft asks the plain question', () => {
+  assert.equal(draftListSwitches(emptyChoices(), [{ group: 'shell', off: false }]), null)
+})
+
+test('draft list switches: the choices go as the names the server checks', () => {
+  let choices = withChoice(emptyChoices(), 'builtins', 'shell', true)
+  choices = withChoice(choices, 'builtins', 'saved_agents', false)
+  choices = withChoice(choices, 'builtins', 'web', false)
+  choices = withChoice(choices, 'addons', 'sandbox', true)
+  choices = withChoice(choices, 'addons', 'office', false)
+  const builtins = [{ group: 'shell' }, { group: 'web' }, { group: 'saved_agents', opt_in: true }]
+  assert.deepEqual(draftListSwitches(choices, builtins), { addons_off: ['sandbox'], builtins_off: ['shell'], builtins_on: ['saved_agents'] })
+})
+
+test('draft list switches: a group the list does not know is not sent', () => {
+  const choices = withChoice(emptyChoices(), 'builtins', 'gone', true)
+  assert.equal(draftListSwitches(choices, [{ group: 'shell' }]), null)
+  assert.equal(draftListSwitches(choices), null)
 })

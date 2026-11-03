@@ -50,3 +50,18 @@ export function draftSwitches({ addons = [], mcpOff = [], builtins = [], skills 
   for (const k of Object.keys(out)) if (out[k].length === 0) delete out[k]
   return Object.keys(out).length ? out : null
 }
+
+// The switches of the draft add-ons request, from the choices so far. Only a
+// group that the list knows is sent, since the server refuses a name it does
+// not: builtins is the list as the server gave it (it says which groups are
+// opt-in). null when no choice changes anything, so the request is the plain one.
+export function draftListSwitches(choices, builtins = []) {
+  const groups = new Map(builtins.map((b) => [b.group, !!b.opt_in]))
+  const out = {
+    addons_off: Object.entries(choices.addons).filter(([, off]) => off).map(([id]) => id).sort(),
+    builtins_off: Object.entries(choices.builtins).filter(([g, off]) => off && groups.get(g) === false).map(([g]) => g).sort(),
+    builtins_on: Object.entries(choices.builtins).filter(([g, off]) => !off && groups.get(g) === true).map(([g]) => g).sort(),
+  }
+  for (const k of Object.keys(out)) if (out[k].length === 0) delete out[k]
+  return Object.keys(out).length ? out : null
+}

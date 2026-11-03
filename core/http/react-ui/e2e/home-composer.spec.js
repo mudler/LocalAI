@@ -134,6 +134,30 @@ test.describe('Home composer', () => {
     expect(seen.created).toHaveLength(0)
   })
 
+  test('a draft with the shell group switched off asks the server and shows the switched off notice', async ({ page }) => {
+    await server(page)
+    const asked = []
+    await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {
+      builtins: [{ group: 'shell', tools: ['bash'], off: false, usable: true, provider: 'sandbox', providers: { bash: 'sandbox' } }],
+      addons: [{ id: 'sandbox', tools: 7, off: false }], servers: [], connectors: [], off: [],
+    } }))
+    await page.route(/\/api\/chats\/draft\/addons(\?.*)?$/, route => {
+      const url = new URL(route.request().url())
+      asked.push(url.searchParams.get('builtins_off') || '')
+      const off = url.searchParams.get('builtins_off') === 'shell'
+      return route.fulfill({ json: { addons: [{ id: 'sandbox', tools: 7, off: false }], commands: off ? 'switched_off' : 'available', commands_provider: 'sandbox',
+        execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' } } })
+    })
+    await ready(page)
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+    await page.getByTestId('chat-tools-menu').getByRole('switch', { name: 'Run commands', exact: true }).click()
+    await expect(page.getByTestId('chat-commands-notice')).toContainText('Running commands is switched off for this chat.')
+    expect(asked).toContain('shell')
+    await page.getByTestId('chat-tools-menu').getByRole('switch', { name: 'Run commands', exact: true }).click()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+  })
+
   test('the draft lists the groups of built-in tools, and one switched off goes with the new chat', async ({ page }) => {
     const seen = await server(page)
     await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {

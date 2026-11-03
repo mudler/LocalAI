@@ -44,6 +44,20 @@ var _ = Describe("Chats draft switches", func() {
 		Expect(decodeJSON(addons)).To(HaveKey("commands"))
 	})
 
+	It("reports the commands as switched off when the draft switched the shell group off", func() {
+		off := s.do("alice", http.MethodGet, "/api/chats/draft/addons?model=test-model&builtins_off=shell", nil)
+		Expect(off.Code).To(Equal(http.StatusOK), off.Body.String())
+		Expect(decodeJSON(off)).To(HaveKeyWithValue("commands", "switched_off"))
+
+		on := s.do("alice", http.MethodGet, "/api/chats/draft/addons?model=test-model", nil)
+		Expect(decodeJSON(on)).NotTo(HaveKeyWithValue("commands", "switched_off"))
+	})
+
+	It("refuses a draft switch that names no group", func() {
+		bad := s.do("alice", http.MethodGet, "/api/chats/draft/addons?model=test-model&builtins_off=nope", nil)
+		Expect(bad.Code).To(Equal(http.StatusBadRequest), bad.Body.String())
+	})
+
 	It("refuses a model the server does not have and another user's agent", func() {
 		Expect(s.do("alice", http.MethodGet, "/api/chats/draft/tools?model=nope", nil).Code).To(Equal(http.StatusBadRequest))
 		rec := s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Mine"})

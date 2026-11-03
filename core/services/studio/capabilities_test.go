@@ -287,7 +287,7 @@ var _ = Describe("the execution status of a chat that does not exist yet", func(
 	It("says the chat is a draft, not that the add-on is not selected", func() {
 		broker := presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}
 		svc, _, _ := newCapsChat(broker, nil)
-		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "")
+		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(c.ExecutionStatus).NotTo(BeNil())
 		Expect(c.ExecutionStatus.UnknownReason).To(Equal("draft"))
@@ -302,6 +302,39 @@ func (b observingAddons) Unavailable(ctx context.Context, user, addon string, _ 
 	studio.ExecutionObservation(ctx, user, addon)
 	return ""
 }
+
+var _ = Describe("the commands state of a draft with switches", func() {
+	broker := func() presentationAddons {
+		return presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}
+	}
+	It("is not switched off without switches", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.State).NotTo(Equal(studio.CommandsSwitchedOff))
+	})
+	It("is switched off when the draft switched the shell group off", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{BuiltinsOff: []string{"shell"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.State).To(Equal(studio.CommandsSwitchedOff))
+	})
+	It("lists an add-on the draft switched off as off, and says the commands are off", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		list, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{AddonsOff: []string{"sandbox"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).NotTo(BeEmpty())
+		for _, a := range list {
+			Expect(a.Off).To(BeTrue(), a.ID)
+		}
+		Expect(c.State).To(Equal(studio.CommandsOff))
+	})
+	It("refuses a group that does not exist", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		_, _, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{BuiltinsOff: []string{"nope"}})
+		Expect(err).To(MatchError(studio.ErrBadBuiltinGroup))
+	})
+})
 
 var _ = Describe("the draft lists of a chat that does not exist yet", func() {
 	// The scopeless guard of this suite fails the spec when a draft path reads
@@ -321,7 +354,7 @@ var _ = Describe("the draft lists of a chat that does not exist yet", func() {
 	It("reads the add-on status inside a scope for the add-on list", func() {
 		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
 		svc, _, _ := newCapsChat(broker, nil)
-		_, _, err := svc.DraftAddons(context.Background(), alice, "m", "")
+		_, _, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{})
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

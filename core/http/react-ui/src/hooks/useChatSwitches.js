@@ -4,7 +4,7 @@ import { connectorRef, toolsCounts } from '../utils/chatMCP'
 import { offWith, withOn } from '../utils/chatSwitchRows'
 import { changedIds, offList, pickerSkills, revertSkills, skillKey, withSkillsSet } from '../utils/chatSkills'
 import { commandsState, noticeIdentity } from '../utils/chatCommands'
-import { applyChoices, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
+import { applyChoices, draftListSwitches, draftSwitches as switchesOf, emptyChoices, withChoice } from '../utils/chatDraftSwitches'
 
 const noMCP = { servers: [], connectors: [], off: [] }
 const mcpOf = (res) => ({ servers: res.servers || [], connectors: res.connectors || [], off: res.off || [] })
@@ -40,6 +40,8 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const setCommands = (value) => storeCommands({ ...value, context: commandContext.current })
   const [mcp, setMcp] = useState(noMCP)
   const [builtins, setBuiltins] = useState([])
+  // The built-in groups as the screen shows them now (also read by the effects below).
+  const builtinsRef = useRef(builtins)
   // The built-in tools an installed add-on replaces but cannot serve here now.
   const [fallbacks, setFallbacks] = useState([])
   const [skills, setSkills] = useState([])
@@ -67,7 +69,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     setCommands(noCommands)
     // A draft list keeps the choices made so far for the rows it still has.
     const chosen = (lists) => (draftOn ? applyChoices(lists, choicesRef.current, connectorRef) : lists)
-    ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent) : chatAddonsApi.list(chatId))
+    ;(draftOn ? chatAddonsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current)) : chatAddonsApi.list(chatId))
       .then((res) => { if (live && epoch === commandEpoch.current) { setAddons(chosen({ addons: res.addons || [] }).addons); setCommands(commandsOf(res)) } })
       .catch(() => { if (live && epoch === commandEpoch.current) { setAddons([]); setCommands(noCommands) } })
     ;(draftOn ? chatToolsApi.draft(draftModel, draftAgent) : chatToolsApi.list(chatId))
@@ -104,13 +106,24 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   // render: "Select all" in the Tools menu sends one request per kind in a row.
   const addonsRef = useRef(addons)
   const mcpRef = useRef(mcp)
-  const builtinsRef = useRef(builtins)
   addonsRef.current = addons
   mcpRef.current = mcp
   builtinsRef.current = builtins
   const putAddons = (v) => { addonsRef.current = v; setAddons(v) }
   const putMcp = (v) => { mcpRef.current = v; setMcp(v) }
   const putBuiltins = (v) => { builtinsRef.current = v; setBuiltins(v) }
+
+  // A draft has no status of its own: the commands state is what the server
+  // answers for the draft's choices so far. Asked again after a switch of the
+  // add-ons or of the built-in groups, so a sandbox switched off shows its
+  // notice before the first message. The old state stays until the answer
+  // comes; a later switch drops an answer that is late.
+  const refreshDraftCommands = useCallback(() => {
+    const epoch = ++commandEpoch.current
+    chatAddonsApi.draft(draftModel, draftAgent, draftListSwitches(choicesRef.current, builtinsRef.current))
+      .then((res) => { if (epoch === commandEpoch.current) setCommands(commandsOf(res)) })
+      .catch(() => { if (epoch === commandEpoch.current) setCommands(noCommands) })
+  }, [draftModel, draftAgent])
 
   // Switches the add-ons with these ids (an array) on or off with one request.
   const setAddonsOn = useCallback(async (ids, on) => {
@@ -119,11 +132,12 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     if (ids.length === 0) return
     putAddons(next)
     setError('')
-    // A draft has no status to read and keeps the state the list gave it: a
-    // reset here would never be refilled, and the notice would stay unknown.
+    // A draft keeps the state it had until the server answers for the new
+    // choices (refreshDraftCommands): a reset here would leave the notice unknown.
     if (draftOn) {
       ids.forEach((id) => choose('addons', id, !on))
       setSkillsRev((n) => n + 1)
+      refreshDraftCommands()
       return
     }
     const epoch = ++commandEpoch.current
@@ -148,7 +162,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
       putAddons(before)
       setError(e.message || 'error')
     }
-  }, [chatId, draftOn, choose])
+  }, [chatId, draftOn, choose, refreshDraftCommands])
 
   // keys: server names of the model or connector:<id>, switched with one request.
   const setMCPOn = useCallback(async (keys, on) => {
@@ -182,9 +196,9 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     const next = withOn(before, (b) => b.group, new Set(groups), on)
     putBuiltins(next)
     setError('')
-    // A draft has no status to read and keeps the state the list gave it: a
-    // reset here would never be refilled, and the notice would stay unknown.
-    if (draftOn) { groups.forEach((group) => choose('builtins', group, !on)); return }
+    // A draft keeps the state it had until the server answers for the new
+    // choices (refreshDraftCommands).
+    if (draftOn) { groups.forEach((group) => choose('builtins', group, !on)); refreshDraftCommands(); return }
     const epoch = ++commandEpoch.current
     setCommands(noCommands)
     try {
@@ -205,7 +219,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
       putBuiltins(before)
       setError(e.message || 'error')
     }
-  }, [chatId, draftOn, choose])
+  }, [chatId, draftOn, choose, refreshDraftCommands])
 
   const toggleAddon = useCallback((id, on) => setAddonsOn([id], on), [setAddonsOn])
   const toggleMCP = useCallback((key, on) => setMCPOn([key], on), [setMCPOn])

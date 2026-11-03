@@ -371,10 +371,15 @@ export const sharedFoldersApi = {
 // Chat skills: folders with a SKILL.md in four layers, switched per chat.
 const enc2 = encodeURIComponent
 // The query of the draft lists: the model and the agent of the new chat.
-function draftQuery(model, agentId) {
+// switches (draft add-ons only) are the draft's choices so far, as the create
+// request takes them: addons_off, builtins_off and builtins_on, arrays of names.
+function draftQuery(model, agentId, switches) {
   const q = new URLSearchParams()
   if (model) q.set('model', model)
   if (agentId) q.set('agent_id', agentId)
+  for (const k of ['addons_off', 'builtins_off', 'builtins_on']) {
+    if (switches?.[k]?.length) q.set(k, switches[k].join(','))
+  }
   const s = q.toString()
   return s ? `?${s}` : ''
 }
@@ -397,7 +402,9 @@ export const chatSkillsApi = {
 export const chatAddonsApi = {
   list: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/addons`),
   // The add-ons of a chat that does not exist yet, on model with the agent.
-  draft: (model, agentId) => fetchJSON(`/api/chats/draft/addons${draftQuery(model, agentId)}`),
+  // switches: the draft's choices ({addons_off, builtins_off, builtins_on}), so the
+  // commands state answers for them (see draftListSwitches).
+  draft: (model, agentId, switches) => fetchJSON(`/api/chats/draft/addons${draftQuery(model, agentId, switches)}`),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
 

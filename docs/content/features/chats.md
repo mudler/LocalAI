@@ -175,6 +175,13 @@ The answers have the shapes of `GET /api/chats/{id}/tools` and `GET
 /api/chats/{id}/addons`. A model you may not use is `403`, a model the server
 does not have is `400`, and another user's agent is `404`.
 
+The draft add-ons list also takes the switches the composer has so far, as
+comma-separated query parameters `addons_off`, `builtins_off` and `builtins_on`
+(the lists that `POST /api/chats` takes in `switches`). The `commands` state of
+the answer is then the one the new chat would have: with `builtins_off=shell`
+it is `switched_off`. A name that is not an add-on switch or a built-in group
+is `400`. The Home composer sends them each time you change a switch.
+
 ### List the chats of one origin
 
 `GET /api/chats` returns every chat unless you send `origin`. With
