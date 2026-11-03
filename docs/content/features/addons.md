@@ -5356,6 +5356,50 @@ observer recovery, but never cancel the owner operation. An unreadable owner or
 exhausted polling window is an unknown outcome: keep the ID and read it again,
 rather than starting a replacement operation.
 
+## Host access in the UI
+
+An administrator gives an add-on its host operations in the browser, at install and at upgrade. No file edit and no restart are needed. The policy file and flags still work. They are a floor that the UI shows and cannot change, and the deny rules of the file always win. Only the administrator's own browser session can change host access. An API key, a tool call or an agent cannot grant, revoke, edit a deny rule or change the blanket switch.
+
+The owner never grants what the verified package does not declare. A grant is always the operations you approved, that the package declares, and that this LocalAI supports.
+
+### The install step
+
+When the manifest of an add-on declares host operations, the install dialog shows a **Host access** step before **Install and turn on**. It lists each operation with a short title, one sentence and a risk word (reads, changes data, network, runs jobs), grouped by family.
+
+- **Required** operations are on and cannot be turned off. The add-on does not run without them.
+- **Optional** operations are off. The add-on runs without them, with fewer features. Turn on the ones you want.
+- An operation that your policy blocks is greyed out and says "Blocked by the administrator policy". If a required operation is blocked, the install button is disabled and the dialog says why. The owner refuses the same install.
+- An operation that the deployment already allows says so and needs no choice.
+- An operation that this LocalAI does not support says "Not supported by this LocalAI".
+
+For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the dialog also says which library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+
+An agent that installs an add-on through the dispatch route carries no approval. If the add-on needs a host operation that is not held, the owner answers `approval_required`.
+
+### Upgrades that ask for more
+
+If a new version asks for a **required** operation that the add-on does not hold, the upgrade is held and the current version keeps running. The Installed tab shows a banner and a "Waiting for approval" label, and the **Host access** tab shows how many approvals wait. Select **Review and approve** to see what the new version adds, then **Approve and upgrade**. New optional operations never block an upgrade. They stay off, and the add-on runs without them. Automatic upgrades never approve anything. A version that asks for fewer operations does not remove any grant. The page lists the extra ones as "no longer requested" and you can turn them off.
+
+### The Host access page
+
+The **Host access** tab of the Add-ons page (administrators only) shows, for each add-on, every operation it asks for and what it holds.
+
+- Each operation shows where its grant comes from: **Deployment** (policy file or flags, read-only), **You** (install, upgrade or edit) and **Blanket** (the switch below), with the date.
+- Turn an operation off to revoke it. The change applies to the next call at once. Calls that already run finish. If you turn off an operation that the add-on requires, the page says that the add-on stops, and asks first.
+- **Revoke all** removes everything that you or the blanket switch granted. **Keep as my own** turns blanket grants into explicit ones, so revoking the blanket grants later does not remove them.
+- A grant that was made for a different package under the same name has no effect. The page marks it and offers to remove it.
+- **Never allow** lists deny rules. Rules of the policy file or flags are locked. Rules made here can be removed. Before a new rule is saved, the page shows which add-ons lose which operations and which will stop. A rule can name one add-on or all add-ons, an operation, a family that ends with a dot, or `*`.
+
+If the deployment sets `--addon-host-ui-grants=false`, the page is read-only.
+
+### Blanket approval
+
+The switch **Approve everything an add-on asks for** is off by default. When it is on, an add-on that you install or upgrade gets the host operations that its manifest declares as required, without the install step. The scope is **Official library** or **Any library**. You can also include optional operations, and you can apply the switch to add-ons that are already installed. It never grants an operation that the manifest does not declare, and it never overrides a deny rule.
+
+To turn it on you type a sentence that matches the scope. The dialog states the risk first. For **Any library**, every entry of every library that you configured receives the operations its manifest declares, so a malicious or compromised entry gets them at once. A deployment can set the switch with `--addon-host-blanket`. The page then shows it read-only.
+
+When you turn the switch off, the grants that it made stay and stay marked **Blanket**, so nothing stops by surprise. The page offers **Revoke all blanket grants**, and the dialog can revoke them as it turns the switch off.
+
 ## Administrator host operation policy
 
 `--addon-host-policy` (environment: `LOCALAI_ADDON_HOST_POLICY`) selects an
