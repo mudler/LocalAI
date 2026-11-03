@@ -300,9 +300,16 @@ function ChatPage() {
   useEffect(() => {
     const el = messagesRef.current
     if (!el) return undefined
+    let last = el.scrollTop
     const onScroll = () => {
       const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-      stickToBottomRef.current = distanceFromBottom < 80
+      // Only a move up unpins the thread. Our own smooth scroll to the bottom
+      // moves down and reports a distance above the threshold on its way, which
+      // must not unpin it: the send and the streamed answer would stop following.
+      const up = el.scrollTop < last
+      last = el.scrollTop
+      if (distanceFromBottom < 80) stickToBottomRef.current = true
+      else if (up) stickToBottomRef.current = false
       setScrolledUp(distanceFromBottom > 160)
     }
     el.addEventListener('scroll', onScroll, { passive: true })
