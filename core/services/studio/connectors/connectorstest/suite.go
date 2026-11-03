@@ -70,7 +70,6 @@ func Run(newStore NewStore) {
 		got, _ = s.GetBinding(ctx, "modes")
 		Expect(got.ReplyMode()).To(Equal(connectors.ReplyProgress))
 		Expect(got.SendsFiles()).To(BeTrue())
-		Expect(got.ReadsThread()).To(BeTrue(), "a binding that says nothing reads the thread")
 	})
 	It("keeps the options of the kind", func() {
 		s := newStore()
@@ -84,15 +83,6 @@ func Run(newStore NewStore) {
 		again, _ := s.GetBinding(ctx, "opt")
 		Expect(again.Options["followThreads"]).To(Equal("never"))
 		Expect(connectors.Validate(connectors.Binding{Name: "n", Kind: "k", AgentID: "a", Options: map[string]string{"": "x"}})).NotTo(Succeed())
-	})
-	It("keeps the thread context switch", func() {
-		s := newStore()
-		b := binding("ctx", "u1", "Context")
-		b.ThreadContextOff = true
-		Expect(s.PutBinding(ctx, b)).To(Succeed())
-		got, err := s.GetBinding(ctx, "ctx")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(got.ReadsThread()).To(BeFalse())
 	})
 	It("keeps the file limits an owner set for a binding", func() {
 		s := newStore()

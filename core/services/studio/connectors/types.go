@@ -110,10 +110,6 @@ type Binding struct {
 	// zero value sends them, so a binding stored before the option sends
 	// them too.
 	FilesOff bool
-	// ThreadContextOff keeps the host from reading the earlier messages of
-	// a thread when the bot is mentioned in it. The zero value reads them,
-	// on a platform whose kind declares the ability.
-	ThreadContextOff bool
 	// Options are the choices the owner made for the options that the kind of
 	// the binding declares (contract.ConnectorKind.Options), by option ID. An
 	// option that is not here has its default.
@@ -250,10 +246,6 @@ func (b Binding) ConversationMode() string {
 
 // SendsFiles tells whether the files a turn makes go to the sender.
 func (b Binding) SendsFiles() bool { return !b.FilesOff }
-
-// ReadsThread tells whether the earlier messages of a thread are read when
-// the bot is mentioned in it.
-func (b Binding) ReadsThread() bool { return !b.ThreadContextOff }
 
 // Allows tells whether a sender is on the allowlist. A match is by ID or, for an
 // @name entry, by username, ignoring case.

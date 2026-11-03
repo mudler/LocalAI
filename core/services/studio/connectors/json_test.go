@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -41,6 +42,21 @@ var _ = Describe("the JSON store", func() {
 			Expect(err).NotTo(HaveOccurred(), f)
 			Expect(st.Mode().Perm()).To(Equal(os.FileMode(0o600)), f)
 		}
+	})
+
+	It("loads a file that an earlier build wrote with the ThreadContextOff field", func() {
+		dir := GinkgoT().TempDir()
+		first, _ := connectors.NewJSON(dir)
+		connectorstest.Seed(first)
+		p := filepath.Join(dir, "connectors.json")
+		raw, err := os.ReadFile(p)
+		Expect(err).NotTo(HaveOccurred())
+		patched := strings.Replace(string(raw), `"Name":`, `"ThreadContextOff":true,"Name":`, -1)
+		Expect(patched).NotTo(Equal(string(raw)))
+		Expect(os.WriteFile(p, []byte(patched), 0o600)).To(Succeed())
+		second, err := connectors.NewJSON(dir)
+		Expect(err).NotTo(HaveOccurred())
+		connectorstest.CheckSeed(second)
 	})
 
 	It("refuses a key file that others can read", func() {

@@ -28,9 +28,9 @@ type bindingRow struct {
 	Conversation  string `gorm:"size:16"`
 	WindowMinutes int
 	FilesOff      bool
-	// ThreadContextOff is added by AutoMigrate; a row stored before it reads
-	// the thread.
-	ThreadContextOff bool
+	// A thread_context_off column that an earlier build added stays in the
+	// table, unread and unwritten: AutoMigrate never drops a column, and the
+	// column accepts NULL, so an insert without it works.
 	// Options is JSON, added by AutoMigrate.
 	Options string
 	// The columns of the file limits are added by AutoMigrate; a row stored
@@ -93,7 +93,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
-		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ThreadContextOff: r.ThreadContextOff,
+		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff,
 		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
@@ -122,7 +122,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 	}
 	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
-		FilesOff: b.FilesOff, ThreadContextOff: b.ThreadContextOff, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
+		FilesOff: b.FilesOff, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
 		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 

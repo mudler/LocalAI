@@ -131,20 +131,21 @@ var _ = Describe("the earlier messages of a thread", func() {
 		Expect(fake.calls()).To(HaveLen(1), "one history call per new chat")
 	})
 
-	It("asks nothing for a message outside a thread, or when the binding turns the reading off", func() {
+	It("asks nothing for a message outside a thread", func() {
 		setup(&contract.ConnectorHistory{Thread: true}, studio.ConnectorInput{})
 		m := mention("m5", "")
 		m.Direct = true
 		ingest(m)
 		answered(1)
 		Expect(fake.calls()).To(BeEmpty())
+	})
 
-		off := false
-		setup(&contract.ConnectorHistory{Thread: true}, studio.ConnectorInput{ThreadContext: &off})
+	It("always reads the thread when the kind declares the ability: no binding input changes it", func() {
+		setup(&contract.ConnectorHistory{Thread: true}, studio.ConnectorInput{Name: "Any", Enabled: true})
 		ingest(mention("m5", "T1"))
 		answered(1)
-		Expect(fake.calls()).To(BeEmpty())
-		Expect(r.h.Sent(chat())[0]).To(Equal("@bot can you retry?"))
+		Expect(fake.calls()).To(HaveLen(1))
+		Expect(r.h.Sent(chat())[0]).To(ContainSubstring("Earlier"))
 	})
 
 	It("never calls a kind that declares no history", func() {

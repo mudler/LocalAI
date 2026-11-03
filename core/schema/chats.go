@@ -1177,10 +1177,6 @@ type ChatsConnector struct {
 	// SendFiles sends the files that a turn makes to the sender, after the
 	// answer.
 	SendFiles bool `json:"send_files"`
-	// ThreadContext lets the bot read the earlier messages of the thread in
-	// which it is mentioned. It has an effect only on a platform that can
-	// give them.
-	ThreadContext bool `json:"thread_context"`
 	// Options are the choices made for the options of the kind, by option id.
 	// An option that is absent has its default (see ChatsConnectorKind).
 	Options map[string]string `json:"options,omitempty"`
@@ -1238,7 +1234,8 @@ type ChatsConnectorKind struct {
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
 	// ThreadHistory is true when the platform can give the earlier messages
-	// of a thread, so a binding of this kind has the thread_context option.
+	// of a thread. The host then reads them whenever the bot is mentioned in a
+	// thread.
 	ThreadHistory bool `json:"thread_history,omitempty"`
 	// Options are the choices the add-on lets each binding of this kind make.
 	Options []ChatsConnectorOption `json:"options,omitempty"`
@@ -1294,9 +1291,6 @@ type ChatsConnectorWrite struct {
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`
-	// ThreadContext turns the reading of the earlier messages of a thread on
-	// or off. Absent means on for a new binding and unchanged for an update.
-	ThreadContext *bool `json:"thread_context,omitempty"`
 	// Options are the choices for the options of the kind, by option id. Absent
 	// means the defaults for a new binding and unchanged for an update.
 	Options map[string]string `json:"options,omitempty"`

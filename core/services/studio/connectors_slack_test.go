@@ -148,15 +148,12 @@ var _ = Describe("connectors slack", func() {
 		waitFor("the answer to the reply", func() bool { return len(r2.answers()) == 2 })
 	})
 
-	It("slack mention outside a thread, or with the option off, reads nothing", func() {
-		off := false
-		r, _ := newSlackRigWith(connSay("ok"), studio.ConnectorInput{Allow: []string{"C1"}, ThreadContext: &off})
-		r.slack.AddThreadMessage("C1", "100.000001", "100.000001", map[string]any{"user": "U1", "text": "earlier"})
-		r.slack.Push(slackApp, slacktest.Mention("C1", "U1", "UBOT", "inside", "100.000001"))
-		waitFor("the answer", func() bool { return len(r.answers()) == 1 })
+	It("slack mention outside a thread gets no earlier-messages block", func() {
+		r, _ := newSlackRigWith(connSay("ok"), studio.ConnectorInput{Allow: []string{"C1"}})
 		r.slack.Push(slackApp, slacktest.Mention("C1", "U1", "UBOT", "top level", ""))
-		waitFor("the second answer", func() bool { return len(r.answers()) == 2 })
-		Expect(r.slack.Calls("conversations.replies")).To(BeZero())
+		waitFor("the answer", func() bool { return len(r.answers()) == 1 })
+		// The add-on makes the mention the root of its own thread, so the host may
+		// ask; the thread holds nothing but the message, so there is no block.
 		chats, _ := r.svc.List(context.Background(), alice, 10)
 		for _, c := range chats {
 			for _, m := range r.h.Sent(c.ID) {

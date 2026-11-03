@@ -26,12 +26,12 @@ const (
 
 // threadDirective reads the earlier messages of the thread of m from the
 // platform and returns the block the first turn of the new chat gets, or "".
-// It asks only when the message is in a thread, the binding reads threads and
-// the add-on of the kind declares the ability. A failure never blocks the
-// answer: it is logged and the turn goes on without context. The caller calls
-// it once, when the chat of the thread has just been made.
+// It asks only when the message is in a thread and the add-on of the kind
+// declares the ability; no binding setting turns it off. A failure never
+// blocks the answer: it is logged and the turn goes on without context. The
+// caller calls it once, when the chat of the thread has just been made.
 func (c *Connectors) threadDirective(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage) string {
-	if m.Thread == "" || !b.ReadsThread() {
+	if m.Thread == "" {
 		return ""
 	}
 	kinds, err := c.o.Transport.Kinds(ctx)
