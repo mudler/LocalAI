@@ -155,6 +155,8 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			// issues its nonce. Browser session only, except the preview.
 			"POST /api/addons/host-grants/preview": true,
 			"POST /api/addons/host-grants/install": true,
+			// Install from a file: staging a zip on the owner. It runs nothing.
+			"POST /api/addons/files": true,
 		}))
 		// The grant changes and the conversation selection are PUT and DELETE;
 		// nothing else uses those methods.
@@ -174,6 +176,8 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			"PUT /api/addons/host-grants/deny":        true,
 			"PUT /api/addons/host-grants/:addonId":    true,
 			"DELETE /api/addons/host-grants/:addonId": true,
+			// Install from a file: a staged file can be removed.
+			"DELETE /api/addons/files/:fileId": true,
 		}))
 		// Reading a proposal, the caller's own pending ones, the owner's list of
 		// unresolved ones and the two private artifact reads are the only
@@ -185,10 +189,11 @@ var _ = Describe("registered addon routes with real authentication", func() {
 			}
 		}
 		Expect(reads).To(Equal(map[string]bool{"/api/addons/proposals": true, "/api/addons/proposals/:id": true, "/api/addons/resources/:resourceId/proposals": true, "/api/addons/artifacts/:id": true, "/api/addons/artifacts/:id/download": true, "/api/addons/apps": true, "/api/addons/apps/:id/icon": true, "/api/addons/:id/assets/:digest/*": true,
-			"/api/addons/:id/recovery": true,
-			"/api/addons/:id/update":   true,
-			"/api/addons/host-grants":  true,
-			"/api/addons/resources":    true, "/api/addons/resources/:resourceId/grants": true, "/api/addons/resources/:resourceId/users": true,
+			"/api/addons/:id/recovery":  true,
+			"/api/addons/:id/update":    true,
+			"/api/addons/host-grants":   true,
+			"/api/addons/files/:fileId": true,
+			"/api/addons/resources":     true, "/api/addons/resources/:resourceId/grants": true, "/api/addons/resources/:resourceId/users": true,
 			"/api/addons/resources/:resourceId/operations/:operationId": true, "/api/addons/conversations/:conversationId/selection/:addonId": true}))
 	})
 	It("reserves every first path segment the host registers under /api/addons", func() {
