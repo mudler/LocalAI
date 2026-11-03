@@ -1,0 +1,215 @@
+package studio
+
+import (
+	"cmp"
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+// FileLayer names the layer that sets a file limit. The limit in effect is the
+// smallest of the layers, and the sentences to people name the one that won.
+type FileLayer string
+
+const (
+	// LayerOwner is the limit that the owner set for one binding.
+	LayerOwner FileLayer = "owner"
+	// LayerAddon is the ability that the connector kind declares.
+	LayerAddon FileLayer = "addon"
+	// LayerHost is the host ceiling of the owner policy.
+	LayerHost FileLayer = "host"
+	// LayerInline is the cap of the inline path, which carries the bytes in
+	// the connector envelope. It applies until the bytes travel by
+	// reference, and to every add-on that declares no ability.
+	LayerInline FileLayer = "inline"
+)
+
+// FileLimit is the largest file that may move in one direction, and the
+// layer that sets it.
+type FileLimit struct {
+	Bytes int64
+	Layer FileLayer
+}
+
+// EffectiveFileLimit is the one place that decides how large a file may be.
+// It takes the smallest of the host ceiling (zero: the default), the ability
+// the kind declares (nil: none), the owner's limit for the binding (zero:
+// none) and the cap of the inline path. On a tie the layer that a person can
+// change first is named: the owner, the add-on, the host, then the inline cap.
+func EffectiveFileLimit(ceiling int64, declared *contract.FileAbility, owner int64) FileLimit {
+	if ceiling <= 0 {
+		ceiling = contract.DefaultFileCeilingBytes
+	}
+	limit := FileLimit{Bytes: contract.MaxConnectorFileBytes, Layer: LayerInline}
+	for _, c := range []FileLimit{{ceiling, LayerHost}, abilityLimit(declared), {owner, LayerOwner}} {
+		if c.Bytes > 0 && c.Bytes <= limit.Bytes {
+			limit = c
+		}
+	}
+	return limit
+}
+
+func abilityLimit(a *contract.FileAbility) FileLimit {
+	if a == nil {
+		return FileLimit{}
+	}
+	return FileLimit{Bytes: a.MaxBytes, Layer: LayerAddon}
+}
+
+// FileLimits are the limits of one binding.
+type FileLimits struct {
+	Receive, Send FileLimit
+	// ReceiveMax and SendMax are the most an owner may set: the ability of
+	// the kind (the inline cap, if it declares none) under the host ceiling.
+	ReceiveMax, SendMax int64
+	// KindTitle is the name of the platform, for the sentences.
+	KindTitle string
+}
+
+// fileCeiling reads the host ceiling of the owner policy. A failure reads as
+// the default: the layers below still bind, and the ceiling never lifts them.
+func (c *Connectors) fileCeiling(ctx context.Context) int64 {
+	if c.o.FileCeiling == nil {
+		return contract.DefaultFileCeilingBytes
+	}
+	n, err := c.o.FileCeiling(ctx)
+	if err != nil || n <= 0 {
+		if err != nil {
+			c.log.Warn("studio: the host ceiling of connector files is not readable", "error", err)
+		}
+		return contract.DefaultFileCeilingBytes
+	}
+	return n
+}
+
+// FileLimits resolves the limits of a binding now. The kind is read from the
+// add-ons that run; a binding whose add-on does not run has declared nothing.
+func (c *Connectors) FileLimits(ctx context.Context, b connectors.Binding) FileLimits {
+	var files *contract.ConnectorFiles
+	title := ""
+	if kinds, err := c.o.Transport.Kinds(ctx); err == nil {
+		if k, ok := kindFor(kinds, b); ok {
+			files, title = k.Files, k.Title
+		}
+	}
+	return resolveFileLimits(c.fileCeiling(ctx), files, title, b)
+}
+
+func resolveFileLimits(ceiling int64, files *contract.ConnectorFiles, title string, b connectors.Binding) FileLimits {
+	if files == nil {
+		files = &contract.ConnectorFiles{}
+	}
+	l := FileLimits{KindTitle: title}
+	l.Receive = EffectiveFileLimit(ceiling, files.Receive, b.FileReceiveMax)
+	l.Send = EffectiveFileLimit(ceiling, files.Send, b.FileSendMax)
+	l.ReceiveMax = ownerMax(ceiling, files.Receive)
+	l.SendMax = ownerMax(ceiling, files.Send)
+	return l
+}
+
+// ownerMax is the largest value an owner may set: what the kind declares, or
+// the inline cap when it declares nothing, under the host ceiling.
+func ownerMax(ceiling int64, a *contract.FileAbility) int64 {
+	if ceiling <= 0 {
+		ceiling = contract.DefaultFileCeilingBytes
+	}
+	base := int64(contract.MaxConnectorFileBytes)
+	if a != nil {
+		base = a.MaxBytes
+	}
+	return min(base, ceiling)
+}
+
+// checkOwnerLimits refuses a limit above what the kind allows: an owner can
+// only lower it. A kind that does not run has no limit to compare with.
+func (c *Connectors) checkOwnerLimits(ctx context.Context, b connectors.Binding, in ConnectorInput) error {
+	// Only a value that this request writes is checked: a stored value that
+	// the kind has lowered since must not block an unrelated update.
+	if (in.FileReceiveMax == nil || *in.FileReceiveMax == 0) && (in.FileSendMax == nil || *in.FileSendMax == 0) {
+		return nil
+	}
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		return nil
+	}
+	k, ok := kindFor(kinds, b)
+	if !ok {
+		return nil
+	}
+	l := resolveFileLimits(c.fileCeiling(ctx), k.Files, k.Title, b)
+	for _, f := range []struct {
+		what         string
+		set, allowed int64
+	}{{"receive", b.FileReceiveMax, l.ReceiveMax}, {"send", b.FileSendMax, l.SendMax}} {
+		if f.set > f.allowed {
+			return connectorBad("the %s file limit can only lower the limit of the kind: at most %s", f.what, formatFileSize(f.allowed))
+		}
+	}
+	return nil
+}
+
+// why names the layer that sets the limit, in words a person knows.
+func (l FileLimit) why(kindTitle string) string {
+	switch l.Layer {
+	case LayerOwner:
+		return "limit set for this bot"
+	case LayerAddon:
+		return "limit of " + cmp.Or(kindTitle, "this add-on")
+	case LayerHost:
+		return "limit of the platform"
+	default:
+		return "limit of this add-on version"
+	}
+}
+
+// sentence is the limit with the layer that sets it, such as
+// "1 MiB (limit of this add-on version)".
+func (l FileLimit) sentence(kindTitle string) string {
+	return formatFileSize(l.Bytes) + " (" + l.why(kindTitle) + ")"
+}
+
+// formatFileSize writes a size in bytes, KiB, MiB, GiB or TiB, with at most
+// one decimal.
+func formatFileSize(n int64) string {
+	if n == 1 {
+		return "1 byte"
+	}
+	if n < 1<<10 {
+		return strconv.FormatInt(n, 10) + " bytes"
+	}
+	units := []string{"KiB", "MiB", "GiB", "TiB"}
+	v := float64(n) / 1024
+	i := 0
+	for v >= 1024 && i < len(units)-1 {
+		v /= 1024
+		i++
+	}
+	return strings.TrimSuffix(strconv.FormatFloat(v, 'f', 1, 64), ".0") + " " + units[i]
+}
+
+// Sentences to people. Each is built from the limit in effect.
+
+// sentFileTooBig answers a person whose file the bot cannot read. size is
+// zero when the add-on did not say how large the file is.
+func sentFileTooBig(l FileLimits, size int64) string {
+	seen := ""
+	if size > 0 {
+		seen = " (" + formatFileSize(size) + ")"
+	}
+	return fmt.Sprintf("That file is too large%s: I can read files of up to %s here (%s).", seen, formatFileSize(l.Receive.Bytes), l.Receive.why(l.KindTitle))
+}
+
+// noteSendTooBig tells a person that a file the agent made stays in the chat.
+func noteSendTooBig(name string, l FileLimits) string {
+	return fmt.Sprintf("%s is too large to send here (the limit is %s). It is in the chat's files.", name, l.Send.sentence(l.KindTitle))
+}
+
+// refuseAttachTooBig is the text that the attach tool gives the model.
+func refuseAttachTooBig(name string, size int64, l FileLimits) error {
+	return fmt.Errorf("%s is too large to send here (%s; the limit is %s). Tell the person; offer to split it, to make a smaller file, or to paste the content",
+		name, formatFileSize(size), l.Send.sentence(l.KindTitle))
+}

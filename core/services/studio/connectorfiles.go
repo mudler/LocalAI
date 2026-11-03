@@ -136,6 +136,7 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 		return
 	}
 	files := c.outgoing(ctx, b, x, chatID, turn, since)
+	limits := c.FileLimits(ctx, b)
 	var notes []string
 	for i, f := range files {
 		if i == maxFilesPerTurn {
@@ -151,12 +152,12 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 			}
 			continue
 		}
-		data, err := c.svc.readChatFile(ctx, x, f.path, contract.MaxConnectorFileBytes)
+		data, err := c.svc.readChatFile(ctx, x, f.path, limits.Send.Bytes)
 		switch {
 		case errors.Is(err, workspace.ErrNotFound):
 			continue // gone since, or outside the chat's access: not named
 		case errors.Is(err, errFileTooLarge):
-			notes = append(notes, fmt.Sprintf("%s is too large to send here (the limit is 1 MB). It is in the chat's files.", f.name))
+			notes = append(notes, noteSendTooBig(f.name, limits))
 			continue
 		case err != nil:
 			c.log.Warn("studio: could not read a file for a connector", "binding", b.ID, "error", err)

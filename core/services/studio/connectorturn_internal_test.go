@@ -62,7 +62,7 @@ var _ = Describe("the turn block of a connector chat", func() {
 		Expect(p1).To(ContainSubstring("attached to your answer automatically"))
 		Expect(p1).To(ContainSubstring("call attach_file with its path"), "the way to give a file that exists")
 		Expect(p1).To(ContainSubstring("never tell them a path"))
-		Expect(p1).To(ContainSubstring("Up to 5 files per turn, 1 MB each"))
+		Expect(p1).To(ContainSubstring("Up to 5 files per turn, 1 MiB (limit of this add-on version) each"))
 		Expect(p1).NotTo(ContainSubstring("NOT sent"))
 		Expect(strings.Count(p2, "This chat is on")).To(Equal(1), "a second turn does not repeat the block")
 		Expect(p2).To(Equal(p1))

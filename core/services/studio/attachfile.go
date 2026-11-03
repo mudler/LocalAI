@@ -8,6 +8,7 @@ import (
 	"path"
 	"slices"
 
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -38,7 +39,7 @@ func (s *Service) attachTools(ctx context.Context, x session.Access, rec session
 	return []session.Tool{{
 		Name: attachFileName, Description: attachFileDescription, Schema: json.RawMessage(attachFileSchema),
 		Run: func(ctx context.Context, raw json.RawMessage) (string, error) {
-			return c.attachFile(ctx, x, raw)
+			return c.attachFile(ctx, x, b, raw)
 		},
 	}}
 }
@@ -47,7 +48,7 @@ func (s *Service) attachTools(ctx context.Context, x session.Access, rec session
 // sender, and marks it for the answer. The check is repeated when the file is
 // sent, because the file or the access can change in between; this one lets
 // the model tell the person at once why a file cannot go.
-func (c *Connectors) attachFile(ctx context.Context, x session.Access, raw json.RawMessage) (string, error) {
+func (c *Connectors) attachFile(ctx context.Context, x session.Access, b connectors.Binding, raw json.RawMessage) (string, error) {
 	in, err := session.DecodeArgs[struct{ Path string }](raw)
 	if err != nil {
 		return "", err
@@ -61,6 +62,7 @@ func (c *Connectors) attachFile(ctx context.Context, x session.Access, raw json.
 		return "", notFound(err, in.Path)
 	}
 	name := contract.SafeFileName(n.Name)
+	limits := c.FileLimits(ctx, b)
 	switch {
 	case n.Kind == workspace.KindDir:
 		return "", fmt.Errorf("%s is a folder, not a file; attach the files in it one by one", in.Path)
@@ -68,8 +70,8 @@ func (c *Connectors) attachFile(ctx context.Context, x session.Access, raw json.
 		return "", fmt.Errorf("%s is not sent: files of this type (%s) are not sent here. Documents, data, pictures, sound, video and zip files are", name, path.Ext(name))
 	case n.Size == 0:
 		return "", fmt.Errorf("%s is empty, so there is nothing to send", name)
-	case n.Size > contract.MaxConnectorFileBytes:
-		return "", fmt.Errorf("%s is too large to send here (%d bytes; the limit is %d MB). Tell the person; offer to split it, to make a smaller file, or to paste the content", name, n.Size, contract.MaxConnectorFileBytes>>20)
+	case n.Size > limits.Send.Bytes:
+		return "", refuseAttachTooBig(name, n.Size, limits)
 	}
 	key := key(x.Actor().Principal, x.Actor().ChatID)
 	c.amu.Lock()

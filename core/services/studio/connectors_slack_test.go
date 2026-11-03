@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/tests/studiobot"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,6 +37,12 @@ func newSlackRig(answer string, allow []string) (*slackRig, connectors.Binding) 
 
 // newSlackRigWith binds the Slack app with in, over a script.
 func newSlackRigWith(script func(workspace.Actor, string) []studiotest.ToolStep, in studio.ConnectorInput) (*slackRig, connectors.Binding) {
+	return newSlackRigDeclaring(script, in, nil, nil)
+}
+
+// newSlackRigDeclaring is newSlackRigWith for a Slack add-on whose kind
+// declares files, with options of the manager that the spec changes last.
+func newSlackRigDeclaring(script func(workspace.Actor, string) []studiotest.ToolStep, in studio.ConnectorInput, files *contract.ConnectorFiles, opt func(*studio.ConnectorOptions)) (*slackRig, connectors.Binding) {
 	f := slacktest.New()
 	DeferCleanup(f.Close)
 	f.AddApp(slacktest.App{Bot: slackBot, AppToken: slackApp, UserID: "UBOT"})
@@ -43,7 +50,9 @@ func newSlackRigWith(script func(workspace.Actor, string) []studiotest.ToolStep,
 	f.AddUser("U2", "bo", "Bo")
 	rt := slack.New(&slack.API{BaseURL: f.URL, FilesHost: f.FilesHost})
 	DeferCleanup(rt.Close)
-	r := newConnRigWith(newShared(), connStore(), studiobot.NewTransport(studiobot.Slack(rt)), script, nil)
+	addon := studiobot.Slack(rt)
+	addon.Kind.Files = files
+	r := newConnRigOpts(newShared(), connStore(), studiobot.NewTransport(addon), script, nil, opt)
 	in.Kind, in.Token = "slack", slackBot+" "+slackApp
 	b := r.bind(in)
 	waitFor("the Socket Mode link", func() bool { return f.Connected(slackApp) })

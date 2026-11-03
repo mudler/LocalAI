@@ -109,7 +109,7 @@ var _ = Describe("attach_file in a connector chat", func() {
 		}
 		Expect(res[0].Err.Error()).To(ContainSubstring("not found"))
 		Expect(res[1].Err.Error()).To(ContainSubstring("too large"))
-		Expect(res[1].Err.Error()).To(ContainSubstring("1 MB"))
+		Expect(res[1].Err.Error()).To(ContainSubstring("1 MiB (limit of this add-on version)"))
 		Expect(res[2].Err.Error()).To(ContainSubstring("not sent"))
 		Expect(res[3].Err.Error()).To(ContainSubstring("folder"))
 		Expect(bot.sentFiles()).To(BeEmpty())

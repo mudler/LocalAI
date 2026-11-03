@@ -45,6 +45,10 @@ type ConnectorInput struct {
 	// Options are the choices for the options of the kind. Nil means the
 	// defaults for a new binding and unchanged for an update.
 	Options map[string]string
+	// FileReceiveMax and FileSendMax are the owner's limits, in bytes, for the
+	// files the bot reads and sends. Nil: new binding none, update unchanged.
+	// Zero clears the limit. A limit can only lower what the kind allows.
+	FileReceiveMax, FileSendMax *int64
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -62,6 +66,12 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.ThreadContext != nil {
 		b.ThreadContextOff = !*in.ThreadContext
+	}
+	if in.FileReceiveMax != nil {
+		b.FileReceiveMax = *in.FileReceiveMax
+	}
+	if in.FileSendMax != nil {
+		b.FileSendMax = *in.FileSendMax
 	}
 }
 
@@ -282,6 +292,9 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.checkOptions(ctx, b); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
+		return ConnectorInfo{}, err
+	}
 	if strings.TrimSpace(in.Token) == "" {
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
@@ -342,6 +355,9 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOptions(ctx, b); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkAgent(ctx, old.Owner, in.AgentID); err != nil {

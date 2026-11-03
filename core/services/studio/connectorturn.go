@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // connectorBlock tells the model of a chat that a messaging app started where
@@ -24,9 +23,11 @@ func (s *Service) connectorBlock(ctx context.Context, rec session.ChatRecord, ca
 	}
 	platform := "a messaging app"
 	sends, known := false, false
+	var limits FileLimits
 	if c := s.connectors; c != nil {
 		if b, err := c.o.Store.GetBinding(ctx, rec.OriginID); err == nil {
 			sends, known = b.SendsFiles(), true
+			limits = c.FileLimits(ctx, b)
 			platform = b.Kind
 			if kinds, err := c.o.Transport.Kinds(ctx); err == nil {
 				if k, ok := kindFor(kinds, b); ok && k.Title != "" {
@@ -46,8 +47,8 @@ func (s *Service) connectorBlock(ctx context.Context, rec session.ChatRecord, ca
 	default:
 		fmt.Fprintf(&sb, " Files you make or change in a turn are attached to your answer automatically. To give them a file that already exists, call %s with its path."+
 			" Say the file is attached; never say you cannot send files, and never tell them a path."+
-			" Up to %d files per turn, %d MB each; documents, data, images, audio, video and zip only, no scripts or HTML. If one cannot be attached, say so.",
-			attachFileName, maxFilesPerTurn, contract.MaxConnectorFileBytes>>20)
+			" Up to %d files per turn, %s each; documents, data, images, audio, video and zip only, no scripts or HTML. If one cannot be attached, say so.",
+			attachFileName, maxFilesPerTurn, limits.Send.sentence(limits.KindTitle))
 	}
 	return sb.String()
 }

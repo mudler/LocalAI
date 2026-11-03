@@ -36,7 +36,6 @@ const (
 	sentNoFolder     = "This agent cannot work right now: its folder is missing."
 	sentNoFile       = "I could not read the file you sent."
 	sentNoFiles      = "I can only read the text of your message here: files are turned off."
-	sentFileTooBig   = "That file is too large: I can read files of up to 1 MB."
 	sentNoListen     = "I cannot listen to voice messages here: no speech-to-text model is set up. Please write your message."
 	sentNoTranscript = "I could not understand your voice message. Please send it again, or write it."
 
@@ -100,6 +99,9 @@ type ConnectorOptions struct {
 	// is stored. Nil: tokens are not checked. The application sets
 	// VerifyTokenWithMe; a test that fakes no platform leaves it nil.
 	VerifyToken func(ctx context.Context, b connectors.Binding, token string) error
+	// FileCeiling reads the host ceiling of a connector file from the owner
+	// policy, in bytes. Nil or zero: contract.DefaultFileCeilingBytes.
+	FileCeiling func(ctx context.Context) (int64, error)
 	Logger      *slog.Logger
 }
 
@@ -823,8 +825,9 @@ func (c *Connectors) transcribe(ctx context.Context, b connectors.Binding, f con
 // sent; the chat saves it in its own folder.
 func (c *Connectors) media(ctx context.Context, b connectors.Binding, token string, refs []string) ([]contract.ConnectorFile, string) {
 	var (
-		out  []contract.ConnectorFile
-		note string
+		out    []contract.ConnectorFile
+		note   string
+		limits = c.FileLimits(ctx, b)
 	)
 	for _, ref := range refs {
 		mctx, cancel := context.WithTimeout(ctx, 60*time.Second)
@@ -836,8 +839,12 @@ func (c *Connectors) media(ctx context.Context, b connectors.Binding, token stri
 		f := resp.File
 		var ce *contract.ConnectorError
 		switch {
-		case (errors.As(err, &ce) && ce.Code == contract.ConnectorTooLarge) || (err == nil && f != nil && len(f.Data) > contract.MaxConnectorFileBytes):
-			note = sentFileTooBig
+		case (errors.As(err, &ce) && ce.Code == contract.ConnectorTooLarge) || (err == nil && f != nil && int64(len(f.Data)) > limits.Receive.Bytes):
+			var size int64
+			if f != nil {
+				size = int64(len(f.Data))
+			}
+			note = sentFileTooBig(limits, size)
 			continue
 		case err != nil || f == nil || len(f.Data) == 0:
 			c.log.Warn("studio: could not read the file of a connector message", "binding", b.ID, "kind", b.Kind, "error", err)

@@ -17,6 +17,9 @@ const (
 	MaxDeclaredFileBytes int64 = 1 << 40
 	// MaxFileTypes bounds the media types of one direction.
 	MaxFileTypes = 32
+	// DefaultFileCeilingBytes is the host ceiling of a file, 100 MB, when the
+	// owner policy sets none.
+	DefaultFileCeilingBytes int64 = 100 << 20
 )
 
 // FileAbility is what a connector kind can move in one direction.
