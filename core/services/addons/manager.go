@@ -736,6 +736,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	case "disable":
 		next.DesiredEnabled = false
 	case "uninstall":
+		if e := m.removeGrants(cmd.AddonID); e != nil {
+			return fail(&FailureCause{Code: CauseInstallStorage, detail: fmt.Errorf("delete the host grants: %w", e)})
+		}
 		next.Installed = false
 		next.DesiredEnabled = false
 	}
@@ -809,7 +812,6 @@ func (m *Manager) resolveRelease(ctx context.Context, cmd LifecycleCommand) (cat
 }
 
 func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
-	uninstall := op.Command.Action == "uninstall"
 	m.journal.Addons[op.Command.AddonID] = copyStatus(*op.Next)
 	op.Status.Phase = string(lifecycleApplied)
 	m.journal.Operations[op.Command.OperationID] = op
@@ -825,11 +827,6 @@ func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 		// an add-on the Authority does not know yet.
 		m.noteIdentity(op.Command.AddonID, m.journal.Addons[op.Command.AddonID])
 		m.markCompleted(op.Command.OperationID)
-	}
-	if e == nil && uninstall {
-		// Journal first, then the grants: a crash in between leaves grants of
-		// an add-on that is not installed, which the next start removes.
-		m.removeGrants(op.Command.AddonID)
 	}
 	return op.Status, e
 }

@@ -25,17 +25,18 @@ import (
 // on it. Like the real one it counts a staged entry only after its operation
 // completed, and it asks the manager for that without the manager lock.
 type grantSim struct {
-	mu       sync.Mutex
-	m        *Manager
-	staged   map[string]GrantStage
-	aborted  []string
-	removed  []string
-	hint     []bool
-	deny     map[string]bool
-	blanket  []string
-	stageErr error
-	onStage  func()
-	reconcil int
+	mu        sync.Mutex
+	m         *Manager
+	staged    map[string]GrantStage
+	aborted   []string
+	removed   []string
+	hint      []bool
+	deny      map[string]bool
+	blanket   []string
+	stageErr  error
+	onStage   func()
+	reconcil  int
+	removeErr error
 }
 
 func newGrantSim(m *Manager) *grantSim {
@@ -67,6 +68,9 @@ func (g *grantSim) Abort(_ context.Context, id string) error {
 func (g *grantSim) Remove(_ context.Context, id string, keep bool) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if g.removeErr != nil {
+		return g.removeErr
+	}
 	g.removed = append(g.removed, id)
 	g.hint = append(g.hint, keep)
 	for op, s := range g.staged {
@@ -316,6 +320,71 @@ var _ = Describe("install-time host operation grants in the manager", func() {
 		// A reinstall under the same ID starts with nothing.
 		_, e = install(r, "i2", nil)
 		Expect(e).To(HaveOccurred())
+	})
+
+	It("keeps the add-on installed and its grants when the grants cannot be deleted at uninstall", func() {
+		r := newUpdateRig(false)
+		g := newGrantSim(r.m)
+		rel := publish(r, []string{"workspace.materialize"}, nil, "a")
+		_, e := install(r, "i1", &HostApproval{Digest: rel.Digest, Ops: []string{"workspace.materialize"}})
+		Expect(e).NotTo(HaveOccurred())
+		g.mu.Lock()
+		g.removeErr = errors.New("store is down")
+		g.mu.Unlock()
+		_, e = r.m.Submit(ctx, actor, LifecycleCommand{OperationID: "x1", AddonID: "sample", Action: "uninstall"})
+		Expect(e).To(HaveOccurred())
+		st, _ := r.m.Status(ctx, "sample")
+		Expect(st.Installed).To(BeTrue(), "the uninstall failed closed")
+		// The same operation can be repeated once the store works.
+		g.mu.Lock()
+		g.removeErr = nil
+		g.mu.Unlock()
+		_, e = r.m.Submit(ctx, actor, LifecycleCommand{OperationID: "x2", AddonID: "sample", Action: "uninstall"})
+		Expect(e).NotTo(HaveOccurred())
+		st, _ = r.m.Status(ctx, "sample")
+		Expect(st.Installed).To(BeFalse())
+		Expect(g.removed).To(Equal([]string{"sample"}))
+	})
+
+	It("holds an upgrade that comes from another library or signer until it is approved", func() {
+		for _, change := range []string{"library", "signer"} {
+			r := newUpdateRig(false)
+			g := newGrantSim(r.m)
+			v1 := publish(r, []string{"workspace.materialize"}, nil, "a")
+			_, e := install(r, "i1", &HostApproval{Digest: v1.Digest, Ops: []string{"workspace.materialize"}})
+			Expect(e).NotTo(HaveOccurred())
+			// The installed package now reads as installed from elsewhere, so the
+			// next one resolves to a different library or signer.
+			r.m.mu.Lock()
+			st := r.m.journal.Addons["sample"]
+			for i := range st.Generations {
+				if change == "library" {
+					st.Generations[i].Receipt.SourceID = "elsewhere"
+				} else {
+					st.Generations[i].Receipt.Verification = "signed-by-someone-else"
+				}
+			}
+			r.m.journal.Addons["sample"] = st
+			r.m.mu.Unlock()
+			v2 := publish(r, []string{"workspace.materialize"}, nil, "b")
+			up := func(id string, ap *HostApproval) error {
+				_, e := r.m.Submit(ctx, actor, LifecycleCommand{OperationID: id, AddonID: "sample", Action: "upgrade", SourceID: "test", Version: "development", Approval: ap})
+				return e
+			}
+			e = up("u1", nil)
+			var refusal *HostRequirementsRefusal
+			Expect(errors.As(e, &refusal)).To(BeTrue(), change)
+			Expect(refusal.SourceChanged).To(BeTrue())
+			Expect(failureOf(r, "u1")).To(Equal("approval_required"))
+			now, _ := r.m.Status(ctx, "sample")
+			Expect(now.Generation).To(Equal(uint64(1)), change+": the old version keeps running")
+			ok, _ := g.Allows("sample", "workspace.materialize")
+			Expect(ok).To(BeTrue())
+
+			Expect(up("u2", &HostApproval{Digest: v2.Digest})).To(Succeed(), change+": a person approved this package")
+			now, _ = r.m.Status(ctx, "sample")
+			Expect(now.Generation).To(Equal(uint64(2)))
+		}
 	})
 
 	It("never approves in an automatic upgrade, and does not retry the same candidate", func() {

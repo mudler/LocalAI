@@ -247,6 +247,14 @@ func (m *Manager) approvedGrant(ctx context.Context, cmd LifecycleCommand, r pac
 		return out
 	}
 	store := m.grantStore()
+	if store != nil && cmd.Approval == nil {
+		// The grants name the add-on ID and the storage, not the package. A
+		// package from another library or signer must not inherit them without
+		// a person looking at it: it is held like an upgrade that asks for more.
+		if prev, ok := currentReceipt(m.journal.Addons[r.Manifest.ID]); ok && (prev.SourceID != r.SourceID || prev.Verification != r.Verification) {
+			return nil, "", &HostRequirementsRefusal{Summary: s, SourceChanged: true}
+		}
+	}
 	if cmd.Approval != nil {
 		if cmd.Approval.Digest != r.Digest {
 			return nil, "", &ApprovalStaleError{Digest: r.Digest, Summary: s}
@@ -300,17 +308,22 @@ func expectedRevision(cmd LifecycleCommand) uint64 {
 
 // removeGrants deletes the grants of an uninstalled add-on. The data stays
 // unless the administrator purges it, and then only a hint of the grants stays.
-func (m *Manager) removeGrants(id string) {
+//
+// It runs before the journal commits the uninstall, and an error stops the
+// uninstall: grants that cannot be deleted must not stay for the next package
+// installed under the same ID. A crash after the delete leaves an installed
+// add-on without grants, which is the safe side.
+func (m *Manager) removeGrants(id string) error {
 	store := m.grantStore()
 	if store == nil {
-		return
+		return nil
 	}
 	keep := m.recovery != nil && m.recovery.HasData(id)
 	if e := store.Remove(context.Background(), id, keep); e != nil {
-		// The store drops entries of add-ons that are not installed at the next
-		// start, and the entry names the identity of the package it was made for.
-		xlog.Warn("Could not delete the host grants of an uninstalled add-on", "addon", id, "error", e)
+		xlog.Warn("Could not delete the host grants of an add-on to uninstall", "addon", id, "error", e)
+		return e
 	}
+	return nil
 }
 
 // ReconcileGrants lets the store drop what no longer matches the journal: the

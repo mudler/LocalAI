@@ -12,9 +12,18 @@ import (
 
 // HostRequirementsRefusal is returned only by owner-admin lifecycle operations.
 // It contains verified request names, never policy paths or grants of others.
-type HostRequirementsRefusal struct{ Summary hostops.RequestSummary }
+type HostRequirementsRefusal struct {
+	Summary hostops.RequestSummary
+	// SourceChanged is set when the package comes from another library or
+	// signer than the installed one. The grants of the installed package do not
+	// carry over to it without a new approval.
+	SourceChanged bool
+}
 
 func (e *HostRequirementsRefusal) Error() string {
+	if e.SourceChanged && !e.Blocked() {
+		return "this package comes from another library or signer than the installed one; review its host access in the browser and approve it"
+	}
 	if e.Blocked() {
 		return fmt.Sprintf("this add-on needs %s, which the administrator policy blocks; it cannot be installed or started", strings.Join(e.Summary.DeniedRequired, ", "))
 	}
