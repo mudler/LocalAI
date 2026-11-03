@@ -45,7 +45,7 @@ func ParseEgressPorts(s string) ([]int, error) {
 	}
 	for _, p := range ports {
 		if p == 22 || p == 25 {
-			return nil, fmt.Errorf("port %d is not allowed for the Sandbox network", p)
+			return nil, fmt.Errorf("port %d is not allowed for the network of commands", p)
 		}
 	}
 	return ports, nil
@@ -126,7 +126,7 @@ func splitAllowedHost(f string) (host string, port int, err error) {
 		return "", 0, fmt.Errorf("%q is not a port", p)
 	}
 	if n == 22 || n == 25 {
-		return "", 0, fmt.Errorf("port %d is not allowed for the Sandbox network", n)
+		return "", 0, fmt.Errorf("port %d is not allowed for the network of commands", n)
 	}
 	return h, n, nil
 }

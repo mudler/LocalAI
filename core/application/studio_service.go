@@ -499,7 +499,7 @@ func (a *Application) initStudioEgressLists() {
 	}, nil)
 }
 
-// studioEgressAudit opens the audit of the Sandbox network requests, beside
+// studioEgressAudit opens the audit of the command network requests, beside
 // the audit of the commands run on this machine.
 func (a *Application) studioEgressAudit() audit.Store {
 	var (
@@ -515,7 +515,7 @@ func (a *Application) studioEgressAudit() audit.Store {
 		st, err = audit.NewJSON("")
 	}
 	if err != nil {
-		xlog.Warn("Chats: the audit of the Sandbox network is kept in memory", "error", err)
+		xlog.Warn("Chats: the audit of the command network is kept in memory", "error", err)
 		st, _ = audit.NewJSON("")
 	}
 	return st
@@ -532,9 +532,9 @@ func (a *Application) startStudioEgressPrune(svc *studio.Service) {
 	prune := func() {
 		n, err := svc.PruneEgressAudit(ctx)
 		if err != nil {
-			xlog.Warn("Chats: could not prune the Sandbox network audit", "error", err)
+			xlog.Warn("Chats: could not prune the command network audit", "error", err)
 		} else if n > 0 {
-			xlog.Info("Chats: pruned the Sandbox network audit", "lines", n)
+			xlog.Info("Chats: pruned the command network audit", "lines", n)
 		}
 		n, err = svc.PruneHostExecAudit(ctx)
 		if err != nil {

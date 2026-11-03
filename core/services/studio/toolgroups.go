@@ -154,17 +154,17 @@ func shellSwitched(c Commands, hidden map[string]bool) Commands {
 func shellReason(c Commands, buildReason string) string {
 	switch c.State {
 	case CommandsOff:
-		return "the Sandbox add-on is off for this chat"
+		return commandsPhrase(c) + " is off for this chat"
 	case CommandsUnavailable:
 		if c.Reason != "" {
-			return "the Sandbox add-on cannot run commands here: " + c.Reason
+			return commandsPhrase(c) + " cannot run commands here: " + c.Reason
 		}
-		return "the Sandbox add-on cannot run commands here"
+		return commandsPhrase(c) + " cannot run commands here"
 	}
 	if buildReason != "" && buildReason != builtins.ReasonOff {
 		return buildReason
 	}
-	return "nothing here runs commands: no Sandbox add-on is installed and commands on this machine are off"
+	return "nothing here runs commands: no add-on that runs commands is installed and commands on this machine are off"
 }
 
 // filesNote is the line under the chat's file list when the chat has no

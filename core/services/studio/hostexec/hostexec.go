@@ -177,7 +177,7 @@ var ErrScoped = errors.New("hostexec: this agent works in one folder, and a comm
 
 // ScopedText is the result of a call for a chat whose agent works in one
 // folder.
-const ScopedText = "Not run: this agent works in one folder, and a command on this machine could read files outside it. Commands for this agent run only in the Sandbox add-on."
+const ScopedText = "Not run: this agent works in one folder, and a command on this machine could read files outside it. Commands for this agent run only in an add-on that isolates them."
 
 // Run runs one call of bash for a in its chat's scratch folder.
 func (r *Runner) Run(ctx context.Context, a workspace.Actor, args json.RawMessage) (string, error) {

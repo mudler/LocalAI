@@ -963,7 +963,7 @@ shown when the Sandbox is already installed, or when add-ons are off.
   server log has one line per command with the prefix `[host-exec]`.
   Administrators read the audit with `GET /api/chats/admin/host-exec/events`
   or the assistant tool `list_host_exec_events`. Lines older than
-  `chats_egress_audit_days` (default 30, the retention of the Sandbox network
+  `chats_egress_audit_days` (default 30, the retention of the command network
   audit) are removed daily; in a cluster one frontend does it, under an
   advisory lock. The file store also keeps at most 10000 lines.
 

@@ -101,11 +101,10 @@ func (s *Service) isAdmin(ctx context.Context, user string) bool {
 func (s *Service) registerHostBash() error {
 	host := s.d.HostExec != nil
 	return s.builtins.Register(builtins.Tool{
-		ID:    commandTool,
-		Group: builtins.GroupShell,
-		Label: "Commands (bash)",
-		Description: "Runs commands and code for the chats directly on this machine, with no isolation: commands can read what LocalAI can read " +
-			"and reach the internet and your network. The Sandbox add-on replaces it with isolated commands.",
+		ID:          commandTool,
+		Group:       builtins.GroupShell,
+		Label:       "Commands (bash)",
+		Description: hostBashDescription,
 		Setting:     builtins.SettingHostExec,
 		Unlisted:    !host,
 		Replaceable: true,
@@ -115,10 +114,15 @@ func (s *Service) registerHostBash() error {
 	})
 }
 
+// hostBashDescription is the line of Settings > Tools for the built-in bash.
+// It says that an add-on can replace it and names none.
+const hostBashDescription = "Runs commands and code for the chats directly on this machine, with no isolation: commands can read what LocalAI can read " +
+	"and reach the internet and your network. An add-on that runs commands in isolation can replace it."
+
 // scopedHostBashReason is why a chat whose agent works in one folder has no
 // built-in bash (D10 of the agent folder design): a command on this machine
 // reads what the server can read, and no workspace rule confines it.
-const scopedHostBashReason = "this agent works in one folder, and commands on this machine could read files outside it; it runs commands only in the Sandbox add-on"
+const scopedHostBashReason = "this agent works in one folder, and commands on this machine could read files outside it; it runs commands only in an add-on that isolates them"
 
 // buildHostBash gives a chat the built-in bash when the setting allows it.
 // A chat whose actor is fenced (its agent, or its parent's, has a folder)
