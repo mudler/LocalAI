@@ -20,7 +20,9 @@ type fsStore struct {
 }
 
 // NewFS stores immutable blobs in a service-controlled directory. Shared
-// filesystems must support coherent exclusive creation, rename and directory sync.
+// filesystems must support coherent atomic rename and directory sync. Two
+// writers of the same hash may both rename; the bytes are identical, so the
+// last rename wins harmlessly.
 func NewFS(dir string) (Store, error) {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
@@ -207,19 +209,24 @@ func (s *fsStore) Open(_ context.Context, sha string) (io.ReadSeekCloser, error)
 	}
 	return f, err
 }
-func (s *fsStore) Exists(ctx context.Context, sha string) (bool, error) {
-	f, err := s.Open(ctx, sha)
-	if errors.Is(err, workspace.ErrNotFound) {
+func (s *fsStore) Exists(_ context.Context, sha string) (bool, error) {
+	if !validSHA(sha) {
 		return false, nil
 	}
-	if err != nil {
+	p := shaPath(s.root, sha)
+	if err := s.safe(p); err != nil {
 		return false, err
 	}
-	return true, f.Close()
+	_, err := os.Lstat(p)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return err == nil, err
 }
 
-// LinkTo deliberately copies. The same UID can chmod a read-only hard link and
-// mutate its inode, so a hard link is not an isolation boundary for tool files.
+// LinkTo copies the blob and never links it, despite the name it has in Store.
+// The same UID can chmod a read-only hard link and mutate its inode, so a hard
+// link is not an isolation boundary for tool files.
 func (s *fsStore) LinkTo(ctx context.Context, sha string, dir *os.Root, name string) error {
 	if !filepath.IsLocal(name) {
 		return workspace.ErrInvalid
