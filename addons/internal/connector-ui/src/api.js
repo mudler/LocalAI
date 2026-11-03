@@ -29,6 +29,7 @@ export const agentsApi = { list: () => call('/api/chats/agents') }
 
 export const connectorsApi = {
   list: () => call('/api/chats/connectors'),
+  kinds: () => call('/api/chats/connectors/kinds'),
   create: (body) => send('POST', '/api/chats/connectors', body),
   update: (id, body) => send('PUT', `/api/chats/connectors/${enc(id)}`, body),
   remove: (id) => send('DELETE', `/api/chats/connectors/${enc(id)}`),

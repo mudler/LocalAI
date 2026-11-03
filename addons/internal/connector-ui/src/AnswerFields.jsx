@@ -30,6 +30,8 @@ export const ANSWER_TEXT = {
   'add': 'Add',
   'more': 'More',
   'less': 'Less',
+  'answer.threadContext': 'Read the earlier messages of a thread',
+  'answer.threadContextHelp': 'When the bot is mentioned in a thread, it reads the messages of that thread, and only that thread, to answer with the context.',
   'answer.filesHelp': 'After the answer, up to 5 files of at most 1 MB each. Programs and scripts are not sent.',
   'answer.summary': 'Answers: {{reply}} · {{conversation}}',
   'answer.short.off': 'typing',
@@ -55,7 +57,7 @@ export function answerSummary(c, t) {
   })
 }
 
-export default function AnswerFields({ form, setForm, t }) {
+export default function AnswerFields({ form, setForm, t, kindInfo }) {
   const s = answerT(t)
   const m = Number(form.window_minutes)
   const windowBad = form.conversation === 'window' && (!Number.isInteger(m) || m < 1 || m > MAX_WINDOW_MINUTES)
@@ -93,6 +95,24 @@ export default function AnswerFields({ form, setForm, t }) {
         </Switch>
         <Hint>{s('answer.filesHelp')}</Hint>
       </div>
+      {kindInfo?.thread_history && (
+        <div className="cn-switchfield">
+          <Switch testId="connector-thread-context" checked={form.thread_context !== false} onChange={(on) => setForm({ ...form, thread_context: on })}>
+            {s('answer.threadContext')}
+          </Switch>
+          <Hint>{s('answer.threadContextHelp')}</Hint>
+        </div>
+      )}
+      {(kindInfo?.options || []).map((o) => (
+        <Field key={o.id} label={o.title} hint={o.description}>
+          {(p) => (
+            <Select {...p} data-testid={`connector-option-${o.id}`} value={form.options?.[o.id] || o.default}
+              onChange={(e) => setForm({ ...form, options: { ...form.options, [o.id]: e.target.value } })}>
+              {o.values.map((v) => <option key={v.id} value={v.id}>{v.title}</option>)}
+            </Select>
+          )}
+        </Field>
+      ))}
     </fieldset>
   )
 }
