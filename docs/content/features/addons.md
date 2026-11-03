@@ -1291,8 +1291,15 @@ draw the same thing.
 - `sdk.ui`: `Button`, `Text`, `Stack`, `Badge`, `Spinner`, `EmptyState`, and the
   shared `PageHeader`, `ConfirmDialog`, `ErrorWithTraceLink`, `ModelSelector`,
   `MediaInput`, `WaveformPlayer`, `DistributionBars`, `EmbeddingInspector`,
-  `TabSwitch`, `LoadingSpinner`, `Modal`, `Lightbox` and `HomeModelPicker`. A `ref`
-  reaches the host component, so `HomeModelPicker` keeps its handle.
+  `TabSwitch`, `LoadingSpinner`, `Modal`, `Lightbox` and `ModelPicker`. A `ref`
+  reaches the host component, so `ModelPicker` keeps its handle (`open()` and
+  `focus()`). `ModelPicker` is the one model picker of the core pages. It lists the
+  installed models and shows an alias as `alias of <model>`; an alias takes its
+  capabilities from the model it points to, so a `capability` filter finds it. Props:
+  `value` and `onChange`; `capability`; `multiple` (an array value, shown as chips);
+  `allowCustom` (a typed name is accepted); `clearable`; `searchable`; `variant`
+  (`chip` or `field`); `models` and `loading` when the add-on holds the list itself.
+  `HomeModelPicker` and `ModelSelector` stay as names for the same picker.
 - `sdk.ui` also has the settings kit, for a settings section or any form: see
   [The settings kit](#the-settings-kit).
 - `sdk.theme.tokens`: the host's design tokens as CSS values (`var(--dk-...)`), for the
