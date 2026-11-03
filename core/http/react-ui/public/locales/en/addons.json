@@ -858,6 +858,7 @@
     "loading": "Reading what this add-on asks for...",
     "loadingPage": "Loading host access",
     "locked": "The deployment turned off changes to host access. You can read this page but not change it.",
+    "lockedNoAuth": "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file.",
     "newOptional": "The new version also asks for {{ops}}. These are optional and not allowed.",
     "noLongerRequested": "This version no longer asks for it. You can turn it off.",
     "notOfficial": "This add-on comes from {{library}}, not the official library.",

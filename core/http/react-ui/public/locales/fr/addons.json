@@ -862,6 +862,7 @@
     "loading": "Lecture de ce que demande ce module...",
     "loadingPage": "Chargement de l'accès à l'hôte",
     "locked": "Le déploiement a désactivé les changements d'accès à l'hôte. Vous pouvez lire cette page, pas la modifier.",
+    "lockedNoAuth": "La connexion est désactivée, donc toute personne qui atteint ce serveur pourrait modifier ceci ; l'administrateur le définit dans le fichier de politique.",
     "newOptional": "La nouvelle version demande aussi {{ops}}. Elles sont facultatives et non autorisées.",
     "noLongerRequested": "Cette version ne le demande plus. Vous pouvez le désactiver.",
     "notOfficial": "Ce module vient de {{library}}, pas de la bibliothèque officielle.",

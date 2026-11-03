@@ -122,7 +122,8 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                   {host.preview.official === false && (
                     <p className="ad-quiet" data-testid="hostaccess-not-official">{t('hostAccess.notOfficial', { library: entry.sourceId })}</p>
                   )}
-                  <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} />
+                  <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} locked={host.preview.locked} />
+                  {host.preview.locked && <Callout tone="info" testId="hostaccess-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
                   {block && (
                     <Callout tone="error" role="alert" testId="hostaccess-blocked">
                       {t(block.kind === 'blocked' ? 'hostAccess.cannotInstallBlocked' : 'hostAccess.cannotInstallUnsupported', { ops: block.ops.join(', ') })}

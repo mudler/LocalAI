@@ -858,6 +858,7 @@
     "loading": "Leyendo lo que pide este complemento...",
     "loadingPage": "Cargando el acceso al host",
     "locked": "El despliegue desactivó los cambios en el acceso al host. Puedes leer esta página, pero no cambiarla.",
+    "lockedNoAuth": "El inicio de sesión está desactivado, así que cualquiera que llegue a este servidor podría cambiar esto; el administrador lo define en el archivo de políticas.",
     "newOptional": "La nueva versión también pide {{ops}}. Son opcionales y no están permitidos.",
     "noLongerRequested": "Esta versión ya no lo pide. Puedes desactivarlo.",
     "notOfficial": "Este complemento viene de {{library}}, no de la biblioteca oficial.",

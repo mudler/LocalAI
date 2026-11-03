@@ -16,7 +16,7 @@ export function opNote(op, t) {
 // are on and cannot be turned off; optional ones start off. A blocked one is
 // greyed with the reason. `added` highlights what a new version asks for on
 // top of what the old one held.
-export default function HostAccessList({ ops, ticked, onTick, added = [], testId = 'hostaccess' }) {
+export default function HostAccessList({ ops, ticked, onTick, added = [], testId = 'hostaccess', locked = false }) {
   const { t } = useTranslation('addons')
   return (
     <div className="ad-hostlist" data-testid={`${testId}-list`}>
@@ -35,7 +35,7 @@ export default function HostAccessList({ ops, ticked, onTick, added = [], testId
                 reason={note.reason}
                 meta={[op.risk ? t(`hostAccess.risk.${op.risk}`) : '', isNew ? t('hostAccess.op.new') : ''].filter(Boolean).join(' · ') || undefined}
                 checked={on}
-                disabled={!tickable(op) || op.required}
+                disabled={locked || !tickable(op) || op.required}
                 onChange={(next) => onTick(op.name, next)}
                 stacked
                 testId={`${testId}-op`}

@@ -858,6 +858,7 @@
     "loading": "Membaca apa yang diminta add-on ini...",
     "loadingPage": "Memuat akses host",
     "locked": "Deployment mematikan perubahan akses host. Anda dapat membaca halaman ini tetapi tidak mengubahnya.",
+    "lockedNoAuth": "Login dimatikan, sehingga siapa pun yang dapat menjangkau server ini dapat mengubahnya; administrator mengaturnya di berkas kebijakan.",
     "newOptional": "Versi baru juga meminta {{ops}}. Ini opsional dan tidak diizinkan.",
     "noLongerRequested": "Versi ini tidak lagi memintanya. Anda dapat mematikannya.",
     "notOfficial": "Add-on ini berasal dari {{library}}, bukan pustaka resmi.",

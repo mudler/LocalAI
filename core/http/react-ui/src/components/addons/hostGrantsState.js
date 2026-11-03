@@ -79,6 +79,9 @@ export function normalizePreview(payload) {
     revision: Number(p.revision) || 0,
     nonce: typeof p.nonce === 'string' ? p.nonce : '',
     official: p.official === true ? true : (p.official === false ? false : null),
+    // The owner keeps UI grants locked: the dialog shows what the add-on asks for and grants nothing.
+    locked: p.locked === true,
+    lockedReason: p.lockedReason === 'no_auth' ? 'no_auth' : 'deployment',
     // Operations that are new in this version. Empty on an install.
     added: list(p.added),
     requested,
@@ -103,6 +106,7 @@ export function tickable(op) {
 // before an uninstall (the owner sends it as a hint).
 export function initialTicks(preview) {
   const out = []
+  if (preview.locked) return out
   for (const op of preview.ops) {
     if (!tickable(op)) continue
     if (op.required || op.hint) out.push(op.name)
@@ -114,6 +118,7 @@ export function initialTicks(preview) {
 // can still be granted, so a required operation can never go missing from the
 // request because of a stale tick list.
 export function approvedOps(preview, ticked) {
+  if (preview.locked) return []
   const set = new Set(ticked)
   for (const op of preview.ops) if (tickable(op) && op.required) set.add(op.name)
   return preview.ops.filter(op => tickable(op) && set.has(op.name)).map(op => op.name)
@@ -201,6 +206,7 @@ export function normalizeOverview(payload) {
   return {
     revision: Number(p.revision) || 0,
     locked: p.locked === true,
+    lockedReason: p.lockedReason === 'no_auth' ? 'no_auth' : 'deployment',
     blanket: {
       mode,
       includeOptional: b.includeOptional === true,

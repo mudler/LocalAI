@@ -69,7 +69,7 @@ export default function HostAccessView({ grants, api = hostGrantsApi }) {
     <div className="ad-host" data-testid="host-access">
       <p className="ad-host__intro">{t('hostAccess.intro')}</p>
       {grants.stale && <Callout tone="info" role="status" className="ad-callout">{t('apps.stale')}</Callout>}
-      {locked && <Callout tone="info" testId="host-locked" className="ad-callout">{t('hostAccess.locked')}</Callout>}
+      {locked && <Callout tone="info" testId="host-locked" className="ad-callout">{t(data.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
       {notice && <Callout tone={notice.tone} role={notice.tone === 'error' ? 'alert' : 'status'} testId="host-notice" className="ad-callout">{notice.text}</Callout>}
       {pending.map(a => <WaitingBanner key={a.id} addon={a} onReview={() => setApproving(a)} />)}
 

@@ -858,6 +858,7 @@
     "loading": "Lettura di ciò che questo add-on richiede...",
     "loadingPage": "Caricamento dell'accesso all'host",
     "locked": "Il deployment ha disattivato le modifiche all'accesso all'host. Puoi leggere questa pagina ma non modificarla.",
+    "lockedNoAuth": "L'accesso è disattivato, quindi chiunque raggiunga questo server potrebbe modificarlo; l'amministratore lo imposta nel file di policy.",
     "newOptional": "La nuova versione chiede anche {{ops}}. Sono facoltative e non consentite.",
     "noLongerRequested": "Questa versione non lo chiede più. Puoi spegnerlo.",
     "notOfficial": "Questo add-on viene da {{library}}, non dalla libreria ufficiale.",

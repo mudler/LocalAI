@@ -64,7 +64,8 @@ export default function ApproveUpgradeDialog({ addon, sourceId, api, actions, on
           {describeError(host.error, t)}
         </Callout>
       )}
-      {ready && <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} added={added} testId="approve" />}
+      {ready && <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} added={added} testId="approve" locked={host.preview.locked} />}
+      {ready && host.preview.locked && <Callout tone="info" testId="approve-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
       {block && <Callout tone="error" role="alert" testId="approve-blocked">{t(block.kind === 'blocked' ? 'hostAccess.cannotInstallBlocked' : 'hostAccess.cannotInstallUnsupported', { ops: block.ops.join(', ') })}</Callout>}
       {failure && <Callout tone="error" role="alert" testId="approve-failed">{failure}</Callout>}
     </HostDialog>

@@ -199,3 +199,13 @@ test('hostgrants: install with an approval goes through the host-grants route, a
   assert.ok(calls.includes('plain:install'))
   assert.ok(!calls.some(c => c.startsWith('grants:')))
 })
+
+test('hostgrants: a locked preview ticks nothing and approves no operation', () => {
+  const p = normalizePreview({ ...PREVIEW, locked: true, lockedReason: 'no_auth' })
+  assert.equal(p.locked, true)
+  assert.equal(p.lockedReason, 'no_auth')
+  assert.deepEqual(initialTicks(p), [])
+  assert.deepEqual(approvedOps(p, ['egress.check']), [])
+  assert.equal(normalizeOverview({ locked: true, lockedReason: 'no_auth' }).lockedReason, 'no_auth')
+  assert.equal(normalizePreview(PREVIEW).locked, false)
+})

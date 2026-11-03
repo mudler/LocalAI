@@ -858,6 +858,7 @@
     "loading": "Lese, was dieses Add-on anfordert...",
     "loadingPage": "Host-Zugriff wird geladen",
     "locked": "Das Deployment hat Änderungen am Host-Zugriff abgeschaltet. Du kannst diese Seite lesen, aber nicht ändern.",
+    "lockedNoAuth": "Die Anmeldung ist ausgeschaltet, daher könnte jeder, der diesen Server erreicht, dies ändern; der Administrator legt es in der Richtliniendatei fest.",
     "newOptional": "Die neue Version fordert auch {{ops}} an. Diese sind optional und nicht erlaubt.",
     "noLongerRequested": "Diese Version fordert es nicht mehr an. Du kannst es ausschalten.",
     "notOfficial": "Dieses Add-on stammt aus {{library}}, nicht aus der offiziellen Bibliothek.",
