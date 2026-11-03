@@ -107,7 +107,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	fa := fx.Actor()
 	nudge := s.newRulesNudge(ctx, x, rec)
-	tools = append(tools, nudge.wrap(s.fileNudgeTools(fx, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(fx), hidden)))))...)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fx, s.announceFileChanges(fa, s.skillHintTools(fa, s.binaryHintTools(fa, cmds.State == CommandsAvailable, dropHidden(s.d.Files.Tools(fx), hidden))))))...)
 	if s.d.Media != nil {
 		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, x, rec.Model), hidden))...)
 	}
