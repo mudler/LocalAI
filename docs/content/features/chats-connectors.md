@@ -337,6 +337,17 @@ the sender attached.
   document. On Slack the file is uploaded into the conversation (the app needs
   `files:write`).
 - When the files of the chats are off (see [Files](/features/chats/)), nothing is sent.
+- The agent can also give the sender a file that already exists, such as one from an
+  earlier turn or from a folder it was given. It calls the `attach_file` tool with the
+  path, and the file goes after the answer, with the files the turn made. The same limits
+  apply, and the 5 files of a turn count both kinds. The tool is only offered in a chat
+  that a connector started, when the binding sends files. It reads with the access of the
+  chat, so an agent limited to a folder can attach only files inside it. When a file cannot
+  be attached (too large, a type that is not sent, not found), the tool says why, so the
+  agent can tell the sender. When the platform refuses a file, the sender gets "I could not
+  send" with the name of the file and the reason that the add-on reports, if it gives one.
+- Reading a binary file with `read_file` fails with a short hint: the skill for the file
+  type if the chat has one, or a script run with the commands tool.
 
 An update without `send_files` keeps the stored value.
 
@@ -405,6 +416,25 @@ restart). The JSON store is for one process.
 | Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
+| Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
+
+### For add-on authors: sending files
+
+A connector add-on does not choose which files reach a person. The host does, and it
+sends each one with the typed `send_file` op: the file is in the request (`name`, `mime`
+and at most 1 MiB of `data`) with the chat and the thread of the message it answers. The
+host chooses the files in two ways:
+
+- The files that the turn made or changed go on their own, after the answer.
+- The files the agent picks with its `attach_file` tool go with them. The host checks the
+  path against the chat's access when the tool is called and again when it sends, drops
+  repeated paths, and counts both kinds in the limit of 5 files a turn.
+
+An add-on that implements `send_file` gets both, with no code of its own. It must not read
+chat files or add tools for this. When the platform refuses a file, return a
+`ConnectorError` with a short, plain `message` (for example the name of a missing
+permission): the host puts it after "I could not send <name>" in the message to the person.
+Keep the message free of tokens and internal addresses.
 
 ### Other connectors
 
