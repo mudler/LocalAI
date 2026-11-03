@@ -12,7 +12,7 @@
   "tokenShape": "Use a fine-grained token: it starts with github_pat_.",
   "tokenSpace": "The token has no spaces. Copy it again without the spaces around it.",
   "repos": "Repositories the agent may use",
-  "reposHelp": "One per line, as owner/name. {{count}} listed. The agent is refused any other repository, even if the token could reach it.",
+  "reposHelp": "One per line, as owner/name. {{count}} listed. Any other repository is refused.",
   "reposShape": "\"{{entry}}\" is not written owner/name, for example mudler/LocalAI.",
   "reposMany": "At most 50 repositories.",
   "agent": "Agent",
