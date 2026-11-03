@@ -28,8 +28,11 @@ type CapabilityRequest struct {
 	Owner      string
 	Agent      string
 	Sender     string
-	Kind       string
-	Sensitive  bool
+	// Roles are the role IDs, declared by the kind, that the add-on reported
+	// for the sender of this message. Empty when Sender is.
+	Roles     []string
+	Kind      string
+	Sensitive bool
 }
 
 // CapabilityGate decides whether a binding, and for a message its sender, may

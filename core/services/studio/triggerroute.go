@@ -171,6 +171,8 @@ func ParsePhrase(text string) (verb, code string, ok bool) {
 type PhraseFrom struct {
 	Binding, Owner, Agent string
 	Chat, Thread, Sender  string
+	// Roles are the roles of the sender that the kind declares.
+	Roles []string
 }
 
 // AnswerByPhrase answers the waiting proposal that has the code, when the
@@ -204,7 +206,7 @@ func (h *Triggers) AnswerByPhrase(ctx context.Context, from PhraseFrom, verb, co
 		return sentProposalPlace, true
 	}
 	if !h.svc.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: from.Binding, Owner: p.Owner, Agent: from.Agent,
-		Sender: from.Sender, Kind: "trigger"}) {
+		Sender: from.Sender, Roles: from.Roles, Kind: "trigger"}) {
 		h.audit(ctx, proposals.ActionRefuse, p, "not allowed; "+detail)
 		return sentProposalNoRight, true
 	}

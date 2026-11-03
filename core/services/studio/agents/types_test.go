@@ -45,22 +45,4 @@ var _ = Describe("agent validation", func() {
 			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid), name)
 		}
 	})
-
-	It("limits the folder list", func() {
-		list := func(n int) []agents.AgentFolder {
-			var l []agents.AgentFolder
-			for i := 1; i <= n; i++ {
-				l = append(l, agents.AgentFolder{Node: int64(i), Mode: agents.FolderRead})
-			}
-			return l
-		}
-		Expect(agents.Validate(agents.Agent{Name: "a", Folders: list(agents.MaxFolders)})).To(Succeed())
-		Expect(agents.Validate(agents.Agent{Name: "a", Folders: list(agents.MaxFolders + 1)})).To(MatchError(agents.ErrInvalid), "nine folders")
-		dup := []agents.AgentFolder{{Node: 3, Mode: agents.FolderRead}, {Node: 3, Mode: agents.FolderWrite}}
-		Expect(agents.Validate(agents.Agent{Name: "a", Folders: dup})).To(MatchError(agents.ErrInvalid), "same node twice")
-		Expect(agents.Validate(agents.Agent{Name: "a", Folders: []agents.AgentFolder{{Node: 3}}})).To(MatchError(agents.ErrInvalid), "no mode")
-		Expect(agents.Validate(agents.Agent{Name: "a", Folders: []agents.AgentFolder{{Node: 3, Mode: "all"}}})).To(MatchError(agents.ErrInvalid), "bad mode")
-		unset := []agents.AgentFolder{{Mode: agents.FolderRead}, {Mode: agents.FolderRead}}
-		Expect(agents.Validate(agents.Agent{Name: "a", Folders: unset})).To(Succeed(), "several unchosen rows")
-	})
 })

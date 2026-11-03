@@ -50,11 +50,6 @@ type ConnectorInput struct {
 	// binding none, update unchanged. An empty non-nil slice clears.
 	Caps   []string
 	Grants []connectors.RoleGrant
-	// Resources are the external names (such as repositories) that the tools
-	// of the binding's add-on may reach. Nil: new binding none, update
-	// unchanged. An empty list clears it. Duplicates (compared without regard
-	// to case) collapse into the first.
-	Resources []string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -81,9 +76,6 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.Grants != nil {
 		b.Grants = slices.Clone(in.Grants)
-	}
-	if in.Resources != nil {
-		b.Resources = connectors.NewResources(in.Resources)
 	}
 }
 

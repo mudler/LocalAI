@@ -52,29 +52,11 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
-	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
-	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
-	// agents) they start with. The names are the ones GET /api/chats/{id}/tools
-	// lists. Empty for an agent that has every group a chat has by default.
-	BuiltinsOff []string `json:"builtins_off"`
-	BuiltinsOn  []string `json:"builtins_on"`
 	// Folder is the one folder that chats with the agent work in. It is
 	// absent for an agent that works on all your files.
-	Folder *ChatsAgentFolder `json:"folder,omitempty"`
-	// Folders are all the folders of the agent (at most 8), in order; Folder
-	// is the first of them. Absent for an agent that works on all your files.
-	Folders []ChatsAgentFolder `json:"folders,omitempty"`
-	// FolderNotice is set when shared folders do not fit the access limit of
-	// a chat of this agent and are left out.
-	FolderNotice *ChatsAgentFolderNotice `json:"folder_notice,omitempty"`
-	Created      time.Time               `json:"created"`
-	Updated      time.Time               `json:"updated"`
-}
-
-// ChatsAgentFolderNotice says how many shared folders a chat of the agent
-// does not mount.
-type ChatsAgentFolderNotice struct {
-	NotMounted int `json:"not_mounted"`
+	Folder  *ChatsAgentFolder `json:"folder,omitempty"`
+	Created time.Time         `json:"created"`
+	Updated time.Time         `json:"updated"`
 }
 
 // ChatsAgentFolder is the folder of a saved agent as it is now. The server
@@ -91,10 +73,6 @@ type ChatsAgentFolder struct {
 	// Mode is read (the agent's chats can read the folder) or write (they can
 	// read and change it).
 	Mode string `json:"mode"`
-	// Effective is the mode the folder has in a chat: read for a shared
-	// folder, and the mode of the outer folder when the folder is inside
-	// another folder of the same agent.
-	Effective string `json:"effective,omitempty"`
 	// State is ok; missing when the folder was deleted or you can no longer
 	// read it; or unset when no folder is chosen yet (an imported agent whose
 	// folder was not found). An agent whose folder is missing or unset does
@@ -123,22 +101,12 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
-	// BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
-	// the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
-	// the agent); an empty list clears them.
-	BuiltinsOff []string `json:"builtins_off,omitempty"`
-	BuiltinsOn  []string `json:"builtins_on,omitempty"`
 	// Folder chooses the one folder the agent's chats work in. A write
 	// without it keeps the folder the agent has; {"path": ""} clears it. In
 	// an export file it is the home-relative path and mode when the file was
 	// made. A missing, unchosen or non-home folder has an empty export path;
 	// import preserves its mode as unset and warns instead of clearing scope.
 	Folder *ChatsAgentFolderWrite `json:"folder,omitempty"`
-	// Folders chooses up to 8 folders, each with its own mode. When both are
-	// sent, folders wins. A write without folders and folder keeps the folders
-	// the agent has; "folders": [] clears them. Where a folder is inside
-	// another one, it gets the outer folder's mode.
-	Folders []ChatsAgentFolderWrite `json:"folders,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.
@@ -830,10 +798,6 @@ type ChatsAddon struct {
 	ID    string `json:"id"`
 	Tools int    `json:"tools"`
 	Off   bool   `json:"off"`
-	// Title and Description are what the add-on's manifest declares for
-	// people. Title is empty when the add-on declares none; the interface then shows the ID.
-	Title       string `json:"title,omitempty"`
-	Description string `json:"description,omitempty"`
 }
 
 // ChatsAddonList lists the add-ons a chat can use.
@@ -1228,10 +1192,6 @@ type ChatsConnector struct {
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
 	FileSendMaxBytes    int64 `json:"file_send_max_bytes"`
-	// Resources are the external resources, such as repositories, that the
-	// tools of the add-on may reach with this binding. Nothing else is
-	// reachable.
-	Resources []string `json:"resources"`
 	// Caps are the capabilities you enabled for this binding: the ceiling of
 	// what any sender can use. Grants give roles of the kind some of them.
 	Caps   []string                  `json:"caps"`
@@ -1253,6 +1213,44 @@ type ChatsConnectorPaired struct {
 	SenderID  string    `json:"sender_id"`
 	PairedAt  time.Time `json:"paired_at"`
 	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// ChatsConnectorAccessDecision is whether one kind of sender may use one
+// capability, and why not.
+type ChatsConnectorAccessDecision struct {
+	Capability string `json:"capability"`
+	Allowed    bool   `json:"allowed"`
+	// Via is how the capability is reached: paired, or role:<id>.
+	Via    string `json:"via,omitempty"`
+	Reason string `json:"reason,omitempty"`
+}
+
+// ChatsConnectorAccessSubject is what one kind of sender may do: a sender on
+// the allowlist (id anyone), a paired sender (paired) or a sender of a role
+// the kind declares (role:<id>).
+type ChatsConnectorAccessSubject struct {
+	ID        string                         `json:"id"`
+	Title     string                         `json:"title"`
+	Decisions []ChatsConnectorAccessDecision `json:"decisions"`
+}
+
+// ChatsConnectorAccessEvent is a recorded decision. It holds IDs, never text.
+type ChatsConnectorAccessEvent struct {
+	At         time.Time `json:"at"`
+	Senders    []string  `json:"senders,omitempty"`
+	Roles      []string  `json:"roles,omitempty"`
+	Capability string    `json:"capability"`
+	Allowed    bool      `json:"allowed"`
+	Via        string    `json:"via,omitempty"`
+	Reason     string    `json:"reason,omitempty"`
+}
+
+// ChatsConnectorAccess is the effective permissions of a binding, as the host
+// enforces them, with the latest decisions this server made.
+type ChatsConnectorAccess struct {
+	Binding  string                        `json:"binding"`
+	Subjects []ChatsConnectorAccessSubject `json:"subjects"`
+	Recent   []ChatsConnectorAccessEvent   `json:"recent"`
 }
 
 // ChatsConnectorPairing is a pairing code. Send it from the account to pair, as
@@ -1396,10 +1394,6 @@ type ChatsConnectorWrite struct {
 	// capability is never granted to a role. Absent means unchanged; an empty
 	// list clears.
 	Grants []ChatsConnectorRoleGrant `json:"grants,omitempty"`
-	// Resources are the external resources the tools of the add-on may reach
-	// with this binding, such as "owner/repo", at most 50. Absent means none
-	// for a new binding and unchanged for an update; an empty list clears it.
-	Resources []string `json:"resources,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.
@@ -1567,12 +1561,6 @@ type ChatsBuiltinGroup struct {
 	Provider string `json:"provider" example:"builtin"`
 	// Providers says who serves each tool, by tool name.
 	Providers map[string]string `json:"providers" example:"web_search:builtin"`
-	// Title and Description say what the group is and what the model can do
-	// when its switch is on; WhenOff says what it cannot do when it is off.
-	// They are English; the interface may translate them by group.
-	Title       string `json:"title,omitempty" example:"Web"`
-	Description string `json:"description,omitempty" example:"The model can search the web and read a public page by its address."`
-	WhenOff     string `json:"when_off,omitempty" example:"The model cannot look anything up online."`
 }
 
 // ChatsWebTestRequest is the body of a test web search.

@@ -2,7 +2,7 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { recordStats, stripOf, STRIP_LENGTH } from '../../utils/agentRuns'
-import { folderName, folderRows, folderState } from '../../utils/chatAgents'
+import { folderName, folderState } from '../../utils/chatAgents'
 import { useAuth } from '../../context/AuthContext'
 import { useHubAuth } from '../hub/useHubAuth'
 // eslint-disable-next-line no-unused-vars
@@ -116,11 +116,10 @@ export function FolderChip({ agent, all = false, meta = false }) {
       </Chip>
     )
   }
-  const rows = folderRows(agent)
-  const read = rows.every(f => (f.effective || f.mode) !== 'write')
-  const name = (folderName(rows[0].path) || t('folder.home')) + (rows.length > 1 ? ` +${rows.length - 1}` : '')
+  const read = agent.folder.mode !== 'write'
+  const name = folderName(agent.folder.path) || t('folder.home')
   const mode = t(read ? 'folder.read' : 'folder.write')
-  const where = rows.map(f => `${f.path === '/' ? t('folder.home') : f.path} · ${t((f.effective || f.mode) === 'write' ? 'folder.write' : 'folder.read')}`).join('; ')
+  const where = `${agent.folder.path === '/' ? t('folder.home') : agent.folder.path} · ${mode}`
   if (meta) {
     return (
       <span data-testid="agent-folder-chip" title={where}>

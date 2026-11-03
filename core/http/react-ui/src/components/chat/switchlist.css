@@ -134,14 +134,6 @@
   font-size: var(--fs-meta);
   color: var(--color-text-muted);
 }
-.swl-row__blurb {
-  align-self: stretch;
-  font-size: var(--fs-meta);
-  line-height: 1.4;
-  color: var(--color-text-secondary);
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
 .swl-row__desc--reason { color: var(--color-text-secondary); }
 .swl-row__desc--warn { color: var(--color-warning); }
 .swl-row__why { margin-right: var(--sp-1); vertical-align: -0.125em; color: var(--color-text-muted); }

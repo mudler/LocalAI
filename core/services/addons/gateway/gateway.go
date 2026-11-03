@@ -37,16 +37,12 @@ type Gateway struct {
 	// execution feature permission, access and builtin replacement authority on the owner.
 	// Nil denies all observations. Status is never selection authorization.
 	AuthorizeExecutionStatus func(context.Context, contract.Actor, ExecutionStatusBinding) error
-	// Credentials supplies the secret and the allowed resource of a call of
-	// an add-on that declares credentials. Only the owner holds it; a gateway
-	// with none refuses such calls as unavailable.
-	Credentials CredentialSource
-	Limits      RelayLimits
-	Manager     *addons.Manager
-	Runtime     CurrentRuntime
-	Forward     *Carrier
-	Admission   Admission
-	Resolver    ResourceResolver
+	Limits                   RelayLimits
+	Manager                  *addons.Manager
+	Runtime                  CurrentRuntime
+	Forward                  *Carrier
+	Admission                Admission
+	Resolver                 ResourceResolver
 	// Tools reports the tools each installed add-on declares. When nil the
 	// Manager is used; with neither, a request that names a tool is denied.
 	Tools ToolSource
@@ -111,7 +107,6 @@ type RelayRequest struct {
 }
 
 func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
-	scrub(&request)
 	// The act action has its own door, Act. A frontend that forwarded it from
 	// here would let the owner run it for a consumer that was never offered it.
 	if request.Action == "act" {

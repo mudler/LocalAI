@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../../context/AuthContext'
 import { CAP_CHAT } from '../../utils/capabilities'
 import { seesImages } from '../../utils/chatVision'
+import { connectorRef } from '../../utils/chatMCP'
 import { networkMode } from '../../utils/chatEgress'
+import { unknownTextKey } from '../../utils/chatCommands'
 import { gbLabel, gbNumber } from '../../utils/modelLedger'
 import { useModelFit } from '../../hooks/useModelFit'
 import { useCommandsNotice } from '../../hooks/useCommandsNotice'
-import { SAVED_AGENTS, SUBAGENTS, useToolGroups } from '../../hooks/useToolGroups'
 import { fillStyle, hostMemory, memoryFigure } from '../home/memory'
 import HomeComposer from '../home/HomeComposer'
 import ModelPicker from '../ModelPicker'
@@ -26,6 +27,20 @@ import Button from '../ui/Button'
 import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills, reservedNames } from '../../utils/slashCommands'
 import { CHAT_SLASH_ACTIONS } from './chatActions'
 import { SLASH_ACTIONS } from '../home/homeActions'
+
+// The opt-in group of built-in tools that lets a chat call the saved agents.
+const SAVED_AGENTS = 'saved_agents'
+// The group of bash, whoever serves it, and the group of spawn_agent.
+const SHELL = 'shell'
+const SUBAGENTS = 'subagents'
+// The order of the built-in groups in the Tools menu: what a chat does with
+// the person's machine and files first. A group the server adds later goes
+// last, in the server's order.
+const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', 'collections', SUBAGENTS, SAVED_AGENTS, 'triggers']
+const builtinRank = (g) => {
+  const i = BUILTIN_ORDER.indexOf(g)
+  return i < 0 ? BUILTIN_ORDER.length : i
+}
 
 // /model and /models take a model name: the menu suggests the installed chat
 // models as the person types.
@@ -81,6 +96,38 @@ export default function ChatComposer({
   const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
 
   const commands = useCommandsNotice(switches.commands, isAdmin, [user, chatId, effectiveModel, agentId])
+  // Who serves a group of built-in tools in this chat: the built-in itself, or
+  // an add-on that shadows a tool of the group (the server resolves it).
+  const builtinNote = (b) => {
+    const by = b.providers || {}
+    const shadowed = Object.entries(by).filter(([, p]) => p && p !== 'builtin')
+    if (shadowed.length === 0) return {}
+    const provider = (p) => (p === 'builtin' ? tc('tools.servedByBuiltin') : p)
+    const mixed = b.provider === 'mixed'
+    const note = mixed
+      ? Object.entries(by).map(([tool, p]) => tc('tools.servedByTool', { tool, provider: provider(p) })).join(' · ')
+      : tc('tools.servedBy', { provider: b.provider })
+    // One provider fits a chip next to the name; one per tool is a line under it.
+    return { [mixed ? 'note' : 'chip']: note, title: tc('tools.builtinByAddon', { tools: (b.tools || []).join(', '), provider: mixed ? note : b.provider }) }
+  }
+
+  // Who runs the commands of the shell group, as a short chip, and on the
+  // line under it whether they are isolated (a warning when they are not). When nothing can run
+  // them, the row says why in the notice's words.
+  const shellNote = (b) => {
+    if (b.usable === false) return commands.info ? { reason: tc(`tools.commands.${commands.info.textKey}`, { reason: commands.info.reason }) } : {}
+    const by = (b.providers || {}).bash || b.provider
+    const selected = switches.commands
+    const chip = by === 'builtin' ? tc('tools.shell.machine') : by ? tc('tools.servedBy', { provider: by }) : undefined
+    // Group discovery is not evidence of the selected provider's isolation.
+    // A chat that is not created yet has no status to read: say nothing of isolation.
+    if (selected.state === 'draft' && by) return { chip }
+    if (!by || selected.provider !== by) return { chip, note: tc('tools.commands.unknown') }
+    if (['host', 'host-off', 'host-unavailable', 'provider-host'].includes(selected.state)) return { chip, note: tc('tools.commands.providerHost'), warn: true }
+    if (selected.state === 'available') return { chip, note: tc('tools.shell.isolated') }
+    return { chip, note: tc(`tools.commands.${unknownTextKey(selected.code)}`) }
+  }
+
   // What a row of the model list says: whether it is loaded, what it can do
   // and, where the server can estimate it, how it fits this machine.
   const describeModel = (name, warm) => {
@@ -128,7 +175,30 @@ export default function ChatComposer({
 
   // The tools and skills of the chat, each with its switch. A new chat gets
   // the draft's when it starts; an agent's chat lists only what the agent grants.
-  const toolGroups = useToolGroups(switches, { commandsInfo: commands.info })
+  const toolGroups = [
+    {
+      // The tools LocalAI serves itself, such as web search: one switch per group.
+      key: 'builtins', title: tc('tools.builtins'), icon: 'globe', onSet: switches.setBuiltinsOn,
+      rows: [...switches.builtins].sort((a, b) => builtinRank(a.group) - builtinRank(b.group)).map((b) => ({
+        key: `b-${b.group}`, id: b.group, optIn: !!b.opt_in, label: tc(`tools.builtin.${b.group}`, { defaultValue: b.group }),
+        title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
+        on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
+        ...(b.group === SHELL ? shellNote(b) : builtinNote(b)),
+      })),
+    },
+    {
+      key: 'addons', title: tc('tools.addons'), icon: 'puzzle', onSet: switches.setAddonsOn,
+      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, id: a.id, label: a.id, meta: t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on) })),
+    },
+    {
+      key: 'servers', title: tc('tools.servers'), icon: 'server', onSet: switches.setMCPOn,
+      rows: switches.servers.map((s) => ({ key: `s-${s.name}`, id: s.name, label: s.name, on: !s.off, usable: s.usable, reason: s.reason, onToggle: (on) => switches.toggleMCP(s.name, on) })),
+    },
+    {
+      key: 'connectors', title: tc('tools.connectors'), icon: 'plug', onSet: switches.setMCPOn,
+      rows: switches.connectors.map((c) => ({ key: `c-${c.id}`, id: connectorRef(c.id), label: c.name, on: !c.off, usable: c.usable, reason: c.reason, onToggle: (on) => switches.toggleMCP(connectorRef(c.id), on) })),
+    },
+  ]
   const network = egress && networkMode(egress) !== 'hidden'
   // A chat whose agent has a folder reaches only that folder with its file tools.
   const scopeLine = agentFolderLine(pickedAgent, t)

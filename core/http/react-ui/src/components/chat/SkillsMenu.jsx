@@ -25,23 +25,10 @@ import { SEARCH_MIN, fallbackNotice, filterSkills, skillCounts, skillKey, skillS
 // error: the text of a refused change, which the hook has already reverted
 export default function SkillsMenu({ skills, replaced = [], onSet, error, testId = 'chat-skills' }) {
   const { t } = useTranslation('chat')
-  if (skills.length === 0) return null
-  const { on } = skillCounts(skills)
-  return (
-    <SwitchPopover icon="book" label={t('skills.label')} title={t('skills.title')} count={on} testId={testId}>
-      <SkillsPanel skills={skills} replaced={replaced} onSet={onSet} error={error} testId={testId} />
-    </SwitchPopover>
-  )
-}
-
-// The body of the skills list, without the chip: the header, the search, one
-// row per skill and the status line. The agent form draws it inline.
-// `heading` replaces the title of the list; `later` is the note under the header (what a skill added later does).
-export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', heading, later, manage = true }) {
-  const { t } = useTranslation('chat')
   const [query, setQuery] = useState('')
   const noteId = useId()
 
+  if (skills.length === 0) return null
   const { on, total } = skillCounts(skills)
   const searchable = total >= SEARCH_MIN
   const q = searchable ? query : ''
@@ -59,9 +46,9 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
   const shownReplaced = filtering ? filterSkills(replaced, q) : replaced
 
   return (
-    <>
+    <SwitchPopover icon="book" label={t('skills.label')} title={t('skills.title')} count={on} testId={testId}>
       <SwitchHead
-        title={heading || t('skills.heading')}
+        title={t('skills.heading')}
         summary={t('skills.count', { on, total })}
         summaryTestId={`${testId}-summary`}
         actions={(
@@ -90,7 +77,7 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
             />
           </div>
         )}
-        <p className="swl-head__note" id={noteId}>{later || t('skills.later')}</p>
+        <p className="swl-head__note" id={noteId}>{t('skills.later')}</p>
         {fallback && (
           <p className="swl-head__note swl-head__note--warn" data-testid={`${testId}-fallback`}>
             {t('skills.fallback', { count: fallback.skills.length, skills: fallback.skills.join(', '), name: fallback.addons.join(', ') })}
@@ -111,9 +98,9 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
         {shown.length === 0 && <p className="swl-empty">{t('skills.noMatch', { query: query.trim() })}</p>}
       </div>
       <SwitchStatus error={error} failed={t('skills.failed')} testId={`${testId}-error`} reserve>
-        {manage && <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/skills" data-testid={`${testId}-manage`}>{t('skills.manage')}</Button>}
+        <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/skills" data-testid={`${testId}-manage`}>{t('skills.manage')}</Button>
       </SwitchStatus>
-    </>
+    </SwitchPopover>
   )
 }
 

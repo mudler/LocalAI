@@ -318,8 +318,7 @@
       "files": "Deine Dateien",
       "media": "Bilder und Audio",
       "collections": "Sammlungen",
-      "subagents": "Sub-Agenten",
-      "changes": "Änderungen an Gedächtnis und Profil"
+      "subagents": "Sub-Agenten"
     },
     "builtinBy": "{{tools}} · eingebaut",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
@@ -331,34 +330,7 @@
     "shell": {
       "machine": "Dieser Rechner",
       "isolated": "Befehle laufen isoliert"
-    },
-    "describe": {
-      "shell": "Das Modell kann Shell-Befehle und Skripte ausführen. Sie laufen in einem Add-on, das sie isoliert, wenn eines installiert ist, sonst direkt auf diesem Rechner.",
-      "files": "Das Modell kann deine Dateien auflisten, lesen, schreiben, bearbeiten, verschieben, löschen und durchsuchen und Dokumente lesen. Ein Chat eines Agenten, der in einem Ordner arbeitet, erreicht nur diesen Ordner.",
-      "web": "Das Modell kann im Internet suchen und eine öffentliche Seite über ihre Adresse lesen. Adressen in deinem Netzwerk werden abgelehnt, außer ein Administrator erlaubt sie.",
-      "media": "Das Modell kann ein Bild beschreiben oder eine Aufnahme aus deinen Dateien mit einem Hilfsmodell transkribieren.",
-      "collections": "Das Modell kann deine Sammlungen auflisten und darin nach den Passagen suchen, die zu einer Frage passen.",
-      "subagents": "Das Modell kann einen Sub-Agenten starten, der mit denselben Schaltern wie dieser Chat an einer Aufgabe arbeitet und Bericht erstattet.",
-      "saved_agents": "Das Modell kann deine gespeicherten Agenten auflisten und einen als Sub-Agenten starten, mit dessen eigenen Anweisungen und Modell.",
-      "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen: Aufgaben, die von selbst zu einer festen Zeit oder beim Eintreffen einer Datei in einem Ordner laufen. Ein neuer Trigger oder eine Änderung wartet auf einer Karte im Chat, bis du sie bestätigst; Pausieren oder Fortsetzen gilt sofort und lässt sich rückgängig machen.",
-      "changes": "Das Modell kann eine Änderung an deinen Gedächtnisnotizen oder an den festen Regeln eines Agenten vorschlagen und eine bestätigte Änderung rückgängig machen. Nichts ändert sich, bis du den Vorschlag auf einer Karte im Chat bestätigst."
-    },
-    "whenOff": {
-      "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
-      "files": "Das Modell kann deine Dateien weder sehen noch ändern.",
-      "web": "Das Modell kann nichts online nachschlagen.",
-      "media": "Das Modell kann Bilder oder Aufnahmen nicht selbst lesen.",
-      "collections": "Das Modell kann deine Sammlungen nicht lesen.",
-      "subagents": "Das Modell arbeitet allein.",
-      "saved_agents": "Das Modell kann deine gespeicherten Agenten weder sehen noch starten.",
-      "triggers": "Das Modell kann keine Trigger erstellen oder verwalten. Ein Lauf, den ein Trigger oder ein Connector gestartet hat, hat sie nie.",
-      "changes": "Das Modell kann keine Änderungen an deinem Gedächtnis oder an den Regeln eines Agenten vorschlagen."
-    },
-    "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
-    "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",
-    "serverDescribe": "Ein MCP-Server des Modells: Seine Werkzeuge werden dem Modell angeboten.",
-    "connectorDescribe": "Einer deiner MCP-Connectors: Seine Werkzeuge werden dem Modell angeboten.",
-    "gone": "Hier nicht mehr verfügbar. Schalte es aus, um es zu entfernen."
+    }
   },
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",

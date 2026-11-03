@@ -84,19 +84,6 @@ func Run(newStore NewStore) {
 		Expect(again.Options["followThreads"]).To(Equal("never"))
 		Expect(connectors.Validate(connectors.Binding{Name: "n", Kind: "k", AgentID: "a", Options: map[string]string{"": "x"}})).NotTo(Succeed())
 	})
-	It("keeps the resource list of a binding as a copy", func() {
-		s := newStore()
-		b := binding("res", "u1", "Resources")
-		b.Resources = connectors.NewResources([]string{"Acme/Widgets", "acme/tools"})
-		Expect(s.PutBinding(ctx, b)).To(Succeed())
-		got, err := s.GetBinding(ctx, "res")
-		Expect(err).NotTo(HaveOccurred())
-		Expect(connectors.ResourceKeys(got.Resources)).To(Equal([]string{"Acme/Widgets", "acme/tools"}))
-		Expect(got.Resources[0].ID).To(Equal(connectors.ResourceID("acme/widgets")))
-		got.Resources[0].Key = "changed"
-		again, _ := s.GetBinding(ctx, "res")
-		Expect(again.Resources[0].Key).To(Equal("Acme/Widgets"))
-	})
 	It("keeps the file limits an owner set for a binding", func() {
 		s := newStore()
 		b := binding("limits", "u1", "Limits")

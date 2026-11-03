@@ -196,6 +196,9 @@ var _ = Describe("file limits in a connector chat", func() {
 			}
 			in.AgentID = r.agent.ID
 			info, err := r.conns.CreateConnector(context.Background(), alice, in)
+			if err == nil {
+				r.trust(info.ID)
+			}
 			return r, info.Binding, err
 		}
 

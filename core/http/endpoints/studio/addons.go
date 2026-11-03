@@ -28,7 +28,7 @@ func writeAddonList(c echo.Context, list []studiosvc.AddonInfo, cmds studiosvc.C
 		out.ExecutionStatus = &schema.ChatsExecutionStatus{Readiness: v.Readiness, Isolation: v.Isolation, Explanation: v.Explanation, UnknownReason: v.UnknownReason, Generation: v.Generation, Incarnation: v.Incarnation}
 	}
 	for _, a := range list {
-		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off, Title: a.Title, Description: a.Description})
+		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})
 	}
 	return c.JSON(http.StatusOK, out)
 }

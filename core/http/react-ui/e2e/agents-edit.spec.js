@@ -26,16 +26,16 @@ test.describe('Agent form', () => {
     await expect(page.getByTestId('agent-collections').getByRole('listitem')).toHaveText(['handbook'])
 
     await fold(page, 'Skills').locator('.ag-fold__button').click()
-    await page.getByTestId('agent-skills-panel').getByRole('switch', { name: /citations/ }).click()
+    await page.getByTestId('agent-skills').getByRole('checkbox', { name: /citations/ }).check()
 
-    await fold(page, 'Tools').locator('.ag-fold__button').click()
-    await page.getByTestId('agent-tools-panel').getByRole('switch', { name: /Docs/ }).click()
+    await fold(page, 'MCP').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-connectors').getByRole('checkbox', { name: /Docs/ }).check()
 
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     expect(s.calls.find(c => c.method === 'POST').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
-      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [], network: 'off',
+      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], network: 'off',
     })
   })
 
@@ -43,7 +43,7 @@ test.describe('Agent form', () => {
     const s = await installAgents(page)
     await page.goto('/app/agents/new')
     await page.getByLabel('Name', { exact: false }).first().fill('Builder')
-    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    await fold(page, 'Addons').locator('.ag-fold__button').click()
     await expect(page.getByTestId('agent-network')).toHaveValue('off')
     await page.getByTestId('agent-network').selectOption('registries')
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
@@ -88,45 +88,21 @@ test.describe('Agent form', () => {
     expect(s.calls.find(c => c.method === 'PUT')).toMatchObject({ url: '/api/chats/agents/a1', body: { name: 'research-assistant', description: 'Searches and cites.', mcp_servers: ['crm', 'connector:m1'] } })
   })
 
-  test('the tools list is the list of the chat: connectors by name, one that was deleted stays, and the servers are free text', async ({ page }) => {
+  test('the connector picker names connectors, keeps one that was deleted, and the servers are free text', async ({ page }) => {
     const s = await installAgents(page)
     await page.goto('/app/agents/a1/edit')
-    await fold(page, 'Tools').locator('.ag-fold__button').click()
-    const picker = page.getByTestId('agent-tools-panel')
-    await expect(picker.getByRole('switch', { name: /Docs/ })).toBeChecked()
-    await expect(picker.getByRole('switch', { name: /Parked/ })).not.toBeChecked()
     await fold(page, 'MCP').locator('.ag-fold__button').click()
+    const picker = page.getByTestId('agent-connectors')
+    await expect(picker.getByRole('checkbox', { name: /Docs/ })).toBeChecked()
+    await expect(picker.getByRole('checkbox', { name: /Parked/ })).not.toBeChecked()
+    await expect(picker).toContainText('off')
     await expect(page.getByTestId('agent-mcp').getByRole('listitem')).toHaveText(['crm'])
     await expect(page.locator('datalist option[value="mail"]')).toHaveCount(1)
-    await expect(picker.getByTestId('agent-tools-item').filter({ hasText: 'Parked' })).toContainText('off')
-    await picker.getByRole('switch', { name: /Parked/ }).click()
+    await picker.getByRole('checkbox', { name: /Parked/ }).check()
     await page.getByRole('combobox', { name: 'MCP servers +' }).fill('mail')
     await page.getByRole('combobox', { name: 'MCP servers +' }).press('Enter')
     await page.getByRole('button', { name: 'Save Changes' }).first().click()
     await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body.mcp_servers).toEqual(['crm', 'mail', 'connector:m1', 'connector:m2'])
-  })
-
-  test('every switch of the tools list says what it does, and the switches are saved with the agent', async ({ page }) => {
-    const s = await installAgents(page)
-    await page.goto('/app/agents/a1/edit')
-    await fold(page, 'Tools').locator('.ag-fold__button').click()
-    const panel = page.getByTestId('agent-tools-panel')
-    // The same words as the Tools menu of a chat: a title, a description, and
-    // the add-on's declared title instead of its id.
-    const rows = panel.getByTestId('agent-tools-item')
-    await expect(rows).toHaveCount(8)
-    for (const row of await rows.all()) await expect(row.getByTestId('agent-tools-blurb')).not.toBeEmpty()
-    await expect(panel.getByRole('switch', { name: 'Memory and profile changes' })).toBeChecked()
-    await expect(panel.getByRole('switch', { name: 'Office' })).toBeChecked()
-    await expect(panel).toContainText('Read and write documents and spreadsheets.')
-    await expect(panel.getByRole('switch', { name: 'Saved agents' })).not.toBeChecked()
-
-    await panel.getByRole('switch', { name: 'Triggers' }).click()
-    // Once off, the row also says what the model loses.
-    await expect(panel.getByTestId('agent-tools-item').filter({ hasText: 'Triggers' })).toContainText('The model cannot create or manage triggers.')
-    await panel.getByRole('switch', { name: 'Saved agents' }).click()
-    await page.getByRole('button', { name: 'Save Changes' }).first().click()
-    await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body).toMatchObject({ builtins_off: ['triggers'], builtins_on: ['saved_agents'], addons: ['office'] })
   })
 
   test('shows the reason when the server refuses the agent', async ({ page }) => {
@@ -232,7 +208,7 @@ test.describe('Agent folder', () => {
 
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'PUT').body.folders).toEqual([{ path: '/Projects/Acme', mode: 'read' }])
+    expect(s.calls.find(c => c.method === 'PUT').body.folder).toEqual({ path: '/Projects/Acme', mode: 'read' })
     await expect(page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')).toContainText('Acme, read only')
   })
 
@@ -245,12 +221,12 @@ test.describe('Agent folder', () => {
 
     await page.goto('/app/agents/a2/edit')
     await fold(page, 'Files').locator('.ag-fold__button').click()
-    await expect(page.getByTestId('agent-folder-mode-0-read')).toHaveAttribute('aria-pressed', 'true')
-    await page.getByTestId('agent-folder-mode-0-write').click()
+    await expect(page.getByTestId('agent-folder-mode-read')).toHaveAttribute('aria-pressed', 'true')
+    await page.getByTestId('agent-folder-mode-write').click()
     await expect(fold(page, 'Files')).toContainText('1 changed')
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'PUT').body.folders).toEqual([{ path: '/Projects/Acme', mode: 'write' }])
+    expect(s.calls.find(c => c.method === 'PUT').body.folder).toEqual({ path: '/Projects/Acme', mode: 'write' })
     const row = page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')
     await expect(row).toContainText('Acme, read and change')
     await expect(row.locator('[data-icon="folder"]')).toHaveCount(1)
@@ -262,14 +238,14 @@ test.describe('Agent folder', () => {
     await page.getByLabel('Description').fill('Reviews and lists.')
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'PUT').body).not.toHaveProperty('folders')
+    expect(s.calls.find(c => c.method === 'PUT').body).not.toHaveProperty('folder')
 
     await page.goto('/app/agents/a2/edit')
     await fold(page, 'Files').locator('.ag-fold__button').click()
     await page.getByTestId('agent-folder-scope-all').click()
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.filter(c => c.method === 'PUT')[1].body.folders).toEqual([])
+    expect(s.calls.filter(c => c.method === 'PUT')[1].body.folder).toEqual({ path: '' })
     await expect(page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')).toHaveCount(0)
   })
 
@@ -291,7 +267,7 @@ test.describe('Agent folder', () => {
     await page.getByLabel('Description').fill('Still saves.')
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'PUT').body).not.toHaveProperty('folders')
+    expect(s.calls.find(c => c.method === 'PUT').body).not.toHaveProperty('folder')
 
     // Choosing another folder sends it with the mode the agent had.
     await page.goto('/app/agents/a2/edit')
@@ -301,7 +277,7 @@ test.describe('Agent folder', () => {
     await page.getByTestId('agent-folder-use').click()
     await page.getByRole('button', { name: 'Save changes' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.filter(c => c.method === 'PUT')[1].body.folders).toEqual([{ path: '/Projects', mode: 'write' }])
+    expect(s.calls.filter(c => c.method === 'PUT')[1].body.folder).toEqual({ path: '/Projects', mode: 'write' })
   })
 
   test('the picker cannot choose Chats or LocalAI, and all the files can be chosen', async ({ page }) => {
@@ -324,87 +300,7 @@ test.describe('Agent folder', () => {
     await expect(page.getByTestId('agent-folder-path')).toHaveText('Home')
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'POST').body.folders).toEqual([{ path: '/', mode: 'read' }])
-  })
-
-  test('several folders: add, per-row mode, remove, and the cap of eight', async ({ page }) => {
-    const names = ['DirA', 'DirB', 'DirC', 'DirD', 'DirE', 'DirF', 'DirG', 'DirH']
-    const files = { ...HOME_FOLDERS }
-    files['/'] = [...HOME_FOLDERS['/'], ...names.map(n => ({ path: `/${n}`, name: n, kind: 'dir' }))]
-    for (const n of names) files[`/${n}`] = []
-    const s = await installAgents(page, { files })
-    await page.goto('/app/agents/new')
-    await page.getByLabel('Name', { exact: false }).first().fill('Many')
-    await fold(page, 'Files').locator('.ag-fold__button').click()
-    await page.getByTestId('agent-folder-scope-one').click()
-    const pick = async (name, choose) => {
-      await choose.click()
-      const dialog = page.getByTestId('agent-folder-dialog')
-      await dialog.getByRole('button', { name: new RegExp(`^${name}`) }).click()
-      await dialog.getByTestId('agent-folder-use').click()
-    }
-    await pick('DirA', page.getByTestId('agent-folder-choose'))
-    await page.getByTestId('agent-folder-mode-0-write').click()
-    await page.getByTestId('agent-folder-add').click()
-    {
-      const d = page.getByTestId('agent-folder-dialog')
-      await d.getByRole('button', { name: /^DirB/ }).click()
-      await d.getByTestId('agent-folder-use').click()
-    }
-    await expect(page.getByTestId('agent-folder-row')).toHaveCount(2)
-    await expect(page.getByTestId('agent-folder-count')).toHaveText('2 of 8 folders')
-    // The second row keeps its own mode.
-    await expect(page.getByTestId('agent-folder-mode-1-read')).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByTestId('agent-folder-mode-0-write')).toHaveAttribute('aria-pressed', 'true')
-    for (const n of ['DirC', 'DirD', 'DirE', 'DirF', 'DirG', 'DirH']) {
-      await page.getByTestId('agent-folder-add').click()
-      const d = page.getByTestId('agent-folder-dialog')
-      await d.getByRole('button', { name: new RegExp(`^${n}`) }).click()
-      await d.getByTestId('agent-folder-use').click()
-    }
-    await expect(page.getByTestId('agent-folder-row')).toHaveCount(8)
-    await expect(page.getByTestId('agent-folder-add')).toBeDisabled()
-    await page.getByTestId('agent-folder-remove').last().click()
-    await expect(page.getByTestId('agent-folder-add')).toBeEnabled()
-    await page.getByRole('button', { name: 'Create Agent' }).first().click()
-    await expect(page).toHaveURL(/\/app\/agents$/)
-    const body = s.calls.find(c => c.method === 'POST').body
-    expect(body.folders).toHaveLength(7)
-    expect(body.folders[0]).toEqual({ path: '/DirA', mode: 'write' })
-    expect(body.folders[1]).toEqual({ path: '/DirB', mode: 'read' })
-    await expect(page.locator('[data-agent="Many"]').getByTestId('agent-folder-chip')).toContainText('+6')
-  })
-
-  test('a row added and cancelled goes away, and a folder inside another shows the outer mode', async ({ page }) => {
-    await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
-    await page.goto('/app/agents/a2/edit')
-    await fold(page, 'Files').locator('.ag-fold__button').click()
-    await page.getByTestId('agent-folder-add').click()
-    await page.getByTestId('agent-folder-dialog').getByRole('button', { name: 'Cancel' }).first().click()
-    await expect(page.getByTestId('agent-folder-row')).toHaveCount(1)
-
-    // /Projects holds /Projects/Acme: the inner folder works at the outer mode.
-    await page.getByTestId('agent-folder-add').click()
-    const dialog = page.getByTestId('agent-folder-dialog')
-    await dialog.getByRole('button', { name: /^Projects/ }).click()
-    await dialog.getByTestId('agent-folder-use').click()
-    await page.getByTestId('agent-folder-mode-1-write').click()
-    await expect(page.getByTestId('agent-folder-effective')).toHaveText('Inside a folder that can be changed, so this one can be changed too.')
-  })
-
-  test('an agent with several folders reads them back, and a not-chosen row blocks the save', async ({ page }) => {
-    const rows = [ACME_READ, { path: '/Projects/Beta', name: 'Beta', mode: 'write', state: 'ok', effective: 'write' }]
-    const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ).map(a => (a.id === 'a2' ? { ...a, folders: rows } : a)) })
-    await page.goto('/app/agents/a2/edit')
-    await expect(fold(page, 'Files')).toContainText('2 folders')
-    await fold(page, 'Files').locator('.ag-fold__button').click()
-    await expect(page.getByTestId('agent-folder-row')).toHaveCount(2)
-    await page.getByTestId('agent-folder-add').click()
-    await page.getByTestId('agent-folder-dialog').getByRole('button', { name: 'Cancel' }).first().click()
-    await page.getByTestId('agent-folder-remove').first().click()
-    await page.getByRole('button', { name: 'Save changes' }).first().click()
-    await expect(page).toHaveURL(/\/app\/agents$/)
-    expect(s.calls.find(c => c.method === 'PUT').body.folders).toEqual([{ path: '/Projects/Beta', mode: 'write' }])
+    expect(s.calls.find(c => c.method === 'POST').body.folder).toEqual({ path: '/', mode: 'read' })
   })
 
   test('a folder that cannot be read says so and tries again', async ({ page }) => {

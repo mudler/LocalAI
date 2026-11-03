@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 
 	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
 )
@@ -36,27 +35,11 @@ type agentRow struct {
 	// AutoMigrate is their migration.
 	FolderID   int64  `gorm:"not null;default:0"`
 	FolderMode string `gorm:"size:8;not null;default:''"`
-	// BuiltinsOff and BuiltinsOn came later too: JSON lists, empty for the
-	// agents made before.
-	BuiltinsOff string
-	BuiltinsOn  string
-	Created     time.Time
-	Updated     time.Time
+	Created    time.Time
+	Updated    time.Time
 }
 
 func (agentRow) TableName() string { return "studio_agents" }
-
-// folderRow is one folder of an agent, at position Pos in its list. The pair
-// (AgentID, Pos) is the key, so two frontends that run the startup migration
-// at once cannot make a folder twice.
-type folderRow struct {
-	AgentID string `gorm:"primaryKey;size:64"`
-	Pos     int    `gorm:"primaryKey;autoIncrement:false"`
-	Node    int64  `gorm:"not null;default:0"`
-	Mode    string `gorm:"size:8;not null;default:''"`
-}
-
-func (folderRow) TableName() string { return "studio_agent_folders" }
 
 type gormStore struct{ db *gorm.DB }
 
@@ -65,35 +48,10 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("agents: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&agentRow{}, &folderRow{}); err != nil {
+	if err := db.AutoMigrate(&agentRow{}); err != nil {
 		return nil, fmt.Errorf("agents: migrate: %w", err)
 	}
-	if err := migrateScalarFolders(db); err != nil {
-		return nil, fmt.Errorf("agents: migrate folders: %w", err)
-	}
 	return &gormStore{db: db}, nil
-}
-
-// migrateScalarFolders copies the one folder that an agent kept in the columns
-// folder_id and folder_mode into the folder table. The columns stay as they
-// are for one release, so a rollback works. It is safe to run on every start
-// and from several frontends at once: it only adds the first row of an agent
-// that has none, and a clash on the key is ignored.
-func migrateScalarFolders(db *gorm.DB) error {
-	var rows []agentRow
-	if err := db.Where("folder_mode <> ''").
-		Where("id NOT IN (?)", db.Model(&folderRow{}).Select("agent_id")).
-		Find(&rows).Error; err != nil {
-		return err
-	}
-	for _, r := range rows {
-		err := db.Clauses(clause.OnConflict{DoNothing: true}).
-			Create(&folderRow{AgentID: r.ID, Pos: 0, Node: r.FolderID, Mode: r.FolderMode}).Error
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func listJSON(l []string) string {
@@ -113,59 +71,19 @@ func listFromJSON(s string) ([]string, error) {
 	return l, err
 }
 
-func (r agentRow) agent(folders []folderRow) (Agent, error) {
+func (r agentRow) agent() (Agent, error) {
 	a := Agent{ID: r.ID, Principal: r.Principal, Name: r.Name, Description: r.Description,
 		Instructions: r.Instructions, Model: r.Model, Network: r.Network, FolderID: r.FolderID, FolderMode: r.FolderMode, Created: r.Created, Updated: r.Updated}
-	for _, f := range folders {
-		a.Folders = append(a.Folders, AgentFolder{Node: f.Node, Mode: f.Mode})
-	}
 	var err error
 	for _, f := range []struct {
 		dst *[]string
 		src string
-	}{{&a.MCPServers, r.MCPServers}, {&a.Addons, r.Addons}, {&a.Collections, r.Collections}, {&a.Skills, r.Skills}, {&a.BuiltinsOff, r.BuiltinsOff}, {&a.BuiltinsOn, r.BuiltinsOn}} {
+	}{{&a.MCPServers, r.MCPServers}, {&a.Addons, r.Addons}, {&a.Collections, r.Collections}, {&a.Skills, r.Skills}} {
 		if *f.dst, err = listFromJSON(f.src); err != nil {
 			return a, err
 		}
 	}
-	return a.normalizeFolders(), nil
-}
-
-// foldersOf loads the folder rows of the agents, by agent ID, in list order.
-func foldersOf(db *gorm.DB, ids []string) (map[string][]folderRow, error) {
-	out := map[string][]folderRow{}
-	for len(ids) > 0 {
-		n := min(len(ids), 500)
-		var rows []folderRow
-		if err := db.Where("agent_id IN ?", ids[:n]).Order("agent_id, pos").Find(&rows).Error; err != nil {
-			return nil, err
-		}
-		for _, r := range rows {
-			out[r.AgentID] = append(out[r.AgentID], r)
-		}
-		ids = ids[n:]
-	}
-	return out, nil
-}
-
-func (s *gormStore) agentsOf(rows []agentRow) ([]Agent, error) {
-	ids := make([]string, len(rows))
-	for i, r := range rows {
-		ids[i] = r.ID
-	}
-	fs, err := foldersOf(s.db, ids)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]Agent, 0, len(rows))
-	for _, r := range rows {
-		a, err := r.agent(fs[r.ID])
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, a)
-	}
-	return out, nil
+	return a, nil
 }
 
 // isNameTaken reports a unique violation of the name index. A collision on the
@@ -180,7 +98,6 @@ func isNameTaken(err error) bool {
 }
 
 func (s *gormStore) Put(ctx context.Context, a Agent) error {
-	a = a.normalizeFolders()
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var old agentRow
 		err := tx.Where("id = ?", a.ID).Take(&old).Error
@@ -195,8 +112,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 			Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
 			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network,
-			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn),
-			Created: a.Created, Updated: a.Updated}
+			FolderID: a.FolderID, FolderMode: a.FolderMode, Created: a.Created, Updated: a.Updated}
 		if exists {
 			row.Created = old.Created
 			err = tx.Save(&row).Error
@@ -206,18 +122,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 		if err != nil && isNameTaken(err) {
 			return ErrNameTaken
 		}
-		if err != nil {
-			return err
-		}
-		if err := tx.Where("agent_id = ?", a.ID).Delete(&folderRow{}).Error; err != nil {
-			return err
-		}
-		for i, f := range a.Folders {
-			if err := tx.Create(&folderRow{AgentID: a.ID, Pos: i, Node: f.Node, Mode: f.Mode}).Error; err != nil {
-				return err
-			}
-		}
-		return nil
+		return err
 	})
 }
 
@@ -230,11 +135,7 @@ func (s *gormStore) Get(ctx context.Context, principal, id string) (Agent, error
 	if err != nil {
 		return Agent{}, err
 	}
-	fs, err := foldersOf(s.db.WithContext(ctx), []string{r.ID})
-	if err != nil {
-		return Agent{}, err
-	}
-	return r.agent(fs[r.ID])
+	return r.agent()
 }
 
 func (s *gormStore) List(ctx context.Context, principal string) ([]Agent, error) {
@@ -242,9 +143,13 @@ func (s *gormStore) List(ctx context.Context, principal string) ([]Agent, error)
 	if err := s.db.WithContext(ctx).Where("principal = ?", principal).Order("name_key, id").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	out, err := s.agentsOf(rows)
-	if err != nil {
-		return nil, err
+	out := make([]Agent, 0, len(rows))
+	for _, r := range rows {
+		a, err := r.agent()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
 	}
 	sort.SliceStable(out, func(i, j int) bool { return NameKey(out[i].Name) < NameKey(out[j].Name) })
 	return out, nil
@@ -255,18 +160,24 @@ func (s *gormStore) ListAll(ctx context.Context) ([]Agent, error) {
 	if err := s.db.WithContext(ctx).Order("principal, name_key, id").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	return s.agentsOf(rows)
+	out := make([]Agent, 0, len(rows))
+	for _, r := range rows {
+		a, err := r.agent()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, nil
 }
 
 func (s *gormStore) Delete(ctx context.Context, principal, id string) error {
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		res := tx.Where("id = ? AND principal = ?", id, principal).Delete(&agentRow{})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected == 0 {
-			return ErrNotFound
-		}
-		return tx.Where("agent_id = ?", id).Delete(&folderRow{}).Error
-	})
+	res := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Delete(&agentRow{})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
 }

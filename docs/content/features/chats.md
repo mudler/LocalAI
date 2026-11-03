@@ -590,7 +590,7 @@ every turn, so it knows which files exist and where they are now.
   The model sees the same file as
   `/workspace/home/Chats/2026-10-29 Budget/q1.csv`. The folder is made at the
   first attachment. In a chat whose agent works in [one
-  folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}), the
+  folder]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}), the
   model sees the chat folder at `/workspace/chat` instead (the file above is
   `/workspace/chat/q1.csv`), and the folder is made before the first turn. The
   list on this page keeps the paths in your home.
@@ -754,7 +754,7 @@ later as a message in the conversation and as a `sub_agent_done` event.
 - A `sub_agent_started` event (with the run's id and title) and a
   `sub_agent_done` event mark the run in the parent's event stream.
 - A sub-agent of a chat whose agent works in [one
-  folder]({{%relref "features/chats-agents#folders-of-an-agent" %}})
+  folder]({{%relref "features/chats-agents#one-folder-for-an-agent" %}})
   works inside the chat's folders, never in more of your files and never
   with more rights than the chat.
 - A sub-agent cannot run commands when its parent cannot (see [Running
@@ -783,7 +783,7 @@ is off for every chat until you switch **Saved agents** on in the chat's
   `model`, at most 100, and for an agent that works in a folder the folder's
   name (`folder`) and its mode (`folder_mode`, `read` or `write`). It lists only
   your own agents. In a chat whose agent has a folder it lists only the agents
-  that can start there (see [Folders of an agent]({{%relref "features/chats-agents#folders-of-an-agent" %}})).
+  that can start there (see [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}})).
 - `spawn_agent` takes an `agent` argument, the id or the name (ignoring case) of
   one of them. The sub-agent runs with the agent's instructions, its model (or
   the chat's model when the agent names none) and only what the agent grants,
@@ -826,7 +826,7 @@ the server:
 - **Nothing.** With neither, nothing in the chat runs code.
 
 A chat whose agent works in [one
-folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}) runs
+folder]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}) runs
 commands only in the Sandbox, never on this machine. Its sandbox has the
 agent's folder at `/workspace/home` and the chat's own folder at
 `/workspace/chat`.
@@ -953,7 +953,7 @@ shown when the Sandbox is already installed, or when add-ons are off.
   `chats_host_exec` says: a command here can read every file LocalAI can read,
   so nothing keeps it in that folder. Such a chat runs commands only in the
   Sandbox, and its Tools menu says why. See
-  [Folders of an agent]({{%relref "features/chats-agents#folders-of-an-agent" %}}).
+  [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}).
 - **Your files.** Each chat gets a scratch folder with your files: `home/`
   there is `/workspace/home` of the file tools, and `shared-<name>/` is a
   shared folder. A command starts in `home/`, so a relative path is a path in

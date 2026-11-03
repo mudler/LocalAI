@@ -643,8 +643,7 @@
     "chipMissing": "Pasta ausente",
     "missing": "A pasta deste agente não existe mais. Escolha outra pasta no agente.",
     "startError": "A pasta deste agente está ausente, então o chat não pode começar. Escolha outra pasta para o agente.",
-    "editAgent": "Editar agente",
-    "toolsMany": "Arquivos: apenas {{n}} pastas: {{list}}. Pastas compartilhadas e skills continuam legíveis."
+    "editAgent": "Editar agente"
   },
   "origin": {
     "banner": "Esta conversa foi iniciada por {{title}}.",

@@ -51,7 +51,7 @@ var _ = Describe("capabilities and sender pairing of a connector", func() {
 		addon.Kind.Roles = []contract.ConnectorRole{{ID: "admin", Title: "Admin"}}
 		addon.Kind.Permissions = []string{contract.CapMemoryWrite, contract.CapProfileWrite}
 		r = newConnRigWith(sh, st, studiobot.NewTransport(addon), connSay("model answer"), nil)
-		r.bot = bot
+		r.bot, r.untrusted = bot, true
 		b = r.bind(studio.ConnectorInput{Allow: []string{"11", "12", "13", "14"}})
 	})
 

@@ -267,16 +267,18 @@ for (const provider of ['copper-runner', 'violet-executor']) test(`typed safety:
     ...imports, chatAddonsApi:{list:() => new Promise(resolve => requests.push(resolve))},
     chatToolsApi:{list:async () => ({})}, chatSkillsApi:{list:async () => ({})},
   })
-  // The rows of the Tools list come from useToolGroups, which the Tools menu
-  // of a chat and the agent form both use.
-  const toolGroups = hookHarness('../../src/hooks/useToolGroups.js', 'useToolGroups', {
-    useTranslation:() => ({t:key => key}), connectorRef: imports.connectorRef, unknownTextKey: imports.unknownTextKey,
-  }, source => source.replace(/export const/g, 'const'))
+  const composer = hookHarness('../../src/components/chat/ChatComposer.jsx', 'ChatComposer', {
+    useTranslation:() => ({t:key => key}), useAuth:() => ({isAdmin:true,user:{id:'alice'}}),
+    useModelFit:() => ({}), useCommandsNotice:() => ({info:null}), unknownTextKey: imports.unknownTextKey,
+    // Only the original code needs these; keeping them permits a genuine RED run.
+    SANDBOX_ADDON:'sandbox', useSandboxStatus:() => null,
+  }, source => source.replace('export default function', 'function').split('  // What a row of the model list')[0] + 'return shellNote\n}')
   const group = {group:'shell',providers:{bash:provider},provider,usable:true}
   const render = (actor = 'alice:1', override) => {
-    const switches = { ...switchesHook.render('same-chat', false, null, actor), builtins: [group], toggleBuiltin() {} }
+    const switches = switchesHook.render('same-chat', false, null, actor)
     if (override) switches.commands = override
-    return toolGroups.render(switches, {}).find(g => g.key === 'builtins').rows[0]
+    const shellNote = composer.render({composer:{drafts:{},switches,models:[]}})
+    return shellNote(group)
   }
   const unknown = note => {
     assert.equal(note.note, 'tools.commands.unknown')

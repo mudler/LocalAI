@@ -318,8 +318,7 @@
       "files": "Vos fichiers",
       "media": "Images et audio",
       "collections": "Collections",
-      "subagents": "Sous-agents",
-      "changes": "Modifications de la mémoire et du profil"
+      "subagents": "Sous-agents"
     },
     "builtinBy": "{{tools}} · intégrés",
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
@@ -331,34 +330,7 @@
     "shell": {
       "machine": "Cette machine",
       "isolated": "Les commandes s’exécutent isolées"
-    },
-    "describe": {
-      "shell": "Le modèle peut exécuter des commandes shell et des scripts. Ils tournent dans un add-on qui les isole s'il y en a un d'installé, sinon directement sur cette machine.",
-      "files": "Le modèle peut lister, lire, écrire, modifier, déplacer, supprimer et chercher vos fichiers, et lire des documents. Un chat d'un agent qui travaille dans un seul dossier n'atteint que ce dossier.",
-      "web": "Le modèle peut chercher sur le web et lire une page publique à partir de son adresse. Les adresses de votre réseau sont refusées, sauf si un administrateur les autorise.",
-      "media": "Le modèle peut décrire une image ou transcrire un enregistrement de vos fichiers avec un modèle auxiliaire.",
-      "collections": "Le modèle peut lister vos collections et y chercher les passages qui répondent à une question.",
-      "subagents": "Le modèle peut lancer un sous-agent qui travaille sur une tâche avec les mêmes interrupteurs que ce chat, puis fait son rapport.",
-      "saved_agents": "Le modèle peut lister vos agents enregistrés et en lancer un comme sous-agent, avec les instructions et le modèle de cet agent.",
-      "triggers": "Le modèle peut proposer, lister, modifier et supprimer des déclencheurs : des tâches qui s'exécutent d'elles-mêmes à une heure fixée ou quand un fichier arrive dans un dossier. Un nouveau déclencheur ou une modification attend sur une carte du chat jusqu'à votre confirmation ; mettre en pause ou reprendre s'applique tout de suite et vous pouvez l'annuler.",
-      "changes": "Le modèle peut proposer une modification de vos notes de mémoire ou des règles permanentes d'un agent, et annuler une modification que vous avez confirmée. Rien ne change tant que vous ne confirmez pas la proposition sur une carte du chat."
-    },
-    "whenOff": {
-      "shell": "Le modèle peut écrire des fichiers mais ne peut rien exécuter.",
-      "files": "Le modèle ne peut ni voir ni modifier vos fichiers.",
-      "web": "Le modèle ne peut rien chercher en ligne.",
-      "media": "Le modèle ne peut pas lire lui-même les images ou les enregistrements.",
-      "collections": "Le modèle ne peut pas lire vos collections.",
-      "subagents": "Le modèle travaille seul.",
-      "saved_agents": "Le modèle ne peut ni voir ni lancer vos agents enregistrés.",
-      "triggers": "Le modèle ne peut ni créer ni gérer de déclencheurs. Une exécution lancée par un déclencheur ou un connecteur n'en a jamais.",
-      "changes": "Le modèle ne peut pas proposer de modifications de votre mémoire ou des règles d'un agent."
-    },
-    "addonDescribe_one": "Donne au modèle {{count}} outil de cet add-on.",
-    "addonDescribe_other": "Donne au modèle {{count}} outils de cet add-on.",
-    "serverDescribe": "Un serveur MCP du modèle : ses outils sont proposés au modèle.",
-    "connectorDescribe": "L'un de vos connecteurs MCP : ses outils sont proposés au modèle.",
-    "gone": "Plus disponible ici. Désactivez-le pour le retirer."
+    }
   },
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",

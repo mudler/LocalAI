@@ -1409,7 +1409,6 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
 	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
 	out.ContextFiles = append([]contract.ContextFile(nil), c.ContextFiles...)
-	out.Credentials = slices.Clone(c.Credentials)
 	if c.ExecutionProvider != nil {
 		p := *c.ExecutionProvider
 		p.Tools = slices.Clone(p.Tools)

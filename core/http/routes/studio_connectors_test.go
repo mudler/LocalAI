@@ -53,6 +53,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Entry("test", http.MethodPost, "/api/chats/connectors/c1/test"),
 		Entry("senders", http.MethodGet, "/api/chats/connectors/c1/senders"),
 		Entry("allow", http.MethodPost, "/api/chats/connectors/c1/senders/42/allow"),
+		Entry("access", http.MethodGet, "/api/chats/connectors/c1/access"),
 		Entry("pairing", http.MethodPost, "/api/chats/connectors/c1/pairing"),
 		Entry("unpair", http.MethodDelete, "/api/chats/connectors/c1/paired/42"),
 	)
@@ -283,5 +284,10 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(s.do("bob", http.MethodPost, "/api/chats/connectors/"+id+"/pairing", nil).Code).To(Equal(http.StatusNotFound))
 		rec = s.do("alice", http.MethodDelete, "/api/chats/connectors/"+id+"/paired/42", nil)
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id+"/access", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("binding", id), HaveKeyWithValue("subjects", Not(BeEmpty())), HaveKey("recent")))
+		Expect(s.do("bob", http.MethodGet, "/api/chats/connectors/"+id+"/access", nil).Code).To(Equal(http.StatusNotFound))
 	})
 })

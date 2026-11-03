@@ -24,6 +24,7 @@ import (
 
 // Sentences the bot says. They name no internal error.
 const (
+	sentNoUpload     = "You may not send files to this bot."
 	sentUnsupported  = "I cannot read this kind of message. Please send text, a photo, a file or a voice message."
 	sentTooLong      = "That message is too long. Please send less than 8,000 characters."
 	sentRate         = "Too many messages: please wait a minute."
@@ -145,6 +146,9 @@ type Connectors struct {
 
 	outbox outboxes // text the host writes on its own, by binding
 
+	gmu   sync.Mutex
+	gates []CapabilitySwitch // extra switches of a capability (see AddCapabilitySwitch)
+
 	amu      sync.Mutex
 	attached map[string][]string // by chat: files that attach_file marked for the answer of the turn
 
@@ -162,6 +166,10 @@ type senderState struct {
 	// lockout after too many.
 	failures    []time.Time
 	lockedUntil time.Time
+	// grant is what the senders of the running turn of a conversation may
+	// do: the intersection over the messages the turn took. Nil while no turn
+	// runs.
+	grant *turnGrant
 }
 
 // NewConnectors returns the manager. It does nothing until Run or Sync is called.
@@ -748,9 +756,14 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		return
 	}
 	// The files are read before the chat is made: a message that cannot
-	// start a turn leaves no empty chat.
+	// start a turn leaves no empty chat. A sender without the right to send
+	// files gets a plain refusal and no turn.
 	var up []session.Upload
 	if len(m.Media) > 0 {
+		if d := c.Authorize(ctx, b, m, contract.CapFilesUpload); !d.Allowed {
+			say(sentNoUpload)
+			return
+		}
 		var ok bool
 		if m.Text, up, ok = c.inputs(ctx, b, token, m, say); !ok {
 			return
@@ -943,18 +956,29 @@ func (c *Connectors) followAgentModel(ctx context.Context, b connectors.Binding,
 // back. One reply goroutine serves a conversation at a time: it sends the
 // answer of each turn until the chat is idle.
 func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, st *senderState, chatID string, up []session.Upload, earlier string) {
+	// What the sender may do in this turn. A message that joins a turn that
+	// runs, or waits for the next, narrows the grant to what both senders may
+	// do: a turn never does more for one sender than it may for another.
+	grant := c.grantFor(ctx, b, m)
 	c.smu.Lock()
 	was := st.active
 	st.active = true
+	if was && st.grant != nil {
+		grant = st.grant.merge(grant)
+	}
+	st.grant = &grant
 	c.smu.Unlock()
+	c.svc.access.set(chatID, grant)
+	ctx = withTurnGrant(ctx, grant)
 	var events <-chan session.Event
 	var cancel func()
 	if !was {
 		var err error
 		if events, cancel, err = c.svc.Events(ctx, b.Owner, chatID); err != nil {
 			c.smu.Lock()
-			st.active = false
+			st.active, st.grant = false, nil
 			c.smu.Unlock()
+			c.svc.access.clear(chatID)
 			c.say(b, token, m.Chat, m.Thread, sentUnavailable)
 			return
 		}
@@ -963,8 +987,9 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 		if !was {
 			cancel()
 			c.smu.Lock()
-			st.active = false
+			st.active, st.grant = false, nil
 			c.smu.Unlock()
+			c.svc.access.clear(chatID)
 		}
 		text := sentFailed
 		if errors.Is(err, ErrAgentFolderLimit) {
@@ -989,8 +1014,9 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 		// Closed meanwhile: give up the reply.
 		cancel()
 		c.smu.Lock()
-		st.active = false
+		st.active, st.grant = false, nil
 		c.smu.Unlock()
+		c.svc.access.clear(chatID)
 	}
 }
 
@@ -1069,8 +1095,9 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 			l, since, turn = c.startLive(b, token, m, pace), time.Now(), 0
 			continue
 		}
-		st.active = false
+		st.active, st.grant = false, nil
 		c.smu.Unlock()
+		c.svc.access.clear(chatID)
 		return
 	}
 }

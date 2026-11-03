@@ -75,39 +75,7 @@ function folderOf(write, before) {
   return { path: write.path, ...(name ? { name } : {}), mode: write.mode || 'read', state: 'ok' }
 }
 
-// The rows of an agent as the server reads them back after a write: `folders`
-// when sent, else the one `folder`. The first row is also `folder`. A row
-// inside another takes the outer mode as `effective`. undefined: no change.
-function applyFolders(a, body) {
-  const { folder, folders, ...rest } = body
-  let rows
-  if (folders) rows = folders.filter(r => r.path).map(r => folderOf(r))
-  else if (folder) rows = folder.path ? [folderOf(folder)] : []
-  if (rows) {
-    const holds = (o, p) => o === '/' || p === o || p.startsWith(o + '/')
-    rows = rows.map((r, i) => {
-      const outer = rows.filter((o, j) => j !== i && o.path !== r.path && holds(o.path, r.path)).sort((x, y) => x.path.length - y.path.length)[0]
-      return { ...r, effective: (outer || r).mode }
-    })
-    if (rows.length) { a.folder = rows[0]; a.folders = rows } else { delete a.folder; delete a.folders }
-  }
-  return rest
-}
-
 const BODIES = { citations: 'Cite every claim.\n\n1. Number the sources.\n2. List them at the end.\n' }
-
-// What the server lists for a new chat (GET /api/chats/draft/tools): the same
-// lists the Tools menu of a chat draws and the agent form draws too.
-export const DRAFT_TOOLS = {
-  builtins: [
-    { group: 'files', tools: ['read_file'], off: false, usable: true, provider: 'builtin', providers: { read_file: 'builtin' }, title: 'Your files', description: 'The model can list, read, write, edit, move, delete and search your files, and read documents.', when_off: 'The model cannot see or change your files.' },
-    { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' }, title: 'Web', description: 'The model can search the web and read a public page by its address.', when_off: 'The model cannot look anything up online.' },
-    { group: 'saved_agents', tools: ['list_agents'], off: true, opt_in: true, usable: true, provider: 'builtin', providers: { list_agents: 'builtin' }, title: 'Saved agents', description: 'The model can list your saved agents and start one as a sub-agent.', when_off: 'The model cannot see or start your saved agents.' },
-    { group: 'triggers', tools: ['propose_trigger'], off: false, usable: true, provider: 'builtin', providers: { propose_trigger: 'builtin' }, title: 'Triggers', description: 'The model can propose, list, change and delete triggers; a new one waits for your confirmation.', when_off: 'The model cannot create or manage triggers.' },
-    { group: 'changes', tools: ['propose_change'], off: false, usable: true, provider: 'builtin', providers: { propose_change: 'builtin' }, title: 'Memory and profile changes', description: 'The model can propose an edit to your memory notes; nothing changes until you confirm.', when_off: 'The model cannot propose edits to your memory.' },
-  ],
-  addons: [{ id: 'office', tools: 2, off: false, title: 'Office', description: 'Read and write documents and spreadsheets.' }],
-}
 
 export async function installAgents(page, {
   agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [], files = null,
@@ -124,9 +92,6 @@ export async function installAgents(page, {
   await page.route('**/api/collections*', route => route.fulfill({ json: { collections } }))
   await page.route('**/v1/mcp/servers/*', route => route.fulfill({ json: { model: 'qwen3-8b', servers: [{ name: 'crm' }, { name: 'mail' }] } }))
   await page.route('**/api/chats/mcp-connectors*', route => route.fulfill({ json: { connectors } }))
-  await page.route('**/api/chats/draft/tools*', route => route.fulfill({
-    json: { ...DRAFT_TOOLS, servers: [], off: [], connectors: connectors.map(c => ({ id: c.id, name: c.name, off: false, usable: c.enabled, reason: c.enabled ? undefined : 'off' })) },
-  }))
   // With `files` (a map of folder to entries) the listing follows the path
   // asked for; without, every folder lists one folder.
   await page.route('**/api/chats/files*', route => {
@@ -148,7 +113,11 @@ export async function installAgents(page, {
     if (!found) return err(route, 404, 'no such agent')
     if (req.method() === 'DELETE') { s.agents = s.agents.filter(a => a.id !== id); return route.fulfill({ status: 204, body: '' }) }
     if (req.method() === 'PUT') {
-      Object.assign(found, applyFolders(found, req.postDataJSON()))
+      const { folder, ...rest } = req.postDataJSON()
+      Object.assign(found, rest)
+      const next = folderOf(folder, found.folder)
+      if (next) found.folder = next
+      else delete found.folder
       return route.fulfill({ json: found })
     }
     return route.fulfill({ json: found })
@@ -157,8 +126,9 @@ export async function installAgents(page, {
     const req = route.request()
     if (req.method() === 'POST') {
       rec(req)
-      const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], network: 'off' }
-      Object.assign(a, applyFolders(a, req.postDataJSON()))
+      const { folder, ...b } = req.postDataJSON()
+      const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', ...b }
+      if (folder?.path) a.folder = folderOf(folder)
       s.agents.push(a)
       return route.fulfill({ status: 201, json: a })
     }
@@ -174,15 +144,11 @@ export async function installAgents(page, {
     const b = req.postDataJSON()
     const def = b && b.kind === 'localai-agent' ? b.agent : b
     if (!def || typeof def !== 'object' || !def.name) return err(route, 400, 'the body is not a valid agent file')
-    const { folder, folders, ...rest } = def
+    const { folder, ...rest } = def
     const a = { id: `a${s.agents.length + 1}`, mcp_servers: [], addons: [], collections: [], skills: [], ...rest }
-    // A version 2 or 3 file names folders by path; one that is not found here
-    // stays a row with the mode and no folder, as the server does.
-    const named = folders || (folder ? [folder] : [])
-    if (named.length) {
-      a.folders = named.map(r => (files?.[r.path] ? folderOf(r) : { mode: r.mode, state: 'unset' }))
-      a.folder = a.folders[0]
-    }
+    // A version 2 file names a folder by its path; one that is not found here
+    // leaves the agent with the mode and no folder, as the server does.
+    if (folder) a.folder = files?.[folder.path] ? folderOf(folder) : { mode: folder.mode, state: 'unset' }
     s.agents.push(a)
     return route.fulfill({ status: 201, json: { agent: a, ...(importWarnings.length ? { warnings: importWarnings } : {}) } })
   })
@@ -191,9 +157,8 @@ export async function installAgents(page, {
     const id = new URL(route.request().url()).pathname.split('/')[4]
     const found = s.agents.find(a => a.id === id)
     if (!found) return err(route, 404, 'no such agent')
-    const { name, description, instructions, model, mcp_servers, addons, collections, skills, folder, folders } = found
+    const { name, description, instructions, model, mcp_servers, addons, collections, skills, folder } = found
     const agent = { name, description, instructions, model, mcp_servers, addons, collections, skills }
-    if (folders?.length > 1) return route.fulfill({ json: { version: 3, kind: 'localai-agent', agent: { ...agent, folders: folders.map(r => ({ path: r.path || '', mode: r.mode })) } } })
     if (folder) return route.fulfill({ json: { version: 2, kind: 'localai-agent', agent: { ...agent, folder: { path: folder.path || '', mode: folder.mode } } } })
     return route.fulfill({ json: { version: 1, kind: 'localai-agent', agent } })
   })

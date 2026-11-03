@@ -26,7 +26,6 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
-	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -308,7 +307,6 @@ func (a *Application) startAddonGateway() error {
 		return nil
 	}
 	g.HostSettings = a.addonHostSettings
-	g.Credentials = credentialSource{a}
 	g.HostSettingsAdmin = func(ctx context.Context, actor contract.Actor) error {
 		if mode == auth.AddonModeLocalOwner {
 			return auth.ValidateLocalOwnerActor(actor)
@@ -602,14 +600,6 @@ func (l lateStudioAddons) AddonContextFiles(ctx context.Context, user string) ([
 	return nil, nil
 }
 
-// AddonListings forwards to the broker when it knows what the add-ons declare.
-func (l lateStudioAddons) AddonListings(ctx context.Context, user string) ([]studio.AddonListing, error) {
-	if g, ok := l.a.StudioAddonTools().(studio.AddonLister); ok {
-		return g.AddonListings(ctx, user)
-	}
-	return nil, nil
-}
-
 // Isolation forwards to the broker when it can say how commands are isolated.
 func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
 	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
@@ -850,27 +840,6 @@ func (s *studioAddons) AddonContextFiles(ctx context.Context, user string) ([]st
 	return out, nil
 }
 
-// AddonListings gives the title and description each add-on declares, for the
-// lists of what a chat can switch.
-func (s *studioAddons) AddonListings(ctx context.Context, user string) ([]studio.AddonListing, error) {
-	actor, err := s.actor(user)
-	if err != nil {
-		return nil, nil
-	}
-	list, err := s.adapter.Listings(ctx, actor)
-	if errors.Is(err, gateway.ErrForbidden) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	out := make([]studio.AddonListing, 0, len(list))
-	for _, a := range list {
-		out = append(out, studio.AddonListing{AddonID: a.AddonID, Title: a.Title, Description: a.Description})
-	}
-	return out, nil
-}
-
 // AddonShadowers lists the add-ons that replace a built-in chat tool and that
 // the user can see, in any state, less those whose host operations need a
 // feature the user lacks: the same rule as their tools.
@@ -933,34 +902,4 @@ func (c connectorAuthority) AuthorizeConnector(ctx context.Context, scope studio
 		return req, gateway.ErrUnavailable
 	}
 	return c.a.studioConnectors.AuthorizeConnector(ctx, scope, req)
-}
-
-// credentialSource gives the tool calls of an add-on that declares credentials
-// the token and the allowed resource of the caller's own binding. It is the
-// owner's: the sealed tokens are on the owner only. The connector service can
-// start after the gateway, so it is resolved at call time.
-type credentialSource struct{ a *Application }
-
-func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, addonID, key string) (gateway.CredentialGrant, error) {
-	if c.a.studioConnectors == nil {
-		return gateway.CredentialGrant{}, gateway.ErrUnavailable
-	}
-	user := addonWorkspacePrincipal(c.a.authDB != nil)(actor)
-	if user == "" {
-		// A local-owner actor on an install with accounts is no person.
-		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
-	}
-	grant, err := c.a.studioConnectors.CredentialFor(ctx, user, addonID, key)
-	var notAllowed *connectors.NotAllowedError
-	switch {
-	case err == nil:
-		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID}, nil
-	case errors.Is(err, connectors.ErrNoCredential):
-		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
-	case errors.As(err, &notAllowed):
-		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: notAllowed.Allowed}
-	}
-	// The cause may name a binding; it stays out of the error that travels.
-	xlog.Warn("addons: the credential of a binding could not be read", "addon", addonID)
-	return gateway.CredentialGrant{}, gateway.ErrUnavailable
 }

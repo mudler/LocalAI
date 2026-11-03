@@ -78,21 +78,6 @@ type AddonInfo struct {
 	ID    string
 	Tools int
 	Off   bool
-	// Title and Description are what the add-on declares for people, when its
-	// broker can say (see AddonLister). Empty otherwise.
-	Title, Description string
-}
-
-// AddonListing is the title and the description an add-on declares in its
-// manifest.
-type AddonListing struct {
-	AddonID, Title, Description string
-}
-
-// AddonLister is implemented by a broker that knows what each add-on declares
-// for people. It is optional: without it the lists show the add-on IDs only.
-type AddonLister interface {
-	AddonListings(ctx context.Context, user string) ([]AddonListing, error)
 }
 
 // SetAddonsOff sets the add-ons a chat has switched off, replacing the earlier
@@ -151,19 +136,9 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 	for _, t := range tools {
 		n[t.AddonID]++
 	}
-	listed := map[string]AddonListing{}
-	if l, ok := s.d.AddonTools.(AddonLister); ok {
-		if list, err := l.AddonListings(ctx, principal(user)); err != nil {
-			s.log.Warn("studio: add-on titles unavailable", "user", user, "error", err)
-		} else {
-			for _, a := range list {
-				listed[a.AddonID] = a
-			}
-		}
-	}
 	out := make([]AddonInfo, 0, len(n))
 	for id, c := range n {
-		out = append(out, AddonInfo{ID: id, Tools: c, Off: off[id], Title: listed[id].Title, Description: listed[id].Description})
+		out = append(out, AddonInfo{ID: id, Tools: c, Off: off[id]})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil

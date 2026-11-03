@@ -115,7 +115,7 @@ var _ = Describe("built-in web tools", func() {
 
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(bare(builtinGroup(p.Builtins, "web"))).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Usable: true, Provider: "builtin",
+		Expect(builtinGroup(p.Builtins, "web")).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Usable: true, Provider: "builtin",
 			Providers: map[string]string{"web_search": "builtin", "web_fetch": "builtin"}}))
 	})
 
@@ -131,7 +131,7 @@ var _ = Describe("built-in web tools", func() {
 		id := create(svc, alice)
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(bare(builtinGroup(p.Builtins, "web"))).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search"}, Usable: true, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}))
+		Expect(builtinGroup(p.Builtins, "web")).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search"}, Usable: true, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}))
 
 		svc2, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, withWeb(&fakeWeb{}))
 		id2 := create(svc2, alice)
@@ -339,10 +339,3 @@ var _ = Describe("an add-on tool that shadows web_search", func() {
 		Expect(h.ToolNames(id)).NotTo(ContainElement("addon__searcher__search"))
 	})
 })
-
-// bare is a group without the words a person reads, which the specs of the
-// switches do not compare (toolgroupinfo_test.go does).
-func bare(g studio.BuiltinGroup) studio.BuiltinGroup {
-	g.Title, g.Description, g.WhenOff = "", "", ""
-	return g
-}

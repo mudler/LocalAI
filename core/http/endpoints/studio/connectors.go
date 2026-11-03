@@ -25,7 +25,7 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	return schema.ChatsConnector{Caps: capsOut(i.Caps), Grants: grantsOut(i.Grants), Paired: pairedOut(i.Paired), ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
 		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), Options: i.Options,
-		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources)}
+		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax}
 }
 
 func capsOut(in []string) []string {
@@ -97,7 +97,7 @@ func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
 		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, Options: req.Options,
-		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources}
+		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants)}
 }
 
 var connectorRules = []errRule{
@@ -369,6 +369,36 @@ func (h *Handlers) StartConnectorPairing(c echo.Context) error {
 		return failConnector(c, err)
 	}
 	return c.JSON(http.StatusOK, schema.ChatsConnectorPairing{Code: p.Code, Expires: p.Expires})
+}
+
+// ConnectorAccess explains what each kind of sender may do on a binding.
+// @Summary Show what each kind of sender may do on a connector binding.
+// @Description Runs the permission check the host uses for each turn, for a sender on the allowlist, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.
+// @Tags chats
+// @Param id path string true "the binding's id"
+// @Success 200 {object} schema.ChatsConnectorAccess "The effective permissions"
+// @Router /api/chats/connectors/{id}/access [get]
+func (h *Handlers) ConnectorAccess(c echo.Context) error {
+	host, ok := h.connectorHost(c)
+	if !ok {
+		return nil
+	}
+	v, err := host.Access(c.Request().Context(), userID(c), c.Param("id"))
+	if err != nil {
+		return failConnector(c, err)
+	}
+	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}}
+	for _, s := range v.Subjects {
+		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, Decisions: []schema.ChatsConnectorAccessDecision{}}
+		for _, d := range s.Decisions {
+			o.Decisions = append(o.Decisions, schema.ChatsConnectorAccessDecision{Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason})
+		}
+		out.Subjects = append(out.Subjects, o)
+	}
+	for _, e := range v.Recent {
+		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason})
+	}
+	return c.JSON(http.StatusOK, out)
 }
 
 // RemoveConnectorPaired ends the pairing of a sender.

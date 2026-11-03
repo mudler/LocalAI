@@ -488,7 +488,7 @@ func runRulesFolder(t triggers.Trigger, scope *folderScope) string {
 	case t.Kind == triggers.KindFile:
 		return t.Folder
 	case scope != nil:
-		return scope.primary().path
+		return scope.path
 	}
 	return session.HomePath(t.Owner)
 }

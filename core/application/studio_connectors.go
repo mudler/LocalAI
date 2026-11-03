@@ -111,6 +111,8 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 		return
 	}
 	svc.SetConnectors(c)
+	// Connector chats may use a capability only as the permission model allows.
+	svc.SetCapabilityGate(c.CapabilityGate())
 	a.studioConnectorsHook.Store(c)
 	if a.ownsAddonsOnly() {
 		// The manager stays: frontends get the stored bot credentials from it

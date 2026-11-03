@@ -1,11 +1,9 @@
 // Helpers of the saved agents page. No React, so a node test drives them.
 
-// builtins_off and builtins_on are the switches of the built-in tool groups
-// (see utils/agentTools.js); they are lists like the grants.
-export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills', 'builtins_off', 'builtins_on']
+export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills']
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [], network: 'off', folders: [] }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', folder: null }
 }
 
 // Adds a name to a list: trimmed, not empty, once.
@@ -21,8 +19,8 @@ export function removeEntry(list, name) {
 
 // The body of a create or replace request. The server refuses a bad one with the
 // reason, so this only trims and drops what cannot be meant. With
-// { initialFolders } (the folder rows as read) the body carries `folders`
-// when the form changed them; without, it never does.
+// { initialFolder } (the folder as read, or null) the body carries `folder`
+// when the form changed it; without, it never does.
 export function agentPayload(form, opts) {
   const body = {
     name: (form.name || '').trim(),
@@ -33,9 +31,9 @@ export function agentPayload(form, opts) {
     network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)
-  if (opts && 'initialFolders' in opts) {
-    const folders = foldersPayload(opts.initialFolders, form.folders)
-    if (folders) body.folders = folders
+  if (opts && 'initialFolder' in opts) {
+    const folder = folderPayload(opts.initialFolder, form.folder)
+    if (folder) body.folder = folder
   }
   return body
 }
@@ -61,28 +59,11 @@ export function grantSummary(agent) {
 
 export const FOLDER_MODES = ['read', 'write']
 
-// An agent has up to MAX_FOLDERS folders. The server sends them as `folders`
-// (the first is also `folder`). Where a folder is inside another one, it works
-// at the mode of the outer one (`effective`).
-export const MAX_FOLDERS = 8
-
-// The folder rows of an agent as the server sent them.
-export function folderRows(agent) {
-  if (Array.isArray(agent?.folders) && agent.folders.length) return agent.folders
-  const f = agent?.folder
-  return f && typeof f === 'object' ? [f] : []
-}
-
-const stateOf = (f) => (['ok', 'missing', 'unset'].includes(f?.state) ? f.state : 'ok')
-
-// The folder state of an agent: 'none', 'ok', 'missing' or 'unset'. With
-// several folders the worst one counts: the agent does not start before all
-// are fixed.
+// The folder state of an agent: 'none', 'ok', 'missing' or 'unset'.
 export function folderState(agent) {
-  const rows = folderRows(agent)
-  if (!rows.length) return 'none'
-  const states = rows.map(stateOf)
-  return states.includes('missing') ? 'missing' : states.includes('unset') ? 'unset' : 'ok'
+  const f = agent?.folder
+  if (!f || typeof f !== 'object') return 'none'
+  return ['ok', 'missing', 'unset'].includes(f.state) ? f.state : 'ok'
 }
 
 // The last name of a folder path; '' for "/" (all the files).
@@ -91,39 +72,20 @@ export function folderName(path) {
   return parts.length ? parts[parts.length - 1] : ''
 }
 
-const holds = (outer, inner) => outer === '/' || inner === outer || inner.startsWith(outer + '/')
-
-// The mode each row works at, by the server's rule: a folder inside another
-// folder of the list takes the mode of the outermost one; a row without a
-// path keeps its own. Returns a list of 'read' | 'write' in row order.
-export function effectiveModes(rows) {
-  const modeOf = (r) => (r?.mode === 'write' ? 'write' : 'read')
-  return (rows || []).map((r, i) => {
-    if (!r?.path) return modeOf(r)
-    let outer = -1
-    rows.forEach((o, j) => {
-      if (j === i || !o?.path || o.path === r.path || !holds(o.path, r.path)) return
-      if (outer < 0 || o.path.length < rows[outer].path.length) outer = j
-    })
-    return modeOf(outer >= 0 ? rows[outer] : r)
-  })
-}
-
-// The folders field of a create or replace request, or undefined when the
-// rows did not change, so a save keeps the stored folders. `initial` is the
-// rows as read from the server, `current` what the form holds now. No rows
-// where there were some sends [] (all my files). A row without a path cannot
-// be sent: the editor stops the save first (see foldersUnchosen).
-export function foldersPayload(initial, current) {
-  const key = (rows) => JSON.stringify((rows || []).map(r => [r.path || '', r.mode === 'write' ? 'write' : 'read']))
-  if (key(initial) === key(current)) return undefined
-  const rows = (current || []).filter(r => r.path)
-  return rows.map(r => ({ path: r.path, mode: FOLDER_MODES.includes(r.mode) ? r.mode : 'read' }))
-}
-
-// Whether the rows were changed and one has no folder chosen.
-export function foldersUnchosen(initial, current) {
-  return foldersPayload(initial, current) !== undefined && (current || []).some(r => !r.path)
+// The folder field of a create or replace request, or undefined when the
+// folder did not change, so a save keeps the stored folder. `initial` is the
+// folder as read from the server (or null), `current` what the form holds now
+// (null = all my files). Clearing sends an empty path.
+export function folderPayload(initial, current) {
+  const a = initial && typeof initial === 'object' ? initial : null
+  const b = current && typeof current === 'object' ? current : null
+  if (!b) return a ? { path: '' } : undefined
+  // Nothing chosen yet: a missing or unset folder the person did not replace
+  // is kept as it is.
+  if (!b.path) return undefined
+  const mode = FOLDER_MODES.includes(b.mode) ? b.mode : 'read'
+  if (a && a.state !== 'missing' && a.state !== 'unset' && a.path === b.path && a.mode === mode) return undefined
+  return { path: b.path, mode }
 }
 
 // Whether a folder of a listing can be the folder of an agent: a folder of
@@ -141,13 +103,10 @@ export function folderPickable(entry) {
 export function agentFolderMarks(agents) {
   const marks = new Map()
   for (const a of agents || []) {
-    if (folderState(a) !== 'ok') continue
-    for (const f of folderRows(a)) {
-      if (!f.path) continue
-      const list = marks.get(f.path) || []
-      list.push({ id: a.id, name: a.name, mode: (f.effective || f.mode) === 'write' ? 'write' : 'read' })
-      marks.set(f.path, list)
-    }
+    if (folderState(a) !== 'ok' || !a.folder.path) continue
+    const list = marks.get(a.folder.path) || []
+    list.push({ id: a.id, name: a.name, mode: a.folder.mode === 'write' ? 'write' : 'read' })
+    marks.set(a.folder.path, list)
   }
   for (const list of marks.values()) list.sort((x, y) => x.name.localeCompare(y.name))
   return marks
@@ -162,11 +121,6 @@ export function isFolderMissingError(err) {
 // The line of the Tools menu of a scoped chat: which files its tools reach.
 export function agentFolderLine(agent, t) {
   if (folderState(agent) !== 'ok') return ''
-  const rows = folderRows(agent)
-  const line = (f) => {
-    const path = f.path === '/' ? t('agentFolder.home') : f.path
-    return t((f.effective || f.mode) === 'write' ? 'agentFolder.toolsWrite' : 'agentFolder.toolsRead', { path })
-  }
-  if (rows.length === 1) return line(rows[0])
-  return t('agentFolder.toolsMany', { n: rows.length, list: rows.map(f => `${f.path === '/' ? t('agentFolder.home') : f.path} (${t((f.effective || f.mode) === 'write' ? 'agentFolder.write' : 'agentFolder.read')})`).join(', ') })
+  const path = agent.folder.path === '/' ? t('agentFolder.home') : agent.folder.path
+  return t(agent.folder.mode === 'write' ? 'agentFolder.toolsWrite' : 'agentFolder.toolsRead', { path })
 }

@@ -638,8 +638,7 @@
     "chipMissing": "Dossier manquant",
     "missing": "Le dossier de cet agent n'existe plus. Choisissez un autre dossier dans l'agent.",
     "startError": "Le dossier de cet agent est manquant, le chat ne peut donc pas démarrer. Choisissez un autre dossier pour l'agent.",
-    "editAgent": "Modifier l'agent",
-    "toolsMany": "Fichiers : seulement {{n}} dossiers : {{list}}. Les dossiers partagés et les skills restent lisibles."
+    "editAgent": "Modifier l'agent"
   },
   "origin": {
     "banner": "Cette conversation a été démarrée par {{title}}.",

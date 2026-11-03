@@ -80,8 +80,7 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "File",
-      "Tools": "Alat"
+      "Files": "File"
     },
     "name": "Name",
     "description": "Description",
@@ -134,12 +133,7 @@
       "off": "Mati",
       "registries": "Registri paket",
       "all": "Semua situs publik"
-    },
-    "toolsSummary": "{{on}} dari {{total}} aktif",
-    "toolsHelp": "Pilih apa yang dapat dipakai chat dengan agen ini. Sakelarnya sama dengan menu Alat pada chat. Alat yang mati tidak pernah ditawarkan kepada model, dan chat dengan agen ini tidak dapat menyalakannya.",
-    "toolsHeading": "Alat agen ini",
-    "skillsLater": "Chat dengan agen ini hanya membaca skill yang aktif.",
-    "skillsHeading": "Skill agen ini"
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -456,7 +450,7 @@
   },
   "folder": {
     "all": "Semua file saya",
-    "one": "Folder terpilih",
+    "one": "Satu folder",
     "scopeLabel": "File yang dapat dijangkau agen ini",
     "allHelp": "Chat dengan agen ini menjangkau semua file Anda, seperti chat tanpa agen.",
     "choose": "Pilih folder",
@@ -488,15 +482,6 @@
     "exportNote": "File ini menyebut folder {{path}}. Di tempat Anda mengimpornya, agen mendapat folder dengan jalur itu, jika ada, atau meminta Anda memilih satu.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Folder hilang",
-    "chipUnset": "Belum ada folder",
-    "add": "Tambah folder",
-    "remove": "Hapus {{path}}",
-    "removeRow": "Hapus",
-    "count": "{{n}} dari {{max}} folder",
-    "summaryMany": "{{n}} folder",
-    "effectiveRead": "Ada di dalam folder yang hanya bisa dibaca, jadi folder ini hanya bisa dibaca.",
-    "effectiveWrite": "Ada di dalam folder yang bisa diubah, jadi folder ini juga bisa diubah.",
-    "notMounted": "{{n}} folder bersama tidak muat dalam batas akses sebuah chat dan tidak dipasang.",
-    "exportNoteMany": "File ini menyebut {{n}} folder. Di tempat Anda mengimpornya, agen mendapat folder dengan path itu yang ada, dan meminta Anda memilih sisanya."
+    "chipUnset": "Belum ada folder"
   }
 }

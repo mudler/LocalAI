@@ -7,7 +7,7 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack) (the [GitHub add-on](#github) holds a token for your agents instead of carrying messages). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -133,20 +133,6 @@ speech-to-text model is set up") and no turn starts.
 `GET`, `PUT` and `DELETE /api/chats/connectors/{id}` read, replace and delete a
 binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
 A binding says `active: false` and gives a `reason` while its add-on does not run.
-
-## GitHub
-
-The GitHub add-on lets your [saved agents](/features/chats-agents/) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. It reads only. It cannot write, merge or delete anything on GitHub.
-
-1. Install the **GitHub** add-on from the add-on gallery.
-2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. Give it read access to Contents, Issues and Pull requests. Classic tokens are not accepted.
-3. On the add-on page, choose **New GitHub connection**. Pick an agent, paste the token and list the repositories, one `owner/name` per line (at most 50). Press **Test** to see whose token it is and which listed repositories it reaches.
-
-The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not on it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. With several connections, a call uses the first one that lists the repository.
-
-What GitHub returns (issue text, comments, file content) is written by other people. Every result is marked as untrusted data for the model. Long files are cut at 96 KiB and long patches at 64 KiB; the result says what was cut and how to ask for the rest. When GitHub limits the rate of calls, the agent is told how long to wait.
-
-This version does not listen for mentions and has no write tools.
 
 ## Slack
 
@@ -300,7 +286,7 @@ gives the same events without one.
   arrives while the agent works waits and is read at the agent's next request, as in
   any chat; the answer of that turn covers it.
 - **An agent with a folder.** When the agent has a
-  [folder](/features/chats-agents/#folders-of-an-agent), the chat of each sender
+  [folder](/features/chats-agents/#one-folder-for-an-agent), the chat of each sender
   reaches only that folder, its own chat folder, the shared folders and the skills,
   and the bot sends only files from those folders (see `send_files`). When the
   folder is deleted, unreadable or not chosen, the agent does not run: each message
@@ -472,8 +458,9 @@ add-on.
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
   `triggers.run`, `talkback.channels`, and the sensitive `talkback.new_channel`,
-  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`). A binding with
-  none enabled behaves as before: the allowlist is the only gate.
+  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`). The default is
+  no: a binding with none enabled lets a sender talk to the agent, but the agent can
+  not use any of these on the sender's behalf.
 - **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
   a workspace, and report the roles of each sender. You map a role to capabilities
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
@@ -491,9 +478,28 @@ add-on.
 
 Pairing needs only a stable sender ID, so an add-on without roles supports it too.
 
-The host stores and checks these values and shows them to the add-on pages. The
-features that a capability switches on or off (triggers from chat, talk-back, and so
-on) read them as they land.
+The host checks these values for every message. A sender may use a capability when
+the capability is in `caps`, the sender is on the allowlist, and the sender is paired
+or has a role that you granted it. A sensitive capability needs a pairing; a role
+never counts. If several people share one turn, the turn gets only what all of them
+may do.
+
+The check decides which tools the model gets. A tool that the sender may not use is
+not offered, so the model cannot be talked into it. If the model calls one anyway, the
+call is refused with the reason, and the model tells the person. Today this gates the
+agent's change proposals (`memory.write` for a memory note, `profile.write` for a
+profile), files sent to the bot (`files.upload`), the trigger tools
+(`triggers.propose`), and the confirm phrase (`proposals.confirm`). Messages from a
+sender who may not send files get a short refusal and no turn.
+
+A binding that was stored before this check has no capabilities. Enable what you want
+with `caps`, and pair the accounts that need the sensitive ones.
+
+To see the result, call `GET /api/chats/connectors/<id>/access`. It runs the same check
+for a sender on the allowlist, a paired sender and a sender of each role the kind
+declares, and lists the latest decisions this server made (sender IDs, roles,
+capability and result, never message text or codes). An add-on settings page can show
+it.
 
 ## Triggers from a connector chat
 

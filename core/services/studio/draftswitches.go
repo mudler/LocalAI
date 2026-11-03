@@ -56,7 +56,5 @@ func (s *Service) draftRecord(ctx context.Context, user, model, agentID string) 
 	if ag.Model != "" {
 		rec.Model = ag.Model
 	}
-	// The opt-in groups the agent starts with are on in the draft.
-	rec.BuiltinsOn = mergeGroups(rec.BuiltinsOn, ag.BuiltinsOn)
 	return rec, nil
 }

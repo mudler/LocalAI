@@ -80,8 +80,7 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Archivos",
-      "Tools": "Herramientas"
+      "Files": "Archivos"
     },
     "name": "Name",
     "description": "Description",
@@ -134,12 +133,7 @@
       "off": "Desactivada",
       "registries": "Registros de paquetes",
       "all": "Todos los sitios públicos"
-    },
-    "toolsSummary": "{{on}} de {{total}} activas",
-    "toolsHelp": "Elige qué puede usar un chat con este agente. Son los mismos interruptores que el menú Herramientas de un chat. Una herramienta apagada nunca se ofrece al modelo, y un chat con este agente no puede encenderla.",
-    "toolsHeading": "Herramientas de este agente",
-    "skillsLater": "Un chat con este agente solo lee las skills activas.",
-    "skillsHeading": "Skills de este agente"
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -456,7 +450,7 @@
   },
   "folder": {
     "all": "Todos mis archivos",
-    "one": "Carpetas elegidas",
+    "one": "Una carpeta",
     "scopeLabel": "Archivos que este agente puede alcanzar",
     "allHelp": "Los chats con este agente alcanzan todos tus archivos, como un chat sin agente.",
     "choose": "Elegir carpeta",
@@ -488,15 +482,6 @@
     "exportNote": "El archivo indica la carpeta {{path}}. Donde lo importes, el agente recibe la carpeta con esa ruta, si existe, o te pide que elijas una.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Falta la carpeta",
-    "chipUnset": "Ninguna carpeta elegida",
-    "add": "Añadir carpeta",
-    "remove": "Quitar {{path}}",
-    "removeRow": "Quitar",
-    "count": "{{n}} de {{max}} carpetas",
-    "summaryMany": "{{n}} carpetas",
-    "effectiveRead": "Está dentro de una carpeta de solo lectura, así que esta solo se puede leer.",
-    "effectiveWrite": "Está dentro de una carpeta que se puede cambiar, así que esta también se puede cambiar.",
-    "notMounted": "{{n}} carpetas compartidas no caben en el límite de acceso de un chat y no se montan.",
-    "exportNoteMany": "El archivo nombra {{n}} carpetas. Donde lo importes, el agente recibe las carpetas con esas rutas que existan y te pide elegir las demás."
+    "chipUnset": "Ninguna carpeta elegida"
   }
 }

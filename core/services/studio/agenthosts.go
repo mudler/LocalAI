@@ -43,88 +43,46 @@ func agentReader(p string, sc *folderScope) workspace.Actor {
 	if sc == nil {
 		return a
 	}
-	roots := make([]workspace.FenceRoot, 0, len(sc.folders))
-	for _, f := range sc.folders {
-		roots = append(roots, workspace.FenceRoot{Node: f.node, Mode: workspace.ModeRead})
-	}
-	return a.Fenced(roots...)
+	return a.Fenced(workspace.FenceRoot{Node: sc.node, Mode: workspace.ModeRead})
 }
 
-// contains says whether the workspace path abs is one of the folders or
-// inside one.
+// contains says whether the workspace path abs is the folder or inside it.
 func (sc *folderScope) contains(abs string) bool {
-	_, ok := sc.holder(abs)
-	return ok
+	return abs == sc.path || strings.HasPrefix(abs, sc.path+"/")
 }
 
-// holder returns the folder that holds abs, and its index. When two folders
-// hold it, the innermost one.
-func (sc *folderScope) holder(abs string) (int, bool) {
-	best := -1
-	for i, f := range sc.folders {
-		if workspace.Within(abs, f.path) && (best < 0 || len(f.path) > len(sc.folders[best].path)) {
-			best = i
-		}
-	}
-	return best, best >= 0
-}
-
-// mountNames are the names the chat's view gives the folders of the scope:
-// "home" for the first, and "folder-<name>" for the others.
-func (sc *folderScope) mountNames() []string {
-	out := []string{session.GuestHome}
-	return append(out, session.FolderMountNames(sc.extraPaths())...)
-}
-
-// guestHome is where a chat of a scoped agent sees the agent's first folder.
+// guestHome is where a chat of a scoped agent sees the agent's folder.
 const guestHome = session.GuestRoot + "/" + session.GuestHome
 
-// guest returns abs as the agent's chats see it: under /workspace/home for the
-// first folder and under /workspace/folder-<name> for another. It is false for
-// a path outside the folders or no folders.
+// guest returns abs as the agent's chats see it, under /workspace/home, and
+// false for a path outside the folder or no folder.
 func (sc *folderScope) guest(abs string) (string, bool) {
-	if sc == nil {
+	if sc == nil || !sc.contains(abs) {
 		return "", false
 	}
-	i, ok := sc.holder(abs)
-	if !ok {
-		return "", false
-	}
-	return session.GuestRoot + "/" + sc.mountNames()[i] + strings.TrimPrefix(abs, sc.folders[i].path), true
+	return guestHome + strings.TrimPrefix(abs, sc.path), true
 }
 
 // inFolder turns a path that a chat of a scoped agent names (a path of its
-// place: "/In", "In", "/workspace/home/In" or "/workspace/folder-<name>/In")
-// into the workspace path inside the agent's folders. Any other mount of the
-// place, a parent and a bad name are refused: the agent's own chats can only
-// name its folders.
+// place: "/In", "In" or "/workspace/home/In") into the workspace path inside
+// the agent's folder. Any other mount of the place, a parent and a bad name
+// are refused: the agent's own chats can only name its folder.
 func (sc *folderScope) inFolder(p string) (string, error) {
 	if err := session.CheckGuestPath(p); err != nil {
 		return "", err
 	}
 	p = "/" + strings.Trim(p, "/")
-	root := sc.folders[0].path
 	switch {
 	case p == guestHome:
 		p = "/"
 	case strings.HasPrefix(p, guestHome+"/"):
 		p = strings.TrimPrefix(p, guestHome)
 	case p == session.GuestRoot || strings.HasPrefix(p, session.GuestRoot+"/"):
-		name, rest, _ := strings.Cut(strings.TrimPrefix(p, session.GuestRoot+"/"), "/")
-		found := false
-		for i, at := range sc.mountNames() {
-			if i > 0 && at == name {
-				root, p, found = sc.folders[i].path, "/"+rest, true
-				break
-			}
-		}
-		if !found {
-			return "", workspace.ErrNotFound
-		}
+		return "", workspace.ErrNotFound
 	}
 	segs, err := workspace.SplitPath(p)
 	if err != nil {
 		return "", err
 	}
-	return root + strings.TrimSuffix(workspace.JoinPath(segs), "/"), nil
+	return sc.path + strings.TrimSuffix(workspace.JoinPath(segs), "/"), nil
 }

@@ -124,6 +124,7 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/connectors/:id/test",
 			"GET /api/chats/connectors/:id/senders",
 			"POST /api/chats/connectors/:id/senders/:sender/allow",
+			"GET /api/chats/connectors/:id/access",
 			"POST /api/chats/connectors/:id/pairing",
 			"DELETE /api/chats/connectors/:id/paired/:sender",
 		))

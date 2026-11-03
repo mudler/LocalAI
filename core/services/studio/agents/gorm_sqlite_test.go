@@ -45,26 +45,6 @@ var _ = Describe("the GORM agent store on SQLite", func() {
 		Expect(got.FolderMode).To(BeEmpty())
 	})
 
-	It("moves the one-folder columns into the folder list at start, once", func() {
-		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
-		Expect(db.AutoMigrate(&oneFolderAgentRow{})).To(Succeed())
-		now := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
-		Expect(db.Create(&oneFolderAgentRow{ID: "one", Principal: "u1", NameKey: "one", Name: "One", FolderID: 12, FolderMode: "write", Created: now, Updated: now}).Error).To(Succeed())
-		Expect(db.Create(&oneFolderAgentRow{ID: "none", Principal: "u1", NameKey: "none", Name: "None", Created: now, Updated: now}).Error).To(Succeed())
-		for range 2 { // the second start finds nothing to do
-			s, err := agents.NewGORM(db)
-			Expect(err).NotTo(HaveOccurred())
-			got, err := s.Get(context.Background(), "u1", "one")
-			Expect(err).NotTo(HaveOccurred())
-			Expect(got.Folders).To(Equal([]agents.AgentFolder{{Node: 12, Mode: agents.FolderWrite}}))
-			none, _ := s.Get(context.Background(), "u1", "none")
-			Expect(none.HasFolder()).To(BeFalse())
-		}
-		var n int64
-		Expect(db.Table("studio_agent_folders").Count(&n).Error).To(Succeed())
-		Expect(n).To(Equal(int64(1)))
-	})
-
 	It("survives a reopen", func() {
 		path := filepath.Join(GinkgoT().TempDir(), "studio.db")
 		first, err := agents.NewGORM(openSQLite(path))
@@ -95,25 +75,3 @@ type legacyAgentRow struct {
 }
 
 func (legacyAgentRow) TableName() string { return "studio_agents" }
-
-// oneFolderAgentRow is studio_agents as the one-folder release left it.
-type oneFolderAgentRow struct {
-	ID           string `gorm:"primaryKey;size:64"`
-	Principal    string `gorm:"index:idx_studio_agents_name,unique;size:255"`
-	NameKey      string `gorm:"index:idx_studio_agents_name,unique;size:255"`
-	Name         string `gorm:"size:255"`
-	Description  string
-	Instructions string
-	Model        string `gorm:"size:255"`
-	MCPServers   string
-	Addons       string
-	Collections  string
-	Skills       string
-	Network      string `gorm:"size:16"`
-	FolderID     int64  `gorm:"not null;default:0"`
-	FolderMode   string `gorm:"size:8;not null;default:''"`
-	Created      time.Time
-	Updated      time.Time
-}
-
-func (oneFolderAgentRow) TableName() string { return "studio_agents" }

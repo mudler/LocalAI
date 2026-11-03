@@ -214,11 +214,10 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 		Connectors: make([]schema.ChatsMCPConnectorSwitch, 0, len(p.Connectors)), Off: p.Off}
 	for _, g := range p.Builtins {
 		out.Builtins = append(out.Builtins, schema.ChatsBuiltinGroup{Group: g.Group, Tools: g.Tools, Off: g.Off, OptIn: g.OptIn,
-			Usable: g.Usable, Reason: g.Reason, Provider: g.Provider, Providers: g.Providers,
-			Title: g.Title, Description: g.Description, WhenOff: g.WhenOff})
+			Usable: g.Usable, Reason: g.Reason, Provider: g.Provider, Providers: g.Providers})
 	}
 	for _, a := range p.Addons {
-		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off, Title: a.Title, Description: a.Description})
+		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off})
 	}
 	for _, f := range p.Fallbacks {
 		out.Fallbacks = append(out.Fallbacks, schema.ChatsToolFallback{Tool: f.Tool, Addon: f.AddonID, AddonTitle: f.Title, Builtin: f.Builtin})

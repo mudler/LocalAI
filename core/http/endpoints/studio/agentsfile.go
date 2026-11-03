@@ -13,7 +13,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
-	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 )
 
@@ -21,25 +20,16 @@ const (
 	agentExportKind    = "localai-agent"
 	maxAgentImportBody = 1 << 20
 	// maxAgentFileVersion is the newest version of the agent file this server
-	// reads. Version 2 is an agent with a folder, version 3 an agent with
-	// several: each got its own version so that an older server refuses the
-	// file instead of importing the agent with more access than it had.
-	// Version 4 is an agent with switches of built-in tool groups, for the
-	// same reason: an older server would drop them and give the agent every
-	// tool.
-	maxAgentFileVersion = 4
+	// reads. Version 2 is an agent with a folder: it got its own version so
+	// that a server that knows only version 1 refuses the file instead of
+	// importing the agent with access to all the files.
+	maxAgentFileVersion = 2
 )
 
 // agentFileVersion is the version an export writes: 1 for an agent without a
-// folder or tool switches, so older servers keep importing it, 2 for one with
-// one folder, 3 for one with several, and 4 for one with tool switches.
-func agentFileVersion(folders int, hasSwitches bool) int {
-	switch {
-	case hasSwitches:
-		return 4
-	case folders > 1:
-		return 3
-	case folders == 1:
+// folder, so older servers keep importing it, and 2 for one with a folder.
+func agentFileVersion(hasFolder bool) int {
+	if hasFolder {
 		return 2
 	}
 	return 1
@@ -47,7 +37,7 @@ func agentFileVersion(folders int, hasSwitches bool) int {
 
 // ExportAgent returns a saved agent as a file.
 // @Summary Export a saved agent.
-// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
+// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 200 {object} schema.ChatsAgentExport "The agent file"
@@ -58,28 +48,18 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 		return failFor(c, err)
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network,
-		BuiltinsOff: a.BuiltinsOff, BuiltinsOn: a.BuiltinsOn}
-	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID]
-	for i, f := range a.FolderList() {
+		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network}
+	if st, ok := h.svc.AgentFolder(c.Request().Context(), userID(c), a); ok {
 		// Imports resolve paths in the home only. A followed root outside
 		// it must stay scoped but unset, not bind to a same-spelled home path.
 		exportPath := ""
-		if abs, live := h.svc.FolderResolver().PathOf(c.Request().Context(), h.svc.Principal(userID(c)), f.Node); live {
+		if abs, live := h.svc.FolderResolver().PathOf(c.Request().Context(), h.svc.Principal(userID(c)), a.FolderID); live {
 			exportPath = h.svc.Files().Rel(h.svc.Principal(userID(c)), abs)
 		}
-		mode := f.Mode
-		if i < len(rows) {
-			mode = rows[i].Mode
-		}
-		w.Folders = append(w.Folders, schema.ChatsAgentFolderWrite{Path: exportPath, Mode: mode})
-	}
-	if len(w.Folders) == 1 {
-		// One folder stays in the version 2 shape, which older servers read.
-		w.Folder, w.Folders = &w.Folders[0], nil
+		w.Folder = &schema.ChatsAgentFolderWrite{Path: exportPath, Mode: st.Mode}
 	}
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", fileSafe(a.Name)+".json"))
-	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: agentFileVersion(len(a.FolderList()), len(a.BuiltinsOff)+len(a.BuiltinsOn) > 0), Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
+	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: agentFileVersion(a.HasFolder()), Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
 }
 
 // fileSafe keeps a name usable as a file name in a header.
@@ -101,7 +81,7 @@ func fileSafe(name string) string {
 
 // ImportAgent saves an agent from a file.
 // @Summary Import a saved agent.
-// @Description Send the export file (version 1, 2 for an agent with a folder, or 3 for an agent with several) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.
+// @Description Send the export file (version 1, or 2 for an agent with a folder) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.
 // @Tags chats
 // @Accept json,mpfd
 // @Param request body schema.ChatsAgentExport true "the agent file"
@@ -147,30 +127,17 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
-		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network,
-		BuiltinsOff: def.BuiltinsOff, BuiltinsOn: def.BuiltinsOn}
-	var rowsIn []studiosvc.AgentFolderWrite
-	switch {
-	case def.Folders != nil:
-		for _, f := range def.Folders {
-			rowsIn = append(rowsIn, studiosvc.AgentFolderWrite{Path: f.Path, Mode: f.Mode})
-		}
-	case def.Folder != nil:
-		rowsIn = []studiosvc.AgentFolderWrite{{Path: def.Folder.Path, Mode: def.Folder.Mode}}
-	}
-	saved, err := h.svc.ImportAgentFolders(c.Request().Context(), userID(c), a, rowsIn)
+		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network}
+	saved, err := h.svc.ImportAgent(c.Request().Context(), userID(c), a, folderIn(def.Folder))
 	if err != nil {
 		return failFor(c, err)
 	}
 	if saved.Name != strings.TrimSpace(def.Name) {
 		warnings = append(warnings, fmt.Sprintf("you already have an agent named %q, so the new one is named %q", strings.TrimSpace(def.Name), saved.Name))
 	}
-	for i, f := range saved.FolderList() {
-		if f.Node != 0 {
-			continue
-		}
-		if rowsIn[i].Path != "" {
-			warnings = append(warnings, fmt.Sprintf("The folder %s was not found. Choose a folder before you use this agent.", rowsIn[i].Path))
+	if saved.HasFolder() && saved.FolderID == 0 {
+		if def.Folder.Path != "" {
+			warnings = append(warnings, fmt.Sprintf("The folder %s was not found. Choose a folder before you use this agent.", def.Folder.Path))
 		} else {
 			warnings = append(warnings, "The file names no folder. Choose a folder before you use this agent.")
 		}

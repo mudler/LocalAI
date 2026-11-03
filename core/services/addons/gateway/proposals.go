@@ -304,7 +304,6 @@ func (g *Gateway) proposalLocal(ctx context.Context, a contract.Actor, request c
 
 // Propose stores a proposal for a data or schema mutation. It never executes.
 func (g *Gateway) Propose(ctx context.Context, a contract.Actor, request contract.Request) (Proposal, error) {
-	scrub(&request)
 	return g.proposal(ctx, a, request, ProposalCall{Op: proposalPropose, ID: request.OperationID})
 }
 

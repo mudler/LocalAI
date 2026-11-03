@@ -13,36 +13,20 @@ import { bulkIds, bulkable, rowOn, switchCounts } from '../../utils/chatSwitchRo
 // to switch and no notice.
 //
 // groups: [{ key, title, icon, onSet(ids, on), rows: [{ key, id, label, title,
-//   on, usable, reason, description, whenOff, note, warn, chip, meta, optIn,
-//   onToggle }] }]
-// description says what the model can do with the switch on, whenOff what it
-// loses once the switch is off; both show under the name of every row. note is a line under the name (warn draws it as a warning); chip is a short
+//   on, usable, reason, note, warn, chip, meta, optIn, onToggle }] }]
+// note is a line under the name (warn draws it as a warning); chip is a short
 // label next to it (who serves the tool); meta is a muted text on the right.
 // notice is a block over the groups, for something that holds for the whole
 // chat (the chat cannot run commands, its network); the menu shows for it even
 // with no rows.
 export default function SwitchMenu({ icon, label, title, heading, note, notice, groups, error, footer, testId }) {
-  const noteId = useId()
-  const rows = groups.filter((g) => g.rows.length > 0).flatMap((g) => g.rows)
-  if (rows.length === 0 && !notice) return null
-  const { on } = switchCounts(rows)
-  return (
-    <SwitchPopover icon={icon} label={label} title={title} count={on} describedBy={note ? noteId : undefined} testId={testId} menuClassName="swl-menu--wide">
-      <SwitchPanel heading={heading} note={note} noteId={noteId} notice={notice} groups={groups} error={error} footer={footer} testId={testId} />
-    </SwitchPopover>
-  )
-}
-
-// The body of the Tools list, without the chip: the header with the count and
-// the bulk actions, the groups with their rows, and the status line. The
-// Tools menu of a chat puts it in a popover; the agent form draws it inline,
-// so both show the same switches the same way.
-export function SwitchPanel({ heading, note, noteId, notice, groups, error, footer, testId }) {
   const { t } = useTranslation('chat')
+  const noteId = useId()
   const [busy, setBusy] = useState(false)
 
   const shown = groups.filter((g) => g.rows.length > 0)
   const rows = shown.flatMap((g) => g.rows)
+  if (rows.length === 0 && !notice) return null
   const { on, total } = switchCounts(rows)
   const titled = shown.length > 1
 
@@ -77,7 +61,7 @@ export function SwitchPanel({ heading, note, noteId, notice, groups, error, foot
   )
 
   return (
-    <>
+    <SwitchPopover icon={icon} label={label} title={title} count={on} describedBy={note ? noteId : undefined} testId={testId} menuClassName="swl-menu--wide">
       <SwitchHead
         title={heading}
         summary={rows.length > 0 ? t('tools.count', { on, total }) : null}
@@ -106,7 +90,7 @@ export function SwitchPanel({ heading, note, noteId, notice, groups, error, foot
         })}
       </div>
       <SwitchStatus error={error} failed={t('tools.failed')} testId={`${testId}-error`}>{footer}</SwitchStatus>
-    </>
+    </SwitchPopover>
   )
 }
 
@@ -115,14 +99,9 @@ function ToolRow({ row: r, testId }) {
   const usable = r.usable !== false
   const reason = !usable ? (r.reason || t('tools.unavailable')) : ''
   const desc = r.note || (r.optIn && usable ? t('tools.optIn') : '')
-  const on = rowOn(r)
-  // What the switch does, and, once it is off, what the model loses.
-  const blurb = [r.description, !on && usable ? r.whenOff : ''].filter(Boolean).join(' ')
   return (
     <SwitchRow
       name={r.label}
-      blurb={blurb}
-      blurbTestId={blurb ? `${testId}-blurb` : undefined}
       desc={desc}
       tone={r.warn ? 'warn' : undefined}
       chip={r.chip}

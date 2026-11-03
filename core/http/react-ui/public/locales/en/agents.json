@@ -189,8 +189,7 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Files",
-      "Tools": "Tools"
+      "Files": "Files"
     },
     "name": "Name",
     "description": "Description",
@@ -237,12 +236,7 @@
       "off": "Off",
       "registries": "Package registries",
       "all": "All public sites"
-    },
-    "toolsSummary": "{{on}} of {{total}} on",
-    "toolsHelp": "Choose what a chat with this agent can use. These are the same switches as the Tools menu of a chat. A tool that is off is never offered to the model, and a chat with this agent cannot switch it on.",
-    "toolsHeading": "Tools of this agent",
-    "skillsLater": "A chat with this agent reads only the skills that are on.",
-    "skillsHeading": "Skills of this agent"
+    }
   },
   "status": {
     "title": "Status",
@@ -695,7 +689,7 @@
   },
   "folder": {
     "all": "All my files",
-    "one": "Chosen folders",
+    "one": "One folder",
     "scopeLabel": "Files this agent can reach",
     "allHelp": "Chats with this agent can reach all your files, as a chat without an agent can.",
     "choose": "Choose folder",
@@ -727,15 +721,6 @@
     "exportNote": "The file names the folder {{path}}. Where you import it, the agent gets the folder with that path, if there is one, or asks you to choose one.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Folder missing",
-    "chipUnset": "No folder chosen",
-    "add": "Add folder",
-    "remove": "Remove {{path}}",
-    "removeRow": "Remove",
-    "count": "{{n}} of {{max}} folders",
-    "summaryMany": "{{n}} folders",
-    "effectiveRead": "Inside a folder that can only be read, so this one can only be read.",
-    "effectiveWrite": "Inside a folder that can be changed, so this one can be changed too.",
-    "notMounted": "{{n}} shared folders do not fit the access limit of a chat and are not mounted.",
-    "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others."
+    "chipUnset": "No folder chosen"
   }
 }

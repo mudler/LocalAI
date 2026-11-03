@@ -28,6 +28,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/tests/studiobot"
 )
 
@@ -258,6 +259,26 @@ type connRig struct {
 	conns *studio.Connectors
 	logs  *bytes.Buffer
 	agent agents.Agent
+	store connectors.Store
+	// untrusted keeps bind from enabling every capability and pairing the
+	// senders of the specs: the specs of the permission model set their own.
+	untrusted bool
+}
+
+// specSenders are the sender IDs that the specs write as.
+var specSenders = []string{"11", "U1", "U2"}
+
+// trust enables every capability on a binding and pairs the senders of the
+// specs, so a spec that is not about permissions gets the full access that
+// every binding had before the permission model.
+func (c *connRig) trust(id string) {
+	b, err := c.store.GetBinding(context.Background(), id)
+	Expect(err).NotTo(HaveOccurred())
+	b.Caps = contract.ConnectorCapabilityNames()
+	for _, s := range specSenders {
+		b.Paired = append(b.Paired, connectors.PairedSender{SenderID: s, At: c.sh.clock.Now()})
+	}
+	Expect(c.store.PutBinding(context.Background(), b)).To(Succeed())
 }
 
 // newConnRig builds a frontend with a connector manager on the shared stores of sh.
@@ -296,7 +317,7 @@ func newConnRigOpts(sh *shared, store connectors.Store, tr *studiobot.BotTranspo
 	ctx, cancel := context.WithCancel(context.Background())
 	DeferCleanup(cancel)
 	go c.Run(ctx)
-	return &connRig{trigRig: r, tr: tr, conns: c, logs: logs}
+	return &connRig{trigRig: r, tr: tr, conns: c, logs: logs, store: store}
 }
 
 func connStore() connectors.Store {
@@ -334,6 +355,9 @@ func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
 	}
 	b, err := c.conns.CreateConnector(context.Background(), alice, in)
 	Expect(err).NotTo(HaveOccurred())
+	if !c.untrusted {
+		c.trust(b.ID)
+	}
 	return b.Binding
 }
 

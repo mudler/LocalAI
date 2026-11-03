@@ -373,8 +373,7 @@
       "files": "Your files",
       "media": "Images and audio",
       "collections": "Collections",
-      "subagents": "Sub-agents",
-      "changes": "Memory and profile changes"
+      "subagents": "Sub-agents"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
@@ -432,34 +431,7 @@
     "shell": {
       "machine": "This machine",
       "isolated": "Commands run isolated"
-    },
-    "describe": {
-      "shell": "The model can run shell commands and scripts. They run in an add-on that isolates them when one is installed, otherwise directly on this machine.",
-      "files": "The model can list, read, write, edit, move, delete and search your files, and read documents. A chat of an agent that works in one folder reaches only that folder.",
-      "web": "The model can search the web and read a public page by its address. Addresses inside your network are refused unless an administrator allows them.",
-      "media": "The model can describe an image or transcribe a recording from your files with a helper model.",
-      "collections": "The model can list your collections and search them for the passages that match a question.",
-      "subagents": "The model can start a sub-agent that works on one task with the same switches as this chat and reports back.",
-      "saved_agents": "The model can list your saved agents and start one as a sub-agent, with that agent's own instructions and model.",
-      "triggers": "The model can propose, list, change and delete triggers: tasks that run by themselves at a set time or when a file arrives in a folder. A new trigger or a change waits on a card in the chat until you confirm it; pausing or resuming a trigger applies at once and you can undo it.",
-      "changes": "The model can propose an edit to your memory notes or to an agent's standing rules, and undo an edit you confirmed. Nothing changes until you confirm the proposal on a card in the chat."
-    },
-    "whenOff": {
-      "shell": "The model can write files but cannot run anything.",
-      "files": "The model cannot see or change your files.",
-      "web": "The model cannot look anything up online.",
-      "media": "The model cannot read images or recordings itself.",
-      "collections": "The model cannot read your collections.",
-      "subagents": "The model works alone.",
-      "saved_agents": "The model cannot see or start your saved agents.",
-      "triggers": "The model cannot create or manage triggers. A run that a trigger or a connector started never has them.",
-      "changes": "The model cannot propose edits to your memory or to an agent's rules."
-    },
-    "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
-    "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
-    "serverDescribe": "An MCP server of the model: its tools are offered to the model.",
-    "connectorDescribe": "One of your MCP connectors: its tools are offered to the model.",
-    "gone": "Not available here any more. Switch it off to remove it."
+    }
   },
   "mcpPage": {
     "title": "MCP connectors",

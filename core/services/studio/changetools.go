@@ -54,14 +54,15 @@ func (s *Service) registerChangeTools() error {
 	type def struct {
 		id, label, desc, schema string
 		run                     func(ctx context.Context, c builtins.Chat, raw json.RawMessage) (string, error)
+		caps                    []string
 	}
 	defs := []def{
-		{proposeChangeName, "Propose a change", proposeChangeDescription, proposeChangeSchema, s.changes.proposeTool},
-		{revertChangeName, "Revert a change", revertChangeDescription, revertChangeSchema, s.changes.revertTool},
+		{proposeChangeName, "Propose a change", proposeChangeDescription, proposeChangeSchema, s.changes.proposeTool, changeKindCaps},
+		{revertChangeName, "Revert a change", revertChangeDescription, revertChangeSchema, s.changes.revertTool, changeKindCaps},
 	}
 	for _, d := range defs {
 		err := s.builtins.Register(builtins.Tool{
-			ID: d.id, Group: builtins.GroupChanges, Label: d.label, Description: d.desc, Unlisted: true,
+			ID: d.id, Group: builtins.GroupChanges, Label: d.label, Description: d.desc, Unlisted: true, Capabilities: d.caps,
 			Build: func(_ context.Context, c builtins.Chat) (session.Tool, bool, string) {
 				switch {
 				case !s.d.Files.Available():
@@ -80,6 +81,23 @@ func (s *Service) registerChangeTools() error {
 		}
 	}
 	return nil
+}
+
+// changeKindCaps are the capabilities that the kinds of change need in a
+// connector chat: a memory note and the agent's profile. The tool is offered
+// when the sender holds one of them; the call checks the one its kind needs.
+var changeKindCaps = []string{contract.CapMemoryWrite, contract.CapProfileWrite}
+
+// changeCapability is the capability that a change of a kind needs. A kind
+// that is not listed needs one that nobody holds.
+func changeCapability(kind string) string {
+	switch kind {
+	case "memory":
+		return contract.CapMemoryWrite
+	case "profile":
+		return contract.CapProfileWrite
+	}
+	return contract.CapSkillsWrite
 }
 
 func sourceOf(c builtins.Chat) contract.ChangeSource {
@@ -101,6 +119,9 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
+	}
+	if err := c.Require(changeCapability(args.Kind)); err != nil {
+		return "", err
 	}
 	p, err := h.Propose(ctx, ProposeInput{User: c.Actor.Principal, Agent: c.AgentID, Source: sourceOf(c),
 		Kind: args.Kind, Scope: args.Scope, Target: args.Target, Content: args.Content, Summary: args.Summary})
@@ -130,11 +151,26 @@ func (h *Changes) revertTool(ctx context.Context, c builtins.Chat, raw json.RawM
 	var err error
 	if args.ID != "" {
 		// An id from another agent's scope is not this chat's to revert.
-		if q, gerr := h.Get(ctx, c.Actor.Principal, args.ID); gerr == nil && q.Agent != c.AgentID {
-			return "", errors.New("that change belongs to another agent")
+		need := contract.CapMemoryWrite
+		if q, gerr := h.Get(ctx, c.Actor.Principal, args.ID); gerr == nil {
+			if q.Agent != c.AgentID {
+				return "", errors.New("that change belongs to another agent")
+			}
+			need = changeCapability(string(q.Kind))
+		}
+		// Undoing a change needs the right to make it.
+		if err := c.Require(need); err != nil {
+			return "", err
 		}
 		p, err = h.Revert(ctx, c.Actor.Principal, args.ID)
 	} else {
+		// The last change can be of any kind: the sender needs the right to
+		// make each.
+		for _, need := range changeKindCaps {
+			if err := c.Require(need); err != nil {
+				return "", fmt.Errorf("%w (to undo the last change without its id, every kind of change must be allowed)", err)
+			}
+		}
 		p, err = h.RevertLast(ctx, c.Actor.Principal, c.AgentID)
 	}
 	if err != nil {

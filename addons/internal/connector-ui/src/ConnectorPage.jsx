@@ -69,17 +69,8 @@ const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'co
  * @param {Array} [props.lists]        the allowlists: { key, label, hint, testId, match }
  * @param {Function} [props.Help]      a block under the intro ({ t })
  * @param {string} [props.notifyMode]  the inputMode of the notification field
- * @param {boolean} [props.messaging]  false for a kind that carries no messages: the page then hides the sender,
- *                                     reply, file and notification settings and the switch of the binding
- * @param {Function} [props.ExtraFields] more fields of the add-on's own ({ form, setForm, t })
- * @param {Function} [props.extraBody] the request fields they make: (form) => object
- * @param {Function} [props.extraForm] their values from a saved binding: (binding) => object
- * @param {Function} [props.extraValid] whether they allow saving: (form) => boolean
- * @param {Function} [props.testExtra] more checks after the Test button: async (binding, t) => string
- * @param {Function} [props.RowInfo]   a line under a binding in the list ({ c, t })
  */
-export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
-  messaging = true, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
+export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text' }) {
   const { t } = useTranslation(ns)
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
@@ -114,13 +105,6 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
 
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
   const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote('') }
-  const extra = (form) => ({ ...(messaging ? {} : { enabled: false, accept_any: false }), ...(extraBody ? extraBody(form) : {}) })
-  const check = async (c) => {
-    const r = await connectorsApi.test(c.id)
-    let text = t('testOk', { bot: r.bot_username })
-    if (testExtra) text += ` ${await testExtra(c, t)}`
-    return text
-  }
 
   // The server refuses a token that the platform refuses. After a save with
   // a new token, the page names the bot the token belongs to.
@@ -131,13 +115,14 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     setNote('')
     try {
       const token = tokenOf(form).trim()
-      const body = connectorPayload(form, kind, token, extra(form))
+      const body = connectorPayload(form, kind, token)
       const saved = form.id ? await connectorsApi.update(form.id, body) : await connectorsApi.create(body)
       setForm(null)
       await load()
       if (token && saved?.id) {
         try {
-          setNote(await check(saved))
+          const r = await connectorsApi.test(saved.id)
+          setNote(t('testOk', { bot: r.bot_username }))
         } catch (err) { setError(t('checkFailed', { reason: err?.message || '' })) }
       }
     } catch (err) { fail(err) } finally { setBusy(false) }
@@ -161,7 +146,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
-        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open({ ...emptyConnector(), ...(extraForm ? extraForm({}) : {}) })}>
+        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open(emptyConnector())}>
           <Icon name="plus" /> {t('new')}
         </button>
       </header>
@@ -193,8 +178,6 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
                 </Select>
               )}
             </Field>
-            {ExtraFields && <ExtraFields form={form} setForm={setForm} t={t} />}
-            {messaging && (<>
             <fieldset className="cn-group">
               <legend>{t('who')}</legend>
               <RadioCards name="who" legend={t('who')} value={form.accept_any} onChange={(any) => { setForm({ ...form, accept_any: any }); if (!any) setConfirmed(false) }}
@@ -215,13 +198,12 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </Field>
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
-            </>)}
             <div className="cn-actions">
-              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles) || (extraValid ? !extraValid(form) : false)}>{t('save')}</button>
+              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles)}>{t('save')}</button>
               <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setForm(null)}>{t('cancel')}</button>
             </div>
           </form>
-          {messaging && <aside className="cn-aside" aria-label={answerT(t)('aside.title')}>
+          <aside className="cn-aside" aria-label={answerT(t)('aside.title')}>
             <h2 className="cn-aside__title">{answerT(t)('aside.title')}</h2>
             <ol className="cn-aside__steps">
               <li>{answerT(t)('aside.step1')}</li>
@@ -230,7 +212,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </ol>
             <h2 className="cn-aside__title">{answerT(t)('aside.testTitle')}</h2>
             <p className="cn-muted">{answerT(t)('aside.testText')}</p>
-          </aside>}
+          </aside>
         </div>
       )}
 
@@ -239,30 +221,27 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
           <li key={c.id} className="cn-row" data-testid="connector-row">
             <div className="cn-row__text">
               <span className="cn-row__name">{c.name}</span>
-              {messaging ? (<>
               <span className="cn-muted">
                 {t('agentOf', { name: agentName(c.agent_id) })}
                 {' · '}
                 {t('accepts', { who: c.accept_any ? t('modes.anyone') : (c.allow || []).length === 0 ? t('modes.nobody') : t('modes.listed', { count: c.allow.length }) })}
               </span>
               <span className="cn-muted" data-testid="connector-answer-summary">{answerSummary(c, t)}</span>
-              </>) : <span className="cn-muted">{t('agentOf', { name: agentName(c.agent_id) })}</span>}
-              {RowInfo && <RowInfo c={c} t={t} />}
               {c.active === false && <span className="cn-muted" data-testid="connector-inactive">{t('inactive', { reason: c.reason })}</span>}
               {openSenders === c.id && <Senders id={c.id} onAllowed={load} t={t} />}
             </div>
             <span className="cn-row__actions">
-              {messaging && <Switch checked={c.enabled} label={t('onFor', { name: c.name })}
+              <Switch checked={c.enabled} label={t('onFor', { name: c.name })}
                 onChange={(on) => {
                   setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
                   act(() => (on ? connectorsApi.enable(c.id) : connectorsApi.disable(c.id)))
-                }} />}
+                }} />
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
-                onClick={async () => { setError(''); try { setNote(await check(c)) } catch (e) { fail(e) } }}>
+                onClick={async () => { setError(''); try { const r = await connectorsApi.test(c.id); setNote(t('testOk', { bot: r.bot_username })) } catch (e) { fail(e) } }}>
                 {t('test')}
               </button>
-              {messaging && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>}
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })}>{t('editButton')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open(connectorForm(c))}>{t('editButton')}</button>
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setToDelete(c)}>{t('delete')}</button>
             </span>
           </li>

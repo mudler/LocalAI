@@ -493,45 +493,6 @@ own record of the grants.
 - An add-on that declares no `list` gets no listing tool, whatever else it
   declares.
 
-### Credentials and a resource list
-
-An add-on whose tools call a service with a secret of the person, such as an
-access token, can ask the host to keep the secret and to check which resources
-a call may reach. The model never sees or sets either.
-
-```json
-{
-  "api": {"min": 2, "max": 2},
-  "capabilities": {
-    "credentials": [
-      {"id": "token", "title": "Access token", "kind": "token", "resourceArgument": "repo"}
-    ],
-    "connector": {"kinds": [{"id": "example", "title": "Example", "delivery": "pull"}]}
-  }
-}
-```
-
-- The secret and the list live in the person's **binding** of the add-on's
-  connector kind. The host seals the secret. The list is `Binding.Resources`: at
-  most 50 entries, each an external name (`owner/name` for a repository) with a
-  host ID made from its hash. The person edits it where they edit the binding.
-- `resourceArgument` names a string argument that carries the external name. A
-  tool that declares it must require it. Before the add-on is called, the host
-  matches the argument against the lists of the caller's bindings of the add-on,
-  without regard to case. A name on no list is refused with the code
-  `resource_not_allowed` and the allowed names; the add-on is not called. When
-  two bindings list the same name, the first in list order is used.
-- A call that passes the check carries `Request.Credential` (the secret),
-  `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
-  (the host ID). The host drops these three fields from any request a client
-  sends. A person with no binding gets the code `no_credential`.
-- A manifest with `credentials` must accept `api` 2, declare a connector kind and
-  declare read tools only: a change under a credential needs a write mode, which
-  this version does not have. Tools of such an add-on name no `resourceId`.
-- An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
-  The runtime answers HTTP 429 with `Retry-After`; the model gets the code
-  `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
-
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an
@@ -4966,7 +4927,7 @@ What a call can reach depends on who made the request:
 
 - **A call from a chat.** The host binds every add-on call that a chat makes to that chat, for every tool kind: a read tool that names no resource (such as the Office add-on's `read-docx`) as well as an action or a change. The calls act with the chat's own access, the same access as the chat's file tools:
   - In a chat whose agent has no folder, `/` is the user's home, as before.
-  - In a chat whose agent has a folder (see [Folders of an agent]({{%relref "features/chats-agents#folders-of-an-agent" %}})), `/` is the agent's folder. A path names a file inside it: `/Other/x` is `Other/x` inside the folder, not a folder of the home. The add-on can also name the chat's own folder as `/workspace/chat/x`, and the shared folders as `/workspace/shared-<name>/x` (read only). A path with a parent reference, NUL or a control character is refused. An encoded or look-alike separator (`..%2f`, `%2e%2e`, a backslash, U+2024, U+FF0F) is part of a name. A path outside these folders is not found. The agent's mode applies: a read-only folder takes no file.
+  - In a chat whose agent has a folder (see [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}})), `/` is the agent's folder. A path names a file inside it: `/Other/x` is `Other/x` inside the folder, not a folder of the home. The add-on can also name the chat's own folder as `/workspace/chat/x`, and the shared folders as `/workspace/shared-<name>/x` (read only). A path with a parent reference, NUL or a control character is refused. An encoded or look-alike separator (`..%2f`, `%2e%2e`, a backslash, U+2024, U+FF0F) is part of a name. A path outside these folders is not found. The agent's mode applies: a read-only folder takes no file.
   - When an add-on mounts its `/` at `home`, the host also mounts the chat's folder at `chat` in a chat whose agent has a folder, so the Sandbox sees `/workspace/home` and `/workspace/chat` as the chat's file tools do. No add-on needs a change for this.
   - `workspace.changes` lists only the change sets inside the chat's folders, and a `workspace.commit` entry outside every mount comes back as an `outside-view` conflict.
   - A call whose chat the host cannot resolve (the chat is gone, its agent's folder is missing, or the binding names another user than the actor) is refused with `bad_request`. It never falls back to the home. An action always works for one chat, so an action request that carries no binding and whose resource names no chat of the user is refused too.
@@ -5047,7 +5008,7 @@ Simple Office keeps its own tool-based procedures and needs no exec grant.
 An older package of the add-on also served `read`, `write`, `edit`, `glob` and `grep`. They are gone: reinstall the package to drop them. A chat's switch for the add-on is kept by add-on ID, so nothing a chat stored changes.
 
 - **One sandbox per user and chat.** The key is the pair of the user and the conversation. The user comes from the host. Nobody else reaches the sandbox, and the model cannot name another user or chat.
-- **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, their version stays and the sandbox's version is saved as a copy; the answer names the file and the copy. A file written outside `/workspace/home` (where `bash` starts) is not saved, and the answer names it too. In a chat whose agent works in [one folder]({{%relref "features/chats-agents#folders-of-an-agent" %}}), `/workspace/home` is that folder (read only when the agent can only read it), and the chat's own folder is at `/workspace/chat`, where files are saved as well; nothing else of the user's files is in the sandbox. The change set belongs to the chat that ran the command, so the chat lists the files it saved (see [Files that a command saved]({{%relref "features/chats#files-that-a-command-saved" %}})). A file change by someone else makes the sandbox rebuild its view of the files before the next call.
+- **Changes are one change set.** After every call the add-on commits what the code changed, as one change set in the history of the user's files, so it can be undone there. If someone else changed the same file meanwhile, their version stays and the sandbox's version is saved as a copy; the answer names the file and the copy. A file written outside `/workspace/home` (where `bash` starts) is not saved, and the answer names it too. In a chat whose agent works in [one folder]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}), `/workspace/home` is that folder (read only when the agent can only read it), and the chat's own folder is at `/workspace/chat`, where files are saved as well; nothing else of the user's files is in the sandbox. The change set belongs to the chat that ran the command, so the chat lists the files it saved (see [Files that a command saved]({{%relref "features/chats#files-that-a-command-saved" %}})). A file change by someone else makes the sandbox rebuild its view of the files before the next call.
 - **Limits.** At most 4 sandboxes for a user (the oldest idle one gives way to a new one) and 16 in all. When the 16 are used, the oldest suspended sandbox of any user gives way to a new one, so sleeping sandboxes never keep a user out; a call is refused with a busy answer only when every sandbox is running. A sandbox that is idle for 10 minutes is suspended and wakes on the next call. A sandbox is removed 24 hours after it was made. An add-on restart removes every sandbox it left, suspended ones too. When the add-on stops (it is disabled, or the server shuts down) it first stops all its sandboxes, for at most 8 seconds. The supervisor waits for that before it kills the add-on process; a server that is killed with SIGKILL cannot do this, and the next start removes what was left. When a suspended sandbox is removed, the host backend also stops the processes it left running.
 - **Output.** A tool answer is cut at 64 KiB, and a `bash` call stops after its timeout (120 seconds by default, 28 minutes at most, so the answer is back before the 30-minute limit of an action call).
 - **Without a backend.** When the host has no way to run sandboxes, nothing runs. A chat is not offered the Sandbox tools then: it gets one stand-in tool that tells the model why, so the model answers that it cannot run code instead of trying. Without the add-on, or with it switched off for a chat, the chat's model is told that it cannot run commands, and the chat's Tools menu says so to the user; see [Running commands]({{%relref "features/chats#running-commands" %}}). A tool that is called anyway answers "This host cannot run commands." The same happens when the Files workspace is off, because a sandbox needs the user's files.

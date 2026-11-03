@@ -640,8 +640,7 @@
     "chipMissing": "Folder hilang",
     "missing": "Folder agen ini sudah tidak ada. Pilih folder lain di agen.",
     "startError": "Folder agen ini hilang, jadi chat tidak bisa dimulai. Pilih folder lain untuk agen.",
-    "editAgent": "Edit agen",
-    "toolsMany": "File: hanya {{n}} folder: {{list}}. Folder bersama dan skill tetap bisa dibaca."
+    "editAgent": "Edit agen"
   },
   "origin": {
     "banner": "Percakapan ini dimulai oleh {{title}}.",

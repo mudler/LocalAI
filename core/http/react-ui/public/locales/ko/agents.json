@@ -80,8 +80,7 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "파일",
-      "Tools": "도구"
+      "Files": "파일"
     },
     "name": "Name",
     "description": "Description",
@@ -134,12 +133,7 @@
       "off": "끔",
       "registries": "패키지 레지스트리",
       "all": "모든 공개 사이트"
-    },
-    "toolsSummary": "{{total}}개 중 {{on}}개 켜짐",
-    "toolsHelp": "이 에이전트와의 채팅이 사용할 수 있는 것을 고르세요. 채팅의 도구 메뉴와 같은 스위치입니다. 꺼진 도구는 모델에 제공되지 않으며, 이 에이전트와의 채팅에서 켤 수 없습니다.",
-    "toolsHeading": "이 에이전트의 도구",
-    "skillsLater": "이 에이전트와의 채팅은 켜진 스킬만 읽습니다.",
-    "skillsHeading": "이 에이전트의 스킬"
+    }
   },
   "run": {
     "workingLine": "Working"
@@ -456,7 +450,7 @@
   },
   "folder": {
     "all": "내 모든 파일",
-    "one": "선택한 폴더",
+    "one": "폴더 하나",
     "scopeLabel": "이 에이전트가 접근할 수 있는 파일",
     "allHelp": "이 에이전트와의 채팅은 에이전트 없는 채팅처럼 모든 파일에 접근합니다.",
     "choose": "폴더 선택",
@@ -488,15 +482,6 @@
     "exportNote": "파일에 폴더 {{path}}이(가) 적혀 있습니다. 가져오는 곳에 같은 경로의 폴더가 있으면 에이전트가 그 폴더를 사용하고, 없으면 폴더를 선택하라고 요청합니다.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "폴더 없음",
-    "chipUnset": "선택한 폴더 없음",
-    "add": "폴더 추가",
-    "remove": "{{path}} 제거",
-    "removeRow": "제거",
-    "count": "{{max}}개 중 {{n}}개 폴더",
-    "summaryMany": "폴더 {{n}}개",
-    "effectiveRead": "읽기 전용 폴더 안에 있어서 이 폴더도 읽기만 할 수 있습니다.",
-    "effectiveWrite": "변경할 수 있는 폴더 안에 있어서 이 폴더도 변경할 수 있습니다.",
-    "notMounted": "공유 폴더 {{n}}개가 채팅의 접근 한도에 맞지 않아 마운트되지 않았습니다.",
-    "exportNoteMany": "이 파일에는 폴더 {{n}}개가 적혀 있습니다. 가져오는 곳에서는 해당 경로에 실제로 있는 폴더가 에이전트에 지정되고, 나머지는 직접 고르라고 안내합니다."
+    "chipUnset": "선택한 폴더 없음"
   }
 }

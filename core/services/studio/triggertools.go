@@ -186,6 +186,10 @@ func (s *Service) registerTriggerTools() error {
 					case !s.allowCap(ctx, CapabilityRequest{Capability: CapTriggersPropose, Binding: c.OriginID, Owner: c.Actor.Principal, Agent: c.AgentID}):
 						return session.Tool{}, false, "triggers are off for this connection"
 					}
+					// The binding allows it; the sender of this turn must hold it too.
+					if held, why := c.Holds(CapTriggersPropose); !held {
+						return session.Tool{}, false, why
+					}
 					if d.id == proposeTriggerName {
 						desc, schema = desc+connectorProposeNote, proposeTriggerConnectorSchema
 					}
