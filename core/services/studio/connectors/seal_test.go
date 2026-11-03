@@ -46,16 +46,18 @@ var _ = Describe("sealing and validating bindings", func() {
 			many[i] = "1"
 		}
 		for name, b := range map[string]connectors.Binding{
-			"no name":    {Kind: connectors.KindTelegram, AgentID: "a"},
-			"long name":  {Name: strings.Repeat("n", 81), Kind: connectors.KindTelegram, AgentID: "a"},
-			"bad kind":   {Name: "b", Kind: "Not A Kind", AgentID: "a"},
-			"no agent":   {Name: "b", Kind: connectors.KindTelegram},
-			"bad allow":  {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"alice"}},
-			"short name": {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"@ab"}},
-			"many":       {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: many},
-			"bad notify": {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", NotifyChat: "me"},
-			"lower id":   {Name: "b", Kind: "slack", AgentID: "a", Allow: []string{"u012ab"}},
-			"id notify":  {Name: "b", Kind: "slack", AgentID: "a", NotifyChat: "@ada"},
+			"no name":                {Kind: connectors.KindTelegram, AgentID: "a"},
+			"long name":              {Name: strings.Repeat("n", 81), Kind: connectors.KindTelegram, AgentID: "a"},
+			"bad kind":               {Name: "b", Kind: "Not A Kind", AgentID: "a"},
+			"no agent":               {Name: "b", Kind: connectors.KindTelegram},
+			"bad allow":              {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"alice"}},
+			"short name":             {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"@ab"}},
+			"many":                   {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: many},
+			"bad notify":             {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", NotifyChat: "me"},
+			"lower id":               {Name: "b", Kind: "slack", AgentID: "a", Allow: []string{"u012ab"}},
+			"id notify":              {Name: "b", Kind: "slack", AgentID: "a", NotifyChat: "@ada"},
+			"negative receive limit": {Name: "b", Kind: "slack", AgentID: "a", FileReceiveMax: -1},
+			"huge send limit":        {Name: "b", Kind: "slack", AgentID: "a", FileSendMax: connectors.MaxFileLimit + 1},
 		} {
 			Expect(connectors.Validate(b)).To(MatchError(connectors.ErrInvalid), name)
 		}

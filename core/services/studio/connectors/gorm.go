@@ -33,9 +33,13 @@ type bindingRow struct {
 	ThreadContextOff bool
 	// Options is JSON, added by AutoMigrate.
 	Options string
-	Token   []byte
-	Created time.Time
-	Updated time.Time
+	// The columns of the file limits are added by AutoMigrate; a row stored
+	// before them has no limit of the owner.
+	FileReceiveMax int64
+	FileSendMax    int64
+	Token          []byte
+	Created        time.Time
+	Updated        time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -90,6 +94,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
 		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ThreadContextOff: r.ThreadContextOff,
+		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
@@ -117,7 +122,8 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 	}
 	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
-		FilesOff: b.FilesOff, ThreadContextOff: b.ThreadContextOff, Options: options, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		FilesOff: b.FilesOff, ThreadContextOff: b.ThreadContextOff, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
+		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {

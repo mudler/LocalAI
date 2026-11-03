@@ -94,6 +94,15 @@ func Run(newStore NewStore) {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.ReadsThread()).To(BeFalse())
 	})
+	It("keeps the file limits an owner set for a binding", func() {
+		s := newStore()
+		b := binding("limits", "u1", "Limits")
+		b.FileReceiveMax, b.FileSendMax = 512<<10, 2<<20
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "limits")
+		Expect(err).NotTo(HaveOccurred())
+		Expect([]int64{got.FileReceiveMax, got.FileSendMax}).To(Equal([]int64{512 << 10, 2 << 20}))
+	})
 	It("gives an old binding the add-on of its kind", func() {
 		// A binding stored before connectors became add-ons has no add-on ID.
 		s := newStore()

@@ -68,6 +68,8 @@ const (
 	MaxSendersKept   = 200
 	MaxOptions       = 8
 	MaxOptionRunes   = 32
+	// MaxFileLimit is the largest file limit a binding can hold: 1 TiB.
+	MaxFileLimit int64 = 1 << 40
 )
 
 // Errors.
@@ -116,6 +118,11 @@ type Binding struct {
 	// the binding declares (contract.ConnectorKind.Options), by option ID. An
 	// option that is not here has its default.
 	Options map[string]string
+	// FileReceiveMax and FileSendMax are the largest file, in bytes, that the
+	// owner lets the bot read and send. Zero means no limit of the owner: the
+	// limit of the kind applies. A value can only lower what the kind allows;
+	// the host takes the smaller one.
+	FileReceiveMax, FileSendMax int64
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
@@ -192,6 +199,9 @@ func Validate(b Binding) error {
 		if !allowShape.MatchString(a) {
 			return bad("%q is not a chat ID, user ID or @username", a)
 		}
+	}
+	if b.FileReceiveMax < 0 || b.FileReceiveMax > MaxFileLimit || b.FileSendMax < 0 || b.FileSendMax > MaxFileLimit {
+		return bad("a file limit must be 0 (the limit of the kind) or 1 to %d bytes", MaxFileLimit)
 	}
 	if b.NotifyChat != "" && !chatShape.MatchString(b.NotifyChat) {
 		return bad("the notification chat must be a chat ID")
