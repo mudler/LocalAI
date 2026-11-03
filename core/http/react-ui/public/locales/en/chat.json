@@ -787,7 +787,8 @@
     "chipMissing": "Folder missing",
     "missing": "The folder of this agent is gone. Choose another folder in the agent.",
     "startError": "This agent's folder is missing, so the chat cannot start. Choose another folder for the agent.",
-    "editAgent": "Edit agent"
+    "editAgent": "Edit agent",
+    "toolsMany": "Files: only {{n}} folders: {{list}}. Shared folders and skills stay readable."
   },
   "origin": {
     "banner": "This conversation was started by {{title}}.",

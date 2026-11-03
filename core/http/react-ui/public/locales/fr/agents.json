@@ -450,7 +450,7 @@
   },
   "folder": {
     "all": "Tous mes fichiers",
-    "one": "Un dossier",
+    "one": "Dossiers choisis",
     "scopeLabel": "Fichiers que cet agent peut atteindre",
     "allHelp": "Les chats avec cet agent atteignent tous vos fichiers, comme un chat sans agent.",
     "choose": "Choisir un dossier",
@@ -482,6 +482,15 @@
     "exportNote": "Le fichier nomme le dossier {{path}}. Là où vous l'importez, l'agent reçoit le dossier de ce chemin, s'il existe, ou vous demande d'en choisir un.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Dossier manquant",
-    "chipUnset": "Aucun dossier choisi"
+    "chipUnset": "Aucun dossier choisi",
+    "add": "Ajouter un dossier",
+    "remove": "Retirer {{path}}",
+    "removeRow": "Retirer",
+    "count": "{{n}} dossiers sur {{max}}",
+    "summaryMany": "{{n}} dossiers",
+    "effectiveRead": "Dans un dossier en lecture seule : celui-ci ne peut qu'être lu.",
+    "effectiveWrite": "Dans un dossier modifiable : celui-ci peut aussi être modifié.",
+    "notMounted": "{{n}} dossiers partagés ne tiennent pas dans la limite d'accès d'un chat et ne sont pas montés.",
+    "exportNoteMany": "Le fichier nomme {{n}} dossiers. Là où vous l'importez, l'agent reçoit les dossiers de ces chemins qui existent et vous demande de choisir les autres."
   }
 }

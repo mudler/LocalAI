@@ -450,7 +450,7 @@
   },
   "folder": {
     "all": "Tutti i miei file",
-    "one": "Una cartella",
+    "one": "Cartelle scelte",
     "scopeLabel": "File che questo agente può raggiungere",
     "allHelp": "Le chat con questo agente raggiungono tutti i tuoi file, come una chat senza agente.",
     "choose": "Scegli cartella",
@@ -482,6 +482,15 @@
     "exportNote": "Il file indica la cartella {{path}}. Dove lo importi, l'agente riceve la cartella con quel percorso, se esiste, oppure ti chiede di sceglierne una.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Cartella mancante",
-    "chipUnset": "Nessuna cartella scelta"
+    "chipUnset": "Nessuna cartella scelta",
+    "add": "Aggiungi cartella",
+    "remove": "Rimuovi {{path}}",
+    "removeRow": "Rimuovi",
+    "count": "{{n}} di {{max}} cartelle",
+    "summaryMany": "{{n}} cartelle",
+    "effectiveRead": "È dentro una cartella di sola lettura, quindi questa si può solo leggere.",
+    "effectiveWrite": "È dentro una cartella modificabile, quindi anche questa si può modificare.",
+    "notMounted": "{{n}} cartelle condivise non rientrano nel limite di accesso di una chat e non sono montate.",
+    "exportNoteMany": "Il file nomina {{n}} cartelle. Dove lo importi, l'agente riceve le cartelle con quei percorsi che esistono e ti chiede di scegliere le altre."
   }
 }

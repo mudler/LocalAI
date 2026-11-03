@@ -450,7 +450,7 @@
   },
   "folder": {
     "all": "Todos mis archivos",
-    "one": "Una carpeta",
+    "one": "Carpetas elegidas",
     "scopeLabel": "Archivos que este agente puede alcanzar",
     "allHelp": "Los chats con este agente alcanzan todos tus archivos, como un chat sin agente.",
     "choose": "Elegir carpeta",
@@ -482,6 +482,15 @@
     "exportNote": "El archivo indica la carpeta {{path}}. Donde lo importes, el agente recibe la carpeta con esa ruta, si existe, o te pide que elijas una.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Falta la carpeta",
-    "chipUnset": "Ninguna carpeta elegida"
+    "chipUnset": "Ninguna carpeta elegida",
+    "add": "Añadir carpeta",
+    "remove": "Quitar {{path}}",
+    "removeRow": "Quitar",
+    "count": "{{n}} de {{max}} carpetas",
+    "summaryMany": "{{n}} carpetas",
+    "effectiveRead": "Está dentro de una carpeta de solo lectura, así que esta solo se puede leer.",
+    "effectiveWrite": "Está dentro de una carpeta que se puede cambiar, así que esta también se puede cambiar.",
+    "notMounted": "{{n}} carpetas compartidas no caben en el límite de acceso de un chat y no se montan.",
+    "exportNoteMany": "El archivo nombra {{n}} carpetas. Donde lo importes, el agente recibe las carpetas con esas rutas que existan y te pide elegir las demás."
   }
 }

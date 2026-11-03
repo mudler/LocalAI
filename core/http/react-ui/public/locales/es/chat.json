@@ -640,7 +640,8 @@
     "chipMissing": "Falta la carpeta",
     "missing": "La carpeta de este agente ya no existe. Elige otra carpeta en el agente.",
     "startError": "Falta la carpeta de este agente, así que el chat no puede empezar. Elige otra carpeta para el agente.",
-    "editAgent": "Editar agente"
+    "editAgent": "Editar agente",
+    "toolsMany": "Archivos: solo {{n}} carpetas: {{list}}. Las carpetas compartidas y las skills siguen siendo legibles."
   },
   "origin": {
     "banner": "Esta conversación la inició {{title}}.",

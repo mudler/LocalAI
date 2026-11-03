@@ -689,7 +689,7 @@
   },
   "folder": {
     "all": "All my files",
-    "one": "One folder",
+    "one": "Chosen folders",
     "scopeLabel": "Files this agent can reach",
     "allHelp": "Chats with this agent can reach all your files, as a chat without an agent can.",
     "choose": "Choose folder",
@@ -721,6 +721,15 @@
     "exportNote": "The file names the folder {{path}}. Where you import it, the agent gets the folder with that path, if there is one, or asks you to choose one.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Folder missing",
-    "chipUnset": "No folder chosen"
+    "chipUnset": "No folder chosen",
+    "add": "Add folder",
+    "remove": "Remove {{path}}",
+    "removeRow": "Remove",
+    "count": "{{n}} of {{max}} folders",
+    "summaryMany": "{{n}} folders",
+    "effectiveRead": "Inside a folder that can only be read, so this one can only be read.",
+    "effectiveWrite": "Inside a folder that can be changed, so this one can be changed too.",
+    "notMounted": "{{n}} shared folders do not fit the access limit of a chat and are not mounted.",
+    "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others."
   }
 }

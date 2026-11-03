@@ -640,7 +640,8 @@
     "chipMissing": "Cartella mancante",
     "missing": "La cartella di questo agente non esiste più. Scegli un'altra cartella nell'agente.",
     "startError": "La cartella di questo agente manca, quindi la chat non può partire. Scegli un'altra cartella per l'agente.",
-    "editAgent": "Modifica agente"
+    "editAgent": "Modifica agente",
+    "toolsMany": "File: solo {{n}} cartelle: {{list}}. Le cartelle condivise e le skill restano leggibili."
   },
   "origin": {
     "banner": "Questa conversazione è stata avviata da {{title}}.",
