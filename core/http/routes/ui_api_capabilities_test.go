@@ -27,6 +27,8 @@ type capabilityEntry struct {
 	Disabled     bool     `json:"disabled"`
 	Pinned       bool     `json:"pinned"`
 	MCP          bool     `json:"mcp"`
+	AliasOf      string   `json:"alias_of"`
+	AliasError   string   `json:"alias_error"`
 }
 
 // capabilitiesOf writes one model config per entry (name -> YAML after the
@@ -82,30 +84,49 @@ var _ = Describe("UI model capabilities", func() {
 		}
 	})
 
-	It("gives a valid alias the capabilities of its target and nothing else", func() {
+	It("describes a valid alias through its target and keeps its own management state", func() {
 		data := capabilitiesOf(map[string]string{
 			"target":         "backend: llama-cpp\nknown_usecases: [chat, vision]\npinned: true\n",
 			"alias":          "alias: target\nknown_usecases: [embeddings]\nprofile:\n  system_prompt: Answer briefly.\n  client_tools: drop\n",
 			"disabled-alias": "alias: target\ndisabled: true\n",
-			"broken":         "alias: missing\nknown_usecases: [chat]\n",
-			"chain":          "alias: alias\nknown_usecases: [chat]\n",
 		})
-		Expect(data).To(HaveLen(5))
+		Expect(data).To(HaveLen(3))
+		for _, entry := range data {
+			Expect(entry.Capabilities).To(ConsistOf("FLAG_CHAT", "FLAG_VISION"), "%s must inherit chat/vision", entry.ID)
+			Expect(entry.Backend).To(Equal("llama-cpp"), entry.ID)
+			Expect(entry.AliasError).To(BeEmpty(), entry.ID)
+			if entry.ID == "target" {
+				Expect(entry.AliasOf).To(BeEmpty())
+				Expect(entry.Pinned).To(BeTrue())
+				continue
+			}
+			Expect(entry.AliasOf).To(Equal("target"), entry.ID)
+			Expect(entry.Pinned).To(BeFalse(), "alias %s must not inherit pinned", entry.ID)
+			Expect(entry.Disabled).To(Equal(entry.ID == "disabled-alias"), entry.ID)
+		}
+	})
+
+	It("reports an alias it cannot resolve instead of dropping it", func() {
+		data := capabilitiesOf(map[string]string{
+			"target": "backend: llama-cpp\nknown_usecases: [chat]\n",
+			"alias":  "alias: target\n",
+			"broken": "alias: missing\nknown_usecases: [chat]\n",
+			"chain":  "alias: alias\nknown_usecases: [chat]\n",
+		})
+		Expect(data).To(HaveLen(4))
 		for _, entry := range data {
 			switch entry.ID {
-			case "target", "alias", "disabled-alias":
-				Expect(entry.Capabilities).To(ConsistOf("FLAG_CHAT", "FLAG_VISION"), "%s must inherit chat/vision", entry.ID)
-			case "broken", "chain":
-				Expect(entry.Capabilities).To(BeEmpty(), "invalid alias %s gained capabilities", entry.ID)
+			case "broken":
+				Expect(entry.AliasOf).To(Equal("missing"))
+				Expect(entry.AliasError).To(ContainSubstring("unknown model"))
+			case "chain":
+				Expect(entry.AliasOf).To(Equal("alias"))
+				Expect(entry.AliasError).To(ContainSubstring("chains are not allowed"))
 			default:
-				Fail("unexpected ID: " + entry.ID)
+				continue
 			}
-			if entry.ID != "target" {
-				Expect(entry.Backend).To(BeEmpty(), "alias %s inherited management metadata", entry.ID)
-				Expect(entry.Pinned).To(BeFalse(), entry.ID)
-				Expect(entry.MCP).To(BeFalse(), entry.ID)
-			}
-			Expect(entry.Disabled).To(Equal(entry.ID == "disabled-alias"), entry.ID)
+			Expect(entry.Capabilities).To(BeEmpty(), entry.ID)
+			Expect(entry.Backend).To(BeEmpty(), entry.ID)
 		}
 	})
 })
