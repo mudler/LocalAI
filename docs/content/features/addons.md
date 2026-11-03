@@ -609,6 +609,33 @@ connection has expired or was revoked, the model gets the code
 `reconnect_needed` and a note to tell the person to reconnect on the Connectors
 page. The model is told not to repeat the call and not to report an outage.
 
+#### Where the host keeps an OAuth login
+
+A binding has an auth kind. An empty kind or `token` is a binding whose token
+the person gave; it works as before. A binding of kind `oauth2` holds no token
+of its own: its tokens are in its **grant**, and the binding is a usable
+credential only while it has one.
+
+The host keeps three records, in the same store as the bindings (the
+`studio_connector*` tables of the database, or `connectors.json` in the data
+folder of a single process):
+
+| Record | Table | Key | Sealed | Plain |
+|---|---|---|---|---|
+| Grant | `studio_connector_grants` | binding | access token, refresh token, token type | expiry, scopes, account label, state (`connected` or `reconnect_needed`), reason, descriptor digest, version, lease |
+| OAuth client | `studio_oauth_clients` | add-on ID | client secret | descriptor digest, client ID, who approved it and when |
+| Login state | `studio_oauth_states` | SHA-256 of the `state` parameter | PKCE verifier | binding, owner, add-on, descriptor digest, redirect URI, scopes, return path, nonce hash, expiry |
+
+- Sealed values use AES-256-GCM with the sealing key of the bindings. Each
+  record type has its own additional data (a grant's names its binding, owner
+  and add-on), so a sealed value copied to another row does not open.
+- The host never stores the `state` parameter itself. A login state lasts 10
+  minutes and works once: the callback removes it in the same step that reads
+  it, on whichever frontend serves the callback, even when the exchange that
+  follows fails.
+- The tables and the `auth_kind` column are added when the server starts.
+  Existing bindings have an empty kind and need no change.
+
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an

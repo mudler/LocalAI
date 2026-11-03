@@ -85,7 +85,7 @@ func validateResources(entries []ResourceEntry) error {
 }
 
 // ErrNoCredential means the selected binding is not the person's, is not of
-// the add-on, or holds no token.
+// the add-on, or holds no usable credential of its kind.
 var ErrNoCredential = errors.New("connectors: no binding of this add-on")
 
 // NotAllowedError means the selected binding does not list the resource.
@@ -106,9 +106,18 @@ var ErrNoConnection = errors.New("connectors: no connection is selected")
 // the call to its list. A call that names no resource (key is empty) gets no
 // entry. A key on the list is matched without regard to case. Any other key
 // gets a *NotAllowedError that lists the keys of this binding, sorted. A
-// binding without a token is no credential: ErrNoCredential.
+// binding without a usable credential of its kind is no credential:
+// ErrNoCredential. A token binding is usable when it holds its token; an
+// OAuth binding is never usable from the binding alone, so its caller looks at
+// the grant and uses EntryWith.
 func Entry(b Binding, key string) (ResourceEntry, error) {
-	if len(b.Token) == 0 {
+	return EntryWith(b, !b.UsesOAuth() && len(b.Token) > 0, key)
+}
+
+// EntryWith is Entry with the caller's answer to whether the binding holds a
+// usable credential of its kind.
+func EntryWith(b Binding, usable bool, key string) (ResourceEntry, error) {
+	if !usable {
 		return ResourceEntry{}, ErrNoCredential
 	}
 	if key == "" {

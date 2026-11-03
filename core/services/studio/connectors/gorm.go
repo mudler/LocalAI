@@ -49,12 +49,15 @@ type bindingRow struct {
 	FileSendMax    int64
 	// Caps, Grants and Paired are JSON, added by AutoMigrate; a row stored
 	// before them has none.
-	Caps    string
-	Grants  string
-	Paired  string
-	Token   []byte
-	Created time.Time
-	Updated time.Time
+	Caps   string
+	Grants string
+	Paired string
+	// AuthKind is added by AutoMigrate; a row stored before it is a token
+	// binding.
+	AuthKind string `gorm:"size:16"`
+	Token    []byte
+	Created  time.Time
+	Updated  time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -119,7 +122,8 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("connectors: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{}); err != nil {
+	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{},
+		&grantRow{}, &oauthClientRow{}, &loginStateRow{}); err != nil {
 		return nil, fmt.Errorf("connectors: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -128,7 +132,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
 		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ReplyLanguage: r.ReplyLanguage, WriteMode: r.WriteMode,
-		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
+		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax, AuthKind: r.AuthKind,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
@@ -175,7 +179,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 	return s.db.WithContext(ctx).Save(&bindingRow{Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
 		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
-		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		AuthKind: b.AuthKind, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {
@@ -220,7 +224,7 @@ func (s *gormStore) EnabledBindings(ctx context.Context) ([]Binding, error) {
 
 func (s *gormStore) DeleteBinding(ctx context.Context, id string) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}} {
+		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}, &grantRow{}, &loginStateRow{}} {
 			if err := tx.Where("binding = ?", id).Delete(m).Error; err != nil {
 				return err
 			}
