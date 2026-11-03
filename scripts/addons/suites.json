@@ -421,7 +421,18 @@
           "does not read the add-on ID",
           "gives the declared title of a preset and the host title for the others",
           "declares its network and keeps the control it asked for",
-          "keeps the control through its bash tool when an older manifest declares no network"
+          "keeps the control through its bash tool when an older manifest declares no network",
+          "accepts a kind that declares what it receives and sends",
+          "accepts a kind that declares one direction only, or nothing",
+          "needs a manifest that accepts API 2 to declare files",
+          "a limit of zero",
+          "a negative limit",
+          "a limit above the largest the host knows",
+          "an empty ability",
+          "a type that is no media type",
+          "a repeated type",
+          "too many types",
+          "reads files from JSON and refuses an unknown field in it"
         ]
       },
       {
@@ -1377,7 +1388,8 @@
           "mixed grants",
           "unrelated operations",
           "bare workspace",
-          "similar prefix"
+          "similar prefix",
+          "reads the host ceiling of connector files from the owner policy"
         ],
         "focus": "execution binding owner resolver|workspace operation declarations"
       },
