@@ -692,6 +692,80 @@ Uninstalling an add-on does not touch its grants or its client yet: the
 add-on manager has no hook for it. The bindings stay, as they do for a token
 binding.
 
+#### The login routes
+
+| Route | Who | Body | Answer |
+|---|---|---|---|
+| `POST /api/chats/connectors/{id}/oauth/start` | the owner of the binding | `{"scopes": ["write"], "return_to": "/app/chats/connectors"}`, both optional | `{"authorize_url", "expires"}` and the nonce cookie |
+| `GET /api/chats/connectors/oauth/callback` | the browser that started the login | the query the service sends | `303` to the return page |
+| `POST /api/chats/connectors/{id}/oauth/disconnect` | the owner of the binding | none | `{"revoked": true}` or `false` |
+| `GET /api/chats/admin/oauth-clients/{addonId}` | an administrator | none | the client, without the secret |
+| `PUT /api/chats/admin/oauth-clients/{addonId}` | an administrator | `{"client_id", "client_secret", "descriptor_digest"}` | the client, without the secret |
+
+The person's routes need the `connectors` feature and, because a login is an
+add-on call, the `addons` feature. The client routes need the administrator
+role. None of these routes has an MCP tool: a client secret must not pass
+through a chat, and a login is a person's act in their own browser.
+
+**Register the callback with the service.** Every add-on uses one redirect
+URI: the base URL of the server followed by
+`/api/chats/connectors/oauth/callback`, for example
+`https://localai.example.test/api/chats/connectors/oauth/callback`. The client
+read returns it as `callback_url`. The host builds it, in this order, from
+`LOCALAI_BASE_URL`, from the forwarding headers of a trusted proxy (see
+[reverse proxy]({{% relref "advanced/reverse-proxy-tls" %}})), or from the
+request when the host is `localhost` or a loopback address. When none of them
+applies, the start is a `409` with the type `base_url_required`, because the
+service would otherwise send the code to an address that anyone can choose.
+The address of a login is stored with its state and sent again at the
+exchange.
+
+**Approve an add-on.** Read the client: `current_digest` is the digest of the
+login the add-on declares now, and `descriptor` shows it in plain fields
+(addresses, hosts, required and optional scopes, client authentication and
+authorize parameters). Register the callback address with the service, then
+save the client ID and secret with `descriptor_digest` set to the digest you
+read. The save is the approval. When the add-on's login changed in the
+meantime, nothing is saved and the answer is `409` with the type
+`approval_stale` and the new `current_digest`; read it again and review the
+change. `client_secret` is write-only: an absent secret keeps the stored one,
+and a public client (`clientAuth` `none`) has none. The read says
+`has_secret`, `approved` and who approved when.
+
+**Log in.** The start checks the binding, the approval and the optional
+scopes, and sets the cookie `localai_oauth_nonce` (`HttpOnly`,
+`SameSite=Lax`, `Secure` over HTTPS, ten minutes). The return page must be a
+page of the web app: a path under `/app` with an optional query and no
+fragment, as the add-on SDK accepts; anything else is a `400`. Open
+`authorize_url` in the same browser. The service sends the browser back to the
+callback, which:
+
+- needs the session of the person who started the login. The session cookie is
+  `SameSite=Lax`, so the browser sends it on that redirect. With
+  authentication off there is no session, and the nonce cookie alone binds the
+  login to the browser;
+- clears the nonce cookie, whatever the outcome;
+- always answers `303` to the return page, with `oauth=ok`, `oauth=denied`
+  (the person declined; a connection that worked keeps working) or
+  `oauth=error&class=<class>`, where the class is `invalid_state`,
+  `provider_error`, `exchange_failed`, `scopes_missing` or `unavailable`. The
+  `error_description` of the service is never copied into the address, a page
+  or a log.
+
+The cookie holds one login: a second start in the same browser replaces it,
+and the first login then ends with `invalid_state`.
+
+**See the state.** The binding JSON (`GET /api/chats/connectors` and
+`GET /api/chats/connectors/{id}`) has `auth_kind: "oauth2"` and an `oauth`
+object: `state` (`connected`, `reconnect_needed`, `not_connected` or
+`needs_approval`), the fixed `reason` of a reconnect, `account_label`,
+`scopes`, `expires_at` and `has_client`. It never holds a token. The state is
+read from the shared store, so every frontend shows the same; a login that
+changed in an upgrade shows `needs_approval` once a call or a refresh found
+it. The add-on list of a chat (`GET /api/chats/{id}/addons`) gives each
+connection a `connection_state`, and the add-on a `connection_state` of
+`reconnect_needed` when a connection the chat may use must be connected again.
+
 #### OAuth with several frontends
 
 State mode: stateless per request, with a claim in the database. Every
@@ -711,9 +785,20 @@ In a split deployment the refresh runs on the add-on owner: the frontends
 forward credentialed tool calls to it, the owner adds the credential and calls
 the add-on, and when the add-on rejects the token the owner refreshes and
 retries before it answers. Only the final `reconnect_needed` refusal crosses
-back to the frontend. The OAuth descriptor comes from the manifest of the
-installed add-on, which only the owner reads, so the login start and callback
-also run where the add-on runs.
+back to the frontend.
+
+The OAuth descriptor comes from the manifest of the installed add-on, which
+only the owner reads. So the start, the callback, the disconnect and the
+client routes are owner dispatch, in a combined process and in a cluster
+alike: the frontend that gets the request forwards it over the carrier with
+the signed caller, and the owner serves it. The service can send the browser
+back to any frontend; that frontend forwards the query and the nonce cookie as
+fields of the call (never as headers), the owner trades the code, and the
+frontend answers the redirect. A frontend never serves these routes from a
+service of its own: when the owner cannot be reached, the person's routes
+answer `503` and the callback ends with the class `unavailable`. An owner
+that predates the calls answers `503` with the reason that it must be
+upgraded.
 
 ## Singleton owner and its limits
 

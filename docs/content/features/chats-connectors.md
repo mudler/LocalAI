@@ -1150,6 +1150,27 @@ allows one reader; a new leader in a cluster waits and retries for about a minut
 before it gives up), when the agent is deleted or has no model, or when the owner no longer
 exists. Fix the cause and switch it on.
 
+## Connections that log in with OAuth
+
+A connector add-on can declare that its connection logs you in to the service
+with OAuth 2.0 instead of taking a token. Create the binding with
+`"auth_kind": "oauth2"` and no token, then connect it:
+
+```bash
+curl -X POST .../api/chats/connectors -d '{"kind": "<kind>", "name": "Work", "auth_kind": "oauth2"}'
+curl -X POST .../api/chats/connectors/<id>/oauth/start -d '{"return_to": "/app/chats/connectors"}'
+# {"authorize_url": "https://auth.example.test/authorize?...", "expires": "..."}
+```
+
+Open `authorize_url` in the same browser. After the login the service sends you
+back to the page you started from, with `oauth=ok`, `oauth=denied` or
+`oauth=error` and a class in the address. The binding's `oauth` object then
+says `connected` and names the account. `POST .../oauth/disconnect` ends the
+login. An administrator must first save the add-on's client, which approves the
+login the add-on declares. See [OAuth 2.0
+credentials]({{% relref "features/addons" %}}#oauth-20-credentials) for the
+routes, the callback address to register with the service and the approval.
+
 ## Storage and clusters
 
 Bindings, the read position in Telegram's updates, the sender log and the chat of
