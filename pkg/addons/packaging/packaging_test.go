@@ -2,6 +2,7 @@
 package packaging
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -17,6 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -74,6 +76,42 @@ var _ = Describe("package layout", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(m)).To(ContainSubstring(`"version": "1.2.3"`))
 		Expect(string(m)).To(ContainSubstring(`"arch": "amd64"`))
+	})
+
+	It("writes the zip of a verified layout with a digest manifest and a sha256 file", func() {
+		p := newProject(both)
+		dir := p.mustBuild(amd, "1.2.3", "bin")
+		out := filepath.Join(GinkgoT().TempDir(), "dist")
+		res, err := run("zip", "--config", p.config, "--layout", dir, "--platform", amd, "--version", "1.2.3", "--out", out)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).To(ContainSubstring("tables-1.2.3-linux-amd64.zip"))
+		zipPath := filepath.Join(out, "tables-1.2.3-linux-amd64.zip")
+		raw, err := os.ReadFile(zipPath)
+		Expect(err).NotTo(HaveOccurred())
+		sum, err := os.ReadFile(zipPath + ".sha256")
+		Expect(err).NotTo(HaveOccurred())
+		h, _ := sha(raw)
+		Expect(string(sum)).To(Equal(strings.TrimPrefix(h, "sha256:") + "  tables-1.2.3-linux-amd64.zip\n"))
+		zr, err := zip.NewReader(bytes.NewReader(raw), int64(len(raw)))
+		Expect(err).NotTo(HaveOccurred())
+		names := map[string]os.FileMode{}
+		for _, f := range zr.File {
+			names[f.Name] = f.Mode().Perm()
+		}
+		Expect(names).To(HaveKey(zipformat.ManifestName))
+		Expect(names).To(HaveKey("manifest.json"))
+		Expect(names["tables"]).To(Equal(os.FileMode(0o755)))
+		Expect(names["ui/tables.js"]).To(Equal(os.FileMode(0o644)))
+		// The same layout gives the same bytes.
+		out2 := filepath.Join(GinkgoT().TempDir(), "dist")
+		_, err = run("zip", "--config", p.config, "--layout", dir, "--platform", amd, "--version", "1.2.3", "--out", out2)
+		Expect(err).NotTo(HaveOccurred())
+		again, err := os.ReadFile(filepath.Join(out2, "tables-1.2.3-linux-amd64.zip"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(again).To(Equal(raw))
+		// A layout of another version is refused.
+		_, err = run("zip", "--config", p.config, "--layout", dir, "--platform", amd, "--version", "9.9.9", "--out", out)
+		Expect(err).To(HaveOccurred())
 	})
 
 	It("refuses a platform that the matrix has not enabled unless it is a local check", func() {
