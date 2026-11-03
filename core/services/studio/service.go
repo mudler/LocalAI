@@ -520,6 +520,14 @@ func (s *Service) List(ctx context.Context, user string, limit int) ([]session.C
 // limit applies to chats, so a burst of newer runs cannot push older chats out
 // of the page: the store is read page by page until enough chats are found.
 func (s *Service) ListChats(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+	return s.ListChatsWhere(ctx, user, limit, nil)
+}
+
+// ListChatsWhere is ListChats for the chats that keep returns true for (nil
+// keeps all). The limit counts the chats kept, so a flood of chats that a
+// connector or a trigger started cannot push a person's chats out of a page of
+// person-started chats, and the other way round.
+func (s *Service) ListChatsWhere(ctx context.Context, user string, limit int, keep func(session.ChatRecord) bool) ([]session.ChatRecord, error) {
 	var out []session.ChatRecord
 	var cur session.ChatCursor
 	for {
@@ -528,7 +536,7 @@ func (s *Service) ListChats(ctx context.Context, user string, limit int) ([]sess
 			return nil, err
 		}
 		for _, r := range page {
-			if r.Kind == session.KindSubAgent {
+			if r.Kind == session.KindSubAgent || (keep != nil && !keep(r)) {
 				continue
 			}
 			out = append(out, r)
