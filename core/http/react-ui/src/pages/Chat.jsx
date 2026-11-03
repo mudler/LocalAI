@@ -12,7 +12,7 @@ import { useOriginContext } from '../hooks/useOriginContext'
 import { isAutomated, knownKind, resolveOrigin } from '../utils/originChats'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
-  threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
+  threadRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
 import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
@@ -61,7 +61,7 @@ import NetworkConsentCard from '../components/chat/NetworkConsentCard'
 import LoopBar, { LoopList } from '../components/chat/LoopBar'
 import { EgressCardsContext } from '../components/chat/egressCardsContext'
 import MessageAttachments from '../components/chat/Attachments'
-import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
+import ChatMessage, { ActivityRow, ProposalsRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
 import { AppRow } from '../components/chat/ActivityFold'
 import { resumeItems } from '../utils/homeConversations'
@@ -772,7 +772,9 @@ function ChatPage() {
     },
   }), [])
 
-  const rows = useMemo(() => threadRows(messages, chat.live), [messages, chat.live])
+  const rows = useMemo(() => placeProposals(threadRows(messages, chat.live), { streaming: chat.running }), [messages, chat.live, chat.running])
+  // The cards of a turn that is still running go after the streaming text.
+  const tailProposals = rows.length > 0 && rows[rows.length - 1].kind === 'proposals' ? rows[rows.length - 1] : null
   // Only the last answer can be answered again (the server cuts after the last
   // message you sent).
   const lastAnswerKey = useMemo(() => {
@@ -1090,7 +1092,8 @@ function ChatPage() {
               <EgressCardsContext.Provider value={egressCards}>
               <ChatSendContext.Provider value={sendLive}>
               {rows.map((row, i) => {
-                if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
+                if (row.kind === 'proposals') return row === tailProposals ? null : <ProposalsRow key={row.key} items={row.items} proposalTick={chat.ticks.proposals} />
+                if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} withProposals={false} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
                 if (row.kind === 'marker') return <ContextMarker key={row.key} marker={row.marker} before={row.before} after={row.after} />
                 if (row.kind === 'goal') return <GoalMarker key={row.key} msg={row.msg} />
@@ -1103,6 +1106,7 @@ function ChatPage() {
                     warm={modelWarm}
                     busy={chat.running}
                     activityItems={row.activity}
+                    proposalItems={row.proposals}
                     actions={messageActions}
                     conversationId={activeId}
                     canRegenerate={!chat.running && row.key === lastAnswerKey}
@@ -1129,6 +1133,7 @@ function ChatPage() {
                   )}
                 />
               )}
+              {tailProposals && <ProposalsRow key={tailProposals.key} items={tailProposals.items} proposalTick={chat.ticks.proposals} />}
               {chat.hostConsent && !streaming.tools.some(tc => tc.consent?.id === chat.hostConsent.id) && (
                 <CommandsConsentCard consent={chat.hostConsent} />
               )}
