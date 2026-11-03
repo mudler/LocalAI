@@ -180,8 +180,14 @@ var _ = Describe("talk-back from a connector chat", func() {
 			Expect(fake.texts("SECRET", "")).To(BeEmpty())
 		})
 
-		It("to a listed channel the owner did not approve needs a paired sender", func() {
+		It("to a listed channel the owner did not approve needs a paired sender and the grant of the agent", func() {
 			setup(nil)
+			// The sensitive grant is never implied: the agent must hold it.
+			ag := r.agent
+			ag.Builtins = []string{contract.CapTalkbackChannels, contract.CapTalkbackNewChan}
+			saved, err := r.svc.SaveAgent(ctx, alice, ag)
+			Expect(err).NotTo(HaveOccurred())
+			r.agent = saved
 			args = `{"text":"first","channel":"` + ops + `"}`
 			turn("send")
 			waitFor("the message", func() bool { return len(fake.texts(ops, "")) == 1 })

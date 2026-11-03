@@ -262,6 +262,20 @@ confirm every proposal, and you can undo it. A write to the agent without the
 `builtins` field keeps them, an empty list clears them and an unknown name is
 refused (an import drops it).
 
+In a chat that a messaging connection started, the grants also decide which tools
+the model gets. A tool exists when the sender holds the capability on the
+connection, the agent holds the grant, and the chat did not switch the tool off.
+Four grants work this way: `triggers.propose`, `triggers.run`, `talkback.channels`
+and `files.upload` (the sender's files going to the agent), plus the sensitive
+`talkback.new_channel`. An agent that has no `builtins` list at all keeps the
+non-sensitive ones, as before. A sensitive grant is never implied: it needs to be
+on the list. The moment you grant any built-in, the list is the whole answer, so
+add the connector grants you want to keep (granting only `memory.write` to an agent
+that proposed triggers from a messaging app turns those off; nothing is deleted
+and they work again when you grant `triggers.propose`). The `act.*` grants are
+recorded but not enforced yet: the action policy of unattended runs that uses them
+is still to come.
+
 ### Export and import
 
 ```
