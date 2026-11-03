@@ -69,6 +69,7 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		return out, ErrForbidden
 	}
 	var admit func(run func(context.Context) error) error
+	var grant *CredentialGrant
 	aa, hasAddonAdmission := g.Admission.(AddonAdmission)
 	if r.ResourceID == "" && hasAddonAdmission && g.resourceless(ctx, r) {
 		// A read tool that declares no resource runs without one. The add-on
@@ -77,7 +78,8 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		if e := AuthorizeTool(ctx, g.toolSource(), r.AddonID, r.Generation, r.Arguments); e != nil {
 			return out, e
 		}
-		if e := g.credentialize(ctx, a, &r); e != nil {
+		var e error
+		if grant, e = g.credentialize(ctx, a, &r); e != nil {
 			return out, e
 		}
 		admit = func(run func(context.Context) error) error { return aa.AdmitAddon(ctx, a, r.AddonID, run) }
@@ -96,7 +98,7 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		}
 		// An add-on that declares credentials names its resources by the
 		// list of the person, never by a host resource ID.
-		if e := g.credentialize(ctx, a, &r); e != nil {
+		if grant, e = g.credentialize(ctx, a, &r); e != nil {
 			return out, e
 		}
 		admit = func(run func(context.Context) error) error { return g.Admission.Admit(ctx, a, key, "read", run) }
@@ -112,8 +114,20 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		if instance.Generation != r.Generation {
 			return ErrForbidden
 		}
-		out, e = instance.Client.Read(ctx, contract.Envelope{Request: r, Authority: contract.Authority{Actor: a, Scope: "read", ExpiresAt: time.Now().Add(30 * time.Second)}})
-		return e
+		read := func(r contract.Request) error {
+			out, e = instance.Client.Read(ctx, contract.Envelope{Request: r, Authority: contract.Authority{Actor: a, Scope: "read", ExpiresAt: time.Now().Add(30 * time.Second)}})
+			return e
+		}
+		if grant == nil {
+			return read(r)
+		}
+		// The add-on may reject the token of an OAuth login; the host renews
+		// it here, on the owner, and only the final answer travels.
+		return WithRenewal(ctx, g.Credentials, a, r.AddonID, *grant, func(cg CredentialGrant) error {
+			next := r
+			next.Credential, next.GrantedScopes = cg.Credential, cg.GrantedScopes
+			return read(next)
+		})
 	})
 	if err != nil || len(out.Outputs) == 0 {
 		return

@@ -1064,9 +1064,13 @@ func (c connectorAuthority) AuthorizeConnector(ctx context.Context, scope studio
 }
 
 // credentialSource gives the tool calls of an add-on that declares credentials
-// the token and the allowed resource of the caller's own binding. It is the
-// owner's: the sealed tokens are on the owner only. The connector service can
-// start after the gateway, so it is resolved at call time.
+// the token and the allowed resource of the caller's own binding. It is wired
+// on the process that runs the add-ons, so the add-on's answer to a
+// credential, and the renewal it may need, are handled where the add-on runs;
+// a frontend only forwards the call. The sealed tokens themselves are in the
+// connector store, which every process with the database shares. The
+// connector service can start after the gateway, so it is resolved at call
+// time.
 type credentialSource struct{ a *Application }
 
 func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, addonID, key string) (gateway.CredentialGrant, error) {
@@ -1083,17 +1087,43 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 		return gateway.CredentialGrant{}, err
 	}
 	grant, err := c.a.studioConnectors.CredentialFor(ctx, user, addonID, bindingID, key)
+	return c.answer(addonID, grant, err)
+}
+
+// RenewCredential renews the OAuth token of a call that the add-on rejected
+// (gateway.CredentialRenewer). The binding is the one the rejected grant came
+// from: the host chose it for this call and no caller input names it.
+func (c credentialSource) RenewCredential(ctx context.Context, actor contract.Actor, addonID string, rejected gateway.CredentialGrant, final bool) (gateway.CredentialGrant, error) {
+	if c.a.studioConnectors == nil {
+		return gateway.CredentialGrant{}, gateway.ErrUnavailable
+	}
+	user := addonWorkspacePrincipal(c.a.authDB != nil)(actor)
+	if user == "" {
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+	}
+	grant, err := c.a.studioConnectors.RenewCredential(ctx, user, addonID, rejected.BindingID, rejected.ResourceKey, rejected.Version, final)
+	return c.answer(addonID, grant, err)
+}
+
+func (c credentialSource) answer(addonID string, grant studio.CredentialGrant, err error) (gateway.CredentialGrant, error) {
 	var notAllowed *connectors.NotAllowedError
+	var limited *contract.ErrRateLimited
 	switch {
 	case err == nil:
 		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID, WriteMode: grant.WriteMode,
-			BindingID: grant.BindingID, BindingName: grant.BindingName}, nil
+			GrantedScopes: grant.Scopes, Version: grant.Version, BindingID: grant.BindingID, BindingName: grant.BindingName}, nil
 	case errors.Is(err, connectors.ErrNoConnection):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
 	case errors.Is(err, connectors.ErrNoCredential):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+	case errors.Is(err, studio.ErrReconnectNeeded):
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeReconnectNeeded}
 	case errors.As(err, &notAllowed):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: notAllowed.Allowed}
+	case errors.As(err, &limited):
+		// The token endpoint asked to wait; the call is retried like an
+		// add-on's own 429.
+		return gateway.CredentialGrant{}, limited
 	}
 	// The cause may name a binding; it stays out of the error that travels.
 	xlog.Warn("addons: the credential of a binding could not be read", "addon", addonID)

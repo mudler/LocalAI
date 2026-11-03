@@ -660,9 +660,11 @@ Every credentialed call reads the grant:
   left. A service that gives no `expires_in` is refreshed only after a
   rejection. The proposal broker reads the credential at preview and again at
   apply, so a confirmation hours later gets a fresh token.
-- When the add-on answers `credential_rejected`, the host refreshes once and
-  retries the call once, unless the grant changed since the call began; then
-  it retries with the newer token. A second rejection ends the grant.
+- When the add-on answers `credential_rejected` to a read, a preview or an
+  apply, the host refreshes once and retries the call once, unless the grant
+  changed since the call began; then it retries with the newer token. A second
+  rejection ends the grant, and the call is refused with `reconnect_needed`. A
+  rejected apply changed nothing, so its proposal stays pending.
 - The new access token, its expiry, the granted scopes and a rotated refresh
   token are written in one compare-and-set step before the token is used. When
   that write fails after the service rotated the refresh token, the host tries

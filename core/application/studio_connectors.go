@@ -96,6 +96,31 @@ func refuseConnectorInbound(context.Context, hostops.Call) (json.RawMessage, err
 	return nil, hostops.ErrForbidden
 }
 
+// addonOAuthDescriptor is the OAuth descriptor that the running add-on's
+// verified manifest declares. Only a process that runs the add-ons reads
+// manifests; elsewhere the OAuth login and refresh are unavailable, and the
+// tool calls that need them are forwarded to the owner anyway.
+func (a *Application) addonOAuthDescriptor(ctx context.Context, addonID string) (contract.OAuthDescriptor, error) {
+	m := a.addonManager
+	if m == nil {
+		return contract.OAuthDescriptor{}, gateway.ErrUnavailable
+	}
+	inst, err := m.Runtime(ctx, addonID)
+	if err != nil {
+		return contract.OAuthDescriptor{}, err
+	}
+	caps, err := m.DeclaredCapabilities(ctx, addonID, inst.Generation)
+	if err != nil {
+		return contract.OAuthDescriptor{}, err
+	}
+	for _, slot := range caps.Credentials {
+		if slot.Kind == contract.CredentialKindOAuth2 && slot.OAuth != nil {
+			return *slot.OAuth, nil
+		}
+	}
+	return contract.OAuthDescriptor{}, errors.New("the add-on declares no OAuth login")
+}
+
 // StudioConnectors returns the connector manager of the chats, or nil.
 func (a *Application) StudioConnectors() *studio.Connectors { return a.studioConnectors }
 
@@ -128,7 +153,8 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	}
 	// A token is checked with the platform when it is saved, so a typo is
 	// refused at once instead of switching the binding off later.
-	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds, VerifyToken: studio.VerifyTokenWithMe(tr), FileCeiling: a.studioConnectorFilesCeiling}
+	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds, VerifyToken: studio.VerifyTokenWithMe(tr), FileCeiling: a.studioConnectorFilesCeiling,
+		OAuthDescriptor: a.addonOAuthDescriptor}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsConnectors, "Connectors")
 	}
