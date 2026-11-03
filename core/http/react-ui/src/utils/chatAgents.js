@@ -1,9 +1,11 @@
 // Helpers of the saved agents page. No React, so a node test drives them.
 
-export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills']
+// builtins_off and builtins_on are the switches of the built-in tool groups
+// (see utils/agentTools.js); they are lists like the grants.
+export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills', 'builtins_off', 'builtins_on']
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', folders: [] }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [], network: 'off', folders: [] }
 }
 
 // Adds a name to a list: trimmed, not empty, once.

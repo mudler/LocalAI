@@ -96,6 +96,19 @@ function applyFolders(a, body) {
 
 const BODIES = { citations: 'Cite every claim.\n\n1. Number the sources.\n2. List them at the end.\n' }
 
+// What the server lists for a new chat (GET /api/chats/draft/tools): the same
+// lists the Tools menu of a chat draws and the agent form draws too.
+export const DRAFT_TOOLS = {
+  builtins: [
+    { group: 'files', tools: ['read_file'], off: false, usable: true, provider: 'builtin', providers: { read_file: 'builtin' }, title: 'Your files', description: 'The model can list, read, write, edit, move, delete and search your files, and read documents.', when_off: 'The model cannot see or change your files.' },
+    { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin', providers: { web_search: 'builtin', web_fetch: 'builtin' }, title: 'Web', description: 'The model can search the web and read a public page by its address.', when_off: 'The model cannot look anything up online.' },
+    { group: 'saved_agents', tools: ['list_agents'], off: true, opt_in: true, usable: true, provider: 'builtin', providers: { list_agents: 'builtin' }, title: 'Saved agents', description: 'The model can list your saved agents and start one as a sub-agent.', when_off: 'The model cannot see or start your saved agents.' },
+    { group: 'triggers', tools: ['propose_trigger'], off: false, usable: true, provider: 'builtin', providers: { propose_trigger: 'builtin' }, title: 'Triggers', description: 'The model can propose, list, change and delete triggers; a new one waits for your confirmation.', when_off: 'The model cannot create or manage triggers.' },
+    { group: 'changes', tools: ['propose_change'], off: false, usable: true, provider: 'builtin', providers: { propose_change: 'builtin' }, title: 'Memory and profile changes', description: 'The model can propose an edit to your memory notes; nothing changes until you confirm.', when_off: 'The model cannot propose edits to your memory.' },
+  ],
+  addons: [{ id: 'office', tools: 2, off: false, title: 'Office', description: 'Read and write documents and spreadsheets.' }],
+}
+
 export async function installAgents(page, {
   agents = AGENTS, chats = CHATS, triggers = TRIGGERS, runs = RUNS, skills = SKILLS, proposals = [], importWarnings = [], files = null,
   models, collections = ['handbook', 'notes'], connectors = [{ id: 'm1', name: 'Docs', enabled: true }, { id: 'm2', name: 'Parked', enabled: false }],
@@ -111,6 +124,9 @@ export async function installAgents(page, {
   await page.route('**/api/collections*', route => route.fulfill({ json: { collections } }))
   await page.route('**/v1/mcp/servers/*', route => route.fulfill({ json: { model: 'qwen3-8b', servers: [{ name: 'crm' }, { name: 'mail' }] } }))
   await page.route('**/api/chats/mcp-connectors*', route => route.fulfill({ json: { connectors } }))
+  await page.route('**/api/chats/draft/tools*', route => route.fulfill({
+    json: { ...DRAFT_TOOLS, servers: [], off: [], connectors: connectors.map(c => ({ id: c.id, name: c.name, off: false, usable: c.enabled, reason: c.enabled ? undefined : 'off' })) },
+  }))
   // With `files` (a map of folder to entries) the listing follows the path
   // asked for; without, every folder lists one folder.
   await page.route('**/api/chats/files*', route => {

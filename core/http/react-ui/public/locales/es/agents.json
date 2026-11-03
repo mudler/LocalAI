@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Archivos"
+      "Files": "Archivos",
+      "Tools": "Herramientas"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Desactivada",
       "registries": "Registros de paquetes",
       "all": "Todos los sitios públicos"
-    }
+    },
+    "toolsSummary": "{{on}} de {{total}} activas",
+    "toolsHelp": "Elige qué puede usar un chat con este agente. Son los mismos interruptores que el menú Herramientas de un chat. Una herramienta apagada nunca se ofrece al modelo, y un chat con este agente no puede encenderla.",
+    "toolsHeading": "Herramientas de este agente",
+    "skillsLater": "Un chat con este agente solo lee las skills activas.",
+    "skillsHeading": "Skills de este agente"
   },
   "run": {
     "workingLine": "Working"

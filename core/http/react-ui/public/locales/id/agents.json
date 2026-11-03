@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "File"
+      "Files": "File",
+      "Tools": "Alat"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Mati",
       "registries": "Registri paket",
       "all": "Semua situs publik"
-    }
+    },
+    "toolsSummary": "{{on}} dari {{total}} aktif",
+    "toolsHelp": "Pilih apa yang dapat dipakai chat dengan agen ini. Sakelarnya sama dengan menu Alat pada chat. Alat yang mati tidak pernah ditawarkan kepada model, dan chat dengan agen ini tidak dapat menyalakannya.",
+    "toolsHeading": "Alat agen ini",
+    "skillsLater": "Chat dengan agen ini hanya membaca skill yang aktif.",
+    "skillsHeading": "Skill agen ini"
   },
   "run": {
     "workingLine": "Working"

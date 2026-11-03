@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "파일"
+      "Files": "파일",
+      "Tools": "도구"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "끔",
       "registries": "패키지 레지스트리",
       "all": "모든 공개 사이트"
-    }
+    },
+    "toolsSummary": "{{total}}개 중 {{on}}개 켜짐",
+    "toolsHelp": "이 에이전트와의 채팅이 사용할 수 있는 것을 고르세요. 채팅의 도구 메뉴와 같은 스위치입니다. 꺼진 도구는 모델에 제공되지 않으며, 이 에이전트와의 채팅에서 켤 수 없습니다.",
+    "toolsHeading": "이 에이전트의 도구",
+    "skillsLater": "이 에이전트와의 채팅은 켜진 스킬만 읽습니다.",
+    "skillsHeading": "이 에이전트의 스킬"
   },
   "run": {
     "workingLine": "Working"

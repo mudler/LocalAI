@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Dateien"
+      "Files": "Dateien",
+      "Tools": "Werkzeuge"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Aus",
       "registries": "Paket-Registries",
       "all": "Alle öffentlichen Seiten"
-    }
+    },
+    "toolsSummary": "{{on}} von {{total}} an",
+    "toolsHelp": "Wähle, was ein Chat mit diesem Agenten nutzen kann. Das sind dieselben Schalter wie im Werkzeuge-Menü eines Chats. Ein ausgeschaltetes Werkzeug wird dem Modell nie angeboten, und ein Chat mit diesem Agenten kann es nicht einschalten.",
+    "toolsHeading": "Werkzeuge dieses Agenten",
+    "skillsLater": "Ein Chat mit diesem Agenten liest nur die eingeschalteten Skills.",
+    "skillsHeading": "Skills dieses Agenten"
   },
   "run": {
     "workingLine": "Working"

@@ -36,8 +36,8 @@ export default function SkillsMenu({ skills, replaced = [], onSet, error, testId
 
 // The body of the skills list, without the chip: the header, the search, one
 // row per skill and the status line. The agent form draws it inline.
-// `later` is the note under the header (what a skill added later does).
-export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', later, manage = true }) {
+// `heading` replaces the title of the list; `later` is the note under the header (what a skill added later does).
+export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'chat-skills', heading, later, manage = true }) {
   const { t } = useTranslation('chat')
   const [query, setQuery] = useState('')
   const noteId = useId()
@@ -61,7 +61,7 @@ export function SkillsPanel({ skills, replaced = [], onSet, error, testId = 'cha
   return (
     <>
       <SwitchHead
-        title={t('skills.heading')}
+        title={heading || t('skills.heading')}
         summary={t('skills.count', { on, total })}
         summaryTestId={`${testId}-summary`}
         actions={(

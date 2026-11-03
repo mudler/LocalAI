@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Fichiers"
+      "Files": "Fichiers",
+      "Tools": "Outils"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Désactivé",
       "registries": "Registres de paquets",
       "all": "Tous les sites publics"
-    }
+    },
+    "toolsSummary": "{{on}} sur {{total}} activés",
+    "toolsHelp": "Choisissez ce qu'un chat avec cet agent peut utiliser. Ce sont les mêmes interrupteurs que le menu Outils d'un chat. Un outil désactivé n'est jamais proposé au modèle, et un chat avec cet agent ne peut pas l'activer.",
+    "toolsHeading": "Outils de cet agent",
+    "skillsLater": "Un chat avec cet agent ne lit que les skills activées.",
+    "skillsHeading": "Skills de cet agent"
   },
   "run": {
     "workingLine": "Working"

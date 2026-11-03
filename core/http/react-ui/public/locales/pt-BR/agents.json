@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Arquivos"
+      "Files": "Arquivos",
+      "Tools": "Ferramentas"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Desligada",
       "registries": "Registros de pacotes",
       "all": "Todos os sites públicos"
-    }
+    },
+    "toolsSummary": "{{on}} de {{total}} ligadas",
+    "toolsHelp": "Escolha o que um chat com este agente pode usar. São os mesmos interruptores do menu Ferramentas de um chat. Uma ferramenta desligada nunca é oferecida ao modelo, e um chat com este agente não pode ligá-la.",
+    "toolsHeading": "Ferramentas deste agente",
+    "skillsLater": "Um chat com este agente lê apenas as skills ligadas.",
+    "skillsHeading": "Skills deste agente"
   },
   "run": {
     "workingLine": "Working"

@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom'
 // eslint-disable-next-line no-unused-vars
 import { Link, useParams, useNavigate, useLocation, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { agentCollectionsApi, chatAgentsApi, chatMCPConnectorsApi, chatSkillsApi, modelMCPServersApi } from '../utils/api'
-import { useLibraryFacts } from '../hooks/useLibraryFacts'
-import { useAddonToolAddons } from '../addons/useAddonRegistry'
+import { agentCollectionsApi, chatAgentsApi, modelMCPServersApi } from '../utils/api'
+import { useAgentTools } from '../hooks/useAgentTools'
+import { useToolGroups } from '../hooks/useToolGroups'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { addEntry, agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, removeEntry } from '../utils/chatAgents'
+import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS } from '../utils/chatAgents'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
@@ -25,6 +25,11 @@ import Icon from '../components/Icon'
 import { Button, Callout, LoadError, Page, PageHeader, Segmented, SkeletonRows } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import AgentFolderDialog from '../components/agents/AgentFolderDialog'
+// eslint-disable-next-line no-unused-vars
+import { SwitchPanel } from '../components/chat/SwitchMenu'
+import { switchCounts } from '../utils/chatSwitchRows'
+// eslint-disable-next-line no-unused-vars
+import { SkillsPanel } from '../components/chat/SkillsMenu'
 
 // The sections of the form. Each folds; Basic info is open at first.
 const SECTIONS = [
@@ -34,7 +39,7 @@ const SECTIONS = [
   { id: 'Files', icon: 'folder' },
   { id: 'MemorySettings', icon: 'database' },
   { id: 'Skills', icon: 'sparkles' },
-  { id: 'Addons', icon: 'puzzle' },
+  { id: 'Tools', icon: 'plug' },
   { id: 'MCP', icon: 'server' },
 ]
 
@@ -43,31 +48,6 @@ const SUMMARY_FIELDS = {
   BasicInfo: [{ name: 'name', type: 'text' }, { name: 'description', type: 'textarea' }],
   ModelSettings: [{ name: 'model', type: 'text' }],
   PromptsGoals: [{ name: 'instructions', type: 'textarea' }],
-}
-
-// One checkbox per name the person may grant. A granted name that the server
-// no longer lists stays visible, marked, so it can be taken away.
-// eslint-disable-next-line no-unused-vars
-function GrantList({ testId, options, value, onChange, emptyText, goneLabel, hint }) {
-  const all = [...options, ...value.filter(v => !options.some(o => o.id === v)).map(v => ({ id: v, name: v, gone: true }))]
-  if (all.length === 0) return <p className="ag-note">{emptyText}</p>
-  return (
-    <div className="ag-grants" data-testid={testId}>
-      {all.map(o => (
-        <label key={o.id} className="ag-grant" data-on={value.includes(o.id) || undefined}>
-          <input
-            type="checkbox"
-            checked={value.includes(o.id)}
-            onChange={(e) => onChange(e.target.checked ? addEntry(value, o.id) : removeEntry(value, o.id))}
-          />
-          <span>
-            <span className="ag-grant__name">{o.name}{o.gone ? ` (${goneLabel})` : ''}</span>
-            {(o.hint || hint?.(o)) && <span className="ag-grant__hint">{o.hint || hint(o)}</span>}
-          </span>
-        </label>
-      ))}
-    </div>
-  )
 }
 
 // --- Main component ---
@@ -97,18 +77,11 @@ export default function AgentCreate() {
   const [choosingFolder, setChoosingFolder] = useState(null)
   // Snapshot of the form as first loaded, for the unsaved-changes guard.
   const initialFormRef = useRef(null)
-  const [skills, setSkills] = useState([])
   const [collectionNames, setCollectionNames] = useState([])
-  const [connectors, setConnectors] = useState([])
   const [modelServers, setModelServers] = useState([])
-  const addonList = useAddonToolAddons()
-  // Who else uses a skill, so the picker can say "not used yet".
-  const library = useLibraryFacts()
 
   // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
-    chatSkillsApi.list().then(r => setSkills(r.skills || [])).catch(() => {})
-    chatMCPConnectorsApi.list().then(r => setConnectors(r.connectors || [])).catch(() => {})
     agentCollectionsApi.list(false)
       .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name)).filter(Boolean)))
       .catch(() => {})
@@ -153,7 +126,12 @@ export default function AgentCreate() {
     init()
   }, [id, isEdit, imported, templateId, attempt])
 
-  const updateField = (name, value) => setForm(prev => ({ ...prev, [name]: value }))
+  const updateField = useCallback((name, value) => setForm(prev => ({ ...prev, [name]: value })), [])
+
+  // The Tools and Skills lists are the ones the Tools menu of a chat draws
+  // (SwitchPanel), with the agent's grants and switches applied to them.
+  const tools = useAgentTools(form, updateField)
+  const toolGroups = useToolGroups(tools, { commandState: false })
 
   // The definition exactly as it is saved. The preview shows this object and
   // Save sends it.
@@ -195,15 +173,6 @@ export default function AgentCreate() {
   }
 
   const mcp = splitAgentMCP(form.mcp_servers)
-  const connectorOptions = connectors.map(c => ({ id: c.id, name: c.name, hint: c.enabled ? '' : t('create.connectorOff') }))
-  const skillOptions = skills.filter(s => !s.invalid).reduce((all, s) => (all.some(x => x.id === s.name) ? all : [...all, { id: s.name, name: s.name, hint: s.description, layer: s.layer }]), [])
-  const addonOptions = addonList.map(a => ({ id: a.id, name: a.id }))
-  const skillUse = (o) => {
-    if (library.status !== 'ready') return ''
-    const others = library.agents.filter(a => a.id !== id && (a.config?.skills || []).includes(o.id))
-    return others.length === 0 ? t('library:usedBy.none') : t('library:usedBy.line', { name: others.map(x => x.name).join(', ') })
-  }
-
   if (loading || loadError) {
     return (
       <Page className="ag-page" data-testid="agent-edit">
@@ -235,7 +204,12 @@ export default function AgentCreate() {
     let keys = (SUMMARY_FIELDS[s.id] || []).map(f => f.name)
     if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
-    else if (s.id === 'Addons') { keys = ['addons']; summary = countOf(form.addons.length, 'create.countAddons'); state = form.addons.length ? 'ready' : 'empty' }
+    else if (s.id === 'Tools') {
+      keys = ['builtins_off', 'builtins_on', 'addons', 'mcp_servers', 'network']
+      const { on, total } = switchCounts(toolGroups.flatMap(g => g.rows))
+      summary = total ? t('create.toolsSummary', { on, total }) : t('create.noneYet')
+      state = on ? 'ready' : 'empty'
+    }
     else if (s.id === 'Files') { keys = ['folders']; ({ summary, state } = folderFold()) }
     else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
     else {
@@ -342,17 +316,24 @@ export default function AgentCreate() {
         return (
           <>
             <p className="ag-note">{t('create.skillsHelp')}</p>
-            <GrantList testId="agent-skills" options={skillOptions} value={form.skills} onChange={(v) => updateField('skills', v)}
-              emptyText={t('create.noSkills')} goneLabel={t('create.gone')} hint={skillUse} />
-            <p className="ag-note"><Link to="/app/skills">{t('create.manageSkills')}</Link></p>
+            <div className="ag-switches" data-testid="agent-skills-panel">
+              <SkillsPanel
+                skills={tools.skills} replaced={tools.replacedSkills} onSet={tools.setSkillsOn} error={tools.skillsError}
+                testId="agent-skills" heading={t('create.skillsHeading')} later={t('create.skillsLater')}
+              />
+            </div>
           </>
         )
-      case 'Addons':
+      case 'Tools':
         return (
           <>
-            <p className="ag-note">{t('create.addonsHelp')}</p>
-            <GrantList testId="agent-addons" options={addonOptions} value={form.addons} onChange={(v) => updateField('addons', v)}
-              emptyText={t('create.noAddons')} goneLabel={t('create.gone')} />
+            <p className="ag-note">{t('create.toolsHelp')}</p>
+            <div className="ag-switches" data-testid="agent-tools-panel">
+              <SwitchPanel
+                heading={t('create.toolsHeading')} groups={toolGroups} error={tools.error} testId="agent-tools"
+                footer={<Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="agent-tools-manage">{t('create.manageConnectors')}</Button>}
+              />
+            </div>
             <div className="form-group">
               <label className="form-label" htmlFor="ag-network">{t('create.network')}</label>
               <select id="ag-network" className="input" value={form.network || 'off'} onChange={(e) => updateField('network', e.target.value)} data-testid="agent-network">
@@ -437,11 +418,6 @@ export default function AgentCreate() {
             <p className="ag-note">{t('create.mcpHelp')}</p>
             <NameList label={t('create.mcpServers')} hint={t('create.mcpHint')} value={mcp.servers} suggestions={modelServers}
               onChange={(v) => updateField('mcp_servers', joinAgentMCP(v, mcp.connectors))} testId="agent-mcp" />
-            <h4 className="agent-subsection-title">{t('create.mcpConnectors')}</h4>
-            <GrantList testId="agent-connectors" options={connectorOptions} value={mcp.connectors}
-              onChange={(v) => updateField('mcp_servers', joinAgentMCP(mcp.servers, v))}
-              emptyText={t('create.noConnectors')} goneLabel={t('create.gone')} />
-            <p className="ag-note"><Link to="/app/mcp-connectors">{t('create.manageConnectors')}</Link></p>
           </>
         )
       default:

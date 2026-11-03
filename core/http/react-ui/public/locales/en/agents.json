@@ -189,7 +189,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Files"
+      "Files": "Files",
+      "Tools": "Tools"
     },
     "name": "Name",
     "description": "Description",
@@ -236,7 +237,12 @@
       "off": "Off",
       "registries": "Package registries",
       "all": "All public sites"
-    }
+    },
+    "toolsSummary": "{{on}} of {{total}} on",
+    "toolsHelp": "Choose what a chat with this agent can use. These are the same switches as the Tools menu of a chat. A tool that is off is never offered to the model, and a chat with this agent cannot switch it on.",
+    "toolsHeading": "Tools of this agent",
+    "skillsLater": "A chat with this agent reads only the skills that are on.",
+    "skillsHeading": "Skills of this agent"
   },
   "status": {
     "title": "Status",

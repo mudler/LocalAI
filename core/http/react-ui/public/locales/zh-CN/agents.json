@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "文件"
+      "Files": "文件",
+      "Tools": "工具"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "关闭",
       "registries": "软件包仓库",
       "all": "所有公共网站"
-    }
+    },
+    "toolsSummary": "{{total}} 项中开启 {{on}} 项",
+    "toolsHelp": "选择使用此智能体的聊天可以用什么。这些开关与聊天的工具菜单相同。关闭的工具不会提供给模型,使用此智能体的聊天也无法将其打开。",
+    "toolsHeading": "此智能体的工具",
+    "skillsLater": "使用此智能体的聊天只会读取已开启的技能。",
+    "skillsHeading": "此智能体的技能"
   },
   "run": {
     "workingLine": "Working"

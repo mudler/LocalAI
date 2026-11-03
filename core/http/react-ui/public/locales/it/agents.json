@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "File"
+      "Files": "File",
+      "Tools": "Strumenti"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Disattivata",
       "registries": "Registri di pacchetti",
       "all": "Tutti i siti pubblici"
-    }
+    },
+    "toolsSummary": "{{on}} su {{total}} attivi",
+    "toolsHelp": "Scegli cosa può usare una chat con questo agente. Sono gli stessi interruttori del menu Strumenti di una chat. Uno strumento spento non viene mai offerto al modello, e una chat con questo agente non può accenderlo.",
+    "toolsHeading": "Strumenti di questo agente",
+    "skillsLater": "Una chat con questo agente legge solo le skill attive.",
+    "skillsHeading": "Skill di questo agente"
   },
   "run": {
     "workingLine": "Working"

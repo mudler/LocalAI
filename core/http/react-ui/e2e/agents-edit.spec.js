@@ -26,16 +26,16 @@ test.describe('Agent form', () => {
     await expect(page.getByTestId('agent-collections').getByRole('listitem')).toHaveText(['handbook'])
 
     await fold(page, 'Skills').locator('.ag-fold__button').click()
-    await page.getByTestId('agent-skills').getByRole('checkbox', { name: /citations/ }).check()
+    await page.getByTestId('agent-skills-panel').getByRole('switch', { name: /citations/ }).click()
 
-    await fold(page, 'MCP').locator('.ag-fold__button').click()
-    await page.getByTestId('agent-connectors').getByRole('checkbox', { name: /Docs/ }).check()
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-tools-panel').getByRole('switch', { name: /Docs/ }).click()
 
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     expect(s.calls.find(c => c.method === 'POST').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
-      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], network: 'off',
+      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [], network: 'off',
     })
   })
 
@@ -43,7 +43,7 @@ test.describe('Agent form', () => {
     const s = await installAgents(page)
     await page.goto('/app/agents/new')
     await page.getByLabel('Name', { exact: false }).first().fill('Builder')
-    await fold(page, 'Addons').locator('.ag-fold__button').click()
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
     await expect(page.getByTestId('agent-network')).toHaveValue('off')
     await page.getByTestId('agent-network').selectOption('registries')
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
@@ -88,21 +88,45 @@ test.describe('Agent form', () => {
     expect(s.calls.find(c => c.method === 'PUT')).toMatchObject({ url: '/api/chats/agents/a1', body: { name: 'research-assistant', description: 'Searches and cites.', mcp_servers: ['crm', 'connector:m1'] } })
   })
 
-  test('the connector picker names connectors, keeps one that was deleted, and the servers are free text', async ({ page }) => {
+  test('the tools list is the list of the chat: connectors by name, one that was deleted stays, and the servers are free text', async ({ page }) => {
     const s = await installAgents(page)
     await page.goto('/app/agents/a1/edit')
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    const picker = page.getByTestId('agent-tools-panel')
+    await expect(picker.getByRole('switch', { name: /Docs/ })).toBeChecked()
+    await expect(picker.getByRole('switch', { name: /Parked/ })).not.toBeChecked()
     await fold(page, 'MCP').locator('.ag-fold__button').click()
-    const picker = page.getByTestId('agent-connectors')
-    await expect(picker.getByRole('checkbox', { name: /Docs/ })).toBeChecked()
-    await expect(picker.getByRole('checkbox', { name: /Parked/ })).not.toBeChecked()
-    await expect(picker).toContainText('off')
     await expect(page.getByTestId('agent-mcp').getByRole('listitem')).toHaveText(['crm'])
     await expect(page.locator('datalist option[value="mail"]')).toHaveCount(1)
-    await picker.getByRole('checkbox', { name: /Parked/ }).check()
+    await expect(picker.getByTestId('agent-tools-item').filter({ hasText: 'Parked' })).toContainText('off')
+    await picker.getByRole('switch', { name: /Parked/ }).click()
     await page.getByRole('combobox', { name: 'MCP servers +' }).fill('mail')
     await page.getByRole('combobox', { name: 'MCP servers +' }).press('Enter')
     await page.getByRole('button', { name: 'Save Changes' }).first().click()
     await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body.mcp_servers).toEqual(['crm', 'mail', 'connector:m1', 'connector:m2'])
+  })
+
+  test('every switch of the tools list says what it does, and the switches are saved with the agent', async ({ page }) => {
+    const s = await installAgents(page)
+    await page.goto('/app/agents/a1/edit')
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    const panel = page.getByTestId('agent-tools-panel')
+    // The same words as the Tools menu of a chat: a title, a description, and
+    // the add-on's declared title instead of its id.
+    const rows = panel.getByTestId('agent-tools-item')
+    await expect(rows).toHaveCount(8)
+    for (const row of await rows.all()) await expect(row.getByTestId('agent-tools-blurb')).not.toBeEmpty()
+    await expect(panel.getByRole('switch', { name: 'Memory and profile changes' })).toBeChecked()
+    await expect(panel.getByRole('switch', { name: 'Office' })).toBeChecked()
+    await expect(panel).toContainText('Read and write documents and spreadsheets.')
+    await expect(panel.getByRole('switch', { name: 'Saved agents' })).not.toBeChecked()
+
+    await panel.getByRole('switch', { name: 'Triggers' }).click()
+    // Once off, the row also says what the model loses.
+    await expect(panel.getByTestId('agent-tools-item').filter({ hasText: 'Triggers' })).toContainText('The model cannot create or manage triggers.')
+    await panel.getByRole('switch', { name: 'Saved agents' }).click()
+    await page.getByRole('button', { name: 'Save Changes' }).first().click()
+    await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body).toMatchObject({ builtins_off: ['triggers'], builtins_on: ['saved_agents'], addons: ['office'] })
   })
 
   test('shows the reason when the server refuses the agent', async ({ page }) => {
