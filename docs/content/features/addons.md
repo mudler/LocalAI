@@ -140,7 +140,7 @@ and reconciling the operation before further use.
 
 These declarations extend the strict manifest contract. They keep
 `schemaVersion: 1`, host/protocol/data-format level 1 and UI SDK 2. The manifest
-`api` range is 1 to 2: only the execution descriptor below needs 2.
+`api` range is 1 to 2: the execution descriptor and the resource listing below need 2.
 The Go contract parser is authoritative; there is no separate JSON Schema.
 The fragments below merge into an otherwise valid manifest, not a complete
 installable package. Existing executable, identity, compatibility and UI
@@ -397,6 +397,42 @@ eligibility before staging. SDK 2 does not signal support for these manifest
 extensions. If older hosts need support, release maintainers must decide whether
 and how long to publish separate legacy packages. These declarations alone do
 not install packages, grant operations or activate runtime/UI integrations.
+
+### Resource listing
+
+An add-on that keeps resources can ask the host for a read tool that lists the
+resources the caller may use, so a model finds the `resourceId` that its other
+tools take. The add-on writes no code for it: the host builds the tool from its
+own record of the grants.
+
+```json
+{
+  "api": {"min": 1, "max": 2},
+  "capabilities": {
+    "resources": {
+      "noun": "board",
+      "inspect": "boards-inspect",
+      "list": {"tool": "boards-list", "items": "boards"}
+    }
+  }
+}
+```
+
+- `list.tool` is the tool name. The model sees it as `addon__<id>__<tool>`. It
+  must not be the name of a tool, an admin tool or a tool definition of the
+  manifest; the host refuses such a manifest.
+- `list.items` is the key of the result array. It defaults to `resources`.
+- The manifest `api` range must reach 2. A manifest that declares a listing with
+  `api.max` 1 is refused.
+- The tool is a read tool that takes exactly `{}`. The result lists at most 100
+  entries, ordered by resource ID, with `resourceId`, an optional `name` and the
+  caller's `role`. `truncated` is true when the list is incomplete. There is no
+  pagination.
+- The tool is offered only to actor-bound consumers, only while the add-on is
+  enabled and running, and only for resources the caller owns or that were shared
+  with the caller. Existing chat opt-ins, hidden add-ons and allowlists apply.
+- An add-on that declares no `list` gets no listing tool, whatever else it
+  declares.
 
 ## Singleton owner and its limits
 
@@ -2417,7 +2453,7 @@ Two more optional capability fields describe the UI-only resource management (se
 | `capabilities.undo` | Boolean. The add-on keeps a change set for the writes a chat makes at once and answers the host's undo calls (see [Undoing a change a chat made](#undoing-a-change-a-chat-made)). It changes no tool and offers nothing to a model. |
 | `capabilities.adminTools` | At most 4 tool names that only the host's own UI-only endpoints may run. An admin tool is never in `tools`, never has a tool definition, is never offered to a model and is refused by every model, proposal and typed-read path: the declared-tool rule of those paths reads `tools` only. |
 | `capabilities.connector` | Optional. 1 to 4 `kinds` of messaging binding the add-on serves, each with an `id`, a `title`, a `delivery` (`pull` or `push`) and optional texts and a `page`. See [Connector add-ons](#connector-add-ons). |
-| `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. |
+| `capabilities.resources` | Maps the management operations to tools: `create` (a declared tool of kind `create`), `rename` (a declared tool of kind `schema`), `inspect` (a declared tool of kind `read` whose result is an object with a `name` and a `revision`), `delete` (the one admin tool) and a plain-text singular `noun`. Every field is optional. An admin tool must be the `delete` of the mapping, and a mapping must name tools that exist with the kind it needs. A mapping with `create` or `delete` must also declare the read tool `resource-exists` in `tools`, because the host settles interrupted creations and deletions only on its explicit answer. `list` asks the host for a listing tool; see [Resource listing](#resource-listing). |
 
 A tool definition names the resource it works on with a required `resourceId`
 argument, with two exceptions. A `create` tool has no `resourceId`: the host
