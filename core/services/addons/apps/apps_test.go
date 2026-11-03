@@ -209,4 +209,27 @@ var _ = Describe("apps list", func() {
 		notes.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
 		Expect(Build([]Snapshot{notes}, false)[0].UI.Controls).To(BeNil())
 	})
+	It("draws the network policy for a declared capability, with the declared title, and for no other add-on", func() {
+		declared := func(id, title string, grants ...string) Snapshot {
+			ui := page("home")
+			ui.Controls = []string{contract.ControlNetworkPolicy}
+			s := snapshot(id, true, "running", ui, "q")
+			s.Receipt.Manifest.Capabilities.Network = &contract.NetworkCapability{Kind: contract.NetworkKindEgressCheck, Title: title,
+				Presets: []contract.NetworkPreset{{ID: "off", Title: "Closed"}}}
+			s.HostOps = grants
+			s.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
+			return s
+		}
+		byID := map[string]App{}
+		for _, a := range Build([]Snapshot{declared("runbox", "Runbox network", "egress."), declared("boxy", "", "egress."), declared("nogrant", "Nope")}, false) {
+			byID[a.ID] = a
+		}
+		Expect(byID["runbox"].UI.Controls).To(Equal([]string{"network-policy"}), "no tool shadows bash: the declaration attaches the control")
+		Expect(byID["runbox"].Network).To(Equal(&NetworkView{Kind: contract.NetworkKindEgressCheck, Title: "Runbox network", Presets: []contract.NetworkPreset{{ID: "off", Title: "Closed"}}}))
+		Expect(byID["boxy"].Network.Title).To(Equal(byID["boxy"].Title), "the add-on title is the fallback")
+		Expect(byID["nogrant"].Network).To(BeNil(), "no grant, no network")
+		b, err := json.Marshal(byID["runbox"])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).To(ContainSubstring(`"network":{"kind":"egress-check","title":"Runbox network"`))
+	})
 })
