@@ -9,12 +9,14 @@ import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
 import AnswerFields, { answerSummary, answerT } from './AnswerFields'
+import AccessView from './AccessView'
 import ApprovalFields from './ApprovalFields'
 import FilesFields from './FilesFields'
 import { Check, Field, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
+import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi } from './api'
-import { canSave, connectorForm, connectorPayload, emptyConnector, listEntries, replaceList, senderLine } from './connector'
+import { canSave, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
 import './connector.css'
 
 function Senders({ id, onAllowed, t }) {
@@ -93,7 +95,11 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [toDelete, setToDelete] = useState(null)
   const [openSenders, setOpenSenders] = useState('')
   const [kindInfo, setKindInfo] = useState(null)
+  const [capabilities, setCapabilities] = useState([])
+  const [accessVersion, setAccessVersion] = useState(0)
   const kindFiles = kindInfo?.files || null
+  const s = answerT(t)
+  const pairedChanged = useCallback(() => setAccessVersion((v) => v + 1), [])
 
   const fail = useCallback((e) => {
     if (e?.status === 409 && e.body?.error?.type === 'connectors_off') { setOff(e.body.error.message); return }
@@ -110,7 +116,12 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
 
   useEffect(() => { load() }, [load])
   // What the add-on of this kind offers: the choices of its options.
-  useEffect(() => { connectorsApi.kinds().then((r) => setKindInfo((r.kinds || []).find((k) => k.kind === kind) || null)).catch(() => {}) }, [kind])
+  useEffect(() => {
+    connectorsApi.kinds().then((r) => {
+      setKindInfo((r.kinds || []).find((k) => k.kind === kind) || null)
+      setCapabilities(r.capabilities || [])
+    }).catch(() => {})
+  }, [kind])
   useEffect(() => { agentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
@@ -142,6 +153,21 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
         } catch (err) { setError(t('checkFailed', { reason: err?.message || '' })) }
       }
     } catch (err) { fail(err) } finally { setBusy(false) }
+  }
+
+  // The preset for a saved binding that has no permission on: the usual set,
+  // saved at once, with every other setting as it was.
+  const allowUsual = async (c) => {
+    setBusy(true)
+    setError('')
+    setNote('')
+    try {
+      const f = { ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) }
+      f.caps = usualCaps(capabilities)
+      await connectorsApi.update(c.id, connectorPayload(f, kind, '', extra(f)))
+      setNote(s('perm.usualSaved', { name: c.name }))
+      await load()
+    } catch (e) { fail(e) } finally { setBusy(false) }
   }
 
   const act = async (fn) => {
@@ -216,7 +242,9 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </Field>
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
-            <ApprovalFields form={form} setForm={setForm} s={answerT(t)} />
+            <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} />
+            <ApprovalFields form={form} setForm={setForm} s={s} triggersOff={capabilities.length > 0 && !(form.caps || []).includes('triggers.propose')} />
+            {capabilities.length > 0 && <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />}
             </>)}
             <div className="cn-actions">
               <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles) || (extraValid ? !extraValid(form) : false)}>{t('save')}</button>
@@ -250,6 +278,9 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               <span className="cn-muted" data-testid="connector-answer-summary">{answerSummary(c, t)}</span>
               </>) : <span className="cn-muted">{t('agentOf', { name: agentName(c.agent_id) })}</span>}
               {RowInfo && <RowInfo c={c} t={t} />}
+              {messaging && capabilities.length > 0 && hasNoCaps(c) && (
+                <NoCapsNotice capabilities={capabilities} s={s} busy={busy} name={c.name} onUsual={() => allowUsual(c)} />
+              )}
               {c.active === false && <span className="cn-muted" data-testid="connector-inactive">{t('inactive', { reason: c.reason })}</span>}
               {openSenders === c.id && <Senders id={c.id} onAllowed={load} t={t} />}
             </div>

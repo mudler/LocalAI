@@ -1343,6 +1343,18 @@ type ChatsConnectorRole struct {
 	Description string `json:"description,omitempty"`
 }
 
+// ChatsConnectorCapability describes one capability of the closed list.
+type ChatsConnectorCapability struct {
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	// Sensitive capabilities are never granted to a role: only a paired
+	// sender can use them.
+	Sensitive bool `json:"sensitive"`
+	// Usual capabilities are what a one-click preset turns on.
+	Usual bool `json:"usual"`
+}
+
 // ChatsConnectorPermission is a capability that a kind lists. Sensitive ones
 // are never granted to a role: only a paired sender can use them.
 type ChatsConnectorPermission struct {
@@ -1423,6 +1435,9 @@ type ChatsConnectorOptionValue struct {
 // ChatsConnectorKindList lists the connector kinds of the add-ons that run now.
 type ChatsConnectorKindList struct {
 	Kinds []ChatsConnectorKind `json:"kinds"`
+	// Capabilities is the closed list of capabilities that a binding can
+	// enable, with a title and a description of each, for a settings page.
+	Capabilities []ChatsConnectorCapability `json:"capabilities,omitempty"`
 }
 
 // ChatsConnectorWrite creates or replaces a connector binding. token is needed to

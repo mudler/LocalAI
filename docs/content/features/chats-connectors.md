@@ -523,6 +523,15 @@ sender who may not send files get a short refusal and no turn.
 A binding that was stored before this check has no capabilities. Enable what you want
 with `caps`, and pair the accounts that need the sensitive ones.
 
+The settings page of every connector add-on edits all of this: a switch for each
+capability, with a description and a mark on the sensitive ones; the role matrix; the
+paired senders, with a button that shows a new code once; the approved channels for
+talk-back; and the access view with the latest decisions. A binding with no capability
+shows a notice that says why the features are off. The button "Allow the usual" turns
+on the everyday capabilities that stay inside LocalAI and are not sensitive. The
+kind list also returns `capabilities`, the closed list with a title, a description
+and the `sensitive` and `usual` flags of each, so a page needs no list of its own.
+
 To see the result, call `GET /api/chats/connectors/<id>/access`. It runs the same check
 for a sender on the allowlist, a paired sender and a sender of each role the kind
 declares, and lists the latest decisions this server made (sender IDs, roles,

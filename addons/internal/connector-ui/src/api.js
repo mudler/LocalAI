@@ -41,5 +41,7 @@ export const connectorsApi = {
   // Pairing proves that the owner controls a platform account: the code is sent
   // to the bot as a direct message from that account.
   pair: (id) => send('POST', `/api/chats/connectors/${enc(id)}/pairing`, {}),
+  // What each kind of sender may do on a binding now, and the latest decisions.
+  access: (id) => call(`/api/chats/connectors/${enc(id)}/access`),
   unpair: (id, sender) => send('DELETE', `/api/chats/connectors/${enc(id)}/paired/${enc(sender)}`),
 }

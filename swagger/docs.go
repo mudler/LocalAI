@@ -19331,7 +19331,7 @@ const docTemplate = `{
                 "title": {
                     "description": "Title and Description say what the group is and what the model can do\nwhen its switch is on; WhenOff says what it cannot do when it is off.\nThey are English; the interface may translate them by group.",
                     "type": "string",
-                    "example": "Web"
+                    "example": "Look things up online"
                 },
                 "tools": {
                     "type": "array",
@@ -19859,6 +19859,28 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsConnectorCapability": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "sensitive": {
+                    "description": "Sensitive capabilities are never granted to a role: only a paired\nsender can use them.",
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "usual": {
+                    "description": "Usual capabilities are what a one-click preset turns on.",
+                    "type": "boolean"
+                }
+            }
+        },
         "schema.ChatsConnectorChannel": {
             "type": "object",
             "properties": {
@@ -19982,6 +20004,13 @@ const docTemplate = `{
         "schema.ChatsConnectorKindList": {
             "type": "object",
             "properties": {
+                "capabilities": {
+                    "description": "Capabilities is the closed list of capabilities that a binding can\nenable, with a title and a description of each, for a settings page.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorCapability"
+                    }
+                },
                 "kinds": {
                     "type": "array",
                     "items": {

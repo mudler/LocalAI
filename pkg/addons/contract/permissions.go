@@ -72,6 +72,54 @@ func ConnectorCapabilityNames() []string {
 	return out
 }
 
+// CapabilityInfo describes one capability for a settings page: a plain title
+// and a sentence that says what the owner allows. It adds no new rules.
+type CapabilityInfo struct {
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Sensitive   bool   `json:"sensitive"`
+	// Usual marks the capabilities that a settings page turns on with its
+	// one-click preset. A sensitive capability is never usual.
+	Usual bool `json:"usual"`
+}
+
+// capabilityText is the title and description of each capability. Titles are
+// short verbs; descriptions say what changes and who can cause it.
+var capabilityText = map[string][2]string{
+	CapProposalsConfirm: {"Confirm changes from the chat", "A sender can confirm a change that the agent proposed, such as a memory or a trigger, by answering in the same chat."},
+	CapMemoryWrite:      {"Save to memory", "The agent may remember what a sender asks it to remember."},
+	CapFilesUpload:      {"Receive files", "The agent may read files that senders attach to a message."},
+	CapTriggersPropose:  {"Propose triggers", "The agent may propose a timer or an event trigger when a sender asks for one."},
+	CapTriggersRun:      {"Fire event triggers", "A message from a sender may start a run of an event trigger."},
+	CapTalkbackChannels: {"Post to approved channels", "The agent may write to the approved channels below when a sender asks, besides the chat it answers in."},
+	CapTalkbackNewChan:  {"Post to a new channel", "The agent may write to a channel that is not approved yet."},
+	CapProfileWrite:     {"Change the agent profile", "The agent may change its own profile."},
+	CapSkillsWrite:      {"Write skills", "The agent may write or change skills."},
+	CapPagesWrite:       {"Write pages", "The agent may write or change pages."},
+	CapDashboardWrite:   {"Write the dashboard", "The agent may change the dashboard."},
+	CapToolsWrite:       {"Change things outside LocalAI", "An add-on tool may change something with the credential of the binding, such as a comment on an issue."},
+}
+
+// usualCapabilities are what an owner normally allows on a new binding: the
+// everyday ones that stay inside LocalAI and the approved channels.
+var usualCapabilities = map[string]bool{
+	CapProposalsConfirm: true, CapMemoryWrite: true, CapFilesUpload: true,
+	CapTriggersPropose: true, CapTriggersRun: true, CapTalkbackChannels: true,
+}
+
+// ConnectorCapabilities returns the closed list with its texts, in the order of
+// ConnectorCapabilityNames.
+func ConnectorCapabilities() []CapabilityInfo {
+	names := ConnectorCapabilityNames()
+	out := make([]CapabilityInfo, 0, len(names))
+	for _, n := range names {
+		text := capabilityText[n]
+		out = append(out, CapabilityInfo{Name: n, Title: text[0], Description: text[1], Sensitive: capabilities[n], Usual: usualCapabilities[n] && !capabilities[n]})
+	}
+	return out
+}
+
 // ConnectorRole is a role that a kind can give to a sender, such as the admin
 // of a workspace. The add-on decides who has which role and sends the role IDs
 // with each message; the owner decides what each role may do.

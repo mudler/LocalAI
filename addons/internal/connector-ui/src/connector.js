@@ -49,6 +49,74 @@ export function approvalPayload(a) {
   return body
 }
 
+// What a binding lets its senders do. The host owns the closed list of
+// capabilities (the kinds call returns it with a title and a description of
+// each); a sensitive one is never granted to a role, and the host keeps the
+// same limits.
+export const MAX_CHANNELS = 10
+export const MAX_CHANNEL_ID = 64
+export const MAX_CHANNEL_LABEL = 60
+
+// A binding with no caps denies every gated feature: files from senders,
+// triggers, memory writes and talk-back. A binding saved before the host
+// enforced permissions has none.
+export function hasNoCaps(c) {
+  return !(c?.caps || []).length
+}
+
+// The caps that the one-click preset turns on: the ones the host marks usual,
+// never a sensitive one, whatever the list says.
+export function usualCaps(capabilities) {
+  return (capabilities || []).filter((c) => c.usual && !c.sensitive).map((c) => c.name)
+}
+
+// The form after cap name was turned on or off. Turning one off also takes it
+// from every role grant, so a role never holds more than the ceiling.
+export function setCap(form, name, on) {
+  const caps = (form.caps || []).filter((x) => x !== name)
+  if (on) caps.push(name)
+  const grants = (form.grants || [])
+    .map((g) => ({ ...g, caps: g.caps.filter((x) => caps.includes(x)) }))
+    .filter((g) => g.caps.length > 0)
+  return { ...form, caps, grants }
+}
+
+export function roleHas(form, role, cap) {
+  return (form.grants || []).some((g) => g.role === role && g.caps.includes(cap))
+}
+
+// The caps that a kind can give to a role: listed by the kind, not sensitive,
+// and inside the ceiling the owner enabled.
+export function grantableFor(kind, caps) {
+  return (kind?.permissions || []).filter((p) => !p.sensitive && (caps || []).includes(p.name)).map((p) => p.name)
+}
+
+// The form after role was given or refused cap. A sensitive cap, or one that
+// is not in the ceiling, is refused: the form is returned as it was. The host's
+// list says which caps are sensitive.
+export function setGrant(form, role, cap, on, capabilities = []) {
+  const sensitive = capabilities.some((c) => c.name === cap && c.sensitive)
+  if (on && (sensitive || !(form.caps || []).includes(cap))) return form
+  const rest = (form.grants || []).filter((g) => g.role !== role)
+  const mine = (form.grants || []).find((g) => g.role === role)?.caps || []
+  const caps = on ? [...mine.filter((x) => x !== cap), cap] : mine.filter((x) => x !== cap)
+  return { ...form, grants: caps.length ? [...rest, { role, caps }] : rest }
+}
+
+// Why the list of channels cannot be saved: 'count', 'id', 'label' or
+// 'repeat'; else ''. The server has the same limits.
+export function channelsProblem(list) {
+  const channels = list || []
+  if (channels.length > MAX_CHANNELS) return 'count'
+  for (let i = 0; i < channels.length; i++) {
+    const { id = '', label = '' } = channels[i]
+    if (!id || new TextEncoder().encode(id).length > MAX_CHANNEL_ID || /\s/u.test(id)) return 'id'
+    if ([...label].length > MAX_CHANNEL_LABEL) return 'label'
+    if (channels.slice(0, i).some((o) => o.id === id)) return 'repeat'
+  }
+  return ''
+}
+
 export function emptyConnector() {
   return {
     id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
@@ -56,6 +124,7 @@ export function emptyConnector() {
     options: {},
     file_receive_mib: '', file_send_mib: '',
     approval: emptyApproval(),
+    caps: [], grants: [], channels: [],
   }
 }
 
@@ -78,6 +147,8 @@ export function connectorForm(c) {
     ...emptyConnector(), ...c, token: '',
     file_receive_mib: bytesToMib(c.file_receive_max_bytes), file_send_mib: bytesToMib(c.file_send_max_bytes),
     approval: approvalForm(c.approval),
+    caps: [...(c.caps || [])], grants: (c.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
+    channels: (c.channels || []).map((x) => ({ id: x.id, label: x.label || '', approved: Boolean(x.approved) })),
   }
 }
 
@@ -132,6 +203,9 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
     file_receive_max_bytes: mibToBytes(form.file_receive_mib),
     file_send_max_bytes: mibToBytes(form.file_send_mib),
     approval: approvalPayload(form.approval),
+    caps: [...(form.caps || [])],
+    grants: (form.grants || []).map((g) => ({ role: g.role, caps: [...g.caps] })),
+    channels: (form.channels || []).map((x) => ({ id: x.id.trim(), label: (x.label || '').trim(), approved: Boolean(x.approved) })),
   }
   if (body.conversation === 'window') body.window_minutes = Number(form.window_minutes) || 0
   const secret = (token || '').trim()
@@ -160,6 +234,7 @@ export function canSave(form, confirmed, hasToken = Boolean((form.token || '').t
   if (!form.id && !hasToken) return false
   if (form.accept_any && !confirmed) return false
   if (approvalProblem(form.approval)) return false
+  if (channelsProblem(form.channels)) return false
   if (fileLimitProblem(form.file_receive_mib, files?.receive?.allowed_bytes) || fileLimitProblem(form.file_send_mib, files?.send?.allowed_bytes)) return false
   if (form.conversation === 'window') {
     const m = Number(form.window_minutes)

@@ -24,7 +24,7 @@ export const APPROVAL_TEXT = {
   'approval.short.auto_readonly': 'at once if read-only',
 }
 
-export default function ApprovalFields({ form, setForm, s }) {
+export default function ApprovalFields({ form, setForm, s, triggersOff = false }) {
   const a = form.approval
   const set = (patch) => setForm({ ...form, approval: { ...a, ...patch } })
   const auto = a.mode !== 'ask'
@@ -33,6 +33,7 @@ export default function ApprovalFields({ form, setForm, s }) {
     <fieldset className="cn-group" data-testid="connector-approval">
       <legend>{s('approval.title')}</legend>
       <p className="dk-hint">{s('approval.help')}</p>
+      {triggersOff && <p className="cn-muted" data-testid="connector-approval-off">{s('perm.triggersNeed')}</p>}
       <RadioCards name="approval" legend={s('approval.title')} value={a.mode} onChange={(mode) => set({ mode })}
         options={APPROVAL_MODES.map((m) => ({ value: m, label: s(`approval.mode.${m}`) }))} />
       {auto && (<>

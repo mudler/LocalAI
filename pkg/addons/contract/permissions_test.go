@@ -68,6 +68,23 @@ var _ = Describe("the roles and permissions of a connector kind", func() {
 		Expect(ValidateManifest(m, host())).NotTo(Succeed())
 	})
 
+	It("describes every capability, and never makes a sensitive one usual", func() {
+		list := ConnectorCapabilities()
+		Expect(list).To(HaveLen(len(ConnectorCapabilityNames())))
+		usual := 0
+		for _, c := range list {
+			Expect(c.Title).NotTo(BeEmpty(), c.Name)
+			Expect(c.Description).NotTo(BeEmpty(), c.Name)
+			Expect(c.Sensitive).To(Equal(SensitiveCapability(c.Name)))
+			if c.Usual {
+				usual++
+				Expect(c.Sensitive).To(BeFalse(), c.Name)
+			}
+		}
+		Expect(usual).To(BeNumerically(">", 0))
+		Expect(capabilityText).To(HaveLen(len(capabilities)))
+	})
+
 	It("never grants a sensitive capability to a role", func() {
 		kind().Permissions = []string{CapProfileWrite, CapMemoryWrite}
 		Expect(kind().Grantable(CapProfileWrite)).To(BeFalse())

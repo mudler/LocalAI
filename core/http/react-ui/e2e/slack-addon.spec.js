@@ -103,7 +103,7 @@ test.describe('Slack add-on', () => {
     await expect(page.getByText('Connected to localai (Acme).')).toBeVisible()
     await page.getByRole('button', { name: 'Senders' }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Newcomer · 2 messages · U042')
-    await page.getByRole('button', { name: 'Allow' }).click()
+    await page.getByRole('button', { name: 'Allow', exact: true }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Accepted')
     expect(a.s.calls.some(c => c.url === '/api/chats/connectors/b1/senders/U042/allow')).toBe(true)
   })

@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/tests/studiobot"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,6 +98,20 @@ var _ = Describe("Chats connectors endpoints", func() {
 
 		Expect(s.do("alice", http.MethodDelete, "/api/chats/connectors/"+id, nil).Code).To(Equal(http.StatusNoContent))
 		Expect(s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil).Code).To(Equal(http.StatusNotFound))
+	})
+
+	It("lists the capabilities with their texts next to the kinds", func() {
+		caps := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["capabilities"].([]any)
+		Expect(caps).To(HaveLen(len(contract.ConnectorCapabilityNames())))
+		byName := map[string]map[string]any{}
+		for _, c := range caps {
+			m := c.(map[string]any)
+			byName[m["name"].(string)] = m
+			Expect(m["title"]).NotTo(BeEmpty())
+			Expect(m["description"]).NotTo(BeEmpty())
+		}
+		Expect(byName["memory.write"]).To(And(HaveKeyWithValue("sensitive", false), HaveKeyWithValue("usual", true)))
+		Expect(byName["profile.write"]).To(And(HaveKeyWithValue("sensitive", true), HaveKeyWithValue("usual", false)))
 	})
 
 	It("lists the kinds that a running add-on serves and marks a binding whose add-on does not run", func() {

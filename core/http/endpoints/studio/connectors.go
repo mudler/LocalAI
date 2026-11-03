@@ -193,6 +193,9 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
 			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)})
 	}
+	for _, ci := range contract.ConnectorCapabilities() {
+		out.Capabilities = append(out.Capabilities, schema.ChatsConnectorCapability(ci))
+	}
 	return c.JSON(http.StatusOK, out)
 }
 

@@ -76,7 +76,7 @@ test.describe('Telegram add-on', () => {
     await page.getByRole('button', { name: 'Senders' }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Newcomer · 2 messages · 42')
     await expect(page.getByTestId('sender-log')).toContainText('Ignored')
-    await page.getByRole('button', { name: 'Allow' }).click()
+    await page.getByRole('button', { name: 'Allow', exact: true }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Accepted')
     expect(a.s.calls.some(c => c.url === '/api/chats/connectors/b1/senders/42/allow')).toBe(true)
   })
