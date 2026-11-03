@@ -321,6 +321,16 @@ func commandsTitle(c Commands) string {
 	return "the add-on"
 }
 
+// commandsPhrase names the add-on that runs commands in a sentence: the
+// declared title when there is one, else a generic description. The title comes
+// from the add-on's declaration, never from this file.
+func commandsPhrase(c Commands) string {
+	if c.Title != "" {
+		return "the " + c.Title + " add-on"
+	}
+	return "the add-on that runs commands"
+}
+
 // commandsBlock is the block of the system prompt that states whether the chat
 // can run commands. writeFile says whether the chat has write_file,
 // fileTools whether it has the file tools to read them, and skillsOff
@@ -365,9 +375,9 @@ func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool, place sessi
 	case CommandsSwitchedOff:
 		b.WriteString("they switched running commands off for this chat and can switch Run commands on in its Tools menu.")
 	case CommandsOff:
-		b.WriteString("they can switch the " + commandsTitle(c) + " add-on on in the Tools menu of this chat.")
+		b.WriteString("they can switch " + commandsPhrase(c) + " on in the Tools menu of this chat.")
 	case CommandsUnavailable:
-		b.WriteString("the " + commandsTitle(c) + " add-on cannot run commands on this server; an administrator can fix that.")
+		b.WriteString(commandsPhrase(c) + " cannot run commands on this server; an administrator can fix that.")
 	default:
 		b.WriteString("an administrator can enable running code by installing an add-on that runs commands.")
 	}

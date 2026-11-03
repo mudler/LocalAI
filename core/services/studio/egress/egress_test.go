@@ -283,7 +283,7 @@ var _ = Describe("the registries list", func() {
 				h := egress.Hint(egress.PresetOff, web)
 				Expect(h).To(ContainSubstring("cannot reach anything"))
 				Expect(h).NotTo(ContainSubstring("web_"))
-				Expect(h).NotTo(ContainSubstring("work in the sandbox"))
+				Expect(h).NotTo(ContainSubstring("work in the isolated environment"))
 			}
 		})
 	})

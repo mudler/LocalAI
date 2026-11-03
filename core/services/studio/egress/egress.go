@@ -504,7 +504,7 @@ func Describe(p Preset, reg *Registries, asks bool) string {
 	case PresetRegistries:
 		return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") + ")." + tail
 	case PresetAll:
-		return "Network for commands: all public sites, through the proxy the sandbox sets." + tail
+		return "Network for commands: all public sites, through the proxy of the environment that runs them." + tail
 	}
 	return "Network for commands: off." + tail
 }
@@ -517,10 +517,10 @@ func Describe(p Preset, reg *Registries, asks bool) string {
 func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool) string {
 	const where = "An administrator can change it on the Settings tab of the add-on that runs the commands, on the Add-ons page."
 	if normal(ceiling) == PresetOff {
-		return "Network for commands: off. The server's setting for the Sandbox network does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
+		return "Network for commands: off. The server's setting for the network of commands does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
 			"Tell the user the network is off by the server's setting. " + where
 	}
-	return Describe(eff, reg, asks) + " The server's setting for the Sandbox network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
+	return Describe(eff, reg, asks) + " The server's setting for the network of commands limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
 }
 
 // Hint is the sentence after Describe in the turn's note: which tool to use
@@ -533,7 +533,7 @@ func Hint(p Preset, web bool) string {
 		return "curl, pip and git cannot reach anything now; ask the user to turn the network on if a task needs it."
 	}
 	if web {
-		return "curl, pip and git work in the sandbox through the proxy. To read or search web pages use web_fetch or web_search; use curl for APIs, downloads and installs."
+		return "curl, pip and git work in the isolated environment through the proxy. To read or search web pages use web_fetch or web_search; use curl for APIs, downloads and installs."
 	}
-	return "curl, pip and git work in the sandbox through the proxy."
+	return "curl, pip and git work in the isolated environment through the proxy."
 }

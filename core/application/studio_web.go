@@ -20,7 +20,7 @@ import (
 
 // webSettingsHint is where an administrator fixes the search. It is part of
 // the error a user reads when no provider works, after what each provider did.
-const webSettingsHint = "an administrator can set a SearXNG instance in Settings > Tools, or install the Web add-on for search providers with a key from Add-ons"
+const webSettingsHint = "an administrator can set a SearXNG instance in Settings > Tools, or install an add-on that provides search providers with a key from Add-ons"
 
 // studioWeb serves the built-in web tools of the chats. It reads the runtime
 // settings at each call and builds the fetch client and the searcher again
