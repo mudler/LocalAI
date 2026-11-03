@@ -1213,6 +1213,10 @@ type ChatsConnector struct {
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
 	FileSendMaxBytes    int64 `json:"file_send_max_bytes"`
+	// Resources are the external resources, such as repositories, that the
+	// tools of the add-on may reach with this binding. Nothing else is
+	// reachable.
+	Resources []string `json:"resources"`
 	// Caps are the capabilities you enabled for this binding: the ceiling of
 	// what any sender can use. Grants give roles of the kind some of them.
 	Caps   []string                  `json:"caps"`
@@ -1377,6 +1381,10 @@ type ChatsConnectorWrite struct {
 	// capability is never granted to a role. Absent means unchanged; an empty
 	// list clears.
 	Grants []ChatsConnectorRoleGrant `json:"grants,omitempty"`
+	// Resources are the external resources the tools of the add-on may reach
+	// with this binding, such as "owner/repo", at most 50. Absent means none
+	// for a new binding and unchanged for an update; an empty list clears it.
+	Resources []string `json:"resources,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

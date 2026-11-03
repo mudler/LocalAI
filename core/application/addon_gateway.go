@@ -26,6 +26,7 @@ import (
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -307,6 +308,7 @@ func (a *Application) startAddonGateway() error {
 		return nil
 	}
 	g.HostSettings = a.addonHostSettings
+	g.Credentials = credentialSource{a}
 	g.HostSettingsAdmin = func(ctx context.Context, actor contract.Actor) error {
 		if mode == auth.AddonModeLocalOwner {
 			return auth.ValidateLocalOwnerActor(actor)
@@ -902,4 +904,34 @@ func (c connectorAuthority) AuthorizeConnector(ctx context.Context, scope studio
 		return req, gateway.ErrUnavailable
 	}
 	return c.a.studioConnectors.AuthorizeConnector(ctx, scope, req)
+}
+
+// credentialSource gives the tool calls of an add-on that declares credentials
+// the token and the allowed resource of the caller's own binding. It is the
+// owner's: the sealed tokens are on the owner only. The connector service can
+// start after the gateway, so it is resolved at call time.
+type credentialSource struct{ a *Application }
+
+func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, addonID, key string) (gateway.CredentialGrant, error) {
+	if c.a.studioConnectors == nil {
+		return gateway.CredentialGrant{}, gateway.ErrUnavailable
+	}
+	user := addonWorkspacePrincipal(c.a.authDB != nil)(actor)
+	if user == "" {
+		// A local-owner actor on an install with accounts is no person.
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+	}
+	grant, err := c.a.studioConnectors.CredentialFor(ctx, user, addonID, key)
+	var notAllowed *connectors.NotAllowedError
+	switch {
+	case err == nil:
+		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID}, nil
+	case errors.Is(err, connectors.ErrNoCredential):
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+	case errors.As(err, &notAllowed):
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: notAllowed.Allowed}
+	}
+	// The cause may name a binding; it stays out of the error that travels.
+	xlog.Warn("addons: the credential of a binding could not be read", "addon", addonID)
+	return gateway.CredentialGrant{}, gateway.ErrUnavailable
 }

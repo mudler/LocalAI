@@ -77,6 +77,9 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		if e := AuthorizeTool(ctx, g.toolSource(), r.AddonID, r.Generation, r.Arguments); e != nil {
 			return out, e
 		}
+		if e := g.credentialize(ctx, a, &r); e != nil {
+			return out, e
+		}
 		admit = func(run func(context.Context) error) error { return aa.AdmitAddon(ctx, a, r.AddonID, run) }
 	} else {
 		key, e := g.Resolver.Resolve(ctx, a, r)
@@ -89,6 +92,11 @@ func (g *Gateway) read(ctx context.Context, a contract.Actor, r contract.Request
 		r.ResourceID = key.ResourceID
 		// A tool the add-on did not declare never reaches it.
 		if e := AuthorizeTool(ctx, g.toolSource(), r.AddonID, r.Generation, r.Arguments); e != nil {
+			return out, e
+		}
+		// An add-on that declares credentials names its resources by the
+		// list of the person, never by a host resource ID.
+		if e := g.credentialize(ctx, a, &r); e != nil {
 			return out, e
 		}
 		admit = func(run func(context.Context) error) error { return g.Admission.Admit(ctx, a, key, "read", run) }

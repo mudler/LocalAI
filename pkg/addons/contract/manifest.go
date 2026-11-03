@@ -138,6 +138,11 @@ type Capabilities struct {
 	// loads into the prompt of a chat (see contextfiles.go). They need
 	// manifest API 2.
 	ContextFiles []ContextFile `json:"contextFiles,omitempty"`
+
+	// Credentials declare the secret that the host keeps for the person and
+	// hands to each call (see credentials.go). It needs manifest api
+	// MinCredentialsAPI and a connector kind that holds the binding.
+	Credentials []CredentialSlot `json:"credentials,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -405,6 +410,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {
+		return e
+	}
+	if e := validateCredentials(c, m.API); e != nil {
 		return e
 	}
 	if e := validateResourceList(c, m.API); e != nil {
