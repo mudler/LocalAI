@@ -643,32 +643,43 @@ func (o *HostGrantsOwner) edit(ctx context.Context, a contract.Actor, id string,
 	} else {
 		patch.Addons = map[string]*hostgrants.AddonGrants{id: &next}
 	}
-	res, err := o.cfg.Store.Update(ctx, patch, r.Revision, r.OperationID)
+	res, err := o.cfg.Store.UpdateAudited(ctx, patch, r.Revision, r.OperationID, func(n hostgrants.Snapshot) error {
+		return o.auditEdit(a, id, in.Version, r.OperationID, r.Revision, n.Revision, added, removed)
+	})
 	if err != nil {
 		return nil, err
 	}
+	// A removal can stop an add-on that now lacks a required operation, and an
+	// addition can start one that was refused, so both ask the manager to look.
 	if !res.Replayed {
-		o.auditEdit(a, id, in.Version, r.OperationID, r.Revision, res.Snapshot.Revision, added, removed)
-		if len(added) != 0 && o.cfg.AfterChange != nil {
-			o.cfg.AfterChange([]string{id})
-		}
+		o.changed(id)
 	}
 	view := o.addonView(res.Snapshot, in)
 	return HostGrantsAddonResult{Revision: res.Snapshot.Revision, Addon: &view}, nil
 }
 
-func (o *HostGrantsOwner) auditEdit(a contract.Actor, id, version, opID string, before, after uint64, added, removed []string) {
+// changed asks the manager to look again at what the add-ons hold. It does not
+// block.
+func (o *HostGrantsOwner) changed(ids ...string) {
+	if o.cfg.AfterChange != nil && len(ids) != 0 {
+		o.cfg.AfterChange(ids)
+	}
+}
+
+func (o *HostGrantsOwner) auditEdit(a contract.Actor, id, version, opID string, before, after uint64, added, removed []string) error {
+	var errs []error
 	base := hostgrants.AuditEntry{AddonID: id, Version: version, OperationID: opID, RevisionBefore: before, RevisionAfter: after, By: a.UserID, Credential: credentialKind(a)}
 	if len(added) != 0 {
 		e := base
 		e.Event, e.Ops, e.Source = hostgrants.AuditGrant, added, string(hostgrants.SourceEdit)
-		_ = o.cfg.Audit.Append(e)
+		errs = append(errs, o.cfg.Audit.Append(e))
 	}
 	if len(removed) != 0 {
 		e := base
 		e.Event, e.Ops = hostgrants.AuditRevoke, removed
-		_ = o.cfg.Audit.Append(e)
+		errs = append(errs, o.cfg.Audit.Append(e))
 	}
+	return errors.Join(errs...)
 }
 
 func (o *HostGrantsOwner) revoke(ctx context.Context, a contract.Actor, id string, r HostGrantsRevokeRequest) (any, error) {
@@ -691,16 +702,18 @@ func (o *HostGrantsOwner) revoke(ctx context.Context, a contract.Actor, id strin
 		}
 		return HostGrantsRevision{Revision: doc.Revision}, nil
 	}
-	res, err := o.cfg.Store.Update(ctx, hostgrants.Patch{Addons: map[string]*hostgrants.AddonGrants{id: nil}}, r.Revision, r.OperationID)
+	names := make([]string, 0, len(entry.Ops))
+	for _, g := range entry.Ops {
+		names = append(names, g.Name)
+	}
+	res, err := o.cfg.Store.UpdateAudited(ctx, hostgrants.Patch{Addons: map[string]*hostgrants.AddonGrants{id: nil}}, r.Revision, r.OperationID, func(n hostgrants.Snapshot) error {
+		return o.auditEdit(a, id, "", r.OperationID, r.Revision, n.Revision, nil, names)
+	})
 	if err != nil {
 		return nil, err
 	}
 	if !res.Replayed {
-		names := make([]string, 0, len(entry.Ops))
-		for _, g := range entry.Ops {
-			names = append(names, g.Name)
-		}
-		o.auditEdit(a, id, "", r.OperationID, r.Revision, res.Snapshot.Revision, nil, names)
+		o.changed(id)
 	}
 	return HostGrantsRevision{Revision: res.Snapshot.Revision, Changed: true}, nil
 }
@@ -782,14 +795,8 @@ func (o *HostGrantsOwner) blanket(ctx context.Context, a contract.Actor, r HostG
 			}
 		}
 	}
-	res, err := o.cfg.Store.Update(ctx, patch, r.Revision, r.OperationID)
-	if err != nil {
-		return nil, err
-	}
-	out.Revision = res.Snapshot.Revision
-	out.Blanket = HostBlanketView{Mode: res.Snapshot.Blanket.Mode, IncludeOptional: res.Snapshot.Blanket.IncludeOptional, SetBy: "ui", Revision: res.Snapshot.Blanket.Revision}
-	if !res.Replayed {
-		tag := fmt.Sprintf("%s@rev%d", next.Mode, next.Revision)
+	tag := fmt.Sprintf("%s@rev%d", next.Mode, next.Revision)
+	res, err := o.cfg.Store.UpdateAudited(ctx, patch, r.Revision, r.OperationID, func(n hostgrants.Snapshot) error {
 		ev := hostgrants.AuditBlanketOn
 		reason := ""
 		if next.Mode == hostgrants.BlanketOff {
@@ -800,13 +807,21 @@ func (o *HostGrantsOwner) blanket(ctx context.Context, a contract.Actor, r HostG
 				reason = "kept_blanket_grants"
 			}
 		}
-		_ = o.cfg.Audit.Append(hostgrants.AuditEntry{Event: ev, Blanket: tag, OperationID: r.OperationID, RevisionBefore: r.Revision, RevisionAfter: out.Revision, By: a.UserID, Credential: credentialKind(a), Reason: reason})
+		errs := []error{o.cfg.Audit.Append(hostgrants.AuditEntry{Event: ev, Blanket: tag, OperationID: r.OperationID, RevisionBefore: r.Revision, RevisionAfter: n.Revision, By: a.UserID, Credential: credentialKind(a), Reason: reason})}
 		for _, c := range out.Changed {
-			_ = o.cfg.Audit.Append(hostgrants.AuditEntry{Event: hostgrants.AuditBlanketGrant, AddonID: c.ID, Ops: c.Ops, Source: string(hostgrants.SourceBlanket), Blanket: tag, OperationID: r.OperationID, RevisionAfter: out.Revision, By: a.UserID})
+			errs = append(errs, o.cfg.Audit.Append(hostgrants.AuditEntry{Event: hostgrants.AuditBlanketGrant, AddonID: c.ID, Ops: c.Ops, Source: string(hostgrants.SourceBlanket), Blanket: tag, OperationID: r.OperationID, RevisionAfter: n.Revision, By: a.UserID}))
 		}
-		if len(grantedFor) != 0 && o.cfg.AfterChange != nil {
-			o.cfg.AfterChange(grantedFor)
-		}
+		return errors.Join(errs...)
+	})
+	if err != nil {
+		return nil, err
+	}
+	out.Revision = res.Snapshot.Revision
+	out.Blanket = HostBlanketView{Mode: res.Snapshot.Blanket.Mode, IncludeOptional: res.Snapshot.Blanket.IncludeOptional, SetBy: "ui", Revision: res.Snapshot.Blanket.Revision}
+	if !res.Replayed {
+		// Grants given to installed add-ons can start them; revoked blanket
+		// grants can stop them.
+		o.changed(append(slices.Clone(grantedFor), out.Revoked...)...)
 	}
 	return out, nil
 }
@@ -853,12 +868,16 @@ func (o *HostGrantsOwner) deny(ctx context.Context, a contract.Actor, r HostGran
 		return HostGrantsDenyResult{Revision: doc.Revision, Deny: nonNilMap(r.Deny), Affects: affects, DryRun: true}, nil
 	}
 	deny := r.Deny
-	res, err := o.cfg.Store.Update(ctx, hostgrants.Patch{Deny: &deny}, r.Revision, r.OperationID)
+	res, err := o.cfg.Store.UpdateAudited(ctx, hostgrants.Patch{Deny: &deny}, r.Revision, r.OperationID, func(n hostgrants.Snapshot) error {
+		return o.auditDeny(a, r, doc.Deny, n.Revision)
+	})
 	if err != nil {
 		return nil, err
 	}
 	if !res.Replayed {
-		o.auditDeny(a, r, doc.Deny, res.Snapshot.Revision)
+		// A new deny stops an add-on that loses a required operation; a removed
+		// one lets an add-on that was refused start.
+		o.changed(denyKeys(doc.Deny, r.Deny)...)
 	}
 	return HostGrantsDenyResult{Revision: res.Snapshot.Revision, Deny: nonNilMap(res.Snapshot.Deny), Affects: affects}, nil
 }
@@ -871,7 +890,23 @@ func opsOf(g hostgrants.AddonGrants) []string {
 	return out
 }
 
-func (o *HostGrantsOwner) auditDeny(a contract.Actor, r HostGrantsDenyRequest, old map[string][]string, after uint64) {
+func denyKeys(lists ...map[string][]string) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, l := range lists {
+		for k := range l {
+			if !seen[k] {
+				seen[k] = true
+				out = append(out, k)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func (o *HostGrantsOwner) auditDeny(a contract.Actor, r HostGrantsDenyRequest, old map[string][]string, after uint64) error {
+	var errs []error
 	keys := map[string]bool{}
 	for k := range old {
 		keys[k] = true
@@ -895,12 +930,13 @@ func (o *HostGrantsOwner) auditDeny(a contract.Actor, r HostGrantsDenyRequest, o
 		if len(added) != 0 {
 			e := base
 			e.Event, e.Ops = hostgrants.AuditDenyAdd, sorted(added)
-			_ = o.cfg.Audit.Append(e)
+			errs = append(errs, o.cfg.Audit.Append(e))
 		}
 		if len(removed) != 0 {
 			e := base
 			e.Event, e.Ops = hostgrants.AuditDenyRemove, sorted(removed)
-			_ = o.cfg.Audit.Append(e)
+			errs = append(errs, o.cfg.Audit.Append(e))
 		}
 	}
+	return errors.Join(errs...)
 }

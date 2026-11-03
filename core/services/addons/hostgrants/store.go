@@ -174,6 +174,17 @@ func (s *Store) View() Snapshot {
 // ErrUncertain the store refuses all calls until it is reopened; the caller
 // then replays the same operation ID and patch.
 func (s *Store) Update(ctx context.Context, patch Patch, expectedRevision uint64, operationID string) (Result, error) {
+	return s.UpdateAudited(ctx, patch, expectedRevision, operationID, nil)
+}
+
+// UpdateAudited is Update with a hook that records the change before it is
+// written. The hook gets the snapshot the write would publish and runs only for
+// a write that is going ahead: not for a replay, a conflict or an invalid
+// patch. When it fails nothing is written and the error is ErrAuditFailed, so a
+// grant never exists without its audit line. A write that fails after the hook
+// leaves an audit line for a change that was not applied; the caller sees the
+// error.
+func (s *Store) UpdateAudited(ctx context.Context, patch Patch, expectedRevision uint64, operationID string, audit func(after Snapshot) error) (Result, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := ctx.Err(); err != nil {
@@ -205,6 +216,11 @@ func (s *Store) Update(ctx context.Context, patch Patch, expectedRevision uint64
 		return Result{}, err
 	}
 	next.Revision = s.doc.Revision + 1
+	if audit != nil {
+		if err := audit(next.Clone()); err != nil {
+			return Result{}, errors.Join(ErrAuditFailed, err)
+		}
+	}
 	nd := document{Snapshot: next, Receipts: make(map[string]receipt, len(s.doc.Receipts)+1)}
 	for id, r := range s.doc.Receipts {
 		nd.Receipts[id] = r

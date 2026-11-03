@@ -42,7 +42,10 @@ var (
 	ErrConflict          = errors.New("addon host grants revision conflict")
 	ErrOperationMismatch = errors.New("addon host grants operation body mismatch")
 	ErrUnavailable       = errors.New("addon host grants unavailable")
-	ErrUncertain         = errors.New("addon host grants durability uncertain; reopen and reconcile operation")
+	// ErrAuditFailed is a write that was refused because its audit line could
+	// not be written. It counts as unavailable: the caller may retry later.
+	ErrAuditFailed = fmt.Errorf("%w: the audit line cannot be written", ErrUnavailable)
+	ErrUncertain   = errors.New("addon host grants durability uncertain; reopen and reconcile operation")
 )
 
 var (
