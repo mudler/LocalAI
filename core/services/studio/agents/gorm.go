@@ -40,8 +40,10 @@ type agentRow struct {
 	// agents made before.
 	BuiltinsOff string
 	BuiltinsOn  string
-	Created     time.Time
-	Updated     time.Time
+	// Builtins (the grants) came after them: a JSON list, empty before.
+	Builtins string
+	Created  time.Time
+	Updated  time.Time
 }
 
 func (agentRow) TableName() string { return "studio_agents" }
@@ -123,7 +125,7 @@ func (r agentRow) agent(folders []folderRow) (Agent, error) {
 	for _, f := range []struct {
 		dst *[]string
 		src string
-	}{{&a.MCPServers, r.MCPServers}, {&a.Addons, r.Addons}, {&a.Collections, r.Collections}, {&a.Skills, r.Skills}, {&a.BuiltinsOff, r.BuiltinsOff}, {&a.BuiltinsOn, r.BuiltinsOn}} {
+	}{{&a.MCPServers, r.MCPServers}, {&a.Addons, r.Addons}, {&a.Collections, r.Collections}, {&a.Skills, r.Skills}, {&a.BuiltinsOff, r.BuiltinsOff}, {&a.BuiltinsOn, r.BuiltinsOn}, {&a.Builtins, r.Builtins}} {
 		if *f.dst, err = listFromJSON(f.src); err != nil {
 			return a, err
 		}
@@ -195,7 +197,7 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 			Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
 			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network,
-			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn),
+			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn), Builtins: listJSON(a.Builtins),
 			Created: a.Created, Updated: a.Updated}
 		if exists {
 			row.Created = old.Created

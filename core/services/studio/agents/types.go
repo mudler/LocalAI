@@ -58,6 +58,11 @@ type Agent struct {
 	// group a chat has by default, as agents saved before the field.
 	BuiltinsOff []string
 	BuiltinsOn  []string
+	// Builtins are the built-in capabilities the owner granted the agent, by
+	// the names of core/services/studio/builtins (memory.write, skills.write
+	// and so on). Empty grants nothing: no grant is on by default, and a chat
+	// gets the intersection with what its user may use at the turn.
+	Builtins []string
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs (triggers, connectors): off, registries or all, capped
 	// by the administrator's ceiling. Empty is off. A run never asks a
@@ -178,7 +183,7 @@ func Validate(a Agent) error {
 		name    string
 		entries []string
 		addon   bool
-	}{{"MCP servers", a.MCPServers, false}, {"add-ons", a.Addons, true}, {"collections", a.Collections, false}, {"skills", a.Skills, false}, {"built-in tool groups off", a.BuiltinsOff, false}, {"built-in tool groups on", a.BuiltinsOn, false}} {
+	}{{"MCP servers", a.MCPServers, false}, {"add-ons", a.Addons, true}, {"collections", a.Collections, false}, {"skills", a.Skills, false}, {"built-in tool groups off", a.BuiltinsOff, false}, {"built-in tool groups on", a.BuiltinsOn, false}, {"built-in grants", a.Builtins, false}} {
 		if len(l.entries) > MaxListEntries {
 			return bad("%s has more than %d entries", l.name, MaxListEntries)
 		}
@@ -235,5 +240,6 @@ func (a Agent) clone() Agent {
 	a.Skills = append([]string(nil), a.Skills...)
 	a.BuiltinsOff = append([]string(nil), a.BuiltinsOff...)
 	a.BuiltinsOn = append([]string(nil), a.BuiltinsOn...)
+	a.Builtins = append([]string(nil), a.Builtins...)
 	return a.normalizeFolders()
 }

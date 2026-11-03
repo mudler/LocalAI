@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -48,7 +50,12 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		return agents.Agent{}, ErrAgentsOff
 	}
 	p := principal(user)
-	keepOff, keepOn := a.BuiltinsOff == nil, a.BuiltinsOn == nil
+	keepOff, keepOn, keepGrants := a.BuiltinsOff == nil, a.BuiltinsOn == nil, a.Builtins == nil
+	grants, err := cleanGrants(a.Builtins, false)
+	if err != nil {
+		return agents.Agent{}, fmt.Errorf("%w: %w", agents.ErrInvalid, err)
+	}
+	a.Builtins = grants
 	if folders != nil {
 		list, err := s.resolveAgentFolders(ctx, p, *folders)
 		if err != nil {
@@ -85,6 +92,16 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		if keepOn {
 			a.BuiltinsOn = old.BuiltinsOn
 		}
+		// Likewise for the grants: a client that does not know them cannot
+		// widen or narrow the agent.
+		if keepGrants {
+			a.Builtins = old.Builtins
+		}
+	}
+	// The grant saved_agents is the opt-in group of the same name: the chats of
+	// the agent start with it on.
+	if slices.Contains(a.Builtins, builtins.GrantSavedAgents) && s.builtins.IsGroup(builtins.GroupSavedAgents) && !slices.Contains(a.BuiltinsOn, builtins.GroupSavedAgents) {
+		a.BuiltinsOn = append(slices.Clone(a.BuiltinsOn), builtins.GroupSavedAgents)
 	}
 	if err := s.d.Agents.Put(ctx, a); err != nil {
 		return agents.Agent{}, err
@@ -143,6 +160,9 @@ func (s *Service) ImportAgent(ctx context.Context, user string, a agents.Agent, 
 // a row that is not chosen, so the person can see which one to fix.
 func (s *Service) ImportAgentFolders(ctx context.Context, user string, a agents.Agent, folders []AgentFolderWrite) (agents.Agent, error) {
 	a.ID, a.FolderID, a.FolderMode, a.Folders = "", 0, "", nil
+	// A file from a server that has more grants still imports; the grants
+	// this server does not declare are dropped.
+	a.Builtins, _ = cleanGrants(a.Builtins, true)
 	if len(folders) > agents.MaxFolders {
 		return agents.Agent{}, folderRefused("an agent may have at most %d folders", agents.MaxFolders)
 	}

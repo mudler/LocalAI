@@ -20,6 +20,8 @@ type scope struct {
 	addons       map[string]bool
 	collections  map[string]bool
 	skills       map[string]bool
+	builtins     map[string]bool // the builtin grants the agent holds now
+	builtinNames []string
 	skillNames   []string
 	addonNames   []string
 	collNames    []string
@@ -49,7 +51,9 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 		s.log.Warn("studio: agent unavailable", "chat", rec.ID, "agent", rec.AgentID, "error", err)
 		return &scope{deleted: true}
 	}
+	held := s.usableGrants(ctx, rec.Principal, ag.Builtins)
 	return &scope{
+		builtins: set(held), builtinNames: held,
 		instructions: strings.TrimSpace(ag.Instructions), mcp: ag.MCPServers,
 		addons: set(ag.Addons), collections: set(ag.Collections), skills: set(ag.Skills),
 		addonNames: ag.Addons, collNames: ag.Collections, skillNames: ag.Skills,

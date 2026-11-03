@@ -60,6 +60,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		sh := changeShared(grantAll)
 		r = newConnRigWith(sh, connStore(), studiobot.NewTransport(addon), script, nil)
 		r.bot, r.untrusted = bot, true
+		r.grantBuiltins(contract.CapMemoryWrite, contract.CapProfileWrite)
 		b = r.bind(studio.ConnectorInput{Allow: []string{"11", "12"}, Caps: caps, Grants: grants})
 		got, err := r.store.GetBinding(ctx, b.ID)
 		Expect(err).NotTo(HaveOccurred())

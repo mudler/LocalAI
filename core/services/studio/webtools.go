@@ -176,7 +176,7 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 	off, on := set(offList), set(onList)
 	a := s.chatActorFor(ctx, rec)
 	c := builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: rec.Kind == session.KindSubAgent,
-		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, GoalActive: goalActive(rec)}
+		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec)}
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
 	for _, t := range s.builtins.Tools() {

@@ -4503,6 +4503,23 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/chats/agents/builtin-grants": {
+            "get": {
+                "description": "Each grant has a name (the value for builtins in an agent), a title, a description and sensitive. A sensitive grant changes what the agent may do or reach later (profile, skills, pages, dashboard, new channels, actions of unattended runs); none is on by default. A chat of the agent holds only the grants you may use at that moment.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List the builtin grants of a saved agent.",
+                "responses": {
+                    "200": {
+                        "description": "The grants, in display order",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsBuiltinGrantList"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/agents/import": {
             "post": {
                 "description": "Send the export file (version 1, 2 for an agent with a folder, or 3 for an agent with several) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
@@ -4696,7 +4713,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. The builtins list (builtin grants) is an extra field of any version: a server that does not know it ignores it, so the agent comes back without the grants. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -18846,6 +18863,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "builtins": {
+                    "description": "Builtins are the builtin capabilities granted to the agent, by the names\nthat GET /api/chats/agents/builtin-grants lists (memory.write,\nskills.write and so on). Empty grants none. A chat of the agent holds\nthe grants you may use at that moment.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "builtins_off": {
                     "description": "BuiltinsOff are the groups of built-in tools (web, files, triggers...)\nthe agent's chats never have, and BuiltinsOn the opt-in groups (saved\nagents) they start with. The names are the ones GET /api/chats/{id}/tools\nlists. Empty for an agent that has every group a chat has by default.",
                     "type": "array",
@@ -19117,6 +19141,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "builtins": {
+                    "description": "Builtins are the builtin grants of the agent (see ChatsAgent). A write\nwithout them keeps the stored ones; an empty list clears them; a name\nthe server does not declare is a 400, except in an import, which drops it.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "builtins_off": {
                     "description": "BuiltinsOff and BuiltinsOn are the switches of the built-in tools of\nthe agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen\nthe agent); an empty list clears them.",
                     "type": "array",
@@ -19219,6 +19250,37 @@ const docTemplate = `{
                 },
                 "skipped": {
                     "type": "integer"
+                }
+            }
+        },
+        "schema.ChatsBuiltinGrant": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "description": "Description says what the agent can do with the grant, in English.",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Name is the value to put in an agent's builtins list.",
+                    "type": "string"
+                },
+                "sensitive": {
+                    "description": "Sensitive grants change what the agent may do or reach later. They are\nnever on by default and the editor marks them.",
+                    "type": "boolean"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsBuiltinGrantList": {
+            "type": "object",
+            "properties": {
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsBuiltinGrant"
+                    }
                 }
             }
         },

@@ -47,7 +47,7 @@ func agentFileVersion(folders int, hasSwitches bool) int {
 
 // ExportAgent returns a saved agent as a file.
 // @Summary Export a saved agent.
-// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
+// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. The builtins list (builtin grants) is an extra field of any version: a server that does not know it ignores it, so the agent comes back without the grants. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 200 {object} schema.ChatsAgentExport "The agent file"
@@ -59,7 +59,7 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network,
-		BuiltinsOff: a.BuiltinsOff, BuiltinsOn: a.BuiltinsOn}
+		BuiltinsOff: a.BuiltinsOff, BuiltinsOn: a.BuiltinsOn, Builtins: a.Builtins}
 	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID]
 	for i, f := range a.FolderList() {
 		// Imports resolve paths in the home only. A followed root outside
@@ -148,7 +148,7 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
 		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network,
-		BuiltinsOff: def.BuiltinsOff, BuiltinsOn: def.BuiltinsOn}
+		BuiltinsOff: def.BuiltinsOff, BuiltinsOn: def.BuiltinsOn, Builtins: def.Builtins}
 	var rowsIn []studiosvc.AgentFolderWrite
 	switch {
 	case def.Folders != nil:
@@ -217,6 +217,20 @@ func (h *Handlers) AgentTemplates(c echo.Context) error {
 	out := schema.ChatsAgentTemplateList{Templates: []schema.ChatsAgentTemplate{}}
 	for _, t := range agents.Templates() {
 		out.Templates = append(out.Templates, schema.ChatsAgentTemplate{ID: t.ID, Name: t.Name, Description: t.Description, Instructions: t.Instructions})
+	}
+	return c.JSON(http.StatusOK, out)
+}
+
+// BuiltinGrants lists the builtin grants an agent can be given.
+// @Summary List the builtin grants of a saved agent.
+// @Description Each grant has a name (the value for builtins in an agent), a title, a description and sensitive. A sensitive grant changes what the agent may do or reach later (profile, skills, pages, dashboard, new channels, actions of unattended runs); none is on by default. A chat of the agent holds only the grants you may use at that moment.
+// @Tags chats
+// @Success 200 {object} schema.ChatsBuiltinGrantList "The grants, in display order"
+// @Router /api/chats/agents/builtin-grants [get]
+func (h *Handlers) BuiltinGrants(c echo.Context) error {
+	out := schema.ChatsBuiltinGrantList{Grants: []schema.ChatsBuiltinGrant{}}
+	for _, g := range h.svc.BuiltinGrants() {
+		out.Grants = append(out.Grants, schema.ChatsBuiltinGrant{Name: g.Name, Title: g.Title, Description: g.Description, Sensitive: g.Sensitive})
 	}
 	return c.JSON(http.StatusOK, out)
 }

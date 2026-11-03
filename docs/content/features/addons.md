@@ -2486,13 +2486,31 @@ How it works for an add-on author:
 
 The record is `contract.ChangeProposal` in `pkg/addons/contract` and is
 versioned (`v`: 1). Readers ignore fields they do not know. The kinds are
-`memory`, `profile`, `skill`, `page` and `dashboard`; this host offers `memory`
-and `profile` and other features register theirs. A memory change writes under
+`memory`, `profile`, `skill`, `page` and `dashboard`; this host offers all five.
+A memory change writes under
 `Memory/` (`Memory/<file>.md` for scope `user`, `Memory/agents/<agent>/` for
 `agent`, `Memory/channels/<binding>-<hash>/` for `channel`). A profile writes
 `LocalAI/agents/<agent>/profile.md` and is at most 4 KiB. Other contents are at
 most 16 KiB. A target that is not a plain lower-case file name is refused, so a
 proposal cannot leave `Memory/`.
+
+The other three kinds follow the same flow:
+
+- `skill`: the content is a full `SKILL.md` (name and description in the
+  frontmatter; the name must equal the target). Scope `user` writes
+  `.skills/<name>/SKILL.md`, scope `agent` writes
+  `LocalAI/agents/<agent>/skills/<name>/SKILL.md`; no other layer is offered.
+  A skill with `locked: true` in its frontmatter cannot be changed by a
+  proposal, and a locked personal skill cannot be replaced by an agent skill of
+  the same name. The check runs again when the owner confirms.
+- `page`: the target is the page name (lower-case letters, digits and dashes)
+  and the files are an object of paths to text, with an `index.html`. The paths
+  must stay inside the page folder, at most 32 files, all text, `page.json`
+  checked like the Pages screen reads it, 256 KiB in total. The owner's
+  confirmation writes `pages/<name>/` as one change set, so one undo removes it.
+- `dashboard`: the content is the full `LocalAI/home.json`, validated against the
+  same schema as the Home settings. A file that breaks the schema is refused
+  when proposed and when edited at confirmation.
 
 Limits and safety:
 
@@ -2503,12 +2521,18 @@ Limits and safety:
 | Proposals of one agent (or of plain chats) in an hour | 5 |
 | Target changed after the proposal | the confirmation is refused (409) |
 | Run started by a trigger, a job or a page, and sub-agents | never offered the tools |
-| Chat that runs a saved agent | refused until a grant allows it |
+| Chat that runs a saved agent | refused until the owner grants the kind (see below) |
 
-A grant plugs in as a `proposals.Gate` in the host: it is asked with the
-action (`propose` or `revert`), the agent, the kind, the scope and the source
-before a tool call acts. The default gate allows a plain chat and refuses a chat
-that runs a saved agent, so an agent has no right until the owner gives it.
+A saved agent proposes a kind only when its `builtins` list holds the grant of
+that kind: `memory.write`, `profile.write`, `skills.write`, `pages.write` or
+`dashboard.write`. The tool exists in a chat when the agent holds the grant, the
+user may still use it and the chat did not switch the `changes` group off; its
+schema lists only the kinds the chat holds. A plain chat holds what its user
+may use. A run that started by itself never holds a grant. `GET
+/api/chats/agents/builtin-grants` lists every grant with its title, description
+and `sensitive` flag. A host can add a `proposals.Gate` on top: it is asked with
+the action (`propose` or `revert`), the agent, the kind, the scope and the
+source, after the grant check.
 
 Every step is audited (propose, refuse, confirm, dismiss, expire, stale,
 revert) with the source and a SHA-256 of the text, never the text.

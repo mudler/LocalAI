@@ -58,6 +58,11 @@ type ChatsAgent struct {
 	// lists. Empty for an agent that has every group a chat has by default.
 	BuiltinsOff []string `json:"builtins_off"`
 	BuiltinsOn  []string `json:"builtins_on"`
+	// Builtins are the builtin capabilities granted to the agent, by the names
+	// that GET /api/chats/agents/builtin-grants lists (memory.write,
+	// skills.write and so on). Empty grants none. A chat of the agent holds
+	// the grants you may use at that moment.
+	Builtins []string `json:"builtins"`
 	// Folder is the one folder that chats with the agent work in. It is
 	// absent for an agent that works on all your files.
 	Folder *ChatsAgentFolder `json:"folder,omitempty"`
@@ -128,6 +133,10 @@ type ChatsAgentWrite struct {
 	// the agent); an empty list clears them.
 	BuiltinsOff []string `json:"builtins_off,omitempty"`
 	BuiltinsOn  []string `json:"builtins_on,omitempty"`
+	// Builtins are the builtin grants of the agent (see ChatsAgent). A write
+	// without them keeps the stored ones; an empty list clears them; a name
+	// the server does not declare is a 400, except in an import, which drops it.
+	Builtins []string `json:"builtins,omitempty"`
 	// Folder chooses the one folder the agent's chats work in. A write
 	// without it keeps the folder the agent has; {"path": ""} clears it. In
 	// an export file it is the home-relative path and mode when the file was
@@ -1969,4 +1978,21 @@ type ChatsExecutionStatus struct {
 	UnknownReason string `json:"unknown_reason,omitempty" example:"owner_unreachable"`
 	Generation    string `json:"generation,omitempty"`
 	Incarnation   string `json:"incarnation,omitempty"`
+}
+
+// ChatsBuiltinGrant describes one builtin grant for the agent editor.
+type ChatsBuiltinGrant struct {
+	// Name is the value to put in an agent's builtins list.
+	Name  string `json:"name"`
+	Title string `json:"title"`
+	// Description says what the agent can do with the grant, in English.
+	Description string `json:"description"`
+	// Sensitive grants change what the agent may do or reach later. They are
+	// never on by default and the editor marks them.
+	Sensitive bool `json:"sensitive"`
+}
+
+// ChatsBuiltinGrantList is the list of builtin grants, in display order.
+type ChatsBuiltinGrantList struct {
+	Grants []ChatsBuiltinGrant `json:"grants"`
 }

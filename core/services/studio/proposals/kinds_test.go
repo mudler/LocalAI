@@ -78,3 +78,16 @@ var _ = Describe("the default gate", func() {
 		Expect(err).To(MatchError(proposals.ErrNotGranted))
 	})
 })
+
+var _ = Describe("kind grants and limits", func() {
+	It("ties memory and profile to their grants and lets a page kind carry 256 KiB", func() {
+		kinds := proposals.NewKinds()
+		m, _ := kinds.Lookup("memory")
+		p, _ := kinds.Lookup("profile")
+		Expect(m.Grant).To(Equal("memory.write"))
+		Expect(p.Grant).To(Equal("profile.write"))
+		Expect((proposals.Kind{MaxBytes: contract.MaxPageChangeBytes}).Limit()).To(Equal(contract.MaxPageChangeBytes))
+		Expect((proposals.Kind{MaxBytes: contract.MaxPageChangeBytes + 1}).Limit()).To(Equal(contract.MaxPageChangeBytes))
+		Expect((proposals.Kind{}).Limit()).To(Equal(contract.MaxChangeBytes))
+	})
+})

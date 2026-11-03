@@ -31,14 +31,49 @@ type Kind struct {
 	Sensitive bool
 	// MaxBytes bounds the content; zero means contract.MaxChangeBytes.
 	MaxBytes int
-	// Path returns the file inside the home that the change writes.
+	// Path returns the file inside the home that the change writes. For a kind
+	// with Files it is the folder that holds the files.
 	Path func(Aim) (string, error)
+	// Grant is the builtin grant that lets a saved agent propose this kind
+	// (memory.write for memory). Empty: no grant is needed.
+	Grant string
+	// Check judges the content before the proposal is stored and again when
+	// the owner confirms, against what the target holds then. Nil: any text
+	// that fits the limit.
+	Check func(CheckInput) error
+	// Files turns the content into the files the change writes, as paths
+	// relative to the folder Path returned. Nil: the content is the one file
+	// Path returned.
+	Files func(content string) ([]FileWrite, error)
+}
+
+// FileWrite is one file of a change that writes several.
+type FileWrite struct {
+	Path    string // relative to the folder of the change
+	Content string
+}
+
+// CheckInput is what Kind.Check judges.
+type CheckInput struct {
+	Aim     Aim
+	Path    string // what Kind.Path returned
+	Content string
+	// Current is the text of the target now, for a kind with one file.
+	Current string
+	Exists  bool
+	// Read reads another file of the owner's home by its home-relative path,
+	// for a rule that depends on a neighbour such as a locked skill of
+	// another layer.
+	Read func(rel string) (text string, ok bool, err error)
 }
 
 // Limit is the content bound of the kind.
 func (k Kind) Limit() int {
-	if k.MaxBytes <= 0 || k.MaxBytes > contract.MaxChangeBytes {
+	switch {
+	case k.MaxBytes <= 0:
 		return contract.MaxChangeBytes
+	case k.MaxBytes > contract.MaxPageChangeBytes:
+		return contract.MaxPageChangeBytes
 	}
 	return k.MaxBytes
 }
@@ -102,6 +137,9 @@ var (
 	idSafe    = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
+// IDSafe reports whether s can name a saved agent or a binding inside a path.
+func IDSafe(s string) bool { return idSafe.MatchString(s) }
+
 // ChannelDir names the memory folder of one connector conversation: the
 // binding and a short hash of the host chat. It uses no platform name.
 func ChannelDir(s contract.ChangeSource) string {
@@ -110,7 +148,8 @@ func ChannelDir(s contract.ChangeSource) string {
 }
 
 var memoryKind = Kind{
-	Name: contract.ChangeMemory,
+	Name:  contract.ChangeMemory,
+	Grant: contract.CapMemoryWrite,
 	Path: func(a Aim) (string, error) {
 		if !topicFile.MatchString(a.Target) {
 			return "", fmt.Errorf("%w: a memory target is a file name such as index.md or food.md", ErrBadTarget)
@@ -135,6 +174,7 @@ var memoryKind = Kind{
 
 var profileKind = Kind{
 	Name:      contract.ChangeProfile,
+	Grant:     contract.CapProfileWrite,
 	Sensitive: true,
 	MaxBytes:  contract.MaxProfileBytes,
 	Path: func(a Aim) (string, error) {

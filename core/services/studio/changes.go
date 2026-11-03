@@ -13,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -67,9 +69,15 @@ func newChanges(s *Service) (*Changes, error) {
 	}
 	g := s.d.ProposalGate
 	if g == nil {
-		g = proposals.DefaultGate
+		// The grants of the agent are checked in Propose and Revert, for every
+		// gate. Without a gate of its own the host adds nothing to them.
+		g = proposals.GateFunc(func(context.Context, proposals.Request) error { return nil })
 	}
-	return &Changes{s: s, store: st, gate: g, kinds: proposals.NewKinds()}, nil
+	c := &Changes{s: s, store: st, gate: g, kinds: proposals.NewKinds()}
+	if err := c.registerChangeKinds(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // Changes returns the host of the change proposals.
@@ -144,11 +152,16 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 	p := contract.ChangeProposal{V: contract.ChangeProposalVersion, ID: uuid.NewString(), Owner: principal(in.User), Agent: in.Agent,
 		Kind: kind.Name, Scope: contract.ChangeScope(in.Scope), Summary: cleanSummary(in.Summary), Content: in.Content, Source: in.Source,
 		Status: contract.ProposalPending}
+	if err := c.s.checkChangeGrant(ctx, p.Owner, in.Agent, in.Source, kind.Grant); err != nil {
+		c.audit(ctx, proposals.ActionRefuse, p, 0, err.Error())
+		return contract.ChangeProposal{}, err
+	}
 	if err := c.gate.Allow(ctx, proposals.Request{Action: proposals.GatePropose, User: p.Owner, Agent: in.Agent, Kind: p.Kind, Scope: p.Scope, Source: in.Source}); err != nil {
 		c.audit(ctx, proposals.ActionRefuse, p, 0, err.Error())
 		return contract.ChangeProposal{}, err
 	}
-	rel, err := kind.Path(proposals.Aim{Scope: p.Scope, Agent: in.Agent, Target: in.Target, Source: in.Source})
+	aim := proposals.Aim{Scope: p.Scope, Agent: in.Agent, Target: in.Target, Source: in.Source}
+	rel, err := kind.Path(aim)
 	if err != nil {
 		return contract.ChangeProposal{}, fmt.Errorf("%w: %s", ErrBadChange, strings.TrimPrefix(err.Error(), proposals.ErrBadTarget.Error()+": "))
 	}
@@ -161,14 +174,15 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 	case p.Summary == "":
 		return contract.ChangeProposal{}, fmt.Errorf("%w: give a short summary of the change", ErrBadChange)
 	}
-	cur, exists, err := c.s.d.Files.ReadHome(ctx, p.Owner, rel, maxTargetRead)
+	snap, err := c.snapshot(ctx, p.Owner, kind, rel, in.Content)
 	if err != nil {
-		return contract.ChangeProposal{}, fmt.Errorf("%w: cannot read %s: %v", ErrBadChange, rel, err)
+		return contract.ChangeProposal{}, err
 	}
-	if exists {
-		p.BaseHash = hashOf(cur)
+	if err := c.check(ctx, p.Owner, kind, aim, rel, in.Content, snap); err != nil {
+		return contract.ChangeProposal{}, err
 	}
-	if exists && cur == in.Content {
+	p.BaseHash = snap.hash
+	if snap.same {
 		return contract.ChangeProposal{}, fmt.Errorf("%w: %s has this content already", ErrBadChange, rel)
 	}
 	c.sweep(ctx)
@@ -183,6 +197,102 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 	}
 	c.audit(ctx, proposals.ActionPropose, p, 0, "")
 	return p, nil
+}
+
+// snap is the state of what a change would write, for the base hash.
+type snap struct {
+	hash    string // "" when no target file exists
+	exists  bool
+	same    bool // every file already holds the proposed text
+	current string
+}
+
+// filesOf returns the files a content writes: the one target, or the files of
+// a kind that writes a folder.
+func filesOf(kind proposals.Kind, rel, content string) ([]proposals.FileWrite, error) {
+	if kind.Files == nil {
+		return []proposals.FileWrite{{Path: rel, Content: content}}, nil
+	}
+	fs, err := kind.Files(content)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrBadChange, err)
+	}
+	for i := range fs {
+		fs[i].Path = rel + "/" + fs[i].Path
+	}
+	return fs, nil
+}
+
+// snapshot reads what the change would replace. For one file the hash is the
+// hash of the file; for a folder it covers the path and hash of each file the
+// content names, so a change to any of them makes the proposal stale.
+func (c *Changes) snapshot(ctx context.Context, owner string, kind proposals.Kind, rel, content string) (snap, error) {
+	fs, err := filesOf(kind, rel, content)
+	if err != nil {
+		return snap{}, err
+	}
+	var out snap
+	out.same = true
+	var sum strings.Builder
+	for _, f := range fs {
+		cur, exists, err := c.s.d.Files.ReadHome(ctx, owner, f.Path, maxTargetRead)
+		if err != nil {
+			return snap{}, fmt.Errorf("%w: cannot read %s: %v", ErrBadChange, f.Path, err)
+		}
+		out.exists = out.exists || exists
+		out.same = out.same && exists && cur == f.Content
+		if kind.Files == nil {
+			out.current = cur
+			if exists {
+				out.hash = hashOf(cur)
+			}
+			return out, nil
+		}
+		h := "-"
+		if exists {
+			h = hashOf(cur)
+		}
+		sum.WriteString(f.Path + "\x00" + h + "\n")
+	}
+	if out.exists {
+		out.hash = hashOf(sum.String())
+	}
+	return out, nil
+}
+
+// check runs the kind's own rules on a content.
+func (c *Changes) check(ctx context.Context, owner string, kind proposals.Kind, aim proposals.Aim, rel, content string, st snap) error {
+	if kind.Check == nil {
+		return nil
+	}
+	err := kind.Check(proposals.CheckInput{Aim: aim, Path: rel, Content: content, Current: st.current, Exists: st.exists, Read: func(p string) (string, bool, error) {
+		return c.s.d.Files.ReadHome(ctx, owner, p, maxTargetRead)
+	}})
+	if err != nil {
+		return fmt.Errorf("%w: %s", ErrBadChange, err)
+	}
+	return nil
+}
+
+// aimOf rebuilds where a stored proposal writes, for the checks at confirm.
+func aimOf(p contract.ChangeProposal) proposals.Aim {
+	return proposals.Aim{Scope: p.Scope, Agent: p.Agent, Target: targetName(p), Source: p.Source}
+}
+
+// targetName is the name the model gave, recovered from the stored path: the
+// last folder for a skill or a page, which Check compares with its content.
+func targetName(p contract.ChangeProposal) string {
+	t := strings.TrimSuffix(p.Target, "/")
+	switch p.Kind {
+	case contract.ChangeSkill:
+		t = strings.TrimSuffix(t, "/SKILL.md")
+	case contract.ChangeMemory, contract.ChangeProfile, contract.ChangeDashboard:
+		return t
+	}
+	if i := strings.LastIndexByte(t, '/'); i >= 0 {
+		t = t[i+1:]
+	}
+	return t
 }
 
 // List returns the proposals of the user, newest first, with the expired ones
@@ -243,6 +353,7 @@ func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) 
 	if !ok {
 		return contract.ChangeProposal{}, fmt.Errorf("%w: this server no longer offers %s changes", ErrBadChange, p.Kind)
 	}
+	orig := p.Content
 	if edited != nil {
 		switch {
 		case len(*edited) > kind.Limit():
@@ -252,19 +363,29 @@ func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) 
 		}
 		p.Content = *edited
 	}
-	cur, exists, err := c.s.d.Files.ReadHome(ctx, owner, p.Target, maxTargetRead)
+	// The base hash covers the files the model proposed; an edit by the owner
+	// may change the files to write, not what the proposal was based on.
+	was, err := c.snapshot(ctx, owner, kind, p.Target, orig)
 	if err != nil {
 		return contract.ChangeProposal{}, err
 	}
-	have := ""
-	if exists {
-		have = hashOf(cur)
-	}
-	if have != p.BaseHash {
+	if was.hash != p.BaseHash {
 		if won, _ := c.store.Settle(ctx, owner, id, contract.ProposalPending, contract.ProposalStale, c.s.now().UTC(), 0); won {
 			c.audit(ctx, proposals.ActionStale, p, 0, "")
 		}
 		return contract.ChangeProposal{}, ErrTargetChanged
+	}
+	// Rules such as a lock set after the proposal apply to the text that is written.
+	now, err := c.snapshot(ctx, owner, kind, p.Target, p.Content)
+	if err != nil {
+		return contract.ChangeProposal{}, err
+	}
+	if err := c.check(ctx, owner, kind, aimOf(p), p.Target, p.Content, now); err != nil {
+		return contract.ChangeProposal{}, err
+	}
+	writes, err := filesOf(kind, p.Target, p.Content)
+	if err != nil {
+		return contract.ChangeProposal{}, err
 	}
 	// Claim the answer first, so two confirmations write once.
 	won, err := c.store.Settle(ctx, owner, id, contract.ProposalPending, contract.ProposalApplied, c.s.now().UTC(), 0)
@@ -275,7 +396,7 @@ func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) 
 		return contract.ChangeProposal{}, ErrChangeAnswered
 	}
 	title := string(p.Kind) + ": " + p.Summary
-	rev, err := c.s.d.Files.WriteHome(ctx, owner, p.Target, p.Content, title, int64(kind.Limit()))
+	rev, err := c.write(ctx, owner, writes, title, int64(kind.Limit()))
 	if err != nil {
 		if _, rerr := c.store.Settle(ctx, owner, id, contract.ProposalApplied, contract.ProposalPending, time.Time{}, 0); rerr != nil {
 			c.s.log.Warn("studio: could not reopen a change that failed to write", "proposal", id, "error", rerr)
@@ -288,6 +409,18 @@ func (c *Changes) confirm(ctx context.Context, user, id string, edited *string) 
 	p.Status, p.Rev = contract.ProposalApplied, rev
 	c.audit(ctx, proposals.ActionConfirm, p, rev, "")
 	return c.store.Get(ctx, owner, id)
+}
+
+// write puts the files of a change into the home as one change set.
+func (c *Changes) write(ctx context.Context, owner string, fs []proposals.FileWrite, title string, max int64) (int64, error) {
+	if len(fs) == 1 {
+		return c.s.d.Files.WriteHome(ctx, owner, fs[0].Path, fs[0].Content, title, max)
+	}
+	hf := make([]files.HomeFile, len(fs))
+	for i, f := range fs {
+		hf[i] = files.HomeFile{Path: f.Path, Content: f.Content}
+	}
+	return c.s.d.Files.WriteHomeFiles(ctx, owner, hf, title, max)
 }
 
 // Dismiss answers a pending proposal with no.
@@ -365,9 +498,34 @@ func (c *Changes) RevertLast(ctx context.Context, user, agent string) (contract.
 
 // Allow asks the gate about a revert of a chat.
 func (c *Changes) allowRevert(ctx context.Context, user, agent string, src contract.ChangeSource) error {
-	err := c.gate.Allow(ctx, proposals.Request{Action: proposals.GateRevert, User: principal(user), Agent: agent, Source: src})
+	err := c.s.checkAnyChangeGrant(ctx, user, agent, src)
+	if err == nil {
+		err = c.gate.Allow(ctx, proposals.Request{Action: proposals.GateRevert, User: principal(user), Agent: agent, Source: src})
+	}
 	if err != nil {
 		c.audit(ctx, proposals.ActionRefuse, contract.ChangeProposal{Owner: principal(user), Agent: agent, Source: src}, 0, err.Error())
 	}
 	return err
+}
+
+// grantsAKind reports whether the grant is the one of a registered kind.
+func (c *Changes) grantsAKind(grant string) bool {
+	for _, n := range c.kinds.Names() {
+		if k, ok := c.kinds.Lookup(string(n)); ok && k.Grant == grant {
+			return true
+		}
+	}
+	return false
+}
+
+// kindsHeld lists the kinds a chat may propose: for a chat of a saved agent
+// the ones whose grant it holds.
+func (c *Changes) kindsHeld(ch builtins.Chat) []contract.ChangeKind {
+	var out []contract.ChangeKind
+	for _, n := range c.kinds.Names() {
+		if k, ok := c.kinds.Lookup(string(n)); ok && (k.Grant == "" || ch.HoldsGrant(k.Grant)) {
+			out = append(out, n)
+		}
+	}
+	return out
 }

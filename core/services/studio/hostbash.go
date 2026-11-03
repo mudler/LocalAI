@@ -367,7 +367,7 @@ func (s *Service) Builtins() *builtins.Registry { return s.builtins }
 func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, subAgent bool) []builtins.Built {
 	off, on := s.switchesOf(ctx, rec)
 	chat := builtins.Chat{Actor: a, Origin: rec.Origin, OriginID: rec.OriginID, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
-		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, GoalActive: goalActive(rec) && !subAgent}
+		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec) && !subAgent}
 	if rec.Origin == session.OriginConnector {
 		// A connector chat acts for the sender of the turn, not for its owner:
 		// the tools that need a right ask what that sender holds.

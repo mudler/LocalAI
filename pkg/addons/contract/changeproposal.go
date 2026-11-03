@@ -126,6 +126,9 @@ const (
 	MaxChangesPerHour = 5
 	// MaxChangeBytes is the largest content of a proposal.
 	MaxChangeBytes = 16 << 10
+	// MaxPageChangeBytes is the largest content of a page proposal: all the
+	// files of the page together.
+	MaxPageChangeBytes = 256 << 10
 	// MaxProfileBytes is the largest agent profile.
 	MaxProfileBytes = 4 << 10
 )

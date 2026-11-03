@@ -88,6 +88,10 @@ type Chat struct {
 	GroupsOff []string
 	// GroupsOn are the opt-in switch groups the chat switched on.
 	GroupsOn []string
+	// Grants are the builtin grants of the chat's saved agent after the
+	// intersection with what the user may use. Empty for a chat without an
+	// agent: see HoldsGrant.
+	Grants []string
 	// GoalActive is true while the chat works toward an active goal.
 	GoalActive bool
 	// Allow answers whether the sender of this turn may use a capability

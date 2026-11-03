@@ -3210,6 +3210,15 @@ definitions:
         items:
           type: string
         type: array
+      builtins:
+        description: |-
+          Builtins are the builtin capabilities granted to the agent, by the names
+          that GET /api/chats/agents/builtin-grants lists (memory.write,
+          skills.write and so on). Empty grants none. A chat of the agent holds
+          the grants you may use at that moment.
+        items:
+          type: string
+        type: array
       builtins_off:
         description: |-
           BuiltinsOff are the groups of built-in tools (web, files, triggers...)
@@ -3427,6 +3436,14 @@ definitions:
         items:
           type: string
         type: array
+      builtins:
+        description: |-
+          Builtins are the builtin grants of the agent (see ChatsAgent). A write
+          without them keeps the stored ones; an empty list clears them; a name
+          the server does not declare is a 400, except in an import, which drops it.
+        items:
+          type: string
+        type: array
       builtins_off:
         description: |-
           BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
@@ -3513,6 +3530,29 @@ definitions:
         type: integer
       skipped:
         type: integer
+    type: object
+  schema.ChatsBuiltinGrant:
+    properties:
+      description:
+        description: Description says what the agent can do with the grant, in English.
+        type: string
+      name:
+        description: Name is the value to put in an agent's builtins list.
+        type: string
+      sensitive:
+        description: |-
+          Sensitive grants change what the agent may do or reach later. They are
+          never on by default and the editor marks them.
+        type: boolean
+      title:
+        type: string
+    type: object
+  schema.ChatsBuiltinGrantList:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsBuiltinGrant'
+        type: array
     type: object
   schema.ChatsBuiltinGroup:
     properties:
@@ -14990,16 +15030,18 @@ paths:
       - chats
   /api/chats/agents/{id}/export:
     get:
-      description: Returns the definition as a JSON file (version, kind localai-agent,
+      description: 'Returns the definition as a JSON file (version, kind localai-agent,
         agent). It holds no ID, owner or time. An agent with one folder is version
         2 and carries folder {path, mode}; an agent with several is version 3 and
-        carries folders [{path, mode}], the folder's home-relative path now (empty
+        carries folders [{path, mode}], the folder''s home-relative path now (empty
         when the folder is missing, not chosen, or outside your home, even if readable);
         importing an empty path preserves the scope as unset with a warning; a server
         that knows only version 1 refuses it. An agent with switches of built-in tool
         groups (builtins_off, builtins_on) is version 4. An agent without a folder
-        or switches is version 1. POST /api/chats/agents/import reads it. This replaces
-        the old /api/agents/{name}/export.
+        or switches is version 1. The builtins list (builtin grants) is an extra field
+        of any version: a server that does not know it ignores it, so the agent comes
+        back without the grants. POST /api/chats/agents/import reads it. This replaces
+        the old /api/agents/{name}/export.'
       parameters:
       - description: the agent's id
         in: path
@@ -15035,6 +15077,21 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsAgentHistory'
       summary: Show what an agent has run.
+      tags:
+      - chats
+  /api/chats/agents/builtin-grants:
+    get:
+      description: Each grant has a name (the value for builtins in an agent), a title,
+        a description and sensitive. A sensitive grant changes what the agent may
+        do or reach later (profile, skills, pages, dashboard, new channels, actions
+        of unattended runs); none is on by default. A chat of the agent holds only
+        the grants you may use at that moment.
+      responses:
+        "200":
+          description: The grants, in display order
+          schema:
+            $ref: '#/definitions/schema.ChatsBuiltinGrantList'
+      summary: List the builtin grants of a saved agent.
       tags:
       - chats
   /api/chats/agents/import:

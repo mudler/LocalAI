@@ -54,6 +54,16 @@ func changeShared(gate proposals.Gate) *shared {
 	return sh
 }
 
+// grantMemory makes the saved agent of the rig one that may propose memory.
+func (c *connRig) grantMemory() { c.grantBuiltins("memory.write") }
+
+// grantBuiltins gives the saved agent of the rig the builtin grants.
+func (c *connRig) grantBuiltins(grants ...string) {
+	ag, err := c.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Support", Model: "m", Addons: []string{"office"}, Builtins: grants})
+	Expect(err).NotTo(HaveOccurred())
+	c.agent = ag
+}
+
 func channelFile(src contract.ChangeSource) string {
 	return "Memory/channels/" + proposals.ChannelDir(src) + "/index.md"
 }
@@ -168,13 +178,15 @@ var _ = Describe("change proposals", func() {
 
 		It("holds a profile to 4 KiB", func() {
 			r := changeShared(grantAll).rig(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, studio.TriggerOptions{})
-			in := studio.ProposeInput{User: alice, Agent: "ag1", Kind: "profile", Scope: "agent", Content: strings.Repeat("a", contract.MaxProfileBytes+1), Summary: "s"}
-			_, err := r.svc.Changes().Propose(context.Background(), in)
+			ag, err := r.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Helper", Model: "m", Builtins: []string{"profile.write"}})
+			Expect(err).NotTo(HaveOccurred())
+			in := studio.ProposeInput{User: alice, Agent: ag.ID, Kind: "profile", Scope: "agent", Content: strings.Repeat("a", contract.MaxProfileBytes+1), Summary: "s"}
+			_, err = r.svc.Changes().Propose(context.Background(), in)
 			Expect(err).To(MatchError(studio.ErrBadChange))
 			in.Content = strings.Repeat("a", contract.MaxProfileBytes)
 			p, err := r.svc.Changes().Propose(context.Background(), in)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(p.Target).To(Equal("LocalAI/agents/ag1/profile.md"))
+			Expect(p.Target).To(Equal("LocalAI/agents/" + ag.ID + "/profile.md"))
 		})
 
 		It("limits 10 pending per user and 5 per hour per agent", func() {
@@ -307,26 +319,26 @@ var _ = Describe("change proposals", func() {
 	})
 
 	Describe("from a chat that runs a saved agent", func() {
-		It("is refused by default and allowed by a gate that grants it", func() {
-			for name, gate := range map[string]proposals.Gate{"default": nil, "granted": grantAll} {
-				r := changeShared(gate).rig(changeScript("agent", "- rule\n"), studio.TriggerOptions{})
-				ag, err := r.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Helper", Model: "m"})
+		It("is refused without the grant and allowed with it", func() {
+			for name, grant := range map[string][]string{"default": nil, "granted": {"memory.write"}} {
+				r := changeShared(nil).rig(changeScript("agent", "- rule\n"), studio.TriggerOptions{})
+				ag, err := r.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Helper", Model: "m", Builtins: grant})
 				Expect(err).NotTo(HaveOccurred())
 				rec, err := r.svc.Create(context.Background(), alice, studio.CreateInput{AgentID: ag.ID})
 				Expect(err).NotTo(HaveOccurred())
 				sent(r.svc, alice, rec.ID, "remember")
 				idle(r.svc, alice, rec.ID)
 				res := r.h.ResultsFor("propose_change")
-				Expect(res).To(HaveLen(1), name)
 				list, _ := r.svc.Changes().List(context.Background(), alice)
 				if name == "default" {
-					Expect(res[0].Err).To(HaveOccurred())
+					// Without a grant the tool does not exist in the chat.
+					Expect(r.h.ToolNames(rec.ID)).NotTo(ContainElement("propose_change"))
+					Expect(res).To(HaveLen(1))
+					Expect(res[0].Err).To(MatchError(ContainSubstring("no tool named")))
 					Expect(list).To(BeEmpty())
-					events, _ := r.svc.Changes().Events(context.Background(), alice, 5)
-					Expect(events).To(HaveLen(1))
-					Expect(events[0].Action).To(Equal("refuse"))
 					continue
 				}
+				Expect(res).To(HaveLen(1), name)
 				Expect(res[0].Err).To(BeNil())
 				Expect(list).To(HaveLen(1))
 				Expect(list[0].Agent).To(Equal(ag.ID))
@@ -348,7 +360,7 @@ var _ = Describe("change proposals", func() {
 			_, err = r.svc.Changes().Confirm(ctx, alice, p.ID)
 			Expect(err).NotTo(HaveOccurred())
 			other = p.ID
-			ag, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Helper", Model: "m"})
+			ag, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Helper", Model: "m", Builtins: []string{"memory.write"}})
 			rec, _ := r.svc.Create(ctx, alice, studio.CreateInput{AgentID: ag.ID})
 			sent(r.svc, alice, rec.ID, "forget")
 			idle(r.svc, alice, rec.ID)
@@ -366,6 +378,7 @@ var _ = Describe("change proposals", func() {
 		It("works the same over Telegram", func() {
 			sh, bot := changeShared(grantAll), newScriptedBot()
 			r := newConnRig(sh, connStore(), bot, changeScript("channel", "- home: Rome\n"), nil)
+			r.grantMemory()
 			b := r.bind(studio.ConnectorInput{Allow: []string{"11"}})
 			n := 0
 			send := func(text string) {
@@ -385,6 +398,7 @@ var _ = Describe("change proposals", func() {
 			rt := slack.New(&slack.API{BaseURL: f.URL, FilesHost: f.FilesHost})
 			DeferCleanup(rt.Close)
 			r := newConnRigWith(sh, connStore(), studiobot.NewTransport(studiobot.Slack(rt)), changeScript("channel", "- home: Rome\n"), nil)
+			r.grantMemory()
 			b := r.bind(studio.ConnectorInput{Kind: "slack", Token: slackBot + " " + slackApp, Allow: []string{"C1"}})
 			waitFor("the Socket Mode link", func() bool { return f.Connected(slackApp) })
 			posted := func() int {
