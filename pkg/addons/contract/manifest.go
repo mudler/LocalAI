@@ -403,7 +403,7 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if e := validateResourceList(c, m.API); e != nil {
 		return e
 	}
-	if e := validateConnector(c.Connector, c.UI); e != nil {
+	if e := validateConnector(c.Connector, c.UI, m.API); e != nil {
 		return e
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
