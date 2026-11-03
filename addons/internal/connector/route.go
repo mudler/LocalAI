@@ -194,7 +194,18 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 	return out, nil
 }
 
+type optionsKey struct{}
+
+// OptionsFrom returns the options in effect that the host sent with the op
+// poll (contract.ConnectorRequest.Options), for a Platform whose Poll reads
+// them. It is nil when there are none.
+func OptionsFrom(ctx context.Context) map[string]string {
+	o, _ := ctx.Value(optionsKey{}).(map[string]string)
+	return o
+}
+
 func poll(ctx context.Context, p Platform, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	ctx = context.WithValue(ctx, optionsKey{}, req.Options)
 	wait := min(max(req.TimeoutSeconds, 0), contract.MaxPollSeconds)
 	ups, err := p.Poll(ctx, req.Token, req.Offset, wait)
 	if err != nil {

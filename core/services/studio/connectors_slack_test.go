@@ -111,12 +111,32 @@ var _ = Describe("connectors slack", func() {
 		Expect(sent[0]).To(HaveSuffix("what do you think?"))
 		Expect(r.slack.Calls("conversations.replies")).To(Equal(1))
 		// The next turn in the thread carries the plain message and asks nothing.
-		r.slack.Push(slackApp, slacktest.Reply("C1", "U2", "and the tests?", thread))
+		r.slack.Push(slackApp, slacktest.Mention("C1", "U2", "UBOT", "and the tests?", thread))
 		waitFor("the second answer", func() bool { return len(r.answers()) == 2 })
 		sent = r.h.Sent(chats[0].ID)
 		Expect(sent).To(HaveLen(2))
 		Expect(sent[1]).To(Equal("and the tests?"))
 		Expect(r.slack.Calls("conversations.replies")).To(Equal(1))
+	})
+
+	It("slack follows a thread that people started only when the binding says any", func() {
+		r, _ := newSlackRigWith(connSay("Seen."), studio.ConnectorInput{Allow: []string{"C1"}})
+		r.slack.AddThreadMessage("C1", "200.000001", "200.000001", map[string]any{"user": "U1", "text": "root"})
+		r.slack.Push(slackApp, slacktest.Mention("C1", "U1", "UBOT", "look", "200.000001"))
+		waitFor("the answer", func() bool { return len(r.answers()) == 1 })
+		r.slack.Push(slackApp, slacktest.Reply("C1", "U2", "talking to Ada", "200.000001"))
+		time.Sleep(300 * time.Millisecond)
+		Expect(r.answers()).To(HaveLen(1), "the default follows only the threads the bot started")
+
+		r2, b2 := newSlackRigWith(connSay("Seen."), studio.ConnectorInput{Allow: []string{"C1"}})
+		_, err := r2.conns.UpdateConnector(context.Background(), alice, b2.ID, studio.ConnectorInput{Name: "Support bot", AgentID: b2.AgentID, Allow: []string{"C1"}, Enabled: true,
+			Options: map[string]string{"followThreads": "any"}})
+		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(200 * time.Millisecond) // the next poll carries the option
+		r2.slack.Push(slackApp, slacktest.Mention("C1", "U1", "UBOT", "look", "200.000001"))
+		waitFor("the answer", func() bool { return len(r2.answers()) == 1 })
+		r2.slack.Push(slackApp, slacktest.Reply("C1", "U2", "and me", "200.000001"))
+		waitFor("the answer to the reply", func() bool { return len(r2.answers()) == 2 })
 	})
 
 	It("slack mention outside a thread, or with the option off, reads nothing", func() {

@@ -41,6 +41,9 @@ type Socket struct {
 	IdleAfter time.Duration
 	// Logger is slog.Default when nil. It never gets a token.
 	Logger *slog.Logger
+	// StateDir is where the add-on keeps the threads it follows, so that a
+	// restart does not forget them. Empty: they are kept in memory only.
+	StateDir string
 
 	mu       sync.Mutex
 	sessions map[string]*session
@@ -74,6 +77,11 @@ type session struct {
 	seenList []string
 	threads  map[string]time.Time
 	users    map[string]cachedUser
+	// mode is the value of the option followThreads, set by each poll.
+	mode string
+	// dir is where the followed threads are kept; empty: nowhere.
+	dir        string
+	saveFailed bool
 }
 
 type queued struct {
@@ -106,6 +114,9 @@ func (s *Socket) Poll(ctx context.Context, t Tokens, offset int64, wait int) ([]
 		return nil, missing(t)
 	}
 	ss := s.session(t, offset)
+	ss.mu.Lock()
+	ss.mode = followMode(connector.OptionsFrom(ctx)[FollowOption])
+	ss.mu.Unlock()
 	deadline := time.NewTimer(time.Duration(wait) * time.Second)
 	defer deadline.Stop()
 	for {
@@ -156,7 +167,8 @@ func (s *Socket) session(t Tokens, offset int64) *session {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	ss := &session{key: key, tokens: t, cancel: cancel, done: make(chan struct{}), wake: make(chan struct{}),
-		last: offset - 1, lastPoll: time.Now(), seen: map[string]struct{}{}, threads: map[string]time.Time{}, users: map[string]cachedUser{}}
+		last: offset - 1, lastPoll: time.Now(), seen: map[string]struct{}{}, threads: loadThreads(s.StateDir, key, time.Now()), users: map[string]cachedUser{},
+		mode: FollowOwn, dir: s.StateDir}
 	s.sessions[key] = ss
 	go func() {
 		defer close(ss.done)
