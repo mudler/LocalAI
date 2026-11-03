@@ -81,7 +81,8 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Archivos",
-      "Tools": "Herramientas"
+      "Tools": "Herramientas",
+      "Grants": "Permissions"
     },
     "name": "Name",
     "description": "Description",
@@ -139,7 +140,14 @@
     "toolsHelp": "Elige qué puede usar un chat con este agente. Son los mismos interruptores que el menú Herramientas de un chat. Una herramienta apagada nunca se ofrece al modelo, y un chat con este agente no puede encenderla.",
     "toolsHeading": "Herramientas de este agente",
     "skillsLater": "Un chat con este agente solo lee las skills activas.",
-    "skillsHeading": "Skills de este agente"
+    "skillsHeading": "Skills de este agente",
+    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
+    "grantsDefault": "Defaults",
+    "countGrants": "{{count}} granted",
+    "grantSensitive": "needs care",
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions"
   },
   "run": {
     "workingLine": "Working"

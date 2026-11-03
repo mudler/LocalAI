@@ -7,7 +7,7 @@ import { agentCollectionsApi, chatAgentsApi, modelMCPServersApi } from '../utils
 import { useAgentTools } from '../hooks/useAgentTools'
 import { useToolGroups } from '../hooks/useToolGroups'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS } from '../utils/chatAgents'
+import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, missingConnectorGrants, setGrant } from '../utils/chatAgents'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
@@ -40,6 +40,7 @@ const SECTIONS = [
   { id: 'MemorySettings', icon: 'database' },
   { id: 'Skills', icon: 'sparkles' },
   { id: 'Tools', icon: 'plug' },
+  { id: 'Grants', icon: 'shield' },
   { id: 'MCP', icon: 'server' },
 ]
 
@@ -79,11 +80,19 @@ export default function AgentCreate() {
   const initialFormRef = useRef(null)
   const [collectionNames, setCollectionNames] = useState([])
   const [modelServers, setModelServers] = useState([])
+  const [grantList, setGrantList] = useState([])
 
   // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
     agentCollectionsApi.list(false)
       .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name)).filter(Boolean)))
+      .catch(() => {})
+  }, [])
+
+  // The grants the editor can list: best effort, an empty list hides the checklist.
+  useEffect(() => {
+    chatAgentsApi.builtinGrants()
+      .then(r => setGrantList(Array.isArray(r?.grants) ? r.grants : []))
       .catch(() => {})
   }, [])
 
@@ -141,6 +150,10 @@ export default function AgentCreate() {
   const payload = useMemo(() => agentPayload(form, { initialFolders }), [form, initialFolders])
   // A folder row was added or changed and has no folder chosen.
   const folderUnchosen = foldersUnchosen(initialFolders, form.folders)
+
+  // Adding the first grant to an agent that had none turns off what it did
+  // by default on its messaging connections. Say so, and offer the fix.
+  const missingGrants = isEdit ? missingConnectorGrants(savedConfig?.builtins, form.builtins) : []
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.()
@@ -209,6 +222,12 @@ export default function AgentCreate() {
       const { on, total } = switchCounts(toolGroups.flatMap(g => g.rows))
       summary = total ? t('create.toolsSummary', { on, total }) : t('create.noneYet')
       state = on ? 'ready' : 'empty'
+    }
+    else if (s.id === 'Grants') {
+      keys = ['builtins']
+      const n = (form.builtins || []).length
+      summary = n ? t('create.countGrants', { count: n }) : t('create.grantsDefault')
+      state = missingGrants.length ? 'needs' : 'ready'
     }
     else if (s.id === 'Files') { keys = ['folders']; ({ summary, state } = folderFold()) }
     else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
@@ -340,6 +359,32 @@ export default function AgentCreate() {
                 {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
               </select>
               <p className="ag-note">{t('create.networkHelp')}</p>
+            </div>
+          </>
+        )
+      case 'Grants':
+        return (
+          <>
+            <p className="ag-note">{t('create.grantsHelp')}</p>
+            {missingGrants.length > 0 && (
+              <Callout
+                tone="warn" testId="agent-grants-notice"
+                title={t('create.grantsNoticeTitle')}
+                actions={<Button size="sm" onClick={() => updateField('builtins', missingGrants.reduce((l, g) => setGrant(l, g, true), form.builtins || []))} data-testid="agent-grants-add-missing">{t('create.grantsAddMissing')}</Button>}
+              >
+                {t('create.grantsNotice', { grants: missingGrants.join(', ') })}
+              </Callout>
+            )}
+            <div className="ag-grants" data-testid="agent-grants">
+              {grantList.map(g => (
+                <label key={g.name} className="ag-grants__row" data-testid="agent-grant">
+                  <input type="checkbox" checked={(form.builtins || []).includes(g.name)} onChange={(e) => updateField('builtins', setGrant(form.builtins, g.name, e.target.checked))} />
+                  <span className="ag-grants__text">
+                    <span className="ag-grants__title">{g.title}{g.sensitive && <span className="ag-grants__tag">{t('create.grantSensitive')}</span>}</span>
+                    <span className="ag-note">{g.description}</span>
+                  </span>
+                </label>
+              ))}
             </div>
           </>
         )

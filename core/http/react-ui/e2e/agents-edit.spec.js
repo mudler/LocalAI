@@ -35,8 +35,32 @@ test.describe('Agent form', () => {
     await expect(page).toHaveURL(/\/app\/agents$/)
     expect(s.calls.find(c => c.method === 'POST').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
-      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [], network: 'off',
+      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [], builtins: [], network: 'off',
     })
+  })
+
+  test('warns when the first permission turns off the messaging defaults, and adds the missing ones in one click', async ({ page }) => {
+    const s = await installAgents(page)
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Grants').locator('.ag-fold__button').click()
+    await expect(page.getByTestId('agent-grants-notice')).toHaveCount(0)
+    await page.getByTestId('agent-grant').filter({ hasText: 'Remember things' }).getByRole('checkbox').check()
+    const notice = page.getByTestId('agent-grants-notice')
+    await expect(notice).toContainText('triggers.propose, triggers.run, talkback.channels, files.upload')
+    await page.getByTestId('agent-grants-add-missing').click()
+    await expect(notice).toHaveCount(0)
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    const put = s.calls.find(c => c.method === 'PUT')
+    expect(put.body.builtins.sort()).toEqual(['files.upload', 'memory.write', 'talkback.channels', 'triggers.propose', 'triggers.run'])
+  })
+
+  test('shows no warning for an agent that already had permissions', async ({ page }) => {
+    await installAgents(page, { agents: [{ ...AGENTS[1], builtins: ['memory.write'] }] })
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Grants').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-grant').filter({ hasText: 'Propose triggers' }).getByRole('checkbox').check()
+    await expect(page.getByTestId('agent-grants-notice')).toHaveCount(0)
   })
 
   test('sets the network of the commands of unattended runs', async ({ page }) => {
@@ -238,7 +262,7 @@ test.describe('Agent folder', () => {
 
   test('read only shows the lock chip, and the mode switch sends write', async ({ page }) => {
     const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
-    await page.goto('/app/agents/a2')
+    await page.goto('/app/agents/a2/edit')
     const chip = page.getByTestId('agent-facts').getByTestId('agent-folder-chip')
     await expect(chip).toContainText('Acme, read only')
     await expect(chip.locator('[data-icon="lock"]')).toHaveCount(1)
@@ -279,7 +303,7 @@ test.describe('Agent folder', () => {
     const chip = page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')
     await expect(chip).toHaveText('Folder missing')
 
-    await page.goto('/app/agents/a2')
+    await page.goto('/app/agents/a2/edit')
     await expect(page.getByTestId('agent-folder-warning')).toContainText('This folder is gone. Choose another folder to use this agent.')
     await page.getByTestId('agent-facts').getByTestId('agent-folder-chip').click()
     await expect(page).toHaveURL(/\/app\/agents\/a2\/edit$/)

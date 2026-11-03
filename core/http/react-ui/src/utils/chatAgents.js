@@ -2,10 +2,33 @@
 
 // builtins_off and builtins_on are the switches of the built-in tool groups
 // (see utils/agentTools.js); they are lists like the grants.
-export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills', 'builtins_off', 'builtins_on']
+export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills', 'builtins_off', 'builtins_on', 'builtins']
+
+// The grants that an agent without a grant list holds for its messaging
+// connections (not sensitive, so implied). As soon as the list names any
+// grant, only the named ones work: these four are then off until added. The
+// server rule is core/services/studio/connectorgrants.go (grantGated).
+export const CONNECTOR_GRANTS = ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload']
+
+// The notice for the grants list: set when the saved agent had no list, the
+// form now has one, and some connector grants are missing from it. Returns
+// the missing names, or an empty array when nothing would turn off.
+export function missingConnectorGrants(saved, current) {
+  const had = (saved || []).length > 0
+  const now = current || []
+  if (had || now.length === 0) return []
+  return CONNECTOR_GRANTS.filter(g => !now.includes(g))
+}
+
+// The grants list with a name switched on or off.
+export function setGrant(list, name, on) {
+  const rest = (list || []).filter(x => x !== name)
+  return on ? [...rest, name] : rest
+}
+
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [], network: 'off', folders: [] }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [], builtins: [], network: 'off', folders: [] }
 }
 
 // Adds a name to a list: trimmed, not empty, once.

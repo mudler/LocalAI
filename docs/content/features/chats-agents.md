@@ -269,7 +269,7 @@ In a chat that a messaging connection started, the grants also decide which tool
 the model gets. A tool exists when the sender holds the capability on the
 connection, the agent holds the grant, and the chat did not switch the tool off.
 Four grants work this way: `triggers.propose`, `triggers.run`, `talkback.channels`
-and `files.upload` (the sender's files going to the agent), plus the sensitive
+and `files.upload` (a sender's files going to the agent; it does not let the agent send files out), plus the sensitive
 `talkback.new_channel`. An agent that has no `builtins` list at all keeps the
 non-sensitive ones, as before. A sensitive grant is never implied: it needs to be
 on the list. The moment you grant any built-in, the list is the whole answer, so

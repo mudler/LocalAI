@@ -17,6 +17,15 @@ export const AGENTS = [
   },
 ]
 
+export const GRANTS = [
+  { name: 'memory.write', title: 'Remember things', description: 'The agent can propose a note in your memory.', sensitive: false },
+  { name: 'triggers.propose', title: 'Propose triggers', description: 'The agent can propose a task that runs by itself.', sensitive: false },
+  { name: 'triggers.run', title: 'Run triggers', description: 'The triggers of this agent may start from a messaging app.', sensitive: false },
+  { name: 'talkback.channels', title: 'Reply on known channels', description: 'The agent can send a message to a channel it already talks in.', sensitive: false },
+  { name: 'files.upload', title: 'Receive files', description: 'Senders can attach files for the agent to read.', sensitive: false },
+  { name: 'profile.write', title: 'Change its own rules', description: 'The agent can propose an edit to its profile.', sensitive: true },
+]
+
 const iso = (minutesAgo) => new Date(Date.now() - minutesAgo * 60_000).toISOString()
 
 export const CHATS = [
@@ -168,6 +177,7 @@ export async function installAgents(page, {
   // Agent files and run history, as the server answers them: an export is the
   // definition without id or owner, an import always makes a new agent, and
   // the runs are the chats that ran with the agent.
+  await page.route('**/api/chats/agents/builtin-grants', route => route.fulfill({ json: { grants: GRANTS } }))
   await page.route(/\/api\/chats\/agents\/import$/, route => {
     const req = route.request()
     rec(req)

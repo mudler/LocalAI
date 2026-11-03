@@ -180,3 +180,17 @@ var _ = Describe("a tool gated by a capability", func() {
 		Expect(audited).To(Equal([]string{"memory.write"}))
 	})
 })
+
+var _ = Describe("the files.upload grant", func() {
+	// The connector gate enforces files.upload on the files a sender attaches to
+	// a message (the sender's files going to the agent). The text of the editor
+	// must say that, not the opposite direction.
+	It("says that senders' files reach the agent, and not that the agent sends files", func() {
+		g, ok := builtins.LookupGrant(builtins.GrantFilesUpload)
+		Expect(ok).To(BeTrue())
+		Expect(g.Title).To(Equal("Receive files"))
+		Expect(g.Description).To(ContainSubstring("attach files for the agent to read"))
+		Expect(g.Title + g.Description).NotTo(ContainSubstring("from your folders"))
+		Expect(g.Sensitive).To(BeFalse())
+	})
+})

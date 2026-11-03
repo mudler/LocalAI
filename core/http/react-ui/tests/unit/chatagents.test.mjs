@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addEntry, agentFolderMarks, agentPayload, emptyAgent, effectiveModes, folderName, folderPickable, folderRows, folderState, foldersPayload, foldersUnchosen, MAX_FOLDERS, grantSummary, isFolderMissingError, removeEntry } from '../../src/utils/chatAgents.js'
+import { addEntry, agentFolderMarks, agentPayload, emptyAgent, effectiveModes, folderName, folderPickable, folderRows, folderState, foldersPayload, foldersUnchosen, MAX_FOLDERS, grantSummary, isFolderMissingError, removeEntry, missingConnectorGrants, setGrant, CONNECTOR_GRANTS } from '../../src/utils/chatAgents.js'
 
 test('chat agents: an entry is trimmed and added once', () => {
   assert.deepEqual(addEntry([], ' office '), ['office'])
@@ -112,4 +112,23 @@ test('chat agents: a 409 agent_folder_missing is told apart from other errors', 
   assert.equal(isFolderMissingError({ status: 409, body: { error: { type: 'conflict' } } }), false)
   assert.equal(isFolderMissingError(new Error('x')), false)
   assert.equal(isFolderMissingError(null), false)
+})
+
+test('chat agents: the first grant on an agent without a list names the connector grants that turn off', () => {
+  assert.deepEqual(missingConnectorGrants([], ['memory.write']), CONNECTOR_GRANTS)
+  assert.deepEqual(missingConnectorGrants(undefined, ['memory.write', 'triggers.run']), ['triggers.propose', 'talkback.channels', 'files.upload'])
+  assert.deepEqual(missingConnectorGrants([], CONNECTOR_GRANTS), [])
+})
+
+test('chat agents: no notice when the agent had a list, or the form still has none', () => {
+  assert.deepEqual(missingConnectorGrants(['memory.write'], ['memory.write', 'skills.write']), [])
+  assert.deepEqual(missingConnectorGrants([], []), [])
+  assert.deepEqual(missingConnectorGrants([], undefined), [])
+})
+
+test('chat agents: a grant is switched on once and off again', () => {
+  assert.deepEqual(setGrant([], 'memory.write', true), ['memory.write'])
+  assert.deepEqual(setGrant(['memory.write'], 'memory.write', true), ['memory.write'])
+  assert.deepEqual(setGrant(['memory.write', 'files.upload'], 'memory.write', false), ['files.upload'])
+  assert.deepEqual(agentPayload({ ...emptyAgent(), name: 'a', builtins: ['memory.write', ' memory.write'] }).builtins, ['memory.write'])
 })

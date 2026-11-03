@@ -60,7 +60,7 @@ var grants = []Grant{
 	{GrantTriggersRun, "Run triggers", "The triggers of this agent may start from a messaging app.", false},
 	{GrantTalkbackChannels, "Reply on known channels", "The agent can send a message to a channel it already talks in.", false},
 	{GrantTalkbackNewChan, "Start new channels", "The agent can start a conversation on a channel it has not used before.", true},
-	{GrantFilesUpload, "Send files", "The agent can send a file from your folders to a channel.", false},
+	{GrantFilesUpload, "Receive files", "In a chat that a messaging app starts, a sender can attach files for the agent to read. It does not let the agent send files out.", false},
 	{GrantActFiles, "Write files on its own", "A run that nobody watches may write files inside the agent's folders.", true},
 	{GrantActAddons, "Use add-on actions on its own", "A run that nobody watches may call the actions of the add-ons it has.", true},
 	{GrantActSend, "Send messages on its own", "A run that nobody watches may send messages beyond its delivery target.", true},

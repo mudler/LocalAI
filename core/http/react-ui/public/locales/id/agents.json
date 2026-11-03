@@ -81,7 +81,8 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "File",
-      "Tools": "Alat"
+      "Tools": "Alat",
+      "Grants": "Permissions"
     },
     "name": "Name",
     "description": "Description",
@@ -139,7 +140,14 @@
     "toolsHelp": "Pilih apa yang dapat dipakai chat dengan agen ini. Sakelarnya sama dengan menu Alat pada chat. Alat yang mati tidak pernah ditawarkan kepada model, dan chat dengan agen ini tidak dapat menyalakannya.",
     "toolsHeading": "Alat agen ini",
     "skillsLater": "Chat dengan agen ini hanya membaca skill yang aktif.",
-    "skillsHeading": "Skill agen ini"
+    "skillsHeading": "Skill agen ini",
+    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
+    "grantsDefault": "Defaults",
+    "countGrants": "{{count}} granted",
+    "grantSensitive": "needs care",
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions"
   },
   "run": {
     "workingLine": "Working"
