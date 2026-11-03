@@ -179,3 +179,19 @@
 .swl-status:empty { border-top-color: transparent; }
 .swl-status:empty:has(+ *) { height: 0; }
 .swl-foot--reserve > .swl-status:empty:has(+ *) { height: var(--ctl-h-sm); }
+
+/* A row with a control under it, such as the connection an add-on uses. */
+.swl-rowbox:hover { background: var(--color-bg-hover); }
+.swl-rowbox:hover > .swl-row, .swl-rowbox > .swl-row:hover { background: none; }
+.swl-row--extended { padding-bottom: var(--sp-1); }
+.swl-row__extra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-3) var(--sp-2);
+}
+.swl-pick { display: flex; flex-direction: column; gap: 2px; }
+.swl-pick__label { font-size: var(--fs-meta); font-weight: 500; color: var(--color-text-secondary); }
+.swl-pick__hint { font-size: var(--fs-meta); color: var(--color-text-muted); line-height: 1.4; }
+.swl-pick__select { width: 100%; }
+.swl-pick__link { font-size: var(--fs-meta); }

@@ -164,6 +164,42 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     }
   }, [chatId, draftOn, choose, refreshDraftCommands])
 
+  // Chooses the connection (a binding ID, '' to clear) this chat uses for the
+  // tools of an add-on that runs with a credential. Choosing one switches the
+  // add-on on. A draft keeps the choice for the create request.
+  const setConnection = useCallback(async (addonId, connection) => {
+    const before = addonsRef.current
+    const row = before.find((a) => a.id === addonId)
+    if (!row || row.connection_by === 'agent') return
+    const found = (row.connections || []).find((c) => c.id === connection)
+    putAddons(before.map((a) => (a.id !== addonId ? a : {
+      ...a, connection: found ? found.id : '', connection_by: found ? 'chat' : '', needs_connection: !found, off: found ? false : a.off,
+    })))
+    setError('')
+    if (draftOn) {
+      choose('connections', addonId, found ? found.id : '')
+      if (found) choose('addons', addonId, false)
+      setSkillsRev((n) => n + 1)
+      refreshDraftCommands()
+      return
+    }
+    const epoch = ++commandEpoch.current
+    try {
+      const res = await chatAddonsApi.setConnection(chatId, addonId, connection)
+      if (epoch !== commandEpoch.current) return
+      if (res?.addons) {
+        putAddons(res.addons)
+        setCommands(commandsOf(res))
+      }
+      setSkillsRev((n) => n + 1)
+      setCommandsRev((n) => n + 1)
+    } catch (e) {
+      if (epoch !== commandEpoch.current) return
+      putAddons(before)
+      setError(e.message || 'error')
+    }
+  }, [chatId, draftOn, choose, refreshDraftCommands])
+
   // keys: server names of the model or connector:<id>, switched with one request.
   const setMCPOn = useCallback(async (keys, on) => {
     const before = mcpRef.current
@@ -272,6 +308,6 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     draftSwitches, resetDraft, draft: draftOn, commandsRev,
     addons, builtins, fallbacks, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
-    toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn,
+    toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnection,
   }
 }

@@ -1,6 +1,7 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { BulkActions, SwitchGroup, SwitchHead, SwitchPopover, SwitchRow, SwitchStatus } from './SwitchList'
 import { bulkIds, bulkable, rowOn, switchCounts, switchRows } from '../../utils/chatSwitchRows'
 
@@ -141,6 +142,39 @@ function ToolRow({ row: r, testId }) {
       testId={`${testId}-item`}
       descTestId={r.note ? `${testId}-note` : undefined}
       data={{ optin: r.optIn ? 'true' : undefined }}
+      extra={r.pick ? <RowPick pick={r.pick} testId={testId} /> : undefined}
     />
+  )
+}
+
+// A choice under a row, with its name, a description of what it does and,
+// when there is nothing to choose from, a link to where to make one. The Tools
+// menu of a chat and the agent form draw it the same way.
+//
+// pick: { label, hint, value, options: [{ value, label }], placeholder,
+//   clearLabel (an empty choice that stays in the list), disabled, onChange(value), link: { to, label } }
+function RowPick({ pick: p, testId }) {
+  const id = useId()
+  const hintId = useId()
+  return (
+    <div className="swl-pick" data-testid={`${testId}-pick`}>
+      <label className="swl-pick__label" htmlFor={id}>{p.label}</label>
+      {p.options.length > 0 && (
+        <select
+          id={id}
+          className="dk-select swl-pick__select"
+          value={p.value || ''}
+          disabled={p.disabled}
+          aria-describedby={p.hint ? hintId : undefined}
+          data-testid={`${testId}-pick-select`}
+          onChange={(e) => p.onChange(e.target.value)}
+        >
+          {(!p.value || p.clearLabel) && <option value="">{p.clearLabel || p.placeholder}</option>}
+          {p.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      )}
+      {p.hint && <span className="swl-pick__hint" id={hintId} data-testid={`${testId}-pick-hint`}>{p.hint}</span>}
+      {p.link && <Link className="swl-pick__link" to={p.link.to} data-testid={`${testId}-pick-link`}>{p.link.label}</Link>}
+    </div>
   )
 }

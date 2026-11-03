@@ -98,5 +98,15 @@ func draftSwitches(c echo.Context) studiosvc.Switches {
 		}
 		return out
 	}
-	return studiosvc.Switches{AddonsOff: list("addons_off"), BuiltinsOff: list("builtins_off"), BuiltinsOn: list("builtins_on")}
+	sw := studiosvc.Switches{AddonsOff: list("addons_off"), BuiltinsOff: list("builtins_off"), BuiltinsOn: list("builtins_on")}
+	// connections=<addon>:<binding>, comma-separated; the service checks them.
+	for _, pair := range list("connections") {
+		if addon, binding, ok := strings.Cut(pair, ":"); ok && addon != "" && binding != "" {
+			if sw.Connections == nil {
+				sw.Connections = map[string]string{}
+			}
+			sw.Connections[addon] = binding
+		}
+	}
+	return sw
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { chatSkillsApi, chatToolsApi } from '../utils/api'
 import { pickerSkills } from '../utils/chatSkills'
 import { useBuiltinGrants } from './useBuiltinGrants'
-import { addonsAfter, agentAddons, agentGrants, grantsAfter, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectorsAfter, skillsAfter } from '../utils/agentTools'
+import { addonsAfter, agentAddons, agentGrants, grantsAfter, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectionsAfter, connectorsAfter, skillsAfter } from '../utils/agentTools'
 
 // The Tools list of the agent form. It reads what a new chat on the agent's
 // model could use (the draft lists, the ones the Tools menu of a new chat
@@ -56,6 +56,7 @@ export function useAgentTools(form, update) {
   const setMCPOn = useCallback(async (keys, on) => { update('mcp_servers', connectorsAfter(form, keys, on)) }, [form, update])
   const setGrantsOn = useCallback(async (names, on) => { update('builtins', grantsAfter(form, names, on)) }, [form, update])
   const setSkillsOn = useCallback(async (ids, on) => { update('skills', skillsAfter(form, skillList, ids, on)) }, [form, skillList, update])
+  const setConnection = useCallback((addonId, bindingId) => update('connections', connectionsAfter(form, addonId, bindingId)), [form, update])
 
   return {
     // The grants are rows with their own switch each: no bulk setter, so a
@@ -65,7 +66,7 @@ export function useAgentTools(form, update) {
     toggleBuiltin: (g, on) => setBuiltinsOn([g], on),
     toggleAddon: (id, on) => setAddonsOn([id], on),
     toggleMCP: (key, on) => setMCPOn([key], on),
-    setBuiltinsOn, setAddonsOn, setMCPOn, setSkillsOn,
+    setBuiltinsOn, setAddonsOn, setMCPOn, setSkillsOn, setConnection,
     commands: { state: 'unknown' },
   }
 }

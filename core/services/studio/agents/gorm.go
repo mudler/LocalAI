@@ -42,8 +42,11 @@ type agentRow struct {
 	BuiltinsOn  string
 	// Builtins (the grants) came after them: a JSON list, empty before.
 	Builtins string
-	Created  time.Time
-	Updated  time.Time
+	// Connections is the JSON object of the connection the agent names for
+	// each credentialed add-on; empty for the agents made before.
+	Connections string
+	Created     time.Time
+	Updated     time.Time
 }
 
 func (agentRow) TableName() string { return "studio_agents" }
@@ -106,6 +109,14 @@ func listJSON(l []string) string {
 	return string(raw)
 }
 
+func connectionsJSON(m map[string]string) string {
+	if len(m) == 0 {
+		return ""
+	}
+	raw, _ := json.Marshal(m)
+	return string(raw)
+}
+
 func listFromJSON(s string) ([]string, error) {
 	if s == "" {
 		return nil, nil
@@ -122,6 +133,11 @@ func (r agentRow) agent(folders []folderRow) (Agent, error) {
 		a.Folders = append(a.Folders, AgentFolder{Node: f.Node, Mode: f.Mode})
 	}
 	var err error
+	if r.Connections != "" {
+		if err = json.Unmarshal([]byte(r.Connections), &a.Connections); err != nil {
+			return a, err
+		}
+	}
 	for _, f := range []struct {
 		dst *[]string
 		src string
@@ -198,7 +214,8 @@ func (s *gormStore) Put(ctx context.Context, a Agent) error {
 			MCPServers: listJSON(a.MCPServers), Addons: listJSON(a.Addons),
 			Collections: listJSON(a.Collections), Skills: listJSON(a.Skills), Network: a.Network,
 			FolderID: a.FolderID, FolderMode: a.FolderMode, BuiltinsOff: listJSON(a.BuiltinsOff), BuiltinsOn: listJSON(a.BuiltinsOn), Builtins: listJSON(a.Builtins),
-			Created: a.Created, Updated: a.Updated}
+			Connections: connectionsJSON(a.Connections),
+			Created:     a.Created, Updated: a.Updated}
 		if exists {
 			row.Created = old.Created
 			err = tx.Save(&row).Error

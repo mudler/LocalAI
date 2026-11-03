@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"strings"
 	"time"
@@ -63,6 +64,13 @@ type Agent struct {
 	// and so on). Empty grants nothing: no grant is on by default, and a chat
 	// gets the intersection with what its user may use at the turn.
 	Builtins []string
+	// Connections names the connection (a connector binding ID) the agent's
+	// chats use for each add-on whose tools run with a credential, by add-on
+	// ID. The owner chooses it; a chat of the agent cannot change it. An
+	// add-on with no entry gets no connection from the agent: the person must
+	// pick one in the chat. The service checks that each binding is the
+	// owner's and belongs to the add-on.
+	Connections map[string]string
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs (triggers, connectors): off, registries or all, capped
 	// by the administrator's ceiling. Empty is off. A run never asks a
@@ -173,6 +181,14 @@ func Validate(a Agent) error {
 	default:
 		return bad("the network must be off, registries or all")
 	}
+	if len(a.Connections) > MaxListEntries {
+		return bad("connections has more than %d entries", MaxListEntries)
+	}
+	for addon, binding := range a.Connections {
+		if !addonIDShape.MatchString(addon) || strings.TrimSpace(binding) == "" || utf8.RuneCountInString(binding) > MaxEntryRunes {
+			return bad("a connection needs an add-on ID and a binding ID")
+		}
+	}
 	if a.FolderMode == "" && a.FolderID != 0 && len(a.Folders) == 0 {
 		return bad("a folder needs a mode, read or write")
 	}
@@ -241,5 +257,6 @@ func (a Agent) clone() Agent {
 	a.BuiltinsOff = append([]string(nil), a.BuiltinsOff...)
 	a.BuiltinsOn = append([]string(nil), a.BuiltinsOn...)
 	a.Builtins = append([]string(nil), a.Builtins...)
+	a.Connections = maps.Clone(a.Connections)
 	return a.normalizeFolders()
 }

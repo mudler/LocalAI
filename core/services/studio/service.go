@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -254,6 +255,9 @@ type CreateInput struct {
 // opt-in groups of built-in tools that are on.
 type Switches struct {
 	AddonsOff, McpOff, BuiltinsOff, BuiltinsOn, SkillsOff []string
+	// Connections is the connection (a connector binding ID) the chat uses for
+	// each add-on whose tools run with a credential, by add-on ID.
+	Connections map[string]string
 }
 
 // cleanSwitches checks every list of sw and returns them cleaned.
@@ -275,7 +279,16 @@ func (s *Service) cleanSwitches(sw Switches) (Switches, error) {
 	if out.SkillsOff, err = cleanSkillSwitches(sw.SkillsOff); err != nil {
 		return out, err
 	}
+	out.Connections = maps.Clone(sw.Connections)
 	return out, nil
+}
+
+// nilIfEmpty keeps an empty map nil, as a chat that chose nothing has it.
+func nilIfEmpty(m map[string]string) map[string]string {
+	if len(m) == 0 {
+		return nil
+	}
+	return maps.Clone(m)
 }
 
 // orNil keeps an empty list nil, as a chat that never switched anything has it.
@@ -650,6 +663,9 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
+	if err := s.checkConnections(ctx, user, sw.Connections); err != nil {
+		return session.ChatRecord{}, err
+	}
 	// The opt-in groups the agent starts with (saved agents) are on in its
 	// chats from the first turn; the chat may still switch them off.
 	sw.BuiltinsOn = mergeGroups(sw.BuiltinsOn, agentOn)
@@ -661,7 +677,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
 		AgentID: in.AgentID, ScopedAgent: scoped, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
 		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
-		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff)}
+		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff), Connections: nilIfEmpty(sw.Connections)}
 	if origin.Kind == "" {
 		// A chat a person starts gets the instance default, or the network
 		// of its saved agent when the agent sets one, under the ceiling. An

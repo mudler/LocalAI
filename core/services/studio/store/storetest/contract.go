@@ -362,6 +362,30 @@ func Run(newStore New) {
 		Expect(rec.AddonsOff).To(BeEmpty(), "after clearing")
 	})
 
+	It("the connections of a chat round-trip, survive a chat update, copy on read and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetConnections(ctx(), "alice", "c1", map[string]string{"github": "b1"})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Connections).To(Equal(map[string]string{"github": "b1"}))
+		rec.Connections["github"] = "changed"
+		stale := rec
+		stale.Connections = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Connections).To(Equal(map[string]string{"github": "b1"}), "want the choice kept")
+		Expect(s.SetConnections(ctx(), "bob", "c1", map[string]string{"github": "b2"})).To(MatchError(session.ErrNotFound), "another principal's SetConnections")
+		Expect(s.SetConnections(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Connections).To(BeEmpty(), "after clearing")
+		made := session.ChatRecord{ID: "c2", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "m", Connections: map[string]string{"github": "b1"}}
+		Expect(s.CreateChat(ctx(), made)).To(Succeed())
+		got, _ := s.GetChat(ctx(), "alice", "c2")
+		Expect(got.Connections).To(Equal(map[string]string{"github": "b1"}), "a chat created with its choice keeps it")
+	})
+
 	It("a chat created with its switches keeps them", func() {
 		s := newStore()
 		rec := session.ChatRecord{ID: "c1", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",

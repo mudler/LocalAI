@@ -44,6 +44,7 @@ type chatRow struct {
 	McpOff       string `gorm:"type:text"` // JSON list of MCP server names and connector:<id>
 	BuiltinsOff  string `gorm:"type:text"` // JSON list of built-in tool groups
 	BuiltinsOn   string `gorm:"type:text"` // JSON list of opt-in built-in tool groups
+	Connections  string `gorm:"type:text"` // JSON object, add-on ID to binding ID
 	AgentID      string `gorm:"size:128"`
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
@@ -216,6 +217,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 			return rec, err
 		}
 	}
+	if r.Connections != "" {
+		if err := json.Unmarshal([]byte(r.Connections), &rec.Connections); err != nil {
+			return rec, err
+		}
+	}
 	if r.Settings != "" {
 		if err := json.Unmarshal([]byte(r.Settings), &rec.Settings); err != nil {
 			return rec, err
@@ -284,6 +290,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		*l.to = string(raw)
+	}
+	if len(rec.Connections) > 0 {
+		raw, err := json.Marshal(rec.Connections)
+		if err != nil {
+			return err
+		}
+		row.Connections = string(raw)
 	}
 	if rec.Settings != (session.ChatSettings{}) {
 		raw, err := json.Marshal(rec.Settings)
@@ -419,6 +432,31 @@ func (s *gormStore) SetBuiltinsOff(ctx context.Context, principal, id string, of
 
 func (s *gormStore) SetBuiltinsOn(ctx context.Context, principal, id string, on []string) error {
 	return s.setList(ctx, "builtins_on", principal, id, on)
+}
+
+func (s *gormStore) SetConnections(ctx context.Context, principal, id string, connections map[string]string) error {
+	raw := ""
+	if len(connections) > 0 {
+		b, err := json.Marshal(connections)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("connections", raw)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		var n int64
+		if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return session.ErrNotFound
+		}
+	}
+	return nil
 }
 
 func (s *gormStore) SetScopedAgent(ctx context.Context, principal, id string, scoped bool) error {

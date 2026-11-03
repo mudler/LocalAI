@@ -104,12 +104,29 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 ```
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
-A `PUT` replaces every field except `folders` (see below) and the tool switches `builtins_off` and `builtins_on`, which it keeps when the body does not name them (an empty list clears them). Chats that already run with the agent use the new
+A `PUT` replaces every field except `folders` (see below), the tool switches `builtins_off` and `builtins_on` and the [connections](#connections-of-an-agent), which it keeps when the body does not name them (an empty list or object clears them). Chats that already run with the agent use the new
 definition from their next turn. Another user's agent is always `404`.
 
 Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
 tools, as they are your own settings.
+
+### Connections of an agent
+
+An add-on whose tools run with the token of one of your
+[connections](/features/chats-connectors/#github) lets the agent name which
+connection its chats use. In the agent form, the add-on's row in **Tools** has a
+**Connection for chats of this agent** selector. A chat of the agent uses that
+connection, shows it read only, and cannot change it. **Choose in each chat**
+(the default) leaves the choice to the person in each chat; until they choose,
+the add-on's tools are not offered.
+
+Over the API an agent has `connections`, an object from add-on ID to binding ID
+(`{"github": "<binding id>"}`). A binding must be yours and belong to that
+add-on, else `400`. A `PUT` that does not name `connections` keeps them, and
+`{}` clears them. The export file never carries them: a binding ID belongs to one
+server, so the format and its version are unchanged, and an imported agent has
+no connection until you choose one.
 
 ### Folders of an agent
 

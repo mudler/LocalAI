@@ -64,3 +64,22 @@ var _ = Describe("agent validation", func() {
 		Expect(agents.Validate(agents.Agent{Name: "a", Folders: unset})).To(Succeed(), "several unchosen rows")
 	})
 })
+
+var _ = Describe("the connections of an agent", func() {
+	base := func() agents.Agent { return agents.Agent{Name: "A", Model: "m"} }
+	It("accepts an add-on ID with a binding ID, and none", func() {
+		a := base()
+		Expect(agents.Validate(a)).To(Succeed())
+		a.Connections = map[string]string{"github": "b1"}
+		Expect(agents.Validate(a)).To(Succeed())
+	})
+	DescribeTable("refuses",
+		func(m map[string]string) {
+			a := base()
+			a.Connections = m
+			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid))
+		},
+		Entry("an add-on ID that is not one", map[string]string{"Not An Id": "b1"}),
+		Entry("an empty binding ID", map[string]string{"github": " "}),
+	)
+})

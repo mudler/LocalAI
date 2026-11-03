@@ -140,7 +140,7 @@ export default function AgentCreate() {
   // The Tools and Skills lists are the ones the Tools menu of a chat draws
   // (SwitchPanel), with the agent's grants and switches applied to them.
   const tools = useAgentTools(form, updateField)
-  const toolGroups = useToolGroups(tools, { commandState: false })
+  const toolGroups = useToolGroups(tools, { commandState: false, forAgent: true })
 
   // The definition exactly as it is saved. The preview shows this object and
   // Save sends it.
@@ -218,7 +218,7 @@ export default function AgentCreate() {
     if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
     else if (s.id === 'Tools') {
-      keys = ['builtins_off', 'builtins_on', 'addons', 'mcp_servers', 'network']
+      keys = ['builtins_off', 'builtins_on', 'addons', 'mcp_servers', 'network', 'connections']
       const { on, total } = switchCounts(toolGroups.flatMap(g => g.rows))
       summary = total ? t('create.toolsSummary', { on, total }) : t('create.noneYet')
       state = on ? 'ready' : 'empty'

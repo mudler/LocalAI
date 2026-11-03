@@ -111,7 +111,7 @@ test('github: a connection can be saved without an agent, and the page has words
   assert.equal(canSave(form, false, true), false, 'a kind that needs an agent refuses an empty one')
   assert.equal(canSave(form, false, true, null, true), true, 'agentOptional lets the connection hold credentials only')
   assert.equal(connectorPayload(form, 'github', 'github_pat_x', { enabled: false }).agent_id, '')
-  for (const key of ['agentCredentialsOnly', 'agentOptionalHint', 'credentialsOnly']) assert.ok(en[key], key)
+  for (const key of ['agentCredentialsOnly', 'agentOptionalHint', 'credentialsOnly', 'checkSeveral']) assert.ok(en[key], key)
 })
 
 test('github: the page says what it does not do and links the token page', () => {

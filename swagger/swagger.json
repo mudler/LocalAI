@@ -9077,6 +9077,53 @@
                 }
             }
         },
+        "/api/chats/{id}/connections": {
+            "put": {
+                "description": "For an add-on whose tools run with the token of one of your connections (such as GitHub), the host never picks the connection for you. With exactly one it is selected; with several, choose here, and until then the tools of the add-on are not offered to the model. An empty connection clears the choice. Choosing a connection switches the add-on on for the chat. If the saved agent of the chat names the connection, the answer is 400: the agent decides.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Choose the connection a chat uses for an add-on.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "conversation id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the add-on and the connection",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectionSwitch"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The add-ons and their switches now in force",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsAddonList"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid, or the agent names the connection",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such conversation, or it is another user's",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/{id}/egress": {
             "get": {
                 "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no add-on serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
@@ -17924,6 +17971,13 @@
                     "description": "Blocked reports that another operation on the resource has an\nunresolved outcome, so confirming is denied until it is resolved. The\noperation itself belongs to its proposer and is shown only to the\nresource's owner role, in the unresolved listing and in the denial.",
                     "type": "boolean"
                 },
+                "connectionId": {
+                    "description": "ConnectionID and ConnectionName say which connection of the person the\nchange will be made with. They are present for a write of an add-on that\nruns with a credential, and the apply uses that very connection.",
+                    "type": "string"
+                },
+                "connectionName": {
+                    "type": "string"
+                },
                 "createdAt": {
                     "type": "string"
                 },
@@ -19542,11 +19596,30 @@
         "schema.ChatsAddon": {
             "type": "object",
             "properties": {
+                "connection": {
+                    "type": "string"
+                },
+                "connection_by": {
+                    "type": "string"
+                },
+                "connections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnection"
+                    }
+                },
+                "credentialed": {
+                    "description": "Credentialed is true when the tools of the add-on run with the token of\none of your connections. Connections lists them, oldest first. Connection\nis the one this chat uses (empty when none is selected) and ConnectionBy\nsays why: chat (you chose it), agent (the agent of the chat names it; you\ncannot change it here), binding (the chat was started by that binding) or\nonly (it is your only connection). NeedsConnection is true while none is\nselected: the tools are not offered to the model until you pick one.",
+                    "type": "boolean"
+                },
                 "description": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
+                },
+                "needs_connection": {
+                    "type": "boolean"
                 },
                 "off": {
                     "type": "boolean"
@@ -19975,6 +20048,13 @@
                         "type": "string"
                     }
                 },
+                "connections": {
+                    "description": "Connections names, for each add-on whose tools run with a credential\n(by add-on ID), the connection (binding ID) the agent's chats use. A\nchat of the agent cannot change it. An add-on with no entry gets no\nconnection from the agent: the person picks one in the chat.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "created": {
                     "type": "string"
                 },
@@ -20250,6 +20330,13 @@
                 "collections": {
                     "type": "array",
                     "items": {
+                        "type": "string"
+                    }
+                },
+                "connections": {
+                    "description": "Connections names the connection the agent's chats use for each add-on\nwith a credential (see ChatsAgent). A write without it keeps the stored\nones; an empty object clears them. Each binding must be your own for that\nadd-on. An export file never carries it: a binding ID belongs to one server.",
+                    "type": "object",
+                    "additionalProperties": {
                         "type": "string"
                     }
                 },
@@ -20690,6 +20777,30 @@
                     "items": {
                         "$ref": "#/definitions/schema.ChatsChatHit"
                     }
+                }
+            }
+        },
+        "schema.ChatsConnection": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectionSwitch": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "description": "Addon is the add-on ID.",
+                    "type": "string"
+                },
+                "connection": {
+                    "description": "Connection is the ID of one of your connector bindings for that add-on;\nempty clears the choice.",
+                    "type": "string"
                 }
             }
         },
@@ -23540,6 +23651,13 @@
                 "builtins_on": {
                     "type": "array",
                     "items": {
+                        "type": "string"
+                    }
+                },
+                "connections": {
+                    "description": "Connections is the connection (a connector binding ID) the chat uses for\neach add-on whose tools run with a credential, by add-on ID. Each must be\none of your own for that add-on.",
+                    "type": "object",
+                    "additionalProperties": {
                         "type": "string"
                     }
                 },

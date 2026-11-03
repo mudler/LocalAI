@@ -829,7 +829,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 					return nil, ErrNotPermitted
 				case wireUnreachable:
 					return nil, ErrResourceUnreachable
-				case CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed:
+				case CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection:
 					return nil, &CredentialRefusal{Code: b.Type, Allowed: b.Allowed}
 				}
 			}

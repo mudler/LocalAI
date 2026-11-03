@@ -118,6 +118,11 @@ type Store interface {
 	// switched on, the way SetAddonsOff does for add-ons.
 	SetBuiltinsOn(ctx context.Context, principal, chatID string, on []string) error
 
+	// SetConnections sets the connection this chat chose for each add-on with
+	// a credential (add-on ID to binding ID), replacing the earlier map. It is
+	// kept the way SetAddonsOff keeps its list.
+	SetConnections(ctx context.Context, principal, chatID string, connections map[string]string) error
+
 	// SetScopedAgent sets ChatRecord.ScopedAgent. UpdateChat leaves it alone,
 	// like the switches above.
 	SetScopedAgent(ctx context.Context, principal, chatID string, scoped bool) error

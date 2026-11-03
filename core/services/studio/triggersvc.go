@@ -358,6 +358,13 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 		if err := h.svc.d.Store.SetMcpOff(ctx, owner, rec.ID, srcMCP); err != nil {
 			return "", err
 		}
+		// The run acts with the connection that the chat which proposed it
+		// had selected, as it does for the other switches.
+		if src, gerr := h.svc.d.Store.GetChat(ctx, owner, t.SourceChatID); gerr == nil && len(src.Connections) > 0 {
+			if err := h.svc.d.Store.SetConnections(ctx, owner, rec.ID, src.Connections); err != nil {
+				return "", err
+			}
+		}
 	}
 	events, cancel, err := h.svc.Events(ctx, owner, rec.ID) // before Send: the end must not be missed
 	if err != nil {

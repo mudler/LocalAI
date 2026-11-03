@@ -98,6 +98,11 @@ type Proposal struct {
 	// host surface such as the browser: a chat or an agent never applies it.
 	// The write mode of the binding or the approval of the tool asks for it.
 	AwaitsPerson bool `json:"awaitsPerson,omitempty"`
+	// ConnectionID and ConnectionName say which connection of the person the
+	// change will be made with. They are present for a write of an add-on that
+	// runs with a credential, and the apply uses that very connection.
+	ConnectionID   string `json:"connectionId,omitempty"`
+	ConnectionName string `json:"connectionName,omitempty"`
 	// Resolution is present once the resource owner stopped waiting for an
 	// unresolved outcome. It stays after a late receipt is recorded.
 	Resolution *ProposalResolution `json:"resolution,omitempty"`

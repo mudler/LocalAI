@@ -140,6 +140,7 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.PUT(base+"/:id/skills", h.SetChatSkills)
 	e.GET(base+"/:id/addons", h.ListChatAddons)
 	e.PUT(base+"/:id/addons", h.SetChatAddons)
+	e.PUT(base+"/:id/connections", h.SetChatConnection)
 	e.POST(base+"/:id/host-exec/consent", h.HostExecConsent)
 	e.GET(base+"/:id/egress", h.GetEgress)
 	e.PUT(base+"/:id/egress", h.PutEgress)

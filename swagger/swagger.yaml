@@ -2121,6 +2121,14 @@ definitions:
           operation itself belongs to its proposer and is shown only to the
           resource's owner role, in the unresolved listing and in the denial.
         type: boolean
+      connectionId:
+        description: |-
+          ConnectionID and ConnectionName say which connection of the person the
+          change will be made with. They are present for a write of an add-on that
+          runs with a credential, and the apply uses that very connection.
+        type: string
+      connectionName:
+        type: string
       createdAt:
         type: string
       digest:
@@ -3298,10 +3306,30 @@ definitions:
     type: object
   schema.ChatsAddon:
     properties:
+      connection:
+        type: string
+      connection_by:
+        type: string
+      connections:
+        items:
+          $ref: '#/definitions/schema.ChatsConnection'
+        type: array
+      credentialed:
+        description: |-
+          Credentialed is true when the tools of the add-on run with the token of
+          one of your connections. Connections lists them, oldest first. Connection
+          is the one this chat uses (empty when none is selected) and ConnectionBy
+          says why: chat (you chose it), agent (the agent of the chat names it; you
+          cannot change it here), binding (the chat was started by that binding) or
+          only (it is your only connection). NeedsConnection is true while none is
+          selected: the tools are not offered to the model until you pick one.
+        type: boolean
       description:
         type: string
       id:
         type: string
+      needs_connection:
+        type: boolean
       "off":
         type: boolean
       title:
@@ -3664,6 +3692,15 @@ definitions:
         items:
           type: string
         type: array
+      connections:
+        additionalProperties:
+          type: string
+        description: |-
+          Connections names, for each add-on whose tools run with a credential
+          (by add-on ID), the connection (binding ID) the agent's chats use. A
+          chat of the agent cannot change it. An add-on with no entry gets no
+          connection from the agent: the person picks one in the chat.
+        type: object
       created:
         type: string
       description:
@@ -3888,6 +3925,15 @@ definitions:
         items:
           type: string
         type: array
+      connections:
+        additionalProperties:
+          type: string
+        description: |-
+          Connections names the connection the agent's chats use for each add-on
+          with a credential (see ChatsAgent). A write without it keeps the stored
+          ones; an empty object clears them. Each binding must be your own for that
+          add-on. An export file never carries it: a binding ID belongs to one server.
+        type: object
       description:
         type: string
       folder:
@@ -4257,6 +4303,24 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsChatHit'
         type: array
+    type: object
+  schema.ChatsConnection:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.ChatsConnectionSwitch:
+    properties:
+      addon:
+        description: Addon is the add-on ID.
+        type: string
+      connection:
+        description: |-
+          Connection is the ID of one of your connector bindings for that add-on;
+          empty clears the choice.
+        type: string
     type: object
   schema.ChatsConnector:
     properties:
@@ -6395,6 +6459,14 @@ definitions:
         items:
           type: string
         type: array
+      connections:
+        additionalProperties:
+          type: string
+        description: |-
+          Connections is the connection (a connector binding ID) the chat uses for
+          each add-on whose tools run with a credential, by add-on ID. Each must be
+          one of your own for that add-on.
+        type: object
       mcp_off:
         items:
           type: string
@@ -14255,6 +14327,42 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Compact a chat's context now.
+      tags:
+      - chats
+  /api/chats/{id}/connections:
+    put:
+      description: 'For an add-on whose tools run with the token of one of your connections
+        (such as GitHub), the host never picks the connection for you. With exactly
+        one it is selected; with several, choose here, and until then the tools of
+        the add-on are not offered to the model. An empty connection clears the choice.
+        Choosing a connection switches the add-on on for the chat. If the saved agent
+        of the chat names the connection, the answer is 400: the agent decides.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the add-on and the connection
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsConnectionSwitch'
+      responses:
+        "200":
+          description: The add-ons and their switches now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsAddonList'
+        "400":
+          description: The request is not valid, or the agent names the connection
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Choose the connection a chat uses for an add-on.
       tags:
       - chats
   /api/chats/{id}/egress:

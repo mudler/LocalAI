@@ -124,6 +124,10 @@ type proposalRecord struct {
 	// confirm.
 	Credentialed bool `json:"credentialed,omitempty"`
 	Await        bool `json:"await,omitempty"`
+	// ConnectionID and ConnectionName are the connection the preview used. The
+	// apply uses the same one and is refused when it is gone.
+	ConnectionID   string `json:"connectionId,omitempty"`
+	ConnectionName string `json:"connectionName,omitempty"`
 }
 
 func (r *proposalRecord) copy() *proposalRecord {
@@ -609,7 +613,8 @@ func digestOf(r *proposalRecord) string {
 		Action     string            `json:"action"`
 		Arguments  json.RawMessage   `json:"arguments"`
 		Revision   contract.Revision `json:"revision"`
-	}{r.ID, r.Actor.UserID, r.Actor.Mode, r.AddonID, r.ResourceID, r.Generation, r.Action, r.Arguments, r.Revision})
+		Connection string            `json:"connection,omitempty"`
+	}{r.ID, r.Actor.UserID, r.Actor.Mode, r.AddonID, r.ResourceID, r.Generation, r.Action, r.Arguments, r.Revision, r.ConnectionID})
 	sum := sha256.Sum256(b)
 	return hex.EncodeToString(sum[:])
 }
@@ -639,7 +644,8 @@ func effects(summary json.RawMessage) (gateway.ProposalEffects, error) {
 func (b *Broker) view(r proposalRecord) Proposal {
 	p := Proposal{ID: r.ID, OperationID: r.ID, AddonID: r.AddonID, ResourceID: r.ResourceID, Generation: r.Generation, Action: r.Action,
 		Arguments: r.Arguments, Revision: r.Revision, Digest: r.Digest, Effects: r.Effects, State: r.State, ExpiresAt: r.ExpiresAt,
-		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution, AwaitsPerson: r.Await}
+		CreatedAt: r.CreatedAt, Receipt: r.Receipt, Reason: r.Reason, Resolution: r.Resolution, AwaitsPerson: r.Await,
+		ConnectionID: r.ConnectionID, ConnectionName: r.ConnectionName}
 	if r.State == gateway.ProposalPending {
 		p.Blocked = b.blockedBy(r.ResourceID, r.ID) != ""
 	}
@@ -954,6 +960,7 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 			Action: string(action), Arguments: args, Revision: preview.Revision, Effects: eff, State: gateway.ProposalPending, CreatedAt: created, ExpiresAt: expires}
 		if credentialed {
 			rec.Credentialed = true
+			rec.ConnectionID, rec.ConnectionName = grant.BindingID, grant.BindingName
 			rec.Await = grant.WriteMode != gateway.WriteAuto || ct.def.Approval == contract.ApprovalAlways
 		}
 		rec.Digest = digestOf(rec)
@@ -1522,10 +1529,15 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		if !credentialed || r.Actor.UserID != actor.UserID {
 			return contract.Receipt{}, ErrForbidden
 		}
+		// The apply uses the connection the person saw at the preview, not
+		// the one the chat would pick now.
+		if r.ConnectionID != "" {
+			ctx = gateway.WithConnection(ctx, r.ConnectionID)
+		}
 		if grant, err = b.credentialFor(ctx, actor, r.AddonID, ct, r.Arguments); err != nil {
 			return contract.Receipt{}, err
 		}
-		if grant.ResourceID != r.ResourceID {
+		if grant.ResourceID != r.ResourceID || (r.ConnectionID != "" && grant.BindingID != r.ConnectionID) {
 			return contract.Receipt{}, ErrForbidden
 		}
 		// A proposal that waits for a person is confirmed at a host surface,

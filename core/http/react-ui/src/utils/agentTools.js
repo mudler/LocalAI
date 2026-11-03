@@ -45,7 +45,23 @@ export function agentAddons(addons, form) {
   const granted = new Set(list(form.addons))
   const seen = new Set(list(addons).map((a) => a.id))
   const gone = [...granted].filter((id) => !seen.has(id)).map((id) => ({ id, tools: 0, gone: true }))
-  return [...list(addons).map((a) => ({ ...a, off: !granted.has(a.id) })), ...gone.map((a) => ({ ...a, off: false }))]
+  const named = form.connections || {}
+  // The row of an add-on with a credential shows the connection the agent
+  // names, not the one a new chat would use; a name that is not one of the
+  // person's connections shows as none.
+  const withConnection = (a) => (a.credentialed
+    ? { ...a, connection: list(a.connections).some((c) => c.id === named[a.id]) ? named[a.id] : '', connection_by: '', needs_connection: false }
+    : a)
+  return [...list(addons).map((a) => ({ ...withConnection(a), off: !granted.has(a.id) })), ...gone.map((a) => ({ ...a, off: false }))]
+}
+
+// The connections of the form after the agent names (or, with an empty id,
+// stops naming) the connection for one add-on.
+export function connectionsAfter(form, addonId, bindingId) {
+  const next = { ...(form.connections || {}) }
+  if (bindingId) next[addonId] = bindingId
+  else delete next[addonId]
+  return next
 }
 
 export function addonsAfter(form, ids, on) {

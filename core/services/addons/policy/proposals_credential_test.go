@@ -250,3 +250,92 @@ var _ = Describe("the write tools of an add-on with a credential", Label("propos
 		})
 	})
 })
+
+// connectionSource stands for a person with several connections. A call that
+// carries a connection of its own (the apply of a proposal) gets that one;
+// every other call gets the one the chat selected at that moment.
+type connectionSource struct {
+	mu       sync.Mutex
+	selected string
+	tokens   map[string]string
+	names    map[string]string
+}
+
+func (c *connectionSource) choose(id string) { c.mu.Lock(); c.selected = id; c.mu.Unlock() }
+func (c *connectionSource) remove(id string) { c.mu.Lock(); delete(c.tokens, id); c.mu.Unlock() }
+
+func (c *connectionSource) Credential(ctx context.Context, _ contract.Actor, _ string, key string) (gateway.CredentialGrant, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	id := gateway.ConnectionOverride(ctx)
+	if id == "" {
+		id = c.selected
+	}
+	tok, ok := c.tokens[id]
+	if !ok {
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
+	}
+	return gateway.CredentialGrant{Credential: tok, ResourceKey: key, ResourceID: "r-0123456789", WriteMode: gateway.WritePropose, BindingID: id, BindingName: c.names[id]}, nil
+}
+
+var _ = Describe("the connection of a proposal", Label("proposals", "credentials"), func() {
+	ctx := context.Background()
+	var (
+		f   *brokerFixture
+		spy *spyRuntime
+		src *connectionSource
+		who = named("owner")
+	)
+	BeforeEach(func() {
+		src = &connectionSource{selected: "b1", tokens: map[string]string{"b1": "token-work", "b2": "token-home"}, names: map[string]string{"b1": "Work", "b2": "Home"}}
+		rt := newFixtureRuntime()
+		spy = &spyRuntime{fixtureRuntime: rt}
+		f = openBrokerFixture(ModeNamedUser, GinkgoT().TempDir(), rt, &fixtureInstances{gen: 1, rt: spy}, &clock{t: time.Now()}, &account{blocked: map[string]bool{}},
+			func(o *BrokerOptions) {
+				o.Tools = credentialTools{}
+				o.Credentials = src
+				o.ConfirmCredential = func(a contract.Actor) bool {
+					return a.CredentialID == "chats" || strings.HasPrefix(a.CredentialID, "session:")
+				}
+				o.ConfirmPerson = func(a contract.Actor) bool { return strings.HasPrefix(a.CredentialID, "session:") }
+			})
+		DeferCleanup(func() { f.close() })
+	})
+	propose := func(op string) gateway.Proposal {
+		p, err := f.broker.Propose(ctx, who, contract.Request{AddonID: "gh", OperationID: op, Generation: 1, Action: "write",
+			Arguments: json.RawMessage(`{"tool":"comment","repo":"acme/widgets","body":"hello"}`)})
+		Expect(err).NotTo(HaveOccurred())
+		return p
+	}
+
+	It("names the connection it was previewed with", func() {
+		p := propose("op-1")
+		Expect(p.ConnectionID).To(Equal("b1"))
+		Expect(p.ConnectionName).To(Equal("Work"))
+		Expect(spy.previews[0].Request.Credential).To(Equal("token-work"))
+	})
+	It("applies with that very connection, even if the chat selects another one meanwhile", func() {
+		propose("op-1")
+		src.choose("b2")
+		_, err := f.broker.Confirm(ctx, session("owner"), "op-1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(spy.applies).To(HaveLen(1))
+		Expect(spy.applies[0].Request.Credential).To(Equal("token-work"), "the connection the person saw")
+	})
+	It("refuses the apply when that connection is gone, and sends nothing", func() {
+		propose("op-1")
+		src.remove("b1")
+		src.choose("b2")
+		_, err := f.broker.Confirm(ctx, session("owner"), "op-1")
+		Expect(err).To(HaveOccurred())
+		Expect(spy.applies).To(BeEmpty())
+	})
+	It("refuses to propose when no connection is selected", func() {
+		src.choose("")
+		_, err := f.broker.Propose(ctx, who, contract.Request{AddonID: "gh", OperationID: "op-2", Generation: 1, Action: "write",
+			Arguments: json.RawMessage(`{"tool":"comment","repo":"acme/widgets","body":"hello"}`)})
+		var refusal *gateway.CredentialRefusal
+		Expect(errors.As(err, &refusal)).To(BeTrue())
+		Expect(refusal.Code).To(Equal(gateway.CodeSelectConnection))
+	})
+})

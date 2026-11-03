@@ -77,7 +77,7 @@ func agentOut(a agents.Agent) schema.ChatsAgent {
 	}
 	return schema.ChatsAgent{ID: a.ID, Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 		MCPServers: nz(a.MCPServers), Addons: nz(a.Addons), Collections: nz(a.Collections), Skills: nz(a.Skills),
-		Network: networkOf(a.Network), BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Created: a.Created, Updated: a.Updated}
+		Network: networkOf(a.Network), BuiltinsOff: nz(a.BuiltinsOff), BuiltinsOn: nz(a.BuiltinsOn), Builtins: nz(a.Builtins), Connections: a.Connections, Created: a.Created, Updated: a.Updated}
 }
 
 // agentIn reads the body. A model the user may not use is refused here, so a
@@ -101,7 +101,7 @@ func (h *Handlers) agentIn(c echo.Context) (a agents.Agent, folders *[]studiosvc
 	}
 	return agents.Agent{Name: req.Name, Description: req.Description, Instructions: req.Instructions, Model: req.Model,
 			MCPServers: req.MCPServers, Addons: req.Addons, Collections: req.Collections, Skills: req.Skills, Network: req.Network,
-			BuiltinsOff: req.BuiltinsOff, BuiltinsOn: req.BuiltinsOn, Builtins: req.Builtins},
+			BuiltinsOff: req.BuiltinsOff, BuiltinsOn: req.BuiltinsOn, Builtins: req.Builtins, Connections: req.Connections},
 		foldersIn(req), true, nil
 }
 

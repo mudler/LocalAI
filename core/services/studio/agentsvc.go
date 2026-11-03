@@ -51,6 +51,7 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	}
 	p := principal(user)
 	keepOff, keepOn, keepGrants := a.BuiltinsOff == nil, a.BuiltinsOn == nil, a.Builtins == nil
+	keepConnections := a.Connections == nil
 	grants, err := cleanGrants(a.Builtins, false)
 	if err != nil {
 		return agents.Agent{}, fmt.Errorf("%w: %w", agents.ErrInvalid, err)
@@ -64,6 +65,9 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		a.Folders, a.FolderID, a.FolderMode = list, 0, ""
 	}
 	if err := agents.Validate(a); err != nil {
+		return agents.Agent{}, err
+	}
+	if err := s.checkConnections(ctx, p, a.Connections); err != nil {
 		return agents.Agent{}, err
 	}
 	a.BuiltinsOff, a.BuiltinsOn = s.agentGroups(a.BuiltinsOff, false), s.agentGroups(a.BuiltinsOn, true)
@@ -96,6 +100,11 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		// widen or narrow the agent.
 		if keepGrants {
 			a.Builtins = old.Builtins
+		}
+		// And for the connections: only the owner who sends the field changes
+		// which credential the agent's chats use.
+		if keepConnections {
+			a.Connections = old.Connections
 		}
 	}
 	// The grant saved_agents is the opt-in group of the same name: the chats of

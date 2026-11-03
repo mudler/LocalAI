@@ -33,7 +33,10 @@ export const builtinRank = (g) => {
 // switches: { builtins, addons, servers, connectors, commands, set*On, toggle* }
 // options.commandState: draw the state of the commands (who runs them, whether
 //   they are isolated) on the shell row. The agent form has no chat to ask.
-export function useToolGroups(switches, { commandsInfo = null, commandState = true } = {}) {
+// options.forAgent: the rows are the agent's. The connection choice then names
+//   the connection the agent's chats use, and may stay empty (the person picks
+//   in each chat).
+export function useToolGroups(switches, { commandsInfo = null, commandState = true, forAgent = false } = {}) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
 
@@ -95,6 +98,46 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     })),
   }
 
+  // The connection an add-on that runs with a credential uses. The host picks
+  // none for the person: with one it is selected, with several the person
+  // chooses, and until then the tools are not offered and the row says so.
+  // An agent that names a connection decides it; the chat shows it read only.
+  const connectionOf = (a) => {
+    if (!a.credentialed || a.gone) return {}
+    const list = a.connections || []
+    const byAgent = a.connection_by === 'agent'
+    const none = list.length === 0
+    if (forAgent) {
+      return {
+        pick: {
+          label: tc('tools.connection.agentLabel'),
+          hint: none ? tc('tools.connection.none') : tc('tools.connection.agentHelp'),
+          value: a.connection || '',
+          placeholder: tc('tools.connection.perChat'),
+          clearLabel: tc('tools.connection.perChat'),
+          options: list.map((c) => ({ value: c.id, label: c.name })),
+          disabled: !switches.setConnection,
+          onChange: (id) => switches.setConnection?.(a.id, id),
+          link: none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined,
+        },
+      }
+    }
+    return {
+      usable: !a.needs_connection,
+      reason: a.needs_connection ? (none ? tc('tools.connection.none') : tc('tools.connection.choose')) : undefined,
+      pick: {
+        label: tc('tools.connection.label'),
+        hint: byAgent ? tc('tools.connection.byAgent') : tc('tools.connection.help'),
+        value: a.connection || '',
+        placeholder: tc('tools.connection.placeholder'),
+        options: list.map((c) => ({ value: c.id, label: c.name })),
+        disabled: byAgent || !switches.setConnection,
+        onChange: (id) => switches.setConnection?.(a.id, id),
+        link: none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined,
+      },
+    }
+  }
+
   const groups = [
     {
       // The tools LocalAI serves itself, such as web search: one switch per group.
@@ -110,6 +153,7 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
         description: a.gone ? '' : (a.description || tc('tools.addonDescribe', { count: a.tools || 0 })),
         note: a.gone ? tc('tools.gone') : '',
         meta: a.gone ? undefined : t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on),
+        ...connectionOf(a),
       })),
     },
     {

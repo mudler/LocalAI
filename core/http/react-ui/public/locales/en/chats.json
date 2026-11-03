@@ -461,7 +461,19 @@
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
     "serverDescribe": "An MCP server of the model: its tools are offered to the model.",
     "connectorDescribe": "One of your MCP connectors: its tools are offered to the model.",
-    "gone": "Not available here any more. Switch it off to remove it."
+    "gone": "Not available here any more. Switch it off to remove it.",
+    "connection": {
+      "label": "Connection",
+      "help": "The connection whose token these tools use. The model cannot pick or change it.",
+      "placeholder": "Choose a connection",
+      "choose": "Choose a connection to use these tools",
+      "none": "No connection yet",
+      "create": "Add a connection",
+      "byAgent": "The agent of this chat sets the connection. Change it on the agent.",
+      "agentLabel": "Connection for chats of this agent",
+      "agentHelp": "Chats of this agent use this connection and cannot change it.",
+      "perChat": "Choose in each chat"
+    }
   },
   "mcpPage": {
     "title": "MCP connectors",

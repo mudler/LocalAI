@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addonsAfter, agentAddons, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectorsAfter, skillsAfter } from '../../src/utils/agentTools.js'
+import { addonsAfter, agentAddons, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectionsAfter, connectorsAfter, skillsAfter } from '../../src/utils/agentTools.js'
 import { agentPayload, emptyAgent } from '../../src/utils/chatAgents.js'
 
 const groups = [{ group: 'web' }, { group: 'triggers' }, { group: 'saved_agents', opt_in: true }]
@@ -95,4 +95,27 @@ test('the Tools list shows each grant with its plain words, marks the sensitive 
   assert.deepEqual(chat.find((x) => x.key === 'grants').rows.map((r) => [r.label, r.readOnly]), [['Remember things', true]])
   // No grants prop, no section content.
   assert.equal(harness.render(base, {}).find((x) => x.key === 'grants').rows.length, 0)
+})
+
+test('agent tools: an add-on with a credential shows the connection the agent names, and a name the person no longer has shows as none', () => {
+  const rows = [{ id: 'github', credentialed: true, connection: 'b-new-chat-default', connection_by: 'only', connections: [{ id: 'b1' }, { id: 'b2' }] }, { id: 'office' }]
+  const got = agentAddons(rows, { addons: ['github'], connections: { github: 'b2' } })
+  assert.deepEqual([got[0].connection, got[0].connection_by, got[0].needs_connection], ['b2', '', false])
+  assert.equal(got[1].connection, undefined)
+  assert.equal(agentAddons(rows, { addons: [], connections: { github: 'deleted' } })[0].connection, '')
+  assert.equal(agentAddons(rows, { addons: [] })[0].connection, '')
+})
+
+test('agent tools: naming and clearing the connection of an add-on changes only that add-on', () => {
+  const form = { connections: { github: 'b1', slack: 's1' } }
+  assert.deepEqual(connectionsAfter(form, 'github', 'b2'), { github: 'b2', slack: 's1' })
+  assert.deepEqual(connectionsAfter(form, 'github', ''), { slack: 's1' })
+  assert.deepEqual(connectionsAfter({}, 'github', 'b1'), { github: 'b1' })
+  assert.deepEqual(form, { connections: { github: 'b1', slack: 's1' } }, 'the form is not changed')
+})
+
+test('agent payload: the connections are sent once the agent has them or the person cleared them, never invented', () => {
+  assert.equal('connections' in agentPayload(emptyAgent()), false, 'a write that does not mention them keeps the stored ones')
+  assert.deepEqual(agentPayload({ ...emptyAgent(), connections: { github: ' b1 ', slack: '' } }).connections, { github: 'b1' })
+  assert.deepEqual(agentPayload({ ...emptyAgent(), connections: {} }).connections, {}, 'an empty object clears')
 })

@@ -567,7 +567,8 @@
         "id": "token",
         "title": "GitHub access token",
         "kind": "token",
-        "resourceArgument": "repo"
+        "resourceArgument": "repo",
+        "resourceLabel": "repository"
       }
     ],
     "connector": {

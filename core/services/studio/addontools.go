@@ -39,6 +39,10 @@ type AddonTool struct {
 	// of a connector turn needs to use the tool, or empty. The host sets it
 	// from the manifest; the core does not know which add-on declares it.
 	Permission string
+	// Credentialed is true for a tool of an add-on that declares a credential.
+	// Its calls run with the token of one connection that the person selects
+	// (see Connectors.ConnectionOf); until then a chat does not offer it.
+	Credentialed bool
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -83,6 +87,13 @@ type AddonInfo struct {
 	ID    string
 	Tools int
 	Off   bool
+	// Credentialed is true for an add-on whose tools run with the token of a
+	// connection. Connections lists the person's connections for it, Selected
+	// is the one this chat uses (its ID is empty when none is selected) and
+	// SelectedBy says why: ConnectionByAgent is read only in the chat.
+	Credentialed bool
+	Connections  []Connection
+	Selected     ConnectionChoice
 	// Title and Description are what the add-on declares for people, when its
 	// broker can say (see AddonLister). Empty otherwise.
 	Title, Description string
@@ -153,8 +164,10 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 		off[id] = true
 	}
 	n := map[string]int{}
+	credentialed := map[string]bool{}
 	for _, t := range tools {
 		n[t.AddonID]++
+		credentialed[t.AddonID] = credentialed[t.AddonID] || t.Credentialed
 	}
 	listed := map[string]AddonListing{}
 	if l, ok := s.d.AddonTools.(AddonLister); ok {
@@ -168,7 +181,17 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 	}
 	out := make([]AddonInfo, 0, len(n))
 	for id, c := range n {
-		out = append(out, AddonInfo{ID: id, Tools: c, Off: off[id], Title: listed[id].Title, Description: listed[id].Description})
+		info := AddonInfo{ID: id, Tools: c, Off: off[id], Title: listed[id].Title, Description: listed[id].Description, Credentialed: credentialed[id]}
+		if info.Credentialed && s.connectors != nil {
+			var err error
+			if info.Connections, err = s.connectors.Connections(ctx, user, id); err != nil {
+				s.log.Warn("studio: connections unavailable", "user", user, "addon", id, "error", err)
+			}
+			if info.Selected, err = s.connectors.ConnectionOf(ctx, user, rec, id); err != nil {
+				s.log.Warn("studio: connection unavailable", "user", user, "addon", id, "error", err)
+			}
+		}
+		out = append(out, info)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
@@ -212,8 +235,21 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	pol, guarded := s.actPolicy(ctx, rec)
 	gate, _ := s.d.AddonTools.(AddonGate)
 	reasons := map[string]string{}
+	chosen := map[string]bool{}
 	for _, d := range defs {
 		have[d.AddonID] = true
+		// A tool that runs with a credential is offered only once a connection
+		// is selected. The host picks none for the person.
+		if d.Credentialed {
+			ok, seen := chosen[d.AddonID]
+			if !seen {
+				ok = s.hasConnection(ctx, a.Principal, rec, d.AddonID)
+				chosen[d.AddonID] = ok
+			}
+			if !ok {
+				continue
+			}
+		}
 		if gate != nil && !off[d.AddonID] && (sc == nil || sc.addons[d.AddonID]) {
 			reason, known := reasons[d.AddonID]
 			if !known {
@@ -317,4 +353,15 @@ func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (sessio
 		return run(ctx, args)
 	}
 	return t, true
+}
+
+// hasConnection says whether the chat rec has a selected connection for the
+// add-on (see Connectors.ConnectionOf). Without the connector service nothing
+// can be selected.
+func (s *Service) hasConnection(ctx context.Context, user string, rec session.ChatRecord, addonID string) bool {
+	if s.connectors == nil {
+		return false
+	}
+	c, err := s.connectors.ConnectionOf(ctx, user, rec, addonID)
+	return err == nil && c.ID != ""
 }

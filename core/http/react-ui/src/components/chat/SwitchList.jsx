@@ -123,9 +123,11 @@ export function SwitchGroup({ title, icon, count, actions, testId, children }) {
 //   reason        why the switch is disabled (drawn under the name)
 //   title         the tooltip of the row; else the name and the text
 //   data          data-* attributes of the row
+//   extra         a control under the row (the connection of an add-on); it
+//                 sits outside the label, so using it never toggles the switch
 export function SwitchRow({
   name, blurb, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
-  stacked = false, testId, descTestId, blurbTestId, data = {},
+  stacked = false, testId, descTestId, blurbTestId, data = {}, extra,
 }) {
   const nameId = useId()
   const descId = useId()
@@ -133,9 +135,9 @@ export function SwitchRow({
   const line = reason || desc
   const tip = title || (desc ? `${name}: ${desc}` : name)
   const attrs = Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v]))
-  return (
+  const row = (
     <div
-      className={`swl-row${stacked || blurb ? ' swl-row--stacked' : ''}`}
+      className={`swl-row${stacked || blurb ? ' swl-row--stacked' : ''}${extra ? ' swl-row--extended' : ''}`}
       data-on={checked ? 'true' : 'false'}
       data-disabled={disabled ? 'true' : undefined}
       title={title}
@@ -167,6 +169,8 @@ export function SwitchRow({
       />
     </div>
   )
+  if (!extra) return row
+  return <div className="swl-rowbox" data-testid={testId ? `${testId}-box` : undefined}>{row}<div className="swl-row__extra">{extra}</div></div>
 }
 
 // A row with no switch: a built-in skill that an add-on replaces.

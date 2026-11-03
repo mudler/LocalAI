@@ -361,7 +361,19 @@
     "connectorDescribe": "Einer deiner MCP-Connectors: Seine Werkzeuge werden dem Modell angeboten.",
     "gone": "Hier nicht mehr verfügbar. Schalte es aus, um es zu entfernen.",
     "grants": "Was der Agent ändern darf",
-    "grantSensitive": "Sensibel: Das ändert, was der Agent später tun oder erreichen darf."
+    "grantSensitive": "Sensibel: Das ändert, was der Agent später tun oder erreichen darf.",
+    "connection": {
+      "label": "Verbindung",
+      "help": "Die Verbindung, deren Token diese Werkzeuge verwenden. Das Modell kann sie weder wählen noch ändern.",
+      "placeholder": "Verbindung wählen",
+      "choose": "Wähle eine Verbindung, um diese Werkzeuge zu nutzen",
+      "none": "Noch keine Verbindung",
+      "create": "Verbindung hinzufügen",
+      "byAgent": "Der Agent dieses Chats legt die Verbindung fest. Ändere sie beim Agenten.",
+      "agentLabel": "Verbindung für Chats dieses Agenten",
+      "agentHelp": "Chats dieses Agenten verwenden diese Verbindung und können sie nicht ändern.",
+      "perChat": "In jedem Chat wählen"
+    }
   },
   "vision": {
     "describedBy": "Dieses Modell kann keine Bilder ansehen. Wähle ein anderes Modell, sonst beschreibt {{model}} das Bild.",

@@ -84,51 +84,42 @@ func validateResources(entries []ResourceEntry) error {
 	return nil
 }
 
-// ErrNoCredential means the person has no binding of the add-on.
+// ErrNoCredential means the selected binding is not the person's, is not of
+// the add-on, or holds no token.
 var ErrNoCredential = errors.New("connectors: no binding of this add-on")
 
-// NotAllowedError means no binding of the person lists the resource.
+// NotAllowedError means the selected binding does not list the resource.
 type NotAllowedError struct {
-	// Allowed are the keys the person's bindings of the add-on list, sorted.
+	// Allowed are the keys the selected binding lists, sorted.
 	Allowed []string
 }
 
 func (*NotAllowedError) Error() string { return "connectors: the resource is not on the list" }
 
-// Pick chooses the binding and the entry for a call of an add-on's tool. The
-// bindings are those of one person for one add-on, in the order the store
-// lists them. A call that names a resource uses the first binding that lists
-// it, without regard to case. A call that names none (key is empty) uses the
-// first binding that holds a token and gets no entry. A person with no binding
-// gets ErrNoCredential, and a key on no list gets a *NotAllowedError.
-func Pick(bindings []Binding, key string) (Binding, ResourceEntry, error) {
-	var usable []Binding
-	for _, b := range bindings {
-		if len(b.Token) > 0 {
-			usable = append(usable, b)
-		}
-	}
-	if len(usable) == 0 {
-		return Binding{}, ResourceEntry{}, ErrNoCredential
+// ErrNoConnection means a tool call has no selected connection: the person
+// has bindings of the add-on (or none is chosen yet) and the chat or the agent
+// names none. The host never picks one for them.
+var ErrNoConnection = errors.New("connectors: no connection is selected")
+
+// Entry returns the entry of the binding that the call names. It is the only
+// resource check: the host uses the one binding the person selected and holds
+// the call to its list. A call that names no resource (key is empty) gets no
+// entry. A key on the list is matched without regard to case. Any other key
+// gets a *NotAllowedError that lists the keys of this binding, sorted. A
+// binding without a token is no credential: ErrNoCredential.
+func Entry(b Binding, key string) (ResourceEntry, error) {
+	if len(b.Token) == 0 {
+		return ResourceEntry{}, ErrNoCredential
 	}
 	if key == "" {
-		return usable[0], ResourceEntry{}, nil
+		return ResourceEntry{}, nil
 	}
-	for _, b := range usable {
-		for _, e := range b.Resources {
-			if strings.EqualFold(e.Key, key) {
-				return b, e, nil
-			}
+	for _, e := range b.Resources {
+		if strings.EqualFold(e.Key, key) {
+			return e, nil
 		}
 	}
-	var allowed []string
-	for _, b := range usable {
-		for _, e := range b.Resources {
-			if !slices.Contains(allowed, e.Key) {
-				allowed = append(allowed, e.Key)
-			}
-		}
-	}
+	allowed := ResourceKeys(b.Resources)
 	slices.Sort(allowed)
-	return Binding{}, ResourceEntry{}, &NotAllowedError{Allowed: allowed}
+	return ResourceEntry{}, &NotAllowedError{Allowed: allowed}
 }

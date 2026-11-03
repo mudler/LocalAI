@@ -24,6 +24,7 @@
   "test": "Test",
   "testOk": "Connected as {{bot}}.",
   "checkFailed": "Saved. The token check failed: {{reason}}",
+  "checkSeveral": "Repository checks run when you have one GitHub connection, because a check from this page cannot tell which one you mean. In a chat, pick the connection in the Tools menu.",
   "check": {
     "title": "Check of {{name}}",
     "running": "Checking the repositories...",

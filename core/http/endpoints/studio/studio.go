@@ -117,7 +117,7 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings.", studiosvc.ErrAgentFolderMissing),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
 		studiosvc.ErrInvalidSettings, studiosvc.ErrBadImport, session.ErrInvalid),
-	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadMCPSwitch, studiosvc.ErrBadBuiltinGroup),
+	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadConnection, studiosvc.ErrBadMCPSwitch, studiosvc.ErrBadBuiltinGroup),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
 	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "an attachment is too large", workspace.ErrTooLarge),
 	fixed(http.StatusConflict, typeConflict, "a sub-agent conversation takes no messages from you", studiosvc.ErrSubAgentReadOnly),
@@ -246,7 +246,7 @@ func (h *Handlers) Create(c echo.Context) error {
 	user := userID(c)
 	in := studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID, Assistant: req.Assistant}
 	if sw := req.Switches; sw != nil {
-		in.Switches = studiosvc.Switches{AddonsOff: sw.AddonsOff, McpOff: sw.McpOff, BuiltinsOff: sw.BuiltinsOff, BuiltinsOn: sw.BuiltinsOn, SkillsOff: sw.SkillsOff}
+		in.Switches = studiosvc.Switches{AddonsOff: sw.AddonsOff, McpOff: sw.McpOff, BuiltinsOff: sw.BuiltinsOff, BuiltinsOn: sw.BuiltinsOn, SkillsOff: sw.SkillsOff, Connections: sw.Connections}
 	}
 	rec, err := h.svc.Create(c.Request().Context(), user, in)
 	if err != nil {

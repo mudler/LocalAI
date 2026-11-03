@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -359,6 +360,9 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 	now := parent.Updated
 	rec := session.ChatRecord{ID: childID, Principal: a.Principal, Title: title, Created: now, Updated: now,
 		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID,
+		// The connections the parent chose are the child's: its tools run with
+		// the same credentials, and it chooses none of its own.
+		Connections: maps.Clone(parent.Connections),
 		// The child is refused, never given the whole home, when the folder
 		// it works in can no longer be found (chatScopes).
 		ScopedAgent: parent.ScopedAgent || agent.HasFolder()}

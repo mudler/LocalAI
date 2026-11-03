@@ -44,6 +44,7 @@ func (s *Service) DraftAddons(ctx context.Context, user, model, agentID string, 
 	rec.AddonsOff = orNil(clean.AddonsOff)
 	rec.BuiltinsOff = orNil(clean.BuiltinsOff)
 	rec.BuiltinsOn = mergeGroups(rec.BuiltinsOn, clean.BuiltinsOn)
+	rec.Connections = s.knownConnections(ctx, user, sw.Connections)
 	ctx, closeScope := s.executionScope(ctx, principal(user), rec.ID)
 	defer closeScope()
 	list, err := s.addonsFor(ctx, user, rec)
@@ -76,4 +77,20 @@ func (s *Service) draftRecord(ctx context.Context, user, model, agentID string) 
 	// The opt-in groups the agent starts with are on in the draft.
 	rec.BuiltinsOn = mergeGroups(rec.BuiltinsOn, ag.BuiltinsOn)
 	return rec, nil
+}
+
+// knownConnections keeps the entries of a draft's connection choices that name
+// a connection the user has now. A draft that outlived a deleted connection
+// then shows none selected instead of failing.
+func (s *Service) knownConnections(ctx context.Context, user string, m map[string]string) map[string]string {
+	var out map[string]string
+	for addon, id := range m {
+		if s.checkConnections(ctx, user, map[string]string{addon: id}) == nil {
+			if out == nil {
+				out = map[string]string{}
+			}
+			out[addon] = id
+		}
+	}
+	return out
 }

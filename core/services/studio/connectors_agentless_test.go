@@ -60,7 +60,7 @@ var _ = Describe("a credentials-only connector binding", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(got.AgentID).To(BeEmpty())
 			Expect(got.CredentialsOnly()).To(BeTrue())
-			grant, err := r.conns.CredentialFor(ctx, alice, got.AddonID, "acme/widgets")
+			grant, err := r.conns.CredentialFor(ctx, alice, got.AddonID, got.ID, "acme/widgets")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(grant.Secret).To(Equal(botToken))
 		})
@@ -137,7 +137,7 @@ var _ = Describe("a credentials-only connector binding", func() {
 			Consistently(func() int { return len(r.bot.answers()) }, "300ms").Should(BeZero())
 		})
 		It("still gives its token to a tool call", func() {
-			grant, err := r.conns.CredentialFor(ctx, alice, b.AddonID, "acme/widgets")
+			grant, err := r.conns.CredentialFor(ctx, alice, b.AddonID, b.ID, "acme/widgets")
 			Expect(err).NotTo(HaveOccurred())
 			Expect(grant.Secret).To(Equal(botToken))
 		})

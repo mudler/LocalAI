@@ -42,49 +42,47 @@ var _ = Describe("the resource list of a binding", func() {
 		Expect(connectors.Validate(valid(dup...))).NotTo(Succeed())
 	})
 
-	Describe("Pick", func() {
+	Describe("Entry", func() {
 		sealed := []byte("sealed")
 		one := connectors.Binding{ID: "b1", Name: "one", Token: sealed, Resources: connectors.NewResources([]string{"acme/widgets"})}
-		two := connectors.Binding{ID: "b2", Name: "two", Token: sealed, Resources: connectors.NewResources([]string{"acme/tools", "Acme/Widgets"})}
+		two := connectors.Binding{ID: "b2", Name: "two", Token: sealed, Resources: connectors.NewResources([]string{"acme/tools", "Acme/Gadgets"})}
 
-		It("refuses a person with no usable binding", func() {
-			_, _, err := connectors.Pick(nil, "acme/widgets")
-			Expect(err).To(MatchError(connectors.ErrNoCredential))
-			_, _, err = connectors.Pick([]connectors.Binding{{ID: "b3", Resources: one.Resources}}, "acme/widgets")
-			Expect(err).To(MatchError(connectors.ErrNoCredential))
-		})
-
-		It("matches a resource without regard to case and takes the first binding that lists it", func() {
-			b, e, err := connectors.Pick([]connectors.Binding{one, two}, "ACME/Widgets")
+		It("matches a resource of the one binding without regard to case", func() {
+			e, err := connectors.Entry(one, "ACME/Widgets")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(b.ID).To(Equal("b1"))
 			Expect(e.Key).To(Equal("acme/widgets"))
-			b, e, err = connectors.Pick([]connectors.Binding{one, two}, "acme/tools")
+			e, err = connectors.Entry(two, "acme/gadgets")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(b.ID).To(Equal("b2"))
-			Expect(e.ID).To(Equal(connectors.ResourceID("acme/tools")))
+			Expect(e.ID).To(Equal(connectors.ResourceID("acme/gadgets")))
 		})
 
-		It("refuses a resource on no list and names what is allowed", func() {
-			_, _, err := connectors.Pick([]connectors.Binding{one, two}, "other/repo")
+		It("never looks at another binding: a key only the other lists is refused with this list", func() {
+			_, err := connectors.Entry(one, "acme/tools")
 			var na *connectors.NotAllowedError
 			Expect(errors.As(err, &na)).To(BeTrue())
-			Expect(na.Allowed).To(Equal([]string{"Acme/Widgets", "acme/tools", "acme/widgets"}))
+			Expect(na.Allowed).To(Equal([]string{"acme/widgets"}))
+			_, err = connectors.Entry(two, "acme/widgets")
+			Expect(errors.As(err, &na)).To(BeTrue())
+			Expect(na.Allowed).To(Equal([]string{"Acme/Gadgets", "acme/tools"}))
 		})
 
 		It("refuses every resource of a binding with an empty list", func() {
 			empty := connectors.Binding{ID: "b4", Token: sealed}
-			_, _, err := connectors.Pick([]connectors.Binding{empty}, "acme/widgets")
+			_, err := connectors.Entry(empty, "acme/widgets")
 			var na *connectors.NotAllowedError
 			Expect(errors.As(err, &na)).To(BeTrue())
 			Expect(na.Allowed).To(BeEmpty())
 		})
 
-		It("takes the first usable binding when the call names no resource", func() {
-			b, e, err := connectors.Pick([]connectors.Binding{{ID: "b0"}, one}, "")
+		It("gives no entry to a call that names no resource", func() {
+			e, err := connectors.Entry(one, "")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(b.ID).To(Equal("b1"))
 			Expect(e).To(Equal(connectors.ResourceEntry{}))
+		})
+
+		It("refuses a binding with no token", func() {
+			_, err := connectors.Entry(connectors.Binding{ID: "b3", Resources: one.Resources}, "acme/widgets")
+			Expect(err).To(MatchError(connectors.ErrNoCredential))
 		})
 	})
 })

@@ -120,6 +120,11 @@ type App struct {
 	// work with a secret that the person keeps in a connector binding. A
 	// connector chat holds its write tools to contract.ToolPermission.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// ResourceArgument and ResourceLabel come from the credential slot: the
+	// argument that names the resource of a call, and the word for it in the
+	// lines that say which connection acted. They are not part of the apps API.
+	ResourceArgument string `json:"-"`
+	ResourceLabel    string `json:"-"`
 	// Resources is the resource mapping of the manifest, with the listing
 	// declaration the host acts on. It is not part of the apps API.
 	Resources *contract.ResourceTools `json:"-"`
@@ -272,6 +277,9 @@ func build(s Snapshot, admin bool) App {
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
+	if a.Credentialed {
+		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
+	}
 	a.Resources = resourceTools(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)

@@ -162,6 +162,16 @@ function RowInfo({ c, t }) {
 // text it returns for the top notice is empty.
 async function testExtra(c, t) {
   startTest(c.id)
+  // The check runs from this page, not from a chat, so the host has no chat
+  // to read a choice from and uses the connection only when there is exactly
+  // one. With several, it would be a guess, and the host does not guess.
+  try {
+    const all = await connectorsApi.list()
+    if ((all.connectors || []).filter((x) => x.kind === 'github').length > 1) {
+      finishTest(c.id, [])
+      return t('checkSeveral')
+    }
+  } catch (_e) { /* the repository checks below say what they can */ }
   const items = []
   for (const repo of c.resources || []) {
     let r

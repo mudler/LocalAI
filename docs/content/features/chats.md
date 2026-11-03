@@ -1064,6 +1064,41 @@ curl -s localhost:8080/api/chats/$ID/addons
 # {"addons":[],"commands":"available","commands_isolation":"host","commands_provider":"builtin","commands_consent":"ask"}
 ```
 
+### The connection of an add-on
+
+Some add-ons run their tools with a token that you keep in a connection (for
+example the [GitHub add-on](/features/chats-connectors/#github)). LocalAI never
+chooses the connection for you:
+
+- With **one** connection for the add-on, it is selected.
+- With **several**, the add-on's row in the **Tools** menu has a **Connection**
+  selector. Until you choose, the tools of the add-on are not offered to the
+  model, the row is off and says "Choose a connection to use these tools".
+  Choosing a connection switches the add-on on.
+- With **none**, the row says "No connection yet" and links to the Connectors
+  page.
+- A [saved agent](/features/chats-agents/#connections-of-an-agent) can name its
+  connection for the add-on. A chat of that agent uses it, shows it read only,
+  and cannot change it. An agent with no choice follows the same rules as a chat.
+- A chat that a connector binding started uses that binding.
+
+The choice is stored with the chat, like the other switches, and survives a
+reload, a fork and the runs of the triggers that the chat proposed. The tool
+result and the proposal card say which connection acted ("as Work, repository
+acme/widgets"), and a pending change is applied with the connection it was
+shown with, even if you pick another one meanwhile.
+
+In `GET /api/chats/{id}/addons` such an add-on has `credentialed: true`,
+`connections` (`[{id, name}]`, oldest first), `connection` (the one in use),
+`connection_by` (`chat`, `agent`, `binding` or `only`) and `needs_connection`.
+`PUT /api/chats/{id}/connections {"addon": "github", "connection": "<binding id>"}`
+chooses one (an empty `connection` clears the choice; `400` when the agent of the
+chat names the connection or the binding is not yours for that add-on). The draft
+list takes `connections=github:<binding id>` and `POST /api/chats` takes
+`switches.connections` (`{"github": "<binding id>"}`). A call that comes from no
+chat, such as the add-on's own page, can use a connection only when you have
+exactly one; otherwise it is refused with `select_connection`.
+
 ## Long conversations
 
 When a chat fills the model's context window, the older part is

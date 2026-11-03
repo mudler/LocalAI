@@ -361,7 +361,19 @@
     "connectorDescribe": "L'un de vos connecteurs MCP : ses outils sont proposés au modèle.",
     "gone": "Plus disponible ici. Désactivez-le pour le retirer.",
     "grants": "Ce que l'agent peut modifier",
-    "grantSensitive": "Sensible : cela change ce que l'agent pourra faire ou atteindre plus tard."
+    "grantSensitive": "Sensible : cela change ce que l'agent pourra faire ou atteindre plus tard.",
+    "connection": {
+      "label": "Connexion",
+      "help": "La connexion dont le jeton sert à ces outils. Le modèle ne peut ni la choisir ni la changer.",
+      "placeholder": "Choisir une connexion",
+      "choose": "Choisissez une connexion pour utiliser ces outils",
+      "none": "Pas encore de connexion",
+      "create": "Ajouter une connexion",
+      "byAgent": "L'agent de ce chat fixe la connexion. Modifiez-la sur l'agent.",
+      "agentLabel": "Connexion pour les chats de cet agent",
+      "agentHelp": "Les chats de cet agent utilisent cette connexion et ne peuvent pas la changer.",
+      "perChat": "Choisir dans chaque chat"
+    }
   },
   "vision": {
     "describedBy": "Ce modèle ne peut pas regarder les images. Choisissez un autre modèle, sinon l'image sera décrite par {{model}}.",

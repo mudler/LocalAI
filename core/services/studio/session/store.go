@@ -76,6 +76,11 @@ type ChatRecord struct {
 	// BuiltinsOn holds the opt-in groups of built-in tools this chat has
 	// switched on, such as "saved_agents". It is kept the way AddonsOff is.
 	BuiltinsOn []string
+	// Connections is the connection (a connector binding ID) this chat chose
+	// for each add-on whose tools run with a credential, by add-on ID. It is
+	// kept the way AddonsOff is: SetConnections sets it, UpdateChat leaves it
+	// alone. A connection the agent of the chat names wins over it.
+	Connections map[string]string
 	// AgentID is the saved agent this chat runs with; empty for a plain chat.
 	// Origin says what started the chat ("" for a person, OriginTrigger,
 	// OriginConnector) and OriginID names the trigger or the connector binding.

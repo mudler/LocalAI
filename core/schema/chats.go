@@ -34,6 +34,10 @@ type ChatsSwitches struct {
 	BuiltinsOff []string `json:"builtins_off,omitempty"`
 	BuiltinsOn  []string `json:"builtins_on,omitempty"`
 	SkillsOff   []string `json:"skills_off,omitempty"`
+	// Connections is the connection (a connector binding ID) the chat uses for
+	// each add-on whose tools run with a credential, by add-on ID. Each must be
+	// one of your own for that add-on.
+	Connections map[string]string `json:"connections,omitempty"`
 }
 
 // ChatsAgent is a saved agent. The four lists are exact grants: an empty list
@@ -63,6 +67,11 @@ type ChatsAgent struct {
 	// skills.write and so on). Empty grants none. A chat of the agent holds
 	// the grants you may use at that moment.
 	Builtins []string `json:"builtins"`
+	// Connections names, for each add-on whose tools run with a credential
+	// (by add-on ID), the connection (binding ID) the agent's chats use. A
+	// chat of the agent cannot change it. An add-on with no entry gets no
+	// connection from the agent: the person picks one in the chat.
+	Connections map[string]string `json:"connections,omitempty"`
 	// Folder is the one folder that chats with the agent work in. It is
 	// absent for an agent that works on all your files.
 	Folder *ChatsAgentFolder `json:"folder,omitempty"`
@@ -137,6 +146,11 @@ type ChatsAgentWrite struct {
 	// without them keeps the stored ones; an empty list clears them; a name
 	// the server does not declare is a 400, except in an import, which drops it.
 	Builtins []string `json:"builtins,omitempty"`
+	// Connections names the connection the agent's chats use for each add-on
+	// with a credential (see ChatsAgent). A write without it keeps the stored
+	// ones; an empty object clears them. Each binding must be your own for that
+	// add-on. An export file never carries it: a binding ID belongs to one server.
+	Connections map[string]string `json:"connections,omitempty"`
 	// Folder chooses the one folder the agent's chats work in. A write
 	// without it keeps the folder the agent has; {"path": ""} clears it. In
 	// an export file it is the home-relative path and mode when the file was
@@ -851,6 +865,33 @@ type ChatsAddon struct {
 	// people. Title is empty when the add-on declares none; the interface then shows the ID.
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
+	// Credentialed is true when the tools of the add-on run with the token of
+	// one of your connections. Connections lists them, oldest first. Connection
+	// is the one this chat uses (empty when none is selected) and ConnectionBy
+	// says why: chat (you chose it), agent (the agent of the chat names it; you
+	// cannot change it here), binding (the chat was started by that binding) or
+	// only (it is your only connection). NeedsConnection is true while none is
+	// selected: the tools are not offered to the model until you pick one.
+	Credentialed    bool              `json:"credentialed,omitempty"`
+	Connections     []ChatsConnection `json:"connections,omitempty"`
+	Connection      string            `json:"connection,omitempty"`
+	ConnectionBy    string            `json:"connection_by,omitempty"`
+	NeedsConnection bool              `json:"needs_connection,omitempty"`
+}
+
+// ChatsConnection is one connection you can select for an add-on.
+type ChatsConnection struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// ChatsConnectionSwitch selects the connection a chat uses for an add-on.
+type ChatsConnectionSwitch struct {
+	// Addon is the add-on ID.
+	Addon string `json:"addon"`
+	// Connection is the ID of one of your connector bindings for that add-on;
+	// empty clears the choice.
+	Connection string `json:"connection"`
 }
 
 // ChatsAddonList lists the add-ons a chat can use.

@@ -361,7 +361,19 @@
     "connectorDescribe": "Salah satu konektor MCP Anda: alatnya ditawarkan kepada model.",
     "gone": "Tidak tersedia lagi di sini. Matikan untuk menghapusnya.",
     "grants": "Yang boleh diubah agen",
-    "grantSensitive": "Sensitif: ini mengubah apa yang boleh dilakukan atau dijangkau agen nanti."
+    "grantSensitive": "Sensitif: ini mengubah apa yang boleh dilakukan atau dijangkau agen nanti.",
+    "connection": {
+      "label": "Koneksi",
+      "help": "Koneksi yang tokennya dipakai alat ini. Model tidak bisa memilih atau mengubahnya.",
+      "placeholder": "Pilih koneksi",
+      "choose": "Pilih koneksi untuk memakai alat ini",
+      "none": "Belum ada koneksi",
+      "create": "Tambah koneksi",
+      "byAgent": "Agen chat ini menetapkan koneksi. Ubah di agen.",
+      "agentLabel": "Koneksi untuk chat agen ini",
+      "agentHelp": "Chat agen ini memakai koneksi ini dan tidak bisa mengubahnya.",
+      "perChat": "Pilih di setiap chat"
+    }
   },
   "vision": {
     "describedBy": "Model ini tidak dapat melihat gambar. Pilih model lain, atau gambar akan dijelaskan oleh {{model}}.",

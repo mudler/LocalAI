@@ -23,7 +23,8 @@ func sample(id, principal, name string) agents.Agent {
 	return agents.Agent{
 		ID: id, Principal: principal, Name: name, Description: "d", Instructions: "Be brief.", Model: "m1",
 		MCPServers: []string{"github"}, Addons: []string{"office", "sandbox"}, Collections: []string{"docs"}, Skills: []string{"review"},
-		Network: "registries", BuiltinsOff: []string{"triggers", "web"}, BuiltinsOn: []string{"saved_agents"}, Builtins: []string{"memory.write", "skills.write"}, Created: now, Updated: now,
+		Network: "registries", BuiltinsOff: []string{"triggers", "web"}, BuiltinsOn: []string{"saved_agents"}, Builtins: []string{"memory.write", "skills.write"},
+		Connections: map[string]string{"github": "b-work"}, Created: now, Updated: now,
 	}
 }
 
@@ -47,6 +48,10 @@ func Run(newStore NewStore) {
 		Expect(got.BuiltinsOff).To(Equal([]string{"triggers", "web"}))
 		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
 		Expect(got.Builtins).To(Equal([]string{"memory.write", "skills.write"}))
+		Expect(got.Connections).To(Equal(map[string]string{"github": "b-work"}))
+		got.Connections["github"] = "changed"
+		again, _ := s.Get(ctx, "u1", "a1")
+		Expect(again.Connections).To(Equal(map[string]string{"github": "b-work"}), "a caller cannot change a stored agent")
 		Expect(got.Created.Equal(a.Created)).To(BeTrue(), "got %+v", got)
 		a.Name, a.Addons, a.Updated = "Reviewer 2", nil, a.Updated.Add(time.Hour)
 		a.Created = time.Time{}

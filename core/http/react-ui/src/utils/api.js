@@ -380,6 +380,9 @@ function draftQuery(model, agentId, switches) {
   for (const k of ['addons_off', 'builtins_off', 'builtins_on']) {
     if (switches?.[k]?.length) q.set(k, switches[k].join(','))
   }
+  // The connection chosen for each add-on: addon:binding pairs.
+  const picked = Object.entries(switches?.connections || {}).map(([addon, id]) => `${addon}:${id}`)
+  if (picked.length) q.set('connections', picked.join(','))
   const s = q.toString()
   return s ? `?${s}` : ''
 }
@@ -406,6 +409,9 @@ export const chatAddonsApi = {
   // commands state answers for them (see draftListSwitches).
   draft: (model, agentId, switches) => fetchJSON(`/api/chats/draft/addons${draftQuery(model, agentId, switches)}`),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/addons`, { method: 'PUT', body: JSON.stringify({ off }) }),
+  // The connection the chat uses for an add-on that runs with a credential;
+  // an empty connection clears the choice. The answer is the add-on list.
+  setConnection: (chat, addon, connection) => fetchJSON(`/api/chats/${enc2(chat)}/connections`, { method: 'PUT', body: JSON.stringify({ addon, connection }) }),
 }
 
 // The built-in bash on this machine: the answer to the card that asks before a

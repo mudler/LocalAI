@@ -218,7 +218,7 @@ func writeToolsPanel(c echo.Context, p studiosvc.ToolsPanel) error {
 			Title: g.Title, Description: g.Description, WhenOff: g.WhenOff})
 	}
 	for _, a := range p.Addons {
-		out.Addons = append(out.Addons, schema.ChatsAddon{ID: a.ID, Tools: a.Tools, Off: a.Off, Title: a.Title, Description: a.Description})
+		out.Addons = append(out.Addons, addonOut(a))
 	}
 	for _, f := range p.Fallbacks {
 		out.Fallbacks = append(out.Fallbacks, schema.ChatsToolFallback{Tool: f.Tool, Addon: f.AddonID, AddonTitle: f.Title, Builtin: f.Builtin})

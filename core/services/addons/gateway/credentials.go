@@ -21,7 +21,27 @@ const (
 	// CodeWriteNotAllowed means the binding that holds the credential has its
 	// write mode off, so a write tool does not run.
 	CodeWriteNotAllowed = "write_not_allowed"
+	// CodeSelectConnection means the person has not selected the connection
+	// this call uses: the chat and its agent name none, and the person has
+	// several or none. The host picks no connection for them.
+	CodeSelectConnection = "select_connection"
 )
+
+type connectionKey struct{}
+
+// WithConnection returns a context that names the binding a credentialed call
+// must use. Only host code sets it: the broker, when it applies a proposal
+// with the connection the person saw at the preview. A caller that sets it
+// gets that binding or a refusal, never another one.
+func WithConnection(ctx context.Context, bindingID string) context.Context {
+	return context.WithValue(ctx, connectionKey{}, bindingID)
+}
+
+// ConnectionOverride returns the binding a context names, or "".
+func ConnectionOverride(ctx context.Context) string {
+	v, _ := ctx.Value(connectionKey{}).(string)
+	return v
+}
 
 // Write modes of a binding, as the host stores them. A binding with none is
 // WriteOff.
@@ -44,6 +64,9 @@ type CredentialGrant struct {
 	// WriteOff, WritePropose or WriteAuto. Empty means WriteOff. It decides
 	// whether a write tool runs and whether a person must confirm it.
 	WriteMode string
+	// BindingID and BindingName say which connection the credential comes
+	// from. The proposal, the result of the call and the audit line carry them.
+	BindingID, BindingName string
 }
 
 // CredentialSource finds the credential and the allowed resource for a call.

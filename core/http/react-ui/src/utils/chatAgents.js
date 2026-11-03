@@ -56,6 +56,13 @@ export function agentPayload(form, opts) {
     network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)
+  // The connection the agent's chats use for each add-on with a credential
+  // (add-on ID to binding ID). The server keeps the stored choices when a write
+  // leaves the field out, so the form sends it once the agent has one or the
+  // person changed it ({} clears).
+  if (form.connections && typeof form.connections === 'object') {
+    body.connections = Object.fromEntries(Object.entries(form.connections).filter(([, id]) => typeof id === 'string' && id.trim()).map(([k, id]) => [k, id.trim()]))
+  }
   if (opts && 'initialFolders' in opts) {
     const folders = foldersPayload(opts.initialFolders, form.folders)
     if (folders) body.folders = folders

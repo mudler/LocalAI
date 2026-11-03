@@ -74,3 +74,30 @@ test('draft list switches: a group the list does not know is not sent', () => {
   assert.equal(draftListSwitches(choices, [{ group: 'shell' }]), null)
   assert.equal(draftListSwitches(choices), null)
 })
+
+test('draft switches: a connection chosen in the composer goes with the create request, and an agent keeps its own', () => {
+  const rows = [
+    { id: 'github', off: false, credentialed: true, connection: 'b2', connection_by: 'chat', connections: [{ id: 'b1' }, { id: 'b2' }] },
+    { id: 'slack', off: false, credentialed: true, connection: 'b9', connection_by: 'agent', connections: [{ id: 'b9' }] },
+    { id: 'other', off: false, credentialed: true, connection: 'b3', connection_by: 'only', connections: [{ id: 'b3' }] },
+  ]
+  assert.deepEqual(draftSwitches({ addons: rows }), { connections: { github: 'b2' } }, 'only a choice of the chat is sent: the agent and the lone connection need none')
+  assert.equal(draftSwitches({ addons: [{ id: 'github', off: false, credentialed: true, connection: '', needs_connection: true }] }), null)
+})
+
+test('draft switches: a connection choice rides in the draft list query and is applied to the rows the list still has', () => {
+  let choices = withChoice(emptyChoices(), 'connections', 'github', 'b2')
+  assert.deepEqual(draftListSwitches(choices), { connections: { github: 'b2' } })
+  choices = withChoice(choices, 'connections', 'github', '')
+  assert.equal(draftListSwitches(choices), null, 'a cleared choice sends nothing')
+  choices = withChoice(emptyChoices(), 'connections', 'github', 'b2')
+  const list = { addons: [
+    { id: 'github', off: false, credentialed: true, needs_connection: true, connections: [{ id: 'b1' }, { id: 'b2' }] },
+    { id: 'gone', off: false, credentialed: true, needs_connection: true, connections: [{ id: 'b1' }] },
+  ] }
+  const got = applyChoices(list, withChoice(choices, 'connections', 'gone', 'b-deleted'), ref).addons
+  assert.deepEqual([got[0].connection, got[0].connection_by, got[0].needs_connection], ['b2', 'chat', false])
+  assert.equal(got[1].connection, undefined, 'a choice for a connection the row does not list is ignored')
+  const agent = applyChoices({ addons: [{ id: 'github', credentialed: true, connection: 'b1', connection_by: 'agent', connections: [{ id: 'b1' }, { id: 'b2' }] }] }, choices, ref).addons
+  assert.equal(agent[0].connection, 'b1', 'the choice of the agent is not changed from the composer')
+})

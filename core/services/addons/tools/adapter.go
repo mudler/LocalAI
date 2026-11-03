@@ -124,6 +124,14 @@ type ToolDefinition struct {
 	// sender needs to use the tool in a connector chat, or empty. The chat
 	// consumer holds the tool to it; another consumer has no sender.
 	Permission string `json:"permission,omitempty"`
+	// Credentialed is true when the add-on declares a credential: its tools
+	// run with the token of a connection that the person selects. A chat
+	// offers them only after a connection is selected.
+	Credentialed bool `json:"credentialed,omitempty"`
+	// ResourceArgument and ResourceLabel come from the credential slot of the
+	// add-on. They only shape the line that says which connection acted.
+	ResourceArgument string `json:"-"`
+	ResourceLabel    string `json:"-"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -192,6 +200,14 @@ const ResourceNotAllowedNote = "That resource is not on the list the person allo
 // credential the person has not given.
 const CodeNoCredential = gateway.CodeNoCredential
 
+// CodeSelectConnection is the Code of a ResultError for a call of an add-on
+// that runs with a credential when the person has not selected which
+// connection to use.
+const CodeSelectConnection = gateway.CodeSelectConnection
+
+// SelectConnectionNote is what the model is told when no connection is selected.
+const SelectConnectionNote = "No connection is selected for this add-on, so nothing was sent. Tell the person to choose a connection for it in the Tools menu of this chat. Do not repeat the call, do not pick one yourself and do not report an outage."
+
 // NoCredentialNote is what the model is told when the person has no credential for the add-on.
 const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
 
@@ -224,6 +240,9 @@ type ProposalRef struct {
 	Count      uint64          `json:"count"`
 	Summary    json.RawMessage `json:"summary,omitempty"`
 	ExpiresAt  time.Time       `json:"expiresAt"`
+	// Connection names the connection the change will be made with, as
+	// "as Work, repository acme/widgets"; empty for an add-on with no credential.
+	Connection string `json:"connection,omitempty"`
 }
 
 // AppliedRef is what a chat learns of a change it made. The person enabled the
@@ -280,6 +299,12 @@ type ToolResult struct {
 	// Allowed lists the resources the person's bindings allow, for the code
 	// resource_not_allowed.
 	Allowed []string `json:"allowed,omitempty"`
+	// Connection says which connection the call used, as "as Work, repository
+	// acme/widgets", for a tool of an add-on that runs with a credential. The
+	// host writes it; ConnectionID is the binding. Tell the person which
+	// connection acted.
+	Connection   string `json:"connection,omitempty"`
+	ConnectionID string `json:"connectionId,omitempty"`
 	// RetryAfter is how many seconds to wait, for the code rate_limited.
 	RetryAfter int `json:"retryAfter,omitempty"`
 }
@@ -314,6 +339,9 @@ var _ Applier = (*gateway.Gateway)(nil)
 
 // ToolAdapter exposes add-on tools to model consumers.
 type ToolAdapter struct {
+	// connection names the connection a chat selected for an add-on, or "".
+	// The chat consumer sets it; another consumer has no chat.
+	connection ConnectionNamer
 	// actions says that this adapter serves action tools. Only the adapter of
 	// the chats consumer is built with it; every other consumer neither lists
 	// nor runs an action tool.
@@ -321,6 +349,29 @@ type ToolAdapter struct {
 	apply   Applier
 	backend Backend
 	newID   func() (string, error)
+}
+
+// ConnectionNamer returns the binding ID and name of the connection that the
+// chat conversation uses for the add-on, or empty strings when none is
+// selected.
+type ConnectionNamer func(ctx context.Context, conversationID, addonID string) (id, name string)
+
+// WithConnectionNames makes the adapter state, in the result of a tool of an
+// add-on that runs with a credential, which connection acted. It returns t.
+func (t *ToolAdapter) WithConnectionNames(f ConnectionNamer) *ToolAdapter {
+	t.connection = f
+	return t
+}
+
+// connectionLine is the sentence that says which connection acted.
+func connectionLine(name, label, key string) string {
+	if key == "" {
+		return "as " + name
+	}
+	if label == "" {
+		label = "resource"
+	}
+	return "as " + name + ", " + label + " " + key
 }
 
 // NewToolAdapter returns an adapter over the owner.
@@ -610,7 +661,8 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d)}
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d), Credentialed: a.Credentialed,
+		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never
 	// shadows it.
@@ -708,6 +760,21 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 }
 
 func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
+	var acted connectionUse
+	res, err := t.executeTool(ctx, actor, conversationID, name, arguments, &acted)
+	if err == nil && acted.line != "" && res.Connection == "" {
+		res.Connection, res.ConnectionID = acted.line, acted.id
+		if res.Proposal != nil {
+			res.Proposal.Connection = acted.line
+		}
+	}
+	return res, err
+}
+
+// connectionUse is the connection that a credentialed call of a chat names.
+type connectionUse struct{ id, line string }
+
+func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage, acted *connectionUse) (ToolResult, error) {
 	if conversationID != "" && !ValidConversationID(conversationID) {
 		return ToolResult{}, ErrInvalidArguments
 	}
@@ -747,6 +814,18 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
 		return ToolResult{}, err
+	}
+	if def.Credentialed && conversationID != "" && t.connection != nil {
+		if id, cname := t.connection(ctx, conversationID, app.ID); id != "" {
+			key := ""
+			if def.ResourceArgument != "" {
+				var in map[string]json.RawMessage
+				if json.Unmarshal(body, &in) == nil {
+					_ = json.Unmarshal(in[def.ResourceArgument], &key)
+				}
+			}
+			*acted = connectionUse{id: id, line: connectionLine(cname, def.ResourceLabel, key)}
+		}
 	}
 	if resource == "" && conversationID != "" && requiresResource(def) {
 		sel, ok := t.backend.(Selector)
@@ -811,6 +890,10 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
 		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt}
+	if p.ConnectionName != "" {
+		// What the owner stored, so the card says it on every frontend.
+		ref.Connection = "as " + p.ConnectionName
+	}
 	if len(p.Effects.Sample) <= MaxSummaryBytes {
 		ref.Summary = p.Effects.Sample
 	}
@@ -880,6 +963,8 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeWriteNotAllowed:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeWriteNotAllowed, Note: WriteNotAllowedNote}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeSelectConnection:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectConnection, Note: SelectConnectionNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeNoCredential:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNoCredential, Note: NoCredentialNote}, nil
 	case errors.Is(err, gateway.ErrNotPermitted):

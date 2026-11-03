@@ -19,6 +19,8 @@ const (
 	MaxResourceKeyBytes = 800
 	// MaxCredentialBytes is the longest credential in a request.
 	MaxCredentialBytes = 4096
+	// MaxResourceLabelChars is the longest CredentialSlot.ResourceLabel.
+	MaxResourceLabelChars = 24
 )
 
 // CredentialSlot declares that a call of the add-on's tools needs a secret
@@ -43,6 +45,10 @@ type CredentialSlot struct {
 	// and a call is refused when the key is not on the list. A tool without it
 	// runs with the credential and no resource.
 	ResourceArgument string `json:"resourceArgument,omitempty"`
+	// ResourceLabel is the word for the resource in the lines that say which
+	// connection acted, such as "repository" in "as Work, repository
+	// acme/widgets". Without it the host says "resource".
+	ResourceLabel string `json:"resourceLabel,omitempty"`
 }
 
 // validateCredentials checks the credentials of the manifest. The binding that
@@ -70,6 +76,9 @@ func validateCredentials(c Capabilities) error {
 		seen[s.ID] = true
 		if s.ResourceArgument != "" && !toolPropertyName.MatchString(s.ResourceArgument) {
 			return fmt.Errorf("invalid credential resource argument")
+		}
+		if s.ResourceLabel != "" && !plainText(s.ResourceLabel, MaxResourceLabelChars) {
+			return fmt.Errorf("invalid credential resource label")
 		}
 	}
 	slot := c.Credentials[0]

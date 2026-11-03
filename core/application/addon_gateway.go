@@ -628,7 +628,7 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if db := a.AuthDB(); db != nil {
 		has = addonFeatureCheck(db)
 	}
-	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
+	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway).WithConnectionNames(a.chatConnectionName), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -883,7 +883,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt, Permission: d.Permission, Credentialed: d.Credentialed})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
@@ -1041,11 +1041,18 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 		// A local-owner actor on an install with accounts is no person.
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
 	}
-	grant, err := c.a.studioConnectors.CredentialFor(ctx, user, addonID, key)
+	bindingID, err := c.connectionFor(ctx, user, addonID)
+	if err != nil {
+		return gateway.CredentialGrant{}, err
+	}
+	grant, err := c.a.studioConnectors.CredentialFor(ctx, user, addonID, bindingID, key)
 	var notAllowed *connectors.NotAllowedError
 	switch {
 	case err == nil:
-		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID, WriteMode: grant.WriteMode}, nil
+		return gateway.CredentialGrant{Credential: grant.Secret, ResourceKey: grant.Resource.Key, ResourceID: grant.Resource.ID, WriteMode: grant.WriteMode,
+			BindingID: grant.BindingID, BindingName: grant.BindingName}, nil
+	case errors.Is(err, connectors.ErrNoConnection):
+		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
 	case errors.Is(err, connectors.ErrNoCredential):
 		return gateway.CredentialGrant{}, &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
 	case errors.As(err, &notAllowed):
@@ -1054,4 +1061,70 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 	// The cause may name a binding; it stays out of the error that travels.
 	xlog.Warn("addons: the credential of a binding could not be read", "addon", addonID)
 	return gateway.CredentialGrant{}, gateway.ErrUnavailable
+}
+
+// connectionFor names the binding a credentialed call uses. The host never
+// picks one for the person:
+//
+//  1. the binding the broker named, when it applies a proposal that was
+//     previewed with it;
+//  2. the connection the chat of the call selected (its agent's choice wins,
+//     see studio.Connectors.ConnectionOf);
+//  3. for a call that comes from no chat, such as the add-on's own page, the
+//     person's only connection.
+//
+// Anything else is a select_connection refusal.
+func (c credentialSource) connectionFor(ctx context.Context, user, addonID string) (string, error) {
+	if id := gateway.ConnectionOverride(ctx); id != "" {
+		return id, nil
+	}
+	if b, ok := hostops.BindingOf(ctx); ok && c.a.studioStore != nil {
+		rec, err := c.a.studioStore.GetChat(ctx, b.Principal, b.ChatID)
+		if err != nil || rec.Principal != b.Principal {
+			return "", &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
+		}
+		sel, err := c.a.studioConnectors.ConnectionOf(ctx, user, rec, addonID)
+		if err != nil {
+			return "", gateway.ErrUnavailable
+		}
+		if sel.ID == "" {
+			if list, err := c.a.studioConnectors.Connections(ctx, user, addonID); err == nil && len(list) == 0 {
+				return "", &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+			}
+			return "", &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
+		}
+		return sel.ID, nil
+	}
+	only, err := c.a.studioConnectors.SoleConnection(ctx, user, addonID)
+	if err != nil {
+		return "", gateway.ErrUnavailable
+	}
+	if only.ID == "" {
+		// None or several: with no chat to hold a choice there is no one to ask.
+		list, err := c.a.studioConnectors.Connections(ctx, user, addonID)
+		if err == nil && len(list) == 0 {
+			return "", &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+		}
+		return "", &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
+	}
+	return only.ID, nil
+}
+
+// chatConnectionName tells the chat adapter which connection the chat uses for
+// an add-on, so a tool result can say which connection acted. The chat is the
+// one the host bound to the call, never a name the model wrote.
+func (a *Application) chatConnectionName(ctx context.Context, conversationID, addonID string) (string, string) {
+	b, ok := hostops.BindingOf(ctx)
+	if !ok || b.ChatID != conversationID || a.studioStore == nil || a.studioConnectors == nil {
+		return "", ""
+	}
+	rec, err := a.studioStore.GetChat(ctx, b.Principal, b.ChatID)
+	if err != nil {
+		return "", ""
+	}
+	sel, err := a.studioConnectors.ConnectionOf(ctx, b.Principal, rec, addonID)
+	if err != nil {
+		return "", ""
+	}
+	return sel.ID, sel.Name
 }
