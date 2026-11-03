@@ -400,7 +400,20 @@
           "refuses a non-boolean enforcement claim",
           "accepts a listing declared with API 2",
           "refuses a listing without API 2, with a bad name, or that names a declared tool",
-          "rejects unknown keys in the declaration"
+          "rejects unknown keys in the declaration",
+          "is valid when the manifest accepts API 2 and lists the egress check",
+          "needs a manifest that accepts API 2",
+          "needs the egress check among the host operations",
+          "refuses an unknown kind, a bad title and a bad or repeated preset",
+          "reads capabilities.network from JSON and refuses an unknown field in it",
+          "is drawn for a declared capability that holds the grant, with no bash tool",
+          "is not drawn for a declared capability without the grant",
+          "is drawn for a manifest that declares no network and replaces bash, as before",
+          "is not drawn for a manifest that declares no network and does not replace bash",
+          "does not read the add-on ID",
+          "gives the declared title of a preset and the host title for the others",
+          "declares its network and keeps the control it asked for",
+          "keeps the control through its bash tool when an older manifest declares no network"
         ]
       },
       {
@@ -2339,6 +2352,7 @@
           "bounds the tool summary and coerces unknown process states to failed",
           "shows controls and the management link only to administrators and never leaks owner details",
           "lists the host controls an add-on is entitled to, whatever its ID",
+          "draws the network policy for a declared capability, with the declared title, and for no other add-on",
           "projects two non-Studio addon pages without identity dispatch",
           "projects home commands with resolved declared pages display metadata immutable icons and generation",
           "keeps disabled home apps installed without UI and never invents a destination",

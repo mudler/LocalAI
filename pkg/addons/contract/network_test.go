@@ -47,7 +47,7 @@ var _ = Describe("The network capability", func() {
 		Expect(ValidateManifest(withNetwork(declared, false), host())).To(Succeed())
 	})
 
-	It("needs the manifest to accept API 2", func() {
+	It("needs a manifest that accepts API 2", func() {
 		m := withNetwork(declared, false)
 		m.API = VersionRange{Min: 1, Max: 1}
 		Expect(ValidateManifest(m, host())).To(MatchError(ContainSubstring("api 2")))
