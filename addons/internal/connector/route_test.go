@@ -25,17 +25,6 @@ type script struct {
 	editErr error
 }
 
-// filing also sends files.
-type filing struct {
-	script
-	files []contract.ConnectorFile
-}
-
-func (f *filing) SendFile(_ context.Context, req contract.ConnectorRequest) (string, error) {
-	f.files = append(f.files, *req.File)
-	return "f1", f.err
-}
-
 func (*script) Kind() string  { return "chat" }
 func (*script) MaxRunes() int { return 10 }
 func (s *script) Poll(_ context.Context, _ string, _ int64, wait int) ([]contract.ConnectorMessage, error) {
@@ -67,13 +56,10 @@ func (s *script) Me(context.Context, string) (connector.Bot, error) {
 	return connector.Bot{ID: "1", Username: "bot"}, s.err
 }
 
-// shouting formats and reads media.
+// shouting formats.
 type shouting struct{ script }
 
 func (*shouting) Format(md string) string { return strings.ToUpper(md) }
-func (*shouting) Media(_ context.Context, _, ref string) (contract.ConnectorFile, error) {
-	return contract.ConnectorFile{Name: ref, Data: []byte("x")}, nil
-}
 
 // rich sends answers in its markup and shows drafts.
 type rich struct {
@@ -142,18 +128,20 @@ var _ = Describe("Serve", func() {
 		Expect(err).To(MatchError(contract.ErrRefused))
 	})
 
-	It("formats before it cuts, and reads media only on a platform that can", func() {
+	It("formats before it cuts", func() {
 		s := &shouting{}
 		_, err := connector.Serve(ctx, s, req("send"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s.sent[0].Text).To(Equal("ALPHA"))
-		r := req("media")
-		r.Media = "F1"
-		out, err := connector.Serve(ctx, s, r)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(out.File.Name).To(Equal("F1"))
-		_, err = connector.Serve(ctx, &script{}, r)
-		Expect(err).To(MatchError(contract.ErrRefused))
+	})
+
+	It("refuses the ops media and send_file without a handle", func() {
+		for _, op := range []string{"media", "send_file"} {
+			r := req(op)
+			r.Media = "F1"
+			_, err := connector.Serve(ctx, &streaming{}, r)
+			Expect(err).To(MatchError(contract.ErrRefused), op)
+		}
 	})
 
 	It("answers who the bot is and types", func() {
@@ -275,30 +263,6 @@ var _ = Describe("Serve", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Error.Code).To(Equal(contract.ConnectorRateLimited), "a draft is not retried after a wait")
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
-	})
-
-	It("sends a file only on a platform that can, with a safe name and a size in bounds", func() {
-		f := &filing{}
-		r := req("send_file")
-		r.File = &contract.ConnectorFile{Name: "chart.png", MIME: "image/png", Data: []byte("png")}
-		out, err := connector.Serve(ctx, f, r)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(out.MessageID).To(Equal("f1"))
-		Expect(f.files).To(HaveLen(1))
-		Expect(f.files[0].Name).To(Equal("chart.png"))
-		_, err = connector.Serve(ctx, &script{}, r)
-		Expect(err).To(MatchError(contract.ErrRefused))
-		for _, bad := range []*contract.ConnectorFile{
-			nil,
-			{Name: "a.txt"},
-			{Name: "../a.txt", Data: []byte("x")},
-			{Name: "a.txt", Data: make([]byte, contract.MaxConnectorFileBytes+1)},
-		} {
-			r.File = bad
-			_, err = connector.Serve(ctx, f, r)
-			Expect(err).To(MatchError(contract.ErrRefused))
-		}
-		Expect(f.files).To(HaveLen(1))
 	})
 
 	Describe("the op history", func() {

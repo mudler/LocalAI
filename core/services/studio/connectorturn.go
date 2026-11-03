@@ -26,8 +26,8 @@ func (s *Service) connectorBlock(ctx context.Context, rec session.ChatRecord, ca
 	var limits FileLimits
 	if c := s.connectors; c != nil {
 		if b, err := c.o.Store.GetBinding(ctx, rec.OriginID); err == nil {
-			sends, known = b.SendsFiles(), true
 			limits = c.FileLimits(ctx, b)
+			sends, known = b.SendsFiles() && limits.Send.Bytes > 0, true
 			platform = b.Kind
 			if kinds, err := c.o.Transport.Kinds(ctx); err == nil {
 				if k, ok := kindFor(kinds, b); ok && k.Title != "" {

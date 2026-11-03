@@ -465,46 +465,13 @@ func messageID(raw json.RawMessage) int64 {
 // and a GIF (which Telegram would turn into a video), goes as a document.
 var photoTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/webp": true}
 
-// SendFile uploads a file to a chat and returns the ID of its message. A
-// picture goes with sendPhoto, anything else with sendDocument. A thread
-// other than 0 is the topic of a forum.
-func (t *API) SendFile(ctx context.Context, token string, chatID, thread int64, name, mimeType string, data []byte) (int64, error) {
-	method, field := "sendDocument", "document"
-	if photoTypes[mimeType] {
-		method, field = "sendPhoto", "photo"
-	}
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
-	_ = w.WriteField("chat_id", strconv.FormatInt(chatID, 10))
-	if thread != 0 {
-		_ = w.WriteField("message_thread_id", strconv.FormatInt(thread, 10))
-	}
-	h := textproto.MIMEHeader{}
-	h.Set("Content-Disposition", mime.FormatMediaType("form-data", map[string]string{"name": field, "filename": name}))
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
-	}
-	h.Set("Content-Type", mimeType)
-	part, err := w.CreatePart(h)
-	if err != nil {
-		return 0, errors.New("telegram: could not build the upload")
-	}
-	_, _ = part.Write(data)
-	if err := w.Close(); err != nil {
-		return 0, errors.New("telegram: could not build the upload")
-	}
-	var raw json.RawMessage
-	if err := t.post(ctx, token, method, w.FormDataContentType(), body.Bytes(), 30*time.Second, &raw); err != nil {
-		return 0, err
-	}
-	return messageID(raw), nil
-}
-
 // photoMaxBytes is the largest photo that sendPhoto takes. A larger picture
 // goes as a document, which Telegram does not recompress.
 const photoMaxBytes = 10 << 20
 
-// SendFileStream is SendFile for a file that is read as it is sent: body holds
+// SendFileStream uploads a file to a chat and returns the ID of its message. A
+// picture goes with sendPhoto, anything else with sendDocument. A thread other
+// than 0 is the topic of a forum. The file is read as it is sent: body holds
 // size bytes. The multipart head and tail are small and built here, so the
 // request has a length and the file is never held in memory. Telegram answers
 // 413 for a file over the limit of the Bot API server, which is ErrTooLarge.

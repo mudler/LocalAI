@@ -35,6 +35,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		}))
 		DeferCleanup(bot.Close)
 		studioTelegram = studiobot.NewBotTransport(&transport.API{BaseURL: bot.URL, Client: bot.Client()})
+		studioTelegram.DeclareFiles()
 		DeferCleanup(func() { studioTelegram = nil })
 		s = newStudioServer()
 	})
@@ -69,6 +70,9 @@ var _ = Describe("Chats connectors endpoints", func() {
 		return decodeJSON(rec)["id"].(string)
 	}
 	create := func(user string, body map[string]any) *httptest.ResponseRecorder {
+		if _, ok := body["kind"]; !ok {
+			body["kind"] = "telegram"
+		}
 		return s.do(user, http.MethodPost, "/api/chats/connectors", body)
 	}
 
@@ -125,7 +129,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 
 		studioTelegram.SetRunning(false)
 		down := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/"+made["id"].(string), nil))
-		Expect(down).To(And(HaveKeyWithValue("active", false), HaveKeyWithValue("reason", "install the Telegram add-on")))
+		Expect(down).To(And(HaveKeyWithValue("active", false), HaveKeyWithValue("reason", "install the telegram add-on")))
 		Expect(decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["kinds"]).To(BeEmpty())
 		Expect(s.do("alice", http.MethodPost, "/api/chats/connectors/"+made["id"].(string)+"/test", nil).Code).To(Equal(http.StatusBadGateway))
 		Expect(create("alice", map[string]any{"kind": "carrier-pigeon", "name": "x", "token": specToken, "agent_id": ag}).Code).To(Equal(http.StatusBadRequest))
@@ -134,14 +138,14 @@ var _ = Describe("Chats connectors endpoints", func() {
 	It("shows the file limits of a kind and of a binding, and lets the owner only lower them", func() {
 		kinds := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["kinds"].([]any)
 		files := kinds[0].(map[string]any)["files"].(map[string]any)
-		// The Telegram add-on declares no ability: the inline cap is the limit.
-		Expect(files).To(And(HaveKeyWithValue("inline_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("host_ceiling_bytes", BeNumerically("==", 100<<20))))
+		// The Telegram add-on declares 20 MiB to read and 50 MiB to send.
+		Expect(files).To(And(HaveKeyWithValue("host_ceiling_bytes", BeNumerically("==", 100<<20)), Not(HaveKey("inline_bytes"))))
 		send := files["send"].(map[string]any)
-		Expect(send).To(And(HaveKeyWithValue("effective_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("layer", "inline"),
-			HaveKeyWithValue("allowed_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("declared_bytes", BeNumerically("==", 0))))
+		Expect(send).To(And(HaveKeyWithValue("effective_bytes", BeNumerically("==", 50<<20)), HaveKeyWithValue("layer", "addon"),
+			HaveKeyWithValue("allowed_bytes", BeNumerically("==", 50<<20)), HaveKeyWithValue("declared_bytes", BeNumerically("==", 50<<20))))
 
 		ag := agent("alice", "Support", "test-model")
-		made := create("alice", map[string]any{"name": "B", "token": specToken, "agent_id": ag, "file_send_max_bytes": 2 << 20})
+		made := create("alice", map[string]any{"name": "B", "token": specToken, "agent_id": ag, "file_send_max_bytes": 51 << 20})
 		Expect(made.Code).To(Equal(http.StatusBadRequest), "a limit above the one of the kind is refused: %s", made.Body.String())
 		Expect(made.Body.String()).To(ContainSubstring("can only lower"))
 
@@ -150,7 +154,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		b := decodeJSON(made)
 		Expect(b).To(HaveKeyWithValue("file_send_max_bytes", BeNumerically("==", 100<<10)))
 		Expect(b["files"].(map[string]any)["send"]).To(And(HaveKeyWithValue("effective_bytes", BeNumerically("==", 100<<10)), HaveKeyWithValue("layer", "owner")))
-		Expect(b["files"].(map[string]any)["receive"]).To(HaveKeyWithValue("layer", "inline"))
+		Expect(b["files"].(map[string]any)["receive"]).To(HaveKeyWithValue("layer", "addon"))
 		id := b["id"].(string)
 
 		// An update that says nothing about the limits keeps them; zero clears one.
@@ -159,7 +163,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(decodeJSON(keep)).To(HaveKeyWithValue("file_send_max_bytes", BeNumerically("==", 100<<10)))
 		clear := s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "B2", "agent_id": ag, "enabled": true, "file_send_max_bytes": 0})
 		Expect(decodeJSON(clear)).To(HaveKeyWithValue("file_send_max_bytes", BeNumerically("==", 0)))
-		Expect(decodeJSON(clear)["files"].(map[string]any)["send"]).To(HaveKeyWithValue("layer", "inline"))
+		Expect(decodeJSON(clear)["files"].(map[string]any)["send"]).To(HaveKeyWithValue("layer", "addon"))
 		Expect(s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "B2", "agent_id": ag, "enabled": true, "file_receive_max_bytes": -5}).Code).To(Equal(http.StatusBadRequest))
 	})
 

@@ -203,22 +203,33 @@ var _ = Describe("the connector route", func() {
 			Expect(out.Error.Message).NotTo(ContainSubstring("SECRET"))
 		}
 		for _, op := range []string{"send", "edit", "typing", "media"} {
-			out = call(r, contract.ConnectorRequest{Op: op, Token: appToken, Chat: "C1", Text: "x", Media: "F1", MessageID: "1"})
+			out = call(r, contract.ConnectorRequest{Op: op, Token: appToken, Chat: "C1", Text: "x", Media: "F1", MessageID: "1", Transfer: &contract.ConnectorTransfer{Handle: "h", MaxBytes: 100}})
 			Expect(out.Error.Code).To(Equal(contract.ConnectorUnauthorized), op)
 		}
 	})
 
-	It("reads a file of a message, within the limit", func() {
+	It("streams a file of a message to the host, within the bound", func() {
 		f := fake()
 		r := runtimeOf(f)
+		h := &memHost{}
+		r.Host = h
 		f.AddFile("F1", "plan.pdf", "application/pdf", []byte("%PDF-1"))
-		out := call(r, contract.ConnectorRequest{Op: "media", Media: "F1"})
+		out := call(r, contract.ConnectorRequest{Op: "media", Media: "F1", Transfer: &contract.ConnectorTransfer{Handle: "h", MaxBytes: 100}})
 		Expect(out.Error).To(BeNil())
-		Expect(*out.File).To(Equal(contract.ConnectorFile{Name: "plan.pdf", MIME: "application/pdf", Data: []byte("%PDF-1")}))
-		f.AddFile("F2", "big.bin", "application/octet-stream", make([]byte, contract.MaxConnectorFileBytes+1))
-		Expect(call(r, contract.ConnectorRequest{Op: "media", Media: "F2"}).Error.Message).To(ContainSubstring("too large"))
-		Expect(call(r, contract.ConnectorRequest{Op: "media", Media: "../etc"}).Error.Message).To(ContainSubstring("not a file ID"))
-		Expect(call(r, contract.ConnectorRequest{Op: "media", Media: "F404"}).Error.Message).To(ContainSubstring("file_not_found"))
+		Expect(*out.Received).To(Equal(contract.ConnectorReceived{Name: "plan.pdf", MIME: "application/pdf"}))
+		Expect(h.got.String()).To(Equal("%PDF-1"))
+		f.AddFile("F2", "big.bin", "application/octet-stream", make([]byte, 101))
+		Expect(call(r, contract.ConnectorRequest{Op: "media", Media: "F2", Transfer: &contract.ConnectorTransfer{Handle: "h", MaxBytes: 100}}).Error.Message).To(ContainSubstring("too large"))
+		Expect(call(r, contract.ConnectorRequest{Op: "media", Media: "../etc", Transfer: &contract.ConnectorTransfer{Handle: "h", MaxBytes: 100}}).Error.Message).To(ContainSubstring("not a file ID"))
+		Expect(call(r, contract.ConnectorRequest{Op: "media", Media: "F404", Transfer: &contract.ConnectorTransfer{Handle: "h", MaxBytes: 100}}).Error.Message).To(ContainSubstring("file_not_found"))
+	})
+
+	It("refuses the ops media and send_file without a handle", func() {
+		r := runtimeOf(fake())
+		for _, req := range []contract.ConnectorRequest{{Op: "media", Kind: "slack", Token: secret, Media: "F1"}, {Op: "send_file", Kind: "slack", Token: secret, Chat: "C1"}} {
+			_, err := r.Connector(ctx, req)
+			Expect(err).To(MatchError(contract.ErrRefused), req.Op)
+		}
 	})
 
 	It("refuses another kind and an unknown op", func() {
@@ -239,8 +250,9 @@ var _ = Describe("the connector route", func() {
 	It("uploads a file into the thread of the conversation", func() {
 		f := fake()
 		r := runtimeOf(f)
+		r.Host = &memHost{src: []byte("a,b\n1,2\n")}
 		out := call(r, contract.ConnectorRequest{Op: "send_file", Chat: "C1", Thread: "7.7",
-			File: &contract.ConnectorFile{Name: "report.csv", MIME: "text/csv", Data: []byte("a,b\n1,2\n")}})
+			Transfer: &contract.ConnectorTransfer{Handle: "h", Name: "report.csv", MIME: "text/csv", Size: 8}})
 		Expect(out.Error).To(BeNil())
 		ups := f.Uploads(botToken)
 		Expect(ups).To(HaveLen(1))
@@ -254,9 +266,10 @@ var _ = Describe("the connector route", func() {
 	It("types a refused upload and keeps the token out of it", func() {
 		f := fake()
 		r := runtimeOf(f)
+		r.Host = &memHost{src: []byte("x")}
 		f.Refuse(botToken, "invalid_auth")
 		out := call(r, contract.ConnectorRequest{Op: "send_file", Chat: "C1",
-			File: &contract.ConnectorFile{Name: "a.txt", Data: []byte("x")}})
+			Transfer: &contract.ConnectorTransfer{Handle: "h", Name: "a.txt", Size: 1}})
 		Expect(out.Error.Code).To(Equal(contract.ConnectorUnauthorized))
 		Expect(out.Error.Message).NotTo(ContainSubstring("SECRET"))
 	})

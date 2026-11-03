@@ -4,8 +4,10 @@ package transport_test
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
 	"github.com/mudler/LocalAI/addons/slack/transport"
@@ -36,11 +38,12 @@ var _ = Describe("the Web API client", func() {
 		f.AddFile("F1", "notes.txt", "text/plain", []byte("file body"))
 		fi, err := api.FileInfo(ctx, botToken, "F1")
 		Expect(err).NotTo(HaveOccurred())
-		data, err := api.Download(ctx, botToken, fi.Download, 100)
+		body, err := api.DownloadStream(ctx, botToken, fi.Download)
 		Expect(err).NotTo(HaveOccurred())
+		data, err := io.ReadAll(body)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(body.Close()).To(Succeed())
 		Expect(string(data)).To(Equal("file body"))
-		_, err = api.Download(ctx, botToken, fi.Download, 3)
-		Expect(err).To(MatchError(transport.ErrTooLarge))
 	})
 
 	It("types a refused token, a wait and any other error, and never repeats the token", func() {
@@ -68,15 +71,15 @@ var _ = Describe("the Web API client", func() {
 		f := fake()
 		api := apiOf(f)
 		for _, bad := range []string{"https://evil.example/files/F1", "ftp://" + f.FilesHost + "/files/F1", "http://user@" + f.FilesHost + "/files/F1"} {
-			_, err := api.Download(ctx, botToken, bad, 10)
+			_, err := api.DownloadStream(ctx, botToken, bad)
 			Expect(err).To(MatchError(ContainSubstring("files host")), bad)
 		}
-		_, err := api.Download(ctx, appToken, "http://"+f.FilesHost+"/files/F9", 100)
+		_, err := api.DownloadStream(ctx, appToken, "http://"+f.FilesHost+"/files/F9")
 		Expect(err).To(MatchError(ContainSubstring("files:read")))
-		_, err = api.Download(ctx, botToken, "http://"+f.FilesHost+"/files/F9", 100)
+		_, err = api.DownloadStream(ctx, botToken, "http://"+f.FilesHost+"/files/F9")
 		Expect(err).To(MatchError(ContainSubstring("404")))
 		real := &transport.API{}
-		_, err = real.Download(ctx, botToken, "http://files.slack.com/x", 10)
+		_, err = real.DownloadStream(ctx, botToken, "http://files.slack.com/x")
 		Expect(err).To(MatchError(ContainSubstring("files host")), "plain http is refused for the real host")
 	})
 
@@ -111,7 +114,7 @@ var _ = Describe("the Web API client", func() {
 		}))
 		DeferCleanup(srv.Close)
 		api := &transport.API{BaseURL: srv.URL + "/api"}
-		_, err := api.Upload(context.Background(), "xoxb-SECRET", "C1", "", "a.txt", []byte("x"))
+		_, err := api.UploadStream(context.Background(), "xoxb-SECRET", "C1", "", "a.txt", 1, strings.NewReader("x"))
 		Expect(err).To(MatchError(ContainSubstring("files host")))
 	})
 })

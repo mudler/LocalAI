@@ -1,7 +1,6 @@
 package studio
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -18,8 +17,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// A kind that declares files.transfer moves the bytes of a file by a handle
-// and not in the connector envelope. This file is the frontend side of it.
+// A connector add-on moves the bytes of a file by a handle and not in the
+// connector envelope. This file is the frontend side of it.
 //
 //   - Inbound (op media). The frontend makes a random handle and sends it
 //     with the bound. The add-on streams the file to the host in chunks; the
@@ -44,20 +43,16 @@ func newHandle() string {
 	return hex.EncodeToString(b[:])
 }
 
-// inboundFile is a file of a message the add-on handed over, inline (Data) or
-// by handle (SHA, stored in the blob store of the workspace).
+// inboundFile is a file of a message the add-on handed over by handle: SHA
+// names its bytes in the blob store of the workspace.
 type inboundFile struct {
 	Name, MIME string
 	Size       int64
-	Data       []byte
 	SHA        string
 }
 
 // body is what the chat reads the file from.
 func (f inboundFile) body(c *Connectors) io.Reader {
-	if f.SHA == "" {
-		return bytes.NewReader(f.Data)
-	}
 	return &blobBody{files: c.svc.d.Files.OpenBlob, sha: f.SHA}
 }
 
@@ -96,24 +91,14 @@ func (c *Connectors) inboundOf(b connectors.Binding, l FileLimits, resp contract
 	if err != nil {
 		return inboundFile{}, err
 	}
-	if l.Transfer {
-		r := resp.Received
-		switch {
-		case r == nil || r.SHA256 == "" || r.Size <= 0:
-			return inboundFile{}, errors.New("the add-on did not finish the file")
-		case r.Size > l.Receive.Bytes:
-			return inboundFile{Size: r.Size}, errFileTooLarge
-		}
-		return inboundFile{Name: contract.SafeFileName(r.Name), MIME: r.MIME, Size: r.Size, SHA: r.SHA256}, nil
-	}
-	f := resp.File
+	r := resp.Received
 	switch {
-	case f == nil || len(f.Data) == 0:
-		return inboundFile{}, errors.New("the add-on returned no file")
-	case int64(len(f.Data)) > l.Receive.Bytes:
-		return inboundFile{Size: int64(len(f.Data))}, errFileTooLarge
+	case r == nil || r.SHA256 == "" || r.Size <= 0:
+		return inboundFile{}, errors.New("the add-on did not finish the file")
+	case r.Size > l.Receive.Bytes:
+		return inboundFile{Size: r.Size}, errFileTooLarge
 	}
-	return inboundFile{Name: contract.SafeFileName(f.Name), MIME: f.MIME, Size: int64(len(f.Data)), Data: f.Data}, nil
+	return inboundFile{Name: contract.SafeFileName(r.Name), MIME: r.MIME, Size: r.Size, SHA: r.SHA256}, nil
 }
 
 // typeAllowed reports whether a media type is among the types a kind
@@ -141,7 +126,7 @@ func (c *Connectors) auditFile(b connectors.Binding, dir string, size int64, res
 	c.log.Info("studio: connector file audit", "binding", b.ID, "kind", b.Kind, "direction", dir, "bytes", size, "result", result, "layer", string(l.Layer), "duration", took.Round(time.Millisecond))
 }
 
-// sendHandled sends one file of a chat to a kind that moves bytes by handle.
+// sendHandled sends one file of a chat by handle.
 // It returns the sentence for the sender when the file cannot go, and ""
 // when it went or is not named (gone, empty). sent counts the bytes of the
 // turn so far.

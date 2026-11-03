@@ -85,7 +85,7 @@ func (s *ownerConnectorSource) Connector(ctx context.Context, addon string, req 
 	if callError != nil {
 		return contract.ConnectorResponse{}, callError
 	}
-	if response.Error != nil || response.File != nil {
+	if response.Error != nil {
 		return response, nil
 	}
 	if unavailable {
@@ -139,14 +139,14 @@ var _ = Describe("connector owner routing", func() {
 		DeferCleanup(client.Close)
 		ag, err := svc.SaveAgent(ctx, studio.AnonymousPrincipal, agents.Agent{Name: "Offline", Model: "fake"})
 		Expect(err).NotTo(HaveOccurred())
-		created, err := client.CreateConnector(ctx, studio.AnonymousPrincipal, studio.ConnectorInput{Kind: connectors.KindTelegram, Name: "Telegram", AgentID: ag.ID, Token: "offline-secret", AcceptAny: true})
+		created, err := client.CreateConnector(ctx, studio.AnonymousPrincipal, studio.ConnectorInput{Kind: "telegram", Name: "Telegram", AgentID: ag.ID, Token: "offline-secret", AcceptAny: true})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(created.Active).To(BeFalse())
 		reopened, err := connectors.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
 		persisted, err := reopened.GetBinding(ctx, created.ID)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(persisted.Kind).To(Equal(connectors.KindTelegram))
+		Expect(persisted.Kind).To(Equal("telegram"))
 		Expect(persisted.AddonID).To(Equal("telegram"))
 		Expect(persisted.AgentID).To(Equal(ag.ID))
 		Expect(persisted.Token).NotTo(BeEmpty())
@@ -389,11 +389,8 @@ var _ = Describe("connector owner routing", func() {
 		b, e := bindings.GetBinding(ctx, original.ID)
 		Expect(e).NotTo(HaveOccurred())
 		scope := studio.BindingConnectorScope(b)
-		for _, op := range []string{contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpMedia, contract.ConnectorOpSendFile} {
+		for _, op := range []string{contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft} {
 			req := contract.ConnectorRequest{Op: op, Kind: "slack", Chat: "chat", Thread: "thread", Text: "private text", MessageID: "working", DraftID: 7, Media: "ref"}
-			if op == contract.ConnectorOpSendFile {
-				req.File = &contract.ConnectorFile{Name: "max.bin", Data: bytes.Repeat([]byte{42}, contract.MaxConnectorFileBytes)}
-			}
 			before = len(source.requests())
 			_, e = tr.Call(ctx, scope, req)
 			Expect(e).NotTo(HaveOccurred())
@@ -401,12 +398,13 @@ var _ = Describe("connector owner routing", func() {
 			Expect(source.requests()[before:]).To(Equal([]contract.ConnectorRequest{req}))
 			Expect(wireText()).NotTo(ContainSubstring(req.Token))
 		}
-		source.configure(func() {
-			source.response.File = &contract.ConnectorFile{Name: "max.bin", Data: bytes.Repeat([]byte{42}, contract.MaxConnectorFileBytes)}
-		})
-		media, e := tr.Call(ctx, scope, contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: "slack", Media: "ref"})
-		Expect(e).NotTo(HaveOccurred())
-		Expect(media.File).To(Equal(source.response.File))
+		// File bytes only travel by handle: a media or send_file call without one is refused.
+		before = len(source.requests())
+		for _, op := range []string{contract.ConnectorOpMedia, contract.ConnectorOpSendFile} {
+			_, e = tr.Call(ctx, scope, contract.ConnectorRequest{Op: op, Kind: "slack", Media: "ref", Chat: "chat"})
+			Expect(e).To(MatchError(connectors.ErrForbidden), op)
+		}
+		Expect(source.requests()).To(HaveLen(before))
 		source.configure(func() { source.response = contract.ConnectorResponse{} })
 		for _, code := range []string{contract.ConnectorUnauthorized, contract.ConnectorConflict, contract.ConnectorRateLimited} {
 			source.configure(func() { source.response.Error = &contract.ConnectorError{Code: code, RetryAfter: 17} })
@@ -489,7 +487,7 @@ var _ = Describe("connector owner routing", func() {
 		source.configure(func() { source.block = false; source.entered = nil; source.exited = nil })
 		// Oversized outgoing envelopes are refused before dispatch.
 		before = len(source.requests())
-		_, e = tr.Call(ctx, scope, contract.ConnectorRequest{Op: contract.ConnectorOpSendFile, Kind: "slack", File: &contract.ConnectorFile{Name: "huge", Data: make([]byte, 2<<20)}})
+		_, e = tr.Call(ctx, scope, contract.ConnectorRequest{Op: contract.ConnectorOpSend, Kind: "slack", Chat: "chat", Text: strings.Repeat("x", 2<<20)})
 		Expect(e).To(MatchError(connectors.ErrForbidden))
 		Expect(source.requests()).To(HaveLen(before))
 		// Unknown named users are refused during both prospective and replacement

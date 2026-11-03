@@ -28,7 +28,7 @@ type handleSource struct {
 func (s handleSource) ConnectorKinds(context.Context) ([]addons.ConnectorKind, error) {
 	k := contract.ConnectorKind{ID: "slack", Delivery: contract.DeliveryPull}
 	if s.transfer {
-		k.Files = &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: 1 << 30}, Transfer: true}
+		k.Files = &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: 1 << 30}}
 	}
 	return []addons.ConnectorKind{{AddonID: "slack", ConnectorKind: k}}, nil
 }
@@ -91,13 +91,22 @@ var _ = Describe("Connector calls that carry a file handle", func() {
 		Expect(t.Live()).To(BeZero())
 	})
 
-	It("refuses a handle for a kind that did not declare transfer, and without a table", func() {
+	It("refuses a handle for a kind that declared no files, and without a table", func() {
 		src := handleSource{fn: func(contract.ConnectorRequest) contract.ConnectorResponse { return contract.ConnectorResponse{} }}
 		_, err := media(src, t)
 		Expect(err).To(MatchError(ErrForbidden))
 		src.transfer = true
 		_, err = media(src, nil)
 		Expect(err).To(MatchError(ErrUnavailable))
+	})
+
+	It("refuses a media or send_file call that carries no handle", func() {
+		src := handleSource{transfer: true, fn: func(contract.ConnectorRequest) contract.ConnectorResponse { return contract.ConnectorResponse{} }}
+		g := &Gateway{Connectors: src, ConnectorAuthority: allowAllConnectors{}, Transfers: t}
+		for _, op := range []string{contract.ConnectorOpMedia, contract.ConnectorOpSendFile} {
+			_, err := g.ConnectorCall(context.Background(), scope, contract.ConnectorRequest{Op: op, Kind: "slack", Token: "t", Media: "ref"})
+			Expect(err).To(MatchError(ErrForbidden), op)
+		}
 	})
 
 	It("refuses a handle on an op that moves no file, and an outbound handle with no content", func() {

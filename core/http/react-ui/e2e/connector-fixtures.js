@@ -11,18 +11,16 @@ const NEWCOMER = { id: '42', name: 'Newcomer', count: 2, allowed: false, first: 
 
 const MIB = 1024 * 1024
 
-// The files of a kind that declares nothing: the inline cap is the limit.
-export const INLINE_ONLY = {
-  receive: { effective_bytes: MIB, layer: 'inline', declared_bytes: 0, allowed_bytes: MIB },
-  send: { effective_bytes: MIB, layer: 'inline', declared_bytes: 0, allowed_bytes: MIB },
-  inline_bytes: MIB,
+// The files of a kind that declares 1 MiB in each direction.
+export const ONE_MIB = {
+  receive: { effective_bytes: MIB, layer: 'addon', declared_bytes: MIB, allowed_bytes: MIB },
+  send: { effective_bytes: MIB, layer: 'addon', declared_bytes: MIB, allowed_bytes: MIB },
 }
 
 // The files of a kind that declares 20 MiB to read and 256 KiB to send.
 export const DECLARED = {
-  receive: { effective_bytes: MIB, layer: 'inline', declared_bytes: 20 * MIB, allowed_bytes: 20 * MIB },
+  receive: { effective_bytes: 20 * MIB, layer: 'addon', declared_bytes: 20 * MIB, allowed_bytes: 20 * MIB },
   send: { effective_bytes: 256 * 1024, layer: 'addon', declared_bytes: 256 * 1024, allowed_bytes: 256 * 1024 },
-  inline_bytes: MIB,
 }
 
 // The closed list of capabilities that the kinds call returns, as the host writes it.
@@ -43,7 +41,7 @@ export const ROLES_KIND = {
   permissions: [{ name: 'memory.write', sensitive: false }, { name: 'files.upload', sensitive: false }, { name: 'talkback.channels', sensitive: false }, { name: 'talkback.new_channel', sensitive: true }],
 }
 
-export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER], files = INLINE_ONLY, { capabilities = CAPABILITIES, kindExtra = {}, access = null } = {}) {
+export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER], files = ONE_MIB, { capabilities = CAPABILITIES, kindExtra = {}, access = null } = {}) {
   const s = { items: structuredClone(initial), calls: [], senders: structuredClone(senders) }
   const rec = (method, url, body) => s.calls.push({ method, url: new URL(url).pathname, body })
   return {

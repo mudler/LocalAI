@@ -121,12 +121,11 @@ var _ = Describe("the connector route with a handle", func() {
 		return connector.ServeWith(context.Background(), p, h, req)
 	}
 
-	It("streams the file of an op media to the host and answers with the name only", func() {
+	It("streams the file of an op media to the host and answers with the name", func() {
 		h := &memHost{}
 		out, err := serve(&streaming{body: "hello", size: 5}, h, contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Media: "m", Transfer: &contract.ConnectorTransfer{Handle: "h", MaxBytes: 100}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Error).To(BeNil())
-		Expect(out.File).To(BeNil())
 		Expect(out.Received).To(Equal(&contract.ConnectorReceived{Name: "a.txt", MIME: "text/plain"}))
 		Expect(h.got.String()).To(Equal("hello"))
 	})

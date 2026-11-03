@@ -23,8 +23,8 @@ var (
 	ErrUnauthorized = errors.New("the platform refused the token")
 	// ErrConflict means another process reads the updates of the same bot.
 	ErrConflict = errors.New("another process reads the updates of this bot")
-	// ErrTooLarge means a file of a message is larger than the add-on may
-	// hand over (contract.MaxConnectorFileBytes) or than the platform lets a
+	// ErrTooLarge means a file of a message is larger than the bound of the
+	// handle (contract.ConnectorTransfer.MaxBytes) or than the platform lets a
 	// bot download.
 	ErrTooLarge = errors.New("the file is too large")
 )
@@ -68,17 +68,6 @@ type Formatter interface {
 	Format(markdown string) string
 }
 
-// MediaReader is a Platform that reads the files of messages for the op media.
-type MediaReader interface {
-	Media(ctx context.Context, token, ref string) (contract.ConnectorFile, error)
-}
-
-// FileSender is a Platform that sends files for the op send_file. It returns
-// the ID of the message that holds the file.
-type FileSender interface {
-	SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error)
-}
-
 // RichSender is a Platform that sends an answer in its own markup and falls
 // back to plain text itself when the platform refuses the markup. The op send
 // uses SendRich and EditRich for each part of req.Text, which is Markdown; the
@@ -116,8 +105,9 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 }
 
 // ServeWith is Serve for an add-on that has the host operation channel, so it
-// can move file bytes by handle (see ConnectorTransfer). A request with a
-// handle that the Platform cannot serve is refused.
+// can move file bytes by handle (see ConnectorTransfer). The ops media and
+// send_file need a handle and a Platform that serves it; any other request for
+// them is refused.
 func ServeWith(ctx context.Context, p Platform, host Host, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
 	if req.Kind != p.Kind() || req.Token == "" {
 		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown kind or no token", contract.ErrRefused)
@@ -157,40 +147,20 @@ func ServeWith(ctx context.Context, p Platform, host Host, req contract.Connecto
 			out.BotID, out.BotUsername = bot.ID, bot.Username
 		}
 	case contract.ConnectorOpSendFile:
-		if req.Transfer != nil {
-			ss, ok := p.(StreamSender)
-			if !ok || req.File != nil || req.Transfer.Handle == "" || req.Transfer.Size <= 0 || req.Transfer.Name != contract.SafeFileName(req.Transfer.Name) {
-				return contract.ConnectorResponse{}, fmt.Errorf("%w: no file, or one this platform cannot send by handle", contract.ErrRefused)
-			}
-			err = Retry(ctx, func() error {
-				id, err := ss.SendStream(ctx, req, Get(ctx, host, req.Transfer))
-				out.MessageID = id
-				return err
-			})
-			break
-		}
-		fs, ok := p.(FileSender)
-		if !ok || !validFile(req.File) {
+		ss, ok := p.(StreamSender)
+		if !ok || req.Transfer == nil || req.Transfer.Handle == "" || req.Transfer.Size <= 0 || req.Transfer.Name != contract.SafeFileName(req.Transfer.Name) {
 			return contract.ConnectorResponse{}, fmt.Errorf("%w: no file, or one this platform cannot send", contract.ErrRefused)
 		}
 		err = Retry(ctx, func() error {
-			id, err := fs.SendFile(ctx, req)
+			id, err := ss.SendStream(ctx, req, Get(ctx, host, req.Transfer))
 			out.MessageID = id
 			return err
 		})
 	case contract.ConnectorOpMedia:
-		if req.Transfer != nil {
-			out.Received, err = receive(ctx, p, host, req)
-			break
+		if req.Transfer == nil {
+			return contract.ConnectorResponse{}, fmt.Errorf("%w: no handle", contract.ErrRefused)
 		}
-		m, ok := p.(MediaReader)
-		if !ok || req.Media == "" {
-			return contract.ConnectorResponse{}, fmt.Errorf("%w: no media", contract.ErrRefused)
-		}
-		var f contract.ConnectorFile
-		if f, err = m.Media(ctx, req.Token, req.Media); err == nil {
-			out.File = &f
-		}
+		out.Received, err = receive(ctx, p, host, req)
 	case contract.ConnectorOpHistory:
 		h, ok := p.(HistoryReader)
 		if !ok || req.Chat == "" || req.Thread == "" {
@@ -275,11 +245,6 @@ func parts(p Platform, text string) []string {
 		return s.Split(text)
 	}
 	return Split(text, p.MaxRunes())
-}
-
-// validFile tells whether the op send_file may carry f.
-func validFile(f *contract.ConnectorFile) bool {
-	return f != nil && len(f.Data) > 0 && len(f.Data) <= contract.MaxConnectorFileBytes && f.Name == contract.SafeFileName(f.Name)
 }
 
 // send sends the parts of a text in order and returns the ID of the last one.

@@ -24,23 +24,24 @@ import (
 
 // Sentences the bot says. They name no internal error.
 const (
-	sentNoUpload     = "You may not send files to this bot."
-	sentUnsupported  = "I cannot read this kind of message. Please send text, a photo, a file or a voice message."
-	sentTooLong      = "That message is too long. Please send less than 8,000 characters."
-	sentRate         = "Too many messages: please wait a minute."
-	sentUnavailable  = "This bot is not available right now."
-	sentNoAnswer     = "The agent had nothing to say."
-	sentStopped      = "The turn was stopped."
-	sentInterrupted  = "The agent was interrupted. Please send your message again."
-	sentFailed       = "The agent stopped because of an error."
-	sentFolderLimit  = "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."
-	sentNoFolder     = "This agent cannot work right now: its folder is missing."
-	sentNoFile       = "I could not read the file you sent."
-	sentFileType     = "I cannot read files of this type here."
-	sentFileTotal    = "Those files are too large together: please send fewer of them."
-	sentNoFiles      = "I can only read the text of your message here: files are turned off."
-	sentNoListen     = "I cannot listen to voice messages here: no speech-to-text model is set up. Please write your message."
-	sentNoTranscript = "I could not understand your voice message. Please send it again, or write it."
+	sentNoUpload      = "You may not send files to this bot."
+	sentUnsupported   = "I cannot read this kind of message. Please send text, a photo, a file or a voice message."
+	sentTooLong       = "That message is too long. Please send less than 8,000 characters."
+	sentRate          = "Too many messages: please wait a minute."
+	sentUnavailable   = "This bot is not available right now."
+	sentNoAnswer      = "The agent had nothing to say."
+	sentStopped       = "The turn was stopped."
+	sentInterrupted   = "The agent was interrupted. Please send your message again."
+	sentFailed        = "The agent stopped because of an error."
+	sentFolderLimit   = "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."
+	sentNoFolder      = "This agent cannot work right now: its folder is missing."
+	sentNoFile        = "I could not read the file you sent."
+	sentNoFileAbility = "I cannot take files on this platform."
+	sentFileType      = "I cannot read files of this type here."
+	sentFileTotal     = "Those files are too large together: please send fewer of them."
+	sentNoFiles       = "I can only read the text of your message here: files are turned off."
+	sentNoListen      = "I cannot listen to voice messages here: no speech-to-text model is set up. Please write your message."
+	sentNoTranscript  = "I could not understand your voice message. Please send it again, or write it."
 
 	// voiceMark starts the transcript of a voice message in the text of a
 	// turn, so the agent knows that the sender spoke and did not write.
@@ -877,9 +878,9 @@ func (c *Connectors) transcribe(ctx context.Context, b connectors.Binding, name 
 // media reads the files of a message through the add-on. A file that cannot
 // be read is left out, and the sentence for the sender says why: too large,
 // or not read. The name of a file is made safe here too, whatever the add-on
-// sent; the chat saves it in its own folder. A kind that moves bytes by handle
-// writes each file to the host in chunks (see connectorxfer.go); any other kind
-// returns the bytes in the answer.
+// sent; the chat saves it in its own folder. The add-on writes each file to the
+// host in chunks by a handle (see connectorxfer.go). A kind that declares no
+// way to receive files gets the sender a plain sentence.
 func (c *Connectors) media(ctx context.Context, b connectors.Binding, token string, refs []string) ([]inboundFile, string) {
 	var (
 		out    []inboundFile
@@ -888,14 +889,13 @@ func (c *Connectors) media(ctx context.Context, b connectors.Binding, token stri
 		limits = c.FileLimits(ctx, b)
 		start  = time.Now()
 	)
+	if limits.Receive.Bytes <= 0 {
+		return nil, sentNoFileAbility
+	}
 	for _, ref := range refs {
 		req := contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: b.Kind, Token: token, Media: ref}
-		callTimeout := 60 * time.Second
-		if limits.Transfer {
-			req.Transfer = &contract.ConnectorTransfer{Handle: newHandle(), MaxBytes: limits.Receive.Bytes}
-			callTimeout = contract.ConnectorTransferTimeout
-		}
-		mctx, cancel := context.WithTimeout(ctx, callTimeout)
+		req.Transfer = &contract.ConnectorTransfer{Handle: newHandle(), MaxBytes: limits.Receive.Bytes}
+		mctx, cancel := context.WithTimeout(ctx, contract.ConnectorTransferTimeout)
 		resp, err := c.o.Transport.Call(mctx, BindingConnectorScope(b), req)
 		cancel()
 		if err == nil && resp.Error != nil {

@@ -41,7 +41,8 @@ func newSlackRigWith(script func(workspace.Actor, string) []studiotest.ToolStep,
 }
 
 // newSlackRigDeclaring is newSlackRigWith for a Slack add-on whose kind
-// declares files, with options of the manager that the spec changes last.
+// declares files (nil: the files of the add-on), with options of the manager
+// that the spec changes last.
 func newSlackRigDeclaring(script func(workspace.Actor, string) []studiotest.ToolStep, in studio.ConnectorInput, files *contract.ConnectorFiles, opt func(*studio.ConnectorOptions)) (*slackRig, connectors.Binding) {
 	f := slacktest.New()
 	DeferCleanup(f.Close)
@@ -51,7 +52,9 @@ func newSlackRigDeclaring(script func(workspace.Actor, string) []studiotest.Tool
 	rt := slack.New(&slack.API{BaseURL: f.URL, FilesHost: f.FilesHost})
 	DeferCleanup(rt.Close)
 	addon := studiobot.Slack(rt)
-	addon.Kind.Files = files
+	if files != nil {
+		addon.Files = files
+	}
 	r := newConnRigOpts(newShared(), connStore(), studiobot.NewTransport(addon), script, nil, opt)
 	in.Kind, in.Token = "slack", slackBot+" "+slackApp
 	b := r.bind(in)

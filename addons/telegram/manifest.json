@@ -20,8 +20,7 @@
           "delivery": "pull",
           "files": {
             "receive": { "maxBytes": 20971520 },
-            "send": { "maxBytes": 52428800 },
-            "transfer": true
+            "send": { "maxBytes": 52428800 }
           },
           "page": "bots",
           "drafts": true,

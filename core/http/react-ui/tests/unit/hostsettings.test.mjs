@@ -397,7 +397,7 @@ test('mounted connector file ceiling states the size in effect, validates, and w
     }
     return reply(dto(revision, { connector_files_ceiling_bytes: ceiling }))
   }
-  globalThis.connectorKinds = async () => ({ kinds: [{ kind: 'x', files: { inline_bytes: 1024 * 1024, host_ceiling_bytes: ceiling || 100 * 1024 * 1024 } }] })
+  globalThis.connectorKinds = async () => ({ kinds: [{ kind: 'x', files: { host_ceiling_bytes: ceiling || 100 * 1024 * 1024 } }] })
   const h = await providerRender()
   try {
     await h.render(h.ConnectorFiles, {})
@@ -407,7 +407,6 @@ test('mounted connector file ceiling states the size in effect, validates, and w
       await act(async () => { setter.call(input(), value); input().dispatchEvent(new globalThis.window.Event('input', { bubbles: true })) })
     }
     assert.match(document.body.textContent, /Now: 100 MiB\./)
-    assert.match(document.querySelector('[data-testid="connector-files-inline"]').textContent, /Files up to 1 MiB are sent now; larger files need the add-on to support streaming\./)
     assert.equal(buttonNamed('Apply file ceiling').disabled, true, 'nothing changed')
     await setValue('0.0001')
     assert.match(document.body.textContent, /Use a size from 1 KiB to 1 TiB/)

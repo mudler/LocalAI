@@ -93,13 +93,14 @@ var _ = Describe("attach_file in a connector chat", func() {
 	})
 
 	It("tells the model why a file cannot be attached", func() {
-		big := strings.Repeat("x", 1<<20+10)
+		big := strings.Repeat("x", 3<<20)
 		steps := []studiotest.ToolStep{
 			write("/out/big.csv", big), write("/out/tool.exe", "MZ"), write("/out/empty.txt", ""),
 			attach("/out/missing.csv"), attach("/out/big.csv"), attach("/out/tool.exe"), attach("/out"),
 			{Say: "Could not."},
 		}
-		r := telegram(map[string][]studiotest.ToolStep{"files": steps}, studio.ConnectorInput{})
+		one := int64(1 << 20)
+		r := telegram(map[string][]studiotest.ToolStep{"files": steps}, studio.ConnectorInput{FileSendMax: &one})
 		ask(1, "files")
 		answered(2) // the answer and the note about the files of the turn
 		res := r.h.ResultsFor("attach_file")
@@ -109,7 +110,7 @@ var _ = Describe("attach_file in a connector chat", func() {
 		}
 		Expect(res[0].Err.Error()).To(ContainSubstring("not found"))
 		Expect(res[1].Err.Error()).To(ContainSubstring("too large"))
-		Expect(res[1].Err.Error()).To(ContainSubstring("1 MiB (limit of this add-on version)"))
+		Expect(res[1].Err.Error()).To(ContainSubstring("1 MiB (limit set for this bot)"))
 		Expect(res[2].Err.Error()).To(ContainSubstring("not sent"))
 		Expect(res[3].Err.Error()).To(ContainSubstring("folder"))
 		Expect(bot.sentFiles()).To(BeEmpty())

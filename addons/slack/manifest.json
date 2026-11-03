@@ -20,8 +20,7 @@
           "delivery": "pull",
           "files": {
             "receive": { "maxBytes": 1073741824 },
-            "send": { "maxBytes": 1073741824 },
-            "transfer": true
+            "send": { "maxBytes": 1073741824 }
           },
           "page": "apps",
           "history": { "thread": true, "maxMessages": 30 },

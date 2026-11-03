@@ -33,7 +33,6 @@ export default function ConnectorFilesSettings() {
     </label>
     <p className="st-note">No bot can send or read a larger file, whatever its add-on or its owner setting says. Leave it empty for the default.
       {files?.host_ceiling_bytes > 0 && <> Now: {formatFileSize(files.host_ceiling_bytes)}.</>}</p>
-    {files?.inline_bytes > 0 && <p className="st-note" data-testid="connector-files-inline">Files up to {formatFileSize(files.inline_bytes)} are sent now; larger files need the add-on to support streaming.</p>}
     {bad && <p className="st-note" role="alert">Use a size from {formatFileSize(MIN_BYTES)} to {formatFileSize(MAX_BYTES)}, or leave it empty.</p>}
     {owner.error && <div role="alert">Owner settings unavailable or changed: {owner.error.message}
       <button type="button" disabled={owner.busy} onClick={owner.reload}>Reload and rebase edits</button>

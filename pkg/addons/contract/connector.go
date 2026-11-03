@@ -72,8 +72,9 @@ const (
 	// ConnectorRateLimited means the platform asks the host to wait RetryAfter seconds.
 	ConnectorRateLimited = "rate_limited"
 	// ConnectorTooLarge means the file that the op media names is larger than
-	// MaxConnectorFileBytes or than the platform lets a bot download. The host
-	// tells the sender so, instead of saying that the file could not be read.
+	// the bound of the handle (ConnectorTransfer.MaxBytes) or than the platform
+	// lets a bot download. The host tells the sender so, instead of saying that
+	// the file could not be read.
 	ConnectorTooLarge = "too_large"
 	// ConnectorFailed is any other failure of the platform or of the network.
 	ConnectorFailed = "failed"
@@ -85,10 +86,6 @@ const (
 	MaxConnectorMedia  = 8
 	MaxPollSeconds     = 25
 	MaxConnectorSender = 64 // the width of the sender column of the stores
-	// MaxConnectorFileBytes is the largest file the ops media and send_file
-	// carry. The body is JSON, so the file with its base64 overhead stays
-	// within the envelope limit of the add-on route.
-	MaxConnectorFileBytes = 1 << 20
 	// MaxConnectorFileName is the longest file name, in bytes, that the op
 	// send_file takes.
 	MaxConnectorFileName = 128
@@ -138,8 +135,9 @@ type ConnectorKind struct {
 	// this declaration and sends it with the op poll.
 	Options []ConnectorOption `json:"options,omitempty"`
 	// Files declares the files the kind can receive and send, with a limit
-	// for each direction. Without it, the host moves files inline and caps
-	// them at MaxConnectorFileBytes. It needs manifest api MinFilesAPI.
+	// for each direction. A kind that declares none moves no files; a
+	// direction it leaves out is not served. The bytes travel by handle, never
+	// in the connector envelope.
 	Files *ConnectorFiles `json:"files,omitempty"`
 	// Roles are the roles the kind can give to a sender. The add-on owns
 	// the membership and sends the role IDs with each message; the owner of
@@ -420,22 +418,10 @@ type ConnectorRequest struct {
 	// messages are not returned.
 	Limit  int    `json:"limit,omitempty"`
 	Before string `json:"before,omitempty"`
-	// send_file: the file. Its name is SafeFileName of itself and its data
-	// is 1 to MaxConnectorFileBytes long.
-	File *ConnectorFile `json:"file,omitempty"`
-	// Transfer is the handle for the bytes of a file, set only for a kind
-	// that declares files.transfer. media: the add-on writes the file with
-	// ConnectorFilePutOp. send_file: File is nil and the add-on reads the
-	// file with ConnectorFileGetOp.
+	// Transfer is the handle for the bytes of a file, set for the ops media and
+	// send_file. media: the add-on writes the file with ConnectorFilePutOp.
+	// send_file: the add-on reads the file with ConnectorFileGetOp.
 	Transfer *ConnectorTransfer `json:"transfer,omitempty"`
-}
-
-// ConnectorFile is a file that the op media returns or the op send_file
-// carries. Data is at most MaxConnectorFileBytes.
-type ConnectorFile struct {
-	Name string `json:"name"`
-	MIME string `json:"mime,omitempty"`
-	Data []byte `json:"data"`
 }
 
 // ConnectorError is a failure the add-on reports. The host maps the code to
@@ -459,10 +445,8 @@ type ConnectorResponse struct {
 	// me
 	BotID       string `json:"botId,omitempty"`
 	BotUsername string `json:"botUsername,omitempty"`
-	// media
-	File *ConnectorFile `json:"file,omitempty"`
-	// Received answers the op media of a request with a Transfer: the file
-	// was written by handle. The host adds Size and SHA256 from its record.
+	// Received answers the op media: the file was written by handle. The host
+	// adds Size and SHA256 from its record.
 	Received *ConnectorReceived `json:"received,omitempty"`
 	// history: the messages, oldest first, at most the Limit asked for.
 	// Truncated says that older messages exist that are not returned.

@@ -15,7 +15,8 @@ import (
 type titleTransport struct{}
 
 func (titleTransport) Kinds(context.Context) ([]ConnectorKind, error) {
-	return []ConnectorKind{{AddonID: "slack-addon", ConnectorKind: contract.ConnectorKind{ID: "slack", Title: "Slack"}}}, nil
+	return []ConnectorKind{{AddonID: "slack-addon", ConnectorKind: contract.ConnectorKind{ID: "slack", Title: "Slack",
+		Files: &contract.ConnectorFiles{Send: &contract.FileAbility{MaxBytes: 2 << 20}}}}}, nil
 }
 
 func (titleTransport) Call(context.Context, ConnectorCallScope, contract.ConnectorRequest) (contract.ConnectorResponse, error) {
@@ -62,7 +63,7 @@ var _ = Describe("the turn block of a connector chat", func() {
 		Expect(p1).To(ContainSubstring("attached to your answer automatically"))
 		Expect(p1).To(ContainSubstring("call attach_file with its path"), "the way to give a file that exists")
 		Expect(p1).To(ContainSubstring("never tell them a path"))
-		Expect(p1).To(ContainSubstring("Up to 5 files per turn, 1 MiB (limit of this add-on version) each"))
+		Expect(p1).To(ContainSubstring("Up to 5 files per turn, 2 MiB (limit of Slack) each"))
 		Expect(p1).NotTo(ContainSubstring("NOT sent"))
 		Expect(strings.Count(p2, "This chat is on")).To(Equal(1), "a second turn does not repeat the block")
 		Expect(p2).To(Equal(p1))

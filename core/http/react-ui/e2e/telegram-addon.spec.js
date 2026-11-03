@@ -167,14 +167,13 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 
-  test('the Files section says which limit applies and that the inline cap is the one in effect now', async ({ page }) => {
+  test('the Files section says which limit applies', async ({ page }) => {
     const a = api(page)
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
     const files = page.getByTestId('connector-filelimits')
-    await expect(files).toContainText('Now: 1 MiB (limit of this add-on version).')
-    await expect(page.getByTestId('connector-file-inline')).toHaveText('Files up to 1 MiB are sent now; larger files need the add-on to support streaming.')
+    await expect(files).toContainText('Now: 1 MiB (limit of the add-on).')
     // The owner can only lower the limit: 2 MiB is above the 1 MiB the kind allows.
     await page.getByTestId('connector-file-send').fill('2')
     await expect(files).toContainText('The add-on allows at most 1 MiB here.')
@@ -184,29 +183,23 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
     await page.getByTestId('connector-file-send').fill('0.25')
     await expect(files).toContainText('Now: 256 KiB (limit set for this bot).')
-    await expect(page.getByTestId('connector-file-inline')).toBeVisible()
     await page.getByRole('button', { name: 'Save' }).click()
     const post = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
     expect(post).toMatchObject({ file_send_max_bytes: 256 * 1024, file_receive_max_bytes: 0 })
   })
 
-  test('a kind that declares abilities shows its own limits, and the note about streaming only where the inline cap applies', async ({ page }) => {
+  test('a kind that declares abilities shows its own limits', async ({ page }) => {
     const a = api(page, [], 'telegram', [], DECLARED)
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'New Telegram bot' }).click()
     const files = page.getByTestId('connector-filelimits')
-    await expect(files).toContainText('Now: 1 MiB (limit of this add-on version).')
+    await expect(files).toContainText('Now: 20 MiB (limit of the add-on).')
     await expect(files).toContainText('Now: 256 KiB (limit of the add-on).')
-    await expect(page.getByTestId('connector-file-inline')).toBeVisible()
-    // Reading is allowed up to 20 MiB, so 5 MiB is accepted, and it does not change what is read now.
+    // Reading is allowed up to 20 MiB, so 5 MiB is accepted and becomes the limit in effect.
     await page.getByTestId('connector-file-receive').fill('5')
     await expect(files).not.toContainText('allows at most')
-    await expect(files).toContainText('Now: 1 MiB (limit of this add-on version).')
-    // Lowering both below the inline cap takes the note away: the numbers are now the owner's.
-    await page.getByTestId('connector-file-receive').fill('0.5')
-    await page.getByTestId('connector-file-send').fill('0.1')
-    await expect(page.getByTestId('connector-file-inline')).toHaveCount(0)
+    await expect(files).toContainText('Now: 5 MiB (limit set for this bot).')
   })
 
   test('an edit shows the limit the owner set and a save with it empty clears it', async ({ page }) => {

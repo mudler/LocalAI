@@ -14,7 +14,7 @@ async function open(page, ceiling = 0) {
   const state = await mockAddons(page, { hostSettings: { connector_files_ceiling_bytes: ceiling } })
   await page.route(/\/api\/chats\/connectors\/kinds$/, route => route.fulfill({ json: { kinds: [{
     addon: 'telegram', kind: 'telegram', title: 'Telegram',
-    files: { inline_bytes: MIB, host_ceiling_bytes: state.hostSettings.policy.connector_files_ceiling_bytes || 100 * MIB, receive: {}, send: {} },
+    files: { host_ceiling_bytes: state.hostSettings.policy.connector_files_ceiling_bytes || 100 * MIB, receive: {}, send: {} },
   }] } }))
   await page.goto('/app/settings')
   await page.getByRole('button', { name: /^Backends and galleries/ }).click()
@@ -22,11 +22,10 @@ async function open(page, ceiling = 0) {
 }
 
 test.describe('Settings: the host ceiling of connector files', () => {
-  test('says what is in effect and that larger files need streaming', async ({ page }) => {
+  test('says what is in effect', async ({ page }) => {
     await open(page)
     const box = page.getByTestId('owner-connector-files')
     await expect(box).toContainText('Now: 100 MiB.')
-    await expect(page.getByTestId('connector-files-inline')).toHaveText('Files up to 1 MiB are sent now; larger files need the add-on to support streaming.')
     await expect(box.getByRole('button', { name: 'Apply file ceiling' })).toBeDisabled()
     if (SHOTS) await box.scrollIntoViewIfNeeded().then(() => page.screenshot({ path: `${SHOTS}/settings-ceiling-${process.env.UI_SHOT_NAME || 'light'}.png` }))
   })

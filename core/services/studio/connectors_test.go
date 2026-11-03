@@ -310,6 +310,7 @@ func newConnRigOpts(sh *shared, store connectors.Store, tr *studiobot.BotTranspo
 	if opt != nil {
 		opt(&o)
 	}
+	DeferCleanup(tr.EnableTransfers(sh.transfers))
 	c, err := studio.NewConnectors(r.svc, o)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(c.Close)
@@ -352,6 +353,9 @@ func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
 		// The specs written before the reply modes read the answer as the
 		// one message the bot sends; the live modes have their own specs.
 		in.Reply = connectors.ReplyOff
+	}
+	if in.Kind == "" {
+		in.Kind = "telegram"
 	}
 	b, err := c.conns.CreateConnector(context.Background(), alice, in)
 	Expect(err).NotTo(HaveOccurred())
@@ -693,20 +697,20 @@ var _ = Describe("connectors", func() {
 		sh, bot := newShared(), newScriptedBot()
 		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
 		ctx := context.Background()
-		_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken})
+		_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken})
 		Expect(err).To(MatchError(connectors.ErrInvalid), "no agent: %v", err)
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: "missing"})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken, AgentID: "missing"})
 		Expect(err).To(MatchError(agents.ErrNotFound), "unknown agent: %v", err)
 		bare, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "No model"})
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bare.ID})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken, AgentID: bare.ID})
 		Expect(err).To(MatchError(connectors.ErrInvalid), "agent with no model: %v", err)
 		bobs, _ := r.svc.SaveAgent(ctx, "bob", agents.Agent{Name: "Bobs", Model: "m"})
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bobs.ID})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken, AgentID: bobs.ID})
 		Expect(err).To(MatchError(agents.ErrNotFound), "another user's agent: %v", err)
 		r.bind(studio.ConnectorInput{})
 		_, err = r.conns.GetConnector(ctx, "bob", "nope")
 		Expect(err).To(MatchError(connectors.ErrNotFound), "bob: %v", err)
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "y", AgentID: r.agent.ID})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "y", AgentID: r.agent.ID})
 		Expect(err).To(MatchError(connectors.ErrInvalid), "a connector with no token")
 	})
 

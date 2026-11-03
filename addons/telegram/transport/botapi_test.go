@@ -149,12 +149,12 @@ var _ = Describe("the Bot API client", func() {
 		f.reply["sendPhoto"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"message_id":61}}` }
 		f.reply["sendDocument"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"message_id":62}}` }
 		c := f.client()
-		id, err := c.SendFile(ctx, secretToken, 5, 77, "chart.png", "image/png", []byte("png-bytes"))
+		id, err := c.SendFileStream(ctx, secretToken, 5, 77, "chart.png", "image/png", 9, strings.NewReader("png-bytes"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal(int64(61)))
 		p := f.called("sendPhoto")[0].Body
 		Expect(p).To(And(HaveKeyWithValue("chat_id", "5"), HaveKeyWithValue("message_thread_id", "77"), HaveKeyWithValue("_file_field", "photo"), HaveKeyWithValue("_file_name", "chart.png"), HaveKeyWithValue("_file_size", int64(9))))
-		id, err = c.SendFile(ctx, secretToken, 5, 0, "report.pdf", "application/pdf", []byte("%PDF"))
+		id, err = c.SendFileStream(ctx, secretToken, 5, 0, "report.pdf", "application/pdf", 4, strings.NewReader("%PDF"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal(int64(62)))
 		d := f.called("sendDocument")[0].Body
@@ -167,7 +167,7 @@ var _ = Describe("the Bot API client", func() {
 		f.reply["sendDocument"] = func(map[string]any) (int, string) {
 			return 400, `{"ok":false,"error_code":400,"description":"Bad Request: file must be non-empty"}`
 		}
-		_, err := f.client().SendFile(ctx, secretToken, 5, 0, "a.txt", "text/plain", []byte("x"))
+		_, err := f.client().SendFileStream(ctx, secretToken, 5, 0, "a.txt", "text/plain", 1, strings.NewReader("x"))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
 	})

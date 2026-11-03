@@ -70,6 +70,8 @@ func (c *Connectors) attachFile(ctx context.Context, x session.Access, b connect
 		return "", fmt.Errorf("%s is not sent: files of this type (%s) are not sent here. Documents, data, pictures, sound, video and zip files are", name, path.Ext(name))
 	case n.Size == 0:
 		return "", fmt.Errorf("%s is empty, so there is nothing to send", name)
+	case limits.Send.Bytes <= 0:
+		return "", fmt.Errorf("files cannot be sent on this platform: paste short content in the answer instead")
 	case n.Size > limits.Send.Bytes:
 		return "", refuseAttachTooBig(name, n.Size, limits)
 	}

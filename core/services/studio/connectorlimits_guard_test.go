@@ -41,18 +41,6 @@ var _ = Describe("the files that use the file limit", func() {
 		}
 	})
 
-	It("read the limit from EffectiveFileLimit, not from the contract constant", func() {
-		for _, name := range files {
-			fset, f := parse(name)
-			ast.Inspect(f, func(n ast.Node) bool {
-				if sel, ok := n.(*ast.SelectorExpr); ok {
-					Expect(sel.Sel.Name).NotTo(Equal("MaxConnectorFileBytes"), "%s: the inline cap is a layer of EffectiveFileLimit", fset.Position(sel.Pos()))
-				}
-				return true
-			})
-		}
-	})
-
 	It("hold no byte count", func() {
 		for _, name := range noLargeNumbers {
 			fset, f := parse(name)

@@ -29,18 +29,14 @@ type FileAbility struct {
 	Types []string `json:"types,omitempty"`
 }
 
-// ConnectorFiles is the manifest field files of a connector kind. A kind that
-// declares none keeps the inline path, capped by MaxConnectorFileBytes.
+// ConnectorFiles is the manifest field files of a connector kind. The bytes of
+// a file always travel by handle (ConnectorTransfer). A kind that declares none
+// moves no files.
 type ConnectorFiles struct {
 	// Receive is the ability to read files that people send to the bot.
 	Receive *FileAbility `json:"receive,omitempty"`
 	// Send is the ability to upload files from the bot.
 	Send *FileAbility `json:"send,omitempty"`
-	// Transfer says that the add-on moves file bytes by a short-lived handle
-	// (ConnectorTransfer, ConnectorFilePutOp, ConnectorFileGetOp) and not in
-	// the connector envelope. Only then may a limit pass MaxConnectorFileBytes.
-	// A kind that declares files without it keeps the inline path.
-	Transfer bool `json:"transfer,omitempty"`
 }
 
 var mediaTypePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9!#$&^_.+-]{0,63}/(\*|[a-z0-9][a-z0-9!#$&^_.+-]{0,63})$`)

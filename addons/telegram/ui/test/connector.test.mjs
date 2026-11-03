@@ -114,10 +114,10 @@ test('chat connectors: a limit above what the kind allows, or not a positive num
 })
 
 test('chat connectors: a typed limit can only lower the limit in effect, and names its layer', () => {
-  const base = { effective_bytes: 1024 * 1024, layer: 'inline' }
-  assert.deepEqual(previewLimit(base, ''), { bytes: 1024 * 1024, layer: 'inline' })
+  const base = { effective_bytes: 1024 * 1024, layer: 'addon' }
+  assert.deepEqual(previewLimit(base, ''), { bytes: 1024 * 1024, layer: 'addon' })
   assert.deepEqual(previewLimit(base, '0.25'), { bytes: 256 * 1024, layer: 'owner' })
-  assert.deepEqual(previewLimit(base, '5'), { bytes: 1024 * 1024, layer: 'inline' }, 'a higher number changes nothing yet')
+  assert.deepEqual(previewLimit(base, '5'), { bytes: 1024 * 1024, layer: 'addon' }, 'a higher number changes nothing')
   assert.equal(previewLimit(null, '1'), null)
 })
 

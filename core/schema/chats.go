@@ -1369,9 +1369,6 @@ type ChatsConnectorFiles struct {
 	Receive ChatsConnectorFileLimit `json:"receive"`
 	// Send is the limit of the files that the bot sends.
 	Send ChatsConnectorFileLimit `json:"send"`
-	// InlineBytes is the cap of the inline path. Until the add-on can stream
-	// a file, nothing larger moves, whatever the other limits are.
-	InlineBytes int64 `json:"inline_bytes"`
 	// HostCeilingBytes is the ceiling of the server for a connector file, set
 	// by the add-on owner; no limit above it applies.
 	HostCeilingBytes int64 `json:"host_ceiling_bytes"`
@@ -1380,7 +1377,7 @@ type ChatsConnectorFiles struct {
 // ChatsConnectorFileLimit is the limit of one direction.
 type ChatsConnectorFileLimit struct {
 	// EffectiveBytes is the largest file that moves now: the smallest of the
-	// host ceiling, the declared ability, your limit and the inline cap.
+	// host ceiling, the declared ability and your limit.
 	EffectiveBytes int64 `json:"effective_bytes"`
 	// Layer names the one that sets EffectiveBytes: owner (your limit for
 	// this bot), addon (the ability the kind declares), host (the ceiling of
@@ -1443,8 +1440,8 @@ type ChatsConnectorKindList struct {
 // ChatsConnectorWrite creates or replaces a connector binding. token is needed to
 // create one; an update without it keeps the stored token.
 type ChatsConnectorWrite struct {
-	// Kind is the platform, such as telegram. It is used to create a binding and
-	// ignored by an update. Empty means telegram.
+	// Kind is the platform, as a connector add-on declares it (see the kinds
+	// call). It is required to create a binding and ignored by an update.
 	Kind      string `json:"kind,omitempty"`
 	Name      string `json:"name"`
 	Token     string `json:"token,omitempty"`

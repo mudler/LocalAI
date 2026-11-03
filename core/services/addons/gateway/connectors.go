@@ -31,9 +31,11 @@ type connectorCall struct {
 	Request contract.ConnectorRequest     `json:"request"`
 }
 
-// The file payload is base64 encoded only once; no signed envelope is needed on
-// this pinned, peer-authenticated host-only route. Do not raise global limits.
-const connectorWireLimit = 2 << 20
+// connectorWireLimit bounds the body of one connector call between hosts: the
+// scope and the request, which holds text and no file bytes (those travel by
+// handle). This route is pinned and peer-authenticated. Do not raise global
+// limits.
+const connectorWireLimit = 1 << 20
 
 // connectorTimeout bounds one connector round trip. It is set once per hop: by
 // the forwarding carrier on a frontend, and by the owner when it runs the call,
@@ -114,8 +116,10 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 		}
 		return contract.ConnectorResponse{}, ErrForbidden
 	}
-	if req.Transfer != nil && (kinds[i].Files == nil || !kinds[i].Files.Transfer) {
-		// A handle only goes to an add-on that declared that it takes one.
+	moves := req.Op == contract.ConnectorOpMedia || req.Op == contract.ConnectorOpSendFile
+	if moves != (req.Transfer != nil) || (moves && kinds[i].Files == nil) {
+		// File bytes only travel by handle, and only to a kind that declared
+		// the files ability.
 		return contract.ConnectorResponse{}, ErrForbidden
 	}
 	end, err := g.beginTransfer(s, req)
@@ -233,7 +237,7 @@ func (g *Gateway) beginTransfer(s connectors.ConnectorCallScope, req contract.Co
 	case contract.ConnectorOpMedia:
 		grant.Direction, grant.MaxBytes = hostops.TransferIn, req.Transfer.MaxBytes
 	case contract.ConnectorOpSendFile:
-		if s.Content == nil || req.File != nil {
+		if s.Content == nil {
 			return nil, ErrForbidden
 		}
 		grant.Direction, grant.SHA, grant.Size = hostops.TransferOut, s.Content.SHA, s.Content.Size

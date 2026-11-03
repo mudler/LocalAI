@@ -27,7 +27,7 @@ type Addon struct {
 	Kind    contract.ConnectorKind
 	Runtime contract.ConnectorRuntime
 	// WithHost rebuilds the runtime over a host operation channel, as the
-	// add-on's main does at start. Nil: the add-on cannot move files by handle.
+	// add-on's main does at start. Nil: the add-on cannot move files.
 	WithHost func(testhost.Host) contract.ConnectorRuntime
 	// Files is what the manifest declares for files, applied by EnableTransfers.
 	Files *contract.ConnectorFiles
@@ -39,7 +39,7 @@ type Addon struct {
 func Telegram(api *transport.API) Addon {
 	return Addon{ID: "telegram", Kind: contract.ConnectorKind{ID: transport.Kind, Title: "Telegram", Delivery: contract.DeliveryPull, Drafts: true}, Runtime: transport.Runtime{API: api},
 		WithHost: func(h testhost.Host) contract.ConnectorRuntime { return transport.Runtime{API: api, Host: h} },
-		Files:    &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: transport.MaxDownloadBytes}, Send: &contract.FileAbility{MaxBytes: 50 << 20}, Transfer: true}}
+		Files:    &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: transport.MaxDownloadBytes}, Send: &contract.FileAbility{MaxBytes: 50 << 20}}}
 }
 
 // TelegramPaced is Telegram with the preview interval of the manifest.
@@ -55,7 +55,7 @@ func Slack(rt *slack.Runtime) Addon {
 		ID: slack.FollowOption, Title: "Threads the bot follows", Default: slack.FollowOwn,
 		Values: []contract.ConnectorOptionValue{{ID: slack.FollowOwn, Title: "Only threads it started"}, {ID: slack.FollowAny, Title: "Any thread it was mentioned in"}, {ID: slack.FollowNever, Title: "None"}}}}}, Runtime: rt,
 		WithHost: func(h testhost.Host) contract.ConnectorRuntime { rt.Host = h; return rt },
-		Files:    &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: 1 << 30}, Send: &contract.FileAbility{MaxBytes: 1 << 30}, Transfer: true}}
+		Files:    &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: 1 << 30}, Send: &contract.FileAbility{MaxBytes: 1 << 30}}}
 }
 
 // BotTransport is a studio.ConnectorTransport that serves the real connector
@@ -100,8 +100,16 @@ func (b *BotTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
 	return out, nil
 }
 
+// DeclareFiles makes the kinds declare the files ability of their manifests,
+// for a spec that reads the limits and moves no byte.
+func (b *BotTransport) DeclareFiles() {
+	for i, a := range b.addons {
+		b.addons[i].Kind.Files = a.Files
+	}
+}
+
 // EnableTransfers makes the add-ons move files by handle, as installed ones do:
-// the kinds declare files.transfer, the add-ons get a host operation channel
+// the kinds declare the files ability, the add-ons get a host operation channel
 // over a local server that serves the two file operations, and every call goes
 // through the real gateway, which registers the handle for the call. t is the
 // table; its blob store is the one the chats read the files from. The returned
@@ -113,6 +121,7 @@ func (b *BotTransport) EnableTransfers(t *hostops.Transfers) (stop func()) {
 	}
 	var hosts []*httptest.Server
 	for i, a := range b.addons {
+		b.addons[i].Kind.Files = a.Files
 		if a.WithHost == nil {
 			continue
 		}
@@ -120,7 +129,6 @@ func (b *BotTransport) EnableTransfers(t *hostops.Transfers) (stop func()) {
 		hosts = append(hosts, h)
 		c := testhost.Client(h.URL, "cred")
 		b.addons[i].Runtime = a.WithHost(c)
-		b.addons[i].Kind.Files = a.Files
 	}
 	b.gateway = &gateway.Gateway{Connectors: gatewaySource{b}, ConnectorAuthority: allowAll{}, Transfers: t}
 	return func() {

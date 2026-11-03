@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/slack/slacktest"
 	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/addons/testhost"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -19,7 +20,7 @@ import (
 )
 
 // The file limit of a binding is the smallest of the host ceiling, the ability
-// that the kind declares, the owner's setting and the cap of the inline path.
+// that the kind declares and the owner's setting.
 // The specs run the same checks over two real add-ons (Telegram and Slack, on
 // their fakes) and over a kind that only a fake declares, so nothing in the
 // host knows a platform.
@@ -54,7 +55,9 @@ var platforms = map[string]func(limitSetup) limitRig{
 	"Telegram": func(s limitSetup) limitRig {
 		bot := newScriptedBot()
 		addon := studiobot.Telegram(&transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()})
-		addon.Kind.Files = s.declared
+		if s.declared != nil {
+			addon.Files = s.declared
+		}
 		r := newConnRigOpts(newShared(), connStore(), studiobot.NewTransport(addon), s.script, nil, s.options)
 		r.bot = bot
 		s.input.Allow = []string{"11"}
@@ -121,9 +124,7 @@ var _ = Describe("file limits in a connector chat", func() {
 		Entry("the owner lowers the declared limit: Slack", "Slack", limitSetup{declared: &contract.ConnectorFiles{Send: &contract.FileAbility{MaxBytes: 300}}, input: studio.ConnectorInput{FileSendMax: ptr(100)}}, 150, "100 bytes (limit set for this bot)"),
 		Entry("the host ceiling is the smallest: Telegram", "Telegram", limitSetup{declared: &contract.ConnectorFiles{Send: &contract.FileAbility{MaxBytes: 300}}, ceiling: 50}, 100, "50 bytes (limit of the platform)"),
 		Entry("the host ceiling is the smallest: Slack", "Slack", limitSetup{declared: &contract.ConnectorFiles{Send: &contract.FileAbility{MaxBytes: 300}}, ceiling: 50}, 100, "50 bytes (limit of the platform)"),
-		Entry("an add-on that declares nothing: the inline cap, Telegram", "Telegram", limitSetup{}, 1<<20+10, "1 MiB (limit of this add-on version)"),
-		Entry("an add-on that declares nothing: the inline cap, Slack", "Slack", limitSetup{}, 1<<20+10, "1 MiB (limit of this add-on version)"),
-		Entry("an add-on that declares more than the inline path carries: the inline cap", "Telegram", limitSetup{declared: &contract.ConnectorFiles{Send: &contract.FileAbility{MaxBytes: 50 << 20}}}, 1<<20+10, "1 MiB (limit of this add-on version)"),
+		Entry("an add-on that declares more than the old inline cap: its own limit", "Telegram", limitSetup{declared: &contract.ConnectorFiles{Send: &contract.FileAbility{MaxBytes: 50 << 20}}, ceiling: 2 << 20}, 3<<20, "2 MiB (limit of the platform)"),
 	)
 
 	DescribeTable("sends a file that is within the limit",
@@ -168,16 +169,25 @@ var _ = Describe("file limits in a connector chat", func() {
 		chatty := studiobot.Addon{ID: "chatty-addon",
 			Kind: contract.ConnectorKind{ID: "chatty", Title: "Chatty", Delivery: contract.DeliveryPush,
 				Files: &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: 300}, Send: &contract.FileAbility{MaxBytes: 700}}},
-			Runtime: fakeRuntime(func(req contract.ConnectorRequest) contract.ConnectorResponse {
-				switch req.Op {
-				case contract.ConnectorOpMedia:
-					return contract.ConnectorResponse{File: &contract.ConnectorFile{Name: "in.txt", MIME: "text/plain", Data: []byte(strings.Repeat("y", int(size.Load())))}}
-				case contract.ConnectorOpSend:
-					calls.Add(1)
-					sent.Store(req.Text)
-				}
-				return contract.ConnectorResponse{}
-			})}
+			Files: &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: 300}, Send: &contract.FileAbility{MaxBytes: 700}},
+			// The fake writes the file to the host by the handle, as an add-on does.
+			WithHost: func(h testhost.Host) contract.ConnectorRuntime {
+				return fakeRuntime(func(req contract.ConnectorRequest) contract.ConnectorResponse {
+					switch req.Op {
+					case contract.ConnectorOpMedia:
+						var res contract.ConnectorFilePutResult
+						put := contract.ConnectorFilePut{Handle: req.Transfer.Handle, Data: []byte(strings.Repeat("y", int(size.Load()))), Final: true}
+						if err := h.Do(context.Background(), req.Transfer.Handle, contract.ConnectorFilePutOp, put, &res); err != nil {
+							return contract.ConnectorResponse{Error: &contract.ConnectorError{Code: contract.ConnectorTooLarge, Message: err.Error()}}
+						}
+						return contract.ConnectorResponse{Received: &contract.ConnectorReceived{Name: "in.txt", MIME: "text/plain"}}
+					case contract.ConnectorOpSend:
+						calls.Add(1)
+						sent.Store(req.Text)
+					}
+					return contract.ConnectorResponse{}
+				})
+			}}
 
 		bindChatty := func(in studio.ConnectorInput) (*connRig, connectors.Binding, error) {
 			r := newConnRigOpts(newShared(), connStore(), studiobot.NewTransport(chatty), connSay("ok"), nil, nil)
@@ -219,7 +229,7 @@ var _ = Describe("file limits in a connector chat", func() {
 			Expect(r.conns.Ingest(context.Background(), "chatty-addon", contract.ConnectorInbound{BindingID: b.ID,
 				ConnectorMessage: contract.ConnectorMessage{Chat: "11", SenderID: "11", Direct: true, Media: []string{"m1"}}})).To(Succeed())
 			waitFor("the sentence", func() bool { return calls.Load() >= 1 })
-			Expect(sent.Load()).To(Equal("That file is too large (400 bytes): I can read files of up to 300 bytes here (limit of Chatty)."))
+			Expect(sent.Load()).To(Equal("That file is too large: I can read files of up to 300 bytes here (limit of Chatty)."))
 		})
 
 		It("lets the owner lower the limit for a bot, and the sentence says so", func() {
@@ -230,7 +240,7 @@ var _ = Describe("file limits in a connector chat", func() {
 			Expect(r.conns.Ingest(context.Background(), "chatty-addon", contract.ConnectorInbound{BindingID: b.ID,
 				ConnectorMessage: contract.ConnectorMessage{Chat: "11", SenderID: "11", Direct: true, Media: []string{"m1"}}})).To(Succeed())
 			waitFor("the sentence", func() bool { return calls.Load() >= 1 })
-			Expect(sent.Load()).To(Equal("That file is too large (150 bytes): I can read files of up to 100 bytes here (limit set for this bot)."))
+			Expect(sent.Load()).To(Equal("That file is too large: I can read files of up to 100 bytes here (limit set for this bot)."))
 		})
 
 		It("refuses a limit above the one of the kind: an owner can only lower it", func() {
@@ -239,6 +249,34 @@ var _ = Describe("file limits in a connector chat", func() {
 			Expect(err).To(MatchError(ContainSubstring("at most 700 bytes")))
 			_, _, err = bindChatty(studio.ConnectorInput{FileReceiveMax: ptr(300), FileSendMax: ptr(700)})
 			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("takes no file from a sender, and sends none, when the kind declares no files ability", func() {
+			var (
+				said  atomic.Value
+				heard atomic.Int32
+			)
+			mute := studiobot.Addon{ID: "mute-addon",
+				Kind: contract.ConnectorKind{ID: "mute", Title: "Mute", Delivery: contract.DeliveryPush},
+				Runtime: fakeRuntime(func(req contract.ConnectorRequest) contract.ConnectorResponse {
+					if req.Op == contract.ConnectorOpSend {
+						said.Store(req.Text)
+						heard.Add(1)
+					}
+					return contract.ConnectorResponse{}
+				})}
+			r := newConnRigOpts(newShared(), connStore(), studiobot.NewTransport(mute), connSay("ok"), nil, nil)
+			ag, err := r.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Support", Model: "m"})
+			Expect(err).NotTo(HaveOccurred())
+			info, err := r.conns.CreateConnector(context.Background(), alice, studio.ConnectorInput{Kind: "mute", Name: "m", Token: "t", AgentID: ag.ID, Allow: []string{"11"}, Enabled: true})
+			Expect(err).NotTo(HaveOccurred())
+			r.trust(info.ID)
+			l := r.conns.FileLimits(context.Background(), info.Binding)
+			Expect([]int64{l.Receive.Bytes, l.Send.Bytes, l.ReceiveMax, l.SendMax}).To(Equal([]int64{0, 0, 0, 0}))
+			Expect(r.conns.Ingest(context.Background(), "mute-addon", contract.ConnectorInbound{BindingID: info.ID,
+				ConnectorMessage: contract.ConnectorMessage{Chat: "11", SenderID: "11", Direct: true, Media: []string{"m1"}}})).To(Succeed())
+			waitFor("the sentence", func() bool { return heard.Load() >= 1 })
+			Expect(said.Load()).To(Equal("I cannot take files on this platform."))
 		})
 
 		It("bounds what an owner may set by the host ceiling", func() {

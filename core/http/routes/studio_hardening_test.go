@@ -23,6 +23,7 @@ var _ = Describe("Chats connectors: accepting any sender needs a server-checked 
 		}))
 		DeferCleanup(bot.Close)
 		studioTelegram = studiobot.NewBotTransport(&transport.API{BaseURL: bot.URL, Client: bot.Client()})
+		studioTelegram.DeclareFiles()
 		DeferCleanup(func() { studioTelegram = nil })
 		s = newStudioServer()
 	})

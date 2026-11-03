@@ -18,8 +18,7 @@ import (
 
 // MaxDownloadBytes is the largest file that Telegram lets a bot download
 // with getFile on the public Bot API (20 MB), as the Bots FAQ states:
-// https://core.telegram.org/bots/faq. Without a handle the add-on hands over
-// less: contract.MaxConnectorFileBytes, so that the file fits the envelope.
+// https://core.telegram.org/bots/faq.
 const MaxDownloadBytes = 20 << 20
 
 // ErrTooLarge means a file of a message is larger than the add-on hands
@@ -149,47 +148,6 @@ func sleep(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-// Media reads the file of a reference that Updates made. The file is at
-// most contract.MaxConnectorFileBytes, and its bytes must be of a type that
-// the kind of the reference allows; its name is made here, from the kind and
-// the ID of the file, so nothing that the sender chose reaches the host as a
-// path.
-func (t *API) Media(ctx context.Context, token, ref string) (contract.ConnectorFile, error) {
-	kind, id, ok := strings.Cut(ref, ":")
-	if !ok || !refKinds[kind] || !fileID.MatchString(id) {
-		return contract.ConnectorFile{}, errors.New("telegram: not a file reference")
-	}
-	var f struct {
-		UniqueID string `json:"file_unique_id"`
-		Size     int64  `json:"file_size"`
-		Path     string `json:"file_path"`
-	}
-	err := t.call(ctx, token, "getFile", map[string]any{"file_id": id}, 0, &f)
-	switch {
-	case refusedBecause(err, "file is too big"):
-		return contract.ConnectorFile{}, fmt.Errorf("telegram: Telegram lets a bot download %d MB at most: %w", MaxDownloadBytes>>20, ErrTooLarge)
-	case err != nil:
-		return contract.ConnectorFile{}, err
-	case f.Size > contract.MaxConnectorFileBytes:
-		return contract.ConnectorFile{}, fmt.Errorf("telegram: the file has %d bytes: %w", f.Size, ErrTooLarge)
-	case !filePath.MatchString(f.Path):
-		return contract.ConnectorFile{}, errors.New("telegram: Telegram named no file to download")
-	}
-	data, err := t.download(ctx, token, f.Path)
-	if err != nil {
-		return contract.ConnectorFile{}, err
-	}
-	mimeType, ext := fileType(kind, data)
-	if mimeType == "" {
-		return contract.ConnectorFile{}, fmt.Errorf("telegram: the %s is not of a type the add-on reads", strings.ReplaceAll(kind, "_", " "))
-	}
-	name := kind
-	if fileID.MatchString(f.UniqueID) {
-		name += "-" + f.UniqueID
-	}
-	return contract.ConnectorFile{Name: contract.SafeFileName(strings.ReplaceAll(name, "_", "-") + ext), MIME: mimeType, Data: data}, nil
-}
-
 // MediaStream opens the file of a reference for streaming to the host. The
 // size that getFile states is checked against max before a byte is read, and
 // the type is decided from the first bytes, which stay in the stream. The name
@@ -264,52 +222,6 @@ func (t *API) getStream(ctx context.Context, token, path string) (io.ReadCloser,
 		return nil, fmt.Errorf("telegram: the download answered %d", resp.StatusCode)
 	}
 	return resp.Body, nil
-}
-
-// download reads a file of the bot, at most contract.MaxConnectorFileBytes.
-// The token is in the path, as for the methods, and is taken out of every
-// error.
-func (t *API) download(ctx context.Context, token, path string) ([]byte, error) {
-	data, err := t.get(ctx, token, path)
-	return data, redact(err, token)
-}
-
-func (t *API) get(ctx context.Context, token, path string) ([]byte, error) {
-	base := t.BaseURL
-	if base == "" {
-		base = DefaultBase
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimSuffix(base, "/")+"/file/bot"+url.PathEscape(token)+"/"+path, nil)
-	if err != nil {
-		return nil, errors.New("telegram: could not build a download request")
-	}
-	resp, err := t.client(30 * time.Second).Do(req)
-	if err != nil {
-		var ue *url.Error
-		if errors.As(err, &ue) {
-			err = ue.Err
-		}
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		return nil, fmt.Errorf("telegram: the download failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
-		return nil, fmt.Errorf("telegram: the download answered %d", resp.StatusCode)
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, contract.MaxConnectorFileBytes+1))
-	if err != nil {
-		return nil, errors.New("telegram: the file could not be read")
-	}
-	if len(data) > contract.MaxConnectorFileBytes {
-		return nil, ErrTooLarge
-	}
-	if len(data) == 0 {
-		return nil, errors.New("telegram: the file is empty")
-	}
-	return data, nil
 }
 
 // Types of the files, by what their bytes are, and the extension that the

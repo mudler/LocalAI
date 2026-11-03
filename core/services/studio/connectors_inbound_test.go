@@ -186,27 +186,23 @@ var _ = Describe("the pull loop of a connector add-on", func() {
 	})
 })
 
-var _ = Describe("a binding made before connectors became add-ons", func() {
+var _ = Describe("a binding whose add-on is missing", func() {
 	ctx := context.Background()
 
 	It("shows as inactive with a plain reason while the add-on is missing, and works once it runs", func() {
 		sh, bot := newShared(), newScriptedBot()
 		st := connStore()
 		r := newConnRig(sh, st, bot, connSay("answered after the install"), nil)
-		r.tr.SetRunning(false)
 		b := r.bind(studio.ConnectorInput{AcceptAny: true})
-		// What the old core stored: a telegram binding that names no add-on.
-		old, err := st.GetBinding(ctx, b.ID)
-		Expect(err).NotTo(HaveOccurred())
-		old.AddonID = ""
-		Expect(st.PutBinding(ctx, old)).To(Succeed())
+		// The add-on is uninstalled or stopped; the binding stays.
+		r.tr.SetRunning(false)
 
 		list, err := r.conns.ListConnectors(ctx, alice)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(list).To(HaveLen(1))
 		Expect(list[0].AddonID).To(Equal("telegram"))
 		Expect(list[0].Active).To(BeFalse())
-		Expect(list[0].Reason).To(Equal("install the Telegram add-on"))
+		Expect(list[0].Reason).To(Equal("install the telegram add-on"))
 		Consistently(func() int { return bot.pollCount() }, "300ms").Should(BeZero(), "no add-on, no poll")
 
 		r.tr.SetRunning(true)
@@ -218,18 +214,17 @@ var _ = Describe("a binding made before connectors became add-ons", func() {
 		Expect(again.Reason).To(BeEmpty())
 	})
 
-	It("lets a client older than the add-ons create a telegram binding, and refuses an unknown kind", func() {
+	It("refuses a binding with no kind, an unknown kind and a kind whose add-on is not installed", func() {
 		sh, bot := newShared(), newScriptedBot()
 		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
-		r.tr.SetRunning(false)
 		ag, err := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "Support", Model: "m"})
 		Expect(err).NotTo(HaveOccurred())
-		made, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "Old client", Token: "1:t", AgentID: ag.ID})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(made.Kind).To(Equal("telegram"))
-		Expect(made.AddonID).To(Equal("telegram"))
-		Expect(made.Active).To(BeFalse())
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "No kind", Token: "1:t", AgentID: ag.ID})
+		Expect(err).To(MatchError(connectors.ErrInvalid))
 		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "carrier-pigeon", Name: "x", Token: "1:t", AgentID: ag.ID})
+		Expect(err).To(MatchError(connectors.ErrInvalid))
+		r.tr.SetRunning(false)
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: "1:t", AgentID: ag.ID})
 		Expect(err).To(MatchError(connectors.ErrInvalid))
 	})
 })

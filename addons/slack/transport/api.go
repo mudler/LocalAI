@@ -285,17 +285,12 @@ func (a *API) onFilesHost(address string) (*url.URL, error) {
 	return u, nil
 }
 
-// Upload shares a file in a channel, in a thread when thread is set, and
+// UploadStream shares a file in a channel, in a thread when thread is set, and
 // returns the ID of the file. It takes the three steps of Slack's external
 // upload: an upload address, the bytes, and the completion that posts the
-// file. It needs the scope files:write.
-func (a *API) Upload(ctx context.Context, bot, channel, thread, name string, data []byte) (string, error) {
-	return a.UploadStream(ctx, bot, channel, thread, name, int64(len(data)), bytes.NewReader(data))
-}
-
-// UploadStream is Upload for a file that is read as it is sent: body holds
-// size bytes, which Slack is told first (the length of the upload). The body
-// is read once; a failed upload starts again with a new body.
+// file. It needs the scope files:write. The file is read as it is sent: body
+// holds size bytes, which Slack is told first (the length of the upload). The
+// body is read once; a failed upload starts again with a new body.
 func (a *API) UploadStream(ctx context.Context, bot, channel, thread, name string, size int64, body io.Reader) (string, error) {
 	var r struct {
 		URL string `json:"upload_url"`
@@ -390,46 +385,4 @@ func (a *API) DownloadStream(ctx context.Context, bot, address string) (io.ReadC
 		io.Reader
 		io.Closer
 	}{br, resp.Body}, nil
-}
-
-// Download reads a file of Slack, at most limit bytes. The bot token goes
-// with the request, so the address must be on the files host (see
-// onFilesHost).
-func (a *API) Download(ctx context.Context, bot, address string, limit int64) ([]byte, error) {
-	u, err := a.onFilesHost(address)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.New("slack: could not build a download request")
-	}
-	req.Header.Set("Authorization", "Bearer "+bot)
-	resp, err := a.client().Do(req)
-	if err != nil {
-		if ctx.Err() != nil {
-			return nil, ctx.Err()
-		}
-		return nil, errors.New("slack: the file could not be downloaded")
-	}
-	defer func() { _ = resp.Body.Close() }()
-	switch {
-	case resp.StatusCode == http.StatusTooManyRequests:
-		return nil, &connector.RetryAfter{Seconds: retryAfter(resp.Header.Get("Retry-After"))}
-	case resp.StatusCode != http.StatusOK:
-		return nil, fmt.Errorf("slack: the download answered %d", resp.StatusCode)
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
-	if err != nil {
-		return nil, errors.New("slack: the file could not be read")
-	}
-	if int64(len(data)) > limit {
-		return nil, ErrTooLarge
-	}
-	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("<!DOCTYPE html")) {
-		// Slack answers a download without the scope files:read with its
-		// sign-in page, not with an error.
-		return nil, errors.New("slack: the download needs the scope files:read")
-	}
-	return data, nil
 }

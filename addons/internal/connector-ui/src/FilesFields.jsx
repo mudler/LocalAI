@@ -1,10 +1,8 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 // The limits of the files a bot reads and sends. The owner can only lower the
 // limit of the connector kind. The page shows the limit in effect with the
-// layer that sets it, and says so when the cap of the inline path is the one
-// that applies, because then a higher limit changes nothing yet. The numbers
-// come from the server; the words live here as defaults, like the rest of the
-// shared fields.
+// layer that sets it. The numbers come from the server; the words live here as
+// defaults, like the rest of the shared fields.
 import { Field, TextInput } from './controls'
 import { fileLimitProblem, formatBytes, previewLimit } from './connector'
 
@@ -19,8 +17,6 @@ export const FILES_TEXT = {
   'files.layer.owner': 'limit set for this bot',
   'files.layer.addon': 'limit of the add-on',
   'files.layer.host': 'limit of the platform',
-  'files.layer.inline': 'limit of this add-on version',
-  'files.inline': 'Files up to {{limit}} are sent now; larger files need the add-on to support streaming.',
 }
 
 // The limit that a field shows: what the typed value gives over the limit of
@@ -53,7 +49,6 @@ function Limit({ label, mib, onChange, base, saved, s, testId }) {
  * @param {Function} props.s     the translation function with the defaults
  */
 export default function FilesFields({ form, setForm, kind, saved, s }) {
-  const inlineBinds = [kind?.receive && shown(kind.receive, null, form.file_receive_mib), kind?.send && shown(kind.send, null, form.file_send_mib)].some((l) => l?.layer === 'inline')
   return (
     <fieldset className="cn-group" data-testid="connector-filelimits">
       <legend>{s('files.title')}</legend>
@@ -62,7 +57,6 @@ export default function FilesFields({ form, setForm, kind, saved, s }) {
         onChange={(v) => setForm({ ...form, file_receive_mib: v })} />
       <Limit label={s('files.sendLabel')} mib={form.file_send_mib} base={kind?.send} saved={saved?.send} s={s} testId="connector-file-send"
         onChange={(v) => setForm({ ...form, file_send_mib: v })} />
-      {inlineBinds && kind.inline_bytes > 0 && <p className="cn-muted" data-testid="connector-file-inline">{s('files.inline', { limit: formatBytes(kind.inline_bytes) })}</p>}
     </fieldset>
   )
 }

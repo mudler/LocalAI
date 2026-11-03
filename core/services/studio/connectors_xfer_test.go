@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"io"
-	"path/filepath"
 	"strings"
 
 	"github.com/mudler/LocalAI/addons/slack/slacktest"
@@ -13,17 +12,14 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
-	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
-	"github.com/mudler/LocalAI/core/services/studio/workspace/jsonstore"
 	"github.com/mudler/LocalAI/tests/studiobot"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-// A file larger than the connector envelope moves by handle, through the real
+// A file moves by handle, whatever its size, through the real
 // Telegram add-on, the real gateway and the real file operations, in both
 // directions. The scripted Bot API holds the platform side.
 
@@ -43,19 +39,12 @@ var _ = Describe("connector files by handle", func() {
 		table *hostops.Transfers
 	)
 	BeforeEach(func() {
-		blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
-		Expect(err).NotTo(HaveOccurred())
-		ws, err := jsonstore.New(filepath.Join(GinkgoT().TempDir(), "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal})
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(func() { _ = ws.Close() })
 		sh, bot = newShared(), newScriptedBot()
-		sh.files = files.New(ws, files.WithBlobs(blobs))
-		table = hostops.NewTransfers(blobs)
+		table = sh.transfers
 	})
 
 	rig := func(script func(workspace.Actor, string) []studiotest.ToolStep, in studio.ConnectorInput) *connRig {
 		r := newConnRig(sh, connStore(), bot, script, nil)
-		DeferCleanup(r.tr.EnableTransfers(table))
 		in.Allow, in.Reply = []string{"11"}, connectors.ReplyOff
 		r.bind(in)
 		return r
@@ -140,7 +129,6 @@ var _ = Describe("connector files by handle", func() {
 			rt := slack.New(&slack.API{BaseURL: f.URL, FilesHost: f.FilesHost})
 			DeferCleanup(rt.Close)
 			r = newConnRigWith(sh, connStore(), studiobot.NewTransport(studiobot.Slack(rt)), script, nil)
-			DeferCleanup(r.tr.EnableTransfers(table))
 			in.Kind, in.Token, in.Allow = "slack", slackBot+" "+slackApp, []string{"U1"}
 			r.bind(in)
 			waitFor("the Socket Mode link", func() bool { return f.Connected(slackApp) })

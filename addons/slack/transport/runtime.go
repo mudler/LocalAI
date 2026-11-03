@@ -76,8 +76,6 @@ type platform struct{ r *Runtime }
 var (
 	_ connector.Formatter     = platform{}
 	_ connector.Splitter      = platform{}
-	_ connector.MediaReader   = platform{}
-	_ connector.FileSender    = platform{}
 	_ connector.HistoryReader = platform{}
 	_ connector.StreamReader  = platform{}
 	_ connector.StreamSender  = platform{}
@@ -157,15 +155,6 @@ func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) err
 	return nil
 }
 
-// SendFile uploads a file into the conversation and returns the file's ID.
-func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error) {
-	b, err := bot(req.Token)
-	if err != nil {
-		return "", err
-	}
-	return p.r.API.Upload(ctx, b, req.Chat, req.Thread, req.File.Name, req.File.Data)
-}
-
 // Me checks both tokens: the bot token names the bot, and the app-level token
 // must open a Socket Mode link (the ticket it gets is not used).
 func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
@@ -188,33 +177,6 @@ func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
 }
 
 var fileID = regexp.MustCompile(`^F[A-Z0-9]{1,31}$`)
-
-// Media reads a file of a message, by its Slack ID.
-func (p platform) Media(ctx context.Context, token, ref string) (contract.ConnectorFile, error) {
-	b, err := bot(token)
-	if err != nil {
-		return contract.ConnectorFile{}, err
-	}
-	if !fileID.MatchString(ref) {
-		return contract.ConnectorFile{}, errors.New("slack: not a file ID")
-	}
-	f, err := p.r.API.FileInfo(ctx, b, ref)
-	if err != nil {
-		return contract.ConnectorFile{}, err
-	}
-	if f.Size > contract.MaxConnectorFileBytes {
-		return contract.ConnectorFile{}, ErrTooLarge
-	}
-	data, err := p.r.API.Download(ctx, b, f.Download, contract.MaxConnectorFileBytes)
-	if err != nil {
-		return contract.ConnectorFile{}, err
-	}
-	name := f.Name
-	if name == "" {
-		name = f.ID
-	}
-	return contract.ConnectorFile{Name: name, MIME: f.Mimetype, Data: data}, nil
-}
 
 // MediaStream streams a file of a message, by its Slack ID, to the host. The
 // platform names the size first, so a file over the bound is refused before

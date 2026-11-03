@@ -140,8 +140,7 @@ type MediaStream struct {
 
 // StreamReader is a Platform that streams the files of messages for the op
 // media when the host gives a handle. max is the bound of the handle: the
-// platform should refuse a larger file as soon as it knows the size. A
-// Platform that does not implement it keeps the inline path.
+// platform should refuse a larger file as soon as it knows the size.
 type StreamReader interface {
 	MediaStream(ctx context.Context, token, ref string, max int64) (MediaStream, error)
 }
