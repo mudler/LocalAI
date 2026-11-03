@@ -432,6 +432,11 @@ The generic binary selects no policy automatically.
 
 Fine-tuning and Quantization include operation names passed through mutation and undo wrappers.
 They do not request the host's unused progress operations.
+
+The `finetune.start` and `quantize.start` operations take an optional `backend`.
+The host accepts only an installed backend whose gallery entry carries the tag of the operation (`fine-tuning` or `quantization`).
+When the call names no backend, the host uses the first installed backend of that tag in gallery order.
+A new engine needs only a gallery entry with the tag. With no engine installed, the call fails with a `400` that says so.
 Telegram's historical `connector.` deployment grant does not imply a hostclient call or manufacture a manifest request.
 
 Sandbox's proxy uses the optional egress operations when configured connections need policy decisions.
