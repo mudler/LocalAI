@@ -24,7 +24,7 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	}
 	return schema.ChatsConnector{ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
-		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ThreadContext: i.ReadsThread()}
+		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ThreadContext: i.ReadsThread(), Options: i.Options}
 }
 
 // acceptAnyConfirmation is what a request must say to turn on accept_any.
@@ -38,7 +38,7 @@ func failAcceptAny(c echo.Context) error {
 func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
-		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ThreadContext: req.ThreadContext}
+		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ThreadContext: req.ThreadContext, Options: req.Options}
 }
 
 var connectorRules = []errRule{
@@ -99,7 +99,7 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	}
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	for _, k := range kinds {
-		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, ThreadHistory: k.ServesThreadHistory()})
+		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options)})
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -290,4 +290,16 @@ func (h *Handlers) AllowConnectorSender(c echo.Context) error {
 		return failConnector(c, err)
 	}
 	return c.JSON(http.StatusOK, connectorOut(i))
+}
+
+func optionsOut(in []contract.ConnectorOption) []schema.ChatsConnectorOption {
+	var out []schema.ChatsConnectorOption
+	for _, o := range in {
+		vals := make([]schema.ChatsConnectorOptionValue, len(o.Values))
+		for i, v := range o.Values {
+			vals[i] = schema.ChatsConnectorOptionValue{ID: v.ID, Title: v.Title}
+		}
+		out = append(out, schema.ChatsConnectorOption{ID: o.ID, Title: o.Title, Description: o.Description, Values: vals, Default: o.Default})
+	}
+	return out
 }

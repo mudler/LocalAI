@@ -352,7 +352,7 @@ poll:
 			c.sleep(ctx, backoff)
 			continue
 		}
-		resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpPoll, Kind: b.Kind, Token: token, Offset: offset, TimeoutSeconds: c.o.Poll})
+		resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpPoll, Kind: b.Kind, Token: token, Offset: offset, TimeoutSeconds: c.o.Poll, Options: c.optionsOf(ctx, b)})
 		if err == nil && resp.Error != nil {
 			err = resp.Error
 		}
@@ -431,6 +431,25 @@ func (c *Connectors) sleep(ctx context.Context, d time.Duration) {
 	case <-c.done:
 	case <-t.C:
 	}
+}
+
+// optionsOf is the value in effect of each option that the kind of the
+// binding declares: the owner's choice, or the default. A choice that the
+// kind no longer offers is replaced by the default.
+func (c *Connectors) optionsOf(ctx context.Context, b connectors.Binding) map[string]string {
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		return nil
+	}
+	k, ok := kindFor(kinds, b)
+	if !ok || len(k.Options) == 0 {
+		return nil
+	}
+	if out, err := k.ResolveOptions(b.Options); err == nil {
+		return out
+	}
+	out, _ := k.ResolveOptions(nil)
+	return out
 }
 
 // disable switches a binding off and tells its owner why.

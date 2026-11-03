@@ -31,9 +31,11 @@ type bindingRow struct {
 	// ThreadContextOff is added by AutoMigrate; a row stored before it reads
 	// the thread.
 	ThreadContextOff bool
-	Token            []byte
-	Created          time.Time
-	Updated          time.Time
+	// Options is JSON, added by AutoMigrate.
+	Options string
+	Token   []byte
+	Created time.Time
+	Updated time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -94,6 +96,11 @@ func (r bindingRow) binding() (Binding, error) {
 			return b, err
 		}
 	}
+	if r.Options != "" {
+		if err := json.Unmarshal([]byte(r.Options), &b.Options); err != nil {
+			return b, err
+		}
+	}
 	return Normalize(b), nil
 }
 
@@ -103,9 +110,14 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(b.Allow)
 		allow = string(raw)
 	}
+	options := ""
+	if len(b.Options) > 0 {
+		raw, _ := json.Marshal(b.Options)
+		options = string(raw)
+	}
 	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
-		FilesOff: b.FilesOff, ThreadContextOff: b.ThreadContextOff, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		FilesOff: b.FilesOff, ThreadContextOff: b.ThreadContextOff, Options: options, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {

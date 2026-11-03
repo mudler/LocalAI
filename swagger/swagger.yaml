@@ -3491,6 +3491,13 @@ definitions:
       reason:
         description: Reason says in plain words why the binding is not active.
         type: string
+      options:
+        additionalProperties:
+          type: string
+        description: |-
+          Options are the choices made for the options of the kind, by option id.
+          An option that is absent has its default (see ChatsConnectorKind).
+        type: object
       reply_mode:
         description: |-
           ReplyMode is what a sender sees while a turn runs: off (typing, then
@@ -3520,6 +3527,12 @@ definitions:
         type: string
       kind:
         type: string
+      options:
+        description: Options are the choices the add-on lets each binding of this
+          kind make.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorOption'
+        type: array
       page:
         description: Page is the add-on page that adds and edits bindings of this
           kind.
@@ -3531,6 +3544,28 @@ definitions:
           ThreadHistory is true when the platform can give the earlier messages
           of a thread, so a binding of this kind has the thread_context option.
         type: boolean
+      title:
+        type: string
+    type: object
+  schema.ChatsConnectorOption:
+    properties:
+      default:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+      values:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorOptionValue'
+        type: array
+    type: object
+  schema.ChatsConnectorOptionValue:
+    properties:
+      id:
+        type: string
       title:
         type: string
     type: object
@@ -3608,6 +3643,13 @@ definitions:
         type: string
       notify_chat:
         type: string
+      options:
+        additionalProperties:
+          type: string
+        description: |-
+          Options are the choices for the options of the kind, by option id. Absent
+          means the defaults for a new binding and unchanged for an update.
+        type: object
       reply_mode:
         description: ReplyMode is off, progress or stream; empty means progress.
         type: string

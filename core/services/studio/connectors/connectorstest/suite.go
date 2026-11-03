@@ -72,6 +72,19 @@ func Run(newStore NewStore) {
 		Expect(got.SendsFiles()).To(BeTrue())
 		Expect(got.ReadsThread()).To(BeTrue(), "a binding that says nothing reads the thread")
 	})
+	It("keeps the options of the kind", func() {
+		s := newStore()
+		b := binding("opt", "u1", "Options")
+		b.Options = map[string]string{"followThreads": "never"}
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "opt")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Options).To(Equal(map[string]string{"followThreads": "never"}))
+		got.Options["followThreads"] = "own" // a copy: the store keeps its own
+		again, _ := s.GetBinding(ctx, "opt")
+		Expect(again.Options["followThreads"]).To(Equal("never"))
+		Expect(connectors.Validate(connectors.Binding{Name: "n", Kind: "k", AgentID: "a", Options: map[string]string{"": "x"}})).NotTo(Succeed())
+	})
 	It("keeps the thread context switch", func() {
 		s := newStore()
 		b := binding("ctx", "u1", "Context")

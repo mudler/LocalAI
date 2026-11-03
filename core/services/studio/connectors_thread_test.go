@@ -25,6 +25,7 @@ type threadAddon struct {
 	msgs    []contract.ConnectorHistoryMessage
 	err     *contract.ConnectorError
 	trunc   bool
+	polled  []map[string]string
 }
 
 func (a *threadAddon) Connector(ctx context.Context, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
@@ -32,6 +33,7 @@ func (a *threadAddon) Connector(ctx context.Context, req contract.ConnectorReque
 	defer a.mu.Unlock()
 	switch req.Op {
 	case contract.ConnectorOpPoll:
+		a.polled = append(a.polled, req.Options)
 		a.mu.Unlock()
 		select {
 		case <-ctx.Done():
@@ -202,5 +204,38 @@ var _ = Describe("the earlier messages of a thread", func() {
 		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
 		l, _ := tg.svc.List(ctx, alice, 10)
 		Expect(tg.h.Sent(l[0].ID)).To(Equal([]string{"in a topic"}))
+	})
+
+	Describe("the options of a kind", func() {
+		follow := contract.ConnectorOption{ID: "followThreads", Title: "Follow threads", Default: "own",
+			Values: []contract.ConnectorOptionValue{{ID: "own", Title: "Own"}, {ID: "any", Title: "Any"}}}
+		polled := func() []map[string]string {
+			fake.mu.Lock()
+			defer fake.mu.Unlock()
+			return append([]map[string]string(nil), fake.polled...)
+		}
+		setupOptions := func(chosen map[string]string) error {
+			fake = &threadAddon{}
+			k := kind(nil)
+			k.Options = []contract.ConnectorOption{follow}
+			tr := studiobot.NewTransport(studiobot.Addon{ID: "chat-addon", Kind: k, Runtime: fake})
+			r = newConnRigWith(newShared(), connStore(), tr, connSay("ok"), nil)
+			_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "Opt", Kind: "chatty", Token: "tok", AgentID: r.agentID(), Enabled: true, Options: chosen})
+			return err
+		}
+		It("sends the default with the poll when the owner chose nothing", func() {
+			Expect(setupOptions(nil)).To(Succeed())
+			waitFor("a poll", func() bool { return len(polled()) > 0 })
+			Expect(polled()[0]).To(Equal(map[string]string{"followThreads": "own"}))
+		})
+		It("sends the choice of the owner", func() {
+			Expect(setupOptions(map[string]string{"followThreads": "any"})).To(Succeed())
+			waitFor("a poll", func() bool { return len(polled()) > 0 })
+			Expect(polled()[0]).To(Equal(map[string]string{"followThreads": "any"}))
+		})
+		It("refuses an option or a value that the kind does not offer", func() {
+			Expect(setupOptions(map[string]string{"followThreads": "never"})).To(MatchError(ContainSubstring("not a value")))
+			Expect(setupOptions(map[string]string{"other": "x"})).To(MatchError(ContainSubstring("not one of this kind")))
+		})
 	})
 })
