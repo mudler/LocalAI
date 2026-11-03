@@ -21,6 +21,18 @@ function ApplyHint({ field }) {
   return null
 }
 
+const RAW_KEY = /^[a-z0-9]+(_[a-z0-9]+)+$/
+
+// The name a row shows. A field without a human label, or one that carries its
+// own snake_case key, gets the key in words ("chats_egress_ports" becomes
+// "Chats egress ports"), so a raw key is never the label of a row.
+export function labelOf(field) {
+  const label = field.label && !RAW_KEY.test(field.label) ? field.label : ''
+  if (label) return label
+  const words = String(field.label || field.key || '').replace(/_/g, ' ').trim()
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : ''
+}
+
 function coerceInt(field, text) {
   const floor = field.min ?? 0
   const n = Math.max(floor, parseInt(text, 10) || floor)
@@ -136,7 +148,7 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
           <label className="dk-btn dk-btn--secondary dk-btn--sm st-upload" aria-busy={a.busy || undefined}>
             <Icon name="upload" /> {a.busy ? 'Uploading…' : 'Upload'}
             <input
-              type="file" className="dk-sr-only" disabled={a.busy} aria-label={`Upload ${field.label}`}
+              type="file" className="dk-sr-only" disabled={a.busy} aria-label={`Upload ${labelOf(field)}`}
               accept="image/png,image/jpeg,image/svg+xml,image/webp,image/x-icon,.ico"
               onChange={(e) => {
                 const file = e.target.files?.[0]
@@ -174,7 +186,7 @@ const MODEL_CAPABILITY = {
 // One setting: its name and words on the left, its control on the right, and
 // under the words what is worth knowing (where it was, its key, when it
 // applies, whether it differs from the default and how to put that back).
-export default function SettingField({ field, settings, onChange, assets, showWhere, pending }) {
+export default function SettingField({ field, settings, onChange, assets, showWhere, pending, showKey = true }) {
   const id = `st-${field.key.replace(/[^a-z0-9_]/gi, '-')}`
   const labelId = `${id}-label`
   const needsOn = !field.needs || !!getValue(FIELD_BY_KEY[field.needs], settings)
@@ -189,14 +201,14 @@ export default function SettingField({ field, settings, onChange, assets, showWh
     <div className="st-row" data-wide={wide || undefined} data-bool={field.kind === 'bool' || undefined} data-changed={changed || undefined} data-draft={pending || undefined} data-disabled={disabled || undefined} data-field={field.key}>
       <div className="st-row__main">
         <div className="st-row__title">
-          <label id={labelId} htmlFor={field.kind === 'bool' ? undefined : id} className="st-row__label">{field.label}</label>
+          <label id={labelId} htmlFor={field.kind === 'bool' ? undefined : id} className="st-row__label">{labelOf(field)}</label>
           {pending && <span className="st-tag" data-tone="draft">Draft</span>}
           {changed && <span className="st-tag" data-tone="changed">Changed</span>}
         </div>
         <p className="st-row__desc">{field.desc}</p>
         <div className="st-row__meta">
           {showWhere && <span className="st-where">{where}{was && was !== where ? <> · was {was}</> : null}</span>}
-          {!field.asset && <code className="st-key">{field.key}</code>}
+          {showKey && !field.asset && <code className="st-key">{field.key}</code>}
           <ApplyHint field={field} />
           {changed && hasDefault(field) && (
             <span className="st-default">

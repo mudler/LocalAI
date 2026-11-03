@@ -114,3 +114,16 @@ test('add-on settings: the SDK settings kit is the host\'s, registered for every
     assert.ok(css.includes(`${prop}:`), `${name}: ${prop} is defined`)
   }
 })
+
+test('settings rows: no field is labelled with its raw snake_case key', async () => {
+  // SettingField.jsx imports JSX, which node cannot load; its label rule is read from the source and run here.
+  const text = readFileSync(join(src, 'components/settings/SettingField.jsx'), 'utf8')
+  const rule = text.match(/const RAW_KEY = (\/.*\/)\n/)[1]
+  const raw = new RegExp(rule.slice(1, -1))
+  for (const key of NETWORK_POLICY_FIELDS) assert.ok(FIELD_BY_KEY[key], `${key} has a field`)
+  for (const field of Object.values(FIELD_BY_KEY)) {
+    assert.ok(field.label, `${field.key} has a label`)
+    assert.ok(!raw.test(field.label), `${field.key} is labelled with a raw key: ${field.label}`)
+  }
+  assert.match(text, /export function labelOf/)
+})
