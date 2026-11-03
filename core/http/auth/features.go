@@ -235,6 +235,13 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/addons/:id/update", FeatureAddons},
 	{"POST", "/api/addons/:id/update/check", FeatureAddons},
 	{"POST", "/api/addons/:id/upgrade", FeatureAddons},
+	{"GET", "/api/addons/host-grants", FeatureAddons},
+	{"POST", "/api/addons/host-grants/preview", FeatureAddons},
+	{"POST", "/api/addons/host-grants/install", FeatureAddons},
+	{"PUT", "/api/addons/host-grants/blanket", FeatureAddons},
+	{"PUT", "/api/addons/host-grants/deny", FeatureAddons},
+	{"PUT", "/api/addons/host-grants/:addonId", FeatureAddons},
+	{"DELETE", "/api/addons/host-grants/:addonId", FeatureAddons},
 	// Chat / Completions
 	{"POST", "/v1/chat/completions", FeatureChat},
 	{"POST", "/chat/completions", FeatureChat},
