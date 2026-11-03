@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
@@ -540,11 +541,9 @@ func (s *Service) forgetWaiter(k string, ch <-chan store.TurnStatus) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ws := s.waiters[k]
-	for i, w := range ws {
-		if (<-chan store.TurnStatus)(w) == ch {
-			s.waiters[k] = append(ws[:i:i], ws[i+1:]...)
-			break
-		}
+	if i := slices.IndexFunc(ws, func(w chan store.TurnStatus) bool { return (<-chan store.TurnStatus)(w) == ch }); i >= 0 {
+		// A copy: notifyWaiters may hold the old slice.
+		s.waiters[k] = slices.Delete(slices.Clone(ws), i, i+1)
 	}
 	if len(s.waiters[k]) == 0 {
 		delete(s.waiters, k)
@@ -643,15 +642,10 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	return session.CapText(s, n) + "…"
 }
 
 // hasTool says whether the list has a tool of that name.
 func hasTool(tools []session.Tool, name string) bool {
-	for _, t := range tools {
-		if t.Name == name {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(tools, func(t session.Tool) bool { return t.Name == name })
 }
