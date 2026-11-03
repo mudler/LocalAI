@@ -9,7 +9,23 @@ export const AGENTS = [
 
 const NEWCOMER = { id: '42', name: 'Newcomer', count: 2, allowed: false, first: '2026-10-27T08:00:00Z', last: '2026-10-27T08:05:00Z' }
 
-export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER]) {
+const MIB = 1024 * 1024
+
+// The files of a kind that declares nothing: the inline cap is the limit.
+export const INLINE_ONLY = {
+  receive: { effective_bytes: MIB, layer: 'inline', declared_bytes: 0, allowed_bytes: MIB },
+  send: { effective_bytes: MIB, layer: 'inline', declared_bytes: 0, allowed_bytes: MIB },
+  inline_bytes: MIB,
+}
+
+// The files of a kind that declares 20 MiB to read and 256 KiB to send.
+export const DECLARED = {
+  receive: { effective_bytes: MIB, layer: 'inline', declared_bytes: 20 * MIB, allowed_bytes: 20 * MIB },
+  send: { effective_bytes: 256 * 1024, layer: 'addon', declared_bytes: 256 * 1024, allowed_bytes: 256 * 1024 },
+  inline_bytes: MIB,
+}
+
+export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER], files = INLINE_ONLY) {
   const s = { items: structuredClone(initial), calls: [], senders: structuredClone(senders) }
   const rec = (method, url, body) => s.calls.push({ method, url: new URL(url).pathname, body })
   return {
@@ -48,6 +64,8 @@ export function connectorApi(page, initial = [], kind = 'telegram', senders = [N
       })
       await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
       await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
+      // Registered last, so it answers before the route of one binding.
+      await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds: [{ addon: kind, kind, title: kind, files }] } }))
     },
   }
 }

@@ -9,10 +9,11 @@ import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
 import AnswerFields, { answerSummary, answerT } from './AnswerFields'
+import FilesFields from './FilesFields'
 import { Check, Field, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
 import { agentsApi, connectorsApi } from './api'
-import { canSave, connectorPayload, emptyConnector, listEntries, replaceList, senderLine } from './connector'
+import { canSave, connectorForm, connectorPayload, emptyConnector, listEntries, replaceList, senderLine } from './connector'
 import './connector.css'
 
 function Senders({ id, onAllowed, t }) {
@@ -82,6 +83,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [toDelete, setToDelete] = useState(null)
   const [openSenders, setOpenSenders] = useState('')
   const [kindInfo, setKindInfo] = useState(null)
+  const kindFiles = kindInfo?.files || null
 
   const fail = useCallback((e) => {
     if (e?.status === 409 && e.body?.error?.type === 'connectors_off') { setOff(e.body.error.message); return }
@@ -195,8 +197,9 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               {(p) => <TextInput {...p} mono inputMode={notifyMode} value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />}
             </Field>
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
+            <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
             <div className="cn-actions">
-              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()))}>{t('save')}</button>
+              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles)}>{t('save')}</button>
               <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setForm(null)}>{t('cancel')}</button>
             </div>
           </form>
@@ -238,7 +241,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
                 {t('test')}
               </button>
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open({ ...emptyConnector(), ...c, token: '' })}>{t('editButton')}</button>
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open(connectorForm(c))}>{t('editButton')}</button>
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setToDelete(c)}>{t('delete')}</button>
             </span>
           </li>

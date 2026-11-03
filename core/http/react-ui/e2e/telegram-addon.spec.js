@@ -1,7 +1,7 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi as api } from './connector-fixtures.js'
+import { connectorApi as api, DECLARED } from './connector-fixtures.js'
 
 // The page of the Telegram add-on (the real built bundle, inside the add-on
 // shell) with the core API stubbed: the token only goes in, "anyone"
@@ -165,5 +165,60 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
     await page.getByTestId('connector-window').fill('30')
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
+  test('the Files section says which limit applies and that the inline cap is the one in effect now', async ({ page }) => {
+    const a = api(page)
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    const files = page.getByTestId('connector-filelimits')
+    await expect(files).toContainText('Now: 1 MiB (limit of this add-on version).')
+    await expect(page.getByTestId('connector-file-inline')).toHaveText('Files up to 1 MiB are sent now; larger files need the add-on to support streaming.')
+    // The owner can only lower the limit: 2 MiB is above the 1 MiB the kind allows.
+    await page.getByTestId('connector-file-send').fill('2')
+    await expect(files).toContainText('The add-on allows at most 1 MiB here.')
+    await page.getByLabel('Name', { exact: true }).fill('Files bot')
+    await page.getByLabel('Bot token').fill('555:secret-token')
+    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
+    await page.getByTestId('connector-file-send').fill('0.25')
+    await expect(files).toContainText('Now: 256 KiB (limit set for this bot).')
+    await expect(page.getByTestId('connector-file-inline')).toBeVisible()
+    await page.getByRole('button', { name: 'Save' }).click()
+    const post = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
+    expect(post).toMatchObject({ file_send_max_bytes: 256 * 1024, file_receive_max_bytes: 0 })
+  })
+
+  test('a kind that declares abilities shows its own limits, and the note about streaming only where the inline cap applies', async ({ page }) => {
+    const a = api(page, [], 'telegram', [], DECLARED)
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'New Telegram bot' }).click()
+    const files = page.getByTestId('connector-filelimits')
+    await expect(files).toContainText('Now: 1 MiB (limit of this add-on version).')
+    await expect(files).toContainText('Now: 256 KiB (limit of the add-on).')
+    await expect(page.getByTestId('connector-file-inline')).toBeVisible()
+    // Reading is allowed up to 20 MiB, so 5 MiB is accepted, and it does not change what is read now.
+    await page.getByTestId('connector-file-receive').fill('5')
+    await expect(files).not.toContainText('allows at most')
+    await expect(files).toContainText('Now: 1 MiB (limit of this add-on version).')
+    // Lowering both below the inline cap takes the note away: the numbers are now the owner's.
+    await page.getByTestId('connector-file-receive').fill('0.5')
+    await page.getByTestId('connector-file-send').fill('0.1')
+    await expect(page.getByTestId('connector-file-inline')).toHaveCount(0)
+  })
+
+  test('an edit shows the limit the owner set and a save with it empty clears it', async ({ page }) => {
+    const a = api(page, [{ id: 'b1', name: 'Support bot', kind: 'telegram', agent_id: 'a1', enabled: true, accept_any: false, allow: ['42'], has_token: true, file_send_max_bytes: 100 * 1024 }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await expect(page.getByTestId('connector-file-send')).toHaveValue('0.09765625')
+    await expect(page.getByTestId('connector-file-receive')).toHaveValue('')
+    await page.getByTestId('connector-file-send').fill('')
+    await page.getByRole('button', { name: 'Save' }).click()
+    const put = a.s.calls.find(c => c.method === 'PUT').body
+    expect(put).toMatchObject({ file_send_max_bytes: 0, file_receive_max_bytes: 0 })
   })
 })

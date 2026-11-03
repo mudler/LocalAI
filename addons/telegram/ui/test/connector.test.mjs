@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { canSave, connectorPayload, emptyConnector, modeText, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -77,4 +77,59 @@ test('chat connectors: a new binding reads threads, and the request carries it w
   assert.deepEqual(body.options, { followThreads: 'any' }, 'an empty choice is left out')
   assert.equal(connectorPayload(base, 'slack').thread_context, true)
   assert.deepEqual(connectorPayload({ ...base, options: undefined }, 'slack').options, {})
+})
+
+test('chat connectors: file limits are typed in MiB and sent in bytes, and empty means none', () => {
+  const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
+  const none = connectorPayload(base, 'telegram')
+  assert.equal(none.file_receive_max_bytes, 0)
+  assert.equal(none.file_send_max_bytes, 0)
+  const set = connectorPayload({ ...base, file_receive_mib: '0.5', file_send_mib: '2' }, 'telegram')
+  assert.equal(set.file_receive_max_bytes, 512 * 1024)
+  assert.equal(set.file_send_max_bytes, 2 * 1024 * 1024)
+  assert.equal(mibToBytes(' '), 0)
+  assert.equal(mibToBytes('abc'), 0)
+})
+
+test('chat connectors: a saved binding opens with its limits in MiB', () => {
+  const form = connectorForm({ id: 'b1', name: 'B', file_receive_max_bytes: 0, file_send_max_bytes: 262144, token: 'x' })
+  assert.equal(form.file_receive_mib, '')
+  assert.equal(form.file_send_mib, '0.25')
+  assert.equal(form.token, '')
+  assert.equal(bytesToMib(1536 * 1024), '1.5')
+})
+
+test('chat connectors: a limit above what the kind allows, or not a positive number, cannot be saved', () => {
+  const allowed = 1024 * 1024
+  assert.equal(fileLimitProblem('', allowed), '')
+  assert.equal(fileLimitProblem('1', allowed), '')
+  assert.equal(fileLimitProblem('1.5', allowed), 'tooHigh')
+  assert.equal(fileLimitProblem('0', allowed), 'invalid')
+  assert.equal(fileLimitProblem('-2', allowed), 'invalid')
+  assert.equal(fileLimitProblem('x', allowed), 'invalid')
+  assert.equal(fileLimitProblem('50', 0), '', 'the server checks when the page does not know the limit')
+  const files = { receive: { allowed_bytes: allowed }, send: { allowed_bytes: allowed } }
+  const form = { ...emptyConnector(), name: 'B', agent_id: 'a', token: 't' }
+  assert.equal(canSave({ ...form, file_send_mib: '0.5' }, false, true, files), true)
+  assert.equal(canSave({ ...form, file_send_mib: '2' }, false, true, files), false)
+})
+
+test('chat connectors: a typed limit can only lower the limit in effect, and names its layer', () => {
+  const base = { effective_bytes: 1024 * 1024, layer: 'inline' }
+  assert.deepEqual(previewLimit(base, ''), { bytes: 1024 * 1024, layer: 'inline' })
+  assert.deepEqual(previewLimit(base, '0.25'), { bytes: 256 * 1024, layer: 'owner' })
+  assert.deepEqual(previewLimit(base, '5'), { bytes: 1024 * 1024, layer: 'inline' }, 'a higher number changes nothing yet')
+  assert.equal(previewLimit(null, '1'), null)
+})
+
+test('chat connectors: sizes are written in KiB and MiB', () => {
+  assert.equal(formatBytes(900), '900 bytes')
+  assert.equal(formatBytes(1), '1 byte')
+  assert.equal(formatBytes(512 * 1024), '512 KiB')
+  assert.equal(formatBytes(1024 * 1024), '1 MiB')
+  assert.equal(formatBytes(5.5 * 1024 * 1024), '5.5 MiB')
+})
+
+test('chat connectors: a saved limit reads back to the same number of bytes', () => {
+  for (const bytes of [1, 1000, 100 * 1024, 256 * 1024, 5 * 1024 * 1024 + 7]) assert.equal(mibToBytes(bytesToMib(bytes)), bytes)
 })

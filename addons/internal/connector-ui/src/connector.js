@@ -11,7 +11,60 @@ export function emptyConnector() {
     id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
     reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true,
     thread_context: true, options: {},
+    file_receive_mib: '', file_send_mib: '',
   }
+}
+
+const MIB = 1024 * 1024
+
+// The file limits of a binding are typed in MiB and stored in bytes. Empty
+// means no limit of the owner: the limit of the kind applies.
+export function bytesToMib(bytes) {
+  return bytes > 0 ? String(bytes / MIB) : '' // a power of two divides exactly, so a saved limit reads back unchanged
+}
+
+export function mibToBytes(mib) {
+  const n = Number(String(mib ?? '').trim())
+  return String(mib ?? '').trim() === '' || !Number.isFinite(n) ? 0 : Math.round(n * MIB)
+}
+
+// The form of a saved binding, with its limits in MiB and no token.
+export function connectorForm(c) {
+  return {
+    ...emptyConnector(), ...c, token: '',
+    file_receive_mib: bytesToMib(c.file_receive_max_bytes), file_send_mib: bytesToMib(c.file_send_max_bytes),
+  }
+}
+
+// Why a typed limit cannot be saved: 'invalid' (not a positive number) or
+// 'tooHigh' (above what the kind allows), else ''. allowedBytes may be 0 when
+// the page does not know it; the server checks then.
+export function fileLimitProblem(mib, allowedBytes) {
+  if (String(mib ?? '').trim() === '') return ''
+  const n = Number(mib)
+  if (!Number.isFinite(n) || n <= 0 || mibToBytes(mib) < 1) return 'invalid'
+  return allowedBytes > 0 && mibToBytes(mib) > allowedBytes ? 'tooHigh' : ''
+}
+
+// The limit that a typed value gives, for the line "now" under the field. base
+// is the limit of the kind without a limit of the owner (the server's number),
+// so a typed value can only lower it.
+export function previewLimit(base, mib) {
+  const bytes = mibToBytes(mib)
+  if (!base) return null
+  if (bytes > 0 && bytes <= base.effective_bytes) return { bytes, layer: 'owner' }
+  return { bytes: base.effective_bytes, layer: base.layer }
+}
+
+// A size as a person reads it: bytes, KiB, MiB, GiB or TiB, one decimal at most.
+export function formatBytes(n) {
+  if (n === 1) return '1 byte'
+  if (n < 1024) return `${n} bytes`
+  const units = ['KiB', 'MiB', 'GiB', 'TiB']
+  let v = n / 1024
+  let i = 0
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++ }
+  return `${Number(v.toFixed(1))} ${units[i]}`
 }
 
 // The body of a create or replace request for a binding of kind. token is the
@@ -32,6 +85,8 @@ export function connectorPayload(form, kind, token = form.token) {
     thread_context: form.thread_context !== false,
     // The choices for the options of the kind; a missing one has its default.
     options: Object.fromEntries(Object.entries(form.options || {}).filter(([, v]) => v)),
+    file_receive_max_bytes: mibToBytes(form.file_receive_mib),
+    file_send_max_bytes: mibToBytes(form.file_send_mib),
   }
   if (body.conversation === 'window') body.window_minutes = Number(form.window_minutes) || 0
   const secret = (token || '').trim()
@@ -53,10 +108,11 @@ export function senderLine(s) {
 
 // "Accept any message" is only saved after the person confirms the warning.
 // hasToken says whether the add-on's fields hold a complete secret.
-export function canSave(form, confirmed, hasToken = Boolean((form.token || '').trim())) {
+export function canSave(form, confirmed, hasToken = Boolean((form.token || '').trim()), files = null) {
   if (!(form.name || '').trim() || !form.agent_id) return false
   if (!form.id && !hasToken) return false
   if (form.accept_any && !confirmed) return false
+  if (fileLimitProblem(form.file_receive_mib, files?.receive?.allowed_bytes) || fileLimitProblem(form.file_send_mib, files?.send?.allowed_bytes)) return false
   if (form.conversation === 'window') {
     const m = Number(form.window_minutes)
     if (!Number.isInteger(m) || m < 1 || m > MAX_WINDOW_MINUTES) return false
