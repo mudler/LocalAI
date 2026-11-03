@@ -117,5 +117,7 @@
   "recentChats": "최근 채팅",
   "newChat": "새 채팅",
   "untitledChat": "제목 없는 채팅",
-  "chatRunning": "진행 중"
+  "chatRunning": "진행 중",
+  "automatedWaiting": "확인을 기다리는 자동 채팅: {{count}}",
+  "automatedRunning": "실행 중인 자동 채팅: {{count}}"
 }

@@ -117,5 +117,7 @@
   "recentChats": "最近对话",
   "newChat": "新对话",
   "untitledChat": "未命名对话",
-  "chatRunning": "进行中"
+  "chatRunning": "进行中",
+  "automatedWaiting": "等待你处理的自动聊天：{{count}}",
+  "automatedRunning": "运行中的自动聊天：{{count}}"
 }

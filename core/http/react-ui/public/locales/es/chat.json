@@ -102,7 +102,17 @@
     "untitled": "Nuevo chat",
     "origin": {
       "trigger": "Iniciado por un disparador",
-      "connector": "Desde un conector"
+      "connector": "Desde un conector",
+      "job": "Iniciado por un trabajo",
+      "page": "Iniciado por una página",
+      "other": "Iniciado por otra cosa"
+    },
+    "originBadge": {
+      "trigger": "Disparador",
+      "connector": "Conector",
+      "job": "Trabajo",
+      "page": "Página",
+      "other": "Automático"
     }
   },
   "message": {
@@ -386,7 +396,38 @@
     "loadFailed": "No se pudieron cargar tus chats.",
     "emptyTitle": "Aún no hay chats",
     "emptyBody": "Un chat empieza en Inicio: escribe un mensaje y envíalo. Después, tus chats aparecen aquí.",
-    "start": "Empezar un chat"
+    "start": "Empezar un chat",
+    "tabsLabel": "Listas de chats",
+    "tab": {
+      "mine": "Mis chats",
+      "automated": "De complementos y automatizaciones"
+    },
+    "automated": {
+      "intro": "Conversaciones que inició algo distinto de ti, como un conector, un disparador o un trabajo. No aparecen en tus listas de chats.",
+      "empty": "Nada ha iniciado un chat por sí solo todavía.",
+      "kind": {
+        "trigger": "Disparadores",
+        "connector": "Conectores",
+        "job": "Trabajos",
+        "page": "Páginas",
+        "other": "Otros"
+      },
+      "badge": {
+        "trigger": "Disparador",
+        "connector": "Conector",
+        "job": "Trabajo",
+        "page": "Página",
+        "other": "Automático"
+      },
+      "chats": "Chats: {{count}}",
+      "lastActive": "Última actividad {{when}}",
+      "running": "En curso",
+      "waiting": "Esperando por ti",
+      "waitingCount": "Chats que te esperan: {{count}}",
+      "open": "Abrir {{title}}",
+      "showAll": "Mostrar los {{count}}",
+      "showLess": "Mostrar menos"
+    }
   },
   "foot": {
     "state": {
@@ -600,5 +641,16 @@
     "missing": "La carpeta de este agente ya no existe. Elige otra carpeta en el agente.",
     "startError": "Falta la carpeta de este agente, así que el chat no puede empezar. Elige otra carpeta para el agente.",
     "editAgent": "Editar agente"
+  },
+  "origin": {
+    "banner": "Esta conversación la inició {{title}}.",
+    "open": "Abrir {{title}}",
+    "kindFallback": {
+      "trigger": "un disparador",
+      "connector": "un conector",
+      "job": "un trabajo",
+      "page": "una página",
+      "other": "otra cosa"
+    }
   }
 }

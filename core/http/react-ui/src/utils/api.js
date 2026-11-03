@@ -134,7 +134,7 @@ export const backendsApi = {
 // Chats API: conversations the server keeps. A message sent while a turn runs
 // waits and reaches the model, with any others, at its next request.
 export const chatsApi = {
-  list: (limit, kind) => fetchJSON(chatsListPath(API_CONFIG.endpoints.chats, limit, kind)),
+  list: (limit, kind, origin) => fetchJSON(chatsListPath(API_CONFIG.endpoints.chats, limit, kind, origin)),
   // With an agent, its model (when it has one) replaces model. With assistant,
   // the chat gets the LocalAI management tools (admin only, setting on).
   // switches are the drafted switches of a new chat (useChatSwitches): the

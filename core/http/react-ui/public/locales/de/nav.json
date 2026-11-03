@@ -117,5 +117,7 @@
   "recentChats": "Letzte Chats",
   "newChat": "Neuer Chat",
   "untitledChat": "Chat ohne Titel",
-  "chatRunning": "Läuft"
+  "chatRunning": "Läuft",
+  "automatedWaiting": "Automatische Chats, die auf dich warten: {{count}}",
+  "automatedRunning": "Automatische Chats, die laufen: {{count}}"
 }

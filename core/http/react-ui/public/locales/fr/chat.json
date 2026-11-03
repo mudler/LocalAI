@@ -100,7 +100,17 @@
     "untitled": "Nouveau chat",
     "origin": {
       "trigger": "Lancé par un déclencheur",
-      "connector": "Depuis un connecteur"
+      "connector": "Depuis un connecteur",
+      "job": "Démarré par une tâche",
+      "page": "Démarré par une page",
+      "other": "Démarré par autre chose"
+    },
+    "originBadge": {
+      "trigger": "Déclencheur",
+      "connector": "Connecteur",
+      "job": "Tâche",
+      "page": "Page",
+      "other": "Automatique"
     }
   },
   "message": {
@@ -384,7 +394,38 @@
     "loadFailed": "Impossible de charger vos conversations.",
     "emptyTitle": "Aucune conversation",
     "emptyBody": "Une conversation commence sur l'accueil : écrivez un message et envoyez-le. Vos conversations s'affichent ensuite ici.",
-    "start": "Commencer une conversation"
+    "start": "Commencer une conversation",
+    "tabsLabel": "Listes de chats",
+    "tab": {
+      "mine": "Mes chats",
+      "automated": "Des modules et automatisations"
+    },
+    "automated": {
+      "intro": "Des conversations démarrées par autre chose que vous, comme un connecteur, un déclencheur ou une tâche. Elles restent hors de vos listes de chats.",
+      "empty": "Rien n’a encore démarré de chat tout seul.",
+      "kind": {
+        "trigger": "Déclencheurs",
+        "connector": "Connecteurs",
+        "job": "Tâches",
+        "page": "Pages",
+        "other": "Autres"
+      },
+      "badge": {
+        "trigger": "Déclencheur",
+        "connector": "Connecteur",
+        "job": "Tâche",
+        "page": "Page",
+        "other": "Automatique"
+      },
+      "chats": "Chats : {{count}}",
+      "lastActive": "Dernière activité {{when}}",
+      "running": "En cours",
+      "waiting": "Vous attend",
+      "waitingCount": "Chats qui vous attendent : {{count}}",
+      "open": "Ouvrir {{title}}",
+      "showAll": "Tout afficher ({{count}})",
+      "showLess": "Afficher moins"
+    }
   },
   "foot": {
     "state": {
@@ -598,5 +639,16 @@
     "missing": "Le dossier de cet agent n'existe plus. Choisissez un autre dossier dans l'agent.",
     "startError": "Le dossier de cet agent est manquant, le chat ne peut donc pas démarrer. Choisissez un autre dossier pour l'agent.",
     "editAgent": "Modifier l'agent"
+  },
+  "origin": {
+    "banner": "Cette conversation a été démarrée par {{title}}.",
+    "open": "Ouvrir {{title}}",
+    "kindFallback": {
+      "trigger": "un déclencheur",
+      "connector": "un connecteur",
+      "job": "une tâche",
+      "page": "une page",
+      "other": "autre chose"
+    }
   }
 }

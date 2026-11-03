@@ -102,7 +102,17 @@
     "untitled": "Neuer Chat",
     "origin": {
       "trigger": "Von einem Auslöser gestartet",
-      "connector": "Über einen Connector"
+      "connector": "Über einen Connector",
+      "job": "Von einem Job gestartet",
+      "page": "Von einer Seite gestartet",
+      "other": "Von etwas anderem gestartet"
+    },
+    "originBadge": {
+      "trigger": "Trigger",
+      "connector": "Connector",
+      "job": "Job",
+      "page": "Seite",
+      "other": "Automatisch"
     }
   },
   "message": {
@@ -386,7 +396,38 @@
     "loadFailed": "Deine Chats konnten nicht geladen werden.",
     "emptyTitle": "Noch keine Chats",
     "emptyBody": "Ein Chat beginnt auf der Startseite: Nachricht eingeben und senden. Danach stehen deine Chats hier.",
-    "start": "Chat beginnen"
+    "start": "Chat beginnen",
+    "tabsLabel": "Chat-Listen",
+    "tab": {
+      "mine": "Meine Chats",
+      "automated": "Von Add-ons und Automatisierungen"
+    },
+    "automated": {
+      "intro": "Unterhaltungen, die nicht du gestartet hast, sondern etwa ein Connector, ein Trigger oder ein Job. Sie erscheinen nicht in deinen Chat-Listen.",
+      "empty": "Bisher hat nichts von selbst einen Chat gestartet.",
+      "kind": {
+        "trigger": "Trigger",
+        "connector": "Connectors",
+        "job": "Jobs",
+        "page": "Seiten",
+        "other": "Sonstige"
+      },
+      "badge": {
+        "trigger": "Trigger",
+        "connector": "Connector",
+        "job": "Job",
+        "page": "Seite",
+        "other": "Automatisch"
+      },
+      "chats": "Chats: {{count}}",
+      "lastActive": "Zuletzt aktiv {{when}}",
+      "running": "Läuft",
+      "waiting": "Wartet auf dich",
+      "waitingCount": "Chats, die auf dich warten: {{count}}",
+      "open": "{{title}} öffnen",
+      "showAll": "Alle {{count}} anzeigen",
+      "showLess": "Weniger anzeigen"
+    }
   },
   "foot": {
     "state": {
@@ -600,5 +641,16 @@
     "missing": "Der Ordner dieses Agenten existiert nicht mehr. Wähle im Agenten einen anderen Ordner.",
     "startError": "Der Ordner dieses Agenten fehlt, daher kann der Chat nicht starten. Wähle einen anderen Ordner für den Agenten.",
     "editAgent": "Agent bearbeiten"
+  },
+  "origin": {
+    "banner": "Diese Unterhaltung wurde von {{title}} gestartet.",
+    "open": "{{title}} öffnen",
+    "kindFallback": {
+      "trigger": "einem Trigger",
+      "connector": "einem Connector",
+      "job": "einem Job",
+      "page": "einer Seite",
+      "other": "etwas anderem"
+    }
   }
 }
