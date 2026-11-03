@@ -335,6 +335,14 @@ the isolation check for its document skills. The host never compares the add-on
 ID with a fixed name for any of this, so a second add-on that runs commands gets
 the same behavior with its own title.
 
+The same holds for the rest of the interface. Settings, the Tools menu, the
+network card of a chat and the model prompt describe the provider by its
+declared title, or by generic words ("the add-on that runs commands") when none
+is installed. Core text never names a shipped add-on, so the title you declare
+is the only name your users see for it. A test reads `addons/*/manifest.json`
+and fails when a locale string, a Settings label or a Go string of core names an
+add-on that provides a role.
+
 ### Requested host operations are not grants
 
 Inside `capabilities`:
