@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -424,6 +425,12 @@ type ApplicationConfig struct {
 	ChatsEgressExtraRegistries string
 	ChatsEgressAllowedHosts    string
 	ChatsEgressAuditDays       int
+
+	// chatsLimitsMu guards ChatsEgressAuditDays and the chats_loop_* limits.
+	// Background goroutines (the audit prune, the loop runner) read them
+	// while a settings POST rewrites them; use the Effective getters and the
+	// registry setters, which hold it.
+	chatsLimitsMu sync.RWMutex
 
 	// ChatsMaxIterations is the step limit of the tool loop of one chat turn:
 	// how many rounds of tool calls the model may make before it must answer.
@@ -1602,6 +1609,8 @@ const (
 
 // EffectiveChatsLoopMinInterval is chats_loop_min_interval as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMinInterval() time.Duration {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	if d := o.ChatsLoopMinInterval; d >= MinChatsLoopInterval && d <= MaxChatsLoopInterval {
 		return d
 	}
@@ -1618,21 +1627,29 @@ func inRange(n, hi, def int) int {
 
 // EffectiveChatsLoopMaxRuns is chats_loop_max_runs as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMaxRuns() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopMaxRuns, MaxChatsLoopMaxRuns, DefaultChatsLoopMaxRuns)
 }
 
 // EffectiveChatsLoopMaxPerChat is chats_loop_max_per_chat as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMaxPerChat() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopMaxPerChat, MaxChatsLoopMaxPerChat, DefaultChatsLoopMaxPerChat)
 }
 
 // EffectiveChatsLoopMaxPerUser is chats_loop_max_per_user as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMaxPerUser() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopMaxPerUser, MaxChatsLoopMaxPerUser, DefaultChatsLoopMaxPerUser)
 }
 
 // EffectiveChatsLoopDailyRuns is chats_loop_daily_runs as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopDailyRuns() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopDailyRuns, MaxChatsLoopDailyRuns, DefaultChatsLoopDailyRuns)
 }
 
@@ -1656,8 +1673,18 @@ func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
 // line while chats_egress_audit_days is unset.
 const DefaultChatsEgressAuditDays = 30
 
+// setChatsEgressAuditDays stores chats_egress_audit_days under the lock that
+// the prune goroutine's reads take.
+func (o *ApplicationConfig) setChatsEgressAuditDays(v int) {
+	o.chatsLimitsMu.Lock()
+	o.ChatsEgressAuditDays = v
+	o.chatsLimitsMu.Unlock()
+}
+
 // EffectiveChatsEgressAuditDays is chats_egress_audit_days as it applies now.
 func (o *ApplicationConfig) EffectiveChatsEgressAuditDays() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	if o.ChatsEgressAuditDays < 1 || o.ChatsEgressAuditDays > 365 {
 		return DefaultChatsEgressAuditDays
 	}
