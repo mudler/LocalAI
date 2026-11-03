@@ -66,6 +66,9 @@ type FileLimits struct {
 	// ReceiveMax and SendMax are the most an owner may set: the ability of
 	// the kind (the inline cap, if it declares none) under the host ceiling.
 	ReceiveMax, SendMax int64
+	// ReceiveDeclared and SendDeclared are the abilities the kind declares;
+	// zero when it declares none.
+	ReceiveDeclared, SendDeclared int64
 	// KindTitle is the name of the platform, for the sentences.
 	KindTitle string
 }
@@ -99,6 +102,12 @@ func (c *Connectors) FileLimits(ctx context.Context, b connectors.Binding) FileL
 	return resolveFileLimits(c.fileCeiling(ctx), files, title, b)
 }
 
+// KindFileLimits resolves the limits of a kind for a binding that has no
+// limit of its own, such as one that is not made yet.
+func (c *Connectors) KindFileLimits(ctx context.Context, k ConnectorKind) FileLimits {
+	return resolveFileLimits(c.fileCeiling(ctx), k.Files, k.Title, connectors.Binding{})
+}
+
 func resolveFileLimits(ceiling int64, files *contract.ConnectorFiles, title string, b connectors.Binding) FileLimits {
 	if files == nil {
 		files = &contract.ConnectorFiles{}
@@ -108,6 +117,12 @@ func resolveFileLimits(ceiling int64, files *contract.ConnectorFiles, title stri
 	l.Send = EffectiveFileLimit(ceiling, files.Send, b.FileSendMax)
 	l.ReceiveMax = ownerMax(ceiling, files.Receive)
 	l.SendMax = ownerMax(ceiling, files.Send)
+	if files.Receive != nil {
+		l.ReceiveDeclared = files.Receive.MaxBytes
+	}
+	if files.Send != nil {
+		l.SendDeclared = files.Send.MaxBytes
+	}
 	return l
 }
 

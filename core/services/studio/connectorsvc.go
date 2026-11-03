@@ -127,6 +127,8 @@ type ConnectorInfo struct {
 	// installed; Reason then says so in plain words.
 	Active bool
 	Reason string
+	// Files are the file limits in effect for the binding.
+	Files FileLimits
 }
 
 func info(b connectors.Binding) ConnectorInfo {
@@ -137,6 +139,7 @@ func info(b connectors.Binding) ConnectorInfo {
 
 // withState marks a binding whose add-on does not run.
 func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorInfo {
+	i.Files = c.FileLimits(ctx, i.Binding)
 	kinds, err := c.o.Transport.Kinds(ctx)
 	if err != nil {
 		return i

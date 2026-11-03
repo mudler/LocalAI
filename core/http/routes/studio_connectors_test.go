@@ -113,6 +113,38 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(create("alice", map[string]any{"kind": "carrier-pigeon", "name": "x", "token": specToken, "agent_id": ag}).Code).To(Equal(http.StatusBadRequest))
 	})
 
+	It("shows the file limits of a kind and of a binding, and lets the owner only lower them", func() {
+		kinds := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/connectors/kinds", nil))["kinds"].([]any)
+		files := kinds[0].(map[string]any)["files"].(map[string]any)
+		// The Telegram add-on declares no ability: the inline cap is the limit.
+		Expect(files).To(HaveKeyWithValue("inline_bytes", BeNumerically("==", 1<<20)))
+		send := files["send"].(map[string]any)
+		Expect(send).To(And(HaveKeyWithValue("effective_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("layer", "inline"),
+			HaveKeyWithValue("allowed_bytes", BeNumerically("==", 1<<20)), HaveKeyWithValue("declared_bytes", BeNumerically("==", 0))))
+
+		ag := agent("alice", "Support", "test-model")
+		made := create("alice", map[string]any{"name": "B", "token": specToken, "agent_id": ag, "file_send_max_bytes": 2 << 20})
+		Expect(made.Code).To(Equal(http.StatusBadRequest), "a limit above the one of the kind is refused: %s", made.Body.String())
+		Expect(made.Body.String()).To(ContainSubstring("can only lower"))
+
+		made = create("alice", map[string]any{"name": "B", "token": specToken, "agent_id": ag, "file_send_max_bytes": 100 << 10})
+		Expect(made.Code).To(Equal(http.StatusCreated), made.Body.String())
+		b := decodeJSON(made)
+		Expect(b).To(HaveKeyWithValue("file_send_max_bytes", BeNumerically("==", 100<<10)))
+		Expect(b["files"].(map[string]any)["send"]).To(And(HaveKeyWithValue("effective_bytes", BeNumerically("==", 100<<10)), HaveKeyWithValue("layer", "owner")))
+		Expect(b["files"].(map[string]any)["receive"]).To(HaveKeyWithValue("layer", "inline"))
+		id := b["id"].(string)
+
+		// An update that says nothing about the limits keeps them; zero clears one.
+		keep := s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "B2", "agent_id": ag, "enabled": true})
+		Expect(keep.Code).To(Equal(http.StatusOK), keep.Body.String())
+		Expect(decodeJSON(keep)).To(HaveKeyWithValue("file_send_max_bytes", BeNumerically("==", 100<<10)))
+		clear := s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "B2", "agent_id": ag, "enabled": true, "file_send_max_bytes": 0})
+		Expect(decodeJSON(clear)).To(HaveKeyWithValue("file_send_max_bytes", BeNumerically("==", 0)))
+		Expect(decodeJSON(clear)["files"].(map[string]any)["send"]).To(HaveKeyWithValue("layer", "inline"))
+		Expect(s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "B2", "agent_id": ag, "enabled": true, "file_receive_max_bytes": -5}).Code).To(Equal(http.StatusBadRequest))
+	})
+
 	It("keeps bindings private to their owner", func() {
 		ag := agent("alice", "Support", "test-model")
 		id := decodeJSON(create("alice", map[string]any{"name": "B", "token": specToken, "agent_id": ag}))["id"].(string)

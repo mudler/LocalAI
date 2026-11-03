@@ -1189,6 +1189,40 @@ type ChatsConnector struct {
 	Active bool `json:"active"`
 	// Reason says in plain words why the binding is not active.
 	Reason string `json:"reason,omitempty"`
+	// Files are the limits of the files the bot reads and sends, with the
+	// limit that you set for this bot.
+	Files ChatsConnectorFiles `json:"files"`
+	// FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
+	// zero means you set none and the limit of the kind applies.
+	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
+	FileSendMaxBytes    int64 `json:"file_send_max_bytes"`
+}
+
+// ChatsConnectorFiles are the file limits of a binding or of a kind, for both
+// directions.
+type ChatsConnectorFiles struct {
+	// Receive is the limit of the files that people send to the bot.
+	Receive ChatsConnectorFileLimit `json:"receive"`
+	// Send is the limit of the files that the bot sends.
+	Send ChatsConnectorFileLimit `json:"send"`
+	// InlineBytes is the cap of the inline path. Until the add-on can stream
+	// a file, nothing larger moves, whatever the other limits are.
+	InlineBytes int64 `json:"inline_bytes"`
+}
+
+// ChatsConnectorFileLimit is the limit of one direction.
+type ChatsConnectorFileLimit struct {
+	// EffectiveBytes is the largest file that moves now: the smallest of the
+	// host ceiling, the declared ability, your limit and the inline cap.
+	EffectiveBytes int64 `json:"effective_bytes"`
+	// Layer names the one that sets EffectiveBytes: owner (your limit for
+	// this bot), addon (the ability the kind declares), host (the ceiling of
+	// the server) or inline (the cap of the inline path).
+	Layer string `json:"layer"`
+	// DeclaredBytes is the ability the kind declares, or zero.
+	DeclaredBytes int64 `json:"declared_bytes"`
+	// AllowedBytes is the most you may set for a bot.
+	AllowedBytes int64 `json:"allowed_bytes"`
 }
 
 // ChatsConnectorKind is a kind of binding that an installed connector add-on serves.
@@ -1205,6 +1239,9 @@ type ChatsConnectorKind struct {
 	ThreadHistory bool `json:"thread_history,omitempty"`
 	// Options are the choices the add-on lets each binding of this kind make.
 	Options []ChatsConnectorOption `json:"options,omitempty"`
+	// Files are the limits of a binding of this kind that has no limit of
+	// your own.
+	Files ChatsConnectorFiles `json:"files"`
 }
 
 // ChatsConnectorOption is one choice of a connector kind.
@@ -1260,6 +1297,12 @@ type ChatsConnectorWrite struct {
 	// Options are the choices for the options of the kind, by option id. Absent
 	// means the defaults for a new binding and unchanged for an update.
 	Options map[string]string `json:"options,omitempty"`
+	// FileReceiveMaxBytes and FileSendMaxBytes limit the files the bot reads
+	// and sends, in bytes. A limit can only lower the limit of the kind, which
+	// the kind list shows as allowed_bytes. Zero removes your limit. Absent
+	// means none for a new binding and unchanged for an update.
+	FileReceiveMaxBytes *int64 `json:"file_receive_max_bytes,omitempty"`
+	FileSendMaxBytes    *int64 `json:"file_send_max_bytes,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

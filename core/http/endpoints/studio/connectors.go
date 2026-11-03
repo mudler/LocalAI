@@ -24,7 +24,15 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	}
 	return schema.ChatsConnector{ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
-		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ThreadContext: i.ReadsThread(), Options: i.Options}
+		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), ThreadContext: i.ReadsThread(), Options: i.Options,
+		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax}
+}
+
+func filesOut(l studiosvc.FileLimits) schema.ChatsConnectorFiles {
+	dir := func(e studiosvc.FileLimit, declared, allowed int64) schema.ChatsConnectorFileLimit {
+		return schema.ChatsConnectorFileLimit{EffectiveBytes: e.Bytes, Layer: string(e.Layer), DeclaredBytes: declared, AllowedBytes: allowed}
+	}
+	return schema.ChatsConnectorFiles{Receive: dir(l.Receive, l.ReceiveDeclared, l.ReceiveMax), Send: dir(l.Send, l.SendDeclared, l.SendMax), InlineBytes: contract.MaxConnectorFileBytes}
 }
 
 // acceptAnyConfirmation is what a request must say to turn on accept_any.
@@ -38,7 +46,8 @@ func failAcceptAny(c echo.Context) error {
 func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
-		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ThreadContext: req.ThreadContext, Options: req.Options}
+		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, ThreadContext: req.ThreadContext, Options: req.Options,
+		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes}
 }
 
 var connectorRules = []errRule{
@@ -99,7 +108,8 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	}
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	for _, k := range kinds {
-		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options)})
+		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
+			Files: filesOut(host.KindFileLimits(c.Request().Context(), k))})
 	}
 	return c.JSON(http.StatusOK, out)
 }
