@@ -44,7 +44,7 @@ var _ = Describe("the files ability of a connector kind", func() {
 		Expect(ValidateManifest(m, host())).To(Succeed())
 	})
 
-	It("needs a manifest that accepts API 2", func() {
+	It("needs a manifest that accepts API 2 to declare files", func() {
 		declare(&ConnectorFiles{Receive: &FileAbility{MaxBytes: 1 << 20}})
 		m.API = VersionRange{Min: 1, Max: 1}
 		Expect(ValidateManifest(m, host())).To(MatchError(ContainSubstring("api 2")))
