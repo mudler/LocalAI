@@ -369,8 +369,8 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 	}
 	var out []apps.App
 	for _, a := range list.Apps {
-		if a.Enabled && a.State == "running" && a.Generation > 0 && (len(a.ToolDefinitions) > 0 || (a.ID == "tables" && t.hasResourceLister())) {
-			if err := validateTablesListing(a); err != nil {
+		if a.Enabled && a.State == "running" && a.Generation > 0 && (len(a.ToolDefinitions) > 0 || t.hasListing(a)) {
+			if err := validateListing(a); err != nil {
 				return nil, err
 			}
 			out = append(out, a)
@@ -534,8 +534,8 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 	}
 	var out []ToolDefinition
 	for _, a := range list {
-		if a.ID == "tables" && t.hasResourceLister() && len(out) < MaxTools {
-			out = append(out, databaseListingDefinition())
+		if l, ok := t.listingOf(a); ok && len(out) < MaxTools {
+			out = append(out, resourceListingDefinition(a, l))
 		}
 		for _, d := range a.ToolDefinitions {
 			if d.Kind == contract.ToolKindAction && !t.actions {
@@ -614,8 +614,8 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 		if a.ID != addonID {
 			continue
 		}
-		if addonID == "tables" && tool == "databases-list" && t.hasResourceLister() {
-			return t.listDatabases(ctx, actor, name, arguments)
+		if l, ok := t.listingOf(a); ok && l.Tool == tool {
+			return t.listResources(ctx, actor, a, l, name, arguments)
 		}
 		for _, d := range a.ToolDefinitions {
 			if d.Name != tool {

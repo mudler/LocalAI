@@ -83,7 +83,7 @@ func tablesManifest() contract.Manifest {
 
 func tablesApp(m contract.Manifest) apps.App {
 	return apps.App{ID: "tables", Name: "tables", Generation: 3, Enabled: true, State: "running", Tools: m.Capabilities.Tools,
-		ToolDefinitions: m.Capabilities.ToolDefinitions}
+		ToolDefinitions: m.Capabilities.ToolDefinitions, Resources: m.Capabilities.Resources}
 }
 
 var member = contract.Actor{UserID: "bob", CredentialID: "session:s1", Mode: "named-user"}
