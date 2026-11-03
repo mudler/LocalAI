@@ -130,6 +130,15 @@ func (s *Store) usable() error {
 	return nil
 }
 
+// Usable reports whether the store answers: it is neither closed nor in doubt
+// about its last write. A caller that must fail closed asks it before it
+// trusts View, which hides the failure behind an empty document.
+func (s *Store) Usable() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.usable()
+}
+
 // Snapshot returns a copy of the current document.
 func (s *Store) Snapshot(ctx context.Context) (Snapshot, error) {
 	s.mu.Lock()
