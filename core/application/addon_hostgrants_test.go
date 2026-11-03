@@ -310,7 +310,39 @@ var _ = Describe("host grants on the owner", func() {
 		audit, e := os.ReadFile(filepath.Join(ownerData, "addons", addonHostGrantsAudit))
 		Expect(e).NotTo(HaveOccurred())
 		Expect(string(audit)).To(ContainSubstring(`"event":"blanket-grant"`))
-		Expect(string(audit)).To(ContainSubstring(`"blanket":"any@rev1"`))
+		Expect(string(audit)).To(ContainSubstring(`"blanket":"any@rev0"`))
+	})
+
+	It("never copies a blanket mode a deployment fixes into the document", func() {
+		a, stop := startOwner(func(c *config.ApplicationConfig) { c.AddonHostBlanket = "any" })
+		Expect(submit(a, "b-1", "install", "1.2.3", "", "")).To(Succeed())
+		out, e := call(a, gateway.HostGrantsCall{Op: gateway.HostGrantsRead})
+		Expect(e).NotTo(HaveOccurred())
+		blanket := out["blanket"].(map[string]any)
+		Expect(blanket["mode"]).To(Equal("any"))
+		Expect(blanket["setBy"]).To(Equal("deployment"))
+		doc, e := os.ReadFile(filepath.Join(ownerData, "addons", addonHostGrantsFile))
+		Expect(e).NotTo(HaveOccurred())
+		Expect(string(doc)).NotTo(ContainSubstring(`"any"`), "the deployment value must not reach the document")
+
+		// Restart without the flag: the switch is what a person set, which is off.
+		stop()
+		again, stopAgain := startOwner()
+		out, e = call(again, gateway.HostGrantsCall{Op: gateway.HostGrantsRead})
+		Expect(e).NotTo(HaveOccurred())
+		blanket = out["blanket"].(map[string]any)
+		Expect(blanket["mode"]).To(Equal("off"))
+		Expect(blanket["setBy"]).To(Equal("ui"))
+		// An upgrade that needs more is held again, as nobody typed the confirmation.
+		e = submit(again, "u-0", "upgrade", "1.3.0", digests["/1.2.3.tar"], digests["/1.3.0.tar"])
+		var refusal *addons.HostRequirementsRefusal
+		Expect(errors.As(e, &refusal)).To(BeTrue(), fmt.Sprint(e))
+		stopAgain()
+
+		// A flag set again takes effect with no stored copy.
+		fixed, _ := startOwner(func(c *config.ApplicationConfig) { c.AddonHostBlanket = "any" })
+		Expect(submit(fixed, "u-1", "upgrade", "1.3.0", digests["/1.2.3.tar"], digests["/1.3.0.tar"])).To(Succeed())
+		Expect(ask(fixed, "egress.audit")).To(Equal(http.StatusOK))
 	})
 
 	It("keeps the grants of a split deployment on the owner only", func() {

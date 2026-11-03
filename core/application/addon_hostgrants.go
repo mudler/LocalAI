@@ -348,15 +348,10 @@ func (g *addonHostGrants) Stage(ctx context.Context, s addons.GrantStage) error 
 			return addons.ErrGrantsConflict
 		}
 		patch := hostgrants.Patch{}
-		if blanketRev != 0 {
-			switch {
-			case blanketRev == snap.Blanket.Revision:
-			case blanketRev == snap.Blanket.Revision+1 && snap.Blanket.Mode != blanketMode:
-				// The deployment fixes a mode the document does not hold yet.
-				b := snap.Blanket
-				b.Mode, b.ChangedAt, b.ChangedBy = blanketMode, g.now(), "deployment"
-				patch.Blanket = &b
-			default:
+		if s.Blanket != "" {
+			// The mode may come from the deployment, which is never written to the
+			// document; only the revision the grants were planned against counts.
+			if blanketRev != snap.Blanket.Revision {
 				return addons.ErrGrantsConflict
 			}
 		}
@@ -534,12 +529,11 @@ func (g *addonHostGrants) Blanket(ctx context.Context, q addons.BlanketQuery) ([
 		return nil, ""
 	}
 	mode, rev := snap.Blanket.Mode, res.Revision
+	// A mode the deployment fixes is applied here, at read time, and is never
+	// copied into the document: removing the flag must hand the switch back to
+	// what a person set.
 	if g.override != "" {
 		mode = g.override
-		if snap.Blanket.Mode != mode {
-			// Stage first writes the mode, which moves the revision by one.
-			rev = snap.Blanket.Revision + 1
-		}
 	}
 	return res.Plan.Grant, fmt.Sprintf("blanket:%s@rev%d", mode, rev)
 }
