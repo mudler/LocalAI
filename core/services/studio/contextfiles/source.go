@@ -71,6 +71,10 @@ func (s Source) limit() int {
 
 var placeholder = regexp.MustCompile(`\{[^{}]*\}`)
 
+// Validate reports why a registry would refuse the source. A caller that builds
+// sources for one turn, instead of registering them, checks them with it.
+func (s Source) Validate() error { return s.validate() }
+
 func (s Source) validate() error {
 	bad := func(format string, args ...any) error {
 		return fmt.Errorf("%w: %s", ErrInvalidSource, fmt.Sprintf(format, args...))
@@ -147,8 +151,12 @@ func (r *Registry) Sources() []Source {
 	r.mu.RLock()
 	out := slices.Clone(r.sources)
 	r.mu.RUnlock()
-	slices.SortStableFunc(out, func(a, b Source) int {
+	sortSources(out)
+	return out
+}
+
+func sortSources(s []Source) {
+	slices.SortStableFunc(s, func(a, b Source) int {
 		return slices.Index(scopeOrder, a.Scope) - slices.Index(scopeOrder, b.Scope)
 	})
-	return out
 }

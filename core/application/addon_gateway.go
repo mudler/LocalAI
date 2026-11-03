@@ -591,6 +591,15 @@ func (l lateStudioAddons) AddonSkills(ctx context.Context, user string) ([]studi
 	return nil, nil
 }
 
+// AddonContextFiles forwards to the broker when it knows the context files of
+// the add-ons.
+func (l lateStudioAddons) AddonContextFiles(ctx context.Context, user string) ([]studio.AddonContextSet, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonContextLister); ok {
+		return g.AddonContextFiles(ctx, user)
+	}
+	return nil, nil
+}
+
 // Isolation forwards to the broker when it can say how commands are isolated.
 func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
 	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
@@ -801,6 +810,32 @@ func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.A
 		}
 		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: contract.SkillNames(a.Skills), Isolated: a.Isolated,
 			Shadows: contract.ShadowedSkills(a.Skills), Running: a.Running})
+	}
+	return out, nil
+}
+
+// AddonContextFiles lists the add-ons that declare context files and that the
+// user can see, less those whose host operations need a feature the user
+// lacks: the same rule as their tools and skills.
+func (s *studioAddons) AddonContextFiles(ctx context.Context, user string) ([]studio.AddonContextSet, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.ContextFiles(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	out := make([]studio.AddonContextSet, 0, len(list))
+	for _, a := range list {
+		if denied[a.AddonID] {
+			continue
+		}
+		out = append(out, studio.AddonContextSet{AddonID: a.AddonID, Files: a.Files, Running: a.Running})
 	}
 	return out, nil
 }

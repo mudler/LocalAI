@@ -69,7 +69,7 @@ func (s *Service) ListContextFiles(ctx context.Context, user string) (ContextFil
 		return out, nil
 	}
 	principal := s.Principal(user)
-	for _, src := range s.ctxfiles.Registry().Sources() {
+	for _, src := range s.ctxfiles.Sources(s.allAddonContextSources(ctx, user)...) {
 		limit := src.Cap
 		if limit == 0 {
 			limit = contextfiles.MaxIndexBytes

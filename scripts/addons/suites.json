@@ -3500,6 +3500,7 @@
       "go: is unavailable when the owner cannot act, and never falls back to a read or a proposal",
       "go: keeps the argument rules: an identity argument is refused before anything runs",
       "go: are listed in any state, with the names they replace and whether they run",
+      "go: are listed in any state, with their files and whether they run",
       "go: keeps its namespaced name and carries the built-in it shadows, only for a replaceable name",
       "go: names the replacement string for legacy arguments at the chat boundary without sending them",
       "go: synthesizes exactly one strict host read, without enumerating resources at discovery",

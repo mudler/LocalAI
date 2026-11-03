@@ -66,6 +66,14 @@ type Subject struct {
 	// (the ID of a connector binding), if any. The loader turns it into a path
 	// segment with ChannelKey.
 	Channel string
+	// ChannelDir is the folder name of the channel's notes, when the host
+	// already has it. It wins over Channel. The host builds it from the chat,
+	// never from the model; the loader accepts a plain name only.
+	ChannelDir string
+	// SaveTool is the tool this chat has to save a note, if any. It wins over
+	// the Writer, which knows the host but not the chat: a chat whose agent
+	// cannot propose changes must not be told to.
+	SaveTool string
 }
 
 // Block is text for the prompt of a turn and a key that changes with it.
@@ -88,6 +96,8 @@ var (
 	segment   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 	slugBad   = regexp.MustCompile(`[^a-z0-9]+`)
 	topicName = segment
+	// channelDirName is the folder name a host gives a channel.
+	channelDirName = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,79}$`)
 )
 
 // ChannelKey turns the identifier of a channel into a safe folder name: a short
@@ -138,7 +148,10 @@ func (l *Loader) SetWriter(w Writer) {
 	l.mu.Unlock()
 }
 
-func (l *Loader) saveTool() string {
+func (l *Loader) saveTool(sub Subject) string {
+	if sub.SaveTool != "" {
+		return sub.SaveTool
+	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if l.wr == nil {
@@ -159,25 +172,62 @@ func (s Source) resolve(sub Subject) (string, bool) {
 		}
 		return strings.ReplaceAll(s.Path, "{agent}", sub.AgentID), true
 	case ScopeChannel:
-		if sub.Channel == "" {
-			return "", false
+		switch {
+		case sub.ChannelDir != "":
+			if !channelDirName.MatchString(sub.ChannelDir) {
+				return "", false
+			}
+			return strings.ReplaceAll(s.Path, "{channel}", sub.ChannelDir), true
+		case sub.Channel != "":
+			return strings.ReplaceAll(s.Path, "{channel}", ChannelKey(sub.Channel)), true
 		}
-		return strings.ReplaceAll(s.Path, "{channel}", ChannelKey(sub.Channel)), true
+		return "", false
 	}
 	return "", false
 }
 
-// Block returns the header and the indexes that apply to the chat. It is empty
-// when no source is registered. A file that cannot be read is left out: a turn
-// never fails for it. The text is the same at each turn until a file changes.
-func (l *Loader) Block(ctx context.Context, sub Subject) Block {
-	sources := l.reg.Sources()
+// sourcesFor returns the registered sources and the sources the turn brings,
+// widest scope first. A source the registry would refuse is left out, and so is
+// a second source for the same file, so a file is read once and the budget is
+// not spent twice on it. At most MaxSources are kept.
+func (l *Loader) sourcesFor(extra []Source) []Source {
+	all := l.reg.Sources()
+	if len(extra) == 0 {
+		return all
+	}
+	seen := make(map[string]bool, len(all)+len(extra))
+	for _, s := range all {
+		seen[string(s.Scope)+" "+s.Path] = true
+	}
+	for _, s := range extra {
+		key := string(s.Scope) + " " + s.Path
+		if seen[key] || s.validate() != nil || len(all) >= MaxSources {
+			continue
+		}
+		seen[key] = true
+		all = append(all, s)
+	}
+	sortSources(all)
+	return all
+}
+
+// Sources returns the registered sources and extra, widest scope first. A
+// source the registry would refuse, or that repeats a file, is left out.
+func (l *Loader) Sources(extra ...Source) []Source { return l.sourcesFor(extra) }
+
+// Block returns the header and the indexes that apply to the chat: those of
+// the registered sources and those of extra, the sources this turn brings. It
+// is empty when there is no source. A file that cannot be read is left out: a
+// turn never fails for it. The text is the same at each turn until a file
+// changes.
+func (l *Loader) Block(ctx context.Context, sub Subject, extra ...Source) Block {
+	sources := l.sourcesFor(extra)
 	if len(sources) == 0 {
 		return Block{}
 	}
 	var sb strings.Builder
 	sb.WriteString(Header)
-	if tool := l.saveTool(); tool != "" {
+	if tool := l.saveTool(sub); tool != "" {
 		sb.WriteString(" Save new facts with " + tool + ".")
 	}
 	budget := MaxTotalBytes
@@ -280,12 +330,12 @@ func clean(s string) string {
 // the user. The path comes from the registry and the subject, so the model can
 // only name a topic: it cannot leave the folder of an index, and it cannot name
 // another agent or channel.
-func (l *Loader) Detail(ctx context.Context, sub Subject, scope Scope, topic string) (string, error) {
+func (l *Loader) Detail(ctx context.Context, sub Subject, scope Scope, topic string, extra ...Source) (string, error) {
 	topic = strings.TrimSuffix(strings.TrimSpace(topic), ".md")
 	if !topicName.MatchString(topic) || (scope != "" && !slices.Contains(scopeOrder, scope)) {
 		return "", ErrBadTopic
 	}
-	sources := l.reg.Sources()
+	sources := l.sourcesFor(extra)
 	slices.Reverse(sources)
 	for _, src := range sources {
 		if scope != "" && src.Scope != scope {

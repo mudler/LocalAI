@@ -124,6 +124,10 @@ type App struct {
 	Skills []contract.SkillDefinition `json:"skills,omitempty"`
 	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say).
 	SkillShadows []string `json:"skillShadows,omitempty"`
+	// ContextFiles are the index files the add-on asks the host to load into
+	// the prompt of a chat, from the verified manifest. The host reads them as
+	// the person; the add-on is not called.
+	ContextFiles []contract.ContextFile `json:"contextFiles,omitempty"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
@@ -266,6 +270,7 @@ func build(s Snapshot, admin bool) App {
 	a.Resources = resourceTools(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
+	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
 		if u.Title != nil {

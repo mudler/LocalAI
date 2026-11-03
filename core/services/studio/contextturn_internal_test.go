@@ -5,17 +5,21 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,6 +27,34 @@ import (
 )
 
 type saver struct{}
+
+// ctxBroker stands in for the add-on broker: the add-ons that declare context
+// files.
+type ctxBroker struct {
+	mu      sync.Mutex
+	sets    []AddonContextSet
+	reasons map[string]string
+}
+
+func (b *ctxBroker) Tools(context.Context, string) ([]AddonTool, error) { return nil, nil }
+func (b *ctxBroker) Call(context.Context, string, string, string, json.RawMessage) (string, error) {
+	return "", nil
+}
+func (b *ctxBroker) AddonContextFiles(context.Context, string) ([]AddonContextSet, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return append([]AddonContextSet(nil), b.sets...), nil
+}
+func (b *ctxBroker) Unavailable(_ context.Context, _, addon string, _ bool) string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.reasons[addon]
+}
+func (b *ctxBroker) set(sets ...AddonContextSet) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.sets = sets
+}
 
 func (saver) SaveTool() string { return "propose_change" }
 
@@ -32,6 +64,7 @@ var _ = Describe("context files in the prompt of a chat", func() {
 		svc *Service
 		f   *files.Service
 		cs  connectors.Store
+		br  *ctxBroker
 	)
 	home := session.HomePath("alice")
 	put := func(rel, text string) {
@@ -85,7 +118,8 @@ var _ = Describe("context files in the prompt of a chat", func() {
 		f = files.New(ws)
 		st, _ := store.NewJSON("")
 		ag, _ := agents.NewJSON("")
-		svc, err = New(Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, Agents: ag})
+		br = &ctxBroker{}
+		svc, err = New(Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, Agents: ag, AddonTools: br})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			_ = svc.Close(context.Background())
@@ -202,29 +236,44 @@ var _ = Describe("context files in the prompt of a chat", func() {
 	})
 
 	Describe("the same loader for chats of any origin", func() {
+		// The channel folder is the one propose_change writes: the binding and a
+		// hash of the chat, so a confirmed note is read back by its conversation.
+		dirOf := func(rec session.ChatRecord) string {
+			return proposals.ChannelDir(contract.ChangeSource{ID: rec.OriginID, Chat: rec.ID})
+		}
+		// connectorTurn creates a chat of the binding and puts its channel notes
+		// before the tools are built.
+		connectorTurn := func(binding, note, detail string) (session.TurnTools, session.ChatRecord) {
+			GinkgoHelper()
+			rec, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m"}, Origin{Kind: session.OriginConnector, ID: binding})
+			Expect(err).NotTo(HaveOccurred())
+			put("Memory/channels/"+dirOf(rec)+"/index.md", note)
+			put("Memory/channels/"+dirOf(rec)+"/team.md", detail)
+			x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			tt, err := svc.chatTools(ctx, x)
+			Expect(err).NotTo(HaveOccurred())
+			return tt, rec
+		}
 		BeforeEach(func() {
 			register()
 			put("Memory/index.md", "- home: lives in Rome\n")
 			bind("b-slack", "slack")
 			bind("b-tg", "telegram")
-			put("Memory/channels/"+contextfiles.ChannelKey("b-slack")+"/index.md", "- team: SLACKNOTE\n")
-			put("Memory/channels/"+contextfiles.ChannelKey("b-tg")+"/index.md", "- team: TGNOTE\n")
-			put("Memory/channels/"+contextfiles.ChannelKey("b-slack")+"/team.md", "slack detail")
-			put("Memory/channels/"+contextfiles.ChannelKey("b-tg")+"/team.md", "telegram detail")
 		})
 
 		It("gives a Slack-origin chat the user index and its own channel", func() {
-			tt, _ := turn(CreateInput{Model: "m"}, Origin{Kind: session.OriginConnector, ID: "b-slack"})
+			tt, _ := connectorTurn("b-slack", "- team: SLACKNOTE\n", "slack detail")
 			Expect(tt.Prompt).To(ContainSubstring("lives in Rome"))
 			Expect(tt.Prompt).To(ContainSubstring("SLACKNOTE"))
-			Expect(tt.Prompt).NotTo(ContainSubstring("TGNOTE"))
 			out, err := read(tt, `{"topic":"team","scope":"channel"}`)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(out).To(ContainSubstring("slack detail"))
 		})
 
 		It("gives a Telegram-origin chat the user index and its own channel", func() {
-			tt, _ := turn(CreateInput{Model: "m"}, Origin{Kind: session.OriginConnector, ID: "b-tg"})
+			connectorTurn("b-slack", "- team: SLACKNOTE\n", "slack detail")
+			tt, _ := connectorTurn("b-tg", "- team: TGNOTE\n", "telegram detail")
 			Expect(tt.Prompt).To(ContainSubstring("lives in Rome"))
 			Expect(tt.Prompt).To(ContainSubstring("TGNOTE"))
 			Expect(tt.Prompt).NotTo(ContainSubstring("SLACKNOTE"))
@@ -232,6 +281,28 @@ var _ = Describe("context files in the prompt of a chat", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(out).To(ContainSubstring("telegram detail"))
 			Expect(out).NotTo(ContainSubstring("slack"))
+		})
+
+		It("keeps the notes of two conversations of one binding apart", func() {
+			connectorTurn("b-tg", "- team: FIRSTROOM\n", "first detail")
+			tt, _ := connectorTurn("b-tg", "- team: SECONDROOM\n", "second detail")
+			Expect(tt.Prompt).To(ContainSubstring("SECONDROOM"))
+			Expect(tt.Prompt).NotTo(ContainSubstring("FIRSTROOM"))
+		})
+
+		It("reads back the file a confirmed channel proposal writes", func() {
+			rec, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m"}, Origin{Kind: session.OriginConnector, ID: "b-tg"})
+			Expect(err).NotTo(HaveOccurred())
+			p, err := svc.Changes().Propose(ctx, ProposeInput{User: "alice", Source: contract.ChangeSource{Kind: session.OriginConnector, ID: "b-tg", Chat: rec.ID},
+				Kind: "memory", Scope: "channel", Target: "index.md", Content: "- pets: the dog is Rex\n", Summary: "remember the dog"})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = svc.Changes().Confirm(ctx, "alice", p.ID)
+			Expect(err).NotTo(HaveOccurred())
+			x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			tt, err := svc.chatTools(ctx, x)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tt.Prompt).To(ContainSubstring("the dog is Rex"))
 		})
 
 		It("gives a plain chat the user index and no channel", func() {
@@ -254,6 +325,90 @@ var _ = Describe("context files in the prompt of a chat", func() {
 			c, _ := turn(CreateInput{Model: "m"}, Origin{Kind: session.OriginConnector, ID: "b-tg"})
 			Expect(shape(a.Prompt)).To(Equal(shape(b.Prompt)))
 			Expect(shape(b.Prompt)).To(Equal(shape(c.Prompt)))
+		})
+	})
+
+	Describe("files an add-on declares", func() {
+		memory := func(running bool) AddonContextSet {
+			return AddonContextSet{AddonID: "memory", Running: running, Files: []contract.ContextFile{
+				{Scope: contract.ScopeUser, Path: "Memory/index.md"},
+				{Scope: contract.ScopeAgent, Path: "Memory/agents/{agent}/index.md"},
+				{Scope: contract.ScopeChannel, Path: "Memory/channels/{channel}/index.md"},
+			}}
+		}
+		BeforeEach(func() {
+			put("Memory/index.md", "- home: lives in Rome -> home.md\n")
+			put("Memory/home.md", "user detail")
+		})
+
+		It("loads the index and serves memory_read while the add-on runs", func() {
+			br.set(memory(true))
+			tt, _ := turn(CreateInput{Model: "m"}, Origin{})
+			Expect(tt.Prompt).To(ContainSubstring(contextfiles.Header))
+			Expect(tt.Prompt).To(ContainSubstring("lives in Rome"))
+			out, err := read(tt, `{"topic":"home"}`)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out).To(ContainSubstring("user detail"))
+		})
+
+		It("adds nothing when the add-on is stopped, absent, switched off or unavailable", func() {
+			for name, setup := range map[string]func() CreateInput{
+				"stopped": func() CreateInput { br.set(memory(false)); return CreateInput{Model: "m"} },
+				"absent":  func() CreateInput { br.set(); return CreateInput{Model: "m"} },
+				"switched off": func() CreateInput {
+					br.set(memory(true))
+					return CreateInput{Model: "m", Switches: Switches{AddonsOff: []string{"memory"}}}
+				},
+				"unavailable": func() CreateInput {
+					br.set(memory(true))
+					br.reasons = map[string]string{"memory": "files are off"}
+					return CreateInput{Model: "m"}
+				},
+			} {
+				in := setup()
+				tt, _ := turn(in, Origin{})
+				Expect(tt.Prompt).NotTo(ContainSubstring(contextfiles.Header), name)
+				Expect(tool(tt, contextfiles.ToolName)).To(BeNil(), name)
+				br.reasons = nil
+			}
+		})
+
+		It("names propose_change only in a chat that has it", func() {
+			br.set(memory(true))
+			tt, _ := turn(CreateInput{Model: "m"}, Origin{})
+			Expect(tool(tt, "propose_change")).NotTo(BeNil())
+			Expect(tt.Prompt).To(ContainSubstring("Save new facts with propose_change."))
+			off, _ := turn(CreateInput{Model: "m", Switches: Switches{BuiltinsOff: []string{string(builtins.GroupChanges)}}}, Origin{})
+			Expect(tool(off, "propose_change")).To(BeNil())
+			Expect(off.Prompt).To(ContainSubstring(contextfiles.Header))
+			Expect(off.Prompt).NotTo(ContainSubstring("Save new facts"))
+		})
+
+		It("reaches a saved agent only when the agent grants the add-on", func() {
+			br.set(memory(true))
+			plain, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Plain", Model: "m"}, nil)
+			Expect(err).NotTo(HaveOccurred())
+			granted, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Granted", Model: "m", Addons: []string{"memory"}}, nil)
+			Expect(err).NotTo(HaveOccurred())
+			put("Memory/agents/"+granted.ID+"/index.md", "- style: GRANTEDSTYLE\n")
+			no, _ := turn(CreateInput{Model: "m", AgentID: plain.ID}, Origin{})
+			Expect(no.Prompt).NotTo(ContainSubstring(contextfiles.Header))
+			yes, _ := turn(CreateInput{Model: "m", AgentID: granted.ID}, Origin{})
+			Expect(yes.Prompt).To(ContainSubstring("GRANTEDSTYLE"))
+		})
+
+		It("lists the files of a stopped add-on on the Memory page", func() {
+			br.set(memory(false))
+			list, err := svc.ListContextFiles(ctx, "alice")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list.Groups).To(HaveLen(1))
+			Expect(list.Groups[0].Source).To(Equal("memory"))
+		})
+
+		It("refuses a declaration the loader would refuse", func() {
+			br.set(AddonContextSet{AddonID: "memory", Running: true, Files: []contract.ContextFile{{Scope: contract.ScopeUser, Path: "../secrets.md"}}})
+			tt, _ := turn(CreateInput{Model: "m"}, Origin{})
+			Expect(tt.Prompt).NotTo(ContainSubstring(contextfiles.Header))
 		})
 	})
 

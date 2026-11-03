@@ -14902,6 +14902,13 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "contextFiles": {
+                    "description": "ContextFiles are the index files the add-on asks the host to load into\nthe prompt of a chat, from the verified manifest. The host reads them as\nthe person; the add-on is not called.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ContextFile"
+                    }
+                },
                 "description": {
                     "type": "string",
                     "example": "Keep notes."
@@ -15618,6 +15625,22 @@ const docTemplate = `{
                 },
                 "thread": {
                     "type": "string"
+                }
+            }
+        },
+        "contract.ContextFile": {
+            "type": "object",
+            "properties": {
+                "cap": {
+                    "description": "Cap is the most bytes of the index the prompt carries. Zero means\nMaxContextFileBytes.",
+                    "type": "integer"
+                },
+                "path": {
+                    "description": "Path is relative to the user's home, under ContextFilesRoot, and ends\nin .md.",
+                    "type": "string"
+                },
+                "scope": {
+                    "$ref": "#/definitions/contract.ChangeScope"
                 }
             }
         },

@@ -8,8 +8,10 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // homeReader reads the files of a user's home as the user, outside the fence
@@ -50,11 +52,14 @@ func (s *Service) ContextSources() *contextfiles.Registry { return s.ctxfiles.Re
 func (s *Service) SetContextWriter(w contextfiles.Writer) { s.ctxfiles.SetWriter(w) }
 
 // contextSubject says whose notes a chat reads. Everything comes from the chat
-// record: the model names a topic, never an agent or a channel.
-func contextSubject(rec session.ChatRecord) contextfiles.Subject {
-	sub := contextfiles.Subject{Principal: rec.Principal, AgentID: rec.AgentID}
+// record: the model names a topic, never an agent or a channel. The channel
+// folder is the one propose_change writes for the same chat, so a confirmed
+// note is read back by the conversation that proposed it. saveTool is the tool
+// the chat has to save a note, or empty.
+func contextSubject(rec session.ChatRecord, saveTool string) contextfiles.Subject {
+	sub := contextfiles.Subject{Principal: rec.Principal, AgentID: rec.AgentID, SaveTool: saveTool}
 	if rec.Origin == session.OriginConnector {
-		sub.Channel = rec.OriginID
+		sub.ChannelDir = proposals.ChannelDir(contract.ChangeSource{ID: rec.OriginID, Chat: rec.ID})
 	}
 	return sub
 }
@@ -63,21 +68,30 @@ func contextSubject(rec session.ChatRecord) contextfiles.Subject {
 // of a turn, and a key that changes when either does. Both texts are the same
 // at each turn until a file changes, so the transcript does not grow and the
 // harness is restarted only for a real change.
-func (s *Service) contextTurn(ctx context.Context, rec session.ChatRecord) (text, key string) {
+func (s *Service) contextTurn(ctx context.Context, rec session.ChatRecord, tools []session.Tool, extra []contextfiles.Source) (text, key string) {
 	if !s.d.Files.Available() {
 		return "", ""
 	}
-	sub := contextSubject(rec)
-	profile, index := s.ctxfiles.Profile(ctx, sub), s.ctxfiles.Block(ctx, sub)
+	sub := contextSubject(rec, saveToolOf(tools))
+	profile, index := s.ctxfiles.Profile(ctx, sub), s.ctxfiles.Block(ctx, sub, extra...)
 	return joinBlocks(profile.Text, index.Text), profile.Key + index.Key
 }
 
-// contextTools is memory_read, while a source is registered.
-func (s *Service) contextTools(rec session.ChatRecord) []session.Tool {
-	if !s.d.Files.Available() || len(s.ctxfiles.Registry().Sources()) == 0 {
+// saveToolOf is the tool a chat has to save a note, or empty. The prompt names
+// it only when the chat has it.
+func saveToolOf(tools []session.Tool) string {
+	if hasTool(tools, proposeChangeName) {
+		return proposeChangeName
+	}
+	return ""
+}
+
+// contextTools is memory_read, while a source applies to the chat.
+func (s *Service) contextTools(rec session.ChatRecord, tools []session.Tool, extra []contextfiles.Source) []session.Tool {
+	if !s.d.Files.Available() || len(s.ctxfiles.Sources(extra...)) == 0 {
 		return nil
 	}
-	sub := contextSubject(rec)
+	sub := contextSubject(rec, saveToolOf(tools))
 	return []session.Tool{{
 		Name:        contextfiles.ToolName,
 		Description: contextfiles.ToolDescription,
@@ -93,7 +107,7 @@ func (s *Service) contextTools(rec session.ChatRecord) []session.Tool {
 			if err := json.Unmarshal(raw, &args); err != nil {
 				return "", err
 			}
-			return s.ctxfiles.Detail(ctx, sub, contextfiles.Scope(args.Scope), args.Topic)
+			return s.ctxfiles.Detail(ctx, sub, contextfiles.Scope(args.Scope), args.Topic, extra...)
 		},
 	}}
 }

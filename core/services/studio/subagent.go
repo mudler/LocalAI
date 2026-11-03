@@ -138,8 +138,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// the model at memory_read.
 	var notes, notesKey string
 	if !sub {
-		notes, notesKey = s.contextTurn(ctx, rec)
-		tools = append(tools, s.contextTools(rec)...)
+		extra := s.addonContextSources(ctx, a.Principal, rec.AddonsOff, sc)
+		notes, notesKey = s.contextTurn(ctx, rec, tools, extra)
+		tools = append(tools, s.contextTools(rec, tools, extra)...)
 	}
 	if lead := joinBlocks(persona, notes); lead != "" {
 		prompt = strings.TrimSpace(lead + "\n\n" + prompt)

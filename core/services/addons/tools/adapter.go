@@ -455,6 +455,38 @@ func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]Addon
 	return out, nil
 }
 
+// AddonContextFiles is the context files one add-on declares.
+type AddonContextFiles struct {
+	AddonID string
+	Files   []contract.ContextFile
+	// Running is true when the add-on may serve now: enabled and running, as
+	// Discover requires for tools.
+	Running bool
+}
+
+// ContextFiles lists the installed add-ons that declare context files and that
+// the actor can see, running or not. The host reads the files itself; a chat
+// loads those of a running add-on, and the Memory page lists them for any.
+func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([]AddonContextFiles, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonContextFiles
+	for _, a := range list.Apps {
+		if len(a.ContextFiles) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonContextFiles{AddonID: a.ID, Files: slices.Clone(a.ContextFiles), Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonContextFiles) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
 // AddonShadows is one installed add-on that replaces built-in chat tools, as
 // the actor sees it, running or not.
 type AddonShadows struct {

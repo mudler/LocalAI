@@ -179,6 +179,14 @@ definitions:
         allOf:
         - $ref: '#/definitions/apps.AdminView'
         description: Admin is present only for administrators.
+      contextFiles:
+        description: |-
+          ContextFiles are the index files the add-on asks the host to load into
+          the prompt of a chat, from the verified manifest. The host reads them as
+          the person; the add-on is not called.
+        items:
+          $ref: '#/definitions/contract.ContextFile'
+        type: array
       description:
         example: Keep notes.
         type: string
@@ -767,6 +775,21 @@ definitions:
         type: string
       thread:
         type: string
+    type: object
+  contract.ContextFile:
+    properties:
+      cap:
+        description: |-
+          Cap is the most bytes of the index the prompt carries. Zero means
+          MaxContextFileBytes.
+        type: integer
+      path:
+        description: |-
+          Path is relative to the user's home, under ContextFilesRoot, and ends
+          in .md.
+        type: string
+      scope:
+        $ref: '#/definitions/contract.ChangeScope'
     type: object
   contract.ExecutionDescriptor:
     properties:

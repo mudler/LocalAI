@@ -243,6 +243,22 @@ var _ = Describe("The add-ons that replace a built-in chat tool", func() {
 	})
 })
 
+var _ = Describe("The add-ons that declare context files", func() {
+	ctx := context.Background()
+	It("are listed in any state, with their files and whether they run", func() {
+		files := []contract.ContextFile{{Scope: contract.ScopeUser, Path: "Memory/index.md"}}
+		running := apps.App{ID: "memory", Generation: 1, Enabled: true, State: "running", ContextFiles: files}
+		stopped := apps.App{ID: "aaa-notes", Generation: 1, Enabled: true, State: "stopped", ContextFiles: files}
+		plain := apps.App{ID: "plain", Generation: 1, Enabled: true, State: "running"}
+		list, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{running, stopped, plain}}}).ContextFiles(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(Equal([]tools.AddonContextFiles{
+			{AddonID: "aaa-notes", Files: files, Running: false},
+			{AddonID: "memory", Files: files, Running: true},
+		}))
+	})
+})
+
 var _ = Describe("typed execution status model exclusion", func() {
 	It("keeps declared uiOnly execution status tools out of generic adapters", func() {
 		app := apps.App{ID: "renamed", Generation: 1, Enabled: true, State: "running", Tools: []string{"health"}, ToolDefinitions: []contract.ToolDefinition{{Name: "health", Kind: "read", UIOnly: true, Description: "Observe execution.", InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)}}}

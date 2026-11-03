@@ -379,3 +379,75 @@ var _ = Describe("the write limits", func() {
 		Expect(over.Current).To(Equal("old"))
 	})
 })
+
+var _ = Describe("sources a turn brings with it", func() {
+	var (
+		ctx context.Context
+		rd  *memReader
+		ld  *contextfiles.Loader
+	)
+	user := contextfiles.Source{ID: "memory", Scope: contextfiles.ScopeUser, Path: "Memory/index.md"}
+	agent := contextfiles.Source{ID: "memory", Scope: contextfiles.ScopeAgent, Path: "Memory/agents/{agent}/index.md"}
+	channel := contextfiles.Source{ID: "memory", Scope: contextfiles.ScopeChannel, Path: "Memory/channels/{channel}/index.md"}
+	BeforeEach(func() {
+		ctx = context.Background()
+		rd = &memReader{files: map[string]string{
+			"alice:Memory/index.md":                    "- home: lives in Rome -> home.md\n",
+			"alice:Memory/agents/ag1/index.md":         "- style: short\n",
+			"alice:Memory/channels/room-1a2b/index.md": "- team: blue\n",
+			"alice:Memory/home.md":                     "Rome since 2020.",
+			"alice:Memory/channels/room-1a2b/team.md":  "Blue team.",
+		}}
+		ld = contextfiles.NewLoader(contextfiles.NewRegistry(), rd, nil)
+	})
+
+	It("loads them with no registered source and keeps the scope order", func() {
+		sub := contextfiles.Subject{Principal: "alice", AgentID: "ag1", ChannelDir: "room-1a2b"}
+		b := ld.Block(ctx, sub, channel, user, agent)
+		u, a, c := strings.Index(b.Text, "lives in Rome"), strings.Index(b.Text, "short"), strings.Index(b.Text, "blue")
+		Expect(u).To(BeNumerically(">", 0))
+		Expect(a).To(BeNumerically(">", u))
+		Expect(c).To(BeNumerically(">", a))
+	})
+
+	It("adds nothing when the turn brings none and none is registered", func() {
+		Expect(ld.Block(ctx, contextfiles.Subject{Principal: "alice"}).Text).To(BeEmpty())
+	})
+
+	It("reads one file once when a registered source and a brought source name it", func() {
+		Expect(ld.Registry().Register(contextfiles.Source{ID: "host", Scope: contextfiles.ScopeUser, Path: "Memory/index.md"})).To(Succeed())
+		ld.Block(ctx, contextfiles.Subject{Principal: "alice"}, user)
+		Expect(rd.reads).To(Equal([]string{"alice:Memory/index.md"}))
+	})
+
+	It("uses the channel folder the host names and never builds one from the model", func() {
+		sub := contextfiles.Subject{Principal: "alice", ChannelDir: "room-1a2b"}
+		Expect(ld.Block(ctx, sub, channel).Text).To(ContainSubstring("blue"))
+		out, err := ld.Detail(ctx, sub, contextfiles.ScopeChannel, "team", channel)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("Blue team."))
+		for _, bad := range []string{"../x", "a/b", "", "a b", strings.Repeat("a", 90)} {
+			Expect(ld.Block(ctx, contextfiles.Subject{Principal: "alice", ChannelDir: bad}, channel).Text).NotTo(ContainSubstring("channel notes"), bad)
+		}
+	})
+
+	It("reads a topic of a brought source", func() {
+		out, err := ld.Detail(ctx, contextfiles.Subject{Principal: "alice"}, "", "home", user)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("Rome since 2020."))
+		_, err = ld.Detail(ctx, contextfiles.Subject{Principal: "alice"}, "", "home")
+		Expect(err).To(MatchError(contextfiles.ErrNoTopic))
+	})
+
+	It("names the save tool of the chat, and only when the chat has it", func() {
+		sub := contextfiles.Subject{Principal: "alice"}
+		Expect(ld.Block(ctx, sub, user).Text).NotTo(ContainSubstring("Save new facts"))
+		sub.SaveTool = "propose_change"
+		Expect(ld.Block(ctx, sub, user).Text).To(ContainSubstring("Save new facts with propose_change."))
+	})
+
+	It("exports the check a source passes before it is used", func() {
+		Expect(user.Validate()).To(Succeed())
+		Expect(contextfiles.Source{ID: "x", Scope: contextfiles.ScopeUser, Path: "../x.md"}.Validate()).To(MatchError(contextfiles.ErrInvalidSource))
+	})
+})
