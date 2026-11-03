@@ -171,8 +171,8 @@ type ChatsMCPRef struct {
 }
 
 // ChatsAgentExport is a saved agent as a file. Kind is localai-agent. Version
-// is 1, or 2 for an agent with a folder: a server that knows only version 1
-// refuses that file instead of importing the agent without its folder. The
+// is 1, 2 for an agent with one folder (folder), or 3 for an agent with
+// several (folders): an older server refuses the file instead of importing the agent without its folder. The
 // file holds the definition only: no ID, owner or time, and the folder as a
 // path, never as the server's own reference to it.
 type ChatsAgentExport struct {

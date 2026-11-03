@@ -424,17 +424,22 @@ func (s *Service) liveFolder(ctx context.Context, p string, ag agents.Agent) (*f
 func isSharedPath(p string) bool { return workspace.Within(p, sharedfolders.Root) }
 
 // capModes applies the rule of nested folders: where one folder holds
-// another, the outer mode caps the inner one. A folder inside another one
-// gets the lower of the two modes, and the fence then needs no more than the
-// outer root, which reaches the inner folder at the outer mode.
+// another, the mode of the outer folder is the mode of the inner one. The
+// store's fence gives a node the highest mode among the roots above it, so a
+// read only folder inside a write folder cannot be enforced; the inner folder
+// therefore takes the outer mode, in both directions, and the editor shows it.
 func capModes(fs []scopedFolder) {
 	eff := make([]workspace.Mode, len(fs))
 	for i, f := range fs {
 		eff[i] = f.mode
+		outer := -1
 		for j, o := range fs {
-			if i != j && f.path != o.path && workspace.Within(f.path, o.path) {
-				eff[i] = min(eff[i], o.mode)
+			if i != j && f.path != o.path && workspace.Within(f.path, o.path) && (outer < 0 || len(o.path) < len(fs[outer].path)) {
+				outer = j
 			}
+		}
+		if outer >= 0 {
+			eff[i] = fs[outer].mode
 		}
 	}
 	for i := range fs {

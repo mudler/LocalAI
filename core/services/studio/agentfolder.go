@@ -278,3 +278,22 @@ func (s *Service) AgentFolderRows(ctx context.Context, user string, list []agent
 	}
 	return out
 }
+
+// SharedNotMounted counts the shared folders that a chat of the agent leaves
+// out because they do not fit the access limit. It is 0 for an agent without
+// folders or whose folders cannot be found.
+func (s *Service) SharedNotMounted(ctx context.Context, user string, a agents.Agent) int {
+	if !a.HasFolder() {
+		return 0
+	}
+	p := principal(user)
+	sc, err := s.liveFolder(ctx, p, a)
+	if err != nil {
+		return 0
+	}
+	_, dropped, err := s.scopedRoots(ctx, userChatActor(p, ""), []*folderScope{sc})
+	if err != nil {
+		return 0
+	}
+	return dropped
+}

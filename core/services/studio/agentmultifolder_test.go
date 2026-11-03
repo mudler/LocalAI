@@ -18,7 +18,9 @@ func (r *accessRig) multi(name string, rows ...studio.AgentFolderWrite) (agents.
 	return r.svc.SaveAgentWithFolders(r.ctx, alice, agents.Agent{Name: name}, &rows)
 }
 
-func rw(path, mode string) studio.AgentFolderWrite { return studio.AgentFolderWrite{Path: path, Mode: mode} }
+func rw(path, mode string) studio.AgentFolderWrite {
+	return studio.AgentFolderWrite{Path: path, Mode: mode}
+}
 
 var _ = Describe("an agent with several folders", func() {
 	var r *accessRig
@@ -102,12 +104,20 @@ var _ = Describe("an agent with several folders", func() {
 		rows := r.svc.AgentFolderRows(r.ctx, alice, []agents.Agent{a})[a.ID]
 		Expect(rows[0].Effective).To(Equal("read"))
 		Expect(rows[1].Mode).To(Equal("write"))
-		Expect(rows[1].Effective).To(Equal("read"), "the outer mode caps the inner one")
+		Expect(rows[1].Effective).To(Equal("read"), "the outer mode is the inner mode")
 		act := r.access(r.chat(a.ID).ID).Actor()
 		_, err = r.ws.Put(r.ctx, act, r.home+"/Projects/Acme/new.txt", strings.NewReader("x"), workspace.PutOptions{})
 		Expect(err).To(HaveOccurred(), "the inner write is capped")
 		_, err = r.ws.Stat(r.ctx, act, r.home+"/Projects/Other/o.txt")
 		Expect(err).NotTo(HaveOccurred(), "the outer folder reads its children")
+	})
+
+	It("gives a read folder inside a write folder the write mode, and says so", func() {
+		a, err := r.multi("Nested", rw("/Projects", "write"), rw("/Projects/Acme", "read"))
+		Expect(err).NotTo(HaveOccurred())
+		rows := r.svc.AgentFolderRows(r.ctx, alice, []agents.Agent{a})[a.ID]
+		Expect(rows[1].Mode).To(Equal("read"))
+		Expect(rows[1].Effective).To(Equal("write"), "the fence cannot hold a read only folder inside a write folder")
 	})
 
 	It("stops a chat that has a deleted or unchosen row and names the row", func() {

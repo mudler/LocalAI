@@ -54,9 +54,21 @@ type ChatsAgent struct {
 	Network string `json:"network"`
 	// Folder is the one folder that chats with the agent work in. It is
 	// absent for an agent that works on all your files.
-	Folder  *ChatsAgentFolder `json:"folder,omitempty"`
-	Created time.Time         `json:"created"`
-	Updated time.Time         `json:"updated"`
+	Folder *ChatsAgentFolder `json:"folder,omitempty"`
+	// Folders are all the folders of the agent (at most 8), in order; Folder
+	// is the first of them. Absent for an agent that works on all your files.
+	Folders []ChatsAgentFolder `json:"folders,omitempty"`
+	// FolderNotice is set when shared folders do not fit the access limit of
+	// a chat of this agent and are left out.
+	FolderNotice *ChatsAgentFolderNotice `json:"folder_notice,omitempty"`
+	Created      time.Time               `json:"created"`
+	Updated      time.Time               `json:"updated"`
+}
+
+// ChatsAgentFolderNotice says how many shared folders a chat of the agent
+// does not mount.
+type ChatsAgentFolderNotice struct {
+	NotMounted int `json:"not_mounted"`
 }
 
 // ChatsAgentFolder is the folder of a saved agent as it is now. The server
@@ -73,6 +85,10 @@ type ChatsAgentFolder struct {
 	// Mode is read (the agent's chats can read the folder) or write (they can
 	// read and change it).
 	Mode string `json:"mode"`
+	// Effective is the mode the folder has in a chat: read for a shared
+	// folder, and the mode of the outer folder when the folder is inside
+	// another folder of the same agent.
+	Effective string `json:"effective,omitempty"`
 	// State is ok; missing when the folder was deleted or you can no longer
 	// read it; or unset when no folder is chosen yet (an imported agent whose
 	// folder was not found). An agent whose folder is missing or unset does
@@ -107,6 +123,11 @@ type ChatsAgentWrite struct {
 	// made. A missing, unchosen or non-home folder has an empty export path;
 	// import preserves its mode as unset and warns instead of clearing scope.
 	Folder *ChatsAgentFolderWrite `json:"folder,omitempty"`
+	// Folders chooses up to 8 folders, each with its own mode. When both are
+	// sent, folders wins. A write without folders and folder keeps the folders
+	// the agent has; "folders": [] clears them. Where a folder is inside
+	// another one, it gets the outer folder's mode.
+	Folders []ChatsAgentFolderWrite `json:"folders,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.
