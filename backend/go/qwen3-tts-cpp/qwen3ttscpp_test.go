@@ -289,7 +289,7 @@ var _ = Describe("batch warmup", func() {
 			return 0
 		}
 		done := make(chan struct{})
-		go func() { warmupBatch(3); close(done) }()
+		go func() { _ = warmupBatch(3); close(done) }()
 		Eventually(done).WithTimeout(5 * time.Second).Should(BeClosed())
 		Expect(texts).To(ConsistOf("Hello there.", "Hello there. Hello there.", "Hello there. Hello there. Hello there."))
 	})
