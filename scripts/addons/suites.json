@@ -397,7 +397,10 @@
           "names nothing for a descriptor that does not supply the runtime of documents",
           "names nothing for an add-on without a commands tool",
           "reports network-policy enforcement only for an available isolated provider",
-          "refuses a non-boolean enforcement claim"
+          "refuses a non-boolean enforcement claim",
+          "accepts a listing declared with API 2",
+          "refuses a listing without API 2, with a bad name, or that names a declared tool",
+          "rejects unknown keys in the declaration"
         ]
       },
       {
@@ -2340,7 +2343,16 @@
           "projects home commands with resolved declared pages display metadata immutable icons and generation",
           "keeps disabled home apps installed without UI and never invents a destination",
           "projects typed model actions without sharing manifest or view slices",
-          "keeps unavailable installed records and omits unavailable or absent model metadata"
+          "keeps unavailable installed records and omits unavailable or absent model metadata",
+          "carries the declaration of any add-on, whatever its id",
+          "carries nothing for an add-on that declares no resources",
+          "does not alias the manifest",
+          "leaves an add-on with a mapping and no declaration without a listing",
+          "keeps the listing of a manifest written before the declaration existed",
+          "does not touch an old manifest of another add-on, or one that ships a tool of that name",
+          "never overrides a declaration",
+          "is not needed by the shipped add-on, which declares the listing itself",
+          "goes away when the host stops accepting manifests of API 1"
         ]
       },
       {
