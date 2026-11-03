@@ -93,6 +93,14 @@ type Drafter interface {
 	Draft(ctx context.Context, req contract.ConnectorRequest) error
 }
 
+// HistoryReader is a Platform that reads the earlier messages of a thread for
+// the op history. It returns the messages oldest first, the newest of those
+// before req.Before, at most req.Limit of them, and whether older messages
+// exist. Serve checks the request and bounds the answer.
+type HistoryReader interface {
+	History(ctx context.Context, req contract.ConnectorRequest) ([]contract.ConnectorHistoryMessage, bool, error)
+}
+
 // Splitter is a Platform that cuts its texts itself; others use Split.
 type Splitter interface {
 	Split(text string) []string
@@ -158,6 +166,24 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 		var f contract.ConnectorFile
 		if f, err = m.Media(ctx, req.Token, req.Media); err == nil {
 			out.File = &f
+		}
+	case contract.ConnectorOpHistory:
+		h, ok := p.(HistoryReader)
+		if !ok || req.Chat == "" || req.Thread == "" {
+			return contract.ConnectorResponse{}, fmt.Errorf("%w: no thread, or a platform that cannot read one", contract.ErrRefused)
+		}
+		if req.Limit < 1 || req.Limit > contract.MaxHistoryMessages {
+			req.Limit = contract.DefaultHistoryMessages
+		}
+		// Not retried after a wait: the history is context, and the host
+		// would rather answer without it than hold the answer behind it.
+		var msgs []contract.ConnectorHistoryMessage
+		var more bool
+		if msgs, more, err = h.History(ctx, req); err == nil {
+			if len(msgs) > req.Limit {
+				msgs, more = msgs[len(msgs)-req.Limit:], true
+			}
+			out.Messages, out.Truncated = msgs, more
 		}
 	default:
 		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown op", contract.ErrRefused)
