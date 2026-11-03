@@ -20,14 +20,19 @@ import (
 // UseConnectorTransportForTests.
 var connectorTransportForTests studio.ConnectorTransport
 
+// connectorTransportWired is true once an application gave its transfer table
+// to the test transport. A later application of the same process, such as an
+// isolated one a spec starts, must not take the transport over.
+var connectorTransportWired bool
+
 // UseConnectorTransportForTests makes the connectors of applications built after
 // the call talk through t instead of the add-on manager, and returns a function
 // that restores the real one. It exists so an end-to-end test can serve a
 // connector without an installed add-on.
 func UseConnectorTransportForTests(t studio.ConnectorTransport) (restore func()) {
 	prev := connectorTransportForTests
-	connectorTransportForTests = t
-	return func() { connectorTransportForTests = prev }
+	connectorTransportForTests, connectorTransportWired = t, false
+	return func() { connectorTransportForTests, connectorTransportWired = prev, false }
 }
 
 // connectorTransport reaches the connector add-ons through the add-on manager.
@@ -109,10 +114,14 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	if connectorTransportForTests != nil {
 		tr = connectorTransportForTests
 		// A test transport that can move files by handle gets the table of
-		// this application, so its add-ons declare the files ability.
+		// the first application that uses it, so its add-ons declare the
+		// files ability. Taking it again would point the transport at a table
+		// with no blob store, and the files of the first application would
+		// stop moving.
 		if x, ok := tr.(interface {
 			EnableTransfers(*hostops.Transfers) func()
-		}); ok {
+		}); ok && !connectorTransportWired {
+			connectorTransportWired = true
 			// The servers it starts live as long as the test process.
 			_ = x.EnableTransfers(a.transfers())
 		}
