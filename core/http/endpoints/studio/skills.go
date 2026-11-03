@@ -30,7 +30,7 @@ func skillActor(c echo.Context, fc fileCall, layer skills.Layer) string {
 
 func parseLayer(s string) (skills.Layer, bool) {
 	switch skills.Layer(s) {
-	case skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin:
+	case skills.LayerPersonal, skills.LayerShared, skills.LayerAddon, skills.LayerBuiltin, skills.LayerAgent:
 		return skills.Layer(s), true
 	}
 	return "", false
@@ -59,7 +59,8 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 	for _, sk := range list {
 		out.Skills = append(out.Skills, schema.ChatsSkill{
 			ID: studiosvc.SkillID(sk), Name: sk.Name, Description: sk.Description, Layer: string(sk.Layer), Path: sk.GuestPath,
-			Addon: sk.Addon, AddonTitle: sk.AddonTitle, ShadowedBy: sk.ShadowedBy, Fallback: sk.Fallback,
+			Addon: sk.Addon, AddonTitle: sk.AddonTitle, Agent: sk.Agent, AgentName: sk.AgentName,
+			Removable: sk.Layer == skills.LayerAgent, ShadowedBy: sk.ShadowedBy, Fallback: sk.Fallback,
 			Enabled: !sk.Off, Shadowed: string(sk.Shadowed), Invalid: sk.Invalid, Editable: editable(c, sk.Layer),
 		})
 	}
@@ -96,9 +97,10 @@ func (h *Handlers) CreateSkill(c echo.Context) error {
 // GetSkill reads a skill.
 // @Summary Read a skill.
 // @Tags chats
-// @Param layer path string true "personal, shared, addon or builtin"
+// @Param layer path string true "personal, shared, agent, addon or builtin"
 // @Param name path string true "the skill's name"
 // @Param addon query string false "the add-on's ID, for the addon layer"
+// @Param agent query string false "the saved agent's ID, for the agent layer"
 // @Success 200 {object} schema.ChatsSkillDetail "The skill with its text"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/skills/{layer}/{name} [get]
@@ -114,6 +116,14 @@ func (h *Handlers) GetSkill(c echo.Context) error {
 	if layer == skills.LayerAddon {
 		name := c.Param("name")
 		desc, body, err := fc.f.ReadAddonSkill(c.Request().Context(), fc.p, c.QueryParam("addon"), name)
+		if err != nil {
+			return failFile(c, err)
+		}
+		return c.JSON(http.StatusOK, schema.ChatsSkillDetail{Name: name, Layer: string(layer), Description: desc, Body: body})
+	}
+	if layer == skills.LayerAgent {
+		name := c.Param("name")
+		desc, body, err := fc.f.ReadAgentSkill(c.Request().Context(), fc.p, c.QueryParam("agent"), name)
 		if err != nil {
 			return failFile(c, err)
 		}
@@ -163,9 +173,10 @@ func (h *Handlers) UpdateSkill(c echo.Context) error {
 
 // DeleteSkill moves a skill to the Trash.
 // @Summary Delete a skill.
-// @Description The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator.
+// @Description The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator. A skill of the agent layer is deleted with the agent query parameter.
 // @Tags chats
-// @Param layer path string true "personal or shared"
+// @Param layer path string true "personal, shared or agent"
+// @Param agent query string false "the saved agent's ID, for the agent layer"
 // @Param name path string true "the skill's name"
 // @Success 200 {object} map[string]bool "deleted"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
@@ -176,8 +187,14 @@ func (h *Handlers) DeleteSkill(c echo.Context) error {
 		return nil
 	}
 	layer, ok := parseLayer(c.Param("layer"))
+	if ok && layer == skills.LayerAgent {
+		if err := fc.f.DeleteAgentSkill(c.Request().Context(), fc.p, c.QueryParam("agent"), c.Param("name")); err != nil {
+			return failFile(c, err)
+		}
+		return c.JSON(http.StatusOK, map[string]bool{"deleted": true})
+	}
 	if !ok || !writable(layer) {
-		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal or shared")
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "layer must be personal, shared or agent")
 	}
 	if err := fc.f.DeleteSkill(c.Request().Context(), skillActor(c, fc, layer), layer, c.Param("name")); err != nil {
 		return failFile(c, err)

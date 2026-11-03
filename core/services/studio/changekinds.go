@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
@@ -36,6 +37,14 @@ var pageIconRE = regexp.MustCompile(`^[a-z0-9-]{1,40}$`)
 // skillRel is the home-relative SKILL.md of a skill in the personal layer.
 func skillRel(name string) string { return skills.SkillsDir + "/" + name + "/" + skills.SkillFile }
 
+// reservedSkillName reports a name an agent's own skill may not take: a core
+// skill or a document slot (the slots are data, pkg/addons/contract/slots.json).
+// An agent skill is nearer than every layer but the folder one, so a skill
+// of such a name would silently replace the provider's.
+func reservedSkillName(name string) bool {
+	return contract.ProtectedSkill(name) || contract.ReplaceableSkill(name)
+}
+
 var skillKind = proposals.Kind{
 	Name:      contract.ChangeSkill,
 	Grant:     contract.CapSkillsWrite,
@@ -51,7 +60,7 @@ var skillKind = proposals.Kind{
 			if !proposals.IDSafe(a.Agent) {
 				return "", fmt.Errorf("%w: an agent skill needs a chat that runs a saved agent", proposals.ErrBadTarget)
 			}
-			return "LocalAI/agents/" + a.Agent + "/skills/" + a.Target + "/" + skills.SkillFile, nil
+			return files.AgentSkillsDir(a.Agent) + "/" + a.Target + "/" + skills.SkillFile, nil
 		}
 		return "", fmt.Errorf("%w: a skill is for the user (personal) or for this agent, not for a channel", proposals.ErrBadTarget)
 	},
@@ -62,6 +71,8 @@ var skillKind = proposals.Kind{
 			return fmt.Errorf("the text is not a valid SKILL.md (%v): it starts with --- lines that hold name and description", err)
 		case name != in.Aim.Target:
 			return fmt.Errorf("the name in the frontmatter is %q but the target is %q", name, in.Aim.Target)
+		case in.Aim.Scope == contract.ScopeAgent && reservedSkillName(name):
+			return fmt.Errorf("%q is a built-in skill or a document slot that an add-on serves: an agent skill cannot take its name", name)
 		case in.Exists && skills.Locked([]byte(in.Current)):
 			return fmt.Errorf("the skill %q is locked by its owner: ask them to unlock it", in.Aim.Target)
 		}

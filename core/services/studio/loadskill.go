@@ -180,8 +180,31 @@ func (s *Service) loadSkillRun(a workspace.Actor, o loadOpts) func(context.Conte
 				return "", fmt.Errorf("unknown skill %q: %s", skills.Clean(in.Name), notes[i])
 			}
 		}
-		return s.loadSkill(ctx, a.Principal, list, in.Name, o)
+		text, err := s.loadSkill(ctx, a.Principal, list, in.Name, o)
+		if err != nil {
+			return text, err
+		}
+		return s.writingSkillsPreamble(ctx, a, list, in.Name) + text, nil
 	}
+}
+
+// agentWritingPreamble leads writing-skills in a chat that runs a saved agent.
+// The skill text names the .skills folder, which a saved agent cannot write:
+// its skills are proposals the owner confirms.
+const agentWritingPreamble = "Do not write files. Call " + proposeChangeName + " with kind skill.\n\n"
+
+// writingSkillsPreamble returns agentWritingPreamble when the skill loaded is
+// the built-in writing-skills and the chat runs a saved agent, else "".
+func (s *Service) writingSkillsPreamble(ctx context.Context, a workspace.Actor, list []skills.Skill, name string) string {
+	sk, ok := skills.Find(list, name)
+	if !ok || sk.Name != writingSkillsName || sk.Layer != skills.LayerBuiltin {
+		return ""
+	}
+	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	if err != nil || rec.AgentID == "" {
+		return ""
+	}
+	return agentWritingPreamble
 }
 
 // loadSkill returns the instructions of the skill of a name among list, read

@@ -40,6 +40,7 @@ var actorAllowlist = map[string]string{
 	"agentfolder.go:folderResolver.pathsOf":                             "finds where an agent's folder is now, for the person and for chatAccess",
 	"chatcommands.go:Service.chatSkills":                                "lists the skills a person may run as commands",
 	"skillsvc.go:Service.Skills":                                        "lists the user's skills for the skills page",
+	"skillsvc.go:Service.agentSkillsOf":                                 "lists the agent-layer skills of the user's own agents for the skills page; a person's view, never the model's",
 	"skillsvc.go:Service.chatSkillSet":                                  "reads the index of the skills the chat may use",
 	"loadskill.go:Service.loadSkill":                                    "reads only skills the agent grants, by name",
 	"chatfiles.go:Service.ResolveAttachments":                           "the attachments a person sees in the transcript are a user surface",

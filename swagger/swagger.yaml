@@ -5793,6 +5793,13 @@ definitions:
         type: string
       addon_title:
         type: string
+      agent:
+        description: |-
+          Agent and AgentName name the saved agent that owns a skill of the agent
+          layer: the agent proposed it and the owner confirmed it.
+        type: string
+      agent_name:
+        type: string
       description:
         type: string
       editable:
@@ -5818,13 +5825,19 @@ definitions:
       layer:
         description: |-
           Layer is where it comes from: folder (a .skills folder of your files),
-          personal, shared, addon (an installed add-on ships it) or builtin.
+          agent (a saved agent proposed it), personal, shared, addon (an installed
+          add-on ships it) or builtin.
         type: string
       name:
         type: string
       path:
         description: Path is the path of its SKILL.md as the model sees it.
         type: string
+      removable:
+        description: |-
+          Removable is true when the skill can be deleted from the Skills page
+          although it cannot be edited there (a skill of the agent layer).
+        type: boolean
       shadowed:
         description: Shadowed names the layer of a nearer skill with the same name,
           which wins.
@@ -16968,12 +16981,17 @@ paths:
   /api/chats/skills/{layer}/{name}:
     delete:
       description: The skill's folder goes to the Trash of your files, where it can
-        be restored. Shared skills need an administrator.
+        be restored. Shared skills need an administrator. A skill of the agent layer
+        is deleted with the agent query parameter.
       parameters:
-      - description: personal or shared
+      - description: personal, shared or agent
         in: path
         name: layer
         required: true
+        type: string
+      - description: the saved agent's ID, for the agent layer
+        in: query
+        name: agent
         type: string
       - description: the skill's name
         in: path
@@ -16996,7 +17014,7 @@ paths:
       - chats
     get:
       parameters:
-      - description: personal, shared, addon or builtin
+      - description: personal, shared, agent, addon or builtin
         in: path
         name: layer
         required: true
@@ -17009,6 +17027,10 @@ paths:
       - description: the add-on's ID, for the addon layer
         in: query
         name: addon
+        type: string
+      - description: the saved agent's ID, for the agent layer
+        in: query
+        name: agent
         type: string
       responses:
         "200":

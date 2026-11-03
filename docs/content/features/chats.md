@@ -1385,15 +1385,18 @@ A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a 
 
 When the folder of a skill holds other files, such as references and scripts, the answer starts with `Base directory for this skill:` and the folder, and names up to 20 of the files, relative to it, so the model reads them with `read_file`. A sub-agent that has no `read_file` gets the instructions only. A skill with `requires: [exec]` in a chat that cannot run commands answers that it cannot be used there. Every chat with at least one skill has `load_skill`, and a sub-agent gets it with its parent's other tools. It has no switch and Settings > Tools does not list it; the Skills menu chooses what it offers. The Sandbox does not see the skill folders (the built-in `bash` does, see [Commands on this machine](#commands-on-this-machine)). When the model reads a `SKILL.md` with `read_file` at a wrong path, the error names the right path and `load_skill`. A `SKILL.md` over 64 KiB is refused.
 
-Skills come from five places, nearest first, and the nearest wins when two have the same name:
+Skills come from six places, nearest first, and the nearest wins when two have the same name:
 
 | Layer | Where | Who writes it |
 |---|---|---|
 | Folder | any `.skills` folder in your files | you |
+| Agent | `LocalAI/agents/<agent>/skills` in your home folder | the agent proposes, you confirm |
 | Personal | `.skills` in your home folder | you |
 | Shared | for every user | an administrator |
 | Add-on | ships with an installed add-on | the add-on owner |
 | Built-in | ships with the server | the server |
+
+The agent layer holds the skills of one saved agent. Only a chat that runs that agent sees them, and it needs no grant in the agent's skill list. They win over your personal skill of the same name, for that agent only. An agent writes one by a change proposal of kind `skill` with scope `agent` (see [Agents]({{%relref "features/chats-agents" %}})); nothing is written until you confirm, and the write can be undone. An agent skill cannot take the name of a built-in skill or of a document skill such as `xlsx`, and a skill that you locked in your personal layer stays locked against it. The grant `skills.write` shows the built-in `writing-skills` to the agent, led by the line "Do not write files. Call propose_change with kind skill." The **Skills** page lists agent skills with the agent's name and a **Remove** button; a removed skill goes to the Trash. The API lists them with `layer: "agent"`, `agent` and `agent_name`, and `GET` or `DELETE /api/chats/skills/agent/<name>?agent=<id>` reads or removes one.
 
 The add-on layer holds the skills of the add-ons that the chat can use now: installed, running, usable by you and on for the chat (see [Add-on tools](#add-on-tools)). A chat with a saved agent gets them only for the add-ons the agent grants. The model loads one by its name with `load_skill`; its files are in `/workspace/shared-addon-skills/<add-on>/<skill>/`, where the add-on ID says where it comes from. Switching the add-on off for a chat takes its skills out of that chat's index, and the skill list shows each one with `addon` and `addon_title`. Its switch id is `addon:<name>`.
 

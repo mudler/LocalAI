@@ -768,12 +768,20 @@ type ChatsSkill struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	// Layer is where it comes from: folder (a .skills folder of your files),
-	// personal, shared, addon (an installed add-on ships it) or builtin.
+	// agent (a saved agent proposed it), personal, shared, addon (an installed
+	// add-on ships it) or builtin.
 	Layer string `json:"layer"`
 	// Addon and AddonTitle name the add-on that provides a skill of the addon
 	// layer.
 	Addon      string `json:"addon,omitempty"`
 	AddonTitle string `json:"addon_title,omitempty"`
+	// Agent and AgentName name the saved agent that owns a skill of the agent
+	// layer: the agent proposed it and the owner confirmed it.
+	Agent     string `json:"agent,omitempty"`
+	AgentName string `json:"agent_name,omitempty"`
+	// Removable is true when the skill can be deleted from the Skills page
+	// although it cannot be edited there (a skill of the agent layer).
+	Removable bool `json:"removable,omitempty"`
 	// Path is the path of its SKILL.md as the model sees it.
 	Path string `json:"path"`
 	// Enabled is false when the chat has switched it off.

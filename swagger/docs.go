@@ -7247,7 +7247,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "personal, shared, addon or builtin",
+                        "description": "personal, shared, agent, addon or builtin",
                         "name": "layer",
                         "in": "path",
                         "required": true
@@ -7263,6 +7263,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "the add-on's ID, for the addon layer",
                         "name": "addon",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the saved agent's ID, for the agent layer",
+                        "name": "agent",
                         "in": "query"
                     }
                 ],
@@ -7327,7 +7333,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator.",
+                "description": "The skill's folder goes to the Trash of your files, where it can be restored. Shared skills need an administrator. A skill of the agent layer is deleted with the agent query parameter.",
                 "tags": [
                     "chats"
                 ],
@@ -7335,10 +7341,16 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "personal or shared",
+                        "description": "personal, shared or agent",
                         "name": "layer",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the saved agent's ID, for the agent layer",
+                        "name": "agent",
+                        "in": "query"
                     },
                     {
                         "type": "string",
@@ -22243,6 +22255,13 @@ const docTemplate = `{
                 "addon_title": {
                     "type": "string"
                 },
+                "agent": {
+                    "description": "Agent and AgentName name the saved agent that owns a skill of the agent\nlayer: the agent proposed it and the owner confirmed it.",
+                    "type": "string"
+                },
+                "agent_name": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
@@ -22267,7 +22286,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "layer": {
-                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\npersonal, shared, addon (an installed add-on ships it) or builtin.",
+                    "description": "Layer is where it comes from: folder (a .skills folder of your files),\nagent (a saved agent proposed it), personal, shared, addon (an installed\nadd-on ships it) or builtin.",
                     "type": "string"
                 },
                 "name": {
@@ -22276,6 +22295,10 @@ const docTemplate = `{
                 "path": {
                     "description": "Path is the path of its SKILL.md as the model sees it.",
                     "type": "string"
+                },
+                "removable": {
+                    "description": "Removable is true when the skill can be deleted from the Skills page\nalthough it cannot be edited there (a skill of the agent layer).",
+                    "type": "boolean"
                 },
                 "shadowed": {
                     "description": "Shadowed names the layer of a nearer skill with the same name, which wins.",

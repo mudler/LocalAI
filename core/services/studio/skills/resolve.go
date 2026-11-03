@@ -19,9 +19,14 @@ import (
 // Layer is where a skill comes from. A nearer layer wins over a farther one.
 type Layer string
 
-// The five layers, nearest first.
+// The six layers, nearest first.
 const (
-	LayerFolder   Layer = "folder"
+	LayerFolder Layer = "folder"
+	// LayerAgent holds the skills of one saved agent, in the owner's home under
+	// LocalAI/agents/<agent>/skills. Only a chat that runs that agent sees
+	// them. It is nearer than the personal layer, so an agent's own version of
+	// a skill wins over the owner's for that agent.
+	LayerAgent    Layer = "agent"
 	LayerPersonal Layer = "personal"
 	LayerShared   Layer = "shared"
 	// LayerAddon holds the skills of the add-ons a chat may use now. It is
@@ -35,20 +40,26 @@ func (l Layer) rank() int {
 	switch l {
 	case LayerFolder:
 		return 0
-	case LayerPersonal:
+	case LayerAgent:
 		return 1
-	case LayerShared:
+	case LayerPersonal:
 		return 2
-	case LayerAddon:
+	case LayerShared:
 		return 3
-	case LayerBuiltin:
+	case LayerAddon:
 		return 4
+	case LayerBuiltin:
+		return 5
 	}
-	return 5
+	return 6
 }
 
 // SkillsDir is the name of the folder that holds the skills of a folder.
 const SkillsDir = ".skills"
+
+// SkillsLayerDir is the name of the folder that holds the skills of an agent,
+// inside the agent's folder.
+const SkillsLayerDir = "skills"
 
 // SkillFile is the name of the file that makes a folder a skill.
 const SkillFile = "SKILL.md"
@@ -86,6 +97,9 @@ type Root struct {
 	// Addon and AddonTitle name the add-on of an add-on layer root: one root
 	// per add-on. They are copied to the skills found there.
 	Addon, AddonTitle string
+	// Agent names the saved agent of an agent layer root. It is copied to the
+	// skills found there, with AgentName, its display name.
+	Agent, AgentName string
 }
 
 // Skill is one skill that Resolve saw.
@@ -114,6 +128,8 @@ type Skill struct {
 	// Addon and AddonTitle name the add-on that ships a skill of the add-on
 	// layer.
 	Addon, AddonTitle string
+	// Agent names the saved agent that owns a skill of the agent layer.
+	Agent, AgentName string
 	// Fallback, set by the product, names the add-on whose own skill of this
 	// name would replace this built-in one but is off or not running here.
 	Fallback string
@@ -152,12 +168,14 @@ var ErrNotReplaceable = errors.New("the name is a built-in skill and cannot be r
 
 // container is a folder that holds one subfolder per skill.
 type container struct {
-	layer Layer
-	path  string
-	guest string
-	depth int // folders between the walk root and the container's parent
-	addon string
-	title string
+	layer     Layer
+	path      string
+	guest     string
+	depth     int // folders between the walk root and the container's parent
+	addon     string
+	title     string
+	agent     string
+	agentName string
 }
 
 // Resolve reads the skills that the actor can see in roots and applies the
@@ -210,7 +228,7 @@ func Resolve(ctx context.Context, s workspace.Store, a workspace.Actor, roots []
 			boxes = append(boxes, found...)
 			continue
 		}
-		boxes = append(boxes, container{layer: r.Layer, path: cleanPath(r.Path), guest: strings.TrimSuffix(r.Guest, "/"), addon: r.Addon, title: r.AddonTitle})
+		boxes = append(boxes, container{layer: r.Layer, path: cleanPath(r.Path), guest: strings.TrimSuffix(r.Guest, "/"), addon: r.Addon, title: r.AddonTitle, agent: r.Agent, agentName: r.AgentName})
 	}
 	if o.Logger != nil {
 		o.Logger.Debug("skills: folder walk", "folders", walked, "limit", maxWalkFolders)
@@ -381,6 +399,8 @@ func readSkill(ctx context.Context, s workspace.Store, a workspace.Actor, b cont
 		depth:      b.depth,
 		Addon:      b.addon,
 		AddonTitle: b.title,
+		Agent:      b.agent,
+		AgentName:  b.agentName,
 	}
 	rc, node, err := s.Open(ctx, a, dp+"/"+SkillFile)
 	if err != nil {

@@ -14,6 +14,8 @@ import (
 // intersected with what the user may use at the time of the turn. A nil scope is
 // a plain chat, which gets everything its user may use.
 type scope struct {
+	agentName    string
+	agentID      string // the saved agent of the chat; its skills layer is granted
 	instructions string
 	deleted      bool // the chat names an agent that no longer exists
 	mcp          []string
@@ -53,6 +55,7 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 	}
 	held := s.usableGrants(ctx, rec.Principal, ag.Builtins)
 	return &scope{
+		agentID: rec.AgentID, agentName: ag.Name,
 		builtins: set(held), builtinNames: held,
 		instructions: strings.TrimSpace(ag.Instructions), mcp: ag.MCPServers,
 		addons: set(ag.Addons), collections: set(ag.Collections), skills: set(ag.Skills),
