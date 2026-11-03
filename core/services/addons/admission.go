@@ -15,10 +15,25 @@ import (
 type HostRequirementsRefusal struct{ Summary hostops.RequestSummary }
 
 func (e *HostRequirementsRefusal) Error() string {
-	return fmt.Sprintf("required host operations unavailable: %s; configure host policy and restart", strings.Join(e.Summary.MissingRequired, ", "))
+	if e.Blocked() {
+		return fmt.Sprintf("this add-on needs %s, which the administrator policy blocks; it cannot be installed or started", strings.Join(e.Summary.DeniedRequired, ", "))
+	}
+	return fmt.Sprintf("required host operations unavailable: %s; approve host access in the browser, or set the host policy and restart", strings.Join(e.Summary.MissingRequired, ", "))
+}
+
+// Blocked reports whether a deny rule forbids a required operation. Such an
+// add-on cannot be approved, only unblocked by the administrator.
+func (e *HostRequirementsRefusal) Blocked() bool { return len(e.Summary.DeniedRequired) != 0 }
+
+// Code is the failure code of an operation that this refusal ended.
+func (e *HostRequirementsRefusal) Code() string {
+	if e.Blocked() {
+		return "blocked_by_policy"
+	}
+	return "approval_required"
 }
 func (m *Manager) requests(r packages.PackageReceipt) hostops.RequestSummary {
-	return hostops.RequestsFor(r.Manifest.Capabilities.HostOperations, hostops.SupportedOperations(), m.hostAuthority(), r.Manifest.ID)
+	return hostops.RequestsFor(r.Manifest.Capabilities.HostOperations, hostops.SupportedOperations(), m.pendingFor(r.Manifest.ID), r.Manifest.ID)
 }
 func (m *Manager) admit(r packages.PackageReceipt) error {
 	s := m.requests(r)

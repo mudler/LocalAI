@@ -89,6 +89,7 @@ func (m *Manager) load() error {
 		return ErrConfiguration
 	}
 	m.journal = j
+	m.rebuildCompleted()
 	return nil
 }
 func copyStatus(s Status) Status {

@@ -38,7 +38,7 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		return OperationStatus{}, ErrNotOwner
 	}
 	if old, ok := m.upgradeViews[cmd.OperationID]; ok {
-		if old.Command != cmd || old.Actor != actor {
+		if !old.Command.same(cmd) || old.Actor != actor {
 			return OperationStatus{}, ErrConflict
 		}
 		return old.Status, nil
@@ -61,7 +61,7 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		return OperationStatus{}, ErrRecoveryRequired
 	}
 	if old, ok := m.journal.Operations[cmd.OperationID]; ok {
-		if old.Command != cmd || old.Actor != actor {
+		if !old.Command.same(cmd) || old.Actor != actor {
 			return OperationStatus{}, ErrConflict
 		}
 		return old.Status, nil

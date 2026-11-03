@@ -3,6 +3,7 @@ package addons
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"time"
@@ -25,6 +26,10 @@ type AutoUpgradeResult struct {
 	OperationID      string
 	CandidateDigest  string
 	SkippedAsFailure bool
+	// HeldForApproval is set when the candidate needs host operations that
+	// nobody approved. The old version keeps running; an administrator approves
+	// the upgrade in the browser. An automatic upgrade never approves.
+	HeldForApproval bool
 }
 
 // AutoUpgrade checks every installed add-on against its library, fetching the
@@ -73,6 +78,8 @@ func (m *Manager) AutoUpgrade(ctx context.Context) []AutoUpgradeResult {
 			ExpectedDigest: st.InstalledDigest, CandidateDigest: st.CandidateDigest,
 		}, true)
 		if r.Err != nil {
+			var refusal *HostRequirementsRefusal
+			r.HeldForApproval = errors.As(r.Err, &refusal) && !refusal.Blocked()
 			m.rememberAutoFailure(id, st.CandidateDigest)
 			xlog.Error("Failed to auto-upgrade add-on", "addon", id, "from", st.InstalledVersion, "to", st.CandidateVersion, "error", r.Err)
 		} else {

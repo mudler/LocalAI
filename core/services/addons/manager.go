@@ -165,6 +165,13 @@ type Manager struct {
 	// so a grant or a revoke applies without a restart.
 	authority atomic.Pointer[hostops.Authority]
 	floor     atomic.Pointer[hostops.Authority]
+	// grants records the grants made in the UI; pending holds, per add-on, the
+	// operations an install or upgrade in flight is about to be granted.
+	grantsMu sync.Mutex
+	grants   GrantStore
+	pending  map[string][]string
+	// completed holds the operations that completed; see OperationCompleted.
+	completed map[string]bool
 }
 
 // SetAuthority sets the Authority that admission and the apps list ask. The
@@ -412,7 +419,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		return OperationStatus{}, ErrConflict
 	}
 	if old, ok := m.journal.Operations[cmd.OperationID]; ok {
-		if old.Command != cmd || old.Actor != actor {
+		if !old.Command.same(cmd) || old.Actor != actor {
 			return OperationStatus{}, ErrConflict
 		}
 		if old.Async && old.Status.Phase == string(lifecycleAccepted) {
@@ -556,7 +563,23 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			var admission *HostRequirementsRefusal
 			if errors.As(c, &admission) {
+				// The operation is journaled as failed already; tell the
+				// administrator apart "approve this" from "policy blocks this".
+				op.Status.FailureCode = admission.Code()
+				m.journal.Operations[cmd.OperationID] = op
+				if e := m.persist(string(lifecycleFailed)); e != nil {
+					return op.Status, e
+				}
 				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, admission)
+			}
+			var stale *ApprovalStaleError
+			if errors.As(c, &stale) {
+				op.Status.FailureCode = "approval_stale"
+				m.journal.Operations[cmd.OperationID] = op
+				if e := m.persist(string(lifecycleFailed)); e != nil {
+					return op.Status, e
+				}
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, stale)
 			}
 			var typed *FailureCause
 			if errors.As(c, &typed) {
@@ -606,7 +629,8 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if m.uncertain || m.runtimeRecoveryRequired {
 				return op.Status, ErrRecoveryRequired
 			}
-			if e := m.admit(staged.Receipt()); e != nil {
+			grant, blanket, e := m.approvedGrant(ctx, cmd, staged.Receipt())
+			if e != nil {
 				op.Status.HostOperations = summaryPointer(m.requests(staged.Receipt()))
 				if discardErr := m.installer.Discard(staged); discardErr != nil {
 					xlog.Warn("Could not discard refused addon stage", "addon", cmd.AddonID, "error", discardErr)
@@ -614,7 +638,21 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				return fail(e)
 			}
 			op.Status.HostOperations = summaryPointer(m.requests(staged.Receipt()))
-			var e error
+			// The grants are written before the journal commits the operation,
+			// and removed again when it does not complete. They take effect
+			// only once it has. Until then admission sees them as pending.
+			if len(grant) > 0 {
+				if e = m.stageGrants(ctx, cmd, actor, staged.Receipt(), next, grant, blanket); e != nil {
+					m.setPending(cmd.AddonID, nil)
+					if discardErr := m.installer.Discard(staged); discardErr != nil {
+						xlog.Warn("Could not discard refused addon stage", "addon", cmd.AddonID, "error", discardErr)
+					}
+					return fail(e)
+				}
+				defer m.endGrants(cmd.OperationID, cmd.AddonID)
+			} else {
+				m.setPending(cmd.AddonID, nil)
+			}
 			if release != nil {
 				// An explicit upgrade never changes the trusted identity,
 				// the library or the channel, whatever the add-on holds.
@@ -766,6 +804,7 @@ func (m *Manager) resolveRelease(ctx context.Context, cmd LifecycleCommand) (cat
 }
 
 func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
+	uninstall := op.Command.Action == "uninstall"
 	m.journal.Addons[op.Command.AddonID] = copyStatus(*op.Next)
 	op.Status.Phase = string(lifecycleApplied)
 	m.journal.Operations[op.Command.OperationID] = op
@@ -775,7 +814,16 @@ func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	op.Status.Phase = string(lifecycleCompleted)
 	op.Next = nil
 	m.journal.Operations[op.Command.OperationID] = op
-	return op.Status, m.persist(string(lifecycleCompleted))
+	e := m.persist(string(lifecycleCompleted))
+	if e == nil {
+		m.markCompleted(op.Command.OperationID)
+	}
+	if e == nil && uninstall {
+		// Journal first, then the grants: a crash in between leaves grants of
+		// an add-on that is not installed, which the next start removes.
+		m.removeGrants(op.Command.AddonID)
+	}
+	return op.Status, e
 }
 func (m *Manager) Reconcile(ctx context.Context) error {
 	m.opMu.Lock()
@@ -830,6 +878,11 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 	}
 	if e := m.persist("reconciled"); e != nil {
 		return e
+	}
+	// Grants follow the journal: a crash between the two files leaves entries
+	// of operations that never completed and of add-ons that are gone.
+	if e := m.reconcileGrantsLocked(ctx); e != nil {
+		xlog.Warn("Could not reconcile the host grants with the journal", "error", e)
 	}
 	return m.syncRuntime(ctx, "")
 }
@@ -1043,7 +1096,9 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 			continue
 		}
 		state := m.journal.Addons[id]
-		if !state.Installed || !state.DesiredEnabled || state.Generation != instance.Generation {
+		// An add-on that lost an operation it requires stops, as one that
+		// is disabled does. Its running calls finish; the next one is refused.
+		if !state.Installed || !state.DesiredEnabled || state.Generation != instance.Generation || m.admission(id) != nil {
 			if e := m.runtime.Stop(ctx, instance); e != nil {
 				return e
 			}

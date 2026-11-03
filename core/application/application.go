@@ -117,6 +117,7 @@ type Application struct {
 	// hostAuthority answers what each add-on may call; see addonAuthority.
 	hostAuthority      hostops.Authority
 	addonAuthorityOnce sync.Once
+	addonGrantStore    addons.GrantStore
 	// addonTransfers holds the handles of connector file transfers; see transfers.
 	addonTransfers     *hostops.Transfers
 	addonTransfersOnce sync.Once
@@ -1013,6 +1014,7 @@ func (a *Application) startAddons() error {
 	}
 	m.SetHostOps(a.applicationConfig.AddonHostOps)
 	m.SetAuthority(a.addonAuthority())
+	m.SetGrantStore(a.addonGrantStore)
 	if c.InstanceID == c.OwnerID {
 		// Data recovery sits beside the manager: an upgrade of an add-on that
 		// has data goes through it, and its journals are settled before any

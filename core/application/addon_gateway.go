@@ -77,6 +77,18 @@ func (a *Application) addonAuthority() hostops.Authority {
 	return a.hostAuthority
 }
 
+// SetAddonGrantStore sets the store of UI grants that the add-on manager
+// writes at install and upgrade. Call it once, before the add-on manager starts.
+func (a *Application) SetAddonGrantStore(s addons.GrantStore) { a.addonGrantStore = s }
+
+// AddonOperationCompleted reports whether a lifecycle operation completed in
+// the owner's journal. An Authority that counts pending grants only after their
+// operation completed calls this late-bound, since it is built before the
+// manager. It never blocks on the manager lock.
+func (a *Application) AddonOperationCompleted(operationID string) bool {
+	return a.addonManager != nil && a.addonManager.OperationCompleted(operationID)
+}
+
 // SetAddonAuthority sets the Authority of the add-on host operations. It must
 // be called once, before the add-on manager starts; a later call is ignored,
 // so a grant never changes the rule by which it is checked.
