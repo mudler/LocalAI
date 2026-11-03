@@ -2228,6 +2228,8 @@ The manifest declares the capability. It needs no tool and no `service` flag:
 | `kinds[].page` | Optional. The add-on page that adds and edits bindings; it must be a declared page. The Connectors page links to it. |
 | `kinds[].drafts` | Optional. `true` when the add-on serves the op `draft`. The host then shows the live answer of a direct conversation as a draft instead of a working message. |
 | `kinds[].previewMs` | Optional. The shortest time between two previews (edits or drafts) of one binding, 250 to 10000 ms. Without it the host waits one second. |
+| `kinds[].history` | Optional, manifest `api` 2. `{"thread": true, "maxMessages": N}`: the add-on serves the op `history` for threads, and returns at most `maxMessages` (1 to 200; without it the host asks for 30). A kind without it is never asked, so it keeps the behaviour of a platform that cannot give old messages. |
+| `kinds[].options` | Optional, manifest `api` 2, at most 4. A choice that each binding of the kind makes: `{"id", "title", "description", "values": [{"id", "title"}], "default"}` with 2 to 8 values and a default among them. The host shows the choice on the binding page, checks the owner's value against the declaration, stores it, and sends the value in effect to the add-on in `options` of every `poll`. What the option means is the add-on's own rule. |
 
 **Outbound: the connector route.** The host calls `POST /connector` on the add-on
 with the same bearer credential and incarnation header as every other route and a body
@@ -2240,6 +2242,28 @@ reference of a message's `media`; the answer is `{"file": {"name", "mime", "data
 with at most 1 MiB of data) and, for a kind that declares `drafts`, `draft`
 (`chat`, `thread`, `draftId`, `text`).
 
+- **Options.** A `poll` carries `options`, a map from each declared option id to the
+  value in effect (the owner's choice, or the default). The host sends it with every
+  poll, so a change reaches the add-on within one poll. The shared route gives it to the
+  platform with `connector.OptionsFrom(ctx)`. The Slack add-on uses it for `followThreads`
+  (`own`, `any` or `never`): the add-on decides which messages are `mention`, so the host
+  only forwards what the add-on marks as addressed to the bot.
+- **The op `history`.** For a kind that declares `history`, the host calls
+  `{"op": "history", "chat", "thread", "limit", "before"}` when a message in a thread
+  makes a new chat, at most once for that chat. `limit` is the most messages to return
+  (never more than `maxMessages`); `before` is the ID of the message the host handles
+  now, which is not returned. The answer is `{"messages": [...], "truncated": bool}`, oldest
+  first, the newest `limit` messages of the thread. A message is `{"messageId",
+  "senderId", "senderName", "senderUsername", "text", "ts", "own", "media",
+  "mediaNames"}`: `own` marks a message of the bot, `media` is the number of files and
+  `mediaNames` at most 8 names; the bytes of a file are never part of a history.
+  `truncated` says that older messages exist. The text is what people wrote: the host
+  treats it as untrusted, flattens it, bounds it (30 messages and 8 KiB by default),
+  and gives it to the first turn only. A failure or a `rate_limited` answer is
+  logged and the turn goes on without the context; an add-on does not wait out a rate
+  limit in this op. The add-on should read only the thread it is asked for. Core knows no
+  platform: Slack's `conversations.replies` is the add-on's own business. The shared route
+  serves the op for a platform that implements `connector.HistoryReader`.
 - A `send` with a `messageId` replaces that message of the bot (the host's working
   message) with the first part of the text and sends the rest as new messages. When
   the message cannot be edited (it was deleted, or is too old), the first part goes
