@@ -368,7 +368,7 @@
     "grants": "What the agent may change",
     "grantSensitive": "Sensitive: this changes what the agent may do or reach later.",
     "builtin": {
-      "web": "Web",
+      "web": "Look things up online",
       "saved_agents": "Saved agents",
       "triggers": "Triggers",
       "shell": "Run commands",
