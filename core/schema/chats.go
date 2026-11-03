@@ -1723,8 +1723,8 @@ type ChatsExecutionStatus struct {
 	Isolation   string `json:"isolation"`
 	Explanation string `json:"explanation,omitempty"`
 	// UnknownReason says why the status is unknown: owner_unreachable,
-	// not_reported, stale, invalid_status, not_selected, no_answer or
-	// reported_unknown. Absent when the status is known.
+	// not_reported, stale, invalid_status, not_selected, no_answer,
+	// reported_unknown or draft (the chat does not exist yet). Absent when the status is known.
 	UnknownReason string `json:"unknown_reason,omitempty" example:"owner_unreachable"`
 	Generation    string `json:"generation,omitempty"`
 	Incarnation   string `json:"incarnation,omitempty"`

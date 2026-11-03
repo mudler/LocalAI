@@ -41,6 +41,8 @@ const (
 	UnknownNoAnswer UnknownReason = "no_answer"
 	// UnknownReportedUnknown: the add-on answered that it cannot tell.
 	UnknownReportedUnknown UnknownReason = "reported_unknown"
+	// UnknownDraft: the chat does not exist yet, so no add-on is bound to it.
+	UnknownDraft UnknownReason = "draft"
 )
 
 // ExecutionDetail is what the provider said beside the typed value, plus why
@@ -127,6 +129,9 @@ func ObserveExecution(ctx context.Context, user, addon string) (model.Value, Exe
 	if user != scope.user {
 		return model.Unknown(), ExecutionDetail{Failure: UnknownNotSelected}
 	}
+	if scope.conversation == "" {
+		return model.Unknown(), ExecutionDetail{Failure: UnknownDraft}
+	}
 	scope.mu.Lock()
 	if !scope.closed && scope.provider != nil && (!scope.started || (scope.retriable && time.Since(scope.attempted) >= observationRetryAfter)) {
 		// The first read of a scope stands. A turn can outlive a restart of the
@@ -201,6 +206,8 @@ func (r UnknownReason) Text() string {
 		return "the add-on did not answer in time"
 	case UnknownReportedUnknown:
 		return "the add-on reported that it cannot tell"
+	case UnknownDraft:
+		return "the chat has not been created yet"
 	}
 	return "the reason is not known"
 }
@@ -223,6 +230,9 @@ type ExecutionStatusView struct {
 
 func executionStatusView(ctx context.Context, user, addon string) *ExecutionStatusView {
 	v, d := model.Unknown(), ExecutionDetail{Failure: UnknownNotSelected}
+	if scope, ok := ctx.Value(executionObservationKey{}).(*executionObservation); ok && scope.user == user && scope.conversation == "" {
+		addon, d.Failure = "", UnknownDraft // a draft has no add-on bound yet
+	}
 	if addon != "" {
 		v, d = ObserveExecution(ctx, user, addon)
 	}

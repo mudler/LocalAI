@@ -320,3 +320,12 @@ test('unknown status: each reason code has its own text key, and a code from a n
   assert.equal(unknownTextKey(''), 'unknown')
   assert.equal(commandsState({ commands: 'available', commands_provider: 'sandbox', execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'x' } }).code, '')
 })
+
+test('a draft chat has no execution status to warn about', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  const draft = { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' }
+  const available = commandsState({ commands: 'available', commands_provider: 'sandbox', execution_status: draft })
+  assert.equal(available.state, 'draft')
+  assert.equal(commandsNotice(available.state), null)
+  assert.equal(commandsState({ commands: 'none', execution_status: draft }).state, 'none')
+})
