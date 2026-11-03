@@ -152,3 +152,21 @@ var _ = It("cuts a long name on a character boundary", func() {
 	Expect(utf8.ValidString(got)).To(BeTrue())
 	Expect(got).To(HaveSuffix(".csv"))
 })
+
+var _ = Describe("the permission of a tool", func() {
+	It("is tools.write for a tool that is not a read, in an add-on that holds a credential", func() {
+		for _, kind := range []string{ToolKindWrite, ToolKindSchema, ToolKindCreate, ToolKindAction} {
+			Expect(ToolPermission(true, ToolDefinition{Kind: kind})).To(Equal(CapToolsWrite), kind)
+		}
+	})
+	It("is empty for a read, and for any tool of an add-on without a credential", func() {
+		Expect(ToolPermission(true, ToolDefinition{Kind: ToolKindRead})).To(BeEmpty())
+		for _, kind := range []string{ToolKindRead, ToolKindWrite, ToolKindSchema, ToolKindCreate, ToolKindAction} {
+			Expect(ToolPermission(false, ToolDefinition{Kind: kind})).To(BeEmpty(), kind)
+		}
+	})
+	It("names a capability in the closed list", func() {
+		Expect(KnownCapability(CapToolsWrite)).To(BeTrue())
+		Expect(SensitiveCapability(CapToolsWrite)).To(BeFalse())
+	})
+})

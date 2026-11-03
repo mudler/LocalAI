@@ -120,6 +120,10 @@ type ToolDefinition struct {
 	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
 	// empty. The chat consumer ranks the add-ons that shadow one name by it.
 	InstalledAt string `json:"installedAt,omitempty"`
+	// Permission is the capability (see contract.ToolPermission) that a
+	// sender needs to use the tool in a connector chat, or empty. The chat
+	// consumer holds the tool to it; another consumer has no sender.
+	Permission string `json:"permission,omitempty"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -606,7 +610,7 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt}
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d)}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never
 	// shadows it.
@@ -823,7 +827,9 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 // failure that is certain withdraws the proposal, so nothing waits for a
 // browser; an unknown outcome is left alone and reported, never repeated.
 func (t *ToolAdapter) applyNow(ctx context.Context, actor contract.Actor, name string, p gateway.Proposal) (ToolResult, error) {
-	done, err := t.apply.ConfirmProposal(ctx, actor, p.ID, p.Digest)
+	// The mark keeps the owner from treating this confirmation as a person's
+	// when the chat and the browser share one credential (local-owner mode).
+	done, err := t.apply.ConfirmProposal(gateway.WithChatTurn(ctx), actor, p.ID, p.Digest)
 	if err != nil {
 		var unknown *gateway.OutcomeUnknown
 		var unavailable *gateway.ProposalUnavailable

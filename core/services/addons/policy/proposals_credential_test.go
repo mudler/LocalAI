@@ -142,6 +142,21 @@ var _ = Describe("the write tools of an add-on with a credential", Label("propos
 			Expect(spy.applies[0].Request.Credential).To(Equal(secret))
 			Expect(spy.applies[0].Request.ResourceKey).To(Equal("acme/widgets"))
 		})
+		It("does not let a chat turn confirm it when the chat and the browser share one credential", func() {
+			// Local-owner mode: one credential stands for both, so only the mark
+			// of the call tells a chat turn from the browser.
+			setup("")
+			f.broker.opts.ConfirmCredential = func(contract.Actor) bool { return true }
+			f.broker.opts.ConfirmPerson = func(contract.Actor) bool { return true }
+			_, err := f.broker.Propose(ctx, who, request("op-1", "acme/widgets"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = f.broker.Confirm(gateway.WithChatTurn(ctx), who, "op-1")
+			Expect(err).To(MatchError(ErrForbidden))
+			Expect(spy.applies).To(BeEmpty())
+			receipt, err := f.broker.Confirm(ctx, who, "op-1")
+			Expect(err).NotTo(HaveOccurred(), "the same proposal is still pending for the browser")
+			Expect(receipt.State).To(Equal(contract.ReceiptCommitted))
+		})
 		It("refuses a repository that is not on the list before the add-on is called", func() {
 			_, err := f.broker.Propose(ctx, who, request("op-1", "acme/secret"))
 			var refusal *gateway.CredentialRefusal

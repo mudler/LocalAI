@@ -116,6 +116,10 @@ type App struct {
 	// the argument schema and the kind of each tool. The host serves them to
 	// chat from the verified manifest; the add-on process is never asked.
 	ToolDefinitions []contract.ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Credentialed is true when the manifest declares credentials: the tools
+	// work with a secret that the person keeps in a connector binding. A
+	// connector chat holds its write tools to contract.ToolPermission.
+	Credentialed bool `json:"credentialed,omitempty"`
 	// Resources is the resource mapping of the manifest, with the listing
 	// declaration the host acts on. It is not part of the apps API.
 	Resources *contract.ResourceTools `json:"-"`
@@ -267,6 +271,7 @@ func build(s Snapshot, admin bool) App {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
+	a.Credentialed = len(m.Capabilities.Credentials) > 0
 	a.Resources = resourceTools(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)

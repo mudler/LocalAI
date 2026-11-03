@@ -512,6 +512,17 @@ or has a role that you granted it. A sensitive capability needs a pairing; a rol
 never counts. If several people share one turn, the turn gets only what all of them
 may do.
 
+A tool of an add-on that holds your credential and changes something outside
+LocalAI (a comment on an issue, for example) needs `tools.write`. The host reads
+this from the add-on's manifest, so it applies to every add-on of that shape. The
+sender needs the capability as above; the write mode of the connection and the
+confirmation of the change still apply on top of it.
+
+The agent's grants narrow the result: see Builtin grants in
+[Agents](/features/chats-agents/). For `triggers.propose`, `triggers.run`,
+`talkback.channels`, `talkback.new_channel` and `files.upload` the sender must hold
+the capability and the agent must hold the grant.
+
 The check decides which tools the model gets. A tool that the sender may not use is
 not offered, so the model cannot be talked into it. If the model calls one anyway, the
 call is refused with the reason, and the model tells the person. Today this gates the

@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -34,6 +35,10 @@ type AddonTool struct {
 	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
 	// empty. It decides the default provider of a shadowed name.
 	InstalledAt string
+	// Permission is the capability (contract.ToolPermission) that the sender
+	// of a connector turn needs to use the tool, or empty. The host sets it
+	// from the manifest; the core does not know which add-on declares it.
+	Permission string
 }
 
 // AddonTools is the add-on broker as the chats see it. Both calls run as the
@@ -239,14 +244,21 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			tools = append(tools, t)
 			continue
 		}
-		tools = append(tools, session.Tool{
+		tool := session.Tool{
 			Name: name, Description: d.Description, Schema: schema,
 			// The user and the conversation come from the chat, never from the
 			// arguments the model wrote.
 			Run: func(ctx context.Context, args json.RawMessage) (string, error) {
 				return s.d.AddonTools.Call(ctx, a.Principal, a.ChatID, name, args)
 			},
-		})
+		}
+		if d.Permission != "" && rec.Origin == session.OriginConnector {
+			var ok bool
+			if tool, ok = s.gateAddonTool(tool, d.Permission, a.ChatID); !ok {
+				continue
+			}
+		}
+		tools = append(tools, tool)
 	}
 	installed := map[string]string{}
 	for _, d := range defs {
@@ -275,4 +287,27 @@ func unavailableTool(addonID, reason string) session.Tool {
 		Schema:      json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
 		Run:         func(context.Context, json.RawMessage) (string, error) { return msg, nil },
 	}
+}
+
+// gateAddonTool holds a tool of an add-on to the capability it declares (see
+// AddonTool.Permission) in a connector chat. The tool is offered only when the
+// sender of the turn holds the capability, and a call checks again and records
+// the decision, because the grant of a turn can shrink after the tools were
+// offered. The second result is false when the tool must not be offered. A chat
+// that no connector started has no sender and is not gated here: the write
+// mode of the binding and the confirmation of the proposal govern it.
+func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (session.Tool, bool) {
+	allow, audit := s.turnAllow(chat)
+	c := builtins.Chat{Allow: allow, Audit: audit}
+	if held, _ := c.Holds(permission); !held {
+		return t, false
+	}
+	run := t.Run
+	t.Run = func(ctx context.Context, args json.RawMessage) (string, error) {
+		if err := c.Require(permission); err != nil {
+			return "", err
+		}
+		return run(ctx, args)
+	}
+	return t, true
 }

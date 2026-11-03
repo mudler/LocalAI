@@ -120,6 +120,19 @@ func ConnectorCapabilities() []CapabilityInfo {
 	return out
 }
 
+// ToolPermission is the capability that a sender needs to use a tool of an
+// add-on in a connector chat, or "" when the tool needs none beyond the
+// binding. The rule is by shape, so the host names no add-on: a tool that
+// writes, in an add-on that holds a credential for the person's binding,
+// changes something outside LocalAI with that person's token, and needs
+// CapToolsWrite. credentialed says that the manifest declares credentials.
+func ToolPermission(credentialed bool, d ToolDefinition) string {
+	if credentialed && d.Kind != ToolKindRead {
+		return CapToolsWrite
+	}
+	return ""
+}
+
 // ConnectorRole is a role that a kind can give to a sender, such as the admin
 // of a workspace. The add-on decides who has which role and sends the role IDs
 // with each message; the owner decides what each role may do.

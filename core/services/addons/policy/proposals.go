@@ -1528,7 +1528,10 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		if grant.ResourceID != r.ResourceID {
 			return contract.Receipt{}, ErrForbidden
 		}
-		if (r.Await || grant.WriteMode != gateway.WriteAuto) && !b.confirmPerson(b.policy, actor) {
+		// A proposal that waits for a person is confirmed at a host surface,
+		// never from a chat turn: in local-owner mode the credential of a
+		// chat turn is the browser's, so the mark of the call decides.
+		if (r.Await || grant.WriteMode != gateway.WriteAuto) && (gateway.IsChatTurn(ctx) || !b.confirmPerson(b.policy, actor)) {
 			return contract.Receipt{}, ErrForbidden
 		}
 	}

@@ -273,3 +273,29 @@ var _ = Describe("typed execution status model exclusion", func() {
 		Expect(f.calls()).To(BeZero())
 	})
 })
+
+var _ = Describe("The permission a tool declares to the chat", func() {
+	ctx := context.Background()
+	discover := func(credentialed bool) map[string]string {
+		app := tablesApp(tablesManifest())
+		app.Credentialed = credentialed
+		defs, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		out := map[string]string{}
+		for _, d := range defs {
+			out[d.Tool] = d.Permission
+		}
+		return out
+	}
+	It("is tools.write for the tools that change things, in an add-on that holds a credential", func() {
+		got := discover(true)
+		Expect(got["databases-inspect"]).To(BeEmpty(), "a read needs nothing")
+		Expect(got["tables-create"]).To(Equal(contract.CapToolsWrite))
+		Expect(got["databases-create"]).To(Equal(contract.CapToolsWrite))
+	})
+	It("is empty for every tool of an add-on without a credential", func() {
+		for name, p := range discover(false) {
+			Expect(p).To(BeEmpty(), name)
+		}
+	})
+})
