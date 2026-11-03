@@ -8,7 +8,7 @@ test('page: it says how the notes work and offers to open them', async () => {
   const html = draw(addon, { page: 'memory' })
   assert.match(html, /data-testid="memory-page"/)
   assert.match(html, /Short memory/)
-  assert.match(html, /saved only after you confirm/)
+  assert.match(html, /saved only after you confirm it/)
   assert.match(html, /data-testid="memory-open"/)
 })
 

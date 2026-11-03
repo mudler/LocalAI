@@ -25,7 +25,11 @@ If the index is empty or no line relates, answer as usual. Do not say that you l
 
 ## Save a note
 
-When the user tells you a lasting fact, a taste or a rule, or asks you to remember something, call `propose_change` with kind `memory`. A note is never saved at once: the user confirms it, and the proposal expires after a day. Tell the user in plain words that you asked them to confirm it. Never say that it is saved before they confirm.
+When the user tells you a lasting fact, a taste or a rule, or asks you to remember something, call `propose_change` with kind `memory`. Read the result and say only what it says:
+
+- "Saved to memory": the user chose to have notes saved at once, so the note is saved. Tell them in plain words that you saved it and that they can undo it with the Undo on the chat.
+- "Proposal ... stored. Nothing is saved yet": the user confirms it, and the proposal expires after a day. Tell the user in plain words that you asked them to confirm it. Never say that it is saved before they confirm. This is the usual answer, and the only one in a chat that comes from a messaging app.
+- A refusal that says the user turned off saving to memory, or no `memory` kind in the tool: do not try again and do not look for another way. If they ask you to remember something, say that saving to memory is off.
 
 - Choose the scope with care. A fact about the person goes to `user`. A rule for how this agent works goes to `agent`. A fact that matters only in this conversation goes to `channel`.
 - `content` is the whole new file, not a patch. Call `context_read` first, or read the index in your prompt, and keep every line that stays.
@@ -38,7 +42,7 @@ Do not save: passwords, keys, tokens or card numbers; a one-time request; a gues
 
 ## Forget
 
-When the user says to forget something they just asked you to save, and the proposal was confirmed a moment ago, call `revert_change`. For an older note, propose the index without that line (and the details file with the text removed). Say that it waits for their confirmation, like any change.
+When the user says to forget something they just asked you to save, and it was saved or confirmed a moment ago, call `revert_change` with the id the result gave. For an older note, propose the index without that line (and the details file with the text removed). Say that it waits for their confirmation, like any change.
 
 ## Notes you do not trust
 

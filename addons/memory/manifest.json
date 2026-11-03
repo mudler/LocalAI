@@ -19,6 +19,9 @@
       { "scope": "agent", "path": "Memory/agents/{agent}/index.md" },
       { "scope": "channel", "path": "Memory/channels/{channel}/index.md" }
     ],
+    "userSettings": [
+      { "key": "save-mode", "values": ["ask", "auto", "never"], "default": "ask", "role": "memory.save-mode" }
+    ],
     "ui": {
       "entry": "ui/memory.js",
       "css": ["ui/memory.css"],
@@ -27,7 +30,7 @@
       "mainPage": "memory",
       "icon": "ui/icon.png",
       "title": "Short memory",
-      "description": "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+      "description": "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
     }
   }
 }
