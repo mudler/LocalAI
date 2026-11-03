@@ -12,6 +12,7 @@ import (
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // AddonTool is one tool of an installed add-on, as a chat offers it to the model.
@@ -27,6 +28,9 @@ type AddonTool struct {
 	// empty: the tool keeps its add-on name. A tool that shadows bash is the
 	// add-on's tool that runs shell commands and code.
 	Shadows string
+	// Execution is what the add-on declares about a tool that shadows bash
+	// (its provider title and note), or nil.
+	Execution *contract.ExecutionDescriptor
 	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
 	// empty. It decides the default provider of a shadowed name.
 	InstalledAt string

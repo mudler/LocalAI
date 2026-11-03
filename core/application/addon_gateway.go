@@ -751,7 +751,7 @@ func (s *studioAddons) Tools(ctx context.Context, user string) ([]studio.AddonTo
 			continue
 		}
 		out = append(out, studio.AddonTool{Name: d.Name, AddonID: d.AddonID, Description: d.Description, Schema: raw, Action: d.Kind != contract.ToolKindRead,
-			Shadows: d.Shadows, InstalledAt: d.InstalledAt})
+			Shadows: d.Shadows, Execution: d.Execution, InstalledAt: d.InstalledAt})
 	}
 	return filterByFeature(out, s.hostOps, s.has, actor), nil
 }
@@ -777,7 +777,7 @@ func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.A
 		if denied[a.AddonID] {
 			continue
 		}
-		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: contract.SkillNames(a.Skills),
+		out = append(out, studio.AddonSkillSet{AddonID: a.AddonID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: contract.SkillNames(a.Skills), Isolated: a.Isolated,
 			Shadows: contract.ShadowedSkills(a.Skills), Running: a.Running})
 	}
 	return out, nil
