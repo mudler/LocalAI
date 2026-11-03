@@ -260,6 +260,9 @@ func (s *Service) contextCommand(ctx context.Context, p, conv string, fn func(re
 	return err
 }
 
+// compactLimit bounds the model call of a compaction.
+const compactLimit = 10 * time.Minute
+
 // Compact shrinks the model's context of the chat now, with the summary the
 // loop makes when the context fills up, and returns its size in tokens before
 // and after. The transcript keeps every message and gets a marker; the next
@@ -281,7 +284,10 @@ func (s *Service) Compact(ctx context.Context, user, conv string) (before, after
 				s.log.Warn("studio: could not close the chat after a compaction", "chat", conv, "error", cerr)
 			}
 		}()
-		before, after, err = chat.Compact(context.WithoutCancel(ctx))
+		// The summary is one model call that outlives the request; bound it.
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), compactLimit)
+		defer cancel()
+		before, after, err = chat.Compact(cctx)
 		switch {
 		case errors.Is(err, session.ErrNothingToCompact):
 			return ErrNothingToCompact
