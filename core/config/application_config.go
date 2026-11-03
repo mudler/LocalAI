@@ -100,6 +100,16 @@ type ApplicationConfig struct {
 	// call. It is startup-only. Nil or empty means no add-on gets a host
 	// operation endpoint.
 	AddonHostOps map[string][]string `json:"-" yaml:"-"`
+	// AddonHostDeny maps an add-on ID, or "*" for all, to host operation
+	// prefixes, exact names or "*" that no grant may enable. Startup-only;
+	// deny set in the UI is stored separately and applies live.
+	AddonHostDeny map[string][]string `json:"-" yaml:"-"`
+	// AddonHostBlanket is the blanket approval mode set by the deployment
+	// ("off", "official", "any"). Empty leaves the choice to the UI.
+	AddonHostBlanket string `json:"-" yaml:"-"`
+	// AddonHostUIGrantsLocked makes the UI grant store read-only, so the
+	// policy file and flags are the only source of grants.
+	AddonHostUIGrantsLocked bool `json:"-" yaml:"-"`
 
 	// DiagnosticsRecorder is startup-only and local to this frontend process.
 	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`

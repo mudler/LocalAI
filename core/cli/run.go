@@ -43,6 +43,9 @@ type RunCMD struct {
 	P2PEnableLimits           string `name:"p2p-enable-limits" env:"LOCALAI_P2P_ENABLE_LIMITS" help:"Set to true to enable P2P resource limits" group:"p2p"`
 	AddonHostPolicy           string `name:"addon-host-policy" env:"LOCALAI_ADDON_HOST_POLICY" help:"Absolute path to administrator host operation policy JSON, read once at startup. Empty disables environment policy" group:"addons"`
 	AddonHostOps              string `name:"addon-host-ops" env:"LOCALAI_ADDON_HOST_OPS" help:"Add-ons that may call host operations, as a comma list of addon-id=operation-prefix. An add-on that is not listed gets no host operation channel. Empty gives none" group:"addons"`
+	AddonHostDeny             string `name:"addon-host-deny" env:"LOCALAI_ADDON_HOST_DENY" help:"Host operations no grant may enable, as a comma list of addon-id=operation (a prefix such as egress., an exact name or *). Use *=prefix for every add-on. Deny always wins over grants and is unioned with the deny rules of the policy file" group:"addons"`
+	AddonHostBlanket          string `name:"addon-host-blanket" env:"LOCALAI_ADDON_HOST_BLANKET" help:"Blanket approval of declared host operations at install and upgrade: off, official or any. When set, the UI shows it read-only. Unset leaves the choice to the administrator in the UI" group:"addons"`
+	AddonHostUIGrants         bool   `name:"addon-host-ui-grants" env:"LOCALAI_ADDON_HOST_UI_GRANTS" default:"true" help:"Let an administrator grant host operations to add-ons in the UI. Turn it off with --addon-host-ui-grants=false to make the policy file and flags the only source of grants" group:"addons"`
 	AddonsEnabled             bool   `name:"addons-enabled" env:"LOCALAI_ADDONS_ENABLED" default:"true" help:"Run the add-on owner, which installs and supervises add-ons. Turn it off with --addons-enabled=false" group:"addons"`
 	AddonsOwnershipMode       string `name:"addons-ownership-mode" env:"LOCALAI_ADDONS_OWNERSHIP_MODE" help:"Who may use add-ons: named-user (each account has its own access; needs authentication) or local-owner (every caller shares one owner). Default: local-owner when authentication is off, named-user when it is on" group:"addons"`
 	AddonsRole                string `name:"addons-role" env:"LOCALAI_ADDONS_ROLE" default:"combined" help:"How this process takes part in the add-on owner: combined (this node is its own owner, the default), owner (only the owner, serves the carrier on the network) or frontend (no owner here; every add-on request goes to the owner). owner and frontend need --addons-owner-address and --addons-carrier-dir" group:"addons"`
@@ -329,6 +332,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		return err
 	}
 	logAddonHostOpsResolution(hostOps)
+	blanket, err := config.ParseAddonHostBlanket(r.AddonHostBlanket)
+	if err != nil {
+		return err
+	}
 
 	diagnosticOpts := r.diagnosticsOptions()
 	if err := diagnosticOpts.Validate(); err != nil {
@@ -384,6 +391,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	opts := []config.AppOption{
 		config.WithAddonHostOps(hostOps.Grants),
+		config.WithAddonHostDeny(hostOps.Deny),
+		config.WithAddonHostBlanket(blanket),
+		config.WithAddonHostUIGrantsLocked(!r.AddonHostUIGrants),
 		config.WithProxyAPIKeyEnvLookup(os.Getenv),
 		config.WithContext(runCtx),
 		config.WithArtifactDownloadConcurrency(r.ArtifactDownloadConcurrency),
