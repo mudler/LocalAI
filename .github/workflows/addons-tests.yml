@@ -11,6 +11,12 @@ name: 'Add-on Tests'
 # main test workflow (make test, make test-coverage-check). The packaging suite
 # runs in addons-package.yml. The UI unit tests of every add-on run in
 # tests-ui-unit.yml.
+#
+# Concurrency. A newer push to master cancels the older in-flight run of this
+# workflow, as in the other test workflows: tests are cumulative, so only the
+# newest commit is worth testing. A pull request groups by its number and
+# cancels its own older runs. Tag pushes group by their own ref, and schedule
+# and dispatch runs group by SHA, so a master push never cancels them.
 on:
   pull_request:
     paths:
@@ -61,8 +67,8 @@ on:
       - '.github/actions/**'
 
 concurrency:
-  group: ci-addons-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-addons-tests-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 permissions:
   contents: read
