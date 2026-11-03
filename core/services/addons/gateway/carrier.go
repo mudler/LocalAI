@@ -641,7 +641,8 @@ func operationCause(e error) string {
 // operation that cross the wire.
 func IsOperationCause(code string) bool {
 	switch code {
-	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
+		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused:
 		return true
 	}
 	return false
@@ -823,7 +824,8 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 					return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
 				case wirePackage:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
-				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
+					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
 				case wireNotPermitted:
 					return nil, ErrNotPermitted

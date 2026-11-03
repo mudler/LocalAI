@@ -82,6 +82,10 @@ func bodyLimitSkipper(cfg *config.ApplicationConfig) func(echo.Context) bool {
 		switch {
 		case r.Method == http.MethodPut && c.Path() == "/api/chats/files/content":
 			return true
+		case r.Method == http.MethodPost && c.Path() == "/api/addons/files":
+			// An add-on zip streams to the owner in chunks, which enforces
+			// the add-on size limit while it receives.
+			return true
 		case r.Method == http.MethodPost && c.Path() == "/api/chats/:id/messages":
 			// Only the multipart form carries files; a JSON message keeps the
 			// general limit.

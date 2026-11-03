@@ -209,6 +209,12 @@ func operationCauseMessage(code string) string {
 		return "The package could not be downloaded. Try again with a new operation ID. Nothing was installed"
 	case managerpkg.CauseInstallStorage:
 		return "The package could not be written to the add-on storage. Check the free space and the permissions of the add-on folder. Nothing was installed"
+	case managerpkg.CauseFileMissing:
+		return "The uploaded file is gone: it expired, or another user uploaded it. Upload it again. Nothing was installed"
+	case managerpkg.CauseVersionNotNewer:
+		return "This version of the add-on is installed already. Nothing was installed"
+	case managerpkg.CauseDowngradeRefused:
+		return "The file holds an older version than the installed one. Confirm the downgrade to install it. Nothing was installed"
 	}
 	return "The operation failed"
 }

@@ -59,6 +59,9 @@ func (c HostGrantsCall) write() bool {
 }
 
 func (c HostGrantsCall) valid() bool {
+	if isFileOp(c.Op) {
+		return c.OperationID == ""
+	}
 	switch c.Op {
 	case HostGrantsRead, HostGrantsPreview, HostGrantsDenyPreview:
 		return c.OperationID == ""
@@ -277,9 +280,12 @@ type HostGrantsInstallRequest struct {
 	AddonID  string `json:"addonId"`
 	Version  string `json:"version"`
 	// ExpectedDigest and CandidateDigest pin an upgrade; both or neither.
-	ExpectedDigest  string            `json:"expectedDigest,omitempty"`
-	CandidateDigest string            `json:"candidateDigest,omitempty"`
-	Approve         HostGrantsApprove `json:"approve"`
+	ExpectedDigest  string `json:"expectedDigest,omitempty"`
+	CandidateDigest string `json:"candidateDigest,omitempty"`
+	// Downgrade confirms that a local file may install an older version than
+	// the installed one. Only a sourceId of local-file reads it.
+	Downgrade bool              `json:"downgrade,omitempty"`
+	Approve   HostGrantsApprove `json:"approve"`
 }
 
 // HostGrantsEditRequest is the body of PUT /api/addons/host-grants/{addonId}.

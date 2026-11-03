@@ -302,7 +302,7 @@ var assetPath = regexp.MustCompile(`^[a-zA-Z0-9_./-]+$`)
 // so an add-on with one of these IDs would have its asset URLs captured by the
 // host route of the same name. A test derives the registered segments from the
 // real routes and requires each to be listed here.
-var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins", "host-grants"}
+var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins", "host-grants", "files"}
 
 // ReservedAddonIDs returns a copy of the reserved add-on IDs.
 func ReservedAddonIDs() []string { return append([]string(nil), reservedAddonIDs...) }

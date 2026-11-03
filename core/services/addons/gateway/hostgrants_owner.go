@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/hostgrants"
 	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/addons/zipformat"
 )
 
 // nonceLife is how long a preview nonce stays valid.
@@ -63,6 +64,7 @@ type HostGrantsConfig struct {
 type HostGrantsOwner struct {
 	cfg    HostGrantsConfig
 	nonces nonceStore
+	files  FileService
 }
 
 // NewHostGrantsOwner returns the owner service. A store and a manager are required.
@@ -152,6 +154,8 @@ func (o *HostGrantsOwner) Serve(ctx context.Context, a contract.Actor, call Host
 	if o.cfg.Admin == nil {
 		return nil, ErrForbidden
 	}
+	// A staged local file is read for the user that uploaded it only.
+	ctx = addons.WithFileOwner(ctx, a.UserID)
 	if e := ClassifyCheck(o.cfg.Admin(ctx, a)); e != nil {
 		return nil, e
 	}
@@ -210,6 +214,8 @@ func (o *HostGrantsOwner) Serve(ctx context.Context, a contract.Actor, call Host
 			return nil, hgErr(400, HostGrantsInvalidRequest, "The request cannot be carried out as given")
 		}
 		out, err = o.deny(ctx, a, r)
+	case HostGrantsFileBegin, HostGrantsFileChunk, HostGrantsFileFinish, HostGrantsFileAbort, HostGrantsFileDrop, HostGrantsFileDescribe:
+		out, err = o.fileCall(ctx, a, call)
 	default:
 		return nil, ErrForbidden
 	}
@@ -550,7 +556,7 @@ func (o *HostGrantsOwner) install(ctx context.Context, a contract.Actor, r HostG
 		return nil, hgErr(409, HostGrantsApprovalStale, "The approval expired or does not match; review the package again")
 	}
 	cmd := addons.LifecycleCommand{OperationID: r.OperationID, AddonID: r.AddonID, Action: r.Action, SourceID: r.SourceID, Version: r.Version,
-		ExpectedDigest: r.ExpectedDigest, CandidateDigest: r.CandidateDigest}
+		ExpectedDigest: r.ExpectedDigest, CandidateDigest: r.CandidateDigest, Downgrade: r.Downgrade && r.SourceID == zipformat.SourceID}
 	st, err := o.cfg.Manager.SubmitWithApproval(ctx, a, cmd, HostApproval{Digest: r.Approve.Digest, Ops: slices.Clone(r.Approve.Ops), Revision: r.Approve.Revision, Nonce: r.Approve.Nonce})
 	if err != nil {
 		return nil, err

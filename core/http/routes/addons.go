@@ -103,6 +103,11 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	// only the administrator's own browser session, and the frontend forwards
 	// that decision to the owner as a signed field. Never tools: no MCP tool
 	// maps to them.
+	// Install from a zip file: the file is staged on the owner first. The install
+	// itself is host-grants/install with sourceId local-file.
+	group.POST("/files", endpoints.UploadAddonFile(gw, db, mode))
+	group.GET("/files/:fileId", endpoints.GetAddonFile(gw, db, mode))
+	group.DELETE("/files/:fileId", endpoints.DeleteAddonFile(gw, db, mode))
 	group.GET("/host-grants", endpoints.GetHostGrants(gw, db, mode))
 	group.POST("/host-grants/preview", endpoints.PreviewHostGrants(gw, db, mode))
 	group.POST("/host-grants/install", endpoints.InstallWithHostGrants(gw, db, mode))

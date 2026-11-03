@@ -647,6 +647,7 @@ func (a *Application) wireHostGrantsOwner(g *gateway.Gateway) error {
 	if err != nil {
 		return err
 	}
-	g.HostGrantsOwner = owner
+	// The same service takes the zip files of an install from a file.
+	g.HostGrantsOwner = owner.WithFiles(a.addonManager)
 	return nil
 }
