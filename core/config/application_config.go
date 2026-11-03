@@ -463,6 +463,12 @@ type ApplicationConfig struct {
 	// /api/settings as chats_suggestions (stored as the negation).
 	DisableChatSuggestions bool
 
+	// ChatsDateNote starts the note of every chat turn with today's date
+	// ("Today is Monday, 2 November 2026 (Europe/Berlin)."), so the model does
+	// not answer with the date of its training data. Off by default.
+	// Runtime-toggleable via /api/settings as chats_date_note.
+	ChatsDateNote bool
+
 	// LegacyNavigation shows the previous sidebar. See WithLegacyNavigation.
 	LegacyNavigation bool
 
@@ -1430,6 +1436,13 @@ const (
 	DefaultAgentJobRetentionDays = 30
 	DefaultMCPCIJobTimeout       = 10 * time.Minute
 )
+
+// WithChatsDateNote tells the model today's date in every chat turn.
+func WithChatsDateNote(on bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ChatsDateNote = on
+	}
+}
 
 // WithChatsHostExec sets who gets the chats' built-in bash: off, ask or on.
 func WithChatsHostExec(mode string) AppOption {
