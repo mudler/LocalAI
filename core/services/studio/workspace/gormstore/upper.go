@@ -8,6 +8,7 @@ import (
 	"errors"
 	"slices"
 
+	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/internal/upperset"
 )
 
@@ -67,24 +68,21 @@ func (s *Workspace) CommitUpper(ctx context.Context, v View, a Actor, base int64
 	if err != nil {
 		return ChangeSet{}, nil, err
 	}
-	var w *writer
-	if s.sharedFilesystem {
-		w, err = s.beginWrite(ctx, a, o.Title, ChangeAgent)
-		if err != nil {
-			return ChangeSet{}, nil, err
-		}
-		defer w.rollback()
-	}
-	u, err := upperset.Read(ctx, v, pts, gone0, src, s.blobs, s.maxSize)
+	// Files are read before the revision lock is taken and published inside
+	// it; see Put.
+	st := blob.NewStaging(s.blobs)
+	defer st.Close()
+	u, err := upperset.Read(ctx, v, pts, gone0, src, st, s.maxSize)
 	if err != nil {
 		return ChangeSet{}, nil, err
 	}
-	if w == nil {
-		w, err = s.beginWrite(ctx, a, o.Title, ChangeAgent)
-		if err != nil {
-			return ChangeSet{}, nil, err
-		}
-		defer w.rollback()
+	w, err := s.beginWrite(ctx, a, o.Title, ChangeAgent)
+	if err != nil {
+		return ChangeSet{}, nil, err
+	}
+	defer w.rollback()
+	if err := st.Publish(ctx); err != nil {
+		return ChangeSet{}, nil, err
 	}
 	own, err := ownRevisions(ctx, w.tx, a, o.Own)
 	if err != nil {

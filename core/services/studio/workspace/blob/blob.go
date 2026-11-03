@@ -43,9 +43,12 @@ type Store interface {
 
 // Filesystem is an optional capability for authoritative direct filesystem blobs.
 // Object-store caches do not implement it. PostgreSQL uses it to coordinate
-// ingest/publication with purge automatically, including non-distributed owners.
+// publication with purge automatically, including non-distributed owners. It
+// requires Stager: the workspace must publish a blob inside its revision lock
+// and read the upload outside it.
 type Filesystem interface {
 	Store
+	Stager
 	IsFilesystem() bool
 }
 

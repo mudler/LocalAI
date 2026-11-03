@@ -70,8 +70,9 @@ var _ = Describe("shared filesystem publication", func() {
 		}
 		_, _, err = s.Put(context.Background(), strings.NewReader("new shards"), 0)
 		Expect(err).NotTo(HaveOccurred())
-		// Creation of tmp/two shard parents, final/ancestor directories and tmp.
-		Expect(count).To(Equal(7))
+		// Creation of tmp and of the two shard folders, then the folder that
+		// gains the name. A finished file needs no sync of every ancestor.
+		Expect(count).To(Equal(4))
 	})
 
 	It("preserves concurrent publication after a failed sync", func() {
@@ -101,6 +102,38 @@ var _ = Describe("shared filesystem publication", func() {
 		got, err := io.ReadAll(f)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(got)).To(Equal(content))
+	})
+
+	It("keeps a staged blob invisible until it is published", func() {
+		st, err := NewFS(GinkgoT().TempDir())
+		Expect(err).NotTo(HaveOccurred())
+		ctx := context.Background()
+		staged, err := st.(Stager).Stage(ctx, strings.NewReader("staged"), 0)
+		Expect(err).NotTo(HaveOccurred())
+		ok, err := st.Exists(ctx, staged.SHA())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		Expect(staged.Publish(ctx)).To(Succeed())
+		staged.Discard()
+		ok, err = st.Exists(ctx, staged.SHA())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeTrue())
+	})
+
+	It("drops a staged blob that is never published", func() {
+		root := GinkgoT().TempDir()
+		st, err := NewFS(root)
+		Expect(err).NotTo(HaveOccurred())
+		sg := NewStaging(st)
+		sha, _, err := sg.Put(context.Background(), strings.NewReader("abandoned"), 0)
+		Expect(err).NotTo(HaveOccurred())
+		sg.Close()
+		ok, err := st.Exists(context.Background(), sha)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		entries, err := os.ReadDir(filepath.Join(root, "tmp"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(entries).To(BeEmpty())
 	})
 
 	It("honors cancellation at the end of bounded ingest", func() {

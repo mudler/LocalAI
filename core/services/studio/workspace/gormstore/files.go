@@ -8,6 +8,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 )
 
 // precheckPut refuses a Put before any bytes are stored, when the actor has
@@ -45,24 +47,22 @@ func (s *Workspace) Put(ctx context.Context, a Actor, p string, r io.Reader, o P
 	if o.Title != "" {
 		title = o.Title
 	}
-	var w *writer
-	if s.sharedFilesystem {
-		w, err = s.beginWrite(ctx, a, title, ChangeUpload)
-		if err != nil {
-			return Node{}, err
-		}
-		defer w.rollback()
-	}
-	sum, size, err := s.blobs.Put(ctx, r, s.limit(o.MaxSize))
+	// The upload is read before the revision lock is taken, so a slow client
+	// cannot hold the lock that every writer and purge shares. The blob only
+	// becomes visible inside the lock, where a purge cannot race it.
+	st := blob.NewStaging(s.blobs)
+	defer st.Close()
+	sum, size, err := st.Put(ctx, r, s.limit(o.MaxSize))
 	if err != nil {
 		return Node{}, err
 	}
-	if w == nil {
-		w, err = s.beginWrite(ctx, a, title, ChangeUpload)
-		if err != nil {
-			return Node{}, err
-		}
-		defer w.rollback()
+	w, err := s.beginWrite(ctx, a, title, ChangeUpload)
+	if err != nil {
+		return Node{}, err
+	}
+	defer w.rollback()
+	if err := st.Publish(ctx); err != nil {
+		return Node{}, err
 	}
 	n, asked, err := w.put(segs, sum, size, o)
 	if err != nil {
