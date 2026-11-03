@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -56,7 +57,7 @@ func (g *Gateway) localConnectorKinds(ctx context.Context) ([]connectors.Kind, e
 	}
 	kinds, err := source.ConnectorKinds(ctx)
 	if err != nil {
-		return nil, ErrUnavailable
+		return nil, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	out := make([]connectors.Kind, len(kinds))
 	for i, k := range kinds {
@@ -86,7 +87,7 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 	}
 	kinds, err := source.ConnectorKinds(ctx)
 	if err != nil {
-		return contract.ConnectorResponse{}, ErrUnavailable
+		return contract.ConnectorResponse{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	found := false
 	for _, k := range kinds {
@@ -111,7 +112,12 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 	}
 	out, err := source.Connector(ctx, s.AddonID, req)
 	if err != nil {
-		return contract.ConnectorResponse{}, ErrUnavailable
+		// A definite refusal of the add-on keeps its type; anything else could
+		// not tell, so the caller treats it as an outage, with the cause kept.
+		if refused := Refused(err); !errors.Is(refused, ErrUnavailable) && errors.Is(refused, ErrForbidden) {
+			return contract.ConnectorResponse{}, refused
+		}
+		return contract.ConnectorResponse{}, fmt.Errorf("%w: %w", ErrUnavailable, err)
 	}
 	return out, nil
 }
@@ -136,8 +142,12 @@ func (c *Carrier) connectorRequest(ctx context.Context, method, path string, bod
 		return ErrUnavailable
 	}
 	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode == http.StatusForbidden {
+	switch resp.StatusCode {
+	case http.StatusForbidden:
 		return ErrForbidden
+	case http.StatusBadRequest:
+		// The owner relays the add-on's definite refusal; see typedError.
+		return ErrInvalidRequest
 	}
 	if resp.StatusCode != http.StatusOK || decodeConnector(resp.Body, out) != nil {
 		return ErrUnavailable
