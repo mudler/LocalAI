@@ -51,3 +51,12 @@ func upgradeTransition(phase lifecyclePhase, event upgradeEvent) (next lifecycle
 func isActive(phase string) bool {
 	return phase != string(lifecycleCompleted) && phase != string(lifecycleFailed)
 }
+
+// sameTransition reports whether another operation asks for the same pinned
+// upgrade as cmd: same add-on, same expected and candidate digest. Only a
+// failed attempt leaves the transition open for a new operation.
+func sameTransition(cmd, other LifecycleCommand, status OperationStatus) bool {
+	return other.Action == "upgrade" && other.AddonID == cmd.AddonID &&
+		other.ExpectedDigest == cmd.ExpectedDigest && other.CandidateDigest == cmd.CandidateDigest &&
+		status.Phase != string(lifecycleFailed)
+}

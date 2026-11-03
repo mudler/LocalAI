@@ -333,7 +333,7 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 		s.ObservedHealth = "unavailable"
 	}
 	for _, op := range m.journal.Operations {
-		if op.Command.AddonID == id && op.Status.Phase != string(lifecycleCompleted) && op.Status.Phase != string(lifecycleFailed) {
+		if op.Command.AddonID == id && isActive(op.Status.Phase) {
 			s.StartEligible = false
 		}
 	}
@@ -420,14 +420,14 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// leaves the transition open for a new one.
 		for id, other := range m.journal.Operations {
 			c := other.Command
-			if id != cmd.OperationID && c.Action == "upgrade" && c.AddonID == cmd.AddonID && c.ExpectedDigest == cmd.ExpectedDigest && c.CandidateDigest == cmd.CandidateDigest && other.Status.Phase != string(lifecycleFailed) {
+			if id != cmd.OperationID && sameTransition(cmd, c, other.Status) {
 				return OperationStatus{}, ErrTransitionConflict
 			}
 		}
 	}
 	if !resumed && !accepted {
 		for _, other := range m.journal.Operations {
-			if other.Command.AddonID == cmd.AddonID && other.Status.Phase != string(lifecycleCompleted) && other.Status.Phase != string(lifecycleFailed) {
+			if other.Command.AddonID == cmd.AddonID && isActive(other.Status.Phase) {
 				return OperationStatus{}, ErrRecoveryRequired
 			}
 		}

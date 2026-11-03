@@ -46,7 +46,7 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 	// Identify the same pinned transition from immutable projections even
 	// while execution owns mu; callers receive the same typed conflict then.
 	for _, old := range m.upgradeViews {
-		if cmd.ExpectedDigest != "" && old.Command.Action == "upgrade" && old.Command.AddonID == cmd.AddonID && old.Command.ExpectedDigest == cmd.ExpectedDigest && old.Command.CandidateDigest == cmd.CandidateDigest && old.Status.Phase != string(lifecycleFailed) {
+		if cmd.ExpectedDigest != "" && sameTransition(cmd, old.Command, old.Status) {
 			return OperationStatus{}, ErrTransitionConflict
 		}
 	}
@@ -73,10 +73,10 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		return OperationStatus{}, ErrConflict
 	}
 	for _, op := range m.journal.Operations {
-		if cmd.ExpectedDigest != "" && op.Command.Action == "upgrade" && op.Command.AddonID == cmd.AddonID && op.Command.ExpectedDigest == cmd.ExpectedDigest && op.Command.CandidateDigest == cmd.CandidateDigest && op.Status.Phase != string(lifecycleFailed) {
+		if cmd.ExpectedDigest != "" && sameTransition(cmd, op.Command, op.Status) {
 			return OperationStatus{}, ErrTransitionConflict
 		}
-		if op.Command.AddonID == cmd.AddonID && op.Status.Phase != string(lifecycleCompleted) && op.Status.Phase != string(lifecycleFailed) {
+		if op.Command.AddonID == cmd.AddonID && isActive(op.Status.Phase) {
 			return OperationStatus{}, ErrConflict
 		}
 	}
@@ -102,7 +102,7 @@ func (m *Manager) SubmitUpgrade(ctx context.Context, actor contract.Actor, cmd L
 		_, err := m.submit(context.WithValue(m.upgradeCtx, upgradeExecutionKey{}, m), actor, cmd, true)
 		m.mu.Lock()
 		current := m.journal.Operations[cmd.OperationID]
-		if err != nil && current.Status.Phase != string(lifecycleCompleted) && current.Status.Phase != string(lifecycleFailed) && !m.uncertain {
+		if err != nil && isActive(current.Status.Phase) && !m.uncertain {
 			current.Status.Phase = string(lifecycleFailed)
 			current.Status.FailureCode = "upgrade_failed"
 			if errors.Is(err, context.Canceled) {

@@ -148,6 +148,20 @@ type wireRequest struct {
 	Library *LibraryCall `json:"library,omitempty"`
 }
 
+// exclusive reports whether exactly one routing payload is set. Each branch of
+// OwnerHandler serves one payload and refuses a request that also carries
+// another, since the owner classifies by the call and not by what the peer
+// claims.
+func (w wireRequest) exclusive() bool {
+	set := 0
+	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil} {
+		if present {
+			set++
+		}
+	}
+	return set == 1
+}
+
 func decode(r io.Reader, dst any) error {
 	d := json.NewDecoder(r)
 	d.DisallowUnknownFields()
@@ -281,7 +295,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				http.Error(w, "invalid execution binding keys", 400)
 				return
 			}
-			if wire.Observation != nil || wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionBindingAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+			if !wire.exclusive() || wire.Request.Action != executionBindingAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
 				http.Error(w, "invalid execution binding", 400)
 				return
 			}
@@ -300,7 +314,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		if wire.Observation != nil {
-			if wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionStatusAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+			if !wire.exclusive() || wire.Request.Action != executionStatusAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
 				http.Error(w, "invalid observation binding", 400)
 				return
 			}
@@ -316,7 +330,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		if wire.Library != nil {
 			call := *wire.Library
 			// The owner classifies by the call, not by the action the peer wrote.
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Resource != nil || !call.valid() || call.System || wire.Request.Action != call.wireAction() {
+			if !wire.exclusive() || !call.valid() || call.System || wire.Request.Action != call.wireAction() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -325,7 +339,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		}
 		if wire.Resource != nil {
 			call := *wire.Resource
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Library != nil || wire.Request.Action != call.wireAction() {
+			if !wire.exclusive() || wire.Request.Action != call.wireAction() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -339,7 +353,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		if wire.Apps != nil {
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Request.Action != appsListAction {
+			if !wire.exclusive() || wire.Request.Action != appsListAction {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -354,7 +368,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		}
 		if wire.Artifact != nil {
 			call := *wire.Artifact
-			if wire.Relay != nil || wire.Proposal != nil || call.Op != artifactStatus || call.ID == "" || wire.Request.OperationID != call.ID {
+			if !wire.exclusive() || call.Op != artifactStatus || call.ID == "" || wire.Request.OperationID != call.ID {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -369,7 +383,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		if wire.Proposal != nil {
-			if wire.Relay != nil {
+			if !wire.exclusive() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
