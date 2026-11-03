@@ -270,24 +270,23 @@
     "commands": {
       "title": "Perintah tidak bisa dijalankan di sini",
       "none": "Tidak ada add-on yang menjalankan kode, jadi asisten bisa menulis file tetapi tidak bisa menjalankan skrip atau perintah.",
-      "off": "Add-on Sandbox dimatikan untuk chat ini. Nyalakan di menu Alat agar asisten bisa menjalankan kode.",
-      "unavailable": "Add-on Sandbox terpasang, tetapi tidak bisa menjalankan perintah di server ini.",
-      "unavailableWhy": "Add-on Sandbox tidak bisa menjalankan perintah di server ini: {{reason}}",
-      "install": "Pasang Sandbox",
-      "openSandbox": "Buka add-on Sandbox",
-      "askInstall": "Minta administrator memasang add-on Sandbox.",
       "askFix": "Minta administrator memperbaikinya.",
       "hide": "Sembunyikan",
       "hideLabel": "Sembunyikan pemberitahuan ini",
       "chipTitle": "Chat ini tidak bisa menjalankan kode atau perintah. Pilih untuk detail.",
       "hostTitle": "Perintah berjalan di mesin ini",
-      "host": "Perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi. Pasang Sandbox untuk isolasi.",
-      "hostOff": "Sandbox mati untuk chat ini, jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi. Nyalakan Sandbox di menu ini untuk mengisolasinya.",
-      "hostUnavailable": "Sandbox tidak bisa berjalan di sini, jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi.",
-      "hostUnavailableWhy": "Sandbox tidak bisa berjalan di sini ({{reason}}), jadi perintah berjalan di mesin ini, dengan berkas dan jaringannya, tanpa isolasi.",
       "hostChipTitle": "Perintah di chat ini berjalan di mesin ini, tanpa isolasi. Pilih untuk detail.",
       "providerHost": "Perintah dijalankan di server tanpa isolasi.",
       "unknown": "Kesiapan atau isolasi eksekusi tidak diketahui.",
+      "unknownBy": {
+        "owner_unreachable": "Kesiapan atau isolasi eksekusi tidak diketahui: pemilik add-on tidak dapat dihubungi.",
+        "not_reported": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on belum melaporkan status eksekusinya.",
+        "stale": "Kesiapan atau isolasi eksekusi tidak diketahui: status tidak cocok dengan versi add-on saat ini.",
+        "invalid_status": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on mengirim status yang tidak dapat diterima host.",
+        "not_selected": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on bukan yang menjalankan perintah chat ini.",
+        "no_answer": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on tidak menjawab tepat waktu.",
+        "reported_unknown": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on melaporkan bahwa ia tidak dapat mengetahuinya."
+      },
       "providerUnavailable": "Penyedia eksekusi yang dipilih tidak tersedia.",
       "disabled": "Eksekusi perintah dinonaktifkan untuk percakapan ini."
     },
@@ -302,7 +301,6 @@
       "expired": "Tidak dijawab: giliran yang meminta sudah selesai, jadi perintah tidak dijalankan."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Add-on {{name}}",
       "host": "Mesin ini, tanpa isolasi",
       "hostOnce": "Mesin ini, diizinkan sekali",
@@ -326,9 +324,6 @@
     "servedBy": "Dilayani oleh add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "bawaan",
-    "sandbox": {
-      "starting": "Sandbox sedang dimulai. LocalAI memeriksa lagi dalam {{seconds}} dtk."
-    },
     "fallbackBuiltin": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini (berhenti, dimatikan di sini, atau tidak diizinkan): {{tool}} bawaan yang dipakai.",
     "fallbackNone": "{{addon}} menggantikan {{tool}} tetapi saat ini tidak bisa melayani chat ini, dan {{tool}} bawaan mati: chat ini tidak punya {{tool}}.",
     "shell": {
@@ -348,13 +343,13 @@
       "all": "Semua situs publik"
     },
     "presetHint": {
-      "off": "Perintah di Sandbox tidak menjangkau jaringan apa pun.",
+      "off": "Perintah tidak menjangkau jaringan apa pun.",
       "registries": "Perintah hanya menjangkau registri paket (PyPI, npm, Go, crates.io, RubyGems, Maven Central, rilis GitHub).",
       "all": "Perintah menjangkau semua situs publik."
     },
     "limited": "Dibatasi oleh administrator Anda",
     "limitedBy": "Administrator Anda mengizinkan paling banyak: {{limit}}.",
-    "hostNetwork": "Perintah berjalan di mesin ini dan memakai jaringannya. Batas jaringan memerlukan add-on Sandbox.",
+    "hostNetwork": "Perintah berjalan di mesin ini dan memakai jaringannya. Batas jaringan memerlukan add-on yang mengisolasi perintah.",
     "panel": "Aturan dan permintaan ({{count}})",
     "rules": "Aturan chat ini",
     "cards": "Permintaan chat ini",
@@ -386,8 +381,8 @@
     "blocked": {
       "titleOff": "Akses jaringan dimatikan",
       "titleCapped": "Akses jaringan dibatasi",
-      "bodyOff": "Akses jaringan Sandbox dimatikan di server ini. Sebuah perintah meminta menjangkau",
-      "bodyCapped": "Server ini hanya mengizinkan {{limit}} untuk jaringan Sandbox. Sebuah perintah meminta menjangkau",
+      "bodyOff": "Akses jaringan untuk perintah dimatikan di server ini. Sebuah perintah meminta menjangkau",
+      "bodyCapped": "Server ini hanya mengizinkan {{limit}} untuk jaringan perintah. Sebuah perintah meminta menjangkau",
       "adminOff": "Administrator dapat menyalakannya di pengaturan {{name}}.",
       "adminCapped": "Administrator dapat menaikkan batasnya di pengaturan {{name}}.",
       "adminLink": "Buka pengaturan {{name}}",

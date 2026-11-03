@@ -128,7 +128,7 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Rede dos comandos em execuções sem supervisão",
-    "networkHelp": "Quando um gatilho ou um conector roda este agente, os comandos do Sandbox dele alcançam esta parte da rede, até o limite definido por um administrador. Uma execução nunca pergunta: um host fora dela é bloqueado. Um chat que você inicia com este agente também começa assim.",
+    "networkHelp": "Quando um gatilho ou um conector roda este agente, os comandos dele alcançam esta parte da rede, até o limite definido por um administrador. Uma execução nunca pergunta: um host fora dela é bloqueado. Um chat que você inicia com este agente também começa assim.",
     "networkPresets": {
       "off": "Desligada",
       "registries": "Registros de pacotes",
@@ -463,7 +463,7 @@
     "readShort": "somente leitura",
     "writeShort": "leitura e alteração",
     "help": "Os chats com este agente veem apenas esta pasta e a própria pasta do chat. As pastas compartilhadas e as skills continuam legíveis. Os servidores MCP e as ferramentas web que você concede não ficam limitados a esta pasta.",
-    "commands": "Os comandos deste agente rodam apenas no complemento Sandbox, nunca diretamente nesta máquina.",
+    "commands": "Os comandos deste agente rodam apenas em um complemento que os isola, nunca diretamente nesta máquina.",
     "nextMessage": "Uma alteração vale a partir da próxima mensagem de cada chat.",
     "missing": "Esta pasta não existe mais. Escolha outra pasta para usar este agente.",
     "unset": "Nenhuma pasta escolhida ainda. Escolha uma pasta para usar este agente.",

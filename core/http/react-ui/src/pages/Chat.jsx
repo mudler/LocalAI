@@ -210,7 +210,7 @@ function ChatPage() {
   }, [])
 
   const model = activeChat ? activeChat.model : draftModel
-  // The network of the chat's Sandbox commands, read again on its events.
+  // The network of the chat's isolated commands, read again on its events.
   const egress = useChatEgress(activeId, chat.ticks.egress)
   // The cards of the chat by their tool line; the ones that wait are drawn
   // under the live fold until the call ends.

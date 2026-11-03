@@ -128,7 +128,7 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Réseau des commandes dans les exécutions sans surveillance",
-    "networkHelp": "Quand un déclencheur ou un connecteur exécute cet agent, ses commandes du Sandbox atteignent cette part du réseau, dans la limite fixée par un administrateur. Une exécution ne demande jamais : un hôte hors de cette part est bloqué. Un chat que vous démarrez avec cet agent commence aussi ainsi.",
+    "networkHelp": "Quand un déclencheur ou un connecteur exécute cet agent, ses commandes atteignent cette part du réseau, dans la limite fixée par un administrateur. Une exécution ne demande jamais : un hôte hors de cette part est bloqué. Un chat que vous démarrez avec cet agent commence aussi ainsi.",
     "networkPresets": {
       "off": "Désactivé",
       "registries": "Registres de paquets",
@@ -463,7 +463,7 @@
     "readShort": "lecture seule",
     "writeShort": "lecture et modification",
     "help": "Les chats avec cet agent ne voient que ce dossier et leur propre dossier de chat. Les dossiers partagés et les skills restent lisibles. Les serveurs MCP et les outils web que vous accordez ne sont pas limités à ce dossier.",
-    "commands": "Les commandes de cet agent s'exécutent uniquement dans l'add-on Sandbox, jamais directement sur cette machine.",
+    "commands": "Les commandes de cet agent s'exécutent uniquement dans un add-on qui les isole, jamais directement sur cette machine.",
     "nextMessage": "Une modification s'applique à partir du message suivant de chaque chat.",
     "missing": "Ce dossier n'existe plus. Choisissez un autre dossier pour utiliser cet agent.",
     "unset": "Aucun dossier choisi. Choisissez un dossier pour utiliser cet agent.",

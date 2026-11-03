@@ -62,10 +62,10 @@
     "loadFailedTitle": "Could not load the settings.",
     "egress": {
       "title": "Network of commands",
-      "intro": "Commands in the Sandbox reach the network only through a proxy that asks LocalAI about each connection. Set the limit, the preset of a new chat, the ports, the extra registries and the audit retention below; a person chooses the preset of each chat in its Tools menu, up to the limit, and allows a blocked host on a card.",
+      "intro": "Commands that run in isolation reach the network only through a proxy that asks LocalAI about each connection. Set the limit, the preset of a new chat, the ports, the extra registries and the audit retention below; a person chooses the preset of each chat in its Tools menu, up to the limit, and allows a blocked host on a card.",
       "serves": "Commands run isolated in the {{name}} add-on",
       "servesHost": "Commands run on this machine through {{name}}",
-      "servesNone": "No Sandbox runs commands yet",
+      "servesNone": "No add-on runs commands yet",
       "hostNote": "The host backend runs commands on this machine with its network: these settings do not apply to them.",
       "counts": "Last 24 hours: {{allowed}} allowed, {{blocked}} blocked.",
       "private": "Let an administrator’s rule reach private networks",
@@ -74,7 +74,7 @@
       "registries": "Package registries ({{count}})",
       "showAudit": "Show the audit",
       "hideAudit": "Hide the audit",
-      "loadFailed": "The Sandbox network settings could not be read",
+      "loadFailed": "The network settings for commands could not be read",
       "audit": {
         "verdict": "Verdict",
         "host": "Host",
@@ -108,7 +108,7 @@
       "listLabel": "Always allowed hosts",
       "remove": "Remove {{host}}",
       "empty": "No host yet. Write a host name, or host:port to pin the port.",
-      "hint": "Exact names only. Add :port to allow one port; otherwise the Sandbox network ports apply.",
+      "hint": "Exact names only. Add :port to allow one port; otherwise the network ports of commands apply.",
       "count": "{{n}}/{{max}}",
       "errors": {
         "empty": "Write a host name.",
@@ -179,7 +179,6 @@
     "byAddon": "Add-on: {{name}}",
     "byNone": "Off",
     "unavailable": "This server cannot run it: {{reason}}.",
-    "installSandbox": "Install the Sandbox to run commands isolated",
     "replaceExplain": "These add-ons replace {{tool}}: the one chosen serves it in every chat where it is on and running, and the built-in is hidden. Only one can be active. Until you choose, the one installed first serves.",
     "defaultInstalledFirst": "Default: installed first",
     "installedOn": "Installed {{when}}",
@@ -192,7 +191,7 @@
       "list_agents": "Saved agents"
     },
     "descriptions": {
-      "bash": "Runs commands and code for the chats directly on this machine when no Sandbox serves bash. The Sandbox add-on replaces it with isolated commands.",
+      "bash": "Runs commands and code for the chats directly on this machine when no add-on serves bash. An add-on that runs commands in isolation replaces it.",
       "web_search": "Searches the web for the chats without a key (DuckDuckGo, then Brave Search, then Bing), or with your SearXNG instance when one is set.",
       "web_fetch": "Reads a public web page or file by its address for the chats. Addresses inside your network are refused unless you allow them.",
       "list_agents": "Lets a chat list the user's saved agents and start one as a sub-agent. Each chat switches it on in its Tools menu."
@@ -205,7 +204,7 @@
       "on": "Allow for everyone.",
       "onHint": "Every user's chats run commands here without asking, also scheduled runs and sub-agents.",
       "default": "Not set: the default applies ({{mode}}).",
-      "warning": "Commands run as the user LocalAI runs as, with no isolation and with this machine's network: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. Every command is logged. Install the Sandbox to isolate them."
+      "warning": "Commands run as the user LocalAI runs as, with no isolation and with this machine's network: they can read what LocalAI can read and reach the internet, your network and the LocalAI API. Every command is logged. Install an add-on that isolates commands."
     },
     "modes": {
       "off": "off",

@@ -578,7 +578,7 @@
     "skillsOn_one": "{{count}} skill",
     "skillsOn_other": "{{count}} skill",
     "commands": "Perintah",
-    "isolated": "Berjalan di sandbox terisolasi",
+    "isolated": "Berjalan terisolasi",
     "host": "Berjalan di mesin ini",
     "noCommands": "Tidak bisa dijalankan",
     "context": "Konteks",

@@ -228,7 +228,7 @@ export function useServerChat({ seed = null } = {}) {
       },
       trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
-      // The network of the chat's Sandbox commands changed: a card asked or
+      // The network of the chat's isolated commands changed: a card asked or
       // was answered, or the preset or a rule changed. The network panel and
       // the cards read the chat's network again.
       egress_consent: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),

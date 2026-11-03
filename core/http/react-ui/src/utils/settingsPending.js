@@ -132,7 +132,7 @@ export function runChecks(changes, initial, draft) {
         Object.entries(parsed).every(([k, v]) => ['bash', 'web_search', 'web_fetch', 'xlsx', 'docx', 'pptx', 'pdf'].includes(k) && typeof v === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(v))
       checks.push(ok
         ? { level: 'ok', text: `${field.label}: ${Object.keys(parsed).length} chosen.` }
-        : { level: 'error', text: `${field.label}: map bash, web_search, web_fetch or a skill (xlsx, docx, pptx, pdf) to an add-on ID, for example { "bash": "sandbox" }.` })
+        : { level: 'error', text: `${field.label}: map bash, web_search, web_fetch or a skill (xlsx, docx, pptx, pdf) to an add-on ID, for example { "bash": "<add-on ID>" }.` })
     } else if (field.kind === 'json') {
       const text = String(to || '').trim()
       if (text) {
@@ -219,7 +219,7 @@ export function payloadFor(changes, source) {
   return body
 }
 
-// The phrase an administrator types to let Sandbox commands reach private
+// The phrase an administrator types to let isolated commands reach private
 // networks (core/config/chats_egress.go), and the draft key that carries it.
 export const EGRESS_PRIVATE_PHRASE = 'I understand that commands can reach my private network'
 export const EGRESS_CONFIRM_KEY = 'chats_egress_private_confirm'

@@ -403,7 +403,7 @@ export const chatHostExecApi = {
   consent: (chat, id, decision) => fetchJSON(`/api/chats/${enc2(chat)}/host-exec/consent`, { method: 'POST', body: JSON.stringify({ id, decision }) }),
 }
 
-// The network of a chat's Sandbox commands: its preset, rules and cards, for
+// The network of a chat's isolated commands: its preset, rules and cards, for
 // the chat's owner; the settings and the audit, for administrators.
 export const chatEgressApi = {
   get: (chat) => fetchJSON(`/api/chats/${enc2(chat)}/egress`),

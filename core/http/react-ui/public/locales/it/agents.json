@@ -128,7 +128,7 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Rete dei comandi nelle esecuzioni non presidiate",
-    "networkHelp": "Quando un trigger o un connettore esegue questo agente, i suoi comandi nel Sandbox raggiungono questa parte della rete, fino al limite fissato da un amministratore. Un’esecuzione non chiede mai: un host al di fuori viene bloccato. Anche una chat che avvii con questo agente parte così.",
+    "networkHelp": "Quando un trigger o un connettore esegue questo agente, i suoi comandi raggiungono questa parte della rete, fino al limite fissato da un amministratore. Un’esecuzione non chiede mai: un host al di fuori viene bloccato. Anche una chat che avvii con questo agente parte così.",
     "networkPresets": {
       "off": "Disattivata",
       "registries": "Registri di pacchetti",
@@ -463,7 +463,7 @@
     "readShort": "sola lettura",
     "writeShort": "lettura e modifica",
     "help": "Le chat con questo agente vedono solo questa cartella e la propria cartella della chat. Le cartelle condivise e le skill restano leggibili. I server MCP e gli strumenti web che concedi non sono limitati a questa cartella.",
-    "commands": "I comandi di questo agente girano solo nell'add-on Sandbox, mai direttamente su questa macchina.",
+    "commands": "I comandi di questo agente girano solo in un add-on che li isola, mai direttamente su questa macchina.",
     "nextMessage": "Una modifica vale dal messaggio successivo di ogni chat.",
     "missing": "Questa cartella non esiste più. Scegli un'altra cartella per usare questo agente.",
     "unset": "Nessuna cartella scelta. Scegli una cartella per usare questo agente.",

@@ -270,24 +270,23 @@
     "commands": {
       "title": "Befehle können hier nicht laufen",
       "none": "Es ist kein Add-on installiert, das Code ausführt. Der Assistent kann Dateien schreiben, aber keine Skripte oder Befehle ausführen.",
-      "off": "Das Sandbox-Add-on ist für diesen Chat aus. Schalte es im Menü „Werkzeuge“ ein, damit der Assistent Code ausführen kann.",
-      "unavailable": "Das Sandbox-Add-on ist installiert, kann auf diesem Server aber keine Befehle ausführen.",
-      "unavailableWhy": "Das Sandbox-Add-on kann auf diesem Server keine Befehle ausführen: {{reason}}",
-      "install": "Sandbox installieren",
-      "openSandbox": "Sandbox-Add-on öffnen",
-      "askInstall": "Bitte eine Administratorin oder einen Administrator, das Sandbox-Add-on zu installieren.",
       "askFix": "Bitte eine Administratorin oder einen Administrator, das zu beheben.",
       "hide": "Ausblenden",
       "hideLabel": "Diesen Hinweis ausblenden",
       "chipTitle": "Dieser Chat kann keinen Code und keine Befehle ausführen. Für Details auswählen.",
       "hostTitle": "Befehle laufen auf diesem Rechner",
-      "host": "Befehle laufen auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung. Installieren Sie die Sandbox für Isolierung.",
-      "hostOff": "Die Sandbox ist für diesen Chat aus, daher laufen Befehle auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung. Schalten Sie die Sandbox in diesem Menü ein, um sie zu isolieren.",
-      "hostUnavailable": "Die Sandbox kann hier nicht laufen, daher laufen Befehle auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung.",
-      "hostUnavailableWhy": "Die Sandbox kann hier nicht laufen ({{reason}}), daher laufen Befehle auf diesem Rechner, mit seinen Dateien und seinem Netzwerk, ohne Isolierung.",
       "hostChipTitle": "Befehle in diesem Chat laufen auf diesem Rechner, ohne Isolierung. Für Details auswählen.",
       "providerHost": "Befehle werden ohne Isolation auf dem Server ausgeführt.",
       "unknown": "Ausführungsbereitschaft oder Isolation ist unbekannt.",
+      "unknownBy": {
+        "owner_unreachable": "Ausführungsbereitschaft oder Isolation ist unbekannt: der Besitzer des Add-ons war nicht erreichbar.",
+        "not_reported": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat seinen Ausführungsstatus nicht gemeldet.",
+        "stale": "Ausführungsbereitschaft oder Isolation ist unbekannt: der Status passte nicht zur aktuellen Version des Add-ons.",
+        "invalid_status": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat einen Status gesendet, den der Host nicht annehmen konnte.",
+        "not_selected": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on führt die Befehle dieses Chats nicht aus.",
+        "no_answer": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat nicht rechtzeitig geantwortet.",
+        "reported_unknown": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat gemeldet, dass es das nicht sagen kann."
+      },
       "providerUnavailable": "Der ausgewählte Ausführungsanbieter ist nicht verfügbar.",
       "disabled": "Die Befehlsausführung ist für diesen Chat ausgeschaltet."
     },
@@ -302,7 +301,6 @@
       "expired": "Nicht beantwortet: Die Runde, die gefragt hat, ist beendet, daher wurde der Befehl nicht ausgeführt."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Add-on {{name}}",
       "host": "Dieser Rechner, nicht isoliert",
       "hostOnce": "Dieser Rechner, einmal erlaubt",
@@ -326,9 +324,6 @@
     "servedBy": "Bedient vom Add-on {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "eingebaut",
-    "sandbox": {
-      "starting": "Die Sandbox startet. LocalAI prüft in {{seconds}} s erneut."
-    },
     "fallbackBuiltin": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen (gestoppt, hier ausgeschaltet oder nicht freigegeben): das eingebaute {{tool}} wird verwendet.",
     "fallbackNone": "{{addon}} ersetzt {{tool}}, kann diesen Chat aber gerade nicht bedienen, und das eingebaute {{tool}} ist aus: dieser Chat hat kein {{tool}}.",
     "shell": {
@@ -348,13 +343,13 @@
       "all": "Alle öffentlichen Seiten"
     },
     "presetHint": {
-      "off": "Befehle in der Sandbox erreichen kein Netzwerk.",
+      "off": "Befehle erreichen kein Netzwerk.",
       "registries": "Befehle erreichen nur die Paket-Registries (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub-Releases).",
       "all": "Befehle erreichen jede öffentliche Seite."
     },
     "limited": "Von Ihrem Administrator begrenzt",
     "limitedBy": "Ihr Administrator erlaubt höchstens: {{limit}}.",
-    "hostNetwork": "Befehle laufen auf diesem Rechner und nutzen dessen Netzwerk. Netzwerkgrenzen erfordern das Sandbox-Add-on.",
+    "hostNetwork": "Befehle laufen auf diesem Rechner und nutzen dessen Netzwerk. Netzwerkgrenzen erfordern ein Add-on, das Befehle isoliert.",
     "panel": "Regeln und Anfragen ({{count}})",
     "rules": "Regeln dieses Chats",
     "cards": "Anfragen dieses Chats",
@@ -386,8 +381,8 @@
     "blocked": {
       "titleOff": "Netzwerkzugriff ist aus",
       "titleCapped": "Netzwerkzugriff ist begrenzt",
-      "bodyOff": "Der Netzwerkzugriff der Sandbox ist auf diesem Server ausgeschaltet. Ein Befehl wollte erreichen:",
-      "bodyCapped": "Dieser Server erlaubt für das Sandbox-Netzwerk nur: {{limit}}. Ein Befehl wollte erreichen:",
+      "bodyOff": "Der Netzwerkzugriff für Befehle ist auf diesem Server ausgeschaltet. Ein Befehl wollte erreichen:",
+      "bodyCapped": "Dieser Server erlaubt für das Netzwerk der Befehle nur: {{limit}}. Ein Befehl wollte erreichen:",
       "adminOff": "Ein Administrator kann ihn in den Einstellungen von {{name}} einschalten.",
       "adminCapped": "Ein Administrator kann das Limit in den Einstellungen von {{name}} anheben.",
       "adminLink": "Einstellungen von {{name}} öffnen",

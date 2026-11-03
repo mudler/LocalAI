@@ -578,7 +578,7 @@
     "skillsOn_one": "{{count}} skill",
     "skillsOn_other": "{{count}} skill",
     "commands": "Comandi",
-    "isolated": "Eseguiti in una sandbox isolata",
+    "isolated": "Eseguiti in isolamento",
     "host": "Eseguiti su questa macchina",
     "noCommands": "Non eseguibili",
     "context": "Contesto",

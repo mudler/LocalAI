@@ -21,6 +21,7 @@ import CommandsConsentCard from './CommandsConsentCard'
 import NetworkConsentCard from './NetworkConsentCard'
 import { EgressCardsContext } from './egressCardsContext'
 import { providerTag } from '../../utils/chatCommands'
+import { useAddonTitle } from '../../addons/useAddonRegistry'
 
 // What the thread says about reasoning and tool use: one quiet line that opens
 // inline into the steps. Everything it shows is in the transcript the server
@@ -289,8 +290,10 @@ function StepFiles({ files, more }) {
 function ToolStep({ text, duration, card }) {
   const { t: tc } = useTranslation('chats')
   const { name, summary } = toolLine(text)
-  // A replaceable tool (bash) says who served it: the Sandbox or this machine.
+  // A replaceable tool (bash) says who served it: an add-on, by the title it
+  // declares, or this machine.
   const tag = providerTag(card)
+  const providerTitle = useAddonTitle(card?.kind === 'tool_provider' ? String(card.id || '') : '')
   const out = toolOutput(text)
   const refused = Boolean(toolRefusal(text))
   const shownOut = out && !addonChange(text) && !refused ? out : ''
@@ -305,7 +308,7 @@ function ToolStep({ text, duration, card }) {
       after={<StepFiles files={card?.files} more={card?.files_more || 0} />}
     >
       <ToolText label={label} working={card?.file_kind === 'working'} />
-      {tag && <span className="cx-step__provider" data-testid="chat-step-provider" data-provider={card.kind}>{tc(`tools.provider.${tag.key}`, tag.values)}</span>}
+      {tag && <span className="cx-step__provider" data-testid="chat-step-provider" data-provider={card.kind}>{tc(`tools.provider.${tag.key}`, providerTitle ? { ...tag.values, name: providerTitle } : tag.values)}</span>}
     </Step>
   )
 }

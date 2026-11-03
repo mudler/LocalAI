@@ -128,7 +128,7 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Netzwerk der Befehle in unbeaufsichtigten Läufen",
-    "networkHelp": "Wenn ein Trigger oder ein Connector diesen Agenten ausführt, erreichen seine Sandbox-Befehle so viel vom Netzwerk, bis zum Limit eines Administrators. Ein Lauf fragt nie: Ein Host außerhalb wird blockiert. Ein Chat, den Sie mit diesem Agenten starten, beginnt ebenfalls damit.",
+    "networkHelp": "Wenn ein Trigger oder ein Connector diesen Agenten ausführt, erreichen seine Befehle so viel vom Netzwerk, bis zum Limit eines Administrators. Ein Lauf fragt nie: Ein Host außerhalb wird blockiert. Ein Chat, den Sie mit diesem Agenten starten, beginnt ebenfalls damit.",
     "networkPresets": {
       "off": "Aus",
       "registries": "Paket-Registries",
@@ -463,7 +463,7 @@
     "readShort": "nur lesen",
     "writeShort": "lesen und ändern",
     "help": "Chats mit diesem Agenten sehen nur diesen Ordner und ihren eigenen Chat-Ordner. Geteilte Ordner und Skills bleiben lesbar. MCP-Server und Web-Tools, die du freigibst, sind nicht auf diesen Ordner beschränkt.",
-    "commands": "Befehle dieses Agenten laufen nur im Sandbox-Add-on, nie direkt auf diesem Rechner.",
+    "commands": "Befehle dieses Agenten laufen nur in einem Add-on, das sie isoliert, nie direkt auf diesem Rechner.",
     "nextMessage": "Eine Änderung gilt ab der nächsten Nachricht jedes Chats.",
     "missing": "Dieser Ordner existiert nicht mehr. Wähle einen anderen Ordner, um diesen Agenten zu nutzen.",
     "unset": "Noch kein Ordner gewählt. Wähle einen Ordner, um diesen Agenten zu nutzen.",

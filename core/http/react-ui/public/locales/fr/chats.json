@@ -270,24 +270,23 @@
     "commands": {
       "title": "Les commandes ne peuvent pas s'exécuter ici",
       "none": "Aucun module qui exécute du code n'est installé : l'assistant peut écrire des fichiers, mais pas exécuter de scripts ni de commandes.",
-      "off": "Le module Sandbox est désactivé pour ce chat. Activez-le dans le menu Outils pour que l'assistant puisse exécuter du code.",
-      "unavailable": "Le module Sandbox est installé, mais il ne peut pas exécuter de commandes sur ce serveur.",
-      "unavailableWhy": "Le module Sandbox ne peut pas exécuter de commandes sur ce serveur : {{reason}}",
-      "install": "Installer Sandbox",
-      "openSandbox": "Ouvrir le module Sandbox",
-      "askInstall": "Demandez à un administrateur d'installer le module Sandbox.",
       "askFix": "Demandez à un administrateur de corriger le problème.",
       "hide": "Masquer",
       "hideLabel": "Masquer cet avis",
       "chipTitle": "Ce chat ne peut pas exécuter de code ni de commandes. Sélectionnez pour les détails.",
       "hostTitle": "Les commandes s'exécutent sur cette machine",
-      "host": "Les commandes s'exécutent sur cette machine, avec ses fichiers et son réseau, sans isolation. Installez le Sandbox pour les isoler.",
-      "hostOff": "Le Sandbox est désactivé pour ce chat : les commandes s'exécutent donc sur cette machine, avec ses fichiers et son réseau, sans isolation. Activez le Sandbox dans ce menu pour les isoler.",
-      "hostUnavailable": "Le Sandbox ne peut pas s'exécuter ici : les commandes s'exécutent donc sur cette machine, avec ses fichiers et son réseau, sans isolation.",
-      "hostUnavailableWhy": "Le Sandbox ne peut pas s'exécuter ici ({{reason}}) : les commandes s'exécutent donc sur cette machine, avec ses fichiers et son réseau, sans isolation.",
       "hostChipTitle": "Les commandes de ce chat s'exécutent sur cette machine, sans isolation. Sélectionnez pour les détails.",
       "providerHost": "Les commandes s’exécutent sur le serveur sans isolation.",
       "unknown": "La disponibilité ou l’isolation de l’exécution est inconnue.",
+      "unknownBy": {
+        "owner_unreachable": "La disponibilité ou l’isolation de l’exécution est inconnue : le propriétaire de l’add-on est injoignable.",
+        "not_reported": "La disponibilité ou l’isolation de l’exécution est inconnue : l’add-on n’a pas signalé son état d’exécution.",
+        "stale": "La disponibilité ou l’isolation de l’exécution est inconnue : l’état ne correspondait pas à la version actuelle de l’add-on.",
+        "invalid_status": "La disponibilité ou l’isolation de l’exécution est inconnue : l’add-on a envoyé un état que l’hôte n’a pas pu accepter.",
+        "not_selected": "La disponibilité ou l’isolation de l’exécution est inconnue : l’add-on n’est pas celui qui exécute les commandes de ce chat.",
+        "no_answer": "La disponibilité ou l’isolation de l’exécution est inconnue : l’add-on n’a pas répondu à temps.",
+        "reported_unknown": "La disponibilité ou l’isolation de l’exécution est inconnue : l’add-on a indiqué qu’il ne peut pas le dire."
+      },
       "providerUnavailable": "Le fournisseur d’exécution sélectionné est indisponible.",
       "disabled": "L’exécution des commandes est désactivée pour cette discussion."
     },
@@ -302,7 +301,6 @@
       "expired": "Sans réponse : le tour qui l'a demandé est terminé, la commande n'a donc pas été exécutée."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Module {{name}}",
       "host": "Cette machine, non isolée",
       "hostOnce": "Cette machine, autorisée une fois",
@@ -326,9 +324,6 @@
     "servedBy": "Fourni par l'extension {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "intégré",
-    "sandbox": {
-      "starting": "Le Sandbox démarre. LocalAI vérifie à nouveau dans {{seconds}} s."
-    },
     "fallbackBuiltin": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant (arrêté, désactivé ici ou non accordé) : {{tool}} intégré est utilisé.",
     "fallbackNone": "{{addon}} remplace {{tool}} mais ne peut pas servir cette discussion pour l'instant, et {{tool}} intégré est désactivé : cette discussion n'a pas de {{tool}}.",
     "shell": {
@@ -348,13 +343,13 @@
       "all": "Tous les sites publics"
     },
     "presetHint": {
-      "off": "Les commandes du Sandbox n’atteignent aucun réseau.",
+      "off": "Les commandes n’atteignent aucun réseau.",
       "registries": "Les commandes n’atteignent que les registres de paquets (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versions GitHub).",
       "all": "Les commandes atteignent tous les sites publics."
     },
     "limited": "Limité par votre administrateur",
     "limitedBy": "Votre administrateur autorise au plus : {{limit}}.",
-    "hostNetwork": "Les commandes s’exécutent sur cette machine et utilisent son réseau. Les limites réseau nécessitent le module Sandbox.",
+    "hostNetwork": "Les commandes s’exécutent sur cette machine et utilisent son réseau. Les limites réseau nécessitent un module qui isole les commandes.",
     "panel": "Règles et demandes ({{count}})",
     "rules": "Règles de ce chat",
     "cards": "Demandes de ce chat",
@@ -386,8 +381,8 @@
     "blocked": {
       "titleOff": "L’accès au réseau est désactivé",
       "titleCapped": "L’accès au réseau est limité",
-      "bodyOff": "L’accès au réseau du Sandbox est désactivé sur ce serveur. Une commande a demandé à joindre",
-      "bodyCapped": "Ce serveur n’autorise que {{limit}} pour le réseau du Sandbox. Une commande a demandé à joindre",
+      "bodyOff": "L’accès au réseau des commandes est désactivé sur ce serveur. Une commande a demandé à joindre",
+      "bodyCapped": "Ce serveur n’autorise que {{limit}} pour le réseau des commandes. Une commande a demandé à joindre",
       "adminOff": "Un administrateur peut l’activer dans les paramètres de {{name}}.",
       "adminCapped": "Un administrateur peut relever la limite dans les paramètres de {{name}}.",
       "adminLink": "Ouvrir les paramètres de {{name}}",

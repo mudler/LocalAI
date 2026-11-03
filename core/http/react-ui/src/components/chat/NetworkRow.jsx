@@ -8,7 +8,7 @@ import { askedAboveLimit, cardAnswers, ceilingKind, cardStateKey, hostPort, netw
 import './network.css'
 
 // The Network row of the chat's Tools menu: how much of the network the
-// chat's Sandbox commands may reach (off, the package registries, all public
+// chat's isolated commands may reach (off, the package registries, all public
 // sites), up to the administrator's limit, and the panel with the chat's
 // rules and the cards that asked. Commands that run on this machine have the
 // server's network: the row is a line that says so.

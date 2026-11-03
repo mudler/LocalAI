@@ -387,31 +387,14 @@
     "connectors": "Your connectors",
     "manage": "Manage connectors",
     "tools": "{{count}} tools",
-    "sandbox": {
-      "isolated": "Runs commands isolated ({{backend}})",
-      "host": "Commands run directly on this machine, with no isolation",
-      "cannot": "Sandbox unavailable: this host cannot run commands",
-      "cannotWhy": "Sandbox unavailable: {{reason}}",
-      "starting": "The Sandbox is starting. LocalAI checks again in {{seconds}} s."
-    },
     "commands": {
       "title": "Commands can't run here",
       "none": "No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.",
-      "off": "The Sandbox add-on is off for this chat. Switch it on in the Tools menu to let the assistant run code.",
-      "unavailable": "The Sandbox add-on is installed but cannot run commands on this server.",
-      "unavailableWhy": "The Sandbox add-on cannot run commands on this server: {{reason}}",
-      "install": "Install the Sandbox",
-      "openSandbox": "Open the Sandbox add-on",
-      "askInstall": "Ask an administrator to install the Sandbox add-on.",
       "askFix": "Ask an administrator to fix it.",
       "hide": "Hide",
       "hideLabel": "Hide this notice",
       "chipTitle": "This chat cannot run code or commands. Select for details.",
       "hostTitle": "Commands run on this machine",
-      "host": "Commands run on this machine, with its files and network, not isolated. Install the Sandbox for isolation.",
-      "hostOff": "The Sandbox is off for this chat, so commands run on this machine, with its files and network, not isolated. Switch the Sandbox on in this menu to isolate them.",
-      "hostUnavailable": "The Sandbox cannot run here, so commands run on this machine, with its files and network, not isolated.",
-      "hostUnavailableWhy": "The Sandbox cannot run here ({{reason}}), so commands run on this machine, with its files and network, not isolated.",
       "hostChipTitle": "Commands in this chat run on this machine, not isolated. Select for details.",
       "providerHost": "Commands run on the server without isolation.",
       "unknown": "Execution readiness or isolation is unknown.",
@@ -438,7 +421,6 @@
       "expired": "Not answered: the turn that asked has ended, so the command did not run."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Add-on {{name}}",
       "host": "This machine, not isolated",
       "hostOnce": "This machine, allowed once",
@@ -739,13 +721,13 @@
       "all": "All public sites"
     },
     "presetHint": {
-      "off": "Commands in the Sandbox reach no network.",
+      "off": "Commands reach no network.",
       "registries": "Commands reach the package registries only (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub releases).",
       "all": "Commands reach every public site."
     },
     "limited": "Limited by your administrator",
     "limitedBy": "Your administrator allows at most: {{limit}}.",
-    "hostNetwork": "Commands run on this machine and use its network. Network limits need the Sandbox add-on.",
+    "hostNetwork": "Commands run on this machine and use its network. Network limits need an add-on that isolates commands.",
     "panel": "Rules and requests ({{count}})",
     "rules": "Rules of this chat",
     "cards": "Requests of this chat",
@@ -777,8 +759,8 @@
     "blocked": {
       "titleOff": "Network access is off",
       "titleCapped": "Network access is limited",
-      "bodyOff": "Network access is off for the Sandbox on this server. A command asked for",
-      "bodyCapped": "This server only allows {{limit}} for the Sandbox network. A command asked for",
+      "bodyOff": "Network access is off for commands on this server. A command asked for",
+      "bodyCapped": "This server only allows {{limit}} for the network of commands. A command asked for",
       "adminOff": "An administrator can turn it on in the settings of {{name}}.",
       "adminCapped": "An administrator can raise the limit in the settings of {{name}}.",
       "adminLink": "Open the settings of {{name}}",

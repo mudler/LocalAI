@@ -1,4 +1,4 @@
-// The network of a chat's Sandbox commands, as the chat page shows it. Pure
+// The network of a chat's isolated commands, as the chat page shows it. Pure
 // functions over GET /api/chats/{id}/egress, so the node unit tests cover them.
 
 export const PRESETS = ['off', 'registries', 'all']
