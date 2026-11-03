@@ -5,6 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -234,5 +237,28 @@ var _ = Describe("two differently named add-ons with credentials", Label("tools"
 			Expect(err).To(MatchError(ErrForbidden))
 		}
 		Expect(client.reads.Load()).To(Equal(int32(2)))
+	})
+})
+
+var _ = Describe("the refusal codes of a credentialed call", func() {
+	codes := []string{CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection, CodeReconnectNeeded}
+	It("names reconnect_needed on the wire", func() {
+		Expect(CodeReconnectNeeded).To(Equal("reconnect_needed"))
+	})
+	It("crosses the carrier from the owner to a forwarding frontend as the same refusal", func() {
+		for _, code := range codes {
+			Expect(refusalCode(code)).To(BeTrue(), code)
+			rec := httptest.NewRecorder()
+			typedError(rec, fmt.Errorf("call: %w", &CredentialRefusal{Code: code}))
+			Expect(rec.Code).To(Equal(http.StatusForbidden), code)
+			var b sdkWire
+			Expect(json.Unmarshal(rec.Body.Bytes(), &b)).To(Succeed())
+			Expect(b.Type).To(Equal(code))
+			Expect(refusalCode(b.Type)).To(BeTrue(), code)
+		}
+		Expect(refusalCode("forbidden")).To(BeFalse())
+	})
+	It("is a plain denial for a caller that does not tell refusals apart", func() {
+		Expect(errors.Is(&CredentialRefusal{Code: CodeReconnectNeeded}, ErrForbidden)).To(BeTrue())
 	})
 })

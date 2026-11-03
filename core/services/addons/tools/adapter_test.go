@@ -318,6 +318,15 @@ var _ = Describe("Addon tool adapter", func() {
 			Expect(e).NotTo(HaveOccurred())
 			Expect(res.Code).To(Equal(tools.CodeNoCredential))
 		})
+		It("tells the model a connection expired or was revoked, without an outage", func() {
+			f.readErr = fmt.Errorf("call: %w", &gateway.CredentialRefusal{Code: gateway.CodeReconnectNeeded})
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Kind).To(Equal(tools.ResultError))
+			Expect(res.Code).To(Equal(tools.CodeReconnectNeeded))
+			Expect(res.Code).To(Equal("reconnect_needed"))
+			Expect(res.Note).To(Equal("The person's connection to this service has expired or was revoked, so nothing was sent. Tell them to reconnect on the Connectors page. Do not repeat the call and do not report an outage."))
+		})
 		It("keeps an outage an error, never the refused result", func() {
 			f.readErr = gateway.ErrUnavailable
 			_, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))

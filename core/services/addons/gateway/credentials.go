@@ -25,7 +25,21 @@ const (
 	// this call uses: the chat and its agent name none, and the person has
 	// several or none. The host picks no connection for them.
 	CodeSelectConnection = "select_connection"
+	// CodeReconnectNeeded means the person's connection to the service has
+	// expired or was revoked and the host cannot renew it. Nothing was sent.
+	// The person must connect again.
+	CodeReconnectNeeded = "reconnect_needed"
 )
+
+// refusalCode reports whether t is the code of a CredentialRefusal, as it
+// travels on the wire between the owner and a forwarding frontend.
+func refusalCode(t string) bool {
+	switch t {
+	case CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection, CodeReconnectNeeded:
+		return true
+	}
+	return false
+}
 
 type connectionKey struct{}
 

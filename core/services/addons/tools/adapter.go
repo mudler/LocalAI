@@ -219,6 +219,14 @@ func WithConnection(ctx context.Context, bindingID string) context.Context {
 // NoCredentialNote is what the model is told when the person has no credential for the add-on.
 const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
 
+// CodeReconnectNeeded is the Code of a ResultError for a call of an add-on
+// whose connection to the service expired or was revoked, and the host could
+// not renew it.
+const CodeReconnectNeeded = gateway.CodeReconnectNeeded
+
+// ReconnectNeededNote is what the model is told when the person must connect again.
+const ReconnectNeededNote = "The person's connection to this service has expired or was revoked, so nothing was sent. Tell them to reconnect on the Connectors page. Do not repeat the call and do not report an outage."
+
 // CodeWriteNotAllowed is the Code of a ResultError for a write tool of an add-on
 // whose binding has its write mode off. The add-on was not called.
 const CodeWriteNotAllowed = gateway.CodeWriteNotAllowed
@@ -1006,6 +1014,8 @@ func refusedResult(name string, err error) (ToolResult, error) {
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeWriteNotAllowed, Note: WriteNotAllowedNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeSelectConnection:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectConnection, Note: SelectConnectionNote}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeReconnectNeeded:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeReconnectNeeded, Note: ReconnectNeededNote}, nil
 	case errors.As(err, &refusal) && refusal.Code == gateway.CodeNoCredential:
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNoCredential, Note: NoCredentialNote}, nil
 	case errors.Is(err, gateway.ErrNotPermitted):
