@@ -3,6 +3,7 @@ package contract
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -110,6 +111,27 @@ var _ = Describe("The network capability", func() {
 			Expect(declared.PresetTitle("registries", "Package registries")).To(Equal("Package registries"))
 			var none *NetworkCapability
 			Expect(none.PresetTitle("all", "All public sites")).To(Equal("All public sites"))
+		})
+	})
+
+	Describe("the shipped Sandbox manifest", func() {
+		load := func() Manifest {
+			b, err := os.ReadFile("../../../addons/sandbox/manifest.json")
+			Expect(err).NotTo(HaveOccurred())
+			m, err := ParseManifest(b)
+			Expect(err).NotTo(HaveOccurred())
+			return m
+		}
+		It("declares its network and keeps the control it asked for", func() {
+			m := load()
+			Expect(m.Capabilities.Network).To(Equal(&NetworkCapability{Kind: NetworkKindEgressCheck, Title: "Sandbox"}))
+			Expect(EntitledControls(m, []string{"egress."})).To(ContainElement(ControlNetworkPolicy))
+		})
+		It("keeps the control through its bash tool when an older manifest declares no network", func() {
+			m := load()
+			m.Capabilities.Network = nil
+			Expect(EntitledControls(m, []string{"egress."})).To(ContainElement(ControlNetworkPolicy))
+			Expect(EntitledControls(m, nil)).NotTo(ContainElement(ControlNetworkPolicy))
 		})
 	})
 })

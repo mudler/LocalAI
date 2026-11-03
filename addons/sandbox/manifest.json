@@ -18,6 +18,10 @@
       ]
     },
     "actions": true,
+    "network": {
+      "kind": "egress-check",
+      "title": "Sandbox"
+    },
     "toolDefinitions": [
       {
         "name": "bash",
