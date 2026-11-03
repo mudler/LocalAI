@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import SearchableModelSelect from '../SearchableModelSelect'
+import ModelPicker from '../ModelPicker'
 import Icon from '../Icon'
 import { CAP_CHAT, CAP_TRANSCRIPT, CAP_VISION } from '../../utils/capabilities'
 import {
@@ -98,7 +98,8 @@ function Control({ field, settings, onChange, id, labelId, disabled, assets }) {
     case 'model':
       return (
         <div className="st-model">
-          <SearchableModelSelect
+          <ModelPicker
+            variant="field" allowCustom clearable searchable
             value={value} onChange={set} placeholder={field.placeholder}
             capability={MODEL_CAPABILITY[field.key]}
           />

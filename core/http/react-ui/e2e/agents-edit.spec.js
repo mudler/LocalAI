@@ -384,6 +384,29 @@ test('create uses the chat picker, filters unusable models and persists the alia
   expect(aliasRequests).toEqual([])
 })
 
+test('create can pick an alias, shows what it stands for, and saves the alias name', async ({ page }) => {
+  const models = [
+    { id: 'production', capabilities: ['FLAG_CHAT'], backend: 'llama-cpp' },
+    { id: 'daily', capabilities: ['FLAG_CHAT'], backend: 'llama-cpp', alias_of: 'production' },
+    { id: 'lost', capabilities: [], alias_of: 'gone', alias_error: 'alias "lost" points to unknown model "gone"' },
+  ]
+  const s = await installAgents(page, { models })
+  await page.goto('/app/agents/new')
+  await page.getByLabel('Name', { exact: false }).first().fill('Alias picker')
+  const chip = await openModel(page)
+  await chip.click()
+  const options = page.getByRole('listbox').getByRole('option')
+  await expect(options.filter({ hasText: 'daily' })).toContainText('alias of production')
+  await expect(options.filter({ hasText: 'lost' })).toHaveAttribute('aria-disabled', 'true')
+  if (process.env.PICKER_SHOTS) await page.waitForTimeout(600)
+  if (process.env.PICKER_SHOTS) await page.screenshot({ path: `${process.env.PICKER_SHOTS}/agent-create-picker.png` })
+  await options.filter({ hasText: 'daily' }).click()
+  await expect(chip).toContainText('daily')
+  await page.getByRole('button', { name: 'Create Agent' }).first().click()
+  await expect(page).toHaveURL(/\/app\/agents$/)
+  expect(s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/agents').body.model).toBe('daily')
+})
+
 test('edit retains the stored alias while capabilities load and through unrelated saves, then can change or clear it', async ({ page }) => {
   const s = await installAgents(page, { models: aliasModels, agents: [{ ...AGENTS[0], model: 'production' }] })
   let release

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useModels } from '../hooks/useModels'
 import { readLastModel, writeLastModel, readPreferredModel } from '../utils/lastModel'
 import Icon from './Icon'
+import './home/composer.css'
 
 // How many models before the list gets a filter box, when `searchable` is left
 // to decide.
@@ -38,7 +39,7 @@ const ModelPicker = forwardRef(function ModelPicker(
   ref,
 ) {
   const { t } = useTranslation('home')
-  const own = useModels(capability, { enabled: !givenModels })
+  const own = useModels(capability, { enabled: !givenModels, keepBroken: true })
   const models = givenModels || own.models
   const loading = givenModels ? !!givenLoading : own.loading
   const byId = useMemo(() => new Map(models.map(m => [m.id, m])), [models])
@@ -249,7 +250,7 @@ const ModelPicker = forwardRef(function ModelPicker(
             tabIndex={-1}
             aria-activedescendant={activeId}
           >
-            {!grouped && <li className="home-menu__head" role="presentation">{labels?.heading || t('picker.heading')}</li>}
+            {!grouped && (labels?.heading || capability === 'FLAG_CHAT') && <li className="home-menu__head" role="presentation">{labels?.heading || t('picker.heading')}</li>}
             {loading && <li className="home-menu__empty" role="presentation">{t('picker.loading')}</li>}
             {!loading && shown.length === 0 && (
               <li className="home-menu__empty" role="presentation">{names.length === 0 ? t('picker.empty') : t('picker.noMatch')}</li>
