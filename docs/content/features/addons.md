@@ -2173,8 +2173,12 @@ After an operator removes required grants and restarts, the package remains
 installed with its enabled intent. Its effective runtime is unavailable
 (`failed` in Apps), and the owner admits no launch, tool, resource, connector,
 or page access. It does not offer installation as a repair. Restore the host
-policy and restart the owner to make it available again. Policy is restart-only:
-subsequent manager `SetHostOps` calls do not replace the startup decision.
+policy to make it available again. The policy file and flags are read at startup,
+and a change of them needs a restart. Grants and deny rules that an administrator
+sets in the UI apply live: a revoke or a deny stops an add-on that loses a
+required operation, and a grant or a lifted deny starts one that was refused,
+without a restart. Subsequent manager `SetHostOps` calls do not replace the
+startup decision.
 
 Missing optional requests permit a degraded start. Existing admin Apps details
 and lifecycle operation results include bounded required, optional, granted,
@@ -5483,7 +5487,9 @@ rather than starting a replacement operation.
 
 ## Host access in the UI
 
-An administrator gives an add-on its host operations in the browser, at install and at upgrade. No file edit and no restart are needed. The policy file and flags still work. They are a floor that the UI shows and cannot change, and the deny rules of the file always win. Only the administrator's own browser session can change host access. An API key, a tool call or an agent cannot grant, revoke, edit a deny rule or change the blanket switch.
+An administrator gives an add-on its host operations in the browser, at install and at upgrade. No file edit and no restart are needed. The policy file and flags still work. They are a floor that the UI shows and cannot change, and the deny rules of the file always win. Only the administrator's own browser session can change host access. An API key, a tool call or an agent cannot grant, revoke, edit a deny rule or change the blanket switch. Each refusal of such a caller is written to the audit file with the kind of credential.
+
+**With sign-in off, UI grants are locked.** Without sign-in every caller that reaches the port is the same local owner, and the checks that tell a person from a script are headers that the caller sets. So in that mode the UI cannot change host access by default: the policy file and flags still grant, every write route answers `403 locked_by_deployment`, and the page and the install dialog show the operations read-only with the reason. To allow UI changes anyway, start with `--addon-host-ui-grants-without-auth`. The server then logs a warning, and anyone who can reach the port can grant host operations, set deny rules and turn the blanket switch on. Turn sign-in on instead when other people or programs can reach the server.
 
 The owner never grants what the verified package does not declare. A grant is always the operations you approved, that the package declares, and that this LocalAI supports.
 
@@ -5515,7 +5521,11 @@ The **Host access** tab of the Add-ons page (administrators only) shows, for eac
 - A grant that was made for a different package under the same name has no effect. The page marks it and offers to remove it.
 - **Never allow** lists deny rules. Rules of the policy file or flags are locked. Rules made here can be removed. Before a new rule is saved, the page shows which add-ons lose which operations and which will stop. A rule can name one add-on or all add-ons, an operation, a family that ends with a dot, or `*`.
 
-If the deployment sets `--addon-host-ui-grants=false`, the page is read-only.
+If the deployment sets `--addon-host-ui-grants=false`, or sign-in is off and `--addon-host-ui-grants-without-auth` is not set, the page is read-only and says why.
+
+A grant is tied to the add-on ID and to the library and signer the package came from. An install or upgrade that resolves to another library or signer is held until you approve it in the browser, like an upgrade that asks for more. The old version keeps running. When an uninstall cannot delete the grants of the add-on, it fails and the add-on stays installed.
+
+Each change is written to the audit file before it is applied. If the audit file cannot be written, the change is refused with `503` and nothing changes.
 
 ### Blanket approval
 
@@ -5646,7 +5656,8 @@ read-only floor in the UI.
 | --- | --- | --- |
 | `--addon-host-deny` | `LOCALAI_ADDON_HOST_DENY` | Deny rules, added to those of the file. |
 | `--addon-host-ui-grants=false` | `LOCALAI_ADDON_HOST_UI_GRANTS` | Makes the UI grant store read-only, so the file and flags are the only source of grants. On by default. |
-| `--addon-host-blanket=off\|official\|any` | `LOCALAI_ADDON_HOST_BLANKET` | Fixes the blanket approval mode. The UI then shows it as set by the deployment. Unset leaves the choice to the administrator. |
+| `--addon-host-ui-grants-without-auth` | `LOCALAI_ADDON_HOST_UI_GRANTS_WITHOUT_AUTH` | Lets the UI change host grants although sign-in is off. Off by default: with sign-in off the UI grants are locked, because anyone who can reach the port could change them. Logs a warning when set. |
+| `--addon-host-blanket=off\|official\|any` | `LOCALAI_ADDON_HOST_BLANKET` | Fixes the blanket approval mode. The UI then shows it as set by the deployment. Unset leaves the choice to the administrator. The deployment value is applied when it is read and is never copied into `host-grants.json`: remove the flag and the switch returns to what an administrator set in the UI. |
 
 ### Breaking upgrade change: standalone and custom deployments
 
