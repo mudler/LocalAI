@@ -172,6 +172,16 @@ export function previewLimit(base, mib) {
   return { bytes: base.effective_bytes, layer: base.layer }
 }
 
+// What the add-on declares for one direction, from the limits of the kind:
+// 'off' (it moves no file that way), 'declared' (it names a largest file),
+// 'open' (it names none, so the platform limit applies) or 'unknown' (the page
+// has no numbers yet).
+export function fileDirection(base) {
+  if (!base) return 'unknown'
+  if (!(base.effective_bytes > 0) && !(base.allowed_bytes > 0)) return 'off'
+  return base.declared_bytes > 0 ? 'declared' : 'open'
+}
+
 // A size as a person reads it: bytes, KiB, MiB, GiB or TiB, one decimal at most.
 export function formatBytes(n) {
   if (n === 1) return '1 byte'

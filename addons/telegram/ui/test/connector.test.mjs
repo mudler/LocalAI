@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -119,6 +119,13 @@ test('chat connectors: a typed limit can only lower the limit in effect, and nam
   assert.deepEqual(previewLimit(base, '0.25'), { bytes: 256 * 1024, layer: 'owner' })
   assert.deepEqual(previewLimit(base, '5'), { bytes: 1024 * 1024, layer: 'addon' }, 'a higher number changes nothing')
   assert.equal(previewLimit(null, '1'), null)
+})
+
+test('chat connectors: the page tells what the add-on declares for a direction', () => {
+  assert.equal(fileDirection(null), 'unknown')
+  assert.equal(fileDirection({ effective_bytes: 0, allowed_bytes: 0, declared_bytes: 0, layer: 'addon' }), 'off')
+  assert.equal(fileDirection({ effective_bytes: 100, allowed_bytes: 100, declared_bytes: 0, layer: 'host' }), 'open')
+  assert.equal(fileDirection({ effective_bytes: 50, allowed_bytes: 50, declared_bytes: 50, layer: 'addon' }), 'declared')
 })
 
 test('chat connectors: sizes are written in KiB and MiB', () => {
