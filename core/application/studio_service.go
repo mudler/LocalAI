@@ -314,10 +314,19 @@ func (a *Application) loadStudioUser(ctx context.Context, id string) (*auth.User
 	return &u, nil
 }
 
+// studioModelConfig is the config of the model that serves a name. An alias is
+// a redirect whose own config carries no model settings (the loader gives it the
+// generic default window), so the settings come from its target.
+func (a *Application) studioModelConfig(model string) (config.ModelConfig, bool) {
+	bcl := a.ModelConfigLoader()
+	name, _ := bcl.ResolveAliasName(model)
+	return bcl.GetModelConfig(name)
+}
+
 // studioContextTokens is the context window of a model, or zero when its config
 // does not say.
 func (a *Application) studioContextTokens(model string) int {
-	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	cfg, ok := a.studioModelConfig(model)
 	if !ok || cfg.ContextSize == nil {
 		return 0
 	}
@@ -327,7 +336,7 @@ func (a *Application) studioContextTokens(model string) int {
 // studioModalities says which inputs a chat model takes natively, from its
 // configuration. An unknown model takes none.
 func (a *Application) studioModalities(model string) studio.Modalities {
-	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	cfg, ok := a.studioModelConfig(model)
 	if !ok {
 		return studio.Modalities{}
 	}
@@ -340,7 +349,7 @@ func (a *Application) studioModalities(model string) studio.Modalities {
 // limit is the model's agent.max_iterations, else chats_max_iterations.
 func (a *Application) studioAgentOptions(model string) nibharness.AgentOptions {
 	opts := nibharness.AgentOptions{Iterations: a.applicationConfig.EffectiveChatsMaxIterations()}
-	cfg, ok := a.ModelConfigLoader().GetModelConfig(model)
+	cfg, ok := a.studioModelConfig(model)
 	if !ok {
 		return opts
 	}

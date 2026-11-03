@@ -93,6 +93,27 @@ var _ = Describe("studio service at startup", func() {
 		Expect(app.studioContextTokens("missing")).To(Equal(0))
 	})
 
+	It("reads the window of an alias from its target, not from the alias", func() {
+		app := newApp()
+		big, fallback := 100096, 4096
+		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{
+			{Name: "target-model", LLMConfig: config.LLMConfig{ContextSize: &big}},
+			// The loader gives every alias the generic default window.
+			{Name: "default", Alias: "target-model", LLMConfig: config.LLMConfig{ContextSize: &fallback}},
+		})
+		Expect(app.studioContextTokens("default")).To(Equal(100096))
+		Expect(app.studioContextTokens("target-model")).To(Equal(100096))
+	})
+
+	It("reads the agent options of an alias from its target", func() {
+		app := newApp()
+		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{
+			{Name: "target-model", Agent: config.AgentConfig{MaxIterations: 7}},
+			{Name: "default", Alias: "target-model"},
+		})
+		Expect(app.studioAgentOptions("default").Iterations).To(Equal(7))
+	})
+
 	Describe("MCP servers of a chat", func() {
 		servers := "mcpServers:\n  crm:\n    url: http://127.0.0.1:1/crm\n  mail:\n    url: http://127.0.0.1:1/mail\n"
 
