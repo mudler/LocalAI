@@ -166,6 +166,8 @@ definitions:
         type: boolean
       canStop:
         type: boolean
+      hostOperations:
+        $ref: '#/definitions/hostops.RequestSummary'
       managementUrl:
         description: ManagementURL opens the management view of the addon.
         example: /app/addons?manage=notes
@@ -231,6 +233,12 @@ definitions:
       name:
         example: notes
         type: string
+      network:
+        allOf:
+        - $ref: '#/definitions/apps.NetworkView'
+        description: |-
+          Network is the network policy the add-on declares, present only while
+          the host draws its network-policy control (see contract.EntitledControls).
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -351,12 +359,48 @@ definitions:
         example: summarize
         type: string
     type: object
+  apps.HomeCommandView:
+    properties:
+      alias:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      page:
+        type: string
+    type: object
   apps.List:
     properties:
       apps:
         items:
           $ref: '#/definitions/apps.App'
         type: array
+    type: object
+  apps.NetworkView:
+    properties:
+      kind:
+        description: Kind is the declared kind of network policy.
+        enum:
+        - egress-check
+        example: egress-check
+        type: string
+      presets:
+        description: Presets are the titles the add-on gives the host's network presets.
+        items:
+          $ref: '#/definitions/contract.NetworkPreset'
+        type: array
+      title:
+        description: 'Title names the network in text: the declared title, else the
+          add-on''s.'
+        example: Example provider
+        type: string
     type: object
   apps.SlotView:
     properties:
@@ -441,6 +485,18 @@ definitions:
           package digest, so a new package is a new URL.
         example: /api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js
         type: string
+      homeCommands:
+        description: HomeCommands contains only resolved navigation metadata for this
+          app.
+        items:
+          $ref: '#/definitions/apps.HomeCommandView'
+        type: array
+      modelActions:
+        description: ModelActions contains only declared destinations for this installed
+          UI.
+        items:
+          $ref: '#/definitions/contract.ModelAction'
+        type: array
       navigation:
         items:
           type: string
@@ -743,6 +799,22 @@ definitions:
           type: string
         type: array
     type: object
+  contract.ModelAction:
+    properties:
+      capability:
+        type: string
+      page:
+        type: string
+      path:
+        type: string
+    type: object
+  contract.NetworkPreset:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+    type: object
   contract.OutputDescription:
     properties:
       handle:
@@ -840,11 +912,11 @@ definitions:
           Name is the skill's name and the name of its folder. A plain skill is
           named after the add-on: the add-on ID, or the ID and a dash and more
           (office-quickstart), so two add-ons never ship one plain name. A skill
-          that replaces a built-in one has the built-in's name (see Shadows).
+          for a reserved document slot has the slot's name (see Shadows).
         type: string
       shadows:
         description: |-
-          Shadows names the built-in skill this skill replaces. It must equal Name
+          Shadows names the document-provider slot this skill supplies. It must equal Name
           and be one of ReplaceableSkills. It repeats the name on purpose: the
           replacement is an explicit act, which the install warning and the check
           read from the manifest without opening the package. Empty: a plain
@@ -1868,6 +1940,35 @@ definitions:
         example: 4f1c
         type: string
     type: object
+  hostops.RequestSummary:
+    properties:
+      granted:
+        items:
+          type: string
+        type: array
+      grantedCount:
+        type: integer
+      missingOptional:
+        items:
+          type: string
+        type: array
+      missingRequired:
+        items:
+          type: string
+        type: array
+      optional:
+        items:
+          type: string
+        type: array
+      optionalCount:
+        type: integer
+      required:
+        items:
+          type: string
+        type: array
+      requiredCount:
+        type: integer
+    type: object
   library.Info:
     properties:
       authReference:
@@ -2753,6 +2854,8 @@ definitions:
       commands_reason:
         description: CommandsReason is why commands cannot run, when Commands is unavailable.
         type: string
+      execution_status:
+        $ref: '#/definitions/schema.ChatsExecutionStatus'
     type: object
   schema.ChatsAddonSwitches:
     properties:
@@ -2818,6 +2921,13 @@ definitions:
         items:
           type: string
         type: array
+      caps:
+        description: |-
+          Caps are the capabilities you enabled for this binding: the ceiling of
+          what any sender can use. Grants give roles of the kind some of them.
+        items:
+          type: string
+        type: array
       conversation:
         description: |-
           Conversation says which chat a message belongs to: sender (one chat
@@ -2830,6 +2940,23 @@ definitions:
         type: string
       enabled:
         type: boolean
+      file_receive_max_bytes:
+        description: |-
+          FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
+          zero means you set none and the limit of the kind applies.
+        type: integer
+      file_send_max_bytes:
+        type: integer
+      files:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFiles'
+        description: |-
+          Files are the limits of the files the bot reads and sends, with the
+          limit that you set for this bot.
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
       has_token:
         type: boolean
       id:
@@ -2840,8 +2967,22 @@ definitions:
         type: string
       notify_chat:
         type: string
+      options:
+        additionalProperties:
+          type: string
+        description: |-
+          Options are the choices made for the options of the kind, by option id.
+          An option that is absent has its default (see ChatsConnectorKind).
+        type: object
       owner:
         type: string
+      paired:
+        description: |-
+          Paired are the senders you proved with a pairing code. A pairing ends
+          at expires_at.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorPaired'
+        type: array
       reason:
         description: Reason says in plain words why the binding is not active.
         type: string
@@ -3000,8 +3141,10 @@ definitions:
         type: string
       path:
         description: |-
-          Path is the folder's path in your files now ("/" is all of them). It
-          is absent when the folder is missing or not chosen.
+          Path is home-relative ("/" is the whole home), or /shared/<name>/...
+          for a followed readable shared folder. It is absent when missing,
+          not chosen, or readable outside these public locations; a readable
+          folder without a public path still has state ok.
         type: string
       state:
         description: |-
@@ -3128,7 +3271,9 @@ definitions:
         description: |-
           Folder chooses the one folder the agent's chats work in. A write
           without it keeps the folder the agent has; {"path": ""} clears it. In
-          an export file it is the folder's path and mode when the file was made.
+          an export file it is the home-relative path and mode when the file was
+          made. A missing, unchosen or non-home folder has an empty export path;
+          import preserves its mode as unset and warns instead of clearing scope.
       instructions:
         type: string
       mcp_servers:
@@ -3460,6 +3605,13 @@ definitions:
         items:
           type: string
         type: array
+      caps:
+        description: |-
+          Caps are the capabilities you enabled for this binding: the ceiling of
+          what any sender can use. Grants give roles of the kind some of them.
+        items:
+          type: string
+        type: array
       conversation:
         description: |-
           Conversation says which chat a message belongs to: sender (one chat
@@ -3472,6 +3624,23 @@ definitions:
         type: string
       enabled:
         type: boolean
+      file_receive_max_bytes:
+        description: |-
+          FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
+          zero means you set none and the limit of the kind applies.
+        type: integer
+      file_send_max_bytes:
+        type: integer
+      files:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFiles'
+        description: |-
+          Files are the limits of the files the bot reads and sends, with the
+          limit that you set for this bot.
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
       has_token:
         type: boolean
       id:
@@ -3482,9 +3651,6 @@ definitions:
         type: string
       notify_chat:
         type: string
-      reason:
-        description: Reason says in plain words why the binding is not active.
-        type: string
       options:
         additionalProperties:
           type: string
@@ -3492,6 +3658,16 @@ definitions:
           Options are the choices made for the options of the kind, by option id.
           An option that is absent has its default (see ChatsConnectorKind).
         type: object
+      paired:
+        description: |-
+          Paired are the senders you proved with a pairing code. A pairing ends
+          at expires_at.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorPaired'
+        type: array
+      reason:
+        description: Reason says in plain words why the binding is not active.
+        type: string
       reply_mode:
         description: |-
           ReplyMode is what a sender sees while a turn runs: off (typing, then
@@ -3507,12 +3683,59 @@ definitions:
       window_minutes:
         type: integer
     type: object
+  schema.ChatsConnectorFileLimit:
+    properties:
+      allowed_bytes:
+        description: AllowedBytes is the most you may set for a bot.
+        type: integer
+      declared_bytes:
+        description: DeclaredBytes is the ability the kind declares, or zero.
+        type: integer
+      effective_bytes:
+        description: |-
+          EffectiveBytes is the largest file that moves now: the smallest of the
+          host ceiling, the declared ability, your limit and the inline cap.
+        type: integer
+      layer:
+        description: |-
+          Layer names the one that sets EffectiveBytes: owner (your limit for
+          this bot), addon (the ability the kind declares), host (the ceiling of
+          the server) or inline (the cap of the inline path).
+        type: string
+    type: object
+  schema.ChatsConnectorFiles:
+    properties:
+      host_ceiling_bytes:
+        description: |-
+          HostCeilingBytes is the ceiling of the server for a connector file, set
+          by the add-on owner; no limit above it applies.
+        type: integer
+      inline_bytes:
+        description: |-
+          InlineBytes is the cap of the inline path. Until the add-on can stream
+          a file, nothing larger moves, whatever the other limits are.
+        type: integer
+      receive:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFileLimit'
+        description: Receive is the limit of the files that people send to the bot.
+      send:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFileLimit'
+        description: Send is the limit of the files that the bot sends.
+    type: object
   schema.ChatsConnectorKind:
     properties:
       addon:
         type: string
       description:
         type: string
+      files:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFiles'
+        description: |-
+          Files are the limits of a binding of this kind that has no limit of
+          your own.
       kind:
         type: string
       options:
@@ -3525,6 +3748,18 @@ definitions:
         description: Page is the add-on page that adds and edits bindings of this
           kind.
         type: string
+      permissions:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorPermission'
+        type: array
+      roles:
+        description: |-
+          Roles are the roles the add-on can report for a sender, and
+          Permissions the capabilities the kind lists. Grant them to a role with
+          the grants of a binding.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRole'
+        type: array
       sender_hint:
         type: string
       thread_history:
@@ -3535,6 +3770,20 @@ definitions:
         type: boolean
       title:
         type: string
+    type: object
+  schema.ChatsConnectorKindList:
+    properties:
+      kinds:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorKind'
+        type: array
+    type: object
+  schema.ChatsConnectorList:
+    properties:
+      connectors:
+        items:
+          $ref: '#/definitions/schema.ChatsConnector'
+        type: array
     type: object
   schema.ChatsConnectorOption:
     properties:
@@ -3558,19 +3807,46 @@ definitions:
       title:
         type: string
     type: object
-  schema.ChatsConnectorKindList:
+  schema.ChatsConnectorPaired:
     properties:
-      kinds:
-        items:
-          $ref: '#/definitions/schema.ChatsConnectorKind'
-        type: array
+      expires_at:
+        type: string
+      paired_at:
+        type: string
+      sender_id:
+        type: string
     type: object
-  schema.ChatsConnectorList:
+  schema.ChatsConnectorPairing:
     properties:
-      connectors:
+      code:
+        type: string
+      expires:
+        type: string
+    type: object
+  schema.ChatsConnectorPermission:
+    properties:
+      name:
+        type: string
+      sensitive:
+        type: boolean
+    type: object
+  schema.ChatsConnectorRole:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsConnectorRoleGrant:
+    properties:
+      caps:
         items:
-          $ref: '#/definitions/schema.ChatsConnector'
+          type: string
         type: array
+      role:
+        type: string
     type: object
   schema.ChatsConnectorSender:
     properties:
@@ -3611,6 +3887,15 @@ definitions:
         items:
           type: string
         type: array
+      caps:
+        description: |-
+          Caps are the capabilities you enable for the binding (a closed list,
+          see the kind's permissions for the ones it can grant to a role).
+          Absent means none for a new binding and unchanged for an update; an
+          empty list clears.
+        items:
+          type: string
+        type: array
       confirm_accept_any:
         description: |-
           ConfirmAcceptAny must be the exact text "accept any message" in the
@@ -3623,6 +3908,23 @@ definitions:
         type: string
       enabled:
         type: boolean
+      file_receive_max_bytes:
+        description: |-
+          FileReceiveMaxBytes and FileSendMaxBytes limit the files the bot reads
+          and sends, in bytes. A limit can only lower the limit of the kind, which
+          the kind list shows as allowed_bytes. Zero removes your limit. Absent
+          means none for a new binding and unchanged for an update.
+        type: integer
+      file_send_max_bytes:
+        type: integer
+      grants:
+        description: |-
+          Grants map roles of the kind to capabilities within caps. A sensitive
+          capability is never granted to a role. Absent means unchanged; an empty
+          list clears.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
       kind:
         description: |-
           Kind is the platform, such as telegram. It is used to create a binding and
@@ -3894,8 +4196,10 @@ definitions:
         type: array
       applies:
         description: |-
-          Applies is false when commands run on this machine (applies_reason
-          host) or no Sandbox serves bash (none).
+          Applies is true when the add-on that runs the commands reports that it
+          enforces the network policy. It is false when commands run on this
+          machine (applies_reason host), or no Sandbox serves bash or the add-on
+          does not report enforcement (none).
         type: boolean
       applies_reason:
         type: string
@@ -3909,6 +4213,12 @@ definitions:
       effective:
         description: the lower of the two
         type: string
+      network:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsEgressNetwork'
+        description: |-
+          Network names the network of addon in text and gives the preset titles
+          the add-on declares. Set with addon.
       preset:
         description: off, registries, all
         type: string
@@ -3945,6 +4255,10 @@ definitions:
         type: array
       isolation:
         type: string
+      network:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsEgressNetwork'
+        description: Network names the network of that add-on in text. Set with sandbox.
       ports:
         items:
           type: integer
@@ -3955,8 +4269,9 @@ definitions:
         type: array
       sandbox:
         description: |-
-          Sandbox is the add-on that runs commands, empty when none serves;
-          Isolation is isolated, host, or empty when unknown.
+          Sandbox is the add-on that runs commands, empty when none serves (the
+          name of the field is kept for existing clients); Isolation is isolated,
+          host, or empty when unknown.
         type: string
     type: object
   schema.ChatsEgressCard:
@@ -4031,6 +4346,35 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsEgressEvent'
         type: array
+    type: object
+  schema.ChatsEgressNetwork:
+    properties:
+      presets:
+        description: |-
+          Presets are the titles the add-on gives the host's presets; a preset
+          that is not listed keeps the host's title.
+        items:
+          $ref: '#/definitions/schema.ChatsEgressNetworkPreset'
+        type: array
+      title:
+        description: |-
+          Title names the network in text: the declared title, else the title of
+          the commands tool.
+        example: Sandbox
+        type: string
+    type: object
+  schema.ChatsEgressNetworkPreset:
+    properties:
+      id:
+        enum:
+        - "off"
+        - registries
+        - all
+        example: "off"
+        type: string
+      title:
+        example: Closed
+        type: string
     type: object
   schema.ChatsEgressPreset:
     properties:
@@ -4112,6 +4456,26 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsUsage'
         description: 'Usage is set on usage events: what one model request used.'
+    type: object
+  schema.ChatsExecutionStatus:
+    properties:
+      explanation:
+        type: string
+      generation:
+        type: string
+      incarnation:
+        type: string
+      isolation:
+        type: string
+      readiness:
+        type: string
+      unknown_reason:
+        description: |-
+          UnknownReason says why the status is unknown: owner_unreachable,
+          not_reported, stale, invalid_status, not_selected, no_answer,
+          reported_unknown or draft (the chat does not exist yet). Absent when the status is known.
+        example: owner_unreachable
+        type: string
     type: object
   schema.ChatsExport:
     properties:
@@ -12261,6 +12625,13 @@ paths:
         in: query
         name: kind
         type: string
+      - description: 'only chats of one origin, with sub-agent runs left out and the
+          limit counting the chats kept: person (a person started it), automated (anything
+          else) or one origin kind (trigger, connector, job, page). Without it, all
+          chats'
+        in: query
+        name: origin
+        type: string
       responses:
         "200":
           description: Conversations, including sub-agent runs unless kind=chat
@@ -12295,7 +12666,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: The saved agent's folder is missing or not chosen (agent_folder_missing)
+          description: The saved agent's folder is missing or not chosen (agent_folder_missing),
+            or its complete file access exceeds the folder limit (agent_folder_limit)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Start a chat.
@@ -12621,7 +12993,7 @@ paths:
     get:
       description: The preset of the chat (off, registries, all), the administrator's
         ceiling, the preset in force (the lower of the two), whether it applies (false
-        when commands run on this machine, applies_reason host, or no Sandbox serves
+        when commands run on this machine, applies_reason host, or no add-on serves
         bash, none), addon (the add-on that runs the commands and draws the network
         controls of the chat, from its network-policy host control; absent when none
         does), the package registries the preset registries admits, the chat's allow
@@ -12643,7 +13015,7 @@ paths:
           description: No such conversation, or it is another user's
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Read the network of a chat's Sandbox commands.
+      summary: Read the network of a chat's commands.
       tags:
       - chats
     put:
@@ -12676,7 +13048,7 @@ paths:
           description: No such conversation, or it is another user's
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Set the network preset of a chat's Sandbox commands.
+      summary: Set the network preset of a chat's commands.
       tags:
       - chats
   /api/chats/{id}/egress/consent:
@@ -12723,14 +13095,14 @@ paths:
             the same answer again is 204
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Answer a network card of a chat's Sandbox commands.
+      summary: Answer a network card of a chat's commands.
       tags:
       - chats
   /api/chats/{id}/egress/rules/{host}/{port}:
     delete:
       description: Removes the rule that allows or denies one host and port for the
-        chat's Sandbox commands. A host that was denied asks again; one that was allowed
-        follows the preset again.
+        chat's commands. A host that was denied asks again; one that was allowed follows
+        the preset again.
       parameters:
       - description: conversation id
         in: path
@@ -13433,7 +13805,8 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
           description: A turn is running for a command, or the saved agent's folder
-            is missing (agent_folder_missing)
+            is missing (agent_folder_missing), or its complete file access exceeds
+            the folder limit (agent_folder_limit)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Send a message to a chat.
@@ -13765,15 +14138,15 @@ paths:
           description: The settings in force
           schema:
             $ref: '#/definitions/schema.ChatsEgressAdmin'
-      summary: Read the settings of the Sandbox network (administrators).
+      summary: Read the settings of the network of commands (administrators).
       tags:
       - chats
   /api/chats/admin/egress/events:
     get:
-      description: 'Every request a command made through the Sandbox proxy, newest
-        first: who, which chat, host, port, kind (connect or http), verdict (allow,
-        block, or done when an allowed connection ended, with its address, bytes and
-        duration) and reason.'
+      description: 'Every request a command made through the proxy of the add-on,
+        newest first: who, which chat, host, port, kind (connect or http), verdict
+        (allow, block, or done when an allowed connection ended, with its address,
+        bytes and duration) and reason.'
       parameters:
       - description: How many lines (default 100, at most 500)
         in: query
@@ -13800,7 +14173,7 @@ paths:
           description: The newest lines first
           schema:
             $ref: '#/definitions/schema.ChatsEgressEventList'
-      summary: Read the audit of the Sandbox network requests (administrators).
+      summary: Read the audit of the network of commands requests (administrators).
       tags:
       - chats
   /api/chats/admin/host-exec/events:
@@ -14296,10 +14669,11 @@ paths:
     get:
       description: Returns the definition as a JSON file (version, kind localai-agent,
         agent). It holds no ID, owner or time. An agent with a folder is version 2
-        and carries folder {path, mode}, the folder's path in your files now (empty
-        when the folder is missing or not chosen); a server that knows only version
-        1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import
-        reads it. This replaces the old /api/agents/{name}/export.
+        and carries folder {path, mode}, the folder's home-relative path now (empty
+        when the folder is missing, not chosen, or outside your home, even if readable);
+        importing an empty path preserves the scope as unset with a warning; a server
+        that knows only version 1 refuses it. An agent without a folder is version
+        1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
       parameters:
       - description: the agent's id
         in: path
@@ -14679,6 +15053,49 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConnector'
       summary: Switch a connector binding on.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/paired/{sender}:
+    delete:
+      description: The sender can pair again with a new code.
+      parameters:
+      - description: the binding's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the sender's id
+        in: path
+        name: sender
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The binding
+          schema:
+            $ref: '#/definitions/schema.ChatsConnector'
+      summary: End the pairing of a sender of a connector binding.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/pairing:
+    post:
+      description: Pairing proves that you control a platform account. Send the code,
+        as a direct message to the bot, from an account on the allowlist, within ten
+        minutes. The code works once, and a new code replaces the old one. A paired
+        sender may use the sensitive capabilities you enabled; a pairing ends after
+        90 days. At most three senders are paired.
+      parameters:
+      - description: the binding's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The code and when it expires
+          schema:
+            $ref: '#/definitions/schema.ChatsConnectorPairing'
+      summary: Make a pairing code for a connector binding.
       tags:
       - chats
   /api/chats/connectors/{id}/senders:

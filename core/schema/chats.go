@@ -1192,6 +1192,48 @@ type ChatsConnector struct {
 	// zero means you set none and the limit of the kind applies.
 	FileReceiveMaxBytes int64 `json:"file_receive_max_bytes"`
 	FileSendMaxBytes    int64 `json:"file_send_max_bytes"`
+	// Caps are the capabilities you enabled for this binding: the ceiling of
+	// what any sender can use. Grants give roles of the kind some of them.
+	Caps   []string                  `json:"caps"`
+	Grants []ChatsConnectorRoleGrant `json:"grants"`
+	// Paired are the senders you proved with a pairing code. A pairing ends
+	// at expires_at.
+	Paired []ChatsConnectorPaired `json:"paired"`
+}
+
+// ChatsConnectorRoleGrant gives the capabilities caps to the senders that the
+// add-on reports with the role role.
+type ChatsConnectorRoleGrant struct {
+	Role string   `json:"role"`
+	Caps []string `json:"caps"`
+}
+
+// ChatsConnectorPaired is a paired sender of a binding.
+type ChatsConnectorPaired struct {
+	SenderID  string    `json:"sender_id"`
+	PairedAt  time.Time `json:"paired_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// ChatsConnectorPairing is a pairing code. Send it from the account to pair, as
+// a direct message to the bot, before it expires.
+type ChatsConnectorPairing struct {
+	Code    string    `json:"code"`
+	Expires time.Time `json:"expires"`
+}
+
+// ChatsConnectorRole is a role that a kind can give to a sender.
+type ChatsConnectorRole struct {
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+}
+
+// ChatsConnectorPermission is a capability that a kind lists. Sensitive ones
+// are never granted to a role: only a paired sender can use them.
+type ChatsConnectorPermission struct {
+	Name      string `json:"name"`
+	Sensitive bool   `json:"sensitive"`
 }
 
 // ChatsConnectorFiles are the file limits of a binding or of a kind, for both
@@ -1242,6 +1284,11 @@ type ChatsConnectorKind struct {
 	// Files are the limits of a binding of this kind that has no limit of
 	// your own.
 	Files ChatsConnectorFiles `json:"files"`
+	// Roles are the roles the add-on can report for a sender, and
+	// Permissions the capabilities the kind lists. Grant them to a role with
+	// the grants of a binding.
+	Roles       []ChatsConnectorRole       `json:"roles,omitempty"`
+	Permissions []ChatsConnectorPermission `json:"permissions,omitempty"`
 }
 
 // ChatsConnectorOption is one choice of a connector kind.
@@ -1300,6 +1347,15 @@ type ChatsConnectorWrite struct {
 	// means none for a new binding and unchanged for an update.
 	FileReceiveMaxBytes *int64 `json:"file_receive_max_bytes,omitempty"`
 	FileSendMaxBytes    *int64 `json:"file_send_max_bytes,omitempty"`
+	// Caps are the capabilities you enable for the binding (a closed list,
+	// see the kind's permissions for the ones it can grant to a role).
+	// Absent means none for a new binding and unchanged for an update; an
+	// empty list clears.
+	Caps []string `json:"caps,omitempty"`
+	// Grants map roles of the kind to capabilities within caps. A sensitive
+	// capability is never granted to a role. Absent means unchanged; an empty
+	// list clears.
+	Grants []ChatsConnectorRoleGrant `json:"grants,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

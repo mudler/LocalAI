@@ -37,9 +37,14 @@ type bindingRow struct {
 	// before them has no limit of the owner.
 	FileReceiveMax int64
 	FileSendMax    int64
-	Token          []byte
-	Created        time.Time
-	Updated        time.Time
+	// Caps, Grants and Paired are JSON, added by AutoMigrate; a row stored
+	// before them has none.
+	Caps    string
+	Grants  string
+	Paired  string
+	Token   []byte
+	Created time.Time
+	Updated time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -71,6 +76,14 @@ type chatRow struct {
 
 func (chatRow) TableName() string { return "studio_connector_chats" }
 
+type pairingRow struct {
+	Binding string `gorm:"primaryKey;size:64"`
+	Hash    string `gorm:"size:64"`
+	Expires time.Time
+}
+
+func (pairingRow) TableName() string { return "studio_connector_pairings" }
+
 type keyRow struct {
 	Name  string `gorm:"primaryKey;size:32"`
 	Value []byte
@@ -85,7 +98,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("connectors: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}); err != nil {
+	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}); err != nil {
 		return nil, fmt.Errorf("connectors: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -106,6 +119,17 @@ func (r bindingRow) binding() (Binding, error) {
 			return b, err
 		}
 	}
+	for _, f := range []struct {
+		raw string
+		dst any
+	}{{r.Caps, &b.Caps}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}} {
+		if f.raw == "" {
+			continue
+		}
+		if err := json.Unmarshal([]byte(f.raw), f.dst); err != nil {
+			return b, err
+		}
+	}
 	return Normalize(b), nil
 }
 
@@ -120,7 +144,14 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(b.Options)
 		options = string(raw)
 	}
-	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	enc := func(v any, empty bool) string {
+		if empty {
+			return ""
+		}
+		raw, _ := json.Marshal(v)
+		return string(raw)
+	}
+	return s.db.WithContext(ctx).Save(&bindingRow{Caps: enc(b.Caps, len(b.Caps) == 0), Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
 		FilesOff: b.FilesOff, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
 		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
@@ -168,7 +199,7 @@ func (s *gormStore) EnabledBindings(ctx context.Context) ([]Binding, error) {
 
 func (s *gormStore) DeleteBinding(ctx context.Context, id string) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}} {
+		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}} {
 			if err := tx.Where("binding = ?", id).Delete(m).Error; err != nil {
 				return err
 			}
@@ -273,4 +304,15 @@ func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, erro
 		return nil, errors.New("connectors: the sealing key was not stored")
 	}
 	return got, nil
+}
+
+func (s *gormStore) PutPairing(ctx context.Context, binding string, p Pairing) error {
+	return s.db.WithContext(ctx).Save(&pairingRow{Binding: binding, Hash: p.Hash, Expires: p.Expires.UTC()}).Error
+}
+
+func (s *gormStore) ConsumePairing(ctx context.Context, binding, hash string, now time.Time) (bool, error) {
+	// An expired code stays until it is replaced or the binding goes; it
+	// cannot match.
+	res := s.db.WithContext(ctx).Where("binding = ? AND hash = ? AND expires > ?", binding, hash, now.UTC()).Delete(&pairingRow{})
+	return res.RowsAffected == 1, res.Error
 }

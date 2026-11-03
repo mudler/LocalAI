@@ -14,9 +14,12 @@ import (
 	"fmt"
 	"maps"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // LegacyAddon is the add-on that serves the kinds core carried before
@@ -68,8 +71,21 @@ const (
 	MaxSendersKept   = 200
 	MaxOptions       = 8
 	MaxOptionRunes   = 32
+	// MaxPaired is how many paired senders a binding holds.
+	MaxPaired = 3
+	// MaxGrants is how many roles of a binding have a grant.
+	MaxGrants = contract.MaxConnectorRoles
 	// MaxFileLimit is the largest file limit a binding can hold: 1 TiB.
 	MaxFileLimit int64 = 1 << 40
+)
+
+// Pairing limits.
+const (
+	// PairedTTL is how long a pairing lasts. After it, the sender must pair
+	// again.
+	PairedTTL = 90 * 24 * time.Hour
+	// PairingCodeTTL is how long a pairing code can be used.
+	PairingCodeTTL = 10 * time.Minute
 )
 
 // Errors.
@@ -119,11 +135,41 @@ type Binding struct {
 	// limit of the kind applies. A value can only lower what the kind allows;
 	// the host takes the smaller one.
 	FileReceiveMax, FileSendMax int64
+	// Caps is the ceiling the owner enabled: the capabilities (see
+	// contract.ConnectorCapabilityNames) that senders of the binding may ever
+	// use. Empty means none, which is today's behaviour.
+	Caps []string
+	// Grants map the roles of the kind to capabilities, each within Caps.
+	// The kind of the binding decides which roles exist.
+	Grants []RoleGrant
+	// Paired are the senders that the owner proved by a pairing code. Only a
+	// paired sender may use a sensitive capability. At most MaxPaired.
+	Paired []PairedSender
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
 	Created time.Time
 	Updated time.Time
+}
+
+// RoleGrant gives the capabilities Caps to the senders that have the role Role.
+type RoleGrant struct {
+	Role string   `json:"role"`
+	Caps []string `json:"caps"`
+}
+
+// PairedSender is a sender that proved, with a code from the owner, that the
+// owner controls the account. The pairing ends PairedTTL after At.
+type PairedSender struct {
+	SenderID string    `json:"sender_id"`
+	At       time.Time `json:"at"`
+}
+
+// Pairing is a pending pairing code of a binding. The store keeps the hash,
+// never the code.
+type Pairing struct {
+	Hash    string
+	Expires time.Time
 }
 
 // Sender is a person who messaged a bot.
@@ -164,6 +210,15 @@ type Store interface {
 	// EnsureKey returns the sealing key. The first call stores what generate
 	// makes; every call after it, on any frontend, returns that key.
 	EnsureKey(ctx context.Context, generate func() ([]byte, error)) ([]byte, error)
+
+	// PutPairing stores the pending pairing code of a binding and replaces
+	// an earlier one.
+	PutPairing(ctx context.Context, binding string, p Pairing) error
+	// ConsumePairing removes the pending code of the binding and returns true
+	// when it has the given hash and has not expired at now. A wrong hash
+	// leaves the code in place. The check and the removal are one step, so a
+	// code works once on any frontend.
+	ConsumePairing(ctx context.Context, binding, hash string, now time.Time) (bool, error)
 }
 
 // An entry of the allowlist is a numeric ID (Telegram), an @username, or an
@@ -216,6 +271,9 @@ func Validate(b Binding) error {
 	default:
 		return bad("the conversation mode must be %s, %s, %s or %s", ConversationSender, ConversationChat, ConversationWindow, ConversationThread)
 	}
+	if err := validateCaps(b); err != nil {
+		return bad("%v", err)
+	}
 	if len(b.Options) > MaxOptions {
 		return bad("a binding has at most %d options", MaxOptions)
 	}
@@ -225,6 +283,44 @@ func Validate(b Binding) error {
 		}
 	}
 	return nil
+}
+
+func validateCaps(b Binding) error {
+	if len(b.Caps) > len(contract.ConnectorCapabilityNames()) {
+		return errors.New("too many capabilities")
+	}
+	for i, c := range b.Caps {
+		if !contract.KnownCapability(c) || slices.Contains(b.Caps[:i], c) {
+			return fmt.Errorf("%q is not a capability, or is repeated", c)
+		}
+	}
+	if len(b.Grants) > MaxGrants {
+		return fmt.Errorf("a binding grants at most %d roles", MaxGrants)
+	}
+	for i, g := range b.Grants {
+		if g.Role == "" || len(g.Role) > 64 || slices.ContainsFunc(b.Grants[:i], func(o RoleGrant) bool { return o.Role == g.Role }) {
+			return fmt.Errorf("a grant needs one distinct role")
+		}
+		for _, c := range g.Caps {
+			switch {
+			case !slices.Contains(b.Caps, c):
+				return fmt.Errorf("the role %q cannot have %q: the binding does not enable it", g.Role, c)
+			case contract.SensitiveCapability(c):
+				return fmt.Errorf("%q is sensitive: it is never granted to a role; pair the sender instead", c)
+			}
+		}
+	}
+	if len(b.Paired) > MaxPaired {
+		return fmt.Errorf("a binding has at most %d paired senders", MaxPaired)
+	}
+	return nil
+}
+
+// IsPaired tells whether the sender holds a pairing that has not ended at now.
+func (b Binding) IsPaired(senderID string, now time.Time) bool {
+	return slices.ContainsFunc(b.Paired, func(p PairedSender) bool {
+		return p.SenderID == senderID && now.Sub(p.At) < PairedTTL
+	})
 }
 
 // ReplyMode is the reply mode of a binding, with the default filled in.
@@ -272,5 +368,14 @@ func (b Binding) clone() Binding {
 	b.Allow = append([]string(nil), b.Allow...)
 	b.Token = append([]byte(nil), b.Token...)
 	b.Options = maps.Clone(b.Options)
+	b.Caps = slices.Clone(b.Caps)
+	b.Paired = slices.Clone(b.Paired)
+	if b.Grants != nil {
+		g := make([]RoleGrant, len(b.Grants))
+		for i, x := range b.Grants {
+			g[i] = RoleGrant{Role: x.Role, Caps: slices.Clone(x.Caps)}
+		}
+		b.Grants = g
+	}
 	return b
 }

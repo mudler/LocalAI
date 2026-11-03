@@ -31,10 +31,11 @@ type jsonData struct {
 	Offsets  map[string]int64    `json:"offsets"`
 	Senders  map[string][]Sender `json:"senders"`
 	Chats    map[string]string   `json:"chats"` // binding + "\x00" + sender
+	Pairings map[string]Pairing  `json:"pairings,omitempty"`
 }
 
 func newData() jsonData {
-	return jsonData{Bindings: map[string]Binding{}, Offsets: map[string]int64{}, Senders: map[string][]Sender{}, Chats: map[string]string{}}
+	return jsonData{Bindings: map[string]Binding{}, Offsets: map[string]int64{}, Senders: map[string][]Sender{}, Chats: map[string]string{}, Pairings: map[string]Pairing{}}
 }
 
 // NewJSON returns a Store. With an empty dir it keeps everything in memory.
@@ -59,6 +60,9 @@ func NewJSON(dir string) (Store, error) {
 	}
 	if s.d.Bindings == nil {
 		s.d = newData()
+	}
+	if s.d.Pairings == nil {
+		s.d.Pairings = map[string]Pairing{}
 	}
 	return s, nil
 }
@@ -132,6 +136,7 @@ func (s *jsonStore) DeleteBinding(_ context.Context, id string) error {
 	delete(s.d.Bindings, id)
 	delete(s.d.Offsets, id)
 	delete(s.d.Senders, id)
+	delete(s.d.Pairings, id)
 	for k := range s.d.Chats {
 		if len(k) > len(id) && k[:len(id)+1] == id+"\x00" {
 			delete(s.d.Chats, k)
@@ -235,4 +240,29 @@ func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)
 	}
 	s.key = k
 	return append([]byte(nil), k...), nil
+}
+
+func (s *jsonStore) PutPairing(_ context.Context, binding string, p Pairing) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.d.Pairings[binding] = p
+	return s.save()
+}
+
+func (s *jsonStore) ConsumePairing(_ context.Context, binding, hash string, now time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	p, ok := s.d.Pairings[binding]
+	if !ok || p.Hash != hash {
+		return false, nil
+	}
+	if !now.Before(p.Expires) {
+		return false, nil
+	}
+	delete(s.d.Pairings, binding)
+	if err := s.save(); err != nil {
+		s.d.Pairings[binding] = p
+		return false, err
+	}
+	return true, nil
 }

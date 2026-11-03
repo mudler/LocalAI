@@ -145,6 +145,16 @@ type ConnectorKind struct {
 	// for each direction. Without it, the host moves files inline and caps
 	// them at MaxConnectorFileBytes. It needs manifest api MinFilesAPI.
 	Files *ConnectorFiles `json:"files,omitempty"`
+	// Roles are the roles the kind can give to a sender. The add-on owns
+	// the membership and sends the role IDs with each message; the owner of
+	// a binding maps each role to capabilities. It needs manifest api
+	// MinPermissionsAPI.
+	Roles []ConnectorRole `json:"roles,omitempty"`
+	// Permissions are the capabilities (see ConnectorCapabilityNames) that the kind can
+	// grant to a role. A sensitive name may be listed to explain the pairing
+	// path, but it is never granted to a role. It needs manifest api
+	// MinPermissionsAPI.
+	Permissions []string `json:"permissions,omitempty"`
 }
 
 // ConnectorOption is one choice among a few values.
@@ -292,6 +302,9 @@ func validateConnector(c *ConnectorCapability, ui *UI, api VersionRange) error {
 		if err := k.Files.validate(api); err != nil {
 			return err
 		}
+		if err := validatePermissions(k, api); err != nil {
+			return err
+		}
 		if k.Page != "" {
 			ok := false
 			if ui != nil {
@@ -370,6 +383,11 @@ type ConnectorMessage struct {
 	// is a voice message, which the host transcribes, and the transcript is
 	// the text of the turn.
 	Media []string `json:"media,omitempty"`
+	// Roles are the IDs of the roles (ConnectorKind.Roles) that the sender
+	// has, at most MaxMessageRoles. The host drops an ID the kind does not
+	// declare, and the whole field for a kind with no roles. Roles are never
+	// authority for a sensitive capability.
+	Roles []string `json:"roles,omitempty"`
 }
 
 // ConnectorInbound is the argument object of ConnectorInboundOp. It names the

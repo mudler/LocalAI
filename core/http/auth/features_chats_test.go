@@ -124,6 +124,8 @@ var _ = Describe("Chats feature registration", func() {
 			"POST /api/chats/connectors/:id/test",
 			"GET /api/chats/connectors/:id/senders",
 			"POST /api/chats/connectors/:id/senders/:sender/allow",
+			"POST /api/chats/connectors/:id/pairing",
+			"DELETE /api/chats/connectors/:id/paired/:sender",
 		))
 		Expect(AgentFeatures).To(ContainElement(FeatureConnectors))
 		Expect(APIFeatures).NotTo(ContainElement(FeatureConnectors))

@@ -113,6 +113,49 @@ func Run(newStore NewStore) {
 			Expect(byID).To(HaveKeyWithValue("new", "slack-addon"))
 		}
 	})
+	It("keeps the capabilities, grants and paired senders", func() {
+		s := newStore()
+		b := binding("b1", "u1", "Bot")
+		b.Caps = []string{"memory.write", "triggers.run"}
+		b.Grants = []connectors.RoleGrant{{Role: "admin", Caps: []string{"memory.write"}}}
+		b.Paired = []connectors.PairedSender{{SenderID: "123", At: t0}}
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "b1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Caps).To(Equal(b.Caps))
+		Expect(got.Grants).To(Equal(b.Grants))
+		Expect(got.Paired).To(HaveLen(1))
+		Expect(got.Paired[0].SenderID).To(Equal("123"))
+		Expect(got.Paired[0].At.Equal(t0)).To(BeTrue())
+		// A binding that has none reads as none.
+		Expect(s.PutBinding(ctx, binding("b2", "u1", "Bare"))).To(Succeed())
+		bare, _ := s.GetBinding(ctx, "b2")
+		Expect(bare.Caps).To(BeEmpty())
+		Expect(bare.Paired).To(BeEmpty())
+	})
+
+	It("uses a pairing code once, before it expires, and only with the right hash", func() {
+		s := newStore()
+		Expect(s.PutPairing(ctx, "b1", connectors.Pairing{Hash: "h1", Expires: t0.Add(10 * time.Minute)})).To(Succeed())
+		ok, err := s.ConsumePairing(ctx, "b1", "wrong", t0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ok).To(BeFalse())
+		ok, _ = s.ConsumePairing(ctx, "b1", "h1", t0.Add(time.Minute))
+		Expect(ok).To(BeTrue())
+		ok, _ = s.ConsumePairing(ctx, "b1", "h1", t0.Add(time.Minute))
+		Expect(ok).To(BeFalse(), "a code works once")
+		Expect(s.PutPairing(ctx, "b1", connectors.Pairing{Hash: "h2", Expires: t0.Add(10 * time.Minute)})).To(Succeed())
+		ok, _ = s.ConsumePairing(ctx, "b1", "h2", t0.Add(11*time.Minute))
+		Expect(ok).To(BeFalse(), "an expired code fails")
+		Expect(s.PutPairing(ctx, "b1", connectors.Pairing{Hash: "h3", Expires: t0.Add(10 * time.Minute)})).To(Succeed())
+		Expect(s.PutPairing(ctx, "b1", connectors.Pairing{Hash: "h4", Expires: t0.Add(10 * time.Minute)})).To(Succeed())
+		ok, _ = s.ConsumePairing(ctx, "b1", "h3", t0)
+		Expect(ok).To(BeFalse(), "a new code replaces the old one")
+		Expect(s.DeleteBinding(ctx, "b1")).To(Succeed())
+		ok, _ = s.ConsumePairing(ctx, "b1", "h4", t0)
+		Expect(ok).To(BeFalse(), "deleting the binding removes its code")
+	})
+
 	It("lists the enabled bindings", func() {
 		s := newStore()
 		a, b := binding("a", "u1", "A"), binding("b", "u2", "B")

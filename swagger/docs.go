@@ -3660,6 +3660,12 @@ const docTemplate = `{
                         "description": "with chat, sub-agent runs are left out and the limit counts chats",
                         "name": "kind",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only chats of one origin, with sub-agent runs left out and the limit counting the chats kept: person (a person started it), automated (anything else) or one origin kind (trigger, connector, job, page). Without it, all chats",
+                        "name": "origin",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3708,7 +3714,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing)",
+                        "description": "The saved agent's folder is missing or not chosen (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -3855,7 +3861,7 @@ const docTemplate = `{
                 "tags": [
                     "chats"
                 ],
-                "summary": "Read the settings of the Sandbox network (administrators).",
+                "summary": "Read the settings of the network of commands (administrators).",
                 "responses": {
                     "200": {
                         "description": "The settings in force",
@@ -3868,11 +3874,11 @@ const docTemplate = `{
         },
         "/api/chats/admin/egress/events": {
             "get": {
-                "description": "Every request a command made through the Sandbox proxy, newest first: who, which chat, host, port, kind (connect or http), verdict (allow, block, or done when an allowed connection ended, with its address, bytes and duration) and reason.",
+                "description": "Every request a command made through the proxy of the add-on, newest first: who, which chat, host, port, kind (connect or http), verdict (allow, block, or done when an allowed connection ended, with its address, bytes and duration) and reason.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "Read the audit of the Sandbox network requests (administrators).",
+                "summary": "Read the audit of the network of commands requests (administrators).",
                 "parameters": [
                     {
                         "type": "integer",
@@ -4690,7 +4696,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's path in your files now (empty when the folder is missing or not chosen); a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -5148,6 +5154,65 @@ const docTemplate = `{
                         "description": "The binding",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/paired/{sender}": {
+            "delete": {
+                "description": "The sender can pair again with a new code.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "End the pairing of a sender of a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "the sender's id",
+                        "name": "sender",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/pairing": {
+            "post": {
+                "description": "Pairing proves that you control a platform account. Send the code, as a direct message to the bot, from an account on the allowlist, within ten minutes. The code works once, and a new code replaces the old one. A paired sender may use the sensitive capabilities you enabled; a pairing ends after 90 days. At most three senders are paired.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Make a pairing code for a connector binding.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The code and when it expires",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorPairing"
                         }
                     }
                 }
@@ -8497,11 +8562,11 @@ const docTemplate = `{
         },
         "/api/chats/{id}/egress": {
             "get": {
-                "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
+                "description": "The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no add-on serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "Read the network of a chat's Sandbox commands.",
+                "summary": "Read the network of a chat's commands.",
                 "parameters": [
                     {
                         "type": "string",
@@ -8531,7 +8596,7 @@ const docTemplate = `{
                 "tags": [
                     "chats"
                 ],
-                "summary": "Set the network preset of a chat's Sandbox commands.",
+                "summary": "Set the network preset of a chat's commands.",
                 "parameters": [
                     {
                         "type": "string",
@@ -8578,7 +8643,7 @@ const docTemplate = `{
                 "tags": [
                     "chats"
                 ],
-                "summary": "Answer a network card of a chat's Sandbox commands.",
+                "summary": "Answer a network card of a chat's commands.",
                 "parameters": [
                     {
                         "type": "string",
@@ -8630,7 +8695,7 @@ const docTemplate = `{
         },
         "/api/chats/{id}/egress/rules/{host}/{port}": {
             "delete": {
-                "description": "Removes the rule that allows or denies one host and port for the chat's Sandbox commands. A host that was denied asks again; one that was allowed follows the preset again.",
+                "description": "Removes the rule that allows or denies one host and port for the chat's commands. A host that was denied asks again; one that was allowed follows the preset again.",
                 "tags": [
                     "chats"
                 ],
@@ -9579,7 +9644,7 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing)",
+                        "description": "A turn is running for a command, or the saved agent's folder is missing (agent_folder_missing), or its complete file access exceeds the folder limit (agent_folder_limit)",
                         "schema": {
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
@@ -14816,6 +14881,9 @@ const docTemplate = `{
                 "canStop": {
                     "type": "boolean"
                 },
+                "hostOperations": {
+                    "$ref": "#/definitions/hostops.RequestSummary"
+                },
                 "managementUrl": {
                     "description": "ManagementURL opens the management view of the addon.",
                     "type": "string",
@@ -14884,6 +14952,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "notes"
+                },
+                "network": {
+                    "description": "Network is the network policy the add-on declares, present only while\nthe host draws its network-policy control (see contract.EntitledControls).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/apps.NetworkView"
+                        }
+                    ]
                 },
                 "shadows": {
                     "description": "Shadows lists the built-in chat tools the add-on replaces (bash, say).",
@@ -15015,6 +15091,32 @@ const docTemplate = `{
                 }
             }
         },
+        "apps.HomeCommandView": {
+            "type": "object",
+            "properties": {
+                "alias": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "labels": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "page": {
+                    "type": "string"
+                }
+            }
+        },
         "apps.List": {
             "type": "object",
             "properties": {
@@ -15023,6 +15125,31 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/apps.App"
                     }
+                }
+            }
+        },
+        "apps.NetworkView": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is the declared kind of network policy.",
+                    "type": "string",
+                    "enum": [
+                        "egress-check"
+                    ],
+                    "example": "egress-check"
+                },
+                "presets": {
+                    "description": "Presets are the titles the add-on gives the host's network presets.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.NetworkPreset"
+                    }
+                },
+                "title": {
+                    "description": "Title names the network in text: the declared title, else the add-on's.",
+                    "type": "string",
+                    "example": "Example provider"
                 }
             }
         },
@@ -15117,6 +15244,20 @@ const docTemplate = `{
                     "description": "Entry is the URL of the packaged ES module. Every asset URL names the\npackage digest, so a new package is a new URL.",
                     "type": "string",
                     "example": "/api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js"
+                },
+                "homeCommands": {
+                    "description": "HomeCommands contains only resolved navigation metadata for this app.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/apps.HomeCommandView"
+                    }
+                },
+                "modelActions": {
+                    "description": "ModelActions contains only declared destinations for this installed UI.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.ModelAction"
+                    }
                 },
                 "navigation": {
                     "type": "array",
@@ -15517,6 +15658,31 @@ const docTemplate = `{
                 }
             }
         },
+        "contract.ModelAction": {
+            "type": "object",
+            "properties": {
+                "capability": {
+                    "type": "string"
+                },
+                "page": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                }
+            }
+        },
+        "contract.NetworkPreset": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "contract.OutputDescription": {
             "type": "object",
             "properties": {
@@ -15651,11 +15817,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "name": {
-                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nthat replaces a built-in one has the built-in's name (see Shadows).",
+                    "description": "Name is the skill's name and the name of its folder. A plain skill is\nnamed after the add-on: the add-on ID, or the ID and a dash and more\n(office-quickstart), so two add-ons never ship one plain name. A skill\nfor a reserved document slot has the slot's name (see Shadows).",
                     "type": "string"
                 },
                 "shadows": {
-                    "description": "Shadows names the built-in skill this skill replaces. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
+                    "description": "Shadows names the document-provider slot this skill supplies. It must equal Name\nand be one of ReplaceableSkills. It repeats the name on purpose: the\nreplacement is an explicit act, which the install warning and the check\nread from the manifest without opening the package. Empty: a plain\nadd-on skill.",
                     "type": "string"
                 }
             }
@@ -16970,6 +17136,50 @@ const docTemplate = `{
                 }
             }
         },
+        "hostops.RequestSummary": {
+            "type": "object",
+            "properties": {
+                "granted": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "grantedCount": {
+                    "type": "integer"
+                },
+                "missingOptional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "missingRequired": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "optional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "optionalCount": {
+                    "type": "integer"
+                },
+                "required": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "requiredCount": {
+                    "type": "integer"
+                }
+            }
+        },
         "library.Info": {
             "type": "object",
             "properties": {
@@ -18192,6 +18402,9 @@ const docTemplate = `{
                 "commands_reason": {
                     "description": "CommandsReason is why commands cannot run, when Commands is unavailable.",
                     "type": "string"
+                },
+                "execution_status": {
+                    "$ref": "#/definitions/schema.ChatsExecutionStatus"
                 }
             }
         },
@@ -18289,6 +18502,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "caps": {
+                    "description": "Caps are the capabilities you enabled for this binding: the ceiling of\nwhat any sender can use. Grants give roles of the kind some of them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "conversation": {
                     "description": "Conversation says which chat a message belongs to: sender (one chat\nper sender and per platform thread), chat (one chat per group, channel\nor direct chat), window (sender, and a new chat after window_minutes\nwithout a message) or thread (a new chat per message; a reply to an\nanswer goes on in its chat).",
                     "type": "string"
@@ -18298,6 +18518,27 @@ const docTemplate = `{
                 },
                 "enabled": {
                     "type": "boolean"
+                },
+                "file_receive_max_bytes": {
+                    "description": "FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;\nzero means you set none and the limit of the kind applies.",
+                    "type": "integer"
+                },
+                "file_send_max_bytes": {
+                    "type": "integer"
+                },
+                "files": {
+                    "description": "Files are the limits of the files the bot reads and sends, with the\nlimit that you set for this bot.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorFiles"
+                        }
+                    ]
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorRoleGrant"
+                    }
                 },
                 "has_token": {
                     "type": "boolean"
@@ -18314,8 +18555,22 @@ const docTemplate = `{
                 "notify_chat": {
                     "type": "string"
                 },
+                "options": {
+                    "description": "Options are the choices made for the options of the kind, by option id.\nAn option that is absent has its default (see ChatsConnectorKind).",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "owner": {
                     "type": "string"
+                },
+                "paired": {
+                    "description": "Paired are the senders you proved with a pairing code. A pairing ends\nat expires_at.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorPaired"
+                    }
                 },
                 "reason": {
                     "description": "Reason says in plain words why the binding is not active.",
@@ -18527,7 +18782,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "path": {
-                    "description": "Path is the folder's path in your files now (\"/\" is all of them). It\nis absent when the folder is missing or not chosen.",
+                    "description": "Path is home-relative (\"/\" is the whole home), or /shared/\u003cname\u003e/...\nfor a followed readable shared folder. It is absent when missing,\nnot chosen, or readable outside these public locations; a readable\nfolder without a public path still has state ok.",
                     "type": "string"
                 },
                 "state": {
@@ -18686,7 +18941,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "folder": {
-                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the folder's path and mode when the file was made.",
+                    "description": "Folder chooses the one folder the agent's chats work in. A write\nwithout it keeps the folder the agent has; {\"path\": \"\"} clears it. In\nan export file it is the home-relative path and mode when the file was\nmade. A missing, unchosen or non-home folder has an empty export path;\nimport preserves its mode as unset and warns instead of clearing scope.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
@@ -19093,6 +19348,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "caps": {
+                    "description": "Caps are the capabilities you enabled for this binding: the ceiling of\nwhat any sender can use. Grants give roles of the kind some of them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "conversation": {
                     "description": "Conversation says which chat a message belongs to: sender (one chat\nper sender and per platform thread), chat (one chat per group, channel\nor direct chat), window (sender, and a new chat after window_minutes\nwithout a message) or thread (a new chat per message; a reply to an\nanswer goes on in its chat).",
                     "type": "string"
@@ -19102,6 +19364,27 @@ const docTemplate = `{
                 },
                 "enabled": {
                     "type": "boolean"
+                },
+                "file_receive_max_bytes": {
+                    "description": "FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;\nzero means you set none and the limit of the kind applies.",
+                    "type": "integer"
+                },
+                "file_send_max_bytes": {
+                    "type": "integer"
+                },
+                "files": {
+                    "description": "Files are the limits of the files the bot reads and sends, with the\nlimit that you set for this bot.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorFiles"
+                        }
+                    ]
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorRoleGrant"
+                    }
                 },
                 "has_token": {
                     "type": "boolean"
@@ -19118,16 +19401,23 @@ const docTemplate = `{
                 "notify_chat": {
                     "type": "string"
                 },
-                "reason": {
-                    "description": "Reason says in plain words why the binding is not active.",
-                    "type": "string"
-                },
                 "options": {
-                    "description": "Options are the choices made for the options of the kind, by option id. An option that is absent has its default (see ChatsConnectorKind).",
+                    "description": "Options are the choices made for the options of the kind, by option id.\nAn option that is absent has its default (see ChatsConnectorKind).",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
                     }
+                },
+                "paired": {
+                    "description": "Paired are the senders you proved with a pairing code. A pairing ends\nat expires_at.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorPaired"
+                    }
+                },
+                "reason": {
+                    "description": "Reason says in plain words why the binding is not active.",
+                    "type": "string"
                 },
                 "reply_mode": {
                     "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
@@ -19142,6 +19432,56 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.ChatsConnectorFileLimit": {
+            "type": "object",
+            "properties": {
+                "allowed_bytes": {
+                    "description": "AllowedBytes is the most you may set for a bot.",
+                    "type": "integer"
+                },
+                "declared_bytes": {
+                    "description": "DeclaredBytes is the ability the kind declares, or zero.",
+                    "type": "integer"
+                },
+                "effective_bytes": {
+                    "description": "EffectiveBytes is the largest file that moves now: the smallest of the\nhost ceiling, the declared ability, your limit and the inline cap.",
+                    "type": "integer"
+                },
+                "layer": {
+                    "description": "Layer names the one that sets EffectiveBytes: owner (your limit for\nthis bot), addon (the ability the kind declares), host (the ceiling of\nthe server) or inline (the cap of the inline path).",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorFiles": {
+            "type": "object",
+            "properties": {
+                "host_ceiling_bytes": {
+                    "description": "HostCeilingBytes is the ceiling of the server for a connector file, set\nby the add-on owner; no limit above it applies.",
+                    "type": "integer"
+                },
+                "inline_bytes": {
+                    "description": "InlineBytes is the cap of the inline path. Until the add-on can stream\na file, nothing larger moves, whatever the other limits are.",
+                    "type": "integer"
+                },
+                "receive": {
+                    "description": "Receive is the limit of the files that people send to the bot.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorFileLimit"
+                        }
+                    ]
+                },
+                "send": {
+                    "description": "Send is the limit of the files that the bot sends.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorFileLimit"
+                        }
+                    ]
+                }
+            }
+        },
         "schema.ChatsConnectorKind": {
             "type": "object",
             "properties": {
@@ -19150,6 +19490,14 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "files": {
+                    "description": "Files are the limits of a binding of this kind that has no limit of\nyour own.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorFiles"
+                        }
+                    ]
                 },
                 "kind": {
                     "type": "string"
@@ -19165,6 +19513,19 @@ const docTemplate = `{
                     "description": "Page is the add-on page that adds and edits bindings of this kind.",
                     "type": "string"
                 },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorPermission"
+                    }
+                },
+                "roles": {
+                    "description": "Roles are the roles the add-on can report for a sender, and\nPermissions the capabilities the kind lists. Grant them to a role with\nthe grants of a binding.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorRole"
+                    }
+                },
                 "sender_hint": {
                     "type": "string"
                 },
@@ -19174,6 +19535,28 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorKindList": {
+            "type": "object",
+            "properties": {
+                "kinds": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorKind"
+                    }
+                }
+            }
+        },
+        "schema.ChatsConnectorList": {
+            "type": "object",
+            "properties": {
+                "connectors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnector"
+                    }
                 }
             }
         },
@@ -19211,25 +19594,67 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.ChatsConnectorKindList": {
+        "schema.ChatsConnectorPaired": {
             "type": "object",
             "properties": {
-                "kinds": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.ChatsConnectorKind"
-                    }
+                "expires_at": {
+                    "type": "string"
+                },
+                "paired_at": {
+                    "type": "string"
+                },
+                "sender_id": {
+                    "type": "string"
                 }
             }
         },
-        "schema.ChatsConnectorList": {
+        "schema.ChatsConnectorPairing": {
             "type": "object",
             "properties": {
-                "connectors": {
+                "code": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorPermission": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "sensitive": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsConnectorRole": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorRoleGrant": {
+            "type": "object",
+            "properties": {
+                "caps": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/schema.ChatsConnector"
+                        "type": "string"
                     }
+                },
+                "role": {
+                    "type": "string"
                 }
             }
         },
@@ -19293,6 +19718,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "caps": {
+                    "description": "Caps are the capabilities you enable for the binding (a closed list,\nsee the kind's permissions for the ones it can grant to a role).\nAbsent means none for a new binding and unchanged for an update; an\nempty list clears.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "confirm_accept_any": {
                     "description": "ConfirmAcceptAny must be the exact text \"accept any message\" in the\nrequest that turns accept_any on (a create with accept_any, or an update\nthat changes it from off to on). Anyone who can message the bot then uses\nthe agent's tools as you, so the server asks you to say you mean it.",
                     "type": "string"
@@ -19303,6 +19735,20 @@ const docTemplate = `{
                 },
                 "enabled": {
                     "type": "boolean"
+                },
+                "file_receive_max_bytes": {
+                    "description": "FileReceiveMaxBytes and FileSendMaxBytes limit the files the bot reads\nand sends, in bytes. A limit can only lower the limit of the kind, which\nthe kind list shows as allowed_bytes. Zero removes your limit. Absent\nmeans none for a new binding and unchanged for an update.",
+                    "type": "integer"
+                },
+                "file_send_max_bytes": {
+                    "type": "integer"
+                },
+                "grants": {
+                    "description": "Grants map roles of the kind to capabilities within caps. A sensitive\ncapability is never granted to a role. Absent means unchanged; an empty\nlist clears.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorRoleGrant"
+                    }
                 },
                 "kind": {
                     "description": "Kind is the platform, such as telegram. It is used to create a binding and\nignored by an update. Empty means telegram.",
@@ -19315,7 +19761,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "options": {
-                    "description": "Options are the choices for the options of the kind, by option id. Absent means the defaults for a new binding and unchanged for an update.",
+                    "description": "Options are the choices for the options of the kind, by option id. Absent\nmeans the defaults for a new binding and unchanged for an update.",
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
@@ -19643,7 +20089,7 @@ const docTemplate = `{
                     }
                 },
                 "applies": {
-                    "description": "Applies is false when commands run on this machine (applies_reason\nhost) or no Sandbox serves bash (none).",
+                    "description": "Applies is true when the add-on that runs the commands reports that it\nenforces the network policy. It is false when commands run on this\nmachine (applies_reason host), or no Sandbox serves bash or the add-on\ndoes not report enforcement (none).",
                     "type": "boolean"
                 },
                 "applies_reason": {
@@ -19662,6 +20108,14 @@ const docTemplate = `{
                 "effective": {
                     "description": "the lower of the two",
                     "type": "string"
+                },
+                "network": {
+                    "description": "Network names the network of addon in text and gives the preset titles\nthe add-on declares. Set with addon.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsEgressNetwork"
+                        }
+                    ]
                 },
                 "preset": {
                     "description": "off, registries, all",
@@ -19717,6 +20171,14 @@ const docTemplate = `{
                 "isolation": {
                     "type": "string"
                 },
+                "network": {
+                    "description": "Network names the network of that add-on in text. Set with sandbox.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsEgressNetwork"
+                        }
+                    ]
+                },
                 "ports": {
                     "type": "array",
                     "items": {
@@ -19730,7 +20192,7 @@ const docTemplate = `{
                     }
                 },
                 "sandbox": {
-                    "description": "Sandbox is the add-on that runs commands, empty when none serves;\nIsolation is isolated, host, or empty when unknown.",
+                    "description": "Sandbox is the add-on that runs commands, empty when none serves (the\nname of the field is kept for existing clients); Isolation is isolated,\nhost, or empty when unknown.",
                     "type": "string"
                 }
             }
@@ -19839,6 +20301,41 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/schema.ChatsEgressEvent"
                     }
+                }
+            }
+        },
+        "schema.ChatsEgressNetwork": {
+            "type": "object",
+            "properties": {
+                "presets": {
+                    "description": "Presets are the titles the add-on gives the host's presets; a preset\nthat is not listed keeps the host's title.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsEgressNetworkPreset"
+                    }
+                },
+                "title": {
+                    "description": "Title names the network in text: the declared title, else the title of\nthe commands tool.",
+                    "type": "string",
+                    "example": "Sandbox"
+                }
+            }
+        },
+        "schema.ChatsEgressNetworkPreset": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "enum": [
+                        "off",
+                        "registries",
+                        "all"
+                    ],
+                    "example": "off"
+                },
+                "title": {
+                    "type": "string",
+                    "example": "Closed"
                 }
             }
         },
@@ -19952,6 +20449,31 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsUsage"
                         }
                     ]
+                }
+            }
+        },
+        "schema.ChatsExecutionStatus": {
+            "type": "object",
+            "properties": {
+                "explanation": {
+                    "type": "string"
+                },
+                "generation": {
+                    "type": "string"
+                },
+                "incarnation": {
+                    "type": "string"
+                },
+                "isolation": {
+                    "type": "string"
+                },
+                "readiness": {
+                    "type": "string"
+                },
+                "unknown_reason": {
+                    "description": "UnknownReason says why the status is unknown: owner_unreachable,\nnot_reported, stale, invalid_status, not_selected, no_answer,\nreported_unknown or draft (the chat does not exist yet). Absent when the status is known.",
+                    "type": "string",
+                    "example": "owner_unreachable"
                 }
             }
         },

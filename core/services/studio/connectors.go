@@ -153,6 +153,10 @@ type senderState struct {
 	active     bool
 	times      []time.Time
 	lastNotice time.Time
+	// failures are the times of wrong pairing codes; lockedUntil ends a
+	// lockout after too many.
+	failures    []time.Time
+	lockedUntil time.Time
 }
 
 // NewConnectors returns the manager. It does nothing until Run or Sync is called.
@@ -559,6 +563,9 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 	if r := []rune(m.SenderName); len(r) > 200 {
 		m.SenderName = string(r[:200])
 	}
+	// The add-on owns the roles of a sender; the host keeps the ones that the
+	// kind declares and drops the rest.
+	m.Roles = c.declaredRoles(ctx, b, m.Roles)
 	token, err := c.openToken(ctx, b)
 	if err != nil {
 		c.disable(b, "its bot token cannot be read")
@@ -566,6 +573,23 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 	}
 	c.handle(ctx, b, token, m)
 	return nil
+}
+
+// declaredRoles keeps the role IDs that the kind of the binding declares. A
+// kind that is not running, or declares no roles, keeps none.
+func (c *Connectors) declaredRoles(ctx context.Context, b connectors.Binding, ids []string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		return nil
+	}
+	k, ok := kindFor(kinds, b)
+	if !ok {
+		return nil
+	}
+	return k.FilterRoles(ids)
 }
 
 // conversation is the key of the chat that a message belongs to. A message in
@@ -676,6 +700,11 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 		say(sentRate)
 		return
 	case !ok:
+		return
+	}
+	// A pairing code is checked before any model turn and never reaches the
+	// model or the log.
+	if c.tryPairing(ctx, b, m, st, say) {
 		return
 	}
 	switch {

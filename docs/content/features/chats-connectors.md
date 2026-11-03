@@ -448,6 +448,37 @@ this with a confirmation. A binding that already has it keeps it on later edits,
 and turning it off needs no confirmation. Use it for a public bot whose agent
 grants nothing you would mind sharing.
 
+### Capabilities, roles and pairing
+
+Three things sit on top of the allowlist. They work the same for every connector
+add-on.
+
+- **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
+  (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
+  `triggers.run`, `talkback.channels`, and the sensitive `talkback.new_channel`,
+  `profile.write`, `skills.write`, `pages.write`, `dashboard.write`). A binding with
+  none enabled behaves as before: the allowlist is the only gate.
+- **Roles and grants** (`grants`). An add-on can declare roles, such as the admins of
+  a workspace, and report the roles of each sender. You map a role to capabilities
+  with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
+  lists as `permissions`, and never a sensitive capability. The kind list
+  (`GET /api/chats/connectors/kinds`) shows each kind's `roles` and `permissions`.
+- **Pairing.** A sender you pair may use the sensitive capabilities. Ask for a code
+  with `POST /api/chats/connectors/<id>/pairing`; send it as a direct message to the
+  bot from an account on the allowlist. The code looks like `LA-` and eight characters,
+  works once and lasts ten minutes. The host checks it before any model turn, so
+  the code never reaches the agent or the sender log. A binding holds at most three
+  paired senders, and a pairing ends after 90 days. End one earlier with
+  `DELETE /api/chats/connectors/<id>/paired/<sender>`. A sender who sends five wrong
+  codes in an hour is ignored for an hour, and every attempt is logged without the
+  code.
+
+Pairing needs only a stable sender ID, so an add-on without roles supports it too.
+
+The host stores and checks these values and shows them to the add-on pages. The
+features that a capability switches on or off (triggers from chat, talk-back, and so
+on) read them as they land.
+
 ## Notifications in Telegram
 
 Set a notification chat ID on a binding to receive your run notifications there

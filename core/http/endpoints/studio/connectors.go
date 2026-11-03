@@ -22,10 +22,60 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	if allow == nil {
 		allow = []string{}
 	}
-	return schema.ChatsConnector{ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
+	return schema.ChatsConnector{Caps: capsOut(i.Caps), Grants: grantsOut(i.Grants), Paired: pairedOut(i.Paired), ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
 		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), Options: i.Options,
 		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax}
+}
+
+func capsOut(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return in
+}
+
+func grantsOut(in []connectors.RoleGrant) []schema.ChatsConnectorRoleGrant {
+	out := make([]schema.ChatsConnectorRoleGrant, 0, len(in))
+	for _, g := range in {
+		out = append(out, schema.ChatsConnectorRoleGrant{Role: g.Role, Caps: capsOut(g.Caps)})
+	}
+	return out
+}
+
+func pairedOut(in []connectors.PairedSender) []schema.ChatsConnectorPaired {
+	out := make([]schema.ChatsConnectorPaired, 0, len(in))
+	for _, p := range in {
+		out = append(out, schema.ChatsConnectorPaired{SenderID: p.SenderID, PairedAt: p.At, ExpiresAt: p.At.Add(connectors.PairedTTL)})
+	}
+	return out
+}
+
+func grantsIn(in []schema.ChatsConnectorRoleGrant) []connectors.RoleGrant {
+	if in == nil {
+		return nil
+	}
+	out := make([]connectors.RoleGrant, 0, len(in))
+	for _, g := range in {
+		out = append(out, connectors.RoleGrant{Role: g.Role, Caps: g.Caps})
+	}
+	return out
+}
+
+func rolesOut(k contract.ConnectorKind) []schema.ChatsConnectorRole {
+	var out []schema.ChatsConnectorRole
+	for _, r := range k.Roles {
+		out = append(out, schema.ChatsConnectorRole{ID: r.ID, Title: r.Title, Description: r.Description})
+	}
+	return out
+}
+
+func permissionsOut(k contract.ConnectorKind) []schema.ChatsConnectorPermission {
+	var out []schema.ChatsConnectorPermission
+	for _, p := range k.Permissions {
+		out = append(out, schema.ChatsConnectorPermission{Name: p, Sensitive: contract.SensitiveCapability(p)})
+	}
+	return out
 }
 
 func filesOut(l studiosvc.FileLimits) schema.ChatsConnectorFiles {
@@ -47,7 +97,7 @@ func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
 		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, Options: req.Options,
-		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes}
+		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants)}
 }
 
 var connectorRules = []errRule{
@@ -109,7 +159,7 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	for _, k := range kinds {
 		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
-			Files: filesOut(host.KindFileLimits(c.Request().Context(), k))})
+			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)})
 	}
 	return c.JSON(http.StatusOK, out)
 }
@@ -296,6 +346,45 @@ func (h *Handlers) AllowConnectorSender(c echo.Context) error {
 		return nil
 	}
 	i, err := host.AllowSender(c.Request().Context(), userID(c), c.Param("id"), c.Param("sender"))
+	if err != nil {
+		return failConnector(c, err)
+	}
+	return c.JSON(http.StatusOK, connectorOut(i))
+}
+
+// StartConnectorPairing makes a pairing code for a binding.
+// @Summary Make a pairing code for a connector binding.
+// @Description Pairing proves that you control a platform account. Send the code, as a direct message to the bot, from an account on the allowlist, within ten minutes. The code works once, and a new code replaces the old one. A paired sender may use the sensitive capabilities you enabled; a pairing ends after 90 days. At most three senders are paired.
+// @Tags chats
+// @Param id path string true "the binding's id"
+// @Success 200 {object} schema.ChatsConnectorPairing "The code and when it expires"
+// @Router /api/chats/connectors/{id}/pairing [post]
+func (h *Handlers) StartConnectorPairing(c echo.Context) error {
+	host, ok := h.connectorHost(c)
+	if !ok {
+		return nil
+	}
+	p, err := host.StartPairing(c.Request().Context(), userID(c), c.Param("id"))
+	if err != nil {
+		return failConnector(c, err)
+	}
+	return c.JSON(http.StatusOK, schema.ChatsConnectorPairing{Code: p.Code, Expires: p.Expires})
+}
+
+// RemoveConnectorPaired ends the pairing of a sender.
+// @Summary End the pairing of a sender of a connector binding.
+// @Description The sender can pair again with a new code.
+// @Tags chats
+// @Param id path string true "the binding's id"
+// @Param sender path string true "the sender's id"
+// @Success 200 {object} schema.ChatsConnector "The binding"
+// @Router /api/chats/connectors/{id}/paired/{sender} [delete]
+func (h *Handlers) RemoveConnectorPaired(c echo.Context) error {
+	host, ok := h.connectorHost(c)
+	if !ok {
+		return nil
+	}
+	i, err := host.RemovePaired(c.Request().Context(), userID(c), c.Param("id"), c.Param("sender"))
 	if err != nil {
 		return failConnector(c, err)
 	}

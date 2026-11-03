@@ -45,6 +45,11 @@ type ConnectorInput struct {
 	// files the bot reads and sends. Nil: new binding none, update unchanged.
 	// Zero clears the limit. A limit can only lower what the kind allows.
 	FileReceiveMax, FileSendMax *int64
+	// Caps are the capabilities the owner enables for the binding, and
+	// Grants map roles of the kind to capabilities within Caps. Nil: new
+	// binding none, update unchanged. An empty non-nil slice clears.
+	Caps   []string
+	Grants []connectors.RoleGrant
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -65,6 +70,12 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.FileSendMax != nil {
 		b.FileSendMax = *in.FileSendMax
+	}
+	if in.Caps != nil {
+		b.Caps = slices.Clone(in.Caps)
+	}
+	if in.Grants != nil {
+		b.Grants = slices.Clone(in.Grants)
 	}
 }
 
@@ -207,6 +218,35 @@ func (c *Connectors) checkOptions(ctx context.Context, b connectors.Binding) err
 	return nil
 }
 
+// checkPermissions refuses a grant to a role that the kind does not declare,
+// or of a capability that the kind does not list as grantable. The generic
+// rules (known names, the ceiling, no sensitive grant) are in
+// connectors.Validate. A kind whose add-on does not run cannot be checked.
+func (c *Connectors) checkPermissions(ctx context.Context, b connectors.Binding) error {
+	if len(b.Grants) == 0 {
+		return nil
+	}
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		return nil
+	}
+	k, ok := kindFor(kinds, b)
+	if !ok {
+		return nil
+	}
+	for _, g := range b.Grants {
+		if _, ok := k.Role(g.Role); !ok {
+			return connectorBad("the role %q is not one of this kind", g.Role)
+		}
+		for _, cp := range g.Caps {
+			if !k.Grantable(cp) {
+				return connectorBad("this kind does not let %q go to a role", cp)
+			}
+		}
+	}
+	return nil
+}
+
 func connectorBad(format string, a ...any) error {
 	return fmt.Errorf("%w: %s", connectors.ErrInvalid, fmt.Sprintf(format, a...))
 }
@@ -288,6 +328,9 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := c.checkOptions(ctx, b); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if err := c.checkPermissions(ctx, b); err != nil {
+		return ConnectorInfo{}, err
+	}
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
@@ -351,6 +394,9 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOptions(ctx, b); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkPermissions(ctx, b); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {

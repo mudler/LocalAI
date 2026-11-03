@@ -221,6 +221,8 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	e.POST(base+"/connectors/:id/test", h.TestConnector)
 	e.GET(base+"/connectors/:id/senders", h.ConnectorSenders)
 	e.POST(base+"/connectors/:id/senders/:sender/allow", h.AllowConnectorSender)
+	e.POST(base+"/connectors/:id/pairing", h.StartConnectorPairing)
+	e.DELETE(base+"/connectors/:id/paired/:sender", h.RemoveConnectorPaired)
 	e.GET(base+"/mcp-connectors", h.ListMCPConnectors)
 	e.POST(base+"/mcp-connectors", h.CreateMCPConnector)
 	e.GET(base+"/mcp-connectors/:id", h.GetMCPConnector)

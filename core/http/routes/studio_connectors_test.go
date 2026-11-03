@@ -53,6 +53,8 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Entry("test", http.MethodPost, "/api/chats/connectors/c1/test"),
 		Entry("senders", http.MethodGet, "/api/chats/connectors/c1/senders"),
 		Entry("allow", http.MethodPost, "/api/chats/connectors/c1/senders/42/allow"),
+		Entry("pairing", http.MethodPost, "/api/chats/connectors/c1/pairing"),
+		Entry("unpair", http.MethodDelete, "/api/chats/connectors/c1/paired/42"),
 	)
 
 	It("is refused to a user without the chats feature", func() {
@@ -258,5 +260,28 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
 		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Renamed", "agent_id": ag})
 		Expect(rec.Code).To(Equal(http.StatusOK), "an update that keeps the token is not checked: %s", rec.Body.String())
+	})
+
+	It("keeps the capabilities of a binding, refuses unknown ones and issues a pairing code to its owner only", func() {
+		ag := agent("alice", "Caps", "test-model")
+		rec := create("alice", map[string]any{"name": "Caps bot", "token": specToken, "agent_id": ag, "caps": []string{"memory.write", "profile.write"}})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		b := decodeJSON(rec)
+		id := b["id"].(string)
+		Expect(b).To(And(HaveKeyWithValue("caps", ConsistOf("memory.write", "profile.write")), HaveKeyWithValue("grants", BeEmpty()), HaveKeyWithValue("paired", BeEmpty())))
+		// An update that omits the capabilities keeps them; an empty list clears.
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Caps bot", "agent_id": ag})
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("caps", HaveLen(2)))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Caps bot", "agent_id": ag, "caps": []string{}})
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("caps", BeEmpty()))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Caps bot", "agent_id": ag, "caps": []string{"root.everything"}})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+
+		rec = s.do("alice", http.MethodPost, "/api/chats/connectors/"+id+"/pairing", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["code"]).To(MatchRegexp(`^LA-[A-Z0-9]{8}$`))
+		Expect(s.do("bob", http.MethodPost, "/api/chats/connectors/"+id+"/pairing", nil).Code).To(Equal(http.StatusNotFound))
+		rec = s.do("alice", http.MethodDelete, "/api/chats/connectors/"+id+"/paired/42", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 	})
 })
