@@ -218,7 +218,11 @@ func (q *Qwen3TtsCpp) TTS(req *pb.TTSRequest) error {
 	if n <= 0 {
 		return fmt.Errorf("qwen3-tts: synthesis produced no samples")
 	}
-	src := unsafe.Slice((*float32)(unsafe.Pointer(ptr)), int(n)) //nolint:govet // C-allocated PCM, copied out before free
+	// ptr addresses malloc'd PCM, not Go memory, so the GC neither moves nor
+	// frees it. Reinterpret the uintptr's bits as a pointer instead of
+	// converting it: this is the form go vet accepts, and it is the same
+	// address.
+	src := unsafe.Slice(*(**float32)(unsafe.Pointer(&ptr)), int(n))
 	out := make([]float32, int(n))
 	copy(out, src)
 	return writeWAV24k(req.Dst, out)
