@@ -52,6 +52,13 @@ var ErrRefused = fmt.Errorf("addon refused the request: %w", contract.ErrRefused
 // neither an outage nor an unknown outcome. It is not an ErrRuntime.
 var ErrDenied = fmt.Errorf("addon denied the request: %w", contract.ErrDenied)
 
+// ErrCredentialRejected is the add-on's own 401 "credential_rejected": the
+// service behind it refused the access token and nothing changed. The host
+// may refresh the token and call again, or ask the person to reconnect. It is
+// neither an outage nor an unknown outcome, and not an ErrRuntime. A 401 with
+// another reason keeps its old meaning.
+var ErrCredentialRejected = fmt.Errorf("addon reported the credential as rejected: %w", contract.ErrCredentialRejected)
+
 // Refusal is the typed form of ErrRefused. Reason is a short printable class
 // taken from the add-on's answer and bounded, so it is safe to log.
 type Refusal struct {

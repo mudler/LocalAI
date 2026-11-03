@@ -24,6 +24,12 @@ var ErrRefused = errors.New("addon refused the request as invalid")
 // outage and not an unknown outcome.
 var ErrDenied = errors.New("addon denied the request for this person")
 
+// ErrCredentialRejected is the add-on's own answer that the service behind it
+// refused the credential of the request, for example an access token that
+// expired or was revoked. Nothing was changed. The host may get a new
+// credential and call again. It is not an outage and not an unknown outcome.
+var ErrCredentialRejected = errors.New("addon reported the credential as rejected")
+
 type Actor struct {
 	UserID       string `json:"userId"`
 	CredentialID string `json:"credentialId"`

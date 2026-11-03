@@ -133,6 +133,11 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 			// with another body is the envelope check, a host fault.
 			return nil, ErrDenied
 		}
+		if resp.StatusCode == http.StatusUnauthorized && reason == "credential_rejected" {
+			// The service refused the access token and the call changed
+			// nothing. Any other 401 is not this answer and stays an outage.
+			return nil, ErrCredentialRejected
+		}
 		if resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusUnprocessableEntity {
 			return nil, &Refusal{Status: resp.StatusCode, Reason: reason}
 		}
