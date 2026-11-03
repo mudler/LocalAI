@@ -280,6 +280,9 @@
     "addonsOffTitle": "Add-ons are off on this server",
     "addonsOffAdmin": "{{name}} is an add-on. Start LocalAI with add-ons on, then install it from Add-ons.",
     "addonsOffReader": "{{name}} is an add-on. Ask an administrator to turn add-ons on.",
+    "addonsDownTitle": "Add-ons are not answering right now",
+    "addonsDownBody": "{{name}} is an add-on. Try again in a moment.",
+    "addonsRetry": "Try again",
     "thisPage": "That page",
     "addonsDocs": "How to turn add-ons on",
     "dismiss": "Dismiss"

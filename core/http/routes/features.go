@@ -14,6 +14,8 @@ import (
 func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfig, app *application.Application) {
 	router.GET("/api/features", func(c echo.Context) error {
 		addons := app.AddonsFeature(c.Request().Context())
+		// addons_enabled is the instance switch alone. With addons false, true
+		// there means the owner does not answer right now, not that it is off.
 		// model_exports is false only when this instance does not see the
 		// owner's models path; an unknown check leaves it true.
 		// The chats keys say what runs on this server, not what a user may use:
@@ -29,6 +31,7 @@ func RegisterFeatureRoutes(router *echo.Echo, appConfig *config.ApplicationConfi
 			"collections":       appConfig.Collections.Enabled,
 			"mcp":               !appConfig.DisableMCP,
 			"addons":            addons,
+			"addons_enabled":    app.AddonsEnabled(),
 			"fine_tuning":       addons,
 			"quantization":      addons,
 			"model_exports":     addons && app.ModelExportsAllowed(c.Request().Context()),
