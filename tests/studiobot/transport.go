@@ -38,7 +38,7 @@ func TelegramPaced(api *transport.API) Addon {
 
 // Slack is the Slack add-on over api. The caller closes the runtime.
 func Slack(rt *slack.Runtime) Addon {
-	return Addon{ID: "slack", Kind: contract.ConnectorKind{ID: slack.Kind, Title: "Slack", Delivery: contract.DeliveryPull}, Runtime: rt}
+	return Addon{ID: "slack", Kind: contract.ConnectorKind{ID: slack.Kind, Title: "Slack", Delivery: contract.DeliveryPull, History: &contract.ConnectorHistory{Thread: true, MaxMessages: 30}}, Runtime: rt}
 }
 
 // BotTransport is a studio.ConnectorTransport that serves the real connector

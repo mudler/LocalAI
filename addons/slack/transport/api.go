@@ -205,6 +205,43 @@ func (a *API) UserInfo(ctx context.Context, bot, id string) (User, error) {
 	return r.User, err
 }
 
+// Reply is a message of a thread as conversations.replies returns it.
+type Reply struct {
+	User     string `json:"user"`
+	BotID    string `json:"bot_id"`
+	Username string `json:"username"`
+	Subtype  string `json:"subtype"`
+	Text     string `json:"text"`
+	TS       string `json:"ts"`
+	Files    []struct {
+		Name string `json:"name"`
+		ID   string `json:"id"`
+	} `json:"files"`
+}
+
+// Replies returns one page of the messages of a thread, oldest first, the
+// parent message included. Only messages before latest are returned, when it
+// is set. It needs the scopes channels:history, groups:history, im:history and
+// mpim:history, by the kind of the conversation. The cursor is empty for the
+// first page; the next one is empty on the last.
+func (a *API) Replies(ctx context.Context, bot, channel, thread, latest, cursor string, limit int) ([]Reply, string, error) {
+	form := url.Values{"channel": {channel}, "ts": {thread}, "limit": {strconv.Itoa(limit)}}
+	if latest != "" {
+		form.Set("latest", latest)
+	}
+	if cursor != "" {
+		form.Set("cursor", cursor)
+	}
+	var r struct {
+		Messages []Reply `json:"messages"`
+		Meta     struct {
+			Next string `json:"next_cursor"`
+		} `json:"response_metadata"`
+	}
+	err := a.call(ctx, bot, "conversations.replies", form, &r)
+	return r.Messages, r.Meta.Next, err
+}
+
 // File is a file that a message carries.
 type File struct {
 	ID       string `json:"id"`
