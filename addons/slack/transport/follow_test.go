@@ -131,6 +131,10 @@ var _ = Describe("which threads the bot follows", func() {
 		info, _ := os.Stat(path)
 		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0o600)))
 		b.rt.Close() // the add-on stops
+		// The fake lists the old link until its handler sees the close. A
+		// reply pushed before that goes to the closing socket and is lost, and
+		// start would also take the old link for the new one.
+		Eventually(func() bool { return f.Connected(appToken) }, 5*time.Second).Should(BeFalse())
 
 		b2 := start(f, dir, "own")
 		f.Push(appToken, slacktest.Reply(channel, "U1", "after the restart", mention["ts"].(string)))
