@@ -26,6 +26,16 @@ type fakeAddons struct {
 	// context of the call ("" when it named none).
 	bindings []string
 	err      error
+	// userSettings are the per-person settings the add-ons declare.
+	userSettings []studio.AddonUserSettingSet
+	settingsErr  error
+}
+
+// AddonUserSettings makes the fake a studio.AddonUserSettingsLister.
+func (f *fakeAddons) AddonUserSettings(context.Context, string) ([]studio.AddonUserSettingSet, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.userSettings, f.settingsErr
 }
 
 func (f *fakeAddons) Tools(_ context.Context, user string) ([]studio.AddonTool, error) {

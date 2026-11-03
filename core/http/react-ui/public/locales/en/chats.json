@@ -1003,6 +1003,7 @@
     "failed": "Could not save the change: {{message}}. It is still waiting for you.",
     "receipt": {
       "applied": "Applied:",
+      "savedAuto": "Saved to memory:",
       "reverted": "Undone:",
       "dismissed": "Dismissed:",
       "expired": "Expired:",

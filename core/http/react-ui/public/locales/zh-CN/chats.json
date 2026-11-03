@@ -681,6 +681,7 @@
     "failed": "无法保存更改：{{message}}。它仍在等待你处理。",
     "receipt": {
       "applied": "已应用：",
+      "savedAuto": "已保存到记忆：",
       "reverted": "已撤销：",
       "dismissed": "已拒绝：",
       "expired": "已过期：",

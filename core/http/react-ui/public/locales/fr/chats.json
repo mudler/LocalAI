@@ -681,6 +681,7 @@
     "failed": "Impossible d'enregistrer la modification : {{message}}. Elle attend toujours votre réponse.",
     "receipt": {
       "applied": "Appliquée :",
+      "savedAuto": "Enregistré dans la mémoire :",
       "reverted": "Annulée :",
       "dismissed": "Refusée :",
       "expired": "Expirée :",

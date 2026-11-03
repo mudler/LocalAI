@@ -24,8 +24,8 @@ const (
 
 const proposeChangeDescription = "Ask to change something that lasts: a note in the user's memory, the profile of this agent, a skill, a page or the Home dashboard. " +
 	"Use it when the user asks you to remember, change or forget something, gives a rule you must keep, or asks for a skill, a page or a dashboard change. " +
-	"It changes nothing by itself: the owner must confirm in Studio, and the proposal expires after a day. " +
-	"Until then never say that it is saved. " +
+	"Unless the result says the note was saved, it changes nothing by itself: the owner must confirm in Studio, and the proposal expires after a day. " +
+	"Never say that something is saved until the result says so. " +
 	"content is the full new text of the file, not a patch: read the current file first and keep what stays. " +
 	"kind is memory (a Markdown file under Memory/), profile (the agent's standing rules, at most 4 KiB, scope agent), " +
 	"skill (a full SKILL.md with name and description, target is the skill name, scope user or agent; a skill its owner locked cannot be changed), " +
@@ -62,17 +62,20 @@ const revertChangeSchema = `{"type":"object","properties":{"id":{"type":"string"
 func (s *Service) registerChangeTools() error {
 	type def struct {
 		id, label, desc, schema string
-		run                     func(ctx context.Context, c builtins.Chat, raw json.RawMessage) (string, error)
+		run                     func(ctx context.Context, c builtins.Chat, raw json.RawMessage, turn *autoTurn) (string, error)
 		caps                    []string
 	}
 	defs := []def{
 		{proposeChangeName, "Propose a change", proposeChangeDescription, "", s.changes.proposeTool, changeKindCaps},
-		{revertChangeName, "Revert a change", revertChangeDescription, revertChangeSchema, s.changes.revertTool, changeKindCaps},
+		{revertChangeName, "Revert a change", revertChangeDescription, revertChangeSchema,
+			func(ctx context.Context, c builtins.Chat, raw json.RawMessage, _ *autoTurn) (string, error) {
+				return s.changes.revertTool(ctx, c, raw)
+			}, changeKindCaps},
 	}
 	for _, d := range defs {
 		err := s.builtins.Register(builtins.Tool{
 			ID: d.id, Group: builtins.GroupChanges, Label: d.label, Description: d.desc, Unlisted: true, Capabilities: d.caps,
-			Build: func(_ context.Context, c builtins.Chat) (session.Tool, bool, string) {
+			Build: func(ctx context.Context, c builtins.Chat) (session.Tool, bool, string) {
 				switch {
 				case !s.d.Files.Available():
 					return session.Tool{}, false, "files are off on this server"
@@ -88,11 +91,21 @@ func (s *Service) registerChangeTools() error {
 					return session.Tool{}, false, "this agent was not given the right to change anything"
 				}
 				schema := d.schema
-				if schema == "" {
+				if d.id == proposeChangeName {
+					// The person can turn memory notes off: the model then does
+					// not see the memory kind and cannot propose one.
+					if s.changes.saveModeOf(ctx, c) == SaveNever {
+						kinds = withoutMemory(kinds)
+						if len(kinds) == 0 {
+							return session.Tool{}, false, "saving to memory is turned off in the settings of the person"
+						}
+					}
 					schema = proposeChangeSchema(kinds)
 				}
+				// The count of automatic writes is for this turn's tools.
+				turn := &autoTurn{}
 				return session.Tool{Description: d.desc, Schema: json.RawMessage(schema),
-					Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return d.run(ctx, c, raw) }}, true, ""
+					Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return d.run(ctx, c, raw, turn) }}, true, ""
 			},
 		})
 		if err != nil {
@@ -136,7 +149,7 @@ func changeErr(err error) error {
 	return errors.New(strings.TrimPrefix(strings.TrimPrefix(msg, "studio: "), "proposals: "))
 }
 
-func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.RawMessage) (string, error) {
+func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.RawMessage, turn *autoTurn) (string, error) {
 	var args struct {
 		Kind, Scope, Target, Content, Summary string
 		Files                                 map[string]string
@@ -158,16 +171,61 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 		}
 		args.Content = string(b)
 	}
-	p, err := h.Propose(ctx, ProposeInput{User: c.Actor.Principal, Agent: c.AgentID, Source: sourceOf(c),
-		Kind: args.Kind, Scope: args.Scope, Target: args.Target, Content: args.Content, Summary: args.Summary})
+	in := ProposeInput{User: c.Actor.Principal, Agent: c.AgentID, Source: sourceOf(c),
+		Kind: args.Kind, Scope: args.Scope, Target: args.Target, Content: args.Content, Summary: args.Summary}
+	// How a memory note is saved is the person's choice (see changemode.go).
+	// Every other kind always asks.
+	autoNote := ""
+	if memoryKindOf(args.Kind) {
+		switch h.saveModeOf(ctx, c) {
+		case SaveNever:
+			h.audit(ctx, proposals.ActionRefuse, contract.ChangeProposal{Owner: principal(in.User), Agent: in.Agent, Kind: contract.ChangeMemory,
+				Scope: contract.ChangeScope(in.Scope), Source: in.Source}, 0, "the person turned memory notes off")
+			return "", errors.New("the person turned off saving to their memory, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
+		case SaveAuto:
+			ok, why := autoFits(args.Content, turn)
+			if ok {
+				return h.saveNow(ctx, in, turn)
+			}
+			autoNote = " It was not saved at once because " + why + ", so it needs a confirmation."
+		}
+	}
+	p, err := h.Propose(ctx, in)
 	if err != nil {
 		return "", changeErr(err)
 	}
 	// The card lets the interface show Confirm and Dismiss on this tool line,
 	// also after a reload.
 	session.SetToolCard(ctx, session.ToolCard{Kind: ChangeProposalCardKind, ID: p.ID})
-	return fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet: the owner must confirm it in Studio, and it expires in 24 hours. Do not say it is saved.",
-		p.ID, p.Summary, p.Kind, p.Scope), nil
+	return fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet: the owner must confirm it in Studio, and it expires in 24 hours. Do not say it is saved.%s",
+		p.ID, p.Summary, p.Kind, p.Scope, autoNote), nil
+}
+
+// saveNow applies a memory note at once, for a person who chose that. The note
+// goes through the whole proposal path (grant, gate, target, size, text and
+// base checks, the rate limits and the audit) and is then confirmed as the
+// person, so it is one change set that revert_change undoes. When the
+// confirmation fails the pending proposal is dismissed, so no card is left.
+func (h *Changes) saveNow(ctx context.Context, in ProposeInput, turn *autoTurn) (string, error) {
+	in.Auto = true
+	p, err := h.Propose(ctx, in)
+	if err != nil {
+		turn.give()
+		return "", changeErr(err)
+	}
+	done, err := h.Confirm(ctx, in.User, p.ID)
+	if err != nil {
+		turn.give()
+		if _, derr := h.Dismiss(ctx, in.User, p.ID); derr != nil {
+			h.s.log.Warn("studio: could not close a note that failed to save at once", "proposal", p.ID, "error", derr)
+		}
+		return "", changeErr(err)
+	}
+	// The card lets the interface show the saved note with Undo, also after a
+	// reload; it reads the proposal and sees that it was applied at once.
+	session.SetToolCard(ctx, session.ToolCard{Kind: ChangeProposalCardKind, ID: done.ID})
+	return fmt.Sprintf("Saved to memory: %s (%s, %s, id %s). The person chose to save notes at once, so no confirmation is needed, and the chat shows them an Undo. "+
+		"To undo it, call revert_change with this id.", done.Summary, done.Kind, done.Scope, done.ID), nil
 }
 
 func (h *Changes) revertTool(ctx context.Context, c builtins.Chat, raw json.RawMessage) (string, error) {

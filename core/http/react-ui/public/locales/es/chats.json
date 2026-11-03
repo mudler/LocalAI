@@ -681,6 +681,7 @@
     "failed": "No se pudo guardar el cambio: {{message}}. Sigue esperando tu respuesta.",
     "receipt": {
       "applied": "Aplicado:",
+      "savedAuto": "Guardado en la memoria:",
       "reverted": "Deshecho:",
       "dismissed": "Descartado:",
       "expired": "Caducado:",

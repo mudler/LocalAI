@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  byteText, changeProposalIds, changeProposalView, sourceOfProposal, targetPath, timeLeft,
+  appliedReceiptKey, byteText, changeProposalIds, changeProposalView, sourceOfProposal, targetPath, timeLeft,
 } from '../../src/utils/changeProposal.js'
 import { diffLines, diffStats, splitLines, withContext } from '../../src/utils/lineDiff.js'
 import { allFiles, groupKind, indexFits, indexUse } from '../../src/utils/memoryFiles.js'
@@ -130,4 +130,14 @@ test('memory files: the kind of a group and the files for Clear all', () => {
   assert.equal(groupKind({ source: 'notes-agent', scope: 'agent' }), 'agent')
   assert.equal(groupKind({}), 'user')
   assert.equal(allFiles([{ files: [1, 2] }, { files: [3] }, {}]).length, 3)
+})
+
+test('change proposals: a note the host saved at once says so, a confirmed one says applied, both can be undone', () => {
+  assert.equal(appliedReceiptKey(proposal({ status: 'applied', auto: true })), 'changes.receipt.savedAuto')
+  assert.equal(appliedReceiptKey(proposal({ status: 'applied' })), 'changes.receipt.applied')
+  assert.equal(appliedReceiptKey(proposal({ status: 'applied', auto: false })), 'changes.receipt.applied')
+  assert.equal(appliedReceiptKey(null), 'changes.receipt.applied')
+  const v = changeProposalView(proposal({ status: 'applied', auto: true, rev: 5 }), null, NOW)
+  assert.equal(v.kind, 'applied')
+  assert.equal(v.canUndo, true, 'an automatic note offers Undo')
 })

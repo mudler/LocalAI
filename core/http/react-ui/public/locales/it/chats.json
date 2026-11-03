@@ -681,6 +681,7 @@
     "failed": "Impossibile salvare la modifica: {{message}}. È ancora in attesa di te.",
     "receipt": {
       "applied": "Applicata:",
+      "savedAuto": "Salvato in memoria:",
       "reverted": "Annullata:",
       "dismissed": "Rifiutata:",
       "expired": "Scaduta:",

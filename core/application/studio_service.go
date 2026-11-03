@@ -120,6 +120,7 @@ func (a *Application) initStudioService() {
 		PageConsents:       a.studioPageConsents(),
 		SharedFolderAudit:  a.studioSharedFolderAudit(),
 		Proposals:          a.studioProposalStore(),
+		UserSetting:        a.studioUserSetting,
 		EgressSettings:     a.studioEgressSettings,
 		EgressAudit:        a.studioEgressAudit(),
 		EgressAuditDays:    func() int { return a.applicationConfig.EffectiveChatsEgressAuditDays() },

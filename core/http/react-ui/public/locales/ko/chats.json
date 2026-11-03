@@ -681,6 +681,7 @@
     "failed": "변경을 저장하지 못했습니다: {{message}}. 아직 답을 기다리고 있습니다.",
     "receipt": {
       "applied": "적용됨:",
+      "savedAuto": "메모리에 저장됨:",
       "reverted": "되돌림:",
       "dismissed": "거절됨:",
       "expired": "만료됨:",

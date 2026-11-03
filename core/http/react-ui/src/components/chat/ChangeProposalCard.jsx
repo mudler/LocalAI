@@ -3,7 +3,7 @@ import { useCallback, useContext, useEffect, useId, useMemo, useState } from 're
 import { Link } from 'react-router-dom'
 import { chatChangesApi, filesApi } from '../../utils/api'
 import {
-  byteText, CHANGES_EVENT, changeProposalView, KNOWN_KINDS, KNOWN_SCOPES, scopeOfProposal, sourceOfProposal, targetPath, timeLeft,
+  appliedReceiptKey, byteText, CHANGES_EVENT, changeProposalView, KNOWN_KINDS, KNOWN_SCOPES, scopeOfProposal, sourceOfProposal, targetPath, timeLeft,
 } from '../../utils/changeProposal'
 import { diffLines, diffStats, withContext } from '../../utils/lineDiff'
 import Icon from '../Icon'
@@ -169,10 +169,10 @@ export default function ChangeProposalCard({ id, initial, t, tick = 0 }) {
 
   if (view.kind === 'applied') {
     return wrap(
-      <div className="cx-receipt" data-testid={tid} data-state="applied" data-kind={p.kind}>
+      <div className="cx-receipt" data-testid={tid} data-state="applied" data-kind={p.kind} data-auto={p.auto ? 'true' : undefined}>
         <Icon name="check-circle" className="cx-receipt__icon" />
         <div className="cx-receipt__main">
-          <p className="cx-receipt__line"><b>{t('changes.receipt.applied')}</b> <span data-testid="change-summary">{p.summary}</span></p>
+          <p className="cx-receipt__line"><b>{t(appliedReceiptKey(p))}</b> <span data-testid="change-summary">{p.summary}</span></p>
           <p className="cx-receipt__sub"><span>{kindName(p, t)} · {scopeName(p, t)}</span><code>{target}</code></p>
           {alert}
         </div>

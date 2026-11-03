@@ -3281,6 +3281,122 @@
                 }
             }
         },
+        "/api/addons/{id}/user-settings": {
+            "get": {
+                "description": "Returns the per-person settings that the add-on declares in its manifest (userSettings), each with the allowed values, the default and the answer in force for the caller: the caller's own choice, or the default when none was made or the declaration no longer allows it. The answers are kept by the host for the signed-in person, not by the add-on. An add-on that declares none gives an empty list. The route does not reveal an add-on the caller cannot see.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AddonNavigation"
+                ],
+                "summary": "Read the caller's settings for an add-on",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The settings of the add-on",
+                        "schema": {
+                            "$ref": "#/definitions/addons.UserSettingsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such add-on",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The settings store or the add-on owner is unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Stores one answer for the signed-in person. The key must be declared in the manifest of the add-on and the value must be one of the values declared for it; anything else is 400 and nothing is stored. The write needs the person's own browser session (same-origin fetch with X-LocalAI-Confirm equal to the add-on ID): an API key, a bearer token, an MCP session or a tool call is refused with 403 not_human_surface, so no model or add-on can change a person's setting. Repeating the same write has the same result. The add-on is not called and cannot set a value for a person.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "AddonNavigation"
+                ],
+                "summary": "Set the caller's setting for an add-on",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Add-on ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The key and the new value",
+                        "name": "setting",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/addons.UserSettingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The settings of the add-on after the write",
+                        "schema": {
+                            "$ref": "#/definitions/addons.UserSettingsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Unknown key, or a value the add-on does not allow",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Not the person's own browser session",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such add-on",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The settings store or the add-on owner is unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/agent/jobs": {
             "get": {
                 "description": "Newest first. With all_users=true an administrator also gets the jobs of the other users, read-only, in user_groups keyed by owner.",
@@ -15467,6 +15583,62 @@
                 }
             }
         },
+        "addons.UserSettingRequest": {
+            "type": "object",
+            "properties": {
+                "key": {
+                    "type": "string",
+                    "example": "save-mode"
+                },
+                "value": {
+                    "type": "string",
+                    "example": "auto"
+                }
+            }
+        },
+        "addons.UserSettingView": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "description": "Default is the answer of a person who has not chosen.",
+                    "type": "string",
+                    "example": "ask"
+                },
+                "key": {
+                    "description": "Key is the name the add-on declared.",
+                    "type": "string",
+                    "example": "save-mode"
+                },
+                "value": {
+                    "description": "Value is the answer in force: the person's own, or the default.",
+                    "type": "string",
+                    "example": "ask"
+                },
+                "values": {
+                    "description": "Values are the answers the add-on allows.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "ask",
+                        "auto",
+                        "never"
+                    ]
+                }
+            }
+        },
+        "addons.UserSettingsResponse": {
+            "type": "object",
+            "properties": {
+                "settings": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/addons.UserSettingView"
+                    }
+                }
+            }
+        },
         "apps.AdminView": {
             "type": "object",
             "properties": {
@@ -15642,6 +15814,13 @@
                         "update-pending"
                     ],
                     "example": "update-pending"
+                },
+                "userSettings": {
+                    "description": "UserSettings are the per-person choices the add-on declares, from the\nverified manifest. The host keeps the answers; the add-on is not called.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/contract.UserSetting"
+                    }
                 },
                 "version": {
                     "type": "string",
@@ -16158,6 +16337,10 @@
                 "answered": {
                     "type": "string"
                 },
+                "auto": {
+                    "description": "Auto is true when the host applied the change at once because the person\nchose so (the memory save setting), not after a confirmation. The change\nset is the same and can be undone the same way.",
+                    "type": "boolean"
+                },
                 "base_hash": {
                     "type": "string"
                 },
@@ -16534,6 +16717,30 @@
                 "uiOnly": {
                     "description": "UIOnly marks a tool that only the add-on's own page may call, such as a\nsettings change that asks the host whether the caller is an\nadministrator. It is never offered to a model, a chat or an agent. The\npage has no resource to name, so it must be a read tool without one.",
                     "type": "boolean"
+                }
+            }
+        },
+        "contract.UserSetting": {
+            "type": "object",
+            "properties": {
+                "default": {
+                    "description": "Default is the answer of a person who has not chosen. It is one of Values.",
+                    "type": "string"
+                },
+                "key": {
+                    "description": "Key names the setting inside the add-on: lowercase letters, digits and\ndashes, at most 40.",
+                    "type": "string"
+                },
+                "role": {
+                    "description": "Role names what the host does with the answer, when the host reads it\nitself. Empty: the setting is only for the add-on's own page. A known\nrole fixes the values and the default (see roleRules), so the manifest\ncannot make the host more permissive than its own default.",
+                    "type": "string"
+                },
+                "values": {
+                    "description": "Values are the allowed answers, in the order the add-on lists them. Each\none has the same form as the key.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

@@ -224,6 +224,12 @@ type Deps struct {
 	// ProposalGate decides whether a chat may propose or revert a change. Nil:
 	// proposals.DefaultGate, which refuses a chat that runs a saved agent.
 	ProposalGate proposals.Gate
+	// UserSetting reads one per-person add-on setting that the host keeps
+	// (the answer a person gave on the page of the add-on). It returns the
+	// stored value and whether there is one. Nil, a missing value or an error
+	// means the add-on's default; a rule that reads a setting never treats a
+	// failure as a looser choice.
+	UserSetting func(ctx context.Context, user, addonID, key string) (string, bool, error)
 	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
 	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.

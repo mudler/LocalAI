@@ -681,6 +681,7 @@
     "failed": "Perubahan tidak dapat disimpan: {{message}}. Masih menunggu Anda.",
     "receipt": {
       "applied": "Diterapkan:",
+      "savedAuto": "Disimpan ke memori:",
       "reverted": "Dibatalkan:",
       "dismissed": "Ditolak:",
       "expired": "Kedaluwarsa:",

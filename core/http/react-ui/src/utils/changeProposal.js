@@ -30,6 +30,13 @@ export function changeProposalView(p, err, now = Date.now()) {
   return { kind, proposal: p, canUndo: kind === 'applied' && !!p.rev }
 }
 
+// The key of the words that open the receipt of an applied change. A note that
+// the host saved at once because the person chose so says "Saved to memory"; a
+// change the person confirmed says "Applied". Both keep the Undo.
+export function appliedReceiptKey(p) {
+  return p?.auto ? 'changes.receipt.savedAuto' : 'changes.receipt.applied'
+}
+
 // Where a proposal came from, without naming a platform. kind '' is a chat
 // the person watches; any other kind is the host's name for the origin (a
 // connector), id names the binding and sender, when the host knows it, the

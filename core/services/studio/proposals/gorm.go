@@ -33,6 +33,7 @@ type proposalRow struct {
 	Created   time.Time
 	Expires   time.Time
 	Answered  *time.Time
+	Auto      bool `gorm:"not null;default:false"` // a note applied at once; the default keeps older rows readable
 }
 
 func (proposalRow) TableName() string { return "studio_change_proposals" }
@@ -52,7 +53,7 @@ func (eventRow) TableName() string { return "studio_change_events" }
 func (r proposalRow) proposal() (contract.ChangeProposal, error) {
 	p := contract.ChangeProposal{V: contract.ChangeProposalVersion, ID: r.ID, Owner: r.Owner, Agent: r.Agent,
 		Kind: contract.ChangeKind(r.Kind), Scope: contract.ChangeScope(r.Scope), Target: r.Target, Summary: r.Summary,
-		Content: r.Content, BaseHash: r.BaseHash, Status: contract.ProposalStatus(r.Status), Rev: r.Rev, RevertRev: r.RevertRev,
+		Content: r.Content, BaseHash: r.BaseHash, Status: contract.ProposalStatus(r.Status), Auto: r.Auto, Rev: r.Rev, RevertRev: r.RevertRev,
 		Created: r.Created.UTC(), Expires: r.Expires.UTC()}
 	if r.Answered != nil {
 		p.Answered = r.Answered.UTC()
@@ -71,7 +72,7 @@ func rowOf(p contract.ChangeProposal) (proposalRow, error) {
 		return proposalRow{}, err
 	}
 	r := proposalRow{ID: p.ID, Owner: p.Owner, Agent: p.Agent, Kind: string(p.Kind), Scope: string(p.Scope), Target: p.Target,
-		Summary: p.Summary, Content: p.Content, BaseHash: p.BaseHash, Source: string(src), Status: string(p.Status),
+		Summary: p.Summary, Content: p.Content, BaseHash: p.BaseHash, Source: string(src), Status: string(p.Status), Auto: p.Auto,
 		Rev: p.Rev, RevertRev: p.RevertRev, Created: p.Created, Expires: p.Expires}
 	if !p.Answered.IsZero() {
 		a := p.Answered

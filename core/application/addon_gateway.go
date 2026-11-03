@@ -667,6 +667,15 @@ func (l lateStudioAddons) AddonContextFiles(ctx context.Context, user string) ([
 	return nil, nil
 }
 
+// AddonUserSettings forwards to the broker when it knows the per-person
+// settings the add-ons declare.
+func (l lateStudioAddons) AddonUserSettings(ctx context.Context, user string) ([]studio.AddonUserSettingSet, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonUserSettingsLister); ok {
+		return g.AddonUserSettings(ctx, user)
+	}
+	return nil, nil
+}
+
 // AddonListings forwards to the broker when it knows what the add-ons declare.
 func (l lateStudioAddons) AddonListings(ctx context.Context, user string) ([]studio.AddonListing, error) {
 	if g, ok := l.a.StudioAddonTools().(studio.AddonLister); ok {
@@ -936,6 +945,28 @@ func (s *studioAddons) AddonContextFiles(ctx context.Context, user string) ([]st
 			continue
 		}
 		out = append(out, studio.AddonContextSet{AddonID: a.AddonID, Files: a.Files, Running: a.Running})
+	}
+	return out, nil
+}
+
+// AddonUserSettings lists the per-person settings the add-ons declare, for the
+// host rules that read one by its role. The same visibility rule as the context
+// files: an add-on the user cannot see brings nothing.
+func (s *studioAddons) AddonUserSettings(ctx context.Context, user string) ([]studio.AddonUserSettingSet, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.UserSettings(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make([]studio.AddonUserSettingSet, 0, len(list))
+	for _, a := range list {
+		out = append(out, studio.AddonUserSettingSet{AddonID: a.AddonID, Settings: a.Settings, Running: a.Running})
 	}
 	return out, nil
 }

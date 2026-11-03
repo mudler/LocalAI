@@ -116,6 +116,24 @@ test('Confirm applies the change, shows a receipt, and Undo takes it back', asyn
   expect(s.calls).toEqual(expect.arrayContaining(['POST confirm', 'POST undo']))
 })
 
+test('a note the host saved at once says so, offers Undo, and never showed a confirmation', async ({ page }) => {
+  const s = await open(page, { p: proposal({ status: 'applied', auto: true, rev: 7, answered: AT }) })
+  await expect(card(page)).toHaveAttribute('data-state', 'applied')
+  await expect(card(page)).toHaveAttribute('data-auto', 'true')
+  await expect(card(page)).toContainText('Saved to memory:')
+  await expect(card(page)).not.toContainText('Applied:')
+  await expect(card(page)).toContainText('You live in Milan, not Rome')
+  await expect(card(page).getByRole('button', { name: 'Confirm', exact: true })).toHaveCount(0)
+  await expect(card(page).getByRole('button', { name: 'Dismiss' })).toHaveCount(0)
+  await shoot(page, 'saved-at-once')
+
+  await card(page).getByRole('button', { name: 'Undo' }).click()
+  await expect(card(page)).toHaveAttribute('data-state', 'reverted')
+  await expect(card(page)).toContainText('Undone:')
+  expect(s.calls).toEqual(expect.arrayContaining(['POST undo']))
+  expect(s.calls).not.toContain('POST confirm')
+})
+
 test('Edit then confirm sends the edited text, which the person can correct first', async ({ page }) => {
   const s = await open(page)
   await card(page).getByRole('button', { name: 'Edit then confirm' }).click()

@@ -1330,7 +1330,7 @@ it off, so a chat that never touches the menu works as before:
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
-| **Proposed changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your memory or an agent profile, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)) |
+| **Proposed changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your memory or an agent profile, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose on the Short memory page to have them saved at once with an Undo, or never (see [Short memory](/features/short-memory/#choose-how-a-note-is-saved)) |
 
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'

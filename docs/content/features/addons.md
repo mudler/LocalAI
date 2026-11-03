@@ -1568,6 +1568,10 @@ draw the same thing.
   the way back, `{ from, fromLabel }`, which the Model Editor reads.
 - `sdk.portal(children, node)`: draws children into a node outside the add-on's own
   tree, for a full-screen sheet.
+- `sdk.userSettings`: `get()` and `set(key, value)`, the settings that the add-on declared
+  for the signed-in person (see [User settings](#user-settings)). Both calls are bound to
+  the add-on that makes them; a page cannot name another add-on. A write is the person's
+  own action from their browser session.
 - `sdk.viewer`: `isAdmin()` and `hasFeature(name)`. They answer for the signed-in
   user and are read-only. The server still decides every call.
 - `sdk.iconNames`: the icon names `sdk.Icon` can draw. Any other name draws a
@@ -2578,6 +2582,47 @@ and `sensitive` flag. A host can add a `proposals.Gate` on top: it is asked with
 the action (`propose` or `revert`), the agent, the kind, the scope and the
 source, after the grant check.
 
+### How a memory note is saved
+
+By default every memory note is a proposal that the person confirms. The person
+can change this for memory notes only, on the page of an add-on that declares a
+[user setting](#user-settings) with the role `memory.save-mode` (the Short memory
+add-on declares one, with the key `save-mode`). The host finds the setting by its
+role, so core code names no add-on:
+
+| Value | What happens |
+|---|---|
+| `ask` (default) | The model proposes the note and the person confirms it, as above. |
+| `auto` | A note from the person's own Studio chat is saved at once. The chat shows "Saved to memory" with an Undo, and no confirmation card. |
+| `never` | The model cannot propose a memory note: `propose_change` does not list the `memory` kind, and the tool is not offered at all to a chat that holds no other kind. A call that still comes gets a plain refusal. |
+
+An automatic note goes through the whole proposal path: the grant, the gate, the
+target and size checks, the hourly limit and the audit. It is then confirmed as
+the person, so it is one change set that `revert_change` and the Undo of the card
+restore. The record has `auto: true`, and the audit lines of the write say it was
+automatic. The safety rules are the host's, not the add-on's:
+
+- Only a chat of the signed-in person can save without asking. A chat that a
+  connector started always asks, whatever the setting says, because the sender of
+  a message is not always the person. A trigger or a job never has the tool.
+- `never` is the narrow side, so it applies in every chat, connectors included.
+- A saved agent cannot widen the choice. Its grants decide whether it may propose a
+  kind; the person's setting decides how a memory note is applied. An agent with its
+  own `memory.write` grant still asks when the person said `ask`.
+- A turn saves at most 5 notes without asking, a note over 4 KiB is not saved
+  without asking, and a note that looks like it holds a secret (a private key
+  block, a token, `password: ...`) is not either. Such a note becomes a normal
+  proposal that waits for the person, and the model is told so.
+- Only the `memory` kind reads the setting. A profile, skill, page or dashboard
+  change always asks.
+- If the setting cannot be read, the host asks. A failure never turns into `auto`. So
+  does a missing declaration: without an add-on that declares the role, an old stored
+  answer is ignored. An add-on that is not running does not count as `auto`. When
+  several add-ons declare the role, the strictest answer wins (`never`, then `ask`,
+  then `auto`), and a person who has not chosen on one of them counts as `ask`.
+
+The hourly limit of 5 proposals per agent also counts automatic notes.
+
 Every step is audited (propose, refuse, confirm, dismiss, expire, stale,
 revert) with the source and a SHA-256 of the text, never the text.
 
@@ -2717,6 +2762,62 @@ of another agent or another channel. The header names the save tool, `propose_ch
 only in a chat that has it. A component that
 saves notes uses `contextfiles.CheckIndex` and `contextfiles.CheckProfile`: over a cap they
 return the current entries in the error, so the model merges them instead of adding.
+
+## User settings
+
+An add-on can declare choices that each person makes for it, such as how it behaves
+for them. The add-on names the key and the values it understands in its manifest.
+The host keeps the person's answer, checks every write against the declaration and
+reads the answer for its own rules. The add-on does not store it and is not called.
+
+```json
+{
+  "capabilities": {
+    "userSettings": [
+      { "key": "save-mode", "values": ["ask", "auto", "never"], "default": "ask" }
+    ]
+  }
+}
+```
+
+A key is lowercase letters, digits and dashes, at most 40, and starts with a letter.
+A setting has 2 to 8 values of the same form, and a default that is one of them. An
+add-on declares at most 8 settings. A person who has not chosen has the default. The
+manifest fixes the allowed values and nothing else: the words on the page and the
+help text are the add-on's own.
+
+A setting can also carry a `role`, when the host reads the answer for one of its own
+rules. The host defines the values and the default of each role, and the manifest is
+refused when it differs, so an add-on cannot make a host rule more permissive than the
+host's own default. The only role today is `memory.save-mode`, with the values `ask`,
+`auto` and `never` and the default `ask`. One add-on declares a role at most once.
+
+| Route | Does |
+|---|---|
+| `GET /api/addons/{id}/user-settings` | the settings of the add-on for the caller, each with its values, default and the value in force |
+| `PUT /api/addons/{id}/user-settings` | set one: `{"key": "...", "value": "..."}` |
+
+Rules:
+
+- A write needs the person's own browser session: a same-origin fetch with the
+  `X-LocalAI-Confirm` header set to the add-on ID. An API key, a bearer token, an MCP
+  session or a tool call is refused with `403 not_human_surface`. No MCP tool maps to
+  these routes, so a model cannot change a setting that limits what it may do.
+- An unknown add-on, or one the caller cannot see, is `404`. A key that the manifest
+  does not declare, or a value it does not allow, is `400` and nothing is stored. A
+  stored value that a newer manifest no longer allows reads as the default.
+- Authority: per person. The answers live in the account database that every frontend
+  shares, so a save through one frontend is read through another. Without accounts
+  they are one file under the data path for the one local owner. The store never falls
+  back to a local copy when the database is down: the routes answer `503`, and a host
+  rule that reads a setting uses the default. A write replaces one key and has the same
+  result when repeated, so a retry after an uncertain write is safe; the last write
+  wins.
+- A page reaches its settings only through `sdk.userSettings`, which is bound to the
+  add-on. `sdk.core.fetch` still refuses `/api/addons`.
+- A setting is a person's choice. It never widens what a connector chat or an
+  unattended run may do; a host rule that reads one says so (see
+  [How a memory note is saved](#how-a-memory-note-is-saved)).
 
 ## Owner forwarding and HTTP relays
 

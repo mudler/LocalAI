@@ -94,6 +94,9 @@ type ProposeInput struct {
 	Target      string
 	Content     string
 	Summary     string
+	// Auto marks a memory note that the host applies at once because the
+	// person chose so. Only a chat of the person (Source.Kind "") can set it.
+	Auto bool
 }
 
 func hashOf(s string) string {
@@ -102,6 +105,9 @@ func hashOf(s string) string {
 }
 
 func (c *Changes) audit(ctx context.Context, action string, p contract.ChangeProposal, rev int64, detail string) {
+	if p.Auto && detail == "" {
+		detail = "automatic: the person chose to save memory notes at once"
+	}
 	ev := proposals.Event{At: c.s.now().UTC(), Owner: p.Owner, Action: action, Proposal: p.ID, Kind: p.Kind, Scope: p.Scope,
 		Target: p.Target, Agent: p.Agent, Source: p.Source, Rev: rev, Hash: hashOf(p.Content), Detail: detail}
 	if err := c.store.AddEvent(ctx, ev); err != nil {
@@ -151,7 +157,13 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 	}
 	p := contract.ChangeProposal{V: contract.ChangeProposalVersion, ID: uuid.NewString(), Owner: principal(in.User), Agent: in.Agent,
 		Kind: kind.Name, Scope: contract.ChangeScope(in.Scope), Summary: cleanSummary(in.Summary), Content: in.Content, Source: in.Source,
-		Status: contract.ProposalPending}
+		Status: contract.ProposalPending, Auto: in.Auto}
+	if in.Auto && (in.Source.Kind != "" || kind.Name != contract.ChangeMemory) {
+		// Defence in depth: the tool decides this too, but nothing but a memory
+		// note from the person's own chat is ever applied unasked.
+		c.audit(ctx, proposals.ActionRefuse, p, 0, "automatic save is for a memory note from the person's own chat")
+		return contract.ChangeProposal{}, fmt.Errorf("%w: only a memory note from your own chat can be saved at once", ErrBadChange)
+	}
 	if err := c.s.checkChangeGrant(ctx, p.Owner, in.Agent, in.Source, kind.Grant); err != nil {
 		c.audit(ctx, proposals.ActionRefuse, p, 0, err.Error())
 		return contract.ChangeProposal{}, err

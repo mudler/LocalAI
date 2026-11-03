@@ -105,6 +105,10 @@ type ChangeProposal struct {
 	BaseHash string         `json:"base_hash,omitempty"`
 	Source   ChangeSource   `json:"source,omitzero"`
 	Status   ProposalStatus `json:"status"`
+	// Auto is true when the host applied the change at once because the person
+	// chose so (the memory save setting), not after a confirmation. The change
+	// set is the same and can be undone the same way.
+	Auto bool `json:"auto,omitempty"`
 	// Rev is the workspace change set that applying wrote; RevertRev the one
 	// that reverting wrote. Zero until then.
 	Rev       int64     `json:"rev,omitempty"`
