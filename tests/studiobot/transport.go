@@ -6,7 +6,13 @@ package studiobot
 import (
 	"context"
 	"errors"
+	"net/http/httptest"
 	"sync/atomic"
+
+	"github.com/mudler/LocalAI/addons/testhost"
+	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 
 	slack "github.com/mudler/LocalAI/addons/slack/transport"
 	"github.com/mudler/LocalAI/addons/telegram/transport"
@@ -20,13 +26,20 @@ type Addon struct {
 	ID      string
 	Kind    contract.ConnectorKind
 	Runtime contract.ConnectorRuntime
+	// WithHost rebuilds the runtime over a host operation channel, as the
+	// add-on's main does at start. Nil: the add-on cannot move files by handle.
+	WithHost func(testhost.Host) contract.ConnectorRuntime
+	// Files is what the manifest declares for files, applied by EnableTransfers.
+	Files *contract.ConnectorFiles
 }
 
 // Telegram is the Telegram add-on over api. Its kind has drafts, as the
 // manifest declares, but no preview interval: the host's EditEvery applies,
 // which a spec sets short. TelegramPaced keeps the interval of the manifest.
 func Telegram(api *transport.API) Addon {
-	return Addon{ID: "telegram", Kind: contract.ConnectorKind{ID: transport.Kind, Title: "Telegram", Delivery: contract.DeliveryPull, Drafts: true}, Runtime: transport.Runtime{API: api}}
+	return Addon{ID: "telegram", Kind: contract.ConnectorKind{ID: transport.Kind, Title: "Telegram", Delivery: contract.DeliveryPull, Drafts: true}, Runtime: transport.Runtime{API: api},
+		WithHost: func(h testhost.Host) contract.ConnectorRuntime { return transport.Runtime{API: api, Host: h} },
+		Files:    &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: transport.MaxDownloadBytes}, Send: &contract.FileAbility{MaxBytes: 50 << 20}, Transfer: true}}
 }
 
 // TelegramPaced is Telegram with the preview interval of the manifest.
@@ -40,7 +53,9 @@ func TelegramPaced(api *transport.API) Addon {
 func Slack(rt *slack.Runtime) Addon {
 	return Addon{ID: "slack", Kind: contract.ConnectorKind{ID: slack.Kind, Title: "Slack", Delivery: contract.DeliveryPull, History: &contract.ConnectorHistory{Thread: true, MaxMessages: 30}, Options: []contract.ConnectorOption{{
 		ID: slack.FollowOption, Title: "Threads the bot follows", Default: slack.FollowOwn,
-		Values: []contract.ConnectorOptionValue{{ID: slack.FollowOwn, Title: "Only threads it started"}, {ID: slack.FollowAny, Title: "Any thread it was mentioned in"}, {ID: slack.FollowNever, Title: "None"}}}}}, Runtime: rt}
+		Values: []contract.ConnectorOptionValue{{ID: slack.FollowOwn, Title: "Only threads it started"}, {ID: slack.FollowAny, Title: "Any thread it was mentioned in"}, {ID: slack.FollowNever, Title: "None"}}}}}, Runtime: rt,
+		WithHost: func(h testhost.Host) contract.ConnectorRuntime { rt.Host = h; return rt },
+		Files:    &contract.ConnectorFiles{Receive: &contract.FileAbility{MaxBytes: 1 << 30}, Send: &contract.FileAbility{MaxBytes: 1 << 30}, Transfer: true}}
 }
 
 // BotTransport is a studio.ConnectorTransport that serves the real connector
@@ -48,6 +63,7 @@ func Slack(rt *slack.Runtime) Addon {
 // the chats therefore exercise the same transport code that the add-ons run.
 type BotTransport struct {
 	addons  []Addon
+	gateway *gateway.Gateway
 	running atomic.Bool
 	// Addon is the ID of the first add-on, for the tests that serve one.
 	Addon string
@@ -84,9 +100,67 @@ func (b *BotTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
 	return out, nil
 }
 
+// EnableTransfers makes the add-ons move files by handle, as installed ones do:
+// the kinds declare files.transfer, the add-ons get a host operation channel
+// over a local server that serves the two file operations, and every call goes
+// through the real gateway, which registers the handle for the call. t is the
+// table; its blob store is the one the chats read the files from. The returned
+// function stops the server.
+func (b *BotTransport) EnableTransfers(t *hostops.Transfers) (stop func()) {
+	br := hostops.New(hostops.NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
+	if err := hostops.RegisterConnectorTransfer(br, t); err != nil {
+		panic(err)
+	}
+	var hosts []*httptest.Server
+	for i, a := range b.addons {
+		if a.WithHost == nil {
+			continue
+		}
+		h := httptest.NewServer(br.Handler(a.ID, "cred", []string{"connector."}))
+		hosts = append(hosts, h)
+		c := testhost.Client(h.URL, "cred")
+		b.addons[i].Runtime = a.WithHost(c)
+		b.addons[i].Kind.Files = a.Files
+	}
+	b.gateway = &gateway.Gateway{Connectors: gatewaySource{b}, ConnectorAuthority: allowAll{}, Transfers: t}
+	return func() {
+		for _, h := range hosts {
+			h.Close()
+		}
+	}
+}
+
+type allowAll struct{}
+
+func (allowAll) AuthorizeConnector(_ context.Context, _ studio.ConnectorCallScope, r contract.ConnectorRequest) (contract.ConnectorRequest, error) {
+	return r, nil
+}
+
+// gatewaySource is the add-ons of the transport as the gateway's source.
+type gatewaySource struct{ b *BotTransport }
+
+func (g gatewaySource) ConnectorKinds(ctx context.Context) ([]addons.ConnectorKind, error) {
+	kinds, err := g.b.Kinds(ctx)
+	out := make([]addons.ConnectorKind, len(kinds))
+	for i, k := range kinds {
+		out[i] = addons.ConnectorKind{AddonID: k.AddonID, ConnectorKind: k.ConnectorKind}
+	}
+	return out, err
+}
+
+func (g gatewaySource) Connector(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	return g.b.run(ctx, addonID, req)
+}
+
 // Call runs the connector route of an add-on.
 func (b *BotTransport) Call(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	addonID := scope.AddonID
+	if b.gateway != nil && b.running.Load() {
+		return b.gateway.ConnectorCall(ctx, scope, req)
+	}
+	return b.run(ctx, scope.AddonID, req)
+}
+
+func (b *BotTransport) run(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
 	if b.running.Load() {
 		for _, a := range b.addons {
 			if a.ID == addonID {

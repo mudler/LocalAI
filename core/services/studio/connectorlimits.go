@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -40,11 +41,16 @@ type FileLimit struct {
 // the kind declares (nil: none), the owner's limit for the binding (zero:
 // none) and the cap of the inline path. On a tie the layer that a person can
 // change first is named: the owner, the add-on, the host, then the inline cap.
-func EffectiveFileLimit(ceiling int64, declared *contract.FileAbility, owner int64) FileLimit {
+func EffectiveFileLimit(ceiling int64, declared *contract.FileAbility, owner int64, transfer bool) FileLimit {
 	if ceiling <= 0 {
 		ceiling = contract.DefaultFileCeilingBytes
 	}
-	limit := FileLimit{Bytes: contract.MaxConnectorFileBytes, Layer: LayerInline}
+	// A kind that moves bytes by handle has no inline cap: the host ceiling,
+	// which is always set, is its first layer.
+	limit := FileLimit{Bytes: math.MaxInt64, Layer: LayerHost}
+	if !transfer {
+		limit = FileLimit{Bytes: contract.MaxConnectorFileBytes, Layer: LayerInline}
+	}
 	for _, c := range []FileLimit{{ceiling, LayerHost}, abilityLimit(declared), {owner, LayerOwner}} {
 		if c.Bytes > 0 && c.Bytes <= limit.Bytes {
 			limit = c
@@ -71,6 +77,12 @@ type FileLimits struct {
 	ReceiveDeclared, SendDeclared int64
 	// HostCeiling is the host ceiling in effect, in bytes.
 	HostCeiling int64
+	// ReceiveTypes and SendTypes are the media types the kind declares for a
+	// direction; empty means every type the host allows.
+	ReceiveTypes, SendTypes []string
+	// Transfer says that the kind moves bytes by handle, so the inline cap
+	// does not apply to it.
+	Transfer bool
 	// KindTitle is the name of the platform, for the sentences.
 	KindTitle string
 }
@@ -114,28 +126,31 @@ func resolveFileLimits(ceiling int64, files *contract.ConnectorFiles, title stri
 	if files == nil {
 		files = &contract.ConnectorFiles{}
 	}
-	l := FileLimits{KindTitle: title, HostCeiling: cmp.Or(ceiling, contract.DefaultFileCeilingBytes)}
-	l.Receive = EffectiveFileLimit(ceiling, files.Receive, b.FileReceiveMax)
-	l.Send = EffectiveFileLimit(ceiling, files.Send, b.FileSendMax)
-	l.ReceiveMax = ownerMax(ceiling, files.Receive)
-	l.SendMax = ownerMax(ceiling, files.Send)
+	l := FileLimits{KindTitle: title, HostCeiling: cmp.Or(ceiling, contract.DefaultFileCeilingBytes), Transfer: files.Transfer}
+	l.Receive = EffectiveFileLimit(ceiling, files.Receive, b.FileReceiveMax, files.Transfer)
+	l.Send = EffectiveFileLimit(ceiling, files.Send, b.FileSendMax, files.Transfer)
+	l.ReceiveMax = ownerMax(ceiling, files.Receive, files.Transfer)
+	l.SendMax = ownerMax(ceiling, files.Send, files.Transfer)
 	if files.Receive != nil {
-		l.ReceiveDeclared = files.Receive.MaxBytes
+		l.ReceiveDeclared, l.ReceiveTypes = files.Receive.MaxBytes, files.Receive.Types
 	}
 	if files.Send != nil {
-		l.SendDeclared = files.Send.MaxBytes
+		l.SendDeclared, l.SendTypes = files.Send.MaxBytes, files.Send.Types
 	}
 	return l
 }
 
 // ownerMax is the largest value an owner may set: what the kind declares, or
 // the inline cap when it declares nothing, under the host ceiling.
-func ownerMax(ceiling int64, a *contract.FileAbility) int64 {
+func ownerMax(ceiling int64, a *contract.FileAbility, transfer bool) int64 {
 	if ceiling <= 0 {
 		ceiling = contract.DefaultFileCeilingBytes
 	}
 	base := int64(contract.MaxConnectorFileBytes)
-	if a != nil {
+	if transfer {
+		base = math.MaxInt64
+	}
+	if a != nil && (transfer || a.MaxBytes < base) {
 		base = a.MaxBytes
 	}
 	return min(base, ceiling)

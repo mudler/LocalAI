@@ -11,7 +11,7 @@ var _ = Describe("the file limit in effect", func() {
 
 	DescribeTable("is the smallest of the host ceiling, the declared ability, the owner setting and the inline cap",
 		func(ceiling int64, ability *contract.FileAbility, owner int64, want FileLimit) {
-			Expect(EffectiveFileLimit(ceiling, ability, owner)).To(Equal(want))
+			Expect(EffectiveFileLimit(ceiling, ability, owner, false)).To(Equal(want))
 		},
 		Entry("an add-on that declares nothing gets the inline cap", int64(100<<20), nil, int64(0), FileLimit{Bytes: contract.MaxConnectorFileBytes, Layer: LayerInline}),
 		Entry("a declared ability above the inline cap leaves the inline cap", int64(100<<20), declared(20<<20), int64(0), FileLimit{Bytes: contract.MaxConnectorFileBytes, Layer: LayerInline}),
@@ -23,8 +23,18 @@ var _ = Describe("the file limit in effect", func() {
 		Entry("a ceiling of zero means the default ceiling", int64(0), declared(256<<10), int64(0), FileLimit{Bytes: 256 << 10, Layer: LayerAddon}),
 	)
 
+	DescribeTable("of a kind that moves bytes by handle has no inline cap",
+		func(ceiling int64, ability *contract.FileAbility, owner int64, want FileLimit) {
+			Expect(EffectiveFileLimit(ceiling, ability, owner, true)).To(Equal(want))
+		},
+		Entry("the declared ability passes the old cap", int64(100<<20), declared(20<<20), int64(0), FileLimit{Bytes: 20 << 20, Layer: LayerAddon}),
+		Entry("the host ceiling still binds", int64(8<<20), declared(20<<20), int64(0), FileLimit{Bytes: 8 << 20, Layer: LayerHost}),
+		Entry("the owner lowers it", int64(100<<20), declared(20<<20), int64(2<<20), FileLimit{Bytes: 2 << 20, Layer: LayerOwner}),
+		Entry("a kind that declares no ability for this direction gets the ceiling", int64(100<<20), nil, int64(0), FileLimit{Bytes: 100 << 20, Layer: LayerHost}),
+	)
+
 	It("lets the host ceiling bind an add-on that declares nothing", func() {
-		Expect(EffectiveFileLimit(10<<10, nil, 0)).To(Equal(FileLimit{Bytes: 10 << 10, Layer: LayerHost}))
+		Expect(EffectiveFileLimit(10<<10, nil, 0, false)).To(Equal(FileLimit{Bytes: 10 << 10, Layer: LayerHost}))
 	})
 
 	DescribeTable("writes a size as a person reads it",

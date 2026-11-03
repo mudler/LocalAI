@@ -2389,16 +2389,19 @@ number and the layer that sets it:
   "id": "telegram",
   "files": {
     "receive": { "maxBytes": 20971520, "types": ["image/*", "application/pdf"] },
-    "send":    { "maxBytes": 52428800 }
+    "send":    { "maxBytes": 52428800 },
+    "transfer": true
   }
 }]
 ```
 
-Add the field only with manifest `"api": {"min": 1, "max": 2}`; a manifest that
-declares `files` with API 1 is refused. Both directions are optional, but `files`
+Add the field only with manifest `"api": {"min": 2, "max": 2}` (or a range that
+reaches 2); a manifest that declares `files` with API 1 is refused. Both directions are optional, but `files`
 needs at least one. `maxBytes` is 1 to 1 TiB. `types` is up to 32 distinct media types
-such as `application/pdf` or `image/*`; it says what the kind moves, and the first
-slice does not enforce it yet. The host uses a declared size as an upper bound that the
+such as `application/pdf` or `image/*`; it says what the kind moves. For a kind with `transfer`, the host
+refuses an inbound file whose type the add-on states and the list does not allow, and
+does not send an outbound file whose type (from its extension) is not in the list. The
+host also never sends a file whose first bytes are an HTML page. The host uses a declared size as an upper bound that the
 owner can lower. It does not prove that a transfer works.
 
 The limit in effect for one direction of one binding is the smallest of four layers:
@@ -2408,18 +2411,58 @@ The limit in effect for one direction of one binding is the smallest of four lay
 | Owner | The owner of the bot, in the **Files** section of the binding. It can only lower the limit of the kind. | "limit set for this bot" |
 | Add-on | The kind, with `files.receive.maxBytes` or `files.send.maxBytes`. | "limit of" the kind's title |
 | Host | The owner policy key `connector_files_ceiling_bytes`; zero means the default, 100 MB (100 MiB). | "limit of the platform" |
-| Inline | The cap of the inline path, `contract.MaxConnectorFileBytes`. | "limit of this add-on version" |
+| Inline | The cap of the inline path, `contract.MaxConnectorFileBytes`. Only a kind without `files.transfer` has it. | "limit of this add-on version" |
 
-An add-on that declares nothing gets the inline cap, whatever the other layers say, and
-keeps today's behaviour. While bytes still travel inline, the inline cap is below the
-default host ceiling, so it applies to every kind that declares a larger size: the
-text then says "limit of this add-on version", and the binding page says that larger
-files need the add-on to support streaming. When a layer ties, the text names the one
+An add-on that declares nothing, or declares `files` without `transfer`, gets the inline
+cap, whatever the other layers say, and keeps the inline path. A kind that declares
+`"transfer": true` has no inline cap. When a layer ties, the text names the one
 a person can change first (owner, add-on, host, inline). One function in core
 (`EffectiveFileLimit`) decides this for every kind, so a connector never carries a size
 of its own, and the sentences that the sender and the model read are built from its
 result. An add-on that gets a file it cannot read answers `too_large`; the sender then
 reads the limit in effect.
+
+#### Moving a file by handle
+
+`"transfer": true` says that the add-on moves file bytes by a handle, so a file larger
+than the envelope can move, in both directions, with no more than one chunk in memory.
+The add-on needs the host operation prefix `connector.` in its host policy, as it does
+for `connector.inbound`.
+
+The host adds `transfer` to the request of the op `media` or `send_file`, and no bytes:
+
+```json
+{"op": "media", "media": "<ref>", "transfer": {"handle": "…", "maxBytes": 20971520}}
+{"op": "send_file", "chat": "…", "transfer": {"handle": "…", "name": "report.pdf", "mime": "application/pdf", "size": 6291456}}
+```
+
+- **Inbound (`media`).** The add-on downloads the file and streams it with
+  `connector.file.put` `{"handle", "offset", "data", "final"}`, at most 256 KiB of data
+  per call; it answers `{"received": {"name", "mime"}}` and no `file`. An `offset` that is
+  not the number of bytes the host has gets `{"received": n}` and nothing is written, so
+  the add-on resumes there. The host stops at `maxBytes` (HTTP 413, code `too_large`).
+  The host overwrites the size and the SHA-256 of `received` with its own record, so
+  the add-on cannot choose them. It refuses an empty file.
+- **Outbound (`send_file`).** The add-on reads the file with `connector.file.get`
+  `{"handle", "offset", "length"}` (`length` at most 256 KiB) and gets `{"data", "eof"}`.
+  It streams the chunks into the platform upload, so it needs no path and no token
+  beyond the one the host passes with the call.
+
+A handle is random. It is bound to the add-on of the call, so another add-on gets the
+same answer as for an unknown handle. It lives as long as the connector call, which
+may run up to 15 minutes, and ends with it: a file that is not finished is dropped with
+its partial bytes. It also ends after two minutes with no call. Where the add-on runs
+(the owner), the bytes go to the blob store of the workspace and are read from it, so
+in a cluster the frontend and the add-on node share objects and need no shared disk.
+Outbound, the frontend checks the access of the chat to the file before it makes the
+handle and gives the owner the hash and size of that content only. Do not use a
+`connector.file.*` call outside a connector call. An add-on that does not declare
+`transfer` is never sent a handle.
+
+The SDK of the first-party add-ons (`addons/internal/connector`) has `Put` and `Get`;
+a platform implements `StreamReader` and `StreamSender` and keeps only its own HTTP
+calls. The limits come from the platforms' own documents: see the table in
+[File limits](/features/chats-connectors/#file-limits).
 
 **Inbound.** A pull add-on answers `poll` with normalized messages (`cursor`, `chat`,
 `thread`, `direct`, `mention`, `messageId`, `replyTo`, `senderId`, `senderName`,

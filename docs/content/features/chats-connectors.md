@@ -409,10 +409,26 @@ declares for its platform, the limit of the platform (the host ceiling that the
 administrator sets) and the limit that you set for the bot. The agent reads the same
 number in its instructions, so it does not promise a file that cannot go.
 
-The bytes of a file still travel inline for now. Until an add-on supports streaming, a
-file larger than the inline cap does not move, whatever you set. The **Files** section
-of the binding page says so: "Files up to 1 MiB are sent now; larger files need the
-add-on to support streaming."
+An add-on that streams files (Slack and Telegram do) has no inline cap: a file moves in
+chunks, by a short-lived handle, so a 6 MB PDF goes both ways. An add-on that does not
+stream keeps the inline cap of 1 MiB, whatever you set, and the sentence says "limit of
+this add-on version".
+
+What the platforms allow, from their own documentation:
+
+| Platform | Bot reads a file | Bot sends a file |
+|---|---|---|
+| Slack | No separate bot limit is documented. The add-on declares the 1 GB per file that a member can add ([Add files to Slack](https://slack.com/help/articles/201330736-Add-files-to-Slack)); the [upload API](https://docs.slack.dev/reference/methods/files.getUploadURLExternal) states none either. | 1 GB per file, by the external upload flow. |
+| Telegram | 20 MB with `getFile` on the public Bot API ([Bots FAQ](https://core.telegram.org/bots/faq)). | 50 MB for a document, 10 MB for a photo; a larger picture goes as a document ([Bots FAQ](https://core.telegram.org/bots/faq)). |
+
+A local Bot API server lifts the Telegram limits (no download limit, 2000 MB upload,
+[Bot API](https://core.telegram.org/bots/api#using-a-local-bot-api-server)), but the
+Telegram add-on has no setting for another server address, so it declares the limits of
+the public one.
+
+The server holds only one chunk of a file in memory, on both sides. Each transfer writes
+one audit line (direction, binding, size, result, layer, time), with no name and no
+content. The files of one message may add up to three times the limit.
 
 - **Per bot.** The **Files** section of a binding has one field for the largest file the
   bot reads and one for the largest it sends, in MiB. Leave a field empty to use the
@@ -701,7 +717,7 @@ restart). The JSON store is for one process.
 
 A connector add-on does not choose which files reach a person. The host does, and it
 sends each one with the typed `send_file` op: the file is in the request (`name`, `mime`
-and at most 1 MiB of `data`) with the chat and the thread of the message it answers. The
+and at most 1 MiB of `data`; a kind that declares `files.transfer` gets a `transfer` handle and no `data`, see [File abilities and limits](/features/addons/#file-abilities-and-limits)) with the chat and the thread of the message it answers. The
 host chooses the files in two ways:
 
 - The files that the turn made or changed go on their own, after the answer.

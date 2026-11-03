@@ -114,7 +114,13 @@ func filesOut(l studiosvc.FileLimits) schema.ChatsConnectorFiles {
 	dir := func(e studiosvc.FileLimit, declared, allowed int64) schema.ChatsConnectorFileLimit {
 		return schema.ChatsConnectorFileLimit{EffectiveBytes: e.Bytes, Layer: string(e.Layer), DeclaredBytes: declared, AllowedBytes: allowed}
 	}
-	return schema.ChatsConnectorFiles{Receive: dir(l.Receive, l.ReceiveDeclared, l.ReceiveMax), Send: dir(l.Send, l.SendDeclared, l.SendMax), InlineBytes: contract.MaxConnectorFileBytes, HostCeilingBytes: l.HostCeiling}
+	out := schema.ChatsConnectorFiles{Receive: dir(l.Receive, l.ReceiveDeclared, l.ReceiveMax), Send: dir(l.Send, l.SendDeclared, l.SendMax), HostCeilingBytes: l.HostCeiling}
+	// Only a kind that moves bytes inline has the cap; the page tells owners of
+	// such a kind that larger files need the add-on to stream.
+	if !l.Transfer {
+		out.InlineBytes = contract.MaxConnectorFileBytes
+	}
+	return out
 }
 
 // acceptAnyConfirmation is what a request must say to turn on accept_any.

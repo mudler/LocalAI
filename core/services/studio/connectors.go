@@ -1,12 +1,12 @@
 package studio
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"strings"
 	"sync"
@@ -36,6 +36,8 @@ const (
 	sentFolderLimit  = "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."
 	sentNoFolder     = "This agent cannot work right now: its folder is missing."
 	sentNoFile       = "I could not read the file you sent."
+	sentFileType     = "I cannot read files of this type here."
+	sentFileTotal    = "Those files are too large together: please send fewer of them."
 	sentNoFiles      = "I can only read the text of your message here: files are turned off."
 	sentNoListen     = "I cannot listen to voice messages here: no speech-to-text model is set up. Please write your message."
 	sentNoTranscript = "I could not understand your voice message. Please send it again, or write it."
@@ -822,7 +824,7 @@ func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token str
 	)
 	for _, f := range got {
 		if media.IsAudio(f.Name) {
-			t, refusal := c.transcribe(ctx, b, f)
+			t, refusal := c.transcribe(ctx, b, f.Name, f.body(c))
 			if refusal != "" {
 				say(refusal)
 				return "", nil, false
@@ -834,7 +836,7 @@ func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token str
 			filesOff = true
 			continue
 		}
-		up = append(up, session.Upload{Name: f.Name, Body: bytes.NewReader(f.Data)})
+		up = append(up, session.Upload{Name: f.Name, Body: f.body(c)})
 	}
 	if filesOff {
 		say(sentNoFiles)
@@ -857,14 +859,14 @@ func (c *Connectors) inputs(ctx context.Context, b connectors.Binding, token str
 // model as a voice note attached in a chat, as the owner of the binding: the
 // owner's model allowlist and quota apply. It returns the sentence for the
 // sender when it cannot.
-func (c *Connectors) transcribe(ctx context.Context, b connectors.Binding, f contract.ConnectorFile) (string, string) {
+func (c *Connectors) transcribe(ctx context.Context, b connectors.Binding, name string, body io.Reader) (string, string) {
 	m := c.svc.d.Media
 	if !m.CanTranscribe() {
 		return "", sentNoListen
 	}
 	tctx, cancel := context.WithTimeout(ctx, transcribeTimeout)
 	defer cancel()
-	t, err := m.Transcribe(tctx, principal(b.Owner), f.Name, bytes.NewReader(f.Data))
+	t, err := m.Transcribe(tctx, principal(b.Owner), name, body)
 	if t = strings.TrimSpace(t); err != nil || t == "" {
 		c.log.Warn("studio: could not transcribe the voice message of a connector", "binding", b.ID, "kind", b.Kind, "error", err)
 		return "", sentNoTranscript
@@ -875,39 +877,59 @@ func (c *Connectors) transcribe(ctx context.Context, b connectors.Binding, f con
 // media reads the files of a message through the add-on. A file that cannot
 // be read is left out, and the sentence for the sender says why: too large,
 // or not read. The name of a file is made safe here too, whatever the add-on
-// sent; the chat saves it in its own folder.
-func (c *Connectors) media(ctx context.Context, b connectors.Binding, token string, refs []string) ([]contract.ConnectorFile, string) {
+// sent; the chat saves it in its own folder. A kind that moves bytes by handle
+// writes each file to the host in chunks (see connectorxfer.go); any other kind
+// returns the bytes in the answer.
+func (c *Connectors) media(ctx context.Context, b connectors.Binding, token string, refs []string) ([]inboundFile, string) {
 	var (
-		out    []contract.ConnectorFile
+		out    []inboundFile
 		note   string
+		total  int64
 		limits = c.FileLimits(ctx, b)
+		start  = time.Now()
 	)
 	for _, ref := range refs {
-		mctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-		resp, err := c.o.Transport.Call(mctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: b.Kind, Token: token, Media: ref})
+		req := contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: b.Kind, Token: token, Media: ref}
+		callTimeout := 60 * time.Second
+		if limits.Transfer {
+			req.Transfer = &contract.ConnectorTransfer{Handle: newHandle(), MaxBytes: limits.Receive.Bytes}
+			callTimeout = contract.ConnectorTransferTimeout
+		}
+		mctx, cancel := context.WithTimeout(ctx, callTimeout)
+		resp, err := c.o.Transport.Call(mctx, BindingConnectorScope(b), req)
 		cancel()
 		if err == nil && resp.Error != nil {
 			err = resp.Error
 		}
-		f := resp.File
+		f, ferr := c.inboundOf(b, limits, resp, err)
 		var ce *contract.ConnectorError
 		switch {
-		case (errors.As(err, &ce) && ce.Code == contract.ConnectorTooLarge) || (err == nil && f != nil && int64(len(f.Data)) > limits.Receive.Bytes):
-			var size int64
-			if f != nil {
-				size = int64(len(f.Data))
-			}
-			note = sentFileTooBig(limits, size)
+		case errors.Is(ferr, errFileTooLarge) || (errors.As(err, &ce) && ce.Code == contract.ConnectorTooLarge):
+			note = sentFileTooBig(limits, f.Size)
+			c.auditFile(b, "in", f.Size, "too_large", limits.Receive, time.Since(start))
 			continue
-		case err != nil || f == nil || len(f.Data) == 0:
-			c.log.Warn("studio: could not read the file of a connector message", "binding", b.ID, "kind", b.Kind, "error", err)
+		case ferr != nil:
+			c.log.Warn("studio: could not read the file of a connector message", "binding", b.ID, "kind", b.Kind, "error", ferr)
 			if note == "" {
 				note = sentNoFile
 			}
+			c.auditFile(b, "in", 0, "failed", limits.Receive, time.Since(start))
 			continue
 		}
-		f.Name = contract.SafeFileName(f.Name)
-		out = append(out, *f)
+		if !typeAllowed(limits.ReceiveTypes, f.MIME) {
+			c.log.Warn("studio: a connector file has a type the kind does not declare", "binding", b.ID, "kind", b.Kind)
+			note = sentFileType
+			c.auditFile(b, "in", f.Size, "type", limits.Receive, time.Since(start))
+			continue
+		}
+		// Files of one message may not add up to more than a few times the limit.
+		if total += f.Size; total > limits.Receive.Bytes*fileTurnFactor {
+			note = sentFileTotal
+			c.auditFile(b, "in", f.Size, "total", limits.Receive, time.Since(start))
+			continue
+		}
+		c.auditFile(b, "in", f.Size, "done", limits.Receive, time.Since(start))
+		out = append(out, f)
 	}
 	return out, note
 }

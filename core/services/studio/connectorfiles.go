@@ -138,6 +138,7 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 	files := c.outgoing(ctx, b, x, chatID, turn, since)
 	limits := c.FileLimits(ctx, b)
 	var notes []string
+	var sent int64
 	for i, f := range files {
 		if i == maxFilesPerTurn {
 			notes = append(notes, fmt.Sprintf("%d more files are in the chat's files.", len(files)-i))
@@ -149,6 +150,12 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 				notes = append(notes, fmt.Sprintf("I made %s, but files of this type are not sent here.", f.name))
 			} else {
 				notes = append(notes, fmt.Sprintf("%s was not sent: files of this type are not sent here.", f.name))
+			}
+			continue
+		}
+		if limits.Transfer {
+			if note := c.sendHandled(ctx, b, token, m, x, f, mimeType, limits, &sent); note != "" {
+				notes = append(notes, note)
 			}
 			continue
 		}
