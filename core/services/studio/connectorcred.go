@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -31,8 +32,10 @@ type CredentialGrant struct {
 
 // Connection is a binding that a chat can enable for the tools of an add-on.
 // Handle is the name the model uses for it (see ConnectionHandle); it is unique
-// among the connections of one list.
-type Connection struct{ ID, Name, Handle string }
+// among the connections of one list. State is the state of the login of an
+// OAuth binding (OAuthConnected or OAuthReconnectNeeded) and empty for a token
+// binding.
+type Connection struct{ ID, Name, Handle, State string }
 
 // How a chat came to use its connections (see ConnectionsOf).
 const (
@@ -76,15 +79,22 @@ func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]C
 		return nil, err
 	}
 	var mine []connectors.Binding
+	states := map[string]string{}
 	for _, b := range all {
 		if b.AddonID != addonID {
 			continue
 		}
 		if b.UsesOAuth() {
-			if ok, err := c.hasGrant(ctx, b); err != nil {
+			g, err := c.o.Store.GetGrant(ctx, b.ID)
+			if err != nil && !errors.Is(err, connectors.ErrNotFound) {
 				return nil, err
-			} else if ok {
+			}
+			if err == nil && g.Owner == b.Owner && g.AddonID == b.AddonID {
 				mine = append(mine, b)
+				states[b.ID] = OAuthReconnectNeeded
+				if g.State == connectors.GrantConnected {
+					states[b.ID] = OAuthConnected
+				}
 			}
 		} else if len(b.Token) > 0 {
 			mine = append(mine, b)
@@ -98,7 +108,7 @@ func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]C
 	})
 	out := make([]Connection, len(mine))
 	for i, b := range mine {
-		out[i] = Connection{ID: b.ID, Name: b.Name}
+		out[i] = Connection{ID: b.ID, Name: b.Name, State: states[b.ID]}
 	}
 	return assignHandles(out), nil
 }

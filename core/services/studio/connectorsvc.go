@@ -171,6 +171,9 @@ type ConnectorInfo struct {
 	Reason string
 	// Files are the file limits in effect for the binding.
 	Files FileLimits
+	// OAuth is the state of the login of an OAuth binding; nil for a token
+	// binding.
+	OAuth *OAuthView
 }
 
 func info(b connectors.Binding) ConnectorInfo {
@@ -182,6 +185,9 @@ func info(b connectors.Binding) ConnectorInfo {
 // withState marks a binding whose add-on does not run.
 func (c *Connectors) withState(ctx context.Context, i ConnectorInfo) ConnectorInfo {
 	i.Files = c.FileLimits(ctx, i.Binding)
+	if i.UsesOAuth() {
+		i.OAuth = c.oauthView(ctx, i.Binding)
+	}
 	kinds, err := c.o.Transport.Kinds(ctx)
 	if err != nil {
 		return i
