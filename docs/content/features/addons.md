@@ -1897,7 +1897,9 @@ separately and must reject stale schema or data. Receipt is
 be reconciled before another mutation. Committed receipts require a nonzero
 schema revision. Result has optional `payload` and `outputs`; each output has
 opaque `handle`, safe basename `name`, MIME `mediaType`, and nonnegative `size`.
-Handles are not URLs or filesystem paths. OpenOutput returns an authenticated
+Handles are not URLs or filesystem paths. A read tool may return `payload` next to
+`outputs`: the host refuses a payload over 128 KiB and gives the model the payload as a
+short excerpt next to the handles. OpenOutput returns an authenticated
 stream; callers close it. DTOs do not create artifacts or authorize downloads.
 
 

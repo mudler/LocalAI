@@ -291,14 +291,14 @@ type ArtifactRef struct {
 // ToolResult discriminates a read result, a host proposal reference and
 // private artifact references.
 type ToolResult struct {
-	Kind      ResultKind      `json:"kind"`
-	Tool      string          `json:"tool"`
+	Kind ResultKind `json:"kind"`
+	Tool string     `json:"tool"`
+	// Result is the read payload. For ResultArtifact it is an optional excerpt
+	// of the content that Artifacts refer to, under the same size limit.
 	Result    json.RawMessage `json:"result,omitempty"`
 	Proposal  *ProposalRef    `json:"proposal,omitempty"`
 	Applied   *AppliedRef     `json:"applied,omitempty"`
 	Artifacts []ArtifactRef   `json:"artifacts,omitempty"`
-	// For ResultArtifact, Result is an optional excerpt of the content that
-	// Artifacts refer to. It obeys the same size limit as a read result.
 	// Code says what the person is asked to do, for a ResultError.
 	Code string `json:"code,omitempty"`
 	// Message is the reason the add-on gave for refusing, in a short fixed
