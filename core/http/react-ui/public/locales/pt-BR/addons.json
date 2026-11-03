@@ -897,5 +897,38 @@
       "reviewNamed": "Revisar e aprovar o acesso ao host de {{name}}",
       "title": "{{name}} {{version}} aguarda sua aprovação"
     }
+  },
+  "file": {
+    "button": "Instalar de um arquivo",
+    "checking": "Verificando o arquivo…",
+    "pick": "Escolher um arquivo zip de complemento",
+    "rejected": "O arquivo não foi aceito.",
+    "gone": "O arquivo não está mais lá. Um arquivo fica por uma hora depois do envio. Envie de novo.",
+    "installTitle": "Instalar {{name}} de um arquivo?",
+    "upgradeTitle": "Atualizar {{name}} de um arquivo?",
+    "confirmBody": "A versão {{version}} do arquivo {{name}} é instalada e depois ligada.",
+    "confirmBodyUpgrade": "A versão {{version}} do arquivo {{name}} é instalada. O complemento continua ligado ou desligado como está agora.",
+    "upgradeAction": "Atualizar para {{version}}",
+    "upgraded": "{{name}} agora roda na versão {{version}}.",
+    "unsignedTitle": "Arquivo local, sem assinatura",
+    "unsignedNotice": "Ninguém assina este arquivo, então o LocalAI não sabe quem o criou. Instale só se confiar na origem.",
+    "unsignedShort": "Arquivo local, sem assinatura",
+    "badge": "Arquivo local, sem assinatura",
+    "sourceValue": "Arquivo local, sem assinatura",
+    "hostNotice": "Este complemento veio de um arquivo local que ninguém assina. Dê a ele só o acesso ao host de que você tem certeza que ele precisa.",
+    "facts": {
+      "file": "Arquivo",
+      "sha256": "SHA-256 do arquivo",
+      "addon": "Complemento",
+      "platform": "Plataforma",
+      "api": "API do host"
+    },
+    "relation": {
+      "upgrade": "Isto troca a versão {{installed}} pela versão {{version}}. Os dados do complemento são mantidos.",
+      "same": "A versão {{version}} já está instalada. Escolha um arquivo com outra versão.",
+      "downgradeTitle": "Versão mais antiga",
+      "downgrade": "Isto instala a versão {{version}}, que é mais antiga que a versão instalada {{installed}}. Uma versão mais antiga pode não ler dados escritos por uma mais nova.",
+      "downgradeConfirm": "Quero instalar a versão mais antiga"
+    }
   }
 }

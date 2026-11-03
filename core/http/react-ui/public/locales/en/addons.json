@@ -897,5 +897,38 @@
       "reviewNamed": "Review and approve the host access of {{name}}",
       "title": "{{name}} {{version}} waits for your approval"
     }
+  },
+  "file": {
+    "button": "Install from file",
+    "checking": "Checking the file…",
+    "pick": "Choose an add-on zip file",
+    "rejected": "The file was not accepted.",
+    "gone": "The file is gone. A file waits for one hour after the upload. Upload it again.",
+    "installTitle": "Install {{name}} from a file?",
+    "upgradeTitle": "Update {{name}} from a file?",
+    "confirmBody": "Version {{version}} from the file {{name}} is installed, then turned on.",
+    "confirmBodyUpgrade": "Version {{version}} from the file {{name}} is installed. The add-on stays on or off as it is now.",
+    "upgradeAction": "Update to {{version}}",
+    "upgraded": "{{name}} now runs version {{version}}.",
+    "unsignedTitle": "Local file, unsigned",
+    "unsignedNotice": "Nothing signs this file, so LocalAI cannot tell who made it. Install it only if you trust where it came from.",
+    "unsignedShort": "Local file, unsigned",
+    "badge": "Local file, unsigned",
+    "sourceValue": "Local file, unsigned",
+    "hostNotice": "This add-on came from a local file that nothing signs. Give it only the host access you are sure it needs.",
+    "facts": {
+      "file": "File",
+      "sha256": "File sha256",
+      "addon": "Add-on",
+      "platform": "Platform",
+      "api": "Host API"
+    },
+    "relation": {
+      "upgrade": "This replaces version {{installed}} with version {{version}}. The data of the add-on is kept.",
+      "same": "Version {{version}} is installed already. Choose a file with another version.",
+      "downgradeTitle": "Older version",
+      "downgrade": "This installs version {{version}}, which is older than the installed version {{installed}}. An older version may not read data that a newer one wrote.",
+      "downgradeConfirm": "I want to install the older version"
+    }
   }
 }

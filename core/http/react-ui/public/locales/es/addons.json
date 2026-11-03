@@ -897,5 +897,38 @@
       "reviewNamed": "Revisar y aprobar el acceso al host de {{name}}",
       "title": "{{name}} {{version}} espera tu aprobación"
     }
+  },
+  "file": {
+    "button": "Instalar desde un archivo",
+    "checking": "Comprobando el archivo…",
+    "pick": "Elegir un archivo zip de un complemento",
+    "rejected": "No se aceptó el archivo.",
+    "gone": "El archivo ya no está. Un archivo se conserva una hora después de subirlo. Súbelo de nuevo.",
+    "installTitle": "¿Instalar {{name}} desde un archivo?",
+    "upgradeTitle": "¿Actualizar {{name}} desde un archivo?",
+    "confirmBody": "La versión {{version}} del archivo {{name}} se instala y después se activa.",
+    "confirmBodyUpgrade": "La versión {{version}} del archivo {{name}} se instala. El complemento sigue activado o desactivado como está ahora.",
+    "upgradeAction": "Actualizar a {{version}}",
+    "upgraded": "{{name}} ahora ejecuta la versión {{version}}.",
+    "unsignedTitle": "Archivo local, sin firma",
+    "unsignedNotice": "Nadie firma este archivo, así que LocalAI no puede saber quién lo creó. Instálalo solo si confías en su origen.",
+    "unsignedShort": "Archivo local, sin firma",
+    "badge": "Archivo local, sin firma",
+    "sourceValue": "Archivo local, sin firma",
+    "hostNotice": "Este complemento viene de un archivo local que nadie firma. Dale solo el acceso al host que estés seguro de que necesita.",
+    "facts": {
+      "file": "Archivo",
+      "sha256": "SHA-256 del archivo",
+      "addon": "Complemento",
+      "platform": "Plataforma",
+      "api": "API del host"
+    },
+    "relation": {
+      "upgrade": "Esto reemplaza la versión {{installed}} por la versión {{version}}. Los datos del complemento se conservan.",
+      "same": "La versión {{version}} ya está instalada. Elige un archivo con otra versión.",
+      "downgradeTitle": "Versión anterior",
+      "downgrade": "Esto instala la versión {{version}}, que es anterior a la versión instalada {{installed}}. Una versión anterior puede no leer los datos que escribió una más nueva.",
+      "downgradeConfirm": "Quiero instalar la versión anterior"
+    }
   }
 }

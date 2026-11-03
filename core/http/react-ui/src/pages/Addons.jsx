@@ -9,6 +9,7 @@ import AppsView from '../components/addons/AppsView'
 import BrowseView from '../components/addons/BrowseView'
 import LibrariesView from '../components/addons/LibrariesView'
 import HostAccessView from '../components/addons/HostAccessView'
+import InstallFromFile from '../components/addons/InstallFromFile'
 import { useHostGrants } from '../components/addons/useHostGrants'
 import { pendingApprovals } from '../components/addons/hostGrantsState'
 import { resolveManage, resolveTab, visibleTabs } from '../components/addons/addonState'
@@ -24,6 +25,8 @@ export default function Addons() {
   // The installed count for the tab and whether the list is a first run (the
   // empty state then carries the way to Find add-ons, so the header does not).
   const [summary, setSummary] = useState(null)
+  // A file install changes the list; the list is read again.
+  const [listKey, setListKey] = useState(0)
   const [params, setParams] = useSearchParams()
   const manage = resolveManage(params, isAdmin)
   const tab = manage ? 'apps' : resolveTab(params.get('tab'), isAdmin)
@@ -68,7 +71,12 @@ export default function Addons() {
       <PageHeader
         title={t('title')}
         supporting={<>{t('supporting')}{pagesNote && <> {pagesNote}</>}</>}
-        actions={showFind ? <Button variant="primary" icon="store" to="/app/addons?tab=browse" data-testid="addons-add">{t('drawer.add')}</Button> : null}
+        actions={isAdmin && tab === 'apps' ? (
+          <>
+            {showFind && <Button variant="primary" icon="store" to="/app/addons?tab=browse" data-testid="addons-add">{t('drawer.add')}</Button>}
+            <InstallFromFile onInstalled={() => setListKey(n => n + 1)} />
+          </>
+        ) : null}
       />
 
       {tabs.length > 1 && (
@@ -95,7 +103,7 @@ export default function Addons() {
       )}
 
       <div role="tabpanel" id={`ad-panel-${tab}`} aria-labelledby={tabs.length > 1 ? `ad-tab-${tab}` : undefined} aria-label={tabs.length > 1 ? undefined : t('tabs.apps')} className="ad-panel">
-        {tab === 'apps' && <AppsView api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} grants={grants} />}
+        {tab === 'apps' && <AppsView key={listKey} api={addonsApi} adapter={addonsCatalog} onSummary={setSummary} grants={grants} />}
         {tab === 'browse' && <BrowseView api={addonsApi} adapter={addonsCatalog} />}
         {tab === 'libraries' && <LibrariesView adapter={addonsCatalog} />}
         {tab === 'access' && <HostAccessView grants={grants} />}

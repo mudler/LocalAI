@@ -11,7 +11,7 @@ import { normalizeOperation } from '../../utils/addonsApi.js'
 // route, which grants only what the verified package declares; without it the
 // plain install runs, and the owner refuses it when the add-on needs a
 // host operation that is not held.
-export async function runInstallAndTurnOn({ run, api, adapter, hostGrants, mark }, entry, { skipInstall = false, approval = null } = {}) {
+export async function runInstallAndTurnOn({ run, api, adapter, hostGrants, mark }, entry, { skipInstall = false, approval = null, turnOn = true } = {}) {
   if (!skipInstall) {
     mark({ step: 'install' })
     const installed = await run(`install:${entry.key}`, {
@@ -27,6 +27,8 @@ export async function runInstallAndTurnOn({ run, api, adapter, hostGrants, mark 
     if (!installed) return null
     if (installed.outcome !== 'completed') { mark({ step: 'failed', failedStep: 'install', outcome: installed.outcome, error: installed.error }); return installed }
   }
+  // An upgrade from a file keeps the add-on as it was: it does not turn it on.
+  if (!turnOn) { mark({ step: 'done' }); return { outcome: 'completed' } }
   mark({ step: 'turn-on' })
   // Generation 0 sets no precondition: the add-on was just installed.
   const on = await run(`enable:${entry.id}:0`, {

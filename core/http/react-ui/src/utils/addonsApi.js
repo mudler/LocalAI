@@ -59,11 +59,13 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
   async function call(path, { method = 'GET', body, signal, headers: extra, classify = classifyResponse } = {}) {
     let response
     try {
+      // A form goes as it is: the browser writes the multipart boundary.
+      const form = typeof FormData !== 'undefined' && body instanceof FormData
       response = await doFetch(base(path), {
         method,
         signal,
-        headers: { ...(body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' }), ...(extra || {}) },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: { ...(body === undefined || form ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' }), ...(extra || {}) },
+        body: body === undefined ? undefined : form ? body : JSON.stringify(body),
         credentials: 'same-origin',
       })
     } catch (e) {

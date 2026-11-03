@@ -897,5 +897,38 @@
       "reviewNamed": "查看并批准 {{name}} 的主机访问",
       "title": "{{name}} {{version}} 等待你的批准"
     }
+  },
+  "file": {
+    "button": "从文件安装",
+    "checking": "正在检查文件…",
+    "pick": "选择附加组件的 zip 文件",
+    "rejected": "文件未被接受。",
+    "gone": "文件已不存在。文件在上传后保留一小时。请重新上传。",
+    "installTitle": "从文件安装 {{name}}？",
+    "upgradeTitle": "从文件更新 {{name}}？",
+    "confirmBody": "将安装文件 {{name}} 中的 {{version}} 版本，然后启用。",
+    "confirmBodyUpgrade": "将安装文件 {{name}} 中的 {{version}} 版本。附加组件保持现在的开启或关闭状态。",
+    "upgradeAction": "更新到 {{version}}",
+    "upgraded": "{{name}} 现在运行 {{version}} 版本。",
+    "unsignedTitle": "本地文件，未签名",
+    "unsignedNotice": "没有人为此文件签名，因此 LocalAI 无法确定它由谁制作。只有在你信任其来源时才安装。",
+    "unsignedShort": "本地文件，未签名",
+    "badge": "本地文件，未签名",
+    "sourceValue": "本地文件，未签名",
+    "hostNotice": "此附加组件来自没有人签名的本地文件。只授予你确信它需要的主机访问权限。",
+    "facts": {
+      "file": "文件",
+      "sha256": "文件 SHA-256",
+      "addon": "附加组件",
+      "platform": "平台",
+      "api": "主机 API"
+    },
+    "relation": {
+      "upgrade": "这会把 {{installed}} 版本替换为 {{version}} 版本。附加组件的数据会保留。",
+      "same": "{{version}} 版本已安装。请选择另一个版本的文件。",
+      "downgradeTitle": "较旧的版本",
+      "downgrade": "这会安装 {{version}} 版本，它比已安装的 {{installed}} 版本更旧。较旧的版本可能无法读取较新版本写入的数据。",
+      "downgradeConfirm": "我要安装较旧的版本"
+    }
   }
 }

@@ -897,5 +897,38 @@
       "reviewNamed": "Tinjau dan setujui akses host {{name}}",
       "title": "{{name}} {{version}} menunggu persetujuan Anda"
     }
+  },
+  "file": {
+    "button": "Pasang dari berkas",
+    "checking": "Memeriksa berkas…",
+    "pick": "Pilih berkas zip add-on",
+    "rejected": "Berkas tidak diterima.",
+    "gone": "Berkas sudah tidak ada. Berkas disimpan satu jam setelah diunggah. Unggah lagi.",
+    "installTitle": "Pasang {{name}} dari berkas?",
+    "upgradeTitle": "Perbarui {{name}} dari berkas?",
+    "confirmBody": "Versi {{version}} dari berkas {{name}} dipasang, lalu dinyalakan.",
+    "confirmBodyUpgrade": "Versi {{version}} dari berkas {{name}} dipasang. Add-on tetap menyala atau mati seperti sekarang.",
+    "upgradeAction": "Perbarui ke {{version}}",
+    "upgraded": "{{name}} sekarang berjalan di versi {{version}}.",
+    "unsignedTitle": "Berkas lokal, tanpa tanda tangan",
+    "unsignedNotice": "Tidak ada yang menandatangani berkas ini, jadi LocalAI tidak bisa tahu siapa yang membuatnya. Pasang hanya jika Anda memercayai asalnya.",
+    "unsignedShort": "Berkas lokal, tanpa tanda tangan",
+    "badge": "Berkas lokal, tanpa tanda tangan",
+    "sourceValue": "Berkas lokal, tanpa tanda tangan",
+    "hostNotice": "Add-on ini berasal dari berkas lokal yang tidak ditandatangani. Beri hanya akses host yang Anda yakini dibutuhkannya.",
+    "facts": {
+      "file": "Berkas",
+      "sha256": "SHA-256 berkas",
+      "addon": "Add-on",
+      "platform": "Platform",
+      "api": "API host"
+    },
+    "relation": {
+      "upgrade": "Ini mengganti versi {{installed}} dengan versi {{version}}. Data add-on tetap disimpan.",
+      "same": "Versi {{version}} sudah terpasang. Pilih berkas dengan versi lain.",
+      "downgradeTitle": "Versi lebih lama",
+      "downgrade": "Ini memasang versi {{version}}, yang lebih lama daripada versi terpasang {{installed}}. Versi yang lebih lama mungkin tidak bisa membaca data yang ditulis versi yang lebih baru.",
+      "downgradeConfirm": "Saya ingin memasang versi yang lebih lama"
+    }
   }
 }

@@ -901,5 +901,38 @@
       "reviewNamed": "Examiner et approuver l'accès à l'hôte de {{name}}",
       "title": "{{name}} {{version}} attend votre approbation"
     }
+  },
+  "file": {
+    "button": "Installer depuis un fichier",
+    "checking": "Vérification du fichier…",
+    "pick": "Choisir un fichier zip de module",
+    "rejected": "Le fichier n’a pas été accepté.",
+    "gone": "Le fichier n’est plus là. Un fichier est conservé une heure après l’envoi. Envoyez-le à nouveau.",
+    "installTitle": "Installer {{name}} depuis un fichier ?",
+    "upgradeTitle": "Mettre à jour {{name}} depuis un fichier ?",
+    "confirmBody": "La version {{version}} du fichier {{name}} est installée, puis activée.",
+    "confirmBodyUpgrade": "La version {{version}} du fichier {{name}} est installée. Le module reste activé ou désactivé comme il l’est maintenant.",
+    "upgradeAction": "Passer à {{version}}",
+    "upgraded": "{{name}} fonctionne maintenant en version {{version}}.",
+    "unsignedTitle": "Fichier local, non signé",
+    "unsignedNotice": "Personne ne signe ce fichier, donc LocalAI ne peut pas savoir qui l’a créé. Ne l’installez que si vous faites confiance à son origine.",
+    "unsignedShort": "Fichier local, non signé",
+    "badge": "Fichier local, non signé",
+    "sourceValue": "Fichier local, non signé",
+    "hostNotice": "Ce module vient d’un fichier local que personne ne signe. Ne lui donnez que l’accès à l’hôte dont vous êtes sûr qu’il a besoin.",
+    "facts": {
+      "file": "Fichier",
+      "sha256": "SHA-256 du fichier",
+      "addon": "Module",
+      "platform": "Plateforme",
+      "api": "API de l’hôte"
+    },
+    "relation": {
+      "upgrade": "Cela remplace la version {{installed}} par la version {{version}}. Les données du module sont conservées.",
+      "same": "La version {{version}} est déjà installée. Choisissez un fichier d’une autre version.",
+      "downgradeTitle": "Version plus ancienne",
+      "downgrade": "Cela installe la version {{version}}, plus ancienne que la version installée {{installed}}. Une version plus ancienne peut ne pas lire les données écrites par une version plus récente.",
+      "downgradeConfirm": "Je veux installer la version plus ancienne"
+    }
   }
 }

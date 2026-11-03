@@ -897,5 +897,38 @@
       "reviewNamed": "Controlla e approva l'accesso all'host di {{name}}",
       "title": "{{name}} {{version}} aspetta la tua approvazione"
     }
+  },
+  "file": {
+    "button": "Installa da file",
+    "checking": "Controllo del file…",
+    "pick": "Scegli un file zip di un componente",
+    "rejected": "Il file non è stato accettato.",
+    "gone": "Il file non c’è più. Un file resta per un’ora dopo il caricamento. Caricalo di nuovo.",
+    "installTitle": "Installare {{name}} da un file?",
+    "upgradeTitle": "Aggiornare {{name}} da un file?",
+    "confirmBody": "La versione {{version}} del file {{name}} viene installata e poi attivata.",
+    "confirmBodyUpgrade": "La versione {{version}} del file {{name}} viene installata. Il componente resta attivo o disattivo come è ora.",
+    "upgradeAction": "Aggiorna a {{version}}",
+    "upgraded": "{{name}} ora esegue la versione {{version}}.",
+    "unsignedTitle": "File locale, non firmato",
+    "unsignedNotice": "Nessuno firma questo file, quindi LocalAI non può sapere chi l’ha creato. Installalo solo se ti fidi della sua origine.",
+    "unsignedShort": "File locale, non firmato",
+    "badge": "File locale, non firmato",
+    "sourceValue": "File locale, non firmato",
+    "hostNotice": "Questo componente arriva da un file locale che nessuno firma. Dagli solo l’accesso all’host che sei sicuro gli serva.",
+    "facts": {
+      "file": "File",
+      "sha256": "SHA-256 del file",
+      "addon": "Componente",
+      "platform": "Piattaforma",
+      "api": "API dell’host"
+    },
+    "relation": {
+      "upgrade": "Questo sostituisce la versione {{installed}} con la versione {{version}}. I dati del componente vengono conservati.",
+      "same": "La versione {{version}} è già installata. Scegli un file con un’altra versione.",
+      "downgradeTitle": "Versione precedente",
+      "downgrade": "Questo installa la versione {{version}}, più vecchia della versione installata {{installed}}. Una versione più vecchia può non leggere i dati scritti da una più nuova.",
+      "downgradeConfirm": "Voglio installare la versione precedente"
+    }
   }
 }

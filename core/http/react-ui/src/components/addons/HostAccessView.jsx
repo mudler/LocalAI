@@ -10,6 +10,7 @@ import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
 import BlanketPanel from './BlanketPanel'
 import DenySection from './DenySection'
 import { opNote } from './HostAccessList'
+import { isLocalFile } from './fileInstall'
 import { stateChip } from './addonState'
 import { describeError } from './errors'
 import { blanketHolders, editedOps, groupOps, opEditable, pageOps, pendingApprovals } from './hostGrantsState'
@@ -98,6 +99,7 @@ export default function HostAccessView({ grants, api = hostGrantsApi }) {
                   )}
                 </div>
               </header>
+              {isLocalFile(addon.sourceId) && <Callout tone="warn" testId="host-local-file" className="ad-callout" title={t('file.unsignedTitle')}>{t('file.hostNotice')}</Callout>}
               {stoppedText && <Callout tone="warn" testId="host-stopped" className="ad-callout">{stoppedText}</Callout>}
               {addon.identityMismatch && <Callout tone="warn" testId="host-mismatch" className="ad-callout" actions={!locked && <Button size="sm" disabled={grants.busy} onClick={() => revokeAll(addon)}>{t('hostAccess.removeStale')}</Button>}>{t('hostAccess.identityMismatch')}</Callout>}
               {addon.newOptional.length > 0 && <Callout tone="info" testId="host-new-optional" className="ad-callout">{t('hostAccess.newOptional', { ops: addon.newOptional.join(', ') })}</Callout>}

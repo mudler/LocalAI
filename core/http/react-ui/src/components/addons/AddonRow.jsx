@@ -5,6 +5,7 @@ import Button from '../ui/Button'
 import { apiUrl } from '../../utils/basePath'
 import { AppIcon, ApprovalChip, BuiltinIcon, StateChip, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
+import { isLocalFile } from './fileInstall'
 import { addedByAddon, stateChip } from './addonState'
 
 // One installed add-on as a row: identity tile, name and state, one line of
@@ -49,7 +50,7 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
             )}
             {!app && <span className="ad-meta__item">{t('meta.builtinLong')}</span>}
             {source && source.sourceId && (
-              <span className="ad-meta__item"><Icon name="shield" aria-hidden="true" /> {t(signed ? 'meta.signed' : 'meta.checked', { library: source.sourceId })}</span>
+              <span className="ad-meta__item" data-source={source.sourceId}><Icon name="shield" aria-hidden="true" /> {isLocalFile(source.sourceId) ? t('file.badge') : t(signed ? 'meta.signed' : 'meta.checked', { library: source.sourceId })}</span>
             )}
             {app && <span className="ad-meta__item"><VersionText version={app.version} /></span>}
           </span>

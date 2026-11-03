@@ -897,5 +897,38 @@
       "reviewNamed": "Den Host-Zugriff von {{name}} prüfen und freigeben",
       "title": "{{name}} {{version}} wartet auf deine Freigabe"
     }
+  },
+  "file": {
+    "button": "Aus Datei installieren",
+    "checking": "Die Datei wird geprüft …",
+    "pick": "Eine ZIP-Datei eines Add-ons auswählen",
+    "rejected": "Die Datei wurde nicht akzeptiert.",
+    "gone": "Die Datei ist nicht mehr da. Eine Datei bleibt nach dem Hochladen eine Stunde lang erhalten. Lade sie erneut hoch.",
+    "installTitle": "{{name}} aus einer Datei installieren?",
+    "upgradeTitle": "{{name}} aus einer Datei aktualisieren?",
+    "confirmBody": "Version {{version}} aus der Datei {{name}} wird installiert und dann eingeschaltet.",
+    "confirmBodyUpgrade": "Version {{version}} aus der Datei {{name}} wird installiert. Das Add-on bleibt ein- oder ausgeschaltet, wie es jetzt ist.",
+    "upgradeAction": "Auf {{version}} aktualisieren",
+    "upgraded": "{{name}} läuft jetzt in Version {{version}}.",
+    "unsignedTitle": "Lokale Datei, nicht signiert",
+    "unsignedNotice": "Niemand signiert diese Datei, deshalb kann LocalAI nicht erkennen, wer sie erstellt hat. Installiere sie nur, wenn du ihrer Herkunft vertraust.",
+    "unsignedShort": "Lokale Datei, nicht signiert",
+    "badge": "Lokale Datei, nicht signiert",
+    "sourceValue": "Lokale Datei, nicht signiert",
+    "hostNotice": "Dieses Add-on stammt aus einer lokalen Datei, die niemand signiert. Gib ihm nur den Hostzugriff, den es nachweislich braucht.",
+    "facts": {
+      "file": "Datei",
+      "sha256": "SHA-256 der Datei",
+      "addon": "Add-on",
+      "platform": "Plattform",
+      "api": "Host-API"
+    },
+    "relation": {
+      "upgrade": "Dies ersetzt Version {{installed}} durch Version {{version}}. Die Daten des Add-ons bleiben erhalten.",
+      "same": "Version {{version}} ist bereits installiert. Wähle eine Datei mit einer anderen Version.",
+      "downgradeTitle": "Ältere Version",
+      "downgrade": "Dies installiert Version {{version}}, die älter ist als die installierte Version {{installed}}. Eine ältere Version kann Daten, die eine neuere geschrieben hat, eventuell nicht lesen.",
+      "downgradeConfirm": "Ich möchte die ältere Version installieren"
+    }
   }
 }

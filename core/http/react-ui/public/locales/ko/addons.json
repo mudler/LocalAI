@@ -897,5 +897,38 @@
       "reviewNamed": "{{name}}의 호스트 접근 검토 후 승인",
       "title": "{{name}} {{version}}이(가) 승인을 기다립니다"
     }
+  },
+  "file": {
+    "button": "파일에서 설치",
+    "checking": "파일을 확인하는 중…",
+    "pick": "애드온 zip 파일 선택",
+    "rejected": "파일이 받아들여지지 않았습니다.",
+    "gone": "파일이 없습니다. 파일은 업로드 후 한 시간 동안 보관됩니다. 다시 업로드하세요.",
+    "installTitle": "파일에서 {{name}}을(를) 설치할까요?",
+    "upgradeTitle": "파일에서 {{name}}을(를) 업데이트할까요?",
+    "confirmBody": "파일 {{name}}의 {{version}} 버전을 설치한 다음 켭니다.",
+    "confirmBodyUpgrade": "파일 {{name}}의 {{version}} 버전을 설치합니다. 애드온은 지금처럼 켜짐 또는 꺼짐 상태를 유지합니다.",
+    "upgradeAction": "{{version}}(으)로 업데이트",
+    "upgraded": "{{name}}이(가) 이제 {{version}} 버전으로 실행됩니다.",
+    "unsignedTitle": "로컬 파일, 서명 없음",
+    "unsignedNotice": "이 파일에는 서명한 사람이 없어서 LocalAI는 누가 만들었는지 알 수 없습니다. 출처를 신뢰할 때만 설치하세요.",
+    "unsignedShort": "로컬 파일, 서명 없음",
+    "badge": "로컬 파일, 서명 없음",
+    "sourceValue": "로컬 파일, 서명 없음",
+    "hostNotice": "이 애드온은 아무도 서명하지 않은 로컬 파일에서 왔습니다. 꼭 필요하다고 확신하는 호스트 접근 권한만 주세요.",
+    "facts": {
+      "file": "파일",
+      "sha256": "파일 SHA-256",
+      "addon": "애드온",
+      "platform": "플랫폼",
+      "api": "호스트 API"
+    },
+    "relation": {
+      "upgrade": "설치된 {{installed}} 버전을 {{version}} 버전으로 바꿉니다. 애드온의 데이터는 유지됩니다.",
+      "same": "{{version}} 버전은 이미 설치되어 있습니다. 다른 버전의 파일을 선택하세요.",
+      "downgradeTitle": "이전 버전",
+      "downgrade": "설치된 {{installed}} 버전보다 오래된 {{version}} 버전을 설치합니다. 이전 버전은 새 버전이 쓴 데이터를 읽지 못할 수 있습니다.",
+      "downgradeConfirm": "이전 버전을 설치하겠습니다"
+    }
   }
 }

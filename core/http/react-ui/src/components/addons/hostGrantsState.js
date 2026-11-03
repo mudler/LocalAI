@@ -125,10 +125,11 @@ export function approvedOps(preview, ticked) {
 }
 
 // The body of the install or upgrade that carries the approval.
-export function approvalBody(preview, ticked, { operationId, action = 'install', sourceId, addonId, version, blanketAck } = {}) {
+export function approvalBody(preview, ticked, { operationId, action = 'install', sourceId, addonId, version, blanketAck, downgrade } = {}) {
   const approve = { digest: preview.digest, ops: approvedOps(preview, ticked), revision: preview.revision, nonce: preview.nonce }
   if (blanketAck) approve.blanketAck = true
-  return { operationId, action, sourceId, addonId, version, approve }
+  // Only an install from a file can be a downgrade, and only after a tick.
+  return { operationId, action, sourceId, addonId, version, ...(downgrade ? { downgrade: true } : {}), approve }
 }
 
 // The operations grouped by family (the part before the first dot), in the
