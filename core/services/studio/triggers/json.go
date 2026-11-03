@@ -77,7 +77,7 @@ func utc(t time.Time) time.Time {
 
 func normTrigger(t Trigger) Trigger {
 	t.Since, t.OutcomeAt = utc(t.Since), utc(t.OutcomeAt)
-	t.Route.ProposedAt, t.Route.Expires = utc(t.Route.ProposedAt), utc(t.Route.Expires)
+	t.Route.ProposedAt, t.Route.Expires, t.Route.Until = utc(t.Route.ProposedAt), utc(t.Route.Expires), utc(t.Route.Until)
 	return t
 }
 

@@ -358,6 +358,13 @@ func (h *Triggers) Proposals(ctx context.Context, user string) ([]triggers.Trigg
 // time after which it lapses, and counts against the hourly limit of its
 // binding.
 func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerInput) (triggers.Trigger, error) {
+	t, _, err := h.propose(ctx, user, in)
+	return t, err
+}
+
+// propose is ProposeTrigger that also says whether the proposal is new: false
+// when it returns the equal proposal that already waits.
+func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (triggers.Trigger, bool, error) {
 	owner := principal(user)
 	in.Enabled = false
 	now := h.o.Clock()
@@ -367,16 +374,19 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 	}
 	t, err := h.build(ctx, owner, in)
 	if err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
 	}
 	if err := h.checkCadence(t); err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
+	}
+	if err := h.checkOneOff(t); err != nil {
+		return triggers.Trigger{}, false, err
 	}
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	mine, err := h.o.Store.ListTriggers(ctx, owner)
 	if err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
 	}
 	pending := 0
 	for _, m := range mine {
@@ -387,31 +397,31 @@ func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerIn
 		// gets the proposal that waits.
 		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
 			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model {
-			return m, nil
+			return m, false, nil
 		}
 		pending++
 	}
 	switch {
 	case pending >= maxProposals:
-		return triggers.Trigger{}, ErrTooManyProposals
+		return triggers.Trigger{}, false, ErrTooManyProposals
 	case countLive(mine) >= maxTriggersPerUser:
-		return triggers.Trigger{}, ErrTooManyTriggers
+		return triggers.Trigger{}, false, ErrTooManyTriggers
 	}
 	if t.Route.FromConnector() {
 		if proposalsInHour(mine, t.Route.Binding, now) >= MaxProposalsPerHour {
 			h.audit(ctx, proposals.ActionRefuse, t, "too many proposals from this binding in the last hour")
-			return triggers.Trigger{}, ErrProposalRate
+			return triggers.Trigger{}, false, ErrProposalRate
 		}
 		t.Route.Code = freshCode(mine, t.Route.Binding)
 	}
 	t.ID, t.Proposed = newID(), true
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
 	}
 	if t.Route.FromConnector() {
 		h.audit(ctx, proposals.ActionPropose, t, "")
 	}
-	return t, nil
+	return t, true, nil
 }
 
 // checkCadence refuses a schedule that runs more often than MinChatCadence.
@@ -437,6 +447,31 @@ func (h *Triggers) checkCadence(t triggers.Trigger) error {
 	return nil
 }
 
+// checkOneOff refuses a one-off trigger whose time is too close, is past, or
+// is too far ahead. A timer that a chat sets is at least a minute away, so it
+// cannot become a tight loop, and at most MaxOneOffAhead away.
+func (h *Triggers) checkOneOff(t triggers.Trigger) error {
+	at, ok := t.OnceAt()
+	if !ok {
+		return nil
+	}
+	d := at.Sub(h.o.Clock())
+	switch {
+	case d < MinOneOff-30*time.Second:
+		return bad("a one-off trigger must run at least a minute from now; %q is %s", t.Schedule, gapAgo(d))
+	case d > MaxOneOffAhead:
+		return bad("a one-off trigger can be at most %d days ahead", int(MaxOneOffAhead/(24*time.Hour)))
+	}
+	return nil
+}
+
+func gapAgo(d time.Duration) string {
+	if d <= 0 {
+		return "in the past"
+	}
+	return "only " + gapText(d) + " away"
+}
+
 func gapText(d time.Duration) string {
 	if d < time.Minute {
 		return d.Round(time.Second).String()
@@ -454,6 +489,13 @@ func gapText(d time.Duration) string {
 // proposal that names no time zone takes tz (the zone of the person who
 // confirms); without one it runs in UTC.
 func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (triggers.Trigger, error) {
+	return h.confirm(ctx, user, id, tz, nil)
+}
+
+// confirm is ConfirmProposal that lets the caller change the trigger first, as
+// the approval modes do to bound it. mod runs on the proposal before it is
+// checked and stored.
+func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*triggers.Trigger)) (triggers.Trigger, error) {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	old, err := h.pendingProposal(ctx, user, id)
@@ -466,6 +508,9 @@ func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (tr
 	}
 	t.Proposed, t.Enabled = false, true
 	t.Outcome, t.OutcomeAt, t.Touched = triggers.OutcomeAccepted, h.o.Clock().UTC(), false
+	if mod != nil {
+		mod(&t)
+	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
 	}

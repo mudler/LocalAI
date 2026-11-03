@@ -539,12 +539,24 @@ trigger stays in Studio. Nothing runs before the owner confirms.
 - **The proposal is shown in the chat.** LocalAI writes the name, the schedule, what the
   run will do, where the results go and a four-character code in the chat and thread
   where the person wrote. The model does not write it.
-- **Confirm or cancel by text.** A sender writes `confirm CODE` or `cancel CODE`, as the
-  whole message, in the same chat and thread. LocalAI handles it before any model turn.
-  It needs the capability `proposals.confirm` for that sender (a paired sender, or a role
-  with the grant). A code is used once, and a proposal lapses after 24 hours. Studio
-  always works as well.
+- **Answer in plain words.** With the default approval mode (`ask`), the person answers in
+  the same chat and thread with a short word as the whole message: `yes`, `ok`, `sure` to
+  start it, `no`, `cancel`, `stop` to drop it (a few words of other languages work too).
+  LocalAI handles it before any model turn. When several proposals wait in one thread, a
+  bare word is not enough: the bot lists the codes, and the person writes `yes CODE`,
+  `confirm CODE` or `cancel CODE`. Any longer message goes to the agent as usual. It
+  needs the capability `proposals.confirm` for that sender (a paired sender, or a role
+  with the grant); a message from any other sender, or text the agent read, never answers
+  a proposal. A code is used once, and a proposal lapses after 24 hours. Studio always
+  works as well.
 - **Limits.** A binding can make 3 proposals an hour, and an owner can have 10 waiting.
+- **One-off timers.** For "in 10 minutes" or "at 18:00", the agent proposes a trigger
+  that runs once: `when` is `{"in": "10 minutes"}` or `{"at": "18:00"}` (this one needs a
+  `time_zone`; a time that has passed today means the next day). It must be at least one
+  minute and at most 365 days ahead. It reports to the chat where it was set, runs once,
+  and is then removed, also when the run failed (a failed timer says so at once). A
+  recurring trigger from a chat still runs at most once an hour. The proposal text states
+  the cost: every run is one model run.
 - **Where a run reports.** The proposal sets `delivery`: `inbox` (the default),
   `origin` (the chat and thread of the proposal) or `channel` (a channel of the binding that
   the owner approved, named in `delivery.channel`), and a mode: `always`, `on_change` or
@@ -556,6 +568,31 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   wait in a queue and go in order.
 - **Pause.** While `triggers.run` is off for the binding, its triggers do not run. The
   records stay and are not replayed when the capability comes back.
+
+### Approval modes
+
+The owner chooses, per binding, what happens to a proposal. The choice is on the settings
+page of the connector add-on, or in the `approval` field of the binding
+(`PUT /api/chats/connectors/{id}`), and is the same for every connector.
+
+| `mode` | Behavior |
+|---|---|
+| `ask` (default) | The bot posts the proposal and waits for a plain answer. |
+| `auto` | The trigger is made at once. The bot tells the person what was set up and that `cancel` (within 30 minutes) or `cancel CODE` (any time) removes it. |
+| `auto_readonly` | Like `auto` when the proposal says its runs only read and report (`access: read_only`, no file written); any other proposal asks. |
+
+The automatic modes are bounded by limits of the owner. Anything over a limit is not
+refused but asked instead, and the proposal says why.
+
+| Field | Default | Meaning |
+|---|---|---|
+| `max_pending` | 5 | Timers and triggers made without asking that may be live at once, per binding. |
+| `min_gap_minutes` | 60 | Fewest minutes between runs of a recurring trigger. |
+| `max_runs_per_day` | 10 | Runs a day of all of them together; a recurring trigger also gets this as its daily limit. |
+| `max_lifetime_days` | 30 | How far ahead a timer may be, and how long a recurring trigger lives before it is removed. |
+
+A trigger on files, and one that reports to a channel, always asks. The read-only mode relies on what the proposal says and on
+the grants of the agent; it does not stop a run from using a tool the agent has.
 
 ## Writing to a chat on its own (`send_message`)
 

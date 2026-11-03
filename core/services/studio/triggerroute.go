@@ -155,6 +155,10 @@ const (
 	sentProposalCancel  = "Cancelled."
 )
 
+// lapsedWindow is how long after a proposal lapsed a bare word in its thread is
+// answered with the news that it lapsed, and not sent to the agent.
+const lapsedWindow = 15 * time.Minute
+
 var phraseRE = regexp.MustCompile(`(?i)^\s*(confirm|cancel)\s+([a-z0-9]{4})\s*$`)
 
 // ParsePhrase reads "confirm 7K2Q" or "cancel 7K2Q" from the whole text of a
@@ -175,38 +179,118 @@ type PhraseFrom struct {
 	Roles []string
 }
 
-// AnswerByPhrase answers the waiting proposal that has the code, when the
-// phrase comes from the place it was made, and the sender holds the
-// capability to confirm. It returns the sentence to write back, and handled
-// false when no proposal of the binding has that code: the message is then an
-// ordinary one. A proposal is answered once; every attempt is audited.
+// AnswerByPhrase answers a waiting proposal from a short answer: a word with
+// the code of the proposal, or, with an empty code, a bare word that answers
+// the one proposal waiting in the place where the word is written. It also
+// cancels a trigger that was made without asking, by its code, or by a bare
+// word soon after. The sender must hold the capability to confirm, and write
+// where the proposal was made. It returns the sentence to write back, and
+// handled false when the message is an ordinary one: the text then goes to the
+// agent. A proposal is answered once; every attempt is audited.
 func (h *Triggers) AnswerByPhrase(ctx context.Context, from PhraseFrom, verb, code string) (reply string, handled bool) {
 	all, err := h.o.Store.ListTriggers(ctx, principal(from.Owner))
 	if err != nil {
 		return "", false
 	}
-	var p triggers.Trigger
-	found := false
+	if code == "" {
+		return h.answerBare(ctx, from, verb, all)
+	}
+	detail := "by text from sender " + from.Sender
 	for _, t := range all {
-		if t.Pending() && t.Route.Binding == from.Binding && t.Route.Code == code {
-			p, found = t, true
-			break
+		if t.Route.Binding != from.Binding || t.Route.Code != code {
+			continue
+		}
+		switch {
+		case t.Pending():
+			return h.answerProposal(ctx, from, t, verb, detail)
+		case verb == "cancel" && t.Route.Auto && !t.Proposed && t.Enabled:
+			return h.cancelAuto(ctx, from, t, detail)
 		}
 	}
-	if !found {
+	return "", false
+}
+
+// sameThread says whether the proposal or trigger was made where the sender
+// writes now.
+func sameThread(t triggers.Trigger, from PhraseFrom) bool {
+	return t.Route.Chat == from.Chat && t.Route.Thread == from.Thread
+}
+
+// canAnswer asks the capability gate whether the sender may answer proposals
+// of the binding.
+func (h *Triggers) canAnswer(ctx context.Context, from PhraseFrom) bool {
+	return h.svc.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: from.Binding, Owner: from.Owner, Agent: from.Agent,
+		Sender: from.Sender, Roles: from.Roles, Kind: "trigger"})
+}
+
+// answerBare answers with a word that has no code. It acts only when the
+// meaning is clear: the sender may answer, and exactly one proposal waits in
+// this place (or, for a cancel, exactly one trigger was just made here without
+// asking). Otherwise the message goes on to the agent, except when several
+// proposals wait: then the sender is told to use a code.
+func (h *Triggers) answerBare(ctx context.Context, from PhraseFrom, verb string, all []triggers.Trigger) (string, bool) {
+	now := h.o.Clock()
+	var waiting, fresh, lapsed []triggers.Trigger
+	for _, t := range all {
+		switch {
+		case t.Pending() && t.Route.Binding == from.Binding && sameThread(t, from):
+			if t.Expired(now) {
+				if cur := h.lapse(ctx, t); cur.Outcome == triggers.OutcomeExpired {
+					lapsed = append(lapsed, cur)
+				}
+				continue
+			}
+			waiting = append(waiting, t)
+		case t.Proposed && t.Outcome == triggers.OutcomeExpired && !t.IsChange() && t.Route.Binding == from.Binding && sameThread(t, from) &&
+			now.Sub(t.OutcomeAt) < lapsedWindow:
+			lapsed = append(lapsed, t)
+		case verb == "cancel" && t.Route.Auto && !t.Proposed && t.Enabled && t.Route.Binding == from.Binding && sameThread(t, from) &&
+			now.Sub(t.Route.ProposedAt) < cancelWindow:
+			fresh = append(fresh, t)
+		}
+	}
+	if len(waiting)+len(fresh) == 0 && len(lapsed) == 0 {
 		return "", false
 	}
 	detail := "by text from sender " + from.Sender
+	if len(waiting)+len(fresh) == 0 {
+		// The proposal this word answers has just lapsed: say so, so the person
+		// does not think it started.
+		if !h.canAnswer(ctx, from) {
+			return "", false
+		}
+		return sentProposalGone, true
+	}
+	if !h.canAnswer(ctx, from) {
+		// An ordinary "ok" from someone who cannot answer is just a message.
+		h.audit(ctx, proposals.ActionRefuse, append(waiting, fresh...)[0], "not allowed; "+detail)
+		return "", false
+	}
+	switch {
+	case len(waiting) == 1 && len(fresh) == 0:
+		return h.answerProposal(ctx, from, waiting[0], verb, detail)
+	case len(waiting) == 0 && len(fresh) == 1:
+		return h.cancelAuto(ctx, from, fresh[0], detail)
+	}
+	var b strings.Builder
+	b.WriteString("More than one is waiting here. Say which, for example \"confirm CODE\" or \"cancel CODE\":")
+	for _, t := range append(waiting, fresh...) {
+		fmt.Fprintf(&b, "\n%s: %q", t.Route.Code, t.Name)
+	}
+	return b.String(), true
+}
+
+// answerProposal confirms or cancels the waiting proposal p.
+func (h *Triggers) answerProposal(ctx context.Context, from PhraseFrom, p triggers.Trigger, verb, detail string) (string, bool) {
 	if p.Expired(h.o.Clock()) {
 		h.lapse(ctx, p)
 		return sentProposalGone, true
 	}
-	if p.Route.Chat != from.Chat || p.Route.Thread != from.Thread {
+	if !sameThread(p, from) {
 		h.audit(ctx, proposals.ActionRefuse, p, "wrong place; "+detail)
 		return sentProposalPlace, true
 	}
-	if !h.svc.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: from.Binding, Owner: p.Owner, Agent: from.Agent,
-		Sender: from.Sender, Roles: from.Roles, Kind: "trigger"}) {
+	if !h.canAnswer(ctx, from) {
 		h.audit(ctx, proposals.ActionRefuse, p, "not allowed; "+detail)
 		return sentProposalNoRight, true
 	}
@@ -223,13 +307,30 @@ func (h *Triggers) AnswerByPhrase(ctx context.Context, from PhraseFrom, verb, co
 		return fmt.Sprintf(sentProposalFailed, toolErr(err)), true
 	}
 	h.audit(ctx, proposals.ActionConfirm, t, detail)
-	return fmt.Sprintf("Confirmed. %q is on: %s.", t.Name, h.summary(t)), true
+	return fmt.Sprintf("Confirmed. %q is on: %s. Cost: %s.", t.Name, h.whenText(t), h.costText(t)), true
+}
+
+// cancelAuto removes a trigger that was made without asking.
+func (h *Triggers) cancelAuto(ctx context.Context, from PhraseFrom, t triggers.Trigger, detail string) (string, bool) {
+	if !sameThread(t, from) {
+		h.audit(ctx, proposals.ActionRefuse, t, "wrong place; "+detail)
+		return sentProposalPlace, true
+	}
+	if !h.canAnswer(ctx, from) {
+		h.audit(ctx, proposals.ActionRefuse, t, "not allowed; "+detail)
+		return sentProposalNoRight, true
+	}
+	if err := h.DeleteTrigger(ctx, t.Owner, t.ID); err != nil {
+		return fmt.Sprintf(sentProposalFailed, toolErr(err)), true
+	}
+	h.audit(ctx, proposals.ActionDismiss, t, "removed after automatic setup; "+detail)
+	return fmt.Sprintf("Cancelled. %q is removed.", t.Name), true
 }
 
 // proposalText is what the host writes in the chat where a proposal was made.
-// It shows what the run will do, so a person can answer it from there, and
-// how to answer.
-func (h *Triggers) proposalText(t triggers.Trigger) string {
+// It shows what the run will do and costs, so a person can answer it from
+// there, and how to answer.
+func (h *Triggers) proposalText(t triggers.Trigger, note string) string {
 	prompt := strings.Join(strings.Fields(t.Prompt), " ")
 	if utf8.RuneCountInString(prompt) > 280 {
 		prompt = string([]rune(prompt)[:280]) + "…"
@@ -248,18 +349,30 @@ func (h *Triggers) proposalText(t triggers.Trigger) string {
 	case triggers.ModeOnProblem:
 		mode = ", only when a run fails"
 	}
-	return fmt.Sprintf("Proposal %s: %q, %s. It will: %s\nResults go to %s%s.\nNothing runs until it is confirmed. Reply \"confirm %s\" or \"cancel %s\" here within 24 hours, or open Studio.",
-		t.Route.Code, t.Name, strings.ToLower(h.summary(t)[:1])+h.summary(t)[1:], prompt, where, mode, t.Route.Code, t.Route.Code)
+	when := lowerFirst(h.whenText(t))
+	extra := ""
+	if note != "" {
+		extra = "I did not start it by myself: " + note + ".\n"
+	}
+	return fmt.Sprintf("Proposal %s: %q, %s. It will: %s\nCost: %s. Results go to %s%s.\n%sNothing runs until you approve. Reply \"yes\" to start it or \"cancel\" to drop it, here, within 24 hours, or open Studio. "+
+		"If more than one proposal waits, reply \"confirm %s\" or \"cancel %s\".",
+		t.Route.Code, t.Name, when, prompt, h.costText(t), where, mode, extra, t.Route.Code, t.Route.Code)
 }
 
 // Announce writes the proposal, with its code, in the chat where it was made.
 // It reports whether the text was sent or queued.
 func (h *Triggers) Announce(ctx context.Context, t triggers.Trigger) bool {
+	return h.announce(ctx, t, "")
+}
+
+// announce is Announce with a note that says why the proposal was not made
+// without asking, when the approval of the binding would have allowed it.
+func (h *Triggers) announce(ctx context.Context, t triggers.Trigger, note string) bool {
 	c := h.svc.connectors
 	if c == nil || !t.Route.FromConnector() || t.Route.Chat == "" {
 		return false
 	}
-	_, err := c.Post(ctx, Post{Binding: t.Route.Binding, Chat: t.Route.Chat, Thread: t.Route.Thread, Text: h.proposalText(t)})
+	_, err := c.Post(ctx, Post{Binding: t.Route.Binding, Chat: t.Route.Chat, Thread: t.Route.Thread, Text: h.proposalText(t, note)})
 	if err != nil {
 		h.log.Warn("studio: could not write a proposal to its chat", "trigger", t.ID, "error", err)
 		return false
@@ -394,6 +507,11 @@ func (h *Triggers) changed(ctx context.Context, t triggers.Trigger, run triggers
 // failureAlertEvery for each trigger. The Inbox gets every failure already.
 func (h *Triggers) reportFailure(ctx context.Context, t triggers.Trigger, reason string) {
 	if t.Route.TargetOrDefault() != triggers.TargetOrigin {
+		return
+	}
+	if t.OneOff() {
+		// A timer has no second run to wait for: say at once that it failed.
+		h.deliverOrigin(ctx, t, fmt.Sprintf("%s failed: %s", t.Name, reportText(reason)), func() {})
 		return
 	}
 	runs, err := h.o.Store.ListRuns(ctx, t.ID, failureAlertAfter)

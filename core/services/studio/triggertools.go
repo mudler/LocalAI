@@ -59,10 +59,13 @@ const proposeTriggerSchema = `{"type":"object","properties":{` +
 const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 	`"name":{"type":"string","minLength":1,"maxLength":80,"description":"A short name for the trigger."},` +
 	`"prompt":{"type":"string","minLength":1,"description":"What the agent must do at each run."},` +
-	`"when":{"description":"A schedule text, or an object with the folder to watch.","oneOf":[` +
+	`"when":{"description":"A schedule text, an object with the folder to watch, or a one-off timer: {\"in\": \"10 minutes\"} or {\"at\": \"18:00\"}.","oneOf":[` +
 	`{"type":"string"},` +
-	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]}]},` +
-	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, UTC is used."},` +
+	`{"type":"object","properties":{"file_arrives_in":{"type":"string","description":"A folder inside the user's files."}},"required":["file_arrives_in"]},` +
+	`{"type":"object","properties":{"in":{"type":"string","description":"A delay from now, at least one minute: 10 minutes, 1h30m, 2 days."}},"required":["in"]},` +
+	`{"type":"object","properties":{"at":{"type":"string","description":"A time of day, the next time it is that time: 18:00 or 6pm. Needs time_zone."}},"required":["at"]}]},` +
+	`"time_zone":{"type":"string","description":"An IANA time zone name such as Europe/Rome; when absent, UTC is used. Needed for a time of day."},` +
+	`"access":{"type":"string","enum":["read_only","read_write"],"description":"read_only only when the runs just read and report: they write no file, run no command and message nobody else. Otherwise read_write (the default)."},` +
 	`"daily_cap":{"type":"integer","minimum":0,"maximum":1000,"description":"The most runs in one day; 0 is the default limit."},` +
 	`"reads":{"type":"string","maxLength":200,"description":"What a run reads, in a few words."},` +
 	`"writes":{"type":"string","maxLength":256,"description":"The file in the user's home that a run rewrites."},` +
@@ -76,9 +79,13 @@ const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 
 // connectorProposeNote is added to the description of propose_trigger in a
 // chat of a messaging app.
-const connectorProposeNote = " This chat is in a messaging app. The host writes the proposal and its confirmation code in the chat itself, " +
-	"and the person answers there with confirm or cancel and the code, so do not repeat the code. " +
+const connectorProposeNote = " This chat is in a messaging app. The host writes the proposal in the chat itself, " +
+	"and the person answers there in plain words, so do not repeat the proposal or any code. Depending on the owner's settings the host may also set the trigger up at once and tell the person; " +
+	"the result of this tool says which happened, so never say more than it says. " +
+	"For \"do it in 10 minutes\" or \"at 18:00\" use a one-off timer: when {\"in\": \"10 minutes\"} or {\"at\": \"18:00\"} with time_zone; it runs once, at least a minute from now, and is then removed. " +
+	"Every run is one model run, so propose a recurring trigger only when the person asks for one; a recurring one runs at most once an hour. " +
 	"Use delivery.target origin when the person wants the result in this chat, and a mode that fits (on_change for a watch, on_problem for a check). " +
+	"Set access read_only only when the runs just read and report. " +
 	"A proposal lapses after 24 hours, and at most 3 can be made in an hour."
 
 const listTriggersDescription = "List the triggers of the user: a ref, the name, when it runs or which folder it watches, whether it is on or off, and how its last run ended. " +
@@ -302,6 +309,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		Writes   string          `json:"writes"`
 		Widget   string          `json:"widget"`
 		Tokens   int             `json:"estimated_tokens"`
+		Access   string          `json:"access"`
 		Delivery *struct {
 			Target  string `json:"target"`
 			Mode    string `json:"mode"`
@@ -317,14 +325,22 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 	var text string
 	var obj struct {
 		FileArrivesIn string `json:"file_arrives_in"`
+		In            string `json:"in"`
+		At            string `json:"at"`
 	}
 	switch {
 	case json.Unmarshal(args.When, &text) == nil && text != "":
 		in.Kind, in.Schedule = triggers.KindSchedule, text
 	case json.Unmarshal(args.When, &obj) == nil && obj.FileArrivesIn != "":
 		in.Kind, in.Folder, in.TZ = triggers.KindFile, obj.FileArrivesIn, ""
+	case json.Unmarshal(args.When, &obj) == nil && (obj.In != "" || obj.At != ""):
+		sched, zone, terr := timerSchedule(h.o.Clock(), obj.In, obj.At, args.TimeZone)
+		if terr != nil {
+			return "", terr
+		}
+		in.Kind, in.Schedule, in.TZ = triggers.KindSchedule, sched, zone
 	default:
-		return "", errors.New("when must be a schedule text or {\"file_arrives_in\": folder}")
+		return "", errors.New("when must be a schedule text, {\"in\": a delay}, {\"at\": a time of day} or {\"file_arrives_in\": folder}")
 	}
 	var err error
 	connector := c.Origin == session.OriginConnector
@@ -341,8 +357,19 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 				in.Route.Channel = d.Channel
 			}
 		}
+		switch args.Access {
+		case "", "read_write":
+		case "read_only":
+			in.Route.ReadOnly = true
+		default:
+			return "", errors.New(`access must be "read_only" or "read_write"`)
+		}
 		if in.Route.Target == "" {
 			in.Route.Target = triggers.TargetInbox
+			if in.Kind == triggers.KindSchedule && strings.HasPrefix(in.Schedule, "once ") {
+				// A timer that a person sets in a chat is answered in the chat.
+				in.Route.Target = triggers.TargetOrigin
+			}
 		}
 	} else if args.Delivery != nil {
 		return "", errors.New("delivery is for a chat in a messaging app; the answer of a run goes to the Inbox")
@@ -356,12 +383,12 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 			return "", toolErr(err)
 		}
 	}
-	t, err := h.ProposeTrigger(ctx, a.Principal, in)
+	t, fresh, err := h.propose(ctx, a.Principal, in)
 	if err != nil {
 		return "", errors.New(strings.TrimPrefix(err.Error(), ErrBadTrigger.Error()+": "))
 	}
 	if connector {
-		return h.announceProposal(ctx, a, t, in.Route)
+		return h.afterPropose(ctx, a, t, fresh, in.Route)
 	}
 	// The card lets the interface show Create, Edit and Dismiss on this tool
 	// line, also after a reload; the event tells a client that is watching.
@@ -587,13 +614,13 @@ func (h *Triggers) connectorRoute(ctx context.Context, c builtins.Chat) (trigger
 
 // announceProposal writes the proposal in the chat it came from, with its code,
 // and words the result for the model.
-func (h *Triggers) announceProposal(ctx context.Context, a workspace.Actor, t triggers.Trigger, here triggers.Route) (string, error) {
+func (h *Triggers) announceProposal(ctx context.Context, a workspace.Actor, t triggers.Trigger, here triggers.Route, note string) (string, error) {
 	h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{t.ID}, Text: t.Name})
 	if t.Route.Binding != here.Binding || t.Route.Chat != here.Chat || t.Route.Thread != here.Thread {
 		// The same proposal was made from another place: its code works there.
 		return fmt.Sprintf("A proposal like %q waits already, from another conversation. It is not active. Tell the person to confirm it in Studio.", t.Name), nil
 	}
-	if h.Announce(ctx, t) {
+	if h.announce(ctx, t, note) {
 		return fmt.Sprintf("Proposed %q (%s). It is not active. The host wrote the proposal and its code in this chat; the person answers there with confirm or cancel and the code, or in Studio. "+
 			"Say in one short sentence that you proposed it; do not repeat the code and do not say it will run until they confirm.", t.Name, h.summary(t)), nil
 	}

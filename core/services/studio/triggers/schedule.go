@@ -305,6 +305,18 @@ func (s Schedule) weekdays() []int {
 	return out
 }
 
+// OnceAt gives the instant of a "once" schedule in loc, and false for any other
+// schedule.
+func (s Schedule) OnceAt(loc *time.Location) (time.Time, bool) {
+	if s.kind != "once" {
+		return time.Time{}, false
+	}
+	if loc == nil {
+		loc = time.UTC
+	}
+	return wall(s.onceY, time.Month(s.onceM), s.onceD, s.hours[0], s.mins[0], loc), true
+}
+
 // Text gives the canonical text of the schedule, which ParseSchedule reads
 // back to the same schedule.
 func (s Schedule) Text() string { return s.text }

@@ -184,6 +184,14 @@ type Route struct {
 	Mode   string `json:",omitempty"`
 	// Channel is the channel of TargetChannel, as the owner listed it.
 	Channel string `json:",omitempty"`
+	// Auto says that the trigger was made without asking, under the approval
+	// mode of its binding; Until is when such a recurring trigger is removed
+	// (zero: never). ReadOnly says that the proposal declared that its runs
+	// only read and report. Code stays on an Auto trigger so that a person can
+	// cancel it from the chat.
+	Auto     bool      `json:",omitempty"`
+	ReadOnly bool      `json:",omitempty"`
+	Until    time.Time `json:",omitzero"`
 }
 
 // FromConnector says whether a connector chat proposed the trigger.
@@ -234,8 +242,40 @@ func (r Route) Validate() error {
 }
 
 // Expired says whether t is a proposal that waited past its time at now.
+// A one-off proposal whose time has passed has expired too: confirming it
+// could not start a run.
 func (t Trigger) Expired(now time.Time) bool {
-	return t.Pending() && !t.Route.Expires.IsZero() && !now.Before(t.Route.Expires)
+	if !t.Pending() {
+		return false
+	}
+	if !t.Route.Expires.IsZero() && !now.Before(t.Route.Expires) {
+		return true
+	}
+	at, ok := t.OnceAt()
+	return ok && !at.After(now)
+}
+
+// OnceAt gives the time a one-off trigger runs, and false for a trigger that
+// is not a schedule of the "once" form.
+func (t Trigger) OnceAt() (time.Time, bool) {
+	if t.Kind != KindSchedule {
+		return time.Time{}, false
+	}
+	sch, err := ParseSchedule(t.Schedule)
+	if err != nil {
+		return time.Time{}, false
+	}
+	loc, err := t.Location()
+	if err != nil {
+		return time.Time{}, false
+	}
+	return sch.OnceAt(loc)
+}
+
+// OneOff says whether the trigger runs once, at one time, and no more.
+func (t Trigger) OneOff() bool {
+	_, ok := t.OnceAt()
+	return ok
 }
 
 // Change says what a change record does to the trigger it names. While it

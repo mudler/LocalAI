@@ -89,9 +89,11 @@ type Triggers struct {
 	// Guarded by mu: when the proposals past their time were last swept, the
 	// triggers whose capability to run is off now, and when a trigger last
 	// raised its failure alert.
-	swept   time.Time
-	paused  map[string]bool
-	alerted map[string]time.Time
+	swept time.Time
+	// timersSwept is when sweepTimers last ran.
+	timersSwept time.Time
+	paused      map[string]bool
+	alerted     map[string]time.Time
 
 	wake chan struct{}
 	done chan struct{}
@@ -232,6 +234,7 @@ func (h *Triggers) Pass(ctx context.Context) error {
 	err = r.Sync(ctx)
 	h.reconcile(ctx)
 	h.expireProposals(ctx)
+	h.sweepTimers(ctx)
 	return err
 }
 
@@ -654,16 +657,17 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 	if status == triggers.StatusFailed {
 		h.tell(ctx, t, chatID, notify.KindRunFailed, notify.StatusFailed, t.Name+" failed", reason)
 		h.reportFailure(ctx, t, reason)
+		h.retire(ctx, t)
 		return
 	}
 	body := reason
 	if body == "" {
 		body = h.svc.finalText(ctx, chatID)
 	}
-	if h.report(ctx, t, cur, body) {
-		return
+	if !h.report(ctx, t, cur, body) {
+		h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
 	}
-	h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
+	h.retire(ctx, t)
 }
 
 // tellInterrupted tells the owner of a run that a restart cut short. The Runner

@@ -221,3 +221,30 @@ var _ = Describe("Route", func() {
 		Expect(Trigger{Proposed: true}.Expired(now.Add(1000*time.Hour))).To(BeFalse(), "a proposal without a time never does")
 	})
 })
+
+var _ = Describe("a one-off trigger", func() {
+	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	once := func(text, tz string) Trigger {
+		t := goodSchedule()
+		t.Schedule, t.TZ = text, tz
+		return t
+	}
+	It("tells its time in its own zone", func() {
+		at, ok := once("once 2026-11-03 18:00", "Europe/Rome").OnceAt()
+		Expect(ok).To(BeTrue())
+		Expect(at.UTC()).To(Equal(time.Date(2026, 11, 3, 17, 0, 0, 0, time.UTC)))
+		Expect(once("once 2026-11-03 18:00", "").OneOff()).To(BeTrue())
+	})
+	It("is not a recurring schedule or a file trigger", func() {
+		Expect(goodSchedule().OneOff()).To(BeFalse())
+		Expect(goodFile().OneOff()).To(BeFalse())
+		Expect(once("not a schedule", "").OneOff()).To(BeFalse())
+	})
+	It("expires as a proposal once its time has passed, though its 24 hours have not", func() {
+		p := once("once 2026-11-03 12:30", "")
+		p.Proposed, p.Route.Expires = true, now.Add(24*time.Hour)
+		Expect(p.Expired(now)).To(BeFalse())
+		Expect(p.Expired(now.Add(30 * time.Minute))).To(BeTrue())
+		Expect(p.Expired(now.Add(31 * time.Minute))).To(BeTrue())
+	})
+})
