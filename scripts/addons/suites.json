@@ -554,7 +554,12 @@
       "accepts empty arguments with optional property constraints",
       "refuses protected or reserved plain names, whatever the add-on id",
       "keeps embedded names protected or reserved without requiring a slot fallback",
-      "does not promise a core fallback for document provider names"
+      "does not promise a core fallback for document provider names",
+      "packages all four document slots with the actual validator and no core fallback",
+      "proves every source block and local reference without Git or network",
+      "installs unchanged PDF helpers and their license with a build-time fixture check",
+      "declares and packages a loadable, receipt-verified skill without shadows",
+      "rejects a missing skill, mismatched frontmatter, and scripts"
     ],
     "report": ".cache/addons/logs/contracts.json",
     "reports": [
@@ -985,7 +990,12 @@
           "lets a tag push prepare the immutable version and never move latest",
           "promotes latest only for a published, stable, non-draft release",
           "rejects unknown events and a malformed commit",
-          "prints the decision as key=value lines"
+          "prints the decision as key=value lines",
+          "packages all four document slots with the actual validator and no core fallback",
+          "proves every source block and local reference without Git or network",
+          "installs unchanged PDF helpers and their license with a build-time fixture check",
+          "declares and packages a loadable, receipt-verified skill without shadows",
+          "rejects a missing skill, mismatched frontmatter, and scripts"
         ]
       },
       {
@@ -4012,7 +4022,16 @@
       "returns the SDK refusal text, the unverified-package text and the missing-release text to the administrator",
       "logs the cause of a failed install and types it for the client",
       "logs the reason behind a generic denial and leaves the response unchanged",
-      "names every typed cause of a failed install in the 403 of the dispatch route"
+      "names every typed cause of a failed install in the 403 of the dispatch route",
+      "installs upgrades and uninstalls the actual Sandbox document skills through verified receipts",
+      "finishes a real backup and commit after the submitting request is cancelled",
+      "polls and retries during a blocked backup, rejects conflicting IDs, and retains the receipt on restart",
+      "reconciles durable accepted work to interrupted without replay",
+      "Close cancels and joins an accepted owner worker before releasing storage",
+      "traces completion, retries, detach, interruption and late delivery without replay",
+      "keeps terminals immutable for every event and gives each active state a terminal exit",
+      "Close cancels a backup in flight and joins its cleanup before releasing ownership",
+      "serializes synchronous disable against an accepted upgrade without overwriting its journal"
     ],
     "report": ".cache/addons/logs/apps.json",
     "reports": [
