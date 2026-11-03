@@ -1694,7 +1694,8 @@ example sets it up with Garage. Without S3, Files uses the existing
 `DataPath/chats/blobs` directly. All Files participants must then mount the same
 backing data directory and use the same PostgreSQL metadata database. See
 [Shared filesystem for Files](#shared-filesystem-for-files) for the operator
-contract; startup does not verify shared volume identity.
+contract. With PostgreSQL, startup checks that every node sees the same blob
+folder and stops with an error when it does not.
 
 ## Storage
 
@@ -1947,8 +1948,11 @@ live in the selected backend. Per-instance caches and scratch are disposable.
 For filesystem storage, every Files consumer must mount the same existing data
 directory/backing storage and use the same PostgreSQL database: frontends, the
 add-on owner and optional chat workers. Inference-only nodes need no Files mount.
-Equal path strings do not prove shared volume identity, and startup does not
-verify shared storage or datastore identity. No local probe certifies a deployment.
+Equal path strings do not prove shared volume identity. With PostgreSQL, the
+first node to start writes a random `.volume-id` file in `DataPath/chats/blobs`
+and records the same id in the database; every node compares the two at startup
+and refuses to start on a mismatch or when the file is missing. This catches a
+volume that is not shared. It does not prove that the storage is coherent.
 Other data-path contents do not thereby become cluster-safe.
 
 Keep the canonical backing directory service-controlled, with compatible UID/GID

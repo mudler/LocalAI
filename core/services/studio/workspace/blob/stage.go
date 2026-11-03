@@ -74,3 +74,15 @@ func (s *Staging) Close() {
 }
 
 var _ Stager = (*fsStore)(nil)
+
+// Volume is an optional capability of a Store whose bytes live on a volume
+// that every node must share. The workspace keeps the identity in its
+// database and compares it with the one on the volume at startup.
+type Volume interface {
+	// ReadVolumeID returns the identity stored on the volume, or "" if none.
+	ReadVolumeID(ctx context.Context) (string, error)
+	// WriteVolumeID stores id. It fails with os.ErrExist if an identity is there.
+	WriteVolumeID(ctx context.Context, id string) error
+}
+
+var _ Volume = (*fsStore)(nil)

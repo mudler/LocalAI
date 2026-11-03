@@ -228,6 +228,12 @@ func (a *Application) openWorkspaceIndex(root string, blobs blob.Store) (workspa
 		if err != nil {
 			return nil, nil, err
 		}
+		// Without S3, nodes that share the database must share the blob
+		// folder too; a volume that is not shared loses files silently.
+		if err := ws.VerifyBlobVolume(context.Background()); err != nil {
+			_ = ws.Close()
+			return nil, nil, err
+		}
 		return ws, ws, nil
 	}
 	ws, err := jsonstore.New(filepath.Join(root, "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal, MaxFileSize: studioMaxFileSize})

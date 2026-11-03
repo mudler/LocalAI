@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -284,3 +285,37 @@ func (r contextReader) Read(p []byte) (int, error) {
 
 // IsFilesystem distinguishes authoritative direct FS from an object-store cache.
 func (*fsStore) IsFilesystem() bool { return true }
+
+// volumeMarker is the file at the blob root whose content names the volume.
+const volumeMarker = ".volume-id"
+
+// ReadVolumeID returns the identity stored at the blob root, or "" when the
+// root has none yet.
+func (s *fsStore) ReadVolumeID(_ context.Context) (string, error) {
+	b, err := os.ReadFile(filepath.Join(s.root, volumeMarker)) // #nosec G304 -- fixed name under the canonical root.
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	return strings.TrimSpace(string(b)), err
+}
+
+// WriteVolumeID stores id at the blob root. It fails with os.ErrExist when
+// the root already has an identity, so two writers cannot both claim it.
+func (s *fsStore) WriteVolumeID(_ context.Context, id string) error {
+	f, err := os.OpenFile(filepath.Join(s.root, volumeMarker), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o400) // #nosec G304 -- fixed name under the canonical root.
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString(id + "\n")
+	if err == nil {
+		err = f.Sync()
+	}
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(f.Name())
+		return err
+	}
+	return s.syncDir(s.root)
+}
