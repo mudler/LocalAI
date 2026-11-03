@@ -365,6 +365,8 @@
   "tools": {
     "summary": "Tools ({{on}} of {{total}} on)",
     "builtins": "Built-in tools",
+    "grants": "What the agent may change",
+    "grantSensitive": "Sensitive: this changes what the agent may do or reach later.",
     "builtin": {
       "web": "Web",
       "saved_agents": "Saved agents",

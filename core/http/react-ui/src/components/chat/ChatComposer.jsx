@@ -9,6 +9,7 @@ import { gbLabel, gbNumber } from '../../utils/modelLedger'
 import { useModelFit } from '../../hooks/useModelFit'
 import { useCommandsNotice } from '../../hooks/useCommandsNotice'
 import { SAVED_AGENTS, SUBAGENTS, useToolGroups } from '../../hooks/useToolGroups'
+import { useChatGrants } from '../../hooks/useBuiltinGrants'
 import { fillStyle, hostMemory, memoryFigure } from '../home/memory'
 import HomeComposer from '../home/HomeComposer'
 import ModelPicker from '../ModelPicker'
@@ -128,7 +129,8 @@ export default function ChatComposer({
 
   // The tools and skills of the chat, each with its switch. A new chat gets
   // the draft's when it starts; an agent's chat lists only what the agent grants.
-  const toolGroups = useToolGroups(switches, { commandsInfo: commands.info })
+  const grants = useChatGrants(pickedAgent)
+  const toolGroups = useToolGroups({ ...switches, grants }, { commandsInfo: commands.info })
   const network = egress && networkMode(egress) !== 'hidden'
   // A chat whose agent has a folder reaches only that folder with its file tools.
   const scopeLine = agentFolderLine(pickedAgent, t)

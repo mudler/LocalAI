@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { chatSkillsApi, chatToolsApi } from '../utils/api'
 import { pickerSkills } from '../utils/chatSkills'
-import { addonsAfter, agentAddons, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectorsAfter, skillsAfter } from '../utils/agentTools'
+import { useBuiltinGrants } from './useBuiltinGrants'
+import { addonsAfter, agentAddons, agentGrants, grantsAfter, agentBuiltins, agentConnectors, agentSkills, builtinsAfter, connectorsAfter, skillsAfter } from '../utils/agentTools'
 
 // The Tools list of the agent form. It reads what a new chat on the agent's
 // model could use (the draft lists, the ones the Tools menu of a new chat
@@ -43,6 +44,8 @@ export function useAgentTools(form, update) {
   const addons = useMemo(() => agentAddons(panel.addons, form), [panel.addons, form])
   const connectors = useMemo(() => agentConnectors(panel.connectors, form), [panel.connectors, form])
   const skills = useMemo(() => agentSkills(skillList, form), [skillList, form])
+  const catalog = useBuiltinGrants()
+  const grantList = useMemo(() => agentGrants(catalog, form.builtins), [catalog, form.builtins])
 
   const setBuiltinsOn = useCallback(async (groups, on) => {
     const next = builtinsAfter(form, panel.builtins, groups, on)
@@ -51,9 +54,13 @@ export function useAgentTools(form, update) {
   }, [form, panel.builtins, update])
   const setAddonsOn = useCallback(async (ids, on) => { update('addons', addonsAfter(form, ids, on)) }, [form, update])
   const setMCPOn = useCallback(async (keys, on) => { update('mcp_servers', connectorsAfter(form, keys, on)) }, [form, update])
+  const setGrantsOn = useCallback(async (names, on) => { update('builtins', grantsAfter(form, names, on)) }, [form, update])
   const setSkillsOn = useCallback(async (ids, on) => { update('skills', skillsAfter(form, skillList, ids, on)) }, [form, skillList, update])
 
   return {
+    // The grants are rows with their own switch each: no bulk setter, so a
+    // click on Select all never grants a sensitive right.
+    grants: grantList.length > 0 ? { list: grantList, editable: true, onToggle: (name, on) => setGrantsOn([name], on) } : null,
     builtins, addons, servers: [], connectors, skills, replacedSkills: replaced, error, skillsError: '',
     toggleBuiltin: (g, on) => setBuiltinsOn([g], on),
     toggleAddon: (id, on) => setAddonsOn([id], on),

@@ -258,7 +258,10 @@ description, sensitive}]}` for the editor. The names are `memory.write`,
 group on). A sensitive grant changes what the agent may do or reach later; the
 editor marks it. The five `*.write` grants let the agent propose a memory note,
 its profile, a skill, a page or a dashboard change with `propose_change`; you
-confirm every proposal, and you can undo it. A write to the agent without the
+confirm every proposal, and you can undo it. The **Tools** list of the agent form
+and of a chat show the grants in one group, "What the agent may change": the form has a
+switch per grant, each with its description and a mark on the sensitive ones; a chat of
+the agent lists the grants it holds, read only. "Select all" never touches this group. A write to the agent without the
 `builtins` field keeps them, an empty list clears them and an unknown name is
 refused (an import drops it).
 

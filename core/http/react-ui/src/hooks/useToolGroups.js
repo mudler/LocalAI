@@ -78,12 +78,30 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     ...(b.group === SHELL ? shellNote(b) : builtinNote(b)),
   })
 
+  // The builtin grants of a saved agent: what the agent may ask to change
+  // (memory, its profile, skills, pages...). Each row says in plain words what
+  // the right allows, and a sensitive one says so. No onSet: Select all must
+  // never grant a right. The agent form edits them; a chat shows what its
+  // agent holds, read only.
+  const g = switches.grants
+  const grantsGroup = {
+    key: 'grants', title: tc('tools.grants'), icon: 'shield', rows: (g?.list || []).map((x) => ({
+      key: `g-${x.name}`, id: x.name,
+      label: tc(`tools.grant.${x.name.replace(/\./g, '_')}.title`, { defaultValue: x.title || x.name }),
+      description: x.gone ? '' : tc(`tools.grant.${x.name.replace(/\./g, '_')}.description`, { defaultValue: x.description || '' }),
+      note: x.gone ? tc('tools.gone') : (x.sensitive ? tc('tools.grantSensitive') : ''),
+      warn: !!x.sensitive && !x.gone,
+      on: x.on, readOnly: !g.editable, onToggle: (on) => g.onToggle?.(x.name, on),
+    })),
+  }
+
   const groups = [
     {
       // The tools LocalAI serves itself, such as web search: one switch per group.
       key: 'builtins', title: tc('tools.builtins'), icon: 'globe', onSet: switches.setBuiltinsOn,
       rows: [...switches.builtins].sort((a, b) => builtinRank(a.group) - builtinRank(b.group)).map(builtinRow),
     },
+    grantsGroup,
     {
       // An add-on shows the title and the description its manifest declares.
       key: 'addons', title: tc('tools.addons'), icon: 'puzzle', onSet: switches.setAddonsOn,

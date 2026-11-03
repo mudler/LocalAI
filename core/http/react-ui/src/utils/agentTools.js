@@ -88,3 +88,22 @@ export function skillsAfter(form, skills, ids, on) {
   const rest = list(form.skills).filter((x) => !names.has(x))
   return on ? dedupe([...rest, ...names]) : rest
 }
+
+// The builtin grants of the picker as rows: every grant the server declares,
+// on when the agent holds it. A grant the agent holds but this server does not
+// declare (an import from a newer server) stays in the list, marked, so it can
+// be taken away. Pass readOnlyHeld to list only the held ones (a chat shows
+// what its agent holds, not what it could hold).
+export function agentGrants(catalog, builtins, { heldOnly = false } = {}) {
+  const held = new Set(list(builtins))
+  const known = new Set(list(catalog).map((g) => g.name))
+  const gone = [...held].filter((n) => !known.has(n)).map((n) => ({ name: n, title: n, description: '', sensitive: false, gone: true, on: true }))
+  const rows = [...list(catalog).map((g) => ({ ...g, on: held.has(g.name) })), ...gone]
+  return heldOnly ? rows.filter((g) => g.on) : rows
+}
+
+// The builtins list of the form after these grants are switched on or off.
+export function grantsAfter(form, names, on) {
+  const rest = list(form.builtins).filter((x) => !names.includes(x))
+  return on ? dedupe([...rest, ...names]) : rest
+}

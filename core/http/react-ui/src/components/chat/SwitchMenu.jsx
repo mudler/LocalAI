@@ -2,7 +2,7 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BulkActions, SwitchGroup, SwitchHead, SwitchPopover, SwitchRow, SwitchStatus } from './SwitchList'
-import { bulkIds, bulkable, rowOn, switchCounts } from '../../utils/chatSwitchRows'
+import { bulkIds, bulkable, rowOn, switchCounts, switchRows } from '../../utils/chatSwitchRows'
 
 // The Tools chip of the composer: one switch per tool source of this chat, in
 // groups (built-in tools, add-ons, MCP servers of the model, your
@@ -25,7 +25,7 @@ export default function SwitchMenu({ icon, label, title, heading, note, notice, 
   const noteId = useId()
   const rows = groups.filter((g) => g.rows.length > 0).flatMap((g) => g.rows)
   if (rows.length === 0 && !notice) return null
-  const { on } = switchCounts(rows)
+  const { on } = switchCounts(switchRows(groups))
   return (
     <SwitchPopover icon={icon} label={label} title={title} count={on} describedBy={note ? noteId : undefined} testId={testId} menuClassName="swl-menu--wide">
       <SwitchPanel heading={heading} note={note} noteId={noteId} notice={notice} groups={groups} error={error} footer={footer} testId={testId} />
@@ -43,7 +43,11 @@ export function SwitchPanel({ heading, note, noteId, notice, groups, error, foot
 
   const shown = groups.filter((g) => g.rows.length > 0)
   const rows = shown.flatMap((g) => g.rows)
-  const { on, total } = switchCounts(rows)
+  // The count and the bulk actions cover the groups that have a setter. The
+  // grants group has none: its rows are rights, not tools, and Select all
+  // must never grant one.
+  const counted = switchRows(shown)
+  const { on, total } = switchCounts(counted)
   const titled = shown.length > 1
 
   // One request per setter, one after the other: two groups can share one
@@ -80,9 +84,9 @@ export function SwitchPanel({ heading, note, noteId, notice, groups, error, foot
     <>
       <SwitchHead
         title={heading}
-        summary={rows.length > 0 ? t('tools.count', { on, total }) : null}
+        summary={counted.length > 0 ? t('tools.count', { on, total }) : null}
         summaryTestId={`${testId}-summary`}
-        actions={bulkable(rows) > 1 ? actionsFor(shown, false) : null}
+        actions={bulkable(counted) > 1 ? actionsFor(shown.filter((g) => g.onSet), false) : null}
       >
         {note && <p className="swl-head__note" id={noteId}>{note}</p>}
       </SwitchHead>
@@ -131,7 +135,7 @@ function ToolRow({ row: r, testId }) {
       reason={reason}
       title={r.title}
       checked={rowOn(r)}
-      disabled={!usable}
+      disabled={!usable || !!r.readOnly}
       onChange={(next) => r.onToggle(next)}
       stacked={!!(reason || desc)}
       testId={`${testId}-item`}

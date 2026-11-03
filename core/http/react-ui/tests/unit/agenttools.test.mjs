@@ -46,3 +46,53 @@ test('agent tools: the request carries the switches, empty when there are none',
   assert.deepEqual(body.builtins_off, ['triggers'])
   assert.deepEqual(body.builtins_on, [])
 })
+
+// ---- builtin grants in the shared Tools list ----------------------------
+
+const grantCatalog = [
+  { name: 'memory.write', title: 'Remember things', description: 'The agent can propose a note in your memory.', sensitive: false },
+  { name: 'skills.write', title: 'Write skills', description: 'The agent can propose a skill.', sensitive: true },
+]
+
+test('agentGrants lists every declared grant, on when the agent holds it, and keeps an unknown held one', async () => {
+  const { agentGrants, grantsAfter } = await import('../../src/utils/agentTools.js')
+  const rows = agentGrants(grantCatalog, ['skills.write', 'from.the.future'])
+  assert.deepEqual(rows.map((r) => [r.name, r.on]), [['memory.write', false], ['skills.write', true], ['from.the.future', true]])
+  assert.equal(rows[2].gone, true)
+  assert.deepEqual(agentGrants(grantCatalog, ['skills.write'], { heldOnly: true }).map((r) => r.name), ['skills.write'])
+  assert.deepEqual(agentGrants(grantCatalog, undefined).map((r) => r.on), [false, false])
+  assert.deepEqual(grantsAfter({ builtins: ['memory.write'] }, ['skills.write'], true), ['memory.write', 'skills.write'])
+  assert.deepEqual(grantsAfter({ builtins: ['memory.write', 'skills.write'] }, ['memory.write'], false), ['skills.write'])
+  assert.deepEqual(grantsAfter({}, ['memory.write'], true), ['memory.write'])
+})
+
+test('the Tools list shows each grant with its plain words, marks the sensitive ones and offers no bulk change', async () => {
+  const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+  const { agentGrants } = await import('../../src/utils/agentTools.js')
+  const { switchRows, switchCounts } = await import('../../src/utils/chatSwitchRows.js')
+  const imports = Object.assign({}, ...await Promise.all(['chatMCP', 'chatCommands'].map((n) => import(`../../src/utils/${n}.js`))))
+  const harness = hookHarness('../../src/hooks/useToolGroups.js', 'useToolGroups', {
+    useTranslation: () => ({ t: (key, o) => (o?.defaultValue ?? key) }), connectorRef: imports.connectorRef, unknownTextKey: imports.unknownTextKey,
+  }, (source) => source.replace(/export const/g, 'const'))
+  const toggled = []
+  const base = { builtins: [], addons: [], servers: [], connectors: [], commands: {}, setBuiltinsOn() {}, setAddonsOn() {}, setMCPOn() {} }
+  const editable = { list: agentGrants(grantCatalog, ['memory.write']), editable: true, onToggle: (n, on) => toggled.push([n, on]) }
+  const groups = harness.render({ ...base, grants: editable }, {})
+  const g = groups.find((x) => x.key === 'grants')
+  assert.ok(g, 'a grants group')
+  assert.equal(g.onSet, undefined, 'no group setter: Select all never grants a right')
+  assert.deepEqual(g.rows.map((r) => [r.label, r.description, r.on, !!r.warn, !!r.readOnly]), [
+    ['Remember things', 'The agent can propose a note in your memory.', true, false, false],
+    ['Write skills', 'The agent can propose a skill.', false, true, false],
+  ])
+  assert.equal(g.rows[1].note, 'tools.grantSensitive')
+  g.rows[1].onToggle(true)
+  assert.deepEqual(toggled, [['skills.write', true]])
+  // The count and the bulk rows leave the grants out.
+  assert.deepEqual(switchCounts(switchRows(groups)), { on: 0, total: 0 })
+  // A chat shows the held grants read only.
+  const chat = harness.render({ ...base, grants: { list: agentGrants(grantCatalog, ['memory.write'], { heldOnly: true }), editable: false } }, {})
+  assert.deepEqual(chat.find((x) => x.key === 'grants').rows.map((r) => [r.label, r.readOnly]), [['Remember things', true]])
+  // No grants prop, no section content.
+  assert.equal(harness.render(base, {}).find((x) => x.key === 'grants').rows.length, 0)
+})
