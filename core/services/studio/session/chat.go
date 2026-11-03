@@ -729,7 +729,10 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		// it here when the turn has ended meanwhile.
 		return c.queueLogged(ctx, msg, withDirective(msg.Directive, c.modelText(entry)))
 	}
-	// Reserve the turn, then store the files without the lock.
+	// Reserve the turn, then store the files without the lock. Messages that a
+	// stopped turn left queued go first.
+	carried := c.pending
+	c.pending = nil
 	c.running, c.stopped = true, false
 	c.done = make(chan struct{})
 	done := c.done
@@ -739,6 +742,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	if err != nil {
 		c.mu.Lock()
 		c.endLoopLocked(done)
+		c.pending = append(carried, c.pending...)
 		c.mu.Unlock()
 		return err
 	}
@@ -748,7 +752,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
-	full := withDirective(msg.Directive, c.modelText(entry))
+	full := strings.Join(append(carried, withDirective(msg.Directive, c.modelText(entry))), "\n\n")
 	if !logged {
 		entry.Turn = c.turnNow() + 1
 		c.appendEntry(ctx, entry)
@@ -828,7 +832,7 @@ func (c *Chat) turnNow() int {
 
 // endLoopLocked ends the running state. The caller holds c.mu.
 func (c *Chat) endLoopLocked(done chan struct{}) {
-	c.running, c.cancel, c.pending = false, nil, nil
+	c.running, c.cancel = false, nil
 	close(done)
 }
 
@@ -992,14 +996,15 @@ func (c *Chat) checkpoint(n int, text string) ChangeEvent {
 
 // Stop interrupts the running turn and waits until it has ended. The turn
 // still checkpoints, so partial work is kept and can be undone. Messages that
-// are queued for the next turn are dropped.
+// are queued for the next turn are in the transcript, so they stay queued and
+// go to the model with the next message.
 func (c *Chat) Stop(ctx context.Context) error {
 	c.mu.Lock()
 	if !c.running {
 		c.mu.Unlock()
 		return nil
 	}
-	c.stopped, c.pending = true, nil
+	c.stopped = true
 	cancel, done, hs := c.cancel, c.done, c.hs
 	c.mu.Unlock()
 	if cancel != nil {

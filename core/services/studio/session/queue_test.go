@@ -20,11 +20,11 @@ import (
 // queue of the chat. These specs drive that path.
 var _ = Describe("messages that wait for the next turn", func() {
 	var (
-		h     *sessiontest.FakeHarness
-		store session.Store
-		chat  *session.Chat
-		block chan struct{}
-		once  sync.Once
+		h       *sessiontest.FakeHarness
+		store   session.Store
+		chat    *session.Chat
+		block   chan struct{}
+		release func()
 	)
 
 	userTexts := func() []string {
@@ -39,11 +39,13 @@ var _ = Describe("messages that wait for the next turn", func() {
 		return out
 	}
 
-	release := func() { once.Do(func() { close(block) }) }
-
 	BeforeEach(func() {
-		once = sync.Once{}
-		block = make(chan struct{})
+		// Each spec has its own channel and release: a timer of the previous
+		// spec may still fire.
+		blocked := make(chan struct{})
+		var once sync.Once
+		block = blocked
+		release = func() { once.Do(func() { close(blocked) }) }
 		h = &sessiontest.FakeHarness{InjectErr: session.ErrNoTurn}
 		h.Turns = [][]sessiontest.Step{{{Hold: block}}}
 		store = sessiontest.NewMemoryStore()
@@ -96,5 +98,14 @@ var _ = Describe("messages that wait for the next turn", func() {
 		big := strings.Repeat("x", session.MaxPendingBytes/2+1)
 		Expect(chat.Send(context.Background(), session.Message{Text: big})).To(Succeed())
 		Expect(chat.Send(context.Background(), session.Message{Text: big})).To(MatchError(session.ErrTurnRunning))
+	})
+
+	It("keeps the waiting messages when the turn is stopped and sends them with the next one", func() {
+		Expect(chat.Send(context.Background(), session.Message{Text: "queued"})).To(Succeed())
+		time.AfterFunc(50*time.Millisecond, release)
+		Expect(chat.Stop(context.Background())).To(Succeed())
+		Expect(chat.Send(context.Background(), session.Message{Text: "next"})).To(Succeed())
+		Eventually(h.Sent).Should(HaveLen(2))
+		Expect(h.Sent()[1]).To(Equal("queued\n\nnext"), "a message in the transcript never reached the model")
 	})
 })
