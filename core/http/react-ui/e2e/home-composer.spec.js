@@ -59,6 +59,22 @@ test.describe('Home composer', () => {
     await mockHome(page)
   })
 
+  test('focus draws one indicator, on the card, and the message box draws none', async ({ page }) => {
+    await server(page)
+    await ready(page)
+    const card = page.getByTestId('home-composer')
+    const box = page.getByTestId('home-input')
+    const before = (await card.boundingBox()).height
+    await box.click()
+    await expect(card).toHaveCSS('box-shadow', /inset/)
+    await expect(box).toHaveCSS('outline-style', 'none')
+    await expect(box).toHaveCSS('box-shadow', 'none')
+    expect((await card.boundingBox()).height).toBe(before)
+    // the control that takes keyboard focus next keeps its own ring
+    await page.keyboard.press('Shift+Tab')
+    await expect(card.locator(':focus-visible')).toHaveCSS('outline-style', 'solid')
+  })
+
   test('a file attached on Home arrives with the first message of the new chat', async ({ page }) => {
     const seen = await server(page)
     await ready(page)
