@@ -493,6 +493,45 @@ own record of the grants.
 - An add-on that declares no `list` gets no listing tool, whatever else it
   declares.
 
+### Credentials and a resource list
+
+An add-on whose tools call a service with a secret of the person, such as an
+access token, can ask the host to keep the secret and to check which resources
+a call may reach. The model never sees or sets either.
+
+```json
+{
+  "api": {"min": 2, "max": 2},
+  "capabilities": {
+    "credentials": [
+      {"id": "token", "title": "Access token", "kind": "token", "resourceArgument": "repo"}
+    ],
+    "connector": {"kinds": [{"id": "example", "title": "Example", "delivery": "pull"}]}
+  }
+}
+```
+
+- The secret and the list live in the person's **binding** of the add-on's
+  connector kind. The host seals the secret. The list is `Binding.Resources`: at
+  most 50 entries, each an external name (`owner/name` for a repository) with a
+  host ID made from its hash. The person edits it where they edit the binding.
+- `resourceArgument` names a string argument that carries the external name. A
+  tool that declares it must require it. Before the add-on is called, the host
+  matches the argument against the lists of the caller's bindings of the add-on,
+  without regard to case. A name on no list is refused with the code
+  `resource_not_allowed` and the allowed names; the add-on is not called. When
+  two bindings list the same name, the first in list order is used.
+- A call that passes the check carries `Request.Credential` (the secret),
+  `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
+  (the host ID). The host drops these three fields from any request a client
+  sends. A person with no binding gets the code `no_credential`.
+- A manifest with `credentials` must accept `api` 2, declare a connector kind and
+  declare read tools only: a change under a credential needs a write mode, which
+  this version does not have. Tools of such an add-on name no `resourceId`.
+- An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
+  The runtime answers HTTP 429 with `Retry-After`; the model gets the code
+  `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
+
 ## Singleton owner and its limits
 
 Addon state lives in one place. Exactly one LocalAI instance is the **owner** of an

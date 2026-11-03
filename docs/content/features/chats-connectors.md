@@ -7,7 +7,7 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack) (the [GitHub add-on](#github) holds a token for your agents instead of carrying messages). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -133,6 +133,20 @@ speech-to-text model is set up") and no turn starts.
 `GET`, `PUT` and `DELETE /api/chats/connectors/{id}` read, replace and delete a
 binding. `POST .../enable` and `.../disable` switch it. You can have 10 bindings.
 A binding says `active: false` and gives a `reason` while its add-on does not run.
+
+## GitHub
+
+The GitHub add-on lets your [saved agents](/features/chats-agents/) read repositories: search code, read files and folders, and read issues, pull requests and their diffs. It reads only. It cannot write, merge or delete anything on GitHub.
+
+1. Install the **GitHub** add-on from the add-on gallery.
+2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. Give it read access to Contents, Issues and Pull requests. Classic tokens are not accepted.
+3. On the add-on page, choose **New GitHub connection**. Pick an agent, paste the token and list the repositories, one `owner/name` per line (at most 50). Press **Test** to see whose token it is and which listed repositories it reaches.
+
+The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not on it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. With several connections, a call uses the first one that lists the repository.
+
+What GitHub returns (issue text, comments, file content) is written by other people. Every result is marked as untrusted data for the model. Long files are cut at 96 KiB and long patches at 64 KiB; the result says what was cut and how to ask for the rest. When GitHub limits the rate of calls, the agent is told how long to wait.
+
+This version does not listen for mentions and has no write tools.
 
 ## Slack
 
