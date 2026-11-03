@@ -131,6 +131,9 @@ type Capabilities struct {
 	UI                *UI                `json:"ui,omitempty"`
 	ExecutionProvider *ExecutionProvider `json:"executionProvider,omitempty"`
 	HostOperations    *HostOperations    `json:"hostOperations,omitempty"`
+	// Network declares the network policy of the commands the add-on runs
+	// (see network.go). It attaches the network-policy host control.
+	Network *NetworkCapability `json:"network,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -389,6 +392,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateExtensions(c); e != nil {
+		return e
+	}
+	if e := c.Network.validate(m); e != nil {
 		return e
 	}
 	if e := validateResourceTools(c); e != nil {

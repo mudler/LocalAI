@@ -42,7 +42,7 @@ func rejectExtensionAliases(b []byte, keys ...string) error {
 }
 
 func (c *Capabilities) UnmarshalJSON(b []byte) error {
-	if err := rejectExtensionAliases(b, "executionProvider", "hostOperations"); err != nil {
+	if err := rejectExtensionAliases(b, "executionProvider", "hostOperations", "network"); err != nil {
 		return err
 	}
 	type wire Capabilities
