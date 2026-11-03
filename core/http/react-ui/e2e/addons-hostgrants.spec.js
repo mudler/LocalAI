@@ -156,6 +156,27 @@ test.describe('Host access: install dialog', () => {
     await page.goto('/app/addons?tab=browse')
     await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
     await expect(page.getByTestId('hostaccess-not-official')).toContainText('not the official library')
+    await expect(page.getByTestId('install-dialog').getByTestId('untrusted-source')).toContainText('runs as trusted code on this server')
+  })
+
+  test('warns in the first step of an add-on from another library that asks for no host operation', async ({ page }) => {
+    const none = { ...PREVIEW, official: false, requested: { required: [], optional: [] }, ops: [] }
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'community', official: false })], hostgrants: { preview: none } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('untrusted-source')).toContainText('This add-on comes from community, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.')
+    await expect(dialog.getByTestId('install-host-access')).toHaveCount(0)
+    await expect(dialog.getByTestId('install-confirm')).toBeEnabled()
+    await shoot(page, 'install-untrusted')
+  })
+
+  test('does not warn about the source for an entry and a preview that are both official', async ({ page }) => {
+    await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'official', official: true })], hostgrants: { preview: PREVIEW } })
+    await page.goto('/app/addons?tab=browse')
+    await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+    await expect(page.getByTestId('install-dialog').getByTestId('install-host-access')).toBeVisible()
+    await expect(page.getByTestId('untrusted-source')).toHaveCount(0)
   })
 
   test('blocks the install when a required operation is blocked by the administrator policy', async ({ page }) => {
@@ -203,6 +224,15 @@ test.describe('Host access: held upgrade', () => {
     ],
   }
 
+  test('warns above the approval form when the package is not from the official library', async ({ page }) => {
+    await open(page, { hostgrants: { overview: waiting(), preview: { ...upgradePreview, official: false } } })
+    await page.goto('/app/addons')
+    await page.getByTestId('host-waiting').getByRole('button', { name: /Review and approve/ }).click()
+    const dialog = page.getByTestId('approve-dialog')
+    await expect(dialog.getByTestId('approve-untrusted-source')).toContainText('runs as trusted code on this server')
+    await expect(dialog.getByTestId('approve-confirm')).toBeEnabled()
+  })
+
   test('shows a banner and a chip, keeps the old version, and approves with the upgrade action', async ({ page }) => {
     const { state, host } = await open(page, { hostgrants: { overview: waiting(), preview: upgradePreview } })
     await page.goto('/app/addons')
@@ -216,6 +246,7 @@ test.describe('Host access: held upgrade', () => {
     const dialog = page.getByTestId('approve-dialog')
     await expect(dialog.locator('[data-op="workspace.export"]')).toHaveAttribute('data-added', 'true')
     await expect(dialog.locator('[data-op="workspace.materialize"]')).not.toHaveAttribute('data-added', 'true')
+    await expect(dialog.getByTestId('approve-untrusted-source')).toHaveCount(0)
     await shoot(page, 'upgrade-approve')
     await dialog.getByTestId('approve-confirm').click()
     await expect.poll(() => host.log.filter(l => l.path === '/install').length).toBe(1)
