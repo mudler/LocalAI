@@ -11,6 +11,7 @@ import HomeUndoToast from '../components/home/HomeUndoToast'
 import SettingField from '../components/settings/SettingField'
 import BuiltinToolsSection from '../components/settings/BuiltinToolsSection'
 import AddonUpgradeSettings from '../components/settings/AddonUpgradeSettings'
+import ConnectorFilesSettings from '../components/settings/ConnectorFilesSettings'
 import OwnerBuiltinToolsSection from '../components/settings/OwnerBuiltinToolsSection'
 import PendingBar from '../components/settings/PendingBar'
 import HistorySheet from '../components/settings/HistorySheet'
@@ -422,6 +423,7 @@ export default function Settings() {
             <section aria-labelledby="st-group-title">
               <h2 className="st-h2" id="st-group-title">{active.label}<span className="st-sub">{active.hint}</span></h2>
               {group === 'backends' && settings.addon_host_settings_authority && <AddonUpgradeSettings />}
+              {group === 'backends' && settings.addon_host_settings_authority && <ConnectorFilesSettings />}
               {group === 'memory' && <MemoryNow resources={resources} settings={settings} onRefresh={fetchResources} />}
               {group === 'access' && (
                 <p className="st-note">Sign-in, users, invites and per-user API keys are under Users and keys when authentication is on.</p>

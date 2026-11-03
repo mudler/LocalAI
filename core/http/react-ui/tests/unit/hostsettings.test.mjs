@@ -16,8 +16,8 @@ globalThis.document = dom.window.document
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 // React DOM detects input event support at import time, after JSDOM exists.
 const { createRoot } = await import('react-dom/client')
-// All eight fields are emitted by Go Policy.MarshalJSON (no omitempty).
-const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false }
+// All nine fields are emitted by Go Policy.MarshalJSON.
+const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0 }
 const dto = (revision = 1, policy = {}) => ({ schema_version: 1, revision, policy: { ...defaults, ...policy } })
 const reply = data => new Response(JSON.stringify({ payload: { data } }), { status: 200 })
 
@@ -95,6 +95,7 @@ test('owner client rejects partial, mistyped, unknown and oversized owner polici
     ...Object.keys(defaults).map(key => { const value = dto(); delete value.policy[key]; return value }),
     ...Object.keys(defaults).map(key => dto(1, { [key]: null })),
     dto(1, { chats_egress_allow_private: 'false' }), dto(1, { auto_upgrade_addons: 0 }),
+    dto(1, { connector_files_ceiling_bytes: '5' }), dto(1, { connector_files_ceiling_bytes: -1 }), dto(1, { connector_files_ceiling_bytes: 1.5 }), dto(1, { connector_files_ceiling_bytes: 2 ** 40 + 1 }),
     dto(1, { chats_egress_ports: 443 }), dto(1, { chats_egress_ceiling: 'future' }),
     dto(1, { chats_egress_allowed_hosts: 'é'.repeat(4097) }),
     dto(1, { chats_tool_providers: new Date() }), dto(1, { future_owner_guard: false }),
@@ -262,15 +263,16 @@ async function providerRender() {
       if (!id.startsWith('\0provider-stub:')) return
       if (id.endsWith('/UnsavedChangesGuard')) return 'export default function Guard() { return null }'
       if (id.endsWith('react-i18next')) return 'export const useTranslation = () => ({ t: key => key, i18n: { language: "en" } })'
-      return 'export const chatBuiltinToolsApi = { list: () => globalThis.providerCatalog() }; export const settingsApi = { get: () => fetch("/api/settings"), save: () => fetch("/api/settings") }'
+      return 'export const chatBuiltinToolsApi = { list: () => globalThis.providerCatalog() }; export const chatConnectorsApi = { kinds: () => globalThis.connectorKinds() }; export const settingsApi = { get: () => fetch("/api/settings"), save: () => fetch("/api/settings") }'
     },
   }] })
   const { default: Form } = await server.ssrLoadModule('/src/components/hostcontrols/HostControlsForm.jsx')
   await server.ssrLoadModule('/src/components/hostcontrols/ToolProvidersSettings.jsx')
   const { default: Skills } = await server.ssrLoadModule('/src/components/addons/AddonSkills.jsx')
   const { default: Upgrades } = await server.ssrLoadModule('/src/components/settings/AddonUpgradeSettings.jsx')
+  const { default: ConnectorFiles } = await server.ssrLoadModule('/src/components/settings/ConnectorFilesSettings.jsx')
   const root = createRoot(document.getElementById('root'))
-  return { Form, Skills, Upgrades, async render(Component, props) { await act(async () => root.render(React.createElement(Component, props))) }, async close() { await act(async () => root.unmount()); await server.close() } }
+  return { Form, Skills, Upgrades, ConnectorFiles, async render(Component, props) { await act(async () => root.render(React.createElement(Component, props))) }, async close() { await act(async () => root.unmount()); await server.close() } }
 }
 const buttonNamed = text => [...document.querySelectorAll('button')].find(b => b.textContent === text)
 const skillSwitch = name => document.querySelector(`[data-testid="app-skill-${name}-switch"]`)
@@ -382,3 +384,38 @@ test('mounted skills retain conflict edits, require visible rebase and retry unc
     assert.equal(calls.filter(c => c.action === 'host-settings-update').length, 2)
   } finally { await h.close(); globalThis.fetch = previous }
  })
+
+test('mounted connector file ceiling states the size in effect, validates, and writes only its own owner key', async () => {
+  const previous = globalThis.fetch, calls = []
+  let revision = 3, ceiling = 0
+  globalThis.fetch = async (url, opts) => {
+    assert.equal(url, '/api/addons/dispatch')
+    const body = JSON.parse(opts.body); calls.push(body)
+    if (body.action === 'host-settings-update') {
+      assert.deepEqual(body.arguments, { expectedRevision: 3, patch: { connector_files_ceiling_bytes: 5 * 1024 * 1024 } })
+      ceiling = body.arguments.patch.connector_files_ceiling_bytes; revision++
+    }
+    return reply(dto(revision, { connector_files_ceiling_bytes: ceiling }))
+  }
+  globalThis.connectorKinds = async () => ({ kinds: [{ kind: 'x', files: { inline_bytes: 1024 * 1024, host_ceiling_bytes: ceiling || 100 * 1024 * 1024 } }] })
+  const h = await providerRender()
+  try {
+    await h.render(h.ConnectorFiles, {})
+    const input = () => document.querySelector('[data-testid="connector-files-ceiling"]')
+    const setValue = async value => {
+      const setter = Object.getOwnPropertyDescriptor(globalThis.window.HTMLInputElement.prototype, 'value').set
+      await act(async () => { setter.call(input(), value); input().dispatchEvent(new globalThis.window.Event('input', { bubbles: true })) })
+    }
+    assert.match(document.body.textContent, /Now: 100 MiB\./)
+    assert.match(document.querySelector('[data-testid="connector-files-inline"]').textContent, /Files up to 1 MiB are sent now; larger files need the add-on to support streaming\./)
+    assert.equal(buttonNamed('Apply file ceiling').disabled, true, 'nothing changed')
+    await setValue('0.0001')
+    assert.match(document.body.textContent, /Use a size from 1 KiB to 1 TiB/)
+    assert.equal(buttonNamed('Apply file ceiling').disabled, true)
+    await setValue('5')
+    await act(async () => buttonNamed('Apply file ceiling').click())
+    assert.equal(ceiling, 5 * 1024 * 1024)
+    assert.match(document.body.textContent, /Now: 5 MiB\./)
+    assert.equal(input().value, '5')
+  } finally { await h.close(); globalThis.fetch = previous; delete globalThis.connectorKinds }
+})

@@ -8,19 +8,22 @@ export class HostSettingsError extends Error {
 
 const POLICY_STRINGS = ['chats_egress_ceiling', 'chats_egress_default', 'chats_egress_ports', 'chats_egress_extra_registries', 'chats_egress_allowed_hosts']
 const POLICY_BOOLEANS = ['chats_egress_allow_private', 'auto_upgrade_addons']
-const POLICY_KEYS = [...POLICY_STRINGS, ...POLICY_BOOLEANS, 'chats_tool_providers']
+const POLICY_NUMBERS = ['connector_files_ceiling_bytes']
+const MAX_FILES_CEILING = 2 ** 40 // mirrors contract.MaxDeclaredFileBytes
+const POLICY_KEYS = [...POLICY_STRINGS, ...POLICY_BOOLEANS, ...POLICY_NUMBERS, 'chats_tool_providers']
 const DEFINITE_ERRORS = ['invalid', 'revision_conflict', 'operation_mismatch']
 const plain = value => value !== null && typeof value === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(value))
 const exact = (value, keys) => plain(value) && Reflect.ownKeys(value).length === keys.length && keys.every(key => Object.hasOwn(value, key))
 const byteLength = value => new TextEncoder().encode(value).length
 
 function validPolicy(policy) {
-  // Policy's Go JSON tags have no omitempty; MarshalJSON emits {} for pins.
+  // Policy.MarshalJSON writes every key (zero means the default) and emits {} for pins.
   // Do not turn missing/unknown fields into frontend defaults. A future owner
   // schema needs an explicit client migration rather than a partial snapshot.
   if (!exact(policy, POLICY_KEYS)) return false
   if (!POLICY_STRINGS.every(key => typeof policy[key] === 'string' && policy[key].length <= 8192 && byteLength(policy[key]) <= 8192)) return false
   if (!POLICY_BOOLEANS.every(key => typeof policy[key] === 'boolean')) return false
+  if (!POLICY_NUMBERS.every(key => Number.isSafeInteger(policy[key]) && policy[key] >= 0 && policy[key] <= MAX_FILES_CEILING)) return false
   if (!['chats_egress_ceiling', 'chats_egress_default'].every(key => ['', 'off', 'registries', 'all'].includes(policy[key].trim()))) return false
   const pins = policy.chats_tool_providers
   if (!plain(pins) || Reflect.ownKeys(pins).length > 128) return false
