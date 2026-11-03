@@ -257,6 +257,31 @@ test.describe('Host access: held upgrade', () => {
   })
 })
 
+// Screenshots of the source warning, saved only when UI_SHOTS_DIR is set: the
+// first step of the dialog in both themes, on a desktop and on a phone.
+test.describe('Host access: source warning screenshots', () => {
+  test.skip(!shots, 'set UI_SHOTS_DIR to save screenshots')
+  const sizes = { desktop: { width: 1280, height: 800 }, phone: { width: 390, height: 844 } }
+  const none = { ...PREVIEW, official: false, requested: { required: [], optional: [] }, ops: [] }
+  for (const theme of ['light', 'dark']) {
+    for (const [size, viewport] of Object.entries(sizes)) {
+      for (const [name, preview] of [['no-ops', none], ['host-ops', { ...PREVIEW, official: false }]]) {
+        test(`install dialog, other library, ${name}, ${theme}, ${size}`, async ({ page }) => {
+          await page.setViewportSize(viewport)
+          await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
+          await open(page, { installed: [], releases: [release('notes', { name: 'Notes', sourceId: 'community-library', official: false })], hostgrants: { preview } })
+          await page.goto('/app/addons?tab=browse')
+          await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
+          const dialog = page.getByTestId('install-dialog')
+          await expect(dialog.getByTestId('untrusted-source')).toBeVisible()
+          if (name === 'host-ops') await expect(dialog.getByTestId('install-host-access')).toBeVisible()
+          await shoot(page, `install-untrusted-${name}-${theme}-${size}`, false)
+        })
+      }
+    }
+  }
+})
+
 test.describe('Host access: page', () => {
   test('is for administrators only', async ({ page }) => {
     await signIn(page, MEMBER)

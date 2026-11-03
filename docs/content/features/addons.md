@@ -2246,6 +2246,12 @@ is the full number. The add-on cards, the Find add-ons tab and the details panel
 `addonpkg catalog-tools` adds them to an existing index from the manifests in
 `addons/<id>/manifest.json`. They are a hint like `ui`, and only an add-on entry may carry them.
 
+Every release that the host lists also carries `official`. The host sets it when it reads
+the index, from the ID and the address of the library. It is `true` only for the official
+library at an address that LocalAI ships, so a library that an administrator named `official`
+at another address does not qualify. An index cannot set it: the host overwrites whatever
+the index says. The install dialog uses it to decide whether to warn about the source.
+
 Refresh accepts at most 1 MiB and 1,000 releases. Duplicate release identities
 within a source fail. Duplicate names across sources remain distinct. Search
 matches names, IDs and descriptions, sorts by source/release identity and uses
@@ -5974,6 +5980,14 @@ When the manifest of an add-on declares host operations, the install dialog show
 - An operation that this LocalAI does not support says "Not supported by this LocalAI".
 
 For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the dialog also says which library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+
+### Add-ons from another library
+
+An add-on runs as trusted code on this server, whatever library it comes from. The first step of the install dialog therefore shows a warning for every add-on that is not from the official library, whether or not it asks for host operations:
+
+> This add-on comes from *library*, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.
+
+The same warning shows above the approval form of a held upgrade when the package is not from the official library. The dialog warns unless the library entry is marked `official` and the owner's preview agrees (the preview also checks the signature). A host that sends no answer gets the warning. The line about the library in the Host access step stays.
 
 An agent that installs an add-on through the dispatch route carries no approval. If the add-on needs a host operation that is not held, the owner answers `approval_required`.
 
