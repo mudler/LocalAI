@@ -2118,6 +2118,13 @@ person to confirm.
   never as authority.
 - **Undo.** What a tool does to the user's files is a change in the history of
   their workspace, and it can be undone there.
+- **Runs with nobody present.** A trigger or an agent job calls the tools of an
+  add-on under the action policy of unattended runs. The `kind` of the tool
+  decides the class: `read` always runs, and every other kind is refused unless
+  the run holds `act.addons` (or `act.addons:<add-on id>`). A tool that the host
+  gates with a permission, because the add-on holds a credential, also needs
+  `act.spend`. Declare `read` only for a tool that changes nothing. See
+  [Action policy of unattended runs](../chats-agents/#action-policy-of-unattended-runs).
 
 ## Host operations
 

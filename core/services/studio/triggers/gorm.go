@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -43,6 +44,8 @@ type triggerRow struct {
 	Change string `gorm:"size:1024"`
 	// Route is the JSON of Trigger.Route, empty on a trigger made in Studio.
 	Route string `gorm:"size:1024"`
+	// Acts is Trigger.Acts, comma separated; empty: read only runs.
+	Acts string `gorm:"size:1024"`
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -98,7 +101,7 @@ func (r triggerRow) trigger() Trigger {
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap,
 		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
 		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
-		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route)}
+		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts)}
 }
 
 func changeOf(raw string) Change {
@@ -115,6 +118,13 @@ func changeText(c Change) string {
 	}
 	raw, _ := json.Marshal(c)
 	return string(raw)
+}
+
+func actsOf(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	return strings.Split(raw, ",")
 }
 
 func routeOf(raw string) Route {
@@ -138,7 +148,7 @@ func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap,
 		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed,
 		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens,
-		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route)}
+		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route), Acts: strings.Join(t.Acts, ",")}
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 

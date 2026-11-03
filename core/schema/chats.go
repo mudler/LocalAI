@@ -1052,6 +1052,10 @@ type ChatsTrigger struct {
 	// file it writes; Cost what a run costs.
 	Plan ChatsTriggerPlan `json:"plan"`
 	Cost ChatsTriggerCost `json:"cost"`
+	// Acts are the action classes that a run with nobody present may use:
+	// act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
+	// without any only reads.
+	Acts []string `json:"acts,omitempty"`
 }
 
 // ChatsTriggerProposal is a trigger a chat proposed and what became of it.
@@ -1143,6 +1147,10 @@ type ChatsTriggerWrite struct {
 	// EstimatedTokens is about how many tokens one run uses; 0 keeps the
 	// trigger's value.
 	EstimatedTokens int `json:"estimated_tokens,omitempty"`
+	// Acts are the action classes that a run with nobody present may use
+	// (act.files, act.addons, act.addons:<id>, act.send, act.spend). Leave it
+	// out to keep the trigger's value; an empty list takes all of them away.
+	Acts []string `json:"acts,omitempty"`
 }
 
 // ChatsTriggerList is the response of the trigger list endpoint.

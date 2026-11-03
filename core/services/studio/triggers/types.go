@@ -139,6 +139,11 @@ type Trigger struct {
 	// where its runs report. The zero value is a trigger made in Studio, whose
 	// runs go to the Inbox. The package only stores it.
 	Route Route
+	// Acts are the action classes (act.files, act.addons, act.addons:<id>,
+	// act.send, act.spend) that the owner allowed for the runs of this
+	// trigger. A run with none only reads. The host checks them at each tool
+	// call; the package only stores them.
+	Acts []string
 }
 
 // Where the runs of a trigger report. Inbox is the default: the owner's Inbox
@@ -158,6 +163,12 @@ const (
 	ModeAlways    = "always"
 	ModeOnChange  = "on_change"
 	ModeOnProblem = "on_problem"
+)
+
+// Bounds of Trigger.Acts.
+const (
+	MaxActs     = 16
+	MaxActBytes = 80
 )
 
 // MaxRefBytes bounds the binding, chat and thread of a Route: the width of
@@ -407,6 +418,14 @@ func (t Trigger) Validate() error {
 	}
 	if err := t.Route.Validate(); err != nil {
 		return err
+	}
+	if len(t.Acts) > MaxActs {
+		return fmt.Errorf("a trigger has at most %d acts", MaxActs)
+	}
+	for _, a := range t.Acts {
+		if a == "" || len(a) > MaxActBytes || hasControl(a, false) || strings.Contains(a, ",") {
+			return errors.New("an act is a short name such as act.files")
+		}
 	}
 	switch t.Kind {
 	case KindSchedule:

@@ -191,7 +191,7 @@ func changedFields(a, b triggers.Trigger) []string {
 func (h *Triggers) inputOf(t triggers.Trigger) TriggerInput {
 	return TriggerInput{Name: t.Name, Prompt: t.Prompt, Kind: t.Kind, Schedule: t.Schedule, TZ: t.TZ, Folder: h.RelFolder(t),
 		Quiet: t.Quiet, DailyCap: t.DailyCap, AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Enabled: t.Enabled,
-		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens}
+		MinGap: t.MinGap, Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens, Acts: t.Acts}
 }
 
 // TriggerPatch is what a model asks to change in a trigger. A nil field, and

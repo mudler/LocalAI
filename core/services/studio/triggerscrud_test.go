@@ -38,7 +38,7 @@ func newScopedTrig(script func(workspace.Actor, string) []studiotest.ToolStep) *
 		s.mkdirIn(sh, d)
 	}
 	s.trigRig = sh.rig(script, studio.TriggerOptions{})
-	ag, err := s.svc.SaveAgentWithFolder(ctx, alice, agents.Agent{Name: "Acme", Model: "m"},
+	ag, err := s.svc.SaveAgentWithFolder(ctx, alice, agents.Agent{Name: "Acme", Model: "m", Builtins: []string{"act.files"}},
 		&studio.AgentFolderWrite{Path: "/Projects/Acme", Mode: agents.FolderWrite})
 	Expect(err).NotTo(HaveOccurred())
 	s.agent = ag

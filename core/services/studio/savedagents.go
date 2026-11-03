@@ -42,6 +42,10 @@ var (
 	// ErrSavedAgentWithTools means spawn_agent named an agent and tools: the
 	// agent's definition decides its tools.
 	ErrSavedAgentWithTools = errors.New("tools cannot be combined with agent: the saved agent's definition decides its tools")
+	// ErrSavedAgentUnattended means a run that nobody watches (a trigger or a
+	// job) tried to start a saved agent: that agent would not carry the limits
+	// of the run.
+	ErrSavedAgentUnattended = errors.New("a run that nobody watches cannot start a saved agent")
 )
 
 const listAgentsDescription = "List the saved agents of the user that you may start as sub-agents: id, name and description, and the folder and mode (read or write) of an agent that works in one. " +

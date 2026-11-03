@@ -3131,6 +3131,14 @@ definitions:
     type: object
   schema.ChatsAdminTrigger:
     properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use:
+          act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
+          without any only reads.
+        items:
+          type: string
+        type: array
       agent_id:
         type: string
       cost:
@@ -6145,6 +6153,14 @@ definitions:
     type: object
   schema.ChatsTrigger:
     properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use:
+          act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
+          without any only reads.
+        items:
+          type: string
+        type: array
       agent_id:
         type: string
       cost:
@@ -6327,6 +6343,14 @@ definitions:
     type: object
   schema.ChatsTriggerWrite:
     properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use
+          (act.files, act.addons, act.addons:<id>, act.send, act.spend). Leave it
+          out to keep the trigger's value; an empty list takes all of them away.
+        items:
+          type: string
+        type: array
       agent_id:
         description: |-
           AgentID is optional. Model is needed when neither the agent nor the source

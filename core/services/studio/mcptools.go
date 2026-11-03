@@ -55,6 +55,8 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]ses
 		tools, missing = append(tools, t...), append(missing, m...)
 	}
 	t, m = s.mcpTools(ctx, a, rec, sc, tools)
+	// MCP tools are external: an unattended run needs act.spend for them.
+	t = s.gateExternalAct(ctx, rec, t)
 	return append(tools, t...), append(missing, m...), nil
 }
 

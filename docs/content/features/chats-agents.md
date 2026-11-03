@@ -276,8 +276,8 @@ on the list. The moment you grant any built-in, the list is the whole answer, so
 add the connector grants you want to keep (granting only `memory.write` to an agent
 that proposed triggers from a messaging app turns those off; nothing is deleted
 and they work again when you grant `triggers.propose`). The `act.*` grants are
-recorded but not enforced yet: the action policy of unattended runs that uses them
-is still to come.
+the ceiling of the action policy of unattended runs (see
+[Action policy of unattended runs](#action-policy-of-unattended-runs)).
 
 ### Export and import
 
@@ -398,6 +398,56 @@ message as rules for the run. Treat it as text from whoever can write there.
   trigger off. An agent whose folder is missing or not chosen skips the run with
   "the agent's folder is missing" and switches the trigger off. Each of these
   tells the owner.
+
+### Action policy of unattended runs
+
+A trigger run or an agent job has nobody at the screen to approve a step, so it
+starts read only. LocalAI checks every tool call of such a run at the moment of
+the call, not in the prompt. A tool that only reads always runs. Any other tool
+runs only if the run holds the grant for its class. Add-on tools and MCP tools
+always have a class. The other built-in tools either read or need a grant that a
+run which started by itself never holds. Nothing is allowed on a doubt: a trigger or a connection
+that cannot be read at that moment gives a read only run.
+
+| Class | Grant | Tools |
+|---|---|---|
+| Read | none | Tools that only read: the add-on tools of kind `read`, the file reading tools, web search and fetch, and the other built-in tools that only read. |
+| Files | `act.files` | `write_file`, `edit_file`, `move_file`, `delete_file`, and the built-in `bash` of this machine. |
+| Add-on actions | `act.addons`, or `act.addons:<add-on id>` for one add-on | Every add-on tool whose kind is not `read` (`action`, `write`, `schema`, `create`), including an add-on that serves `bash`. |
+| Outside | `act.spend` | MCP tools (of a server or a connector), and an add-on action tool that the add-on declares with a permission, which means it acts outside LocalAI with a credential. The last one needs `act.addons` as well. |
+| Send | `act.send` | Reserved for messages beyond the delivery target. No tool of this class exists yet. |
+
+What a run holds:
+
+- **A trigger run** holds the `acts` of its trigger, limited to the `act.*`
+  grants of its agent (`builtins`). A trigger without an agent has no ceiling but
+  its own `acts`. Set `acts` in the body of `POST /api/chats/triggers` or
+  `PUT /api/chats/triggers/{id}`: leave it out to keep the value, send `[]` to
+  clear it. Only a person can set it. A trigger that a model proposes in a chat
+  never carries `acts`, and neither does the trigger a connector makes without
+  asking. A trigger whose plan names a file it writes (`plan.writes`) also holds
+  `act.files`, because you saw that file on the proposal card. Triggers that exist
+  before this change keep running, but they now read only unless they set `acts`
+  or `plan.writes`.
+- **An agent job run** holds the `act.*` grants of its agent, and nothing without
+  an agent. A job has no `acts` of its own.
+- **Read only runs.** A trigger whose proposal said its runs only read
+  (`access: read_only`), or that a connection made without asking while its
+  approval mode is `auto_readonly` (see
+  [Approval modes](../chats-connectors/#approval-modes)), holds nothing: every
+  tool that is not a read is refused, whatever `acts` and the agent say. A
+  connection that cannot be read is treated as `auto_readonly`.
+- **Sub-agents.** A sub-agent of an unattended run has the same limits as its
+  parent. A run that nobody watches cannot start a saved agent as a sub-agent.
+
+A refused tool stays in the tool list and answers with one plain sentence instead
+of running, for example "I did not run write_file: nobody is here to approve it
+and this run has no permission for act.files. Say in your answer what you wanted
+to do; the owner can allow act.files for this run." The model then reports it in
+its answer. The refusal is a result, not an error, so the model does not retry.
+Each call of a tool that is not a read writes one log line, `studio: unattended
+action`, with the chat, the trigger or job, the tool, `allowed`, `reason`
+(`granted`, `not_granted` or `read_only`) and the missing grant.
 
 ### Triggers of an agent with a folder
 

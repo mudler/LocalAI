@@ -18776,6 +18776,13 @@ const docTemplate = `{
         "schema.ChatsAdminTrigger": {
             "type": "object",
             "properties": {
+                "acts": {
+                    "description": "Acts are the action classes that a run with nobody present may use:\nact.files, act.addons, act.addons:\u003cid\u003e, act.send, act.spend. A run\nwithout any only reads.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "agent_id": {
                     "type": "string"
                 },
@@ -22722,6 +22729,13 @@ const docTemplate = `{
         "schema.ChatsTrigger": {
             "type": "object",
             "properties": {
+                "acts": {
+                    "description": "Acts are the action classes that a run with nobody present may use:\nact.files, act.addons, act.addons:\u003cid\u003e, act.send, act.spend. A run\nwithout any only reads.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "agent_id": {
                     "type": "string"
                 },
@@ -22980,6 +22994,13 @@ const docTemplate = `{
         "schema.ChatsTriggerWrite": {
             "type": "object",
             "properties": {
+                "acts": {
+                    "description": "Acts are the action classes that a run with nobody present may use\n(act.files, act.addons, act.addons:\u003cid\u003e, act.send, act.spend). Leave it\nout to keep the trigger's value; an empty list takes all of them away.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "agent_id": {
                     "description": "AgentID is optional. Model is needed when neither the agent nor the source\nchat names one.",
                     "type": "string"

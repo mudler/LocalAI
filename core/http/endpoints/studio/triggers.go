@@ -41,7 +41,8 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 		Folder: host.RelFolder(t), QuietSeconds: int(t.Quiet / time.Second), DailyCap: t.CapOrDefault(), Enabled: t.Enabled,
 		AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Summary: host.Summary(t),
 		Plan: schema.ChatsTriggerPlan{Reads: t.Reads, Writes: t.Writes, Widget: t.Widget},
-		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)}}
+		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)},
+		Acts: t.Acts}
 	if t.Kind == triggers.KindFile {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}
@@ -75,6 +76,9 @@ func triggerIn(req schema.ChatsTriggerWrite) studiosvc.TriggerInput {
 		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap,
 		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled}
 	in.MinGap, in.EstTokens = time.Duration(req.MinGapSeconds)*time.Second, req.EstimatedTokens
+	if req.Acts != nil {
+		in.Acts = req.Acts
+	}
 	if req.Plan != nil {
 		in.Reads, in.Writes, in.Widget = req.Plan.Reads, req.Plan.Writes, req.Plan.Widget
 	}

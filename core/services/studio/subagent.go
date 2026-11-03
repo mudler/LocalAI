@@ -245,6 +245,9 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// load_skill learns from the final list whether the chat can read a
 	// skill's files and run what a skill needs.
 	tools = s.fitLoadSkill(a, tools)
+	// The action policy of a run that nobody watches: the tools that change
+	// files or run commands on this machine are checked at each call.
+	tools = s.gateBuiltinActs(ctx, rec, tools)
 	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
 }
 
@@ -311,6 +314,11 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		}
 		if err := s.savedAgentsAllowed(ctx, parent); err != nil {
 			return "", err
+		}
+		if unattended(parent.Origin) {
+			// The chat of a saved agent has no origin, so it would not carry the
+			// rights of this run.
+			return "", ErrSavedAgentUnattended
 		}
 		if agent, err = s.resolveAgent(ctx, a.Principal, ref); err != nil {
 			return "", err
@@ -451,6 +459,8 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.
 		have = s.applyBuiltins(have, s.builtinsFor(ctx, a, parent, true))
+		// A sub-agent of a run that nobody watches has the rights of that run.
+		have = s.gateBuiltinActs(ctx, parent, have)
 	}
 	if names == nil {
 		kept := have[:0:0]

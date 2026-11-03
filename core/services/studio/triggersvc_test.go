@@ -719,7 +719,8 @@ var _ = Describe("trigger runs of a scoped agent", func() {
 			}
 		})
 		s.put("/Projects/Other/secret.txt", "OUTSIDE-SECRET-MARKER")
-		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID})
+		// A run that nobody watches writes only with act.files (the action policy).
+		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID, Acts: []string{"act.files"}})
 		s.due()
 		run := s.waitEnded(tr.ID)
 		Expect(run.Status).To(Equal(triggers.StatusDone), "run = %+v", run)

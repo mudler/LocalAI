@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
@@ -58,6 +59,11 @@ type TriggerInput struct {
 	// Route is the connector place a proposal came from and where its runs
 	// report. A person's form leaves it empty and an edit keeps the old one.
 	Route triggers.Route
+	// Acts are the action classes an unattended run of the trigger may use
+	// (act.files, act.addons, act.addons:<id>, act.send, act.spend). Nil keeps
+	// what the trigger has; an empty list takes everything away. Only a
+	// person sets them: a model's proposal never carries acts.
+	Acts []string
 }
 
 // keepPlan fills the fields of the plan and the gap that in leaves empty from
@@ -78,6 +84,9 @@ func keepPlan(old triggers.Trigger, in TriggerInput) TriggerInput {
 	}
 	if in.MinGap == 0 {
 		in.MinGap = old.MinGap
+	}
+	if in.Acts == nil {
+		in.Acts = old.Acts
 	}
 	return in
 }
@@ -149,6 +158,11 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
 		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
 		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route}
+	acts, err := cleanActs(in.Acts)
+	if err != nil {
+		return t, err
+	}
+	t.Acts = acts
 	if w := strings.TrimSpace(in.Writes); w != "" {
 		// A path of the home as the person writes it, stored as they see it:
 		// the widget footer and the proposal card show it back.
@@ -760,4 +774,19 @@ func (h *Triggers) RelFolder(t triggers.Trigger) string {
 		return rel
 	}
 	return t.Folder
+}
+
+// cleanActs checks the act names of a trigger and removes repeats.
+func cleanActs(names []string) ([]string, error) {
+	var out []string
+	for _, n := range names {
+		n = strings.TrimSpace(n)
+		switch {
+		case !builtins.ValidActGrant(n):
+			return nil, bad("%q is not an act; use act.files, act.addons, act.addons:<id>, act.send or act.spend", n)
+		case !slices.Contains(out, n):
+			out = append(out, n)
+		}
+	}
+	return out, nil
 }

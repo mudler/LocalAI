@@ -615,7 +615,7 @@ page of the connector add-on, or in the `approval` field of the binding
 |---|---|
 | `ask` (default) | The bot posts the proposal and waits for a plain answer. |
 | `auto` | The trigger is made at once. The bot tells the person what was set up and that `cancel` (within 30 minutes) or `cancel CODE` (any time) removes it. |
-| `auto_readonly` | Like `auto` when the proposal says its runs only read and report (`access: read_only`, no file written); any other proposal asks. |
+| `auto_readonly` | Like `auto` when the proposal says its runs only read and report (`access: read_only`, no file written); any other proposal asks. The runs of a trigger made this way can use only tools that read: every other tool is refused at the call, whatever the agent holds (see [Action policy of unattended runs](../chats-agents/#action-policy-of-unattended-runs)). |
 
 The automatic modes are bounded by limits of the owner. Anything over a limit is not
 refused but asked instead, and the proposal says why.

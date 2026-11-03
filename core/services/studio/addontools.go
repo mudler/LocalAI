@@ -209,6 +209,7 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 		}
 	}
 	var tools []session.Tool
+	pol, guarded := s.actPolicy(ctx, rec)
 	gate, _ := s.d.AddonTools.(AddonGate)
 	reasons := map[string]string{}
 	for _, d := range defs {
@@ -241,6 +242,9 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			schema = json.RawMessage(`{"type":"object"}`)
 		}
 		if t, ok := s.shadowTool(a, d, schema); ok {
+			if guarded {
+				t = s.gateAddonAct(rec, pol, t, d)
+			}
 			tools = append(tools, t)
 			continue
 		}
@@ -257,6 +261,9 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 			if tool, ok = s.gateAddonTool(tool, d.Permission, a.ChatID); !ok {
 				continue
 			}
+		}
+		if guarded {
+			tool = s.gateAddonAct(rec, pol, tool, d)
 		}
 		tools = append(tools, tool)
 	}
