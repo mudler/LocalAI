@@ -398,6 +398,24 @@ func (t *ToolAdapter) Controls(ctx context.Context, actor contract.Actor, addonI
 	return nil, nil
 }
 
+// Network returns the network an add-on declares, when the actor can see the
+// add-on and the apps list draws its network-policy control.
+func (t *ToolAdapter) Network(ctx context.Context, actor contract.Actor, addonID string) (apps.NetworkView, bool, error) {
+	if err := checkActor(actor); err != nil {
+		return apps.NetworkView{}, false, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return apps.NetworkView{}, false, gateway.ClassifyCheck(err)
+	}
+	for _, a := range list.Apps {
+		if a.ID == addonID && a.Network != nil {
+			return *a.Network, true, nil
+		}
+	}
+	return apps.NetworkView{}, false, nil
+}
+
 // AddonSkills is the skills of one add-on the actor can see.
 type AddonSkills struct {
 	AddonID, Title string

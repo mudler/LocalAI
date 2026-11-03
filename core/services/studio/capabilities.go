@@ -39,6 +39,24 @@ type AddonControls interface {
 	Controls(ctx context.Context, user, addonID string) []string
 }
 
+// AddonNetwork is the network an add-on declares for the commands it runs,
+// as the host shows it (see contract.NetworkCapability).
+type AddonNetwork struct {
+	// Title names the network in text: the declared title, else the add-on's.
+	Title string
+	// Presets are the titles the add-on gives the host's network presets.
+	Presets []contract.NetworkPreset
+}
+
+// AddonNetworks is implemented by a broker that knows the network each
+// add-on declares. It is optional: an add-on it does not answer for gets the
+// title of its commands tool.
+type AddonNetworks interface {
+	// Network returns the network of the add-on while the host draws its
+	// network-policy control.
+	Network(ctx context.Context, user, addonID string) (AddonNetwork, bool)
+}
+
 // CommandState says whether a chat can run commands.
 type CommandState string
 

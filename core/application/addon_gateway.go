@@ -608,6 +608,14 @@ func (l lateStudioAddons) Controls(ctx context.Context, user, addonID string) []
 	return nil
 }
 
+// Network forwards to the broker when it knows the network the add-ons declare.
+func (l lateStudioAddons) Network(ctx context.Context, user, addonID string) (studio.AddonNetwork, bool) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonNetworks); ok {
+		return g.Network(ctx, user, addonID)
+	}
+	return studio.AddonNetwork{}, false
+}
+
 func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	b := l.a.StudioAddonTools()
 	if b == nil {
@@ -715,6 +723,20 @@ func (s *studioAddons) Controls(ctx context.Context, user, addonID string) []str
 		return nil
 	}
 	return out
+}
+
+// Network returns the network the add-on declares while the apps list draws
+// its network-policy control, as the user reads the list.
+func (s *studioAddons) Network(ctx context.Context, user, addonID string) (studio.AddonNetwork, bool) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return studio.AddonNetwork{}, false
+	}
+	v, ok, err := s.adapter.Network(ctx, actor, addonID)
+	if err != nil || !ok {
+		return studio.AddonNetwork{}, false
+	}
+	return studio.AddonNetwork{Title: v.Title, Presets: v.Presets}, true
 }
 
 func (s *studioAddons) actor(user string) (contract.Actor, error) {

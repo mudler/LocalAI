@@ -1632,7 +1632,10 @@ type ChatsEgress struct {
 	// network-policy host control: the chat draws its Network row and links
 	// an administrator to that add-on's settings. Absent when applies is
 	// false or no such add-on runs the commands.
-	Addon      string                `json:"addon,omitempty" example:"sandbox"`
+	Addon string `json:"addon,omitempty" example:"sandbox"`
+	// Network names the network of addon in text and gives the preset titles
+	// the add-on declares. Set with addon.
+	Network    *ChatsEgressNetwork   `json:"network,omitempty"`
 	Registries []ChatsEgressRegistry `json:"registries"`
 	// AllowedHosts is the administrator's always-allowed list (host or
 	// host:port), read only here: it applies when the effective preset is
@@ -1640,6 +1643,23 @@ type ChatsEgress struct {
 	AllowedHosts []string          `json:"allowed_hosts"`
 	Rules        []ChatsEgressRule `json:"rules"`
 	Cards        []ChatsEgressCard `json:"cards"`
+}
+
+// ChatsEgressNetwork is the network of the add-on that runs the commands, as
+// the add-on declares it.
+type ChatsEgressNetwork struct {
+	// Title names the network in text: the declared title, else the title of
+	// the commands tool.
+	Title string `json:"title" example:"Sandbox"`
+	// Presets are the titles the add-on gives the host's presets; a preset
+	// that is not listed keeps the host's title.
+	Presets []ChatsEgressNetworkPreset `json:"presets"`
+}
+
+// ChatsEgressNetworkPreset is the title an add-on gives one preset.
+type ChatsEgressNetworkPreset struct {
+	ID    string `json:"id" enums:"off,registries,all" example:"off"`
+	Title string `json:"title" example:"Closed"`
 }
 
 // ChatsEgressPreset sets the preset of a chat.
@@ -1654,7 +1674,7 @@ type ChatsEgressConsent struct {
 	Decision string `json:"decision"`
 }
 
-// ChatsEgressAdmin is the administrator's view of the Sandbox network.
+// ChatsEgressAdmin is the administrator's view of the network of commands.
 type ChatsEgressAdmin struct {
 	Ceiling         string                `json:"ceiling"`
 	Default         string                `json:"default"`
@@ -1664,15 +1684,18 @@ type ChatsEgressAdmin struct {
 	AllowedHosts    []string              `json:"allowed_hosts"`
 	AuditDays       int                   `json:"audit_days"`
 	Registries      []ChatsEgressRegistry `json:"registries"`
-	// Sandbox is the add-on that runs commands, empty when none serves;
-	// Isolation is isolated, host, or empty when unknown.
+	// Sandbox is the add-on that runs commands, empty when none serves (the
+	// name of the field is kept for existing clients); Isolation is isolated,
+	// host, or empty when unknown.
 	Sandbox   string `json:"sandbox,omitempty"`
 	Isolation string `json:"isolation,omitempty"`
-	Allowed   int64  `json:"allowed_24h"`
-	Blocked   int64  `json:"blocked_24h"`
+	// Network names the network of that add-on in text. Set with sandbox.
+	Network *ChatsEgressNetwork `json:"network,omitempty"`
+	Allowed int64               `json:"allowed_24h"`
+	Blocked int64               `json:"blocked_24h"`
 }
 
-// ChatsEgressEvent is one line of the Sandbox network audit.
+// ChatsEgressEvent is one line of the audit of network requests.
 type ChatsEgressEvent struct {
 	User       string    `json:"user"`
 	UserName   string    `json:"user_name,omitempty"`

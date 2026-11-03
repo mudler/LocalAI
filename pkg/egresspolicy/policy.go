@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// Package egresspolicy parses Sandbox network policy without application dependencies.
+// Package egresspolicy parses the network policy of commands without application dependencies.
 package egresspolicy
 
 import (
@@ -14,8 +14,8 @@ import (
 	"golang.org/x/net/idna"
 )
 
-// EgressPrivatePhrase is what an administrator types to let the Sandbox
-// commands reach private addresses (chats_egress_allow_private). It is checked
+// EgressPrivatePhrase is what an administrator types to let the commands of an add-on
+// reach private addresses (chats_egress_allow_private). It is checked
 // by the settings endpoint and never stored.
 const EgressPrivatePhrase = "I understand that commands can reach my private network"
 
@@ -25,7 +25,7 @@ const MaxEgressExtraRegistries = 64
 // MaxEgressAllowedHosts bounds chats_egress_allowed_hosts.
 const MaxEgressAllowedHosts = 64
 
-// ValidEgressPreset says whether v is a preset of the Sandbox network: off,
+// ValidEgressPreset says whether v is a preset of the network of commands: off,
 // registries, all, or empty for the default (off).
 func ValidEgressPreset(v string) bool {
 	switch strings.TrimSpace(v) {

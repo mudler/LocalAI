@@ -189,10 +189,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if line := s.hintLine(ctx, a, rec); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 	}
-	// The network of the Sandbox commands, in one line: it follows the
+	// The network of the commands an add-on runs, in one line: it follows the
 	// chat's preset at each turn and needs no restart of the harness.
 	if cmds.State == CommandsAvailable && cmds.Isolation == "isolated" && cmds.Provider != BuiltinProvider {
-		line, err := s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName))
+		line, err := s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName), s.networkOf(ctx, a.Principal, cmds).Title)
 		if err != nil {
 			return session.TurnTools{}, err
 		}

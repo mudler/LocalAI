@@ -11,9 +11,9 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 )
 
-// GetEgress returns the network of a chat's Sandbox commands.
-// @Summary Read the network of a chat's Sandbox commands.
-// @Description The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no Sandbox serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.
+// GetEgress returns the network of a chat's commands.
+// @Summary Read the network of a chat's commands.
+// @Description The preset of the chat (off, registries, all), the administrator's ceiling, the preset in force (the lower of the two), whether it applies (false when commands run on this machine, applies_reason host, or no add-on serves bash, none), addon (the add-on that runs the commands and draws the network controls of the chat, from its network-policy host control; absent when none does), the package registries the preset registries admits, the chat's allow and deny rules (above_limit when the ceiling no longer admits one) and the cards that asked. A sub-agent chat shows its parent's. Another user's chat is 404.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Success 200 {object} schema.ChatsEgress "The network of the chat"
@@ -28,7 +28,7 @@ func (h *Handlers) GetEgress(c echo.Context) error {
 }
 
 // PutEgress sets the preset of a chat.
-// @Summary Set the network preset of a chat's Sandbox commands.
+// @Summary Set the network preset of a chat's commands.
 // @Description off reaches nothing; registries the HTTPS hosts of the package registries; all every public host. A preset above the administrator's ceiling (chats_egress_ceiling) is 400 egress_above_ceiling. A sub-agent follows its parent: 409. It applies at the next connection of a command.
 // @Tags chats
 // @Param id path string true "conversation id"
@@ -55,7 +55,7 @@ func (h *Handlers) PutEgress(c echo.Context) error {
 
 // DeleteEgressRule removes an allow or deny rule of a chat.
 // @Summary Remove a network rule of a chat.
-// @Description Removes the rule that allows or denies one host and port for the chat's Sandbox commands. A host that was denied asks again; one that was allowed follows the preset again.
+// @Description Removes the rule that allows or denies one host and port for the chat's commands. A host that was denied asks again; one that was allowed follows the preset again.
 // @Tags chats
 // @Param id path string true "conversation id"
 // @Param host path string true "host name"
@@ -74,8 +74,8 @@ func (h *Handlers) DeleteEgressRule(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// AdminEgress returns the administrator's view of the Sandbox network.
-// @Summary Read the settings of the Sandbox network (administrators).
+// AdminEgress returns the administrator's view of the network of commands.
+// @Summary Read the settings of the network of commands (administrators).
 // @Description The chats_egress_* settings in force (ceiling, default, allow_private, ports, extra_registries, allowed_hosts, audit_days), the package registries with the extra hosts, the add-on that runs commands and how (isolated or host; the settings do not apply to commands on this machine), and the allowed and blocked requests of the last 24 hours. Change the settings with POST /api/settings.
 // @Tags chats
 // @Success 200 {object} schema.ChatsEgressAdmin "The settings in force"
@@ -88,9 +88,9 @@ func (h *Handlers) AdminEgress(c echo.Context) error {
 	return c.JSON(http.StatusOK, v.JSON())
 }
 
-// AdminEgressEvents returns the audit of the Sandbox network.
-// @Summary Read the audit of the Sandbox network requests (administrators).
-// @Description Every request a command made through the Sandbox proxy, newest first: who, which chat, host, port, kind (connect or http), verdict (allow, block, or done when an allowed connection ended, with its address, bytes and duration) and reason.
+// AdminEgressEvents returns the audit of the network of commands.
+// @Summary Read the audit of the network of commands requests (administrators).
+// @Description Every request a command made through the proxy of the add-on, newest first: who, which chat, host, port, kind (connect or http), verdict (allow, block, or done when an allowed connection ended, with its address, bytes and duration) and reason.
 // @Tags chats
 // @Param limit query int false "How many lines (default 100, at most 500)"
 // @Param user query string false "Only this user"
@@ -110,7 +110,7 @@ func (h *Handlers) AdminEgressEvents(c echo.Context) error {
 }
 
 // EgressConsent answers a card that asks whether a command may reach a host.
-// @Summary Answer a network card of a chat's Sandbox commands.
+// @Summary Answer a network card of a chat's commands.
 // @Description A command asked for a host the chat does not allow but the administrator's ceiling would: an egress_consent event carried the card id and host:port, and the card is in GET /api/chats/{id}/egress. once allows the host for the rest of that command (or the next call of the chat within ten minutes when the answer comes late), chat stores an allow rule for the chat, deny stores a deny rule so the host does not ask again. A host inside your network (private) needs an administrator to allow it; anyone who owns the chat may deny. A card that expired at the end of its turn may still be answered. The waiting connection goes on at once; without an answer it gets a 403 after 60 seconds.
 // @Tags chats
 // @Param id path string true "conversation id"
