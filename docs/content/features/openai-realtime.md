@@ -660,6 +660,13 @@ container, set `LOCALAI_WEBRTC_NAT_1TO1_IPS` to the host's LAN IP. This is the
 most reliable fix for WebRTC connections that establish and then drop.
 {{% /notice %}}
 
+LocalAI never offers **deprecated IPv6 addresses** as candidates. After an
+IPv6 prefix change (many routers rotate the prefix, often daily) the old
+addresses stay on the interface as deprecated until their lifetime runs out;
+ICE checks over them time out and the call never connects. On Linux the
+kernel's address flags (`/proc/net/if_inet6`) are read on every gathering, so
+this needs no setting.
+
 #### Fixed WebRTC UDP port
 
 By default, each WebRTC peer connection uses an ephemeral UDP port. To route

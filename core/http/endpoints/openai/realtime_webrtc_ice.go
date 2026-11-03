@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/hostaddr"
 	"github.com/mudler/xlog"
 	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
@@ -19,6 +20,9 @@ import (
 // operator advertise only the reachable address.
 func webRTCSettingEngine(cfg *config.ApplicationConfig) (webrtc.SettingEngine, error) {
 	s := webrtc.SettingEngine{}
+	// Never offer deprecated IPv6 addresses (left over after a prefix change):
+	// ICE checks over them time out and the call never connects.
+	s.SetIPFilter(hostaddr.NotDeprecated)
 	if cfg == nil {
 		return s, nil
 	}

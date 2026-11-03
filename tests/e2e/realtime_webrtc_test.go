@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/hostaddr"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pion/webrtc/v4"
@@ -35,7 +36,11 @@ func newWebRTCTestClient() *webrtcTestClient {
 	m := &webrtc.MediaEngine{}
 	Expect(m.RegisterDefaultCodecs()).To(Succeed())
 
-	api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
+	// The client runs on the same host as the server: skip deprecated IPv6
+	// addresses too, or ICE checks over them time out after a prefix change.
+	se := webrtc.SettingEngine{}
+	se.SetIPFilter(hostaddr.NotDeprecated)
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(m), webrtc.WithSettingEngine(se))
 
 	pc, err := api.NewPeerConnection(webrtc.Configuration{})
 	Expect(err).ToNot(HaveOccurred())
