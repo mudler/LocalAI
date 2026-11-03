@@ -309,6 +309,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 	e.HideBanner = true
 	e.HidePort = true
 
+	// StripPathPrefix, BaseURL and the prefix redirects believe
+	// X-Forwarded-Proto/Host/Prefix only from a trusted peer, so the resolver
+	// must be in the context before them.
+	e.Pre(httpMiddleware.TrustedProxies(clientAddrs))
+
 	// Middleware - StripPathPrefix must be registered early as it uses Rewrite which runs before routing
 	e.Pre(httpMiddleware.StripPathPrefix())
 
@@ -323,9 +328,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 			}
 		})
 	}
-
-	// BaseURL believes X-Forwarded-Proto/Host/Prefix only from a trusted peer.
-	e.Pre(httpMiddleware.TrustedProxies(clientAddrs))
 
 	e.Pre(middleware.RemoveTrailingSlash())
 
@@ -691,11 +693,14 @@ func API(application *application.Application) (*echo.Echo, error) {
 			e.GET("/app/*", serveIndex)
 
 			// prefixRedirect performs a redirect that preserves X-Forwarded-Prefix
-			// for reverse-proxy support. The prefix is forgeable on misconfigured
-			// proxy chains, so reject anything that isn't a same-origin path.
+			// for reverse-proxy support. The header counts only from a trusted
+			// proxy, and the prefix is still forgeable on misconfigured proxy
+			// chains, so reject anything that isn't a same-origin path.
 			prefixRedirect := func(c echo.Context, target string) error {
-				if prefix, ok := httpMiddleware.SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
-					target = strings.TrimSuffix(prefix, "/") + target
+				if httpMiddleware.ForwardedHeadersTrusted(c) {
+					if prefix, ok := httpMiddleware.SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
+						target = strings.TrimSuffix(prefix, "/") + target
+					}
 				}
 				return c.Redirect(http.StatusMovedPermanently, target)
 			}

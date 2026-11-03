@@ -494,6 +494,16 @@ var _ = Describe("API test", func() {
 				Expect(body).ToNot(ContainSubstring("forged"))
 			})
 
+			It("Should not add a forged prefix to the redirect of an untrusted peer", func() {
+				req := httptest.NewRequest(http.MethodGet, "/", nil)
+				req.RemoteAddr = "203.0.113.9:4000"
+				req.Header.Set("X-Forwarded-Prefix", "/forged")
+				rec := httptest.NewRecorder()
+				app.ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(http.StatusMovedPermanently))
+				Expect(rec.Header().Get("Location")).To(Equal("/app"))
+			})
+
 			// X-Forwarded-Prefix is attacker controllable on misconfigured
 			// proxy chains. A value like "//evil.com" would otherwise turn the
 			// asset URL rewrite into a protocol-relative URL that loads JS

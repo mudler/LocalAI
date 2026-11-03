@@ -38,8 +38,9 @@ LocalAI determines these in this order:
 
 A reverse-proxy subpath mount is supported via `X-Forwarded-Prefix`; it is
 appended to `LOCALAI_BASE_URL` when both are present. The header is read for
-the page base URL only from a trusted proxy, as for the other forwarding
-headers.
+the page base URL, for the path stripping and for the `/` to `/app` redirect
+only from a trusted proxy, as for the other forwarding headers. A request from
+any other peer is served under its own path.
 
 ## Finding the client address
 

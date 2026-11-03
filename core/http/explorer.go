@@ -8,6 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/explorer"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
+	"github.com/mudler/LocalAI/pkg/clientip"
 	"github.com/mudler/xlog"
 )
 
@@ -20,6 +21,14 @@ func Explorer(db *explorer.Database) *echo.Echo {
 	// Hide banner
 	e.HideBanner = true
 
+	// The explorer has no --trusted-proxies option. It keeps believing
+	// X-Forwarded-Prefix from any peer: it only strips a path prefix, and the
+	// explorer serves no per-user or per-host links.
+	anyPeer, err := clientip.Parse("0.0.0.0/0,::/0")
+	if err != nil {
+		panic(err)
+	}
+	e.Pre(middleware.TrustedProxies(anyPeer))
 	e.Pre(middleware.StripPathPrefix())
 	routes.RegisterExplorerRoutes(e, db)
 

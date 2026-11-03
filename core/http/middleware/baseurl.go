@@ -23,10 +23,10 @@ func TrustedProxies(r *clientip.Resolver) echo.MiddlewareFunc {
 	}
 }
 
-// forwardedHeadersTrusted reports whether the TCP peer is a trusted proxy.
+// ForwardedHeadersTrusted reports whether the TCP peer is a trusted proxy.
 // Without a resolver in the context nobody is trusted, so the request's own
 // scheme, host and path are used.
-func forwardedHeadersTrusted(c echo.Context) bool {
+func ForwardedHeadersTrusted(c echo.Context) bool {
 	r, _ := c.Get(TrustedProxiesKey).(*clientip.Resolver)
 	return r.TrustsPeer(c.Request())
 }
@@ -65,7 +65,7 @@ func BasePathPrefix(c echo.Context) string {
 		}
 	}
 
-	if !forwardedHeadersTrusted(c) {
+	if !ForwardedHeadersTrusted(c) {
 		return "/"
 	}
 
@@ -96,7 +96,7 @@ func BaseURL(c echo.Context) string {
 	// proxy (--trusted-proxies). Otherwise anyone could pick the scheme and
 	// host that end up in links, redirects and the SPA <base href>.
 	var fwdProto, fwdHost, xfProto, xfHost string
-	if forwardedHeadersTrusted(c) {
+	if ForwardedHeadersTrusted(c) {
 		fwdProto, fwdHost = parseForwarded(c.Request().Header.Get("Forwarded"))
 		xfProto = firstToken(c.Request().Header.Get("X-Forwarded-Proto"))
 		xfHost = c.Request().Header.Get("X-Forwarded-Host")
