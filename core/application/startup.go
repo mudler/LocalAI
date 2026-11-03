@@ -42,7 +42,8 @@ import (
 
 func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
-	cleanupWorkspace := workspaceStartupCleanup(options)
+	ctx, cleanupWorkspace := workspaceStartupCleanup(options.Context, options)
+	options.Context = ctx
 
 	// Store a copy of the startup config (env/CLI only, before file
 	// loading): the settings endpoint uses it to tell env-provided API
@@ -833,15 +834,16 @@ func ensureAuthDBDirs(options *config.ApplicationConfig) error {
 
 // workspaceStartupCleanup owns startup resources when workspace initialization
 // can fail fatally: configured S3 (with or without auth), or PostgreSQL metadata.
-// Never cancel the caller's context or change legacy JSON/SQLite without S3.
-func workspaceStartupCleanup(options *config.ApplicationConfig) func(*Application) {
+// It returns the context that startup runs in and the cleanup. Without those
+// setups it returns ctx itself and a no-op: it never cancels the caller's
+// context or changes legacy JSON/SQLite without S3.
+func workspaceStartupCleanup(ctx context.Context, options *config.ApplicationConfig) (context.Context, func(*Application)) {
 	postgres := options.Auth.Enabled && (strings.HasPrefix(options.Auth.DatabaseURL, "postgres://") || strings.HasPrefix(options.Auth.DatabaseURL, "postgresql://"))
 	if options.Distributed.StorageURL == "" && !postgres {
-		return func(*Application) {}
+		return ctx, func(*Application) {}
 	}
-	ctx, cancel := context.WithCancel(options.Context)
-	options.Context = ctx
-	return func(a *Application) {
+	ctx, cancel := context.WithCancel(ctx)
+	return ctx, func(a *Application) {
 		cancel() // stop background work before shutting down its dependencies
 		_ = a.Shutdown()
 		if a.authDB != nil {

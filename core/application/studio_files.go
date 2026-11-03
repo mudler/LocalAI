@@ -53,7 +53,7 @@ func (a *Application) StudioFiles() *files.Service {
 // store; a build without cgo and without any build tag has it too. The bytes
 // live in configured S3 for every role, otherwise at DataPath/chats/blobs.
 // Moving files between backends is not supported automatically.
-func (a *Application) initStudioFiles() (result error) {
+func (a *Application) initStudioFiles() error {
 	return a.initStudioFilesWithS3(func(ctx context.Context, cfg storage.S3Config) (storage.ObjectStore, error) {
 		return storage.NewS3Store(ctx, cfg)
 	})
@@ -76,15 +76,21 @@ func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.
 		a.studioFiles = files.Disabled("There is no data path, so files are off. Start LocalAI with a data path to keep files.")
 		return nil
 	}
+	// stop ends the setup: a strict setup fails startup, otherwise files are
+	// off with a reason the user can read.
+	stop := func(what string, err error, reason string) error {
+		if strict {
+			return fmt.Errorf("%s: %w", what, err)
+		}
+		xlog.Warn("Files disabled: "+what, "error", err)
+		a.studioFiles = files.Disabled(reason)
+		return nil
+	}
 	var tmpCache string
 	if dp == "" { // a cluster without a data path: the blob cache is a temporary folder
 		dir, err := os.MkdirTemp("", "localai-files-*")
 		if err != nil {
-			if strict {
-				return fmt.Errorf("workspace scratch: %w", err)
-			}
-			a.studioFiles = files.Disabled("Files are off: there is no folder for their cache.")
-			return
+			return stop("workspace scratch", err, "Files are off: there is no folder for their cache.")
 		}
 		a.studioFilesTemp, tmpCache = dir, dir
 	}
@@ -100,33 +106,18 @@ func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.
 		blobs, err = blob.NewFS(filepath.Join(root, "blobs"))
 	}
 	if err != nil {
-		if strict {
-			return fmt.Errorf("workspace blob store: %w", err)
-		}
-		xlog.Warn("Files disabled: cannot open the blob store", "error", err)
-		a.studioFiles = files.Disabled("Files are off: their storage could not be opened.")
-		return
+		return stop("workspace blob store", err, "Files are off: their storage could not be opened.")
 	}
 	ws, closer, err := a.openWorkspaceIndex(root, blobs)
 	if err != nil {
-		if strict {
-			return fmt.Errorf("workspace index: %w", err)
-		}
-		xlog.Warn("Files disabled: cannot start the workspace", "error", err)
-		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
-		return
+		return stop("workspace index", err, "Files are off: the workspace could not be started.")
 	}
 	f := files.New(ws, files.WithBlobs(blobs), files.WithMaxFileSize(a.studioUploadLimit()))
 	if err := f.EnsureShared(context.Background()); err != nil {
-		xlog.Warn("Files disabled: cannot create the shared folders", "error", err)
-		a.studioFiles = files.Disabled("Files are off: the workspace could not be started.")
 		if closer != nil {
 			_ = closer.Close()
 		}
-		if strict {
-			return fmt.Errorf("workspace folders: %w", err)
-		}
-		return
+		return stop("workspace folders", err, "Files are off: the workspace could not be started.")
 	}
 	// The office skills ship with the server. A copy that fails leaves the
 	// chats as they are: the skills are help, not a need.

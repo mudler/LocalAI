@@ -81,7 +81,8 @@ var _ = Describe("automatic workspace", func() {
 		cfg.Distributed.StorageURL = "http://s3.invalid:9000" // no bucket: fail before any network access
 		cfg.Auth.Enabled = database
 		cfg.Auth.DatabaseURL = filepath.Join(GinkgoT().TempDir(), "auth.db")
-		cleanup := workspaceStartupCleanup(cfg) // the same ownership scope used by New
+		ctx, cleanup := workspaceStartupCleanup(cfg.Context, cfg) // the same ownership scope used by New
+		cfg.Context = ctx
 		app := &Application{applicationConfig: cfg}
 		DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
 		if database {

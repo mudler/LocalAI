@@ -128,7 +128,8 @@ var _ = Describe("PostgreSQL shared filesystem startup cleanup", func() {
 		caller, cancel := context.WithCancel(context.Background())
 		DeferCleanup(cancel)
 		cfg := config.NewApplicationConfig(config.WithContext(caller), config.WithDataPath(GinkgoT().TempDir()), config.WithAuthEnabled(true), config.WithAuthDatabaseURL(raw))
-		cleanup := workspaceStartupCleanup(cfg)
+		ctx, cleanup := workspaceStartupCleanup(cfg.Context, cfg)
+		cfg.Context = ctx
 		app := &Application{applicationConfig: cfg, authDB: db}
 		if early {
 			cfg.Distributed.StorageURL = "http://s3.invalid"
