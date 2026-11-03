@@ -658,6 +658,16 @@ definitions:
       name:
         type: string
     type: object
+  contextfiles.Scope:
+    enum:
+    - user
+    - agent
+    - channel
+    type: string
+    x-enum-varnames:
+    - ScopeUser
+    - ScopeAgent
+    - ScopeChannel
   contract.ChangeKind:
     enum:
     - memory
@@ -9183,6 +9193,62 @@ definitions:
           which a client sends back (Last-Event-ID or ?after=) to resume.
         type: integer
     type: object
+  studio.ContextFile:
+    properties:
+      index:
+        type: boolean
+      lines:
+        type: integer
+      modified:
+        type: string
+      name:
+        type: string
+      path:
+        description: Path is the path inside the user's home.
+        type: string
+      size:
+        type: integer
+    type: object
+  studio.ContextFiles:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/studio.ContextGroup'
+        type: array
+      limits:
+        $ref: '#/definitions/studio.ContextLimits'
+    type: object
+  studio.ContextGroup:
+    properties:
+      files:
+        items:
+          $ref: '#/definitions/studio.ContextFile'
+        type: array
+      key:
+        type: string
+      max_bytes:
+        description: |-
+          MaxBytes and MaxLines are the caps of the index. MaxLines is zero when
+          the file has no line cap.
+        type: integer
+      max_lines:
+        type: integer
+      scope:
+        $ref: '#/definitions/contextfiles.Scope'
+      source:
+        type: string
+    type: object
+  studio.ContextLimits:
+    properties:
+      index_bytes:
+        type: integer
+      index_lines:
+        type: integer
+      profile_bytes:
+        type: integer
+      turn_bytes:
+        type: integer
+    type: object
   updates.State:
     enum:
     - unknown
@@ -14699,6 +14765,20 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConnectorKindList'
       summary: List the connector kinds you can bind.
+      tags:
+      - chats
+  /api/chats/context-files:
+    get:
+      description: The short index files that the host loads into every chat (your
+        memory, an agent's notes, a conversation's notes), with the topic files next
+        to them, the agent profiles and the caps that keep a turn small. It only reads;
+        change a file on the Files page or confirm a proposal.
+      responses:
+        "200":
+          description: Your context files
+          schema:
+            $ref: '#/definitions/studio.ContextFiles'
+      summary: List your context files.
       tags:
       - chats
   /api/chats/conversion:

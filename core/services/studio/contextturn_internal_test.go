@@ -111,6 +111,49 @@ var _ = Describe("context files in the prompt of a chat", func() {
 	Describe("a plain chat", func() {
 		BeforeEach(register)
 
+		It("lists the files of every source with sizes, the agent and channel folders, and the profiles", func() {
+			put("Memory/index.md", "- home: Rome -> home.md\n\n- job: dev\n")
+			put("Memory/home.md", "Rome.")
+			put("Memory/agents/bot/index.md", "- tone: short\n")
+			put("Memory/channels/room-1234abcd/index.md", "- team: blue\n")
+			put("Memory/channels/room-1234abcd/notes.txt", "not markdown")
+			put(contextfiles.ProfilePath("bot"), "Be brief.")
+			put("LocalAI/agents/bot/other.md", "not context")
+			out, err := svc.ListContextFiles(ctx, "alice")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out.Limits).To(Equal(ContextLimits{IndexLines: 40, IndexBytes: 2048, ProfileBytes: 4096, TurnBytes: 6144}))
+			names := func(g ContextGroup) []string {
+				var n []string
+				for _, f := range g.Files {
+					n = append(n, f.Path)
+				}
+				return n
+			}
+			byKey := map[string]ContextGroup{}
+			for _, g := range out.Groups {
+				byKey[g.Source+"/"+g.Key] = g
+			}
+			Expect(byKey).To(HaveLen(4))
+			user := byKey["notes-user/"]
+			Expect(names(user)).To(Equal([]string{"Memory/index.md", "Memory/home.md"}))
+			Expect(user.Files[0].Index).To(BeTrue())
+			Expect(user.Files[0].Lines).To(Equal(2))
+			Expect(user.MaxBytes).To(Equal(2048))
+			Expect(names(byKey["notes-agent/bot"])).To(Equal([]string{"Memory/agents/bot/index.md"}))
+			Expect(names(byKey["notes-channel/room-1234abcd"])).To(Equal([]string{"Memory/channels/room-1234abcd/index.md"}))
+			profile := byKey["profile/bot"]
+			Expect(names(profile)).To(Equal([]string{"LocalAI/agents/bot/profile.md"}))
+			Expect(profile.MaxBytes).To(Equal(4096))
+		})
+
+		It("lists nothing for another user", func() {
+			put("Memory/index.md", "- home: Rome\n")
+			Expect(f.EnsureHome(ctx, "bob")).To(Succeed())
+			out, err := svc.ListContextFiles(ctx, "bob")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out.Groups).To(BeEmpty())
+		})
+
 		It("loads the user index under the header and offers memory_read", func() {
 			put("Memory/index.md", "- home: lives in Rome -> home.md\n")
 			put("Memory/home.md", "Rome, since 2020.")

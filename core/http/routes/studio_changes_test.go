@@ -76,4 +76,13 @@ var _ = Describe("Chats proposed changes", func() {
 		Expect(json.Unmarshal(s.do("bob", http.MethodGet, "/api/chats/changes", nil).Body.Bytes(), &none)).To(Succeed())
 		Expect(none).To(BeEmpty())
 	})
+
+	It("lists the context files of the caller, with the caps", func() {
+		s := newStudioServerWith(newTestFiles(), nil)
+		rec := s.do("alice", http.MethodGet, "/api/chats/context-files", nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		got := decodeJSON(rec)
+		Expect(got).To(HaveKeyWithValue("groups", BeEmpty()))
+		Expect(got["limits"]).To(HaveKeyWithValue("index_lines", float64(40)))
+	})
 })

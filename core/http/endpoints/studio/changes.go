@@ -134,3 +134,17 @@ func (h *Handlers) ChangeAudit(c echo.Context) error {
 	return c.JSON(http.StatusOK, evs)
 }
 
+
+// ListContextFiles lists the notes the host puts in the prompt of a chat.
+// @Summary List your context files.
+// @Description The short index files that the host loads into every chat (your memory, an agent's notes, a conversation's notes), with the topic files next to them, the agent profiles and the caps that keep a turn small. It only reads; change a file on the Files page or confirm a proposal.
+// @Tags chats
+// @Success 200 {object} studiosvc.ContextFiles "Your context files"
+// @Router /api/chats/context-files [get]
+func (h *Handlers) ListContextFiles(c echo.Context) error {
+	list, err := h.svc.ListContextFiles(c.Request().Context(), userID(c))
+	if err != nil {
+		return failChange(c, err)
+	}
+	return c.JSON(http.StatusOK, list)
+}

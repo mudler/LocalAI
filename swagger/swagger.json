@@ -5235,6 +5235,23 @@
                 }
             }
         },
+        "/api/chats/context-files": {
+            "get": {
+                "description": "The short index files that the host loads into every chat (your memory, an agent's notes, a conversation's notes), with the topic files next to them, the agent profiles and the caps that keep a turn small. It only reads; change a file on the Files page or confirm a proposal.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "List your context files.",
+                "responses": {
+                    "200": {
+                        "description": "Your context files",
+                        "schema": {
+                            "$ref": "#/definitions/studio.ContextFiles"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/conversion": {
             "get": {
                 "description": "At start the server converts the old chat page, agents, tasks, skills and Telegram connectors into chats, saved agents, triggers, skills and connector bindings. Triggers and connectors are made switched off. This lists the items that belong to you, with what was dropped and why; an administrator also gets the totals of all users. It never holds a token or the text of a prompt.",
@@ -15385,6 +15402,19 @@
                     "type": "string"
                 }
             }
+        },
+        "contextfiles.Scope": {
+            "type": "string",
+            "enum": [
+                "user",
+                "agent",
+                "channel"
+            ],
+            "x-enum-varnames": [
+                "ScopeUser",
+                "ScopeAgent",
+                "ScopeChannel"
+            ]
         },
         "contract.ChangeKind": {
             "type": "string",
@@ -26992,6 +27022,88 @@
                 },
                 "revision": {
                     "description": "Revision is the newest revision of the changes; it is also the event id,\nwhich a client sends back (Last-Event-ID or ?after=) to resume.",
+                    "type": "integer"
+                }
+            }
+        },
+        "studio.ContextFile": {
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "boolean"
+                },
+                "lines": {
+                    "type": "integer"
+                },
+                "modified": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Path is the path inside the user's home.",
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "studio.ContextFiles": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/studio.ContextGroup"
+                    }
+                },
+                "limits": {
+                    "$ref": "#/definitions/studio.ContextLimits"
+                }
+            }
+        },
+        "studio.ContextGroup": {
+            "type": "object",
+            "properties": {
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/studio.ContextFile"
+                    }
+                },
+                "key": {
+                    "type": "string"
+                },
+                "max_bytes": {
+                    "description": "MaxBytes and MaxLines are the caps of the index. MaxLines is zero when\nthe file has no line cap.",
+                    "type": "integer"
+                },
+                "max_lines": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "$ref": "#/definitions/contextfiles.Scope"
+                },
+                "source": {
+                    "type": "string"
+                }
+            }
+        },
+        "studio.ContextLimits": {
+            "type": "object",
+            "properties": {
+                "index_bytes": {
+                    "type": "integer"
+                },
+                "index_lines": {
+                    "type": "integer"
+                },
+                "profile_bytes": {
+                    "type": "integer"
+                },
+                "turn_bytes": {
                     "type": "integer"
                 }
             }
