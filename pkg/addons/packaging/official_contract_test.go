@@ -27,6 +27,19 @@ var officialRequests = map[string]contract.HostOperations{
 	"office":       {Required: strings.Fields("workspace.export workspace.import")},
 	"sandbox":      {Required: strings.Fields("workspace.changes workspace.commit workspace.materialize"), Optional: strings.Fields("egress.audit egress.check workspace.admin")},
 	"web":          {Optional: []string{"workspace.admin"}},
+	// A connector moves files only when the person turns files on, so both
+	// file operations are optional. Delivery is pull, so neither add-on calls
+	// connector.inbound.
+	"slack":    {Optional: strings.Fields("connector.file.get connector.file.put")},
+	"telegram": {Optional: strings.Fields("connector.file.get connector.file.put")},
+}
+
+// connectorRoot holds the file transfer code that slack and telegram share. It
+// names its operations by constant, so the audit reads those too.
+const connectorRoot = "addons/internal/connector"
+
+var connectorConstants = map[string]string{
+	"ConnectorInboundOp": contract.ConnectorInboundOp, "ConnectorFilePutOp": contract.ConnectorFilePutOp, "ConnectorFileGetOp": contract.ConnectorFileGetOp,
 }
 
 var _ = Describe("official typed package contracts", func() {
@@ -47,31 +60,44 @@ var _ = Describe("official typed package contracts", func() {
 			// passed to jobundo. An unknown operation-shaped literal is not evidence
 			// of support; compare independently with the real registered vocabulary.
 			var used []string
-			Expect(filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-				if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
-					return nil
-				}
-				f, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
-				if err != nil {
-					return err
-				}
-				ast.Inspect(f, func(n ast.Node) bool {
-					lit, ok := n.(*ast.BasicLit)
-					if !ok || lit.Kind != token.STRING {
+			roots := []string{root}
+			if id == "slack" || id == "telegram" {
+				roots = append(roots, filepath.Join("../../..", connectorRoot))
+			}
+			for _, root := range roots {
+				Expect(filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+					if err != nil {
+						return err
+					}
+					if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+						return nil
+					}
+					f, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+					if err != nil {
+						return err
+					}
+					ast.Inspect(f, func(n ast.Node) bool {
+						if sel, ok := n.(*ast.SelectorExpr); ok {
+							if pkg, ok := sel.X.(*ast.Ident); ok && pkg.Name == "contract" {
+								if value, ok := connectorConstants[sel.Sel.Name]; ok {
+									used = append(used, value)
+								}
+							}
+						}
+						lit, ok := n.(*ast.BasicLit)
+						if !ok || lit.Kind != token.STRING {
+							return true
+						}
+						value, err := strconv.Unquote(lit.Value)
+						Expect(err).NotTo(HaveOccurred())
+						if slices.Contains(hostops.SupportedOperations(), value) {
+							used = append(used, value)
+						}
 						return true
-					}
-					value, err := strconv.Unquote(lit.Value)
-					Expect(err).NotTo(HaveOccurred())
-					if slices.Contains(hostops.SupportedOperations(), value) {
-						used = append(used, value)
-					}
-					return true
-				})
-				return nil
-			})).To(Succeed())
+					})
+					return nil
+				})).To(Succeed())
+			}
 			declared := append(slices.Clone(want.Required), want.Optional...)
 			slices.Sort(used)
 			used = slices.Compact(used)
