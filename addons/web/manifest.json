@@ -108,11 +108,12 @@
                 "enum": [
                   "brave",
                   "tavily",
-                  "google"
+                  "google",
+                  "keenable"
                 ],
                 "type": "string"
               },
-              "maxItems": 3,
+              "maxItems": 4,
               "type": "array"
             },
             "googleEngine": {
@@ -132,6 +133,10 @@
                   "maxLength": 256,
                   "type": "string"
                 },
+                "keenable": {
+                  "maxLength": 256,
+                  "type": "string"
+                },
                 "tavily": {
                   "maxLength": 256,
                   "type": "string"
@@ -146,12 +151,13 @@
                   "brave",
                   "tavily",
                   "google",
+                  "keenable",
                   "searxng",
                   "duckduckgo"
                 ],
                 "type": "string"
               },
-              "maxItems": 5,
+              "maxItems": 6,
               "type": "array"
             },
             "searxngUrl": {
