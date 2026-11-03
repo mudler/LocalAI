@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -134,6 +135,86 @@ type ConnectorKind struct {
 	// it keeps the behaviour of a platform that cannot be asked for old
 	// messages. It needs manifest api MinHistoryAPI.
 	History *ConnectorHistory `json:"history,omitempty"`
+	// Options are the choices of the add-on that each binding of this kind
+	// makes, such as how the bot follows a thread. The host shows them next to
+	// the other settings of the binding, keeps the choice, checks it against
+	// this declaration and sends it with the op poll. It needs manifest api
+	// MinHistoryAPI.
+	Options []ConnectorOption `json:"options,omitempty"`
+}
+
+// ConnectorOption is one choice among a few values.
+type ConnectorOption struct {
+	// ID names the option in ConnectorRequest.Options.
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	// Values are the allowed answers; Default is one of them. A binding that
+	// makes no choice has the default.
+	Values  []ConnectorOptionValue `json:"values"`
+	Default string                 `json:"default"`
+}
+
+// ConnectorOptionValue is one answer of an option.
+type ConnectorOptionValue struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// Limits of the options of a kind.
+const (
+	MaxConnectorOptions = 4
+	MaxOptionValues     = 8
+)
+
+var (
+	optionID      = regexp.MustCompile(`^[a-z][A-Za-z0-9]{0,31}$`)
+	optionValueID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+)
+
+// Option returns the option of the kind with the given ID.
+func (k ConnectorKind) Option(id string) (ConnectorOption, bool) {
+	for _, o := range k.Options {
+		if o.ID == id {
+			return o, true
+		}
+	}
+	return ConnectorOption{}, false
+}
+
+// ResolveOptions checks the choices of a binding against the options of the
+// kind and returns the value in effect for each option: the choice, or the
+// default. An unknown option or value is an error.
+func (k ConnectorKind) ResolveOptions(chosen map[string]string) (map[string]string, error) {
+	for id, v := range chosen {
+		o, ok := k.Option(id)
+		if !ok {
+			return nil, fmt.Errorf("the option %q is not one of this kind", id)
+		}
+		if !o.allows(v) {
+			return nil, fmt.Errorf("%q is not a value of the option %q", v, id)
+		}
+	}
+	if len(k.Options) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]string, len(k.Options))
+	for _, o := range k.Options {
+		out[o.ID] = o.Default
+		if v, ok := chosen[o.ID]; ok {
+			out[o.ID] = v
+		}
+	}
+	return out, nil
+}
+
+func (o ConnectorOption) allows(v string) bool {
+	for _, x := range o.Values {
+		if x.ID == v {
+			return true
+		}
+	}
+	return false
 }
 
 // ConnectorHistory is the ability to read old messages of a platform.
@@ -196,6 +277,14 @@ func validateConnector(c *ConnectorCapability, ui *UI, api VersionRange) error {
 				return fmt.Errorf("connector history needs thread and maxMessages 0 to %d", MaxHistoryMessages)
 			}
 		}
+		if len(k.Options) > 0 {
+			if api.Max < MinHistoryAPI {
+				return fmt.Errorf("connector options need api %d", MinHistoryAPI)
+			}
+			if err := validateOptions(k.Options); err != nil {
+				return err
+			}
+		}
 		if k.Page != "" {
 			ok := false
 			if ui != nil {
@@ -206,6 +295,30 @@ func validateConnector(c *ConnectorCapability, ui *UI, api VersionRange) error {
 			if !ok {
 				return fmt.Errorf("connector page must be a declared page")
 			}
+		}
+	}
+	return nil
+}
+
+func validateOptions(opts []ConnectorOption) error {
+	if len(opts) > MaxConnectorOptions {
+		return fmt.Errorf("a connector kind has at most %d options", MaxConnectorOptions)
+	}
+	seen := map[string]bool{}
+	for _, o := range opts {
+		if !optionID.MatchString(o.ID) || seen[o.ID] || !plainText(o.Title, MaxTitleChars) || (o.Description != "" && !plainText(o.Description, MaxDescriptionChars)) {
+			return fmt.Errorf("invalid or repeated connector option")
+		}
+		seen[o.ID] = true
+		if len(o.Values) < 2 || len(o.Values) > MaxOptionValues || !o.allows(o.Default) {
+			return fmt.Errorf("a connector option needs 2 to %d values and a default among them", MaxOptionValues)
+		}
+		vs := map[string]bool{}
+		for _, v := range o.Values {
+			if !optionValueID.MatchString(v.ID) || vs[v.ID] || !plainText(v.Title, MaxTitleChars) {
+				return fmt.Errorf("invalid or repeated connector option value")
+			}
+			vs[v.ID] = true
 		}
 	}
 	return nil
@@ -269,6 +382,9 @@ type ConnectorRequest struct {
 	// poll
 	Offset         int64 `json:"offset,omitempty"`
 	TimeoutSeconds int   `json:"timeoutSeconds,omitempty"`
+	// Options are the values in effect, by option ID, of the options the kind
+	// declares (ConnectorKind.Options). The host sends them with poll.
+	Options map[string]string `json:"options,omitempty"`
 	// send, edit, typing, send_file, draft
 	Chat   string `json:"chat,omitempty"`
 	Thread string `json:"thread,omitempty"`

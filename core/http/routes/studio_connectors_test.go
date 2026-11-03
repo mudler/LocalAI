@@ -176,6 +176,12 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(decodeJSON(rec)).To(HaveKeyWithValue("thread_context", false), "an update without the field keeps it")
 	})
 
+	It("refuses an option that the kind does not declare", func() {
+		ag := agent("alice", "Options", "test-model")
+		rec := create("alice", map[string]any{"name": "Options bot", "token": specToken, "agent_id": ag, "options": map[string]string{"followThreads": "own"}})
+		Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+	})
+
 	It("stores the reply mode, the conversation mode and the file switch, and refuses unknown ones", func() {
 		ag := agent("alice", "Modes", "test-model")
 		rec := create("alice", map[string]any{"name": "Modes bot", "token": specToken, "agent_id": ag})

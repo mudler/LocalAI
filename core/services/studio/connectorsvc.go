@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -41,6 +42,9 @@ type ConnectorInput struct {
 	// which it is mentioned. Nil means on for a new binding and unchanged for
 	// an update.
 	ThreadContext *bool
+	// Options are the choices for the options of the kind. Nil means the
+	// defaults for a new binding and unchanged for an update.
+	Options map[string]string
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -52,6 +56,9 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.SendFiles != nil {
 		b.FilesOff = !*in.SendFiles
+	}
+	if in.Options != nil {
+		b.Options = maps.Clone(in.Options)
 	}
 	if in.ThreadContext != nil {
 		b.ThreadContextOff = !*in.ThreadContext
@@ -173,6 +180,27 @@ func (c *Connectors) resolveAddon(ctx context.Context, kind string) (string, err
 	return "", connectorBad("no installed add-on serves the kind %q", kind)
 }
 
+// checkOptions refuses a choice that the kind of the binding does not offer.
+// A kind whose add-on does not run cannot be checked; the choice is kept and
+// the add-on gets the default if it no longer fits.
+func (c *Connectors) checkOptions(ctx context.Context, b connectors.Binding) error {
+	if len(b.Options) == 0 {
+		return nil
+	}
+	kinds, err := c.o.Transport.Kinds(ctx)
+	if err != nil {
+		return nil
+	}
+	k, ok := kindFor(kinds, b)
+	if !ok {
+		return nil
+	}
+	if _, err := k.ResolveOptions(b.Options); err != nil {
+		return connectorBad("%v", err)
+	}
+	return nil
+}
+
 func connectorBad(format string, a ...any) error {
 	return fmt.Errorf("%w: %s", connectors.ErrInvalid, fmt.Sprintf(format, a...))
 }
@@ -251,6 +279,9 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if err := connectors.Validate(b); err != nil {
 		return ConnectorInfo{}, err
 	}
+	if err := c.checkOptions(ctx, b); err != nil {
+		return ConnectorInfo{}, err
+	}
 	if strings.TrimSpace(in.Token) == "" {
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
@@ -308,6 +339,9 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	b := old
 	in.apply(&b)
 	if err := connectors.Validate(b); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := c.checkOptions(ctx, b); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkAgent(ctx, old.Owner, in.AgentID); err != nil {

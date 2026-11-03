@@ -305,12 +305,18 @@ func connStore() connectors.Store {
 	return s
 }
 
-func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
+// agentID is the saved agent that the bindings of the rig use.
+func (c *connRig) agentID() string {
 	if c.agent.ID == "" {
 		ag, err := c.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Support", Model: "m", Addons: []string{"office"}})
 		Expect(err).NotTo(HaveOccurred())
 		c.agent = ag
 	}
+	return c.agent.ID
+}
+
+func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
+	c.agentID()
 	if in.Name == "" {
 		in.Name = "Support bot"
 	}
