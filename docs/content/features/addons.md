@@ -501,6 +501,48 @@ frontends stay up and answer `503` for every add-on request. Failover is manual.
 There is no election and no standby owner.
 {{% /notice %}}
 
+### What runs where
+
+The three roles split the work of a LocalAI process as follows.
+
+| Work | `combined` (default) | `owner` | `frontend` |
+|---|---|---|---|
+| Add-on processes, the gateway and the host operations | Yes, in this process | Yes | No. It forwards to the owner. |
+| The carrier | Loopback, with keys made at each start | Served on the network | Client only |
+| Chat turns | Yes | No | Yes |
+| Model loading | In this process, or on workers in distributed mode | No models. In distributed mode it routes loads to workers. | In this process, or on workers in distributed mode |
+| Connector polling (Telegram, Slack) | Yes | No | Yes, on the one leader frontend |
+| Triggers, loops and agent jobs | Yes | No | Yes |
+| API and UI for users | Yes | No. Send users to a frontend. | Yes |
+
+A single node is `combined`: the add-ons run in the same process as the chats and
+the models, and nothing else is needed. Use `owner` and `frontend` only when you
+run several frontend replicas.
+
+### The owner in distributed mode
+
+When the frontends run in [distributed mode]({{% relref "features/distributed-mode" %}}),
+the owner must join distributed mode too. Give it the same settings as the
+frontends:
+
+- the same NATS URL (`--nats-url`) and registration token (`--registration-token`);
+- the same PostgreSQL database (`--auth-database-url`), with `--auth` on;
+- `--distributed`.
+
+With these, the owner takes part in the leader locks and sends model loads to the
+workers. Without them, the owner acts as a separate single node in the cluster:
+
+- It tries to load models in its own process. It has no backends, so the load fails
+  with `backend not found`.
+- It does not see the leader lock of the connectors. It polls the same bots as the
+  leader frontend, so a Slack message gets two answers.
+
+An owner should not run chats at all. In the release that contains pull request
+13052, an owner that has no distributed settings skips connector polling,
+triggers, loops and agent jobs, and refuses the push operation `connector.inbound`
+with an error. In earlier releases, give the owner the distributed settings, or
+turn the connectors off on it with `LOCALAI_DISABLE_CONNECTORS=true`.
+
 ### Make the carrier keys
 
 The frontends and the owner trust each other through a static key set. Make it
@@ -4579,6 +4621,39 @@ The add-on runs commands in one of these backends, chosen by an administrator on
 | Off | No sandbox. Every tool answers that the host cannot run commands. |
 | Host | Runs commands on the host as the user LocalAI runs as, with no isolation. |
 
+#### What the Sandbox needs to run isolated
+
+The Sandbox reports a backend as `isolated` or as `host` (see
+[Execution provider and status payload](#execution-provider-and-status-payload)).
+Only gVisor and KVM report `isolated`. The `host` backend runs the command as a
+normal process of the user LocalAI runs as. No kernel boundary separates it from
+the rest of the machine, so it is never `isolated`.
+
+- **Document skills.** The `docx`, `xlsx` and `pdf` skills of the Sandbox are offered
+  only when the Sandbox reports an isolated backend. With the `host` backend, with
+  Off, or when no backend works, the chat does not get them.
+- **gVisor.** The add-on starts `runsc` with `--network=none`, a root file system in
+  memory (`--overlay2=root:memory`), `--directfs=false` and `--ignore-cgroups`. It
+  sets no `--platform` flag, so `runsc` uses its default platform and not the KVM
+  platform. gVisor needs no `/dev/kvm`, no cgroup and no extra capability. It needs
+  a non-root user, `runsc` and `taskset`, and permission to create a user namespace:
+  the container seccomp profile and, on Ubuntu 24.04 and later, AppArmor must allow
+  it. The add-on checks this at start with a small test sandbox.
+- **KVM.** Cloud Hypervisor needs `/dev/kvm` for the user LocalAI runs as. Pass the
+  device to the owner container only when you choose or expect this backend.
+- **Automatic.** The add-on tries KVM, then gVisor. If `/dev/kvm` is missing, it uses
+  gVisor, so an owner container without `/dev/kvm` still has an isolated sandbox.
+
+When the owner runs in a container, the container that runs the add-on must meet
+these needs. In a split deployment that container is the owner, not the frontends.
+
+The network limit and the presets (Off, Package registries only, Allow all) apply to
+the commands of the Sandbox because every connection goes through its proxy, which
+asks the host with `egress.check`. On current master, the host shows the limit as
+applied to an add-on's commands only when the provider reports that it enforces it.
+A provider that only reports isolation does not count. This behavior can change in a
+later release.
+
 The Settings tab lists the backends of the host, each with its state (in use, ready or unavailable); the reason a backend does not work is under **Details**. When gVisor fails with `exit status 128` and `cannot read client sync file`, the row also says that gVisor needs an AppArmor profile that allows user namespaces and a container that may create them, and links to [The Sandbox in the LocalAI container](#the-sandbox-in-the-localai-container). The add-on asks for the `network-policy` and `tool-providers` [host controls](#host-controls), so the same tab also holds the network of the Sandbox commands (the limit, the preset of a new chat, the ports, the extra registries, the always allowed hosts, private networks, the audit retention and the audit) and the `bash` row of Settings > Tools, and saves them like the Settings page. An explicit choice is never replaced by another when it does not work: the tools say they cannot run.
 
 The **Host** backend is for a machine that can run neither of the others. Choosing it takes two steps. The page shows a plain warning and asks the administrator to type the sentence *I understand that commands run on this host without isolation*. The add-on then saves the choice. The confirmation is forgotten when another backend is chosen. The backend refuses to start when LocalAI runs as root. Every command is logged with the name of the chat user, in the LocalAI log with the prefix `[sandbox]` (LocalAI writes everything an add-on prints to its output or error into its own log, one line at a time, cut at 4096 bytes), and the Settings tab of the Sandbox details (for administrators) shows a notice for as long as the host backend is the one in use. The model sees it in the answer of the status tool. Treat the machine as one that code can harm.
@@ -4703,7 +4778,7 @@ gVisor, KVM and the host backend refuse to run as root, so the sandbox needs the
 - **Existing volumes.** A volume created by an older image is owned by root. On the first start with the new image the entrypoint changes its owner to uid 10001 (`chown -R`), which takes a while on a large models folder, and logs it. Nothing needs to be done by hand. If the volume cannot be changed (a read-only or network mount that refuses `chown`), set its owner to 10001:10001 on the storage side, or run the container with `--user` set to the owner of the data.
 - **Another user.** Set `LOCALAI_UID` and `LOCALAI_GID` to use another id. A container that already starts as a non-root user (`docker run --user`, Kubernetes `runAsUser`) is left as it is; the data folders must then be writable by that user.
 - **Keep root.** Set `LOCALAI_RUN_AS_ROOT=true` to run as root as before. The sandbox is then unavailable, and the page says why.
-- **Devices.** Pass `/dev/kvm` to the container (`--device /dev/kvm`); the entrypoint adds the group that owns it. In Kubernetes, request the device through your device plugin and give the pod a `fsGroup` or `supplementalGroups` entry for it.
+- **Devices.** The KVM backend needs `/dev/kvm`; gVisor does not. For KVM, pass the device to the container (`--device /dev/kvm`); the entrypoint adds the group that owns it. In Kubernetes, request the device through your device plugin and give the pod a `fsGroup` or `supplementalGroups` entry for it.
 - **User namespaces.** gVisor needs the container to be allowed to create user namespaces, and on an Ubuntu 24.04 or later host an AppArmor profile that allows them (see **AppArmor** in [Packaging and setting up the Sandbox add-on](#packaging-and-setting-up-the-sandbox-add-on)). Without them `runsc` stops at once, and the backend's reason ends with `exit status 128` and `cannot read client sync file ... EOF`. Docker's default seccomp profile blocks this: use a profile that allows it, or `--security-opt seccomp=unconfined` on a host you trust. KVM needs `/dev/kvm` and no extra privileges.
 - **Cluster.** The add-on runs on the add-on owner node only. In Kubernetes, give that pod the settings above; a node pool dedicated to it is the way to keep the isolation requirements off the other nodes.
 

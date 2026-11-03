@@ -97,6 +97,13 @@ installs also go through the owner: a frontend follows the owner's sources and
 installs backends on its own node. See
 [Running the owner as its own workload]({{% relref "features/addons#running-the-owner-as-its-own-workload" %}}).
 
+The owner must join distributed mode with the same `--nats-url`, registration token
+and PostgreSQL database as the frontends. Then it takes part in the leader locks and
+sends model loads to the workers. An owner without these settings loads models in its
+own process (`backend not found`) and polls the connectors next to the leader
+frontend (Slack messages answered twice). See
+[The owner in distributed mode]({{% relref "features/addons#the-owner-in-distributed-mode" %}}).
+
 ### The model load deadline scales with the checkpoint
 
 The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.
@@ -1425,6 +1432,10 @@ Notes:
 | **Setup complexity** | Minimal (share a token) | Requires PostgreSQL + NATS |
 
 ## Troubleshooting
+
+**Add-on owner logs `backend not found`, or Slack messages are answered twice:**
+- The owner is not in distributed mode. Give it the same `--distributed`, `--nats-url`, registration token and `--auth-database-url` as the frontends
+- Check that only one connection uses each Slack app
 
 **Worker not registering:**
 - Verify the frontend URL is reachable from the worker (`curl http://frontend:8080/api/node/register`)

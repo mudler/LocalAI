@@ -30,6 +30,18 @@ working as soon as the Telegram add-on is installed. Until then the binding is k
 switched as it was, and shown as not running with the reason "install the Telegram
 add-on"; nothing polls and nothing is lost.
 
+### How messages arrive: pull and push
+
+Each kind in the add-on manifest declares `delivery`:
+
+- **`pull`** (Slack and Telegram). The host polls the add-on. One process in the
+  cluster, the leader, does the polling. It stores the offset with the binding. When
+  the leader stops, a new leader continues from that offset.
+- **`push`**. The add-on calls the host operation `connector.inbound` for each
+  message. The turn then runs in the process that hosts the add-on. A push add-on
+  therefore needs a `combined` owner or a distributed owner (see
+  [The owner in distributed mode]({{% relref "features/addons" %}}#the-owner-in-distributed-mode)).
+
 ### Multiple frontends and readiness
 
 In a multi-frontend deployment, connector discovery and calls go to the frontend
@@ -138,8 +150,9 @@ a channel. The add-on uses Socket Mode, so LocalAI needs no public address.
    subscribes to `app_mention` and the `message.*` events, and asks for the bot scopes
    `app_mentions:read`, `channels:history`, `groups:history`, `im:history`,
    `mpim:history`, `chat:write`, `files:read`, `files:write` and `users:read`. An app
-   made before `files:write` was in the manifest cannot send files: add the scope and
-   reinstall the app.
+   made before `files:write` was in the manifest cannot send files. Add the scope in
+   the app settings, then reinstall the app to the workspace: Slack applies new scopes
+   only after a reinstall.
 3. Install the app to your workspace and copy the **bot token** (`xoxb-`).
 4. Under **Basic Information**, **App-Level Tokens**, make a token with the scope
    `connections:write` and copy it (`xapp-`).
@@ -204,7 +217,10 @@ polled for two minutes (the binding was switched off or deleted) is closed.
 
 A binding is switched off, with a notification, when Slack refuses a token
 (`invalid_auth`, `token_revoked` and similar) or turns Socket Mode off for the app.
-Socket Mode spreads the events of an app over all its open links, so bind one app to
+Socket Mode spreads the events of an app over all its open links, so use one
+connection per Slack app. If an old external agent and the add-on use the same Slack
+app, each gets part of the events and some messages are lost or answered twice at
+random. Stop the old bot or make a second app. Bind one app to
 one LocalAI instance only. A cluster of LocalAI frontends counts as one instance: only
 the leader opens links. Two separate installations that bind the same app each get
 part of the events, and LocalAI cannot detect it (Telegram's `conflict` answer has no
