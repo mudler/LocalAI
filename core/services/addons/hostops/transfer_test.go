@@ -255,7 +255,7 @@ var _ = Describe("connector file transfer by handle", func() {
 		Eventually(f.t.Live, "2s", "20ms").Should(BeZero())
 		code, _ = f.put("h", 7, []byte("x"), false)
 		Expect(code).To(Equal(http.StatusNotFound))
-		Expect(f.outcomes()).To(HaveLen(1))
+		Eventually(f.outcomes, "2s", "20ms").Should(HaveLen(1))
 		Expect(f.outcomes()[0].Result).To(Equal(TransferExpired))
 		tmp, _ := filepath.Glob(filepath.Join(f.dir, "owner-cache", "tmp", "*"))
 		Expect(tmp).To(BeEmpty(), "no partial file is left")
