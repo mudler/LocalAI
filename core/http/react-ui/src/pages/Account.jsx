@@ -9,6 +9,7 @@ import { timeUntil, initialOf } from '../utils/access'
 import { Button, Callout, EmptyState, LoadError, PageHeader, SkeletonRows, useLoad } from '../components/ui'
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
 import { AboutYouTab, AppearanceTab } from '../components/wellknown/SettingsTabs'
+import MemoryTab from '../components/MemoryTab'
 import './access.css'
 
 const TABS = [
@@ -17,6 +18,7 @@ const TABS = [
   { id: 'keys', labelKey: 'account.tabs.apiKeys' },
   { id: 'usage', labelKey: 'account.tabs.usage' },
   { id: 'about', labelKey: 'account.tabs.about', files: true },
+  { id: 'memory', labelKey: 'account.tabs.memory', files: true },
   { id: 'appearance', labelKey: 'account.tabs.appearance', files: true },
 ]
 
@@ -298,6 +300,7 @@ export default function Account() {
         {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={t('keys.accountIntro')} />}
         {tab === 'usage' && <UsageTab />}
         {tab === 'about' && <AboutYouTab />}
+        {tab === 'memory' && <MemoryTab addToast={addToast} />}
         {tab === 'appearance' && <AppearanceTab />}
       </div>
     </div>
