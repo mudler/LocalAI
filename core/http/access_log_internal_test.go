@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/pkg/clientip"
 	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,7 +27,7 @@ var _ = Describe("HTTP access log", func() {
 	serve := func(logClient bool, mutate func(*http.Request)) string {
 		logs.Reset()
 		e := echo.New()
-		e.Use(accessLog(logClient))
+		e.Use(accessLog(logClient, nil))
 		e.POST("/chat/completions", func(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusUnauthorized, "no key")
 		})
@@ -54,6 +55,27 @@ var _ = Describe("HTTP access log", func() {
 		})
 		Expect(line).To(ContainSubstring(`"remote":"192.0.2.10"`))
 		Expect(line).NotTo(ContainSubstring("203.0.113"))
+	})
+
+	It("takes the client from X-Forwarded-For only when the peer is a trusted proxy", func() {
+		trusted, err := clientip.Parse("192.0.2.0/24")
+		Expect(err).NotTo(HaveOccurred())
+		logs.Reset()
+		e := echo.New()
+		e.Use(accessLog(true, trusted))
+		e.GET("/x", func(c echo.Context) error { return c.NoContent(http.StatusOK) })
+		req := httptest.NewRequest(http.MethodGet, "/x", nil)
+		req.RemoteAddr = "192.0.2.10:54321"
+		req.Header.Set("X-Forwarded-For", "198.51.100.7, 203.0.113.5, 192.0.2.20")
+		e.ServeHTTP(httptest.NewRecorder(), req)
+		Expect(logs.String()).To(ContainSubstring(`"remote":"203.0.113.5"`))
+
+		logs.Reset()
+		req = httptest.NewRequest(http.MethodGet, "/x", nil)
+		req.RemoteAddr = "198.51.100.99:1"
+		req.Header.Set("X-Forwarded-For", "203.0.113.5")
+		e.ServeHTTP(httptest.NewRecorder(), req)
+		Expect(logs.String()).To(ContainSubstring(`"remote":"198.51.100.99"`))
 	})
 
 	It("truncates the user agent to 80 characters", func() {
@@ -99,14 +121,14 @@ var _ = Describe("HTTP access log", func() {
 	})
 })
 
-var _ = DescribeTable("peerAddr",
+var _ = DescribeTable("client address with no trusted proxies",
 	func(remote string, headers map[string]string, want string) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = remote
 		for k, v := range headers {
 			req.Header.Set(k, v)
 		}
-		Expect(peerAddr(req)).To(Equal(want))
+		Expect((*clientip.Resolver)(nil).Resolve(req)).To(Equal(want))
 	},
 	Entry("ipv4 with port", "192.0.2.10:1234", nil, "192.0.2.10"),
 	Entry("ipv6 with port", "[2001:db8::1]:1234", nil, "2001:db8::1"),

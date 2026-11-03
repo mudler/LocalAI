@@ -143,6 +143,7 @@ type ApplicationConfig struct {
 	F16                          bool
 	Debug                        bool
 	LogClient                    bool
+	TrustedProxies               string // comma-separated IPs/CIDRs whose forwarding headers are believed
 	EnableTracing                bool
 	MaxConcurrentBackendRequests int
 	TracingMaxItems              int
@@ -1073,6 +1074,13 @@ func WithF16(f16 bool) AppOption {
 func WithDebug(debug bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Debug = debug
+	}
+}
+
+// WithTrustedProxies sets the proxies whose X-Forwarded-For is believed.
+func WithTrustedProxies(list string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TrustedProxies = list
 	}
 }
 

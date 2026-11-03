@@ -17,6 +17,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/mudler/LocalAI/pkg/clientip"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
@@ -227,6 +228,15 @@ func setModelLoadingRetryAfter(loadErr *nodes.ModelLoadingError, c echo.Context)
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
 
+	// One resolver decides the client address for every consumer (access log,
+	// login throttling, traces). Without an IPExtractor echo's RealIP trusts
+	// X-Forwarded-For and X-Real-Ip from anyone.
+	clientAddrs, err := clientip.Parse(application.ApplicationConfig().TrustedProxies)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --trusted-proxies: %w", err)
+	}
+	e.IPExtractor = clientAddrs.Extractor()
+
 	// Set body limit
 	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
 		Limit:   fmt.Sprintf("%dM", application.ApplicationConfig().GeneralUploadLimitMB()),
@@ -338,7 +348,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Custom logger middleware using xlog
-	e.Use(accessLog(application.ApplicationConfig().LogClient))
+	e.Use(accessLog(application.ApplicationConfig().LogClient, clientAddrs))
 
 	// Recover middleware
 	if !application.ApplicationConfig().Debug {

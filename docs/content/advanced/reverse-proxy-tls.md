@@ -34,6 +34,33 @@ LocalAI determines these in this order:
 A reverse-proxy subpath mount is supported via `X-Forwarded-Prefix`; it is
 appended to `LOCALAI_BASE_URL` when both are present.
 
+## Finding the client address
+
+Behind a proxy, the TCP peer of every request is the proxy. LocalAI needs the
+real client address for the access log (`--log-client`), the login rate
+limits and the API traces. `X-Forwarded-For` can be set by anyone, so LocalAI
+reads it only when the TCP peer is a proxy you list:
+
+```bash
+local-ai run --trusted-proxies 10.0.0.0/8,192.168.1.5
+# or: LOCALAI_TRUSTED_PROXIES=10.0.0.0/8,192.168.1.5
+```
+
+The value is a comma-separated list of IP addresses and CIDR ranges (IPv4 or
+IPv6). When the peer is in the list, LocalAI walks `X-Forwarded-For` from the
+right, skips every entry that is also in the list, and takes the first other
+entry as the client. If there is no `X-Forwarded-For`, it uses `X-Real-Ip`.
+If an entry is not a valid address, LocalAI stops there and uses the last
+trusted hop. When the peer is not in the list, or the list is empty (the
+default), the headers are ignored and the client is the peer.
+
+List every proxy that can reach LocalAI directly, and no more: a listed
+address can claim any client address. Make your proxy append to
+`X-Forwarded-For` (nginx: `proxy_set_header X-Forwarded-For
+$proxy_add_x_forwarded_for;`) and not replace it. Without this setting, all
+clients behind the proxy share one rate-limit bucket, because they all appear
+to come from the proxy.
+
 ## Required Headers
 
 Your reverse proxy must forward these headers to LocalAI:

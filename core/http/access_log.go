@@ -2,13 +2,13 @@ package http
 
 import (
 	"errors"
-	"net"
 	"net/http"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/pkg/clientip"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/xlog"
 )
@@ -21,9 +21,10 @@ const maxLoggedUserAgent = 80
 const maxLoggedRequestID = 64
 
 // accessLog logs one line per request. When logClient is true the line also
-// carries the peer address and the user agent, so an unauthorized caller can
+// carries the client address (the TCP peer, or the forwarded client when the
+// peer is a trusted proxy) and the user agent, so an unauthorized caller can
 // be identified.
-func accessLog(logClient bool) echo.MiddlewareFunc {
+func accessLog(logClient bool, clients *clientip.Resolver) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			start := time.Now()
@@ -60,7 +61,7 @@ func accessLog(logClient bool) echo.MiddlewareFunc {
 			// ?api_key=... stay out of the log.
 			attrs := []any{"method", req.Method, "path", req.URL.Path, "status", status}
 			if logClient {
-				attrs = append(attrs, "duration", time.Since(start).String(), "remote", peerAddr(req), "user_agent", sanitizeLogValue(req.UserAgent(), maxLoggedUserAgent))
+				attrs = append(attrs, "duration", time.Since(start).String(), "remote", clients.Resolve(req), "user_agent", sanitizeLogValue(req.UserAgent(), maxLoggedUserAgent))
 				if id := requestID(req, res); id != "" {
 					attrs = append(attrs, "request_id", id)
 				}
@@ -74,18 +75,6 @@ func accessLog(logClient bool) echo.MiddlewareFunc {
 			return err
 		}
 	}
-}
-
-// peerAddr returns the TCP peer address without the port. It does not use
-// echo's Context.RealIP: with no IPExtractor configured, RealIP trusts the
-// X-Forwarded-For and X-Real-Ip headers, which any client can forge. LocalAI
-// has no trusted-proxy setting, so the peer address is the only safe value.
-func peerAddr(req *http.Request) string {
-	host, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		return req.RemoteAddr
-	}
-	return host
 }
 
 // requestID returns the diagnostic id the server set on the response, or the
