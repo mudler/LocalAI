@@ -2,6 +2,7 @@
 package application
 
 import (
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -13,7 +14,7 @@ import (
 )
 
 var _ = Describe("add-on tools offered to a chat by the features of the person", func() {
-	hostOps := map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}, "sandbox": {"workspace."}}
+	hostOps := hostops.NewStaticAuthority(map[string][]string{"fine-tuning": {"finetune."}, "quantization": {"quantize."}, "sandbox": {"workspace."}})
 	all := []studio.AddonTool{{Name: "addon__fine-tuning__fine-tune-list", AddonID: "fine-tuning"}, {Name: "addon__quantization__quantize-list", AddonID: "quantization"},
 		{Name: "addon__sandbox__bash", AddonID: "sandbox"}, {Name: "addon__tables__tables-create", AddonID: "tables"}}
 	names := func(in []studio.AddonTool) []string {

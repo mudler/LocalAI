@@ -18,7 +18,7 @@ func (e *HostRequirementsRefusal) Error() string {
 	return fmt.Sprintf("required host operations unavailable: %s; configure host policy and restart", strings.Join(e.Summary.MissingRequired, ", "))
 }
 func (m *Manager) requests(r packages.PackageReceipt) hostops.RequestSummary {
-	return hostops.Requests(r.Manifest.Capabilities.HostOperations, hostops.SupportedOperations(), m.hostOps[r.Manifest.ID])
+	return hostops.RequestsFor(r.Manifest.Capabilities.HostOperations, hostops.SupportedOperations(), m.hostAuthority(), r.Manifest.ID)
 }
 func (m *Manager) admit(r packages.PackageReceipt) error {
 	s := m.requests(r)
@@ -52,4 +52,11 @@ func copyRequestSummary(s *hostops.RequestSummary) *hostops.RequestSummary {
 	out.MissingRequired = slices.Clone(s.MissingRequired)
 	out.MissingOptional = slices.Clone(s.MissingOptional)
 	return &out
+}
+
+// held lists what an add-on holds now as operation prefixes and names, the
+// form the apps list reads to decide which host controls to draw.
+func held(a hostops.Authority, id string) []string {
+	set := a.Snapshot(id)
+	return append(slices.Clone(set.Prefixes), set.Operations...)
 }

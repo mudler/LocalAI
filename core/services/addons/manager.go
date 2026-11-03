@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
@@ -158,6 +160,33 @@ type Manager struct {
 	// add-on. The apps list reads it to decide which host controls it draws.
 	hostOps    map[string][]string
 	hostOpsSet bool
+	// authority answers what each add-on may call now. Nil means the startup
+	// snapshot in hostOps. It is read on every admission and every listing,
+	// so a grant or a revoke applies without a restart.
+	authority atomic.Pointer[hostops.Authority]
+	floor     atomic.Pointer[hostops.Authority]
+}
+
+// SetAuthority sets the Authority that admission and the apps list ask. The
+// first call wins; set it before attaching the runtime. Without it the
+// startup snapshot of SetHostOps is the authority.
+func (m *Manager) SetAuthority(a hostops.Authority) {
+	if a == nil {
+		return
+	}
+	m.authority.CompareAndSwap(nil, &a)
+}
+
+// hostAuthority is the Authority in force: the one set, or the startup
+// snapshot of host operation prefixes.
+func (m *Manager) hostAuthority() hostops.Authority {
+	if a := m.authority.Load(); a != nil {
+		return *a
+	}
+	if f := m.floor.Load(); f != nil {
+		return *f
+	}
+	return hostops.NewStaticAuthority(nil)
 }
 
 // SetHostOps sets the host operation grants of the add-ons (the host setting,
@@ -175,6 +204,8 @@ func (m *Manager) SetHostOps(ops map[string][]string) {
 	for id, prefixes := range ops {
 		m.hostOps[id] = slices.Clone(prefixes)
 	}
+	floor := hostops.NewStaticAuthority(m.hostOps)
+	m.floor.Store(&floor)
 }
 
 // SkillSync copies the skills of an add-on package into the chats' skill layer
@@ -1231,7 +1262,7 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		if !ok {
 			continue
 		}
-		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt, HostOps: m.hostOps[id]}
+		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt, HostOps: held(m.hostAuthority(), id)}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
 		}

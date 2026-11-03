@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,8 +48,10 @@ func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
 	p := mcpTools.NewAddonToolProvider(addontools.NewToolAdapter(a.addonGateway), a.AddonOwnershipMode())
 	if db := a.AuthDB(); db != nil {
 		has := addonFeatureCheck(db)
-		hostOps := a.applicationConfig.AddonHostOps
-		p = p.WithHidden(func(actor contract.Actor) map[string]bool { return addonsWithoutFeature(hostOps, has, actor) })
+		authority := a.addonAuthority()
+		p = p.WithHidden(func(actor contract.Actor) map[string]bool {
+			return addonsWithoutFeature(authority, a.installedAddonIDs(), has, actor)
+		})
 	}
 	return p
 }
@@ -57,19 +60,57 @@ func (a *Application) AddonToolProvider() *mcpTools.AddonToolProvider {
 // when this process offers none.
 func (a *Application) AddonHostOps() *addonruntime.HostOps { return a.addonHostOps }
 
+// addonAuthority is what every reader of add-on host operation grants asks:
+// the broker on each call, the manager at admission, and the tool filters. It
+// is the Authority set with SetAddonAuthority, and until one is set, the
+// startup policy of the deployment, which never changes.
+func (a *Application) addonAuthority() hostops.Authority {
+	a.addonAuthorityOnce.Do(func() {
+		if a.hostAuthority == nil {
+			var floor map[string][]string
+			if a.applicationConfig != nil {
+				floor = a.applicationConfig.AddonHostOps
+			}
+			a.hostAuthority = hostops.NewStaticAuthority(floor)
+		}
+	})
+	return a.hostAuthority
+}
+
+// SetAddonAuthority sets the Authority of the add-on host operations. It must
+// be called once, before the add-on manager starts; a later call is ignored,
+// so a grant never changes the rule by which it is checked.
+func (a *Application) SetAddonAuthority(auth hostops.Authority) {
+	a.addonAuthorityOnce.Do(func() { a.hostAuthority = auth })
+}
+
+// installedAddonIDs lists the add-ons the owner knows, or none in a process
+// without the add-on manager.
+func (a *Application) installedAddonIDs() []string {
+	if a.addonManager == nil {
+		return nil
+	}
+	ids, err := a.addonManager.InstalledIDs(context.Background())
+	if err != nil {
+		return nil
+	}
+	return ids
+}
+
 // newAddonHostOps builds the host operation broker for the supervisor of the
-// owner. A frontend without the add-on manager, or a host whose setting names
-// no add-on, builds nothing, so the channel fails closed. The setting is a
-// host setting read at startup; no manifest or request can add to it.
+// owner. A frontend without the add-on manager builds nothing, so the channel
+// fails closed. The broker exists whenever the manager does, even when no
+// grant exists yet: a grant made later applies to the next call, with no
+// restart. What an add-on may call is the Authority; no manifest or request can
+// add to it.
 func (a *Application) newAddonHostOps(m *addons.Manager, limits contract.Limits) *addonruntime.HostOps {
-	allowed := a.applicationConfig.AddonHostOps
-	if m == nil || len(allowed) == 0 {
+	if m == nil {
 		return nil
 	}
 	in := hostops.NewInFlight()
 	broker := hostops.New(in, addonFeatureCheck(a.authDB), limits)
 	broker.SetAdminCheck(addonAdminCheck(a.authDB))
-	return &addonruntime.HostOps{Broker: broker, InFlight: in, Allowed: allowed}
+	return &addonruntime.HostOps{Broker: broker, InFlight: in, Authority: a.addonAuthority()}
 }
 
 // RegisterAddonEngineJobs registers the engine job operations with the services
@@ -575,7 +616,7 @@ func (a *Application) StudioAddonTools() studio.AddonTools {
 	if db := a.AuthDB(); db != nil {
 		has = addonFeatureCheck(db)
 	}
-	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode(), hostOps: a.applicationConfig.AddonHostOps, has: has}
+	return &studioAddons{adapter: addontools.NewChatToolAdapter(a.addonGateway), mode: a.AddonOwnershipMode(), hostOps: a.addonAuthority(), ids: a.installedAddonIDs, has: has}
 }
 
 // lateStudioAddons asks for the broker at each call: the chats service starts
@@ -659,9 +700,11 @@ func (l lateStudioAddons) Call(ctx context.Context, user, conv, name string, arg
 type studioAddons struct {
 	adapter *addontools.ToolAdapter
 	mode    string
-	// hostOps maps an add-on ID to the host operation prefixes it may call. An
-	// add-on that may call the workspace operations needs the Files workspace.
-	hostOps map[string][]string
+	// hostOps says which host operations an add-on may call. An add-on that may
+	// call the workspace operations needs the Files workspace.
+	hostOps hostops.Authority
+	// ids lists the installed add-ons, for the rules that name add-ons.
+	ids func() []string
 	// has answers whether a user holds a host feature. Nil offers every tool.
 	has func(userID, feature string) bool
 }
@@ -673,26 +716,41 @@ var hostOpFeatures = map[string]string{"finetune.": auth.FeatureFineTuning, "qua
 
 // addonsWithoutFeature names the add-ons whose host operations need a feature
 // the actor does not hold. Local-owner mode has no accounts and hides none.
-func addonsWithoutFeature(hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) map[string]bool {
-	if has == nil || actor.Mode == auth.AddonModeLocalOwner {
+func addonsWithoutFeature(authority hostops.Authority, ids []string, has func(userID, feature string) bool, actor contract.Actor) map[string]bool {
+	if has == nil || actor.Mode == auth.AddonModeLocalOwner || authority == nil {
 		return nil
 	}
 	denied := map[string]bool{}
-	for addon, prefixes := range hostOps {
-		for _, p := range prefixes {
-			if f, ok := hostOpFeatures[p]; ok && !has(actor.UserID, f) {
-				denied[addon] = true
+	for _, addon := range ids {
+		for _, p := range heldOperations(authority, addon) {
+			for family, f := range hostOpFeatures {
+				if strings.HasPrefix(p, family) && !has(actor.UserID, f) {
+					denied[addon] = true
+				}
 			}
 		}
 	}
 	return denied
 }
 
+// heldOperations lists the operation prefixes and names an add-on holds now.
+func heldOperations(authority hostops.Authority, addonID string) []string {
+	if authority == nil {
+		return nil
+	}
+	set := authority.Snapshot(addonID)
+	return append(slices.Clone(set.Prefixes), set.Operations...)
+}
+
 // filterByFeature drops the tools of the add-ons whose host operations need a
 // feature the actor does not hold, so a model is not offered a tool that can
 // only answer "no permission". Local-owner mode has no accounts and keeps all.
-func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has func(userID, feature string) bool, actor contract.Actor) []studio.AddonTool {
-	denied := addonsWithoutFeature(hostOps, has, actor)
+func filterByFeature(tools []studio.AddonTool, hostOps hostops.Authority, has func(userID, feature string) bool, actor contract.Actor) []studio.AddonTool {
+	ids := make([]string, 0, len(tools))
+	for _, t := range tools {
+		ids = append(ids, t.AddonID)
+	}
+	denied := addonsWithoutFeature(hostOps, ids, has, actor)
 	if len(denied) == 0 {
 		return tools
 	}
@@ -705,9 +763,17 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 	return out
 }
 
+// installed lists the installed add-ons, or none when no list is wired.
+func (s *studioAddons) installed() []string {
+	if s.ids == nil {
+		return nil
+	}
+	return s.ids()
+}
+
 // needsWorkspace says whether the add-on works on the files of the user.
 func (s *studioAddons) needsWorkspace(addonID string) bool {
-	return hasWorkspaceOperation(s.hostOps[addonID])
+	return hasWorkspaceOperation(heldOperations(s.hostOps, addonID))
 }
 
 func hasWorkspaceOperation(operations []string) bool {
@@ -825,7 +891,7 @@ func (s *studioAddons) AddonSkills(ctx context.Context, user string) ([]studio.A
 	if err != nil {
 		return nil, err
 	}
-	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	denied := addonsWithoutFeature(s.hostOps, s.installed(), s.has, actor)
 	out := make([]studio.AddonSkillSet, 0, len(list))
 	for _, a := range list {
 		if denied[a.AddonID] {
@@ -852,7 +918,7 @@ func (s *studioAddons) AddonContextFiles(ctx context.Context, user string) ([]st
 	if err != nil {
 		return nil, err
 	}
-	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	denied := addonsWithoutFeature(s.hostOps, s.installed(), s.has, actor)
 	out := make([]studio.AddonContextSet, 0, len(list))
 	for _, a := range list {
 		if denied[a.AddonID] {
@@ -899,7 +965,7 @@ func (s *studioAddons) AddonShadowers(ctx context.Context, user string) ([]studi
 	if err != nil {
 		return nil, err
 	}
-	denied := addonsWithoutFeature(s.hostOps, s.has, actor)
+	denied := addonsWithoutFeature(s.hostOps, s.installed(), s.has, actor)
 	out := make([]studio.AddonShadower, 0, len(list))
 	for _, a := range list {
 		if denied[a.AddonID] {

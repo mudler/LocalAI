@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -446,7 +447,7 @@ type ordinaryBindingStore struct{ store.Store }
 var _ = Describe("workspace operation declarations", func() {
 	DescribeTable("retains the workspace dot prefix semantics", func(operations []string, want bool) {
 		Expect(hasWorkspaceOperation(operations)).To(Equal(want))
-		adapter := &studioAddons{hostOps: map[string][]string{"sample": operations}}
+		adapter := &studioAddons{hostOps: hostops.NewStaticAuthority(map[string][]string{"sample": operations})}
 		Expect(adapter.needsWorkspace("sample")).To(Equal(want))
 		Expect(adapter.needsWorkspace("other")).To(BeFalse())
 	},

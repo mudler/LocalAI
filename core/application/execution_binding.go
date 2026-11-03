@@ -82,7 +82,7 @@ func (a *Application) resolveExecutionBindingWithTools(ctx context.Context, acto
 	// Workspace-dependent tools cannot be selected without the actual workspace.
 	eligible := defs[:0:0]
 	for _, d := range defs {
-		needsWorkspace := hasWorkspaceOperation(a.applicationConfig.AddonHostOps[d.AddonID])
+		needsWorkspace := hasWorkspaceOperation(heldOperations(a.addonAuthority(), d.AddonID))
 		if needsWorkspace && !a.StudioFiles().Available() {
 			continue
 		}

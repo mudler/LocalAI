@@ -126,7 +126,7 @@ var _ = Describe("the studio add-ons", func() {
 	})
 
 	It("makes an add-on that needs the workspace unavailable while files are off", func() {
-		s := &studioAddons{mode: auth.AddonModeNamedUser, hostOps: map[string][]string{"sandbox": {"workspace."}, "office": {"workspace."}, "fine-tuning": {"finetune."}}}
+		s := &studioAddons{mode: auth.AddonModeNamedUser, hostOps: hostops.NewStaticAuthority(map[string][]string{"sandbox": {"workspace."}, "office": {"workspace."}, "fine-tuning": {"finetune."}})}
 		ctx := context.Background()
 		for _, id := range []string{"sandbox", "office"} {
 			Expect(s.Unavailable(ctx, "alice", id, false)).To(ContainSubstring("workspace"), "%s with files off", id)
