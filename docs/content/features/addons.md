@@ -263,7 +263,7 @@ not an addon ID or a private settings payload. Prompt construction, command
 status and nested egress reads share one observation within a turn. Priming and
 standalone command-status or egress requests have separate, bounded scopes.
 Consumer cancellation stops that wait; turn completion cancels the observation.
-A failed read settles as unknown with a reason (`unknown_reason`: `owner_unreachable`, `not_reported`, `stale`, `invalid_status`, `not_selected`, `no_answer` or `reported_unknown`), which the Tools menu shows. It is not retried at once. After a failure that a restart of the add-on owner can cause (`owner_unreachable`, `no_answer`, `stale`), a scope that is still open (a long turn) binds and reads again, at most once every five seconds. A refusal of the binding or of the payload is not retried. Each
+A failed read settles as unknown with a reason (`unknown_reason`: `owner_unreachable`, `not_reported`, `stale`, `invalid_status`, `not_selected`, `no_answer`, `reported_unknown` or `draft`, for a chat that is not created yet), which the Tools menu shows. It is not retried at once. After a failure that a restart of the add-on owner can cause (`owner_unreachable`, `no_answer`, `stale`), a scope that is still open (a long turn) binds and reads again, at most once every five seconds. A refusal of the binding or of the payload is not retried. Each
 consumption revalidates the complete owner binding, including conversation,
 current selection identity and runtime incarnation.
 

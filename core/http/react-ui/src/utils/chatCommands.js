@@ -21,6 +21,8 @@ export function commandsState(res) {
     return { state: 'host', reason: '' }
   }
   const observation = res?.execution_status
+  // A chat that is not created yet has no status to read: nothing to warn of.
+  if (observation?.unknown_reason === 'draft' && (state === 'available' || state === 'none')) return { state: state === 'none' ? 'none' : 'draft', reason: '' }
   if (state === 'available') {
     const isolation = observation?.isolation || res?.commands_isolation
     if (observation && observation.readiness !== 'available') return { state: 'unknown', reason: plainExplanation(observation.explanation), code: reasonCode(observation) }

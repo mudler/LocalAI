@@ -283,6 +283,17 @@ var _ = Describe("execution presentation DTO", func() {
 	})
 })
 
+var _ = Describe("the execution status of a chat that does not exist yet", func() {
+	It("says the chat is a draft, not that the add-on is not selected", func() {
+		broker := presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.ExecutionStatus).NotTo(BeNil())
+		Expect(c.ExecutionStatus.UnknownReason).To(Equal("draft"))
+	})
+})
+
 var _ = Describe("a second provider of commands", func() {
 	runbox := func() []studio.AddonTool {
 		bash := addonTool("runbox", "bash")

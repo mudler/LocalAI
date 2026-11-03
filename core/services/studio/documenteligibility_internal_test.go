@@ -121,7 +121,7 @@ var _ = Describe("document provider matrix", func() {
 			}
 			b.sets = append(b.sets, set)
 		}
-		ctx, closeScope := svc.executionScope(ctx, "alice", "")
+		ctx, closeScope := svc.executionScope(ctx, "alice", "c1")
 		defer closeScope()
 		list, _, _, err := svc.chatSkillSet(ctx, "alice", nil, off, sc, command)
 		Expect(err).NotTo(HaveOccurred())
@@ -403,7 +403,7 @@ func documentCommands(s *Service, ctx context.Context, p string, rec session.Cha
 // chatSkillNotes resolves the skills of a chat as the turn does and returns
 // the notes it gets.
 func chatSkillNotes(svc *Service, ctx context.Context, off []string, command Commands) ([]skills.Skill, []string, error) {
-	ctx, closeScope := svc.executionScope(ctx, "alice", "")
+	ctx, closeScope := svc.executionScope(ctx, "alice", "c1")
 	defer closeScope()
 	list, notes, _, err := svc.chatSkillSet(ctx, "alice", nil, off, nil, command)
 	return list, notes, err
