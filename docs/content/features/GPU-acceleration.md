@@ -458,6 +458,8 @@ watch -n1 rocm-smi
 rocm-smi --showallinfo
 ```
 
+LocalAI reads AMD GPU memory for `/api/resources` and the model fit check from `rocm-smi`. ROCm 7 and later images no longer ship `rocm-smi`; there LocalAI reads the same figures from the amdgpu driver in sysfs (`/sys/class/drm/card*/device/mem_info_*`). On APUs with a small VRAM carve-out and a large GTT pool (for example Strix Halo), the GTT pool counts toward GPU memory in both cases.
+
 ### Intel
 
 ```bash

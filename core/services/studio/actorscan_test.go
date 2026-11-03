@@ -44,6 +44,7 @@ var actorAllowlist = map[string]string{
 	"loadskill.go:Service.loadSkill":                                    "reads only skills the agent grants, by name",
 	"chatfiles.go:Service.ResolveAttachments":                           "the attachments a person sees in the transcript are a user surface",
 	"changes.go:Changes.Revert":                                         "undoes the change set that the owner confirmed; a person's own action, never the model's",
+	"contextturn.go:homeReader.ReadFile":                                "the host reads the user's notes at paths the loader builds from the chat record, never from the model; the chat's fence is not widened",
 	"service.go:New":                                                    "the administrator of the change feed and the trigger watcher",
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
 }

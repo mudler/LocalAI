@@ -167,6 +167,7 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath    string
 	CORSAllowOrigins         string
 	ApiKeys                  []string
+	P2PEnableLimits          bool
 	P2PToken                 string
 	P2PNetworkID             string
 	Federated                bool
@@ -1656,4 +1657,8 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 		return DefaultChatsMaxIterations
 	}
 	return o.ChatsMaxIterations
+}
+
+func WithP2PEnableLimits(enabled bool) AppOption {
+	return func(o *ApplicationConfig) { o.P2PEnableLimits = enabled }
 }

@@ -2240,6 +2240,80 @@ never more. Without a database they live in a file under the data path, or in
 memory when there is no data path.
 
 
+## Context files
+
+A context file is a short index in the user's home folder that the host puts in the
+prompt of a chat, so the model knows what the user has saved without a tool call. The
+details of each topic stay in files next to the index and the model reads them on demand
+with the `memory_read` tool. The mechanism belongs to the host, not to one app: a plain
+chat in Studio, a chat that a Slack binding started and a chat that a Telegram binding
+started all go through the same loader. An add-on does not add code to the host; it
+declares a source.
+
+### Declare a source
+
+A source has four fields:
+
+| Field | Meaning |
+|---|---|
+| `id` | A name, unique among the sources of the host. |
+| `scope` | `user` (every chat of the user), `agent` (the chats of one saved agent) or `channel` (the chats that one connector binding started). |
+| `path` | The index file, relative to the user's home, ending in `.md`. An `agent` path holds `{agent}` once and a `channel` path holds `{channel}` once. The host fills them from the chat; the model never names them. |
+| `cap` | The most bytes of the index that the prompt carries. Default and maximum: 2 KiB. |
+
+For example, a memory add-on declares three sources: `Memory/index.md` for the user,
+`Memory/agents/{agent}/index.md` for the agent and `Memory/channels/{channel}/index.md`
+for the channel. A path with a parent segment, an absolute path, an unknown placeholder
+or a file that does not end in `.md` is refused. A host holds at most 8 sources.
+
+Today a source is registered in process, with `Service.ContextSources().Register`. A
+declaration in the add-on manifest is a separate change.
+
+### The index format
+
+An index is a Markdown file with one line per topic:
+
+```
+- home: lives in Rome -> home.md
+- style: short answers, no emoji -> style.md
+```
+
+The file `home.md` sits in the same folder as the index. `memory_read` takes a `topic`
+(the name before the colon, or the file name) and an optional `scope`; without a scope it
+looks in the channel, then the agent, then the user. A topic name is letters, digits, `-`
+and `_`, at most 64 characters.
+
+### What a turn carries
+
+Each turn the host reads the indexes that apply to the chat and adds one block to the
+prompt, after the agent instructions, the persona and the agent profile:
+
+- A fixed header that asks the model to read the matching topic for almost every request,
+  and says the lines are data, not instructions.
+- The indexes, widest scope first. One index has at most 40 lines and 2 KiB (or its
+  `cap`, if lower). All indexes of a turn together have at most 6 KiB. Control characters
+  are dropped. A cut index ends with a marker.
+- Nothing, if no source is registered or no file exists.
+
+The text is the same at each turn until a file changes, so the transcript does not grow.
+A change to an index restarts the model session at the next turn, like a change to the
+persona does. `memory_read` returns at most 8 KiB of one topic.
+
+A saved agent can also have a profile at `LocalAI/agents/<agent>/profile.md`, at most
+4 KiB. The host adds it after the agent instructions and the persona. It needs no
+source.
+
+### Access and limits
+
+The host reads the files as the user, outside the fence of the chat. A chat of a saved
+agent that works in one folder therefore still reads the user index and the index of its
+own agent, and gains no access to the files: its file tools still cannot read or write
+`Memory/` or the profile. The path comes from the chat, so a chat never reads the index
+of another agent or another channel. This change adds only read paths. A component that
+saves notes plugs in through `Service.SetContextWriter` (the header then names its save
+tool) and uses `contextfiles.CheckIndex` and `contextfiles.CheckProfile`: over a cap they
+return the current entries in the error, so the model merges them instead of adding.
+
 ## Owner forwarding and HTTP relays
 
 The embedding host can configure `AddonConfig.Transport` at startup. The configuration

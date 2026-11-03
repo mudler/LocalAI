@@ -607,7 +607,7 @@ func (r *SmartRouter) ScheduleAndLoadModel(ctx context.Context, modelName string
 		// the worker rejected ("backend name is empty"). Skip cleanly: the
 		// model needs to be served at least once via Route() so its load
 		// info is stored — then the reconciler can replicate it.
-		return nil, fmt.Errorf("no load info for model %s: serve at least one request for it before the reconciler can replicate (cause: %w)", modelName, err)
+		return nil, fmt.Errorf("no load info for model %s: serve at least one request for it before the reconciler can replicate: %w (cause: %w)", modelName, ErrNoLoadInfo, err)
 	}
 
 	// Deserialize the stored model options
@@ -2141,6 +2141,10 @@ func (r *SmartRouter) EvictLRU(ctx context.Context, nodeID string) (string, erro
 // ErrEvictionBusy is returned when all loaded models have in-flight requests
 // and none can be evicted to make room.
 var ErrEvictionBusy = errors.New("all models busy, cannot evict")
+
+// ErrNoLoadInfo is returned by ScheduleAndLoadModel when no replica of the model
+// has ever been loaded, so there are no stored load options to replicate.
+var ErrNoLoadInfo = errors.New("no load info")
 
 // ErrNoAvailableNodes is returned when the scheduler cannot find any healthy
 // node to serve a model — all nodes are full and eviction cannot free a slot,

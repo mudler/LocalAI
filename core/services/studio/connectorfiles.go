@@ -92,8 +92,36 @@ func (c *Connectors) turnFiles(ctx context.Context, b connectors.Binding, x sess
 	return out
 }
 
-// sendFiles hands the files of a turn to the sender after the answer. A file
-// that cannot go is named in one plain message, with the reason.
+// outFile is a file on its way to a sender. made says that the turn made or
+// changed it, so the sender may be told "I made"; else the agent attached it.
+type outFile struct {
+	path, name string
+	made       bool
+}
+
+// outgoing lists what goes with the answer: the files the turn made or
+// changed, then the files the agent attached, each path once.
+func (c *Connectors) outgoing(ctx context.Context, b connectors.Binding, x session.Access, chatID string, turn int, since time.Time) []outFile {
+	var out []outFile
+	seen := map[string]bool{}
+	for _, f := range c.turnFiles(ctx, b, x, chatID, turn, since) {
+		if !seen[f.Path] {
+			seen[f.Path] = true
+			out = append(out, outFile{path: f.Path, name: contract.SafeFileName(f.Name), made: true})
+		}
+	}
+	for _, p := range c.takeAttached(x.Actor().Principal, chatID) {
+		if !seen[p] {
+			seen[p] = true
+			out = append(out, outFile{path: p, name: contract.SafeFileName(path.Base(p))})
+		}
+	}
+	return out
+}
+
+// sendFiles hands the files of a turn to the sender after the answer: those
+// the turn made and those the agent attached. A file that cannot go is named
+// in one plain message, with the reason.
 func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.ConnectorMessage, chatID string, turn int, since time.Time) {
 	if !b.SendsFiles() {
 		return
@@ -101,47 +129,70 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	// The files go with the chat's access, resolved now: a scoped agent's
-	// reply sends nothing from outside its folders.
+	// reply sends nothing from outside its folders, whatever was marked.
 	x, err := c.svc.ChatAccess(ctx, b.Owner, chatID)
 	if err != nil {
 		c.log.Warn("studio: the files of a connector turn are not sent", "binding", b.ID, "error", err)
 		return
 	}
-	files := c.turnFiles(ctx, b, x, chatID, turn, since)
+	files := c.outgoing(ctx, b, x, chatID, turn, since)
 	var notes []string
 	for i, f := range files {
 		if i == maxFilesPerTurn {
 			notes = append(notes, fmt.Sprintf("%d more files are in the chat's files.", len(files)-i))
 			break
 		}
-		name := contract.SafeFileName(f.Name)
-		mimeType, ok := outboundType(name)
+		mimeType, ok := outboundType(f.name)
 		if !ok {
-			notes = append(notes, fmt.Sprintf("I made %s, but files of this type are not sent here.", name))
+			if f.made {
+				notes = append(notes, fmt.Sprintf("I made %s, but files of this type are not sent here.", f.name))
+			} else {
+				notes = append(notes, fmt.Sprintf("%s was not sent: files of this type are not sent here.", f.name))
+			}
 			continue
 		}
-		data, err := c.svc.readChatFile(ctx, x, f.Path, contract.MaxConnectorFileBytes)
+		data, err := c.svc.readChatFile(ctx, x, f.path, contract.MaxConnectorFileBytes)
 		switch {
 		case errors.Is(err, workspace.ErrNotFound):
 			continue // gone since, or outside the chat's access: not named
 		case errors.Is(err, errFileTooLarge):
-			notes = append(notes, fmt.Sprintf("%s is too large to send here (the limit is 1 MB). It is in the chat's files.", name))
+			notes = append(notes, fmt.Sprintf("%s is too large to send here (the limit is 1 MB). It is in the chat's files.", f.name))
 			continue
 		case err != nil:
 			c.log.Warn("studio: could not read a file for a connector", "binding", b.ID, "error", err)
-			notes = append(notes, fmt.Sprintf("I could not read %s.", name))
+			notes = append(notes, fmt.Sprintf("I could not read %s.", f.name))
 			continue
 		case len(data) == 0:
 			continue // an empty file says nothing, and platforms refuse it
 		}
 		err = c.send(ctx, b, contract.ConnectorRequest{Op: contract.ConnectorOpSendFile, Token: token, Chat: m.Chat, Thread: m.Thread,
-			File: &contract.ConnectorFile{Name: name, MIME: mimeType, Data: data}})
+			File: &contract.ConnectorFile{Name: f.name, MIME: mimeType, Data: data}})
 		if err != nil {
 			c.log.Warn("studio: could not send a file to a connector", "binding", b.ID, "kind", b.Kind, "error", err)
-			notes = append(notes, fmt.Sprintf("I could not send %s.", name))
+			notes = append(notes, fmt.Sprintf("I could not send %s%s.", f.name, sendReason(err)))
 		}
 	}
 	if len(notes) > 0 {
 		c.say(b, token, m.Chat, m.Thread, strings.Join(notes, "\n"))
 	}
+}
+
+// maxReasonRunes bounds the platform's reason in a message to the sender.
+const maxReasonRunes = 160
+
+// sendReason is ": <why>" when the add-on says why the platform refused a
+// file (a missing permission, say), cut to one short line, and "" otherwise.
+func sendReason(err error) string {
+	var ce *contract.ConnectorError
+	if !errors.As(err, &ce) {
+		return ""
+	}
+	why := strings.Join(strings.Fields(ce.Message), " ")
+	if r := []rune(why); len(r) > maxReasonRunes {
+		why = string(r[:maxReasonRunes]) + "…"
+	}
+	if why == "" {
+		return ""
+	}
+	return ": " + why
 }

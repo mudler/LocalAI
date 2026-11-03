@@ -15,6 +15,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/workerctl"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // registerLifecycleVerbs serves every lifecycle verb this worker accepts on
@@ -417,7 +419,9 @@ func (s *backendSupervisor) unloadTargets(req workerctl.ModelUnloadRequest) []st
 }
 
 // unloadModel answers model.unload: call gRPC Free() to release GPU memory
-// without killing the backend process.
+// without killing the backend process. A backend that answers Unimplemented
+// cannot free anything and may not survive a second LoadModel, so its process
+// is stopped instead.
 //
 // The target is the address in the request, or else every replica of the model
 // the request names (see unloadTargets). There is no fallback to "any running
@@ -458,10 +462,11 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		// is wedged.
 		client := grpc.NewClientWithToken(addr, false, nil, false, s.cfg.RegistrationToken)
 		freeCtx, cancel := context.WithTimeout(ctx, workerBackendFreeTimeout)
-		if err := client.Free(freeCtx); err != nil {
-			xlog.Warn("Free() failed during model.unload", "error", err, "addr", addr)
-		}
+		freeErr := client.Free(freeCtx)
 		cancel()
+		if freeErr != nil {
+			xlog.Warn("Free() failed during model.unload", "error", freeErr, "addr", addr)
+		}
 
 		// The process may have been replaced while Free() ran. Say so instead of
 		// reporting a success for a process that is not the one that was freed.
@@ -469,8 +474,22 @@ func (s *backendSupervisor) unloadModel(ctx context.Context, req workerctl.Model
 		current, ok := s.processes[key]
 		if !ok || current != target || current.instance != instance {
 			replaced = append(replaced, addr)
+			s.mu.Unlock()
+			continue
 		}
 		s.mu.Unlock()
+
+		// A backend that does not implement Free cannot release its model, and
+		// a second LoadModel on the live process is not safe for all of them
+		// (llama-cpp aborts while it re-initializes its server context). Stop
+		// the process, so the next install starts a fresh one. Free was already
+		// attempted, so skip the courtesy call.
+		if status.Code(freeErr) == codes.Unimplemented {
+			xlog.Info("Backend has no Free(); stopping its process on model.unload", "addr", addr, "processKey", key)
+			if err := s.stopBackendExactBP(key, target, true); err != nil {
+				xlog.Warn("Failed to stop backend process after model.unload", "error", err, "addr", addr)
+			}
+		}
 	}
 	if len(replaced) > 0 {
 		return workerctl.ModelUnloadReply{Success: false, Error: "process was replaced during unload"}

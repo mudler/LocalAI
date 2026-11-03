@@ -119,7 +119,7 @@ To reuse the same token later, restart the server with `--p2ptoken` or `P2P_TOKE
 2. Start the workers. Copy the `local-ai` binary to other hosts and run as many workers as needed using the token:
 
 ```bash
-TOKEN=XXX ./local-ai worker p2p-llama-cpp-rpc --llama-cpp-args="-m <memory>" 
+TOKEN=XXX ./local-ai p2p-worker p2p-llama-cpp-rpc --llama-cpp-args="-m <memory>"
 ```
 
 (Note: You can also supply the token via command-line arguments)
@@ -141,7 +141,7 @@ There are options that can be tweaked or parameters that can be set using enviro
 | **LOCALAI_FEDERATED** | Set to "true" to enable federated mode |
 | **FEDERATED_SERVER** | Set to "true" to enable federated server |
 | **LOCALAI_P2P_DISABLE_DHT** | Set to "true" to disable DHT and enable p2p layer to be local only (mDNS) |
-| **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
+| **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" (or pass `--p2p-enable-limits=true` to `run`, a `p2p-worker` command, or `explorer`) to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
 | **LOCALAI_P2P_LISTEN_MADDRS** | Set to comma separated list of multiaddresses to override default libp2p 0.0.0.0 multiaddresses |
 | **LOCALAI_P2P_DHT_ANNOUNCE_MADDRS** | Set to comma separated list of multiaddresses to override announcing of listen multiaddresses (useful when external address:port is remapped) |
 | **LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS** | Set to comma separated list of multiaddresses to specify custom DHT bootstrap nodes |

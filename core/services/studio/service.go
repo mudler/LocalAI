@@ -20,6 +20,7 @@ import (
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -315,11 +316,12 @@ type Service struct {
 	admit sync.Mutex
 
 	// Sub-agents; see subagent.go.
-	changes    *Changes         // the change proposals
-	triggers   *Triggers        // set once by SetTriggers
-	loops      *Loops           // set once by SetLoops
-	jobs       *Jobs            // set once by SetJobs
-	connectors *Connectors      // set once by SetConnectors
+	changes    *Changes    // the change proposals
+	triggers   *Triggers   // set once by SetTriggers
+	loops      *Loops      // set once by SetLoops
+	jobs       *Jobs       // set once by SetJobs
+	connectors *Connectors // set once by SetConnectors
+	ctxfiles   *contextfiles.Loader
 	conversion ConversionSource // set once by SetConversion
 
 	videos   map[string][]string                // videos for the next model request of a turn, by conversation
@@ -437,6 +439,7 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerToolGroups(); err != nil {
 		return nil, err
 	}
+	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
 	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
 	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,

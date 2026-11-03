@@ -60,11 +60,13 @@ var _ = Describe("the turn block of a connector chat", func() {
 		p1, p2 := prompt(Origin{Kind: session.OriginConnector, ID: "b1"})
 		Expect(p1).To(ContainSubstring("This chat is on Slack."))
 		Expect(p1).To(ContainSubstring("attached to your answer automatically"))
+		Expect(p1).To(ContainSubstring("call attach_file with its path"), "the way to give a file that exists")
+		Expect(p1).To(ContainSubstring("never tell them a path"))
 		Expect(p1).To(ContainSubstring("Up to 5 files per turn, 1 MB each"))
 		Expect(p1).NotTo(ContainSubstring("NOT sent"))
 		Expect(strings.Count(p2, "This chat is on")).To(Equal(1), "a second turn does not repeat the block")
 		Expect(p2).To(Equal(p1))
-		Expect(len(svc.connectorBlock(ctx, session.ChatRecord{Origin: session.OriginConnector, OriginID: "b1"}, true))).To(BeNumerically("<", 700))
+		Expect(len(svc.connectorBlock(ctx, session.ChatRecord{Origin: session.OriginConnector, OriginID: "b1"}, true))).To(BeNumerically("<", 700), "the block is read at each turn")
 	})
 
 	It("says that files are not sent when the binding turns them off", func() {
@@ -73,6 +75,7 @@ var _ = Describe("the turn block of a connector chat", func() {
 		Expect(p).To(ContainSubstring("This chat is on Slack."))
 		Expect(p).To(ContainSubstring("Files are NOT sent"))
 		Expect(p).NotTo(ContainSubstring("attached to your answer automatically"))
+		Expect(p).NotTo(ContainSubstring("attach_file"), "a binding that sends no file has no such tool")
 	})
 
 	It("leaves out the file part when the binding cannot be read", func() {

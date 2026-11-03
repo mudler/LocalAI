@@ -15,6 +15,7 @@ import (
 )
 
 type P2PMLX struct {
+	P2PEnableLimits    string `name:"p2p-enable-limits" env:"LOCALAI_P2P_ENABLE_LIMITS" help:"Set to true to enable P2P resource limits" group:"p2p"`
 	WorkerFlags        `embed:""`
 	Token              string `env:"LOCALAI_TOKEN,LOCALAI_P2P_TOKEN,TOKEN" help:"P2P token to use"`
 	Peer2PeerNetworkID string `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode" group:"p2p"`
@@ -82,7 +83,7 @@ func (r *P2PMLX) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	_, err = p2p.ExposeService(c, address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.MLXWorkerID))
+	_, err = p2p.ExposeService(c, address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.MLXWorkerID), p2p.NodeConfig{EnableLimits: r.P2PEnableLimits == "true"})
 	if err != nil {
 		return err
 	}

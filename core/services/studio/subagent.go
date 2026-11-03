@@ -107,7 +107,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	fa := fx.Actor()
 	nudge := s.newRulesNudge(ctx, x, rec)
-	tools = append(tools, nudge.wrap(s.fileNudgeTools(fx, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(fx), hidden)))))...)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fx, s.announceFileChanges(fa, s.skillHintTools(fa, s.binaryHintTools(fa, cmds.State == CommandsAvailable, dropHidden(s.d.Files.Tools(fx), hidden))))))...)
+	if !sub {
+		tools = append(tools, s.attachTools(ctx, fx, rec)...)
+	}
 	if s.d.Media != nil {
 		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, x, rec.Model), hidden))...)
 	}
@@ -130,8 +133,16 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if !sub {
 		persona, personaKey = s.WellKnown().TurnPrompt(ctx, a.Principal)
 	}
-	if persona != "" {
-		prompt = strings.TrimSpace(persona + "\n\n" + prompt)
+	// The agent's profile and the index of the user's notes follow the persona.
+	// The first is the user's standing rules for this agent; the second points
+	// the model at memory_read.
+	var notes, notesKey string
+	if !sub {
+		notes, notesKey = s.contextTurn(ctx, rec)
+		tools = append(tools, s.contextTools(rec)...)
+	}
+	if lead := joinBlocks(persona, notes); lead != "" {
+		prompt = strings.TrimSpace(lead + "\n\n" + prompt)
 	}
 	if sc != nil {
 		// Granted skills the user lacks come back from skillTurn as a note of
@@ -233,7 +244,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// load_skill learns from the final list whether the chat can read a
 	// skill's files and run what a skill needs.
 	tools = s.fitLoadSkill(a, tools)
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
 }
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets

@@ -138,6 +138,9 @@ type Connectors struct {
 	emu      sync.Mutex
 	nextEdit map[string]time.Time // by binding: when its next edit may go
 
+	amu      sync.Mutex
+	attached map[string][]string // by chat: files that attach_file marked for the answer of the turn
+
 	wake chan struct{}
 	done chan struct{}
 	once sync.Once
