@@ -18,6 +18,9 @@ export class AddonsError extends Error {
     this.type = info.type || ''
     // The step of a backend install that failed, when the host named one.
     this.phase = info.phase || ''
+    // The rest of a typed refusal (for example the true operation list of a
+    // stale approval), kept as the owner sent it.
+    this.details = info.details || null
   }
 }
 
