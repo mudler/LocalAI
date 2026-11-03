@@ -121,8 +121,13 @@ var _ = Describe("the agent skills layer", func() {
 		Expect(out).To(ContainSubstring("Writing body."))
 	})
 
-	It("lists the skills of every agent outside a chat, each with its own agent", func() {
-		list, _, err := svc.Skills(ctx, "alice", "")
+	It("lists the skills of every agent for the Skills page, each with its own agent, and keeps them out of the plain list", func() {
+		plain, _, err := svc.Skills(ctx, "alice", "")
+		Expect(err).NotTo(HaveOccurred())
+		for _, sk := range plain {
+			Expect(sk.Layer).NotTo(Equal(skills.LayerAgent))
+		}
+		list, err := svc.AgentSkills(ctx, "alice")
 		Expect(err).NotTo(HaveOccurred())
 		by := map[string]string{}
 		for _, sk := range list {

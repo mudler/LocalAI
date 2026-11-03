@@ -379,13 +379,17 @@ function draftQuery(model, agentId) {
   return s ? `?${s}` : ''
 }
 
+const refQuery = (ref) => (ref.addon ? `?addon=${enc2(ref.addon)}` : ref.agent ? `?agent=${enc2(ref.agent)}` : '')
 export const chatSkillsApi = {
-  list: (chat) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : ''}`),
-  // addon names the add-on of a skill of the addon layer.
-  get: (layer, name, addon) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${addon ? `?addon=${enc2(addon)}` : ''}`),
+  // agents: also list the skills of your saved agents (the Skills page); a
+  // chat's own list has the layer of its agent already.
+  list: (chat, { agents = false } = {}) => fetchJSON(`/api/chats/skills${chat ? `?chat=${enc2(chat)}` : agents ? '?agents=true' : ''}`),
+  // ref names the owner of a skill of the addon layer ({ addon }) or of the
+  // agent layer ({ agent }): see skillRef in utils/chatSkills.js.
+  get: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`),
   create: (body) => postJSON('/api/chats/skills', body),
   update: (layer, name, body) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'PUT', body: JSON.stringify(body) }),
-  remove: (layer, name) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}`, { method: 'DELETE' }),
+  remove: (layer, name, ref = {}) => fetchJSON(`/api/chats/skills/${enc2(layer)}/${enc2(name)}${refQuery(ref)}`, { method: 'DELETE' }),
   setOff: (chat, off) => fetchJSON(`/api/chats/${enc2(chat)}/skills`, { method: 'PUT', body: JSON.stringify({ off }) }),
 }
 
@@ -464,6 +468,8 @@ export const chatAgentsApi = {
   // agent and says in `warnings` what it changed.
   exportFile: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}/export`),
   importFile: (data) => postJSON('/api/chats/agents/import', data),
+  // The builtin grants an agent can hold: { grants: [{ name, title, description, sensitive }] }.
+  builtinGrants: () => fetchJSON('/api/chats/agents/builtin-grants'),
   templates: () => fetchJSON('/api/chats/agents/templates'),
   fromTemplate: (id, name) => postJSON(`/api/chats/agents/templates/${enc2(id)}/create`, name ? { name } : {}),
   runs: (id, limit) => fetchJSON(`/api/chats/agents/${enc2(id)}/runs${q({ limit })}`),

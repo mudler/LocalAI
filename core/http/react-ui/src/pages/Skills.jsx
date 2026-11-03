@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { chatSkillsApi } from '../utils/api'
+import { skillRef } from '../utils/chatSkills'
 import { useLibraryFacts } from '../hooks/useLibraryFacts'
 import { useWideLayout } from '../hooks/useWideLayout'
 // eslint-disable-next-line no-unused-vars
@@ -19,13 +20,14 @@ import './library.css'
 
 const PREVIEW_LINES = 8
 // The layers, nearest first: a skill of a nearer layer hides one of the same name.
-const LAYERS = ['personal', 'folder', 'shared', 'addon', 'builtin']
+const LAYERS = ['personal', 'agent', 'folder', 'shared', 'addon', 'builtin']
 
 // Two add-ons may ship a skill of one name, so an add-on skill keys by its add-on too.
-const keyOf = (s) => (s.layer === 'addon' ? `addon/${s.addon}/${s.name}` : `${s.layer}/${s.name}`)
+// An agent skill keys by its agent: two agents may keep one name.
+const keyOf = (s) => (s.layer === 'addon' ? `addon/${s.addon}/${s.name}` : s.layer === 'agent' ? `agent/${s.agent}/${s.name}` : `${s.layer}/${s.name}`)
 
 // The badge of a skill: the add-on's title for an add-on skill, else the layer.
-const badgeOf = (t, s) => (s.layer === 'addon' ? (s.addon_title || s.addon) : t(`layers.${s.layer}`))
+const badgeOf = (t, s) => (s.layer === 'addon' ? (s.addon_title || s.addon) : s.layer === 'agent' ? (s.agent_name || s.agent) : t(`layers.${s.layer}`))
 
 // Why a skill does not serve, or where a serving one comes from, in one line.
 // titles maps an add-on ID to its title, from the add-on skills of the list.
@@ -64,7 +66,7 @@ export default function Skills() {
 
   const fetchSkills = useCallback(async () => {
     try {
-      const data = await chatSkillsApi.list()
+      const data = await chatSkillsApi.list('', { agents: true })
       setSkills(data.skills || [])
       setNotes(data.notes || [])
       setOff('')
@@ -110,7 +112,7 @@ export default function Skills() {
   const deleteSkill = async (skill) => {
     setToDelete(null)
     try {
-      await chatSkillsApi.remove(skill.layer, skill.name)
+      await chatSkillsApi.remove(skill.layer, skill.name, skillRef(skill))
       addToast(t('toasts.deleted', { name: skill.name }), 'success')
       select('')
       fetchSkills()
@@ -315,16 +317,17 @@ function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEd
   const [tab, setTab] = useState('overview')
   const [detail, setDetail] = useState({ phase: 'loading', data: null })
   const unused = status === 'ready' && users.length === 0
-  const grantable = !skill.invalid
+  // An agent skill belongs to its agent: no other agent is given it from here.
+  const grantable = !skill.invalid && skill.layer !== 'agent'
 
   useEffect(() => {
     if (skill.invalid) { setDetail({ phase: 'failed', data: null }); return undefined }
     let live = true
-    chatSkillsApi.get(skill.layer, skill.name, skill.layer === 'addon' ? skill.addon : '')
+    chatSkillsApi.get(skill.layer, skill.name, skillRef(skill))
       .then(data => { if (live) setDetail({ phase: 'ready', data }) })
       .catch(() => { if (live) setDetail({ phase: 'failed', data: null }) })
     return () => { live = false }
-  }, [skill.layer, skill.name, skill.addon, skill.invalid])
+  }, [skill.layer, skill.name, skill.addon, skill.agent, skill.invalid])
 
   const body = detail.data?.body || ''
   const tokens = estimateTokens(body)
@@ -343,14 +346,14 @@ function SkillPane({ t, skill, titles, users, status, agents, busy, onBack, onEd
           {skill.editable && (
             <Button size="sm" icon="edit" onClick={() => onEdit(skill)} title={t('card.editTitle')}>{t('actions.edit')}</Button>
           )}
-          {skill.editable && (
+          {(skill.editable || skill.removable) && (
             <Button variant="danger-ghost" size="sm" icon="trash" onClick={() => onDelete(skill)} title={t('card.deleteTitle')}>{t('actions.delete')}</Button>
           )}
         </div>
       </div>
 
       <ul className="lib-facts">
-        <li className="lib-fact" data-testid="skill-layer">{skill.layer === 'addon' ? t('card.providedBy', { name: badgeOf(t, skill) }) : t(`layers.${skill.layer}`)}</li>
+        <li className="lib-fact" data-testid="skill-layer">{skill.layer === 'addon' ? t('card.providedBy', { name: badgeOf(t, skill) }) : skill.layer === 'agent' ? t('card.proposedBy', { name: badgeOf(t, skill) }) : t(`layers.${skill.layer}`)}</li>
         {!skill.editable && <li className="lib-fact">{t('card.readOnly')}</li>}
         {skill.shadowed && <li className="lib-fact" data-testid="skill-shadowed">{skill.shadowed_by || skill.layer === 'addon' ? statusOf(t, skill, titles) : t('card.shadowedLong', { layer: t(`layers.${skill.shadowed}`) })}</li>}
         {skill.fallback && <li className="lib-fact" data-testid="skill-fallback">{t('card.fallback', { name: skill.fallback })}</li>}

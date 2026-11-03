@@ -7180,7 +7180,7 @@
         },
         "/api/chats/skills": {
             "get": {
-                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
+                "description": "Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.",
                 "tags": [
                     "chats"
                 ],
@@ -7190,6 +7190,12 @@
                         "type": "string",
                         "description": "a chat id, to apply its switches",
                         "name": "chat",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "true: add the skills of your saved agents (layer agent), for the Skills page; ignored with chat",
+                        "name": "agents",
                         "in": "query"
                     }
                 ],

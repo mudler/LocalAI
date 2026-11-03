@@ -42,9 +42,10 @@ func editable(c echo.Context, l skills.Layer) bool {
 
 // ListSkills lists the skills.
 // @Summary List your skills.
-// @Description Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.
+// @Description Skills from every layer: .skills folders of your files, your personal skills, the shared ones, the ones of the add-ons you may use now (addon, with the add-on in addon and addon_title) and the built-in ones. A chat with a saved agent also lists the skills of that agent (agent). The nearest wins; a skill that another overrides says so in shadowed. With chat set, the chat's switches are applied.
 // @Tags chats
 // @Param chat query string false "a chat id, to apply its switches"
+// @Param agents query bool false "true: add the skills of your saved agents (layer agent), for the Skills page; ignored with chat"
 // @Success 200 {object} schema.ChatsSkillList "The skills"
 // @Router /api/chats/skills [get]
 func (h *Handlers) ListSkills(c echo.Context) error {
@@ -54,6 +55,15 @@ func (h *Handlers) ListSkills(c echo.Context) error {
 	list, notes, err := h.svc.Skills(c.Request().Context(), userID(c), c.QueryParam("chat"))
 	if err != nil {
 		return failFor(c, err)
+	}
+	// The Skills page asks for the skills of the saved agents too. A chat's
+	// own list already has the layer of its agent.
+	if c.QueryParam("agents") == "true" && c.QueryParam("chat") == "" {
+		more, err := h.svc.AgentSkills(c.Request().Context(), userID(c))
+		if err != nil {
+			return failFor(c, err)
+		}
+		list = append(list, more...)
 	}
 	out := schema.ChatsSkillList{Skills: make([]schema.ChatsSkill, 0, len(list)), Notes: notes}
 	for _, sk := range list {

@@ -238,20 +238,18 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		return nil, nil, err
 	}
 	ad.markFallbacks(list)
-	if conv == "" {
-		// Outside a chat the skills of every saved agent are listed, each
-		// resolved on its own: two agents may keep a skill of one name.
-		more, err := s.agentSkillsOf(ctx, p)
-		if err != nil {
-			return nil, nil, err
-		}
-		list = append(list, more...)
-	}
 	return list, ad.withNotes(notes), nil
 }
 
-// agentSkillsOf lists the agent-layer skills of every saved agent of p.
-func (s *Service) agentSkillsOf(ctx context.Context, p string) ([]skills.Skill, error) {
+// AgentSkills lists the agent-layer skills of every saved agent of the user,
+// for the Skills page. Each agent is resolved on its own, because two agents
+// may keep a skill of one name. A chat never sees this list: it resolves the
+// layer of its own agent only (chatSkillSet).
+func (s *Service) AgentSkills(ctx context.Context, user string) ([]skills.Skill, error) {
+	p := principal(user)
+	if !s.d.Files.Available() {
+		return nil, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
+	}
 	if s.d.Agents == nil {
 		return nil, nil
 	}
