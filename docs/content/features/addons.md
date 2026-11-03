@@ -140,7 +140,7 @@ and reconciling the operation before further use.
 
 These declarations extend the strict manifest contract. They keep
 `schemaVersion: 1`, host/protocol/data-format level 1 and UI SDK 2. The manifest
-`api` range is 1 to 2: the execution descriptor and the resource listing below need 2.
+`api` range is 1 to 2: the execution descriptor, the resource listing and the network capability below need 2.
 The Go contract parser is authoritative; there is no separate JSON Schema.
 The fragments below merge into an otherwise valid manifest, not a complete
 installable package. Existing executable, identity, compatibility and UI
@@ -342,6 +342,57 @@ is installed. Core text never names a shipped add-on, so the title you declare
 is the only name your users see for it. A test reads `addons/*/manifest.json`
 and fails when a locale string, a Settings label or a Go string of core names an
 add-on that provides a role.
+
+### Network capability
+
+Needs manifest `api` 2. Inside `capabilities`:
+
+```json
+{
+  "network": {
+    "kind": "egress-check",
+    "title": "Runbox",
+    "presets": [
+      { "id": "off", "title": "Closed" },
+      { "id": "all", "title": "Open web" }
+    ]
+  },
+  "hostOperations": { "optional": ["egress.check"] },
+  "ui": { "controls": ["network-policy"] }
+}
+```
+
+The declaration says that the add-on runs commands behind a proxy that asks the
+host about each connection. The host attaches the `network-policy` control to
+it, and writes about the network from it, without knowing the add-on ID. It
+grants no authority: the host enforces the administrator's limit and the chat's
+rules, and it answers `egress.check` only for an add-on whose host setting
+grants that operation. The tool that runs commands does not have to shadow
+`bash` for the control to attach.
+
+| Field | Meaning |
+|---|---|
+| `kind` | Required. `egress-check`: the add-on's proxy calls the host operation `egress.check` for each connection, and the add-on blocks what the host refuses. The manifest must list `egress.check` in `hostOperations`. |
+| `title` | Optional, at most 40 characters of plain text. The host names the network by it in the text the model reads ("The server's setting for the Runbox network") and in the `network` object of the API. Without it, the host uses the title of the commands tool, then the add-on's own title. |
+| `presets` | Optional, at most three entries of `id` (`off`, `registries` or `all`, no repeats) and `title` (at most 40 characters). The chat Tools menu and the network cards show these titles for the host's presets (here "Closed" for `off` and "Open web" for `all`). A preset you leave out keeps the host's title. |
+
+The apps list and the chat's network view carry the result in a `network`
+object (`title` and `presets`). The settings keys do not change. The host keeps
+the names `chats_egress_ceiling`, `chats_egress_default`, `chats_egress_ports`,
+`chats_egress_extra_registries`, `chats_egress_allowed_hosts`,
+`chats_egress_allow_private` and `chats_egress_audit_days`, with the values
+and the API they have today, so a running instance needs no migration. They are
+host settings, not settings of one add-on. The setting `chats_host_exec`, which
+lets the host run commands when no add-on provides `bash`, is also a host
+setting and names no add-on.
+
+A manifest that declares no `network` works as before. The host attaches the
+control to an add-on that asks for `network-policy` in `ui.controls`, is granted
+`egress.check` and declares a tool that replaces `bash`; it names the network
+by the title of that tool. This is the shape of the manifests written before
+this field existed. The field is optional and does not change the protocol: the
+manifest must accept API 2 (`"api": {"min": 1, "max": 2}`), and the host still
+accepts add-ons that declare `{1,1}`.
 
 ### Requested host operations are not grants
 
@@ -4441,7 +4492,7 @@ the add-on's ID to decide.
 
 | Control | Where the host draws it | The add-on must |
 |---|---|---|
-| `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare a tool that replaces `bash`. |
+| `network-policy` | On the add-on's **Settings** tab: the network of the commands it runs (limit, preset of a new chat, ports, extra registries, always allowed hosts, private networks, and the audit; see [Network access](#network-access)). In the chat's Tools menu: the **Network** row, while the add-on runs the chat's commands, with a link to the add-on's Settings tab for an administrator. On a network card: the same link. | Be granted a host operation that covers `egress.check` (for example `devbox=egress.` in `LOCALAI_ADDON_HOST_OPS`) and declare [`capabilities.network`](#network-capability). A manifest written before that field existed and declares a tool that replaces `bash` keeps the control. |
 | `tool-providers` | On the add-on's **Settings** tab: the rows of Settings > Tools for the built-in tools it replaces (who serves the tool, the choice when several add-ons replace it, and the switch of the built-in tool). | Declare at least one tool that replaces a built-in tool (`shadows`). |
 
 The network controls read the durable policy from the add-on owner, not the
@@ -4472,7 +4523,8 @@ work the same with or without it. A manifest without `ui.controls` is valid, and
 with a control has a **Settings** tab even when it declares no `settings.sections`.
 
 A second add-on that runs commands through the same proxy gets the same block, row and
-link with one manifest line and one grant, and no change to LocalAI:
+link with one manifest line, a [`network` declaration](#network-capability) and one grant,
+and no change to LocalAI:
 
 ```json
 "ui": { "entry": "ui/devbox.js", "sdk": { "min": 2, "max": 2 }, "controls": ["network-policy", "tool-providers"] }

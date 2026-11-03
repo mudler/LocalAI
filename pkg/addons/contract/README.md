@@ -7,6 +7,7 @@ The typed declarations remain additive strict v1 fields, not a new protocol vers
 - `capabilities.ui.homeCommands` names installed pages, never tools or install actions.
 - `capabilities.executionProvider` names execution tools and one declared UI-only read status tool.
 - `capabilities.hostOperations.required` and `.optional` request exact operation names, never grants.
+- `capabilities.network` declares the egress policy of the commands an add-on runs (kind `egress-check`, a title, preset titles). It attaches the `network-policy` host control and needs manifest api 2.
 
 `ValidHostOp` validates syntax only. The host's registered vocabulary determines support.
 Administrator policy and request admission remain authoritative, including for optional operations.
