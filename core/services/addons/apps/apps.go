@@ -140,7 +140,7 @@ type NetworkView struct {
 	// Kind is the declared kind of network policy.
 	Kind string `json:"kind" enums:"egress-check" example:"egress-check"`
 	// Title names the network in text: the declared title, else the add-on's.
-	Title string `json:"title" example:"Sandbox"`
+	Title string `json:"title" example:"Example provider"`
 	// Presets are the titles the add-on gives the host's network presets.
 	Presets []contract.NetworkPreset `json:"presets,omitempty"`
 }
