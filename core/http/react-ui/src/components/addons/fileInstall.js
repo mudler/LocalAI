@@ -55,7 +55,8 @@ export function fileEntry(file) {
 
 // Whether the file may be installed at all, and what the person must confirm
 // first. The same version is never installed again; an older one needs a tick.
-export function fileGate(file, { downgradeTicked = false } = {}) {
+export function fileGate(file, { downgradeTicked = false, locked = false } = {}) {
+  if (locked) return { allowed: false, reason: 'locked' }
   if (!file || file.relation === 'same') return { allowed: false, reason: 'same' }
   if (file.relation === 'downgrade' && !downgradeTicked) return { allowed: false, reason: 'downgrade' }
   return { allowed: true, reason: '' }

@@ -38,7 +38,7 @@ const PREVIEW = {
   ],
 }
 
-async function open(page, { file = fileView(), installed = [], uploadStatus = 200, uploadBody } = {}) {
+async function open(page, { file = fileView(), installed = [], uploadStatus = 200, uploadBody, locked } = {}) {
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true }) }))
   const state = await mockAddons(page, { apps: [], installed })
   const seen = { uploads: [], described: [], removed: [], preview: [], install: [], dispatch: state.log.dispatch }
@@ -60,7 +60,7 @@ async function open(page, { file = fileView(), installed = [], uploadStatus = 20
     const body = req.postData() ? JSON.parse(req.postData()) : null
     const json = (payload, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(payload) })
     if (path === '/') return json({ revision: 4, locked: false, blanket: { mode: 'off', includeOptional: false, setBy: 'ui', revision: 0 }, floor: { source: 'file', addons: [] }, deny: { file: {}, ui: {} }, addons: [] })
-    if (path === '/preview') { seen.preview.push(body); return json({ ...PREVIEW, installed: file.installed }) }
+    if (path === '/preview') { seen.preview.push(body); return json({ ...PREVIEW, installed: file.installed, ...(locked ? { locked: true, lockedReason: locked } : {}) }) }
     if (path === '/install') {
       seen.install.push({ body, confirm: req.headers()['x-localai-confirm'] })
       if (!file.installed) {
@@ -139,6 +139,15 @@ test.describe('Install from a file', () => {
     await expect.poll(() => seen.install.length).toBe(1)
     expect(seen.install[0].body.downgrade).toBe(true)
     expect(seen.install[0].body.action).toBe('upgrade')
+  })
+
+  test('a deployment that locks UI host grants cannot install a file', async ({ page }) => {
+    await open(page, { locked: 'no_auth' })
+    await page.goto('/app/addons')
+    await page.getByTestId('install-file-input').setInputFiles({ name: 'm.zip', mimeType: 'application/zip', buffer: Buffer.from('PK') })
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('install-file-locked')).toContainText('Sign-in is off')
+    await expect(dialog.getByTestId('install-confirm')).toBeDisabled()
   })
 
   test('the same version cannot be installed again', async ({ page }) => {

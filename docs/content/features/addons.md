@@ -1108,6 +1108,15 @@ and the confirmation of an administrator in their own browser session, like
 every change of what an add-on may do on the host. `--target` and `--api-key`
 come from `LOCALAI_TARGET` and `LOCALAI_API_KEY` when you leave them out.
 
+### When sign-in is off or the grants are locked
+
+An unsigned file installs only where UI host grants work. While sign-in is off,
+and when a deployment locks the UI grants, the owner refuses to stage a file
+(`403 locked_by_deployment`) and the dialog says so. Turn the UI grants on
+knowingly with `--addon-host-ui-grants-without-auth`, or turn sign-in on. A
+package from a file replaces a package from another library or signer only with
+the approval of the dialog, like any package from another source.
+
 ### What the server does with the file
 
 The routes are administrator-only. `POST /api/addons/files` takes the zip as a

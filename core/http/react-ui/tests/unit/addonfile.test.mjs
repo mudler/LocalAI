@@ -42,6 +42,7 @@ test('addonfile: the same version is never installed, an older one needs the tic
   assert.equal(fileGate(f('upgrade')).allowed, true)
   assert.equal(fileGate(f('new')).allowed, true)
   assert.equal(fileGate(null).allowed, false)
+  assert.deepEqual(fileGate(f('new'), { locked: true }), { allowed: false, reason: 'locked' })
 })
 
 test('addonfile: an installed add-on is upgraded and a new one installed', () => {

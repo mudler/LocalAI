@@ -183,6 +183,18 @@ var _ = Describe("add-on zip files reach the owner", func() {
 		Expect(typeOf(err)).To(Equal("not_human_surface"))
 	})
 
+	It("stages nothing while the deployment locks the UI host grants", func() {
+		sim := &fileSim{store: &uploads.Store{Root: filepath.Join(GinkgoT().TempDir(), "uploads")}, max: 1 << 20}
+		fx := newHGFixture(func(c *HostGrantsConfig) { c.Locked = true; c.LockedReason = LockedNoAuth })
+		fx.svc.WithFiles(sim)
+		g := &Gateway{HostGrantsOwner: fx.svc, Revalidate: ok}
+		_, err := g.UploadFile(context.Background(), alice, "x.zip", strings.NewReader("x"))
+		Expect(typeOf(err)).To(Equal("locked_by_deployment"))
+		Expect(err.Error()).To(Equal(LockedNoAuthText))
+		ents, _ := os.ReadDir(sim.store.Root)
+		Expect(ents).To(BeEmpty())
+	})
+
 	It("answers unavailable when the owner has no file service", func() {
 		fx := newHGFixture()
 		g := &Gateway{HostGrantsOwner: fx.svc, Revalidate: ok}

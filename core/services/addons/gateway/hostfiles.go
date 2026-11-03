@@ -87,6 +87,12 @@ func (o *HostGrantsOwner) fileCall(ctx context.Context, a contract.Actor, call H
 		return nil, ErrUnavailable
 	}
 	bad := func() (any, error) { return nil, o.invalid() }
+	// An unsigned file installs only where UI host grants work: when the
+	// deployment locks them (sign-in off, or a policy file that is the only
+	// source), nothing can be staged either, and the answer says why.
+	if call.Op == HostGrantsFileBegin && o.cfg.Locked {
+		return nil, hgErr(403, HostGrantsLocked, o.lockedText())
+	}
 	switch call.Op {
 	case HostGrantsFileBegin:
 		var r fileBeginRequest

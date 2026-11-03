@@ -79,7 +79,7 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
   if (!entry) return null
   const showHost = host.status === 'ready' && needsStep(host.preview)
   const block = showHost ? installBlock(host.preview) : null
-  const gate = local ? fileGate(local, { downgradeTicked: downgrade }) : { allowed: true }
+  const gate = local ? fileGate(local, { downgradeTicked: downgrade, locked: Boolean(host.preview && host.preview.locked) }) : { allowed: true }
   const start = () => {
     if (local) {
       // A file installs only with the approval of this dialog, with or without
@@ -116,6 +116,9 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                 <Callout tone="warn" testId="install-unsigned" title={t('file.unsignedTitle')}>
                   {t('file.unsignedNotice')}
                 </Callout>
+              )}
+              {local && host.preview && host.preview.locked && (
+                <Callout tone="error" role="alert" testId="install-file-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>
               )}
               {local && local.relation === 'upgrade' && (
                 <p className="ad-quiet" data-testid="install-file-upgrade">{t('file.relation.upgrade', { installed: local.installedVersion, version: local.version })}</p>
