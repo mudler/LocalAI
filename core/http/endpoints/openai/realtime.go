@@ -2122,7 +2122,9 @@ func vadScanWindowSec(sv *types.RealtimeSessionSemanticVad, silenceThreshold flo
 // decoded at 16 kHz (1.5x speed/pitch, garbage or empty transcript, then
 // input_not_committed on the follow-up response).
 func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
-	if rate := session.InputSampleRate; rate > 0 && rate != localSampleRate && len(utt) > 0 {
+	// Speech-to-speech sessions keep the audio at the session rate and label
+	// the transcription WAV with that rate (see s2sCommitTurn).
+	if rate := session.InputSampleRate; session.s2s == nil && rate > 0 && rate != localSampleRate && len(utt) > 0 {
 		utt = sound.Int16toBytesLE(sound.ResampleInt16(sound.BytesToInt16sLE(utt), rate, localSampleRate))
 	}
 	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t, slot)

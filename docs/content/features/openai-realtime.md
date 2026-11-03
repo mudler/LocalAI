@@ -589,7 +589,7 @@ ws://localhost:8080/v1/realtime?model=gpt-realtime
 
 Audio is sent and received as raw PCM in the WebSocket messages, following the OpenAI Realtime API protocol.
 
-Committed user audio reaches the transcription backend as 16 kHz mono WAV, whichever way the turn was committed: server-side VAD and client `input_audio_buffer.commit` both resample from the session input sample rate (for example 24 kHz) first.
+In the chained pipeline, committed user audio reaches the transcription backend as 16 kHz mono WAV, whichever way the turn was committed: server-side VAD and client `input_audio_buffer.commit` both resample from the session input sample rate (for example 24 kHz) first.
 
 ### WebRTC
 
