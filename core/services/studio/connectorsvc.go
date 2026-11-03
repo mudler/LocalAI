@@ -55,6 +55,10 @@ type ConnectorInput struct {
 	// unchanged. An empty list clears it. Duplicates (compared without regard
 	// to case) collapse into the first.
 	Resources []string
+	// Channels are the chats where the agent may write besides the
+	// conversation (see connectors.Channel). Nil: new binding none, update
+	// unchanged. An empty list clears it.
+	Channels []connectors.Channel
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -81,6 +85,9 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.Grants != nil {
 		b.Grants = slices.Clone(in.Grants)
+	}
+	if in.Channels != nil {
+		b.Channels = slices.Clone(in.Channels)
 	}
 	if in.Resources != nil {
 		b.Resources = connectors.NewResources(in.Resources)

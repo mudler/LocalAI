@@ -531,8 +531,9 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   with the grant). A code is used once, and a proposal lapses after 24 hours. Studio
   always works as well.
 - **Limits.** A binding can make 3 proposals an hour, and an owner can have 10 waiting.
-- **Where a run reports.** The proposal sets `delivery`: `inbox` (the default) or
-  `origin`, the chat and thread of the proposal, and a mode: `always`, `on_change` or
+- **Where a run reports.** The proposal sets `delivery`: `inbox` (the default),
+  `origin` (the chat and thread of the proposal) or `channel` (a channel of the binding that
+  the owner approved, named in `delivery.channel`), and a mode: `always`, `on_change` or
   `on_problem`. LocalAI writes the last message of the run, cut to 4,000 characters,
   with mentions that notify everyone broken. A final message of exactly `[SILENT]`
   writes nothing. After three failed runs in a row the chat gets one alert, and not
@@ -541,6 +542,42 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   wait in a queue and go in order.
 - **Pause.** While `triggers.run` is off for the binding, its triggers do not run. The
   records stay and are not replayed when the capability comes back.
+
+## Writing to a chat on its own (`send_message`)
+
+When the sender of a turn holds the capability `talkback.channels`, the agent gets the
+tool `send_message`. The tool names no platform. The agent can use it to:
+
+- **Write in the conversation.** With no `channel`, the message goes to the chat and
+  thread of the conversation.
+- **Write in a channel.** With `channel`, the message is a new top-level message in a
+  channel that the owner listed for the binding (`channels` in the binding: `id`,
+  `label` and `approved`, at most 10; an add-on settings page or the API sets them). A
+  channel that is not listed is refused, and the error lists the ones that are. `thread`
+  answers in a thread of that channel.
+- **Write in a channel the owner has not approved.** A listed channel with `approved`
+  false needs the sensitive capability `talkback.new_channel` for each message, so only a
+  paired sender can use it. A role never grants it. The owner approves a channel by
+  setting `approved` to true.
+
+The agent cannot add a channel or approve one: only the owner changes the list, so
+text that the agent read in a web page or a file cannot widen where it writes.
+
+A message has at most 4,000 characters, and mentions that notify everyone are broken.
+The message goes through the same queue as other messages that LocalAI writes on its own:
+a binding sends 20 a minute, and more wait in order. Each attempt adds a row to the audit
+of the binding (time, binding, senders, channel, thread, kind, capability, result, length
+and a SHA-256 hash of the text, never the text). `LOCALAI_DISABLE_CONNECTOR_TALKBACK=true`
+turns the tool and the reports to a channel off for every binding; owner notices
+continue.
+
+A trigger can report to an approved channel with `delivery.target` `channel`. The
+proposal is refused if the channel is not listed and approved. When a run ends, LocalAI
+checks again that the binding is on, the capability is on and the channel is still listed
+and approved; if not, the Inbox gets the notice.
+
+Not included yet: sending a file with `send_message`, and mapping a reply in the thread of
+a message that the agent started to a conversation with the same agent.
 
 ## Notifications in Telegram
 

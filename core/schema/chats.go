@@ -1232,6 +1232,9 @@ type ChatsConnector struct {
 	// tools of the add-on may reach with this binding. Nothing else is
 	// reachable.
 	Resources []string `json:"resources"`
+	// Channels are the chats where the agent may write besides the
+	// conversation. Only you can change the list.
+	Channels []ChatsConnectorChannel `json:"channels"`
 	// Caps are the capabilities you enabled for this binding: the ceiling of
 	// what any sender can use. Grants give roles of the kind some of them.
 	Caps   []string                  `json:"caps"`
@@ -1438,6 +1441,19 @@ type ChatsConnectorWrite struct {
 	// with this binding, such as "owner/repo", at most 50. Absent means none
 	// for a new binding and unchanged for an update; an empty list clears it.
 	Resources []string `json:"resources,omitempty"`
+	// Channels are the chats of the platform where the agent may write
+	// besides the conversation, at most 10: {id, label, approved}. A channel
+	// that is not approved needs a paired sender for each message. Absent
+	// means none for a new binding and unchanged for an update; an empty list
+	// clears it.
+	Channels []ChatsConnectorChannel `json:"channels,omitempty"`
+}
+
+// ChatsConnectorChannel is a chat of the platform where the agent may write.
+type ChatsConnectorChannel struct {
+	ID       string `json:"id"`
+	Label    string `json:"label,omitempty"`
+	Approved bool   `json:"approved,omitempty"`
 }
 
 // ChatsConnectorList is the response of the connector list endpoint.

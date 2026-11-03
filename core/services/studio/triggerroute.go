@@ -235,8 +235,11 @@ func (h *Triggers) proposalText(t triggers.Trigger) string {
 		prompt = string([]rune(prompt)[:280]) + "…"
 	}
 	where := "the Inbox in Studio"
-	if t.Route.TargetOrDefault() == triggers.TargetOrigin {
+	switch t.Route.TargetOrDefault() {
+	case triggers.TargetOrigin:
 		where = "this chat"
+	case triggers.TargetChannel:
+		where = "the channel " + t.Route.Channel
 	}
 	var mode string
 	switch t.Route.ModeOrDefault() {
@@ -323,6 +326,11 @@ func (h *Triggers) report(ctx context.Context, t triggers.Trigger, run triggers.
 		if !h.changed(ctx, t, run, text) {
 			return true
 		}
+	}
+	if t.Route.TargetOrDefault() == triggers.TargetChannel {
+		return h.deliverChannel(ctx, t, t.Name+"\n\n"+reportText(text), func() {
+			h.tell(context.WithoutCancel(ctx), t, run.ChatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", text)
+		})
 	}
 	if t.Route.TargetOrDefault() != triggers.TargetOrigin {
 		return false

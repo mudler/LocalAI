@@ -911,6 +911,16 @@ definitions:
         type: string
       resourceId:
         type: string
+      resourceKey:
+        description: |-
+          ResourceKey and Credential are set by the host alone, for an add-on that
+          declares credentials (see CredentialSlot). ResourceKey is the external
+          name of the resource the call works on, after the host checked it against
+          the person's list, and ResourceID is then the host ID of that entry.
+          Credential is the secret of the person's binding. An add-on never stores
+          or logs it, and the host drops both fields from every request that a
+          caller sends.
+        type: string
     type: object
   contract.Result:
     properties:
@@ -2958,6 +2968,13 @@ definitions:
         items:
           type: string
         type: array
+      channels:
+        description: |-
+          Channels are the chats where the agent may write besides the
+          conversation. Only you can change the list.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorChannel'
+        type: array
       conversation:
         description: |-
           Conversation says which chat a message belongs to: sender (one chat
@@ -3023,6 +3040,14 @@ definitions:
           start) or stream (a working message that shows the answer as it is
           written). The answer replaces the working message.
         type: string
+      resources:
+        description: |-
+          Resources are the external resources, such as repositories, that the
+          tools of the add-on may reach with this binding. Nothing else is
+          reachable.
+        items:
+          type: string
+        type: array
       send_files:
         description: |-
           SendFiles sends the files that a turn makes to the sender, after the
@@ -3713,6 +3738,13 @@ definitions:
         items:
           type: string
         type: array
+      channels:
+        description: |-
+          Channels are the chats where the agent may write besides the
+          conversation. Only you can change the list.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorChannel'
+        type: array
       conversation:
         description: |-
           Conversation says which chat a message belongs to: sender (one chat
@@ -3776,6 +3808,14 @@ definitions:
           start) or stream (a working message that shows the answer as it is
           written). The answer replaces the working message.
         type: string
+      resources:
+        description: |-
+          Resources are the external resources, such as repositories, that the
+          tools of the add-on may reach with this binding. Nothing else is
+          reachable.
+        items:
+          type: string
+        type: array
       send_files:
         description: |-
           SendFiles sends the files that a turn makes to the sender, after the
@@ -3839,6 +3879,15 @@ definitions:
       id:
         type: string
       title:
+        type: string
+    type: object
+  schema.ChatsConnectorChannel:
+    properties:
+      approved:
+        type: boolean
+      id:
+        type: string
+      label:
         type: string
     type: object
   schema.ChatsConnectorFileLimit:
@@ -4054,6 +4103,16 @@ definitions:
         items:
           type: string
         type: array
+      channels:
+        description: |-
+          Channels are the chats of the platform where the agent may write
+          besides the conversation, at most 10: {id, label, approved}. A channel
+          that is not approved needs a paired sender for each message. Absent
+          means none for a new binding and unchanged for an update; an empty list
+          clears it.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorChannel'
+        type: array
       confirm_accept_any:
         description: |-
           ConfirmAcceptAny must be the exact text "accept any message" in the
@@ -4102,6 +4161,14 @@ definitions:
       reply_mode:
         description: ReplyMode is off, progress or stream; empty means progress.
         type: string
+      resources:
+        description: |-
+          Resources are the external resources the tools of the add-on may reach
+          with this binding, such as "owner/repo", at most 50. Absent means none
+          for a new binding and unchanged for an update; an empty list clears it.
+        items:
+          type: string
+        type: array
       send_files:
         description: |-
           SendFiles turns the sending of a turn's files on or off. Absent means

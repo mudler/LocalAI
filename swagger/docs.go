@@ -15834,6 +15834,10 @@ const docTemplate = `{
                 },
                 "resourceId": {
                     "type": "string"
+                },
+                "resourceKey": {
+                    "description": "ResourceKey and Credential are set by the host alone, for an add-on that\ndeclares credentials (see CredentialSlot). ResourceKey is the external\nname of the resource the call works on, after the host checked it against\nthe person's list, and ResourceID is then the host ID of that entry.\nCredential is the secret of the person's binding. An add-on never stores\nor logs it, and the host drops both fields from every request that a\ncaller sends.",
+                    "type": "string"
                 }
             }
         },
@@ -18565,6 +18569,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "channels": {
+                    "description": "Channels are the chats where the agent may write besides the\nconversation. Only you can change the list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorChannel"
+                    }
+                },
                 "conversation": {
                     "description": "Conversation says which chat a message belongs to: sender (one chat\nper sender and per platform thread), chat (one chat per group, channel\nor direct chat), window (sender, and a new chat after window_minutes\nwithout a message) or thread (a new chat per message; a reply to an\nanswer goes on in its chat).",
                     "type": "string"
@@ -18635,6 +18646,13 @@ const docTemplate = `{
                 "reply_mode": {
                     "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
                     "type": "string"
+                },
+                "resources": {
+                    "description": "Resources are the external resources, such as repositories, that the\ntools of the add-on may reach with this binding. Nothing else is\nreachable.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "send_files": {
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
@@ -19484,6 +19502,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "channels": {
+                    "description": "Channels are the chats where the agent may write besides the\nconversation. Only you can change the list.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorChannel"
+                    }
+                },
                 "conversation": {
                     "description": "Conversation says which chat a message belongs to: sender (one chat\nper sender and per platform thread), chat (one chat per group, channel\nor direct chat), window (sender, and a new chat after window_minutes\nwithout a message) or thread (a new chat per message; a reply to an\nanswer goes on in its chat).",
                     "type": "string"
@@ -19551,6 +19576,13 @@ const docTemplate = `{
                 "reply_mode": {
                     "description": "ReplyMode is what a sender sees while a turn runs: off (typing, then\nthe answer), progress (a working message that names the tools as they\nstart) or stream (a working message that shows the answer as it is\nwritten). The answer replaces the working message.",
                     "type": "string"
+                },
+                "resources": {
+                    "description": "Resources are the external resources, such as repositories, that the\ntools of the add-on may reach with this binding. Nothing else is\nreachable.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "send_files": {
                     "description": "SendFiles sends the files that a turn makes to the sender, after the\nanswer.",
@@ -19644,6 +19676,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorChannel": {
+            "type": "object",
+            "properties": {
+                "approved": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
                     "type": "string"
                 }
             }
@@ -19941,6 +19987,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "channels": {
+                    "description": "Channels are the chats of the platform where the agent may write\nbesides the conversation, at most 10: {id, label, approved}. A channel\nthat is not approved needs a paired sender for each message. Absent\nmeans none for a new binding and unchanged for an update; an empty list\nclears it.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorChannel"
+                    }
+                },
                 "confirm_accept_any": {
                     "description": "ConfirmAcceptAny must be the exact text \"accept any message\" in the\nrequest that turns accept_any on (a create with accept_any, or an update\nthat changes it from off to on). Anyone who can message the bot then uses\nthe agent's tools as you, so the server asks you to say you mean it.",
                     "type": "string"
@@ -19986,6 +20039,13 @@ const docTemplate = `{
                 "reply_mode": {
                     "description": "ReplyMode is off, progress or stream; empty means progress.",
                     "type": "string"
+                },
+                "resources": {
+                    "description": "Resources are the external resources the tools of the add-on may reach\nwith this binding, such as \"owner/repo\", at most 50. Absent means none\nfor a new binding and unchanged for an update; an empty list clears it.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "send_files": {
                     "description": "SendFiles turns the sending of a turn's files on or off. Absent means\non for a new binding and unchanged for an update.",

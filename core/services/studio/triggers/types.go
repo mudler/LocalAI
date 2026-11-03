@@ -147,6 +147,9 @@ type Trigger struct {
 const (
 	TargetInbox  = "inbox"
 	TargetOrigin = "origin"
+	// TargetChannel reports in a channel that the owner listed for the
+	// binding, named by Route.Channel.
+	TargetChannel = "channel"
 )
 
 // When a run is reported. Always reports every run, OnChange a run whose
@@ -179,6 +182,8 @@ type Route struct {
 	// ModeAlways.
 	Target string `json:",omitempty"`
 	Mode   string `json:",omitempty"`
+	// Channel is the channel of TargetChannel, as the owner listed it.
+	Channel string `json:",omitempty"`
 }
 
 // FromConnector says whether a connector chat proposed the trigger.
@@ -208,15 +213,19 @@ func (r Route) Validate() error {
 		if r.Binding == "" || r.Chat == "" {
 			return errors.New("a run can report to the chat of the proposal only when a connector chat proposed it")
 		}
+	case TargetChannel:
+		if r.Binding == "" || r.Channel == "" {
+			return errors.New("a run can report to a channel only when a connector chat proposed it and names the channel")
+		}
 	default:
-		return fmt.Errorf("delivery target must be %q or %q", TargetInbox, TargetOrigin)
+		return fmt.Errorf("delivery target must be %q, %q or %q", TargetInbox, TargetOrigin, TargetChannel)
 	}
 	switch r.Mode {
 	case "", ModeAlways, ModeOnChange, ModeOnProblem:
 	default:
 		return fmt.Errorf("delivery mode must be %q, %q or %q", ModeAlways, ModeOnChange, ModeOnProblem)
 	}
-	for _, v := range []string{r.Binding, r.Chat, r.Thread, r.Code} {
+	for _, v := range []string{r.Binding, r.Chat, r.Thread, r.Code, r.Channel} {
 		if len(v) > MaxRefBytes || hasControl(v, false) {
 			return errors.New("the connector place of a trigger is too long or has control characters")
 		}

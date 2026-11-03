@@ -17,6 +17,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -77,6 +78,11 @@ const (
 	MaxGrants = contract.MaxConnectorRoles
 	// MaxFileLimit is the largest file limit a binding can hold: 1 TiB.
 	MaxFileLimit int64 = 1 << 40
+	// MaxChannels is how many channels a binding lists for talk-back.
+	MaxChannels = 10
+	// MaxChannelIDBytes and MaxChannelLabelRunes bound a Channel.
+	MaxChannelIDBytes    = 64
+	MaxChannelLabelRunes = 60
 	// MaxResources is the most entries a binding lists.
 	MaxResources = 50
 	// MaxResourceKeyRunes is the longest external name of a resource.
@@ -149,6 +155,10 @@ type Binding struct {
 	// Paired are the senders that the owner proved by a pairing code. Only a
 	// paired sender may use a sensitive capability. At most MaxPaired.
 	Paired []PairedSender
+	// Channels are the chats of the platform, besides the conversation, where
+	// the agent may write (see Channel). The owner sets the list; nothing the
+	// agent or a sender says can add to it. At most MaxChannels.
+	Channels []Channel
 	// Resources is the list of external resources (a repository, a folder) that
 	// the tools of the add-on may reach with the credential of this binding.
 	// The host checks a tool call against it before the add-on is called. The
@@ -160,6 +170,35 @@ type Binding struct {
 	Token   []byte
 	Created time.Time
 	Updated time.Time
+}
+
+// Channel is a chat of the platform where the owner lets the agent write. ID
+// is the platform's own name for it and Label is what the owner reads. A
+// channel that is not Approved needs the sensitive capability talkback.new_channel
+// for each message; the owner approves it by setting Approved.
+type Channel struct {
+	ID       string `json:"id"`
+	Label    string `json:"label,omitempty"`
+	Approved bool   `json:"approved,omitempty"`
+}
+
+// FindChannel returns the listed channel with this ID.
+func (b Binding) FindChannel(id string) (Channel, bool) {
+	for _, c := range b.Channels {
+		if c.ID == id {
+			return c, true
+		}
+	}
+	return Channel{}, false
+}
+
+// ChannelIDs lists the IDs of the channels of the binding.
+func (b Binding) ChannelIDs() []string {
+	out := make([]string, len(b.Channels))
+	for i, c := range b.Channels {
+		out[i] = c.ID
+	}
+	return out
 }
 
 // RoleGrant gives the capabilities Caps to the senders that have the role Role.
@@ -287,6 +326,9 @@ func Validate(b Binding) error {
 	if err := validateResources(b.Resources); err != nil {
 		return err
 	}
+	if err := validateChannels(b.Channels); err != nil {
+		return err
+	}
 	if len(b.Options) > MaxOptions {
 		return bad("a binding has at most %d options", MaxOptions)
 	}
@@ -391,5 +433,32 @@ func (b Binding) clone() Binding {
 		b.Grants = g
 	}
 	b.Resources = slices.Clone(b.Resources)
+	b.Channels = slices.Clone(b.Channels)
 	return b
+}
+
+func validateChannels(list []Channel) error {
+	bad := func(format string, a ...any) error {
+		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
+	}
+	if len(list) > MaxChannels {
+		return bad("a binding lists at most %d channels", MaxChannels)
+	}
+	for i, c := range list {
+		if c.ID == "" || len(c.ID) > MaxChannelIDBytes || strings.TrimSpace(c.ID) != c.ID {
+			return bad("a channel ID has 1 to %d bytes, with no space at its ends", MaxChannelIDBytes)
+		}
+		for _, r := range c.ID {
+			if unicode.IsControl(r) || unicode.IsSpace(r) {
+				return bad("a channel ID has no space or control character")
+			}
+		}
+		if utf8.RuneCountInString(c.Label) > MaxChannelLabelRunes || strings.ContainsFunc(c.Label, unicode.IsControl) {
+			return bad("a channel label has at most %d characters and no control character", MaxChannelLabelRunes)
+		}
+		if slices.ContainsFunc(list[:i], func(o Channel) bool { return o.ID == c.ID }) {
+			return bad("the channel %q is listed twice", c.ID)
+		}
+	}
+	return nil
 }

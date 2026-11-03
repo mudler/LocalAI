@@ -69,7 +69,8 @@ const proposeTriggerConnectorSchema = `{"type":"object","properties":{` +
 	`"widget":{"type":"string","pattern":"^[a-z0-9][a-z0-9-]{0,39}$","description":"The id of the Home widget that shows the file."},` +
 	`"estimated_tokens":{"type":"integer","minimum":0,"maximum":10000000,"description":"About how many tokens one run uses."},` +
 	`"delivery":{"type":"object","description":"Where the answer of each run goes. Default: the owner's Inbox.","properties":{` +
-	`"target":{"type":"string","enum":["inbox","origin"],"description":"origin writes the answer in this chat and thread, inbox in the owner's Inbox."},` +
+	`"target":{"type":"string","enum":["inbox","origin","channel"],"description":"origin writes the answer in this chat and thread, inbox in the owner's Inbox, channel in a channel the owner listed and approved (name it in channel)."},` +
+	`"channel":{"type":"string","description":"With target channel: the ID of the channel."},` +
 	`"mode":{"type":"string","enum":["always","on_change","on_problem"],"description":"always: every run. on_change: only when the answer differs from the run before. on_problem: only when a run fails."}}}},` +
 	`"required":["name","prompt","when"]}`
 
@@ -302,8 +303,9 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		Widget   string          `json:"widget"`
 		Tokens   int             `json:"estimated_tokens"`
 		Delivery *struct {
-			Target string `json:"target"`
-			Mode   string `json:"mode"`
+			Target  string `json:"target"`
+			Mode    string `json:"mode"`
+			Channel string `json:"channel"`
 		} `json:"delivery"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
@@ -332,6 +334,12 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, c builtin
 		}
 		if d := args.Delivery; d != nil {
 			in.Route.Target, in.Route.Mode = d.Target, d.Mode
+			if d.Target == triggers.TargetChannel {
+				if err := h.checkChannelTarget(ctx, c, d.Channel); err != nil {
+					return "", err
+				}
+				in.Route.Channel = d.Channel
+			}
 		}
 		if in.Route.Target == "" {
 			in.Route.Target = triggers.TargetInbox

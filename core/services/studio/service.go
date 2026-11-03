@@ -415,6 +415,9 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerTriggerTools(); err != nil {
 		return nil, err
 	}
+	if err := s.registerTalkbackTool(); err != nil {
+		return nil, err
+	}
 	changes, err := newChanges(s)
 	if err != nil {
 		return nil, err

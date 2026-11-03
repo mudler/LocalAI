@@ -348,6 +348,10 @@ type ApplicationConfig struct {
 	// 404.
 	DisableTriggers   bool
 	DisableConnectors bool
+	// DisableConnectorTalkback hides the tool with which an agent writes to a
+	// chat of its connection and stops the reports of triggers to a channel.
+	// Owner notices keep working.
+	DisableConnectorTalkback bool
 	// AgentJobRetentionDays is how long finished agent jobs are kept. Zero
 	// means DefaultAgentJobRetentionDays.
 	AgentJobRetentionDays int
@@ -1393,6 +1397,8 @@ var (
 	DisableChats      = func(o *ApplicationConfig) { o.DisableChats = true }
 	DisableTriggers   = func(o *ApplicationConfig) { o.DisableTriggers = true }
 	DisableConnectors = func(o *ApplicationConfig) { o.DisableConnectors = true }
+	// DisableConnectorTalkback is the option of LOCALAI_DISABLE_CONNECTOR_TALKBACK.
+	DisableConnectorTalkback = func(o *ApplicationConfig) { o.DisableConnectorTalkback = true }
 )
 
 // WithAgentJobRetentionDays sets how long finished agent jobs are kept.

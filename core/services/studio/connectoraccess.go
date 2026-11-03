@@ -255,6 +255,14 @@ type AccessEvent struct {
 	Allowed    bool      `json:"allowed"`
 	Via        string    `json:"via,omitempty"`
 	Reason     string    `json:"reason,omitempty"`
+	// The fields below are set by a message the host wrote on its own (see
+	// Connectors.Send). They hold where, how long and a hash of the text, and
+	// never the text.
+	Action  string `json:"action,omitempty"`
+	Channel string `json:"channel,omitempty"`
+	Thread  string `json:"thread,omitempty"`
+	Length  int    `json:"length,omitempty"`
+	Hash    string `json:"hash,omitempty"`
 }
 
 type heldGrant struct {

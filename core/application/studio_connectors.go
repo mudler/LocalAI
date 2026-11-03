@@ -113,6 +113,10 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	svc.SetConnectors(c)
 	// Connector chats may use a capability only as the permission model allows.
 	svc.SetCapabilityGate(c.CapabilityGate())
+	if a.applicationConfig.DisableConnectorTalkback {
+		xlog.Info("Connector talk-back is turned off (LOCALAI_DISABLE_CONNECTOR_TALKBACK)")
+		c.AddCapabilitySwitch(studio.TalkbackSwitch("turned off on this server (LOCALAI_DISABLE_CONNECTOR_TALKBACK)"))
+	}
 	a.studioConnectorsHook.Store(c)
 	if a.ownsAddonsOnly() {
 		// The manager stays: frontends get the stored bot credentials from it
