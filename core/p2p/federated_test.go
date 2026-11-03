@@ -5,18 +5,12 @@ package p2p
 import (
 	"net"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
-
-func TestFederated(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Federated routing")
-}
 
 var _ = Describe("Federated connection balancing", func() {
 	var fs *FederatedServer
