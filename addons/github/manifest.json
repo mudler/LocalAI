@@ -611,6 +611,14 @@
         "apps"
       ],
       "mainPage": "apps",
+      "renderers": [
+        {"kind": "approval-card", "tool": "comment-issue", "component": "ProposalCard"},
+        {"kind": "approval-card", "tool": "comment-pr", "component": "ProposalCard"},
+        {"kind": "approval-card", "tool": "create-issue", "component": "ProposalCard"},
+        {"kind": "approval-card", "tool": "edit-issue", "component": "ProposalCard"},
+        {"kind": "approval-card", "tool": "add-labels", "component": "ProposalCard"},
+        {"kind": "approval-card", "tool": "review-comment-pr", "component": "ProposalCard"}
+      ],
       "icon": "ui/icon.png",
       "title": "GitHub",
       "description": "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."

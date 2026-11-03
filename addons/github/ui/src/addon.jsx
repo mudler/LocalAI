@@ -8,6 +8,7 @@ import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
 import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/github.en.json'
+import ProposalCard from './ProposalCard'
 import { checkFailure, checkItem, extraBody, extraForm, extraValid, followName, githubSecret, parseRepos, PERMISSIONS, reposIssue, tokenProblem, WRITE_MODES, writeModeOf } from './repos'
 import { finishTest, resultOf, startTest, subscribe } from './results'
 import './github.css'
@@ -188,5 +189,5 @@ export function createGitHub() {
       </RouteProvider>
     )
   }
-  return { Component, components: {}, chatActions: [], dispose() {} }
+  return { Component, components: { ProposalCard }, chatActions: [], dispose() {} }
 }

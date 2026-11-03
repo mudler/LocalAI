@@ -155,7 +155,7 @@ What GitHub returns (issue text, comments, file content) is written by other peo
 On the connection you choose what the agent may change. The choice is stored with the connection and enforced by LocalAI before the add-on is called, so a model cannot raise it.
 
 - **Read only** is the default. A write tool is refused and the agent is told to ask you to turn writes on.
-- **Asks you first** stores each change as a proposal. You see the repository, the issue or pull request, its title and the text, and you confirm in the approvals of the web interface. A chat or an agent cannot confirm it.
+- **Asks you first** stores each change as a proposal. The approval card says what will be done, in which repository and on which issue or pull request (with a link), as which connection, and the exact text that will be posted, and you confirm it in the approvals of the web interface. A chat or an agent cannot confirm it.
 - **Acts without asking** lets a chat of yours make the change at once. A run without you present, such as an agent started by a trigger, still leaves a proposal for you to confirm.
 
 The write tools are `comment-issue`, `comment-pr`, `create-issue`, `edit-issue` (title, close or reopen), `add-labels` and `review-comment-pr`. They work only on the repositories listed on the connection, the same list as for reading. The change is also refused when the target moved after the preview: for example the title changed, the issue is locked, or a pull request has a new commit.
