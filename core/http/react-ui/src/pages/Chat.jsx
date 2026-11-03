@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
@@ -8,6 +8,8 @@ import { useComposerArrival } from '../hooks/useComposerTransition'
 import { useChatEgress } from '../hooks/useChatEgress'
 import { cardsByTool } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
+import { useOriginContext } from '../hooks/useOriginContext'
+import { isAutomated, knownKind, resolveOrigin } from '../utils/originChats'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
   threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
@@ -699,8 +701,14 @@ function ChatPage() {
     () => menuChats(chat.chats).filter(c => c.id !== pendingDelete?.id),
     [chat.chats, pendingDelete],
   )
-  // The sidebar's recent chats follow this list.
-  useEffect(() => { announceChats(visibleChats) }, [visibleChats])
+  // The sidebar's recent chats follow this list, without the chats that no
+  // person started: they have their own area (All chats, second tab).
+  useEffect(() => { announceChats(visibleChats.filter(c => !c.origin)) }, [visibleChats])
+  // What started a chat is named by the connector and trigger lists. They are
+  // read only when this page shows a chat that something else started.
+  const hasAutomated = visibleChats.some(c => c.origin) || Boolean(activeChat?.origin)
+  const originCtx = useOriginContext(hasAutomated)
+  const originTitle = (c) => resolveOrigin({ origin: c.origin, originId: c.originId }, originCtx).title
 
   const promptDeleteAll = () => setConfirmDialog({
     title: t('deleteAllDialog.title'),
@@ -709,7 +717,8 @@ function ChatPage() {
     danger: true,
     onConfirm: async () => {
       setConfirmDialog(null)
-      for (const c of visibleChats) {
+      // Clear all removes the person's own chats. The ones that something else started stay.
+      for (const c of visibleChats.filter(x => !x.origin)) {
         try { await chat.remove(c.id); drafts.clear(c.id); pane.forget(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
       }
       navigate('/app')
@@ -1028,6 +1037,7 @@ function ChatPage() {
               onExport={(c) => exportChat(c.id)}
               onCopyChat={(c) => copyChat(c.id)}
               onSearch={(text) => chatsApi.search(text, 50)}
+              originTitle={originTitle}
             />
           )}
           manageMode={manage}
@@ -1055,6 +1065,18 @@ function ChatPage() {
             onClose={closeFind}
           />
         )}
+
+        {activeId && isAutomated(activeChat) && (() => {
+          const o = resolveOrigin({ origin: activeChat.origin, originId: activeChat.origin_id }, originCtx)
+          const kind = knownKind(o.kind)
+          const name = o.title || t(`origin.kindFallback.${kind}`)
+          return (
+            <p className="cx-notice cx-origin-banner" role="note" data-testid="chat-origin-banner">
+              <span>{t('origin.banner', { title: name })}</span>
+              {o.href && <Link className="cx-link" to={o.href} data-testid="chat-origin-link">{t('origin.open', { title: name })}</Link>}
+            </p>
+          )
+        })()}
 
         <div className="cx-stage">
           <div className="cx-body" ref={messagesRef}>

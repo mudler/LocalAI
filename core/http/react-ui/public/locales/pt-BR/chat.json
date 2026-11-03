@@ -105,7 +105,17 @@
     "untitled": "Novo chat",
     "origin": {
       "trigger": "Iniciado por um gatilho",
-      "connector": "De um conector"
+      "connector": "De um conector",
+      "job": "Iniciado por um job",
+      "page": "Iniciado por uma página",
+      "other": "Iniciado por outra coisa"
+    },
+    "originBadge": {
+      "trigger": "Gatilho",
+      "connector": "Conector",
+      "job": "Job",
+      "page": "Página",
+      "other": "Automático"
     }
   },
   "message": {
@@ -389,7 +399,38 @@
     "loadFailed": "Não foi possível carregar seus chats.",
     "emptyTitle": "Nenhum chat ainda",
     "emptyBody": "Um chat começa no Início: digite uma mensagem e envie. Depois disso, seus chats aparecem aqui.",
-    "start": "Começar um chat"
+    "start": "Começar um chat",
+    "tabsLabel": "Listas de chats",
+    "tab": {
+      "mine": "Meus chats",
+      "automated": "De complementos e automações"
+    },
+    "automated": {
+      "intro": "Conversas iniciadas por algo que não é você, como um conector, um gatilho ou um job. Elas ficam fora das suas listas de chats.",
+      "empty": "Nada iniciou um chat sozinho até agora.",
+      "kind": {
+        "trigger": "Gatilhos",
+        "connector": "Conectores",
+        "job": "Jobs",
+        "page": "Páginas",
+        "other": "Outros"
+      },
+      "badge": {
+        "trigger": "Gatilho",
+        "connector": "Conector",
+        "job": "Job",
+        "page": "Página",
+        "other": "Automático"
+      },
+      "chats": "Chats: {{count}}",
+      "lastActive": "Última atividade {{when}}",
+      "running": "Em execução",
+      "waiting": "Aguardando você",
+      "waitingCount": "Chats aguardando você: {{count}}",
+      "open": "Abrir {{title}}",
+      "showAll": "Mostrar todos ({{count}})",
+      "showLess": "Mostrar menos"
+    }
   },
   "foot": {
     "state": {
@@ -603,5 +644,16 @@
     "missing": "A pasta deste agente não existe mais. Escolha outra pasta no agente.",
     "startError": "A pasta deste agente está ausente, então o chat não pode começar. Escolha outra pasta para o agente.",
     "editAgent": "Editar agente"
+  },
+  "origin": {
+    "banner": "Esta conversa foi iniciada por {{title}}.",
+    "open": "Abrir {{title}}",
+    "kindFallback": {
+      "trigger": "um gatilho",
+      "connector": "um conector",
+      "job": "um job",
+      "page": "uma página",
+      "other": "outra coisa"
+    }
   }
 }

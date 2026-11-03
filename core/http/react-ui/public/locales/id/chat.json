@@ -102,7 +102,17 @@
     "untitled": "Obrolan baru",
     "origin": {
       "trigger": "Dimulai oleh pemicu",
-      "connector": "Dari konektor"
+      "connector": "Dari konektor",
+      "job": "Dimulai oleh job",
+      "page": "Dimulai oleh halaman",
+      "other": "Dimulai oleh hal lain"
+    },
+    "originBadge": {
+      "trigger": "Pemicu",
+      "connector": "Konektor",
+      "job": "Job",
+      "page": "Halaman",
+      "other": "Otomatis"
     }
   },
   "message": {
@@ -386,7 +396,38 @@
     "loadFailed": "Tidak dapat memuat obrolan Anda.",
     "emptyTitle": "Belum ada obrolan",
     "emptyBody": "Obrolan dimulai di Beranda: ketik pesan lalu kirim. Setelah itu obrolan Anda tercantum di sini.",
-    "start": "Mulai obrolan"
+    "start": "Mulai obrolan",
+    "tabsLabel": "Daftar obrolan",
+    "tab": {
+      "mine": "Obrolan saya",
+      "automated": "Dari add-on dan otomatisasi"
+    },
+    "automated": {
+      "intro": "Percakapan yang dimulai oleh sesuatu selain Anda, seperti konektor, pemicu, atau job. Percakapan ini tidak muncul di daftar obrolan Anda.",
+      "empty": "Belum ada yang memulai obrolan sendiri.",
+      "kind": {
+        "trigger": "Pemicu",
+        "connector": "Konektor",
+        "job": "Job",
+        "page": "Halaman",
+        "other": "Lainnya"
+      },
+      "badge": {
+        "trigger": "Pemicu",
+        "connector": "Konektor",
+        "job": "Job",
+        "page": "Halaman",
+        "other": "Otomatis"
+      },
+      "chats": "Obrolan: {{count}}",
+      "lastActive": "Terakhir aktif {{when}}",
+      "running": "Berjalan",
+      "waiting": "Menunggu Anda",
+      "waitingCount": "Obrolan yang menunggu Anda: {{count}}",
+      "open": "Buka {{title}}",
+      "showAll": "Tampilkan semua ({{count}})",
+      "showLess": "Tampilkan lebih sedikit"
+    }
   },
   "foot": {
     "state": {
@@ -600,5 +641,16 @@
     "missing": "Folder agen ini sudah tidak ada. Pilih folder lain di agen.",
     "startError": "Folder agen ini hilang, jadi chat tidak bisa dimulai. Pilih folder lain untuk agen.",
     "editAgent": "Edit agen"
+  },
+  "origin": {
+    "banner": "Percakapan ini dimulai oleh {{title}}.",
+    "open": "Buka {{title}}",
+    "kindFallback": {
+      "trigger": "sebuah pemicu",
+      "connector": "sebuah konektor",
+      "job": "sebuah job",
+      "page": "sebuah halaman",
+      "other": "hal lain"
+    }
   }
 }

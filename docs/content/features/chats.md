@@ -174,6 +174,22 @@ The answers have the shapes of `GET /api/chats/{id}/tools` and `GET
 /api/chats/{id}/addons`. A model you may not use is `403`, a model the server
 does not have is `400`, and another user's agent is `404`.
 
+### List the chats of one origin
+
+`GET /api/chats` returns every chat unless you send `origin`. With
+`origin=person` it returns only the chats a person started, with
+`origin=automated` only the chats that something else started, and with an
+origin kind (`trigger`, `connector`, `job`, `page`) only the chats of that kind.
+Each chat carries `origin` (empty for a person) and `origin_id` (the trigger,
+binding, job or page that started it). With `origin` set, `limit` counts the
+chats kept and sub-agent runs are left out, so a burst of chats from a bot
+cannot push your own chats out of the first page.
+
+```bash
+curl -s 'localhost:8080/api/chats?kind=chat&origin=person&limit=8'
+curl -s 'localhost:8080/api/chats?kind=chat&origin=automated&limit=200'
+```
+
 ## Keep typing while the model works
 
 Send another message while a turn runs and it waits. The response says so:
@@ -1804,6 +1820,22 @@ and opens again from any browser.
   Markdown or delete one, clear them all, or import a JSON export. A deleted
   chat can be brought back for a few seconds with **Undo**; then the server
   deletes it.
+
+  The page lists the chats you started. Chats that something else started (a
+  connector, a trigger, an agent job or a page) have a second tab, **From
+  add-ons and automations**, which appears once there is one. It groups them by
+  what started them: first the kind (triggers, connectors, jobs, pages, any
+  other), then the origin itself, such as one connector binding or one
+  trigger, with the origin's name, how many chats it has, when it was last
+  active, a **Running** mark while a turn runs and **Waiting for you** when a
+  chat needs you (its turn paused at the step limit, or an unread inbox item
+  asks for you). A link opens the origin's page. These chats do not appear in
+  the sidebar, in **Jump back in** or in the **My chats** tab; the **All
+  chats** entry in the sidebar shows a number when some of them wait for you.
+  `Ctrl+K` in a transcript still lists and finds every chat, with a badge on
+  the ones you did not start. Opening one shows "This conversation was started
+  by ..." over the transcript, with a link to the origin. The browser
+  remembers which tab you used last.
 - **Old addresses.** `/app/chats` with no chat id opens Home. A `?model=` in
   the address selects that model on Home, so `/app/chats?model=<id>` and the
   older `/app/chat/<model>` still start a chat on that model.

@@ -116,5 +116,7 @@
   "recentChats": "Recent chats",
   "newChat": "New chat",
   "untitledChat": "Untitled chat",
-  "chatRunning": "Working"
+  "chatRunning": "Working",
+  "automatedWaiting": "Automated chats waiting for you: {{count}}",
+  "automatedRunning": "Automated chats running: {{count}}"
 }

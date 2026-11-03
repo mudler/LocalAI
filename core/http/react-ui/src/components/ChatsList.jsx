@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { groupConversations } from '../utils/homeConversations'
 import Icon from './Icon'
+import { knownKind } from '../utils/originChats'
 
 // The chats come from the server list (see menuChats in utils/chatThread.js):
 // a name, the model and the times. The names are matched here at once; with
@@ -14,7 +15,9 @@ function matches(chat, query) {
 const SEARCH_DELAY_MS = 250
 
 // The chat history: a search box, one block per day, the model that answered
-// and the time, with rename, copy, export and delete on each row. It reads
+// and the time, with rename, copy, export and delete on each row. A chat that
+// no person started (a trigger, a connector, a job or a page) carries a badge
+// with the name of what started it (originTitle) or the name of its kind. It reads
 // like the Home "Jump back in" list. Two frames show it: the Ctrl or Cmd K
 // dialog of a transcript (ChatsMenu) and the All chats page.
 //
@@ -32,6 +35,7 @@ export default function ChatsList({
   onExport,
   onCopyChat,
   onSearch,
+  originTitle,
   onEscape,
   autoFocus = false,
   idPrefix = 'chats',
@@ -188,7 +192,8 @@ export default function ChatsList({
                 const idx = n++
                 const selected = idx === activeIdx
                 const editing = editingId === chat.id
-                const preview = snippets[chat.id] || (chat.origin ? t(`menu.origin.${chat.origin}`, chat.origin) : '')
+                const preview = snippets[chat.id] || ''
+                const originKind = chat.origin ? (knownKind(chat.origin)) : ''
                 return (
                   <div
                     key={chat.id}
@@ -225,6 +230,11 @@ export default function ChatsList({
                           onDoubleClick={(e) => { e.stopPropagation(); startRename(chat) }}
                         >
                           {chat.name || t('menu.untitled')}
+                        </span>
+                      )}
+                      {originKind && (
+                        <span className="cx-row-item__origin" data-testid="chats-origin-badge" title={t(`menu.origin.${originKind}`)}>
+                          {originTitle?.(chat) || t(`menu.originBadge.${originKind}`)}
                         </span>
                       )}
                     </div>

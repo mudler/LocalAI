@@ -102,7 +102,17 @@
     "untitled": "新对话",
     "origin": {
       "trigger": "由触发器启动",
-      "connector": "来自连接器"
+      "connector": "来自连接器",
+      "job": "由作业发起",
+      "page": "由页面发起",
+      "other": "由其他来源发起"
+    },
+    "originBadge": {
+      "trigger": "触发器",
+      "connector": "连接器",
+      "job": "作业",
+      "page": "页面",
+      "other": "自动"
     }
   },
   "message": {
@@ -386,7 +396,38 @@
     "loadFailed": "无法加载你的对话。",
     "emptyTitle": "还没有对话",
     "emptyBody": "对话从首页开始：输入消息并发送。之后你的对话会列在这里。",
-    "start": "开始对话"
+    "start": "开始对话",
+    "tabsLabel": "聊天列表",
+    "tab": {
+      "mine": "我的聊天",
+      "automated": "来自附加组件和自动化"
+    },
+    "automated": {
+      "intro": "不是你发起的对话，例如由连接器、触发器或作业发起。它们不会出现在你的聊天列表中。",
+      "empty": "还没有任何内容自行发起聊天。",
+      "kind": {
+        "trigger": "触发器",
+        "connector": "连接器",
+        "job": "作业",
+        "page": "页面",
+        "other": "其他"
+      },
+      "badge": {
+        "trigger": "触发器",
+        "connector": "连接器",
+        "job": "作业",
+        "page": "页面",
+        "other": "自动"
+      },
+      "chats": "聊天：{{count}}",
+      "lastActive": "最近活动 {{when}}",
+      "running": "运行中",
+      "waiting": "等待你处理",
+      "waitingCount": "等待你处理的聊天：{{count}}",
+      "open": "打开{{title}}",
+      "showAll": "显示全部 {{count}} 个",
+      "showLess": "收起"
+    }
   },
   "foot": {
     "state": {
@@ -600,5 +641,16 @@
     "missing": "此智能体的文件夹已不存在。请在智能体中选择其他文件夹。",
     "startError": "此智能体的文件夹缺失，因此无法开始对话。请为智能体选择其他文件夹。",
     "editAgent": "编辑智能体"
+  },
+  "origin": {
+    "banner": "此对话由{{title}}发起。",
+    "open": "打开{{title}}",
+    "kindFallback": {
+      "trigger": "触发器",
+      "connector": "连接器",
+      "job": "作业",
+      "page": "页面",
+      "other": "其他来源"
+    }
   }
 }

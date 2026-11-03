@@ -80,4 +80,7 @@ test('chat thread: server chats in the menu shape', () => {
   assert.equal(c.name, 'T')
   assert.equal(c.running, true)
   assert.equal(c.updatedAt, Date.parse('2026-01-02T00:00:00Z'))
+  assert.deepEqual([c.origin, c.originId, c.lastTurn], ['', '', ''])
+  const [b] = menuChats([{ id: 'b', origin: 'connector', origin_id: 'b1', last_turn: 'paused' }])
+  assert.deepEqual([b.origin, b.originId, b.lastTurn], ['connector', 'b1', 'paused'])
 })

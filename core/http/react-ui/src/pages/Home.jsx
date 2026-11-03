@@ -328,7 +328,7 @@ export default function Home() {
   // chats leaves the strip empty.
   useEffect(() => {
     let live = true
-    chatsApi.list(1, 'chat').then(r => {
+    chatsApi.list(1, 'chat', 'person').then(r => {
       if (!live) return
       setConversations(resumeItems(r.conversations))
       setChatServer({ files: r.files !== false, filesReason: r.files_reason || '', persistent: r.persistent !== false, imageModel: r.image_model || '' })

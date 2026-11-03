@@ -163,6 +163,8 @@ export function menuChats(conversations) {
     model: c.model || '',
     running: Boolean(c.running),
     origin: c.origin || '',
+    originId: c.origin_id || '',
+    lastTurn: c.last_turn || '',
     agentId: c.agent_id || '',
     assistant: Boolean(c.assistant),
     createdAt: Date.parse(c.created) || 0,

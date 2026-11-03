@@ -22,6 +22,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
   onExport,
   onCopyChat,
   onSearch,
+  originTitle,
 }, ref) {
   const { t } = useTranslation('chat')
   const [open, setOpen] = useState(false)
@@ -109,6 +110,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
               onExport={onExport}
               onCopyChat={onCopyChat}
               onSearch={onSearch}
+              originTitle={originTitle}
               onEscape={close}
               autoFocus
             />

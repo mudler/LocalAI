@@ -174,10 +174,20 @@
     "untitled": "New chat",
     "origin": {
       "trigger": "Started by a trigger",
-      "connector": "From a connector"
+      "connector": "From a connector",
+      "job": "Started by a job",
+      "page": "Started by a page",
+      "other": "Started by something else"
     },
     "exportJson": "Export as JSON",
-    "importChat": "Import a chat"
+    "importChat": "Import a chat",
+    "originBadge": {
+      "trigger": "Trigger",
+      "connector": "Connector",
+      "job": "Job",
+      "page": "Page",
+      "other": "Automated"
+    }
   },
   "message": {
     "you": "You",
@@ -541,7 +551,38 @@
     "loadFailed": "Could not load your chats.",
     "emptyTitle": "No chats yet",
     "emptyBody": "A chat starts on Home: type a message and send it. Your chats are listed here after that.",
-    "start": "Start a chat"
+    "start": "Start a chat",
+    "tabsLabel": "Chat lists",
+    "tab": {
+      "mine": "My chats",
+      "automated": "From add-ons and automations"
+    },
+    "automated": {
+      "intro": "Conversations that something other than you started, such as a connector, a trigger or a job. They stay out of your chat lists.",
+      "empty": "Nothing has started a chat by itself yet.",
+      "kind": {
+        "trigger": "Triggers",
+        "connector": "Connectors",
+        "job": "Jobs",
+        "page": "Pages",
+        "other": "Other"
+      },
+      "badge": {
+        "trigger": "Trigger",
+        "connector": "Connector",
+        "job": "Job",
+        "page": "Page",
+        "other": "Automated"
+      },
+      "chats": "Chats: {{count}}",
+      "lastActive": "Last active {{when}}",
+      "running": "Running",
+      "waiting": "Waiting for you",
+      "waitingCount": "Chats waiting for you: {{count}}",
+      "open": "Open {{title}}",
+      "showAll": "Show all {{count}}",
+      "showLess": "Show fewer"
+    }
   },
   "foot": {
     "state": {
@@ -747,5 +788,16 @@
     "missing": "The folder of this agent is gone. Choose another folder in the agent.",
     "startError": "This agent's folder is missing, so the chat cannot start. Choose another folder for the agent.",
     "editAgent": "Edit agent"
+  },
+  "origin": {
+    "banner": "This conversation was started by {{title}}.",
+    "open": "Open {{title}}",
+    "kindFallback": {
+      "trigger": "a trigger",
+      "connector": "a connector",
+      "job": "a job",
+      "page": "a page",
+      "other": "something else"
+    }
   }
 }

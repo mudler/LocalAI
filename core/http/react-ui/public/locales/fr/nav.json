@@ -120,5 +120,7 @@
   "recentChats": "Conversations récentes",
   "newChat": "Nouvelle conversation",
   "untitledChat": "Conversation sans titre",
-  "chatRunning": "En cours"
+  "chatRunning": "En cours",
+  "automatedWaiting": "Chats automatiques qui vous attendent : {{count}}",
+  "automatedRunning": "Chats automatiques en cours : {{count}}"
 }

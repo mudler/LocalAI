@@ -117,5 +117,7 @@
   "recentChats": "Obrolan terbaru",
   "newChat": "Obrolan baru",
   "untitledChat": "Obrolan tanpa judul",
-  "chatRunning": "Berjalan"
+  "chatRunning": "Berjalan",
+  "automatedWaiting": "Obrolan otomatis yang menunggu Anda: {{count}}",
+  "automatedRunning": "Obrolan otomatis yang berjalan: {{count}}"
 }

@@ -102,7 +102,17 @@
     "untitled": "Nuova chat",
     "origin": {
       "trigger": "Avviata da un trigger",
-      "connector": "Da un connettore"
+      "connector": "Da un connettore",
+      "job": "Avviato da un job",
+      "page": "Avviato da una pagina",
+      "other": "Avviato da qualcos’altro"
+    },
+    "originBadge": {
+      "trigger": "Trigger",
+      "connector": "Connettore",
+      "job": "Job",
+      "page": "Pagina",
+      "other": "Automatico"
     }
   },
   "message": {
@@ -386,7 +396,38 @@
     "loadFailed": "Impossibile caricare le tue chat.",
     "emptyTitle": "Ancora nessuna chat",
     "emptyBody": "Una chat inizia dalla Home: scrivi un messaggio e invialo. Poi le tue chat sono elencate qui.",
-    "start": "Inizia una chat"
+    "start": "Inizia una chat",
+    "tabsLabel": "Elenchi delle chat",
+    "tab": {
+      "mine": "Le mie chat",
+      "automated": "Da componenti aggiuntivi e automazioni"
+    },
+    "automated": {
+      "intro": "Conversazioni avviate da qualcosa che non sei tu, come un connettore, un trigger o un job. Restano fuori dai tuoi elenchi di chat.",
+      "empty": "Nulla ha ancora avviato una chat da solo.",
+      "kind": {
+        "trigger": "Trigger",
+        "connector": "Connettori",
+        "job": "Job",
+        "page": "Pagine",
+        "other": "Altro"
+      },
+      "badge": {
+        "trigger": "Trigger",
+        "connector": "Connettore",
+        "job": "Job",
+        "page": "Pagina",
+        "other": "Automatico"
+      },
+      "chats": "Chat: {{count}}",
+      "lastActive": "Ultima attività {{when}}",
+      "running": "In corso",
+      "waiting": "Ti aspetta",
+      "waitingCount": "Chat che ti aspettano: {{count}}",
+      "open": "Apri {{title}}",
+      "showAll": "Mostra tutte ({{count}})",
+      "showLess": "Mostra meno"
+    }
   },
   "foot": {
     "state": {
@@ -600,5 +641,16 @@
     "missing": "La cartella di questo agente non esiste più. Scegli un'altra cartella nell'agente.",
     "startError": "La cartella di questo agente manca, quindi la chat non può partire. Scegli un'altra cartella per l'agente.",
     "editAgent": "Modifica agente"
+  },
+  "origin": {
+    "banner": "Questa conversazione è stata avviata da {{title}}.",
+    "open": "Apri {{title}}",
+    "kindFallback": {
+      "trigger": "un trigger",
+      "connector": "un connettore",
+      "job": "un job",
+      "page": "una pagina",
+      "other": "qualcos’altro"
+    }
   }
 }
