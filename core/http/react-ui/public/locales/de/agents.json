@@ -218,7 +218,8 @@
       "watches": "Watches the folder {{folder}}",
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
-      "prompt": "What to do"
+      "prompt": "What to do",
+      "acts": "Berechtigungen"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -234,7 +235,8 @@
         "basics": "Basics",
         "prompt": "What to do",
         "schedule": "When",
-        "limits": "Limits"
+        "limits": "Limits",
+        "acts": "Berechtigungen"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -242,7 +244,9 @@
         "promptEmpty": "Nothing to do yet",
         "folderEmpty": "Needs a folder",
         "cap": "Up to {{count}} runs a day",
-        "capDefault": "Default limit"
+        "capDefault": "Default limit",
+        "acts_one": "Darf {{count}} Art von Aktion nutzen",
+        "acts_other": "Darf {{count}} Arten von Aktionen nutzen"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",

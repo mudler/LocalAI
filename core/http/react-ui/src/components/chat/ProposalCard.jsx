@@ -5,6 +5,7 @@ import { proposalEdit, proposalView, receiptWhen } from '../../utils/chatProposa
 import { useWellKnown } from '../../hooks/useWellKnown'
 import { widgetList } from '../../utils/wellKnown'
 import { plainSummary } from '../../utils/widgetTrigger'
+import { ActsSummary } from '../TriggerActs'
 import Icon from '../Icon'
 import { Button } from '../ui'
 
@@ -49,6 +50,7 @@ function Plan({ p, t }) {
       ? <><code>{p.plan.writes}</code>{t('proposal.plan.writesWidget', { widget: widget.title })}</>
       : <code>{p.plan.writes}</code>],
     ['cost', costText],
+    ['acts', <ActsSummary key="acts" trigger={p} compact />],
     ['stop', t(widget ? 'proposal.plan.stopWidget' : 'proposal.plan.stop')],
   ].filter(Boolean)
   return (

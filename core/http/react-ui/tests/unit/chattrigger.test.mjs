@@ -49,7 +49,7 @@ test('chat triggers: a stored file trigger is the file preset', () => {
 test('chat triggers: the request body of a schedule and of a file trigger', () => {
   const base = { name: ' Digest ', prompt: 'Go.', enabled: true, dailyCap: '', agentId: '', model: 'm', sourceChatId: '', zone: 'Europe/Rome', folder: '', quiet: '' }
   assert.deepEqual(triggerPayload({ ...base, schedule: form({ preset: 'weekdays', time: '09:00' }) }), {
-    name: 'Digest', prompt: 'Go.', kind: 'schedule', enabled: true, daily_cap: 0, agent_id: undefined, model: 'm', source_chat_id: undefined,
+    name: 'Digest', prompt: 'Go.', kind: 'schedule', enabled: true, daily_cap: 0, acts: [], agent_id: undefined, model: 'm', source_chat_id: undefined,
     schedule: 'weekdays 09:00', time_zone: 'Europe/Rome',
   })
   const file = triggerPayload({ ...base, schedule: form({ preset: 'file' }), folder: ' /Contracts ', quiet: '45', dailyCap: '5', agentId: 'a1' })

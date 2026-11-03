@@ -56,7 +56,8 @@
       "costUnknown_other": "Os tokens de uma execução são conhecidos após a primeira. No máximo {{count}} execuções por dia.",
       "remoteNote": "{{model}} é um serviço remoto: o que uma execução lê sai deste servidor.",
       "stopWidget": "Pause pelo widget ou exclua em Gatilhos",
-      "stop": "Desligue ou exclua em Gatilhos"
+      "stop": "Desligue ou exclua em Gatilhos",
+      "actsLabel": "Permissões"
     }
   },
   "mcpPage": {
@@ -730,5 +731,27 @@
     "clearYes_other": "Excluir {{count}} arquivos",
     "cleared_one": "{{count}} arquivo movido para a Lixeira.",
     "cleared_other": "{{count}} arquivos movidos para a Lixeira."
+  },
+  "triggerActs": {
+    "help": "Uma execução começa sozinha, então ninguém aprova um passo. Ela pode ler e relatar. Marque o que ela também pode fazer. Ela nunca recebe mais do que o seu agente tem.",
+    "noAgent": "Nenhum agente escolhido, então só o que você marcar a limita.",
+    "readOnly": "Somente leitura",
+    "canAct": "Pode agir sozinha",
+    "canActText_one": "Uma execução pode usar {{count}} tipo de ação sem perguntar.",
+    "canActText_other": "Uma execução pode usar {{count}} tipos de ação sem perguntar.",
+    "sensitive": "requer cuidado",
+    "addonRow": "Uma execução pode usar as ações do complemento {{id}}.",
+    "blocked": "Seu agente não tem esta permissão, então ela não pode ser marcada. Adicione-a antes ao agente.",
+    "unused": "Seu agente não tem esta permissão, então uma execução não a usa.",
+    "unusedList": "Listada, mas sem uso porque o agente não a tem: {{names}}.",
+    "writesNote": "O plano cita o arquivo {{file}}, então uma execução também pode gravar arquivos.",
+    "listCan_one": "Pode agir ({{count}})",
+    "listCan_other": "Pode agir ({{count}})",
+    "why": {
+      "no_acts": "Sem permissão para agir, então suas execuções só leem e relatam.",
+      "agent": "Seu agente não tem as permissões pedidas, então suas execuções só leem e relatam.",
+      "declared": "Foi criado para apenas ler e relatar. Nada que você marque aqui muda isso.",
+      "binding": "Foi criado por uma conexão em modo somente leitura. Nada que você marque aqui muda isso."
+    }
   }
 }

@@ -56,7 +56,8 @@
       "costUnknown_other": "Die Tokens eines Laufs sind nach dem ersten Lauf bekannt. Höchstens {{count}} Läufe pro Tag.",
       "remoteNote": "{{model}} ist ein entfernter Dienst: Was ein Lauf liest, verlässt diesen Server.",
       "stopWidget": "Pausiere ihn im Widget oder lösche ihn unter Trigger",
-      "stop": "Schalte ihn aus oder lösche ihn unter Trigger"
+      "stop": "Schalte ihn aus oder lösche ihn unter Trigger",
+      "actsLabel": "Berechtigungen"
     }
   },
   "mcpPage": {
@@ -730,5 +731,27 @@
     "clearYes_other": "{{count}} Dateien löschen",
     "cleared_one": "{{count}} Datei in den Papierkorb verschoben.",
     "cleared_other": "{{count}} Dateien in den Papierkorb verschoben."
+  },
+  "triggerActs": {
+    "help": "Ein Lauf startet von selbst, also bestätigt niemand einen Schritt. Er kann lesen und berichten. Hake an, was er zusätzlich tun darf. Er bekommt nie mehr, als sein Agent hat.",
+    "noAgent": "Es ist kein Agent gewählt, daher begrenzt nur das Angehakte den Lauf.",
+    "readOnly": "Nur lesen",
+    "canAct": "Darf selbstständig handeln",
+    "canActText_one": "Ein Lauf darf {{count}} Art von Aktion ohne Rückfrage nutzen.",
+    "canActText_other": "Ein Lauf darf {{count}} Arten von Aktionen ohne Rückfrage nutzen.",
+    "sensitive": "mit Vorsicht",
+    "addonRow": "Ein Lauf darf die Aktionen des Add-ons {{id}} nutzen.",
+    "blocked": "Dein Agent hat dies nicht, daher lässt es sich nicht anhaken. Füge es zuerst dem Agenten hinzu.",
+    "unused": "Dein Agent hat dies nicht, daher nutzt ein Lauf es nicht.",
+    "unusedList": "Aufgeführt, aber nicht genutzt, weil der Agent es nicht hat: {{names}}.",
+    "writesNote": "Sein Plan nennt die Datei {{file}}, daher darf ein Lauf auch Dateien schreiben.",
+    "listCan_one": "Kann handeln ({{count}})",
+    "listCan_other": "Kann handeln ({{count}})",
+    "why": {
+      "no_acts": "Keine Berechtigung zum Handeln gesetzt, daher lesen und berichten seine Läufe nur.",
+      "agent": "Sein Agent hat die verlangten Berechtigungen nicht, daher lesen und berichten seine Läufe nur.",
+      "declared": "Er wurde so eingerichtet, dass er nur liest und berichtet. Nichts, was hier angehakt wird, ändert das.",
+      "binding": "Eine Verbindung im Nur-Lesen-Modus hat ihn erstellt. Nichts, was hier angehakt wird, ändert das."
+    }
   }
 }

@@ -56,7 +56,8 @@
       "costUnknown_other": "Los tokens de una ejecución se conocen tras la primera. Como máximo {{count}} ejecuciones al día.",
       "remoteNote": "{{model}} es un servicio remoto: lo que lee una ejecución sale de este servidor.",
       "stopWidget": "Páusalo desde el widget o elimínalo en Disparadores",
-      "stop": "Apágalo o elimínalo en Disparadores"
+      "stop": "Apágalo o elimínalo en Disparadores",
+      "actsLabel": "Permisos"
     }
   },
   "mcpPage": {
@@ -730,5 +731,27 @@
     "clearYes_other": "Eliminar {{count}} archivos",
     "cleared_one": "{{count}} archivo movido a la Papelera.",
     "cleared_other": "{{count}} archivos movidos a la Papelera."
+  },
+  "triggerActs": {
+    "help": "Una ejecución empieza sola, así que nadie aprueba un paso. Puede leer e informar. Marca lo que además puede hacer. Nunca recibe más de lo que tiene su agente.",
+    "noAgent": "No hay agente elegido, así que solo lo que marques la limita.",
+    "readOnly": "Solo lectura",
+    "canAct": "Puede actuar por sí misma",
+    "canActText_one": "Una ejecución puede usar {{count}} tipo de acción sin preguntar.",
+    "canActText_other": "Una ejecución puede usar {{count}} tipos de acción sin preguntar.",
+    "sensitive": "requiere cuidado",
+    "addonRow": "Una ejecución puede usar las acciones del complemento {{id}}.",
+    "blocked": "Tu agente no tiene esto, así que no se puede marcar. Añádelo antes al agente.",
+    "unused": "Tu agente no tiene esto, así que una ejecución no lo usa.",
+    "unusedList": "En la lista, pero sin uso porque el agente no lo tiene: {{names}}.",
+    "writesNote": "Su plan nombra el archivo {{file}}, así que una ejecución también puede escribir archivos.",
+    "listCan_one": "Puede actuar ({{count}})",
+    "listCan_other": "Puede actuar ({{count}})",
+    "why": {
+      "no_acts": "No tiene permiso para actuar, así que sus ejecuciones solo leen e informan.",
+      "agent": "Su agente no tiene los permisos que pide, así que sus ejecuciones solo leen e informan.",
+      "declared": "Se creó para leer e informar solamente. Nada de lo que marques aquí lo cambia.",
+      "binding": "La creó una conexión en modo de solo lectura. Nada de lo que marques aquí lo cambia."
+    }
   }
 }

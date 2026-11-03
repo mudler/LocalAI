@@ -56,7 +56,8 @@
       "costUnknown_other": "I token di un'esecuzione si conoscono dopo la prima. Al massimo {{count}} esecuzioni al giorno.",
       "remoteNote": "{{model}} è un servizio remoto: quello che un'esecuzione legge esce da questo server.",
       "stopWidget": "Mettilo in pausa dal widget, o eliminalo in Trigger",
-      "stop": "Spegnilo o eliminalo in Trigger"
+      "stop": "Spegnilo o eliminalo in Trigger",
+      "actsLabel": "Permessi"
     }
   },
   "mcpPage": {
@@ -730,5 +731,27 @@
     "clearYes_other": "Elimina {{count}} file",
     "cleared_one": "{{count}} file spostato nel Cestino.",
     "cleared_other": "{{count}} file spostati nel Cestino."
+  },
+  "triggerActs": {
+    "help": "Un'esecuzione parte da sola, quindi nessuno approva un passo. Può leggere e riferire. Spunta ciò che può fare in più. Non ottiene mai più di quanto ha il suo agente.",
+    "noAgent": "Nessun agente scelto, quindi la limita solo ciò che spunti.",
+    "readOnly": "Sola lettura",
+    "canAct": "Può agire da sola",
+    "canActText_one": "Un'esecuzione può usare {{count}} tipo di azione senza chiedere.",
+    "canActText_other": "Un'esecuzione può usare {{count}} tipi di azione senza chiedere.",
+    "sensitive": "da usare con cura",
+    "addonRow": "Un'esecuzione può usare le azioni del componente {{id}}.",
+    "blocked": "Il tuo agente non ha questo permesso, quindi non si può spuntare. Aggiungilo prima all'agente.",
+    "unused": "Il tuo agente non ha questo permesso, quindi un'esecuzione non lo usa.",
+    "unusedList": "In elenco, ma non usato perché l'agente non lo ha: {{names}}.",
+    "writesNote": "Il suo piano nomina il file {{file}}, quindi un'esecuzione può anche scrivere file.",
+    "listCan_one": "Può agire ({{count}})",
+    "listCan_other": "Può agire ({{count}})",
+    "why": {
+      "no_acts": "Nessun permesso di agire, quindi le sue esecuzioni leggono e riferiscono soltanto.",
+      "agent": "Il suo agente non ha i permessi richiesti, quindi le sue esecuzioni leggono e riferiscono soltanto.",
+      "declared": "È stato creato per leggere e riferire soltanto. Nulla di ciò che spunti qui lo cambia.",
+      "binding": "L'ha creato una connessione in sola lettura. Nulla di ciò che spunti qui lo cambia."
+    }
   }
 }

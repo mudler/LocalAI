@@ -21,11 +21,11 @@ const HISTORY = [
 ]
 
 // The server, in memory: the state of the proposal and what each call does.
-async function serve(page, { messages = HISTORY, undoRefusal = '', confirmFails = false } = {}) {
+async function serve(page, { messages = HISTORY, undoRefusal = '', confirmFails = false, extra = {} } = {}) {
   const s = { state: 'pending', canUndo: true, blocked: '', calls: [] }
   const view = () => ({
     state: s.state,
-    trigger: trigger(s.state === 'accepted' ? { enabled: true, next_run: '2026-11-02T08:00:00Z' } : {}),
+    trigger: trigger({ ...extra, ...(s.state === 'accepted' ? { enabled: true, next_run: '2026-11-02T08:00:00Z' } : {}) }),
     answered_at: s.state === 'pending' ? undefined : AT,
     can_undo: s.state === 'accepted' && s.canUndo,
     undo_blocked: s.blocked || undefined,
@@ -36,6 +36,10 @@ async function serve(page, { messages = HISTORY, undoRefusal = '', confirmFails 
   await page.route('**/api/chats/c1', route => route.fulfill({ json: detail }))
   await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: [{ ...detail, pending: undefined }], persistent: true, files: true } }))
   await page.route('**/api/chats/agents*', route => route.fulfill({ json: { agents: [] } }))
+  await page.route('**/api/chats/agents/builtin-grants', route => route.fulfill({ json: { grants: [
+    { name: 'act.files', title: 'Write files on its own', description: 'A run that nobody watches may write files inside the agent\'s folders.', sensitive: true },
+    { name: 'act.spend', title: 'Use paid or external tools on its own', description: 'A run that nobody watches may use paid or external tools and the network.', sensitive: true },
+  ] } }))
   await page.route('**/api/chats/triggers/preview*', route => route.fulfill({ json: { times: ['2026-11-02T08:00:00Z'], summary: 'Every Monday at 09:00' } }))
   await page.route(/\/api\/chats\/triggers\/proposals\/p1(\/[a-z]+)?$/, (route) => {
     const req = route.request()
@@ -98,6 +102,25 @@ for (const [name, size] of [['desktop', { width: 1440, height: 900 }], ['phone',
       expect(box.y).toBeGreaterThanOrEqual(text.y + text.height - 1)
       expect(acts.y).toBeGreaterThanOrEqual(box.y + box.height - 1)
       await page.screenshot({ path: `test-results/proposal-${name}-pending.png` })
+    })
+
+    test('the card says a run only reads when the trigger holds no act, and why', async ({ page }) => {
+      await open(page, { extra: { acts: [], acts_held: [], read_only: true, read_only_why: 'no_acts' } })
+      const sum = card(page).getByTestId('trigger-acts-summary')
+      await expect(sum).toHaveAttribute('data-read-only', 'true')
+      await expect(sum).toContainText('Read only')
+      await expect(card(page).getByTestId('trigger-acts-why')).toContainText('only read and report')
+    })
+
+    test('the card lists the acts the trigger would run with, sensitive ones marked, before it is created', async ({ page }) => {
+      const s = await open(page, { extra: { acts: ['act.files', 'act.spend'], acts_held: ['act.files'], read_only: false } })
+      const sum = card(page).getByTestId('trigger-acts-summary')
+      await expect(sum.locator('[data-act="act.files"]')).toContainText('Write files on its own')
+      await expect(sum.locator('[data-act="act.files"]')).toContainText('needs care')
+      await expect(sum.locator('[data-act="act.spend"]')).toHaveCount(0)
+      await expect(card(page).getByTestId('trigger-acts-unused')).toContainText('Use paid or external tools on its own')
+      expect(s.calls).not.toContain('POST confirm')
+      await page.screenshot({ path: `test-results/proposal-${name}-acts.png` })
     })
 
     test('accepting leaves a receipt in place, undo takes it back, and the state survives a reload', async ({ page }) => {

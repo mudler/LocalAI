@@ -723,7 +723,8 @@
       "costUnknown_other": "The tokens of a run are known after the first run. At most {{count}} runs a day.",
       "remoteNote": "{{model}} is a remote service: what a run reads leaves this server.",
       "stopWidget": "Pause it from the widget, or delete it in Triggers",
-      "stop": "Switch it off or delete it in Triggers"
+      "stop": "Switch it off or delete it in Triggers",
+      "actsLabel": "Permissions"
     }
   },
   "subAgents": {
@@ -1052,5 +1053,27 @@
     "clearYes_other": "Delete {{count}} files",
     "cleared_one": "Moved {{count}} file to the Trash.",
     "cleared_other": "Moved {{count}} files to the Trash."
+  },
+  "triggerActs": {
+    "help": "A run starts by itself, so nobody is there to approve a step. It can read and report. Tick what it may also do. It never gets more than its agent holds.",
+    "noAgent": "No agent is chosen, so only what you tick limits it.",
+    "readOnly": "Read only",
+    "canAct": "May act on its own",
+    "canActText_one": "A run may use {{count}} kind of action without asking.",
+    "canActText_other": "A run may use {{count}} kinds of action without asking.",
+    "sensitive": "needs care",
+    "addonRow": "A run may use the actions of the add-on {{id}}.",
+    "blocked": "Your agent does not hold this, so it cannot be ticked. Add it to the agent first.",
+    "unused": "Your agent does not hold this, so a run does not use it.",
+    "unusedList": "Listed, but not used because the agent does not hold it: {{names}}.",
+    "writesNote": "Its plan names the file {{file}}, so a run may also write files.",
+    "listCan_one": "Can act ({{count}})",
+    "listCan_other": "Can act ({{count}})",
+    "why": {
+      "no_acts": "No permission to act is set, so its runs only read and report.",
+      "agent": "Its agent does not hold the permissions it asks for, so its runs only read and report.",
+      "declared": "It was set up to read and report only. Nothing ticked here changes that.",
+      "binding": "A connection in read only mode made it. Nothing ticked here changes that."
+    }
   }
 }

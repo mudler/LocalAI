@@ -419,7 +419,8 @@
       "runMeta": "took {{time}}",
       "agent": "Agent",
       "cap": "Most runs a day",
-      "watches": "Watches the folder {{folder}}"
+      "watches": "Watches the folder {{folder}}",
+      "acts": "Permissions"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -444,7 +445,8 @@
         "schedule": "When",
         "media": "Media sources",
         "webhooks": "Webhooks",
-        "limits": "Limits"
+        "limits": "Limits",
+        "acts": "Permissions"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -453,7 +455,9 @@
         "promptEmpty": "Nothing to do yet",
         "folderEmpty": "Needs a folder",
         "cap": "Up to {{count}} runs a day",
-        "capDefault": "Default limit"
+        "capDefault": "Default limit",
+        "acts_one": "May use {{count}} kind of action",
+        "acts_other": "May use {{count}} kinds of action"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",

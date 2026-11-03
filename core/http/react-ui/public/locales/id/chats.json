@@ -56,7 +56,8 @@
       "costUnknown_one": "Token per jalan diketahui setelah jalan pertama. Paling banyak {{count}} jalan per hari.",
       "remoteNote": "{{model}} adalah layanan jarak jauh: apa yang dibaca sebuah jalan meninggalkan server ini.",
       "stopWidget": "Jeda dari widget, atau hapus di Pemicu",
-      "stop": "Matikan atau hapus di Pemicu"
+      "stop": "Matikan atau hapus di Pemicu",
+      "actsLabel": "Izin"
     }
   },
   "mcpPage": {
@@ -730,5 +731,27 @@
     "clearYes_other": "Hapus {{count}} berkas",
     "cleared_one": "{{count}} berkas dipindahkan ke Tempat Sampah.",
     "cleared_other": "{{count}} berkas dipindahkan ke Tempat Sampah."
+  },
+  "triggerActs": {
+    "help": "Satu jalan dimulai sendiri, jadi tidak ada yang menyetujui langkahnya. Ia bisa membaca dan melapor. Centang apa yang boleh dilakukannya juga. Ia tidak pernah mendapat lebih dari yang dimiliki agennya.",
+    "noAgent": "Belum ada agen yang dipilih, jadi hanya centangan Anda yang membatasinya.",
+    "readOnly": "Hanya baca",
+    "canAct": "Boleh bertindak sendiri",
+    "canActText_one": "Satu jalan boleh memakai {{count}} jenis tindakan tanpa bertanya.",
+    "canActText_other": "Satu jalan boleh memakai {{count}} jenis tindakan tanpa bertanya.",
+    "sensitive": "perlu hati-hati",
+    "addonRow": "Satu jalan boleh memakai tindakan add-on {{id}}.",
+    "blocked": "Agen Anda tidak memiliki izin ini, jadi tidak bisa dicentang. Tambahkan dulu ke agen.",
+    "unused": "Agen Anda tidak memiliki izin ini, jadi satu jalan tidak memakainya.",
+    "unusedList": "Terdaftar, tetapi tidak dipakai karena agen tidak memilikinya: {{names}}.",
+    "writesNote": "Rencananya menyebut berkas {{file}}, jadi satu jalan juga boleh menulis berkas.",
+    "listCan_one": "Bisa bertindak ({{count}})",
+    "listCan_other": "Bisa bertindak ({{count}})",
+    "why": {
+      "no_acts": "Tidak ada izin bertindak, jadi jalannya hanya membaca dan melapor.",
+      "agent": "Agennya tidak memiliki izin yang diminta, jadi jalannya hanya membaca dan melapor.",
+      "declared": "Ini dibuat untuk hanya membaca dan melapor. Centangan di sini tidak mengubahnya.",
+      "binding": "Dibuat oleh koneksi dalam mode hanya baca. Centangan di sini tidak mengubahnya."
+    }
   }
 }

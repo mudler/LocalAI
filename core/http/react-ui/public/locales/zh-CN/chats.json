@@ -56,7 +56,8 @@
       "costUnknown_one": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
       "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
       "stopWidget": "在小组件中暂停，或在触发器中删除",
-      "stop": "在触发器中关闭或删除"
+      "stop": "在触发器中关闭或删除",
+      "actsLabel": "权限"
     }
   },
   "mcpPage": {
@@ -730,5 +731,27 @@
     "clearYes_other": "删除 {{count}} 个文件",
     "cleared_one": "已将 {{count}} 个文件移到回收站。",
     "cleared_other": "已将 {{count}} 个文件移到回收站。"
+  },
+  "triggerActs": {
+    "help": "运行会自行开始，没有人批准每一步。它可以读取并汇报。勾选它还可以做什么。它得到的权限不会超过其代理。",
+    "noAgent": "未选择代理，因此只有你勾选的项目起限制作用。",
+    "readOnly": "只读",
+    "canAct": "可自行操作",
+    "canActText_one": "一次运行可在不询问的情况下使用 {{count}} 类操作。",
+    "canActText_other": "一次运行可在不询问的情况下使用 {{count}} 类操作。",
+    "sensitive": "需谨慎",
+    "addonRow": "一次运行可使用附加组件 {{id}} 的操作。",
+    "blocked": "你的代理没有此权限，因此无法勾选。请先将它添加到代理。",
+    "unused": "你的代理没有此权限，因此运行不会使用它。",
+    "unusedList": "已列出，但代理没有，所以不使用：{{names}}。",
+    "writesNote": "其计划指明了文件 {{file}}，因此一次运行也可以写入文件。",
+    "listCan_one": "可操作（{{count}}）",
+    "listCan_other": "可操作（{{count}}）",
+    "why": {
+      "no_acts": "未设置操作权限，因此其运行只读取并汇报。",
+      "agent": "其代理没有它要求的权限，因此其运行只读取并汇报。",
+      "declared": "它被设置为只读取并汇报。在此勾选不会改变这一点。",
+      "binding": "它由只读模式的连接创建。在此勾选不会改变这一点。"
+    }
   }
 }

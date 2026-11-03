@@ -56,7 +56,8 @@
       "costUnknown_other": "Les jetons d’une exécution sont connus après la première. Au plus {{count}} exécutions par jour.",
       "remoteNote": "{{model}} est un service distant : ce que lit une exécution quitte ce serveur.",
       "stopWidget": "Mettez-le en pause depuis le widget, ou supprimez-le dans Déclencheurs",
-      "stop": "Désactivez-le ou supprimez-le dans Déclencheurs"
+      "stop": "Désactivez-le ou supprimez-le dans Déclencheurs",
+      "actsLabel": "Permissions"
     }
   },
   "mcpPage": {
@@ -730,5 +731,27 @@
     "clearYes_other": "Supprimer {{count}} fichiers",
     "cleared_one": "{{count}} fichier déplacé dans la corbeille.",
     "cleared_other": "{{count}} fichiers déplacés dans la corbeille."
+  },
+  "triggerActs": {
+    "help": "Une exécution démarre seule, donc personne n'approuve une étape. Elle peut lire et rendre compte. Cochez ce qu'elle peut faire en plus. Elle n'obtient jamais plus que son agent.",
+    "noAgent": "Aucun agent n'est choisi, donc seul ce que vous cochez la limite.",
+    "readOnly": "Lecture seule",
+    "canAct": "Peut agir seule",
+    "canActText_one": "Une exécution peut utiliser {{count}} type d'action sans demander.",
+    "canActText_other": "Une exécution peut utiliser {{count}} types d'action sans demander.",
+    "sensitive": "à manier avec soin",
+    "addonRow": "Une exécution peut utiliser les actions du module {{id}}.",
+    "blocked": "Votre agent n'a pas cette permission, on ne peut donc pas la cocher. Ajoutez-la d'abord à l'agent.",
+    "unused": "Votre agent n'a pas cette permission, donc une exécution ne l'utilise pas.",
+    "unusedList": "Listée, mais inutilisée car l'agent ne l'a pas : {{names}}.",
+    "writesNote": "Son plan nomme le fichier {{file}}, donc une exécution peut aussi écrire des fichiers.",
+    "listCan_one": "Peut agir ({{count}})",
+    "listCan_other": "Peut agir ({{count}})",
+    "why": {
+      "no_acts": "Aucune permission d'agir n'est définie, donc ses exécutions lisent et rendent compte seulement.",
+      "agent": "Son agent n'a pas les permissions demandées, donc ses exécutions lisent et rendent compte seulement.",
+      "declared": "Il a été créé pour lire et rendre compte seulement. Rien de ce qui est coché ici ne change cela.",
+      "binding": "Une connexion en lecture seule l'a créé. Rien de ce qui est coché ici ne change cela."
+    }
   }
 }
