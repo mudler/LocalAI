@@ -2227,10 +2227,24 @@ REST, under the chats feature:
 |---|---|
 | `GET /api/chats/changes?status=` | list your proposals |
 | `GET /api/chats/changes/{id}` | read one |
-| `POST /api/chats/changes/{id}/confirm` | write it |
+| `POST /api/chats/changes/{id}/confirm` | write it; a JSON body `{"content": "..."}` writes the owner's own text in place of the proposed one, with the same size limit |
 | `POST /api/chats/changes/{id}/dismiss` | answer no |
 | `POST /api/chats/changes/{id}/undo` | restore the file |
 | `GET /api/chats/changes/audit` | read the audit |
+
+Studio draws every proposal the same way, for any kind and any source. In a chat
+the tool line of `propose_change` carries a card `{kind: "change_proposal", id}`
+and the thread shows it under the message: the kind, the file and the scope, the
+source (a chat, or a connector with its binding), the time left, and a line diff
+against the file as it is now. The owner can Confirm, Edit then confirm (the text
+the owner writes is saved in place of the model's) or Dismiss. After a
+confirmation the card is a receipt with Undo. A proposal that waited a day shows
+as expired, and one whose file changed since shows as stale; both offer to ask
+the assistant again, and nothing was written. A write that fails leaves the
+proposal waiting and says why. A kind the card has no wording for is shown by its
+name. The changes that wait are also counted on the inbox button of the chat
+header, and the Proposals page (`/app/chats/proposals`) lists them with the same
+card.
 
 In a cluster the proposals and the audit live in the shared database (the auth
 database), so any frontend can confirm what another one stored. The limits are

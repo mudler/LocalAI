@@ -1492,6 +1492,21 @@ model access rules and quotas as a direct request to `/v1/chat/completions`.
 
 With authentication off, chats belong to one anonymous owner.
 
+## Memory settings
+
+Your settings page (Account) has a **Memory** tab. It lists the notes that the host
+puts in the prompt of your chats: your own index and its topic files, the notes of
+each saved agent and of each connector conversation, and the agent profiles. Each
+index shows its size against the caps (at most 40 lines and 2 KiB for an index,
+4 KiB for a profile, 6 KiB of notes in one turn). You can open a file, edit it,
+delete it (it goes to the Trash) or clear all of them. An index cannot be saved
+over its cap. A model changes these files only through a confirmed
+[change proposal](/features/addons/#change-proposals-from-chats).
+
+`GET /api/chats/context-files` returns the list for the page: `limits`, and
+`groups` of `{source, scope, key, max_bytes, max_lines, files[]}`. It only reads.
+The page edits and deletes with the Files API.
+
 ## Your files
 
 Each user has a personal workspace: folders at any depth, uploads, a Trash and
