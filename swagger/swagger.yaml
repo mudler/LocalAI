@@ -627,6 +627,37 @@ definitions:
       name:
         type: string
     type: object
+  contract.ExecutionDescriptor:
+    properties:
+      class:
+        description: Class is ExecutionClassCommands.
+        type: string
+      note:
+        description: |-
+          Note is one plain sentence for the model when the provider reports
+          isolated execution, such as the programs its environment has.
+        type: string
+      skills:
+        allOf:
+        - $ref: '#/definitions/contract.ExecutionSkills'
+        description: Skills says which skills run on this provider.
+      title:
+        description: |-
+          Title names the provider in the text the host shows the person and the
+          model, for example "Sandbox". It falls back to the add-on's title.
+        type: string
+    type: object
+  contract.ExecutionSkills:
+    properties:
+      providesRuntimeFor:
+        description: |-
+          ProvidesRuntimeFor lists skill kinds (SkillKindDocuments). The host
+          offers the add-on's skills of those kinds only while the provider
+          reports isolated execution.
+        items:
+          type: string
+        type: array
+    type: object
   contract.OutputDescription:
     properties:
       handle:
@@ -724,6 +755,13 @@ definitions:
       description:
         description: Description is plain text for the model.
         type: string
+      execution:
+        allOf:
+        - $ref: '#/definitions/contract.ExecutionDescriptor'
+        description: |-
+          Execution declares that this tool runs commands and what the host may
+          say about the provider. Only a tool that shadows bash may declare it, and
+          the manifest must then accept API 2 (see MinExecutionAPI).
       inputSchema:
         description: |-
           InputSchema is the JSON schema of the arguments object. It is an

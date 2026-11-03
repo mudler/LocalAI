@@ -15137,6 +15137,43 @@
                 }
             }
         },
+        "contract.ExecutionDescriptor": {
+            "type": "object",
+            "properties": {
+                "class": {
+                    "description": "Class is ExecutionClassCommands.",
+                    "type": "string"
+                },
+                "note": {
+                    "description": "Note is one plain sentence for the model when the provider reports\nisolated execution, such as the programs its environment has.",
+                    "type": "string"
+                },
+                "skills": {
+                    "description": "Skills says which skills run on this provider.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.ExecutionSkills"
+                        }
+                    ]
+                },
+                "title": {
+                    "description": "Title names the provider in the text the host shows the person and the\nmodel, for example \"Sandbox\". It falls back to the add-on's title.",
+                    "type": "string"
+                }
+            }
+        },
+        "contract.ExecutionSkills": {
+            "type": "object",
+            "properties": {
+                "providesRuntimeFor": {
+                    "description": "ProvidesRuntimeFor lists skill kinds (SkillKindDocuments). The host\noffers the add-on's skills of those kinds only while the provider\nreports isolated execution.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "contract.OutputDescription": {
             "type": "object",
             "properties": {
@@ -15267,6 +15304,14 @@
                 "description": {
                     "description": "Description is plain text for the model.",
                     "type": "string"
+                },
+                "execution": {
+                    "description": "Execution declares that this tool runs commands and what the host may\nsay about the provider. Only a tool that shadows bash may declare it, and\nthe manifest must then accept API 2 (see MinExecutionAPI).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.ExecutionDescriptor"
+                        }
+                    ]
                 },
                 "inputSchema": {
                     "description": "InputSchema is the JSON schema of the arguments object. It is an\nobject schema with explicit properties, additionalProperties false at\nthe top level and the keywords the host allows only.",
