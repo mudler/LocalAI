@@ -58,6 +58,14 @@ func md(name, desc string) []byte {
 // newSkillService is a chats service on a real workspace with a broker that
 // ships add-on skills.
 func newSkillService(b *skillBroker, pins ...map[string]string) (*Service, *files.Service) {
+	return newSkillServiceWith(b, nil, pins...)
+}
+
+// newSkillServiceWith is newSkillService with the harness a chat runs on. Nil
+// keeps the real nib harness, whose session setup costs about a second and
+// grows with load; a spec that opens a chat only to see how its tools are
+// built passes a stub.
+func newSkillServiceWith(b *skillBroker, h session.Harness, pins ...map[string]string) (*Service, *files.Service) {
 	dsn := "file:" + filepath.Join(GinkgoT().TempDir(), "ws.db") + "?_busy_timeout=5000&_txlock=immediate"
 	db, err := sqlitedb.Open(dsn, &gorm.Config{})
 	Expect(err).NotTo(HaveOccurred())
@@ -66,7 +74,7 @@ func newSkillService(b *skillBroker, pins ...map[string]string) (*Service, *file
 	Expect(err).NotTo(HaveOccurred())
 	f := files.New(ws)
 	st, _ := store.NewJSON("")
-	d := Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, AddonTools: b}
+	d := Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, AddonTools: b, Harness: h}
 	if len(pins) > 0 {
 		d.ToolPins = func(context.Context) (map[string]string, error) { return pins[0], nil }
 	}
