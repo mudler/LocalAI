@@ -642,7 +642,7 @@ var _ = Describe("trigger runs of a scoped agent", func() {
 		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID})
 		// An imported agent whose folder does not exist here: limited, not chosen.
 		unset := s.agent
-		unset.FolderID = 0
+		unset.Folders, unset.FolderID = []agents.AgentFolder{{Mode: agents.FolderRead}}, 0
 		Expect(s.sh.agents.Put(s.ctx, unset)).To(Succeed())
 		s.due()
 		run := s.waitEnded(tr.ID)

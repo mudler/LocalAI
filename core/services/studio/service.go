@@ -628,7 +628,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 			if err != nil {
 				return session.ChatRecord{}, err
 			}
-			if _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []folderScope{*sc}); err != nil {
+			if _, _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []*folderScope{sc}); err != nil {
 				return session.ChatRecord{}, err
 			}
 			scoped = true
