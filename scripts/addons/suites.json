@@ -1510,7 +1510,15 @@
           "renames a shared folder called chat",
           "tells a scoped chat only its folders and no page hint",
           "names the whole home for a scoped chat whose folder is the home",
-          "keeps today's prompt for an unscoped chat"
+          "keeps today's prompt for an unscoped chat",
+          "tells the size of the window when the tools do not fit",
+          "tells the size of the window when the conversation does not fit",
+          "names a refused tool definition",
+          "gives a tool the product scope of the turn when the harness calls it with its own context",
+          "does not refuse a message that reached the transcript when the turn is stopped meanwhile",
+          "refuses a message when too many wait, before it reaches the transcript",
+          "refuses a message when the waiting ones are too big",
+          "keeps the waiting messages when the turn is stopped and sends them with the next one"
         ]
       }
     ]
