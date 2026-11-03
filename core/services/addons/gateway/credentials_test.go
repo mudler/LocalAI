@@ -40,6 +40,7 @@ type fakeCredentials struct {
 	allowed map[string]string // key -> id
 	calls   []string
 	err     error
+	scopes  []string
 }
 
 func (f *fakeCredentials) Credential(_ context.Context, a contract.Actor, addonID, key string) (CredentialGrant, error) {
@@ -48,7 +49,7 @@ func (f *fakeCredentials) Credential(_ context.Context, a contract.Actor, addonI
 		return CredentialGrant{}, f.err
 	}
 	if key == "" {
-		return CredentialGrant{Credential: "secret"}, nil
+		return CredentialGrant{Credential: "secret", GrantedScopes: f.scopes}, nil
 	}
 	id, ok := f.allowed[key]
 	if !ok {
@@ -132,6 +133,16 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		_, err = read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`), ResourceID: "r-ffffffffff"})
 		Expect(err).To(MatchError(ErrForbidden))
 		Expect(client.reads.Load()).To(Equal(int32(1)))
+	})
+
+	It("drops granted scopes that the caller put in the request and sets the host's", func() {
+		_, err := read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`), GrantedScopes: []string{"admin"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen[0].GrantedScopes).To(BeEmpty())
+		creds.scopes = []string{"read"}
+		_, err = read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"whoami"}`), GrantedScopes: []string{"admin"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen[1].GrantedScopes).To(Equal([]string{"read"}))
 	})
 
 	It("fails closed when the owner has no credential source", func() {

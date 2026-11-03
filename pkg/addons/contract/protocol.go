@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"slices"
 	"strings"
 	"time"
 )
@@ -44,6 +45,11 @@ type Request struct {
 	// caller sends.
 	ResourceKey string `json:"resourceKey,omitempty"`
 	Credential  string `json:"credential,omitempty" swaggerignore:"true"`
+	// GrantedScopes are the OAuth scopes the host holds for the person's
+	// login, so a tool can tell whether an optional scope was granted. It is
+	// not a secret. Like Credential, the host sets it alone and drops it from
+	// every request that a caller sends.
+	GrantedScopes []string `json:"grantedScopes,omitempty" swaggerignore:"true"`
 }
 type Authority struct {
 	Actor     Actor     `json:"actor"`
@@ -130,6 +136,9 @@ func (v Envelope) Validate(now time.Time, l Limits) error {
 	}
 	if (r.ResourceKey != "" && !validResourceKey(r.ResourceKey)) || len(r.Credential) > MaxCredentialBytes {
 		return fmt.Errorf("invalid request resource key or credential")
+	}
+	if !validGrantedScopes(r.GrantedScopes) {
+		return fmt.Errorf("invalid granted scopes")
 	}
 	// Principal identifiers are opaque authentication-system IDs, not filesystem paths.
 	if strings.TrimSpace(a.Actor.UserID) == "" || strings.TrimSpace(a.Actor.CredentialID) == "" || len(a.Actor.UserID) > 256 || len(a.Actor.CredentialID) > 256 || (a.Actor.Mode != "named-user" && a.Actor.Mode != "local-owner") || !a.ExpiresAt.After(now) {
@@ -249,4 +258,22 @@ func (v *Receipt) UnmarshalJSON(b []byte) error {
 	}
 	*v = candidate
 	return nil
+}
+
+// MaxGrantedScopes bounds Request.GrantedScopes: the scopes a descriptor can
+// name, required and optional together.
+const MaxGrantedScopes = 2 * MaxOAuthScopes
+
+// validGrantedScopes reports a list the host could have made from a granted
+// scope response: bounded, each a scope token, no repeat.
+func validGrantedScopes(scopes []string) bool {
+	if len(scopes) > MaxGrantedScopes {
+		return false
+	}
+	for i, s := range scopes {
+		if !validScopeToken(s) || slices.Contains(scopes[:i], s) {
+			return false
+		}
+	}
+	return true
 }

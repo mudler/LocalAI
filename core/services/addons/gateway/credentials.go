@@ -60,6 +60,10 @@ type CredentialGrant struct {
 	// ResourceKey and ResourceID are the entry of the list that matched. Both
 	// are empty for a call that names no resource.
 	ResourceKey, ResourceID string
+	// GrantedScopes are the OAuth scopes the binding holds. They go in
+	// Request.GrantedScopes; they are not secret and are empty for a binding
+	// that is not an OAuth login.
+	GrantedScopes []string
 	// WriteMode is the write mode of the binding the credential comes from:
 	// WriteOff, WritePropose or WriteAuto. Empty means WriteOff. It decides
 	// whether a write tool runs and whether a person must confirm it.
@@ -99,7 +103,7 @@ func (r *CredentialRefusal) Unwrap() error { return ErrForbidden }
 // scrub drops the fields of a request that only the host sets. A client can
 // send any JSON in a request, so every door that takes one calls it first.
 func scrub(r *contract.Request) {
-	r.Credential, r.ResourceKey = "", ""
+	r.Credential, r.ResourceKey, r.GrantedScopes = "", "", nil
 }
 
 // credentialize adds the credential and the allowlisted resource to r when
@@ -158,7 +162,7 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 		}
 		return ClassifyCheck(err)
 	}
-	r.Credential, r.ResourceKey = grant.Credential, grant.ResourceKey
+	r.Credential, r.ResourceKey, r.GrantedScopes = grant.Credential, grant.ResourceKey, grant.GrantedScopes
 	if grant.ResourceID != "" {
 		r.ResourceID = grant.ResourceID
 	}
