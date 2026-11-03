@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/egress"
@@ -143,7 +144,43 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if err := db.AutoMigrate(&chatRow{}, &entryRow{}, &pendingRow{}); err != nil {
 		return nil, fmt.Errorf("studio store: migrate: %w", err)
 	}
-	return &gormStore{db: db}, nil
+	s := &gormStore{db: db}
+	if err := s.migrateDocumentSkillsOff(); err != nil {
+		// Reads normalize the markers in memory, so the store works anyway.
+		xlog.Warn("studio store: could not rewrite the legacy skill markers", "error", err)
+	}
+	return s, nil
+}
+
+// migrateDocumentSkillsOff rewrites the legacy OFF markers of the document
+// skills (builtin:docx and the like) to their add-on names. It is idempotent.
+// Each row changes only if it still holds the value that was read, so it cannot
+// undo a concurrent explicit re-enable.
+func (s *gormStore) migrateDocumentSkillsOff() error {
+	var rows []chatRow
+	if err := s.db.Select("id", "skills_off").Where("skills_off LIKE ?", "%builtin:%").Find(&rows).Error; err != nil {
+		return err
+	}
+	var errs []error
+	for _, r := range rows {
+		var off []string
+		if json.Unmarshal([]byte(r.SkillsOff), &off) != nil {
+			continue
+		}
+		clean, changed := normalizeDocumentSkillsOff(off)
+		if !changed {
+			continue
+		}
+		raw, err := json.Marshal(clean)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if err := s.db.Model(&chatRow{}).Where("id = ? AND skills_off = ?", r.ID, r.SkillsOff).Update("skills_off", string(raw)).Error; err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (r chatRow) record() (session.ChatRecord, error) {
@@ -280,39 +317,22 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 }
 
 func (s *gormStore) GetChat(ctx context.Context, principal, id string) (session.ChatRecord, error) {
-	var rec session.ChatRecord
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Lock before reading so a concurrent explicit re-enable cannot be
-		// overwritten by normalization of a stale snapshot. This also works
-		// with SQLite, which has no SELECT FOR UPDATE.
-		res := tx.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).
-			UpdateColumn("skills_off", gorm.Expr("skills_off"))
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected == 0 {
-			return session.ErrNotFound
-		}
-		var row chatRow
-		if err := tx.Where("id = ? AND principal = ?", id, principal).Take(&row).Error; err != nil {
-			return err
-		}
-		var err error
-		rec, err = row.record()
-		if err != nil {
-			return err
-		}
-		if off, changed := normalizeDocumentSkillsOff(rec.SkillsOff); changed {
-			if err := setListDB(tx, "skills_off", principal, id, off); err != nil {
-				return err
-			}
-			rec.SkillsOff = off
-		}
-		return nil
-	})
+	var row chatRow
+	err := s.db.WithContext(ctx).Where("id = ? AND principal = ?", id, principal).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return session.ChatRecord{}, session.ErrNotFound
+	}
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
+	rec, err := row.record()
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	// A read never writes. Rows written before the document skills moved to
+	// add-ons are rewritten when the store opens; this covers a row that an
+	// older process wrote since.
+	rec.SkillsOff, _ = normalizeDocumentSkillsOff(rec.SkillsOff)
 	return rec, nil
 }
 

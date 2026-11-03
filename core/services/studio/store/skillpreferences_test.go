@@ -3,7 +3,6 @@ package store_test
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -72,11 +71,10 @@ var _ = Describe("document OFF preferences", func() {
 				Expect(db.Raw("SELECT skills_off FROM studio_chats WHERE id = ?", "prefs").Scan(&value).Error).To(Succeed())
 				return value
 			}
-			It("persists legacy OFF once and preserves explicit re-enable and unrelated preferences", func() {
+			It("reads legacy OFF markers as their add-on names without writing", func() {
 				original := raw()
 				_, err := s.GetChat(ctx, "mallory", "prefs")
 				Expect(err).To(MatchError(session.ErrNotFound))
-				Expect(raw()).To(Equal(original))
 				rec, err := s.GetChat(ctx, "alice", "prefs")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(rec.SkillsOff).To(Equal(clean))
@@ -84,16 +82,28 @@ var _ = Describe("document OFF preferences", func() {
 				Expect(rec.AddonsOff).To(Equal([]string{"sandbox"}))
 				Expect(rec.BuiltinsOn).To(Equal([]string{"read_file"}))
 				Expect(rec.McpOff).To(Equal([]string{"private"}))
-				Expect(raw()).NotTo(ContainSubstring("builtin:docx"))
-				persisted := raw()
+				// A read never writes: it takes no write lock.
+				Expect(raw()).To(Equal(original))
 				rec.SkillsOff[0] = "mutated"
 				rec.AddonsOff[0] = "mutated"
-				reload()
 				rec, err = s.GetChat(ctx, "alice", "prefs")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(rec.SkillsOff).To(Equal(clean))
 				Expect(rec.AddonsOff).To(Equal([]string{"sandbox"}))
-				Expect(raw()).To(Equal(persisted))
+			})
+			It("rewrites legacy OFF markers once when the store opens", func() {
+				Expect(raw()).To(ContainSubstring("builtin:docx"))
+				reload()
+				Expect(raw()).NotTo(ContainSubstring("builtin:docx"))
+				migrated := raw()
+				rec, err := s.GetChat(ctx, "alice", "prefs")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rec.SkillsOff).To(Equal(clean))
+				Expect(rec.Title).To(Equal("unchanged"))
+				Expect(rec.AddonsOff).To(Equal([]string{"sandbox"}))
+				// Opening again changes nothing, and an explicit re-enable stays.
+				reload()
+				Expect(raw()).To(Equal(migrated))
 				Expect(s.SetSkillsOff(ctx, "alice", "prefs", nil)).To(Succeed())
 				reload()
 				rec, err = s.GetChat(ctx, "alice", "prefs")
@@ -102,7 +112,7 @@ var _ = Describe("document OFF preferences", func() {
 				Expect(s.SetSkillsOff(ctx, "alice", "prefs", legacy)).To(Succeed())
 				Expect(raw()).NotTo(ContainSubstring("builtin:docx"))
 			})
-			It("serializes migration with concurrent replacement without resurrecting OFF", func() {
+			It("reads while a replacement runs without resurrecting OFF", func() {
 				var wg sync.WaitGroup
 				errs := make(chan error, 20)
 				for i := 0; i < 10; i++ {
@@ -120,97 +130,16 @@ var _ = Describe("document OFF preferences", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(rec.SkillsOff).To(BeEmpty())
 			})
-			It("rolls back failed migration and leaves legacy data available for retry", func() {
-				original := raw()
-				if db == nil {
-					path := chatFile(dir, "prefs", ".json")
-					Expect(os.Rename(path, path+".saved")).To(Succeed())
-					Expect(os.Mkdir(path, 0700)).To(Succeed())
-					_, err := s.GetChat(ctx, "alice", "prefs")
-					Expect(err).To(HaveOccurred())
-					// A failed save must not publish normalized preferences in memory.
-					_, err = s.GetChat(ctx, "alice", "prefs")
-					Expect(err).To(HaveOccurred())
-					Expect(os.Remove(path)).To(Succeed())
-					Expect(os.Rename(path+".saved", path)).To(Succeed())
-				} else {
-					if backend == "SQLite" {
-						Expect(db.Exec(`CREATE TRIGGER reject_migration BEFORE UPDATE OF skills_off ON studio_chats WHEN NEW.skills_off <> OLD.skills_off BEGIN SELECT RAISE(ABORT, 'forced migration failure'); END`).Error).To(Succeed())
-						DeferCleanup(func() { Expect(db.Exec("DROP TRIGGER IF EXISTS reject_migration").Error).To(Succeed()) })
-					} else {
-						Expect(db.Exec(`CREATE OR REPLACE FUNCTION reject_document_migration() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW.skills_off <> OLD.skills_off THEN RAISE EXCEPTION 'forced migration failure'; END IF; RETURN NEW; END $$`).Error).To(Succeed())
-						Expect(db.Exec(`CREATE TRIGGER reject_migration BEFORE UPDATE OF skills_off ON studio_chats FOR EACH ROW EXECUTE FUNCTION reject_document_migration()`).Error).To(Succeed())
-						DeferCleanup(func() {
-							Expect(db.Exec("DROP TRIGGER IF EXISTS reject_migration ON studio_chats").Error).To(Succeed())
-							Expect(db.Exec("DROP FUNCTION reject_document_migration()").Error).To(Succeed())
-						})
-					}
-					_, err := s.GetChat(ctx, "alice", "prefs")
-					Expect(err).To(HaveOccurred())
-					if backend == "SQLite" {
-						Expect(db.Exec("DROP TRIGGER reject_migration").Error).To(Succeed())
-					} else {
-						Expect(db.Exec("DROP TRIGGER reject_migration ON studio_chats").Error).To(Succeed())
-					}
-				}
-				Expect(raw()).To(Equal(original))
-				rec, err := s.GetChat(ctx, "alice", "prefs")
-				Expect(err).NotTo(HaveOccurred())
-				Expect(rec.SkillsOff).To(Equal(clean))
-			})
-			if backend == "PostgreSQL" {
-				It("reads after the lock so an explicit re-enable wins over a waiting migration", func() {
-					type barrierKey struct{}
-					entered, release := make(chan struct{}), make(chan struct{})
-					Expect(db.Callback().Update().Before("gorm:update").Register("document:barrier", func(tx *gorm.DB) {
-						if tx.Statement.Context.Value(barrierKey{}) != nil {
-							close(entered)
-							<-release
-						}
-					})).To(Succeed())
-					DeferCleanup(func() { Expect(db.Callback().Update().Remove("document:barrier")).To(Succeed()) })
-					done := make(chan error, 1)
-					go func() {
-						_, err := s.GetChat(context.WithValue(ctx, barrierKey{}, true), "alice", "prefs")
-						done <- err
-					}()
-					<-entered
-					err := s.SetSkillsOff(ctx, "alice", "prefs", nil)
-					close(release)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(<-done).To(Succeed())
+			if backend == "SQLite" {
+				It("opens and reads when the rewrite of legacy markers fails", func() {
+					original := raw()
+					Expect(db.Exec(`CREATE TRIGGER reject_migration BEFORE UPDATE OF skills_off ON studio_chats WHEN NEW.skills_off <> OLD.skills_off BEGIN SELECT RAISE(ABORT, 'forced migration failure'); END`).Error).To(Succeed())
+					DeferCleanup(func() { Expect(db.Exec("DROP TRIGGER IF EXISTS reject_migration").Error).To(Succeed()) })
 					reload()
+					Expect(raw()).To(Equal(original))
 					rec, err := s.GetChat(ctx, "alice", "prefs")
 					Expect(err).NotTo(HaveOccurred())
-					Expect(rec.SkillsOff).To(BeEmpty())
-				})
-			}
-			if backend != "JSON" {
-				It("propagates locking update errors without changing ownership or counters", func() {
-					snapshot := func() map[string]interface{} {
-						var row map[string]interface{}
-						Expect(db.Table("studio_chats").Where("id = ?", "prefs").Take(&row).Error).To(Succeed())
-						return row
-					}
-					before := snapshot()
-					forced := errors.New("forced locking update failure")
-					Expect(db.Callback().Update().Before("gorm:update").Register("document:reject-lock", func(tx *gorm.DB) {
-						_ = tx.AddError(forced)
-					})).To(Succeed())
-					DeferCleanup(func() { _ = db.Callback().Update().Remove("document:reject-lock") })
-					_, err := s.GetChat(ctx, "alice", "prefs")
-					Expect(err).To(MatchError(forced))
-					Expect(snapshot()).To(Equal(before))
-					Expect(db.Callback().Update().Remove("document:reject-lock")).To(Succeed())
-					_, err = s.GetChat(ctx, "mallory", "prefs")
-					Expect(err).To(MatchError(session.ErrNotFound))
-					Expect(snapshot()).To(Equal(before))
-					_, err = s.GetChat(ctx, "alice", "prefs")
-					Expect(err).NotTo(HaveOccurred())
-					after := snapshot()
-					delete(before, "skills_off")
-					delete(after, "skills_off")
-					Expect(after).To(Equal(before))
+					Expect(rec.SkillsOff).To(Equal(clean))
 				})
 			}
 
