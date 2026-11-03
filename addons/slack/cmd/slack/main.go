@@ -3,7 +3,8 @@
 // Command slack is the executable of the Slack add-on. It carries the
 // messages of Slack apps for the chats: it keeps a Socket Mode link for each
 // binding that the host polls, and sends the answers that the host hands it.
-// The host passes the tokens on every call; nothing is written to disk.
+// The host passes the tokens on every call; they are never written to disk.
+// The add-on keeps only which threads it follows, in its data directory.
 package main
 
 import (
@@ -15,5 +16,9 @@ import (
 )
 
 func main() {
-	os.Exit(protocol.Run(os.Args, func(protocol.Startup) contract.Runtime { return transport.New(&transport.API{}) }))
+	os.Exit(protocol.Run(os.Args, func(s protocol.Startup) contract.Runtime {
+		rt := transport.New(&transport.API{})
+		rt.Socket.StateDir = s.DataDir
+		return rt
+	}))
 }

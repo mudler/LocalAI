@@ -19,7 +19,20 @@
           "senderHint": "A user ID (U...), a channel ID (C...) or an @name",
           "delivery": "pull",
           "page": "apps",
-          "history": { "thread": true, "maxMessages": 30 }
+          "history": { "thread": true, "maxMessages": 30 },
+          "options": [
+            {
+              "id": "followThreads",
+              "title": "Threads the bot follows",
+              "description": "Whether the bot answers replies in a thread without a new mention.",
+              "default": "own",
+              "values": [
+                { "id": "own", "title": "Only threads it started" },
+                { "id": "any", "title": "Any thread it was mentioned in" },
+                { "id": "never", "title": "None: always ask with a mention" }
+              ]
+            }
+          ]
         }
       ]
     },

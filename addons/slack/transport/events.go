@@ -2,6 +2,7 @@
 package transport
 
 import (
+	"log/slog"
 	"strings"
 	"time"
 
@@ -35,8 +36,9 @@ var personal = map[string]bool{"": true, "file_share": true, "thread_broadcast":
 //   - A direct message (channel type im) is direct. A reply in a thread of the
 //     direct conversation belongs to that thread.
 //   - A mention of the bot (app_mention) in a channel addresses the bot. The
-//     answer goes in the thread of the mention, which the bot then follows: a
-//     later reply in that thread addresses the bot without a mention.
+//     answer goes in the thread of the mention. Which threads the bot then
+//     follows, so that a later reply without a mention addresses it, is the
+//     option followThreads (see FollowOwn, FollowAny and FollowNever).
 //   - Any other message of a channel is not read. Slack also sends a mention
 //     as a plain message; that copy is not read either.
 //
@@ -53,7 +55,11 @@ func (ss *session) message(e event) (contract.ConnectorMessage, bool) {
 		if m.Thread == "" {
 			m.Thread = e.TS
 		}
-		ss.follow(e.Channel, m.Thread)
+		// A mention inside a thread that other people started is answered,
+		// and the thread is followed only when the mode says so.
+		if starts(ss.mode, e.ThreadTS == "") {
+			ss.follow(e.Channel, m.Thread)
+		}
 	case e.Type != "message":
 		return contract.ConnectorMessage{}, false
 	case e.ChannelType == "im":
@@ -74,7 +80,8 @@ func (ss *session) message(e event) (contract.ConnectorMessage, bool) {
 	return m, true
 }
 
-// follow remembers a thread that the bot answers in.
+// follow remembers a thread that the bot answers in, and keeps it on disk
+// when the add-on has a state directory. The caller holds ss.mu.
 func (ss *session) follow(channel, thread string) {
 	now := time.Now()
 	if len(ss.threads) >= maxThreads {
@@ -84,10 +91,35 @@ func (ss *session) follow(channel, thread string) {
 			}
 		}
 	}
-	ss.threads[channel+"\x00"+thread] = now
+	ss.threads[threadKey(channel, thread)] = now
+	ss.saveThreads()
 }
 
+// follows says whether a reply without a mention in the thread is addressed
+// to the bot. A follow mode of never follows nothing. A followed thread that
+// is active is renewed, so it lives for threadLife after its last message.
+// The caller holds ss.mu.
 func (ss *session) follows(channel, thread string) bool {
-	at, ok := ss.threads[channel+"\x00"+thread]
-	return ok && time.Since(at) < threadLife
+	if ss.mode == FollowNever {
+		return false
+	}
+	k := threadKey(channel, thread)
+	at, ok := ss.threads[k]
+	if !ok || time.Since(at) >= threadLife {
+		return false
+	}
+	if time.Since(at) >= touchEvery {
+		ss.threads[k] = time.Now()
+		ss.saveThreads()
+	}
+	return true
+}
+
+// saveThreads writes the followed threads. A failure is logged by the
+// owner of the session once; the bot goes on with the set in memory.
+func (ss *session) saveThreads() {
+	if err := saveThreads(ss.dir, ss.key, ss.threads); err != nil && !ss.saveFailed {
+		ss.saveFailed = true
+		slog.Warn("slack: could not save the followed threads", "error", err)
+	}
 }
