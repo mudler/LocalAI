@@ -391,6 +391,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 	}
 	opts := []config.AppOption{
 		config.WithAddonHostOps(hostOps.Grants),
+		config.WithAddonHostOpsSource(hostOps.Source),
 		config.WithAddonHostDeny(hostOps.Deny),
 		config.WithAddonHostBlanket(blanket),
 		config.WithAddonHostUIGrantsLocked(!r.AddonHostUIGrants),

@@ -101,6 +101,9 @@ type ApplicationConfig struct {
 	// call. It is startup-only. Nil or empty means no add-on gets a host
 	// operation endpoint.
 	AddonHostOps map[string][]string `json:"-" yaml:"-"`
+	// AddonHostOpsSource names where the startup grants came from: flag,
+	// environment, policy or empty. It never holds a path.
+	AddonHostOpsSource string `json:"-" yaml:"-"`
 	// AddonHostDeny maps an add-on ID, or "*" for all, to host operation
 	// prefixes, exact names or "*" that no grant may enable. Startup-only;
 	// deny set in the UI is stored separately and applies live.

@@ -122,6 +122,13 @@ func WithAddonHostDeny(deny map[string][]string) AppOption {
 	return func(o *ApplicationConfig) { o.AddonHostDeny = CloneAddonHostOps(snapshot) }
 }
 
+// WithAddonHostOpsSource records where the startup grants came from, for the
+// startup log. A path after a colon is dropped.
+func WithAddonHostOpsSource(source string) AppOption {
+	kind, _, _ := strings.Cut(source, ":")
+	return func(o *ApplicationConfig) { o.AddonHostOpsSource = kind }
+}
+
 // WithAddonHostBlanket sets the deployment blanket mode ("" leaves it to the UI).
 func WithAddonHostBlanket(mode string) AppOption {
 	return func(o *ApplicationConfig) { o.AddonHostBlanket = mode }
