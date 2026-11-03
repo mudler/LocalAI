@@ -534,6 +534,7 @@ a call may reach. The model never sees or sets either.
   `Request.ResourceKey` (the name as the person wrote it) and `Request.ResourceID`
   (the host ID). The host drops these three fields from any request a client
   sends. A person with no binding gets the code `no_credential`.
+  `Request.GrantedScopes` is dropped the same way.
 - A manifest with `credentials` must accept `api` 2, declare a connector kind and
   declare read tools only: a change under a credential needs a write mode, which
   this version does not have. Tools of such an add-on name no `resourceId`.
@@ -541,6 +542,72 @@ a call may reach. The model never sees or sets either.
 - An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
   The runtime answers HTTP 429 with `Retry-After`; the model gets the code
   `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
+
+### OAuth 2.0 credentials
+
+A credential slot of kind `oauth2` says that the host logs the person in to the
+service with the OAuth 2.0 authorization code flow. The slot carries an `oauth`
+descriptor, which is required for this kind and refused for kind `token`. The
+add-on never sees the client secret, the authorization code or a refresh token;
+it only gets a short-lived access token in `Request.Credential`, like any other
+credential.
+
+```json
+{
+  "id": "login",
+  "title": "Example login",
+  "kind": "oauth2",
+  "oauth": {
+    "authorizeUrl": "https://auth.example.test/authorize",
+    "tokenUrl": "https://auth.example.test/token",
+    "revokeUrl": "https://auth.example.test/revoke",
+    "hosts": ["auth.example.test", "*.example.test"],
+    "scopes": {"required": ["read"], "optional": ["write"]},
+    "pkce": "S256",
+    "authorizeParams": [{"name": "access_type", "value": "offline"}],
+    "clientAuth": "basic"
+  }
+}
+```
+
+- `authorizeUrl` and `tokenUrl` are required; `revokeUrl` is optional. Each URL
+  uses `https`, has no user info, query or fragment, uses no IP address and
+  uses port 443 or none.
+- `hosts` has one to four patterns. A pattern is an exact lower-case DNS name,
+  or `*.` followed by a name of two or more labels; a wildcard matches exactly
+  one label. Every URL must match one pattern.
+- `scopes.required` and `scopes.optional` have at most 16 scopes each, no scope
+  in both, and no repeat. A scope is an RFC 6749 scope token of at most 128
+  bytes.
+- `pkce` must be `S256`.
+- `clientAuth` is how the host authenticates at the token endpoint: `basic`,
+  `post`, or `none` for a public client that uses PKCE alone.
+- `authorizeParams` has at most four `{name, value}` pairs of extra authorize
+  parameters. The names come from a closed registry: `prompt`, `audience` and
+  `resource` (a value of 1 to 128 characters from `A-Z a-z 0-9 . _ : / -`),
+  `access_type` (only `offline`) and `include_granted_scopes` (only `true`).
+  Names that the host sets itself, such as `client_id`, `redirect_uri`,
+  `scope`, `state` and `code_challenge`, are always refused.
+- The manifest parser is strict: an unknown field is refused.
+
+The descriptor is data. It adds no route and makes no network call, and it
+carries no authority. The host works out a SHA-256 digest of its canonical form,
+which does not depend on field order, on the order of the host, scope and
+parameter lists, or on whitespace. An administrator approves the add-on for
+that digest, and a change of the descriptor, for example in an upgrade, voids
+the approval.
+
+A request also carries `Request.GrantedScopes`, the scopes the host holds for
+the person's login. The host sets it; it is not a secret, and the host drops it
+from any request a client sends.
+
+When the service refuses the access token, the add-on answers HTTP 401 with the
+reason `credential_rejected`. It does so only when the service refused the token
+and nothing changed. The host then decides whether to refresh the token or to
+ask the person to reconnect; a 401 with another reason is an outage. When the
+connection has expired or was revoked, the model gets the code
+`reconnect_needed` and a note to tell the person to reconnect on the Connectors
+page. The model is told not to repeat the call and not to report an outage.
 
 ## Singleton owner and its limits
 

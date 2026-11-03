@@ -8,8 +8,9 @@ import (
 	"unicode/utf8"
 )
 
-// Kinds of a credential slot. Only the token exists in this version; a kind
-// the host does not know is refused at install.
+// Kinds of a credential slot: a token the person gives the host, or an OAuth
+// 2.0 login the host runs (see CredentialKindOAuth2). A kind the host does not
+// know is refused at install.
 const CredentialKindToken = "token"
 
 // Bounds of the credentials of a manifest and of a request.
@@ -38,8 +39,11 @@ type CredentialSlot struct {
 	ID string `json:"id"`
 	// Title is the name the person sees, such as "Access token".
 	Title string `json:"title"`
-	// Kind is CredentialKindToken.
+	// Kind is CredentialKindToken or CredentialKindOAuth2.
 	Kind string `json:"kind"`
+	// OAuth says how the host logs the person in. It is required for kind
+	// oauth2 and refused for any other kind.
+	OAuth *OAuthDescriptor `json:"oauth,omitempty"`
 	// ResourceArgument is the name of the string argument that holds the
 	// external resource key. A tool whose schema declares it must require it,
 	// and a call is refused when the key is not on the list. A tool without it
@@ -70,8 +74,16 @@ func validateCredentials(c Capabilities) error {
 	}
 	seen := map[string]bool{}
 	for _, s := range c.Credentials {
-		if !namespace.MatchString(s.ID) || seen[s.ID] || s.Kind != CredentialKindToken || !plainText(s.Title, 80) {
+		if !namespace.MatchString(s.ID) || seen[s.ID] || (s.Kind != CredentialKindToken && s.Kind != CredentialKindOAuth2) || !plainText(s.Title, 80) {
 			return fmt.Errorf("invalid credential slot")
+		}
+		if (s.Kind == CredentialKindOAuth2) != (s.OAuth != nil) {
+			return fmt.Errorf("invalid credential slot: oauth belongs to kind %s and to it alone", CredentialKindOAuth2)
+		}
+		if s.OAuth != nil {
+			if err := s.OAuth.Validate(); err != nil {
+				return err
+			}
 		}
 		seen[s.ID] = true
 		if s.ResourceArgument != "" && !toolPropertyName.MatchString(s.ResourceArgument) {
