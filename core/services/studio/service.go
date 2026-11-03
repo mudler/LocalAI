@@ -1133,6 +1133,8 @@ func (s *Service) ReapStale(ctx context.Context, olderThan time.Duration) (int, 
 		s.expireConsents(ctx, r.Principal, r.ChatID, r.RunID)
 		s.bus.Publish(k, session.Event{Kind: session.KindError, Text: "The turn was interrupted."})
 		s.bus.Publish(k, session.Event{Kind: session.KindTurnEnd})
+		// A parent waits for a sub-agent whose turn ended this way too.
+		s.notifyWaiters(k, store.TurnInterrupted)
 		// The goal of a turn that died does not go on by itself: the frontend
 		// that would have continued it is gone, and the person resumes it.
 		s.pauseGoal(ctx, r.Principal, r.ChatID, session.GoalPausedByInterrupted)
