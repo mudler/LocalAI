@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -100,3 +101,84 @@ var _ = Describe("typed extension architecture", func() {
 		}
 	})
 })
+
+var _ = Describe("provider-neutral host code", func() {
+	// officialIDs are the IDs of the add-ons the repository ships. Host code
+	// outside deployment policy must not name them as literals.
+	officialIDs := []string{
+		"face", "fine-tuning", "github", "memory", "office", "quantization", "sandbox",
+		"slack", "studio", "tables", "talk", "telegram", "voice", "web",
+	}
+	// allowed maps "path: literal" to the reason that the literal is not an
+	// add-on identity. Keep every entry narrow and justified.
+	allowed := map[string]string{
+		"core/http/auth/models.go: github":                    "the host's own sign-in identity provider, not an add-on",
+		"core/http/auth/permissions.go: quantization":         "built-in permission name for the host's native feature, not an add-on dispatch",
+		"core/http/auth/usage.go: web":                        "usage source label for a session-cookie request, not an add-on",
+		"core/services/studio/egress/registries.json: github": "egress preset id for well-known release hosts, not an add-on dispatch",
+	}
+
+	scan := func(root string) []string {
+		var hits []string
+		add := func(path, value string) {
+			for _, id := range officialIDs {
+				if value == id {
+					hits = append(hits, path+": "+id)
+				}
+			}
+		}
+		Expect(filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() || strings.HasSuffix(path, "_test.go") {
+				return nil
+			}
+			switch {
+			case strings.HasSuffix(path, ".go"):
+				f, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+				if err != nil {
+					return err
+				}
+				ast.Inspect(f, func(n ast.Node) bool {
+					if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
+						value, err := strconv.Unquote(lit.Value)
+						Expect(err).NotTo(HaveOccurred())
+						add(path, value)
+					}
+					return true
+				})
+			case strings.HasSuffix(path, ".json"):
+				data, err := os.ReadFile(path)
+				if err != nil {
+					return err
+				}
+				// The presets file allows comments and trailing commas, so read
+				// its quoted strings directly instead of parsing it.
+				for _, m := range quotedString.FindAllStringSubmatch(string(data), -1) {
+					add(path, m[1])
+				}
+			}
+			return nil
+		})).To(Succeed())
+		return hits
+	}
+
+	It("keeps official add-on IDs out of auth, connectors and egress presets", func() {
+		used := map[string]bool{}
+		for _, root := range []string{"core/http/auth", "core/services/studio/connectors", "core/services/studio/egress/registries.json"} {
+			for _, hit := range scan(root) {
+				if _, ok := allowed[hit]; ok {
+					used[hit] = true
+					continue
+				}
+				Fail("official add-on ID literal in host code: " + hit)
+			}
+		}
+		for entry := range allowed {
+			Expect(used).To(HaveKey(entry), "stale allowlist entry %q", entry)
+		}
+	})
+})
+
+var quotedString = regexp.MustCompile(`"([^"\\]*)"`)

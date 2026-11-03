@@ -165,3 +165,63 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(client.seen[0].Credential).To(BeEmpty())
 	})
 })
+
+// perAddonCredentials gives each add-on ID its own credential and resource
+// list. It stands for any owner source: the host asks it by ID and never
+// branches on the ID itself.
+type perAddonCredentials struct{ lists map[string]*fakeCredentials }
+
+func (p perAddonCredentials) Credential(ctx context.Context, a contract.Actor, addonID, key string) (CredentialGrant, error) {
+	f, ok := p.lists[addonID]
+	if !ok {
+		return CredentialGrant{}, &CredentialRefusal{Code: CodeNoCredential}
+	}
+	g, err := f.Credential(ctx, a, addonID, key)
+	if err == nil {
+		g.Credential = "secret-of-" + addonID
+	}
+	return g, err
+}
+
+var _ = Describe("two differently named add-ons with credentials", Label("tools"), func() {
+	ctx := context.Background()
+	defs := []contract.ToolDefinition{
+		{Name: "read-file", Kind: "read", Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{"repo":{"type":"string"}},"required":["repo"],"additionalProperties":false}`)},
+	}
+	source := credCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"providerA": {"read-file"}, "providerB": {"read-file"}}}, defs: defs}}
+
+	It("needs no host change and no branch on the add-on ID", func() {
+		client := &envClient{}
+		a := &fakeCredentials{allowed: map[string]string{"acme/widgets": "r-0123456789"}}
+		b := &fakeCredentials{allowed: map[string]string{"acme/gadgets": "r-9876543210"}}
+		g := &Gateway{Admission: &addonAdmitted{}, Resolver: strictResolver{}, Runtime: currentFixture{client}, Tools: source,
+			Credentials: perAddonCredentials{lists: map[string]*fakeCredentials{"providerA": a, "providerB": b}},
+			Revalidate:  func(context.Context, contract.Actor) error { return nil }}
+		read := func(id, repo string) (contract.Result, error) {
+			req := contract.Request{AddonID: id, Generation: 1, OperationID: "op", Action: "read",
+				Arguments: json.RawMessage(`{"tool":"read-file","repo":"` + repo + `"}`)}
+			return g.Dispatch(ctx, contract.Actor{UserID: "alice", CredentialID: "c", Mode: "named-user"}, req)
+		}
+
+		_, err := read("providerA", "acme/widgets")
+		Expect(err).NotTo(HaveOccurred())
+		_, err = read("providerB", "acme/gadgets")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen).To(HaveLen(2))
+		Expect(client.seen[0].Credential).To(Equal("secret-of-providerA"))
+		Expect(client.seen[0].ResourceID).To(Equal("r-0123456789"))
+		Expect(client.seen[1].Credential).To(Equal("secret-of-providerB"))
+		Expect(client.seen[1].ResourceID).To(Equal("r-9876543210"))
+
+		// A resource of one add-on is not allowed for the other, and the
+		// refusal is the same typed one, before the add-on is called.
+		for _, c := range []struct{ id, repo string }{{"providerA", "acme/gadgets"}, {"providerB", "acme/widgets"}} {
+			_, err = read(c.id, c.repo)
+			var refusal *CredentialRefusal
+			Expect(errors.As(err, &refusal)).To(BeTrue())
+			Expect(refusal.Code).To(Equal(CodeResourceNotAllowed))
+			Expect(err).To(MatchError(ErrForbidden))
+		}
+		Expect(client.reads.Load()).To(Equal(int32(2)))
+	})
+})
