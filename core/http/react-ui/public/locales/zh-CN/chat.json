@@ -578,7 +578,7 @@
     "skillsOn_one": "{{count}} 个技能",
     "skillsOn_other": "{{count}} 个技能",
     "commands": "命令",
-    "isolated": "在隔离的沙箱中运行",
+    "isolated": "隔离运行",
     "host": "在本机上运行",
     "noCommands": "无法运行",
     "context": "上下文",

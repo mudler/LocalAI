@@ -578,7 +578,7 @@
     "skillsOn_one": "스킬 {{count}}개",
     "skillsOn_other": "스킬 {{count}}개",
     "commands": "명령 실행",
-    "isolated": "격리된 샌드박스에서 실행",
+    "isolated": "격리되어 실행",
     "host": "이 컴퓨터에서 실행",
     "noCommands": "실행 불가",
     "context": "컨텍스트",

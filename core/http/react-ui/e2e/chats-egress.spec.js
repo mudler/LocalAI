@@ -249,7 +249,7 @@ test.describe('A card the administrator\'s limit cannot admit', () => {
     await stubChat(page, { egress: view({ ceiling: 'off', cards: [{ ...card, above_ceiling: true }] }), running: true })
     await page.goto('/app/chats/c1')
     const blocked = page.getByTestId('chat-network-blocked')
-    await expect(blocked).toContainText('Network access is off for the Sandbox on this server.', { timeout: 15_000 })
+    await expect(blocked).toContainText('Network access is off for commands on this server.', { timeout: 15_000 })
     await expect(blocked.getByTestId('chat-network-consent-host')).toHaveText('example.com:443')
     await expect(blocked.getByTestId('chat-network-blocked-admin')).toContainText('An administrator can turn it on in the settings of Sandbox.')
     await expect(blocked.getByTestId('chat-network-blocked-admin-link')).toHaveAttribute('href', '/app/addons?detail=sandbox&view=settings')
@@ -272,7 +272,7 @@ test.describe('A card the administrator\'s limit cannot admit', () => {
     state.consent = async (route) => {
       state.egress = view({ ceiling: 'off', cards: [{ ...card, state: 'refused', above_ceiling: true }] })
       await new Promise(r => setTimeout(r, 300))
-      return route.fulfill({ status: 400, json: { error: { code: 400, type: 'egress_above_ceiling', message: 'the limit an administrator set for the Sandbox network does not admit this host' } } })
+      return route.fulfill({ status: 400, json: { error: { code: 400, type: 'egress_above_ceiling', message: 'the limit an administrator set for the network of commands does not admit this host' } } })
     }
     await page.goto('/app/chats/c1')
     const once = page.getByTestId('chat-network-consent-once')
@@ -351,7 +351,7 @@ test.describe('The network of the commands on the add-on page', () => {
     await page.goto('/app/addons?detail=sandbox&view=settings')
     const block = page.getByTestId('host-control-network-policy')
     await expect(block).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByTestId('settings-egress-serves')).toHaveText('Commands run isolated in the sandbox add-on')
+    await expect(page.getByTestId('settings-egress-serves')).toHaveText('Commands run isolated in the Sandbox add-on')
     await expect(page.getByTestId('settings-egress-counts')).toHaveText('Last 24 hours: 4 allowed, 1 blocked.')
     await expect(block.locator('[data-field="chats_egress_ceiling"]')).toBeVisible()
     // The audit retention is a runtime setting of this host, on the Settings page.

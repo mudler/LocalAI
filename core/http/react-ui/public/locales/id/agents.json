@@ -128,7 +128,7 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Jaringan perintah dalam proses tanpa pengawasan",
-    "networkHelp": "Saat pemicu atau konektor menjalankan agen ini, perintah Sandbox-nya menjangkau jaringan sejauh ini, sampai batas yang diatur administrator. Proses tidak pernah bertanya: host di luarnya diblokir. Chat yang Anda mulai dengan agen ini juga dimulai dengan ini.",
+    "networkHelp": "Saat pemicu atau konektor menjalankan agen ini, perintahnya menjangkau jaringan sejauh ini, sampai batas yang diatur administrator. Proses tidak pernah bertanya: host di luarnya diblokir. Chat yang Anda mulai dengan agen ini juga dimulai dengan ini.",
     "networkPresets": {
       "off": "Mati",
       "registries": "Registri paket",
@@ -463,7 +463,7 @@
     "readShort": "hanya baca",
     "writeShort": "baca dan ubah",
     "help": "Chat dengan agen ini hanya melihat folder ini dan folder chat-nya sendiri. Folder bersama dan skill tetap bisa dibaca. Server MCP dan alat web yang Anda izinkan tidak dibatasi ke folder ini.",
-    "commands": "Perintah agen ini hanya berjalan di add-on Sandbox, tidak pernah langsung di mesin ini.",
+    "commands": "Perintah agen ini hanya berjalan di add-on yang mengisolasinya, tidak pernah langsung di mesin ini.",
     "nextMessage": "Perubahan berlaku mulai pesan berikutnya di setiap chat.",
     "missing": "Folder ini sudah tidak ada. Pilih folder lain untuk memakai agen ini.",
     "unset": "Belum ada folder yang dipilih. Pilih folder untuk memakai agen ini.",

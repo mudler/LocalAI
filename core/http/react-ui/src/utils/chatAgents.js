@@ -27,7 +27,7 @@ export function agentPayload(form, opts) {
     description: (form.description || '').trim(),
     instructions: form.instructions || '',
     model: (form.model || '').trim(),
-    // The network of the Sandbox commands of the agent's unattended runs.
+    // The network of the isolated commands of the agent's unattended runs.
     network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)

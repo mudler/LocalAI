@@ -231,7 +231,7 @@
     "importDropped": "Not imported: {{keys}}.",
     "default": "Default",
     "network": "Network of commands in unattended runs",
-    "networkHelp": "When a trigger or a connector runs this agent, its Sandbox commands reach this much of the network, up to the limit an administrator set. A run never asks: a host outside it is blocked. A chat you start with this agent starts with it too.",
+    "networkHelp": "When a trigger or a connector runs this agent, its commands reach this much of the network, up to the limit an administrator set. A run never asks: a host outside it is blocked. A chat you start with this agent starts with it too.",
     "networkPresets": {
       "off": "Off",
       "registries": "Package registries",
@@ -702,7 +702,7 @@
     "readShort": "read only",
     "writeShort": "read and change",
     "help": "Chats with this agent see only this folder and their own chat folder. Shared folders and skills stay readable. MCP servers and web tools you grant are not limited to this folder.",
-    "commands": "Commands of this agent run only in the Sandbox add-on, never directly on this machine.",
+    "commands": "Commands of this agent run only in an add-on that isolates them, never directly on this machine.",
     "nextMessage": "A change applies from the next message of each chat.",
     "missing": "This folder is gone. Choose another folder to use this agent.",
     "unset": "No folder is chosen yet. Choose a folder to use this agent.",

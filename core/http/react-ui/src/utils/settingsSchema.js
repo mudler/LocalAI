@@ -202,11 +202,11 @@ export const FIELDS = [
     default: true, fallback: true, apply: 'live' },
   // ---- Tools (the Tools tab draws these two with its own controls) ----------
   { key: 'chats_host_exec', group: 'tools', was: 'chats', kind: 'select', options: ['', 'off', 'ask', 'on'], label: 'Commands on this machine',
-    desc: 'Who gets the chats\' built-in bash, which runs commands directly on this machine with no isolation and with its network, when no Sandbox add-on serves bash: off, ask (administrators, who allow each command) or on (every user, no card). Empty is the default: off with accounts, ask without.',
+    desc: 'Who gets the chats\' built-in bash, which runs commands directly on this machine with no isolation and with its network, when no add-on serves bash: off, ask (administrators, who allow each command) or on (every user, no card). Empty is the default: off with accounts, ask without.',
     default: '', apply: 'live', custom: 'tools' },
   { key: 'chats_tool_providers', group: 'tools', was: 'chats', kind: 'json', label: 'Add-ons that replace a built-in tool or skill',
     desc: 'When several add-ons replace one built-in tool or skill, the one that serves it: a map from the tool (bash, web_search, web_fetch) or skill (xlsx, docx, pptx, pdf) to the add-on ID. With none chosen, the first by add-on ID serves.',
-    placeholder: '{ "bash": "sandbox" }', apply: 'live', custom: 'tools' },
+    placeholder: '{ "bash": "<add-on ID>" }', apply: 'live', custom: 'tools' },
   // The Tools tab draws the switches of the web tools on their rows.
   { key: 'chats_web_search', group: 'tools', was: 'chats', kind: 'bool', label: 'Web search',
     desc: 'Offer the chats the built-in web_search, which searches the web without a key (DuckDuckGo, then Brave Search, then Bing) or with your SearXNG instance.',
@@ -242,19 +242,19 @@ export const FIELDS = [
   { key: 'chats_web_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Ports for web pages', emptyIsDefault: true,
     desc: 'The ports web_fetch may use, comma separated.',
     placeholder: '80,443', default: '80,443', apply: 'live' },
-  // The network of the Sandbox commands (core/config/runtime_settings_registry.go;
+  // The network of the commands (core/config/runtime_settings_registry.go;
   // read at each check of the proxy, so live). The Tools tab draws the
   // private switch itself, with its typed phrase. emptyIsDefault: the server
   // stores '' (or 0) for a setting never set and reads it as the default, so
   // that value is not "changed" and a select or number shows the default.
-  { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network limit', fallback: 'off', emptyIsDefault: true,
-    desc: 'The widest network any chat\'s Sandbox commands may use: off, the package registries only, or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
+  { key: 'chats_egress_ceiling', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network limit', fallback: 'off', emptyIsDefault: true,
+    desc: 'The widest network any chat\'s isolated commands may use: off, the package registries only, or every public host. A chat chooses up to this. Commands on this machine are not covered: they have the network of the server.',
     default: 'off', apply: 'live' },
-  { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Sandbox network of a new chat', fallback: 'off', emptyIsDefault: true,
+  { key: 'chats_egress_default', group: 'tools', was: 'chats', kind: 'select', options: ['off', 'registries', 'all'], label: 'Command network of a new chat', fallback: 'off', emptyIsDefault: true,
     desc: 'The network preset a new chat starts with, capped by the limit above.',
     default: 'off', apply: 'live' },
-  { key: 'chats_egress_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Sandbox network ports', emptyIsDefault: true,
-    desc: 'The ports Sandbox commands may reach, comma separated. 22 and 25 are always refused.',
+  { key: 'chats_egress_ports', group: 'tools', was: 'chats', kind: 'text', label: 'Command network ports', emptyIsDefault: true,
+    desc: 'The ports isolated commands may reach, comma separated. 22 and 25 are always refused.',
     placeholder: '80,443', default: '80,443', apply: 'live' },
   { key: 'chats_egress_extra_registries', group: 'tools', was: 'chats', kind: 'text', label: 'Extra package registries',
     desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Package registries choice (HTTPS only). To allow a host for any request, use Always allowed hosts. No patterns.',
@@ -293,9 +293,9 @@ export const FIELDS = [
     desc: 'How many loop runs one user may start in a day (UTC), over all their loops. After that the loops wait for the next day.',
     placeholder: '200', default: 200, min: 1, max: 100000, apply: 'live' },
   { key: 'chats_egress_audit_days', group: 'tools', was: 'chats', kind: 'int', label: 'Command audit retention',
-    desc: 'How many days the audit of the Sandbox network requests and the audit of the commands run on this machine keep a line, from 1 to 365.',
+    desc: 'How many days the audit of the network requests of isolated commands and the audit of the commands run on this machine keep a line, from 1 to 365.',
     default: 30, fallback: 30, emptyIsDefault: true, min: 1, max: 365, unit: 'days', apply: 'live' },
-  { key: 'chats_egress_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Sandbox commands may reach private networks',
+  { key: 'chats_egress_allow_private', group: 'tools', was: 'chats', kind: 'bool', label: 'Isolated commands may reach private networks',
     desc: 'Let a host that an administrator allowed reach addresses inside your network. A preset alone never does; the metadata and server addresses stay refused.',
     default: false, fallback: false, apply: 'live', custom: 'tools' },
   { key: 'shared_pages_enabled', group: 'agents', was: 'chats', kind: 'bool', label: 'Shared pages',

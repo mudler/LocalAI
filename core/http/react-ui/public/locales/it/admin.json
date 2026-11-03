@@ -111,10 +111,10 @@
     "loadFailedTitle": "Impossibile caricare le impostazioni.",
     "egress": {
       "title": "Rete dei comandi",
-      "intro": "I comandi nel Sandbox raggiungono la rete solo tramite un proxy che chiede a LocalAI di ogni connessione. Qui sotto imposti il limite, il preset di una nuova chat, le porte, i registri aggiuntivi e la durata del registro; ogni persona sceglie il preset di ogni chat nel suo menu Strumenti, fino al limite, e consente un host bloccato da una scheda.",
+      "intro": "I comandi eseguiti in isolamento raggiungono la rete solo tramite un proxy che chiede a LocalAI di ogni connessione. Qui sotto imposti il limite, il preset di una nuova chat, le porte, i registri aggiuntivi e la durata del registro; ogni persona sceglie il preset di ogni chat nel suo menu Strumenti, fino al limite, e consente un host bloccato da una scheda.",
       "serves": "I comandi girano isolati nell’add-on {{name}}",
       "servesHost": "I comandi girano su questa macchina tramite {{name}}",
-      "servesNone": "Nessun Sandbox esegue ancora comandi",
+      "servesNone": "Nessun add-on esegue ancora comandi",
       "hostNote": "Il backend host esegue i comandi su questa macchina con la sua rete: queste impostazioni non si applicano.",
       "counts": "Ultime 24 ore: {{allowed}} consentite, {{blocked}} bloccate.",
       "private": "Consenti alle regole di un amministratore di raggiungere reti private",
@@ -123,7 +123,7 @@
       "registries": "Registri di pacchetti ({{count}})",
       "showAudit": "Mostra il registro",
       "hideAudit": "Nascondi il registro",
-      "loadFailed": "Impossibile leggere le impostazioni di rete del Sandbox",
+      "loadFailed": "Impossibile leggere le impostazioni di rete dei comandi",
       "audit": {
         "verdict": "Esito",
         "host": "Host",
@@ -157,7 +157,7 @@
       "listLabel": "Host sempre consentiti",
       "remove": "Rimuovi {{host}}",
       "empty": "Nessun host. Scrivi un nome host, oppure host:porta per fissare la porta.",
-      "hint": "Solo nomi esatti. Aggiungi :porta per consentire una sola porta; altrimenti valgono le porte di rete della Sandbox.",
+      "hint": "Solo nomi esatti. Aggiungi :porta per consentire una sola porta; altrimenti valgono le porte di rete dei comandi.",
       "count": "{{n}}/{{max}}",
       "errors": {
         "empty": "Scrivi un nome host.",
@@ -329,7 +329,6 @@
     "byAddon": "Componente: {{name}}",
     "byNone": "Spento",
     "unavailable": "Questo server non può eseguirlo: {{reason}}.",
-    "installSandbox": "Installa il Sandbox per eseguire i comandi isolati",
     "replaceExplain": "Questi componenti sostituiscono {{tool}}: quello scelto lo fornisce in ogni chat in cui è acceso e in esecuzione, e quello integrato viene nascosto. Solo uno può essere attivo. Finché non scegli, lo fornisce quello installato per primo.",
     "defaultInstalledFirst": "Predefinito: installato per primo",
     "installedOn": "Installato {{when}}",
@@ -342,7 +341,7 @@
       "list_agents": "Agenti salvati"
     },
     "descriptions": {
-      "bash": "Esegue comandi e codice per le chat direttamente su questa macchina quando nessun Sandbox fornisce bash. Il componente Sandbox lo sostituisce con comandi isolati.",
+      "bash": "Esegue comandi e codice per le chat direttamente su questa macchina quando nessun componente fornisce bash. Un componente che esegue comandi isolati lo sostituisce.",
       "web_search": "Cerca sul web per le chat senza chiave (DuckDuckGo, poi Brave Search, poi Bing), oppure con la tua istanza SearXNG se è impostata.",
       "web_fetch": "Legge per le chat una pagina o un file web pubblico dal suo indirizzo. Gli indirizzi della tua rete sono rifiutati se non li consenti.",
       "list_agents": "Permette a una chat di elencare gli agenti salvati dell'utente e di avviarne uno come sotto-agente. Ogni chat lo attiva dal suo menu Strumenti."
@@ -355,7 +354,7 @@
       "on": "Consenti a tutti.",
       "onHint": "Le chat di tutti gli utenti eseguono comandi qui senza chiedere, anche le esecuzioni pianificate e i sotto-agenti.",
       "default": "Non impostato: vale il predefinito ({{mode}}).",
-      "warning": "I comandi vengono eseguiti come l'utente di LocalAI, senza isolamento e con la rete di questa macchina: possono leggere ciò che LocalAI può leggere e raggiungere internet, la tua rete e l'API di LocalAI. Ogni comando viene registrato. Installa il Sandbox per isolarli."
+      "warning": "I comandi vengono eseguiti come l'utente di LocalAI, senza isolamento e con la rete di questa macchina: possono leggere ciò che LocalAI può leggere e raggiungere internet, la tua rete e l'API di LocalAI. Ogni comando viene registrato. Installa un componente che isoli i comandi."
     },
     "modes": {
       "off": "spento",

@@ -270,24 +270,23 @@
     "commands": {
       "title": "Comandos não podem ser executados aqui",
       "none": "Nenhum complemento que executa código está instalado, então o assistente pode escrever arquivos, mas não executar scripts nem comandos.",
-      "off": "O complemento Sandbox está desligado neste chat. Ligue-o no menu Ferramentas para o assistente poder executar código.",
-      "unavailable": "O complemento Sandbox está instalado, mas não consegue executar comandos neste servidor.",
-      "unavailableWhy": "O complemento Sandbox não consegue executar comandos neste servidor: {{reason}}",
-      "install": "Instalar o Sandbox",
-      "openSandbox": "Abrir o complemento Sandbox",
-      "askInstall": "Peça a um administrador para instalar o complemento Sandbox.",
       "askFix": "Peça a um administrador para corrigir isso.",
       "hide": "Ocultar",
       "hideLabel": "Ocultar este aviso",
       "chipTitle": "Este chat não pode executar código nem comandos. Selecione para ver detalhes.",
       "hostTitle": "Os comandos rodam nesta máquina",
-      "host": "Os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento. Instale o Sandbox para isolá-los.",
-      "hostOff": "O Sandbox está desligado neste chat, então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento. Ligue o Sandbox neste menu para isolá-los.",
-      "hostUnavailable": "O Sandbox não consegue rodar aqui, então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento.",
-      "hostUnavailableWhy": "O Sandbox não consegue rodar aqui ({{reason}}), então os comandos rodam nesta máquina, com os arquivos e a rede dela, sem isolamento.",
       "hostChipTitle": "Os comandos deste chat rodam nesta máquina, sem isolamento. Selecione para ver detalhes.",
       "providerHost": "Os comandos são executados no servidor sem isolamento.",
       "unknown": "A disponibilidade ou o isolamento da execução é desconhecido.",
+      "unknownBy": {
+        "owner_unreachable": "A disponibilidade ou o isolamento da execução é desconhecido: não foi possível contatar o responsável pelo complemento.",
+        "not_reported": "A disponibilidade ou o isolamento da execução é desconhecido: o complemento não informou o estado de execução.",
+        "stale": "A disponibilidade ou o isolamento da execução é desconhecido: o estado não correspondia à versão atual do complemento.",
+        "invalid_status": "A disponibilidade ou o isolamento da execução é desconhecido: o complemento enviou um estado que o host não pôde aceitar.",
+        "not_selected": "A disponibilidade ou o isolamento da execução é desconhecido: o complemento não é o que executa os comandos deste chat.",
+        "no_answer": "A disponibilidade ou o isolamento da execução é desconhecido: o complemento não respondeu a tempo.",
+        "reported_unknown": "A disponibilidade ou o isolamento da execução é desconhecido: o complemento informou que não sabe dizer."
+      },
       "providerUnavailable": "O provedor de execução selecionado está indisponível.",
       "disabled": "A execução de comandos está desativada para esta conversa."
     },
@@ -302,7 +301,6 @@
       "expired": "Sem resposta: o turno que pediu terminou, então o comando não foi executado."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Complemento {{name}}",
       "host": "Esta máquina, sem isolamento",
       "hostOnce": "Esta máquina, permitido uma vez",
@@ -326,9 +324,6 @@
     "servedBy": "Servido pelo complemento {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "integrada",
-    "sandbox": {
-      "starting": "O Sandbox está iniciando. O LocalAI verifica de novo em {{seconds}} s."
-    },
     "fallbackBuiltin": "{{addon}} substitui {{tool}}, mas agora não pode atender este chat (parado, desligado aqui ou não concedido): {{tool}} integrada é usada.",
     "fallbackNone": "{{addon}} substitui {{tool}}, mas agora não pode atender este chat, e {{tool}} integrada está desligada: este chat não tem {{tool}}.",
     "shell": {
@@ -348,13 +343,13 @@
       "all": "Todos os sites públicos"
     },
     "presetHint": {
-      "off": "Os comandos no Sandbox não alcançam nenhuma rede.",
+      "off": "Os comandos não alcançam nenhuma rede.",
       "registries": "Os comandos alcançam só os registros de pacotes (PyPI, npm, Go, crates.io, RubyGems, Maven Central, versões do GitHub).",
       "all": "Os comandos alcançam qualquer site público."
     },
     "limited": "Limitado pelo seu administrador",
     "limitedBy": "Seu administrador permite no máximo: {{limit}}.",
-    "hostNetwork": "Os comandos são executados nesta máquina e usam a rede dela. Os limites de rede exigem o complemento Sandbox.",
+    "hostNetwork": "Os comandos são executados nesta máquina e usam a rede dela. Os limites de rede exigem um complemento que isole os comandos.",
     "panel": "Regras e pedidos ({{count}})",
     "rules": "Regras deste chat",
     "cards": "Pedidos deste chat",
@@ -386,8 +381,8 @@
     "blocked": {
       "titleOff": "O acesso à rede está desligado",
       "titleCapped": "O acesso à rede está limitado",
-      "bodyOff": "O acesso à rede do Sandbox está desligado neste servidor. Um comando pediu para alcançar",
-      "bodyCapped": "Este servidor só permite {{limit}} para a rede do Sandbox. Um comando pediu para alcançar",
+      "bodyOff": "O acesso à rede dos comandos está desligado neste servidor. Um comando pediu para alcançar",
+      "bodyCapped": "Este servidor só permite {{limit}} para a rede dos comandos. Um comando pediu para alcançar",
       "adminOff": "Um administrador pode ativá-lo nas configurações de {{name}}.",
       "adminCapped": "Um administrador pode aumentar o limite nas configurações de {{name}}.",
       "adminLink": "Abrir as configurações de {{name}}",

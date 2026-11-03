@@ -270,24 +270,23 @@
     "commands": {
       "title": "Qui non si possono eseguire comandi",
       "none": "Non è installato nessun componente aggiuntivo che esegue codice: l'assistente può scrivere file, ma non eseguire script o comandi.",
-      "off": "Il componente aggiuntivo Sandbox è spento per questa chat. Attivalo nel menu Strumenti per far eseguire codice all'assistente.",
-      "unavailable": "Il componente aggiuntivo Sandbox è installato, ma non può eseguire comandi su questo server.",
-      "unavailableWhy": "Il componente aggiuntivo Sandbox non può eseguire comandi su questo server: {{reason}}",
-      "install": "Installa Sandbox",
-      "openSandbox": "Apri il componente Sandbox",
-      "askInstall": "Chiedi a un amministratore di installare il componente aggiuntivo Sandbox.",
       "askFix": "Chiedi a un amministratore di risolvere il problema.",
       "hide": "Nascondi",
       "hideLabel": "Nascondi questo avviso",
       "chipTitle": "Questa chat non può eseguire codice o comandi. Seleziona per i dettagli.",
       "hostTitle": "I comandi vengono eseguiti su questa macchina",
-      "host": "I comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento. Installa il Sandbox per isolarli.",
-      "hostOff": "Il Sandbox è spento per questa chat, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento. Accendi il Sandbox in questo menu per isolarli.",
-      "hostUnavailable": "Il Sandbox non può funzionare qui, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
-      "hostUnavailableWhy": "Il Sandbox non può funzionare qui ({{reason}}), quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
       "hostChipTitle": "I comandi di questa chat vengono eseguiti su questa macchina, senza isolamento. Seleziona per i dettagli.",
       "providerHost": "I comandi vengono eseguiti sul server senza isolamento.",
       "unknown": "La disponibilità o l’isolamento dell’esecuzione non sono noti.",
+      "unknownBy": {
+        "owner_unreachable": "La disponibilità o l’isolamento dell’esecuzione non sono noti: il proprietario dell’add-on non è raggiungibile.",
+        "not_reported": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on non ha segnalato il suo stato di esecuzione.",
+        "stale": "La disponibilità o l’isolamento dell’esecuzione non sono noti: lo stato non corrispondeva alla versione attuale dell’add-on.",
+        "invalid_status": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on ha inviato uno stato che l’host non ha potuto accettare.",
+        "not_selected": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on non è quello che esegue i comandi di questa chat.",
+        "no_answer": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on non ha risposto in tempo.",
+        "reported_unknown": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on ha segnalato di non poterlo dire."
+      },
       "providerUnavailable": "Il provider di esecuzione selezionato non è disponibile.",
       "disabled": "L’esecuzione dei comandi è disattivata per questa chat."
     },
@@ -302,7 +301,6 @@
       "expired": "Nessuna risposta: il turno che l'ha chiesto è terminato, quindi il comando non è stato eseguito."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Componente {{name}}",
       "host": "Questa macchina, non isolata",
       "hostOnce": "Questa macchina, consentito una volta",
@@ -326,9 +324,6 @@
     "servedBy": "Servito dal componente aggiuntivo {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "integrato",
-    "sandbox": {
-      "starting": "Il Sandbox si sta avviando. LocalAI ricontrolla tra {{seconds}} s."
-    },
     "fallbackBuiltin": "{{addon}} sostituisce {{tool}} ma ora non può servire questa chat (fermo, disattivato qui o non concesso): si usa {{tool}} integrato.",
     "fallbackNone": "{{addon}} sostituisce {{tool}} ma ora non può servire questa chat, e {{tool}} integrato è disattivato: questa chat non ha {{tool}}.",
     "shell": {
@@ -348,13 +343,13 @@
       "all": "Tutti i siti pubblici"
     },
     "presetHint": {
-      "off": "I comandi nel Sandbox non raggiungono nessuna rete.",
+      "off": "I comandi non raggiungono nessuna rete.",
       "registries": "I comandi raggiungono solo i registri di pacchetti (PyPI, npm, Go, crates.io, RubyGems, Maven Central, release di GitHub).",
       "all": "I comandi raggiungono ogni sito pubblico."
     },
     "limited": "Limitato dal tuo amministratore",
     "limitedBy": "Il tuo amministratore consente al massimo: {{limit}}.",
-    "hostNetwork": "I comandi vengono eseguiti su questa macchina e usano la sua rete. I limiti di rete richiedono il componente Sandbox.",
+    "hostNetwork": "I comandi vengono eseguiti su questa macchina e usano la sua rete. I limiti di rete richiedono un componente che isoli i comandi.",
     "panel": "Regole e richieste ({{count}})",
     "rules": "Regole di questa chat",
     "cards": "Richieste di questa chat",
@@ -386,8 +381,8 @@
     "blocked": {
       "titleOff": "L’accesso alla rete è disattivato",
       "titleCapped": "L’accesso alla rete è limitato",
-      "bodyOff": "L’accesso alla rete del Sandbox è disattivato su questo server. Un comando ha chiesto di raggiungere",
-      "bodyCapped": "Questo server consente solo {{limit}} per la rete del Sandbox. Un comando ha chiesto di raggiungere",
+      "bodyOff": "L’accesso alla rete dei comandi è disattivato su questo server. Un comando ha chiesto di raggiungere",
+      "bodyCapped": "Questo server consente solo {{limit}} per la rete dei comandi. Un comando ha chiesto di raggiungere",
       "adminOff": "Un amministratore può attivarlo nelle impostazioni di {{name}}.",
       "adminCapped": "Un amministratore può alzare il limite nelle impostazioni di {{name}}.",
       "adminLink": "Apri le impostazioni di {{name}}",

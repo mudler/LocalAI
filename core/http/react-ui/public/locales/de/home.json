@@ -82,17 +82,13 @@
       "step2Title": "Modell installieren",
       "step2Body": "Klicken Sie auf Installieren, um es automatisch herunterzuladen und zu konfigurieren.",
       "step3Title": "Chat starten",
-      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API.",
-      "sandboxTitle": "Code sicher ausführen (optional)",
-      "sandboxBody": "Installieren Sie das Sandbox-Add-on, damit das Modell Code und Befehle isoliert ausführt. Ohne es laufen Befehle direkt auf diesem Rechner, mit vollem Netzwerkzugriff und ohne Isolation."
+      "step3Body": "Chatten Sie mit Ihrem Modell direkt im Browser oder nutzen Sie die API."
     },
     "browseGallery": "Modellgalerie durchsuchen",
     "importModel": "Modell importieren",
     "docs": "Dokumentation",
     "noModelsTitle": "Keine Modelle verfügbar",
-    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können.",
-    "sandboxInstall": "Sandbox installieren",
-    "sandboxSkip": "Überspringen"
+    "noModelsBody": "Es sind noch keine Modelle installiert. Bitten Sie Ihren Administrator, Modelle einzurichten, damit Sie mit dem Chatten beginnen können."
   },
   "connect": {
     "title": "Ein Endpunkt, jede API",
@@ -139,7 +135,9 @@
     },
     "complete": "ergänzen"
   },
-  "notice": { "appUnavailable": "Die App ist nicht mehr verfügbar." },
+  "notice": {
+    "appUnavailable": "Die App ist nicht mehr verfügbar."
+  },
   "picker": {
     "aliasOf": "Alias von {{target}}",
     "aliasBroken": "defekter Alias",

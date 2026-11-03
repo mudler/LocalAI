@@ -11,7 +11,7 @@ import { addonSettingsAddress } from '../../utils/addonSettings'
 import { useAddonTitle } from '../../addons/useAddonRegistry'
 import './network.css'
 
-// The card a command of the Sandbox waits on when it asks for a host the chat
+// The card an isolated command waits on when it asks for a host the chat
 // does not allow but the administrator's limit would. Allow once covers the
 // rest of that command; Allow for this chat stores a rule; Deny is remembered
 // so the host does not ask again. The host is shown as plain text, in

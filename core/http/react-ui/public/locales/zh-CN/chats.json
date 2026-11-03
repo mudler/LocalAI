@@ -270,24 +270,23 @@
     "commands": {
       "title": "此处无法运行命令",
       "none": "未安装可运行代码的插件，因此助手可以写入文件，但无法运行脚本或命令。",
-      "off": "此对话已关闭 Sandbox 插件。在“工具”菜单中开启后，助手即可运行代码。",
-      "unavailable": "Sandbox 插件已安装，但无法在此服务器上运行命令。",
-      "unavailableWhy": "Sandbox 插件无法在此服务器上运行命令：{{reason}}",
-      "install": "安装 Sandbox",
-      "openSandbox": "打开 Sandbox 插件",
-      "askInstall": "请联系管理员安装 Sandbox 插件。",
       "askFix": "请联系管理员修复。",
       "hide": "隐藏",
       "hideLabel": "隐藏此提示",
       "chipTitle": "此对话无法运行代码或命令。选择以查看详情。",
       "hostTitle": "命令在这台机器上运行",
-      "host": "命令在这台机器上运行，可访问其文件和网络，没有隔离。安装 Sandbox 以隔离运行。",
-      "hostOff": "此聊天已关闭 Sandbox，因此命令在这台机器上运行，可访问其文件和网络，没有隔离。在此菜单中打开 Sandbox 以隔离运行。",
-      "hostUnavailable": "Sandbox 无法在此运行，因此命令在这台机器上运行，可访问其文件和网络，没有隔离。",
-      "hostUnavailableWhy": "Sandbox 无法在此运行（{{reason}}），因此命令在这台机器上运行，可访问其文件和网络，没有隔离。",
       "hostChipTitle": "此聊天中的命令在这台机器上运行，没有隔离。选择以查看详情。",
       "providerHost": "命令在服务器上运行，未隔离。",
       "unknown": "执行就绪状态或隔离状态未知。",
+      "unknownBy": {
+        "owner_unreachable": "执行就绪状态或隔离状态未知：无法联系插件的所有者。",
+        "not_reported": "执行就绪状态或隔离状态未知：插件尚未报告其执行状态。",
+        "stale": "执行就绪状态或隔离状态未知：状态与插件的当前版本不一致。",
+        "invalid_status": "执行就绪状态或隔离状态未知：插件发送了主机无法接受的状态。",
+        "not_selected": "执行就绪状态或隔离状态未知：该插件不是运行此聊天命令的插件。",
+        "no_answer": "执行就绪状态或隔离状态未知：插件未在规定时间内响应。",
+        "reported_unknown": "执行就绪状态或隔离状态未知：插件报告无法确定。"
+      },
       "providerUnavailable": "所选执行提供程序不可用。",
       "disabled": "此聊天已关闭命令执行。"
     },
@@ -302,7 +301,6 @@
       "expired": "未回应：提出请求的这一轮已结束，因此命令没有运行。"
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "插件 {{name}}",
       "host": "这台机器，未隔离",
       "hostOnce": "这台机器，已允许一次",
@@ -326,9 +324,6 @@
     "servedBy": "由附加组件 {{provider}} 提供",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "内置",
-    "sandbox": {
-      "starting": "Sandbox 正在启动。LocalAI 将在 {{seconds}} 秒后再次检查。"
-    },
     "fallbackBuiltin": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务（已停止、在此关闭或未授权）：使用内置 {{tool}}。",
     "fallbackNone": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务，且内置 {{tool}} 已关闭：此聊天没有 {{tool}}。",
     "shell": {
@@ -348,13 +343,13 @@
       "all": "所有公共网站"
     },
     "presetHint": {
-      "off": "沙盒中的命令无法访问任何网络。",
+      "off": "命令无法访问任何网络。",
       "registries": "命令只能访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）。",
       "all": "命令可以访问所有公共网站。"
     },
     "limited": "受管理员限制",
     "limitedBy": "管理员最多允许：{{limit}}。",
-    "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要 Sandbox 插件。",
+    "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要可隔离命令的插件。",
     "panel": "规则和请求（{{count}}）",
     "rules": "此聊天的规则",
     "cards": "此聊天的请求",
@@ -386,8 +381,8 @@
     "blocked": {
       "titleOff": "网络访问已关闭",
       "titleCapped": "网络访问受到限制",
-      "bodyOff": "此服务器已关闭沙盒的网络访问。有一条命令想访问",
-      "bodyCapped": "此服务器只允许沙盒网络使用：{{limit}}。有一条命令想访问",
+      "bodyOff": "此服务器已关闭命令的网络访问。有一条命令想访问",
+      "bodyCapped": "此服务器只允许命令的网络使用：{{limit}}。有一条命令想访问",
       "adminOff": "管理员可以在 {{name}} 的设置中开启。",
       "adminCapped": "管理员可以在 {{name}} 的设置中提高限制。",
       "adminLink": "打开 {{name}} 的设置",

@@ -576,7 +576,7 @@
     "skillsOn_one": "{{count}} skill",
     "skillsOn_other": "{{count}} skills",
     "commands": "Commandes",
-    "isolated": "Exécutées dans un bac à sable isolé",
+    "isolated": "Exécutées en isolation",
     "host": "Exécutées sur cette machine",
     "noCommands": "Impossible",
     "context": "Contexte",
