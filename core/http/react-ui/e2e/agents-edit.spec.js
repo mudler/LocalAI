@@ -136,18 +136,19 @@ test.describe('Agent form', () => {
     await fold(page, 'Tools').locator('.ag-fold__button').click()
     const panel = page.getByTestId('agent-tools-panel')
     // The same words as the Tools menu of a chat: a title, a description, and
-    // the add-on's declared title instead of its id.
+    // the add-on's declared title instead of its id. Eight rows are the built-in
+    // groups and add-ons; the others are the six grants the agent may hold.
     const rows = panel.getByTestId('agent-tools-item')
-    await expect(rows).toHaveCount(8)
+    await expect(rows).toHaveCount(14)
     for (const row of await rows.all()) await expect(row.getByTestId('agent-tools-blurb')).not.toBeEmpty()
     await expect(panel.getByRole('switch', { name: 'Memory and profile changes' })).toBeChecked()
     await expect(panel.getByRole('switch', { name: 'Office' })).toBeChecked()
     await expect(panel).toContainText('Read and write documents and spreadsheets.')
     await expect(panel.getByRole('switch', { name: 'Saved agents' })).not.toBeChecked()
 
-    await panel.getByRole('switch', { name: 'Triggers' }).click()
+    await panel.getByRole('switch', { name: 'Triggers', exact: true }).click()
     // Once off, the row also says what the model loses.
-    await expect(panel.getByTestId('agent-tools-item').filter({ hasText: 'Triggers' })).toContainText('The model cannot create or manage triggers.')
+    await expect(panel.getByTestId('agent-tools-group-builtins').getByTestId('agent-tools-item').filter({ hasText: 'Triggers' })).toContainText('The model cannot create or manage triggers.')
     await panel.getByRole('switch', { name: 'Saved agents' }).click()
     await page.getByRole('button', { name: 'Save Changes' }).first().click()
     await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body).toMatchObject({ builtins_off: ['triggers'], builtins_on: ['saved_agents'], addons: ['office'] })
@@ -262,7 +263,7 @@ test.describe('Agent folder', () => {
 
   test('read only shows the lock chip, and the mode switch sends write', async ({ page }) => {
     const s = await installAgents(page, { files: HOME_FOLDERS, agents: withFolder(ACME_READ) })
-    await page.goto('/app/agents/a2/edit')
+    await page.goto('/app/agents/a2')
     const chip = page.getByTestId('agent-facts').getByTestId('agent-folder-chip')
     await expect(chip).toContainText('Acme, read only')
     await expect(chip.locator('[data-icon="lock"]')).toHaveCount(1)
@@ -303,7 +304,7 @@ test.describe('Agent folder', () => {
     const chip = page.locator('[data-agent="code-reviewer"]').getByTestId('agent-folder-chip')
     await expect(chip).toHaveText('Folder missing')
 
-    await page.goto('/app/agents/a2/edit')
+    await page.goto('/app/agents/a2')
     await expect(page.getByTestId('agent-folder-warning')).toContainText('This folder is gone. Choose another folder to use this agent.')
     await page.getByTestId('agent-facts').getByTestId('agent-folder-chip').click()
     await expect(page).toHaveURL(/\/app\/agents\/a2\/edit$/)
