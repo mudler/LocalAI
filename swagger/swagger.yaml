@@ -2857,12 +2857,6 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
-      thread_context:
-        description: |-
-          ThreadContext lets the bot read the earlier messages of the thread in
-          which it is mentioned. It has an effect only on a platform that can
-          give them.
-        type: boolean
       window_minutes:
         type: integer
     type: object
@@ -3510,12 +3504,6 @@ definitions:
           SendFiles sends the files that a turn makes to the sender, after the
           answer.
         type: boolean
-      thread_context:
-        description: |-
-          ThreadContext lets the bot read the earlier messages of the thread in
-          which it is mentioned. It has an effect only on a platform that can
-          give them.
-        type: boolean
       window_minutes:
         type: integer
     type: object
@@ -3542,7 +3530,8 @@ definitions:
       thread_history:
         description: |-
           ThreadHistory is true when the platform can give the earlier messages
-          of a thread, so a binding of this kind has the thread_context option.
+          of a thread. The host then reads them whenever the bot is mentioned in a
+          thread.
         type: boolean
       title:
         type: string
@@ -3657,11 +3646,6 @@ definitions:
         description: |-
           SendFiles turns the sending of a turn's files on or off. Absent means
           on for a new binding and unchanged for an update.
-        type: boolean
-      thread_context:
-        description: |-
-          ThreadContext turns the reading of the earlier messages of a thread on
-          or off. Absent means on for a new binding and unchanged for an update.
         type: boolean
       token:
         type: string

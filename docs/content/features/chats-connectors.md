@@ -314,10 +314,9 @@ the mention makes a new chat, and gives them to the agent with the first message
 - **It never blocks the answer.** If the platform refuses, is slow or limits the calls,
   the agent answers without the context. The server logs the reason once.
 
-To switch it off for a binding, turn off **Read the earlier messages of a thread** under
-**How it answers**, or send `"thread_context": false`. An update without `thread_context`
-keeps the stored value. The setting has no effect on a platform that cannot give
-earlier messages.
+There is no setting for this. The bot always reads the thread when it is mentioned in
+one, on a platform whose add-on can give the earlier messages; on any other platform it
+reads nothing.
 
 ## How the bot answers
 
