@@ -69,6 +69,9 @@ func (c *Connectors) StartPairing(ctx context.Context, user, id string) (Pairing
 	if err != nil {
 		return PairingCode{}, err
 	}
+	if b.CredentialsOnly() {
+		return PairingCode{}, connectorBad("pairing needs an agent: a connection without an agent receives no messages")
+	}
 	code, err := newPairingCode()
 	if err != nil {
 		return PairingCode{}, err
@@ -180,6 +183,9 @@ func (c *Connectors) addPaired(ctx context.Context, id, senderID string) error {
 	b, err := c.o.Store.GetBinding(ctx, id)
 	if err != nil {
 		return err
+	}
+	if b.CredentialsOnly() {
+		return connectors.ErrForbidden
 	}
 	now := c.o.Clock().UTC()
 	b.Paired = slices.DeleteFunc(b.Paired, func(p connectors.PairedSender) bool {

@@ -130,7 +130,11 @@ type Binding struct {
 	// before connectors became add-ons has none; Normalize gives it the add-on
 	// of its kind.
 	AddonID string
-	// AgentID is required: a binding never inherits the tools of a chat.
+	// AgentID is required: a binding never inherits the tools of a chat. The
+	// one exception is a kind that declares agentOptional (see
+	// contract.ConnectorKind.AgentOptional): its binding may have no agent. It
+	// then only holds the credential, the resource list and the write mode, and
+	// receives and answers nothing (see CredentialsOnly).
 	AgentID string
 	Enabled bool
 	// AcceptAny lets anyone who can message the bot use the agent. Otherwise only
@@ -317,8 +321,45 @@ var kindShape = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 // chatShape is a chat that notifications go to: a numeric ID or a platform ID.
 var chatShape = regexp.MustCompile(`^(-?[0-9]{1,20}|[A-Z][A-Z0-9]{1,31})$`)
 
-// Validate checks a binding. The error wraps ErrInvalid.
-func Validate(b Binding) error {
+// CredentialsOnly reports whether the binding has no agent. Such a binding
+// holds a credential for the tools of a chat and never receives or answers a
+// message. Every reader of AgentID must treat it as unable to listen, answer,
+// deliver or be authorized.
+func (b Binding) CredentialsOnly() bool { return b.AgentID == "" }
+
+// needsAgent names the first setting of b that only makes sense when an agent
+// answers, or "". A binding without an agent must not set any of them.
+func needsAgent(b Binding) string {
+	switch {
+	case b.Enabled:
+		return "listening"
+	case b.AcceptAny:
+		return "accepting anyone"
+	case len(b.Allow) > 0:
+		return "the allowlist"
+	case b.NotifyChat != "":
+		return "the notification chat"
+	case len(b.Channels) > 0:
+		return "the talk-back channels"
+	case len(b.Caps) > 0 || len(b.Grants) > 0:
+		return "permissions"
+	case len(b.Paired) > 0:
+		return "pairing"
+	case b.Approval != (Approval{}):
+		return "trigger approval"
+	}
+	return ""
+}
+
+// Validate checks a binding of a kind that needs an agent. The error wraps
+// ErrInvalid.
+func Validate(b Binding) error { return ValidateKind(b, false) }
+
+// ValidateKind checks a binding. With agentOptional (the kind declares it) a
+// binding may have no agent, but only while it sets nothing that needs one: a
+// binding that listens, accepts senders, notifies, talks back or carries
+// permissions must name an agent.
+func ValidateKind(b Binding, agentOptional bool) error {
 	bad := func(format string, a ...any) error {
 		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, a...))
 	}
@@ -329,7 +370,12 @@ func Validate(b Binding) error {
 		return bad("the kind must be the ID of a connector kind")
 	}
 	if b.AgentID == "" {
-		return bad("an agent is required: a connector never uses the tools of a chat")
+		if !agentOptional {
+			return bad("an agent is required: a connector never uses the tools of a chat")
+		}
+		if what := needsAgent(b); what != "" {
+			return bad("%s needs an agent: a connection without an agent only holds credentials", what)
+		}
 	}
 	if len(b.Allow) > MaxAllow {
 		return bad("the allowlist has more than %d entries", MaxAllow)

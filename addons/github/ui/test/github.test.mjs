@@ -72,3 +72,11 @@ test('github: every write mode has its words, and the note says the text is publ
   assert.match(en.writeMode.note.propose, /public/)
   assert.match(en.writeMode.note.auto, /public/)
 })
+
+test('github: a connection can be saved without an agent, and the page has words for it', () => {
+  const form = { ...emptyConnector(), name: 'Work', token: 'github_pat_x' }
+  assert.equal(canSave(form, false, true), false, 'a kind that needs an agent refuses an empty one')
+  assert.equal(canSave(form, false, true, null, true), true, 'agentOptional lets the connection hold credentials only')
+  assert.equal(connectorPayload(form, 'github', 'github_pat_x', { enabled: false }).agent_id, '')
+  for (const key of ['agentCredentialsOnly', 'agentOptionalHint', 'credentialsOnly']) assert.ok(en[key], key)
+})

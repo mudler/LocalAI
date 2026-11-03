@@ -59,6 +59,8 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 		return Decision{Capability: capability, Reason: fmt.Sprintf(format, a...)}
 	}
 	switch {
+	case b.CredentialsOnly():
+		return deny("this connection has no agent: it holds credentials only")
 	case !contract.KnownCapability(capability):
 		return deny("%q is not a capability", capability)
 	case !s.Allowlisted:

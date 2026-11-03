@@ -2,6 +2,7 @@
 package contract
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -36,6 +37,16 @@ var _ = Describe("the connector capability", func() {
 		m.Capabilities.Connector.Kinds[0].Drafts = true
 		m.Capabilities.Connector.Kinds[0].PreviewMs = MinPreviewMs
 		Expect(ValidateManifest(m, host())).To(Succeed())
+	})
+	It("accepts agentOptional and keeps it through a JSON round trip", func() {
+		m.Capabilities.Connector.Kinds[0].AgentOptional = true
+		Expect(ValidateManifest(m, host())).To(Succeed())
+		raw, err := json.Marshal(m.Capabilities.Connector)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"agentOptional":true`))
+		m.Capabilities.Connector.Kinds[0].AgentOptional = false
+		raw, _ = json.Marshal(m.Capabilities.Connector)
+		Expect(string(raw)).NotTo(ContainSubstring("agentOptional"))
 	})
 	It("lets an add-on declare nothing but the connector", func() {
 		m.Capabilities.UI = nil

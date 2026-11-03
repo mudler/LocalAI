@@ -117,6 +117,11 @@ type ConnectorKind struct {
 	// Page is the add-on page that adds and edits bindings of this kind. It
 	// must be one of the pages of the add-on's UI.
 	Page string `json:"page,omitempty"`
+	// AgentOptional lets a binding of this kind have no agent. Such a binding
+	// is credentials only: it holds the token, the resource list and the write
+	// mode for the tools of a chat, and the host never delivers a message to it
+	// or answers one from it. A kind without it needs an agent on every binding.
+	AgentOptional bool `json:"agentOptional,omitempty"`
 	// Drafts tells that the add-on serves the op draft. The host then shows
 	// a live answer in a direct conversation as a draft, not as a working
 	// message that it edits.

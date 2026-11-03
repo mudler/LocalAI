@@ -73,7 +73,7 @@ var _ = Describe("the agent grants at the connector gate", func() {
 		kind := &contract.ConnectorKind{ID: "chat", Roles: []contract.ConnectorRole{{ID: "admin", Title: "Admin"}},
 			Permissions: []string{contract.CapTriggersPropose, contract.CapTalkbackChannels}}
 		binding := func(caps ...string) connectors.Binding {
-			return connectors.Binding{ID: "b", Kind: "chat", Caps: caps, Paired: paired,
+			return connectors.Binding{ID: "b", Kind: "chat", AgentID: "a1", Caps: caps, Paired: paired,
 				Grants: []connectors.RoleGrant{{Role: "admin", Caps: []string{contract.CapTriggersPropose, contract.CapTalkbackChannels}}}}
 		}
 		type row struct {

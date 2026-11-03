@@ -1220,17 +1220,21 @@ type ChatsPushUnsubscribe struct {
 // ChatsConnector is a connector binding: a bot bound to one of your saved agents.
 // The bot token is never returned; has_token says whether one is stored.
 type ChatsConnector struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	Kind       string    `json:"kind"`
-	Addon      string    `json:"addon"`
-	AgentID    string    `json:"agent_id"`
-	Enabled    bool      `json:"enabled"`
-	AcceptAny  bool      `json:"accept_any"`
-	Allow      []string  `json:"allow"`
-	NotifyChat string    `json:"notify_chat,omitempty"`
-	HasToken   bool      `json:"has_token"`
-	Created    time.Time `json:"created"`
+	ID    string `json:"id"`
+	Name  string `json:"name"`
+	Kind  string `json:"kind"`
+	Addon string `json:"addon"`
+	// AgentID is empty for a binding of a kind that declares agent_optional.
+	AgentID string `json:"agent_id"`
+	// CredentialsOnly is true for a binding without an agent: it holds the
+	// token, the resource list and the write mode, and never answers messages.
+	CredentialsOnly bool      `json:"credentials_only,omitempty"`
+	Enabled         bool      `json:"enabled"`
+	AcceptAny       bool      `json:"accept_any"`
+	Allow           []string  `json:"allow"`
+	NotifyChat      string    `json:"notify_chat,omitempty"`
+	HasToken        bool      `json:"has_token"`
+	Created         time.Time `json:"created"`
 	// ReplyMode is what a sender sees while a turn runs: off (typing, then
 	// the answer), progress (a working message that names the tools as they
 	// start) or stream (a working message that shows the answer as it is
@@ -1422,6 +1426,9 @@ type ChatsConnectorKind struct {
 	SenderHint  string `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
+	// AgentOptional is true when a binding of this kind may have no agent. It
+	// then only holds credentials (token, resource list, write mode).
+	AgentOptional bool `json:"agent_optional,omitempty"`
 	// ThreadHistory is true when the platform can give the earlier messages
 	// of a thread. The host then reads them whenever the bot is mentioned in a
 	// thread.

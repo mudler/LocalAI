@@ -76,7 +76,7 @@ func agentGrantSwitch(s *Service) CapabilitySwitch {
 			return ""
 		}
 		if b.AgentID == "" {
-			return grantVerdict(capability, nil, nil, false)
+			return "this connection has no agent"
 		}
 		if s.d.Agents == nil {
 			return "the agent of this bot cannot be read"

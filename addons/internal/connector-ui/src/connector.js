@@ -239,8 +239,8 @@ export function senderLine(s) {
 
 // "Accept any message" is only saved after the person confirms the warning.
 // hasToken says whether the add-on's fields hold a complete secret.
-export function canSave(form, confirmed, hasToken = Boolean((form.token || '').trim()), files = null) {
-  if (!(form.name || '').trim() || !form.agent_id) return false
+export function canSave(form, confirmed, hasToken = Boolean((form.token || '').trim()), files = null, agentOptional = false) {
+  if (!(form.name || '').trim() || (!form.agent_id && !agentOptional)) return false
   if (!form.id && !hasToken) return false
   if (form.accept_any && !confirmed) return false
   if (approvalProblem(form.approval)) return false

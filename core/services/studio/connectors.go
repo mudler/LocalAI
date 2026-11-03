@@ -306,6 +306,10 @@ func (c *Connectors) Sync(ctx context.Context) {
 	// A loop runs only for a binding whose add-on is running and pulls.
 	want := map[string]connectors.Binding{}
 	for _, b := range enabled {
+		// A binding without an agent has nothing to answer with: no loop.
+		if b.CredentialsOnly() {
+			continue
+		}
 		if k, ok := kindFor(kinds, b); ok && k.Delivery == contract.DeliveryPull {
 			want[b.ID] = b
 		}
@@ -360,7 +364,7 @@ func (c *Connectors) poll(ctx context.Context, id string) {
 poll:
 	for ctx.Err() == nil && !c.closed() {
 		b, err := c.o.Store.GetBinding(ctx, id)
-		if err != nil || !b.Enabled {
+		if err != nil || !b.Enabled || b.CredentialsOnly() {
 			return
 		}
 		token, err := c.openToken(ctx, b)
@@ -564,7 +568,7 @@ func (c *Connectors) Ingest(ctx context.Context, addonID string, in contract.Con
 		return fmt.Errorf("studio: read a connector binding: %w", err)
 	}
 	// A missing binding and another add-on's binding look the same to the caller.
-	if err != nil || b.AddonID != addonID || addonID == "" || !b.Enabled {
+	if err != nil || b.AddonID != addonID || addonID == "" || !b.Enabled || b.CredentialsOnly() {
 		return connectors.ErrForbidden
 	}
 	m := in.ConnectorMessage
@@ -691,6 +695,9 @@ func (c *Connectors) windowEnded(ctx context.Context, b connectors.Binding, m co
 
 // handle takes one message of a sender.
 func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage) {
+	if b.CredentialsOnly() {
+		return // Ingest refuses it first; this keeps any other caller from answering
+	}
 	senderID := m.SenderID
 	// A message is answered when it is direct, or names the bot in a group.
 	// An entry of the allowlist names the sender or the chat: a listed group
@@ -1197,7 +1204,7 @@ func (c *Connectors) Forward(ctx context.Context, n notify.Notification) {
 	}
 	text := strings.TrimSpace(n.Title + "\n" + n.Body)
 	for _, b := range bindings {
-		if !b.Enabled || b.NotifyChat == "" {
+		if !b.Enabled || b.NotifyChat == "" || b.CredentialsOnly() {
 			continue
 		}
 		token, err := c.openToken(ctx, b)

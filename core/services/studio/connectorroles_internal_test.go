@@ -28,7 +28,7 @@ var _ = Describe("the roles of an inbound message", func() {
 		Expect(err).NotTo(HaveOccurred())
 		return c
 	}
-	b := connectors.Binding{ID: "b1", Kind: "chat", AddonID: "one"}
+	b := connectors.Binding{ID: "b1", Kind: "chat", AddonID: "one", AgentID: "a1"}
 	ctx := context.Background()
 
 	It("keeps the roles that the kind declares and drops the others", func() {

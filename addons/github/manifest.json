@@ -578,6 +578,7 @@
           "description": "Let your agents read the repositories you choose, and comment on issues and pull requests if you allow it, with a fine-grained access token.",
           "senderHint": "Not used yet: this connection does not listen for mentions",
           "delivery": "pull",
+          "agentOptional": true,
           "page": "apps",
           "roles": [
             {

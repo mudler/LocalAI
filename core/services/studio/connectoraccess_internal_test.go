@@ -34,7 +34,7 @@ var _ = Describe("Authorize", func() {
 	// than it may: a capability above the ceiling, one the kind does not
 	// list, and two sensitive ones.
 	binding := connectors.Binding{
-		ID: "b1", Kind: "chat", Caps: except(contract.CapFilesUpload),
+		ID: "b1", Kind: "chat", AgentID: "a1", Caps: except(contract.CapFilesUpload),
 		Grants: []connectors.RoleGrant{{Role: "admin", Caps: []string{
 			contract.CapMemoryWrite, contract.CapTriggersPropose, contract.CapFilesUpload,
 			contract.CapTalkbackChannels, contract.CapTalkbackNewChan, contract.CapProfileWrite,

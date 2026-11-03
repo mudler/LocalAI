@@ -312,6 +312,23 @@ func (c *Connectors) checkAgent(ctx context.Context, owner, agentID string) erro
 	return nil
 }
 
+// checkAgentIfAny is checkAgent for a binding that has an agent. The binding
+// was validated first, so an empty ID here belongs to a kind that declares
+// agentOptional.
+func (c *Connectors) checkAgentIfAny(ctx context.Context, owner, agentID string) error {
+	if agentID == "" {
+		return nil
+	}
+	return c.checkAgent(ctx, owner, agentID)
+}
+
+// agentOptional says whether the running kind of the binding lets it have no
+// agent. A kind whose add-on does not run cannot say, so it needs an agent.
+func (c *Connectors) agentOptional(ctx context.Context, b connectors.Binding) bool {
+	k := c.kindOf(ctx, b)
+	return k != nil && k.AgentOptional
+}
+
 func (c *Connectors) owned(ctx context.Context, user, id string) (connectors.Binding, error) {
 	b, err := c.o.Store.GetBinding(ctx, id)
 	if err != nil || b.Owner != principal(user) {
@@ -333,7 +350,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	}
 	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon}
 	in.apply(&b)
-	if err := connectors.Validate(b); err != nil {
+	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOptions(ctx, b); err != nil {
@@ -348,7 +365,7 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if strings.TrimSpace(in.Token) == "" {
 		return ConnectorInfo{}, connectorBad("the bot token is required")
 	}
-	if err := c.checkAgent(ctx, owner, in.AgentID); err != nil {
+	if err := c.checkAgentIfAny(ctx, owner, in.AgentID); err != nil {
 		return ConnectorInfo{}, err
 	}
 	// Before the write lock: the check asks the platform.
@@ -401,7 +418,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	}
 	b := old
 	in.apply(&b)
-	if err := connectors.Validate(b); err != nil {
+	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOptions(ctx, b); err != nil {
@@ -413,7 +430,7 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	if err := c.checkOwnerLimits(ctx, b, in); err != nil {
 		return ConnectorInfo{}, err
 	}
-	if err := c.checkAgent(ctx, old.Owner, in.AgentID); err != nil {
+	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if strings.TrimSpace(in.Token) != "" {
@@ -440,6 +457,9 @@ func (c *Connectors) SetConnectorEnabled(ctx context.Context, user, id string, o
 	b, err := c.owned(ctx, user, id)
 	if err != nil {
 		return ConnectorInfo{}, err
+	}
+	if on && b.CredentialsOnly() {
+		return ConnectorInfo{}, connectorBad("listening needs an agent: a connection without an agent only holds credentials")
 	}
 	b.Enabled, b.Updated = on, c.o.Clock().UTC()
 	if err := c.o.Store.PutBinding(ctx, b); err != nil {

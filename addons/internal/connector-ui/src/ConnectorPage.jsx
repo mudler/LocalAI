@@ -98,6 +98,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [capabilities, setCapabilities] = useState([])
   const [accessVersion, setAccessVersion] = useState(0)
   const kindFiles = kindInfo?.files || null
+  // A kind that declares agent_optional lets a binding hold credentials only.
+  const agentOptional = Boolean(kindInfo?.agent_optional)
   const s = answerT(t)
   const pairedChanged = useCallback(() => setAccessVersion((v) => v + 1), [])
 
@@ -210,10 +212,10 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               {(p) => <TextInput {...p} value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />}
             </Field>
             <TokenFields form={form} setForm={setForm} t={t} />
-            <Field label={t('agent')}>
+            <Field label={t('agent')} hint={agentOptional ? t('agentOptionalHint', { defaultValue: 'Optional. Without an agent this connection only holds the token, the repository list and the write mode for your chats. It answers no messages. Choose an agent to let it listen.' }) : undefined} optional={agentOptional}>
               {(p) => (
-                <Select {...p} aria-label={t('agent')} value={form.agent_id} required onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
-                  <option value="">{t('agentNone')}</option>
+                <Select {...p} aria-label={t('agent')} value={form.agent_id} required={!agentOptional} onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
+                  <option value="">{agentOptional ? t('agentCredentialsOnly', { defaultValue: 'No agent (credentials only)' }) : t('agentNone')}</option>
                   {agents.map((a) => (
                     <option key={a.id} value={a.id} disabled={!a.model}>{a.model ? a.name : t('agentNoModel', { name: a.name })}</option>
                   ))}
@@ -247,7 +249,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             {capabilities.length > 0 && <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />}
             </>)}
             <div className="cn-actions">
-              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles) || (extraValid ? !extraValid(form) : false)}>{t('save')}</button>
+              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles, agentOptional) || (extraValid ? !extraValid(form) : false)}>{t('save')}</button>
               <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setForm(null)}>{t('cancel')}</button>
             </div>
           </form>
@@ -271,12 +273,14 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               <span className="cn-row__name">{c.name}</span>
               {messaging ? (<>
               <span className="cn-muted">
-                {t('agentOf', { name: agentName(c.agent_id) })}
+                {c.credentials_only ? t('credentialsOnly', { defaultValue: 'Credentials only' }) : t('agentOf', { name: agentName(c.agent_id) })}
                 {' · '}
                 {t('accepts', { who: c.accept_any ? t('modes.anyone') : (c.allow || []).length === 0 ? t('modes.nobody') : t('modes.listed', { count: c.allow.length }) })}
               </span>
               <span className="cn-muted" data-testid="connector-answer-summary">{answerSummary(c, t)}</span>
-              </>) : <span className="cn-muted">{t('agentOf', { name: agentName(c.agent_id) })}</span>}
+              </>) : <span className="cn-muted" data-testid={c.credentials_only ? 'connector-credentials-only' : undefined}>
+                {c.credentials_only ? t('credentialsOnly', { defaultValue: 'Credentials only' }) : t('agentOf', { name: agentName(c.agent_id) })}
+              </span>}
               {RowInfo && <RowInfo c={c} t={t} />}
               {messaging && capabilities.length > 0 && hasNoCaps(c) && (
                 <NoCapsNotice capabilities={capabilities} s={s} busy={busy} name={c.name} onUsual={() => allowUsual(c)} />

@@ -140,7 +140,9 @@ The GitHub add-on lets your [saved agents](/features/chats-agents/) read reposit
 
 1. Install the **GitHub** add-on from the add-on gallery.
 2. On GitHub, make a **fine-grained personal access token** for only the repositories you want to share. Give it read access to Contents, Issues and Pull requests. To let the agent write, also give read and write access to Issues and Pull requests. Classic tokens are not accepted.
-3. On the add-on page, choose **New GitHub connection**. Pick an agent, paste the token and list the repositories, one `owner/name` per line (at most 50). Press **Test** to see whose token it is and which listed repositories it reaches.
+3. On the add-on page, choose **New GitHub connection**. Paste the token and list the repositories, one `owner/name` per line (at most 50). Press **Test** to see whose token it is and which listed repositories it reaches.
+
+The agent field is optional. A connection without an agent shows **Credentials only** in the list: it holds the token, the repository list and the write mode for your chats, and it never answers a message. It cannot be switched on, take an allowlist, send notifications or hold permissions; the server refuses those with a message that asks for an agent. This is the manifest key `agentOptional` of the kind (see [Connector add-ons](/features/addons/)), which the GitHub kind declares; Telegram and Slack bindings always need an agent. Over the API, `agent_id` may be empty for such a kind and the connection reports `credentials_only: true`.
 
 The list is checked by LocalAI before the add-on is called, so an agent is refused any repository that is not on it, even if the token could reach it. The token is kept sealed and is never shown again, and no tool result contains it. With several connections, a call uses the first one that lists the repository.
 

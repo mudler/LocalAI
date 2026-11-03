@@ -5382,7 +5382,7 @@ const docTemplate = `{
         },
         "/api/chats/draft/addons": {
             "get": {
-                "description": "What GET /api/chats/{id}/addons lists, for a chat that does not exist yet, as GET /api/chats/draft/tools takes it: the add-ons with their default switch and whether the chat could run commands at its first turn.",
+                "description": "What GET /api/chats/{id}/addons lists, for a chat that does not exist yet, as GET /api/chats/draft/tools takes it: the add-ons with their switch and whether the chat could run commands at its first turn. The draft's current switches may be passed (addons_off, builtins_off, builtins_on: comma-separated lists, as the create request takes them) so the answer is the one the chat would get: with the shell group off, commands is switched_off.",
                 "tags": [
                     "chats"
                 ],
@@ -5399,11 +5399,29 @@ const docTemplate = `{
                         "description": "a saved agent of yours",
                         "name": "agent_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "comma-separated add-on IDs the draft switched off",
+                        "name": "addons_off",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "comma-separated built-in groups the draft switched off",
+                        "name": "builtins_off",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "comma-separated opt-in built-in groups the draft switched on",
+                        "name": "builtins_on",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "The add-ons and their default switches",
+                        "description": "The add-ons and the commands state, with the draft switches applied",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsAddonList"
                         }
@@ -18636,6 +18654,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "agent_id": {
+                    "description": "AgentID is empty for a binding of a kind that declares agent_optional.",
                     "type": "string"
                 },
                 "allow": {
@@ -18672,6 +18691,10 @@ const docTemplate = `{
                 },
                 "created": {
                     "type": "string"
+                },
+                "credentials_only": {
+                    "description": "CredentialsOnly is true for a binding without an agent: it holds the\ntoken, the resource list and the write mode, and never answers messages.",
+                    "type": "boolean"
                 },
                 "enabled": {
                     "type": "boolean"
@@ -18783,6 +18806,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "acts_held": {
+                    "description": "ActsHeld are the act.* names that apply to a run now: Acts within the\ngrants of the agent, plus act.files when the plan names a file it writes.\nReadOnly is true when a run can only read, and ReadOnlyWhy says why:\ndeclared (the proposal said so), binding (a connection in read only mode\nmade it), no_acts (it holds none) or agent (its agent holds none of them).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "agent_id": {
                     "type": "string"
                 },
@@ -18844,6 +18874,12 @@ const docTemplate = `{
                 },
                 "quiet_seconds": {
                     "type": "integer"
+                },
+                "read_only": {
+                    "type": "boolean"
+                },
+                "read_only_why": {
+                    "type": "string"
                 },
                 "schedule": {
                     "type": "string"
@@ -19638,6 +19674,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "agent_id": {
+                    "description": "AgentID is empty for a binding of a kind that declares agent_optional.",
                     "type": "string"
                 },
                 "allow": {
@@ -19674,6 +19711,10 @@ const docTemplate = `{
                 },
                 "created": {
                     "type": "string"
+                },
+                "credentials_only": {
+                    "description": "CredentialsOnly is true for a binding without an agent: it holds the\ntoken, the resource list and the write mode, and never answers messages.",
+                    "type": "boolean"
                 },
                 "enabled": {
                     "type": "boolean"
@@ -19955,6 +19996,10 @@ const docTemplate = `{
             "properties": {
                 "addon": {
                     "type": "string"
+                },
+                "agent_optional": {
+                    "description": "AgentOptional is true when a binding of this kind may have no agent. It\nthen only holds credentials (token, resource list, write mode).",
+                    "type": "boolean"
                 },
                 "description": {
                     "type": "string"
@@ -22736,6 +22781,13 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "acts_held": {
+                    "description": "ActsHeld are the act.* names that apply to a run now: Acts within the\ngrants of the agent, plus act.files when the plan names a file it writes.\nReadOnly is true when a run can only read, and ReadOnlyWhy says why:\ndeclared (the proposal said so), binding (a connection in read only mode\nmade it), no_acts (it holds none) or agent (its agent holds none of them).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "agent_id": {
                     "type": "string"
                 },
@@ -22794,6 +22846,12 @@ const docTemplate = `{
                 },
                 "quiet_seconds": {
                     "type": "integer"
+                },
+                "read_only": {
+                    "type": "boolean"
+                },
+                "read_only_why": {
+                    "type": "string"
                 },
                 "schedule": {
                     "type": "string"
