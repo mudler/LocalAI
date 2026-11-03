@@ -105,6 +105,10 @@ type Binding struct {
 	// zero value sends them, so a binding stored before the option sends
 	// them too.
 	FilesOff bool
+	// ThreadContextOff keeps the host from reading the earlier messages of
+	// a thread when the bot is mentioned in it. The zero value reads them,
+	// on a platform whose kind declares the ability.
+	ThreadContextOff bool
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
@@ -221,6 +225,10 @@ func (b Binding) ConversationMode() string {
 
 // SendsFiles tells whether the files a turn makes go to the sender.
 func (b Binding) SendsFiles() bool { return !b.FilesOff }
+
+// ReadsThread tells whether the earlier messages of a thread are read when
+// the bot is mentioned in it.
+func (b Binding) ReadsThread() bool { return !b.ThreadContextOff }
 
 // Allows tells whether a sender is on the allowlist. A match is by ID or, for an
 // @name entry, by username, ignoring case.
