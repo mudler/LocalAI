@@ -4020,15 +4020,6 @@ definitions:
       title:
         type: string
     type: object
-  schema.ChatsConnectorChannel:
-    properties:
-      approved:
-        type: boolean
-      id:
-        type: string
-      label:
-        type: string
-    type: object
   schema.ChatsConnectorApproval:
     properties:
       max_lifetime_days:
@@ -4040,6 +4031,15 @@ definitions:
       min_gap_minutes:
         type: integer
       mode:
+        type: string
+    type: object
+  schema.ChatsConnectorChannel:
+    properties:
+      approved:
+        type: boolean
+      id:
+        type: string
+      label:
         type: string
     type: object
   schema.ChatsConnectorFileLimit:

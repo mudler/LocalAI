@@ -19839,20 +19839,6 @@ const docTemplate = `{
                 }
             }
         },
-        "schema.ChatsConnectorChannel": {
-            "type": "object",
-            "properties": {
-                "approved": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                }
-            }
-        },
         "schema.ChatsConnectorApproval": {
             "type": "object",
             "properties": {
@@ -19869,6 +19855,20 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "mode": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorChannel": {
+            "type": "object",
+            "properties": {
+                "approved": {
+                    "type": "boolean"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "label": {
                     "type": "string"
                 }
             }
