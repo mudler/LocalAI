@@ -139,5 +139,16 @@
     },
     "complete": "completar"
   },
-  "notice": { "appUnavailable": "La aplicación ya no está disponible." }
+  "notice": { "appUnavailable": "La aplicación ya no está disponible." },
+  "picker": {
+    "aliasOf": "alias de {{target}}",
+    "aliasBroken": "alias roto",
+    "disabled": "desactivado",
+    "pinned": "fijado",
+    "useTyped": "Usar \"{{name}}\"",
+    "empty": "No hay modelos disponibles",
+    "add": "Añadir un modelo",
+    "remove": "Quitar {{name}}",
+    "clear": "Borrar"
+  }
 }

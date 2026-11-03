@@ -139,5 +139,16 @@
     },
     "complete": "ergänzen"
   },
-  "notice": { "appUnavailable": "Die App ist nicht mehr verfügbar." }
+  "notice": { "appUnavailable": "Die App ist nicht mehr verfügbar." },
+  "picker": {
+    "aliasOf": "Alias von {{target}}",
+    "aliasBroken": "defekter Alias",
+    "disabled": "deaktiviert",
+    "pinned": "angeheftet",
+    "useTyped": "\"{{name}}\" verwenden",
+    "empty": "Keine Modelle verfügbar",
+    "add": "Modell hinzufügen",
+    "remove": "{{name}} entfernen",
+    "clear": "Leeren"
+  }
 }

@@ -14,7 +14,7 @@ import './agents.css'
 import './library.css'
 import '../components/home/composer.css'
 // eslint-disable-next-line no-unused-vars
-import HomeModelPicker from '../components/home/HomeModelPicker'
+import ModelPicker from '../components/ModelPicker'
 // eslint-disable-next-line no-unused-vars
 import NameList from '../components/ChatNameList'
 // eslint-disable-next-line no-unused-vars
@@ -297,7 +297,7 @@ export default function AgentCreate() {
         return (
           <div className="form-group">
             <label className="form-label" htmlFor="agent-model">{t('create.model')}</label>
-            <HomeModelPicker
+            <ModelPicker
               id="agent-model"
               labels={{ label: t('create.model') }}
               autoSelect={false}

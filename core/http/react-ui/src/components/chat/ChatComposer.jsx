@@ -12,7 +12,7 @@ import { useModelFit } from '../../hooks/useModelFit'
 import { useCommandsNotice } from '../../hooks/useCommandsNotice'
 import { fillStyle, hostMemory, memoryFigure } from '../home/memory'
 import HomeComposer from '../home/HomeComposer'
-import HomeModelPicker from '../home/HomeModelPicker'
+import ModelPicker from '../ModelPicker'
 import AddonSlot from '../../addons/AddonSlot'
 import AgentPicker from './AgentPicker'
 import SkillsMenu from './SkillsMenu'
@@ -146,7 +146,7 @@ export default function ChatComposer({
   const memory = hostMemory(modelFit.resources)
   const memoryNumbers = memory ? memoryFigure(memory.used, memory.total) : null
   const picker = (
-    <HomeModelPicker
+    <ModelPicker
       ref={pickerRef}
       value={effectiveModel}
       onChange={chatId && onPickModel ? onPickModel : setDraftModel}

@@ -171,7 +171,16 @@
     "cold": "not loaded",
     "loadedNow": "Loaded now",
     "installed": "Installed",
-    "vision": "Understands images"
+    "vision": "Understands images",
+    "aliasOf": "alias of {{target}}",
+    "aliasBroken": "broken alias",
+    "disabled": "disabled",
+    "pinned": "pinned",
+    "useTyped": "Use \"{{name}}\"",
+    "empty": "No models available",
+    "add": "Add a model",
+    "remove": "Remove {{name}}",
+    "clear": "Clear"
   },
   "slash": {
     "label": "Actions",

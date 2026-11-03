@@ -139,5 +139,16 @@
     },
     "complete": "lengkapi"
   },
-  "notice": { "appUnavailable": "Aplikasi tidak lagi tersedia." }
+  "notice": { "appUnavailable": "Aplikasi tidak lagi tersedia." },
+  "picker": {
+    "aliasOf": "alias dari {{target}}",
+    "aliasBroken": "alias rusak",
+    "disabled": "nonaktif",
+    "pinned": "disematkan",
+    "useTyped": "Gunakan \"{{name}}\"",
+    "empty": "Tidak ada model",
+    "add": "Tambah model",
+    "remove": "Hapus {{name}}",
+    "clear": "Kosongkan"
+  }
 }

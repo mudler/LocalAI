@@ -139,5 +139,16 @@
     },
     "complete": "completa"
   },
-  "notice": { "appUnavailable": "L’app non è più disponibile." }
+  "notice": { "appUnavailable": "L’app non è più disponibile." },
+  "picker": {
+    "aliasOf": "alias di {{target}}",
+    "aliasBroken": "alias non valido",
+    "disabled": "disattivato",
+    "pinned": "fissato",
+    "useTyped": "Usa \"{{name}}\"",
+    "empty": "Nessun modello disponibile",
+    "add": "Aggiungi un modello",
+    "remove": "Rimuovi {{name}}",
+    "clear": "Cancella"
+  }
 }

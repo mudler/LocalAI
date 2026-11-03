@@ -139,5 +139,16 @@
     },
     "complete": "补全"
   },
-  "notice": { "appUnavailable": "应用已不可用。" }
+  "notice": { "appUnavailable": "应用已不可用。" },
+  "picker": {
+    "aliasOf": "{{target}} 的别名",
+    "aliasBroken": "别名失效",
+    "disabled": "已停用",
+    "pinned": "已固定",
+    "useTyped": "使用 \"{{name}}\"",
+    "empty": "没有可用模型",
+    "add": "添加模型",
+    "remove": "移除 {{name}}",
+    "clear": "清除"
+  }
 }
