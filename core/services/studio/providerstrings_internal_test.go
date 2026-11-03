@@ -40,7 +40,7 @@ var _ = Describe("the prompts that talk about the add-on that runs commands", fu
 		for _, p := range []egress.Preset{egress.PresetOff, egress.PresetRegistries, egress.PresetAll} {
 			for _, flag := range []bool{true, false} {
 				reg := egress.BuiltinRegistries()
-				texts = append(texts, egress.Describe(p, reg, flag), egress.DescribeLimit(p, egress.PresetOff, reg, flag), egress.DescribeLimit(p, egress.PresetRegistries, reg, flag), egress.Hint(p, flag))
+				texts = append(texts, egress.Describe(p, reg, flag, "Zeta Runner"), egress.DescribeLimit(p, egress.PresetOff, reg, flag, "Zeta Runner"), egress.DescribeLimit(p, egress.PresetRegistries, reg, flag, "Zeta Runner"), egress.Hint(p, flag, "Zeta Runner"))
 			}
 		}
 		texts = append(texts, scopedHostBashReason, hostBashDescription)
