@@ -42,7 +42,7 @@ func (b *listingBackend) ResolveSelection(context.Context, contract.Actor, strin
 	return "selected", nil
 }
 
-var _ = Describe("Tables host database listing", func() {
+var _ = Describe("Host resource listing of the shipped Tables manifest", func() {
 	ctx := context.Background()
 	var b *listingBackend
 	var a *tools.ToolAdapter
@@ -128,7 +128,7 @@ var _ = Describe("Tables host database listing", func() {
 		}
 		_, err = plain.Execute(ctx, member, databaseListName, args(`{}`))
 		Expect(err).To(HaveOccurred())
-		b.list.Apps[0].ID = "notes"
+		b.list.Apps[0].ID, b.list.Apps[0].Resources = "notes", nil
 		defs, err = a.Discover(ctx, member)
 		Expect(err).NotTo(HaveOccurred())
 		for _, d := range defs {
@@ -238,10 +238,87 @@ var _ = Describe("Tables host database listing", func() {
 	// A visible Tables installation can have no executable model tools: this host
 	// read depends on the registry, not on the executable's tool inventory.
 	It("offers the host read even when Tables has no executable definitions", func() {
-		b.list = apps.List{Apps: []apps.App{{ID: "tables", Enabled: true, State: "running", Generation: 1}}}
+		b.list = apps.List{Apps: []apps.App{{ID: "tables", Enabled: true, State: "running", Generation: 1, Resources: &contract.ResourceTools{List: &contract.ResourceList{Tool: "databases-list", Items: "databases"}}}}}
 		defs, err := a.Discover(ctx, member)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(defs).To(HaveLen(1))
 		Expect(defs[0].Name).To(Equal(databaseListName))
+	})
+})
+
+var _ = Describe("Host resource listing for any add-on", func() {
+	ctx := context.Background()
+	const name = "addon__boards__cards-list"
+	var b *listingBackend
+	var a *tools.ToolAdapter
+	boards := func() apps.App {
+		return apps.App{ID: "boards", Generation: 2, Enabled: true, State: "running", Tools: []string{"cards-inspect"},
+			ToolDefinitions: []contract.ToolDefinition{{Name: "cards-inspect", Kind: contract.ToolKindRead, InputSchema: json.RawMessage(`{"type":"object","properties":{"resourceId":{"type":"string"}},"required":["resourceId"],"additionalProperties":false}`)}},
+			Resources:       &contract.ResourceTools{Noun: "board", Inspect: "cards-inspect", List: &contract.ResourceList{Tool: "cards-list", Items: "cards"}}}
+	}
+	BeforeEach(func() {
+		b = &listingBackend{fake: newFake(), resources: gateway.ResourceList{AddonID: "boards"}}
+		b.list.Apps = append(b.list.Apps, boards())
+		a = tools.NewToolAdapter(b)
+	})
+	It("builds the same tool for a second add-on from its declaration alone", func() {
+		defs, err := a.Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		var tables, other []tools.ToolDefinition
+		for _, d := range defs {
+			switch d.Name {
+			case databaseListName:
+				tables = append(tables, d)
+			case name:
+				other = append(other, d)
+			}
+		}
+		Expect(tables).To(HaveLen(1))
+		Expect(other).To(HaveLen(1))
+		Expect(other[0].AddonID).To(Equal("boards"))
+		Expect(other[0].Tool).To(Equal("cards-list"))
+		Expect(other[0].Kind).To(Equal(contract.ToolKindRead))
+		Expect(other[0].Parameters).To(Equal(tables[0].Parameters))
+		Expect(other[0].Description).To(ContainSubstring("board"))
+	})
+	It("lists the resources of that add-on under its own result key", func() {
+		b.resources.Resources = []gateway.ResourceInfo{{ID: "z", Role: "viewer"}, {ID: "y", Name: "Roadmap", Role: "owner"}}
+		out, err := a.Execute(ctx, member, name, args(`{}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(out.Result)).To(MatchJSON(`{"cards":[{"resourceId":"y","name":"Roadmap","role":"owner"},{"resourceId":"z","role":"viewer"}],"truncated":false}`))
+		Expect(b.ids).To(Equal([]string{"boards"}))
+	})
+	It("answers under the default key and refuses a result of another add-on", func() {
+		b.list.Apps[1].Resources.List.Items = ""
+		out, err := a.Execute(ctx, member, name, args(`{}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(out.Result)).To(MatchJSON(`{"resources":[],"truncated":false}`))
+		b.resources.AddonID = "tables"
+		_, err = a.Execute(ctx, member, name, args(`{}`))
+		Expect(err).To(HaveOccurred())
+	})
+	It("offers nothing to an add-on that declares no listing, even with resources", func() {
+		b.list.Apps[1].Resources.List = nil
+		defs, err := a.Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		for _, d := range defs {
+			Expect(d.Name).NotTo(Equal(name))
+		}
+		_, err = a.Execute(ctx, member, name, args(`{}`))
+		Expect(err).To(MatchError(tools.ErrUnknownTool))
+		Expect(b.ids).To(BeEmpty())
+	})
+	It("lets a manifest without the declaration keep the tool of the old name only through the apps list", func() {
+		b.list.Apps[0].Resources.List = nil
+		defs, err := a.Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		for _, d := range defs {
+			Expect(d.Name).NotTo(Equal(databaseListName))
+		}
+	})
+	It("rejects a declared listing that collides with a tool of the manifest", func() {
+		b.list.Apps[1].Resources.List.Tool = "cards-inspect"
+		_, err := a.Discover(ctx, member)
+		Expect(err).To(HaveOccurred())
 	})
 })
