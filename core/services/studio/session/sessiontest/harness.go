@@ -18,6 +18,7 @@ type Step struct {
 	Tool  string          // call the session tool with this name ...
 	Args  string          // ... with these JSON arguments
 	Block <-chan struct{} // wait until the channel closes or the turn ends
+	Hold  <-chan struct{} // wait until the channel closes, even when the turn is stopped
 	Err   error           // end the turn with this error
 	Panic string          // panic with this value
 }
@@ -33,6 +34,10 @@ type FakeHarness struct {
 	// InjectErr, when set, is what every Inject returns, even in a turn. It
 	// stands for a harness whose turn is ending.
 	InjectErr error
+	// InjectHook, when set, runs at the start of every Inject and may return
+	// an error for it, as InjectErr does. It lets a test act in the window
+	// between a message reaching the transcript and its delivery.
+	InjectHook func(text string) error
 	// StartDelay makes Start wait this long, as a harness that starts a
 	// process does.
 	StartDelay time.Duration
@@ -179,6 +184,8 @@ func (s *fakeSession) Send(ctx context.Context, text string) error {
 			case <-st.Block:
 			case <-ctx.Done():
 			}
+		case st.Hold != nil:
+			<-st.Hold
 		case st.Err != nil:
 			return st.Err
 		case st.Panic != "":
@@ -189,6 +196,11 @@ func (s *fakeSession) Send(ctx context.Context, text string) error {
 }
 
 func (s *fakeSession) Inject(text string) error {
+	if s.h.InjectHook != nil {
+		if err := s.h.InjectHook(text); err != nil {
+			return err
+		}
+	}
 	if s.h.InjectErr != nil {
 		return s.h.InjectErr
 	}

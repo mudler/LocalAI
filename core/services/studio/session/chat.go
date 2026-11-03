@@ -701,7 +701,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				entry.Turn = turn
 				c.appendEntry(ctx, entry)
 			}
-			return c.queuePending(ctx, msg, withDirective(msg.Directive, c.modelText(entry)))
+			return c.queueLogged(ctx, msg, withDirective(msg.Directive, c.modelText(entry)))
 		}
 		// Taken under mu, so a swap that starts later waits for this inject.
 		c.injectMu.RLock()
@@ -721,18 +721,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 		}
 		// The turn is ending. Queue the message for the next one, or start
 		// it here when the turn has ended meanwhile.
-		c.mu.Lock()
-		if c.running {
-			if c.stopped {
-				c.mu.Unlock()
-				return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
-			}
-			c.pending = append(c.pending, withDirective(msg.Directive, c.modelText(entry)))
-			c.mu.Unlock()
-			return nil
-		}
-		c.mu.Unlock()
-		return c.send(ctx, msg, true)
+		return c.queueLogged(ctx, msg, withDirective(msg.Directive, c.modelText(entry)))
 	}
 	// Reserve the turn, then store the files without the lock.
 	c.running, c.stopped = true, false
@@ -763,21 +752,30 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	return nil
 }
 
-// queuePending queues text for the next turn of the running loop, or starts
-// it when the turn has ended meanwhile. The message is in the transcript.
-func (c *Chat) queuePending(ctx context.Context, msg Message, text string) error {
+// queueLogged queues text, which is in the transcript already, for the next
+// turn of the running loop, or starts it when the turn has ended meanwhile.
+// When the turn was stopped meanwhile, the message waits for the turn to end
+// and starts the next one: it is in the transcript, so it must not be refused
+// any more.
+func (c *Chat) queueLogged(ctx context.Context, msg Message, text string) error {
 	c.mu.Lock()
-	if c.running {
-		if c.stopped {
-			c.mu.Unlock()
-			return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
-		}
-		c.pending = append(c.pending, text)
+	if !c.running {
 		c.mu.Unlock()
-		return nil
+		return c.send(ctx, msg, true)
 	}
+	if c.stopped {
+		done := c.done
+		c.mu.Unlock()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return c.send(ctx, msg, true)
+	}
+	c.pending = append(c.pending, text)
 	c.mu.Unlock()
-	return c.send(ctx, msg, true)
+	return nil
 }
 
 // Attach stores files in the chat folder and returns them as attachments of
