@@ -2024,6 +2024,19 @@ definitions:
     type: object
   hostops.RequestSummary:
     properties:
+      deniedOptional:
+        items:
+          type: string
+        type: array
+      deniedRequired:
+        description: |-
+          DeniedRequired and DeniedOptional are the missing operations that a deny
+          rule forbids. They are also listed in the Missing lists. An operation
+          that is denied can never be approved, so a caller reads this to tell
+          "ask the administrator to approve" from "blocked by policy".
+        items:
+          type: string
+        type: array
       granted:
         items:
           type: string

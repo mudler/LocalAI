@@ -17292,6 +17292,19 @@ const docTemplate = `{
         "hostops.RequestSummary": {
             "type": "object",
             "properties": {
+                "deniedOptional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "deniedRequired": {
+                    "description": "DeniedRequired and DeniedOptional are the missing operations that a deny\nrule forbids. They are also listed in the Missing lists. An operation\nthat is denied can never be approved, so a caller reads this to tell\n\"ask the administrator to approve\" from \"blocked by policy\".",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "granted": {
                     "type": "array",
                     "items": {
