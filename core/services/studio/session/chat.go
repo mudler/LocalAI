@@ -1390,7 +1390,10 @@ func (c *Chat) guardTools(tools []Tool) []Tool {
 			if tctx == nil {
 				tctx = c.m.ctx
 			}
-			rctx, cancel := context.WithCancel(ctx)
+			// The harness context carries none of the product state of the turn
+			// (see Options.ProductScope), so a tool would not see it. Lend the
+			// values of the turn to the tool.
+			rctx, cancel := context.WithCancel(turnValues{Context: ctx, turn: tctx})
 			defer cancel()
 			defer context.AfterFunc(tctx, cancel)()
 			return run(rctx, args)
@@ -1417,4 +1420,19 @@ func (c *Chat) releaseMemory(ctx context.Context) {
 	c.evMu.Lock()
 	c.bus = closedBus()
 	c.evMu.Unlock()
+}
+
+// turnValues is a context whose values fall back to those of the turn: the
+// product state ProductScope attached, which the harness does not pass on.
+// Deadline and cancellation stay those of the embedded context.
+type turnValues struct {
+	context.Context
+	turn context.Context
+}
+
+func (t turnValues) Value(key any) any {
+	if v := t.Context.Value(key); v != nil {
+		return v
+	}
+	return t.turn.Value(key)
 }
