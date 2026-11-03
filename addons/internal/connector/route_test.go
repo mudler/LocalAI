@@ -94,6 +94,19 @@ func (r *rich) Draft(_ context.Context, req contract.ConnectorRequest) error {
 	return r.err
 }
 
+// reading also reads the history of a thread.
+type reading struct {
+	script
+	msgs []contract.ConnectorHistoryMessage
+	more bool
+	got  []contract.ConnectorRequest
+}
+
+func (r *reading) History(_ context.Context, req contract.ConnectorRequest) ([]contract.ConnectorHistoryMessage, bool, error) {
+	r.got = append(r.got, req)
+	return r.msgs, r.more, r.err
+}
+
 var _ = Describe("Serve", func() {
 	ctx := context.Background()
 	req := func(op string) contract.ConnectorRequest {
@@ -286,5 +299,45 @@ var _ = Describe("Serve", func() {
 			Expect(err).To(MatchError(contract.ErrRefused))
 		}
 		Expect(f.files).To(HaveLen(1))
+	})
+
+	Describe("the op history", func() {
+		hist := func() contract.ConnectorRequest {
+			r := req("history")
+			r.Thread, r.Limit, r.Before = "t1", 2, "9"
+			return r
+		}
+		It("is refused on a platform that cannot read a thread, and without a thread", func() {
+			_, err := connector.Serve(ctx, &script{}, hist())
+			Expect(err).To(MatchError(contract.ErrRefused))
+			r := hist()
+			r.Thread = ""
+			_, err = connector.Serve(ctx, &reading{}, r)
+			Expect(err).To(MatchError(contract.ErrRefused))
+		})
+		It("returns the newest messages within the limit and says that older ones exist", func() {
+			s := &reading{msgs: []contract.ConnectorHistoryMessage{{Text: "a"}, {Text: "b"}, {Text: "c"}}}
+			out, err := connector.Serve(ctx, s, hist())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out.Messages).To(HaveLen(2))
+			Expect(out.Messages[0].Text).To(Equal("b"))
+			Expect(out.Truncated).To(BeTrue())
+			Expect(s.got[0].Before).To(Equal("9"))
+		})
+		It("uses the default limit when the host asks for none or too many", func() {
+			s := &reading{}
+			r := hist()
+			r.Limit = contract.MaxHistoryMessages + 1
+			_, err := connector.Serve(ctx, s, r)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(s.got[0].Limit).To(Equal(contract.DefaultHistoryMessages))
+		})
+		It("types the error of the platform and does not wait for a rate limit", func() {
+			s := &reading{script: script{err: &connector.RetryAfter{Seconds: 30}}}
+			out, err := connector.Serve(ctx, s, hist())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out.Error.Code).To(Equal(contract.ConnectorRateLimited))
+			Expect(s.got).To(HaveLen(1))
+		})
 	})
 })
