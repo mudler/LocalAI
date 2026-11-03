@@ -31,8 +31,6 @@ export const ANSWER_TEXT = {
   'add': 'Add',
   'more': 'More',
   'less': 'Less',
-  'answer.threadContext': 'Read the earlier messages of a thread',
-  'answer.threadContextHelp': 'When the bot is mentioned in a thread, it reads the messages of that thread, and only that thread, to answer with the context.',
   'answer.filesHelp': 'After the answer, up to 5 files. Programs and scripts are not sent. The size limit is under Files.',
   'answer.summary': 'Answers: {{reply}} · {{conversation}}',
   'answer.short.off': 'typing',
@@ -96,14 +94,6 @@ export default function AnswerFields({ form, setForm, t, kindInfo }) {
         </Switch>
         <Hint>{s('answer.filesHelp')}</Hint>
       </div>
-      {kindInfo?.thread_history && (
-        <div className="cn-switchfield">
-          <Switch testId="connector-thread-context" checked={form.thread_context !== false} onChange={(on) => setForm({ ...form, thread_context: on })}>
-            {s('answer.threadContext')}
-          </Switch>
-          <Hint>{s('answer.threadContextHelp')}</Hint>
-        </div>
-      )}
       {(kindInfo?.options || []).map((o) => (
         <Field key={o.id} label={o.title} hint={o.description}>
           {(p) => (

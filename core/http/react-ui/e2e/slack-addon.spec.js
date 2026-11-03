@@ -28,6 +28,7 @@ test.describe('Slack add-on', () => {
     await expect(page.getByText('No Slack apps yet.')).toBeVisible()
     await page.getByRole('button', { name: 'New Slack app' }).click()
     await page.getByLabel('Name', { exact: true }).fill('Team app')
+    await expect(page.getByTestId('connector-thread-context')).toHaveCount(0)
     await page.getByLabel('Bot token').fill('xoxb-secret-bot')
     await expect(page.getByTestId('token-problem')).toContainText('Type both tokens')
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -49,6 +50,8 @@ test.describe('Slack add-on', () => {
     const body = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
     expect(body).toMatchObject({ kind: 'slack', name: 'Team app', token: 'xoxb-secret-bot xapp-secret-app', agent_id: 'a1', allow: ['U001', 'C001'] })
     expect(body).not.toHaveProperty('bot_token')
+    // The host always reads the thread of a mention: no setting is offered or sent.
+    expect(body).not.toHaveProperty('thread_context')
     await expect(page.locator('body')).not.toContainText('secret-bot')
   })
 

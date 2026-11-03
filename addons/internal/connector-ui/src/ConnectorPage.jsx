@@ -99,7 +99,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }, [fail, kind])
 
   useEffect(() => { load() }, [load])
-  // What the add-on of this kind can do: read a thread, and the choices it offers.
+  // What the add-on of this kind offers: the choices of its options.
   useEffect(() => { connectorsApi.kinds().then((r) => setKindInfo((r.kinds || []).find((k) => k.kind === kind) || null)).catch(() => {}) }, [kind])
   useEffect(() => { agentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
