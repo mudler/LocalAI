@@ -43,6 +43,22 @@ type Policy struct {
 	AllowedHosts      string            `json:"chats_egress_allowed_hosts"`
 	ToolProviders     map[string]string `json:"chats_tool_providers"`
 	AutoUpgradeAddons bool              `json:"auto_upgrade_addons"`
+	// ConnectorFilesCeiling is the largest file, in bytes, that a connector
+	// moves in either direction. Zero means contract.DefaultFileCeilingBytes.
+	// A document written before this key existed has none; MarshalJSON always
+	// writes it, so a reader never has to guess whether it is absent.
+	ConnectorFilesCeiling int64 `json:"connector_files_ceiling_bytes,omitempty"`
+}
+
+// MinFilesCeiling is the smallest host ceiling an owner can set.
+const MinFilesCeiling int64 = 1024
+
+// FilesCeiling is the host ceiling of a connector file in effect.
+func (p Policy) FilesCeiling() int64 {
+	if p.ConnectorFilesCeiling <= 0 {
+		return contract.DefaultFileCeilingBytes
+	}
+	return p.ConnectorFilesCeiling
 }
 
 // MarshalJSON keeps an empty provider set canonical rather than emitting null,
@@ -52,7 +68,11 @@ func (p Policy) MarshalJSON() ([]byte, error) {
 	if p.ToolProviders == nil {
 		p.ToolProviders = map[string]string{}
 	}
-	return json.Marshal(plain(p))
+	return json.Marshal(struct {
+		plain
+		// Shadows the omitempty field of plain: the key is always written.
+		ConnectorFilesCeiling int64 `json:"connector_files_ceiling_bytes"`
+	}{plain(p), p.ConnectorFilesCeiling})
 }
 
 // Patch changes only present keys. An empty string clears a string field;
@@ -67,6 +87,9 @@ type Patch struct {
 	AllowedHosts      *string            `json:"chats_egress_allowed_hosts,omitempty"`
 	ToolProviders     map[string]*string `json:"chats_tool_providers,omitempty"`
 	AutoUpgradeAddons *bool              `json:"auto_upgrade_addons,omitempty"`
+	// ConnectorFilesCeiling changes the host ceiling of connector files; zero
+	// clears it to the default.
+	ConnectorFilesCeiling *int64 `json:"connector_files_ceiling_bytes,omitempty"`
 	// EgressPrivateConfirm carries the typed phrase that turning on
 	// chats_egress_allow_private requires. The owner checks it, so a direct
 	// call cannot skip what the page asks for. It is never stored.
@@ -203,7 +226,7 @@ func jsonShape(d *json.Decoder, t reflect.Type) error {
 		if _, ok := token.(bool); ok {
 			return nil
 		}
-	case reflect.Int, reflect.Uint64:
+	case reflect.Int, reflect.Int64, reflect.Uint64:
 		if _, ok := token.(json.Number); ok {
 			return nil
 		}
@@ -251,6 +274,9 @@ func validate(p Policy) error {
 	if _, err := egresspolicy.ParseEgressAllowedHosts(p.AllowedHosts, p.AllowPrivate); err != nil {
 		return fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
+	if c := p.ConnectorFilesCeiling; c != 0 && (c < MinFilesCeiling || c > contract.MaxDeclaredFileBytes) {
+		return fmt.Errorf("%w: connector_files_ceiling_bytes must be 0 or %d to %d", ErrInvalid, MinFilesCeiling, contract.MaxDeclaredFileBytes)
+	}
 	if len(p.ToolProviders) > 128 {
 		return ErrInvalid
 	}
@@ -284,6 +310,9 @@ func apply(s Snapshot, p Patch) (Snapshot, error) {
 	}
 	if p.AutoUpgradeAddons != nil {
 		s.Policy.AutoUpgradeAddons = *p.AutoUpgradeAddons
+	}
+	if p.ConnectorFilesCeiling != nil {
+		s.Policy.ConnectorFilesCeiling = *p.ConnectorFilesCeiling
 	}
 	if s.Policy.ToolProviders == nil {
 		s.Policy.ToolProviders = map[string]string{}

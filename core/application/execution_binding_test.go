@@ -206,6 +206,23 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, second)).NotTo(Succeed())
 	})
 
+	It("reads the host ceiling of connector files from the owner policy", func() {
+		got, err := a.studioConnectorFilesCeiling(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(contract.DefaultFileCeilingBytes))
+		snap, err := a.addonHostSettings.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		ceiling := int64(8 << 20)
+		_, err = a.addonHostSettings.Update(ctx, hostsettings.Patch{ConnectorFilesCeiling: &ceiling}, snap.Revision, "files-ceiling")
+		Expect(err).NotTo(HaveOccurred())
+		got, err = a.studioConnectorFilesCeiling(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(ceiling))
+		Expect(a.addonHostSettings.Close()).To(Succeed())
+		_, err = a.studioConnectorFilesCeiling(ctx)
+		Expect(err).To(HaveOccurred(), "an owner that is down does not read as the default")
+	})
+
 	It("resolves local-owner SQLite using current chat and agent reads", func() {
 		db, err := auth.InitDB(filepath.Join(realTempDir(), "identity.db"))
 		Expect(err).NotTo(HaveOccurred())

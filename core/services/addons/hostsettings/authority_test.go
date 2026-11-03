@@ -220,6 +220,11 @@ var _ = Describe("Owner policy", func() {
 			for key, value := range obj {
 				fieldPath := append(append([]string{}, pathParts...), key)
 				for _, replacement := range []string{"missing", "null", "wrong type"} {
+					// A document written before the key existed has none, and
+					// reads as the default (see files_ceiling_test.go).
+					if replacement == "missing" && key == "connector_files_ceiling_bytes" {
+						continue
+					}
 					var copyRoot map[string]any
 					Expect(json.Unmarshal(original, &copyRoot)).To(Succeed())
 					target := copyRoot
