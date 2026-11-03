@@ -773,6 +773,28 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await shot(page, 'groups-all')
   })
 
+  test('every group has a title and a description, also one the interface has no words for, and an add-on shows its declared title', async ({ page }) => {
+    const state = await stubGroups(page)
+    state.builtins.push({ group: 'changes', tools: ['propose_change'], off: false, usable: true, provider: 'builtin', providers: {},
+      title: 'Memory and profile changes', description: 'The model can propose an edit; nothing changes until you confirm.', when_off: 'The model cannot propose edits.' })
+    state.builtins.push({ group: 'newgroup', tools: ['x_tool'], off: false, usable: true, provider: 'builtin', providers: {},
+      title: 'A new group', description: 'The model can use a tool the interface has no words for yet.' })
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: {
+      addons: [{ id: 'sandbox', tools: 2, off: false, title: 'Isolated runner', description: 'Runs code in a box.' }], commands: 'available', commands_provider: 'sandbox' } }))
+    await open(page)
+    // The ninth built-in group reads as a title, not as its id.
+    await expect(sw(page, 'Memory and profile changes')).toBeVisible()
+    await expect(sw(page, 'A new group')).toBeVisible()
+    await expect(sw(page, 'Isolated runner')).toBeVisible()
+    await expect(page.getByTestId('chat-tools-menu')).toContainText('Runs code in a box.')
+    const rows = page.getByTestId('chat-tools-item')
+    const n = await rows.count()
+    expect(n).toBe(10)
+    for (let i = 0; i < n; i++) await expect(rows.nth(i).getByTestId('chat-tools-blurb')).not.toBeEmpty()
+    await sw(page, 'Web').click()
+    await expect(row(page, 'Web')).toContainText('The model cannot look anything up online.')
+  })
+
   test('switching a group off and on sends the list of groups that are off', async ({ page }) => {
     const state = await stubGroups(page)
     await open(page)

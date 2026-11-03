@@ -318,7 +318,8 @@
       "files": "I tuoi file",
       "media": "Immagini e audio",
       "collections": "Raccolte",
-      "subagents": "Sotto-agenti"
+      "subagents": "Sotto-agenti",
+      "changes": "Modifiche a memoria e profilo"
     },
     "builtinBy": "{{tools}} · integrati",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",
@@ -330,7 +331,34 @@
     "shell": {
       "machine": "Questa macchina",
       "isolated": "I comandi girano isolati"
-    }
+    },
+    "describe": {
+      "shell": "Il modello può eseguire comandi di shell e script. Girano in un add-on che li isola, se ce n'è uno installato, altrimenti direttamente su questa macchina.",
+      "files": "Il modello può elencare, leggere, scrivere, modificare, spostare, eliminare e cercare i tuoi file, e leggere documenti. Una chat di un agente che lavora in una sola cartella raggiunge solo quella cartella.",
+      "web": "Il modello può cercare sul web e leggere una pagina pubblica dal suo indirizzo. Gli indirizzi dentro la tua rete sono rifiutati, a meno che un amministratore li permetta.",
+      "media": "Il modello può descrivere un'immagine o trascrivere una registrazione dai tuoi file con un modello di supporto.",
+      "collections": "Il modello può elencare le tue raccolte e cercarvi i passaggi che rispondono a una domanda.",
+      "subagents": "Il modello può avviare un sotto-agente che lavora su un compito con gli stessi interruttori di questa chat e poi riferisce.",
+      "saved_agents": "Il modello può elencare i tuoi agenti salvati e avviarne uno come sotto-agente, con le istruzioni e il modello di quell'agente.",
+      "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger: attività che partono da sole a un'ora stabilita o quando arriva un file in una cartella. Un nuovo trigger o una modifica aspetta su una scheda nella chat finché non la confermi; mettere in pausa o riprendere un trigger vale subito e puoi annullarlo.",
+      "changes": "Il modello può proporre una modifica alle tue note di memoria o alle regole fisse di un agente, e annullare una modifica che hai confermato. Nulla cambia finché non confermi la proposta su una scheda nella chat."
+    },
+    "whenOff": {
+      "shell": "Il modello può scrivere file ma non può eseguire nulla.",
+      "files": "Il modello non può vedere né cambiare i tuoi file.",
+      "web": "Il modello non può cercare nulla online.",
+      "media": "Il modello non può leggere da solo immagini o registrazioni.",
+      "collections": "Il modello non può leggere le tue raccolte.",
+      "subagents": "Il modello lavora da solo.",
+      "saved_agents": "Il modello non può vedere né avviare i tuoi agenti salvati.",
+      "triggers": "Il modello non può creare né gestire trigger. Una esecuzione avviata da un trigger o da un connettore non li ha mai.",
+      "changes": "Il modello non può proporre modifiche alla tua memoria o alle regole di un agente."
+    },
+    "addonDescribe_one": "Dà al modello {{count}} strumento di questo add-on.",
+    "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
+    "serverDescribe": "Un server MCP del modello: i suoi strumenti sono offerti al modello.",
+    "connectorDescribe": "Uno dei tuoi connettori MCP: i suoi strumenti sono offerti al modello.",
+    "gone": "Non più disponibile qui. Spegnilo per rimuoverlo."
   },
   "vision": {
     "describedBy": "Questo modello non può guardare le immagini. Scegli un altro modello, oppure l'immagine sarà descritta da {{model}}.",

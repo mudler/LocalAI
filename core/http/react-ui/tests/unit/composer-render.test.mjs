@@ -21,6 +21,7 @@ const scope = {
   hostMemory: () => null, agentFolderLine: () => '', CAP_CHAT: 'chat',
   CHAT_SLASH_ACTIONS: [], SLASH_ACTIONS: [],
   HomeComposer: props => { captured = props; return React.createElement('textarea', { defaultValue: props.message }) },
+  useToolGroups: () => [], SAVED_AGENTS: 'saved_agents', SUBAGENTS: 'subagents',
   CommandsChip: leaf, CommandsNotice: leaf, ToolFallbacks: leaf, ChatToolsControls: leaf,
 }
 const compiled = ts.transpileModule(source.replace(/^import .*\n/gm, '').replace('export default function', 'function'), {

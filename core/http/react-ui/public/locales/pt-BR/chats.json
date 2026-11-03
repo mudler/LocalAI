@@ -318,7 +318,8 @@
       "files": "Seus arquivos",
       "media": "Imagens e áudio",
       "collections": "Coleções",
-      "subagents": "Subagentes"
+      "subagents": "Subagentes",
+      "changes": "Alterações de memória e perfil"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -330,7 +331,34 @@
     "shell": {
       "machine": "Esta máquina",
       "isolated": "Os comandos rodam isolados"
-    }
+    },
+    "describe": {
+      "shell": "O modelo pode executar comandos de shell e scripts. Eles rodam em um add-on que os isola, se houver um instalado; senão, direto nesta máquina.",
+      "files": "O modelo pode listar, ler, escrever, editar, mover, apagar e buscar seus arquivos, e ler documentos. Um chat de um agente que trabalha em uma só pasta alcança apenas essa pasta.",
+      "web": "O modelo pode pesquisar na web e ler uma página pública pelo endereço. Endereços dentro da sua rede são recusados, a menos que um administrador permita.",
+      "media": "O modelo pode descrever uma imagem ou transcrever uma gravação dos seus arquivos com um modelo auxiliar.",
+      "collections": "O modelo pode listar suas coleções e buscar nelas os trechos que respondem a uma pergunta.",
+      "subagents": "O modelo pode iniciar um subagente que trabalha em uma tarefa com os mesmos interruptores deste chat e depois informa o resultado.",
+      "saved_agents": "O modelo pode listar seus agentes salvos e iniciar um como subagente, com as instruções e o modelo desse agente.",
+      "triggers": "O modelo pode propor, listar, alterar e apagar gatilhos: tarefas que rodam sozinhas em um horário definido ou quando um arquivo chega a uma pasta. Um gatilho novo ou uma alteração espera em um cartão no chat até você confirmar; pausar ou retomar um gatilho vale na hora e você pode desfazer.",
+      "changes": "O modelo pode propor uma alteração nas suas notas de memória ou nas regras fixas de um agente, e desfazer uma alteração que você confirmou. Nada muda até você confirmar a proposta em um cartão no chat."
+    },
+    "whenOff": {
+      "shell": "O modelo pode escrever arquivos, mas não pode executar nada.",
+      "files": "O modelo não pode ver nem alterar seus arquivos.",
+      "web": "O modelo não pode consultar nada online.",
+      "media": "O modelo não pode ler imagens ou gravações por conta própria.",
+      "collections": "O modelo não pode ler suas coleções.",
+      "subagents": "O modelo trabalha sozinho.",
+      "saved_agents": "O modelo não pode ver nem iniciar seus agentes salvos.",
+      "triggers": "O modelo não pode criar nem gerenciar gatilhos. Uma execução iniciada por um gatilho ou um conector nunca os tem.",
+      "changes": "O modelo não pode propor alterações na sua memória ou nas regras de um agente."
+    },
+    "addonDescribe_one": "Dá ao modelo {{count}} ferramenta deste add-on.",
+    "addonDescribe_other": "Dá ao modelo {{count}} ferramentas deste add-on.",
+    "serverDescribe": "Um servidor MCP do modelo: suas ferramentas são oferecidas ao modelo.",
+    "connectorDescribe": "Um dos seus conectores MCP: suas ferramentas são oferecidas ao modelo.",
+    "gone": "Não está mais disponível aqui. Desligue para removê-lo."
   },
   "vision": {
     "describedBy": "Este modelo não consegue ver imagens. Escolha outro modelo, ou a imagem será descrita por {{model}}.",

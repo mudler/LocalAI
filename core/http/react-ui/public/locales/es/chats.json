@@ -318,7 +318,8 @@
       "files": "Tus archivos",
       "media": "Imágenes y audio",
       "collections": "Colecciones",
-      "subagents": "Subagentes"
+      "subagents": "Subagentes",
+      "changes": "Cambios de memoria y perfil"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -330,7 +331,34 @@
     "shell": {
       "machine": "Esta máquina",
       "isolated": "Los comandos se ejecutan aislados"
-    }
+    },
+    "describe": {
+      "shell": "El modelo puede ejecutar comandos de shell y scripts. Se ejecutan en un add-on que los aísla, si hay uno instalado; si no, directamente en esta máquina.",
+      "files": "El modelo puede listar, leer, escribir, editar, mover, borrar y buscar tus archivos, y leer documentos. Un chat de un agente que trabaja en una sola carpeta solo llega a esa carpeta.",
+      "web": "El modelo puede buscar en la web y leer una página pública por su dirección. Las direcciones dentro de tu red se rechazan salvo que un administrador las permita.",
+      "media": "El modelo puede describir una imagen o transcribir una grabación de tus archivos con un modelo auxiliar.",
+      "collections": "El modelo puede listar tus colecciones y buscar en ellas los pasajes que responden a una pregunta.",
+      "subagents": "El modelo puede iniciar un subagente que trabaja en una tarea con los mismos interruptores que este chat y luego informa.",
+      "saved_agents": "El modelo puede listar tus agentes guardados e iniciar uno como subagente, con las instrucciones y el modelo de ese agente.",
+      "triggers": "El modelo puede proponer, listar, cambiar y borrar disparadores: tareas que se ejecutan solas a una hora fijada o cuando llega un archivo a una carpeta. Un disparador nuevo o un cambio espera en una tarjeta del chat hasta que lo confirmes; pausar o reanudar un disparador se aplica al instante y puedes deshacerlo.",
+      "changes": "El modelo puede proponer un cambio en tus notas de memoria o en las reglas fijas de un agente, y deshacer un cambio que confirmaste. Nada cambia hasta que confirmes la propuesta en una tarjeta del chat."
+    },
+    "whenOff": {
+      "shell": "El modelo puede escribir archivos pero no puede ejecutar nada.",
+      "files": "El modelo no puede ver ni cambiar tus archivos.",
+      "web": "El modelo no puede consultar nada en línea.",
+      "media": "El modelo no puede leer imágenes ni grabaciones por sí mismo.",
+      "collections": "El modelo no puede leer tus colecciones.",
+      "subagents": "El modelo trabaja solo.",
+      "saved_agents": "El modelo no puede ver ni iniciar tus agentes guardados.",
+      "triggers": "El modelo no puede crear ni gestionar disparadores. Una ejecución iniciada por un disparador o un conector nunca los tiene.",
+      "changes": "El modelo no puede proponer cambios en tu memoria ni en las reglas de un agente."
+    },
+    "addonDescribe_one": "Da al modelo {{count}} herramienta de este add-on.",
+    "addonDescribe_other": "Da al modelo {{count}} herramientas de este add-on.",
+    "serverDescribe": "Un servidor MCP del modelo: sus herramientas se ofrecen al modelo.",
+    "connectorDescribe": "Uno de tus conectores MCP: sus herramientas se ofrecen al modelo.",
+    "gone": "Ya no está disponible aquí. Apágalo para quitarlo."
   },
   "vision": {
     "describedBy": "Este modelo no puede ver imágenes. Elige otro modelo o la imagen la describirá {{model}}.",

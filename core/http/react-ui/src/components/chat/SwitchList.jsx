@@ -113,7 +113,10 @@ export function SwitchGroup({ title, icon, count, actions, testId, children }) {
 // has a disabled switch and says why; the reason describes the switch.
 //
 //   name          the visible name; it names the switch
-//   desc          a line of text; on the name's line unless `stacked`
+//   blurb         what the switch does, in a sentence, under the name; every
+//                 switch of the Tools list has one
+//   desc          a line of text (the state: who serves it, why it is off);
+//                 on the name's line unless `stacked`
 //   tone          warn draws the line as a warning
 //   chip          a short label next to the name ("Served by add-on searx")
 //   meta          a muted text before the switch ("4 tools")
@@ -121,8 +124,8 @@ export function SwitchGroup({ title, icon, count, actions, testId, children }) {
 //   title         the tooltip of the row; else the name and the text
 //   data          data-* attributes of the row
 export function SwitchRow({
-  name, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
-  stacked = false, testId, descTestId, data = {},
+  name, blurb, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
+  stacked = false, testId, descTestId, blurbTestId, data = {},
 }) {
   const nameId = useId()
   const descId = useId()
@@ -132,7 +135,7 @@ export function SwitchRow({
   const attrs = Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v]))
   return (
     <div
-      className={`swl-row${stacked ? ' swl-row--stacked' : ''}`}
+      className={`swl-row${stacked || blurb ? ' swl-row--stacked' : ''}`}
       data-on={checked ? 'true' : 'false'}
       data-disabled={disabled ? 'true' : undefined}
       title={title}
@@ -144,6 +147,7 @@ export function SwitchRow({
           <span className="swl-row__name" id={nameId} title={title ? name : undefined}>{name}</span>
           {chip && <StatusChip tone="idle" icon="puzzle" className="swl-row__chip" testId={chipTestId}>{chip}</StatusChip>}
         </span>
+        {blurb && <span className="swl-row__blurb" data-testid={blurbTestId}>{blurb}</span>}
         {line && (
           <span className={`swl-row__desc${reason ? ' swl-row__desc--reason' : ''}${tone === 'warn' ? ' swl-row__desc--warn' : ''}`} id={descId} data-testid={reason ? undefined : descTestId}>
             {reason && <Icon name="info" className="swl-row__why" />}
