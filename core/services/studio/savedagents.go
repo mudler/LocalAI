@@ -138,6 +138,9 @@ type listedAgent struct {
 	// path is not given: it would show the folders above the chat's own.
 	Folder     string `json:"folder,omitempty"`
 	FolderMode string `json:"folder_mode,omitempty"`
+	// FolderCount is how many folders the agent has, when it has more than
+	// one; Folder and FolderMode then describe the first.
+	FolderCount int `json:"folder_count,omitempty"`
 	// FolderMissing is set when the agent has a folder that is deleted or not
 	// chosen: it cannot run until the person fixes it.
 	FolderMissing bool `json:"folder_missing,omitempty"`
@@ -176,11 +179,12 @@ func (s *Service) listAgentsTool(ctx context.Context, p, chatID string) (string,
 		}
 		l := listedAgent{ID: a.ID, Name: a.Name, Description: a.Description, Model: a.Model}
 		if a.HasFolder() {
-			l.FolderMode = a.FolderMode
+			l.FolderMode = a.FolderList()[0].Mode
+			l.FolderCount = len(a.FolderList())
 			if sc, err := s.liveFolder(ctx, p, a); err != nil {
 				l.FolderMissing = true
 			} else {
-				l.Folder = path.Base(sc.path)
+				l.Folder = path.Base(sc.primary().path)
 			}
 		}
 		out.Agents = append(out.Agents, l)

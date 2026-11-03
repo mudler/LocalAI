@@ -402,6 +402,7 @@ func New(d Deps) (*Service, error) {
 	if s.builtins == nil {
 		s.builtins = builtins.NewRegistry()
 	}
+	s.describeGroups()
 	if err := s.registerHostBash(); err != nil {
 		return nil, err
 	}
@@ -602,6 +603,7 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
 	model := in.Model
 	scoped := false
+	var agentOn []string
 	if in.Assistant {
 		if in.AgentID != "" {
 			return session.ChatRecord{}, ErrAssistantAgent
@@ -624,6 +626,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		if ag.Model != "" {
 			model = ag.Model
 		}
+		agentOn = ag.BuiltinsOn
 		if ag.HasFolder() {
 			// A chat never starts on the whole home in place of a folder
 			// that is missing or not chosen.
@@ -631,7 +634,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 			if err != nil {
 				return session.ChatRecord{}, err
 			}
-			if _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []folderScope{*sc}); err != nil {
+			if _, _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []*folderScope{sc}); err != nil {
 				return session.ChatRecord{}, err
 			}
 			scoped = true
@@ -644,6 +647,9 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
+	// The opt-in groups the agent starts with (saved agents) are on in its
+	// chats from the first turn; the chat may still switch them off.
+	sw.BuiltinsOn = mergeGroups(sw.BuiltinsOn, agentOn)
 	title := in.Title
 	if title == "" {
 		title = session.DefaultTitle
@@ -1486,3 +1492,13 @@ func (s *Service) Delete(ctx context.Context, user, conv string) error {
 // MCPConnectors returns the service that keeps the users' MCP connectors, or
 // nil when the chats have none.
 func (s *Service) MCPConnectors() *mcpconns.Service { return s.d.MCPConnectors }
+
+// mergeGroups returns a with the entries of b it lacks, in order.
+func mergeGroups(a, b []string) []string {
+	for _, g := range b {
+		if !slices.Contains(a, g) {
+			a = append(a, g)
+		}
+	}
+	return a
+}

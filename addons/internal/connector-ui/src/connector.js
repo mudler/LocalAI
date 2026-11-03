@@ -70,7 +70,7 @@ export function formatBytes(n) {
 // The body of a create or replace request for a binding of kind. token is the
 // secret the add-on's fields make; it goes only when it was typed: an update
 // without one keeps the stored token.
-export function connectorPayload(form, kind, token = form.token) {
+export function connectorPayload(form, kind, token = form.token, extra = {}) {
   const body = {
     kind,
     name: (form.name || '').trim(),
@@ -90,7 +90,9 @@ export function connectorPayload(form, kind, token = form.token) {
   if (body.conversation === 'window') body.window_minutes = Number(form.window_minutes) || 0
   const secret = (token || '').trim()
   if (secret) body.token = secret
-  return body
+  // Fields of the add-on's own (a list of resources) and overrides, such as a
+  // binding that carries no messages and so is never switched on.
+  return { ...body, ...extra }
 }
 
 // Who the binding accepts, in a few words.

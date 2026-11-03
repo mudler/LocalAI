@@ -4471,7 +4471,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "An agent is a definition: instructions and exact lists of the MCP servers, add-ons, collections and skills a chat with it may use. A chat gets what the lists name and you may use at that moment, never more. Start a chat with it by passing agent_id to POST /api/chats. folder {path, mode} gives the agent one folder of your files, read or write; without it the agent works on all your files.",
+                "description": "An agent is a definition: instructions and exact lists of the MCP servers, add-ons, collections and skills a chat with it may use. A chat gets what the lists name and you may use at that moment, never more. Start a chat with it by passing agent_id to POST /api/chats. folders [{path, mode}] gives the agent up to 8 folders of your files, each read or write (folder {path, mode} is the same with one entry); without them the agent works on all your files.",
                 "tags": [
                     "chats"
                 ],
@@ -4505,7 +4505,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/import": {
             "post": {
-                "description": "Send the export file (version 1, or 2 for an agent with a folder) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
+                "description": "Send the export file (version 1, 2 for an agent with a folder, or 3 for an agent with several) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.",
                 "consumes": [
                     "application/json",
                     "multipart/form-data"
@@ -4622,7 +4622,7 @@ const docTemplate = `{
                 }
             },
             "put": {
-                "description": "The body replaces every field but folder: a body without folder keeps the folder the agent has, so a client that does not know the field cannot widen the agent, and folder {path: \"\"} clears it. Chats that already run with the agent use the new definition from their next turn.",
+                "description": "The body replaces every field but folder: a body without folder or folders keeps the folders the agent has, so a client that does not know the fields cannot widen the agent, and folders [] (or folder {path: \"\"}) clears them. Chats that already run with the agent use the new definition from their next turn.",
                 "tags": [
                     "chats"
                 ],
@@ -4696,7 +4696,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -18405,11 +18405,18 @@ const docTemplate = `{
         "schema.ChatsAddon": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
                 "off": {
                     "type": "boolean"
+                },
+                "title": {
+                    "description": "Title and Description are what the add-on's manifest declares for\npeople. Title is empty when the add-on declares none; the interface then shows the ID.",
+                    "type": "string"
                 },
                 "tools": {
                     "type": "integer"
@@ -18749,6 +18756,19 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "builtins_off": {
+                    "description": "BuiltinsOff are the groups of built-in tools (web, files, triggers...)\nthe agent's chats never have, and BuiltinsOn the opt-in groups (saved\nagents) they start with. The names are the ones GET /api/chats/{id}/tools\nlists. Empty for an agent that has every group a chat has by default.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "collections": {
                     "type": "array",
                     "items": {
@@ -18768,6 +18788,21 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsAgentFolder"
                         }
                     ]
+                },
+                "folder_notice": {
+                    "description": "FolderNotice is set when shared folders do not fit the access limit of\na chat of this agent and are left out.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsAgentFolderNotice"
+                        }
+                    ]
+                },
+                "folders": {
+                    "description": "Folders are all the folders of the agent (at most 8), in order; Folder\nis the first of them. Absent for an agent that works on all your files.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentFolder"
+                    }
                 },
                 "id": {
                     "type": "string"
@@ -18822,6 +18857,10 @@ const docTemplate = `{
         "schema.ChatsAgentFolder": {
             "type": "object",
             "properties": {
+                "effective": {
+                    "description": "Effective is the mode the folder has in a chat: read for a shared\nfolder, and the mode of the outer folder when the folder is inside\nanother folder of the same agent.",
+                    "type": "string"
+                },
                 "mode": {
                     "description": "Mode is read (the agent's chats can read the folder) or write (they can\nread and change it).",
                     "type": "string"
@@ -18837,6 +18876,14 @@ const docTemplate = `{
                 "state": {
                     "description": "State is ok; missing when the folder was deleted or you can no longer\nread it; or unset when no folder is chosen yet (an imported agent whose\nfolder was not found). An agent whose folder is missing or unset does\nnot start.",
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsAgentFolderNotice": {
+            "type": "object",
+            "properties": {
+                "not_mounted": {
+                    "type": "integer"
                 }
             }
         },
@@ -18980,6 +19027,19 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "builtins_off": {
+                    "description": "BuiltinsOff and BuiltinsOn are the switches of the built-in tools of\nthe agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen\nthe agent); an empty list clears them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "collections": {
                     "type": "array",
                     "items": {
@@ -18996,6 +19056,13 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
                         }
                     ]
+                },
+                "folders": {
+                    "description": "Folders chooses up to 8 folders, each with its own mode. When both are\nsent, folders wins. A write without folders and folder keeps the folders\nthe agent has; \"folders\": [] clears them. Where a folder is inside\nanother one, it gets the outer folder's mode.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsAgentFolderWrite"
+                    }
                 },
                 "instructions": {
                     "type": "string"
@@ -19068,6 +19135,10 @@ const docTemplate = `{
         "schema.ChatsBuiltinGroup": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "The model can search the web and read a public page by its address."
+                },
                 "group": {
                     "type": "string",
                     "example": "web"
@@ -19097,6 +19168,11 @@ const docTemplate = `{
                 "reason": {
                     "type": "string"
                 },
+                "title": {
+                    "description": "Title and Description say what the group is and what the model can do\nwhen its switch is on; WhenOff says what it cannot do when it is off.\nThey are English; the interface may translate them by group.",
+                    "type": "string",
+                    "example": "Web"
+                },
                 "tools": {
                     "type": "array",
                     "items": {
@@ -19110,6 +19186,10 @@ const docTemplate = `{
                 "usable": {
                     "description": "Usable is false when the group cannot serve this chat now; Reason says\nwhy.",
                     "type": "boolean"
+                },
+                "when_off": {
+                    "type": "string",
+                    "example": "The model cannot look anything up online."
                 }
             }
         },

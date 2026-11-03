@@ -77,6 +77,10 @@ const (
 	MaxGrants = contract.MaxConnectorRoles
 	// MaxFileLimit is the largest file limit a binding can hold: 1 TiB.
 	MaxFileLimit int64 = 1 << 40
+	// MaxResources is the most entries a binding lists.
+	MaxResources = 50
+	// MaxResourceKeyRunes is the longest external name of a resource.
+	MaxResourceKeyRunes = 200
 )
 
 // Pairing limits.
@@ -145,6 +149,12 @@ type Binding struct {
 	// Paired are the senders that the owner proved by a pairing code. Only a
 	// paired sender may use a sensitive capability. At most MaxPaired.
 	Paired []PairedSender
+	// Resources is the list of external resources (a repository, a folder) that
+	// the tools of the add-on may reach with the credential of this binding.
+	// The host checks a tool call against it before the add-on is called. The
+	// zero value is an empty list: an add-on that declares credentials then
+	// refuses every resource call.
+	Resources []ResourceEntry
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
@@ -274,6 +284,9 @@ func Validate(b Binding) error {
 	if err := validateCaps(b); err != nil {
 		return bad("%v", err)
 	}
+	if err := validateResources(b.Resources); err != nil {
+		return err
+	}
 	if len(b.Options) > MaxOptions {
 		return bad("a binding has at most %d options", MaxOptions)
 	}
@@ -377,5 +390,6 @@ func (b Binding) clone() Binding {
 		}
 		b.Grants = g
 	}
+	b.Resources = slices.Clone(b.Resources)
 	return b
 }

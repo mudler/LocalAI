@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Arquivos"
+      "Files": "Arquivos",
+      "Tools": "Ferramentas"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Desligada",
       "registries": "Registros de pacotes",
       "all": "Todos os sites públicos"
-    }
+    },
+    "toolsSummary": "{{on}} de {{total}} ligadas",
+    "toolsHelp": "Escolha o que um chat com este agente pode usar. São os mesmos interruptores do menu Ferramentas de um chat. Uma ferramenta desligada nunca é oferecida ao modelo, e um chat com este agente não pode ligá-la.",
+    "toolsHeading": "Ferramentas deste agente",
+    "skillsLater": "Um chat com este agente lê apenas as skills ligadas.",
+    "skillsHeading": "Skills deste agente"
   },
   "run": {
     "workingLine": "Working"
@@ -450,7 +456,7 @@
   },
   "folder": {
     "all": "Todos os meus arquivos",
-    "one": "Uma pasta",
+    "one": "Pastas escolhidas",
     "scopeLabel": "Arquivos que este agente pode alcançar",
     "allHelp": "Os chats com este agente alcançam todos os seus arquivos, como um chat sem agente.",
     "choose": "Escolher pasta",
@@ -482,6 +488,15 @@
     "exportNote": "O arquivo indica a pasta {{path}}. Onde você importar, o agente recebe a pasta com esse caminho, se existir, ou pede que você escolha uma.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Pasta ausente",
-    "chipUnset": "Nenhuma pasta escolhida"
+    "chipUnset": "Nenhuma pasta escolhida",
+    "add": "Adicionar pasta",
+    "remove": "Remover {{path}}",
+    "removeRow": "Remover",
+    "count": "{{n}} de {{max}} pastas",
+    "summaryMany": "{{n}} pastas",
+    "effectiveRead": "Está dentro de uma pasta somente leitura, então esta só pode ser lida.",
+    "effectiveWrite": "Está dentro de uma pasta que pode ser alterada, então esta também pode ser alterada.",
+    "notMounted": "{{n}} pastas compartilhadas não cabem no limite de acesso de um chat e não são montadas.",
+    "exportNoteMany": "O arquivo cita {{n}} pastas. Onde você importar, o agente recebe as pastas com esses caminhos que existirem e pede que você escolha as outras."
   }
 }

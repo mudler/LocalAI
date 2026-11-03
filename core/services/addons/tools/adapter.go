@@ -169,6 +169,28 @@ const CodeNotPermitted = "not_permitted"
 // NotPermittedNote is what the model is told when the person lacks a permission.
 const NotPermittedNote = "The person does not have the permission this tool needs. Nothing was changed. Tell them an administrator must grant it; do not repeat the call and do not report an outage."
 
+// CodeRateLimited is the Code of a ResultError for a call that the service
+// behind the add-on turned away because it was called too often. RetryAfter says
+// how long to wait.
+const CodeRateLimited = "rate_limited"
+
+// RateLimitedNote is what the model is told when the service asks it to wait.
+const RateLimitedNote = "The service is limiting how often it is called. Nothing was changed. Do not repeat this call, or any call to the same add-on, before retryAfter seconds have passed; tell the person if the wait is long."
+
+// CodeResourceNotAllowed is the Code of a ResultError for a call that names a
+// resource the person did not allow for the add-on. The add-on was not called.
+const CodeResourceNotAllowed = gateway.CodeResourceNotAllowed
+
+// ResourceNotAllowedNote is what the model is told for a resource that is not on the list.
+const ResourceNotAllowedNote = "That resource is not on the list the person allowed for this add-on, so nothing was sent to it. Use one of the resources in allowed, or tell the person to add it to the list on the add-on page. Do not repeat the call and do not report an outage."
+
+// CodeNoCredential is the Code of a ResultError for an add-on that needs a
+// credential the person has not given.
+const CodeNoCredential = gateway.CodeNoCredential
+
+// NoCredentialNote is what the model is told when the person has no credential for the add-on.
+const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
+
 // CodeResourceUnreachable is the Code of a ResultError for a resource the person cannot reach.
 const CodeResourceUnreachable = "resource_unreachable"
 
@@ -244,6 +266,11 @@ type ToolResult struct {
 	Message string `json:"message,omitempty"`
 	// Note is host text for the model: a proposal is not applied.
 	Note string `json:"note,omitempty"`
+	// Allowed lists the resources the person's bindings allow, for the code
+	// resource_not_allowed.
+	Allowed []string `json:"allowed,omitempty"`
+	// RetryAfter is how many seconds to wait, for the code rate_limited.
+	RetryAfter int `json:"retryAfter,omitempty"`
 }
 
 // ProposalNote is what the model is told after a proposal.
@@ -484,6 +511,28 @@ func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([
 		out = append(out, AddonContextFiles{AddonID: a.ID, Files: slices.Clone(a.ContextFiles), Running: running})
 	}
 	slices.SortFunc(out, func(x, y AddonContextFiles) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
+// AddonListing is the title and description an add-on declares for people.
+type AddonListing struct {
+	AddonID, Title, Description string
+}
+
+// Listings returns the title and description of every add-on the actor can
+// see. An add-on that declares neither has its ID as title.
+func (t *ToolAdapter) Listings(ctx context.Context, actor contract.Actor) ([]AddonListing, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	out := make([]AddonListing, 0, len(list.Apps))
+	for _, a := range list.Apps {
+		out = append(out, AddonListing{AddonID: a.ID, Title: a.Title, Description: a.Description})
+	}
 	return out, nil
 }
 
@@ -812,7 +861,15 @@ func receiptPayload(p gateway.Proposal) json.RawMessage {
 // on. Every other error, an outage and an unknown outcome included, passes
 // through unchanged.
 func refusedResult(name string, err error) (ToolResult, error) {
+	var limited *contract.ErrRateLimited
+	var refusal *gateway.CredentialRefusal
 	switch {
+	case errors.As(err, &limited):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeRateLimited, Note: RateLimitedNote, RetryAfter: limited.Seconds()}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeNoCredential:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNoCredential, Note: NoCredentialNote}, nil
 	case errors.Is(err, gateway.ErrNotPermitted):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotPermitted, Note: NotPermittedNote}, nil
 	case errors.Is(err, gateway.ErrNotSent):

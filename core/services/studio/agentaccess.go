@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -32,11 +34,40 @@ var ErrAgentFolderMissing = errors.New("studio: the folder of this agent is miss
 // The caller may retry after the available shared folders change.
 var ErrAgentFolderLimit = errors.New("studio: the file access of this agent exceeds the folder limit")
 
-// folderScope is the folder of a saved agent as it is now.
-type folderScope struct {
+// scopedFolder is one folder of a saved agent as it is now, at the mode the
+// agent may use it: the mode it was given, capped by every folder of the same
+// agent that holds it.
+type scopedFolder struct {
 	node int64
 	mode workspace.Mode
 	path string // workspace path
+}
+
+// folderScope is the folders of a saved agent as they are now, in the order
+// the agent lists them. The first is the one the file tools call "home".
+type folderScope struct {
+	folders []scopedFolder
+}
+
+// primary is the first folder of the scope.
+func (sc *folderScope) primary() scopedFolder { return sc.folders[0] }
+
+// extraPaths are the workspace paths of the folders after the first.
+func (sc *folderScope) extraPaths() []string {
+	out := make([]string, 0, len(sc.folders)-1)
+	for _, f := range sc.folders[1:] {
+		out = append(out, f.path)
+	}
+	return out
+}
+
+// roots are the fence roots of the scope.
+func (sc *folderScope) roots() []workspace.FenceRoot {
+	out := make([]workspace.FenceRoot, 0, len(sc.folders))
+	for _, f := range sc.folders {
+		out = append(out, workspace.FenceRoot{Node: f.node, Mode: f.mode})
+	}
+	return out
 }
 
 // userChatActor is the user's actor in a chat, without a fence: the actor of
@@ -79,7 +110,7 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 	if len(scopes) == 0 {
 		return s.mgr.UserAccess(ctx, base)
 	}
-	readOnly, err := s.scopedRoots(ctx, base, scopes)
+	readOnly, _, err := s.scopedRoots(ctx, base, scopes)
 	if err != nil {
 		return session.Access{}, err
 	}
@@ -98,7 +129,7 @@ func (s *Service) chatAccess(ctx context.Context, rec session.ChatRecord) (sessi
 	// The view is the session's one view builder: the folder at home, the
 	// chat folder at chat, the shared folders read only.
 	work := scopes[len(scopes)-1]
-	x, err := s.mgr.ScopedAccess(ctx, actor, work.path, chatDir.Path)
+	x, err := s.mgr.ScopedAccessFolders(ctx, actor, work.primary().path, work.extraPaths(), chatDir.Path)
 	if errors.Is(err, session.ErrNoHome) || errors.Is(err, workspace.ErrNotFound) {
 		// The folder went away since it was checked, or a sub-agent's folder
 		// is outside its parent's.
@@ -123,7 +154,7 @@ func (s *Service) chatActorFor(ctx context.Context, rec session.ChatRecord) work
 	if len(scopes) == 0 {
 		return base
 	}
-	readOnly, err := s.scopedRoots(ctx, base, scopes)
+	readOnly, _, err := s.scopedRoots(ctx, base, scopes)
 	if err != nil {
 		return base.Fenced()
 	}
@@ -146,15 +177,17 @@ func (s *Service) chatActorFor(ctx context.Context, rec session.ChatRecord) work
 // scope's folder at its mode, the chat's folder (when chatNode is not 0) read
 // and write, and the read-only roots; the layers intersect, so a sub-agent
 // whose own agent has a folder reaches only what both folders allow.
-func fenceScopes(base workspace.Actor, scopes []folderScope, chatNode int64, readOnly []workspace.FenceRoot) (workspace.Actor, error) {
+func fenceScopes(base workspace.Actor, scopes []*folderScope, chatNode int64, readOnly []workspace.FenceRoot) (workspace.Actor, error) {
 	// Reserve the chat root even before its folder exists. Check every
 	// layer before building any actor; roots must never be truncated.
-	if len(scopes) > 0 && 2+len(readOnly) > workspace.MaxFenceRoots {
-		return workspace.Actor{}, ErrAgentFolderLimit
+	for _, sc := range scopes {
+		if 1+len(sc.folders)+len(readOnly) > workspace.MaxFenceRoots {
+			return workspace.Actor{}, ErrAgentFolderLimit
+		}
 	}
 	a := base
 	for _, sc := range scopes {
-		roots := []workspace.FenceRoot{{Node: sc.node, Mode: sc.mode}}
+		roots := sc.roots()
 		if chatNode > 0 {
 			roots = append(roots, workspace.FenceRoot{Node: chatNode, Mode: workspace.ModeWrite})
 		}
@@ -166,15 +199,24 @@ func fenceScopes(base workspace.Actor, scopes []folderScope, chatNode int64, rea
 
 // scopedRoots resolves the complete optional read set and validates the budget
 // without making a chat folder. Creation and every turn use the same check.
-func (s *Service) scopedRoots(ctx context.Context, base workspace.Actor, scopes []folderScope) ([]workspace.FenceRoot, error) {
-	roots, err := s.readOnlyRoots(ctx, base)
+// notMounted counts the shared folders left out to fit the budget.
+func (s *Service) scopedRoots(ctx context.Context, base workspace.Actor, scopes []*folderScope) ([]workspace.FenceRoot, int, error) {
+	var mandatory []string
+	reserve := 0
+	for _, sc := range scopes {
+		reserve = max(reserve, len(sc.folders))
+		for _, f := range sc.folders {
+			mandatory = append(mandatory, f.path)
+		}
+	}
+	roots, dropped, err := s.readOnlyRoots(ctx, base, reserve, mandatory)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if _, err := fenceScopes(base, scopes, 0, roots); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return roots, nil
+	return roots, dropped, nil
 }
 
 // readOnlyRoots lists the folders a scoped chat may read besides its own: the
@@ -182,29 +224,70 @@ func (s *Service) scopedRoots(ctx context.Context, base workspace.Actor, scopes 
 // shared folders' grants may allow more; a scoped chat never writes there).
 // A folder that is missing or unreadable is left out. Enumeration failures
 // refuse access rather than silently omitting shared folders.
-func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor) ([]workspace.FenceRoot, error) {
+//
+// A fence layer holds at most workspace.MaxFenceRoots roots: the chat folder,
+// reserve folders of the agent, the skill layers and the rest for shared
+// folders. The skill layers and the agent's folders are always kept. A shared
+// folder inside a root of the layer is left out (the root already reaches it).
+// Of the others the ones with the lowest node IDs are kept until the budget is
+// full, and dropped counts the rest. Dropping a root only removes access.
+// mandatory are the workspace paths of the agent's folders.
+func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor, reserve int, mandatory []string) ([]workspace.FenceRoot, int, error) {
 	owner := base
 	owner.ChatID = ""
 	ws := s.d.Files.Store()
 	var out []workspace.FenceRoot
-	add := func(p string) {
-		if n, err := ws.Stat(ctx, owner, p); err == nil && n.Kind == workspace.KindDir {
-			out = append(out, workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeRead})
-		}
+	var held []string // paths of the roots already in the layer
+	held = append(held, mandatory...)
+	stat := func(p string) (workspace.Node, bool) {
+		n, err := ws.Stat(ctx, owner, p)
+		return n, err == nil && n.Kind == workspace.KindDir
 	}
 	for _, p := range []string{files.SharedSkillsPath, files.BuiltinSkillsPath, files.AddonSkillsPath} {
-		add(p)
-	}
-	if s.shared != nil {
-		shared, err := s.shared.Roots(ctx, owner)
-		if err != nil {
-			return nil, fmt.Errorf("studio: list shared folders for scoped access: %w", err)
-		}
-		for _, r := range shared {
-			add(r.Path)
+		if n, ok := stat(p); ok {
+			out = append(out, workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeRead})
+			held = append(held, n.Path)
 		}
 	}
-	return out, nil
+	if s.shared == nil {
+		return out, 0, nil
+	}
+	shared, err := s.shared.Roots(ctx, owner)
+	if err != nil {
+		return nil, 0, fmt.Errorf("studio: list shared folders for scoped access: %w", err)
+	}
+	var cand []workspace.Node
+	for _, r := range shared {
+		if n, ok := stat(r.Path); ok {
+			cand = append(cand, n)
+		}
+	}
+	sort.Slice(cand, func(i, j int) bool { return cand[i].ID < cand[j].ID })
+	room := workspace.MaxFenceRoots - 1 - reserve - len(out)
+	dropped := 0
+	for _, n := range cand {
+		if insideAny(n.Path, held) {
+			continue
+		}
+		if room <= 0 {
+			dropped++
+			continue
+		}
+		room--
+		out = append(out, workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeRead})
+		held = append(held, n.Path)
+	}
+	return out, dropped, nil
+}
+
+// insideAny says whether p is one of roots or inside one.
+func insideAny(p string, roots []string) bool {
+	for _, r := range roots {
+		if workspace.Within(p, r) {
+			return true
+		}
+	}
+	return false
 }
 
 // chatScopes returns the agent folders that apply to a chat, outermost first,
@@ -213,9 +296,9 @@ func (s *Service) readOnlyRoots(ctx context.Context, base workspace.Actor) ([]wo
 // own agent's folder inside it. No scope means the chat works on the whole
 // home. With record, the chat's ScopedAgent flag is set or cleared to match
 // what its agent has now.
-func (s *Service) chatScopes(ctx context.Context, rec session.ChatRecord, record bool) ([]folderScope, string, error) {
+func (s *Service) chatScopes(ctx context.Context, rec session.ChatRecord, record bool) ([]*folderScope, string, error) {
 	holder := rec.ID
-	var scopes []folderScope
+	var scopes []*folderScope
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
 		holder = rec.ParentID
 		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
@@ -234,7 +317,7 @@ func (s *Service) chatScopes(ctx context.Context, rec session.ChatRecord, record
 				return nil, "", err
 			}
 			if sc != nil {
-				scopes = append(scopes, *sc)
+				scopes = append(scopes, sc)
 			}
 		}
 	}
@@ -247,7 +330,7 @@ func (s *Service) chatScopes(ctx context.Context, rec session.ChatRecord, record
 		return nil, "", err
 	}
 	if sc != nil {
-		scopes = append(scopes, *sc)
+		scopes = append(scopes, sc)
 	}
 	if record && sub {
 		if err := s.markScoped(ctx, rec, len(scopes) > 0); err != nil {
@@ -308,19 +391,58 @@ func (s *Service) agentFolderScope(ctx context.Context, rec session.ChatRecord, 
 	return s.liveFolder(ctx, rec.Principal, ag)
 }
 
-// liveFolder returns the folder of an agent that has one, or
-// ErrAgentFolderMissing when it is not chosen, deleted or unreadable.
+// liveFolder returns the folders of an agent that has some, or
+// ErrAgentFolderMissing when one is not chosen, deleted or unreadable. The
+// error names the row, so the person knows which folder to fix. The limits of
+// the list are checked again here: a store may hold an older shape.
 func (s *Service) liveFolder(ctx context.Context, p string, ag agents.Agent) (*folderScope, error) {
-	if ag.FolderID <= 0 {
-		return nil, ErrAgentFolderMissing
+	list := ag.FolderList()
+	if err := agents.ValidateFolders(list); err != nil {
+		return nil, err
 	}
-	path, ok := s.FolderResolver().PathOf(ctx, p, ag.FolderID)
-	if !ok {
-		return nil, ErrAgentFolderMissing
+	sc := &folderScope{}
+	for i, f := range list {
+		if f.Node <= 0 {
+			return nil, fmt.Errorf("%w: folder %d is not chosen", ErrAgentFolderMissing, i+1)
+		}
+		path, ok := s.FolderResolver().PathOf(ctx, p, f.Node)
+		if !ok {
+			return nil, fmt.Errorf("%w: folder %d was deleted or can no longer be read", ErrAgentFolderMissing, i+1)
+		}
+		mode := workspace.ModeRead
+		// A shared folder is read only, whatever the list says.
+		if f.Mode == agents.FolderWrite && !isSharedPath(path) {
+			mode = workspace.ModeWrite
+		}
+		sc.folders = append(sc.folders, scopedFolder{node: f.Node, mode: mode, path: path})
 	}
-	mode := workspace.ModeRead
-	if ag.FolderMode == agents.FolderWrite {
-		mode = workspace.ModeWrite
+	capModes(sc.folders)
+	return sc, nil
+}
+
+// isSharedPath says whether a workspace path is in the shared folders.
+func isSharedPath(p string) bool { return workspace.Within(p, sharedfolders.Root) }
+
+// capModes applies the rule of nested folders: where one folder holds
+// another, the mode of the outer folder is the mode of the inner one. The
+// store's fence gives a node the highest mode among the roots above it, so a
+// read only folder inside a write folder cannot be enforced; the inner folder
+// therefore takes the outer mode, in both directions, and the editor shows it.
+func capModes(fs []scopedFolder) {
+	eff := make([]workspace.Mode, len(fs))
+	for i, f := range fs {
+		eff[i] = f.mode
+		outer := -1
+		for j, o := range fs {
+			if i != j && f.path != o.path && workspace.Within(f.path, o.path) && (outer < 0 || len(o.path) < len(fs[outer].path)) {
+				outer = j
+			}
+		}
+		if outer >= 0 {
+			eff[i] = fs[outer].mode
+		}
 	}
-	return &folderScope{node: ag.FolderID, mode: mode, path: path}, nil
+	for i := range fs {
+		fs[i].mode = eff[i]
+	}
 }

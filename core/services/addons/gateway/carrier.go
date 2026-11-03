@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -483,6 +484,10 @@ func matches(e error, set []error) bool {
 // unavailable: an unknown failure is never reported as success or as a policy
 // decision.
 func StatusFor(e error) int {
+	var limited *contract.ErrRateLimited
+	if errors.As(e, &limited) {
+		return http.StatusTooManyRequests
+	}
 	if e != nil && !matches(e, unavailable) && matches(e, denials) {
 		return http.StatusForbidden
 	}
@@ -533,6 +538,23 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
 		return
 	}
+	var limited *contract.ErrRateLimited
+	if errors.As(e, &limited) {
+		// The service behind the add-on asks the caller to wait. Nothing
+		// failed for good, so the status is not a denial.
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", strconv.Itoa(limited.Seconds()))
+		w.WriteHeader(http.StatusTooManyRequests)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireRateLimited, RetryAfter: limited.Seconds()})
+		return
+	}
+	var refusal2 *CredentialRefusal
+	if errors.As(e, &refusal2) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: refusal2.Code, Allowed: refusal2.Allowed})
+		return
+	}
 	var requirements *addons.HostRequirementsRefusal
 	if errors.As(e, &requirements) {
 		w.Header().Set("Content-Type", "application/json")
@@ -565,6 +587,7 @@ const (
 	wirePackage      = "package_unverified"
 	wireNotPermitted = "not_permitted"
 	wireUnreachable  = "resource_unreachable"
+	wireRateLimited  = "rate_limited"
 )
 
 // denialType is the wire type of a denial that callers tell apart, or "".
@@ -614,6 +637,10 @@ type sdkWire struct {
 	Min            uint64                  `json:"min"`
 	Max            uint64                  `json:"max"`
 	Host           uint64                  `json:"host"`
+	// Allowed and RetryAfter belong to the types resource_not_allowed and
+	// rate_limited.
+	Allowed    []string `json:"allowed,omitempty"`
+	RetryAfter int      `json:"retryAfter,omitempty"`
 }
 
 // SDKRefusalError is the error of a failed operation whose cause is an SDK
@@ -781,6 +808,8 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 					return nil, ErrNotPermitted
 				case wireUnreachable:
 					return nil, ErrResourceUnreachable
+				case CodeResourceNotAllowed, CodeNoCredential:
+					return nil, &CredentialRefusal{Code: b.Type, Allowed: b.Allowed}
 				}
 			}
 			return nil, ErrForbidden
@@ -792,6 +821,12 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		}
 		if wire.Resource != nil {
 			return nil, resourceReplyErrorFor(resp.Body, resp.StatusCode, wire.Request)
+		}
+		if resp.StatusCode == http.StatusTooManyRequests {
+			var b sdkWire
+			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireRateLimited {
+				return nil, &contract.ErrRateLimited{RetryAfter: b.RetryAfter}
+			}
 		}
 		if resp.StatusCode == http.StatusBadRequest {
 			// The owner's typed refusal is a decision, not an outage: nothing

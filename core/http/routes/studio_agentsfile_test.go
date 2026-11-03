@@ -179,7 +179,7 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 			mkdir("alice", "/shared/Team/Acme")
 			got := s.do("alice", http.MethodGet, "/api/chats/agents/"+id, nil)
 			Expect(got.Code).To(Equal(http.StatusOK))
-			Expect(decodeJSON(got)["folder"]).To(Equal(map[string]any{"path": "/shared/Team/Acme", "name": "Acme", "mode": "read", "state": "ok"}))
+			Expect(decodeJSON(got)["folder"]).To(Equal(map[string]any{"path": "/shared/Team/Acme", "name": "Acme", "mode": "read", "effective": "read", "state": "ok"}))
 			a, err := s.svc.Agent(ctx, "alice", id)
 			Expect(err).NotTo(HaveOccurred())
 			followed, ok := s.svc.FolderResolver().PathOf(ctx, "alice", a.FolderID)
@@ -215,6 +215,46 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 			Expect(file["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "", "mode": "read"})))
 		})
 
+		It("saves several folders, shows them in order and exports them as version 3", func() {
+			mkdir("alice", "/Projects/Acme")
+			mkdir("alice", "/Notes")
+			rec := s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Multi",
+				"folders": []map[string]string{{"path": "/Projects/Acme", "mode": "write"}, {"path": "/Notes", "mode": "read"}}})
+			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+			a := decodeJSON(rec)
+			Expect(a["folders"]).To(HaveLen(2))
+			Expect(a["folder"]).To(HaveKeyWithValue("path", "/Projects/Acme"), "folder is the first")
+			id := a["id"].(string)
+
+			file := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+id+"/export", nil))
+			Expect(file).To(HaveKeyWithValue("version", BeNumerically("==", 3)))
+			Expect(file["agent"]).To(HaveKeyWithValue("folders", Equal([]any{
+				map[string]any{"path": "/Projects/Acme", "mode": "write"}, map[string]any{"path": "/Notes", "mode": "read"}})))
+			Expect(file["agent"]).NotTo(HaveKey("folder"))
+
+			mkdir("bob", "/Projects/Acme")
+			imp := decodeJSON(s.do("bob", http.MethodPost, "/api/chats/agents/import", file))
+			Expect(imp["agent"]).To(HaveKeyWithValue("folders", HaveLen(2)))
+			Expect(imp["warnings"]).To(ConsistOf("The folder /Notes was not found. Choose a folder before you use this agent."))
+		})
+
+		It("refuses nine folders and keeps the folders when a write has none", func() {
+			var nine []map[string]string
+			for i := 0; i < 9; i++ {
+				p := "/F" + string(rune('A'+i))
+				mkdir("alice", p)
+				nine = append(nine, map[string]string{"path": p, "mode": "read"})
+			}
+			Expect(s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Nine", "folders": nine}).Code).To(Equal(http.StatusBadRequest))
+			rec := s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Eight", "folders": nine[:8]})
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+			id := decodeJSON(rec)["id"].(string)
+			put := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Eight"})
+			Expect(decodeJSON(put)["folders"]).To(HaveLen(8))
+			cleared := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Eight", "folders": []any{}})
+			Expect(decodeJSON(cleared)).NotTo(HaveKey("folders"))
+		})
+
 		It("exports an agent without a folder as version 1", func() {
 			id := save("alice")
 			file := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+id+"/export", nil))
@@ -248,7 +288,7 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 			Expect(imp.Code).To(Equal(http.StatusCreated), imp.Body.String())
 			res := decodeJSON(imp)
 			Expect(res).NotTo(HaveKey("warnings"))
-			Expect(res["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "/Projects/Acme", "name": "Acme", "mode": "read", "state": "ok"})))
+			Expect(res["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "/Projects/Acme", "name": "Acme", "mode": "read", "effective": "read", "state": "ok"})))
 		})
 
 		It("imports a version 2 file whose folder is missing as unset with a warning", func() {

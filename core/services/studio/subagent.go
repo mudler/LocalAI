@@ -415,7 +415,17 @@ func (s *Service) agentFitsScope(ctx context.Context, p string, outer *folderSco
 		return true
 	}
 	inner, err := s.liveFolder(ctx, p, ag)
-	return err == nil && workspace.Within(inner.path, outer.path)
+	if err != nil {
+		return false
+	}
+	// Every folder of the sub-agent is the same as, or inside, one folder of
+	// the chat's agent.
+	for _, f := range inner.folders {
+		if !outer.contains(f.path) {
+			return false
+		}
+	}
+	return true
 }
 
 // subset picks the tools a sub-agent gets from the parent's host tools and

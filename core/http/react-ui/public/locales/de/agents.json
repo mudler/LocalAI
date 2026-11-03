@@ -80,7 +80,8 @@
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Dateien"
+      "Files": "Dateien",
+      "Tools": "Werkzeuge"
     },
     "name": "Name",
     "description": "Description",
@@ -133,7 +134,12 @@
       "off": "Aus",
       "registries": "Paket-Registries",
       "all": "Alle öffentlichen Seiten"
-    }
+    },
+    "toolsSummary": "{{on}} von {{total}} an",
+    "toolsHelp": "Wähle, was ein Chat mit diesem Agenten nutzen kann. Das sind dieselben Schalter wie im Werkzeuge-Menü eines Chats. Ein ausgeschaltetes Werkzeug wird dem Modell nie angeboten, und ein Chat mit diesem Agenten kann es nicht einschalten.",
+    "toolsHeading": "Werkzeuge dieses Agenten",
+    "skillsLater": "Ein Chat mit diesem Agenten liest nur die eingeschalteten Skills.",
+    "skillsHeading": "Skills dieses Agenten"
   },
   "run": {
     "workingLine": "Working"
@@ -450,7 +456,7 @@
   },
   "folder": {
     "all": "Alle meine Dateien",
-    "one": "Ein Ordner",
+    "one": "Gewählte Ordner",
     "scopeLabel": "Dateien, die dieser Agent erreicht",
     "allHelp": "Chats mit diesem Agenten erreichen alle deine Dateien, wie ein Chat ohne Agent.",
     "choose": "Ordner wählen",
@@ -482,6 +488,15 @@
     "exportNote": "Die Datei nennt den Ordner {{path}}. Wo du sie importierst, erhält der Agent den Ordner mit diesem Pfad, falls es ihn gibt, oder fragt dich nach einem.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Ordner fehlt",
-    "chipUnset": "Kein Ordner gewählt"
+    "chipUnset": "Kein Ordner gewählt",
+    "add": "Ordner hinzufügen",
+    "remove": "{{path}} entfernen",
+    "removeRow": "Entfernen",
+    "count": "{{n}} von {{max}} Ordnern",
+    "summaryMany": "{{n}} Ordner",
+    "effectiveRead": "Liegt in einem Ordner, der nur gelesen werden kann, daher kann dieser nur gelesen werden.",
+    "effectiveWrite": "Liegt in einem Ordner, der geändert werden kann, daher kann auch dieser geändert werden.",
+    "notMounted": "{{n}} geteilte Ordner passen nicht in das Zugriffslimit eines Chats und sind nicht eingebunden.",
+    "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen."
   }
 }
