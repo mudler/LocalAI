@@ -146,14 +146,10 @@ Anthropic clients hit `http://localhost:8080/v1/messages` with
 
 ### OrcaRouter passthrough
 
-[OrcaRouter](https://www.orcarouter.ai) is a unified OpenAI-compatible gateway
-that routes to 150+ hosted models (Anthropic, OpenAI, DeepSeek, Gemini, Qwen,
-…) under a single key. It also runs gateway-level, zero-trust security for AI
-agents on the same endpoint — screening every prompt/response and governing
-every tool call on a default-deny basis, with no application code changes.
-
-OrcaRouter speaks the OpenAI chat-completions wire format, so point a
-cloud-proxy model at it with `provider: openai`:
+[OrcaRouter](https://www.orcarouter.ai) is a hosted OpenAI-compatible gateway
+that routes to many upstream models under a single key. It speaks the OpenAI
+chat-completions wire format, so point a cloud-proxy model at it with
+`provider: openai`:
 
 ```yaml
 name: orcarouter-auto
@@ -182,8 +178,8 @@ Clients hit `http://localhost:8080/v1/chat/completions` with `"model":
 "orcarouter-auto"` and LocalAI forwards the request to OrcaRouter.
 
 `orcarouter/auto` lets OrcaRouter pick the best model for each prompt. To pin
-a specific model, set `upstream_model` to its OrcaRouter id — for example
-`deepseek/deepseek-v4-pro` or `anthropic/claude-sonnet-4-6`. Leave
+a specific model, set `upstream_model` to its id from the OrcaRouter catalog
+(in `provider/model-name` form). Leave
 `upstream_model` empty to pass the client's `model` field through unchanged.
 
 ### Other OpenAI-compatible providers
