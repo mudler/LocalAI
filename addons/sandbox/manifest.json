@@ -1,6 +1,6 @@
 {
   "api": {
-    "max": 1,
+    "max": 2,
     "min": 1
   },
   "arch": "amd64",
@@ -41,7 +41,17 @@
           ],
           "type": "object"
         },
-        "shadows": "bash"
+        "shadows": "bash",
+        "execution": {
+          "class": "commands",
+          "title": "Sandbox",
+          "note": "The sandbox has: python3 (pandas, openpyxl, docx, pptx, pypdf, Pillow), pip, jq, ripgrep (rg), sqlite3, zip, unzip, file, tree, poppler (pdftotext, pdftoppm), git, curl. It has no Node, ImageMagick, ffmpeg or OCR, and apt cannot install anything.",
+          "skills": {
+            "providesRuntimeFor": [
+              "documents"
+            ]
+          }
+        }
       },
       {
         "name": "execution-status",

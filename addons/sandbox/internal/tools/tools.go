@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/sandbox/internal/backends"
+	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/workfiles"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -115,6 +116,18 @@ func (r *runtime) Close(ctx context.Context) error {
 
 var errNoTool = errors.New("this tool is not served by the sandbox add-on")
 
+// Execution is what the add-on declares about its bash tool: the host names the
+// provider by this title, tells the model the note when commands are isolated,
+// and offers the document skills of this package only while the status says so.
+func Execution() *contract.ExecutionDescriptor {
+	return &contract.ExecutionDescriptor{
+		Class:  contract.ExecutionClassCommands,
+		Title:  "Sandbox",
+		Note:   sandbox.GuestToolsNote,
+		Skills: &contract.ExecutionSkills{ProvidesRuntimeFor: []string{contract.SkillKindDocuments}},
+	}
+}
+
 // Definitions returns what a model sees of each tool. They come from the code
 // tools themselves, with the strictness the contract asks of an arguments
 // schema.
@@ -133,6 +146,7 @@ func Definitions() []contract.ToolDefinition {
 		def := contract.ToolDefinition{Name: t.Name, Kind: contract.ToolKindAction, Description: t.Description, InputSchema: raw}
 		if t.Name == ShadowedTool {
 			def.Shadows = ShadowedTool
+			def.Execution = Execution()
 		}
 		out = append(out, def)
 	}
