@@ -36649,6 +36649,192 @@
       template:
         use_tokenizer_template: true
 - kind: model
+  id: minicpm-ocr-1.0-q8
+  name: minicpm-ocr-1.0-q8
+  version: 0.1.0
+  description: |
+    MiniCPM-OCR 1.0 is OpenBMB's 1.3B document-parsing model for Chinese and
+    English text, tables, formulas, charts, and seals. This entry uses the
+    official Q8_0 GGUF weights and the required F16 4x vision projector
+    through llama.cpp, with an 8,192-token default context. Prompt the model
+    with "Text Recognition:" for text, "Table Recognition:" for tables, or
+    "Formula Recognition:" for formulas. Table output is the model's OTSL
+    markup, which clients can convert to HTML.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - vision
+    - minicpm
+  icon: https://avatars.githubusercontent.com/u/89920203
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+        sha256: 791486a476bdacb48acb3f31aa3a18dbb5be87e723a4074bcd13a37d61c852e2
+        uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/MiniCPM-OCR-1_0-Q8_0.gguf
+      - filename: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+        sha256: ceed82261b3b1380c3165f8b37c10117a50093be1362cbfeeb692fa036444682
+        uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/mmproj-model-f16-4x.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 8192
+      known_usecases:
+        - chat
+        - vision
+      mmproj: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+      options:
+        - use_jinja:true
+        - enable_reasoning:0
+        - parallel:1
+      parameters:
+        model: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+        temperature: 0.01
+        top_p: 0.001
+        top_k: 1
+      template:
+        use_tokenizer_template: true
+    variants:
+      - model: minicpm-ocr-1.0-q4km
+      - model: minicpm-ocr-1.0-dspark
+- kind: model
+  id: minicpm-ocr-1.0-q4km
+  name: minicpm-ocr-1.0-q4km
+  version: 0.1.0
+  description: |
+    MiniCPM-OCR 1.0 in the smaller Q4_K_M GGUF build, with the required F16
+    4x vision projector and an 8,192-token default context. Tables stay
+    lossless at this size; dense text may degrade slightly. Prompt the model
+    with "Text Recognition:" for text, "Table Recognition:" for tables, or
+    "Formula Recognition:" for formulas. Table output is the model's OTSL
+    markup, which clients can convert to HTML.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - vision
+    - minicpm
+  icon: https://avatars.githubusercontent.com/u/89920203
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q4_K_M.gguf
+        sha256: c80a703400633f298cc2fddf6d493a541be36918c0801c0b1bf3f14c5703ce49
+        uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/MiniCPM-OCR-1_0-Q4_K_M.gguf
+      - filename: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+        sha256: ceed82261b3b1380c3165f8b37c10117a50093be1362cbfeeb692fa036444682
+        uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/mmproj-model-f16-4x.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 8192
+      known_usecases:
+        - chat
+        - vision
+      mmproj: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+      options:
+        - use_jinja:true
+        - enable_reasoning:0
+        - parallel:1
+      parameters:
+        model: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q4_K_M.gguf
+        temperature: 0.01
+        top_p: 0.001
+        top_k: 1
+      template:
+        use_tokenizer_template: true
+- kind: model
+  id: minicpm-ocr-1.0-dspark
+  name: minicpm-ocr-1.0-dspark
+  version: 0.1.0
+  description: |
+    MiniCPM-OCR 1.0 with OpenBMB's DSpark speculative drafter. DSpark
+    proposes blocks of tokens that the target verifies, which speeds up
+    generation without changing the target model's output. This entry pairs
+    the Q8_0 target with the matching Q8_0 draft and the required F16 4x
+    vision projector, with an 8,192-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-DSpark
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-DSpark-gguf
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - vision
+    - minicpm
+    - dspark
+  icon: https://avatars.githubusercontent.com/u/89920203
+  channel: gallery
+  policy:
+    requireSignature: false
+  schemaVersion: 1
+  model:
+    url: github:mudler/LocalAI/gallery/virtual.yaml@master
+    files:
+      - filename: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+        sha256: 791486a476bdacb48acb3f31aa3a18dbb5be87e723a4074bcd13a37d61c852e2
+        uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/MiniCPM-OCR-1_0-Q8_0.gguf
+      - filename: llama-cpp/models/minicpm-ocr-1.0/dspark-MiniCPM-OCR-1_0-Q8_0.gguf
+        sha256: fd8f64bb62cf5a5c6b4c0999bfa58f64453690c9f75f1124ab613dfb44a822da
+        uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-DSpark-gguf/resolve/265c4dc398c8d5c0ac56a4dd155a5a97b2037226/dspark-MiniCPM-OCR-1_0-Q8_0.gguf
+      - filename: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+        sha256: ceed82261b3b1380c3165f8b37c10117a50093be1362cbfeeb692fa036444682
+        uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/mmproj-model-f16-4x.gguf
+    overrides:
+      backend: llama-cpp
+      context_size: 8192
+      draft_model: llama-cpp/models/minicpm-ocr-1.0/dspark-MiniCPM-OCR-1_0-Q8_0.gguf
+      known_usecases:
+        - chat
+        - vision
+      mmproj: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+      options:
+        - use_jinja:true
+        - enable_reasoning:0
+        - parallel:1
+        - spec_type:draft-dspark
+        - spec_n_max:15
+      parameters:
+        model: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+        temperature: 0.01
+        top_p: 0.001
+        top_k: 1
+      template:
+        use_tokenizer_template: true
+- kind: model
   id: ai21labs_ai21-jamba-reasoning-3b
   name: ai21labs_ai21-jamba-reasoning-3b
   version: 0.0.0-gallery.b09e2f4959b9
