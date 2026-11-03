@@ -103,7 +103,10 @@ type xfer struct {
 	g     TransferGrant
 	start time.Time
 
-	mu       sync.Mutex // one call at a time per handle
+	mu sync.Mutex // one call at a time per handle
+	// cmu guards the first write of pw and cancel, so an expiry can read them
+	// without waiting for a call that holds mu.
+	cmu      sync.Mutex
 	received int64
 	pw       *io.PipeWriter
 	done     chan struct{} // closed when the blob Put of an inbound handle returned
@@ -218,11 +221,14 @@ func (x *xfer) finish(why string) TransferOutcome {
 	x.life.Stop()
 	// A put or a get in progress holds mu; an expiry must not wait for a
 	// stuck one, so it cancels first.
-	if x.cancel != nil {
-		x.cancel()
+	x.cmu.Lock()
+	cancel, pw := x.cancel, x.pw
+	x.cmu.Unlock()
+	if cancel != nil {
+		cancel()
 	}
-	if x.pw != nil {
-		_ = x.pw.CloseWithError(context.Canceled)
+	if pw != nil {
+		_ = pw.CloseWithError(context.Canceled)
 	}
 	x.mu.Lock()
 	defer x.mu.Unlock()
@@ -294,7 +300,9 @@ func (x *xfer) put(ctx context.Context, p contract.ConnectorFilePut) (int64, err
 	if x.pw == nil {
 		pr, pw := io.Pipe()
 		bctx, cancel := context.WithCancel(context.Background())
+		x.cmu.Lock()
 		x.pw, x.cancel, x.done = pw, cancel, make(chan struct{})
+		x.cmu.Unlock()
 		go func() {
 			defer close(x.done)
 			sha, size, err := x.t.store().Put(bctx, pr, x.g.MaxBytes)
