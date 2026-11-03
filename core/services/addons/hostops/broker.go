@@ -327,6 +327,10 @@ func (b *Broker) serveInbound(w http.ResponseWriter, r *http.Request, spec Spec,
 			status, code, msg = http.StatusForbidden, contract.HostScope, "not allowed"
 		case errors.Is(err, ErrNotFound):
 			status, code, msg = http.StatusNotFound, contract.HostNotFound, "not found"
+		case errors.Is(err, ErrTransferTooLarge):
+			status, code, msg = http.StatusRequestEntityTooLarge, contract.HostTooLarge, "the file is larger than the limit"
+		case errors.Is(err, ErrConflict):
+			status, code, msg = http.StatusConflict, contract.HostConflict, "conflict"
 		case errors.Is(err, ErrBadRequest):
 			status, code, msg = http.StatusBadRequest, contract.HostBadRequest, err.Error()
 		}

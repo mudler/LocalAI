@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -25,6 +26,10 @@ var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent:
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
 type Gateway struct {
+	// Transfers holds the handles of connector file transfers on the process
+	// that runs the add-ons. Without it a call that carries a handle is
+	// unavailable.
+	Transfers          *hostops.Transfers
 	Connectors         ConnectorSource
 	ConnectorAuthority ConnectorAuthority
 	// HostSettings is owner-only durable policy; frontends forward, never fall back.

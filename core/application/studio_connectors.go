@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/mudler/xlog"
 
@@ -63,7 +64,16 @@ func (t connectorTransport) Call(ctx context.Context, scope studio.ConnectorCall
 // function as a message the manager pulls itself. A dedicated add-on owner
 // refuses it instead.
 func (a *Application) RegisterAddonConnector() error {
-	if a.addonHostOps == nil || a.studioConnectors == nil {
+	if a.addonHostOps == nil {
+		return nil
+	}
+	// The two file operations serve every connector add-on that declares
+	// files.transfer; the handles come with the connector calls. They are
+	// registered wherever add-ons run, also on a dedicated owner.
+	if err := hostops.RegisterConnectorTransfer(a.addonHostOps.Broker, a.transfers()); err != nil {
+		return err
+	}
+	if a.studioConnectors == nil {
 		return nil
 	}
 	if a.ownsAddonsOnly() {
@@ -129,4 +139,18 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	ctx, cancel := context.WithCancel(ctx)
 	a.studioConnectors, a.studioConnectorsStop = c, cancel
 	go c.Run(ctx)
+}
+
+// transfers is the table of live connector file handles of this process. The
+// gateway checks and ends them; the broker serves the bytes. Its blob store is
+// the one of the workspace, set when the files start.
+func (a *Application) transfers() *hostops.Transfers {
+	a.addonTransfersOnce.Do(func() {
+		t := hostops.NewTransfers(nil)
+		t.Audit = func(o hostops.TransferOutcome) {
+			xlog.Info("Connector file transfer", "direction", o.Direction, "binding", o.BindingID, "bytes", o.Bytes, "result", o.Result, "duration", o.Duration.Round(time.Millisecond))
+		}
+		a.addonTransfers = t
+	})
+	return a.addonTransfers
 }

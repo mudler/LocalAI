@@ -266,7 +266,7 @@ func (c *Client) Connector(ctx context.Context, v contract.ConnectorRequest) (co
 	if c.registration.Capabilities.Connector == nil {
 		return r, ErrNotSent
 	}
-	e := c.call(ctx, "/connector", nil, v, &r, contract.ConnectorTimeout)
+	e := c.call(ctx, "/connector", nil, v, &r, v.CallTimeout())
 	return r, e
 }
 func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {

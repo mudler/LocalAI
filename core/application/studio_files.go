@@ -108,6 +108,7 @@ func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.
 	if err != nil {
 		return stop("workspace blob store", err, "Files are off: their storage could not be opened.")
 	}
+	a.transfers().UseBlobs(blobs)
 	ws, closer, err := a.openWorkspaceIndex(root, blobs)
 	if err != nil {
 		return stop("workspace index", err, "Files are off: the workspace could not be started.")

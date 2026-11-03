@@ -26,6 +26,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/pins"
@@ -113,9 +114,12 @@ type Application struct {
 	backendLibrary  *backendlib.Installer
 	addonManager    *addons.Manager
 	addonHostOps    *addonruntime.HostOps
-	addonDataRoot   string // parent of the private data directory of each add-on; empty when none runs here
-	addonsProbe     addonsProbeState
-	modelsProbe     modelsProbeState
+	// addonTransfers holds the handles of connector file transfers; see transfers.
+	addonTransfers     *hostops.Transfers
+	addonTransfersOnce sync.Once
+	addonDataRoot      string // parent of the private data directory of each add-on; empty when none runs here
+	addonsProbe        addonsProbeState
+	modelsProbe        modelsProbeState
 
 	// libraryStore is the library sources file when no add-on owner runs here.
 	libraryStore   *catalog.Sources

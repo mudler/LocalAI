@@ -68,6 +68,16 @@ func (a *Application) studioToolPins(ctx context.Context) (map[string]string, er
 // the owner policy. Without add-ons there is no owner policy and no connector
 // to move a file, so the default stands.
 func (a *Application) studioConnectorFilesCeiling(ctx context.Context) (int64, error) {
+	n, err := a.policyFilesCeiling(ctx)
+	if err != nil {
+		return 0, err
+	}
+	// A file that a sender shares becomes a file of the chat, so the ceiling
+	// never passes what one file of a workspace may be.
+	return min(n, a.studioUploadLimit()), nil
+}
+
+func (a *Application) policyFilesCeiling(ctx context.Context) (int64, error) {
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}

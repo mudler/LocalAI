@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -111,6 +112,13 @@ type Splitter interface {
 // means. A request for another kind, without a token or with an unknown op is
 // refused.
 func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	return ServeWith(ctx, p, nil, req)
+}
+
+// ServeWith is Serve for an add-on that has the host operation channel, so it
+// can move file bytes by handle (see ConnectorTransfer). A request with a
+// handle that the Platform cannot serve is refused.
+func ServeWith(ctx context.Context, p Platform, host Host, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
 	if req.Kind != p.Kind() || req.Token == "" {
 		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown kind or no token", contract.ErrRefused)
 	}
@@ -149,6 +157,18 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 			out.BotID, out.BotUsername = bot.ID, bot.Username
 		}
 	case contract.ConnectorOpSendFile:
+		if req.Transfer != nil {
+			ss, ok := p.(StreamSender)
+			if !ok || req.File != nil || req.Transfer.Handle == "" || req.Transfer.Size <= 0 || req.Transfer.Name != contract.SafeFileName(req.Transfer.Name) {
+				return contract.ConnectorResponse{}, fmt.Errorf("%w: no file, or one this platform cannot send by handle", contract.ErrRefused)
+			}
+			err = Retry(ctx, func() error {
+				id, err := ss.SendStream(ctx, req, Get(ctx, host, req.Transfer))
+				out.MessageID = id
+				return err
+			})
+			break
+		}
 		fs, ok := p.(FileSender)
 		if !ok || !validFile(req.File) {
 			return contract.ConnectorResponse{}, fmt.Errorf("%w: no file, or one this platform cannot send", contract.ErrRefused)
@@ -159,6 +179,10 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 			return err
 		})
 	case contract.ConnectorOpMedia:
+		if req.Transfer != nil {
+			out.Received, err = receive(ctx, p, host, req)
+			break
+		}
 		m, ok := p.(MediaReader)
 		if !ok || req.Media == "" {
 			return contract.ConnectorResponse{}, fmt.Errorf("%w: no media", contract.ErrRefused)
@@ -188,10 +212,34 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 	default:
 		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown op", contract.ErrRefused)
 	}
+	if errors.Is(err, contract.ErrRefused) {
+		return contract.ConnectorResponse{}, err
+	}
 	if err != nil {
 		return contract.ConnectorResponse{Error: Typed(err)}, nil
 	}
 	return out, nil
+}
+
+// receive streams the file of a reference to the host by the handle.
+func receive(ctx context.Context, p Platform, host Host, req contract.ConnectorRequest) (*contract.ConnectorReceived, error) {
+	sr, ok := p.(StreamReader)
+	if !ok || req.Media == "" || req.Transfer.Handle == "" || req.Transfer.MaxBytes <= 0 {
+		return nil, fmt.Errorf("%w: no media, or a platform that cannot stream it", contract.ErrRefused)
+	}
+	m, err := sr.MediaStream(ctx, req.Token, req.Media, req.Transfer.MaxBytes)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = m.Body.Close() }()
+	if m.Size > req.Transfer.MaxBytes {
+		return nil, ErrTooLarge
+	}
+	// One byte past the bound shows a file that is larger than it said.
+	if _, err := Put(ctx, host, req.Transfer, io.LimitReader(m.Body, req.Transfer.MaxBytes+1)); err != nil {
+		return nil, err
+	}
+	return &contract.ConnectorReceived{Name: contract.SafeFileName(m.Name), MIME: m.MIME}, nil
 }
 
 type optionsKey struct{}

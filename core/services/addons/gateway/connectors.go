@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -51,7 +52,7 @@ func (g *Gateway) connectorSource() ConnectorSource {
 func (g *Gateway) ConnectorKinds(ctx context.Context) ([]connectors.Kind, error) {
 	if g.Forward != nil {
 		var out []connectors.Kind
-		err := g.Forward.connectorRequest(ctx, "GET", "/addons/connectors/kinds", nil, &out)
+		err := g.Forward.connectorRequest(ctx, "GET", "/addons/connectors/kinds", nil, &out, connectorTimeout)
 		return out, err
 	}
 	return g.localConnectorKinds(ctx)
@@ -77,13 +78,17 @@ func (g *Gateway) ConnectorCall(ctx context.Context, s connectors.ConnectorCallS
 			req.Token = ""
 		}
 		var out contract.ConnectorResponse
-		err := g.Forward.connectorRequest(ctx, "POST", "/addons/connectors/call", connectorCall{s, req}, &out)
+		err := g.Forward.connectorRequest(ctx, "POST", "/addons/connectors/call", connectorCall{s, req}, &out, req.CallTimeout())
 		return out, err
 	}
 	return g.localConnectorCall(ctx, s, req)
 }
 func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, connectorTimeout)
+	timeout := connectorTimeout
+	if req.Transfer != nil {
+		timeout = req.CallTimeout()
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	source := g.connectorSource()
 	if source == nil || g.ConnectorAuthority == nil {
@@ -109,7 +114,18 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 		}
 		return contract.ConnectorResponse{}, ErrForbidden
 	}
+	if req.Transfer != nil && (kinds[i].Files == nil || !kinds[i].Files.Transfer) {
+		// A handle only goes to an add-on that declared that it takes one.
+		return contract.ConnectorResponse{}, ErrForbidden
+	}
+	end, err := g.beginTransfer(s, req)
+	if err != nil {
+		return contract.ConnectorResponse{}, err
+	}
 	out, err := source.Connector(ctx, s.AddonID, req)
+	if end != nil {
+		out = finishTransfer(end, out)
+	}
 	if err != nil {
 		// A definite refusal of the add-on keeps its type; anything else could
 		// not tell, so the caller treats it as an outage, with the cause kept.
@@ -120,8 +136,8 @@ func (g *Gateway) localConnectorCall(ctx context.Context, s connectors.Connector
 	}
 	return out, nil
 }
-func (c *Carrier) connectorRequest(ctx context.Context, method, path string, body any, out any) error {
-	ctx, cancel := context.WithTimeout(ctx, connectorTimeout)
+func (c *Carrier) connectorRequest(ctx context.Context, method, path string, body any, out any, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var raw []byte
 	if body != nil {
@@ -136,7 +152,13 @@ func (c *Carrier) connectorRequest(ctx context.Context, method, path string, bod
 		return ErrUnavailable
 	}
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.client.Do(req)
+	// A call that moves a file runs longer than the client's own timeout; the
+	// context carries the bound.
+	client := c.client
+	if timeout > connectorTimeout {
+		client = c.long
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return ErrUnavailable
 	}
@@ -172,6 +194,10 @@ func (g *Gateway) serveConnectors(w http.ResponseWriter, r *http.Request) bool {
 			typedError(w, ErrForbidden)
 			return true
 		}
+		if call.Request.Transfer != nil {
+			// The server's write timeout is sized for short calls.
+			_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(contract.ConnectorTransferTimeout + time.Minute))
+		}
 		out, err := g.localConnectorCall(r.Context(), call.Scope, call.Request)
 		if err != nil {
 			typedError(w, err)
@@ -192,4 +218,52 @@ func decodeConnector(r io.Reader, out any) error {
 		return ErrForbidden
 	}
 	return decode(bytes.NewReader(raw), out)
+}
+
+// beginTransfer registers the handle of a call that carries one, on the
+// process that runs the add-on. The frontend made the handle and checked the
+// chat's access; this process binds it to the add-on of the call, so no other
+// add-on can use it, and to the content or the bound the scope names.
+func (g *Gateway) beginTransfer(s connectors.ConnectorCallScope, req contract.ConnectorRequest) (func() hostops.TransferOutcome, error) {
+	if req.Transfer == nil {
+		return nil, nil
+	}
+	grant := hostops.TransferGrant{Handle: req.Transfer.Handle, AddonID: s.AddonID, BindingID: s.BindingID}
+	switch req.Op {
+	case contract.ConnectorOpMedia:
+		grant.Direction, grant.MaxBytes = hostops.TransferIn, req.Transfer.MaxBytes
+	case contract.ConnectorOpSendFile:
+		if s.Content == nil || req.File != nil {
+			return nil, ErrForbidden
+		}
+		grant.Direction, grant.SHA, grant.Size = hostops.TransferOut, s.Content.SHA, s.Content.Size
+	default:
+		return nil, ErrForbidden
+	}
+	if g.Transfers == nil {
+		return nil, ErrUnavailable
+	}
+	end, err := g.Transfers.Begin(grant)
+	if err != nil {
+		if errors.Is(err, hostops.ErrBadRequest) || errors.Is(err, hostops.ErrConflict) {
+			return nil, ErrForbidden
+		}
+		return nil, ErrUnavailable
+	}
+	return end, nil
+}
+
+// finishTransfer ends the handle after the add-on answered. For an inbound
+// file it writes the size and the hash from the host's own record into the
+// answer; an add-on that did not finish the file gets no Received.
+func finishTransfer(end func() hostops.TransferOutcome, out contract.ConnectorResponse) contract.ConnectorResponse {
+	o := end()
+	if out.Received != nil {
+		if o.Direction != hostops.TransferIn || o.Result != hostops.TransferDone || o.SHA == "" {
+			out.Received = nil
+		} else {
+			out.Received.Size, out.Received.SHA256 = o.Bytes, o.SHA
+		}
+	}
+	return out
 }

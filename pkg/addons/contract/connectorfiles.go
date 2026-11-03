@@ -40,6 +40,11 @@ type ConnectorFiles struct {
 	Receive *FileAbility `json:"receive,omitempty"`
 	// Send is the ability to upload files from the bot.
 	Send *FileAbility `json:"send,omitempty"`
+	// Transfer says that the add-on moves file bytes by a short-lived handle
+	// (ConnectorTransfer, ConnectorFilePutOp, ConnectorFileGetOp) and not in
+	// the connector envelope. Only then may a limit pass MaxConnectorFileBytes.
+	// A kind that declares files without it keeps the inline path.
+	Transfer bool `json:"transfer,omitempty"`
 }
 
 var mediaTypePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9!#$&^_.+-]{0,63}/(\*|[a-z0-9][a-z0-9!#$&^_.+-]{0,63})$`)
@@ -78,4 +83,75 @@ func (f *ConnectorFiles) validate(api VersionRange) error {
 		return err
 	}
 	return f.Send.validate("send")
+}
+
+// Host operations with which an add-on moves the bytes of a file by handle. A
+// handle is issued by the host with one connector call (ConnectorRequest.Transfer),
+// is single use, bound to that call, that add-on and that binding, and ends
+// when the call ends. The add-on needs the operation prefix "connector." in
+// its host policy.
+const (
+	// ConnectorFilePutOp writes the next chunk of an inbound file.
+	ConnectorFilePutOp = "connector.file.put"
+	// ConnectorFileGetOp reads the next chunk of an outbound file.
+	ConnectorFileGetOp = "connector.file.get"
+	// TransferChunkBytes is the largest chunk of data of one put or get. It
+	// is far below the payload limit of a host operation after base64.
+	TransferChunkBytes = 256 << 10
+	// MaxTransferHandle bounds the length of a handle.
+	MaxTransferHandle = 128
+)
+
+// ConnectorTransfer is the handle that the host gives to the add-on with the
+// ops media (inbound, write only) and send_file (outbound, read only).
+type ConnectorTransfer struct {
+	// Handle is random and means nothing to the add-on.
+	Handle string `json:"handle"`
+	// MaxBytes is the largest inbound file the host takes, the effective
+	// limit. The add-on should refuse a larger file before it downloads it.
+	MaxBytes int64 `json:"maxBytes,omitempty"`
+	// Name, MIME and Size describe the outbound file. Name is already safe.
+	Name string `json:"name,omitempty"`
+	MIME string `json:"mime,omitempty"`
+	Size int64  `json:"size,omitempty"`
+}
+
+// ConnectorFilePut is the argument object of ConnectorFilePutOp. Offset must
+// equal the bytes the host already has; when it does not, the host answers
+// with Received and the add-on resumes there. Final ends the file.
+type ConnectorFilePut struct {
+	Handle string `json:"handle"`
+	Offset int64  `json:"offset"`
+	Data   []byte `json:"data,omitempty"`
+	Final  bool   `json:"final,omitempty"`
+}
+
+// ConnectorFilePutResult is the answer of ConnectorFilePutOp.
+type ConnectorFilePutResult struct {
+	Received int64 `json:"received"`
+}
+
+// ConnectorFileGet is the argument object of ConnectorFileGetOp. Length is at
+// most TransferChunkBytes.
+type ConnectorFileGet struct {
+	Handle string `json:"handle"`
+	Offset int64  `json:"offset"`
+	Length int64  `json:"length"`
+}
+
+// ConnectorFileGetResult is the answer of ConnectorFileGetOp. EOF is true
+// when Data ends the file.
+type ConnectorFileGetResult struct {
+	Data []byte `json:"data,omitempty"`
+	EOF  bool   `json:"eof,omitempty"`
+}
+
+// ConnectorReceived is what the add-on answers to the op media when it wrote
+// the file by handle: Name and MIME. The host that holds the handle overwrites
+// Size and SHA256 with its own record, so the add-on cannot choose them.
+type ConnectorReceived struct {
+	Name   string `json:"name"`
+	MIME   string `json:"mime,omitempty"`
+	Size   int64  `json:"size,omitempty"`
+	SHA256 string `json:"sha256,omitempty"`
 }

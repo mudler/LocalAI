@@ -435,6 +435,11 @@ type ConnectorRequest struct {
 	// send_file: the file. Its name is SafeFileName of itself and its data
 	// is 1 to MaxConnectorFileBytes long.
 	File *ConnectorFile `json:"file,omitempty"`
+	// Transfer is the handle for the bytes of a file, set only for a kind
+	// that declares files.transfer. media: the add-on writes the file with
+	// ConnectorFilePutOp. send_file: File is nil and the add-on reads the
+	// file with ConnectorFileGetOp.
+	Transfer *ConnectorTransfer `json:"transfer,omitempty"`
 }
 
 // ConnectorFile is a file that the op media returns or the op send_file
@@ -468,6 +473,9 @@ type ConnectorResponse struct {
 	BotUsername string `json:"botUsername,omitempty"`
 	// media
 	File *ConnectorFile `json:"file,omitempty"`
+	// Received answers the op media of a request with a Transfer: the file
+	// was written by handle. The host adds Size and SHA256 from its record.
+	Received *ConnectorReceived `json:"received,omitempty"`
 	// history: the messages, oldest first, at most the Limit asked for.
 	// Truncated says that older messages exist that are not returned.
 	Messages  []ConnectorHistoryMessage `json:"messages,omitempty"`
@@ -502,6 +510,18 @@ type ConnectorRuntime interface {
 // ConnectorTimeout is how long one connector call may run: a poll waits up to
 // MaxPollSeconds for the platform.
 const ConnectorTimeout = (MaxPollSeconds + 20) * time.Second
+
+// ConnectorTransferTimeout is how long a call that carries a Transfer may
+// run: it moves a whole file chunk by chunk, and a large file takes minutes.
+const ConnectorTransferTimeout = 15 * time.Minute
+
+// CallTimeout is the time one connector call may run.
+func (r ConnectorRequest) CallTimeout() time.Duration {
+	if r.Transfer != nil {
+		return ConnectorTransferTimeout
+	}
+	return ConnectorTimeout
+}
 
 // SafeFileName returns a file name that every platform takes: the last
 // element of a path, without control characters, quotes or path separators,

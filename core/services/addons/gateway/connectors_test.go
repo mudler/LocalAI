@@ -69,7 +69,7 @@ var _ = Describe("Forwarded connector answers", func() {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(status) }))
 		defer server.Close()
 		c := &Carrier{config: CarrierConfig{OwnerAddress: server.URL}, client: server.Client()}
-		return c.connectorRequest(context.Background(), "GET", "/addons/connectors/kinds", nil, &[]connectors.Kind{})
+		return c.connectorRequest(context.Background(), "GET", "/addons/connectors/kinds", nil, &[]connectors.Kind{}, connectorTimeout)
 	}
 
 	It("keeps a refusal apart from an outage", func() {
