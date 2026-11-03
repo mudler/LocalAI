@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -40,8 +41,9 @@ type AddonTool struct {
 	// from the manifest; the core does not know which add-on declares it.
 	Permission string
 	// Credentialed is true for a tool of an add-on that declares a credential.
-	// Its calls run with the token of one connection that the person selects
-	// (see Connectors.ConnectionOf); until then a chat does not offer it.
+	// Its calls run with the token of a connection from the set the person
+	// enabled for the chat (see Connectors.ConnectionsOf); until then a chat
+	// does not offer it.
 	Credentialed bool
 }
 
@@ -88,12 +90,12 @@ type AddonInfo struct {
 	Tools int
 	Off   bool
 	// Credentialed is true for an add-on whose tools run with the token of a
-	// connection. Connections lists the person's connections for it, Selected
-	// is the one this chat uses (its ID is empty when none is selected) and
-	// SelectedBy says why: ConnectionByAgent is read only in the chat.
+	// connection. Connections lists the person's connections for it, Enabled
+	// is the set this chat may use (empty when none is enabled) and Enabled.By
+	// says why: ConnectionByAgent is read only in the chat.
 	Credentialed bool
 	Connections  []Connection
-	Selected     ConnectionChoice
+	Enabled      ConnectionSet
 	// Title and Description are what the add-on declares for people, when its
 	// broker can say (see AddonLister). Empty otherwise.
 	Title, Description string
@@ -187,7 +189,7 @@ func (s *Service) addonsFor(ctx context.Context, user string, rec session.ChatRe
 			if info.Connections, err = s.connectors.Connections(ctx, user, id); err != nil {
 				s.log.Warn("studio: connections unavailable", "user", user, "addon", id, "error", err)
 			}
-			if info.Selected, err = s.connectors.ConnectionOf(ctx, user, rec, id); err != nil {
+			if info.Enabled, err = s.connectors.ConnectionsOf(ctx, user, rec, id); err != nil {
 				s.log.Warn("studio: connection unavailable", "user", user, "addon", id, "error", err)
 			}
 		}
@@ -235,18 +237,20 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 	pol, guarded := s.actPolicy(ctx, rec)
 	gate, _ := s.d.AddonTools.(AddonGate)
 	reasons := map[string]string{}
-	chosen := map[string]bool{}
+	enabled := map[string]ConnectionSet{}
 	for _, d := range defs {
 		have[d.AddonID] = true
-		// A tool that runs with a credential is offered only once a connection
-		// is selected. The host picks none for the person.
+		// A tool that runs with a credential is offered only once the person
+		// has enabled at least one connection for the chat. The host picks
+		// none for the person.
+		var conns ConnectionSet
 		if d.Credentialed {
-			ok, seen := chosen[d.AddonID]
-			if !seen {
-				ok = s.hasConnection(ctx, a.Principal, rec, d.AddonID)
-				chosen[d.AddonID] = ok
+			var seen bool
+			if conns, seen = enabled[d.AddonID]; !seen {
+				conns = s.enabledConnections(ctx, a.Principal, rec, d.AddonID)
+				enabled[d.AddonID] = conns
 			}
-			if !ok {
+			if len(conns.Items) == 0 {
 				continue
 			}
 		}
@@ -277,20 +281,35 @@ func (s *Service) addonTools(ctx context.Context, a workspace.Actor, rec session
 		if len(schema) == 0 {
 			schema = json.RawMessage(`{"type":"object"}`)
 		}
+		if len(conns.Items) > 1 {
+			// Two or more connections: the model names one in every call.
+			var ok bool
+			if schema, ok = withConnectionArgument(schema, conns.Items); !ok {
+				s.log.Warn("studio: tool not offered, its schema cannot take the connection argument", "addon", d.AddonID, "tool", d.Name)
+				continue
+			}
+		}
 		if t, ok := s.shadowTool(a, d, schema); ok {
+			if d.Credentialed {
+				t.Run = s.connectionRun(a, d.AddonID, conns, t.Run)
+			}
 			if guarded {
 				t = s.gateAddonAct(rec, pol, t, d)
 			}
 			tools = append(tools, t)
 			continue
 		}
+		run := func(ctx context.Context, args json.RawMessage) (string, error) {
+			return s.d.AddonTools.Call(ctx, a.Principal, a.ChatID, name, args)
+		}
+		if d.Credentialed {
+			run = s.connectionRun(a, d.AddonID, conns, run)
+		}
 		tool := session.Tool{
 			Name: name, Description: d.Description, Schema: schema,
 			// The user and the conversation come from the chat, never from the
 			// arguments the model wrote.
-			Run: func(ctx context.Context, args json.RawMessage) (string, error) {
-				return s.d.AddonTools.Call(ctx, a.Principal, a.ChatID, name, args)
-			},
+			Run: run,
 		}
 		if d.Permission != "" && rec.Origin == session.OriginConnector {
 			var ok bool
@@ -355,13 +374,70 @@ func (s *Service) gateAddonTool(t session.Tool, permission, chat string) (sessio
 	return t, true
 }
 
-// hasConnection says whether the chat rec has a selected connection for the
-// add-on (see Connectors.ConnectionOf). Without the connector service nothing
-// can be selected.
-func (s *Service) hasConnection(ctx context.Context, user string, rec session.ChatRecord, addonID string) bool {
+// enabledConnections is the set of connections the chat rec may use for the
+// add-on (see Connectors.ConnectionsOf). Without the connector service nothing
+// is enabled, and a doubt counts as none.
+func (s *Service) enabledConnections(ctx context.Context, user string, rec session.ChatRecord, addonID string) ConnectionSet {
 	if s.connectors == nil {
-		return false
+		return ConnectionSet{}
 	}
-	c, err := s.connectors.ConnectionOf(ctx, user, rec, addonID)
-	return err == nil && c.ID != ""
+	set, err := s.connectors.ConnectionsOf(ctx, user, rec, addonID)
+	if err != nil {
+		return ConnectionSet{}
+	}
+	return set
+}
+
+// connectionRun wraps the call of a tool of an add-on that runs with a
+// credential. The host, not the add-on, owns the `connection` argument:
+//
+//   - The set is read again from the stored chat at each call, so a connection
+//     the person took away is gone for the rest of the turn too.
+//   - With one connection the argument is not offered. A model that sends it
+//     anyway must name that connection.
+//   - With two or more it is required, for every tool, read or write: the host
+//     never infers it.
+//   - The name is looked up in the set only. A name that is not in it, or none,
+//     returns a plain sentence that lists the allowed names, and nothing runs.
+//   - The argument is removed before the call, and the binding goes to the
+//     owner in the context, where only host code sets it.
+func (s *Service) connectionRun(a workspace.Actor, addonID string, offered ConnectionSet, run func(context.Context, json.RawMessage) (string, error)) func(context.Context, json.RawMessage) (string, error) {
+	return func(ctx context.Context, args json.RawMessage) (string, error) {
+		set := offered
+		rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+		switch {
+		case err == nil:
+			set = s.enabledConnections(ctx, a.Principal, rec, addonID)
+		case !errors.Is(err, session.ErrNotFound):
+			return "", err
+		}
+		var in map[string]json.RawMessage
+		if len(bytes.TrimSpace(args)) > 0 && json.Unmarshal(args, &in) != nil {
+			return "", fmt.Errorf("the arguments of the call are not a JSON object")
+		}
+		raw, present := in[ConnectionArgument]
+		delete(in, ConnectionArgument)
+		var given string
+		if present && json.Unmarshal(raw, &given) != nil {
+			given, present = "", false
+		}
+		var chosen Connection
+		switch {
+		case len(set.Items) == 0:
+			return connectionSentence(nil, "", false), nil
+		case len(set.Items) == 1 && !present:
+			chosen = set.Items[0]
+		default:
+			var ok bool
+			if chosen, ok = pickConnection(set.Items, given); !ok {
+				return connectionSentence(set.Items, given, present && given != ""), nil
+			}
+		}
+		if in != nil {
+			if args, err = json.Marshal(in); err != nil {
+				return "", err
+			}
+		}
+		return run(addontools.WithConnection(ctx, chosen.ID), args)
+	}
 }

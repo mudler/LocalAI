@@ -9079,11 +9079,11 @@
         },
         "/api/chats/{id}/connections": {
             "put": {
-                "description": "For an add-on whose tools run with the token of one of your connections (such as GitHub), the host never picks the connection for you. With exactly one it is selected; with several, choose here, and until then the tools of the add-on are not offered to the model. An empty connection clears the choice. Choosing a connection switches the add-on on for the chat. If the saved agent of the chat names the connection, the answer is 400: the agent decides.",
+                "description": "For an add-on whose tools run with the token of one of your connections, the host never picks connections for you. With exactly one it is enabled; with several, choose the set here, and until then the tools of the add-on are not offered to the model. With two or more enabled, the model names the connection in every tool call by a generic connection argument; it can only name an enabled one. An empty list clears the choice. Choosing connections switches the add-on on for the chat. If the saved agent of the chat names the set, the answer is 400: the agent decides. A request with the older single connection field is read as a set of one.",
                 "tags": [
                     "chats"
                 ],
-                "summary": "Choose the connection a chat uses for an add-on.",
+                "summary": "Choose the connections a chat may use for an add-on.",
                 "parameters": [
                     {
                         "type": "string",
@@ -9093,7 +9093,7 @@
                         "required": true
                     },
                     {
-                        "description": "the add-on and the connection",
+                        "description": "the add-on and the connections",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -16110,6 +16110,15 @@
                 }
             }
         },
+        "connsets.Sets": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                }
+            }
+        },
         "contextfiles.Scope": {
             "type": "string",
             "enum": [
@@ -19596,9 +19605,6 @@
         "schema.ChatsAddon": {
             "type": "object",
             "properties": {
-                "connection": {
-                    "type": "string"
-                },
                 "connection_by": {
                     "type": "string"
                 },
@@ -19609,11 +19615,17 @@
                     }
                 },
                 "credentialed": {
-                    "description": "Credentialed is true when the tools of the add-on run with the token of\none of your connections. Connections lists them, oldest first. Connection\nis the one this chat uses (empty when none is selected) and ConnectionBy\nsays why: chat (you chose it), agent (the agent of the chat names it; you\ncannot change it here), binding (the chat was started by that binding) or\nonly (it is your only connection). NeedsConnection is true while none is\nselected: the tools are not offered to the model until you pick one.",
+                    "description": "Credentialed is true when the tools of the add-on run with the token of\nyour connections. Connections lists them, oldest first. Enabled is the\nIDs of the ones this chat may use (empty when none is enabled) and\nConnectionBy says why: chat (you chose them), agent (the agent of the\nchat names the set; you cannot change it here), binding (the chat was\nstarted by that binding) or only (it is your only connection).\nNeedsConnection is true while none is enabled: the tools are not offered\nto the model until you enable one. With two or more enabled, the model\nnames the connection in every call.",
                     "type": "boolean"
                 },
                 "description": {
                     "type": "string"
+                },
+                "enabled_connections": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "id": {
                     "type": "string"
@@ -20049,11 +20061,12 @@
                     }
                 },
                 "connections": {
-                    "description": "Connections names, for each add-on whose tools run with a credential\n(by add-on ID), the connection (binding ID) the agent's chats use. A\nchat of the agent cannot change it. An add-on with no entry gets no\nconnection from the agent: the person picks one in the chat.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "description": "Connections names, for each add-on whose tools run with a credential\n(by add-on ID), the connections (binding IDs) the agent's chats may use.\nA chat of the agent cannot change the set. An add-on with no entry gets\nnone from the agent: the person chooses in the chat.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/connsets.Sets"
+                        }
+                    ]
                 },
                 "created": {
                     "type": "string"
@@ -20334,11 +20347,12 @@
                     }
                 },
                 "connections": {
-                    "description": "Connections names the connection the agent's chats use for each add-on\nwith a credential (see ChatsAgent). A write without it keeps the stored\nones; an empty object clears them. Each binding must be your own for that\nadd-on. An export file never carries it: a binding ID belongs to one server.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "description": "Connections names the connections the agent's chats may use for each\nadd-on with a credential (see ChatsAgent). A write without it keeps the\nstored ones; an empty object clears them. Each binding must be your own\nfor that add-on. A single string is read as a set of one. An export file\nnever carries it: a binding ID belongs to one server.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/connsets.Sets"
+                        }
+                    ]
                 },
                 "description": {
                     "type": "string"
@@ -20783,6 +20797,9 @@
         "schema.ChatsConnection": {
             "type": "object",
             "properties": {
+                "handle": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -20799,8 +20816,15 @@
                     "type": "string"
                 },
                 "connection": {
-                    "description": "Connection is the ID of one of your connector bindings for that add-on;\nempty clears the choice.",
+                    "description": "Connection is the older form: one binding ID, read as a set of one when\nconnections is absent.",
                     "type": "string"
+                },
+                "connections": {
+                    "description": "Connections are the IDs of your connector bindings for that add-on that\nthe chat may use; empty clears the choice.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -23655,11 +23679,12 @@
                     }
                 },
                 "connections": {
-                    "description": "Connections is the connection (a connector binding ID) the chat uses for\neach add-on whose tools run with a credential, by add-on ID. Each must be\none of your own for that add-on.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
+                    "description": "Connections is the set of connections (connector binding IDs) the chat\nmay use for each add-on whose tools run with a credential, by add-on ID.\nEach must be one of your own for that add-on. A single string is read as\na set of one.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/connsets.Sets"
+                        }
+                    ]
                 },
                 "mcp_off": {
                     "type": "array",

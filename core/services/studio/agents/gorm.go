@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/internal/dberr"
 )
 
@@ -109,7 +110,7 @@ func listJSON(l []string) string {
 	return string(raw)
 }
 
-func connectionsJSON(m map[string]string) string {
+func connectionsJSON(m connsets.Sets) string {
 	if len(m) == 0 {
 		return ""
 	}

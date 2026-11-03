@@ -13,19 +13,21 @@ export function emptyChoices() {
 }
 
 // The choices with one more: kind is addons, mcp or builtins (value: off),
-// skills (value: enabled) or connections (value: the binding ID, '' to clear).
+// skills (value: enabled) or connections (value: the list of binding IDs, empty to clear).
 export function withChoice(choices, kind, key, value) {
   return { ...choices, [kind]: { ...choices[kind], [key]: value } }
 }
 
-// An add-on row with the connection the draft chose. The server answers a
+// An add-on row with the connections the draft enabled. The server answers a
 // draft list for the choices it was sent, so this only keeps the screen right
-// until that answer comes; a choice for a connection the row does not list is
-// ignored, and a connection the agent names is not changed.
+// until that answer comes; ids the row does not list are ignored, and a set
+// that the agent names is not changed.
 function withConnection(a, connections = {}) {
-  const id = connections[a.id]
-  if (!a.credentialed || a.connection_by === 'agent' || !id || !(a.connections || []).some((c) => c.id === id)) return a
-  return { ...a, connection: id, connection_by: 'chat', needs_connection: false }
+  if (!a.credentialed || a.connection_by === 'agent' || !Object.prototype.hasOwnProperty.call(connections, a.id)) return a
+  const known = new Set((a.connections || []).map((c) => c.id))
+  const ids = (a.connections || []).map((c) => c.id).filter((id) => [].concat(connections[a.id] || []).includes(id) && known.has(id))
+  if (ids.length === 0) return a
+  return { ...a, enabled_connections: ids, connection_by: 'chat', needs_connection: false }
 }
 
 // The lists as the server gave them for the draft, with the choices applied.
@@ -50,9 +52,9 @@ export function applyChoices({ addons = [], servers = [], connectors = [], mcpOf
 // in the form its own PUT takes. null when nothing differs from a plain chat,
 // so the request carries no switches.
 export function draftSwitches({ addons = [], mcpOff = [], builtins = [], skills = [] }) {
-  // A connection the person chose in the composer, for an add-on that lets
-  // the chat choose (an agent's own choice is the agent's).
-  const connections = Object.fromEntries(addons.filter((a) => a.credentialed && a.connection_by === 'chat' && a.connection).map((a) => [a.id, a.connection]))
+  // The connections the person enabled in the composer, for an add-on that
+  // lets the chat choose (an agent's own set is the agent's).
+  const connections = Object.fromEntries(addons.filter((a) => a.credentialed && a.connection_by === 'chat' && (a.enabled_connections || []).length).map((a) => [a.id, a.enabled_connections]))
   const out = {
     addons_off: addons.filter((a) => a.off).map((a) => a.id).sort(),
     mcp_off: [...mcpOff].sort(),
@@ -77,7 +79,7 @@ export function draftListSwitches(choices, builtins = []) {
     builtins_on: Object.entries(choices.builtins).filter(([g, off]) => !off && groups.get(g) === true).map(([g]) => g).sort(),
   }
   for (const k of Object.keys(out)) if (out[k].length === 0) delete out[k]
-  const connections = Object.fromEntries(Object.entries(choices.connections || {}).filter(([, id]) => id))
+  const connections = Object.fromEntries(Object.entries(choices.connections || {}).filter(([, ids]) => [].concat(ids || []).length))
   if (Object.keys(connections).length) out.connections = connections
   return Object.keys(out).length ? out : null
 }

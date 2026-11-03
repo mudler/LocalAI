@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 )
 
 // NewStore returns an empty store. Each spec calls it once; clean up with
@@ -24,7 +25,7 @@ func sample(id, principal, name string) agents.Agent {
 		ID: id, Principal: principal, Name: name, Description: "d", Instructions: "Be brief.", Model: "m1",
 		MCPServers: []string{"github"}, Addons: []string{"office", "sandbox"}, Collections: []string{"docs"}, Skills: []string{"review"},
 		Network: "registries", BuiltinsOff: []string{"triggers", "web"}, BuiltinsOn: []string{"saved_agents"}, Builtins: []string{"memory.write", "skills.write"},
-		Connections: map[string]string{"github": "b-work"}, Created: now, Updated: now,
+		Connections: connsets.Sets{"tracker": {"b-work", "b-home"}}, Created: now, Updated: now,
 	}
 }
 
@@ -48,10 +49,10 @@ func Run(newStore NewStore) {
 		Expect(got.BuiltinsOff).To(Equal([]string{"triggers", "web"}))
 		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
 		Expect(got.Builtins).To(Equal([]string{"memory.write", "skills.write"}))
-		Expect(got.Connections).To(Equal(map[string]string{"github": "b-work"}))
-		got.Connections["github"] = "changed"
+		Expect(got.Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}))
+		got.Connections["tracker"][0] = "changed"
 		again, _ := s.Get(ctx, "u1", "a1")
-		Expect(again.Connections).To(Equal(map[string]string{"github": "b-work"}), "a caller cannot change a stored agent")
+		Expect(again.Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}), "a caller cannot change a stored agent")
 		Expect(got.Created.Equal(a.Created)).To(BeTrue(), "got %+v", got)
 		a.Name, a.Addons, a.Updated = "Reviewer 2", nil, a.Updated.Add(time.Hour)
 		a.Created = time.Time{}

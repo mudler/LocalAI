@@ -108,6 +108,7 @@
 
 .ad-approval { display: flex; flex-direction: column; gap: var(--dk-space-3); min-width: 0; }
 .ad-approval__from { margin: 0; color: var(--dk-muted); font-size: var(--fs-small); }
+.ad-approval__connection { margin: 0; font-size: var(--fs-body); font-weight: 600; color: var(--dk-text); }
 .ad-approval__facts { display: flex; flex-wrap: wrap; gap: var(--dk-space-4); margin: 0; }
 .ad-approval__facts dt { color: var(--dk-muted); font-size: var(--fs-meta); }
 .ad-approval__facts dd { margin: 0; font-size: var(--fs-small); }

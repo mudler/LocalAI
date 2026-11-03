@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"maps"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/atomicfile"
@@ -471,7 +471,7 @@ func cloneRec(r session.ChatRecord) session.ChatRecord {
 	r.McpOff = append([]string(nil), r.McpOff...)
 	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
 	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
-	r.Connections = maps.Clone(r.Connections)
+	r.Connections = connsets.Clone(r.Connections)
 	if r.HostConsent != nil {
 		cp := *r.HostConsent
 		r.HostConsent = &cp
@@ -587,8 +587,8 @@ func (s *jsonStore) SetBuiltinsOn(_ context.Context, principal, id string, on []
 	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOn = append([]string(nil), on...) })
 }
 
-func (s *jsonStore) SetConnections(_ context.Context, principal, id string, connections map[string]string) error {
-	return s.set(principal, id, func(next *chatState) { next.Rec.Connections = maps.Clone(connections) })
+func (s *jsonStore) SetConnections(_ context.Context, principal, id string, connections connsets.Sets) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.Connections = connsets.Clone(connections) })
 }
 
 func (s *jsonStore) SetScopedAgent(_ context.Context, principal, id string, scoped bool) error {

@@ -10,6 +10,7 @@
   "approval": {
     "title": "Perlu persetujuan",
     "from": "Dari {{addon}}",
+    "connection": "Koneksi: {{name}}",
     "loading": "Memuat permintaan",
     "failed": "Permintaan ini tidak tersedia.",
     "rejected": "Permintaan tidak dapat diselesaikan. Periksa statusnya lalu coba lagi.",

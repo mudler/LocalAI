@@ -509,15 +509,23 @@ a call may reach. The model never sees or sets either.
   host ID made from its hash. The person edits it where they edit the binding.
 - `resourceArgument` names a string argument that carries the external name. A
   tool that declares it must require it. Before the add-on is called, the host
-  matches the argument against the list of the one binding that the person
-  selected for the call, without regard to case. A name that is not on that list
-  is refused with the code `resource_not_allowed` and the names of that list; the
-  add-on is not called. The host never picks a binding: a chat uses the one the
-  person or the saved agent chose (or the person's only one), and a call with no
-  selected binding is refused with the code `select_connection`. The result of
-  a call and the card of a proposal say which connection acted, for example
-  "as Work, repository acme/widgets"; a proposal is applied with the binding it
-  was previewed with.
+  matches the argument against the list of the one binding that the call
+  names, without regard to case. A name that is not on that list is refused with
+  the code `resource_not_allowed` and the names of that list; the add-on is not
+  called. The host never picks a binding: a chat uses the connections that the
+  person or the saved agent enabled for it (or the person's only one). When two or
+  more are enabled, the host adds a required `connection` argument to every tool
+  of the add-on in the definitions it gives the model, an enum of the names of the
+  enabled connections, checks the name against that set and removes the argument
+  before the call. The add-on's manifest and tools do not change and must not use
+  an argument of that name (a tool that does is not offered when a chat enables
+  two or more connections). A call with no usable connection is refused with the
+  code `select_connection`. The result of a call and the card of a proposal say
+  which connection acted, for example "as Work, repository acme/widgets"; a
+  proposal is applied with the binding it was previewed with. The word for the
+  resource in these lines is `resourceLabel`, and the host takes nothing else
+  about the add-on from its identity: any add-on that declares a credential
+  behaves the same way.
 - `resourceLabel` is optional (at most 24 characters of plain text): the word for
   the resource in that line. Without it the host says "resource".
 - A call that passes the check carries `Request.Credential` (the secret),

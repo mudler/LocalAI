@@ -46,20 +46,27 @@ export function agentAddons(addons, form) {
   const seen = new Set(list(addons).map((a) => a.id))
   const gone = [...granted].filter((id) => !seen.has(id)).map((id) => ({ id, tools: 0, gone: true }))
   const named = form.connections || {}
-  // The row of an add-on with a credential shows the connection the agent
-  // names, not the one a new chat would use; a name that is not one of the
-  // person's connections shows as none.
+  // The row of an add-on with a credential shows the connections the agent
+  // names, not the ones a new chat would use; an ID that is not one of the
+  // person's connections is left out.
   const withConnection = (a) => (a.credentialed
-    ? { ...a, connection: list(a.connections).some((c) => c.id === named[a.id]) ? named[a.id] : '', connection_by: '', needs_connection: false }
+    ? { ...a, enabled_connections: list(a.connections).map((c) => c.id).filter((id) => connectionIds(named[a.id]).includes(id)), connection_by: '', needs_connection: false }
     : a)
   return [...list(addons).map((a) => ({ ...withConnection(a), off: !granted.has(a.id) })), ...gone.map((a) => ({ ...a, off: false }))]
 }
 
-// The connections of the form after the agent names (or, with an empty id,
-// stops naming) the connection for one add-on.
-export function connectionsAfter(form, addonId, bindingId) {
+// The binding IDs of one entry of a connections object. A server older than
+// sets, or a saved form, may hold a single string.
+export function connectionIds(entry) {
+  return [].concat(entry || []).filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim())
+}
+
+// The connections of the form after the agent names the set for one add-on
+// (an empty list stops naming).
+export function connectionsAfter(form, addonId, bindingIds) {
   const next = { ...(form.connections || {}) }
-  if (bindingId) next[addonId] = bindingId
+  const ids = connectionIds(bindingIds)
+  if (ids.length) next[addonId] = ids
   else delete next[addonId]
   return next
 }

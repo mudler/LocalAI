@@ -115,18 +115,21 @@ tools, as they are your own settings.
 
 An add-on whose tools run with the token of one of your
 [connections](/features/chats-connectors/#github) lets the agent name which
-connection its chats use. In the agent form, the add-on's row in **Tools** has a
-**Connection for chats of this agent** selector. A chat of the agent uses that
-connection, shows it read only, and cannot change it. **Choose in each chat**
-(the default) leaves the choice to the person in each chat; until they choose,
-the add-on's tools are not offered.
+connections its chats may use. In the agent form, the add-on's row in **Tools**
+has a **Connections for chats of this agent** list with a checkbox for each
+connection. A chat of the agent uses that set, shows it read only, and cannot
+change it. With two or more in the set, the model names the connection in each
+tool call (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)).
+With none ticked (the default) each chat chooses its own; until a person
+chooses, the add-on's tools are not offered.
 
-Over the API an agent has `connections`, an object from add-on ID to binding ID
-(`{"github": "<binding id>"}`). A binding must be yours and belong to that
-add-on, else `400`. A `PUT` that does not name `connections` keeps them, and
-`{}` clears them. The export file never carries them: a binding ID belongs to one
-server, so the format and its version are unchanged, and an imported agent has
-no connection until you choose one.
+Over the API an agent has `connections`, an object from add-on ID to a list of
+binding IDs (`{"<add-on id>": ["<binding id>", ...]}`). Every binding must be
+yours and belong to that add-on, else `400`. A single binding ID in place of the
+list is read as a set of one. A `PUT` that does not name `connections` keeps
+them, and `{}` clears them. The export file never carries them: a binding ID
+belongs to one server, so the format and its version are unchanged, and an
+imported agent has no connections until you choose some.
 
 ### Folders of an agent
 

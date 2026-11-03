@@ -192,6 +192,6 @@ test('chat MCP: the edit form starts with empty secrets, and only a real change 
 })
 
 test('tools counts: an add-on that waits for a connection is not counted as on', () => {
-  const addons = [{ id: 'github', off: false, needs_connection: true }, { id: 'office', off: false }]
+  const addons = [{ id: 'tracker', off: false, needs_connection: true }, { id: 'office', off: false }]
   assert.deepEqual(toolsCounts({ addons }), { on: 1, total: 2, mcp: 0 })
 })

@@ -1064,40 +1064,75 @@ curl -s localhost:8080/api/chats/$ID/addons
 # {"addons":[],"commands":"available","commands_isolation":"host","commands_provider":"builtin","commands_consent":"ask"}
 ```
 
-### The connection of an add-on
+### The connections of an add-on
 
 Some add-ons run their tools with a token that you keep in a connection (for
-example the [GitHub add-on](/features/chats-connectors/#github)). LocalAI never
-chooses the connection for you:
+example the [GitHub add-on](/features/chats-connectors/#github)). Any add-on
+that declares a credential in its manifest works this way. LocalAI never
+chooses the connections for you, and a chat can use more than one for the same
+add-on:
 
-- With **one** connection for the add-on, it is selected.
-- With **several**, the add-on's row in the **Tools** menu has a **Connection**
-  selector. Until you choose, the tools of the add-on are not offered to the
-  model, the row is off and says "Choose a connection to use these tools".
-  Choosing a connection switches the add-on on.
+- With **one** connection for the add-on, it is enabled and cannot be switched
+  off separately.
+- With **several**, the add-on's row in the **Tools** menu has a **Connections**
+  list with a checkbox for each. You tick the ones this chat may use. Until you
+  tick one, the tools of the add-on are not offered to the model, the row is off
+  and says "Choose at least one connection to use these tools". Ticking a
+  connection switches the add-on on.
 - With **none**, the row says "No connection yet" and links to the Connectors
   page.
-- A [saved agent](/features/chats-agents/#connections-of-an-agent) can name its
-  connection for the add-on. A chat of that agent uses it, shows it read only,
-  and cannot change it. An agent with no choice follows the same rules as a chat.
-- A chat that a connector binding started uses that binding.
+- A [saved agent](/features/chats-agents/#connections-of-an-agent) can name a
+  set of connections for the add-on. A chat of that agent uses that set, shows it
+  read only, and cannot change it. An agent with no set follows the same rules as
+  a chat.
+- A chat that a connector binding started uses that binding and no other.
 
-The choice is stored with the chat, like the other switches, and survives a
-reload, a fork and the runs of the triggers that the chat proposed. The tool
-result and the proposal card say which connection acted ("as Work, repository
-acme/widgets"), and a pending change is applied with the connection it was
-shown with, even if you pick another one meanwhile.
+The set is stored with the chat, like the other switches, and survives a reload,
+a fork and the runs of the triggers that the chat proposed.
+
+**How the model picks one.** The tools keep their names. With exactly one
+connection enabled, nothing changes for the model: the tools run with that
+connection. With two or more enabled, LocalAI adds one argument, `connection`, to
+every tool of the add-on, reads and writes alike. It is required, and its value
+is one of the enabled connections by name. The name is the connection's name in
+lower case, with each run of other characters turned into a hyphen ("Work
+account" is `work-account`); the description of the argument lists each name
+with the name you gave the connection. The add-on never sees the argument.
+LocalAI checks the name against the connections enabled for this chat, not
+against all your connections, so the model cannot use a connection you did not
+enable, whatever a tool result or a file says. A missing or unknown name returns
+a plain sentence that lists the allowed names, and nothing is sent. A tool that
+changes something never runs without the name, also when changes are made
+without asking.
+
+The names of your connections to one add-on must differ (case and punctuation
+do not make a new name): saving a connection with a name that another has is a
+`400`. Connections saved before this rule keep working, and LocalAI gives a
+repeated name a numeric suffix in the list the model sees.
+
+The repository (or other resource) list of the connection that was named is the
+only one that applies: a call that names a repository that is not on that
+connection's list is refused with the list of that connection. The tool result
+and the confirmation say which connection acted ("as Work, repository
+acme/widgets"). When a change waits for you to confirm it, the card shows the
+connection first, and the change is applied with the connection it was previewed
+with, even if you change the set meanwhile. The audit line of each use of a
+token carries the binding ID.
 
 In `GET /api/chats/{id}/addons` such an add-on has `credentialed: true`,
-`connections` (`[{id, name}]`, oldest first), `connection` (the one in use),
-`connection_by` (`chat`, `agent`, `binding` or `only`) and `needs_connection`.
-`PUT /api/chats/{id}/connections {"addon": "github", "connection": "<binding id>"}`
-chooses one (an empty `connection` clears the choice; `400` when the agent of the
-chat names the connection or the binding is not yours for that add-on). The draft
-list takes `connections=github:<binding id>` and `POST /api/chats` takes
-`switches.connections` (`{"github": "<binding id>"}`). A call that comes from no
-chat, such as the add-on's own page, can use a connection only when you have
-exactly one; otherwise it is refused with `select_connection`.
+`connections` (`[{id, name, handle}]`, oldest first; `handle` is the name the
+model uses), `enabled_connections` (the IDs this chat may use), `connection_by`
+(`chat`, `agent`, `binding` or `only`) and `needs_connection`.
+`PUT /api/chats/{id}/connections {"addon": "<add-on id>", "connections": ["<binding id>", ...]}`
+sets the set (an empty list clears the choice; `400` when the agent of the chat
+names a set or a binding is not yours for that add-on; the older single
+`connection` field is read as a set of one). The draft list takes
+`connections=<add-on id>:<binding id>`, once for each binding, and
+`POST /api/chats` takes `switches.connections` (`{"<add-on id>": ["<binding id>"]}`).
+Stored data and requests that hold a single binding ID for an add-on are read as
+a set of one. A call that comes from no chat, such as the add-on's own page, can
+use a connection only when you have exactly one; otherwise it is refused with
+`select_connection`.
 
 ## Long conversations
 

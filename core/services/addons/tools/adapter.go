@@ -205,8 +205,16 @@ const CodeNoCredential = gateway.CodeNoCredential
 // connection to use.
 const CodeSelectConnection = gateway.CodeSelectConnection
 
-// SelectConnectionNote is what the model is told when no connection is selected.
-const SelectConnectionNote = "No connection is selected for this add-on, so nothing was sent. Tell the person to choose a connection for it in the Tools menu of this chat. Do not repeat the call, do not pick one yourself and do not report an outage."
+// SelectConnectionNote is what the model is told when no connection is enabled.
+const SelectConnectionNote = "No connection is enabled for this add-on in this chat, so nothing was sent. Tell the person to enable one for it in the Tools menu of this chat. Do not repeat the call, do not pick one yourself and do not report an outage."
+
+// WithConnection returns a context that names the binding a credentialed call
+// of a chat must use. The chats service sets it after it checked the name the
+// model gave against the connections the person enabled for the chat. The
+// owner refuses a binding that is not in that set.
+func WithConnection(ctx context.Context, bindingID string) context.Context {
+	return gateway.WithConnection(ctx, bindingID)
+}
 
 // NoCredentialNote is what the model is told when the person has no credential for the add-on.
 const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
@@ -339,8 +347,8 @@ var _ Applier = (*gateway.Gateway)(nil)
 
 // ToolAdapter exposes add-on tools to model consumers.
 type ToolAdapter struct {
-	// connection names the connection a chat selected for an add-on, or "".
-	// The chat consumer sets it; another consumer has no chat.
+	// connection names the connection a call used, or "". The chat consumer
+	// sets it; another consumer has no chat.
 	connection ConnectionNamer
 	// actions says that this adapter serves action tools. Only the adapter of
 	// the chats consumer is built with it; every other consumer neither lists
@@ -351,10 +359,9 @@ type ToolAdapter struct {
 	newID   func() (string, error)
 }
 
-// ConnectionNamer returns the binding ID and name of the connection that the
-// chat conversation uses for the add-on, or empty strings when none is
-// selected.
-type ConnectionNamer func(ctx context.Context, conversationID, addonID string) (id, name string)
+// ConnectionNamer returns the display name of the binding that a call of the
+// chat conversation uses, or "" when the binding is not known.
+type ConnectionNamer func(ctx context.Context, conversationID, bindingID string) string
 
 // WithConnectionNames makes the adapter state, in the result of a tool of an
 // add-on that runs with a credential, which connection acted. It returns t.
@@ -816,7 +823,8 @@ func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, con
 		return ToolResult{}, err
 	}
 	if def.Credentialed && conversationID != "" && t.connection != nil {
-		if id, cname := t.connection(ctx, conversationID, app.ID); id != "" {
+		if id := gateway.ConnectionOverride(ctx); id != "" {
+			cname := t.connection(ctx, conversationID, id)
 			key := ""
 			if def.ResourceArgument != "" {
 				var in map[string]json.RawMessage

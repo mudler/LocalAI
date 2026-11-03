@@ -21,6 +21,7 @@ import (
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
@@ -255,9 +256,9 @@ type CreateInput struct {
 // opt-in groups of built-in tools that are on.
 type Switches struct {
 	AddonsOff, McpOff, BuiltinsOff, BuiltinsOn, SkillsOff []string
-	// Connections is the connection (a connector binding ID) the chat uses for
-	// each add-on whose tools run with a credential, by add-on ID.
-	Connections map[string]string
+	// Connections is the set of connections (connector binding IDs) the chat
+	// may use for each add-on whose tools run with a credential, by add-on ID.
+	Connections connsets.Sets
 }
 
 // cleanSwitches checks every list of sw and returns them cleaned.
@@ -279,12 +280,12 @@ func (s *Service) cleanSwitches(sw Switches) (Switches, error) {
 	if out.SkillsOff, err = cleanSkillSwitches(sw.SkillsOff); err != nil {
 		return out, err
 	}
-	out.Connections = maps.Clone(sw.Connections)
+	out.Connections = connsets.Clone(sw.Connections)
 	return out, nil
 }
 
 // nilIfEmpty keeps an empty map nil, as a chat that chose nothing has it.
-func nilIfEmpty(m map[string]string) map[string]string {
+func nilIfEmpty(m connsets.Sets) connsets.Sets {
 	if len(m) == 0 {
 		return nil
 	}

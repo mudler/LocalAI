@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -79,17 +80,23 @@ func (s *Service) draftRecord(ctx context.Context, user, model, agentID string) 
 	return rec, nil
 }
 
-// knownConnections keeps the entries of a draft's connection choices that name
-// a connection the user has now. A draft that outlived a deleted connection
+// knownConnections keeps the entries of a draft's connection sets that name
+// connections the user has now. A draft that outlived a deleted connection
 // then shows none selected instead of failing.
-func (s *Service) knownConnections(ctx context.Context, user string, m map[string]string) map[string]string {
-	var out map[string]string
-	for addon, id := range m {
-		if s.checkConnections(ctx, user, map[string]string{addon: id}) == nil {
-			if out == nil {
-				out = map[string]string{}
+func (s *Service) knownConnections(ctx context.Context, user string, m connsets.Sets) connsets.Sets {
+	var out connsets.Sets
+	for addon, ids := range m {
+		var known []string
+		for _, id := range connsets.Dedup(ids) {
+			if s.checkConnections(ctx, user, connsets.Sets{addon: {id}}) == nil {
+				known = append(known, id)
 			}
-			out[addon] = id
+		}
+		if len(known) > 0 {
+			if out == nil {
+				out = connsets.Sets{}
+			}
+			out[addon] = known
 		}
 	}
 	return out

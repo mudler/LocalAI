@@ -381,6 +381,9 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if len(mine) >= connectors.MaxPerUser {
 		return ConnectorInfo{}, connectorBad("you can have at most %d bindings", connectors.MaxPerUser)
 	}
+	if err := checkConnectionName(b, mine); err != nil {
+		return ConnectorInfo{}, err
+	}
 	sealer, err := c.sealerFor(ctx)
 	if err != nil {
 		return ConnectorInfo{}, err
@@ -395,6 +398,28 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	}
 	c.Notify()
 	return c.withState(ctx, info(b)), nil
+}
+
+// checkConnectionName refuses a name that another credential-only binding of
+// the same person and add-on already has, compared by handle (case and
+// punctuation do not tell two names apart). The model chooses among the
+// connections of a chat by name, so two connections must never share one. A
+// binding that listens and answers is not offered to a model by name and is not
+// held to this.
+func checkConnectionName(b connectors.Binding, mine []connectors.Binding) error {
+	if !b.CredentialsOnly() {
+		return nil
+	}
+	h := ConnectionHandle(b.Name)
+	if h == "" {
+		return connectorBad("the name needs at least one letter or digit")
+	}
+	for _, o := range mine {
+		if o.ID != b.ID && o.AddonID == b.AddonID && o.CredentialsOnly() && ConnectionHandle(o.Name) == h {
+			return connectorBad("you already have a connection named %q for this add-on; choose another name", o.Name)
+		}
+	}
+	return nil
 }
 
 // UpdateConnector replaces the definition of a binding of the user.
@@ -432,6 +457,15 @@ func (c *Connectors) UpdateConnector(ctx context.Context, user, id string, in Co
 	}
 	if err := c.checkAgentIfAny(ctx, old.Owner, in.AgentID); err != nil {
 		return ConnectorInfo{}, err
+	}
+	if b.Name != old.Name {
+		mine, err := c.o.Store.ListBindings(ctx, old.Owner)
+		if err != nil {
+			return ConnectorInfo{}, err
+		}
+		if err := checkConnectionName(b, mine); err != nil {
+			return ConnectorInfo{}, err
+		}
 	}
 	if strings.TrimSpace(in.Token) != "" {
 		sealer, err := c.sealerFor(ctx)

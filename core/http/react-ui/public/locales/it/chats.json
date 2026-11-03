@@ -363,16 +363,17 @@
     "grants": "Cosa può modificare l'agente",
     "grantSensitive": "Sensibile: cambia ciò che l'agente potrà fare o raggiungere in seguito.",
     "connection": {
-      "label": "Connessione",
-      "help": "La connessione il cui token è usato da questi strumenti. Il modello non può sceglierla né cambiarla.",
-      "placeholder": "Scegli una connessione",
-      "choose": "Scegli una connessione per usare questi strumenti",
+      "label": "Connessioni",
+      "help": "Scegli le connessioni che questa chat può usare. L'assistente può usare solo quelle selezionate.",
+      "helpMany": "L'assistente indica la connessione in ogni azione e può indicare solo una selezionata.",
+      "sole": "È la tua unica connessione, quindi viene usata.",
+      "choose": "Scegli almeno una connessione per usare questi strumenti",
       "none": "Nessuna connessione per ora",
       "create": "Aggiungi una connessione",
-      "byAgent": "L'agente di questa chat imposta la connessione. Cambiala sull'agente.",
-      "agentLabel": "Connessione per le chat di questo agente",
-      "agentHelp": "Le chat di questo agente usano questa connessione e non possono cambiarla.",
-      "perChat": "Scegli in ogni chat"
+      "byAgent": "L'agente di questa chat imposta le connessioni. Cambiale sull'agente.",
+      "agentLabel": "Connessioni per le chat di questo agente",
+      "agentHelp": "Le chat di questo agente possono usare solo queste connessioni e non possono cambiarle.",
+      "perChatHelp": "Nessuna scelta: ogni chat sceglie la sua."
     }
   },
   "vision": {

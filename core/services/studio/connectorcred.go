@@ -23,29 +23,41 @@ type CredentialGrant struct {
 	BindingID, BindingName string
 }
 
-// Connection is a binding that a chat can select for the tools of an add-on.
-type Connection struct{ ID, Name string }
+// Connection is a binding that a chat can enable for the tools of an add-on.
+// Handle is the name the model uses for it (see ConnectionHandle); it is unique
+// among the connections of one list.
+type Connection struct{ ID, Name, Handle string }
 
-// How a chat came to use a connection (see ConnectionOf).
+// How a chat came to use its connections (see ConnectionsOf).
 const (
 	// ConnectionByBinding: the chat was started by this very binding, so it
 	// uses it, as it always did.
 	ConnectionByBinding = "binding"
-	// ConnectionByAgent: the saved agent of the chat names it. The chat cannot
-	// change it.
+	// ConnectionByAgent: the saved agent of the chat names the set. The chat
+	// cannot change it.
 	ConnectionByAgent = "agent"
-	// ConnectionByChat: the person chose it in this chat.
+	// ConnectionByChat: the person chose the set in this chat.
 	ConnectionByChat = "chat"
 	// ConnectionOnly: the person has exactly one connection for the add-on.
 	ConnectionOnly = "only"
 )
 
-// ConnectionChoice is the connection a chat uses for an add-on. The zero value
-// means none is selected: the host picks nothing for the person.
-type ConnectionChoice struct {
-	Connection
-	// By is one of the Connection* constants, or empty when ID is empty.
+// ConnectionSet is the set of connections a chat may use for an add-on, in the
+// order of the person's list. The zero value means none: the host picks
+// nothing for the person and the tools of the add-on are not offered.
+type ConnectionSet struct {
+	Items []Connection
+	// By is one of the Connection* constants, or empty when Items is empty.
 	By string
+}
+
+// IDs lists the binding IDs of the set.
+func (cs ConnectionSet) IDs() []string {
+	out := make([]string, len(cs.Items))
+	for i, c := range cs.Items {
+		out[i] = c.ID
+	}
+	return out
 }
 
 // Connections lists the connections of the user for an add-on: the bindings of
@@ -71,7 +83,7 @@ func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]C
 	for i, b := range mine {
 		out[i] = Connection{ID: b.ID, Name: b.Name}
 	}
-	return out, nil
+	return assignHandles(out), nil
 }
 
 func cmpString(a, b string) int {
@@ -84,57 +96,67 @@ func cmpString(a, b string) int {
 	return 0
 }
 
-// ConnectionOf says which connection the chat rec uses for the add-on. There
-// is no silent default and no first match:
+// ConnectionsOf says which connections the chat rec may use for the add-on.
+// There is no silent default and no first match, and nothing the model writes
+// takes part:
 //
-//  1. A chat that a connector binding of this add-on started uses that binding.
-//  2. A chat that runs a saved agent with a choice for the add-on uses it; the
-//     chat's own choice is not read.
-//  3. Else the choice of the chat.
+//  1. A chat that a connector binding of this add-on started uses that binding
+//     alone.
+//  2. A chat that runs a saved agent with a set for the add-on uses it; the
+//     chat's own set is not read.
+//  3. Else the set the person enabled in the chat.
 //  4. Else, when the person has exactly one connection for the add-on, it.
 //  5. Else none: the tools of the add-on are not offered until the person picks.
 //
-// A choice of the chat that names a binding the person no longer has counts
-// for nothing. So does a choice of the agent, but the agent's gap is not filled
-// by the chat: the person fixes the agent.
-func (c *Connectors) ConnectionOf(ctx context.Context, user string, rec session.ChatRecord, addonID string) (ConnectionChoice, error) {
+// An entry that names a binding the person no longer has counts for nothing.
+// The gap of an agent's set is not filled by the chat: the person fixes the
+// agent. A chat set that is left with nothing falls to rule 4.
+func (c *Connectors) ConnectionsOf(ctx context.Context, user string, rec session.ChatRecord, addonID string) (ConnectionSet, error) {
 	list, err := c.Connections(ctx, user, addonID)
 	if err != nil {
-		return ConnectionChoice{}, err
+		return ConnectionSet{}, err
 	}
-	find := func(id string) (Connection, bool) {
-		i := slices.IndexFunc(list, func(x Connection) bool { return x.ID == id })
-		if i < 0 {
-			return Connection{}, false
+	// pick keeps the entries of ids that exist, in the order of the list.
+	pick := func(ids []string) []Connection {
+		var out []Connection
+		for _, x := range list {
+			if slices.Contains(ids, x.ID) {
+				out = append(out, x)
+			}
 		}
-		return list[i], true
+		return out
 	}
 	if rec.Origin == session.OriginConnector {
-		if x, ok := find(rec.OriginID); ok {
-			return ConnectionChoice{Connection: x, By: ConnectionByBinding}, nil
+		if items := pick([]string{rec.OriginID}); len(items) > 0 {
+			return ConnectionSet{Items: items, By: ConnectionByBinding}, nil
 		}
 	}
 	if rec.AgentID != "" {
 		if ag, err := c.svc.Agent(ctx, user, rec.AgentID); err == nil {
-			if id := ag.Connections[addonID]; id != "" {
-				if x, ok := find(id); ok {
-					return ConnectionChoice{Connection: x, By: ConnectionByAgent}, nil
+			if ids := ag.Connections[addonID]; len(ids) > 0 {
+				if items := pick(ids); len(items) > 0 {
+					return ConnectionSet{Items: items, By: ConnectionByAgent}, nil
 				}
-				return ConnectionChoice{}, nil
+				return ConnectionSet{}, nil
 			}
 		}
 	}
-	if id := rec.Connections[addonID]; id != "" {
-		if x, ok := find(id); ok {
-			return ConnectionChoice{Connection: x, By: ConnectionByChat}, nil
-		}
-		// The choice names a connection that is gone: it counts for nothing,
-		// and the rules below apply as if the person had not chosen.
+	if items := pick(rec.Connections[addonID]); len(items) > 0 {
+		return ConnectionSet{Items: items, By: ConnectionByChat}, nil
 	}
 	if len(list) == 1 {
-		return ConnectionChoice{Connection: list[0], By: ConnectionOnly}, nil
+		return ConnectionSet{Items: list, By: ConnectionOnly}, nil
 	}
-	return ConnectionChoice{}, nil
+	return ConnectionSet{}, nil
+}
+
+// ConnectionName returns the display name of a binding of the user, or "".
+func (c *Connectors) ConnectionName(ctx context.Context, user, bindingID string) string {
+	b, err := c.o.Store.GetBinding(ctx, bindingID)
+	if err != nil || b.Owner != principal(user) {
+		return ""
+	}
+	return b.Name
 }
 
 // SoleConnection returns the one connection of the user for the add-on, or the

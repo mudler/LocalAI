@@ -10,6 +10,7 @@
   "approval": {
     "title": "需要审批",
     "from": "来自 {{addon}}",
+    "connection": "连接：{{name}}",
     "loading": "正在加载请求",
     "failed": "此请求不可用。",
     "rejected": "无法完成该请求。请检查其状态后重试。",

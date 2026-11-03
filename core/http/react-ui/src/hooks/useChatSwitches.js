@@ -164,28 +164,31 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     }
   }, [chatId, draftOn, choose, refreshDraftCommands])
 
-  // Chooses the connection (a binding ID, '' to clear) this chat uses for the
-  // tools of an add-on that runs with a credential. Choosing one switches the
-  // add-on on. A draft keeps the choice for the create request.
-  const setConnection = useCallback(async (addonId, connection) => {
+  // Sets the connections (binding IDs, an empty list to clear) this chat may
+  // use for the tools of an add-on that runs with a credential. Enabling any
+  // switches the add-on on. A draft keeps the choice for the create request.
+  const setConnections = useCallback(async (addonId, connections) => {
     const before = addonsRef.current
     const row = before.find((a) => a.id === addonId)
     if (!row || row.connection_by === 'agent') return
-    const found = (row.connections || []).find((c) => c.id === connection)
+    // The list of the row decides what exists and in which order.
+    const ids = (row.connections || []).map((c) => c.id).filter((id) => connections.includes(id))
+    const only = (row.connections || []).length === 1
     putAddons(before.map((a) => (a.id !== addonId ? a : {
-      ...a, connection: found ? found.id : '', connection_by: found ? 'chat' : '', needs_connection: !found, off: found ? false : a.off,
+      ...a, enabled_connections: ids.length ? ids : (only ? a.enabled_connections : []),
+      connection_by: ids.length ? 'chat' : (only ? a.connection_by : ''), needs_connection: ids.length === 0 && !only, off: ids.length ? false : a.off,
     })))
     setError('')
     if (draftOn) {
-      choose('connections', addonId, found ? found.id : '')
-      if (found) choose('addons', addonId, false)
+      choose('connections', addonId, ids)
+      if (ids.length) choose('addons', addonId, false)
       setSkillsRev((n) => n + 1)
       refreshDraftCommands()
       return
     }
     const epoch = ++commandEpoch.current
     try {
-      const res = await chatAddonsApi.setConnection(chatId, addonId, connection)
+      const res = await chatAddonsApi.setConnections(chatId, addonId, ids)
       if (epoch !== commandEpoch.current) return
       if (res?.addons) {
         putAddons(res.addons)
@@ -308,6 +311,6 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     draftSwitches, resetDraft, draft: draftOn, commandsRev,
     addons, builtins, fallbacks, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
-    toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnection,
+    toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn, setConnections,
   }
 }

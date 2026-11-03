@@ -193,5 +193,6 @@
 .swl-pick { display: flex; flex-direction: column; gap: 2px; }
 .swl-pick__label { font-size: var(--fs-meta); font-weight: 500; color: var(--color-text-secondary); }
 .swl-pick__hint { font-size: var(--fs-meta); color: var(--color-text-muted); line-height: 1.4; }
-.swl-pick__select { width: 100%; }
+.swl-pick__option { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-small); color: var(--color-text-primary); cursor: pointer; }
+.swl-pick__option input { margin: 0; }
 .swl-pick__link { font-size: var(--fs-meta); }

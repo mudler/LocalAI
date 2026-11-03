@@ -2,17 +2,20 @@ import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installAgents, DRAFT_TOOLS } from './agents-fixtures.js'
 
-// The connection a chat uses for an add-on that runs with a credential. The
-// host never picks it for the person: with one connection it is selected, with
-// several the person chooses in the Tools menu, with none the row says so, and
-// an agent that names a connection decides it. The API is stubbed.
+// The connections a chat may use for an add-on that runs with a credential.
+// The host never picks them for the person: with one connection it is the set,
+// with several the person ticks the ones this chat may use in the Tools menu,
+// with none the row says so, and an agent that names a set decides it. The
+// add-ons here are stand-ins: nothing depends on which product they are. The
+// API is stubbed.
 
 const SHOTS = process.env.CONNECTION_SHOT_DIR
 // A screenshot for review waits for the menu's opening motion to end.
 const shot = async (page, name) => { if (SHOTS) { await page.waitForTimeout(400); await page.screenshot({ path: `${SHOTS}/${name}.png` }) } }
 
-const WORK = { id: 'b1', name: 'Work' }
-const HOME = { id: 'b2', name: 'Home' }
+const WORK = { id: 'b1', name: 'Work', handle: 'work' }
+const HOME = { id: 'b2', name: 'Home', handle: 'home' }
+const PLAY = { id: 'b3', name: 'Play', handle: 'play' }
 
 async function stubChat(page, makeRow) {
   const detail = {
@@ -32,64 +35,89 @@ async function stubChat(page, makeRow) {
   await page.route('**/api/chats/c1/connections', route => {
     const body = route.request().postDataJSON()
     state.picked.push(body)
-    state.row = makeRow(body.connection)
+    state.row = makeRow(body.connections)
     return route.fulfill({ json: { addons: [state.row], commands: 'none' } })
   })
   return state
 }
 
-const row = (extra) => ({ id: 'github', tools: 14, off: false, title: 'GitHub', description: 'Read repositories.', credentialed: true, ...extra })
+const row = (extra) => ({ id: 'tracker', tools: 14, off: false, title: 'Tracker', description: 'Read and change items.', credentialed: true, ...extra })
 const openTools = async (page) => {
   await page.goto('/app/chats/c1')
   await page.getByTestId('chat-tools-button').click()
 }
 
-test.describe('The connection of an add-on in the Tools menu', () => {
+test.describe('The connections of an add-on in the Tools menu', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
-  test('several connections: none is chosen for the person, the tools wait, and choosing switches the row on', async ({ page }) => {
+  test('several connections: none is enabled for the person, the tools wait, and ticking switches the row on', async ({ page }) => {
     const state = await stubChat(page, (picked) => row({
-      connections: [WORK, HOME], connection: picked || '', connection_by: picked ? 'chat' : '', needs_connection: !picked,
+      connections: [WORK, HOME, PLAY], enabled_connections: picked || [], connection_by: picked?.length ? 'chat' : '', needs_connection: !picked?.length,
     }))
     await openTools(page)
     const item = page.getByTestId('chat-tools-item')
-    await expect(item).toContainText('Choose a connection to use these tools')
+    await expect(item).toContainText('Choose at least one connection to use these tools')
     await expect(item).toHaveAttribute('data-on', 'false')
-    const select = page.getByTestId('chat-tools-pick-select')
-    await expect(select).toHaveValue('')
-    await expect(page.getByTestId('chat-tools-pick-hint')).toContainText('The model cannot pick or change it')
-    await expect(page.getByLabel('Connection')).toBeVisible()
+    const checks = page.getByTestId('chat-tools-pick-check')
+    await expect(checks).toHaveCount(3)
+    for (const c of await checks.all()) await expect(c).not.toBeChecked()
+    await expect(page.getByTestId('chat-tools-pick-hint')).toContainText('Choose the connections this chat may use')
+    await expect(page.getByRole('group', { name: 'Connections' })).toBeVisible()
     await shot(page, 'choose')
-    await select.selectOption('b2')
-    await expect.poll(() => state.picked).toEqual([{ addon: 'github', connection: 'b2' }])
+    await page.getByLabel('Home').check()
+    await expect.poll(() => state.picked).toEqual([{ addon: 'tracker', connections: ['b2'] }])
     await expect(item).toHaveAttribute('data-on', 'true')
-    await expect(item).not.toContainText('Choose a connection to use these tools')
-    await expect(select).toHaveValue('b2')
+    await expect(item).not.toContainText('Choose at least one connection')
+    await expect(page.getByTestId('chat-tools-pick-hint')).toContainText('Choose the connections this chat may use')
+    await page.getByLabel('Work').check()
+    await expect.poll(() => state.picked.at(-1)).toEqual({ addon: 'tracker', connections: ['b1', 'b2'] })
+    await expect(page.getByTestId('chat-tools-pick-hint')).toContainText('names the connection in each action')
     await shot(page, 'chosen')
+    await page.getByLabel('Home').uncheck()
+    await expect.poll(() => state.picked.at(-1)).toEqual({ addon: 'tracker', connections: ['b1'] })
   })
 
-  test('one connection is selected already', async ({ page }) => {
-    await stubChat(page, () => row({ connections: [WORK], connection: 'b1', connection_by: 'only', needs_connection: false }))
+  test('one connection is enabled already and cannot be unticked', async ({ page }) => {
+    await stubChat(page, () => row({ connections: [WORK], enabled_connections: ['b1'], connection_by: 'only', needs_connection: false }))
     await openTools(page)
     await expect(page.getByTestId('chat-tools-item')).toHaveAttribute('data-on', 'true')
-    await expect(page.getByTestId('chat-tools-pick-select')).toHaveValue('b1')
+    const check = page.getByTestId('chat-tools-pick-check')
+    await expect(check).toBeChecked()
+    await expect(check).toBeDisabled()
+    await expect(page.getByTestId('chat-tools-pick-hint')).toContainText('your only connection')
   })
 
   test('no connection yet: the row says so and links to the Connectors page', async ({ page }) => {
     await stubChat(page, () => row({ connections: [], needs_connection: true }))
     await openTools(page)
     await expect(page.getByTestId('chat-tools-item')).toContainText('No connection yet')
-    await expect(page.getByTestId('chat-tools-pick-select')).toHaveCount(0)
+    await expect(page.getByTestId('chat-tools-pick-check')).toHaveCount(0)
     await expect(page.getByTestId('chat-tools-pick-link')).toHaveAttribute('href', '/app/chats/connectors')
   })
 
-  test('the connection an agent names is shown and cannot be changed here', async ({ page }) => {
-    await stubChat(page, () => row({ connections: [WORK, HOME], connection: 'b1', connection_by: 'agent', needs_connection: false }))
+  test('the set an agent names is shown and cannot be changed here', async ({ page }) => {
+    await stubChat(page, () => row({ connections: [WORK, HOME, PLAY], enabled_connections: ['b1', 'b2'], connection_by: 'agent', needs_connection: false }))
     await openTools(page)
-    const select = page.getByTestId('chat-tools-pick-select')
-    await expect(select).toHaveValue('b1')
-    await expect(select).toBeDisabled()
-    await expect(page.getByTestId('chat-tools-pick-hint')).toContainText('The agent of this chat sets the connection')
+    const checks = page.getByTestId('chat-tools-pick-check')
+    await expect(checks.nth(0)).toBeChecked()
+    await expect(checks.nth(1)).toBeChecked()
+    await expect(checks.nth(2)).not.toBeChecked()
+    for (const c of await checks.all()) await expect(c).toBeDisabled()
+    await expect(page.getByTestId('chat-tools-pick-hint')).toContainText('The agent of this chat sets the connections')
+  })
+
+  test('two add-ons with a credential keep a set each', async ({ page }) => {
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [
+      row({ connections: [WORK, HOME], enabled_connections: ['b1', 'b2'], connection_by: 'chat' }),
+      row({ id: 'ledger', title: 'Ledger', connections: [{ id: 'l1', name: 'Books', handle: 'books' }], enabled_connections: ['l1'], connection_by: 'only' }),
+    ], commands: 'none' } }))
+    await page.route('**/api/chats/c1', route => route.fulfill({ json: { id: 'c1', title: 'Issues', model: 'qwen3-8b', kind: 'chat', created: '2026-10-25T10:00:00Z', updated: '2026-10-25T10:00:00Z', running: false, last_turn: 'done', pending: [] } }))
+    await page.route('**/api/chats/c1/events', route => route.abort())
+    await openTools(page)
+    await expect(page.getByTestId('chat-tools-pick')).toHaveCount(2)
+    await expect(page.getByTestId('chat-tools-pick-check')).toHaveCount(3)
+    await expect(page.getByLabel('Books')).toBeDisabled()
+    await expect(page.getByLabel('Work')).toBeEnabled()
   })
 
   test('an add-on with no credential has no connection control', async ({ page }) => {
@@ -100,29 +128,31 @@ test.describe('The connection of an add-on in the Tools menu', () => {
   })
 })
 
-test.describe('The connection an agent names', () => {
-  test('the agent form names a connection per add-on, and a write that clears it sends an empty object', async ({ page }) => {
+test.describe('The connections an agent names', () => {
+  test('the agent form names a set per add-on, and shows that none means each chat chooses', async ({ page }) => {
     const s = await installAgents(page)
     // Later routes win: the draft list now has an add-on with a credential.
     await page.route('**/api/chats/draft/tools*', route => route.fulfill({
       json: {
         ...DRAFT_TOOLS, servers: [], off: [], connectors: [],
-        addons: [{ id: 'github', tools: 14, off: false, title: 'GitHub', credentialed: true, connections: [WORK, HOME], connection: '', needs_connection: true }],
+        addons: [{ id: 'tracker', tools: 14, off: false, title: 'Tracker', credentialed: true, connections: [WORK, HOME, PLAY], enabled_connections: [], needs_connection: true }],
       },
     }))
     await page.goto('/app/agents/new')
     await page.getByLabel('Name', { exact: false }).first().fill('Reviewer')
     await page.locator('[data-section="Tools"] .ag-fold__button').click()
     const panel = page.getByTestId('agent-tools-panel')
-    const select = panel.getByLabel('Connection for chats of this agent')
-    await expect(select).toHaveValue('')
-    await expect(panel.getByTestId('agent-tools-pick-hint')).toContainText('cannot change it')
-    await select.selectOption('b2')
-    await panel.getByRole('switch', { name: /GitHub/ }).click()
+    const group = panel.getByRole('group', { name: 'Connections for chats of this agent' })
+    await expect(group).toBeVisible()
+    await expect(panel.getByTestId('agent-tools-pick-hint')).toContainText('each chat chooses its own')
+    await group.getByLabel('Home').check()
+    await group.getByLabel('Play').check()
+    await expect(panel.getByTestId('agent-tools-pick-hint')).toContainText('cannot change them')
+    await panel.getByRole('switch', { name: /Tracker/ }).click()
     await page.getByRole('button', { name: 'Create Agent' }).first().click()
     await expect(page).toHaveURL(/\/app\/agents$/)
     const body = s.calls.find(c => c.method === 'POST').body
-    expect(body.connections).toEqual({ github: 'b2' })
-    expect(body.addons).toEqual(['github'])
+    expect(body.connections).toEqual({ tracker: ['b2', 'b3'] })
+    expect(body.addons).toEqual(['tracker'])
   })
 })

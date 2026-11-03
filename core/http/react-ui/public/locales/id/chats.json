@@ -364,15 +364,16 @@
     "grantSensitive": "Sensitif: ini mengubah apa yang boleh dilakukan atau dijangkau agen nanti.",
     "connection": {
       "label": "Koneksi",
-      "help": "Koneksi yang tokennya dipakai alat ini. Model tidak bisa memilih atau mengubahnya.",
-      "placeholder": "Pilih koneksi",
-      "choose": "Pilih koneksi untuk memakai alat ini",
+      "help": "Pilih koneksi yang boleh dipakai chat ini. Asisten hanya bisa memakai yang Anda centang.",
+      "helpMany": "Asisten menyebut koneksi di setiap tindakan dan hanya bisa menyebut yang dicentang.",
+      "sole": "Ini satu-satunya koneksi Anda, jadi dipakai.",
+      "choose": "Pilih setidaknya satu koneksi untuk memakai alat ini",
       "none": "Belum ada koneksi",
       "create": "Tambah koneksi",
       "byAgent": "Agen chat ini menetapkan koneksi. Ubah di agen.",
       "agentLabel": "Koneksi untuk chat agen ini",
-      "agentHelp": "Chat agen ini memakai koneksi ini dan tidak bisa mengubahnya.",
-      "perChat": "Pilih di setiap chat"
+      "agentHelp": "Chat agen ini hanya boleh memakai koneksi ini dan tidak bisa mengubahnya.",
+      "perChatHelp": "Belum dipilih: setiap chat memilih sendiri."
     }
   },
   "vision": {

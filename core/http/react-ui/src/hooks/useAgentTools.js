@@ -56,7 +56,7 @@ export function useAgentTools(form, update) {
   const setMCPOn = useCallback(async (keys, on) => { update('mcp_servers', connectorsAfter(form, keys, on)) }, [form, update])
   const setGrantsOn = useCallback(async (names, on) => { update('builtins', grantsAfter(form, names, on)) }, [form, update])
   const setSkillsOn = useCallback(async (ids, on) => { update('skills', skillsAfter(form, skillList, ids, on)) }, [form, skillList, update])
-  const setConnection = useCallback((addonId, bindingId) => update('connections', connectionsAfter(form, addonId, bindingId)), [form, update])
+  const setConnections = useCallback((addonId, bindingIds) => update('connections', connectionsAfter(form, addonId, bindingIds)), [form, update])
 
   return {
     // The grants are rows with their own switch each: no bulk setter, so a
@@ -66,7 +66,7 @@ export function useAgentTools(form, update) {
     toggleBuiltin: (g, on) => setBuiltinsOn([g], on),
     toggleAddon: (id, on) => setAddonsOn([id], on),
     toggleMCP: (key, on) => setMCPOn([key], on),
-    setBuiltinsOn, setAddonsOn, setMCPOn, setSkillsOn, setConnection,
+    setBuiltinsOn, setAddonsOn, setMCPOn, setSkillsOn, setConnections,
     commands: { state: 'unknown' },
   }
 }

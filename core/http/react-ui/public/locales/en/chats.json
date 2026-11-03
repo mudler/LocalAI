@@ -463,16 +463,17 @@
     "connectorDescribe": "One of your MCP connectors: its tools are offered to the model.",
     "gone": "Not available here any more. Switch it off to remove it.",
     "connection": {
-      "label": "Connection",
-      "help": "The connection whose token these tools use. The model cannot pick or change it.",
-      "placeholder": "Choose a connection",
-      "choose": "Choose a connection to use these tools",
+      "label": "Connections",
+      "help": "Choose the connections this chat may use. The assistant can only use the ones you tick.",
+      "helpMany": "The assistant names the connection in each action, and can only name a ticked one.",
+      "sole": "This is your only connection, so it is used.",
+      "choose": "Choose at least one connection to use these tools",
       "none": "No connection yet",
       "create": "Add a connection",
-      "byAgent": "The agent of this chat sets the connection. Change it on the agent.",
-      "agentLabel": "Connection for chats of this agent",
-      "agentHelp": "Chats of this agent use this connection and cannot change it.",
-      "perChat": "Choose in each chat"
+      "byAgent": "The agent of this chat sets the connections. Change them on the agent.",
+      "agentLabel": "Connections for chats of this agent",
+      "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
+      "perChatHelp": "None chosen: each chat chooses its own."
     }
   },
   "mcpPage": {

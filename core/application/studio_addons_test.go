@@ -63,6 +63,8 @@ var _ = Describe("the studio add-ons", func() {
 		for _, want := range []string{"tables", "rows-delete", "p1", "Nothing has been changed", "Add-ons page"} {
 			Expect(got).To(ContainSubstring(want), "proposal text")
 		}
+		with := addontools.ToolResult{Kind: addontools.ResultProposal, Tool: "t", Proposal: &addontools.ProposalRef{ID: "p2", AddonID: "tracker", Action: "write", Connection: "as Work, project acme/widgets"}}
+		Expect(studioAddonText(with)).To(ContainSubstring("It will be made as Work, project acme/widgets"), "the connection is in the text the person is told")
 		data := addontools.ToolResult{Kind: addontools.ResultData, Tool: "t", Result: []byte(`{"n":1}`)}
 		Expect(studioAddonText(data)).To(ContainSubstring(`"n":1`), "a read result lost its content")
 	})

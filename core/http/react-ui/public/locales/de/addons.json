@@ -10,6 +10,7 @@
   "approval": {
     "title": "Freigabe erforderlich",
     "from": "Von {{addon}}",
+    "connection": "Verbindung: {{name}}",
     "loading": "Anfrage wird geladen",
     "failed": "Diese Anfrage ist nicht verfügbar.",
     "rejected": "Die Anfrage konnte nicht abgeschlossen werden. Prüfe den Status und versuche es erneut.",

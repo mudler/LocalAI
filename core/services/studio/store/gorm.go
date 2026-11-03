@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -44,7 +45,7 @@ type chatRow struct {
 	McpOff       string `gorm:"type:text"` // JSON list of MCP server names and connector:<id>
 	BuiltinsOff  string `gorm:"type:text"` // JSON list of built-in tool groups
 	BuiltinsOn   string `gorm:"type:text"` // JSON list of opt-in built-in tool groups
-	Connections  string `gorm:"type:text"` // JSON object, add-on ID to binding ID
+	Connections  string `gorm:"type:text"` // JSON object, add-on ID to a list of binding IDs (older rows: one ID)
 	AgentID      string `gorm:"size:128"`
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
@@ -434,7 +435,7 @@ func (s *gormStore) SetBuiltinsOn(ctx context.Context, principal, id string, on 
 	return s.setList(ctx, "builtins_on", principal, id, on)
 }
 
-func (s *gormStore) SetConnections(ctx context.Context, principal, id string, connections map[string]string) error {
+func (s *gormStore) SetConnections(ctx context.Context, principal, id string, connections connsets.Sets) error {
 	raw := ""
 	if len(connections) > 0 {
 		b, err := json.Marshal(connections)

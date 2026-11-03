@@ -363,16 +363,17 @@
     "grants": "Ce que l'agent peut modifier",
     "grantSensitive": "Sensible : cela change ce que l'agent pourra faire ou atteindre plus tard.",
     "connection": {
-      "label": "Connexion",
-      "help": "La connexion dont le jeton sert à ces outils. Le modèle ne peut ni la choisir ni la changer.",
-      "placeholder": "Choisir une connexion",
-      "choose": "Choisissez une connexion pour utiliser ces outils",
+      "label": "Connexions",
+      "help": "Choisissez les connexions que ce chat peut utiliser. L'assistant ne peut utiliser que celles que vous cochez.",
+      "helpMany": "L'assistant nomme la connexion à chaque action et ne peut nommer qu'une connexion cochée.",
+      "sole": "C'est votre seule connexion, elle est donc utilisée.",
+      "choose": "Choisissez au moins une connexion pour utiliser ces outils",
       "none": "Pas encore de connexion",
       "create": "Ajouter une connexion",
-      "byAgent": "L'agent de ce chat fixe la connexion. Modifiez-la sur l'agent.",
-      "agentLabel": "Connexion pour les chats de cet agent",
-      "agentHelp": "Les chats de cet agent utilisent cette connexion et ne peuvent pas la changer.",
-      "perChat": "Choisir dans chaque chat"
+      "byAgent": "L'agent de ce chat fixe les connexions. Modifiez-les sur l'agent.",
+      "agentLabel": "Connexions pour les chats de cet agent",
+      "agentHelp": "Les chats de cet agent ne peuvent utiliser que ces connexions et ne peuvent pas les changer.",
+      "perChatHelp": "Aucune choisie : chaque chat choisit les siennes."
     }
   },
   "vision": {

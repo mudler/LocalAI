@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -100,12 +101,12 @@ var _ = Describe("subagent", func() {
 			return nil
 		}, func(d *studio.Deps) { st = d.Store })
 		id := create(svc, alice)
-		Expect(st.SetConnections(context.Background(), alice, id, map[string]string{"github": "b-work"})).To(Succeed())
+		Expect(st.SetConnections(context.Background(), alice, id, connsets.Sets{"tracker": {"b-work", "b-home"}})).To(Succeed())
 		sent(svc, alice, id, "go")
 		idle(svc, alice, id)
 		kids := childrenOf(svc, alice, id)
 		Expect(kids).To(HaveLen(1))
-		Expect(kids[0].Connections).To(Equal(map[string]string{"github": "b-work"}))
+		Expect(kids[0].Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}))
 	})
 
 	It("a background sub agent reports back as a message and an event", func() {

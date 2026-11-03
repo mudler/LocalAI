@@ -10,6 +10,7 @@
   "approval": {
     "title": "승인이 필요합니다",
     "from": "{{addon}}의 요청",
+    "connection": "연결: {{name}}",
     "loading": "요청을 불러오는 중",
     "failed": "이 요청을 사용할 수 없습니다.",
     "rejected": "요청을 완료하지 못했습니다. 상태를 확인하고 다시 시도하세요.",

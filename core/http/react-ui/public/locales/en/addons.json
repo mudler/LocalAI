@@ -10,6 +10,7 @@
   "approval": {
     "title": "Approval needed",
     "from": "From {{addon}}",
+    "connection": "Connection: {{name}}",
     "loading": "Loading the request",
     "failed": "This request is not available.",
     "rejected": "The request could not be completed. Check its state and try again.",

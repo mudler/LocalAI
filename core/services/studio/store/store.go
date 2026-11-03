@@ -12,6 +12,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
@@ -118,10 +119,10 @@ type Store interface {
 	// switched on, the way SetAddonsOff does for add-ons.
 	SetBuiltinsOn(ctx context.Context, principal, chatID string, on []string) error
 
-	// SetConnections sets the connection this chat chose for each add-on with
-	// a credential (add-on ID to binding ID), replacing the earlier map. It is
+	// SetConnections sets the connections this chat enabled for each add-on with
+	// a credential (add-on ID to binding IDs), replacing the earlier map. It is
 	// kept the way SetAddonsOff keeps its list.
-	SetConnections(ctx context.Context, principal, chatID string, connections map[string]string) error
+	SetConnections(ctx context.Context, principal, chatID string, connections connsets.Sets) error
 
 	// SetScopedAgent sets ChatRecord.ScopedAgent. UpdateChat leaves it alone,
 	// like the switches above.

@@ -1008,9 +1008,16 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 // it) is not applied, and the text says who can apply it.
 func studioAddonText(res addontools.ToolResult) string {
 	if res.Kind == addontools.ResultProposal && res.Proposal != nil {
-		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s). Nothing has been changed. "+
+		// A change that runs with a credential names the connection it will be
+		// made with, so the person, and the connector chat that relays this
+		// text, see it before they confirm.
+		with := ""
+		if res.Proposal.Connection != "" {
+			with = " It will be made " + res.Proposal.Connection + "; say which connection in your message."
+		}
+		return fmt.Sprintf("The add-on %s proposed a change (%s, proposal %s).%s Nothing has been changed. "+
 			"Tell the user to review and confirm it on the Add-ons page. Do not say the change was made.",
-			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID)
+			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID, with)
 	}
 	return res.JSON()
 }
@@ -1065,34 +1072,43 @@ func (c credentialSource) Credential(ctx context.Context, actor contract.Actor, 
 // connectionFor names the binding a credentialed call uses. The host never
 // picks one for the person:
 //
-//  1. the binding the broker named, when it applies a proposal that was
-//     previewed with it;
-//  2. the connection the chat of the call selected (its agent's choice wins,
-//     see studio.Connectors.ConnectionOf);
+//  1. the binding named in the context, which only host code sets: the chats
+//     service after it checked the model's name against the chat's enabled
+//     set, or the broker applying a proposal that was previewed with it. In a
+//     chat call it must also be in the set that chat enables now, so a bug
+//     above cannot widen it;
+//  2. the one connection a chat enables, for a chat call that names none;
 //  3. for a call that comes from no chat, such as the add-on's own page, the
 //     person's only connection.
 //
 // Anything else is a select_connection refusal.
 func (c credentialSource) connectionFor(ctx context.Context, user, addonID string) (string, error) {
-	if id := gateway.ConnectionOverride(ctx); id != "" {
-		return id, nil
-	}
+	override := gateway.ConnectionOverride(ctx)
 	if b, ok := hostops.BindingOf(ctx); ok && c.a.studioStore != nil {
 		rec, err := c.a.studioStore.GetChat(ctx, b.Principal, b.ChatID)
 		if err != nil || rec.Principal != b.Principal {
 			return "", &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
 		}
-		sel, err := c.a.studioConnectors.ConnectionOf(ctx, user, rec, addonID)
+		set, err := c.a.studioConnectors.ConnectionsOf(ctx, user, rec, addonID)
 		if err != nil {
 			return "", gateway.ErrUnavailable
 		}
-		if sel.ID == "" {
+		switch {
+		case override != "":
+			if slices.Contains(set.IDs(), override) {
+				return override, nil
+			}
+		case len(set.Items) == 1:
+			return set.Items[0].ID, nil
+		case len(set.Items) == 0:
 			if list, err := c.a.studioConnectors.Connections(ctx, user, addonID); err == nil && len(list) == 0 {
 				return "", &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
 			}
-			return "", &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
 		}
-		return sel.ID, nil
+		return "", &gateway.CredentialRefusal{Code: gateway.CodeSelectConnection}
+	}
+	if override != "" {
+		return override, nil
 	}
 	only, err := c.a.studioConnectors.SoleConnection(ctx, user, addonID)
 	if err != nil {
@@ -1109,21 +1125,13 @@ func (c credentialSource) connectionFor(ctx context.Context, user, addonID strin
 	return only.ID, nil
 }
 
-// chatConnectionName tells the chat adapter which connection the chat uses for
-// an add-on, so a tool result can say which connection acted. The chat is the
-// one the host bound to the call, never a name the model wrote.
-func (a *Application) chatConnectionName(ctx context.Context, conversationID, addonID string) (string, string) {
+// chatConnectionName tells the chat adapter the display name of the binding a
+// call of the chat uses, so a tool result can say which connection acted. The
+// chat is the one the host bound to the call, never a name the model wrote.
+func (a *Application) chatConnectionName(ctx context.Context, conversationID, bindingID string) string {
 	b, ok := hostops.BindingOf(ctx)
-	if !ok || b.ChatID != conversationID || a.studioStore == nil || a.studioConnectors == nil {
-		return "", ""
+	if !ok || b.ChatID != conversationID || a.studioConnectors == nil {
+		return ""
 	}
-	rec, err := a.studioStore.GetChat(ctx, b.Principal, b.ChatID)
-	if err != nil {
-		return "", ""
-	}
-	sel, err := a.studioConnectors.ConnectionOf(ctx, b.Principal, rec, addonID)
-	if err != nil {
-		return "", ""
-	}
-	return sel.ID, sel.Name
+	return a.studioConnectors.ConnectionName(ctx, b.Principal, bindingID)
 }

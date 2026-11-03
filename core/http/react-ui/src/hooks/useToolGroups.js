@@ -98,26 +98,30 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     })),
   }
 
-  // The connection an add-on that runs with a credential uses. The host picks
-  // none for the person: with one it is selected, with several the person
-  // chooses, and until then the tools are not offered and the row says so.
-  // An agent that names a connection decides it; the chat shows it read only.
+  // The connections an add-on that runs with a credential may use. The host
+  // picks none for the person: with one it is enabled, with several the person
+  // enables the ones this chat may use, and until then the tools are not
+  // offered and the row says so. With two or more enabled the assistant names
+  // the connection in each action. An agent that names a set decides it; the
+  // chat shows it read only.
   const connectionOf = (a) => {
     if (!a.credentialed || a.gone) return {}
     const list = a.connections || []
     const byAgent = a.connection_by === 'agent'
     const none = list.length === 0
+    const chosen = a.enabled_connections || []
+    const options = list.map((c) => ({ value: c.id, label: c.name }))
+    // The only connection of the person is always enabled: there is nothing to choose.
+    const sole = list.length === 1 && a.connection_by === 'only'
     if (forAgent) {
       return {
         pick: {
           label: tc('tools.connection.agentLabel'),
-          hint: none ? tc('tools.connection.none') : tc('tools.connection.agentHelp'),
-          value: a.connection || '',
-          placeholder: tc('tools.connection.perChat'),
-          clearLabel: tc('tools.connection.perChat'),
-          options: list.map((c) => ({ value: c.id, label: c.name })),
-          disabled: !switches.setConnection,
-          onChange: (id) => switches.setConnection?.(a.id, id),
+          hint: none ? tc('tools.connection.none') : (chosen.length ? tc('tools.connection.agentHelp') : tc('tools.connection.perChatHelp')),
+          values: chosen,
+          options,
+          disabled: !switches.setConnections,
+          onChange: (ids) => switches.setConnections?.(a.id, ids),
           link: none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined,
         },
       }
@@ -127,12 +131,11 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
       reason: a.needs_connection ? (none ? tc('tools.connection.none') : tc('tools.connection.choose')) : undefined,
       pick: {
         label: tc('tools.connection.label'),
-        hint: byAgent ? tc('tools.connection.byAgent') : tc('tools.connection.help'),
-        value: a.connection || '',
-        placeholder: tc('tools.connection.placeholder'),
-        options: list.map((c) => ({ value: c.id, label: c.name })),
-        disabled: byAgent || !switches.setConnection,
-        onChange: (id) => switches.setConnection?.(a.id, id),
+        hint: byAgent ? tc('tools.connection.byAgent') : (sole ? tc('tools.connection.sole') : (chosen.length > 1 ? tc('tools.connection.helpMany') : tc('tools.connection.help'))),
+        values: chosen,
+        options,
+        disabled: byAgent || sole || !switches.setConnections,
+        onChange: (ids) => switches.setConnections?.(a.id, ids),
         link: none ? { to: '/app/chats/connectors', label: tc('tools.connection.create') } : undefined,
       },
     }

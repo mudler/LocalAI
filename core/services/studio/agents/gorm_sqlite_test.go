@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/agents/agentstest"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 )
 
 func openSQLite(path string) *gorm.DB {
@@ -28,6 +29,18 @@ var _ = Describe("the GORM agent store on SQLite", func() {
 		s, err := agents.NewGORM(openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db")))
 		Expect(err).NotTo(HaveOccurred())
 		return s
+	})
+
+	It("reads the single connection stored before sets as a set of one", func() {
+		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
+		s, err := agents.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		now := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+		Expect(s.Put(context.Background(), agents.Agent{ID: "a1", Principal: "u1", Name: "Old", Created: now, Updated: now})).To(Succeed())
+		Expect(db.Exec(`UPDATE studio_agents SET connections = ? WHERE id = ?`, `{"tracker":"b1"}`, "a1").Error).To(Succeed())
+		got, err := s.Get(context.Background(), "u1", "a1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Connections).To(Equal(connsets.Sets{"tracker": {"b1"}}))
 	})
 
 	It("reads an agent stored before the folder fields as one without a folder", func() {

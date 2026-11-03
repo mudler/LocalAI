@@ -10,6 +10,7 @@
   "approval": {
     "title": "Aprovação necessária",
     "from": "De {{addon}}",
+    "connection": "Conexão: {{name}}",
     "loading": "Carregando a solicitação",
     "failed": "Esta solicitação não está disponível.",
     "rejected": "Não foi possível concluir a solicitação. Verifique o estado e tente de novo.",
