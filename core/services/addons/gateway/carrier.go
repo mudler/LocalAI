@@ -363,7 +363,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(list)
+			_ = json.NewEncoder(w).Encode(newAppsWire(list))
 			return
 		}
 		if wire.Artifact != nil {

@@ -58,11 +58,38 @@ func (c *Carrier) apps(ctx context.Context, a contract.Actor) (apps.List, error)
 		return apps.List{}, e
 	}
 	defer func() { _ = resp.Body.Close() }()
-	var list apps.List
-	if e = decode(io.LimitReader(resp.Body, 2<<20), &list); e != nil {
+	var wire appsWire
+	if e = decode(io.LimitReader(resp.Body, 2<<20), &wire); e != nil {
 		return apps.List{}, ErrUnavailable
 	}
-	return list, nil
+	return wire.list(), nil
+}
+
+// appsWire is the apps list between two replicas. The resource mapping of an
+// app is not part of the public apps API, so it travels beside the list.
+type appsWire struct {
+	apps.List
+	Resources map[string]*contract.ResourceTools `json:"resources,omitempty"`
+}
+
+func newAppsWire(list apps.List) appsWire {
+	w := appsWire{List: list}
+	for _, a := range list.Apps {
+		if a.Resources != nil {
+			if w.Resources == nil {
+				w.Resources = map[string]*contract.ResourceTools{}
+			}
+			w.Resources[a.ID] = a.Resources
+		}
+	}
+	return w
+}
+
+func (w appsWire) list() apps.List {
+	for i := range w.Apps {
+		w.Apps[i].Resources = w.Resources[w.Apps[i].ID]
+	}
+	return w.List
 }
 
 // icon serves the verified icon of an app the actor may see. The bytes come
