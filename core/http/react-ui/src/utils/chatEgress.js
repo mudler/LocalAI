@@ -37,7 +37,7 @@ export function presetChoices(egress) {
 export function networkMode(egress) {
   if (!egress || !egress.loaded) return 'hidden'
   if (egress.applies) return egress.addon ? 'row' : 'hidden'
-  return egress.applies_reason === 'host' ? 'host' : 'hidden'
+  return egress.applies_reason === 'host' ? 'host' : 'unverified'
 }
 
 export const hostPort = (c) => `${c.host}:${c.port}`

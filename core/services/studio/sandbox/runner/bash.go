@@ -131,7 +131,8 @@ func bash(ctx context.Context, sb sandbox.Sandbox, raw json.RawMessage, o BashOp
 	if err := noNUL(a.Command, "command"); err != nil {
 		return "", err
 	}
-	timeout := DefaultTimeout
+	// The default may not exceed the maximum an administrator set.
+	timeout := min(DefaultTimeout, maxTimeout)
 	if a.TimeoutSeconds > 0 {
 		timeout = maxTimeout
 		if a.TimeoutSeconds < int(maxTimeout/time.Second) {

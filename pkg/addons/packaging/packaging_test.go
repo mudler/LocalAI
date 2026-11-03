@@ -50,7 +50,7 @@ var _ = Describe("package layout", func() {
 			roles = append(roles, l.Role)
 			Expect(l.MediaType).To(Equal("application/vnd.oci.image.layer.v1.tar+gzip"))
 		}
-		Expect(roles).To(Equal([]string{"executable", "ui", "manifest"}))
+		Expect(roles).To(Equal([]string{"executable", "ui", "skills", "manifest"}))
 		Expect(ra.Publishable).To(BeTrue())
 		Expect(p.verify(a, amd, "1.2.3")).To(Succeed())
 		other := p.mustBuild(amd, "1.2.3", "other bytes", "--revision", rev)
@@ -176,7 +176,7 @@ var _ = Describe("package rules", func() {
 		extra := append(append([]layerSpec{}, s...), layerSpec{role: "extra", files: []tfile{{name: "extra.bin", data: []byte("x"), mode: 0o644}}})
 		rewrite(dir, extra, nil)
 		expectCode(p.verify(dir, amd, "1.2.3"), "E_LAYERS")
-		s = readSpec(dir)[:3]
+		s = readSpec(dir)[:4]
 		s[0], s[1] = s[1], s[0]
 		rewrite(dir, s, nil)
 		expectCode(p.verify(dir, amd, "1.2.3"), "E_LAYERS")
@@ -930,13 +930,16 @@ var _ = Describe("catalog template", func() {
 			Expect(entries).To(HaveLen(2), id)
 			for _, e := range entries {
 				Expect(e.ID).To(Equal(id))
+				if id == "office" {
+					Expect(e.Name).To(Equal("Simple Office"))
+				}
 				Expect(e.Artifact).To(Equal("oci://" + repoName + ":" + id + "-1.2.3"))
 				Expect(e.Policy.RequireSignature).To(BeTrue())
 			}
 		}
 	})
 	It("reports the chat tools of the manifest on each entry and not the admin tools", func() {
-		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 4, "web": 5}
+		counts := map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "office": 11, "sandbox": 5, "web": 5}
 		for id, want := range counts {
 			p := newProjectFor(id, both)
 			m := p.merged("1.2.3", rev, nil)
@@ -1010,7 +1013,7 @@ var _ = Describe("catalog template", func() {
 		for _, e := range entries {
 			got[e.ID] = e.ToolCount
 		}
-		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "office": 11, "sandbox": 4, "web": 5}))
+		Expect(got).To(Equal(map[string]int{"tables": 16, "fine-tuning": 8, "quantization": 6, "voice": 0, "face": 0, "studio": 0, "talk": 0, "telegram": 0, "slack": 0, "office": 11, "sandbox": 5, "web": 5}))
 	})
 	It("refuses missing inputs, backend repositories, bad channels and unknown placeholders", func() {
 		reg := newRegistry()

@@ -10,7 +10,7 @@ test.describe('Skills', () => {
     await expect(page.getByTestId('skills-page')).toBeVisible()
     await expect(page.getByTestId('skill-row-citations')).toContainText('Personal')
     await expect(page.getByTestId('skill-used-citations')).toHaveText('Used by research-assistant')
-    await expect(page.getByTestId('skill-row-pdf')).toContainText('Built-in')
+    await expect(page.getByTestId('skill-row-pdf')).toContainText('Office')
     await expect(page.getByTestId('skill-row-house-style')).toContainText('Shared')
     await expect(page.getByTestId('skill-row-broken')).toContainText('Workspace')
     await expect(page.getByTestId('skill-used-broken')).toContainText('not a valid skill')
@@ -26,13 +26,11 @@ test.describe('Skills', () => {
     await installAgents(page, {
       skills: [
         { name: 'xlsx', description: 'Office sheets.', layer: 'addon', addon: 'office', addon_title: 'Office', path: '/addon-skills/office/xlsx/SKILL.md', enabled: true, editable: false },
-        { name: 'xlsx', description: 'Sheets sheets.', layer: 'addon', addon: 'sheets', addon_title: 'Sheets', path: '/addon-skills/sheets/xlsx/SKILL.md', enabled: true, editable: false, shadowed: 'addon', shadowed_by: 'office' },
-        { name: 'xlsx', description: 'Built-in sheets.', layer: 'builtin', path: '/builtin-skills/xlsx/SKILL.md', enabled: true, editable: false, shadowed: 'addon', shadowed_by: 'office' },
+        { name: 'xlsx', description: 'Sandbox Python spreadsheets.', layer: 'addon', addon: 'sandbox', addon_title: 'Sandbox', path: '/addon-skills/sandbox/xlsx/SKILL.md', enabled: true, editable: false, shadowed: 'addon', shadowed_by: 'office' },
       ],
     })
     await page.goto('/app/skills')
     await expect(page.getByTestId('skills-page')).toContainText('Not active: Office provides it')
-    await expect(page.getByTestId('skills-page')).toContainText('Replaced by Office')
   })
 
   test('only your own skills can be edited or deleted', async ({ page }) => {
@@ -40,7 +38,7 @@ test.describe('Skills', () => {
     await page.goto('/app/skills')
     await page.getByTestId('skill-row-pdf').click()
     await expect(page.getByTestId('skill-title')).toHaveText('pdf')
-    await expect(page.getByTestId('skill-layer')).toHaveText('Built-in')
+    await expect(page.getByTestId('skill-layer')).toHaveText('Provided by Office')
     await expect(page.getByRole('button', { name: 'Edit' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0)
     await page.getByTestId('skill-row-citations').click()
@@ -150,7 +148,7 @@ test.describe('Skill editor', () => {
 
   test('a skill you cannot write opens read-only', async ({ page }) => {
     await installAgents(page)
-    await page.goto('/app/skills/edit/builtin/pdf')
+    await page.goto('/app/skills/edit/addon/pdf')
     await expect(page.getByTestId('skill-readonly')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)
   })

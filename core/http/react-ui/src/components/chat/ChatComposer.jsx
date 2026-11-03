@@ -6,24 +6,25 @@ import { CAP_CHAT } from '../../utils/capabilities'
 import { seesImages } from '../../utils/chatVision'
 import { connectorRef } from '../../utils/chatMCP'
 import { networkMode } from '../../utils/chatEgress'
+import { unknownTextKey } from '../../utils/chatCommands'
 import { gbLabel, gbNumber } from '../../utils/modelLedger'
-import { SANDBOX_ADDON } from '../../utils/sandboxStatus'
 import { useModelFit } from '../../hooks/useModelFit'
-import { useSandboxStatus } from '../../hooks/useSandboxStatus'
 import { useCommandsNotice } from '../../hooks/useCommandsNotice'
 import { fillStyle, hostMemory, memoryFigure } from '../home/memory'
 import HomeComposer from '../home/HomeComposer'
-import HomeModelPicker from '../home/HomeModelPicker'
+import ModelPicker from '../ModelPicker'
 import AddonSlot from '../../addons/AddonSlot'
 import AgentPicker from './AgentPicker'
 import SkillsMenu from './SkillsMenu'
 import SwitchMenu from './SwitchMenu'
 import VisionNotice from './VisionNotice'
 import { ChatToolsControls } from '../../addons/hostControlComponents'
+import AgentFolderChip from './AgentFolderChip'
+import { agentFolderLine } from '../../utils/chatAgents'
 import { CommandsChip, CommandsNotice } from './CommandsNotice'
 import { ToolFallbacks } from './ToolFallbacks'
 import Button from '../ui/Button'
-import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills } from '../../utils/slashCommands'
+import { availableCommands, commandGroups, COMMAND_GROUPS, filterArgs, usableSkills, reservedNames } from '../../utils/slashCommands'
 import { CHAT_SLASH_ACTIONS } from './chatActions'
 import { SLASH_ACTIONS } from '../home/homeActions'
 
@@ -85,7 +86,7 @@ export default function ChatComposer({
 }) {
   const { t } = useTranslation('chat')
   const { t: tc } = useTranslation('chats')
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
   const { drafts, draftId, switches, models, modelsLoading, pickedAgent, effectiveModel, agents, agentId, setAgentId, setDraftModel, attach, paste } = composer
   const { text, files, setText, setFiles } = drafts
 
@@ -94,16 +95,7 @@ export default function ChatComposer({
   const modelFit = useModelFit({ openCount: fitOpenCount, names: modelNames })
   const onPickerOpen = useCallback(() => setFitOpenCount(n => n + 1), [])
 
-  const sandbox = useSandboxStatus(switches.addons.some(a => a.id === SANDBOX_ADDON), chatId)
-  const commands = useCommandsNotice(switches.commands.state, switches.commands.reason, isAdmin)
-  // What the Tools picker says under an add-on: the Sandbox's state.
-  const addonNote = (a) => {
-    if (a.id !== SANDBOX_ADDON || !sandbox || sandbox.state === 'unknown') return {}
-    if (sandbox.state === 'starting') return { note: tc('tools.sandbox.starting', { seconds: Math.max(1, Math.round(sandbox.retryMs / 1000)) }) }
-    if (sandbox.state === 'cannot') return { usable: false, reason: sandbox.reason ? tc('tools.sandbox.cannotWhy', { reason: sandbox.reason }) : tc('tools.sandbox.cannot') }
-    if (sandbox.state === 'host') return { note: tc('tools.sandbox.host'), warn: true }
-    return { note: tc('tools.sandbox.isolated', { backend: sandbox.backend }) }
-  }
+  const commands = useCommandsNotice(switches.commands, isAdmin, [user, chatId, effectiveModel, agentId])
   // Who serves a group of built-in tools in this chat: the built-in itself, or
   // an add-on that shadows a tool of the group (the server resolves it).
   const builtinNote = (b) => {
@@ -125,13 +117,13 @@ export default function ChatComposer({
   const shellNote = (b) => {
     if (b.usable === false) return commands.info ? { reason: tc(`tools.commands.${commands.info.textKey}`, { reason: commands.info.reason }) } : {}
     const by = (b.providers || {}).bash || b.provider
-    if (by === 'builtin') return { chip: tc('tools.shell.machine'), note: tc('tools.sandbox.host'), warn: true }
-    if (by === SANDBOX_ADDON) {
-      return sandbox?.state === 'host'
-        ? { chip: tc('tools.provider.sandbox'), note: tc('tools.sandbox.host'), warn: true }
-        : { chip: tc('tools.provider.sandbox'), note: tc('tools.shell.isolated') }
-    }
-    return by ? { chip: tc('tools.servedBy', { provider: by }) } : {}
+    const selected = switches.commands
+    const chip = by === 'builtin' ? tc('tools.shell.machine') : by ? tc('tools.servedBy', { provider: by }) : undefined
+    // Group discovery is not evidence of the selected provider's isolation.
+    if (!by || selected.provider !== by) return { chip, note: tc('tools.commands.unknown') }
+    if (['host', 'host-off', 'host-unavailable', 'provider-host'].includes(selected.state)) return { chip, note: tc('tools.commands.providerHost'), warn: true }
+    if (selected.state === 'available') return { chip, note: tc('tools.shell.isolated') }
+    return { chip, note: tc(`tools.commands.${unknownTextKey(selected.code)}`) }
   }
 
   // What a row of the model list says: whether it is loaded, what it can do
@@ -154,7 +146,7 @@ export default function ChatComposer({
   const memory = hostMemory(modelFit.resources)
   const memoryNumbers = memory ? memoryFigure(memory.used, memory.total) : null
   const picker = (
-    <HomeModelPicker
+    <ModelPicker
       ref={pickerRef}
       value={effectiveModel}
       onChange={chatId && onPickModel ? onPickModel : setDraftModel}
@@ -194,7 +186,7 @@ export default function ChatComposer({
     },
     {
       key: 'addons', title: tc('tools.addons'), icon: 'puzzle', onSet: switches.setAddonsOn,
-      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, id: a.id, label: a.id, meta: t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on), ...addonNote(a) })),
+      rows: switches.addons.map((a) => ({ key: `a-${a.id}`, id: a.id, label: a.id, meta: t('tools.toolCount', { count: a.tools }), on: !a.off, onToggle: (on) => switches.toggleAddon(a.id, on) })),
     },
     {
       key: 'servers', title: tc('tools.servers'), icon: 'server', onSet: switches.setMCPOn,
@@ -206,14 +198,16 @@ export default function ChatComposer({
     },
   ]
   const network = egress && networkMode(egress) !== 'hidden'
+  // A chat whose agent has a folder reaches only that folder with its file tools.
+  const scopeLine = agentFolderLine(pickedAgent, t)
   const tools = (
     <>
       <SwitchMenu
         icon="plug" label={t('tools.label')} title={t('tools.title')} heading={t('tools.heading')}
         note={chatId ? t('tools.note') : t('tools.draftNote')}
         groups={toolGroups} error={switches.error} testId="chat-tools"
-        notice={commands.info || network || switches.fallbacks.length > 0
-          ? <>{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
+        notice={scopeLine || commands.info || network || switches.fallbacks.length > 0
+          ? <>{scopeLine ? <p className="cmd-notice__line" data-testid="chat-tools-scope">{scopeLine}</p> : null}{commands.info ? <CommandsNotice notice={commands} /> : null}<ToolFallbacks fallbacks={switches.fallbacks} />{network ? <ChatToolsControls egress={egress} /> : null}</>
           : null}
         footer={switches.connectors.length > 0 || switches.servers.length > 0
           ? <Button size="sm" variant="ghost" iconEnd="arrow-right" to="/app/mcp-connectors" data-testid="chat-tools-manage">{tc('tools.manage')}</Button>
@@ -244,8 +238,8 @@ export default function ChatComposer({
       actions: withModelArgs(availableCommands(slashSurface, slashCtx)),
       groups: commandGroups(slashSurface),
       ctx: slashCtx,
-      label: (a) => words(a)(`slash.${a.id}.label`),
-      desc: (a) => words(a)(`slash.${a.id}.desc`),
+      label: (a) => a.label || words(a)(`slash.${a.id}.label`),
+      desc: (a) => a.addonId ? a.label : words(a)(`slash.${a.id}.desc`),
       groupLabel: (g) => (COMMAND_GROUPS.includes(g) ? t(`slash.group.${g}`) : own(`slash.group.${g}`)),
       argsLabel: (c) => t(`slash.args.${c.id === 'models' ? 'model' : c.id}`, { defaultValue: c.cmd }),
       argLabel: (c, it) => (it.action === 'enableAgents' ? t('slash.agent.enable') : it.action === 'loopStopAll' ? t('slash.loop.stopAll') : ''),
@@ -277,12 +271,15 @@ export default function ChatComposer({
       const on = (rows) => rows.filter((r) => !r.off && r.usable !== false).length
       const tools = on(switches.builtins) + switches.addons.filter((a) => !a.off).reduce((n, a) => n + (a.tools || 0), 0)
         + on(switches.servers) + on(switches.connectors)
-      const runs = switches.commands.state === 'available' ? (sandbox?.state === 'host' ? 'host' : 'isolated') : 'none'
+      const selected = switches.commands?.state
+      const runs = selected === 'available' ? 'isolated'
+        : ['host', 'host-off', 'host-unavailable', 'provider-host'].includes(selected) ? 'host'
+          : ['none', 'off', 'switched_off', 'unavailable', 'provider-unavailable'].includes(selected) ? 'none' : 'unknown'
       onRunAction?.(id, { about: { tools, skills: usableSkills(switches.skills).length, commands: runs } })
       return
     }
-    onRunAction?.(id, item)
-  }, [chatId, onPickModel, setDraftModel, pickerRef, switches, setText, onRunAction, slash, sandbox])
+    onRunAction?.(id, item?.addonId ? { ...item, addonOptions: { nativeNames: reservedNames(), skillNames: usableSkills(switches.skills).map(s => s.name) } } : item)
+  }, [chatId, onPickModel, setDraftModel, pickerRef, switches, setText, onRunAction, slash])
 
   const effectivePlaceholder = placeholder || (effectiveModel
     ? t('input.placeholderModel', { model: effectiveModel })
@@ -301,6 +298,7 @@ export default function ChatComposer({
         chips={(
           <>
             <AgentPicker agents={agents} value={activeChat ? activeChat.agent_id : agentId} onChange={setAgentId} readOnly={!!chatId} />
+            <AgentFolderChip agent={pickedAgent} />
             {chips}
           </>
         )}

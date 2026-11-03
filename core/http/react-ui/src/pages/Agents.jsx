@@ -9,7 +9,7 @@ import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, SkeletonRows, StatusChip } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
-import { AgentViews, RunStrip, RecordLine, agentPath } from '../components/agents/AgentBits'
+import { AgentViews, FolderChip, RunStrip, RecordLine, agentPath } from '../components/agents/AgentBits'
 import { deleteAgentWithUndo, usePendingAgentDeletes } from '../components/agents/agentUndo'
 import { agentInfo } from '../utils/agentInfo'
 import { outcomeLine, recordStatus, runOfChat } from '../utils/agentRuns'
@@ -260,6 +260,7 @@ function AgentRow({ agent, t, navigate, onExport, onDelete }) {
           {info.model
             ? <span className="ag-mono" title={t('facts.model')}>{info.model}</span>
             : <span>{t('meta.anyModel')}</span>}
+          <FolderChip agent={agent} meta />
           {info.tools.length > 0 && <span><Icon name="puzzle" />{t('meta.addons', { count: info.tools.length })}</span>}
           {info.memory.map(m => <Link key={`m-${m}`} to="/app/collections"><Icon name="database" />{m}</Link>)}
           {info.skills.map(s => <Link key={`s-${s}`} to="/app/skills"><Icon name="sparkles" />{s}</Link>)}

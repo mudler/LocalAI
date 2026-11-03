@@ -1,6 +1,7 @@
 package application
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -41,6 +42,8 @@ import (
 
 func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
+	ctx, cleanupWorkspace := workspaceStartupCleanup(options.Context, options)
+	options.Context = ctx
 
 	// Store a copy of the startup config (env/CLI only, before file
 	// loading): the settings endpoint uses it to tell env-provided API
@@ -68,6 +71,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 	trace.ConfigureBackendTracePersistence(options.DataPath)
 	application := newApplication(options)
 	application.startupConfig = &startupConfigCopy
+	startupComplete := false
+	defer func() {
+		if !startupComplete {
+			cleanupWorkspace(application)
+		}
+	}()
 
 	xlog.Info("Starting LocalAI", "threads", options.Threads, "modelsPath", options.SystemState.Model.ModelsPath)
 	xlog.Info("LocalAI version", "version", internal.PrintableVersion())
@@ -416,7 +425,9 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	// The chats service needs the cluster message bus, so it starts after distributed wiring.
-	application.initStudioFiles()
+	if err := application.initStudioFiles(); err != nil {
+		return nil, err
+	}
 	application.initStudioService()
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.RequireBackendIntegrity, nil, options.ModelsURL...); err != nil {
@@ -609,6 +620,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	application.markStartupComplete()
 
 	xlog.Info("core/startup process completed!")
+	startupComplete = true
 	return application, nil
 }
 
@@ -819,4 +831,26 @@ func ensureAuthDBDirs(options *config.ApplicationConfig) error {
 		}
 	}
 	return nil
+}
+
+// workspaceStartupCleanup owns startup resources when workspace initialization
+// can fail fatally: configured S3 (with or without auth), or PostgreSQL metadata.
+// It returns the context that startup runs in and the cleanup. Without those
+// setups it returns ctx itself and a no-op: it never cancels the caller's
+// context or changes legacy JSON/SQLite without S3.
+func workspaceStartupCleanup(ctx context.Context, options *config.ApplicationConfig) (context.Context, func(*Application)) {
+	postgres := options.Auth.Enabled && (strings.HasPrefix(options.Auth.DatabaseURL, "postgres://") || strings.HasPrefix(options.Auth.DatabaseURL, "postgresql://"))
+	if options.Distributed.StorageURL == "" && !postgres {
+		return ctx, func(*Application) {}
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	return ctx, func(a *Application) {
+		cancel() // stop background work before shutting down its dependencies
+		_ = a.Shutdown()
+		if a.authDB != nil {
+			if db, err := a.authDB.DB(); err == nil {
+				_ = db.Close()
+			}
+		}
+	}
 }

@@ -160,17 +160,21 @@ func (s *Service) EgressCheck(ctx context.Context, user, rid, op string, r egres
 	if err != nil {
 		return egress.Verdict{Action: egress.Block, Reason: "chat"}, err
 	}
-	v := egress.Decide(s.egressSettings(), pol.chat, r, egress.BuiltinRegistries())
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return egress.Verdict{Action: egress.Block, Reason: "policy_unavailable"}, err
+	}
+	v := egress.Decide(set, pol.chat, r, egress.BuiltinRegistries())
 	if v.Action == egress.Ask {
 		// A card asks the person: see the cards. Without one, a block.
-		v = s.askEgress(ctx, pol, rec, op, r)
+		v, err = s.askEgress(ctx, pol, rec, op, r)
 	}
 	if v.Action == egress.Allow && v.Reason == egress.ReasonOnce {
 		s.claimGrant(ctx, pol.rec, op, r)
 	}
 	line.Verdict, line.Reason = v.Action, v.Reason
 	s.auditEgress(ctx, line)
-	return v, nil
+	return v, err
 }
 
 // claimGrant ties a late "allow once" to the call that used it first, so it

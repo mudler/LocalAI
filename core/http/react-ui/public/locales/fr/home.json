@@ -120,6 +120,14 @@
     "allChats": "Toutes les conversations"
   },
   "slash": {
+    "commandDiagnostics": "Diagnostic des commandes d’applications",
+    "apps": {
+      "label": "Applications",
+      "desc": "Parcourir les applications installées"
+    },
+    "group": {
+      "addons": "Applications"
+    },
     "agents": {
       "label": "Agents",
       "desc": "Vos agents enregistrés, déclencheurs et compétences"
@@ -133,5 +141,17 @@
       "desc": "Collections que vos chats peuvent consulter"
     },
     "complete": "compléter"
+  },
+  "notice": { "appUnavailable": "L’application n’est plus disponible." },
+  "picker": {
+    "aliasOf": "alias de {{target}}",
+    "aliasBroken": "alias cassé",
+    "disabled": "désactivé",
+    "pinned": "épinglé",
+    "useTyped": "Utiliser \"{{name}}\"",
+    "empty": "Aucun modèle disponible",
+    "add": "Ajouter un modèle",
+    "remove": "Retirer {{name}}",
+    "clear": "Effacer"
   }
 }

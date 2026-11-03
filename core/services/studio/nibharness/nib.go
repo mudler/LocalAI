@@ -407,11 +407,18 @@ const noBuiltinTools = "studio-no-builtin-tools"
 // stays and nothing of the part that went.
 // The part before the last "context cleared" entry is left out.
 func TranscriptState(entries []session.Entry) ([]byte, error) {
+	return TranscriptStateIn(entries, session.Place{})
+}
+
+// TranscriptStateIn is TranscriptState for a chat with place p: the files of
+// the user's messages are named as that chat's tools see them
+// (session.ModelTextIn).
+func TranscriptStateIn(entries []session.Entry, p session.Place) ([]byte, error) {
 	var msgs []openai.ChatCompletionMessage
 	for _, e := range session.SinceCleared(entries) {
 		switch e.Role {
 		case session.RoleUser:
-			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: session.ModelText(e)})
+			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleUser, Content: session.ModelTextIn(e, p)})
 		case session.RoleAssistant:
 			msgs = append(msgs, openai.ChatCompletionMessage{Role: openai.ChatMessageRoleAssistant, Content: e.Text})
 		case session.RoleGoal:

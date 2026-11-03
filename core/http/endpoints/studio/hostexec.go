@@ -79,7 +79,11 @@ func (h *Handlers) AdminBuiltinTools(c echo.Context) error {
 			Titles: t.Titles, Stopped: t.Stopped, Note: t.Note, Mode: t.Mode, Unavailable: t.Unavailable})
 	}
 	out.Skills = []schema.ChatsBuiltinSkill{}
-	for _, sk := range h.svc.AdminBuiltinSkills(c.Request().Context(), userID(c)) {
+	skills, err := h.svc.AdminBuiltinSkills(c.Request().Context(), userID(c))
+	if err != nil {
+		return failFor(c, err)
+	}
+	for _, sk := range skills {
 		out.Skills = append(out.Skills, schema.ChatsBuiltinSkill{ID: sk.ID, Provider: sk.Provider, Candidates: sk.Candidates, Default: sk.Default, Titles: sk.Titles, Pinned: sk.Pinned, InstalledAt: sk.InstalledAt, Note: sk.Note})
 	}
 	return c.JSON(http.StatusOK, out)

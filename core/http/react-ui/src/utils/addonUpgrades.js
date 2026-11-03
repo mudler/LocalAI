@@ -7,10 +7,7 @@
 // identity per action, never a second submit after an unknown outcome), reads
 // the operation until it settles, and keeps what it saw so a list can show it.
 //
-// Cancel aborts the request. The owner treats a canceled upgrade request as a
-// cancellation (the last good generation is kept), and the store then reads
-// the operation once more, so what it reports is the owner's answer and not
-// the click.
+// Disconnecting only detaches the observer; accepted work belongs to the owner.
 import { createActionBook, effectOutcome } from '../components/addons/actionBook.js'
 import { runLifecycle, settleOperation } from '../components/addons/lifecycleFlow.js'
 import { updateErrorKey, updateView, upgradeBody } from '../components/addons/updateState.js'
@@ -18,17 +15,20 @@ import { AddonsError } from './addonsApi.js'
 
 // How far along an operation phase is, for the progress bar. The owner reports
 // phases, not percentages.
-const PHASE_PROGRESS = { intent: 10, prepared: 50, applied: 85 }
+const PHASE_PROGRESS = {}
 const MAX_RECORDS = 50
 const POLL_MS = 2000
 const POLL_ATTEMPTS = 300
 
 export function phaseProgress(phase) {
-  return PHASE_PROGRESS[phase] || 5
+  return PHASE_PROGRESS[phase] || 0
 }
 
 export function createUpgradeStore({ now = Date.now, waits, sleep, book = createActionBook() } = {}) {
   let snapshot = { live: [], records: [] }
+ let scope = ""
+ let storage = null
+ let epoch = 0
   const listeners = new Set()
   const controllers = new Map()
   const cancelled = new Set()
@@ -51,6 +51,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
 
   const emit = (next) => {
     snapshot = next
+    if (storage && scope) { try { storage.setItem(`addon-upgrades:${scope}`, JSON.stringify(next.live.map(({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration }) => ({ addonId, operationId, jobID, fromVersion, toVersion, name, startedAt, baseGeneration })))) } catch { /* unavailable storage only loses observer recovery */ } }
     for (const listener of listeners) listener()
   }
   const patch = (jobID, fields) => {
@@ -64,12 +65,58 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     ...api,
     async operationStatus(...args) {
       const status = await api.operationStatus(...args)
-      if (status && status.phase) patch(jobID, { phase: status.phase, progress: phaseProgress(status.phase) })
+      if (status && status.phase) patch(jobID, { phase: status.phase, stage: status.stage, failureCode: status.failureCode, message: status.stage || status.phase, progress: 0 })
       return status
     },
   })
 
+  const expireAttempt = (current, { jobID, addon, key, operationId }) => {
+    if (current()) return false
+    // A later session may already hold the same add-on and generation key.
+    if (book.pending(addon.id)?.operationId === operationId) book.resolve(addon.id, key)
+    if (snapshot.live.some(op => op.jobID === jobID)) {
+      emit({ ...snapshot, live: snapshot.live.filter(op => op.jobID !== jobID) })
+    }
+    return true
+  }
+
   const store = {
+    bind(api, principal, persistence) {
+      if (scope === principal && storage === persistence) return
+      const previous = scope
+      epoch += 1
+      for (const controller of controllers.values()) controller.abort()
+      controllers.clear()
+      book.clear()
+      if (!principal && storage && previous) { try { storage.removeItem(`addon-upgrades:${previous}`) } catch { /* storage unavailable */ } }
+      scope = principal
+      storage = persistence
+      snapshot = { live: [], records: [] }
+      for (const listener of listeners) listener()
+      if (!scope || !storage) return
+      let pending = []
+      try { pending = JSON.parse(storage.getItem(`addon-upgrades:${scope}`) || "[]") } catch { return }
+      if (!Array.isArray(pending)) return
+      for (const op of pending.slice(0, 20)) {
+        if (!op.operationId || !op.addonId) continue
+        book.restore(op.addonId, { key: `upgrade:${op.addonId}:${op.baseGeneration}`, operationId: op.operationId })
+        const controller = new AbortController()
+        controllers.set(op.jobID, controller)
+        emit({ ...snapshot, live: [...snapshot.live, { ...op, isAddon: true, taskType: "upgrade", state: "running", progress: 0, cancellable: false }] })
+        void store.follow(api, { jobID: op.jobID, addon: { id: op.addonId, generation: op.baseGeneration }, operationId: op.operationId, key: `upgrade:${op.addonId}:${op.baseGeneration}`, controller, submit: false })
+      }
+    },
+
+    // Logout must not rely on a React state update before navigation, and may
+    // run before this store has bound a principal. Clear only our namespace.
+    clearSession(persistence) {
+      store.bind(null, '', null)
+      try {
+        const keys = Array.from({ length: persistence?.length || 0 }, (_, i) => persistence.key(i))
+        for (const key of keys) if (key?.startsWith('addon-upgrades:')) persistence.removeItem(key)
+      } catch { /* blocked storage must not prevent logout */ }
+    },
+
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -79,7 +126,8 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     // Upgrades one installed add-on (the record of `addons-installed`). Never
     // throws: resolves { ok, message, outcome } where message is the key of the
     // words of a failure (see updateErrorKey) and is empty on success.
-    async start(api, addon) {
+    async start(api, addon, { current = () => true } = {}) {
+      if (!current()) return null
       const view = updateView(addon && addon.update)
       if (!view.canUpgrade || !addon.digest) return { ok: false, outcome: 'invalid', message: 'incompatible' }
       if (snapshot.live.some(op => op.addonId === addon.id && op.state !== 'failed')) return { ok: false, outcome: 'busy', message: 'operation_conflict' }
@@ -94,6 +142,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         fullName: addon.id,
         isAddon: true,
         taskType: 'upgrade',
+        baseGeneration: addon.generation,
         fromVersion: addon.version || '',
         toVersion: view.version,
         startedAt: new Date(now()).toISOString(),
@@ -110,16 +159,23 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       controllers.set(jobID, controller)
       emit({
         ...snapshot,
-        live: [...withoutOld, { ...base, jobID, operationId, state: 'running', phase: 'intent', progress: phaseProgress('intent'), cancellable: true, error: '', errorKey: '' }],
+        live: [...withoutOld, { ...base, jobID, operationId, state: 'running', phase: 'submitting', progress: 0, cancellable: false, error: '', errorKey: '' }],
       })
-      return store.follow(api, { jobID, addon, operationId, key, controller, submit: true })
+      return store.follow(api, { jobID, addon, operationId, key, controller, submit: true, current })
     },
 
     // Runs the submit (or, with submit false, only reads the earlier operation)
     // and turns its end into the entry of a list.
-    async follow(api, { jobID, addon, operationId, key, controller, submit }) {
+    async follow(api, { jobID, addon, operationId, key, controller, submit, current = () => true }) {
+      const followingEpoch = epoch
       const signal = controller.signal
-      const tracked = trackPhases(api, jobID)
+      const tracked = trackPhases({ ...api, operationStatus: async (...args) => {
+        if (!current()) throw new DOMException('Aborted', 'AbortError')
+        const status = await api.operationStatus(...args)
+        if (!current()) throw new DOMException('Aborted', 'AbortError')
+        return status
+      } }, jobID)
+      const expired = () => expireAttempt(current, { jobID, addon, key, operationId })
       try {
         let outcome
         // While the add-on service does not answer, the entry says that it
@@ -141,6 +197,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         } else {
           outcome = (await settleOperation(tracked, { operationId, addonId: addon.id, signal, waits: pollWaits, sleep: sleepOf(jobID), onWait })).outcome
         }
+        if (expired()) return null
         let verified
         if (outcome === 'completed') {
           try {
@@ -151,9 +208,13 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
             verified = undefined
           }
         }
+        if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
+        if (expired()) return null
         return store.conclude(jobID, addon, key, effectOutcome(outcome, verified), operationId)
       } catch (e) {
-        if (e && e.name === 'AbortError' && cancelled.has(jobID)) return store.afterCancel(api, { jobID, addon, operationId, key })
+        if (expired()) return null
+        if (followingEpoch !== epoch) return { ok: false, outcome: "detached", message: "" }
+        if (e && e.name === 'AbortError' && cancelled.has(jobID)) return store.afterCancel(api, { jobID, addon, operationId, key, current })
         const kind = e && e.kind ? e.kind : 'unavailable'
         if (kind === 'denied' || kind === 'invalid' || kind === 'auth') book.resolve(addon.id, key)
         const errorKey = updateErrorKey(e && e.kind ? e : { kind })
@@ -183,12 +244,15 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     },
 
     // After the request was aborted by a cancel: what did the owner end up with?
-    async afterCancel(api, { jobID, addon, operationId, key }) {
+    async afterCancel(api, { jobID, addon, operationId, key, current = () => true }) {
       cancelled.delete(jobID)
+      const expired = () => expireAttempt(current, { jobID, addon, key, operationId })
+      if (expired()) return null
       let outcome = 'unknown'
       try {
         outcome = (await settleOperation(api, { operationId, addonId: addon.id, waits: [] })).outcome
       } catch { /* an unreadable status stays unknown */ }
+      if (expired()) return null
       const op = snapshot.live.find(o => o.jobID === jobID)
       if (outcome === 'completed') {
         book.resolve(addon.id, key)
@@ -216,7 +280,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
 
     cancel(jobID) {
       const controller = controllers.get(jobID)
-      if (!controller) return false
+      if (!controller || !snapshot.live.find(op => op.jobID === jobID)?.cancellable) return false
       cancelled.add(jobID)
       patch(jobID, { state: 'cancelling', cancellable: false })
       controller.abort()
@@ -226,7 +290,8 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
     // Try a failed upgrade again. An unknown outcome is only read, never
     // submitted a second time; anything else starts from the installed record
     // as it is now, so a changed generation or candidate is honoured.
-    async retry(api, jobID) {
+    async retry(api, jobID, { current = () => true } = {}) {
+      if (!current()) return null
       const op = snapshot.live.find(o => o.jobID === jobID)
       if (!op || op.state !== 'failed') return { ok: false, outcome: 'invalid', message: 'operation_conflict' }
       const held = book.pending(op.addonId)
@@ -235,7 +300,7 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
         controllers.set(jobID, controller)
         patch(jobID, { state: 'running', cancellable: false, error: '', errorKey: '' })
         const addon = op.addonRecord || { id: op.addonId, generation: Number(held.key.split(':')[2]) || 0 }
-        return store.follow(api, { jobID, addon, operationId: held.operationId, key: held.key, controller, submit: false })
+        return store.follow(api, { jobID, addon, operationId: held.operationId, key: held.key, controller, submit: false, current })
       }
       let fresh
       try {
@@ -243,8 +308,9 @@ export function createUpgradeStore({ now = Date.now, waits, sleep, book = create
       } catch (e) {
         return { ok: false, outcome: 'unavailable', message: updateErrorKey(e) }
       }
+      if (!current()) return null
       if (!fresh) return { ok: false, outcome: 'invalid', message: 'stale_installed' }
-      return store.start(api, fresh)
+      return store.start(api, fresh, { current })
     },
 
     dismiss(jobID) {

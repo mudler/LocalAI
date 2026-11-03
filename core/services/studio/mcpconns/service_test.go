@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"slices"
 	"strings"
@@ -362,6 +363,33 @@ var _ = Describe("Service", func() {
 		e.private.Store(true)
 		p, _ := e.svc.Test(ctx, "u1", "x-by address")
 		Expect(p.Error).To(BeEmpty(), "with the administrator's switch on")
+	})
+
+	It("refuses cloud metadata addresses even when private addresses are allowed", func() {
+		e := newEnv()
+		ctx := specCtx()
+		e.private.Store(true)
+		for _, u := range []string{"http://169.254.169.254/mcp", "http://168.63.129.16/mcp", "http://[64:ff9b::a9fe:a9fe]/mcp"} {
+			c, err := e.svc.Create(ctx, "u1", httpInput("meta "+u, u))
+			Expect(err).NotTo(HaveOccurred(), u)
+			start := time.Now()
+			p, _ := e.svc.Test(ctx, "u1", c.ID)
+			Expect(p.Error).NotTo(BeEmpty(), u)
+			Expect(time.Since(start)).To(BeNumerically("<", 2*time.Second), "%s: the address was dialed", u)
+		}
+	})
+
+	It("refuses the addresses it is told to deny even when private addresses are allowed", func() {
+		f := newFakeServer(0)
+		e := newEnv(func(o *mcpconns.Options) {
+			o.DenyAddrs = func() []netip.Prefix { return []netip.Prefix{netip.MustParsePrefix("127.0.0.0/8")} }
+		})
+		ctx := specCtx()
+		c, err := e.svc.Create(ctx, "u1", httpInput("self", f.URL))
+		Expect(err).NotTo(HaveOccurred())
+		p, _ := e.svc.Test(ctx, "u1", c.ID)
+		Expect(p.Error).NotTo(BeEmpty())
+		Expect(f.inits.Load()).To(BeZero(), "a denied address was reached")
 	})
 
 	It("refuses a redirect to an internal address", func() {

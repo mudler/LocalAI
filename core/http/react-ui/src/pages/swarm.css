@@ -288,9 +288,6 @@
 
 /* ---- Rule sheet ---------------------------------------------------------------- */
 
-.sw-picker { position: relative; }
-.sw-picker .dk-input { width: 100%; }
-.sw-picker__list { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: var(--dk-z-popover); max-height: 240px; overflow-y: auto; }
 
 .sw-sheet__body { display: flex; flex-direction: column; gap: var(--dk-space-4); }
 .sw-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--dk-space-3); }

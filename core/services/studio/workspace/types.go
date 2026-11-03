@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"slices"
 	"time"
 )
 
@@ -20,10 +21,155 @@ const (
 
 // Actor is who makes a call: a principal, the groups it belongs to (both
 // opaque IDs from the host application), and an optional chat ID.
+//
+// An actor can also carry a fence (see Fenced). The fence is unexported so
+// that only Fenced sets it: a copy of the actor keeps it, and an Actor built
+// as a new literal has none.
 type Actor struct {
 	Principal string
 	Groups    []string
 	ChatID    string
+
+	// fence holds one layer per Fenced call, nil for an actor with no fence.
+	// The actor reaches a node only when every layer allows it. The layers
+	// are never changed in place, so copies of the actor can share them.
+	fence [][]FenceRoot
+}
+
+// MaxFenceRoots is the most roots that one Fenced call may give. A store
+// refuses an actor with more (ErrInvalid).
+const MaxFenceRoots = 32
+
+// maxFenceLayers bounds how many times an actor may be fenced. Each layer
+// costs one more check for every node, and a deeper chain than this is a bug
+// in the caller. A store refuses an actor with more (ErrInvalid).
+const maxFenceLayers = 8
+
+// FenceRoot is a folder a fenced actor may reach, by node ID, and the most
+// it may do there.
+type FenceRoot struct {
+	Node int64
+	Mode Mode // ModeRead or ModeWrite
+}
+
+// Fenced returns a copy of a that reaches only the given folders and what is
+// below them, at most at each root's mode, and never more than its grants
+// allow. Fencing a fenced actor keeps the intersection: a fence never grows.
+// Fenced with no roots gives an actor that reaches nothing.
+//
+// A fenced actor never takes the administrator shortcut, cannot grant or
+// revoke, and cannot delete, move or rename one of its roots.
+func (a Actor) Fenced(roots ...FenceRoot) Actor {
+	layer := make([]FenceRoot, len(roots))
+	copy(layer, roots)
+	layers := make([][]FenceRoot, 0, len(a.fence)+1)
+	layers = append(layers, a.fence...)
+	a.fence = append(layers, layer)
+	return a
+}
+
+// Fence returns a copy of the roots of the actor's fence, and false for an
+// actor with no fence. For an actor fenced more than once the list holds the
+// roots of every Fenced call, in order; the actor reaches only what all of
+// them allow, so use SameFence to compare two fences.
+func (a Actor) Fence() ([]FenceRoot, bool) {
+	if a.fence == nil {
+		return nil, false
+	}
+	out := []FenceRoot{}
+	for _, l := range a.fence {
+		out = append(out, l...)
+	}
+	return out, true
+}
+
+// SameFence reports whether a and b have the same fence: both none, or the
+// same roots from the same Fenced calls in the same order.
+func (a Actor) SameFence(b Actor) bool {
+	if (a.fence == nil) != (b.fence == nil) || len(a.fence) != len(b.fence) {
+		return false
+	}
+	for i := range a.fence {
+		if !slices.Equal(a.fence[i], b.fence[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+func (a Actor) hasFence() bool { return a.fence != nil }
+
+// checkFence returns ErrInvalid for a fence with too many layers or roots,
+// or with a root that names no node or no valid mode.
+func (a Actor) checkFence() error {
+	if len(a.fence) > maxFenceLayers {
+		return ErrInvalid
+	}
+	for _, l := range a.fence {
+		if len(l) > MaxFenceRoots {
+			return ErrInvalid
+		}
+		for _, r := range l {
+			if r.Node <= 0 || (r.Mode != ModeRead && r.Mode != ModeWrite) {
+				return ErrInvalid
+			}
+		}
+	}
+	return nil
+}
+
+// fenceMode returns the most the fence allows on a node, given the node and
+// every folder above it (ancestors) and which of them are live. In each
+// layer it is the highest mode of a live root among the ancestors; over the
+// layers it is the lowest. An actor with no fence gets ModeWrite, and an
+// invalid fence ModeNone. A deleted root counts for nothing, so a folder in
+// the Trash keeps no part of the fence alive.
+func (a Actor) fenceMode(ancestors []int64, live func(id int64) bool) Mode {
+	if a.fence == nil {
+		return ModeWrite
+	}
+	if a.checkFence() != nil {
+		return ModeNone
+	}
+	out := ModeWrite
+	for _, l := range a.fence {
+		best := ModeNone
+		for _, r := range l {
+			if r.Mode > best && slices.Contains(ancestors, r.Node) && live(r.Node) {
+				best = r.Mode
+			}
+		}
+		out = min(out, best)
+		if out == ModeNone {
+			break
+		}
+	}
+	return out
+}
+
+// isFenceRoot reports whether id is a root of any layer of the fence.
+func (a Actor) isFenceRoot(id int64) bool {
+	for _, l := range a.fence {
+		for _, r := range l {
+			if r.Node == id {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// fenceNodes returns the node of every root of every layer, without repeats.
+func (a Actor) fenceNodes() []int64 {
+	var out []int64
+	for _, l := range a.fence {
+		for _, r := range l {
+			if !slices.Contains(out, r.Node) {
+				out = append(out, r.Node)
+			}
+		}
+	}
+	return out
 }
 
 func (a Actor) principals() []string {
@@ -231,6 +377,11 @@ type Store interface {
 	Stat(ctx context.Context, a Actor, p string) (Node, error)
 	// List returns the live children of a folder, sorted by name.
 	List(ctx context.Context, a Actor, p string) ([]Node, error)
+	// NodeByID returns a live node by its ID, at its current path, so a
+	// caller that keeps a node ID follows a rename or a move. It returns
+	// ErrNotFound when the node, or a folder above it, is deleted, or when the
+	// actor cannot read it.
+	NodeByID(ctx context.Context, a Actor, id int64) (Node, error)
 
 	// Begin groups several calls into one change set with one title.
 	Begin(ctx context.Context, a Actor, title string) (Tx, error)

@@ -117,6 +117,14 @@
     "allChats": "Alle Chats"
   },
   "slash": {
+    "commandDiagnostics": "Diagnose der App-Befehle",
+    "apps": {
+      "label": "Apps",
+      "desc": "Installierte Apps durchsuchen"
+    },
+    "group": {
+      "addons": "Apps"
+    },
     "agents": {
       "label": "Agenten",
       "desc": "Deine gespeicherten Agenten, Auslöser und Skills"
@@ -130,5 +138,17 @@
       "desc": "Sammlungen, in denen deine Chats suchen können"
     },
     "complete": "ergänzen"
+  },
+  "notice": { "appUnavailable": "Die App ist nicht mehr verfügbar." },
+  "picker": {
+    "aliasOf": "Alias von {{target}}",
+    "aliasBroken": "defekter Alias",
+    "disabled": "deaktiviert",
+    "pinned": "angeheftet",
+    "useTyped": "\"{{name}}\" verwenden",
+    "empty": "Keine Modelle verfügbar",
+    "add": "Modell hinzufügen",
+    "remove": "{{name}} entfernen",
+    "clear": "Leeren"
   }
 }

@@ -25,12 +25,24 @@ var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent:
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
 type Gateway struct {
-	Limits    RelayLimits
-	Manager   *addons.Manager
-	Runtime   CurrentRuntime
-	Forward   *Carrier
-	Admission Admission
-	Resolver  ResourceResolver
+	Connectors         ConnectorSource
+	ConnectorAuthority ConnectorAuthority
+	// HostSettings is owner-only durable policy; frontends forward, never fall back.
+	HostSettings HostSettingsService
+	// HostSettingsAdmin checks current host authority, never add-on supplied flags.
+	HostSettingsAdmin func(context.Context, contract.Actor) error
+	// ResolveExecutionBinding loads actor-owned context on the owner. Nil denies.
+	ResolveExecutionBinding func(context.Context, contract.Actor, ExecutionBindingClaim) (ExecutionStatusBinding, error)
+	// AuthorizeExecutionStatus must revalidate current provider current selection,
+	// execution feature permission, access and builtin replacement authority on the owner.
+	// Nil denies all observations. Status is never selection authorization.
+	AuthorizeExecutionStatus func(context.Context, contract.Actor, ExecutionStatusBinding) error
+	Limits                   RelayLimits
+	Manager                  *addons.Manager
+	Runtime                  CurrentRuntime
+	Forward                  *Carrier
+	Admission                Admission
+	Resolver                 ResourceResolver
 	// Tools reports the tools each installed add-on declares. When nil the
 	// Manager is used; with neither, a request that names a tool is denied.
 	Tools ToolSource
@@ -113,6 +125,8 @@ func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request co
 // dispatchLocal serves a request on the owner itself, with no forwarding.
 func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
 	switch request.Action {
+	case ActionHostSettingsRead, ActionHostSettingsUpdate:
+		return g.hostSettingsAction(ctx, actor, request)
 	case "catalog-search", "catalog-details", "catalog-sources", "catalog-source-save", "catalog-source-refresh", "addons-installed":
 		return g.management(ctx, actor, request)
 	case ActionUpdateStatus, ActionUpdateCheck, ActionUpdateUpgrade:
@@ -136,7 +150,13 @@ func (g *Gateway) dispatchLocal(ctx context.Context, actor contract.Actor, reque
 			// disable; a stale one is denied before anything is recorded.
 			cmd.Generation = request.Generation
 		}
-		status, err := g.Manager.Submit(ctx, actor, cmd)
+		var status addons.OperationStatus
+		var err error
+		if cmd.Action == "upgrade" {
+			status, err = g.Manager.SubmitUpgrade(ctx, actor, cmd)
+		} else {
+			status, err = g.Manager.Submit(ctx, actor, cmd)
+		}
 		if err != nil {
 			return contract.Result{}, err
 		}

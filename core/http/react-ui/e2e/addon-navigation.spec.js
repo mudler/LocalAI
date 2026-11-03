@@ -4,12 +4,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ADMIN, MEMBER, app, installedAddon, release, sessionFor, mockAddons } from './addons-fixtures.js'
 import { buildAddonBundles, installStudioAddons, packagedApp } from './studio-addon.js'
+import { mockSettings } from './settings-fixtures.js'
 import { FACE_MODEL, clipFile, faces, match, mockIdentity, people, photoFile } from './identity-fixtures.js'
 
 // Studio and Talk are packaged add-ons, not built-in tiles: the specs install
 // the real packages. No page is built in today, so `builtin` is empty unless a
 // spec makes one up to check the built-in rules.
-async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases, features = { addon_navigation: true } } = {}) {
+async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true, builtin = [], studio = true, user = MEMBER, installed, releases, hostSettings, features = { addon_navigation: true } } = {}) {
   let saved = pins
   await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons }) }))
   await page.route('**/api/features', route => route.fulfill({ json: features }))
@@ -18,7 +19,7 @@ async function setup(page, { apps = [], pins = ['studio', 'talk'], addons = true
   // The packages are served from the build output, so a page that opens one runs it.
   let mocked = null
   if (studio) mocked = await installStudioAddons(page, { apps: [packagedApp('studio'), packagedApp('talk'), ...apps] })
-  else mocked = await mockAddons(page, { apps, installed, releases })
+  else mocked = await mockAddons(page, { apps, installed, releases, hostSettings })
   await page.route('**/api/addons/pins', async route => {
     if (route.request().method() === 'PUT') saved = route.request().postDataJSON()
     await route.fulfill({ json: saved })
@@ -188,7 +189,7 @@ test.describe('Add-on navigation', () => {
 
   test('an administrator gets a Settings tab in the details of an add-on with settings, with the host controls it has', async ({ page }) => {
     const controlled = withSettings({ shadows: ['bash'], ui: { entry: `/api/addons/sandbox/assets/${'a'.repeat(64)}/ui.js`, sdk: { min: 2, max: 2 }, controls: ['network-policy'] } })
-    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [controlled, app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()] })
+    await setup(page, { pins: [], studio: false, user: ADMIN, apps: [controlled, app({ id: 'notes', title: 'Notes' })], installed: [installedAddon({ id: 'sandbox', title: 'Sandbox' }), installedAddon()], hostSettings: { chats_egress_ceiling: 'registries' } })
     await page.route('**/api/settings', route => route.fulfill({ json: { chats_egress_ceiling: 'registries', chats_egress_audit_days: 14 } }))
     await page.route('**/api/chats/admin/egress', route => route.fulfill({ json: { ceiling: 'registries', default: 'off', ports: [80, 443], audit_days: 14, registries: [], allowed_24h: 0, blocked_24h: 0 } }))
     await page.goto('/app/addons?detail=sandbox')
@@ -200,7 +201,8 @@ test.describe('Add-on navigation', () => {
     const block = pane.getByTestId('host-control-network-policy')
     await expect(block).toBeVisible()
     await expect(block.locator('[data-field="chats_egress_ceiling"] select')).toHaveValue('registries')
-    await expect(block.locator('[data-field="chats_egress_audit_days"] input')).toHaveValue('14')
+    // The audit retention stays on the Settings page: it is not owner policy.
+    await expect(block.locator('[data-field="chats_egress_audit_days"]')).toHaveCount(0)
     await expect(pane.getByTestId('addon-server-settings')).toHaveCount(0)
     // Arrow keys move between the two tabs.
     await pane.getByTestId('addon-detail-tab-settings').press('ArrowLeft')
@@ -222,6 +224,7 @@ test.describe('Add-on navigation', () => {
 
   test('the Settings page lists the add-ons with settings in an Add-ons group, and only when there is one', async ({ page }) => {
     await setup(page, { pins: [], studio: false, user: ADMIN, apps: [withSettings(), app({ id: 'notes', title: 'Notes' })] })
+    await mockSettings(page)
     await page.goto('/app/settings')
     const group = page.locator('.st-group[data-group="addons"]')
     await expect(group).toBeVisible()
@@ -238,6 +241,7 @@ test.describe('Add-on navigation', () => {
 
   test('the Settings page has no Add-ons group when no add-on has settings', async ({ page }) => {
     await setup(page, { pins: [], studio: false, user: ADMIN, apps: [app({ id: 'notes', title: 'Notes' })] })
+    await mockSettings(page)
     const listed = page.waitForResponse(r => /\/api\/addons\/apps$/.test(new URL(r.url()).pathname))
     await page.goto('/app/settings')
     await listed
@@ -491,23 +495,24 @@ test.describe('Add-on navigation: the legacy Add-ons hub tab and the route in bo
     await expect(page.locator('.dk-hubtabs [data-hub-tab="addons"]')).toHaveAttribute('aria-current', 'page')
   })
 
-  test('an old generator link keeps its model, query and hash', async ({ page }) => {
+  test('a canonical generator link keeps its model, query and hash', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/image/stable%2Fdiffusion?x=1#top')
+    await page.goto('/app/addons/studio/studio/images?x=1&model=stable%2Fdiffusion#top')
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images\?x=1&model=stable%2Fdiffusion#top$/)
   })
 
-  test('the legacy ?tab= link of Studio still works', async ({ page }) => {
+  test('the canonical Studio tab address stays on its declared page', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/studio?tab=tts')
+    await page.goto('/app/addons/studio/studio/tts')
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/tts$/)
   })
 
-  test('a viewer without the 3d feature still ends on the app home', async ({ page }) => {
+  test('a viewer without the native 3d feature stays in Studio overview without the gated tab', async ({ page }) => {
     await setup(page)
     await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(MEMBER, { addons: true, '3d': false }) }))
-    await page.goto('/app/3d')
-    await expect(page).toHaveURL(/\/app$/)
+    await page.goto('/app/addons/studio/studio/threed')
+    await expect(page.locator('.studio-tab-active[data-tab="overview"]')).toBeVisible()
+    await expect(page.locator('[data-tab="threed"]')).toHaveCount(0)
   })
 })
 
@@ -632,10 +637,10 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Indexer')
   })
 
-  test('an old Voice link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+  test('a canonical Voice link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
-    await page.goto('/app/voice')
+    await page.goto('/app/addons/voice/voice/recognition')
     await expect(page).toHaveURL(/\/app\/addons\/voice\//)
     await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
@@ -645,7 +650,7 @@ test.describe('Add-on navigation: the Voice recognition page', () => {
     await asAdmin(page)
     await serveVoice(page)
     await mockIdentity(page)
-    await page.goto('/app/voice/org%2Fname')
+    await page.goto('/app/addons/voice/voice/recognition?model=org%2Fname')
     await expect(page).toHaveURL(/\/app\/addons\/voice\/voice\/recognition\?model=org%2Fname$/)
     await expect(page.getByTestId('voices-page')).toBeVisible()
   })
@@ -885,10 +890,10 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page.getByTestId('known-empty')).toContainText('Nobody enrolled in this browser yet')
   })
 
-  test('an old Face link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+  test('a canonical Face link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
-    await page.goto('/app/face')
+    await page.goto('/app/addons/face/recognition')
     await expect(page).toHaveURL(/\/app\/addons\/face\//)
     await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
@@ -898,7 +903,7 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await asFaceAdmin(page)
     await serveFace(page)
     await mockIdentity(page)
-    await page.goto('/app/face/org%2Fname')
+    await page.goto('/app/addons/face/recognition?model=org%2Fname')
     await expect(page).toHaveURL(/\/app\/addons\/face\/recognition\?model=org%2Fname$/)
     await expect(page.getByTestId('faces-page')).toBeVisible()
   })
@@ -934,32 +939,32 @@ test.describe('Add-on navigation: the Face recognition page', () => {
     await expect(page.locator('.bt-experimental')).toBeVisible()
   })
 
-  test('an old fine-tuning link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+  test('a canonical fine-tuning link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
-    await page.goto('/app/fine-tune')
+    await page.goto('/app/addons/fine-tuning/jobs')
     await expect(page).toHaveURL(/\/app\/addons\/fine-tuning\//)
     await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
 
-  test('an old fine-tuning link opens the add-on when it is installed and running', async ({ page }) => {
+  test('a canonical fine-tuning link opens the add-on when it is installed and running', async ({ page }) => {
     await setup(page, { apps: [ftApp()] })
     await serveFineTuning(page)
-    await page.goto('/app/fine-tune')
+    await page.goto('/app/addons/fine-tuning/jobs')
     await expect(page).toHaveURL(/\/app\/addons\/fine-tuning\/jobs$/)
   })
 
-  test('an old quantization link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
+  test('a canonical quantization link ends in the add-on shell, which says the add-on is not available', async ({ page }) => {
     await setup(page, { apps: [] })
     await asAdmin(page)
-    await page.goto('/app/quantize')
+    await page.goto('/app/addons/quantization/jobs')
     await expect(page).toHaveURL(/\/app\/addons\/quantization\//)
     await expect(page.getByTestId('addon-unavailable')).toBeVisible()
   })
 
-  test('an old quantization link opens the add-on when it is installed and running', async ({ page }) => {
+  test('a canonical quantization link opens the add-on when it is installed and running', async ({ page }) => {
     await setup(page, { apps: [app({ id: 'quantization', name: 'quantization', title: 'Quantization', icon: undefined, mainPage: '/app/addons/quantization/jobs', ui: { entry: `/api/addons/quantization/assets/${'a'.repeat(64)}/ui/quantization.js`, css: [], sdk: { min: 2, max: 2 }, pages: ['jobs'], navigation: [], chatActions: [] } })] })
-    await page.goto('/app/quantize')
+    await page.goto('/app/addons/quantization/jobs')
     await expect(page).toHaveURL(/\/app\/addons\/quantization\/jobs$/)
   })
 
@@ -1074,7 +1079,7 @@ test.describe('Add-on navigation: the addons feature gate', () => {
     }
   })
 
-  for (const address of ['/app/addons', '/app/addons/studio/home', '/app/fine-tune', '/app/quantize']) {
+  for (const address of ['/app/addons', '/app/addons/studio/home', '/app/addons/fine-tuning/jobs', '/app/addons/quantization/jobs']) {
     test(`with add-ons off ${address} ends at /app and calls no add-on route`, async ({ page }) => {
       const calls = await watch(page)
       await setup(page, { features: OFF, user: ADMIN })

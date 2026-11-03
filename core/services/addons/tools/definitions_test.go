@@ -210,3 +210,18 @@ var _ = Describe("The add-ons that replace a built-in chat tool", func() {
 		}))
 	})
 })
+
+var _ = Describe("typed execution status model exclusion", func() {
+	It("keeps declared uiOnly execution status tools out of generic adapters", func() {
+		app := apps.App{ID: "renamed", Generation: 1, Enabled: true, State: "running", Tools: []string{"health"}, ToolDefinitions: []contract.ToolDefinition{{Name: "health", Kind: "read", UIOnly: true, Description: "Observe execution.", InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)}}}
+		f := &fake{list: apps.List{Apps: []apps.App{app}}}
+		for _, a := range []*tools.ToolAdapter{tools.NewToolAdapter(f), tools.NewChatToolAdapter(f)} {
+			defs, e := a.Discover(context.Background(), member)
+			Expect(e).NotTo(HaveOccurred())
+			Expect(defs).To(BeEmpty())
+			_, e = a.Execute(context.Background(), member, tools.ToolName("renamed", "health"), json.RawMessage(`{}`))
+			Expect(e).To(MatchError(tools.ErrUnknownTool))
+		}
+		Expect(f.calls()).To(BeZero())
+	})
+})

@@ -33,8 +33,14 @@ func create(svc *studio.Service, user string) string {
 	return rec.ID
 }
 
-func until(what string, f func() bool) {
-	deadline := time.Now().Add(20 * time.Second)
+func until(what string, f func() bool) { untilWithin(20*time.Second, what, f) }
+
+// untilWithin is until with the bound the caller chooses. A turn that runs
+// many real tools takes several seconds under -race and much longer on a
+// loaded runner, so waiting for its end needs a bound far above that: it only
+// has to tell a turn that never ends from a slow one.
+func untilWithin(limit time.Duration, what string, f func() bool) {
+	deadline := time.Now().Add(limit)
 	for !f() {
 		Expect(time.Now().After(deadline)).To(BeFalse(), "timed out waiting for %s", what)
 		time.Sleep(5 * time.Millisecond)

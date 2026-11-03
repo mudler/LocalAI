@@ -27,6 +27,7 @@ import (
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
@@ -136,11 +137,18 @@ func (a *Application) RegisterAddonWorkspace(f *files.Service) error {
 	root := a.addonDataRoot
 	return hostops.RegisterWorkspace(a.addonHostOps.Broker, &hostops.WorkspaceHost{
 		Store:     f.Store(),
-		Files:     f,
 		Principal: func(actor contract.Actor) string { return addonWorkspacePrincipal(a.authDB != nil)(actor) },
 		DataDir:   func(id string) string { return filepath.Join(root, id) },
 		// The chats service is built after the broker: it is looked up at
-		// each commit.
+		// each call. A chat's call gets the chat's access, so a chat whose
+		// agent has a folder reaches only that folder through an add-on;
+		// without the chats service a call is refused.
+		Access: func(ctx context.Context, principal, chat string) (session.Access, error) {
+			if svc := a.StudioService(); svc != nil {
+				return svc.AddonAccess(ctx, principal, chat)
+			}
+			return session.Access{}, errors.New("the chats service is not running")
+		},
 		Chat: func(ctx context.Context, principal, rid string) string {
 			if svc := a.StudioService(); svc != nil {
 				return svc.ChatOfAction(ctx, principal, rid)
@@ -284,7 +292,7 @@ func (a *Application) startAddonGateway() error {
 	if mode == auth.AddonModeLocalOwner {
 		xlog.Warn(localOwnerWarning)
 	}
-	g := &gateway.Gateway{Limits: c.Limits, Manager: a.addonManager, Revalidate: auth.AddonRevalidate(a.authDB, mode)}
+	g := &gateway.Gateway{Limits: c.Limits, Manager: a.addonManager, ConnectorAuthority: connectorAuthority{a}, Revalidate: auth.AddonRevalidate(a.authDB, mode)}
 	if cfg.InstanceID != cfg.OwnerID {
 		g.Forward = carrier
 		a.addonGateway = g
@@ -297,6 +305,16 @@ func (a *Application) startAddonGateway() error {
 		go a.runLibraryRefresh(a.applicationConfig.Context)
 		go a.runModelsProbe(a.applicationConfig.Context)
 		return nil
+	}
+	g.HostSettings = a.addonHostSettings
+	g.HostSettingsAdmin = func(ctx context.Context, actor contract.Actor) error {
+		if mode == auth.AddonModeLocalOwner {
+			return auth.ValidateLocalOwnerActor(actor)
+		}
+		return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
+	}
+	if e := a.wireExecutionBinding(g); e != nil {
+		return e
 	}
 	// Only the owner holds the policy store. Other frontends reach it through the
 	// gateway, and without it the gateway keeps denying every resource.
@@ -647,12 +665,13 @@ func filterByFeature(tools []studio.AddonTool, hostOps map[string][]string, has 
 	return out
 }
 
-// sandboxAddonID is the add-on that runs commands and code.
-const sandboxAddonID = "sandbox"
-
 // needsWorkspace says whether the add-on works on the files of the user.
 func (s *studioAddons) needsWorkspace(addonID string) bool {
-	for _, p := range s.hostOps[addonID] {
+	return hasWorkspaceOperation(s.hostOps[addonID])
+}
+
+func hasWorkspaceOperation(operations []string) bool {
+	for _, p := range operations {
 		if strings.HasPrefix(p, "workspace.") {
 			return true
 		}
@@ -660,69 +679,28 @@ func (s *studioAddons) needsWorkspace(addonID string) bool {
 	return false
 }
 
-// Unavailable says why the tools of an add-on cannot work now, or "". An
-// add-on that needs the Files workspace cannot work without it, and the
-// Sandbox cannot run anything on a host where no backend works.
+// Unavailable consumes only the owner-selected request-local observation.
 func (s *studioAddons) Unavailable(ctx context.Context, user, addonID string, workspace bool) string {
 	if !workspace && s.needsWorkspace(addonID) {
 		return "the Files workspace is off on this server, so there is no place for files or code"
 	}
-	if addonID != sandboxAddonID {
-		return ""
+	value, explanation := studio.ExecutionObservation(ctx, user, addonID)
+	if value.Readiness == "unavailable" {
+		if explanation != "" {
+			return explanation
+		}
+		return "the selected execution provider is unavailable"
 	}
-	actor, err := s.actor(user)
-	if err != nil {
-		return ""
-	}
-	st, ok := s.sandboxStatus(ctx, actor)
-	if !ok || st.CanRun {
-		return ""
-	}
-	return "no sandbox backend works on this host, so commands cannot run"
+	return ""
 }
 
-// sandboxState is the part of the Sandbox add-on's status read that the chats use.
-type sandboxState struct {
-	OK         bool   `json:"ok"`
-	CanRun     bool   `json:"canRun"`
-	Active     string `json:"active"`
-	HostNotice bool   `json:"hostNotice"`
-}
-
-// sandboxStatus reads the Sandbox add-on's status as the actor. ok is false
-// when the read failed or the add-on did not answer ok.
-func (s *studioAddons) sandboxStatus(ctx context.Context, actor contract.Actor) (sandboxState, bool) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	res, err := s.adapter.Execute(ctx, actor, addontools.ToolName(sandboxAddonID, "status"), json.RawMessage(`{}`))
-	if err != nil || res.Kind != addontools.ResultData {
-		return sandboxState{}, false
-	}
-	var st sandboxState
-	if json.Unmarshal(res.Result, &st) != nil || !st.OK {
-		return sandboxState{}, false
-	}
-	return st, true
-}
-
-// Isolation says how the Sandbox add-on runs commands: "isolated", "host" (on
-// the server, with no isolation) or "" when it cannot tell.
+// Isolation is unknown outside an admitted scope or after freshness is lost.
 func (s *studioAddons) Isolation(ctx context.Context, user, addonID string) string {
-	if addonID != sandboxAddonID {
+	value, _ := studio.ExecutionObservation(ctx, user, addonID)
+	if value.Readiness != "available" || value.Isolation == "unknown" {
 		return ""
 	}
-	actor, err := s.actor(user)
-	if err != nil {
-		return ""
-	}
-	st, ok := s.sandboxStatus(ctx, actor)
-	switch {
-	case !ok || !st.CanRun:
-		return ""
-	case st.HostNotice || st.Active == "host":
-		return "host"
-	}
-	return "isolated"
+	return string(value.Isolation)
 }
 
 // Controls returns the host controls the apps list draws for the add-on, as
@@ -836,7 +814,10 @@ func (s *studioAddons) Call(ctx context.Context, user, conv, name string, args j
 	if err != nil {
 		return "", err
 	}
-	res, err := s.adapter.ExecuteIn(ctx, actor, conv, name, args)
+	// The call is bound to the chat on the host side, so the add-on's
+	// workspace operations act with the chat's access (a chat whose agent has
+	// a folder reaches only that folder), for every tool kind.
+	res, err := s.adapter.ExecuteChat(ctx, actor, addontools.NewChatCall(user, conv), name, args)
 	if err != nil {
 		return "", err
 	}
@@ -854,4 +835,14 @@ func studioAddonText(res addontools.ToolResult) string {
 			res.Proposal.AddonID, res.Proposal.Action, res.Proposal.ID)
 	}
 	return res.JSON()
+}
+
+// Resolve at call time: the connector service can start after the private gateway.
+type connectorAuthority struct{ a *Application }
+
+func (c connectorAuthority) AuthorizeConnector(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorRequest, error) {
+	if c.a.studioConnectors == nil {
+		return req, gateway.ErrUnavailable
+	}
+	return c.a.studioConnectors.AuthorizeConnector(ctx, scope, req)
 }

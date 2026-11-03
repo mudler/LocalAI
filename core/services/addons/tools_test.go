@@ -117,6 +117,9 @@ var _ = Describe("declared capabilities of the installed generation", Label("too
 		m := open(cfg, c, i)
 		var caps contract.Capabilities
 		fillNonZero(reflect.ValueOf(&caps).Elem())
+		// Admission requires valid, supported requests even in the reflection fixture.
+		caps.HostOperations = &contract.HostOperations{Required: []string{"workspace.materialize"}, Optional: []string{"egress.check"}}
+		m.SetHostOps(map[string][]string{"notes": {"workspace."}})
 		v := contract.VersionRange{Min: 1, Max: 1}
 		m.journal.Addons["notes"] = Status{AddonID: "notes", Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: packages.PackageReceipt{
 			Manifest: contract.Manifest{SchemaVersion: 1, ID: "notes", Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: caps}}}}}

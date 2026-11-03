@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -309,5 +311,160 @@ var _ = Describe("subagent", func() {
 		Expect(svc.Close(context.Background())).To(Succeed())
 		until("the turn to be settled", func() bool { return !turn(svc, alice, id).Running })
 		Expect(turn(svc, alice, id).Last).To(Equal(store.TurnInterrupted))
+	})
+})
+
+// onlyChild returns the one sub-agent chat of a parent and fails unless there is
+// exactly one.
+func onlyChild(r *scopeTurnRig, parent string) session.ChatRecord {
+	GinkgoHelper()
+	kids := childrenOf(r.svc, alice, parent)
+	Expect(kids).To(HaveLen(1))
+	return kids[0]
+}
+
+var _ = Describe("sub-agents of a scoped chat", func() {
+	var r *scopeTurnRig
+	BeforeEach(func() { r = newScopeTurnRig() })
+
+	// spawn runs one turn of the parent that starts a sub-agent and returns the
+	// result of the spawn_agent call.
+	spawn := func(parent, args string) studiotest.ToolResult {
+		GinkgoHelper()
+		res := r.run(parent, "go", call("spawn_agent", args))
+		Expect(res).NotTo(BeEmpty())
+		return res[len(res)-1]
+	}
+
+	It("confines a generic sub-agent of a scoped chat, tools and sandbox view", func() {
+		parent := r.chat(r.agent("/Projects/Acme", agents.FolderRead).ID)
+		r.mu.Lock()
+		r.steps["child task"] = []studiotest.ToolStep{
+			call("read_file", `{"path":"/a.txt"}`),
+			call("read_file", `{"path":"/workspace/home/../../Other/secret.txt"}`),
+			call("list_files", `{"path":"/","pattern":"*"}`),
+			call("write_file", `{"path":"/child.txt","content":"x"}`),
+		}
+		r.mu.Unlock()
+		out := spawn(parent.ID, `{"task":"child task","wait":true}`)
+		Expect(out.Err).NotTo(HaveOccurred(), outOf(out))
+
+		kid := onlyChild(r, parent.ID)
+		x, err := r.svc.ChatAccess(r.ctx, alice, kid.ID)
+		Expect(err).NotTo(HaveOccurred())
+		px, err := r.svc.ChatAccess(r.ctx, alice, parent.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(fenceOf(x.Actor())).To(Equal(fenceOf(px.Actor())), "the child has the parent's fence")
+		Expect(x.View().Mounts).To(HaveLen(len(px.View().Mounts)))
+		for i, m := range x.View().Mounts {
+			Expect(m.NodeID).To(Equal(px.View().Mounts[i].NodeID), "the child's view is the parent's")
+			Expect(m.Mode).To(Equal(px.View().Mounts[i].Mode))
+		}
+		Expect(r.exists("/Projects/Acme/child.txt")).To(BeFalse(), "the parent's folder is read only")
+		Expect(r.h.ResultsFor("write_file")[0].Err).To(HaveOccurred())
+		for _, res := range r.h.ResultsFor("read_file") {
+			Expect(outOf(res)).NotTo(ContainSubstring(outsideMark))
+		}
+		Expect(r.h.ResultsFor("list_files")[0].Out).NotTo(ContainSubstring("Other"))
+	})
+
+	It("tells a generic sub-agent whether the parent's folder may be written", func() {
+		ro := r.chat(r.agent("/Projects/Acme", agents.FolderRead).ID)
+		rw := r.chat(r.agent("/Projects/Acme", agents.FolderWrite).ID)
+		for _, p := range []session.ChatRecord{ro, rw} {
+			r.mu.Lock()
+			r.steps["child task"] = []studiotest.ToolStep{}
+			r.mu.Unlock()
+			out := spawn(p.ID, `{"task":"child task","wait":true}`)
+			Expect(out.Err).NotTo(HaveOccurred(), outOf(out))
+		}
+		prompt := func(parent string) string { return r.h.TurnPrompt(onlyChild(r, parent).ID) }
+		Expect(prompt(ro.ID)).To(ContainSubstring("/workspace/home/ is read only"))
+		Expect(prompt(rw.ID)).NotTo(ContainSubstring("is read only"), "the folder of the parent may be written")
+		Expect(prompt(rw.ID)).To(ContainSubstring("/workspace/chat/work"))
+	})
+
+	It("refuses a saved-agent child whose folder is outside the parent's", func() {
+		parent := r.chat(r.agent("/Projects/Acme", agents.FolderWrite).ID)
+		allowSavedAgents(r.svc, parent.ID)
+		for _, outside := range []string{"/Other", "/Projects", "/Projects/Acme2", "/"} {
+			ag := r.agent(outside, agents.FolderRead)
+			res := spawn(parent.ID, fmt.Sprintf(`{"task":"child task","agent":%q}`, ag.ID))
+			Expect(res.Err).To(HaveOccurred(), "%s", outside)
+			Expect(res.Err.Error()).To(ContainSubstring("another folder than this chat"), "%s", outside)
+			Expect(outOf(res)).NotTo(ContainSubstring(outsideMark))
+		}
+		Expect(childrenOf(r.svc, alice, parent.ID)).To(BeEmpty(), "no child chat is left behind")
+		Expect(r.h.Sent(parent.ID)).NotTo(BeEmpty())
+	})
+
+	It("lets a chat without a folder start an agent that has one", func() {
+		parent := r.chat("")
+		allowSavedAgents(r.svc, parent.ID)
+		ag := r.agent("/Projects/Acme", agents.FolderWrite)
+		res := spawn(parent.ID, fmt.Sprintf(`{"task":"child task","agent":%q}`, ag.ID))
+		Expect(res.Err).NotTo(HaveOccurred(), outOf(res))
+		Expect(onlyChild(r, parent.ID).ScopedAgent).To(BeTrue())
+	})
+
+	It("gives a saved-agent child inside the parent's folder the narrower folder and the lower mode", func() {
+		for _, c := range []struct{ parent, child string }{
+			{agents.FolderWrite, agents.FolderRead},
+			{agents.FolderRead, agents.FolderWrite},
+		} {
+			r = newScopeTurnRig()
+			parent := r.chat(r.agent("/Projects/Acme", c.parent).ID)
+			allowSavedAgents(r.svc, parent.ID)
+			ag := r.agent("/Projects/Acme/sub", c.child)
+			r.mu.Lock()
+			r.steps["child task"] = []studiotest.ToolStep{
+				call("read_file", `{"path":"/s.txt"}`),
+				call("read_file", `{"path":"/a.txt"}`),
+				call("write_file", `{"path":"/n.txt","content":"x"}`),
+			}
+			r.mu.Unlock()
+			res := spawn(parent.ID, fmt.Sprintf(`{"task":"child task","agent":%q}`, ag.ID))
+			Expect(res.Err).NotTo(HaveOccurred(), outOf(res))
+			reads := r.h.ResultsFor("read_file")
+			Expect(reads).To(HaveLen(2))
+			Expect(reads[0].Out).To(ContainSubstring("inside-sub"))
+			Expect(outOf(reads[1])).NotTo(ContainSubstring("inside-a"), "the parent's wider folder is out of reach")
+			Expect(r.h.ResultsFor("write_file")[0].Err).To(HaveOccurred(), "parent %s, child %s: one read-only layer makes it read only", c.parent, c.child)
+			Expect(r.exists("/Projects/Acme/sub/n.txt")).To(BeFalse())
+			Expect(r.exists("/Projects/Acme/n.txt")).To(BeFalse())
+		}
+	})
+
+	It("lets a saved-agent child work in the parent's own folder", func() {
+		parent := r.chat(r.agent("/Projects/Acme", agents.FolderWrite).ID)
+		allowSavedAgents(r.svc, parent.ID)
+		ag := r.agent("/Projects/Acme", agents.FolderRead)
+		r.mu.Lock()
+		r.steps["child task"] = []studiotest.ToolStep{call("read_file", `{"path":"/a.txt"}`)}
+		r.mu.Unlock()
+		res := spawn(parent.ID, fmt.Sprintf(`{"task":"child task","agent":%q}`, ag.ID))
+		Expect(res.Err).NotTo(HaveOccurred(), outOf(res))
+		Expect(r.h.ResultsFor("read_file")[0].Out).To(ContainSubstring("inside-a"))
+	})
+
+	It("confines a child without a folder to the parent's folder", func() {
+		parent := r.chat(r.agent("/Projects/Acme", agents.FolderWrite).ID)
+		allowSavedAgents(r.svc, parent.ID)
+		ag := r.agent("", "")
+		r.mu.Lock()
+		r.steps["child task"] = []studiotest.ToolStep{
+			call("read_file", `{"path":"/a.txt"}`),
+			call("read_file", `{"path":"/Other/secret.txt"}`),
+			call("read_file", `{"path":"/workspace/home/../../Other/secret.txt"}`),
+		}
+		r.mu.Unlock()
+		res := spawn(parent.ID, fmt.Sprintf(`{"task":"child task","agent":%q}`, ag.ID))
+		Expect(res.Err).NotTo(HaveOccurred(), outOf(res))
+		reads := r.h.ResultsFor("read_file")
+		Expect(reads).To(HaveLen(3))
+		Expect(reads[0].Out).To(ContainSubstring("inside-a"))
+		Expect(outOf(reads[1])).NotTo(ContainSubstring(outsideMark))
+		Expect(outOf(reads[2])).NotTo(ContainSubstring(outsideMark))
+		Expect(onlyChild(r, parent.ID).ScopedAgent).To(BeTrue())
 	})
 })

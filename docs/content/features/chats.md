@@ -156,7 +156,7 @@ curl -s localhost:8080/api/chats -H 'Content-Type: application/json' -d '{
     "mcp_off": ["crm", "connector:c1"],
     "builtins_off": ["web"],
     "builtins_on": ["saved_agents"],
-    "skills_off": ["builtin:pdf"]
+    "skills_off": ["addon:pdf"]
   }
 }'
 ```
@@ -573,7 +573,11 @@ every turn, so it knows which files exist and where they are now.
   `/Chats/<date> <title>/<name>`, for example `/Chats/2026-10-29 Budget/q1.csv`.
   The model sees the same file as
   `/workspace/home/Chats/2026-10-29 Budget/q1.csv`. The folder is made at the
-  first attachment.
+  first attachment. In a chat whose agent works in [one
+  folder]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}), the
+  model sees the chat folder at `/workspace/chat` instead (the file above is
+  `/workspace/chat/q1.csv`), and the folder is made before the first turn. The
+  list on this page keeps the paths in your home.
 - **What is listed.** Every file in the chat folder, and every file that the
   chat's turns created or changed elsewhere in your home folder: with `bash`,
   or with a file tool such as `write_file`. The list is read from the
@@ -667,8 +671,8 @@ chat's attachments. It is a normal, visible folder.
   document, the spreadsheet, the image) goes where you said, or at the top of
   your home, and nowhere else; no new top-level folders for scripts; a command
   that runs once needs no file (`python3 -c`, a heredoc). The descriptions of
-  `bash` and `write_file` and the built-in `docx`, `xlsx`, `pptx`, `pdf`,
-  `localai-apps` and `localai-workspace` skills say the same. Pages
+  `bash` and `write_file` and the Sandbox document skills say the same. The built-in
+  `localai-apps` and `localai-workspace` skills also give this guidance. Pages
   (`pages/<name>/`) and the `LocalAI/` settings folder are not working files.
 - **When the folder is made.** The chat takes the name of its folder at its
   first turn, but makes the folder only when it is used: before a `bash`
@@ -733,6 +737,10 @@ later as a message in the conversation and as a `sub_agent_done` event.
   when they run on another frontend and when the parent has no turn left.
 - A `sub_agent_started` event (with the run's id and title) and a
   `sub_agent_done` event mark the run in the parent's event stream.
+- A sub-agent of a chat whose agent works in [one
+  folder]({{%relref "features/chats-agents#one-folder-for-an-agent" %}})
+  works inside the chat's folders, never in more of your files and never
+  with more rights than the chat.
 - A sub-agent cannot run commands when its parent cannot (see [Running
   commands](#running-commands)). A task that asks to run something ("execute
   the script", "run make_deck.py") is then refused at once with "the sub-agent
@@ -756,7 +764,10 @@ is off for every chat until you switch **Saved agents** on in the chat's
 **Tools** menu. The chat then has two more things:
 
 - `list_agents` lists your saved agents: `id`, `name`, `description` and
-  `model`, at most 100. It lists only your own agents.
+  `model`, at most 100, and for an agent that works in a folder the folder's
+  name (`folder`) and its mode (`folder_mode`, `read` or `write`). It lists only
+  your own agents. In a chat whose agent has a folder it lists only the agents
+  that can start there (see [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}})).
 - `spawn_agent` takes an `agent` argument, the id or the name (ignoring case) of
   one of them. The sub-agent runs with the agent's instructions, its model (or
   the chat's model when the agent names none) and only what the agent grants,
@@ -797,6 +808,12 @@ the server:
   isolation**. This covers a server with no Sandbox, a chat that switched the
   Sandbox off, and a Sandbox that is stopped or cannot run.
 - **Nothing.** With neither, nothing in the chat runs code.
+
+A chat whose agent works in [one
+folder]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}) runs
+commands only in the Sandbox, never on this machine. Its sandbox has the
+agent's folder at `/workspace/home` and the chat's own folder at
+`/workspace/chat`.
 
 At every turn the model is told in one short block which of the three holds.
 With host commands the block says that `bash` runs on this machine with no
@@ -878,7 +895,7 @@ The routes, for the chat's owner (another user's chat is 404):
 
 | Route | What it does |
 |---|---|
-| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is false when commands run on this machine (`applies_reason` `host`) or no Sandbox serves `bash` (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{%relref "features/addons#host-controls" %}})); it is absent when `applies` is false or that add-on has no such control, and the chat then shows no Network row. A rule the ceiling no longer admits has `above_limit`. |
+| `GET /api/chats/{id}/egress` | `{preset, ceiling, effective, applies, applies_reason, addon, registries, allowed_hosts, rules, cards}`. `applies` is true when the add-on that serves `bash` reports, in its typed execution status, that it enforces the network policy and the status is available and isolated (the Sandbox does, except on the host backend). It is false when commands run on this machine (`applies_reason` `host`), no Sandbox serves `bash`, or the add-on does not report enforcement (`none`). `addon` is the add-on that runs the commands and draws the network controls of the chat (it has the `network-policy` [host control]({{%relref "features/addons#host-controls" %}})); it is absent when no add-on runs the commands or that add-on has no such control. The chat shows the Network row only when `applies` is true and `addon` is set; otherwise it shows a line that says why the settings do not apply. A rule the ceiling no longer admits has `above_limit`. |
 | `PUT /api/chats/{id}/egress {preset}` | Sets the preset: `off`, `registries` or `all`. Above the ceiling it is 400 `egress_above_ceiling`. |
 | `DELETE /api/chats/{id}/egress/rules/{host}/{port}` | Removes an allow or deny rule. |
 | `POST /api/chats/{id}/egress/consent {id, decision}` | Answers a card: `once`, `chat` or `deny`. Allowing a host inside your network needs an administrator (403). The same answer sent twice is one answer (204, nothing changes). Another answer to a card already answered is 409 `already_answered`. A host the ceiling does not admit refuses the card and gives 400 `egress_above_ceiling` on this answer and on every later one, so a stale card never ends in a conflict loop. In `GET /api/chats/{id}/egress` such a card has `above_ceiling`: no answer can make it work. |
@@ -915,15 +932,21 @@ shown when the Sandbox is already installed, or when add-ons are off.
   apply. Install the Sandbox to isolate commands.
 - **Never as root.** When LocalAI runs as root, the built-in `bash` is not
   offered.
+- **Never for an agent limited to one folder.** A chat whose agent works in
+  one folder (and its sub-agents) never gets the built-in `bash`, whatever
+  `chats_host_exec` says: a command here can read every file LocalAI can read,
+  so nothing keeps it in that folder. Such a chat runs commands only in the
+  Sandbox, and its Tools menu says why. See
+  [One folder for an agent]({{%relref "features/chats-agents#one-folder-for-an-agent" %}}).
 - **Your files.** Each chat gets a scratch folder with your files: `home/`
   there is `/workspace/home` of the file tools, and `shared-<name>/` is a
   shared folder. A command starts in `home/`, so a relative path is a path in
   your home and a shared folder is `../shared-<name>`. The skills are there
   too, read-only, at the names the file tools use: `shared-skills/` (shared by
   an administrator), `shared-builtin-skills/` (built in) and
-  `shared-addon-skills/` (from add-ons), so a skill's scripts run in place, for
-  example
-  `python3 ../shared-builtin-skills/pdf/scripts/verify_pdf.py report.pdf`. A
+  `shared-addon-skills/` (from add-ons), so user-written skill scripts can run in place. Sandbox document
+  procedures require the Sandbox guest instead; host commands do not provide
+  its dependencies. A
   shared folder named `skills` is at `shared-skills 2/`. After each call, what the command changed is saved to your
   files as one change of the chat, which you can undo in Files, History; a
   file you or the file tools changed meanwhile is read again before the next
@@ -996,7 +1019,7 @@ setting like the others.
 ### What the web interface is told
 
 `GET /api/chats/{id}/addons` says the same for the web interface in
-`commands`: `available`, `off` (the Sandbox is installed but off for this chat,
+`commands`: `available`, `off` (the selected provider is off for this chat,
 or its agent does not name it, and the built-in `bash` is not allowed),
 `unavailable` (installed, but it cannot run commands on this server;
 `commands_reason` says why) or `none` (no add-on that runs commands is
@@ -1004,9 +1027,12 @@ installed for you). When commands run, `commands_provider` says who serves
 `bash` (`builtin`, or the add-on's ID) and `commands_isolation` says `isolated`
 or `host`. `commands_consent` is `ask` when each command waits for the card,
 and `commands_fallback` with `commands_fallback_reason` name the add-on that
-would serve but does not (`off`, or its reason). The **Tools** menu and the
-chip next to it say "Commands run on this machine" with the reason, and link an
-administrator to the Sandbox.
+would serve but does not (`off`, or its reason). The **Tools** menu uses this selected-provider response, not private add-on
+status data. It labels commands as isolated only when the current provider
+explicitly reports available, isolated execution. Missing, loading and unknown
+observations remain unknown. Host execution shows a warning without recommending
+a specific add-on. The first-run guide and native tool settings do not recommend
+an add-on by ID.
 
 ```bash
 curl -s localhost:8080/api/chats/$ID/addons
@@ -1371,7 +1397,47 @@ The **Skills** page lists them by layer and edits personal skills, and the **Ski
 
 A chat stores the skills that are **off**, not the skills that are on. So **Select all** sends an empty list, **Disable all** sends the ids of every skill in the list, and a skill you add later is on in every chat, also in a chat where you chose **Disable all**. The menu says so under its title.
 
-The server ships a few skills of its own, in the built-in layer: `docx`, `xlsx`, `pptx`, `pdf`, `writing-skills`, `localai-workspace` and `localai-apps`. `localai-workspace` tells the model how to change your persona, profile, shortcuts, Home widgets and theme; see [Make LocalAI yours](/features/make-localai-yours/). `localai-apps` tells it to build an app, a tracker or a tool as a [Page]({{%relref "features/pages" %}}) and not as a program. The office skills are adapted from the Feather project (MIT licence); the NOTICE file in the same folder keeps the source and the licence. They tell a model how to work with documents in a sandbox, so they have `requires: [exec]` and are unavailable in a chat that cannot run commands. When the Office add-on runs, its own skills replace these four: they use its tools, which read, edit and create Word, Excel and PowerPoint files, and read and create PDF files, in your files, with no command runner.
+The server ships three built-in skills: `writing-skills`, `localai-workspace`, and `localai-apps`.
+`localai-workspace` describes changes to your persona, profile, shortcuts, Home widgets, and theme;
+see [Make LocalAI yours](/features/make-localai-yours/).
+`localai-apps` describes how to build an app, tracker, or tool as a [Page]({{%relref "features/pages" %}}).
+
+### Document skills
+
+The familiar names `docx`, `pptx`, `pdf`, and `xlsx` identify document authoring skills from add-ons, not built-in skills.
+[Sandbox]({{%relref "features/addons#sandbox" %}}) supplies Python/Paper procedures and their references.
+[Simple Office]({{%relref "features/addons#simple-office" %}}) supplies separate procedures for its document tools, without command execution.
+
+1. Install and enable a provider on the **Add-ons** page.
+2. Switch the provider on in the chat's **Tools** menu.
+3. For a saved agent, grant that add-on explicitly and select the required skill names.
+4. For Sandbox procedures, select Sandbox for `bash` and allow command execution in the chat or agent.
+
+Sandbox procedures require usable isolated commands from the selected Sandbox provider.
+An installed Sandbox or a host command runner alone is not enough.
+These selections never grant add-ons or command execution automatically.
+
+With both providers eligible, the existing provider choice in **Settings > Tools** applies.
+Without a choice, the eligible provider installed first serves each name.
+A pinned provider that is unavailable does not switch silently to another provider.
+The Skills menu shows its unavailable reason.
+Folder, personal, and shared skills keep their existing precedence over add-on skills.
+
+With neither provider eligible, LocalAI offers no built-in document authoring fallback.
+Document-text extraction and the `read_file` and `search_files` tools remain available independently of these authoring skills.
+
+Existing saved agent selections keep the same names.
+Existing `builtin:docx`, `builtin:pptx`, `builtin:pdf`, and `builtin:xlsx` OFF preferences become corresponding `addon:<name>` OFF preferences.
+LocalAI persists this change before selecting providers. Existing add-on and plain-name OFF preferences remain effective.
+You can explicitly switch a skill on again; subsequent reads do not turn it off again.
+Other skill preferences remain unchanged.
+
+Sandbox installs PDF helpers inside its guest:
+`/usr/local/lib/localai/document-skills/pdf/content_qa.py` and
+`/usr/local/lib/localai/document-skills/pdf/verify_pdf.py`.
+Run them with `python3` through Sandbox commands, not through paths in host skill folders.
+Upgrades remove stale built-in document trees, but preserve user-written skills.
+Use `load_skill` by name; historical physical paths are not a compatibility interface.
 
 ## Web
 
@@ -1623,11 +1689,13 @@ everything else in the chats works. A chat then has no skills either, not even
 the built-in ones, and no `load_skill`: skills are files, and every built-in
 skill works on files or runs commands.
 
-In a cluster the bytes go to the object store, so a file written through one
-frontend is read through another. That needs S3 (the storage URL setting); `docker-compose.distributed.yaml` sets it up with Garage.
-Without it the object store is a folder of each frontend, so files are off in
-that cluster, with a reason that says so, instead of every frontend keeping its
-own copy.
+In a cluster, configured S3 holds workspace bytes; the distributed compose
+example sets it up with Garage. Without S3, Files uses the existing
+`DataPath/chats/blobs` directly. All Files participants must then mount the same
+backing data directory and use the same PostgreSQL metadata database. See
+[Shared filesystem for Files](#shared-filesystem-for-files) for the operator
+contract. With PostgreSQL, startup checks that every node sees the same blob
+folder and stops with an error when it does not.
 
 ## Storage
 
@@ -1853,3 +1921,63 @@ The old chat page, the agents, the agent jobs and the old skills were replaced b
 
 The routes are listed under the `chats` tag at `/swagger/index.html`, and
 `GET /api/instructions/chats` returns a machine-readable summary.
+
+### Shared filesystem for Files
+
+Files selects its blob backend automatically, with no separate workspace path or
+coordination flag:
+
+| Existing configuration | Workspace bytes |
+| --- | --- |
+| S3 storage URL configured | S3, using the existing bucket, region and credentials, for every role |
+| No S3 storage URL | Direct filesystem storage at `DataPath/chats/blobs` |
+
+This applies to standalone servers, frontends, optional chat workers and the
+add-on owner. An owner honors configured S3 without joining the distributed
+control plane or changing its role. Global model/input staging is unchanged.
+Standalone JSON/SQLite filesystem behavior and existing blob paths remain stable.
+Without a data path and without S3, Files is disabled; temporary scratch never
+becomes authoritative filesystem storage. With S3 and a database, local cache may
+be temporary and is removed at shutdown. JSON metadata still needs a data path.
+Configured S3 errors and PostgreSQL workspace initialization errors fail startup
+rather than selecting another backend.
+
+Distributed Files requires shared PostgreSQL metadata. PostgreSQL owns names,
+authorization, revisions and blob references; immutable content-addressed bytes
+live in the selected backend. Per-instance caches and scratch are disposable.
+For filesystem storage, every Files consumer must mount the same existing data
+directory/backing storage and use the same PostgreSQL database: frontends, the
+add-on owner and optional chat workers. Inference-only nodes need no Files mount.
+Equal path strings do not prove shared volume identity. With PostgreSQL, the
+first node to start writes a random `.volume-id` file in `DataPath/chats/blobs`
+and records the same id in the database; every node compares the two at startup
+and refuses to start on a mismatch or when the file is missing. This catches a
+volume that is not shared. It does not prove that the storage is coherent.
+Other data-path contents do not thereby become cluster-safe.
+
+Keep the canonical backing directory service-controlled, with compatible UID/GID
+and permissions for every participant. LocalAI does not recursively chmod/chown
+existing trees. Ordinary platform path aliases are resolved, while symlinks inside
+the canonical blob tree are rejected; do not allow untrusted writers to replace
+paths or redirect mounts. A same-node RWO/local-path volume needs enforced
+co-placement and provides no cross-node failover guarantee. Multi-node use needs
+coherent shared storage, normally an appropriate RWX volume: verify exclusive
+creation, atomic same-filesystem rename, immediate cross-client visibility, file
+sync and directory sync durability. An RWX label alone does not guarantee these
+semantics; validate crash/power-loss behavior with the storage provider.
+
+All PostgreSQL-backed direct-filesystem workspaces automatically hold the revision
+lock through blob ingest and metadata publication, including non-distributed
+owners. This serializes metadata writes during slow uploads. Blocked operations
+must honor request context cancellation. Orphan cleanup uses a bounded 30-second
+context; cancellation can defer cleanup to a later pass. S3 is an alternative to
+this shared-filesystem deployment contract; its local cache is not treated as a
+shared filesystem.
+
+{{% notice warning %}}
+No paths or blobs migrate automatically. Existing local data stays in place and
+existing S3-backed workspaces stay on S3. Switching populated metadata to another
+backend requires a separately planned blob copy and verification procedure, with
+all participants switching consistently. Mixed S3/local/shared backends on the
+same metadata can produce missing content.
+{{% /notice %}}

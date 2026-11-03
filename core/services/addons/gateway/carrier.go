@@ -21,6 +21,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/recovery"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
@@ -127,8 +128,10 @@ func (c *Carrier) peer(r *http.Request) (PeerIdentity, error) {
 }
 
 type wireRequest struct {
-	Request contract.Request `json:"request"`
-	Relay   *RelayRequest    `json:"relay,omitempty"`
+	ExecutionBinding *executionBindingCall   `json:"executionBinding,omitempty"`
+	Observation      *ExecutionStatusRequest `json:"observation,omitempty"`
+	Request          contract.Request        `json:"request"`
+	Relay            *RelayRequest           `json:"relay,omitempty"`
 	// Proposal marks a call for the owner's proposal broker. Such a call is
 	// never a typed dispatch.
 	Proposal *ProposalCall `json:"proposal,omitempty"`
@@ -175,6 +178,9 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
+		if g.serveConnectors(w, r) {
+			return
+		}
 		if r.Method == "GET" && r.URL.Path == "/addons/audience" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(struct {
@@ -185,6 +191,21 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		if r.Method == "GET" && r.URL.Path == "/addons/capabilities" {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(g.capabilities())
+			return
+		}
+		if r.Method == "GET" && r.URL.Path == "/addons/host-settings" {
+			// Only pinned host peers reach this read-only internal route.
+			if g.Forward != nil {
+				typedError(w, ErrUnavailable)
+				return
+			}
+			s, err := g.HostSettingsInternalSnapshot(r.Context())
+			if err != nil {
+				typedError(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(hostSettingsEnvelope{Data: &s})
 			return
 		}
 		if r.Method == "GET" && r.URL.Path == "/addons/models-probe" {
@@ -240,9 +261,56 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			http.Error(w, "forbidden", StatusFor(e))
 			return
 		}
+		// The chat the frontend bound the call to rides with the request
+		// context, so the add-on's host operations act with the chat's
+		// access. The signature covers it.
+		if b, ok := m.Binding(); ok {
+			r = r.WithContext(hostops.WithBinding(r.Context(), b))
+		}
 		var wire wireRequest
 		if decode(bytes.NewReader(m.Body), &wire) != nil || wire.Request.OperationID != m.OperationID || (wire.Relay != nil && wire.Relay.Request.OperationID != m.OperationID) {
 			http.Error(w, "invalid binding", 400)
+			return
+		}
+		if wire.ExecutionBinding != nil {
+			// New binding messages use exact canonical keys, including the
+			// routing envelope. Older ordinary messages keep their decoder.
+			var fields map[string]json.RawMessage
+			_ = json.Unmarshal(m.Body, &fields)
+			if observationObject(m.Body, "request", "executionBinding") != nil || observationObject(fields["request"], "action", "operationId", "addonId", "resourceId", "generation", "arguments") != nil {
+				http.Error(w, "invalid execution binding keys", 400)
+				return
+			}
+			if wire.Observation != nil || wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionBindingAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+				http.Error(w, "invalid execution binding", 400)
+				return
+			}
+			out, err := g.BindingForActor(r.Context(), actor, wire.ExecutionBinding.Claim)
+			if err != nil {
+				typedError(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(executionBindingReply{Version: 1, Binding: out})
+			return
+		}
+		// Reserved actions cannot fall through to ordinary tool dispatch.
+		if wire.Request.Action == executionBindingAction {
+			http.Error(w, "missing execution binding", 400)
+			return
+		}
+		if wire.Observation != nil {
+			if wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionStatusAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+				http.Error(w, "invalid observation binding", 400)
+				return
+			}
+			out, err := g.ExecutionStatusRead(r.Context(), actor, *wire.Observation)
+			if err != nil {
+				typedError(w, err)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(out)
 			return
 		}
 		if wire.Library != nil {
@@ -451,6 +519,13 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
 		return
 	}
+	var requirements *addons.HostRequirementsRefusal
+	if errors.As(e, &requirements) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: "host_requirements", HostOperations: &requirements.Summary})
+		return
+	}
 	var refusal *contract.SDKRefusal
 	if errors.As(e, &refusal) {
 		// The administrator is told why the add-on cannot be installed. Only
@@ -520,10 +595,11 @@ func IsOperationCause(code string) bool {
 const wireSDK = "sdk_incompatible"
 
 type sdkWire struct {
-	Type string `json:"type"`
-	Min  uint64 `json:"min"`
-	Max  uint64 `json:"max"`
-	Host uint64 `json:"host"`
+	HostOperations *hostops.RequestSummary `json:"hostOperations,omitempty"`
+	Type           string                  `json:"type"`
+	Min            uint64                  `json:"min"`
+	Max            uint64                  `json:"max"`
+	Host           uint64                  `json:"host"`
 }
 
 // SDKRefusalError is the error of a failed operation whose cause is an SDK
@@ -637,6 +713,9 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, ErrForbidden
 	}
 	m := ForwardedRequest{PeerID: c.config.InstanceID, Audience: audience, Actor: a, OperationID: wire.Request.OperationID, Nonce: hex.EncodeToString(nonce[:]), ExpiresAt: time.Now().Add(30 * time.Second), Body: body}
+	if b, ok := hostops.BindingOf(ctx); ok {
+		m.Chat = &b
+	}
 	m.Sign(c.config.SigningKey)
 	b, _ := json.Marshal(m)
 	req, e := http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))
@@ -671,8 +750,13 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 				return nil, resourceReplyError(resp.Body, resp.StatusCode, wire.Request.OperationID)
 			}
 			var b sdkWire
-			if decode(io.LimitReader(resp.Body, 4096), &b) == nil {
+			if decode(io.LimitReader(resp.Body, 32768), &b) == nil {
 				switch b.Type {
+				case "host_requirements":
+					if b.HostOperations != nil {
+						return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.HostRequirementsRefusal{Summary: *b.HostOperations})
+					}
+					return nil, ErrForbidden
 				case wireSDK:
 					return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
 				case wirePackage:
@@ -699,7 +783,7 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 			// The owner's typed refusal is a decision, not an outage: nothing
 			// was applied and the same call is refused again.
 			var b resourceWire
-			if decode(io.LimitReader(resp.Body, 4096), &b) == nil && b.Type == wireInvalid {
+			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireInvalid {
 				return nil, ErrInvalidRequest
 			}
 		}
@@ -738,7 +822,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
 }
 
 // Act forwards an action call to the owner and waits for its answer, up to the
@@ -838,4 +922,28 @@ func (c *Carrier) artifactStatus(ctx context.Context, a contract.Actor, id strin
 		return Artifact{}, ErrUnavailable
 	}
 	return art, nil
+}
+
+// HostSettingsSnapshot reads owner policy for trusted host consumers over pinned
+// mTLS. This route has no mutation counterpart and carries no caller flags.
+func (c *Carrier) HostSettingsSnapshot(ctx context.Context) (HostSettingsPolicy, error) {
+	ctx, cancel := context.WithTimeout(ctx, ReachableTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", c.config.OwnerAddress+"/addons/host-settings", nil)
+	if err != nil {
+		return HostSettingsPolicy{}, ErrUnavailable
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return HostSettingsPolicy{}, ErrUnavailable
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return HostSettingsPolicy{}, ErrUnavailable
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return HostSettingsPolicy{}, ErrUnavailable
+	}
+	return DecodeHostSettingsResult(contract.Result{Payload: raw})
 }

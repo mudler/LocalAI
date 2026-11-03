@@ -82,6 +82,7 @@ function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ct
   const when = relativeDate(entry.modified, { now, locale })
   const kind = kindOf(entry)
   const menu = ctx.menuItems(entry)
+  const mark = isDir ? ctx.agentMark?.(entry.path) : null
   const nameEl = renaming ? (
     <NameField
       initial={entry.name} current={entry.name} label={t('rename')} taken={taken} t={t}
@@ -125,6 +126,7 @@ function Row({ entry, view, selected, cursor, dropping, previewing, renaming, ct
           <span className="ws-row__line">
             {nameEl}
             {isDir && entry.managed && <span className="ws-managed-tag" data-testid="ws-managed-tag">{t('managed.marker')}</span>}
+            {isDir && mark && <span className="ws-agent-tag" data-testid="ws-agent-tag" title={mark.title} aria-label={mark.title}><Icon name="robot" />{mark.label}</span>}
           </span>
           {about && <span className="ws-row__about">{about}</span>}
           <span className="ws-row__meta">

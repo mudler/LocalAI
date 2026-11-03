@@ -1,0 +1,38 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: MIT -->
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Execution status model traces</title>
+<style>
+body{font:16px system-ui,sans-serif;max-width:1000px;margin:2rem auto;padding:0 1rem;color:#202630;background:#fafbfc}select,button{font:inherit;padding:.4rem;margin:.2rem}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf0f4;padding:1rem;border-radius:.3rem}dt{font-weight:bold}dd{margin:0}button:disabled{opacity:.4}
+</style>
+<h1>Execution status traces</h1>
+<p>Computed by the Go executionstatus reducer. This page presents recorded transitions; it does not simulate the reducer. Observations are not authority or egress enforcement.</p>
+<p id="summary"></p>
+<label for="trace">Trace</label> <select id="trace"></select>
+<p><button id="previous" type="button">Previous</button><button id="next" type="button">Next</button> <span id="position" aria-live="polite"></span></p>
+<dl id="step"></dl>
+<script id="data" type="application/json">/*__DATA__*/null</script>
+<script>
+'use strict';
+const data=JSON.parse(document.getElementById('data').textContent);
+const selector=document.getElementById('trace'), previous=document.getElementById('previous'), next=document.getElementById('next');
+let index=0;
+data.traces.forEach((trace,i)=>{const option=document.createElement('option');option.value=i;option.textContent=`${trace.family}: ${trace.name}`;selector.append(option);});
+document.getElementById('summary').textContent=`${data.traces.length} traces; ${data.rules.length} rules; ${data.explore.States} explored histories; ${data.explore.Transitions} invariant-checked transitions; ${Object.keys(data.explore.Cells).length} state/event cells.`;
+function render(){
+ const trace=data.traces[Number(selector.value)], step=trace.steps[index];
+ document.getElementById('position').textContent=`Step ${step.step} of ${trace.steps.length}`;
+ const target=document.getElementById('step');target.replaceChildren();
+ for(const [label,value] of [['Event',step.event],['Before state',step.before],['After state',step.after],['Ordered effects',step.effects.length?step.effects.join('\n'):'(none)'],['Rule',step.rule],['Guard',step.guard]]){
+  const term=document.createElement('dt'), detail=document.createElement('dd'), pre=document.createElement('pre');term.textContent=label;pre.textContent=value;detail.append(pre);target.append(term,detail);
+ }
+ previous.disabled=index===0;next.disabled=index===trace.steps.length-1;
+}
+selector.addEventListener('change',()=>{index=0;render();});
+previous.addEventListener('click',()=>{if(index>0){index--;render();}});
+next.addEventListener('click',()=>{if(index<data.traces[Number(selector.value)].steps.length-1){index++;render();}});
+render();
+</script>
+</html>

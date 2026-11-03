@@ -33,22 +33,23 @@ test.describe('Home slash menu', () => {
     await ready(page)
     await page.locator('.home-textarea').fill('/')
     const names = await page.locator('.dk-cmd-name').allTextContents()
-    // The administrator gets /studio while Studio is not installed: it
-    // opens the add-on in the library.
+    // Native Apps opens the generic installed list, never a promoted package.
     // Home's own commands first; the commands it shares with a chat follow:
     // /attach, /skill, /skills and one per skill of the server, then /help.
     expect(names.slice(0, 15)).toEqual([
       '/model', '/new', '/chat', '/assistant', '/models',
       '/gallery', '/installed', '/import', '/stop',
-      // An admin without Studio is offered /studio to install it.
-      '/agents', '/mcp', '/memory', '/studio', '/settings', '/docs',
+      // No installation advice for a particular provider.
+      '/agents', '/mcp', '/memory', '/apps', '/settings', '/docs',
     ])
+    // The test server always keeps built-in skills, so /skill is offered.
     expect(names.slice(15, 18)).toEqual(['/attach', '/skill', '/skills'])
     expect(names[names.length - 1]).toBe('/help')
     // A chat that does not exist yet has nothing to compact or clear.
     expect(names).not.toContain('/compact')
     expect(names).not.toContain('/clear')
-    await expect(page.getByTestId('home-slash-studioInstall')).toBeVisible()
+    await expect(page.getByTestId('home-slash-apps')).toBeVisible()
+    await expect(page.getByTestId('home-slash-studioInstall')).toHaveCount(0)
     await expect(page.getByTestId('home-slash-studio')).toHaveCount(0)
   })
 
@@ -73,8 +74,8 @@ test.describe('Home slash menu', () => {
     await installStudioAddons(page, { ids: ['studio'] })
     await ready(page)
     await page.locator('.home-textarea').fill('/')
-    await expect(page.getByTestId('home-slash-studio')).toBeVisible()
-    await page.getByTestId('home-slash-studio').click()
+    await expect(page.getByTestId('home-slash-addon:studio:open:alias')).toBeVisible()
+    await page.getByTestId('home-slash-addon:studio:open:alias').click()
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio/)
   })
 
@@ -354,12 +355,17 @@ test.describe('Home memory strip', () => {
 
   test('shows a skeleton while the first answer is on its way', async ({ page }) => {
     await mockHome(page)
+    // Hold the answer until the skeleton was seen: a fixed delay can run out
+    // before a slow runner has painted the page.
+    let release
+    const held = new Promise(resolve => { release = resolve })
     await page.route('**/v1/models', async route => {
-      await new Promise(resolve => setTimeout(resolve, 800))
+      await held
       await route.fulfill({ json: { data: [{ id: 'a' }] } })
     })
-    await page.goto('/app')
+    await page.goto('/app', { waitUntil: 'commit' })
     await expect(page.getByTestId('home-strip-skeleton')).toBeVisible()
+    release()
     await expect(page.locator('.home-strip__head')).toBeVisible()
   })
 })
@@ -450,29 +456,26 @@ test.describe('Home first run', () => {
     await expect(guide.getByRole('button', { name: /import model/i })).toBeVisible()
   })
 
-  test('offers to install the Sandbox, says what happens without it, and can be skipped', async ({ page }) => {
+  test('first run offers native model setup without promoting an uninstalled provider', async ({ page }) => {
     await mockFirstRun(page)
     await stubAddonRoutes(page)
     await mockAddons(page, { apps: [] })
     await ready(page)
-    const step = page.getByTestId('home-first-run-sandbox')
-    await expect(step).toContainText('Run code safely')
-    await expect(step).toContainText('commands run directly on this machine')
-    await expect(step).toContainText('full network access and no isolation')
-    await step.getByRole('button', { name: 'Skip' }).click()
-    await expect(step).toHaveCount(0)
-    await page.reload()
     await expect(page.getByTestId('home-first-run')).toBeVisible()
+    await expect(page.getByTestId('home-first-run-sandbox')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Install Sandbox' })).toHaveCount(0)
+    await page.reload()
     await expect(page.getByTestId('home-first-run-sandbox')).toHaveCount(0)
   })
 
-  test('the Sandbox step opens the add-on browser', async ({ page }) => {
+  test('the generic apps command opens the add-on browser without an identity filter', async ({ page }) => {
     await mockFirstRun(page)
     await stubAddonRoutes(page)
     await mockAddons(page, { apps: [] })
     await ready(page)
-    await page.getByTestId('home-first-run-sandbox').getByRole('button', { name: 'Install Sandbox' }).click()
-    await expect(page).toHaveURL(/\/app\/addons\?tab=browse&q=sandbox/)
+    await page.locator('.home-textarea').fill('/apps')
+    await page.getByTestId('home-slash-apps').click()
+    await expect(page).toHaveURL(/\/app\/addons$/)
   })
 
   test('the Sandbox step is hidden once the Sandbox is installed', async ({ page }) => {

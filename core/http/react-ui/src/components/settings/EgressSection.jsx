@@ -109,7 +109,7 @@ function AuditTable() {
   )
 }
 
-export default function EgressSection({ settings, initial, onChange }) {
+export default function EgressSection({ settings, initial, onChange, showKey = true }) {
   const { t } = useTranslation('admin')
   const [state, setState] = useState({ loading: true, info: null, error: '' })
   const [reload, setReload] = useState(0)
@@ -141,7 +141,7 @@ export default function EgressSection({ settings, initial, onChange }) {
           <p className="st-row__desc">{t('settings.egress.intro')}</p>
           {info.isolation === 'host' && <Callout tone="warn">{t('settings.egress.hostNote')}</Callout>}
           <p className="st-row__desc" data-testid="settings-egress-counts">{t('settings.egress.counts', { allowed: info.allowed_24h || 0, blocked: info.blocked_24h || 0 })}</p>
-          <div className="st-row__meta"><code className="st-key">chats_egress_allow_private</code></div>
+          {showKey && <div className="st-row__meta"><code className="st-key">chats_egress_allow_private</code></div>}
           <PrivateSwitch settings={settings} initialOn={!!getValue(PRIVATE, initial)} onChange={onChange} />
           <details className="st-tools__controls" data-testid="settings-egress-registries">
             <summary>{t('settings.egress.registries', { count: (info.registries || []).length })}</summary>

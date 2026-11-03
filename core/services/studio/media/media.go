@@ -358,22 +358,24 @@ func (s *Service) PrepareUploads(ctx context.Context, principal, text string, up
 }
 
 // Tools returns the media tools of one chat, whose own model is chatModel.
-// They read files of the user's workspace through f and are not given to
-// sub-agents.
-func (s *Service) Tools(f *files.Service, a workspace.Actor, chatModel string) []session.Tool {
+// They read files of the user's workspace through f, with the paths of the
+// chat's place and as its actor, and are not given to sub-agents.
+func (s *Service) Tools(f *files.Service, x session.Access, chatModel string) []session.Tool {
 	if !f.Available() {
 		return nil
 	}
+	a, place := x.Actor(), x.Place()
 	read := func(ctx context.Context, rel string, max int64) (string, []byte, error) {
-		home, err := files.HomePath(rel)
-		if err != nil {
+		t, err := place.Resolve(rel)
+		switch {
+		case errors.Is(err, workspace.ErrBadName):
+			return "", nil, errors.New("the path has a name that is not allowed")
+		case errors.Is(err, workspace.ErrNotFound):
+			return "", nil, errors.New("not found")
+		case err != nil:
 			return "", nil, err
 		}
-		abs, err := f.Abs(a.Principal, home)
-		if err != nil {
-			return "", nil, errors.New("the path has a name that is not allowed")
-		}
-		r, n, err := f.Store().Open(ctx, a, abs)
+		r, n, err := f.Store().Open(ctx, a, t.Abs)
 		if err != nil {
 			return "", nil, errors.New("not found")
 		}

@@ -80,7 +80,7 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
   const byteLabel = Number.isFinite(operation.currentBytes) && Number.isFinite(operation.totalBytes) && operation.totalBytes > 0
     ? `${formatBytes(operation.currentBytes)} / ${formatBytes(operation.totalBytes)}`
     : ''
-  const phaseKey = phaseKeys[operation.phase]
+  const phaseKey = operation.isAddon ? `activity.addonStage.${operation.stage || operation.phase}` : phaseKeys[operation.phase]
   const etaLabel = formatEta(operation.etaSeconds)
   const rateLabel = Number.isFinite(operation.bytesPerSecond) && operation.bytesPerSecond > 0
     ? `${formatBytes(operation.bytesPerSecond)}/s`
@@ -124,9 +124,10 @@ export default function OperationCard({ operation, onCancel, onPause, onDismiss,
 
           <div className="operation-card__sub">
             <span className="operation-card__verb">{verb}</span>
+            {operation.isAddon && operation.fromVersion && operation.toVersion && <span>{operation.fromVersion} to {operation.toVersion}</span>}
             {operation.nodeName && <span>{t('activity.toNode', { node: operation.nodeName })}</span>}
             {cancelling && <span>{t('activity.cancelling')}</span>}
-            {failed && <span className="operation-card__error" title={operation.error}>{operation.error}</span>}
+            {failed && <span className="operation-card__error" title={operation.error}>{operation.isAddon && operation.failureCode ? t(`activity.addonFailure.${operation.failureCode}`, { defaultValue: operation.error }) : operation.error}</span>}
             {!failed && phaseKey && <span>{t(phaseKey)}</span>}
             {/* Phases and byte counters exist only on the managed-artifact
                 path, so a legacy files: gallery model and every backend

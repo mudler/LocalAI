@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -115,10 +115,20 @@ func (s *Service) registerHostBash() error {
 	})
 }
 
+// scopedHostBashReason is why a chat whose agent works in one folder has no
+// built-in bash (D10 of the agent folder design): a command on this machine
+// reads what the server can read, and no workspace rule confines it.
+const scopedHostBashReason = "this agent works in one folder, and commands on this machine could read files outside it; it runs commands only in the Sandbox add-on"
+
 // buildHostBash gives a chat the built-in bash when the setting allows it.
+// A chat whose actor is fenced (its agent, or its parent's, has a folder)
+// never gets it.
 func (s *Service) buildHostBash(_ context.Context, c builtins.Chat) (session.Tool, bool, string) {
 	if s.d.HostExec == nil {
 		return session.Tool{}, false, "this server cannot run commands by itself"
+	}
+	if workspace.HasFence(c.Actor) {
+		return session.Tool{}, false, scopedHostBashReason
 	}
 	if r := s.d.HostExec.Unavailable(); r != "" {
 		return session.Tool{}, false, r
@@ -149,6 +159,9 @@ func (s *Service) buildHostBash(_ context.Context, c builtins.Chat) (session.Too
 	return tool, true, ""
 }
 
+// hostExecCardLimit is the longest command the approval card shows in full.
+const hostExecCardLimit = 2000
+
 // runHostBash runs one call, after the card when the mode asks for one.
 func (s *Service) runHostBash(ctx context.Context, a workspace.Actor, run func(context.Context, json.RawMessage) (string, error), args json.RawMessage) (string, error) {
 	outcome := "ran"
@@ -164,6 +177,12 @@ func (s *Service) runHostBash(ctx context.Context, a workspace.Actor, run func(c
 			Command string `json:"command"`
 		}
 		_ = json.Unmarshal(args, &in)
+		// The card shows the whole command. A longer one is refused, so the
+		// person never approves text they could not read.
+		if len(in.Command) > hostExecCardLimit {
+			session.SetToolCard(ctx, session.ToolCard{Kind: HostExecCardKind, ID: "denied"})
+			return fmt.Sprintf("Not run: the command is longer than %d bytes, too long for the user to read before they allow it. Do not try again as it is; split it into shorter commands, or put the script in a file first.", hostExecCardLimit), nil
+		}
 		switch d := s.askHostExec(ctx, a, in.Command); d {
 		case HostExecOnce:
 			outcome = "once"
@@ -196,9 +215,6 @@ func (s *Service) askHostExec(ctx context.Context, a workspace.Actor, command st
 	k := key(a.Principal, a.ChatID)
 	wake, cancel := s.listenConsent(k, func(m ControlMsg) bool { return m.HostExec != nil && m.HostExec.ID == id })
 	defer cancel()
-	if len(command) > 2000 {
-		command = strings.ToValidUTF8(command[:2000], "") + "..."
-	}
 	// The card is kept with the chat while it waits, so a reload, or another
 	// frontend, shows it again and can answer it. It names the turn that
 	// asked, so a card that a dead frontend leaves behind is not taken for a

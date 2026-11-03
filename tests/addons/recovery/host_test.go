@@ -284,13 +284,15 @@ func (h *host) library() *cluster.Library {
 	// These specs run the tools, not the page: the package carries no UI
 	// files, so the declaration of them is left out.
 	delete(m.Capabilities, "ui")
+	skill, e := os.ReadFile("../../../addons/tables/skills/tables-readonly/SKILL.md")
+	Expect(e).NotTo(HaveOccurred())
 	exe, e := os.ReadFile(binary)
 	Expect(e).NotTo(HaveOccurred())
 	for _, v := range []string{"0.1.0", "0.1.1"} {
-		Expect(lib.Add(cluster.Package{ID: "tables", Version: v, Capabilities: m.Capabilities, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())
+		Expect(lib.Add(cluster.Package{ID: "tables", Version: v, Capabilities: m.Capabilities, Files: map[string]string{"skills/tables-readonly/SKILL.md": string(skill)}, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())
 	}
 	// A release whose process fails at start: its upgrade must be undone.
-	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.2.0", Capabilities: m.Capabilities, Executable: "bin/tables", Binary: []byte("#!/bin/sh\nexit 9\n")}, GinkgoT().TempDir())).To(Succeed())
+	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.2.0", Capabilities: m.Capabilities, Files: map[string]string{"skills/tables-readonly/SKILL.md": string(skill)}, Executable: "bin/tables", Binary: []byte("#!/bin/sh\nexit 9\n")}, GinkgoT().TempDir())).To(Succeed())
 	return lib
 }
 

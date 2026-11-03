@@ -13,7 +13,8 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { useAuth } from '../context/AuthContext'
 import { useWorkspace, joinPath, parentOf } from '../hooks/useWorkspace'
 import { uploads, useUploads } from '../hooks/useUploads'
-import { filesApi } from '../utils/api'
+import { chatAgentsApi, filesApi } from '../utils/api'
+import { agentFolderMarks } from '../utils/chatAgents'
 import { fileSize } from '../utils/fileInfo'
 import { splitEntries, isSettingsFolder, guardOf } from '../utils/managedFiles'
 import {
@@ -258,6 +259,22 @@ export default function Workspace() {
   // A delete or a rename of a managed path that waits for the confirmation:
   // { entries, action: 'delete' | 'rename', name, guard }.
   const [guarded, setGuarded] = useState(null)
+  // The folders that saved agents work in, marked in the list. Read from the
+  // agent list once; without agents (or without access to them) nothing is
+  // marked. The page itself stays on all the files.
+  const [agentList, setAgentList] = useState([])
+  useEffect(() => {
+    let live = true
+    chatAgentsApi.list().then(r => { if (live) setAgentList(r.agents || []) }).catch(() => {})
+    return () => { live = false }
+  }, [])
+  const agentMarks = useMemo(() => agentFolderMarks(agentList), [agentList])
+  const agentMark = useCallback((path) => {
+    const list = agentMarks.get(path)
+    if (!list) return null
+    const who = list.map(a => t(a.mode === 'write' ? 'agentMark.write' : 'agentMark.read', { name: a.name })).join(', ')
+    return { label: list.length === 1 ? list[0].name : t('agentMark.many', { count: list.length }), title: t('agentMark.usedBy', { agents: who }) }
+  }, [agentMarks, t])
   // A permanent delete that waits for the confirmation: { all: true } for the
   // whole Trash, { entry } for one item.
   const [purging, setPurging] = useState(null)
@@ -533,7 +550,7 @@ export default function Workspace() {
   const paths = order.map(e => e.path)
   const selectOnly = (p) => { setSelected(new Set([p])); setAnchor(p); setCursor(p) }
   const ctx = {
-    t, locale: i18n.language, now, taken, touch, menuItems,
+    t, locale: i18n.language, now, taken, touch, menuItems, agentMark,
     onOpen: openEntry,
     onRowClick: (entry, e) => {
       if (e.target.closest('button, a, input')) return
@@ -757,6 +774,12 @@ export default function Workspace() {
             {isSettingsFolder(ws.path) && (
               <p className="ws-folder-about" data-testid="ws-folder-about">
                 <span className="ws-managed-tag">{t('managed.marker')}</span> {t('managed.about.localai')}
+              </p>
+            )}
+
+            {tab === 'files' && agentMark(ws.path) && (
+              <p className="ws-folder-about" data-testid="ws-folder-agents">
+                <span className="ws-agent-tag"><Icon name="robot" />{agentMark(ws.path).label}</span> {agentMark(ws.path).title}
               </p>
             )}
 

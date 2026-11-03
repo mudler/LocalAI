@@ -47,6 +47,15 @@ async function mockCommon(page) {
   })
 }
 
+// A target row is the shared model picker: a chip that opens a list with a
+// filter box, where a name that is not listed is committed as typed.
+const ROWS = '.fte-row__body [data-testid="home-model-chip"]'
+async function setModel(page, row, name) {
+  await row.click()
+  await page.getByRole('combobox', { name: 'Filter models' }).fill(name)
+  await page.getByRole('combobox', { name: 'Filter models' }).press('Enter')
+}
+
 test.describe('Failover Chain template - create flow', () => {
   test.beforeEach(async ({ page }) => {
     await mockCommon(page)
@@ -64,51 +73,51 @@ test.describe('Failover Chain template - create flow', () => {
     await expect(page.getByText('Failover targets').first()).toBeVisible()
 
     // Two empty {model: ''} rows seeded by the template.
-    await expect(page.locator('input[placeholder="target model..."]')).toHaveCount(2)
+    await expect(page.locator(ROWS)).toHaveCount(2)
     await expect(page.getByRole('button', { name: /Add target/i }).first()).toBeVisible()
   })
 
   test('Add target adds a row', async ({ page }) => {
     await page.goto('/app/model-editor?template=failover')
     await page.getByRole('button', { name: /Add target/i }).first().click()
-    await expect(page.locator('input[placeholder="target model..."]')).toHaveCount(3)
+    await expect(page.locator(ROWS)).toHaveCount(3)
   })
 
   test('removing a row removes it', async ({ page }) => {
     await page.goto('/app/model-editor?template=failover')
     await page.locator('button[title="Remove target"]').first().click()
-    await expect(page.locator('input[placeholder="target model..."]')).toHaveCount(1)
+    await expect(page.locator(ROWS)).toHaveCount(1)
   })
 
   test('move down/up reorders the target rows', async ({ page }) => {
     await page.goto('/app/model-editor?template=failover')
-    const rows = page.locator('input[placeholder="target model..."]')
-    await rows.nth(0).fill('model-a')
-    await rows.nth(1).fill('model-b')
+    const rows = page.locator(ROWS)
+    await setModel(page, rows.nth(0), 'model-a')
+    await setModel(page, rows.nth(1), 'model-b')
 
     // Move the first row down — it should now be the second row's value.
     await page.locator('button[title="Move down"]').first().click()
-    await expect(rows.nth(0)).toHaveValue('model-b')
-    await expect(rows.nth(1)).toHaveValue('model-a')
+    await expect(rows.nth(0)).toContainText('model-b')
+    await expect(rows.nth(1)).toContainText('model-a')
 
     // Move it back up with the second row's "Move up" control.
     await page.locator('button[title="Move up (tried earlier)"]').nth(1).click()
-    await expect(rows.nth(0)).toHaveValue('model-a')
-    await expect(rows.nth(1)).toHaveValue('model-b')
+    await expect(rows.nth(0)).toContainText('model-a')
+    await expect(rows.nth(1)).toContainText('model-b')
   })
 
   test('a single remaining target shows a too-few warning', async ({ page }) => {
     await page.goto('/app/model-editor?template=failover')
     await page.locator('button[title="Remove target"]').first().click()
-    await expect(page.locator('input[placeholder="target model..."]')).toHaveCount(1)
+    await expect(page.locator(ROWS)).toHaveCount(1)
     await expect(page.getByText(/nothing to fail over to/i)).toBeVisible()
   })
 
   test('duplicate target models flag both rows', async ({ page }) => {
     await page.goto('/app/model-editor?template=failover')
-    const rows = page.locator('input[placeholder="target model..."]')
-    await rows.nth(0).fill('same-model')
-    await rows.nth(1).fill('same-model')
+    const rows = page.locator(ROWS)
+    await setModel(page, rows.nth(0), 'same-model')
+    await setModel(page, rows.nth(1), 'same-model')
     await expect(page.getByText(/Duplicate target/i)).toHaveCount(2)
   })
 
@@ -118,8 +127,8 @@ test.describe('Failover Chain template - create flow', () => {
     // generic field renderer), whose placeholder comes from the modelEditor
     // i18n namespace rather than the field registry.
     await page.locator('input[placeholder="my-model-name"]').fill('my-chain')
-    const rows = page.locator('input[placeholder="target model..."]')
-    await rows.nth(0).fill('my-chain')
+    const rows = page.locator(ROWS)
+    await setModel(page, rows.nth(0), 'my-chain')
     await expect(page.getByText(/chain's own name/i)).toBeVisible()
   })
 })
@@ -155,12 +164,12 @@ test.describe('Failover Chain - saving an edited chain', () => {
     await expect(page.locator('h1', { hasText: 'Model Editor' })).toBeVisible({ timeout: 10_000 })
 
     // Existing targets loaded from YAML.
-    const rows = page.locator('input[placeholder="target model..."]')
+    const rows = page.locator(ROWS)
     await expect(rows).toHaveCount(2)
 
     // Add a third target, then save.
     await page.getByRole('button', { name: /Add target/i }).first().click()
-    await rows.nth(2).fill('model-c')
+    await setModel(page, rows.nth(2), 'model-c')
 
     await page.locator('button', { hasText: 'Save Changes' }).click()
     await expect(page.locator('text=Configuration saved')).toBeVisible({ timeout: 5_000 })

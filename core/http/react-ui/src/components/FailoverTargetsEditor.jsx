@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
-import SearchableModelSelect from './SearchableModelSelect'
+import ModelPicker from './ModelPicker'
 import Toggle from './Toggle'
 import Icon from './Icon'
 
@@ -20,7 +20,7 @@ import Icon from './Icon'
 //   - a target equal to the chain's OWN name: the alias would point at
 //     itself and never resolve.
 //
-// The model list from useModels() (what SearchableModelSelect searches)
+// The model list from useModels() (what ModelPicker searches)
 // does not carry each entry's backend, so a remote/proxy target can't be
 // told apart from a local one here to disable warm for it. The server
 // already rejects/warns on warm for a backend that can't be kept loaded,
@@ -130,7 +130,8 @@ function TargetRow({ index, total, row, duplicate, isOwnName, onChange, onRemove
       </div>
 
       <div className="hstack hstack--md fte-row__body">
-        <SearchableModelSelect
+        <ModelPicker
+          variant="field" allowCustom searchable
           value={row?.model || ''}
           onChange={(v) => onChange((r) => ({ ...r, model: v }))}
           placeholder="target model..."

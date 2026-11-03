@@ -64,6 +64,7 @@ test.describe('Chat settings against the real server', () => {
     await page.getByRole('button', { name: /Chats and collections/ }).click()
     await expect(page.locator('main')).not.toContainText(/AGENT POOL|AGENT JOBS/i)
     // Each caption heads one run of fields: the collections, then the chats.
+    await expect(page.locator('main .st-h3').first()).toBeVisible()
     const heads = await page.locator('main .st-h3').allTextContents()
     expect(heads.slice(0, 2)).toEqual(['Collections', 'Chats'])
     expect(new Set(heads).size).toBe(heads.length)

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
+	"unicode/utf8"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -12,12 +14,36 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
-	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // A long sub-agent run has more entries than one page; its answer is the last
 // assistant message, not the first page's.
 var _ = Describe("subagent internal", func() {
+	// A background sub-agent whose turn is reaped as dead must still report back,
+	// or its waiter would block until the server stops.
+	It("tells the waiter of a sub-agent whose turn was reaped", func() {
+		st, err := store.NewJSON("")
+		Expect(err).NotTo(HaveOccurred())
+		svc, err := New(Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir()})
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() { _ = svc.Close(context.Background()) })
+		ctx := context.Background()
+		Expect(st.CreateChat(ctx, session.ChatRecord{ID: "kid", Principal: "alice"})).To(Succeed())
+		Expect(st.ClaimTurn(ctx, "alice", "kid", "run-1")).To(Succeed())
+		done := svc.waitFor(key("alice", "kid"))
+		n, err := svc.ReapStale(ctx, -time.Hour)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(Equal(1))
+		Eventually(done).Should(Receive(Equal(store.TurnInterrupted)))
+	})
+
+	It("cuts a title on a rune boundary", func() {
+		got := truncate("héllo wörld", 2)
+		Expect(utf8.ValidString(got)).To(BeTrue(), "the title %q is cut inside a rune", got)
+		Expect(got).To(Equal("h…"))
+		Expect(truncate("  a   b ", 10)).To(Equal("a b"))
+	})
+
 	It("final text of a long child is its last answer", func() {
 		st, err := store.NewJSON("")
 		Expect(err).NotTo(HaveOccurred())
@@ -55,7 +81,9 @@ var _ = Describe("subagent internal", func() {
 		ctx := context.Background()
 		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
 		Expect(err).NotTo(HaveOccurred())
-		_, err = svc.spawn(ctx, workspace.Actor{Principal: "alice", ChatID: rec.ID}, json.RawMessage(`{"task":"do it"}`))
+		x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+		Expect(err).NotTo(HaveOccurred())
+		_, err = svc.spawn(ctx, x, json.RawMessage(`{"task":"do it"}`))
 		Expect(err).To(HaveOccurred(), "spawn should fail when the child cannot start")
 		svc.mu.Lock()
 		waiters := len(svc.waiters)

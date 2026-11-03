@@ -93,14 +93,12 @@ const (
 type Chat struct {
 	m  *Manager
 	id string
-	// accMu guards the access of the chat: the actor, the user actor and the
-	// view. Open replaces them when the actor's groups or the shared folders
-	// have changed (see syncAccess).
+	// accMu guards the access of the chat: the actor (with ChatID, fenced
+	// for an agent with a folder) and the view of the sandbox. Open replaces
+	// it when the access resolved for the turn differs (see syncAccess).
 	accMu       sync.RWMutex
-	actor       workspace.Actor // with ChatID: the agent's actor
-	user        workspace.Actor // without ChatID: uploads and renames
-	view        workspace.View  // the view of the sandbox
-	harnessView workspace.View  // the view that the harness prompt names
+	acc         Access
+	harnessView workspace.View // the view that the harness prompt names
 	dir         string
 	turnCtx     context.Context // the context of the running turn; under mu
 
@@ -161,10 +159,9 @@ type vmState struct {
 	unsupported bool
 }
 
-func newChat(m *Manager, a workspace.Actor, rec ChatRecord, view workspace.View) *Chat {
-	a = copyActor(a)
+func newChat(m *Manager, x Access, rec ChatRecord) *Chat {
 	c := &Chat{
-		m: m, id: rec.ID, actor: a, user: userActor(a), view: view, rec: rec,
+		m: m, id: rec.ID, acc: x, rec: rec,
 		dir: m.chatDir(rec.ID), turn: rec.Turns, bus: newEventBus(),
 	}
 	c.lastUse.Store(time.Now().UnixNano())
@@ -180,17 +177,29 @@ func (c *Chat) idleForClose(d time.Duration) bool {
 	return !busy && time.Since(time.Unix(0, c.lastUse.Load())) > d
 }
 
-// access returns the actor, the user actor and the view of the chat.
+// access returns the actor of the chat, the owner's actor (no chat ID and no
+// fence: the person's uploads and renames, in the chat folder only) and the
+// view of the chat.
 func (c *Chat) access() (actor, user workspace.Actor, view workspace.View) {
 	c.accMu.RLock()
 	defer c.accMu.RUnlock()
-	return c.actor, c.user, c.view
+	return c.acc.Actor(), c.acc.Owner(), c.acc.View()
 }
+
+// place is the place of the chat's access: how its tools name its files.
+func (c *Chat) place() Place {
+	c.accMu.RLock()
+	defer c.accMu.RUnlock()
+	return c.acc.Place()
+}
+
+// modelText is the text the model of this chat gets for an entry.
+func (c *Chat) modelText(e Entry) string { return ModelTextIn(e, c.place()) }
 
 func (c *Chat) principal() string {
 	c.accMu.RLock()
 	defer c.accMu.RUnlock()
-	return c.actor.Principal
+	return c.acc.actor.Principal
 }
 
 // Events returns the channel of live events. A consumer that falls behind
@@ -300,7 +309,9 @@ func (c *Chat) isRunning() bool {
 // harness cannot read, or a missing state in a chat that has a transcript,
 // starts a fresh session with the transcript in the system prompt.
 func (c *Chat) startHarness(ctx context.Context) error {
-	c.primeChatTools(ctx)
+	if err := c.primeChatTools(ctx); err != nil {
+		return err
+	}
 	c.mu.Lock()
 	rec := c.rec
 	c.mu.Unlock()
@@ -309,10 +320,10 @@ func (c *Chat) startHarness(ctx context.Context) error {
 		prompt += "\n\n"
 	}
 	c.accMu.Lock()
-	c.harnessView = c.view
-	view := c.view
+	view := c.acc.View()
+	c.harnessView = view
 	c.accMu.Unlock()
-	prompt += LayoutPrompt(view)
+	prompt += LayoutPrompt(view, PromptScope(view))
 	c.hostMu.Lock()
 	turnPrompt := c.host.prompt
 	c.hostMu.Unlock()
@@ -372,7 +383,7 @@ func (c *Chat) summary(ctx context.Context) string {
 		if !ModelRole(e.Role) && (e.Role != RoleGoal || e.Note != GoalLineContinue) {
 			continue
 		}
-		l := e.Role + ": " + CapText(ModelText(e), 1000)
+		l := e.Role + ": " + CapText(c.modelText(e), 1000)
 		if size += len(l) + 1; size > 8<<10 {
 			break
 		}
@@ -678,6 +689,12 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 			c.mu.Unlock()
 			return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
 		}
+		if c.pendingFullLocked(len(msg.Text) + len(msg.Note)) {
+			// Refused before the message reaches the transcript, so a retry
+			// does not log it twice.
+			c.mu.Unlock()
+			return fmt.Errorf("%w: too many messages are waiting for the turn", ErrTurnRunning)
+		}
 		hs, turn, swapping := c.hs, c.turn, c.swapping
 		if hs == nil || swapping {
 			// The harness is being swapped: queue the message for the next
@@ -690,7 +707,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 				entry.Turn = turn
 				c.appendEntry(ctx, entry)
 			}
-			return c.queuePending(ctx, msg, withDirective(msg.Directive, ModelText(entry)))
+			return c.queueLogged(ctx, msg, withDirective(msg.Directive, c.modelText(entry)))
 		}
 		// Taken under mu, so a swap that starts later waits for this inject.
 		c.injectMu.RLock()
@@ -703,27 +720,19 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 			entry.Turn = turn
 			c.appendEntry(ctx, entry)
 		}
-		err := hs.Inject(withDirective(msg.Directive, ModelText(entry)))
+		err := hs.Inject(withDirective(msg.Directive, c.modelText(entry)))
 		c.injectMu.RUnlock()
 		if !errors.Is(err, ErrNoTurn) {
 			return err
 		}
 		// The turn is ending. Queue the message for the next one, or start
 		// it here when the turn has ended meanwhile.
-		c.mu.Lock()
-		if c.running {
-			if c.stopped {
-				c.mu.Unlock()
-				return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
-			}
-			c.pending = append(c.pending, withDirective(msg.Directive, ModelText(entry)))
-			c.mu.Unlock()
-			return nil
-		}
-		c.mu.Unlock()
-		return c.send(ctx, msg, true)
+		return c.queueLogged(ctx, msg, withDirective(msg.Directive, c.modelText(entry)))
 	}
-	// Reserve the turn, then store the files without the lock.
+	// Reserve the turn, then store the files without the lock. Messages that a
+	// stopped turn left queued go first.
+	carried := c.pending
+	c.pending = nil
 	c.running, c.stopped = true, false
 	c.done = make(chan struct{})
 	done := c.done
@@ -733,6 +742,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	if err != nil {
 		c.mu.Lock()
 		c.endLoopLocked(done)
+		c.pending = append(carried, c.pending...)
 		c.mu.Unlock()
 		return err
 	}
@@ -742,7 +752,7 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	// The transcript keeps the words and the files apart; the model gets
 	// them together, as it always has.
 	entry.Attachments = append(slices.Clip(entry.Attachments), saved...)
-	full := withDirective(msg.Directive, ModelText(entry))
+	full := strings.Join(append(carried, withDirective(msg.Directive, c.modelText(entry))), "\n\n")
 	if !logged {
 		entry.Turn = c.turnNow() + 1
 		c.appendEntry(ctx, entry)
@@ -752,21 +762,51 @@ func (c *Chat) send(ctx context.Context, msg Message, logged bool) error {
 	return nil
 }
 
-// queuePending queues text for the next turn of the running loop, or starts
-// it when the turn has ended meanwhile. The message is in the transcript.
-func (c *Chat) queuePending(ctx context.Context, msg Message, text string) error {
-	c.mu.Lock()
-	if c.running {
-		if c.stopped {
-			c.mu.Unlock()
-			return fmt.Errorf("%w: the turn is stopping", ErrTurnRunning)
-		}
-		c.pending = append(c.pending, text)
-		c.mu.Unlock()
-		return nil
+// Limits of the queue of messages that wait for the next turn. The queue only
+// fills while a turn ends or the harness swaps, so a full one means a client
+// that sends faster than the chat can take.
+const (
+	maxPendingMessages = 32
+	maxPendingBytes    = 256 << 10
+)
+
+// pendingFullLocked says whether a message of n more bytes does not fit in the
+// queue. The caller holds c.mu.
+func (c *Chat) pendingFullLocked(n int) bool {
+	if len(c.pending) >= maxPendingMessages {
+		return true
 	}
+	total := n
+	for _, p := range c.pending {
+		total += len(p)
+	}
+	return total > maxPendingBytes
+}
+
+// queueLogged queues text, which is in the transcript already, for the next
+// turn of the running loop, or starts it when the turn has ended meanwhile.
+// When the turn was stopped, or the queue filled up since Send checked it, the
+// message waits for the turn to end and starts the next one: it was accepted
+// into the transcript, so it must not be refused any more.
+func (c *Chat) queueLogged(ctx context.Context, msg Message, text string) error {
+	c.mu.Lock()
+	if !c.running {
+		c.mu.Unlock()
+		return c.send(ctx, msg, true)
+	}
+	if c.stopped || c.pendingFullLocked(len(text)) {
+		done := c.done
+		c.mu.Unlock()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		return c.send(ctx, msg, true)
+	}
+	c.pending = append(c.pending, text)
 	c.mu.Unlock()
-	return c.send(ctx, msg, true)
+	return nil
 }
 
 // Attach stores files in the chat folder and returns them as attachments of
@@ -792,7 +832,7 @@ func (c *Chat) turnNow() int {
 
 // endLoopLocked ends the running state. The caller holds c.mu.
 func (c *Chat) endLoopLocked(done chan struct{}) {
-	c.running, c.cancel, c.pending = false, nil, nil
+	c.running, c.cancel = false, nil
 	close(done)
 }
 
@@ -843,13 +883,26 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		c.mu.Unlock()
 	}()
 
+	if f := c.m.o.ProductScope; f != nil {
+		c.accMu.RLock()
+		x := c.acc
+		c.accMu.RUnlock()
+		var closeScope func()
+		ctx, closeScope = f(ctx, x)
+		defer closeScope()
+		c.mu.Lock()
+		c.turnCtx = ctx
+		c.mu.Unlock()
+	}
+
 	c.endMu.Lock()
 	c.emit(Event{Kind: KindTurnStart, Turn: n})
 	c.endMu.Unlock()
 	note := ""
+	var turnErr error
 	if !skip {
 		var hookRefresh bool
-		note, hookRefresh = c.applyChatTools(ctx)
+		note, hookRefresh, turnErr = c.applyChatTools(ctx)
 		c.mu.Lock()
 		hs = c.hs // a changed set of tools restarted the harness
 		c.mu.Unlock()
@@ -857,19 +910,22 @@ func (c *Chat) runTurn(text string, refresh bool, media []Media) int {
 		// them, as it sees an upload.
 		refresh = refresh || hookRefresh
 	}
-	if refresh && !skip && ctx.Err() == nil {
+	if refresh && !skip && turnErr == nil && ctx.Err() == nil {
 		if err := c.refresh(ctx); err != nil {
 			c.m.log.Warn("session: refresh before the turn", "chat", c.id, "error", err)
 			c.emit(Event{Kind: KindError, Turn: n, Text: reasonRefresh})
 		}
 	}
-	if !skip && hs != nil {
+	if !skip && (hs != nil || turnErr != nil) {
 		toModel := text
 		if note != "" {
 			// The note is for the model only: the transcript keeps the user's words.
 			toModel = "(System note: " + note + ")\n\n" + text
 		}
-		err := safeSend(ctx, hs, toModel, media, c.m.log)
+		err := turnErr
+		if err == nil {
+			err = safeSend(ctx, hs, toModel, media, c.m.log)
+		}
 		c.mu.Lock()
 		stopped := c.stopped
 		c.mu.Unlock()
@@ -940,14 +996,15 @@ func (c *Chat) checkpoint(n int, text string) ChangeEvent {
 
 // Stop interrupts the running turn and waits until it has ended. The turn
 // still checkpoints, so partial work is kept and can be undone. Messages that
-// are queued for the next turn are dropped.
+// are queued for the next turn are in the transcript, so they stay queued and
+// go to the model with the next message.
 func (c *Chat) Stop(ctx context.Context) error {
 	c.mu.Lock()
 	if !c.running {
 		c.mu.Unlock()
 		return nil
 	}
-	c.stopped, c.pending = true, nil
+	c.stopped = true
 	cancel, done, hs := c.cancel, c.done, c.hs
 	c.mu.Unlock()
 	if cancel != nil {
@@ -1162,12 +1219,22 @@ func (c *Chat) workFolderBlock(ctx context.Context, reserve bool) string {
 		if name == "" {
 			return ""
 		}
-		return workfiles.Prompt(workfiles.GuestFolder(name))
+		return c.workPrompt(name)
 	}
 	name, err := c.reserveFolder(ctx)
 	if err != nil {
 		c.m.log.Warn("session: no work folder this turn", "chat", c.id, "error", err)
 		return ""
+	}
+	return c.workPrompt(name)
+}
+
+// workPrompt names the work folder by the chat's view: in a scoped chat the
+// chat folder is its own mount, at /workspace/chat.
+func (c *Chat) workPrompt(name string) string {
+	_, _, view := c.access()
+	if p := NewPlace(view); p.Scoped() {
+		return workfiles.ScopedPrompt(p.PrimaryWritable())
 	}
 	return workfiles.Prompt(workfiles.GuestFolder(name))
 }

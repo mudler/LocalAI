@@ -2,6 +2,7 @@ package gormstore_test
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -44,7 +45,9 @@ var _ = Describe("The PostgreSQL store", func() {
 				_ = admin.Exec(`DROP SCHEMA IF EXISTS ` + schema + ` CASCADE`).Error
 				_ = adminRaw.Close()
 			})
-			db, err := gorm.Open(postgres.Open(url+"&search_path="+schema), &gorm.Config{})
+			dsn, err := urlpkgParse(url, schema)
+			Expect(err).NotTo(HaveOccurred())
+			db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 			Expect(err).ToNot(HaveOccurred())
 			raw, _ := db.DB()
 			DeferCleanup(func() { _ = raw.Close() })
@@ -56,3 +59,14 @@ var _ = Describe("The PostgreSQL store", func() {
 		})
 	})
 })
+
+func urlpkgParse(raw, schema string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	q := u.Query()
+	q.Set("search_path", schema)
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}

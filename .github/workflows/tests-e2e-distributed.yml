@@ -10,28 +10,40 @@ on:
   pull_request:
     paths:
       - 'tests/e2e/distributed/**'
-      - 'core/services/nodes/**'
-      - 'core/services/messaging/**'
-      - 'core/services/testutil/**'
-      - 'core/services/studio/**'
-      - 'core/services/collections/**'
-      - 'core/services/syncstate/**'
-      - 'core/services/advisorylock/**'
-      - 'core/services/galleryop/**'
-      - 'core/services/modeladmin/**'
-      - 'core/services/failover/**'
-      - 'core/services/storage/**'
-      - 'core/application/distributed*.go'
-      - 'core/cli/**'
-      - 'pkg/natsauth/**'
-      - 'scripts/nats-auth-setup.sh'
       - 'Makefile'
       - '.github/workflows/tests-e2e-distributed.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'configuration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'scripts/**'
+      - '.github/actions/**'
   push:
-    branches:
-      - master
+    branches: [master]
+    paths:
+      - 'tests/e2e/distributed/**'
+      - 'Makefile'
+      - '.github/workflows/tests-e2e-distributed.yml'
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'configuration/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'scripts/**'
+      - '.github/actions/**'
   schedule:
-    # Nightly, so a regression that the path filter missed shows within a day.
+    # Pre-existing nightly coverage of the distributed suites.
     - cron: '17 3 * * *'
   workflow_dispatch:
 

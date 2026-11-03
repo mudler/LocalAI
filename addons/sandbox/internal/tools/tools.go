@@ -51,14 +51,15 @@ func Runs(acquire runner.Acquire) []runner.Tool {
 // confirm-host are for the Settings page only (UIOnly), so no model is offered
 // them, and each asks the host whether the caller is an administrator.
 const (
-	ToolStatus      = "status"
-	ToolSetBackend  = "set-backend"
-	ToolConfirmHost = "confirm-host"
+	ToolExecutionStatus = "execution-status"
+	ToolStatus          = "status"
+	ToolSetBackend      = "set-backend"
+	ToolConfirmHost     = "confirm-host"
 )
 
 // Declared is everything the manifest lists under capabilities.tools.
 func Declared() []string {
-	return append(append([]string{}, Tools...), ToolStatus, ToolSetBackend, ToolConfirmHost)
+	return append(append([]string{}, Tools...), ToolExecutionStatus, ToolStatus, ToolSetBackend, ToolConfirmHost)
 }
 
 // Settings is the choice of backend. *backends.Selector implements all but
@@ -140,6 +141,10 @@ func Definitions() []contract.ToolDefinition {
 	// them from every model; the add-on still asks the host whether the caller
 	// is an administrator.
 	return append(out, contract.ToolDefinition{
+		Name: ToolExecutionStatus, Kind: contract.ToolKindRead, UIOnly: true,
+		Description: "Report typed execution readiness and isolation.",
+		InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
+	}, contract.ToolDefinition{
 		Name: ToolStatus, Kind: contract.ToolKindRead,
 		Description: "Say whether this host can run commands in a sandbox now, and which backend runs them.",
 		InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`),
@@ -175,6 +180,31 @@ func (r *runtime) Read(ctx context.Context, env contract.Envelope) (contract.Res
 	}
 	refuse := func(msg string) (contract.Result, error) {
 		return contract.Result{Payload: protocol.Payload(map[string]any{"ok": false, "error": msg})}, nil
+	}
+	// The typed observation is callback-free, including administrator lookups.
+	if a.Tool == ToolExecutionStatus {
+		status := contract.ExecutionStatus{Readiness: "unknown", Isolation: "unknown"}
+		// The add-on starts without settings only when it could not read them
+		// or start its manager: it can run nothing, and says so.
+		if r.settings == nil {
+			status.Readiness, status.Explanation = "unavailable", "The Sandbox could not start."
+		} else {
+			switch r.settings.Status().Active {
+			case "gvisor", "kvm":
+				status.Readiness, status.Isolation = "available", "isolated"
+				// The guest has no network device: its connections reach the
+				// network only through the proxy that asks the host.
+				status.NetworkPolicyEnforced = true
+			case "host":
+				status.Readiness, status.Isolation = "available", "host"
+			case "":
+				status.Readiness = "unavailable"
+				status.Explanation = "No execution backend is available."
+			default:
+				status.Explanation = "The active execution backend is not recognized."
+			}
+		}
+		return contract.Result{Payload: protocol.Payload(status)}, nil
 	}
 	admin := r.admin != nil && r.admin.IsAdmin(ctx, op)
 	switch a.Tool {

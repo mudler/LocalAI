@@ -92,7 +92,7 @@ test('the Studio voice field shows its whole placeholder and stays inside a phon
   await stubMedia(page)
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 })
-    await page.goto('/app/studio/tts')
+    await page.goto('/app/addons/studio/studio/tts')
     const voice = page.getByTestId('ws-voice')
     await expect(voice).toBeVisible({ timeout: 15_000 })
     const box = await voice.boundingBox()

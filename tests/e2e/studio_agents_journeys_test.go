@@ -101,7 +101,7 @@ func agGap(open bool, id, what string) {
 var _ = Describe("Chats saved agents", Label("Chats"), func() {
 	It("validates, replaces and deletes an agent, and refuses a chat with a deleted one", func() {
 		name := fmt.Sprintf("Agent e2e %d", time.Now().UnixNano())
-		id := agCreateAgent(agObj{"name": name, "instructions": "Be brief.", "model": "mock-model", "skills": []string{"docx"}})
+		id := agCreateAgent(agObj{"name": name, "instructions": "Be brief.", "model": "mock-model", "skills": []string{"localai-apps"}})
 
 		code, _ := chatsDo(http.MethodPost, chatsBase()+"/agents", agObj{"name": strings.ToUpper(name)})
 		Expect(code).To(Equal(http.StatusConflict), "names are unique ignoring case")
@@ -157,15 +157,15 @@ var _ = Describe("Chats saved agents", Label("Chats"), func() {
 	It("sends the agent's instructions and only its skills to the model, and a plain chat gets all of them", func() {
 		agNeedUpstream()
 		id := agCreateAgent(agObj{"name": fmt.Sprintf("Prompt e2e %d", time.Now().UnixNano()), "model": "cp-passthrough-openai",
-			"instructions": "AGENT-INSTRUCTION-MARK", "skills": []string{"docx"}})
+			"instructions": "AGENT-INSTRUCTION-MARK", "skills": []string{"localai-apps"}})
 		system, _ := agUpstreamRequest(agObj{"agent_id": id}, "hello")
 		Expect(system).To(ContainSubstring("AGENT-INSTRUCTION-MARK"))
-		Expect(system).To(ContainSubstring("- docx:"))
-		Expect(system).NotTo(ContainSubstring("- xlsx:"), "an agent lists only the skills it names")
+		Expect(system).To(ContainSubstring("- localai-apps:"))
+		Expect(system).NotTo(ContainSubstring("- localai-workspace:"), "an agent lists only the skills it names")
 
 		plain, _ := agUpstreamRequest(agObj{"model": "cp-passthrough-openai"}, "hello")
-		Expect(plain).To(ContainSubstring("- docx:"))
-		Expect(plain).To(ContainSubstring("- xlsx:"))
+		Expect(plain).To(ContainSubstring("- localai-apps:"))
+		Expect(plain).To(ContainSubstring("- localai-workspace:"))
 		Expect(plain).NotTo(ContainSubstring("AGENT-INSTRUCTION-MARK"))
 	})
 
@@ -283,9 +283,9 @@ var _ = Describe("Chats skill layers", Label("Chats"), func() {
 			code, _ := chatsDo(http.MethodPost, skillsURL(""), agObj{"layer": layer, "name": "x-layer", "description": "d", "body": "b"})
 			Expect(code).To(Equal(http.StatusBadRequest), layer)
 		}
-		code, _ := chatsDo(http.MethodGet, skillsURL("/builtin/docx"), nil)
+		code, _ := chatsDo(http.MethodGet, skillsURL("/builtin/localai-apps"), nil)
 		Expect(code).To(Equal(http.StatusOK), "built-in skills are readable")
-		code, _ = chatsDo(http.MethodDelete, skillsURL("/builtin/docx"), nil)
+		code, _ = chatsDo(http.MethodDelete, skillsURL("/builtin/localai-apps"), nil)
 		Expect(code).NotTo(Equal(http.StatusOK), "built-in skills cannot be deleted")
 	})
 

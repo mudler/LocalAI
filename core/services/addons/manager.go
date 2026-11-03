@@ -99,7 +99,13 @@ type Migrator interface {
 type Manager struct {
 	// One lock also serializes journal publication across addons. No operation can
 	// overtake another operation on the same addon, including reconciliation.
-	mu sync.Mutex
+	mu                            sync.Mutex
+	upgradeMu                     sync.Mutex
+	upgradeViews                  map[string]upgradeSnapshot
+	upgradeCtx                    context.Context
+	upgradeCancel                 context.CancelFunc
+	upgradeWG                     sync.WaitGroup
+	upgradeActive, upgradeClosing bool
 	// opMu serializes Submit and Reconcile as whole operations, so mu can be
 	// released around a slow fetch without letting another operation in.
 	opMu                    sync.Mutex
@@ -149,16 +155,25 @@ type Manager struct {
 	skillSync SkillSync
 	// hostOps is the host setting of the host operation prefixes of each
 	// add-on. The apps list reads it to decide which host controls it draws.
-	hostOps map[string][]string
+	hostOps    map[string][]string
+	hostOpsSet bool
 }
 
 // SetHostOps sets the host operation grants of the add-ons (the host setting,
 // read at startup). The apps list draws a host control only for an add-on
-// whose grants entitle it.
+// whose grants entitle it. The first call selects an immutable startup snapshot;
+// subsequent calls do not reload policy. Call before attaching the runtime.
 func (m *Manager) SetHostOps(ops map[string][]string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.hostOps = ops
+	if m.hostOpsSet {
+		return
+	}
+	m.hostOpsSet = true
+	m.hostOps = make(map[string][]string, len(ops))
+	for id, prefixes := range ops {
+		m.hostOps[id] = slices.Clone(prefixes)
+	}
 }
 
 // SkillSync copies the skills of an add-on package into the chats' skill layer
@@ -228,7 +243,8 @@ func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *pack
 	if e := cfg.validate(); e != nil {
 		return nil, e
 	}
-	m := &Manager{config: cfg, catalog: c, installer: i, admin: admin}
+	m := &Manager{config: cfg, catalog: c, installer: i, admin: admin, upgradeViews: map[string]upgradeSnapshot{}}
+	m.upgradeCtx, m.upgradeCancel = context.WithCancel(context.Background())
 	if cfg.InstanceID != cfg.OwnerID {
 		return m, nil
 	}
@@ -244,9 +260,15 @@ func NewManager(ctx context.Context, cfg OwnerConfig, c catalog.Catalog, i *pack
 		_ = release()
 		return nil, e
 	}
+	m.refreshUpgradeViews()
 	return m, nil
 }
 func (m *Manager) Close() error {
+	m.upgradeMu.Lock()
+	m.upgradeClosing = true
+	m.upgradeCancel()
+	m.upgradeMu.Unlock()
+	m.upgradeWG.Wait()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed && m.release == nil {
@@ -305,8 +327,12 @@ func (m *Manager) Status(ctx context.Context, id string) (Status, error) {
 	s.AddonID = id
 	s.ObservedHealth = "stopped"
 	s.StartEligible = s.Installed && s.DesiredEnabled
+	if m.admission(id) != nil {
+		s.StartEligible = false
+		s.ObservedHealth = "unavailable"
+	}
 	for _, op := range m.journal.Operations {
-		if op.Command.AddonID == id && op.Status.Phase != "completed" && op.Status.Phase != "failed" {
+		if op.Command.AddonID == id && op.Status.Phase != string(lifecycleCompleted) && op.Status.Phase != string(lifecycleFailed) {
 			s.StartEligible = false
 		}
 	}
@@ -349,6 +375,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	}
 	var op journalOperation
 	resumed := false
+	accepted := false
 	if !addonID.MatchString(cmd.AddonID) || cmd.OperationID == "" || len(cmd.OperationID) > 256 {
 		return OperationStatus{}, ErrConflict
 	}
@@ -356,7 +383,13 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		if old.Command != cmd || old.Actor != actor {
 			return OperationStatus{}, ErrConflict
 		}
-		if old.Status.Phase == "failed" {
+		if old.Async && old.Status.Phase == string(lifecycleAccepted) {
+			if ctx.Value(upgradeExecutionKey{}) != m {
+				return old.Status, ErrRecoveryRequired
+			}
+			accepted = true
+			op = old
+		} else if old.Status.Phase == string(lifecycleFailed) {
 			// The answer stays the failure, but the add-on must not stay
 			// down because the failing attempt could not put it back.
 			if e := m.syncRuntime(ctx, cmd.AddonID); e != nil {
@@ -364,11 +397,13 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 			return old.Status, ErrOperationFailed
 		}
-		if _, again := m.canceled[cmd.OperationID]; again && old.Status.Phase == "intent" {
+		if accepted {
+			// Accepted work continues exactly once under the owner worker.
+		} else if _, again := m.canceled[cmd.OperationID]; again && old.Status.Phase == string(lifecycleIntent) {
 			resumed = true
 			op = old
 		} else {
-			if old.Status.Phase != "completed" {
+			if old.Status.Phase != string(lifecycleCompleted) {
 				return old.Status, ErrRecoveryRequired
 			}
 			return old.Status, m.syncFor(ctx, cmd.AddonID)
@@ -378,20 +413,20 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	if pinned && (cmd.Action != "upgrade" || cmd.ExpectedDigest == "" || cmd.CandidateDigest == "") {
 		return OperationStatus{}, ErrConflict
 	}
-	if pinned && !resumed {
+	if pinned && !resumed && !accepted {
 		// The same transition under another operation ID is a duplicate,
 		// whether the first one is in flight or done. Only a failed attempt
 		// leaves the transition open for a new one.
 		for id, other := range m.journal.Operations {
 			c := other.Command
-			if id != cmd.OperationID && c.Action == "upgrade" && c.AddonID == cmd.AddonID && c.ExpectedDigest == cmd.ExpectedDigest && c.CandidateDigest == cmd.CandidateDigest && other.Status.Phase != "failed" {
+			if id != cmd.OperationID && c.Action == "upgrade" && c.AddonID == cmd.AddonID && c.ExpectedDigest == cmd.ExpectedDigest && c.CandidateDigest == cmd.CandidateDigest && other.Status.Phase != string(lifecycleFailed) {
 				return OperationStatus{}, ErrTransitionConflict
 			}
 		}
 	}
-	if !resumed {
+	if !resumed && !accepted {
 		for _, other := range m.journal.Operations {
-			if other.Command.AddonID == cmd.AddonID && other.Status.Phase != "completed" && other.Status.Phase != "failed" {
+			if other.Command.AddonID == cmd.AddonID && other.Status.Phase != string(lifecycleCompleted) && other.Status.Phase != string(lifecycleFailed) {
 				return OperationStatus{}, ErrRecoveryRequired
 			}
 		}
@@ -429,10 +464,17 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	default:
 		return OperationStatus{}, ErrConflict
 	}
-	if !resumed {
-		op = journalOperation{Command: cmd, Actor: actor, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: "intent"}}
+	if accepted {
+		phase, _ := upgradeTransition(lifecyclePhase(op.Status.Phase), upgradeStart)
+		op.Status.Phase = string(phase)
 		m.journal.Operations[cmd.OperationID] = op
-		if e := m.persist("intent"); e != nil {
+		if e := m.persist(string(lifecycleRunning)); e != nil {
+			return op.Status, e
+		}
+	} else if !resumed {
+		op = journalOperation{Command: cmd, Actor: actor, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleIntent)}}
+		m.journal.Operations[cmd.OperationID] = op
+		if e := m.persist(string(lifecycleIntent)); e != nil {
 			return op.Status, e
 		}
 	}
@@ -443,9 +485,19 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// The client gets a typed cause or the generic error; the operator
 		// gets the underlying error here, which would otherwise be lost.
 		xlog.Warn("Addon operation failed", "action", cmd.Action, "addonId", cmd.AddonID, "operationId", cmd.OperationID, "causes", describeCauses(cause))
-		op.Status.Phase = "failed"
+		op.Status.Stage = m.journal.Operations[cmd.OperationID].Status.Stage
+		op.Status.Phase = string(lifecycleFailed)
+		op.Status.FailureCode = "upgrade_failed"
+		for _, c := range cause {
+			if errors.Is(c, context.Canceled) || errors.Is(c, context.DeadlineExceeded) {
+				op.Status.FailureCode = "interrupted"
+			}
+			if errors.Is(c, recovery.ErrNeedsRecovery) {
+				op.Status.FailureCode = "recovery_required"
+			}
+		}
 		m.journal.Operations[cmd.OperationID] = op
-		if e := m.persist("failed"); e != nil {
+		if e := m.persist(string(lifecycleFailed)); e != nil {
 			return op.Status, e
 		}
 		for _, c := range cause {
@@ -457,6 +509,10 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				// The package is not what its library entry says. The text of
 				// ErrPackage is fixed, so it is safe to show.
 				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, packages.ErrPackage)
+			}
+			var admission *HostRequirementsRefusal
+			if errors.As(c, &admission) {
+				return op.Status, fmt.Errorf("%w: %w", ErrOperationFailed, admission)
 			}
 			var typed *FailureCause
 			if errors.As(c, &typed) {
@@ -482,6 +538,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			// available, and opMu keeps every other operation out.
 			var r catalog.Release
 			var resolveErr error
+			if e := m.upgradeStage(cmd.OperationID, "preparing-package"); e != nil {
+				return op.Status, e
+			}
 			m.mu.Unlock()
 			if release != nil {
 				r = *release
@@ -503,6 +562,14 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			if m.uncertain || m.runtimeRecoveryRequired {
 				return op.Status, ErrRecoveryRequired
 			}
+			if e := m.admit(staged.Receipt()); e != nil {
+				op.Status.HostOperations = summaryPointer(m.requests(staged.Receipt()))
+				if discardErr := m.installer.Discard(staged); discardErr != nil {
+					xlog.Warn("Could not discard refused addon stage", "addon", cmd.AddonID, "error", discardErr)
+				}
+				return fail(e)
+			}
+			op.Status.HostOperations = summaryPointer(m.requests(staged.Receipt()))
 			var e error
 			if release != nil {
 				// An explicit upgrade never changes the trusted identity,
@@ -529,6 +596,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 				if cmd.Action == "upgrade" {
 					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
 				}
+			}
+			if e = m.upgradeStage(cmd.OperationID, "committing-package"); e != nil {
+				return op.Status, e
 			}
 			receipt, e = m.installer.Commit(ctx, staged)
 			if e != nil {
@@ -568,6 +638,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			}
 		}
 	case "enable":
+		if e := m.admission(cmd.AddonID); e != nil {
+			return fail(e)
+		}
 		// Data that needs recovery is not served: it is restored or purged first.
 		if m.dataBlocked(cmd.AddonID) {
 			return fail()
@@ -584,9 +657,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 	}
 	op.Next = &next
 	op.Status.Generation = next.Generation
-	op.Status.Phase = "prepared"
+	op.Status.Phase = string(lifecyclePrepared)
 	m.journal.Operations[cmd.OperationID] = op
-	if e := m.persist("prepared"); e != nil {
+	if e := m.persist(string(lifecyclePrepared)); e != nil {
 		return op.Status, e
 	}
 	result, e := m.apply(op)
@@ -650,15 +723,15 @@ func (m *Manager) resolveRelease(ctx context.Context, cmd LifecycleCommand) (cat
 
 func (m *Manager) apply(op journalOperation) (OperationStatus, error) {
 	m.journal.Addons[op.Command.AddonID] = copyStatus(*op.Next)
-	op.Status.Phase = "applied"
+	op.Status.Phase = string(lifecycleApplied)
 	m.journal.Operations[op.Command.OperationID] = op
-	if e := m.persist("applied"); e != nil {
+	if e := m.persist(string(lifecycleApplied)); e != nil {
 		return op.Status, e
 	}
-	op.Status.Phase = "completed"
+	op.Status.Phase = string(lifecycleCompleted)
 	op.Next = nil
 	m.journal.Operations[op.Command.OperationID] = op
-	return op.Status, m.persist("completed")
+	return op.Status, m.persist(string(lifecycleCompleted))
 }
 func (m *Manager) Reconcile(ctx context.Context) error {
 	m.opMu.Lock()
@@ -684,26 +757,36 @@ func (m *Manager) Reconcile(ctx context.Context) error {
 		if e := ctx.Err(); e != nil {
 			return e
 		}
-		switch op.Status.Phase {
-		case "intent":
-			op.Status.Phase = "failed"
+		switch lifecyclePhase(op.Status.Phase) {
+		case lifecycleAccepted, lifecycleRunning, lifecycleIntent:
+			op.Status.Phase = string(lifecycleFailed)
+			op.Status.FailureCode = "interrupted"
 			m.journal.Operations[id] = op
-			if e := m.persist("failed"); e != nil {
+			if e := m.persist(string(lifecycleFailed)); e != nil {
 				return e
 			}
-		case "prepared", "applied":
+		case lifecyclePrepared, lifecycleApplied:
 			if op.Next == nil {
 				return ErrConfiguration
 			}
 			if _, e := m.apply(op); e != nil {
 				return e
 			}
-		case "completed", "failed":
+		case lifecycleCompleted, lifecycleFailed:
 		default:
 			return ErrConfiguration
 		}
 	}
 	m.reconcileData(ctx)
+	for id, op := range m.journal.Operations {
+		if op.Async && op.Status.Phase == string(lifecycleFailed) && m.dataBlocked(op.Command.AddonID) {
+			op.Status.FailureCode = "recovery_required"
+			m.journal.Operations[id] = op
+		}
+	}
+	if e := m.persist("reconciled"); e != nil {
+		return e
+	}
 	return m.syncRuntime(ctx, "")
 }
 func syncPackage(root string) error {
@@ -825,6 +908,7 @@ func (m *Manager) AttachRuntime(ctx context.Context, s *addonruntime.Supervisor)
 	if m.uncertain || m.runtime != nil || s == nil {
 		return ErrConflict
 	}
+	m.hostOpsSet = true // An omitted startup policy is an immutable empty grant set.
 	m.runtime = s
 	m.instances = map[string]addonruntime.Instance{}
 	m.startFailed = map[string]error{}
@@ -847,6 +931,9 @@ func (m *Manager) syncFor(ctx context.Context, id string) error {
 // the add-on stopped on a generation that never ran. Without a running
 // instance there is nothing to replace and nothing to prove here.
 func (m *Manager) startCandidate(ctx context.Context, id string, prev Status, receipt packages.PackageReceipt, number uint64) error {
+	if e := m.admit(receipt); e != nil {
+		return e
+	}
 	if m.runtime == nil || !prev.Installed || !prev.DesiredEnabled {
 		return nil
 	}
@@ -937,6 +1024,10 @@ func (m *Manager) syncRuntime(ctx context.Context, target string) error {
 		if _, failed := m.startFailed[id]; failed && id != target {
 			continue
 		}
+		if e := m.admission(id); e != nil {
+			m.startFailed[id] = e
+			continue
+		}
 		if m.quiesced[id] || m.dataBlocked(id) {
 			continue
 		}
@@ -993,6 +1084,9 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 		return addonruntime.Instance{}, e
 	}
 	state := m.journal.Addons[id]
+	if m.admission(id) != nil {
+		return addonruntime.Instance{}, addonruntime.ErrRuntime
+	}
 	if m.uncertain || m.runtimeRecoveryRequired || m.runtime == nil || !state.Installed || !state.DesiredEnabled {
 		return addonruntime.Instance{}, addonruntime.ErrRuntime
 	}
@@ -1011,8 +1105,11 @@ type ConnectorKind struct {
 func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.runtime == nil {
-		return nil, nil
+	if e := m.check(ctx); e != nil {
+		return nil, e
+	}
+	if m.uncertain || m.runtimeRecoveryRequired || m.runtime == nil {
+		return nil, addonruntime.ErrRuntime
 	}
 	registrations, e := m.runtime.Registry.Snapshot(ctx)
 	if e != nil {
@@ -1047,6 +1144,25 @@ func (m *Manager) Connector(ctx context.Context, addonID string, req contract.Co
 // OperationStatus only observes lifecycle intent. It never resumes a command or
 // infers runtime completion from a completed journal publication.
 func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id string) (OperationStatus, error) {
+	m.upgradeMu.Lock()
+	view, found := m.upgradeViews[id]
+	closing := m.upgradeClosing
+	m.upgradeMu.Unlock()
+	if found {
+		if closing {
+			return OperationStatus{}, ErrNotOwner
+		}
+		if m.admin == nil || m.admin(ctx, actor) != nil {
+			return OperationStatus{}, ErrForbidden
+		}
+		if view.Actor != actor {
+			return OperationStatus{}, ErrOperationNotFound
+		}
+		if err := ctx.Err(); err != nil {
+			return OperationStatus{}, err
+		}
+		return view.Status, nil
+	}
 	// A slow lifecycle publication must not strand disconnected status readers.
 	for !m.mu.TryLock() {
 		timer := time.NewTimer(10 * time.Millisecond)
@@ -1068,9 +1184,9 @@ func (m *Manager) OperationStatus(ctx context.Context, actor contract.Actor, id 
 	if !ok || op.Actor.UserID == "" || op.Actor.CredentialID == "" || (op.Actor.Mode != "named-user" && op.Actor.Mode != "local-owner") || op.Actor != actor {
 		return OperationStatus{}, ErrOperationNotFound
 	}
-	result := OperationStatus{OperationID: id, AddonID: op.Status.AddonID, Phase: op.Status.Phase, Generation: op.Status.Generation, RuntimeState: "not-observed"}
+	result := OperationStatus{OperationID: id, AddonID: op.Status.AddonID, Phase: op.Status.Phase, Generation: op.Status.Generation, RuntimeState: "not-observed", HostOperations: copyRequestSummary(op.Status.HostOperations)}
 	if m.uncertain || m.runtimeRecoveryRequired {
-		result.RuntimeState = "recovery-required"
+		result.RuntimeState = string(lifecycleRecovery)
 	}
 	return result, nil
 }
@@ -1105,6 +1221,12 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 		snap := apps.Snapshot{AddonID: id, InstalledAt: st.InstalledAt, Installed: st.Installed, Enabled: st.DesiredEnabled, Generation: st.Generation, State: addonruntime.StateStopped, Receipt: receipt, HostOps: m.hostOps[id]}
 		if st.DesiredEnabled && m.runtime != nil {
 			snap.State = m.runtime.State(id, st.Generation)
+		}
+		summary := m.requests(receipt)
+		snap.HostOperations = summaryPointer(summary)
+		if len(summary.MissingRequired) != 0 {
+			snap.Unavailable = true
+			snap.State = "failed"
 		}
 		// The apps list answers from the check cache only: it never
 		// evaluates and never reaches a library.
@@ -1168,7 +1290,7 @@ func (m *Manager) AppAsset(ctx context.Context, actor contract.Actor, id, digest
 		return packages.PackageReceipt{}, 0, ErrForbidden
 	}
 	receipt, ok := currentReceipt(st)
-	if !ok || receipt.Manifest.Capabilities.UI == nil || receipt.Digest != "sha256:"+digest {
+	if !ok || m.admit(receipt) != nil || receipt.Manifest.Capabilities.UI == nil || receipt.Digest != "sha256:"+digest {
 		return packages.PackageReceipt{}, 0, ErrForbidden
 	}
 	return receipt, st.Generation, nil
@@ -1226,6 +1348,9 @@ func (m *Manager) DeclaredTools(ctx context.Context, id string, generation uint6
 	if !ok || !st.Installed || generation == 0 || st.Generation != generation {
 		return nil, ErrForbidden
 	}
+	if m.admission(id) != nil {
+		return nil, ErrForbidden
+	}
 	if c, ok := m.toolCache[id]; ok && c.generation == generation {
 		return c.tools, nil
 	}
@@ -1263,10 +1388,24 @@ func (m *Manager) DeclaredCapabilities(ctx context.Context, id string, generatio
 	if !ok {
 		return contract.Capabilities{}, ErrForbidden
 	}
+	if m.admit(receipt) != nil {
+		return contract.Capabilities{}, ErrForbidden
+	}
 	c := receipt.Manifest.Capabilities
 	out := contract.Capabilities{Service: c.Service, Tools: append([]string(nil), c.Tools...), AdminTools: append([]string(nil), c.AdminTools...), Actions: c.Actions, Undo: c.Undo}
 	out.ToolDefinitions = append([]contract.ToolDefinition(nil), c.ToolDefinitions...)
 	out.SkillDefinitions = append([]contract.SkillDefinition(nil), c.SkillDefinitions...)
+	if c.ExecutionProvider != nil {
+		p := *c.ExecutionProvider
+		p.Tools = slices.Clone(p.Tools)
+		out.ExecutionProvider = &p
+	}
+	if c.HostOperations != nil {
+		h := *c.HostOperations
+		h.Required = slices.Clone(h.Required)
+		h.Optional = slices.Clone(h.Optional)
+		out.HostOperations = &h
+	}
 	if c.Resources != nil {
 		r := *c.Resources
 		out.Resources = &r

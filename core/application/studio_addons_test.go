@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -139,5 +140,30 @@ var _ = Describe("the studio add-ons", func() {
 		got, err := s.Tools(context.Background(), "alice")
 		Expect(err).ToNot(HaveOccurred(), "a refused user is not an error for the chats")
 		Expect(got).To(BeEmpty(), "tools")
+	})
+})
+
+// bindingOwner notes the chat binding of each read that reaches it.
+type bindingOwner struct {
+	changeOwner
+	seen *[]hostops.Binding
+}
+
+func (o bindingOwner) Dispatch(ctx context.Context, _ contract.Actor, _ contract.Request) (contract.Result, error) {
+	b, _ := hostops.BindingOf(ctx)
+	*o.seen = append(*o.seen, b)
+	return contract.Result{Payload: json.RawMessage(`{"ok":true}`)}, nil
+}
+
+var _ = Describe("a chat's add-on call", func() {
+	It("binds a read tool with no resource to the chat it runs in", func() {
+		var seen []hostops.Binding
+		app := apps.App{ID: "office", Name: "office", Generation: 1, Enabled: true, State: "running", Tools: []string{"read-docx"},
+			ToolDefinitions: []contract.ToolDefinition{{Name: "read-docx", Kind: contract.ToolKindRead, Description: "Read a document.",
+				InputSchema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string"}},"required":["path"],"additionalProperties":false}`)}}}
+		s := &studioAddons{adapter: addontools.NewChatToolAdapter(bindingOwner{changeOwner: changeOwner{app: app}, seen: &seen}), mode: auth.AddonModeNamedUser}
+		_, err := s.Call(context.Background(), "alice", "chat1", addontools.ToolName("office", "read-docx"), json.RawMessage(`{"path":"/a.docx"}`))
+		Expect(err).ToNot(HaveOccurred())
+		Expect(seen).To(Equal([]hostops.Binding{{Principal: "alice", ChatID: "chat1"}}))
 	})
 })

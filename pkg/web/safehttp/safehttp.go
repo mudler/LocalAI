@@ -344,10 +344,14 @@ var metadata = []netip.Addr{
 	netip.MustParseAddr("169.254.169.254"),
 	netip.MustParseAddr("169.254.170.2"),
 	netip.MustParseAddr("fd00:ec2::254"),
+	netip.MustParseAddr("168.63.129.16"),   // Azure wire server, a public address
+	netip.MustParseAddr("192.0.0.192"),     // Oracle Cloud
+	netip.MustParseAddr("100.100.100.200"), // Alibaba Cloud
 }
 
 var (
 	sixToFour = netip.MustParsePrefix("2002::/16")
+	nat64     = netip.MustParsePrefix("64:ff9b::/96")
 	teredo    = netip.MustParsePrefix("2001::/32")
 )
 
@@ -368,6 +372,11 @@ func Allowed(a netip.Addr, allowPrivate bool) bool {
 		}
 		if sixToFour.Contains(a) {
 			return Allowed(netip.AddrFrom4([4]byte(b[2:6])), allowPrivate)
+		}
+		// NAT64 hands the IPv4 address in the last 32 bits to a gateway, so
+		// 64:ff9b::a9fe:a9fe reaches the metadata address.
+		if nat64.Contains(a) {
+			return Allowed(netip.AddrFrom4([4]byte(b[12:16])), allowPrivate)
 		}
 		if teredo.Contains(a) && !allowPrivate {
 			return false

@@ -850,6 +850,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			// `mcp` feature. Server names and commands stay behind
 			// /v1/mcp/servers/:model, which is gated by that feature.
 			MCP bool `json:"mcp,omitempty"`
+			// AliasOf names the model an alias entry resolves to. AliasError
+			// is set instead of dropping the entry when the alias cannot be
+			// resolved (unknown target or a chain), so a picker can show it
+			// as broken rather than hiding it.
+			AliasOf    string `json:"alias_of,omitempty"`
+			AliasError string `json:"alias_error,omitempty"`
 		}
 
 		// Join with the node registry when we have one (distributed mode). A
@@ -882,18 +888,28 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		seen := make(map[string]bool, len(modelConfigs)+len(modelsWithoutConfig))
 		for _, cfg := range modelConfigs {
 			seen[cfg.Name] = true
-			result = append(result, modelCapability{
-				ID:               cfg.Name,
-				Capabilities:     cfg.KnownUsecaseStrings,
-				UpscaleScale:     config.UpscaleScaleFromOptions(cfg),
-				ThreeDOperations: cfg.ThreeDOperations(),
-				Backend:          cfg.Backend,
-				Disabled:         cfg.IsDisabled(),
-				Pinned:           cfg.IsPinned(),
-				VoiceCloning:     config.VoiceCloningForModel(&cfg),
-				LoadedOn:         loadedByModel[cfg.Name],
-				MCP:              !appConfig.DisableMCP && cfg.MCP.HasMCPServers(),
-			})
+			// An alias keeps its own ID, disabled and pinned state (they are
+			// what the owner manages), but everything that describes what the
+			// model can do comes from the model that serves it.
+			effective := &cfg
+			entry := modelCapability{ID: cfg.Name, Disabled: cfg.IsDisabled(), Pinned: cfg.IsPinned()}
+			if resolved, isAlias, err := cl.ResolveAlias(&cfg); err != nil {
+				xlog.Warn("Model alias cannot be resolved", "alias", cfg.Name, "target", cfg.Alias, "error", err)
+				entry.AliasOf, entry.AliasError = cfg.Alias, err.Error()
+				entry.Capabilities = []string{}
+				result = append(result, entry)
+				continue
+			} else if isAlias {
+				effective, entry.AliasOf = resolved, cfg.Alias
+			}
+			entry.Capabilities = effective.KnownUsecaseStrings
+			entry.UpscaleScale = config.UpscaleScaleFromOptions(*effective)
+			entry.ThreeDOperations = effective.ThreeDOperations()
+			entry.Backend = effective.Backend
+			entry.VoiceCloning = config.VoiceCloningForModel(effective)
+			entry.LoadedOn = loadedByModel[effective.Name]
+			entry.MCP = !appConfig.DisableMCP && effective.MCP.HasMCPServers()
+			result = append(result, entry)
 		}
 		for _, name := range modelsWithoutConfig {
 			seen[name] = true

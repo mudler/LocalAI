@@ -47,27 +47,10 @@ name: 'add-on packages'
 # local-check build.
 
 on:
-  push:
-    branches: ['**']
-    tags: ['v*']
-    paths:
-      - 'addons/**'
-      - 'pkg/addons/**'
-      - 'scripts/addons/**'
-      - 'gallery/addons/**'
-      - 'tests/addons/packaging/**'
-      - 'core/services/addons/**'
-      - 'core/http/react-ui/package.json'
-      - 'core/http/react-ui/package-lock.json'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/addons-package.yml'
-      - '.github/workflows/sandbox-images.yml'
   pull_request:
     paths:
       - 'addons/**'
       - 'pkg/addons/**'
-      - 'scripts/addons/**'
       - 'gallery/addons/**'
       - 'tests/addons/packaging/**'
       - 'core/services/addons/**'
@@ -77,8 +60,39 @@ on:
       - 'go.sum'
       - '.github/workflows/addons-package.yml'
       - '.github/workflows/sandbox-images.yml'
+      - 'Makefile'
+      - 'scripts/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'docs/content/features/addons.md'
+      - '.github/actions/**'
+  push:
+    branches: [master]
+    tags: ['v*']
+    paths:
+      - 'addons/**'
+      - 'pkg/addons/**'
+      - 'gallery/addons/**'
+      - 'tests/addons/packaging/**'
+      - 'core/services/addons/**'
+      - 'core/http/react-ui/package.json'
+      - 'core/http/react-ui/package-lock.json'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/addons-package.yml'
+      - '.github/workflows/sandbox-images.yml'
+      - 'Makefile'
+      - 'scripts/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'docs/content/features/addons.md'
+      - '.github/actions/**'
   release:
     types: [published]
+
+concurrency:
+  group: ci-addons-package-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

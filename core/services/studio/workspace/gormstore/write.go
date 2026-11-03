@@ -146,6 +146,12 @@ func (w *writer) apply(id int64, kind Kind, op OpKind, ns state) (nodeRow, error
 		if err != nil {
 			return nodeRow{}, err
 		}
+		// The last guard for every path that changes a node (Undo, an
+		// upper layer, a folder deleted with what is below it): a fenced
+		// actor never deletes, moves or renames a root of its fence.
+		if IsFenceRoot(w.actor, id) && (ns.parent != cur.parent || ns.name != cur.name || ns.deleted != cur.deleted) {
+			return nodeRow{}, ErrReadOnly
+		}
 		before = cur.state
 		if beforePath, err = pathOf(ctx, q, id); err != nil {
 			return nodeRow{}, err

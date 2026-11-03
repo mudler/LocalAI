@@ -123,7 +123,9 @@ var _ = Describe("New", func() {
 		o := opts(fakeRunsc(GinkgoT().TempDir(), "runsc version release-20261012.0", "", 0, true))
 		b, err := New(o)
 		Expect(err).ToNot(HaveOccurred())
-		Expect(b.runsc).To(Equal(o.Runsc))
+		wantRunsc, err := filepath.EvalSymlinks(o.Runsc)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(b.runsc).To(Equal(wantRunsc))
 		Expect(b.opts.ReadyTimeout).ToNot(BeZero())
 		// The check sandbox leaves nothing in the state folder.
 		Expect(sessionFolders(b.opts.StateDir)).To(BeEmpty(), "New left session folders in StateDir")

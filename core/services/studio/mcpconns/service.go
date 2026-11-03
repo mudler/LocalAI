@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +48,10 @@ type Options struct {
 	// AllowPrivate is the administrator's switch for addresses on private
 	// networks. Nil: never allowed. It is read at each connection.
 	AllowPrivate func() bool
+	// DenyAddrs lists addresses a connector may not reach even when private
+	// addresses are allowed, such as the server's own. Nil: none. Cloud
+	// metadata addresses are always refused.
+	DenyAddrs func() []netip.Prefix
 	// Distributed refuses local commands: they would run on whichever frontend
 	// serves the request.
 	Distributed                              bool

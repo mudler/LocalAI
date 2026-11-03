@@ -60,22 +60,8 @@ def failure_summary(command, output, status):
     if tail: lines.append('last output: ' + ' | '.join(l[:200] for l in tail))
     lines.append('child status %d; failed: %s; log: %s' % (status, ', '.join(names[:10]) or 'unknown', log))
     return '\n'.join(lines)
-def ginkgo_report(path, expected):
-    try:
-        reports = json.loads(path.read_text())
-        assert isinstance(reports, list) and reports
-        cases = []
-        for report in reports:
-            assert report['SuiteSucceeded'] is True
-            specs = report['SpecReports']
-            assert specs
-            for spec in specs:
-                assert spec['State'] == 'passed'
-                if spec['LeafNodeType'] == 'It': cases.append(spec['LeafNodeText'])
-        assert cases and sorted(cases) == sorted(expected)
-    except (OSError, ValueError, KeyError, TypeError, AssertionError):
-        sys.exit('Ginkgo report missing, empty, skipped, failed or inventory mismatch: '+str(path))
-    return cases
+sys.path.insert(0, str(root / 'scripts/addons'))
+from ginkgo_report import ginkgo_report
 
 seen = []
 if entry['kind'] == 'ginkgo':
@@ -93,7 +79,7 @@ for command in entry['commands']:
             seen.append(item['case'])
 if entry['kind'] == 'ginkgo':
     seen = []
-    for report in reports: seen.extend(ginkgo_report(root/report['path'], report['cases']))
+    for report in reports: seen.extend(ginkgo_report(root/report['path'], report['cases'], report.get('focus')))
 if sorted(seen) != sorted(entry['cases']):
     sys.exit('required case inventory mismatch: '+repr(seen))
 # Run real readiness only after the shell test inventory has passed.

@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "Se eliminó «{{name}}».",
     "undoLate": "«{{name}}» ya se eliminó.",
-    "restored": "Se restauró «{{name}}»."
+    "restored": "Se restauró «{{name}}».",
+    "exportedFolder": "Agente \"{{name}}\" exportado. El archivo indica su carpeta, {{path}}. Donde lo importes, el agente recibe la carpeta con esa ruta, si existe."
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Carpeta"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "Archivos"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "Ejecuta una tarea y su respuesta aparecerá aquí.",
       "more": "Mostrar {{count}} más"
     }
+  },
+  "folder": {
+    "all": "Todos mis archivos",
+    "one": "Una carpeta",
+    "scopeLabel": "Archivos que este agente puede alcanzar",
+    "allHelp": "Los chats con este agente alcanzan todos tus archivos, como un chat sin agente.",
+    "choose": "Elegir carpeta",
+    "chooseOther": "Elegir otra carpeta",
+    "change": "Cambiar",
+    "home": "Inicio",
+    "modeLabel": "Acceso",
+    "read": "Puede leer",
+    "write": "Puede leer y cambiar",
+    "readShort": "solo lectura",
+    "writeShort": "lectura y cambios",
+    "help": "Los chats con este agente ven solo esta carpeta y su propia carpeta de chat. Las carpetas compartidas y las skills siguen siendo legibles. Los servidores MCP y las herramientas web que concedes no se limitan a esta carpeta.",
+    "commands": "Los comandos de este agente se ejecutan solo en el complemento Sandbox, nunca directamente en esta máquina.",
+    "nextMessage": "Un cambio se aplica desde el siguiente mensaje de cada chat.",
+    "missing": "Esta carpeta ya no existe. Elige otra carpeta para usar este agente.",
+    "unset": "Aún no hay carpeta elegida. Elige una carpeta para usar este agente.",
+    "needsChoice": "Elige una carpeta, o Todos mis archivos.",
+    "summaryRead": "{{path}}, puede leer",
+    "summaryWrite": "{{path}}, puede leer y cambiar",
+    "summaryMissing": "Falta la carpeta",
+    "summaryUnset": "Ninguna carpeta elegida",
+    "dialogTitle": "Elegir una carpeta",
+    "dialogText": "Abre la carpeta en la que trabaja este agente y úsala.",
+    "use": "Usar {{folder}}",
+    "useAll": "Usar todo Inicio",
+    "cancel": "Cancelar",
+    "managedHint": "LocalAI gestiona esta carpeta",
+    "sharedHint": "Las carpetas compartidas no se pueden elegir",
+    "exportNote": "El archivo indica la carpeta {{path}}. Donde lo importes, el agente recibe la carpeta con esa ruta, si existe, o te pide que elijas una.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Falta la carpeta",
+    "chipUnset": "Ninguna carpeta elegida"
   }
 }

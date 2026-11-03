@@ -35,10 +35,16 @@ const (
 
 // guestHome is the home folder as the model's tools see it, and
 // guestSharedPrefix the start of a shared folder there.
+// guestChat is the chat folder of a scoped chat, a mount of its own.
 const (
 	guestHome         = "/workspace/home"
 	guestSharedPrefix = "/workspace/shared-"
+	guestChat         = "/workspace/chat"
 )
+
+// ChatGuestFolder is the work folder of a scoped chat as the model's tools
+// see it: the work folder of the chat folder, mounted at /workspace/chat.
+const ChatGuestFolder = guestChat + "/" + Dir + "/"
 
 // helperExts are the extensions of scripts, logs and temporary files.
 var helperExts = map[string]bool{
@@ -73,6 +79,15 @@ func segments(p string) (segs []string, shared bool) {
 	switch {
 	case strings.HasPrefix(p, guestSharedPrefix):
 		return nil, true
+	case p == guestChat || strings.HasPrefix(p, guestChat+"/"):
+		// The chat folder of a scoped chat: read it as the chat folder in
+		// the home, whatever its name, so its work folder is the work folder.
+		rest := path.Clean("/" + strings.TrimPrefix(p, guestChat))
+		segs = []string{ChatsDir, "chat"}
+		if rest != "/" {
+			segs = append(segs, strings.Split(strings.TrimPrefix(rest, "/"), "/")...)
+		}
+		return segs, false
 	case p == guestHome || strings.HasPrefix(p, guestHome+"/"):
 		p = strings.TrimPrefix(p, guestHome)
 	}
@@ -136,6 +151,20 @@ func Prompt(guestFolder string) string {
 		"Save the deliverable the user asked for (the document, the spreadsheet, the image) where the user said, else in " + guestHome + "/, and nowhere else. " +
 		"Never create new top-level folders in the home for scripts. A command you run once needs no file: use python3 -c or a heredoc. " +
 		"Pages (" + guestHome + "/" + PagesDir + "/<name>/) and " + guestHome + "/" + SettingsDir + "/ are deliverables: keep them where they are."
+}
+
+// ScopedPrompt is Prompt for a chat whose agent has a folder: the work
+// folder is ChatGuestFolder, the deliverables go in the agent's folder when
+// it may be written, else in the chat folder, and nothing is said of pages or
+// of the settings folder, which are outside the agent's folder.
+func ScopedPrompt(homeWritable bool) string {
+	deliver := "Save the deliverable the user asked for (the document, the spreadsheet, the image) where the user said, else in " + guestHome + "/, and nowhere else. "
+	if !homeWritable {
+		deliver = guestHome + "/ is read only: save the deliverable the user asked for (the document, the spreadsheet, the image) in " + guestChat + "/. "
+	}
+	return "Working files: put scripts, helper code, intermediate data, logs, drafts and anything else the user did not ask for in this chat's work folder, " +
+		ChatGuestFolder + " (create it with mkdir -p when it is missing). " + deliver +
+		"Never create new top-level folders for scripts. A command you run once needs no file: use python3 -c or a heredoc."
 }
 
 // Nudge is the line a tool result gets when the call left a helper file

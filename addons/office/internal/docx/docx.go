@@ -25,7 +25,7 @@ const (
 // Heading levels the writer supports.
 const (
 	minHeadingLevel = 1
-	maxHeadingLevel = 3
+	maxHeadingLevel = 6
 )
 
 // Block is one element of the document body. The block types of this package
@@ -34,10 +34,11 @@ type Block interface {
 	validate() error
 }
 
-// Heading is a section title. Level is 1 to 3.
+// Heading is a section title. Level is 1 to 6.
 type Heading struct {
 	Level int
 	Text  string
+	Runs  []Run
 }
 
 // Run is a piece of paragraph text with its own emphasis.
@@ -59,6 +60,14 @@ type Paragraph struct {
 // empty.
 type Bullets struct {
 	Items []string
+	// RichItems is an alternative to Items. Ordered defaults to a bullet list;
+	// Start is the first number (zero defaults to 1). Indent is the nesting level.
+	RichItems [][]Run
+	Ordered   bool
+	Start     int
+	// StartSet distinguishes an explicit zero from the legacy default of one.
+	StartSet bool
+	Indent   int
 }
 
 // Table is a table with a header row and body rows. Every row has as many
@@ -67,9 +76,11 @@ type Bullets struct {
 // width gives that column an automatic share. An empty paragraph follows each
 // table, because Word needs a paragraph after a table at the end of the body.
 type Table struct {
-	Header []string
-	Rows   [][]string
-	Widths []int
+	Header     []string
+	Rows       [][]string
+	Widths     []int
+	HeaderRuns [][]Run
+	RowRuns    [][][]Run
 }
 
 // Style is the house look. Colours are six digit hex RGB values such as
@@ -102,7 +113,10 @@ func (h Heading) validate() error {
 	if h.Level < minHeadingLevel || h.Level > maxHeadingLevel {
 		return fmt.Errorf("heading level %d is not between %d and %d", h.Level, minHeadingLevel, maxHeadingLevel)
 	}
-	if strings.TrimSpace(h.Text) == "" {
+	if h.Text != "" && len(h.Runs) > 0 {
+		return errors.New("heading sets both Text and Runs")
+	}
+	if strings.TrimSpace(plain(h.Text, h.Runs)) == "" {
 		return errors.New("heading text is empty")
 	}
 	return nil
@@ -116,10 +130,16 @@ func (p Paragraph) validate() error {
 }
 
 func (b Bullets) validate() error {
-	if len(b.Items) == 0 {
+	if len(b.Items) > 0 && len(b.RichItems) > 0 {
+		return errors.New("list sets both Items and RichItems")
+	}
+	if b.Start < 0 || b.Indent < 0 || b.Indent > 64 {
+		return errors.New("invalid list position")
+	}
+	if len(b.Items) == 0 && len(b.RichItems) == 0 {
 		return errors.New("bullet list has no item")
 	}
-	for i, it := range b.Items {
+	for i, it := range b.texts() {
 		if strings.TrimSpace(it) == "" {
 			return fmt.Errorf("bullet item %d is empty", i+1)
 		}
@@ -127,7 +147,38 @@ func (b Bullets) validate() error {
 	return nil
 }
 
+func plain(text string, runs []Run) string {
+	for _, r := range runs {
+		text += r.Text
+	}
+	return text
+}
+func (b Bullets) texts() []string {
+	if len(b.RichItems) == 0 {
+		return b.Items
+	}
+	out := make([]string, len(b.RichItems))
+	for i, r := range b.RichItems {
+		out[i] = plain("", r)
+	}
+	return out
+}
+
 func (t Table) validate() error {
+	if t.HeaderRuns != nil && len(t.HeaderRuns) != len(t.Header) {
+		return errors.New("table header runs shape mismatch")
+	}
+	if t.RowRuns != nil {
+		if len(t.RowRuns) != len(t.Rows) {
+			return errors.New("table row runs shape mismatch")
+		}
+		for i, r := range t.RowRuns {
+			if len(r) != len(t.Rows[i]) {
+				return errors.New("table cell runs shape mismatch")
+			}
+		}
+	}
+
 	if len(t.Header) == 0 {
 		return errors.New("table has no header")
 	}

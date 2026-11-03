@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
@@ -60,6 +61,8 @@ const (
 
 // Commands is what a chat knows about running commands at a turn.
 type Commands struct {
+	ExecutionStatus *ExecutionStatusView
+
 	State CommandState
 	// Tool is the name of the tool that runs commands, when State is available.
 	Tool string
@@ -136,11 +139,8 @@ func standInRunner(tools []session.Tool) string {
 		if !slices.Contains(t.StandInFor, commandTool) {
 			continue
 		}
-		id, ok := strings.CutPrefix(t.Name, "addon__")
-		if !ok {
-			continue
-		}
-		if id, ok = strings.CutSuffix(id, "__unavailable"); ok {
+		id, tool, ok := addontools.ParseQualifiedToolName(t.Name)
+		if ok && tool == "unavailable" {
 			return id
 		}
 	}
@@ -205,41 +205,60 @@ func (s *Service) commandsOf(ctx context.Context, user string, tools []session.T
 // Tools menu shows it. It uses the same tools the model would get. The chat of
 // another user is session.ErrNotFound.
 func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Commands, error) {
+	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
+	defer closeScope()
 	p := principal(user)
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {
 		return Commands{}, err
 	}
-	return s.commandsFor(ctx, p, rec), nil
+	return s.commandsFor(ctx, p, rec)
 }
 
 // commandsFor says whether the chat of rec can run commands at its next turn.
-func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) Commands {
+func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) (Commands, error) {
 	conv := rec.ID
-	a := chatActor(p, conv)
-	if rec.Kind == session.KindSubAgent {
+	a := s.chatActorFor(ctx, rec)
+	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
 		s.mu.Lock()
 		tools := s.allowed[key(p, conv)]
 		s.mu.Unlock()
-		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil)
+		return s.commandsOf(ctx, p, tools, rec.AddonsOff, nil), nil
 	}
 	sc := s.scopeOf(ctx, rec)
 	var tools []session.Tool
 	if sc == nil || !sc.deleted {
-		tools, _ = s.addonTools(ctx, a, rec, sc)
+		var err error
+		tools, _, err = s.addonTools(ctx, a, rec, sc)
+		if err != nil {
+			return Commands{}, err
+		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	if _, ok := s.d.AddonTools.(ExecutionObserver); ok {
+		c.ExecutionStatus = executionStatusView(ctx, p, c.Addon)
+	}
 	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, false))
-	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec))
+	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec)), nil
 }
 
 // sandboxWhere is where a command of the Sandbox starts and what it keeps.
 // fileTools says whether the chat has the file tools, which see the same
-// files: a chat without them must not hear of them.
-func sandboxWhere(fileTools bool) string {
+// files: a chat without them must not hear of them. A scoped chat (its agent
+// works in one folder) has that folder at /workspace/home, at the agent's
+// mode, and its chat folder at /workspace/chat; its shared folders are read
+// only.
+func sandboxWhere(fileTools bool, place session.Place) string {
 	same := ""
 	if fileTools {
 		same = ", the same files as the file tools"
+	}
+	if place.Scoped() {
+		kept := "/workspace/chat"
+		if place.PrimaryWritable() {
+			kept = "/workspace/home or /workspace/chat"
+		}
+		return "It starts in /workspace/home, the agent's folder" + same + "; the chat's own folder is /workspace/chat, and shared folders are read only. Only what it saves under " + kept + " is kept."
 	}
 	return "It starts in /workspace/home, the user's home" + same + "; only what it saves under /workspace/home or a writable shared folder is kept."
 }
@@ -253,8 +272,9 @@ const skillsNotInSandbox = "Skill folders are not visible in the Sandbox: load s
 // can run commands. writeFile says whether the chat has write_file,
 // fileTools whether it has the file tools to read them, and skillsOff
 // whether the skill index lists a skill as unavailable for want of a way to
-// run commands. It is short on purpose: it goes into every turn.
-func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool) string {
+// run commands, and place the chat's folders. It is short on purpose: it
+// goes into every turn.
+func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool, place session.Place) string {
 	if c.State == CommandsAvailable {
 		home := "the user's home files"
 		if fileTools {
@@ -272,11 +292,11 @@ func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool) string {
 		case c.Isolation == "isolated":
 			// The turn's note is cut at 400 characters and the tool description
 			// is capped, so the list of programs goes here, in the prompt.
-			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere(fileTools) + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
+			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere(fileTools, place) + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
 		case c.Isolation == "host":
-			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere(fileTools)
+			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere(fileTools, place)
 		}
-		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere(fileTools)
+		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere(fileTools, place)
 	}
 	var b strings.Builder
 	b.WriteString("Commands: nothing in this chat runs code or commands. Never claim or imply that you ran anything, and do not ask a sub-agent to run it: it has the same tools. Instead ")
@@ -404,4 +424,49 @@ func (s *Service) repeatedTask(ctx context.Context, a workspace.Actor, task stri
 		}
 	}
 	return true, nil
+}
+
+// sandboxDocumentEligible requires the selected command provider, not just an
+// installed guest or generic command authority. Unknown isolation fails closed.
+func sandboxDocumentEligible(c Commands) bool {
+	return c.State == CommandsAvailable && c.Isolation == "isolated" && c.Addon == "sandbox" && c.Provider == "sandbox"
+}
+
+// addonCommandDescriptor describes existing add-on authority without building
+// built-ins (which build load_skill) or invoking any tool callbacks.
+func (s *Service) addonCommandDescriptor(ctx context.Context, p string, rec session.ChatRecord, sc *scope) (Commands, error) {
+	access, err := s.AddonAccess(ctx, p, rec.ID)
+	if err != nil {
+		return Commands{State: CommandsNone}, err
+	}
+	return s.addonCommandDescriptorForActor(ctx, access.Actor(), rec, sc)
+}
+
+// addonCommandDescriptorForActor reuses the actor already authorized by turn
+// setup (or the tools panel). It must not resolve session access: tool building
+// can run while Manager.Open holds its open lock.
+func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, sc *scope) (Commands, error) {
+	p := a.Principal
+	if sc != nil && sc.deleted {
+		return Commands{State: CommandsNone}, nil
+	}
+	var tools []session.Tool
+	// Only ad-hoc children inherit a pruned tool set. Saved-agent children
+	// resolve current grants through their scope, just like their turn tools.
+	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
+		s.mu.Lock()
+		tools = slices.Clone(s.allowed[key(p, rec.ID)])
+		s.mu.Unlock()
+	} else {
+		var err error
+		tools, _, err = s.addonTools(ctx, a, rec, sc)
+		if err != nil {
+			return Commands{}, err
+		}
+	}
+	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	if c.State == CommandsAvailable {
+		c.Provider = c.Addon
+	}
+	return shellSwitched(c, s.hiddenFor(ctx, rec)), nil
 }

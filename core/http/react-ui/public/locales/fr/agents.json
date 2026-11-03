@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "« {{name}} » supprimé.",
     "undoLate": "« {{name}} » était déjà supprimé.",
-    "restored": "« {{name}} » restauré."
+    "restored": "« {{name}} » restauré.",
+    "exportedFolder": "Agent « {{name}} » exporté. Le fichier nomme son dossier, {{path}}. Là où vous l'importez, l'agent reçoit le dossier de ce chemin, s'il existe."
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Dossier"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "Fichiers"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "Exécutez une tâche et sa réponse apparaîtra ici.",
       "more": "Afficher {{count}} de plus"
     }
+  },
+  "folder": {
+    "all": "Tous mes fichiers",
+    "one": "Un dossier",
+    "scopeLabel": "Fichiers que cet agent peut atteindre",
+    "allHelp": "Les chats avec cet agent atteignent tous vos fichiers, comme un chat sans agent.",
+    "choose": "Choisir un dossier",
+    "chooseOther": "Choisir un autre dossier",
+    "change": "Changer",
+    "home": "Accueil",
+    "modeLabel": "Accès",
+    "read": "Peut lire",
+    "write": "Peut lire et modifier",
+    "readShort": "lecture seule",
+    "writeShort": "lecture et modification",
+    "help": "Les chats avec cet agent ne voient que ce dossier et leur propre dossier de chat. Les dossiers partagés et les skills restent lisibles. Les serveurs MCP et les outils web que vous accordez ne sont pas limités à ce dossier.",
+    "commands": "Les commandes de cet agent s'exécutent uniquement dans l'add-on Sandbox, jamais directement sur cette machine.",
+    "nextMessage": "Une modification s'applique à partir du message suivant de chaque chat.",
+    "missing": "Ce dossier n'existe plus. Choisissez un autre dossier pour utiliser cet agent.",
+    "unset": "Aucun dossier choisi. Choisissez un dossier pour utiliser cet agent.",
+    "needsChoice": "Choisissez un dossier, ou Tous mes fichiers.",
+    "summaryRead": "{{path}}, peut lire",
+    "summaryWrite": "{{path}}, peut lire et modifier",
+    "summaryMissing": "Dossier manquant",
+    "summaryUnset": "Aucun dossier choisi",
+    "dialogTitle": "Choisir un dossier",
+    "dialogText": "Ouvrez le dossier dans lequel cet agent travaille, puis utilisez-le.",
+    "use": "Utiliser {{folder}}",
+    "useAll": "Utiliser tout l'Accueil",
+    "cancel": "Annuler",
+    "managedHint": "LocalAI gère ce dossier",
+    "sharedHint": "Les dossiers partagés ne peuvent pas être choisis",
+    "exportNote": "Le fichier nomme le dossier {{path}}. Là où vous l'importez, l'agent reçoit le dossier de ce chemin, s'il existe, ou vous demande d'en choisir un.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Dossier manquant",
+    "chipUnset": "Aucun dossier choisi"
   }
 }

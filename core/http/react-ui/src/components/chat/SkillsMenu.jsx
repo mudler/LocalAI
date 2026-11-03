@@ -112,7 +112,7 @@ function SkillRow({ skill, onSet, testId }) {
   return (
     <SwitchRow
       name={skill.name}
-      desc={desc ? skill.description : ''}
+      desc={skill.unavailable || (desc ? skill.description : '')}
       meta={source}
       metaTestId={`${testId}-source`}
       metaKind={src.kind}

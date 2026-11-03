@@ -32,6 +32,8 @@ const (
 	sentStopped      = "The turn was stopped."
 	sentInterrupted  = "The agent was interrupted. Please send your message again."
 	sentFailed       = "The agent stopped because of an error."
+	sentFolderLimit  = "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."
+	sentNoFolder     = "This agent cannot work right now: its folder is missing."
 	sentNoFile       = "I could not read the file you sent."
 	sentNoFiles      = "I can only read the text of your message here: files are turned off."
 	sentFileTooBig   = "That file is too large: I can read files of up to 1 MB."
@@ -49,10 +51,7 @@ const (
 )
 
 // ConnectorKind is a kind of binding that a running connector add-on serves.
-type ConnectorKind struct {
-	AddonID string
-	contract.ConnectorKind
-}
+type ConnectorKind = connectors.Kind
 
 // ConnectorTransport reaches the connector add-ons. The application implements
 // it over the add-on manager; a test implements it with a script.
@@ -61,7 +60,7 @@ type ConnectorTransport interface {
 	// process does not run add-ons.
 	Kinds(ctx context.Context) ([]ConnectorKind, error)
 	// Call sends one request to the connector route of an add-on.
-	Call(ctx context.Context, addonID string, req contract.ConnectorRequest) (contract.ConnectorResponse, error)
+	Call(ctx context.Context, scope ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error)
 }
 
 // ConnectorOptions configures the connector manager.
@@ -350,7 +349,7 @@ poll:
 			c.sleep(ctx, backoff)
 			continue
 		}
-		resp, err := c.o.Transport.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpPoll, Kind: b.Kind, Token: token, Offset: offset, TimeoutSeconds: c.o.Poll})
+		resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpPoll, Kind: b.Kind, Token: token, Offset: offset, TimeoutSeconds: c.o.Poll})
 		if err == nil && resp.Error != nil {
 			err = resp.Error
 		}
@@ -499,7 +498,7 @@ func (c *Connectors) say(b connectors.Binding, token, chat, thread, text string)
 // send makes one outbound call and turns an error of the platform into a Go error.
 func (c *Connectors) send(ctx context.Context, b connectors.Binding, req contract.ConnectorRequest) error {
 	req.Kind = b.Kind
-	resp, err := c.o.Transport.Call(ctx, b.AddonID, req)
+	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), req)
 	if err == nil && resp.Error != nil {
 		err = resp.Error
 	}
@@ -677,6 +676,14 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			return
 		}
 	}
+	// A scoped agent whose folder is missing does not run, on any frontend
+	// or worker: one plain reply, and the binding stays on, so it works
+	// again once the folder is back.
+	if _, err := c.svc.agentScope(ctx, b.Owner, b.AgentID); errors.Is(err, ErrAgentFolderMissing) {
+		c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)
+		say(sentNoFolder)
+		return
+	}
 	// The files are read before the chat is made: a message that cannot
 	// start a turn leaves no empty chat.
 	var up []session.Upload
@@ -694,6 +701,14 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			c.disable(b, "its agent was deleted")
 		case errors.Is(err, ErrNoModel):
 			c.disable(b, "its agent has no model")
+		case errors.Is(err, ErrAgentFolderLimit):
+			c.log.Warn("studio: a connector message exceeds the folder limit", "binding", b.ID)
+			say(sentFolderLimit)
+			return
+		case errors.Is(err, ErrAgentFolderMissing):
+			c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)
+			say(sentNoFolder)
+			return
 		default:
 			c.log.Warn("studio: could not make the chat of a sender", "binding", b.ID, "error", err)
 		}
@@ -785,7 +800,7 @@ func (c *Connectors) media(ctx context.Context, b connectors.Binding, token stri
 	)
 	for _, ref := range refs {
 		mctx, cancel := context.WithTimeout(ctx, 60*time.Second)
-		resp, err := c.o.Transport.Call(mctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: b.Kind, Token: token, Media: ref})
+		resp, err := c.o.Transport.Call(mctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMedia, Kind: b.Kind, Token: token, Media: ref})
 		cancel()
 		if err == nil && resp.Error != nil {
 			err = resp.Error
@@ -861,7 +876,17 @@ func (c *Connectors) deliver(ctx context.Context, b connectors.Binding, token st
 			st.active = false
 			c.smu.Unlock()
 		}
-		c.say(b, token, m.Chat, m.Thread, sentFailed)
+		text := sentFailed
+		if errors.Is(err, ErrAgentFolderLimit) {
+			c.log.Warn("studio: a connector message exceeds the folder limit", "binding", b.ID)
+			text = sentFolderLimit
+		}
+		if errors.Is(err, ErrAgentFolderMissing) {
+			// The folder went away between the check and the turn.
+			c.log.Warn("studio: a connector message was refused: the agent's folder is missing", "binding", b.ID)
+			text = sentNoFolder
+		}
+		c.say(b, token, m.Chat, m.Thread, text)
 		return
 	}
 	if was {

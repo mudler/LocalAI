@@ -11,6 +11,16 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtinskills"
 )
 
+var _ = Describe("reserved document slots", func() {
+	It("does not promise a core fallback for document provider names", func() {
+		for _, name := range []string{"docx", "pptx", "pdf", "xlsx"} {
+			Expect(BuiltinSkillName(name)).To(BeFalse())
+			Expect(validateSkillDefinitions("office", []SkillDefinition{{Name: name, Shadows: name}})).To(Succeed())
+			Expect(validateSkillDefinitions(name, []SkillDefinition{{Name: name}})).NotTo(Succeed())
+		}
+	})
+})
+
 var _ = Describe("Skill definitions in a manifest", func() {
 	withSkills := func(defs ...SkillDefinition) Manifest {
 		m, e := ParseManifest(fixture()) // id "sample"
@@ -59,11 +69,11 @@ var _ = Describe("Skill definitions in a manifest", func() {
 		Expect(valid(withSkills(SkillDefinition{Name: "samplenotes"}))).NotTo(Succeed())
 	})
 
-	It("refuses a plain name that is a built-in skill, whatever the add-on id", func() {
+	It("refuses protected or reserved plain names, whatever the add-on id", func() {
 		for _, n := range []string{"localai-apps", "localai-workspace", "writing-skills", "xlsx", "pdf"} {
 			m := withSkills(SkillDefinition{Name: n}) // no shadows: a plain skill
 			m.ID = n                                  // the prefix rule alone would accept it
-			Expect(valid(m)).To(MatchError(ContainSubstring("built-in skill")), n)
+			Expect(valid(m)).NotTo(Succeed(), n)
 		}
 	})
 
@@ -80,7 +90,7 @@ var _ = Describe("Skill definitions in a manifest", func() {
 		}
 	})
 
-	It("keeps the built-in names covered: each is replaceable or protected, never both", func() {
+	It("keeps embedded names protected or reserved without requiring a slot fallback", func() {
 		entries, err := fs.ReadDir(builtinskills.FS(), ".")
 		Expect(err).NotTo(HaveOccurred())
 		var names []string
@@ -93,9 +103,12 @@ var _ = Describe("Skill definitions in a manifest", func() {
 		for _, n := range names {
 			Expect(ReplaceableSkill(n) != ProtectedSkill(n)).To(BeTrue(), "built-in skill %s must be replaceable or protected", n)
 		}
+		Expect(ReplaceableSkills).To(ConsistOf("docx", "pptx", "pdf", "xlsx"))
 		for _, n := range ReplaceableSkills {
-			Expect(names).To(ContainElement(n), "replaceable skill %s is not a built-in skill", n)
+			Expect(DocumentSkill(n)).To(BeTrue())
+			Expect(BuiltinSkillName(n)).To(BeFalse())
 		}
+		Expect(DocumentSkill("unknown")).To(BeFalse())
 		for _, n := range []string{"localai-workspace", "localai-apps", "writing-skills"} {
 			Expect(ReplaceableSkill(n)).To(BeFalse(), n)
 		}

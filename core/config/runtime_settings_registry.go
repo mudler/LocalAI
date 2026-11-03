@@ -747,12 +747,12 @@ var runtimeSettingsFields = []fieldSpec{
 	// Built-in chat tools: the host-commands mode and the add-on pins.
 	field("chats_host_exec",
 		func(s *RuntimeSettings) **string { return &s.ChatsHostExec },
-		func(o *ApplicationConfig) string { return o.ChatsHostExec },
-		func(o *ApplicationConfig, v string) { o.ChatsHostExec = v }),
+		func(o *ApplicationConfig) string { return o.ChatSelectionSnapshot().HostExec },
+		func(o *ApplicationConfig, v string) { o.SetChatsHostExec(v) }),
 	fieldEq("chats_tool_providers",
 		func(s *RuntimeSettings) **map[string]string { return &s.ChatsToolProviders },
-		func(o *ApplicationConfig) map[string]string { return maps.Clone(o.ChatsToolProviders) },
-		func(o *ApplicationConfig, v map[string]string) { o.ChatsToolProviders = maps.Clone(v) },
+		func(o *ApplicationConfig) map[string]string { return o.ChatSelectionSnapshot().ToolProviders },
+		func(o *ApplicationConfig, v map[string]string) { o.SetChatsToolProviders(v) },
 		func(a, b map[string]string) bool { return maps.Equal(a, b) }),
 
 	// Branding: the file is the only source (no env/CLI), so it is always

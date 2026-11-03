@@ -97,6 +97,13 @@ installs also go through the owner: a frontend follows the owner's sources and
 installs backends on its own node. See
 [Running the owner as its own workload]({{% relref "features/addons#running-the-owner-as-its-own-workload" %}}).
 
+The owner must join distributed mode with the same `--nats-url`, registration token
+and PostgreSQL database as the frontends. Then it takes part in the leader locks and
+sends model loads to the workers. An owner without these settings loads models in its
+own process (`backend not found`) and polls the connectors next to the leader
+frontend (Slack messages answered twice). See
+[The owner in distributed mode]({{% relref "features/addons#the-owner-in-distributed-mode" %}}).
+
 ### The model load deadline scales with the checkpoint
 
 The `LoadModel` deadline starts *after* the backend is installed and the model files are staged, so it covers only the worker backend's own checkpoint read and pipeline init. That work is proportional to the bytes on disk, which makes any fixed deadline a model-size cliff rather than a timeout: a 70 GB video checkpoint on a Jetson Thor worker failed reproducibly against the old fixed 5m default (`rpc error: code = DeadlineExceeded` after 953.5s of wall clock, roughly 11m of which was backend install and staging), and simply raising the constant would only move the cliff to the next larger model while making a genuinely wedged *small* model hang for the whole inflated duration.
@@ -1426,6 +1433,10 @@ Notes:
 
 ## Troubleshooting
 
+**Add-on owner logs `backend not found`, or Slack messages are answered twice:**
+- The owner is not in distributed mode. Give it the same `--distributed`, `--nats-url`, registration token and `--auth-database-url` as the frontends
+- Check that only one connection uses each Slack app
+
 **Worker not registering:**
 - Verify the frontend URL is reachable from the worker (`curl http://frontend:8080/api/node/register`)
 - Check that `--registration-token` matches on both frontend and worker
@@ -1584,3 +1595,39 @@ Install coalescing is per frontend instance and includes a keyed identity of
 the snapshot, so concurrent installs with different environments do not share an
 install reply. The worker owns process-local snapshots; they are rebuilt from
 model configuration on each install, not persisted as a new cluster state store.
+
+### Workspace Files without S3
+
+Workspace Files uses configured S3 for every role; otherwise it uses the direct
+filesystem adapter at the existing `DataPath/chats/blobs`. There is no additional
+workspace path or boolean setting. This selection does not change global
+model/input staging. The add-on owner honors the same S3 settings even without
+distributed services, and remains an owner rather than joining the control plane.
+
+Distributed metadata still requires the same shared PostgreSQL database. Without
+S3, mount the same existing DataPath/backing storage on every Files consumer:
+frontends, the add-on owner and optional chat workers. Ordinary inference workers
+need no Files mount. PostgreSQL owns metadata and references; immutable blobs are
+shared, while scratch and caches are local and disposable. No DataPath and no S3
+means Files is disabled, not backed by authoritative temporary storage.
+
+Use compatible UID/GID, permissions and trusted writers. LocalAI does not
+recursively chmod/chown existing trees. Platform path aliases are resolved, but
+symlinks inside the canonical blob tree are rejected. Same-node local/RWO storage
+requires enforced co-placement, with no cross-node failover claim. Multi-node use
+requires coherent shared storage (typically RWX), atomic same-filesystem rename,
+cross-client visibility and durable file/directory sync semantics. Equal path
+strings do not prove shared mounts. Shared volume and datastore identity are not
+verified at startup; no startup probe certifies these deployment guarantees.
+
+PostgreSQL/direct-FS publication and purge coordination is automatic for all
+participants, including the separate owner. Blob ingest holds the revision lock,
+serializing metadata writers; blocked operations must honor cancellation and
+orphan cleanup has a bounded 30-second context. S3 remains an alternative. See
+[Shared filesystem for Files](/features/chats/#shared-filesystem-for-files) for the
+full storage and durability contract.
+
+No automatic migration occurs: existing filesystem paths stay put and configured
+S3 workspaces remain on S3. Switching populated metadata requires a separately
+planned copy and verification, with all consumers switching together. Mixed
+S3/local/shared backends can yield missing content.

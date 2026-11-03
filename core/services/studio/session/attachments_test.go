@@ -106,3 +106,33 @@ var _ = Describe("attachments", func() {
 		Expect(session.DisplayEntry(e)).To(Equal(e))
 	})
 })
+
+var _ = Describe("attachments in a scoped chat", func() {
+	inChat := session.Attachment{Path: "/Chats/2026-11-01 Plan/q1.csv", Name: "q1.csv"}
+	elsewhere := session.Attachment{Path: "/Chats/2026-10-30 Other/old.csv", Name: "old.csv"}
+
+	It("names a file of the chat folder where the commands see it", func() {
+		p := scopedPlace()
+		Expect(inChat.GuestPathIn(p)).To(Equal("/workspace/chat/q1.csv"))
+		t, err := p.Resolve(inChat.GuestPathIn(p))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(t.Abs).To(Equal(placeChat+"/q1.csv"), "the file tools read the same file")
+		got := session.ComposeMessageIn("look", "", []session.Attachment{inChat}, p)
+		Expect(got).To(Equal("look\n\nThe user attached these files:\n- /workspace/chat/q1.csv"))
+		Expect(session.ModelTextIn(session.Entry{Role: session.RoleUser, Text: "look", Attachments: []session.Attachment{inChat}}, p)).To(Equal(got))
+	})
+
+	It("keeps the home spelling for a file outside the chat folder and in an unscoped chat", func() {
+		Expect(elsewhere.GuestPathIn(scopedPlace())).To(Equal(elsewhere.GuestPath()))
+		Expect(inChat.GuestPathIn(unscopedPlace())).To(Equal("/workspace/home/Chats/2026-11-01 Plan/q1.csv"))
+		Expect(inChat.GuestPathIn(session.Place{})).To(Equal(inChat.GuestPath()))
+		Expect(session.ComposeMessageIn("look", "", []session.Attachment{inChat}, unscopedPlace())).
+			To(Equal(session.ComposeMessage("look", "", []session.Attachment{inChat})))
+	})
+
+	It("keeps the stored spelling, which SplitMessage reads back", func() {
+		_, _, got := session.SplitMessage(session.ComposeMessage("look", "", []session.Attachment{inChat}))
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].Path).To(Equal(inChat.Path))
+	})
+})

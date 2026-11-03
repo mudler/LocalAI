@@ -260,15 +260,9 @@ var _ = Describe("office tools", func() {
 
 	It("creates files that are valid and read back", func() {
 		h := newHost()
-		o, raw := call(h, tools.ToolCreateDocx, map[string]any{"path": "/new.docx", "title": "Report", "blocks": []map[string]any{
-			{"kind": "heading", "level": 1, "text": "Summary"},
-			{"kind": "paragraph", "text": "All good."},
-			{"kind": "bullets", "items": []string{"one", "two"}},
-		}})
+		o, raw := call(h, tools.ToolCreateDocx, map[string]any{"path": "/new.docx", "title": "Report", "markdown": "# Summary\n\nAll good.\n\n- one\n- two"})
 		Expect(o.OK).To(BeTrue(), "create-docx = %s", raw)
-		o, raw = call(h, tools.ToolCreateXlsx, map[string]any{"path": "/new.xlsx", "sheets": []map[string]any{
-			{"name": "Data", "rows": [][]string{{"name", "n"}, {"a", "1"}, {"total", "=SUM(B2:B2)"}}},
-		}})
+		o, raw = call(h, tools.ToolCreateXlsx, map[string]any{"path": "/new.xlsx", "sheet": "Data", "csv": "name,n\na,1\ntotal,=SUM(B2:B2)"})
 		Expect(o.OK).To(BeTrue(), "create-xlsx = %s", raw)
 		for _, p := range []string{"/new.docx", "/new.xlsx"} {
 			Expect(officecheck.Check(h.files[p])).To(BeEmpty(), "%s has problems", p)
@@ -281,12 +275,7 @@ var _ = Describe("office tools", func() {
 
 	It("create-pdf writes a file the read tool reads", func() {
 		h := newHost()
-		o, raw := call(h, tools.ToolCreatePdf, map[string]any{"path": "/new.pdf", "title": "Report", "blocks": []map[string]any{
-			{"kind": "heading", "level": 1, "text": "Summary"},
-			{"kind": "paragraph", "text": "All good."},
-			{"kind": "bullets", "items": []string{"one", "two"}},
-			{"kind": "table", "header": []string{"name", "n"}, "rows": [][]string{{"a", "1"}}},
-		}})
+		o, raw := call(h, tools.ToolCreatePdf, map[string]any{"path": "/new.pdf", "title": "Report", "markdown": "# Summary\n\nAll good.\n\n- one\n- two\n\n| name | n |\n| --- | --- |\n| a | 1 |"})
 		Expect(o.OK).To(BeTrue(), "create-pdf = %s", raw)
 		Expect(string(h.files["/new.pdf"])).To(HavePrefix("%PDF-"), "/new.pdf is not a PDF")
 		_, read := call(h, tools.ToolReadPdf, map[string]any{"path": "/new.pdf"})
@@ -298,9 +287,9 @@ var _ = Describe("office tools", func() {
 	It("create-pdf refuses what it cannot write", func() {
 		h := newHost()
 		for name, args := range map[string]map[string]any{
-			"unknown kind":        {"path": "/a.pdf", "blocks": []map[string]any{{"kind": "image"}}},
-			"text outside latin1": {"path": "/b.pdf", "blocks": []map[string]any{{"kind": "paragraph", "text": "\u4f60\u597d"}}},
-			"wrong extension":     {"path": "/c.txt", "blocks": []map[string]any{{"kind": "paragraph", "text": "x"}}},
+			"unknown kind":        {"path": "/a.pdf", "markdown": "![image](private)"},
+			"text outside latin1": {"path": "/b.pdf", "markdown": "\u4f60\u597d"},
+			"wrong extension":     {"path": "/c.txt", "markdown": "x"},
 		} {
 			o, raw := call(h, tools.ToolCreatePdf, args)
 			Expect(o.OK).To(BeFalse(), "%s: create-pdf accepted it: %s", name, raw)
@@ -310,7 +299,7 @@ var _ = Describe("office tools", func() {
 	It("keeps both files when creating over an existing file", func() {
 		h := newHost()
 		h.put("/new.docx", docxBytes("already here"))
-		o, _ := call(h, tools.ToolCreateDocx, map[string]any{"path": "/new.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "mine"}}})
+		o, _ := call(h, tools.ToolCreateDocx, map[string]any{"path": "/new.docx", "markdown": "mine"})
 		Expect(o.OK).To(BeTrue(), "create over a file = %+v, want a conflict copy", o)
 		Expect(o.Conflict).To(BeTrue(), "create over a file = %+v, want a conflict copy", o)
 		Expect(o.Requested).To(Equal("/new.docx"), "create over a file = %+v, want a conflict copy", o)

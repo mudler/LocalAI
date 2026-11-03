@@ -59,4 +59,19 @@ var _ = Describe("bash limits", func() {
 		Expect(string(tl.Schema)).To(ContainSubstring(`"maximum":1800`))
 		Expect(tl.Description).To(ContainSubstring("at most 1800"))
 	})
+
+	It("caps the default timeout at the maximum when the model asks for none", func() {
+		var got BashResult
+		tl := Bash(func(context.Context) (sandbox.Sandbox, func(), error) {
+			return limitSandbox{}, func() {}, nil
+		}, BashOptions{MaxTimeout: 2 * time.Second, Done: func(_ context.Context, r BashResult) { got = r }})
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		start := time.Now()
+		out, err := tl.Run(ctx, json.RawMessage(`{"command":"sleep 100"}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(ContainSubstring("[stopped after 2 seconds]"))
+		Expect(time.Since(start)).To(BeNumerically("<", 10*time.Second))
+		Expect(got.TimedOut).To(BeTrue())
+	})
 })

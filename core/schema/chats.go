@@ -51,9 +51,43 @@ type ChatsAgent struct {
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
-	Network string    `json:"network"`
-	Created time.Time `json:"created"`
-	Updated time.Time `json:"updated"`
+	Network string `json:"network"`
+	// Folder is the one folder that chats with the agent work in. It is
+	// absent for an agent that works on all your files.
+	Folder  *ChatsAgentFolder `json:"folder,omitempty"`
+	Created time.Time         `json:"created"`
+	Updated time.Time         `json:"updated"`
+}
+
+// ChatsAgentFolder is the folder of a saved agent as it is now. The server
+// keeps the folder itself, not its path, so a renamed or moved folder shows
+// its new public path when one is available.
+type ChatsAgentFolder struct {
+	// Path is home-relative ("/" is the whole home), or /shared/<name>/...
+	// for a followed readable shared folder. It is absent when missing,
+	// not chosen, or readable outside these public locations; a readable
+	// folder without a public path still has state ok.
+	Path string `json:"path,omitempty"`
+	// Name is the folder's own name; absent for "/".
+	Name string `json:"name,omitempty"`
+	// Mode is read (the agent's chats can read the folder) or write (they can
+	// read and change it).
+	Mode string `json:"mode"`
+	// State is ok; missing when the folder was deleted or you can no longer
+	// read it; or unset when no folder is chosen yet (an imported agent whose
+	// folder was not found). An agent whose folder is missing or unset does
+	// not start.
+	State string `json:"state"`
+}
+
+// ChatsAgentFolderWrite chooses the folder of a saved agent.
+type ChatsAgentFolderWrite struct {
+	// Path is a folder of your files, "/" based; "/" is all of them, read
+	// only or not. It cannot be LocalAI or Chats, a folder inside them, or a
+	// shared folder. An empty path clears the folder.
+	Path string `json:"path"`
+	// Mode is read or write; it is required with a path.
+	Mode string `json:"mode,omitempty"`
 }
 
 // ChatsAgentWrite creates or replaces a saved agent.
@@ -67,6 +101,12 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// Folder chooses the one folder the agent's chats work in. A write
+	// without it keeps the folder the agent has; {"path": ""} clears it. In
+	// an export file it is the home-relative path and mode when the file was
+	// made. A missing, unchosen or non-home folder has an empty export path;
+	// import preserves its mode as unset and warns instead of clearing scope.
+	Folder *ChatsAgentFolderWrite `json:"folder,omitempty"`
 }
 
 // ChatsAgentList is the response of the agent list endpoint.
@@ -762,6 +802,8 @@ type ChatsAddon struct {
 
 // ChatsAddonList lists the add-ons a chat can use.
 type ChatsAddonList struct {
+	ExecutionStatus *ChatsExecutionStatus `json:"execution_status,omitempty"`
+
 	Addons []ChatsAddon `json:"addons"`
 	// Commands says whether the chat can run commands and code at its next
 	// turn: available, off (the add-on that runs them is switched off for this
@@ -1580,8 +1622,10 @@ type ChatsEgress struct {
 	Preset    string `json:"preset"`    // off, registries, all
 	Ceiling   string `json:"ceiling"`   // the administrator's limit
 	Effective string `json:"effective"` // the lower of the two
-	// Applies is false when commands run on this machine (applies_reason
-	// host) or no Sandbox serves bash (none).
+	// Applies is true when the add-on that runs the commands reports that it
+	// enforces the network policy. It is false when commands run on this
+	// machine (applies_reason host), or no Sandbox serves bash or the add-on
+	// does not report enforcement (none).
 	Applies       bool   `json:"applies"`
 	AppliesReason string `json:"applies_reason,omitempty"`
 	// Addon is the add-on that runs the chat's commands and carries the
@@ -1648,4 +1692,17 @@ type ChatsEgressEvent struct {
 // ChatsEgressEventList is the audit, newest first.
 type ChatsEgressEventList struct {
 	Events []ChatsEgressEvent `json:"events"`
+}
+
+// ChatsExecutionStatus is presentation-only; it grants no execution authority.
+type ChatsExecutionStatus struct {
+	Readiness   string `json:"readiness"`
+	Isolation   string `json:"isolation"`
+	Explanation string `json:"explanation,omitempty"`
+	// UnknownReason says why the status is unknown: owner_unreachable,
+	// not_reported, stale, invalid_status, not_selected, no_answer or
+	// reported_unknown. Absent when the status is known.
+	UnknownReason string `json:"unknown_reason,omitempty" example:"owner_unreachable"`
+	Generation    string `json:"generation,omitempty"`
+	Incarnation   string `json:"incarnation,omitempty"`
 }

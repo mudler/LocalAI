@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/diagnostics"
 	"github.com/mudler/LocalAI/pkg/modelartifacts"
@@ -26,6 +27,12 @@ type AddonConfig struct {
 	// Frontend is set for the frontend role, also when add-ons are off. A
 	// frontend keeps no owner state, so it never opens the library store.
 	Frontend bool
+	// DedicatedOwner has no implicit legacy policy source. Migration must name
+	// an explicitly selected owner configuration; frontend state is never imported.
+	DedicatedOwner bool
+	// MigrateHostSettings selects only this owner process's effective legacy policy.
+	MigrateHostSettings   bool
+	HostSettingsMigration *hostsettings.Migration `json:"-" yaml:"-"`
 
 	Enabled                                            bool
 	InstanceID, OwnerID, OwnerAddress, StorageID, Root string
@@ -82,6 +89,7 @@ func WithAddons(c AddonConfig) AppOption {
 }
 
 type ApplicationConfig struct {
+	chatSelection *chatSelectionState
 	// OfficialLibraries is the switch for the shipped default library sources
 	// of every kind. On by default; off keeps them listed but unread.
 	OfficialLibraries bool
@@ -554,6 +562,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		oo(opt)
 	}
 	opt.SetMaxConcurrentBackendOperations(opt.MaxConcurrentBackendOperations)
+	opt.selectionState()
 	return opt
 }
 
@@ -1402,7 +1411,7 @@ const (
 // WithChatsHostExec sets who gets the chats' built-in bash: off, ask or on.
 func WithChatsHostExec(mode string) AppOption {
 	return func(o *ApplicationConfig) {
-		o.ChatsHostExec = mode
+		o.SetChatsHostExec(mode)
 	}
 }
 

@@ -86,6 +86,13 @@ type ChatRecord struct {
 	// Assistant marks a chat that has the LocalAI management tools. It is set
 	// by CreateChat and does not change.
 	Assistant bool
+	// ScopedAgent marks a chat whose saved agent had a folder when the chat
+	// last resolved its access. A chat with it whose agent is gone has no
+	// folder to read and must be refused, never given the whole home. It is
+	// set by CreateChat and by the store's SetScopedAgent; UpdateChat leaves
+	// it alone, like the switches, so a stale copy of the record cannot clear
+	// it. Chats stored before the field read as false.
+	ScopedAgent bool
 	// Settings are the per-chat model settings. SetChatMeta sets them;
 	// UpdateChat leaves them alone, like the switches above.
 	Settings ChatSettings

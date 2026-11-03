@@ -279,9 +279,11 @@ func (h *host) library() *cluster.Library {
 	// files, so the declaration of them is left out. The UI suite installs
 	// the whole package.
 	delete(m.Capabilities, "ui")
+	skill, e := os.ReadFile("../../../addons/tables/skills/tables-readonly/SKILL.md")
+	Expect(e).NotTo(HaveOccurred())
 	exe, e := os.ReadFile(binary)
 	Expect(e).NotTo(HaveOccurred())
-	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())
+	Expect(lib.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Files: map[string]string{"skills/tables-readonly/SKILL.md": string(skill)}, Executable: "bin/tables", Binary: exe}, GinkgoT().TempDir())).To(Succeed())
 	return lib
 }
 

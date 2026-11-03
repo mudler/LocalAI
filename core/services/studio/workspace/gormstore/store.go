@@ -14,9 +14,12 @@ package gormstore
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -46,12 +49,15 @@ type Options struct {
 
 // Workspace is a workspace.Store.
 type Workspace struct {
-	db      *conn
-	blobs   blob.Store
-	admin   string
-	maxSize int64
-	now     func() time.Time
-	grace   time.Duration
+	db               *conn
+	blobs            blob.Store
+	admin            string
+	maxSize          int64
+	now              func() time.Time
+	grace            time.Duration
+	sharedFilesystem bool
+	life             context.Context // ends the removals that wait for their grace
+	endLife          context.CancelFunc
 }
 
 var (
@@ -87,7 +93,17 @@ func New(db *gorm.DB, blobs blob.Store, o Options) (*Workspace, error) {
 	if now == nil {
 		now = time.Now
 	}
-	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace}, nil
+	fs, direct := blobs.(blob.Filesystem)
+	life, endLife := context.WithCancel(context.Background())
+	return &Workspace{db: c, blobs: blobs, admin: o.Admin, maxSize: o.MaxFileSize, now: now, grace: o.BlobGrace, sharedFilesystem: direct && fs.IsFilesystem() && d.name == "postgres", life: life, endLife: endLife}, nil
+}
+
+// Close ends the blob removals that still wait for their grace. It does not
+// close the database, which the caller owns. The blobs stay; a later purge
+// finds them again.
+func (s *Workspace) Close() error {
+	s.endLife()
+	return nil
 }
 
 // limit returns the smaller non-zero of the store limit and a per-call limit.
@@ -207,4 +223,69 @@ func mapUnique(err error) error {
 		return ErrExists
 	}
 	return err
+}
+
+// ErrVolumeMismatch means this node does not see the blob volume that the
+// database was set up with.
+var ErrVolumeMismatch = errors.New("workspace: the blob folder is not the one the database expects")
+
+const volumeKey = "blob_volume"
+
+// VerifyBlobVolume checks, on a shared filesystem, that this node sees the
+// same blob folder as the other nodes of the database. The first node to start
+// gives the folder a random identity and records it in the database; every
+// node compares the two. A volume that is not shared would make a file written
+// through one frontend look missing on another. It does nothing for other
+// setups.
+func (s *Workspace) VerifyBlobVolume(ctx context.Context) error {
+	vol, ok := s.blobs.(blob.Volume)
+	if !s.sharedFilesystem || !ok {
+		return nil
+	}
+	fileID, err := vol.ReadVolumeID(ctx)
+	if err != nil {
+		return err
+	}
+	dbID, err := s.volumeID(ctx)
+	if err != nil {
+		return err
+	}
+	if fileID == "" && dbID == "" {
+		var raw [16]byte
+		if _, err := rand.Read(raw[:]); err != nil {
+			return err
+		}
+		if err := vol.WriteVolumeID(ctx, hex.EncodeToString(raw[:])); err != nil && !errors.Is(err, os.ErrExist) {
+			return err
+		}
+		if fileID, err = vol.ReadVolumeID(ctx); err != nil {
+			return err
+		}
+	}
+	if dbID == "" && fileID != "" {
+		// Several nodes may race here; the first insert wins and the others
+		// read it back below.
+		if _, err := s.db.ExecContext(ctx, `INSERT INTO studio_ws_meta (key, value) VALUES (?, ?) ON CONFLICT (key) DO NOTHING`, volumeKey, fileID); err != nil {
+			return err
+		}
+		if dbID, err = s.volumeID(ctx); err != nil {
+			return err
+		}
+	}
+	if fileID != dbID {
+		if fileID == "" {
+			return fmt.Errorf("%w: it has no identity file, so it is another or an emptied folder; every node must mount the same blob folder", ErrVolumeMismatch)
+		}
+		return fmt.Errorf("%w: its identity differs from the database; every node must mount the same blob folder", ErrVolumeMismatch)
+	}
+	return nil
+}
+
+func (s *Workspace) volumeID(ctx context.Context) (string, error) {
+	var id string
+	err := s.db.QueryRowContext(ctx, `SELECT value FROM studio_ws_meta WHERE key = ?`, volumeKey).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
 }

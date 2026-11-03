@@ -61,6 +61,23 @@ type addonSkills struct {
 	known []AddonSkillSet
 	// pins are the administrator's choices, by name.
 	pins map[string]string
+	// hiddenDocuments are the document skills of the Sandbox left out because
+	// it runs the chat's commands without isolation.
+	hiddenDocuments []string
+	// documentsWhy is why the Sandbox is not known to be isolated.
+	documentsWhy string
+}
+
+// withNotes adds to notes the line that says why the Sandbox document skills
+// are missing, so the person is not left to guess.
+// documentNotePrefix starts the note that explains the missing document skills.
+const documentNotePrefix = "the document skills "
+
+func (a addonSkills) withNotes(notes []string) []string {
+	if len(a.hiddenDocuments) == 0 {
+		return notes
+	}
+	return append(notes, documentNotePrefix+strings.Join(a.hiddenDocuments, ", ")+" need an isolated Sandbox; "+a.documentsWhy)
 }
 
 // addonSkillsFor lists the add-ons of the user that ship skills and decides
@@ -68,19 +85,21 @@ type addonSkills struct {
 // off by the chat (addonsOff) and, for a chat with an agent, granted by it. An
 // add-on the broker reports as unavailable is left out. A broker that cannot
 // answer gives none and a warning; it never fails the chat.
-func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []string, sc *scope) addonSkills {
+func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []string, sc *scope, command Commands) (addonSkills, error) {
 	var out addonSkills
-	if s.d.ToolPins != nil {
-		out.pins = s.d.ToolPins()
+	pins, err := s.toolPins(ctx)
+	if err != nil {
+		return out, err
 	}
+	out.pins = pins
 	lister, ok := s.d.AddonTools.(AddonSkillLister)
 	if !ok || s.d.AddonTools == nil {
-		return out
+		return out, nil
 	}
 	sets, err := lister.AddonSkills(ctx, p)
 	if err != nil {
 		s.log.Warn("studio: add-on skills unavailable", "user", p, "error", err)
-		return out
+		return out, nil
 	}
 	sort.Slice(sets, func(i, j int) bool { return sets[i].AddonID < sets[j].AddonID })
 	off := make(map[string]bool, len(addonsOff))
@@ -99,9 +118,17 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 		if gate != nil && gate.Unavailable(ctx, p, set.AddonID, s.d.Files.Available()) != "" {
 			continue
 		}
+		if set.AddonID == "sandbox" && !sandboxDocumentEligible(command) {
+			if command.State == CommandsAvailable && command.Provider == "sandbox" {
+				out.documentsWhy = s.documentsWhy(ctx, p, command)
+				out.hiddenDocuments = append(out.hiddenDocuments, slices.DeleteFunc(slices.Clone(set.Skills), func(n string) bool { return !contract.DocumentSkill(n) })...)
+			}
+			set.Skills = slices.DeleteFunc(slices.Clone(set.Skills), contract.DocumentSkill)
+			set.Shadows = slices.DeleteFunc(slices.Clone(set.Shadows), contract.DocumentSkill)
+		}
 		out.usable = append(out.usable, set)
 	}
-	return out
+	return out, nil
 }
 
 // roots returns the add-on layer roots of the usable add-ons.
@@ -120,7 +147,7 @@ func (a addonSkills) provider(name string) (string, bool) {
 	if !contract.ReplaceableSkill(name) {
 		return "", false
 	}
-	if pin := a.pins[name]; pin != "" && shipsReplacement(a.known, pin, name) {
+	if pin := a.pins[name]; pin != "" && (contract.DocumentSkill(name) || shipsReplacement(a.known, pin, name)) {
 		if shipsReplacement(a.usable, pin, name) {
 			return pin, true
 		}
@@ -129,7 +156,7 @@ func (a addonSkills) provider(name string) (string, bool) {
 	if id := ChooseProvider(a.shippers(a.usable, name), a.installTimes(), ""); id != "" {
 		return id, true
 	}
-	return "", false
+	return "", contract.DocumentSkill(name)
 }
 
 // shippers lists the add-ons of the sets that ship a replacement for name.
@@ -210,4 +237,24 @@ func (a addonSkills) markFallbacks(list []skills.Skill) string {
 		return ""
 	}
 	return "The built-in skills " + strings.Join(parts, ", ") + " serve because the add-on's own skill is off or not running in this chat."
+}
+
+// documentsWhy says why the Sandbox that runs the chat's commands is not known
+// to be isolated: it runs them on the host, or its status could not be read.
+func (s *Service) documentsWhy(ctx context.Context, p string, command Commands) string {
+	if command.Isolation == "host" {
+		return "its commands run on the server without isolation"
+	}
+	value, d := ObserveExecution(ctx, p, command.Addon)
+	if value.Readiness == "unavailable" {
+		return "the Sandbox reports that it cannot run commands"
+	}
+	why := d.Failure.Text()
+	if d.Failure == "" {
+		why = "its status says isolation is unknown"
+	}
+	if d.Explanation != "" {
+		why += " (" + d.Explanation + ")"
+	}
+	return "its status could not be read: " + why
 }

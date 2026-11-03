@@ -22,7 +22,7 @@ test('chat egress: the Tools menu shows the row only where the Sandbox serves, a
   // The policy applies, but no add-on draws the network row for it.
   assert.equal(networkMode({ loaded: true, applies: true }), 'hidden')
   assert.equal(networkMode({ loaded: true, applies: false, applies_reason: 'host' }), 'host')
-  assert.equal(networkMode({ loaded: true, applies: false, applies_reason: 'none' }), 'hidden')
+  assert.equal(networkMode({ loaded: true, applies: false, applies_reason: 'none' }), 'unverified')
 })
 
 test('chat egress: cards sort pending first, newest first, and group by tool line', () => {
@@ -79,4 +79,8 @@ test('chat egress: the highlighted choice is what applies, never a choice above 
   assert.deepEqual(on({ preset: 'all', ceiling: 'off' }), ['off'])
   assert.equal(askedAboveLimit({ preset: 'all', ceiling: 'off' }), 'all')
   assert.equal(askedAboveLimit({ preset: 'registries', ceiling: 'all' }), '')
+})
+
+test('chat egress: isolated reports cannot override backend false applicability', () => {
+  assert.equal(networkMode({ loaded: true, applies: false, addon: 'renamed', applies_reason: 'none', commands_isolation: 'isolated', preset: 'all' }), 'unverified')
 })

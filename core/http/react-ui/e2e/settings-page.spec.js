@@ -31,6 +31,8 @@ test.describe('Settings: groups and search', () => {
     const seen = new Set()
     for (const name of await page.locator('.st-group .st-group__label').allTextContents()) {
       await group(page, name).click()
+      // A group's fields can wait for a style sheet, so wait for the first one.
+      await expect(page.locator('[data-field]').first()).toBeVisible()
       for (const key of await page.locator('[data-field]').evaluateAll(els => els.map(e => e.getAttribute('data-field')))) {
         expect(seen.has(key), `${key} is listed twice`).toBe(false)
         seen.add(key)

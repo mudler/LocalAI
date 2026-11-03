@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/sandbox/runner"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
@@ -89,6 +90,25 @@ func mountsOf(v workspace.View) []mountArg {
 		out = append(out, mountArg{Path: m.Path, At: m.At, Write: m.Mode >= workspace.ModeWrite})
 	}
 	return out
+}
+
+// Actor is the actor of a sandbox of the add-on, for runner.Options.Actor. It
+// is only a label: the host runs every workspace operation as the user of the
+// call's request, bound to the chat the call came from, and decides what the
+// mounts reach. Nothing the add-on puts in the actor widens that.
+func Actor(_ context.Context, user, conv string) (workspace.Actor, error) {
+	return workspace.Actor{Principal: user, ChatID: conv}, nil
+}
+
+// HomeView is the view the add-on asks for, for runner.Options.View: the
+// user's files under home (runner.HomeMounts). The host maps it to the chat's
+// folders.
+func (s *Store) HomeView(ctx context.Context, a workspace.Actor) (workspace.View, error) {
+	reqs, err := runner.HomeMounts(ctx, a)
+	if err != nil {
+		return workspace.View{}, err
+	}
+	return s.View(ctx, a, reqs)
 }
 
 // View records the mounts. The host checks them against what the user may
@@ -313,6 +333,10 @@ func (*Store) Stat(context.Context, workspace.Actor, string) (workspace.Node, er
 
 func (*Store) List(context.Context, workspace.Actor, string) ([]workspace.Node, error) {
 	return nil, refused("list a folder")
+}
+
+func (*Store) NodeByID(context.Context, workspace.Actor, int64) (workspace.Node, error) {
+	return workspace.Node{}, refused("look up a node")
 }
 
 func (*Store) Begin(context.Context, workspace.Actor, string) (workspace.Tx, error) {
