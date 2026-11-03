@@ -2167,6 +2167,79 @@ A frontend that does not own the add-ons runs no loop.
 connectors became add-ons) belongs to the add-on `telegram`. While that add-on does not
 run, the binding is listed as not running with the reason "install the Telegram add-on".
 
+## Change proposals from chats
+
+A model can ask to change what lasts: a note in the person's memory, or the
+profile of a saved agent. The host stores the request as a change proposal and
+writes nothing until the owner confirms. The mechanism belongs to the host and
+knows no chat platform, so every surface that runs a model uses it the same
+way: a Studio chat, the chats of any connector add-on and a chat started from an
+add-on page. An add-on needs no code and no manifest field for it.
+
+How it works for an add-on author:
+
+- The model calls the built-in tool `propose_change` (kind, scope, target,
+  content, summary) in the tool group `changes`. A connector add-on carries the
+  chat like any other: the tool result tells the model that nothing is saved
+  yet, and the model says so in the platform.
+- The proposal records its source as `{kind, id, chat, thread}`. `kind` is the
+  origin of the chat (empty for a chat a person watches, `connector` for a
+  messaging app), `id` is the binding, `chat` is the host chat. These names
+  come from the host, never from the platform.
+- The owner confirms in Studio. The host then writes the file as the owner in
+  one workspace change set, so Files history and `revert_change` can undo it.
+- `revert_change {id?}` undoes an applied change at once, because it only
+  restores the earlier text. Without an id it undoes the last applied change of
+  the same agent. A file edited since cannot be reverted.
+
+The record is `contract.ChangeProposal` in `pkg/addons/contract` and is
+versioned (`v`: 1). Readers ignore fields they do not know. The kinds are
+`memory`, `profile`, `skill`, `page` and `dashboard`; this host offers `memory`
+and `profile` and other features register theirs. A memory change writes under
+`Memory/` (`Memory/<file>.md` for scope `user`, `Memory/agents/<agent>/` for
+`agent`, `Memory/channels/<binding>-<hash>/` for `channel`). A profile writes
+`LocalAI/agents/<agent>/profile.md` and is at most 4 KiB. Other contents are at
+most 16 KiB. A target that is not a plain lower-case file name is refused, so a
+proposal cannot leave `Memory/`.
+
+Limits and safety:
+
+| Rule | Value |
+|---|---|
+| A proposal waits | 24 hours, then it expires |
+| Pending proposals of one person | 10 |
+| Proposals of one agent (or of plain chats) in an hour | 5 |
+| Target changed after the proposal | the confirmation is refused (409) |
+| Run started by a trigger, a job or a page, and sub-agents | never offered the tools |
+| Chat that runs a saved agent | refused until a grant allows it |
+
+A grant plugs in as a `proposals.Gate` in the host: it is asked with the
+action (`propose` or `revert`), the agent, the kind, the scope and the source
+before a tool call acts. The default gate allows a plain chat and refuses a chat
+that runs a saved agent, so an agent has no right until the owner gives it.
+
+Every step is audited (propose, refuse, confirm, dismiss, expire, stale,
+revert) with the source and a SHA-256 of the text, never the text.
+
+REST, under the chats feature:
+
+| Route | Does |
+|---|---|
+| `GET /api/chats/changes?status=` | list your proposals |
+| `GET /api/chats/changes/{id}` | read one |
+| `POST /api/chats/changes/{id}/confirm` | write it |
+| `POST /api/chats/changes/{id}/dismiss` | answer no |
+| `POST /api/chats/changes/{id}/undo` | restore the file |
+| `GET /api/chats/changes/audit` | read the audit |
+
+In a cluster the proposals and the audit live in the shared database (the auth
+database), so any frontend can confirm what another one stored. The limits are
+checked in the same transaction as the insert. A race between two frontends can
+let a limit be passed by the number of frontends that insert at the same moment,
+never more. Without a database they live in a file under the data path, or in
+memory when there is no data path.
+
+
 ## Owner forwarding and HTTP relays
 
 The embedding host can configure `AddonConfig.Transport` at startup. The configuration

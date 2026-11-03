@@ -43,6 +43,7 @@ var actorAllowlist = map[string]string{
 	"skillsvc.go:Service.chatSkillSet":                                  "reads the index of the skills the chat may use",
 	"loadskill.go:Service.loadSkill":                                    "reads only skills the agent grants, by name",
 	"chatfiles.go:Service.ResolveAttachments":                           "the attachments a person sees in the transcript are a user surface",
+	"changes.go:Changes.Revert":                                         "undoes the change set that the owner confirmed; a person's own action, never the model's",
 	"service.go:New":                                                    "the administrator of the change feed and the trigger watcher",
 	"../../application/studio_files.go:Application.initStudioTextIndex": "the administrator of the text index",
 }
