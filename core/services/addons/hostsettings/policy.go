@@ -67,6 +67,10 @@ type Patch struct {
 	AllowedHosts      *string            `json:"chats_egress_allowed_hosts,omitempty"`
 	ToolProviders     map[string]*string `json:"chats_tool_providers,omitempty"`
 	AutoUpgradeAddons *bool              `json:"auto_upgrade_addons,omitempty"`
+	// EgressPrivateConfirm carries the typed phrase that turning on
+	// chats_egress_allow_private requires. The owner checks it, so a direct
+	// call cannot skip what the page asks for. It is never stored.
+	EgressPrivateConfirm *string `json:"chats_egress_private_confirm,omitempty"`
 }
 
 func (p *Patch) UnmarshalJSON(b []byte) error {
@@ -258,6 +262,10 @@ func validate(p Policy) error {
 	return nil
 }
 
+func confirmedPrivate(phrase *string) bool {
+	return phrase != nil && strings.TrimSpace(*phrase) == egresspolicy.EgressPrivatePhrase
+}
+
 func apply(s Snapshot, p Patch) (Snapshot, error) {
 	s = clone(s)
 	for _, f := range []struct {
@@ -269,6 +277,9 @@ func apply(s Snapshot, p Patch) (Snapshot, error) {
 		}
 	}
 	if p.AllowPrivate != nil {
+		if *p.AllowPrivate && !s.Policy.AllowPrivate && !confirmedPrivate(p.EgressPrivateConfirm) {
+			return Snapshot{}, fmt.Errorf("%w: chats_egress_allow_private needs chats_egress_private_confirm", ErrInvalid)
+		}
 		s.Policy.AllowPrivate = *p.AllowPrivate
 	}
 	if p.AutoUpgradeAddons != nil {

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mudler/LocalAI/pkg/egresspolicy"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -74,6 +76,31 @@ var _ = Describe("Owner policy", func() {
 		info, err := os.Stat(path)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(info.Mode().Perm()).To(Equal(os.FileMode(0600)))
+	})
+	It("turns private egress on only with the typed phrase, and never stores it", func() {
+		open()
+		_, err := s.Update(ctx, Patch{AllowPrivate: ptr(true)}, 1, "op-no-phrase")
+		Expect(err).To(MatchError(ErrInvalid))
+		_, err = s.Update(ctx, Patch{AllowPrivate: ptr(true), EgressPrivateConfirm: ptr("yes")}, 1, "op-wrong-phrase")
+		Expect(err).To(MatchError(ErrInvalid))
+		live, err := s.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(live.Revision).To(Equal(uint64(1)))
+		Expect(live.Policy.AllowPrivate).To(BeFalse())
+
+		got, err := s.Update(ctx, Patch{AllowPrivate: ptr(true), EgressPrivateConfirm: ptr(" " + egresspolicy.EgressPrivatePhrase + " ")}, 1, "op-phrase")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Policy.AllowPrivate).To(BeTrue())
+		raw, err := os.ReadFile(path)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).NotTo(ContainSubstring(egresspolicy.EgressPrivatePhrase))
+
+		// Already on: later patches need no phrase, and switching off never does.
+		_, err = s.Update(ctx, Patch{Ports: ptr("8443")}, 2, "op-ports")
+		Expect(err).NotTo(HaveOccurred())
+		off, err := s.Update(ctx, Patch{AllowPrivate: ptr(false)}, 3, "op-off")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(off.Policy.AllowPrivate).To(BeFalse())
 	})
 	It("prunes oldest receipts and preserves restart replay without limiting updates", func() {
         open()

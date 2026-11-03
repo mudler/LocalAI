@@ -371,12 +371,13 @@ test.describe('The network of the commands on the add-on page', () => {
     expect(settings.log.dispatch.filter(r => r.action === 'host-settings-update')).toHaveLength(0)
     await page.getByTestId('settings-egress-private-phrase').fill('I understand that commands can reach my private network')
     await page.getByRole('button', { name: 'Apply' }).click()
-    // The phrase is checked in the page; the owner patch carries policy fields only.
-    await expect.poll(() => settings.log.hostSettings).toEqual([{ chats_egress_allow_private: true }])
+    // The owner checks the phrase too, so the patch carries it.
+    const phrase = 'I understand that commands can reach my private network'
+    await expect.poll(() => settings.log.hostSettings).toEqual([{ chats_egress_allow_private: true, chats_egress_private_confirm: phrase }])
     const writes = settings.log.dispatch.filter(r => r.action === 'host-settings-update')
     expect(writes).toHaveLength(1)
     expect(writes[0].operationId).toBeTruthy()
-    expect(writes[0].arguments).toEqual({ expectedRevision: 1, patch: { chats_egress_allow_private: true } })
+    expect(writes[0].arguments).toEqual({ expectedRevision: 1, patch: { chats_egress_allow_private: true, chats_egress_private_confirm: phrase } })
     await expect(page.getByTestId('settings-pending')).toHaveCount(0)
   })
 

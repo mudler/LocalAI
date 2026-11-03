@@ -86,6 +86,7 @@ export function hostPolicy(over = {}) {
 function applyHostPatch(policy, patch) {
   const next = structuredClone(policy)
   for (const [key, value] of Object.entries(patch || {})) {
+    if (key === 'chats_egress_private_confirm') continue // checked by the owner, never stored
     if (key !== 'chats_tool_providers') { next[key] = value; continue }
     for (const [name, provider] of Object.entries(value || {})) {
       if (provider === null) delete next.chats_tool_providers[name]
@@ -258,6 +259,11 @@ export async function mockAddons(page, options = {}) {
         return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))
       case 'host-settings-update': {
         if (args.expectedRevision !== state.hostSettings.revision) return route.fulfill(ok({ error: 'revision_conflict' }))
+        // Like hostsettings.apply: turning the private switch on needs the phrase.
+        const turnsPrivateOn = args.patch?.chats_egress_allow_private === true && !state.hostSettings.policy.chats_egress_allow_private
+        if (turnsPrivateOn && String(args.patch.chats_egress_private_confirm || '').trim() !== 'I understand that commands can reach my private network') {
+          return route.fulfill(ok({ error: 'invalid' }))
+        }
         state.log.hostSettings.push(args.patch)
         state.hostSettings = { revision: state.hostSettings.revision + 1, policy: applyHostPatch(state.hostSettings.policy, args.patch) }
         return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))
