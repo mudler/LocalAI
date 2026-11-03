@@ -75,8 +75,8 @@ var _ = Describe("Federated connection balancing", func() {
 	It("holds a reservation during forwarding and releases it on return", func() {
 		AddNode(fs.service, schema.NodeData{ID: "a", ServiceID: "service-a", LastSeen: time.Now()})
 		server, client := net.Pipe()
-		defer server.Close()
-		defer client.Close()
+		defer func() { _ = server.Close() }()
+		defer func() { _ = client.Close() }()
 		called := false
 		fs.handleConnection(server, func(serviceID string, conn net.Conn) {
 			called = true
