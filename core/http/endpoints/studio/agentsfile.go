@@ -24,14 +24,19 @@ const (
 	// reads. Version 2 is an agent with a folder, version 3 an agent with
 	// several: each got its own version so that an older server refuses the
 	// file instead of importing the agent with more access than it had.
-	maxAgentFileVersion = 3
+	// Version 4 is an agent with switches of built-in tool groups, for the
+	// same reason: an older server would drop them and give the agent every
+	// tool.
+	maxAgentFileVersion = 4
 )
 
 // agentFileVersion is the version an export writes: 1 for an agent without a
-// folder, so older servers keep importing it, 2 for one with one folder and 3
-// for one with several.
-func agentFileVersion(folders int) int {
+// folder or tool switches, so older servers keep importing it, 2 for one with
+// one folder, 3 for one with several, and 4 for one with tool switches.
+func agentFileVersion(folders int, hasSwitches bool) int {
 	switch {
+	case hasSwitches:
+		return 4
 	case folders > 1:
 		return 3
 	case folders == 1:
@@ -42,7 +47,7 @@ func agentFileVersion(folders int) int {
 
 // ExportAgent returns a saved agent as a file.
 // @Summary Export a saved agent.
-// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
+// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 200 {object} schema.ChatsAgentExport "The agent file"
@@ -53,7 +58,8 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 		return failFor(c, err)
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
-		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network}
+		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network,
+		BuiltinsOff: a.BuiltinsOff, BuiltinsOn: a.BuiltinsOn}
 	rows := h.svc.AgentFolderRows(c.Request().Context(), userID(c), []agents.Agent{a})[a.ID]
 	for i, f := range a.FolderList() {
 		// Imports resolve paths in the home only. A followed root outside
@@ -73,7 +79,7 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 		w.Folder, w.Folders = &w.Folders[0], nil
 	}
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", fileSafe(a.Name)+".json"))
-	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: agentFileVersion(len(a.FolderList())), Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
+	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: agentFileVersion(len(a.FolderList()), len(a.BuiltinsOff)+len(a.BuiltinsOn) > 0), Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
 }
 
 // fileSafe keeps a name usable as a file name in a header.
@@ -141,7 +147,8 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 		}
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
-		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network}
+		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network,
+		BuiltinsOff: def.BuiltinsOff, BuiltinsOn: def.BuiltinsOn}
 	var rowsIn []studiosvc.AgentFolderWrite
 	switch {
 	case def.Folders != nil:

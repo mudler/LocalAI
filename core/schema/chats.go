@@ -52,6 +52,12 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
+	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
+	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
+	// agents) they start with. The names are the ones GET /api/chats/{id}/tools
+	// lists. Empty for an agent that has every group a chat has by default.
+	BuiltinsOff []string `json:"builtins_off"`
+	BuiltinsOn  []string `json:"builtins_on"`
 	// Folder is the one folder that chats with the agent work in. It is
 	// absent for an agent that works on all your files.
 	Folder *ChatsAgentFolder `json:"folder,omitempty"`
@@ -117,6 +123,11 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
+	// the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
+	// the agent); an empty list clears them.
+	BuiltinsOff []string `json:"builtins_off,omitempty"`
+	BuiltinsOn  []string `json:"builtins_on,omitempty"`
 	// Folder chooses the one folder the agent's chats work in. A write
 	// without it keeps the folder the agent has; {"path": ""} clears it. In
 	// an export file it is the home-relative path and mode when the file was
@@ -819,6 +830,10 @@ type ChatsAddon struct {
 	ID    string `json:"id"`
 	Tools int    `json:"tools"`
 	Off   bool   `json:"off"`
+	// Title and Description are what the add-on's manifest declares for
+	// people. Title is empty when the add-on declares none; the interface then shows the ID.
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 // ChatsAddonList lists the add-ons a chat can use.
@@ -1552,6 +1567,12 @@ type ChatsBuiltinGroup struct {
 	Provider string `json:"provider" example:"builtin"`
 	// Providers says who serves each tool, by tool name.
 	Providers map[string]string `json:"providers" example:"web_search:builtin"`
+	// Title and Description say what the group is and what the model can do
+	// when its switch is on; WhenOff says what it cannot do when it is off.
+	// They are English; the interface may translate them by group.
+	Title       string `json:"title,omitempty" example:"Web"`
+	Description string `json:"description,omitempty" example:"The model can search the web and read a public page by its address."`
+	WhenOff     string `json:"when_off,omitempty" example:"The model cannot look anything up online."`
 }
 
 // ChatsWebTestRequest is the body of a test web search.

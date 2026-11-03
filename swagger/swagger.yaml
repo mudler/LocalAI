@@ -2829,10 +2829,17 @@ definitions:
     type: object
   schema.ChatsAddon:
     properties:
+      description:
+        type: string
       id:
         type: string
       "off":
         type: boolean
+      title:
+        description: |-
+          Title and Description are what the add-on's manifest declares for
+          people. Title is empty when the add-on declares none; the interface then shows the ID.
+        type: string
       tools:
         type: integer
     type: object
@@ -3102,6 +3109,19 @@ definitions:
         items:
           type: string
         type: array
+      builtins_off:
+        description: |-
+          BuiltinsOff are the groups of built-in tools (web, files, triggers...)
+          the agent's chats never have, and BuiltinsOn the opt-in groups (saved
+          agents) they start with. The names are the ones GET /api/chats/{id}/tools
+          lists. Empty for an agent that has every group a chat has by default.
+        items:
+          type: string
+        type: array
+      builtins_on:
+        items:
+          type: string
+        type: array
       collections:
         items:
           type: string
@@ -3306,6 +3326,18 @@ definitions:
         items:
           type: string
         type: array
+      builtins_off:
+        description: |-
+          BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
+          the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
+          the agent); an empty list clears them.
+        items:
+          type: string
+        type: array
+      builtins_on:
+        items:
+          type: string
+        type: array
       collections:
         items:
           type: string
@@ -3383,6 +3415,9 @@ definitions:
     type: object
   schema.ChatsBuiltinGroup:
     properties:
+      description:
+        example: The model can search the web and read a public page by its address.
+        type: string
       group:
         example: web
         type: string
@@ -3409,6 +3444,13 @@ definitions:
         type: object
       reason:
         type: string
+      title:
+        description: |-
+          Title and Description say what the group is and what the model can do
+          when its switch is on; WhenOff says what it cannot do when it is off.
+          They are English; the interface may translate them by group.
+        example: Web
+        type: string
       tools:
         example:
         - web_search
@@ -3421,6 +3463,9 @@ definitions:
           Usable is false when the group cannot serve this chat now; Reason says
           why.
         type: boolean
+      when_off:
+        example: The model cannot look anything up online.
+        type: string
     type: object
   schema.ChatsBuiltinSkill:
     properties:
@@ -14731,8 +14776,10 @@ paths:
         carries folders [{path, mode}], the folder's home-relative path now (empty
         when the folder is missing, not chosen, or outside your home, even if readable);
         importing an empty path preserves the scope as unset with a warning; a server
-        that knows only version 1 refuses it. An agent without a folder is version
-        1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
+        that knows only version 1 refuses it. An agent with switches of built-in tool
+        groups (builtins_off, builtins_on) is version 4. An agent without a folder
+        or switches is version 1. POST /api/chats/agents/import reads it. This replaces
+        the old /api/agents/{name}/export.
       parameters:
       - description: the agent's id
         in: path

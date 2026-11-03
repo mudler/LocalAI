@@ -4696,7 +4696,7 @@ const docTemplate = `{
         },
         "/api/chats/agents/{id}/export": {
             "get": {
-                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
+                "description": "Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with one folder is version 2 and carries folder {path, mode}; an agent with several is version 3 and carries folders [{path, mode}], the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent with switches of built-in tool groups (builtins_off, builtins_on) is version 4. An agent without a folder or switches is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.",
                 "tags": [
                     "chats"
                 ],
@@ -18379,11 +18379,18 @@ const docTemplate = `{
         "schema.ChatsAddon": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
                 "off": {
                     "type": "boolean"
+                },
+                "title": {
+                    "description": "Title and Description are what the add-on's manifest declares for\npeople. Title is empty when the add-on declares none; the interface then shows the ID.",
+                    "type": "string"
                 },
                 "tools": {
                     "type": "integer"
@@ -18723,6 +18730,19 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "builtins_off": {
+                    "description": "BuiltinsOff are the groups of built-in tools (web, files, triggers...)\nthe agent's chats never have, and BuiltinsOn the opt-in groups (saved\nagents) they start with. The names are the ones GET /api/chats/{id}/tools\nlists. Empty for an agent that has every group a chat has by default.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "collections": {
                     "type": "array",
                     "items": {
@@ -18981,6 +19001,19 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "builtins_off": {
+                    "description": "BuiltinsOff and BuiltinsOn are the switches of the built-in tools of\nthe agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen\nthe agent); an empty list clears them.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "builtins_on": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "collections": {
                     "type": "array",
                     "items": {
@@ -19076,6 +19109,10 @@ const docTemplate = `{
         "schema.ChatsBuiltinGroup": {
             "type": "object",
             "properties": {
+                "description": {
+                    "type": "string",
+                    "example": "The model can search the web and read a public page by its address."
+                },
                 "group": {
                     "type": "string",
                     "example": "web"
@@ -19105,6 +19142,11 @@ const docTemplate = `{
                 "reason": {
                     "type": "string"
                 },
+                "title": {
+                    "description": "Title and Description say what the group is and what the model can do\nwhen its switch is on; WhenOff says what it cannot do when it is off.\nThey are English; the interface may translate them by group.",
+                    "type": "string",
+                    "example": "Web"
+                },
                 "tools": {
                     "type": "array",
                     "items": {
@@ -19118,6 +19160,10 @@ const docTemplate = `{
                 "usable": {
                     "description": "Usable is false when the group cannot serve this chat now; Reason says\nwhy.",
                     "type": "boolean"
+                },
+                "when_off": {
+                    "type": "string",
+                    "example": "The model cannot look anything up online."
                 }
             }
         },

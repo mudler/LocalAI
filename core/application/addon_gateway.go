@@ -602,6 +602,14 @@ func (l lateStudioAddons) AddonContextFiles(ctx context.Context, user string) ([
 	return nil, nil
 }
 
+// AddonListings forwards to the broker when it knows what the add-ons declare.
+func (l lateStudioAddons) AddonListings(ctx context.Context, user string) ([]studio.AddonListing, error) {
+	if g, ok := l.a.StudioAddonTools().(studio.AddonLister); ok {
+		return g.AddonListings(ctx, user)
+	}
+	return nil, nil
+}
+
 // Isolation forwards to the broker when it can say how commands are isolated.
 func (l lateStudioAddons) Isolation(ctx context.Context, user, addonID string) string {
 	if g, ok := l.a.StudioAddonTools().(studio.CommandIsolation); ok {
@@ -838,6 +846,27 @@ func (s *studioAddons) AddonContextFiles(ctx context.Context, user string) ([]st
 			continue
 		}
 		out = append(out, studio.AddonContextSet{AddonID: a.AddonID, Files: a.Files, Running: a.Running})
+	}
+	return out, nil
+}
+
+// AddonListings gives the title and description each add-on declares, for the
+// lists of what a chat can switch.
+func (s *studioAddons) AddonListings(ctx context.Context, user string) ([]studio.AddonListing, error) {
+	actor, err := s.actor(user)
+	if err != nil {
+		return nil, nil
+	}
+	list, err := s.adapter.Listings(ctx, actor)
+	if errors.Is(err, gateway.ErrForbidden) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	out := make([]studio.AddonListing, 0, len(list))
+	for _, a := range list {
+		out = append(out, studio.AddonListing{AddonID: a.AddonID, Title: a.Title, Description: a.Description})
 	}
 	return out, nil
 }

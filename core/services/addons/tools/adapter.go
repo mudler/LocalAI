@@ -514,6 +514,28 @@ func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([
 	return out, nil
 }
 
+// AddonListing is the title and description an add-on declares for people.
+type AddonListing struct {
+	AddonID, Title, Description string
+}
+
+// Listings returns the title and description of every add-on the actor can
+// see. An add-on that declares neither has its ID as title.
+func (t *ToolAdapter) Listings(ctx context.Context, actor contract.Actor) ([]AddonListing, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	out := make([]AddonListing, 0, len(list.Apps))
+	for _, a := range list.Apps {
+		out = append(out, AddonListing{AddonID: a.ID, Title: a.Title, Description: a.Description})
+	}
+	return out, nil
+}
+
 // AddonShadows is one installed add-on that replaces built-in chat tools, as
 // the actor sees it, running or not.
 type AddonShadows struct {

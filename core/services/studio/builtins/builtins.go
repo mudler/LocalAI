@@ -141,8 +141,48 @@ func (t Tool) On() bool { return t.Enabled == nil || t.Enabled() }
 
 // Registry holds the built-in tools. It is safe for concurrent use.
 type Registry struct {
-	mu    sync.RWMutex
-	tools []Tool
+	mu     sync.RWMutex
+	tools  []Tool
+	groups map[string]GroupInfo
+}
+
+// GroupInfo is what a person reads about a switch group: a title and a
+// description of what the model can do when the switch is on. Both are
+// English; the interface may translate them by group ID. A group without a
+// declaration falls back to the label and description of its first tool.
+type GroupInfo struct {
+	Title, Description string
+	// WhenOff says what changes for the model when the switch is off. Empty
+	// when "the model has none of these tools" says it all.
+	WhenOff string
+}
+
+// DescribeGroup declares the title and description of a switch group. The
+// code that registers the tools of a group declares it next to them.
+func (r *Registry) DescribeGroup(group string, info GroupInfo) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.groups == nil {
+		r.groups = map[string]GroupInfo{}
+	}
+	r.groups[group] = info
+}
+
+// GroupInfo returns the declared information of a group, or the label and
+// description of its first registered tool.
+func (r *Registry) GroupInfo(group string) GroupInfo {
+	r.mu.RLock()
+	info, ok := r.groups[group]
+	r.mu.RUnlock()
+	if ok {
+		return info
+	}
+	for _, t := range r.Tools() {
+		if t.Group == group {
+			return GroupInfo{Title: t.Label, Description: t.Description}
+		}
+	}
+	return GroupInfo{}
 }
 
 // NewRegistry returns an empty registry.

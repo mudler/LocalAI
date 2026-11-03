@@ -103,16 +103,34 @@ func (s *Service) registerToolGroups() error {
 
 // switchesOf returns the groups a chat switched off and on. A sub-agent has
 // none of its own: it follows its parent chat.
+//
+// The groups the chat's saved agent turns off are off whatever the chat says:
+// they are the agent's ceiling, and a sub-agent follows the ceiling of the
+// agent of its parent.
 func (s *Service) switchesOf(ctx context.Context, rec session.ChatRecord) (off, on []string) {
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
 		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
 		if err == nil {
-			return parent.BuiltinsOff, parent.BuiltinsOn
+			return mergeGroups(slices.Clone(parent.BuiltinsOff), s.agentOff(ctx, parent)), parent.BuiltinsOn
 		}
 		s.log.Warn("studio: the parent of a sub-agent is gone; it keeps every group off", "chat", rec.ID, "error", err)
 		return s.builtins.Groups(), nil
 	}
-	return rec.BuiltinsOff, rec.BuiltinsOn
+	return mergeGroups(slices.Clone(rec.BuiltinsOff), s.agentOff(ctx, rec)), rec.BuiltinsOn
+}
+
+// agentOff are the groups of built-in tools the saved agent of the chat turns
+// off, or none for a chat without an agent or an agent that cannot be read
+// (the scope of a missing agent already leaves the chat without tools).
+func (s *Service) agentOff(ctx context.Context, rec session.ChatRecord) []string {
+	if rec.AgentID == "" || s.d.Agents == nil {
+		return nil
+	}
+	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	if err != nil {
+		return nil
+	}
+	return ag.BuiltinsOff
 }
 
 // hiddenFor returns the names of the tools the chat's switches take away

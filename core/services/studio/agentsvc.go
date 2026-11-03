@@ -48,6 +48,7 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		return agents.Agent{}, ErrAgentsOff
 	}
 	p := principal(user)
+	keepOff, keepOn := a.BuiltinsOff == nil, a.BuiltinsOn == nil
 	if folders != nil {
 		list, err := s.resolveAgentFolders(ctx, p, *folders)
 		if err != nil {
@@ -58,6 +59,7 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	if err := agents.Validate(a); err != nil {
 		return agents.Agent{}, err
 	}
+	a.BuiltinsOff, a.BuiltinsOn = s.agentGroups(a.BuiltinsOff, false), s.agentGroups(a.BuiltinsOn, true)
 	if folders == nil {
 		if err := s.checkSharedRead(ctx, p, a.FolderList()); err != nil {
 			return agents.Agent{}, err
@@ -75,6 +77,13 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		}
 		if folders == nil {
 			a.Folders, a.FolderID, a.FolderMode = old.Folders, old.FolderID, old.FolderMode
+		}
+		// A write that does not mention the tool switches keeps them.
+		if keepOff {
+			a.BuiltinsOff = old.BuiltinsOff
+		}
+		if keepOn {
+			a.BuiltinsOn = old.BuiltinsOn
 		}
 	}
 	if err := s.d.Agents.Put(ctx, a); err != nil {
@@ -266,4 +275,21 @@ func (s *Service) AgentRuns(ctx context.Context, user, id string, limit int) (Ag
 		cursor = session.ChatCursor{Updated: last.Updated, ID: last.ID}
 	}
 	return h, nil
+}
+
+// agentGroups keeps the switch groups of an agent that this server has, with
+// the opt-in ones in on and the others in off. A group this server does not
+// offer is dropped, not refused: an agent file from a server with more tools
+// (files or collections on) must still import. A chat of the agent has the
+// groups the server offers.
+func (s *Service) agentGroups(groups []string, optIn bool) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(groups))
+	for _, g := range groups {
+		if !seen[g] && s.builtins.IsGroup(g) && s.builtins.IsOptIn(g) == optIn {
+			seen[g] = true
+			out = append(out, g)
+		}
+	}
+	return out
 }
