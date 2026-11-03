@@ -61,3 +61,13 @@ FLAG_DIARIZATION FLAG_SOUND_CLASSIFICATION FLAG_REALTIME_AUDIO FLAG_SCORE
 FLAG_DEPTH FLAG_TOKEN_CLASSIFY FLAG_3D FLAG_3D_ANIMATION FLAG_DECISIONS
 FLAG_UPSCALE FLAG_MOTION FLAG_FORECAST
 ```
+
+## Context files
+
+`capabilities.contextFiles` names up to three small index files (one for each scope: user, agent, channel) that the host loads into the prompt of a chat. It needs manifest api 2.
+
+```json
+{"contextFiles":[{"scope":"user","path":"Memory/index.md"},{"scope":"agent","path":"Memory/agents/{agent}/index.md","cap":1024}]}
+```
+
+Every path lies under `Memory/`, ends in `.md` and holds no parent segment. An agent path holds `{agent}` once and a channel path holds `{channel}` once; the host fills them from the chat, never from the model. `cap` lowers the 2 KiB index cap; it cannot raise it. The add-on declares and the host reads: the add-on gains no access to the files.
