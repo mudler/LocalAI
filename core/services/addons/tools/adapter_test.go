@@ -211,6 +211,34 @@ var _ = Describe("Addon tool adapter", func() {
 			Expect(res.Result).To(BeEmpty())
 		})
 
+		It("returns an excerpt next to the artifact references", func() {
+			f.read = contract.Result{
+				Payload: args(`{"excerpt":"first lines"}`),
+				Outputs: []contract.OutputDescription{{Handle: "art-1", Name: "rows.csv", MediaType: "text/csv", Size: 12}},
+			}
+			res, e := a.Execute(context.Background(), member, "addon__tables__rows-query", args(`{"resourceId":"db-one","table":"t"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Kind).To(Equal(tools.ResultArtifact))
+			Expect(res.Artifacts).To(HaveLen(1))
+			Expect(string(res.Result)).To(MatchJSON(`{"excerpt":"first lines"}`))
+		})
+
+		It("keeps the wire shape of an artifact result without a payload", func() {
+			f.read = contract.Result{Outputs: []contract.OutputDescription{{Handle: "art-1", Name: "rows.csv", MediaType: "text/csv", Size: 12}}}
+			res, e := a.Execute(context.Background(), member, "addon__tables__rows-query", args(`{"resourceId":"db-one","table":"t"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.JSON()).To(MatchJSON(`{"kind":"artifact","tool":"addon__tables__rows-query","artifacts":[{"id":"art-1","name":"rows.csv","mediaType":"text/csv","size":12}]}`))
+		})
+
+		It("refuses an oversized payload even when handles come with it", func() {
+			f.read = contract.Result{
+				Payload: args(`{"x":"` + strings.Repeat("a", tools.MaxResultBytes) + `"}`),
+				Outputs: []contract.OutputDescription{{Handle: "art-1", Name: "rows.csv", MediaType: "text/csv", Size: 12}},
+			}
+			_, e := a.Execute(context.Background(), member, "addon__tables__rows-query", args(`{"resourceId":"db-one","table":"t"}`))
+			Expect(e).To(MatchError(tools.ErrResultTooLarge))
+		})
+
 		It("passes a denial, an outage and an unknown outcome through unchanged", func() {
 			for _, want := range []error{gateway.ErrForbidden, gateway.ErrUnavailable, &gateway.OutcomeUnknown{OperationID: "x"}} {
 				f.readErr = want

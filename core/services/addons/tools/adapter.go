@@ -297,6 +297,8 @@ type ToolResult struct {
 	Proposal  *ProposalRef    `json:"proposal,omitempty"`
 	Applied   *AppliedRef     `json:"applied,omitempty"`
 	Artifacts []ArtifactRef   `json:"artifacts,omitempty"`
+	// For ResultArtifact, Result is an optional excerpt of the content that
+	// Artifacts refer to. It obeys the same size limit as a read result.
 	// Code says what the person is asked to do, for a ResultError.
 	Code string `json:"code,omitempty"`
 	// Message is the reason the add-on gave for refusing, in a short fixed
@@ -1053,15 +1055,17 @@ func requiresResource(def ToolDefinition) bool {
 func ValidConversationID(id string) bool { return toolargs.ValidConversationID(id) }
 
 func readResult(name string, out contract.Result) (ToolResult, error) {
+	if len(out.Payload) > MaxResultBytes {
+		return ToolResult{}, ErrResultTooLarge
+	}
 	if len(out.Outputs) > 0 {
 		refs := make([]ArtifactRef, 0, len(out.Outputs))
 		for _, o := range out.Outputs {
 			refs = append(refs, ArtifactRef{ID: o.Handle, Name: o.Name, MediaType: o.MediaType, Size: o.Size})
 		}
-		return ToolResult{Kind: ResultArtifact, Tool: name, Artifacts: refs}, nil
-	}
-	if len(out.Payload) > MaxResultBytes {
-		return ToolResult{}, ErrResultTooLarge
+		// A payload next to the handles is a small excerpt of the content the
+		// handles stand for. It travels in Result so the model reads it.
+		return ToolResult{Kind: ResultArtifact, Tool: name, Artifacts: refs, Result: out.Payload}, nil
 	}
 	return ToolResult{Kind: ResultData, Tool: name, Result: out.Payload}, nil
 }
