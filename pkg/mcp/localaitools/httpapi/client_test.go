@@ -232,9 +232,7 @@ var _ = Describe("httpapi.Client against the LocalAI admin REST surface", func()
 			info, err := c.SystemInfo(ctx)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(info.Version).To(Equal("v0.0.0-test"))
-			// /system.backends carries the installed set; /backends is the
-			// authoritative list. Both are exercised; the test asserts the
-			// union is non-empty and contains the known backends.
+			// The installed backends come from /backends.
 			Expect(info.InstalledBackends).To(ContainElement("llama-cpp"))
 			Expect(info.InstalledBackends).To(ContainElement("whisper"))
 			// loaded_models comes from /system

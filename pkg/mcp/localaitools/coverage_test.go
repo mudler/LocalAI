@@ -22,7 +22,7 @@ import (
 // "(none)" is a deliberate sentinel for tools whose data is not exposed
 // over a single REST endpoint (e.g. system_info aggregates data the
 // inproc client picks up directly from services). The httpapi.Client may
-// approximate via the welcome JSON; the test still requires an entry so
+// compose it from several routes; the test still requires an entry so
 // the contributor explicitly acknowledges the asymmetry.
 var toolToHTTPRoute = map[string]string{
 	// Read-only tools.
