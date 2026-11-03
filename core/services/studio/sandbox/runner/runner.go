@@ -116,6 +116,11 @@ type entry struct {
 	trk      *tracker
 	gone     bool
 	hasBuilt bool
+	// suspendFails counts the failed suspends since the last call, and
+	// suspendAfter is the earliest time the sweep tries again. Both are
+	// guarded by mu.
+	suspendFails int
+	suspendAfter time.Time
 	// mounts are the folders of the sandbox's view, to name a path of a
 	// commit as the guest sees it. A resumed sandbox has the view it was
 	// made with.
@@ -479,6 +484,7 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 		end = m.o.Begin(ctx, r.User, r.Conversation, r.Operation)
 		defer end() // a panic of the tool still ends the call
 	}
+	e.suspendFails, e.suspendAfter = 0, time.Time{}
 	out, runErr := tool.Run(ctx, r.Args)
 	// The call's changes become one change set, whether or not the command
 	// succeeded: a failing script may still have written files.
@@ -494,6 +500,14 @@ func (m *Manager) Run(ctx context.Context, r Request) (string, error) {
 	e.lastUse = m.o.Now()
 	m.mu.Unlock()
 	return out, runErr
+}
+
+// suspendBackoff is the wait after n failed suspends of one sandbox: the
+// sweep runs every minute, and a suspend that fails holds the entry for up to
+// a minute, so it doubles from two minutes to half an hour.
+func suspendBackoff(n int) time.Duration {
+	d := time.Minute << min(n, 5)
+	return min(d, 30*time.Minute)
 }
 
 // Sweep puts idle sandboxes to sleep and removes the old ones. It is called
@@ -518,14 +532,25 @@ func (m *Manager) Sweep(ctx context.Context) {
 			e.gone = true
 			m.destroy(ctx, e)
 			m.forget(e)
-		case e.sb != nil && idle >= m.o.IdleAfter:
+		case e.sb != nil && idle >= m.o.IdleAfter && !now.Before(e.suspendAfter):
 			sctx, cancel := context.WithTimeout(ctx, time.Minute)
 			ref, err := e.sb.Suspend(sctx)
 			cancel()
-			if err != nil {
-				xlog.Warn("sandbox: could not suspend an idle sandbox", "error", err)
-			} else {
+			switch {
+			case err == nil:
 				e.sb, e.snap = nil, &ref
+				e.suspendFails = 0
+			case errors.Is(err, sandbox.ErrGone):
+				// The guest stopped by itself: keeping it would send every
+				// next call of the chat to a dead sandbox.
+				xlog.Warn("sandbox: an idle sandbox is gone, dropping it", "user", e.user, "conversation", e.conv, "error", err)
+				m.destroy(ctx, e)
+				e.suspendFails = 0
+			default:
+				e.suspendFails++
+				e.suspendAfter = now.Add(suspendBackoff(e.suspendFails))
+				xlog.Warn("sandbox: could not suspend an idle sandbox, trying again later", "user", e.user, "conversation", e.conv,
+					"failures", e.suspendFails, "retry_after", e.suspendAfter, "error", err)
 			}
 		}
 		e.mu.Unlock()
