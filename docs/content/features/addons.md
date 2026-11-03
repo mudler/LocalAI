@@ -1040,6 +1040,168 @@ administrator and sees every installed add-on.
 > Studio or Talk lose access until an administrator grants `addons` to them in
 > **Settings → Users and keys**.
 
+## Install from a file
+
+You can install an add-on from one zip file, with no library and no registry.
+Use it for an add-on you built yourself, for a build you want to try before it
+is published, and for a host that cannot reach a library.
+
+A zip holds one add-on for one platform. It holds the files of the add-on
+package: `manifest.json`, the executable, the UI files and icon, the skills and
+the files the platform needs at run time. It also holds `zip-manifest.json`,
+which lists each file with its sha256 and size. The file name is
+`<id>-<version>-<os>-<arch>.zip`. A `.sha256` file in `sha256sum` format goes
+with it.
+
+### Trust
+
+Nothing signs a local file, so LocalAI cannot tell who made it. The zip checks
+the files against the digests it lists. That finds a damaged or mixed-up file.
+It does not prove where the file came from. You choose what you install: an
+add-on from a file is trusted as far as you trust the file. LocalAI does not try
+to protect you from a hostile add-on that you install on purpose.
+
+The install dialog shows, before you confirm:
+
+- the sha256 of the whole file, the add-on ID and version, the platform and the
+  host API range of the manifest;
+- the host operations the add-on asks for, in the same step as for a library
+  add-on. A local file is never official, so the official-only blanket approval
+  grants it nothing;
+- the notice "Local file, unsigned".
+
+The receipt of the install records the source `local-file` and the origin
+"local file, unsigned". The Add-ons page, the Details of the add-on and the
+Host access page show that notice for as long as the add-on is installed.
+Compare the sha256 with the `.sha256` file that came with the zip, or with
+`sha256sum` on the file, when you got it from someone else.
+
+### Install
+
+On the Add-ons page, an administrator selects **Install from file** and picks
+the zip. The server checks the file and shows the install dialog. Then:
+
+- A new add-on is installed and turned on, as for a library add-on.
+- A file with the same ID as an installed add-on and a higher version is an
+  upgrade. It goes through the same generations, backup, migration and recovery
+  as every upgrade. It does not change whether the add-on is on or off.
+- A file with the same version as the installed one is refused.
+- A file with a lower version is refused unless you tick the confirmation in the
+  dialog. An older version may not read data that a newer version wrote. The
+  data format rules of recovery still apply to it.
+- An add-on that came from a library and one that came from a file have
+  different trusted identities. When the add-on has retained data, the owner
+  refuses a switch between them. Uninstall it first and keep the data, then
+  install the other one.
+
+From a terminal, `local-ai addons inspect <file>` checks a zip on your machine
+and prints what it holds. `local-ai addons install <file>` checks it, uploads it
+to a running server and prints the link of the page that finishes the install:
+
+```bash
+local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip \
+  --target http://localhost:8080 --api-key "$LOCALAI_API_KEY"
+```
+
+The command never installs by itself. The install needs the host access review
+and the confirmation of an administrator in their own browser session, like
+every change of what an add-on may do on the host. `--target` and `--api-key`
+come from `LOCALAI_TARGET` and `LOCALAI_API_KEY` when you leave them out.
+
+### What the server does with the file
+
+The routes are administrator-only. `POST /api/addons/files` takes the zip as a
+multipart form with one part named `file`. An administrator's session or API key
+can stage a file, because staging runs nothing and changes no add-on.
+`GET /api/addons/files/{fileId}` reads a staged file and
+`DELETE /api/addons/files/{fileId}` removes it. The answer of the upload has the
+file ID, the sha256, the add-on ID, title, version, platform and API range, the
+host operations the manifest asks for, how the file relates to the installed
+add-on (`new`, `upgrade`, `same` or `downgrade`) and the origin.
+
+The owner keeps the file in a private folder of its own storage for one hour.
+The file belongs to the user that uploaded it, and no other user can read or
+install it. The owner deletes the folder at start and the file after the
+install. The install is the host access `preview` and `install` with
+`sourceId` set to `local-file` and `version` set to the file ID. They keep every
+rule of the host access routes: only the administrator's own browser session can
+install, the preview nonce and the digest bind the install to this file, and the
+install body has `downgrade: true` to confirm an older version. The plain
+`dispatch` install does not take a file. No MCP tool maps to these routes.
+
+The owner refuses a file, with the rule it broke as the error type, when:
+
+| Type | Rule |
+|---|---|
+| `bad_zip` | It is not a zip, it is damaged, it is empty or it uses an unsupported compression. |
+| `unsafe_path` | A path is absolute, has `..`, a backslash, a drive letter or a NUL, is not clean, or repeats (also when only the case differs). |
+| `unsupported_entry` | An entry is a link or a special file. |
+| `too_large` | The zip, or the files together, are over the add-on size limit (512 MiB). |
+| `too_many_files` | It holds more than 10000 files. |
+| `compression_ratio` | A file over 1 MiB expands more than 200 to 1. |
+| `bad_manifest` | `zip-manifest.json` is missing or invalid, or `manifest.json` does not match it. |
+| `digest_mismatch` | A file is missing, extra, or has another size or sha256 than the list. |
+| `wrong_platform` | The zip is for another operating system or architecture than the host. |
+| `bad_mode` | A file other than the declared executable has an executable bit. |
+
+The add-on package rules apply after that, as for a library package: the
+manifest against the host, the executable, the UI files, the icon and the skills.
+The owner sets the file modes itself.
+
+In a deployment with a separate owner, you upload to any frontend. The frontend
+keeps no copy: it sends the bytes to the owner in chunks of 1 MiB over the
+signed carrier, and the owner enforces the size limit while it receives them.
+The owner must be a version that knows the file calls, or the page says that the
+owner is unavailable.
+
+### Build a zip
+
+`make addons-zip` builds the zip files from the add-ons in the repository. It
+calls `scripts/addons/package.sh` to build and verify the OCI package of each
+add-on and platform, then writes the zip from that verified package. There is no
+second build path: the zip holds the same files as the registry package.
+
+```bash
+# One add-on, for the platform of this machine
+make addons-zip ADDON=memory
+
+# Every add-on, for the platform of this machine
+make addons-zip
+
+# Other platforms need the native executables
+make addons-zip ADDON=memory PLATFORMS=linux/amd64,darwin/arm64 \
+  ADDON_EXECUTABLES=/path/to/executables
+```
+
+The files go to `dist/addons` (`ADDONS_ZIP_DIR` changes it):
+
+```text
+dist/addons/memory-0.1.0-linux-amd64.zip
+dist/addons/memory-0.1.0-linux-amd64.zip.sha256
+```
+
+| Variable | Meaning |
+|---|---|
+| `ADDON` | One add-on ID. Without it, every add-on that has a platform file. |
+| `PLATFORMS` | A comma-separated list of `os/arch`. The default is the platform of this machine. |
+| `ADDON_EXECUTABLES` | For a platform other than this machine: a folder with `<os>-<arch>/<executable name>`, built natively. |
+| `ADDON_VERSION` | The version. The default is the version in the manifest of the add-on. |
+| `ADDON_LOCAL_CHECK` | Set it to build a platform that the platform matrix has not enabled yet. |
+| `ADDONS_ZIP_DIR` | The output folder. |
+
+The build needs Go and Node.js, as `package.sh` does; the Tables add-on also
+needs a C toolchain. Without `ADDON`, the Sandbox add-on is skipped unless
+`SANDBOX_GUEST_IMAGE` is set, because its executable needs the reference of its
+guest image (see `scripts/addons/package.sh`). The same layout gives the same
+zip bytes, so you can rebuild a file and compare the sha256.
+
+To build and install one add-on:
+
+```bash
+make addons-zip ADDON=memory
+local-ai addons install dist/addons/memory-0.1.0-linux-amd64.zip
+```
+
 ## Library sources
 
 A library source is a place LocalAI reads entries from. There are three kinds:

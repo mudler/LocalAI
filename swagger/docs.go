@@ -752,6 +752,175 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/addons/files": {
+            "post": {
+                "description": "Administrators only (an administrator's session or API key). Multipart form with one part named file, the add-on zip made by ` + "`" + `make addons-zip` + "`" + `. The bytes stream to the add-on owner, which keeps them in a private staging area for one hour, bound to the uploading user, and verifies the file: its digest manifest, its paths and sizes, its platform and its add-on manifest. Nothing is installed. Returns the file ID, the sha256 of the file, the add-on ID, version, platform and API range, the host operations the manifest asks for, how the file relates to the installed version (new, upgrade, same or downgrade) and the origin \"local file, unsigned\": nothing signs a local file, so the administrator chooses what to install. The install is host-grants/preview and host-grants/install with sourceId local-file and version equal to the file ID; it needs the administrator's own browser session. Refusals carry the rule that failed as the error type: bad_zip, unsafe_path, unsupported_entry, too_large, too_many_files, compression_ratio, bad_manifest, digest_mismatch, wrong_platform or bad_mode. No MCP tool maps to this route.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Upload an add-on zip file to install from a file (administrators)",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "The add-on zip",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The verified file",
+                        "schema": {
+                            "$ref": "#/definitions/addons.FileView"
+                        }
+                    },
+                    "400": {
+                        "description": "Not a multipart form with a file, or the file broke a rule",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature or administration denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "413": {
+                        "description": "The file is over the size limit",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too many staged files",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/addons/files/{fileId}": {
+            "get": {
+                "description": "Administrators only. The same answer as the upload, for a file of the calling user that has not expired. 404 when the file is gone or belongs to another user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Read a staged add-on file (administrators)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File ID from the upload",
+                        "name": "fileId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The staged file",
+                        "schema": {
+                            "$ref": "#/definitions/addons.FileView"
+                        }
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature or administration denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such file",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Administrators only. Removes a file of the calling user that waits for an install. 404 when the file is gone or belongs to another user.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Addons"
+                ],
+                "summary": "Remove a staged add-on file (administrators)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File ID from the upload",
+                        "name": "fileId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Removed"
+                    },
+                    "401": {
+                        "description": "Named authentication required",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Feature or administration denied",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "No such file",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Addons or the owner are unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/addons.AddonErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/addons/host-grants": {
             "get": {
                 "description": "Administrators only (an administrator's session or API key). Returns the revision of the grants document, whether the deployment locks the UI store, the blanket approval switch (mode off, official or any; setBy ui or deployment), the deployment floor (the policy file and flags, read-only), the deny rules by source (file and flags, which cannot be edited here, and ui), and for each installed add-on the operations its verified manifest requests (required and optional) with a plain title, text and risk, whether each is allowed, not_allowed, blocked or unsupported, where the grant comes from (deployment, install, upgrade, edit or blanket), when and by whom, the operations granted that the manifest no longer requests, an identity mismatch flag and a pending upgrade that waits for approval. Read-only. Nothing in the answer is a credential. No MCP tool maps to this route.",
@@ -15412,6 +15581,74 @@ const docTemplate = `{
                 }
             }
         },
+        "addons.FileView": {
+            "type": "object",
+            "properties": {
+                "addonId": {
+                    "type": "string"
+                },
+                "api": {
+                    "description": "API is the host API range the manifest declares.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/contract.VersionRange"
+                        }
+                    ]
+                },
+                "fileId": {
+                    "type": "string"
+                },
+                "installed": {
+                    "type": "boolean"
+                },
+                "installedVersion": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "optional": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "origin": {
+                    "type": "string"
+                },
+                "platform": {
+                    "type": "string"
+                },
+                "relation": {
+                    "description": "Relation is new, upgrade, same or downgrade.",
+                    "type": "string"
+                },
+                "required": {
+                    "description": "Required and Optional are the host operations the manifest asks for.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sha256": {
+                    "description": "SHA256 is the digest of the whole file, in hex. The install approval\nbinds to \"sha256:\" plus this value.",
+                    "type": "string"
+                },
+                "size": {
+                    "type": "integer"
+                },
+                "source": {
+                    "description": "Source and Origin say that nothing signs the file.",
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
         "addons.OperationStatus": {
             "type": "object",
             "properties": {
@@ -17932,6 +18169,10 @@ const docTemplate = `{
                 },
                 "candidateDigest": {
                     "type": "string"
+                },
+                "downgrade": {
+                    "description": "Downgrade confirms that a local file may install an older version than\nthe installed one. Only a sourceId of local-file reads it.",
+                    "type": "boolean"
                 },
                 "expectedDigest": {
                     "description": "ExpectedDigest and CandidateDigest pin an upgrade; both or neither.",
