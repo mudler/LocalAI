@@ -70,6 +70,14 @@ func hostGrantsDo(c echo.Context, g *gateway.Gateway, s settings, a contract.Act
 	ctx := c.Request().Context()
 	if confirm != "" || call.OperationID != "" {
 		if !humanSurface(c, s, a, confirm) {
+			// Hand the refused write to the owner without the human mark, so it
+			// answers not_human_surface and writes the refusal to the audit file
+			// with the kind of credential, for a caller that is not a person
+			// (API key, MCP session, tool call). The owner refuses it; the
+			// answer below is the same in either case.
+			if g != nil {
+				_, _ = g.HostGrants(ctx, a, call)
+			}
 			return c.JSON(403, AddonErrorResponse{Error: AddonError{Type: gateway.HostGrantsNotHumanSurface, Code: 403, Message: "This action requires your own browser session"}})
 		}
 		ctx = gateway.WithHumanSurface(ctx)

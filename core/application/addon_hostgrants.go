@@ -294,8 +294,15 @@ func (g *addonHostGrants) refreshSoon(ctx context.Context, ids []string) {
 			g.refreshQueued = false
 			g.refreshMu.Unlock()
 			if ctx == nil || ctx.Err() == nil {
-				if err := m.HostGrantsChanged(context.Background()); err != nil && !errors.Is(err, addons.ErrRecoveryRequired) {
+				started, stopped, err := m.HostGrantsChangedReport(context.Background())
+				if err != nil && !errors.Is(err, addons.ErrRecoveryRequired) {
 					xlog.Warn("Could not apply a change of host grants to the add-ons", "addons", ids, "error", err)
+				}
+				for _, id := range started {
+					g.auditAppend(hostgrants.AuditEntry{Event: hostgrants.AuditRestartForGrant, AddonID: id, Reason: "started_after_grant"})
+				}
+				for _, id := range stopped {
+					g.auditAppend(hostgrants.AuditEntry{Event: hostgrants.AuditRestartForGrant, AddonID: id, Reason: "stopped_after_access_removed"})
 				}
 			}
 		}
@@ -308,7 +315,14 @@ var blanketName = regexp.MustCompile(`^blanket:(official|any)@rev([0-9]+)$`)
 
 func (g *addonHostGrants) now() string { return time.Now().UTC().Format(time.RFC3339) }
 
-func (g *addonHostGrants) auditAppend(e hostgrants.AuditEntry) { _ = g.audit.Append(e) }
+// auditAppend records a refusal or a housekeeping removal. A failure is logged
+// by the caller's error path only: nothing was granted, so there is nothing to
+// fail closed on. Writes that grant go through Store.UpdateAudited instead.
+func (g *addonHostGrants) auditAppend(e hostgrants.AuditEntry) {
+	if err := g.audit.Append(e); err != nil {
+		xlog.Warn("Could not write an addon host grants audit line", "event", e.Event, "error", err)
+	}
+}
 
 // Stage records pending grants for one lifecycle operation. They are part of
 // the entry of the add-on but take effect only when the operation completed.
@@ -381,7 +395,15 @@ func (g *addonHostGrants) Stage(ctx context.Context, s addons.GrantStage) error 
 			return nil
 		}
 		patch.Addons = map[string]*hostgrants.AddonGrants{s.AddonID: &entry}
-		res, err := g.store.Update(ctx, patch, snap.Revision, "stage-"+s.OperationID+"-r"+strconv.FormatUint(snap.Revision, 10))
+		ev := hostgrants.AuditGrant
+		tag := ""
+		if source == hostgrants.SourceBlanket {
+			ev, tag = hostgrants.AuditBlanketGrant, blanketMode+"@rev"+strconv.FormatUint(blanketRev, 10)
+		}
+		_, err = g.store.UpdateAudited(ctx, patch, snap.Revision, "stage-"+s.OperationID+"-r"+strconv.FormatUint(snap.Revision, 10), func(n hostgrants.Snapshot) error {
+			return g.audit.Append(hostgrants.AuditEntry{Event: ev, AddonID: s.AddonID, Ops: added, Source: string(source), Version: s.Version, Digest: s.Digest,
+				OperationID: s.OperationID, RevisionBefore: snap.Revision, RevisionAfter: n.Revision, By: s.Actor.UserID, Credential: s.Actor.Mode, Blanket: tag})
+		})
 		if errors.Is(err, hostgrants.ErrConflict) && s.ExpectedRevision == 0 {
 			continue
 		}
@@ -391,13 +413,6 @@ func (g *addonHostGrants) Stage(ctx context.Context, s addons.GrantStage) error 
 		if err != nil {
 			return err
 		}
-		ev := hostgrants.AuditGrant
-		tag := ""
-		if source == hostgrants.SourceBlanket {
-			ev, tag = hostgrants.AuditBlanketGrant, blanketMode+"@rev"+strconv.FormatUint(blanketRev, 10)
-		}
-		g.auditAppend(hostgrants.AuditEntry{Event: ev, AddonID: s.AddonID, Ops: added, Source: string(source), Version: s.Version, Digest: s.Digest,
-			OperationID: s.OperationID, RevisionBefore: snap.Revision, RevisionAfter: res.Snapshot.Revision, By: s.Actor.UserID, Credential: s.Actor.Mode, Blanket: tag})
 		return nil
 	}
 	return addons.ErrGrantsConflict
@@ -448,6 +463,8 @@ func (g *addonHostGrants) Abort(ctx context.Context, operationID string) error {
 		if len(patch.Addons) == 0 {
 			return nil
 		}
+		// Removing pending grants is not a grant: a failed audit line must not
+		// keep a half-staged entry, so this write is not gated on the audit.
 		res, err := g.store.Update(ctx, patch, snap.Revision, "abort-"+operationID+"-r"+strconv.FormatUint(snap.Revision, 10))
 		if errors.Is(err, hostgrants.ErrConflict) {
 			continue

@@ -342,15 +342,26 @@ func (m *Manager) reconcileGrantsLocked(ctx context.Context) error {
 // one that was refused for a missing operation gets another try. A running call
 // is not interrupted.
 func (m *Manager) HostGrantsChanged(ctx context.Context) error {
+	_, _, e := m.HostGrantsChangedReport(ctx)
+	return e
+}
+
+// HostGrantsChangedReport is HostGrantsChanged that also says which add-ons
+// the change started and which it stopped, so the owner can record it.
+func (m *Manager) HostGrantsChangedReport(ctx context.Context) (started, stopped []string, err error) {
 	m.opMu.Lock()
 	defer m.opMu.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if e := m.check(ctx); e != nil {
-		return e
+		return nil, nil, e
 	}
 	if m.uncertain || m.runtimeRecoveryRequired || m.runtime == nil {
-		return nil
+		return nil, nil, nil
+	}
+	before := map[string]bool{}
+	for id := range m.instances {
+		before[id] = true
 	}
 	for id, failure := range m.startFailed {
 		var refusal *HostRequirementsRefusal
@@ -358,7 +369,20 @@ func (m *Manager) HostGrantsChanged(ctx context.Context) error {
 			delete(m.startFailed, id)
 		}
 	}
-	return m.syncRuntime(ctx, "")
+	err = m.syncRuntime(ctx, "")
+	for id := range m.instances {
+		if !before[id] {
+			started = append(started, id)
+		}
+	}
+	for id := range before {
+		if _, ok := m.instances[id]; !ok {
+			stopped = append(stopped, id)
+		}
+	}
+	slices.Sort(started)
+	slices.Sort(stopped)
+	return started, stopped, err
 }
 
 // endGrants runs when an install or upgrade that staged grants returns. If the

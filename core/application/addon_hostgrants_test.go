@@ -345,6 +345,18 @@ var _ = Describe("host grants on the owner", func() {
 		Expect(ask(fixed, "egress.audit")).To(Equal(http.StatusOK))
 	})
 
+	It("refuses an install and leaves the document unchanged when the audit line cannot be written", func() {
+		a, _ := startOwner()
+		before := revision(a)
+		Expect(a.addonGrants.audit.Close()).To(Succeed())
+		Expect(install(a, "i-1", "install", "1.2.3", []string{"workspace.materialize"}, "")).NotTo(Succeed())
+		Expect(revision(a)).To(Equal(before))
+		Expect(ask(a, "workspace.materialize")).To(Equal(http.StatusForbidden))
+		st, e := a.addonManager.Status(context.Background(), "sample")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(st.Installed).To(BeFalse())
+	})
+
 	It("keeps the grants of a split deployment on the owner only", func() {
 		a, _ := startOwner()
 		Expect(install(a, "i-1", "install", "1.2.3", []string{"workspace.materialize"}, "")).To(Succeed())

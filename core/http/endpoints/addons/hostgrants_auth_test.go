@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -39,7 +40,11 @@ var _ = Describe("host access routes with real sessions and API keys", func() {
 		store, err := hostgrants.Open(filepath.Join(GinkgoT().TempDir(), "hostgrants.json"))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(store.Close)
-		svc, err := gateway.NewHostGrantsOwner(gateway.HostGrantsConfig{Store: store, Manager: &hgManager{},
+		auditPath := filepath.Join(GinkgoT().TempDir(), "audit.jsonl")
+		audit, err := hostgrants.OpenAudit(auditPath)
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(audit.Close)
+		svc, err := gateway.NewHostGrantsOwner(gateway.HostGrantsConfig{Store: store, Manager: &hgManager{}, Audit: audit,
 			Admin: func(ctx context.Context, a contract.Actor) error { return auth.ValidateAddonActor(ctx, db, a, true) }})
 		Expect(err).NotTo(HaveOccurred())
 		gw := &gateway.Gateway{HostGrantsOwner: svc, Revalidate: func(ctx context.Context, a contract.Actor) error { return auth.ValidateAddonActor(ctx, db, a, false) }}
@@ -97,5 +102,20 @@ var _ = Describe("host access routes with real sessions and API keys", func() {
 		}
 		Expect(read(func(r *http.Request) { r.Header.Set("Authorization", "Bearer "+adminKey) })).To(Equal(200), "an administrator key may read")
 		Expect(read(func(r *http.Request) { r.AddCookie(&http.Cookie{Name: "session", Value: plainSession}) })).To(BeElementOf(401, 403))
+
+		// The refusals of the callers that are not a person are in the audit
+		// file, with the kind of credential and no secret.
+		raw, err := os.ReadFile(auditPath)
+		Expect(err).NotTo(HaveOccurred())
+		lines := strings.Split(strings.TrimSpace(string(raw)), "\n")
+		refusedByKey := 0
+		for _, l := range lines {
+			if strings.Contains(l, `"event":"refused"`) && strings.Contains(l, `"reason":"not_human_surface"`) && strings.Contains(l, `"credential":"key"`) {
+				refusedByKey++
+			}
+		}
+		Expect(refusedByKey).To(BeNumerically(">=", 1), string(raw))
+		Expect(string(raw)).NotTo(ContainSubstring(adminKey))
+		Expect(string(raw)).NotTo(ContainSubstring("secret"))
 	})
 })
