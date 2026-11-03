@@ -859,7 +859,9 @@
       "names a library that cannot be read",
       "reads the library on demand when the startup refresh has not filled the cache",
       "reads the library again when the startup refresh failed",
-      "cancels status lookup while a lifecycle writer holds the journal lock"
+      "cancels status lookup while a lifecycle writer holds the journal lock",
+      "refuses an unknown phase or event with an error instead of panicking",
+      "drops the oldest finished views once too many pile up"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1188,7 +1190,11 @@
           "is unavailable when the runtime does not serve action tools, and never runs for an unvalidated user",
           "reports an unknown outcome, not a refusal, when the runtime fails after the call began",
           "validates finite relay budgets and prevents disabling polling bounds",
-          "serves declared assets of the current enabled generation by package digest only"
+          "serves declared assets of the current enabled generation by package digest only",
+          "keeps the cause of an outage and still reports it as unavailable",
+          "tells a definite refusal of the add-on apart from an outage",
+          "keeps a refusal apart from an outage",
+          "serves exactly one routing payload per request"
         ]
       },
       {
@@ -2129,7 +2135,11 @@
           "is unavailable when the runtime does not serve action tools, and never runs for an unvalidated user",
           "reports an unknown outcome, not a refusal, when the runtime fails after the call began",
           "validates finite relay budgets and prevents disabling polling bounds",
-          "serves declared assets of the current enabled generation by package digest only"
+          "serves declared assets of the current enabled generation by package digest only",
+          "keeps the cause of an outage and still reports it as unavailable",
+          "tells a definite refusal of the add-on apart from an outage",
+          "keeps a refusal apart from an outage",
+          "serves exactly one routing payload per request"
         ]
       },
       {
@@ -2406,7 +2416,9 @@
           "persists and recovers model actions and declarations through install manual and automatic upgrades and real activation rollback",
           "does not retain the caller's map or prefix slices",
           "keeps an explicitly empty startup policy immutable",
-          "publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms"
+          "publishes identical bytes and digests with sorted archive entries for unchanged inputs and transforms",
+          "refuses an unknown phase or event with an error instead of panicking",
+          "drops the oldest finished views once too many pile up"
         ]
       },
       {
