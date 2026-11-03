@@ -253,7 +253,12 @@ test.describe('Add-ons: apps', () => {
     await expect(page.getByText('may be out of date')).toHaveCount(0)
     // Leave for a route without a mounted add-on consumer (Home keeps commands current).
     await page.evaluate(() => { window.history.pushState({}, '', '/app/polling-left'); window.dispatchEvent(new PopStateEvent('popstate')) })
+    // The route loads lazily and the page clock is paused: let the transition
+    // finish, and the add-ons page unmount, before counting reads again.
+    await page.clock.runFor(500)
+    await settle(page)
     await expect(page.locator('[data-app="notes"]')).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'This page does not exist' })).toBeVisible()
     const seen = state.log.appsList
     await page.clock.runFor(180_000)
     expect(state.log.appsList).toBe(seen)

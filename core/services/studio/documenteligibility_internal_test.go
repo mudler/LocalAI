@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	. "github.com/onsi/ginkgo/v2"
@@ -175,7 +176,11 @@ var _ = Describe("document provider matrix", func() {
 
 	It("opens a scoped chat with load_skill without reentering session access resolution", func() {
 		ctx := context.Background()
-		svc, f := newSkillService(&skillBroker{})
+		// A stub harness: the spec checks that Open builds the chat tools
+		// without waiting on itself, not that nib can start a session. The
+		// real harness takes about a second under -race, and a loaded CI
+		// runner pushed it past the two second budget this spec once had.
+		svc, f := newSkillServiceWith(&skillBroker{}, studiotest.NewGateHarness())
 		store, err := agents.NewJSON("")
 		Expect(err).NotTo(HaveOccurred())
 		svc.d.Agents = store
@@ -200,7 +205,10 @@ var _ = Describe("document provider matrix", func() {
 		select {
 		case err := <-done:
 			Expect(err).NotTo(HaveOccurred())
-		case <-time.After(2 * time.Second):
+		case <-time.After(30 * time.Second):
+			// A re-entrant resolution blocks on the open lock for good, so
+			// any finite bound tells it from a slow runner; keep it far
+			// above the cost of an Open.
 			// Fail without cleanup attempting to reacquire the stuck lock.
 			// The test process timeout also bounds teardown on a regression.
 			Fail("scoped chat setup reentered session access resolution")

@@ -35,15 +35,15 @@ test.describe('Home slash menu', () => {
     const names = await page.locator('.dk-cmd-name').allTextContents()
     // Native Apps opens the generic installed list, never a promoted package.
     // Home's own commands first; the commands it shares with a chat follow:
-    // /attach, /skills and any declared skills, then /help.
+    // /attach, /skill, /skills and one per skill of the server, then /help.
     expect(names.slice(0, 15)).toEqual([
       '/model', '/new', '/chat', '/assistant', '/models',
       '/gallery', '/installed', '/import', '/stop',
       // No installation advice for a particular provider.
       '/agents', '/mcp', '/memory', '/apps', '/settings', '/docs',
     ])
-    expect(names.slice(15, 18)).toEqual(['/attach', '/skills', '/help'])
-    expect(names).not.toContain('/skill') // No skills are declared by this fixture.
+    // The test server always keeps built-in skills, so /skill is offered.
+    expect(names.slice(15, 18)).toEqual(['/attach', '/skill', '/skills'])
     expect(names[names.length - 1]).toBe('/help')
     // A chat that does not exist yet has nothing to compact or clear.
     expect(names).not.toContain('/compact')
@@ -355,12 +355,17 @@ test.describe('Home memory strip', () => {
 
   test('shows a skeleton while the first answer is on its way', async ({ page }) => {
     await mockHome(page)
+    // Hold the answer until the skeleton was seen: a fixed delay can run out
+    // before a slow runner has painted the page.
+    let release
+    const held = new Promise(resolve => { release = resolve })
     await page.route('**/v1/models', async route => {
-      await new Promise(resolve => setTimeout(resolve, 800))
+      await held
       await route.fulfill({ json: { data: [{ id: 'a' }] } })
     })
-    await page.goto('/app')
+    await page.goto('/app', { waitUntil: 'commit' })
     await expect(page.getByTestId('home-strip-skeleton')).toBeVisible()
+    release()
     await expect(page.locator('.home-strip__head')).toBeVisible()
   })
 })
