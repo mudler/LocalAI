@@ -4683,6 +4683,83 @@
                 }
             }
         },
+        "/api/chats/admin/oauth-clients/{addonId}": {
+            "get": {
+                "description": "The client ID, whether a secret is stored (never the secret), the approval and the login the add-on declares, with the callback address to register with the service. No MCP tool reads or writes it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read the OAuth client of an add-on (administrator).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the add-on's id",
+                        "name": "addonId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The client",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClient"
+                        }
+                    },
+                    "503": {
+                        "description": "The add-on does not run",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Saving is the approval of the login the add-on declares now: send its current_digest as descriptor_digest. When the login changed since, nothing is saved and the answer is 409 with the new current_digest. client_secret is write-only; absent keeps the stored one. No MCP tool reads or writes it.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Save the OAuth client of an add-on and approve its login (administrator).",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the add-on's id",
+                        "name": "addonId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the client",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClientWrite"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The client",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClient"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "The login changed since the form showed it",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsOAuthClientConflict"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/admin/shared-folders": {
             "get": {
                 "description": "A member is a user, or @everyone for every user, with the mode read or write.",
@@ -5810,6 +5887,40 @@
                 }
             }
         },
+        "/api/chats/connectors/oauth/callback": {
+            "get": {
+                "description": "The service sends the browser here after the login; register this address with the service as the redirect URI. It needs the session of the person who started the login (with authentication off, the nonce cookie alone binds the login to the browser). It always answers 303 to the page the login started from, with oauth=ok, oauth=denied (you declined; the connection stays as it was) or oauth=error and class=invalid_state, provider_error, exchange_failed, scopes_missing or unavailable. The state works once and for ten minutes. Nothing the service says is shown or logged.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Finish the login of a connection that uses OAuth.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the state of the login",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the code the service gave",
+                        "name": "code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the error the service gave",
+                        "name": "error",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "303": {
+                        "description": "To the page of the web app, with the outcome in the query"
+                    }
+                }
+            }
+        },
         "/api/chats/connectors/{id}": {
             "get": {
                 "tags": [
@@ -6007,6 +6118,90 @@
                         "description": "The binding",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsConnector"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/oauth/disconnect": {
+            "post": {
+                "description": "Asks the service to revoke the login when the add-on declares a revocation address, then removes the login here in any case. revoked says whether the service confirmed it; when it is false, revoke the access at the service too.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Disconnect a connection that uses OAuth.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Whether the service was told",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuthDisconnected"
+                        }
+                    },
+                    "404": {
+                        "description": "No such binding",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/connectors/{id}/oauth/start": {
+            "post": {
+                "description": "Returns the address of the service's login page; open it in the same browser. The required scopes of the add-on are always asked for, plus the optional ones in scopes. The service sends the browser back to the callback route, which ends on return_to (a page of the web app; default the Connectors page). The response sets an HttpOnly cookie that binds the login to this browser for ten minutes. The callback address is built from LOCALAI_BASE_URL, or from the forwarding headers of a trusted proxy, or from a loopback host; without one of them the start is a 409. An administrator must have saved the add-on's client first (409 needs_approval).",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Start the login of a connection that uses OAuth.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the optional scopes and the page to come back to",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuthStart"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Where to send the browser",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuthStarted"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "No approved client, or no trusted base URL",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The add-on owner or the add-on does not answer",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -20361,6 +20556,14 @@
                 "connection_by": {
                     "type": "string"
                 },
+                "connection_state": {
+                    "description": "ConnectionState is reconnect_needed when an enabled connection that\nuses a login must be connected again, connected when the enabled ones\nthat use a login work, and empty when none uses a login.",
+                    "type": "string",
+                    "enum": [
+                        "connected",
+                        "reconnect_needed"
+                    ]
+                },
                 "connections": {
                     "type": "array",
                     "items": {
@@ -20546,6 +20749,13 @@
                         }
                     ]
                 },
+                "auth_kind": {
+                    "description": "AuthKind is oauth2 for a binding whose credential comes from a login\nat the service (see oauth). Absent for a binding that holds a token\nyou gave.",
+                    "type": "string",
+                    "enum": [
+                        "oauth2"
+                    ]
+                },
                 "caps": {
                     "description": "Caps are the capabilities you enabled for this binding: the ceiling of\nwhat any sender can use. Grants give roles of the kind some of them.",
                     "type": "array",
@@ -20609,6 +20819,14 @@
                 },
                 "notify_chat": {
                     "type": "string"
+                },
+                "oauth": {
+                    "description": "OAuth is the state of the login of an oauth2 binding; absent for a\ntoken binding. It never holds a token or a secret.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuth"
+                        }
+                    ]
                 },
                 "options": {
                     "description": "Options are the choices made for the options of the kind, by option id.\nAn option that is absent has its default (see ChatsConnectorKind).",
@@ -21616,6 +21834,14 @@
         "schema.ChatsConnection": {
             "type": "object",
             "properties": {
+                "connection_state": {
+                    "description": "ConnectionState is the state of the login of a connection that uses\none (connected or reconnect_needed); empty for a token.",
+                    "type": "string",
+                    "enum": [
+                        "connected",
+                        "reconnect_needed"
+                    ]
+                },
                 "handle": {
                     "type": "string"
                 },
@@ -21676,6 +21902,13 @@
                         {
                             "$ref": "#/definitions/schema.ChatsConnectorApproval"
                         }
+                    ]
+                },
+                "auth_kind": {
+                    "description": "AuthKind is oauth2 for a binding whose credential comes from a login\nat the service (see oauth). Absent for a binding that holds a token\nyou gave.",
+                    "type": "string",
+                    "enum": [
+                        "oauth2"
                     ]
                 },
                 "caps": {
@@ -21741,6 +21974,14 @@
                 },
                 "notify_chat": {
                     "type": "string"
+                },
+                "oauth": {
+                    "description": "OAuth is the state of the login of an oauth2 binding; absent for a\ntoken binding. It never holds a token or a secret.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorOAuth"
+                        }
+                    ]
                 },
                 "options": {
                     "description": "Options are the choices made for the options of the kind, by option id.\nAn option that is absent has its default (see ChatsConnectorKind).",
@@ -22190,6 +22431,80 @@
                 }
             }
         },
+        "schema.ChatsConnectorOAuth": {
+            "type": "object",
+            "properties": {
+                "account_label": {
+                    "description": "AccountLabel is who the login is at the service, as the add-on says.",
+                    "type": "string"
+                },
+                "expires_at": {
+                    "description": "ExpiresAt is when the access token ends; the host renews it before.\nAbsent when the service gave no end.",
+                    "type": "string"
+                },
+                "has_client": {
+                    "description": "HasClient is true when an administrator saved a client for the add-on.",
+                    "type": "boolean"
+                },
+                "reason": {
+                    "description": "Reason is a fixed code: revoked, client_rejected, refused,\nneeds_approval, credential_rejected, expired, write_failed or\nunreadable.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes are the scopes the service granted.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "state": {
+                    "description": "State is connected, reconnect_needed (the login ended; reason says\nwhy), not_connected (nobody logged in yet) or needs_approval (an\nadministrator must save the add-on's client first, or again after its\nlogin changed). It is read from the shared store: a changed login of\nthe add-on shows as needs_approval once a call or a refresh found it.",
+                    "type": "string",
+                    "enum": [
+                        "connected",
+                        "reconnect_needed",
+                        "not_connected",
+                        "needs_approval"
+                    ]
+                }
+            }
+        },
+        "schema.ChatsConnectorOAuthDisconnected": {
+            "type": "object",
+            "properties": {
+                "revoked": {
+                    "description": "Revoked is true when the service confirmed that it revoked the login.\nThe login is removed here in any case.",
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsConnectorOAuthStart": {
+            "type": "object",
+            "properties": {
+                "return_to": {
+                    "description": "ReturnTo is the page of the web app you come back to, a path under\n/app with an optional query and no fragment. Empty means the\nConnectors page.",
+                    "type": "string"
+                },
+                "scopes": {
+                    "description": "Scopes are the optional scopes of the add-on that you ticked. The\nrequired ones are always asked for.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "schema.ChatsConnectorOAuthStarted": {
+            "type": "object",
+            "properties": {
+                "authorize_url": {
+                    "type": "string"
+                },
+                "expires": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsConnectorOption": {
             "type": "object",
             "properties": {
@@ -22354,6 +22669,14 @@
                         {
                             "$ref": "#/definitions/schema.ChatsConnectorApproval"
                         }
+                    ]
+                },
+                "auth_kind": {
+                    "description": "AuthKind is token (the default) or oauth2. An oauth2 binding takes no\ntoken: it gets its credential from a login (see the oauth/start call).\nIt is set at create and ignored by an update.",
+                    "type": "string",
+                    "enum": [
+                        "token",
+                        "oauth2"
                     ]
                 },
                 "caps": {
@@ -24344,6 +24667,139 @@
                     "items": {
                         "type": "integer"
                     }
+                }
+            }
+        },
+        "schema.ChatsOAuthClient": {
+            "type": "object",
+            "properties": {
+                "addon": {
+                    "type": "string"
+                },
+                "approved": {
+                    "type": "boolean"
+                },
+                "approved_at": {
+                    "type": "string"
+                },
+                "approved_by": {
+                    "type": "string"
+                },
+                "approved_digest": {
+                    "description": "ApprovedDigest is the digest the stored approval is for;\nCurrentDigest the digest of the login the add-on declares now. Send\ncurrent_digest back to save.",
+                    "type": "string"
+                },
+                "callback_url": {
+                    "description": "CallbackURL is the address to register with the service, as this\nrequest reaches the server. Empty when the server cannot tell it (set\nLOCALAI_BASE_URL).",
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "configured": {
+                    "description": "Configured is true when a client is stored; Approved when its approval\nis for the login the add-on declares now.",
+                    "type": "boolean"
+                },
+                "current_digest": {
+                    "type": "string"
+                },
+                "descriptor": {
+                    "description": "Descriptor is the login the add-on declares, for the form to show.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsOAuthDescriptor"
+                        }
+                    ]
+                },
+                "has_secret": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "schema.ChatsOAuthClientConflict": {
+            "type": "object",
+            "properties": {
+                "current_digest": {
+                    "type": "string"
+                },
+                "error": {
+                    "$ref": "#/definitions/schema.APIError"
+                }
+            }
+        },
+        "schema.ChatsOAuthClientWrite": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "description": "ClientSecret is write-only. Absent keeps the stored secret; a public\nclient (client_auth none) has none.",
+                    "type": "string"
+                },
+                "descriptor_digest": {
+                    "description": "DescriptorDigest is the current_digest the form showed. When the\nadd-on's login changed since, the save is a 409 with the new digest.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsOAuthDescriptor": {
+            "type": "object",
+            "properties": {
+                "authorize_params": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsOAuthParam"
+                    }
+                },
+                "authorize_url": {
+                    "type": "string"
+                },
+                "client_auth": {
+                    "type": "string",
+                    "enum": [
+                        "basic",
+                        "post",
+                        "none"
+                    ]
+                },
+                "hosts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "optional_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "pkce": {
+                    "type": "string"
+                },
+                "required_scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "revoke_url": {
+                    "type": "string"
+                },
+                "token_url": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsOAuthParam": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
                 }
             }
         },

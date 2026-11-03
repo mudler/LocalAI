@@ -75,11 +75,6 @@ func (o OAuthOwner) ServeOAuth(ctx context.Context, a contract.Actor, call gatew
 			}
 			return gateway.OAuthReply{Client: clientView(st)}, nil
 		}
-		// Saving is the approval: it is a person's act on the host's form,
-		// never a key, a token or a tool session.
-		if !browserPerson(a) {
-			return gateway.OAuthReply{}, &gateway.OAuthError{Status: 403, Type: gateway.OAuthForbidden, Message: "save the client from your own browser session"}
-		}
 		st, err := c.SetClient(ctx, call.AddonID, OAuthClientInput{Digest: call.Digest, ClientID: call.ClientID, Secret: call.ClientSecret, ApprovedBy: a.UserID})
 		if errors.Is(err, ErrApprovalStale) {
 			oe := oauthFailure(err).(*gateway.OAuthError)
@@ -94,16 +89,6 @@ func (o OAuthOwner) ServeOAuth(ctx context.Context, a contract.Actor, call gatew
 		return gateway.OAuthReply{Client: clientView(st)}, nil
 	}
 	return gateway.OAuthReply{}, gateway.ErrForbidden
-}
-
-// browserPerson says whether the credential of the actor is a browser
-// session, or the one local owner of an install without accounts.
-func browserPerson(a contract.Actor) bool {
-	if a.Mode == "local-owner" {
-		return a.CredentialID != "" && a.CredentialID == a.UserID
-	}
-	id, ok := strings.CutPrefix(a.CredentialID, "session:")
-	return ok && id != ""
 }
 
 func clientView(s OAuthClientStatus) *gateway.OAuthClientView {

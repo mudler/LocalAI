@@ -379,6 +379,15 @@ func (a *Application) startAddonGateway() error {
 	if e := a.wireHostGrantsOwner(g); e != nil {
 		return e
 	}
+	// The OAuth logins of connections and the OAuth clients of add-ons are
+	// served here, where the descriptors are read; frontends forward them.
+	// The connector service can start after the gateway, so it is read at
+	// call time.
+	g.OAuthOwner = studio.OAuthOwner{
+		Connectors: a.studioConnectorsHook.Load,
+		Principal:  addonWorkspacePrincipal(a.authDB != nil),
+		Admin:      g.HostSettingsAdmin,
+	}
 	// Only the owner holds the policy store. Other frontends reach it through the
 	// gateway, and without it the gateway keeps denying every resource.
 	if !filepath.IsAbs(cfg.Root) || cfg.ListenAddress == "" {

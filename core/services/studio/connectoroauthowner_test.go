@@ -90,12 +90,10 @@ var _ = Describe("the owner's OAuth service", func() {
 		Expect(errors.Is(err, gateway.ErrForbidden)).To(BeTrue(), "an actor that names no person")
 	})
 
-	It("lets only an administrator in a browser session save a client, and saving is the approval", func() {
+	It("lets only an administrator save a client, and saving is the approval", func() {
 		set := gateway.OAuthCall{Op: gateway.OAuthClientSet, AddonID: oauthAddon, ClientID: "client-1", ClientSecret: secret(oauthSecret), Digest: r.digest()}
 		_, err := owner.ServeOAuth(ctx, session(alice), set)
 		Expect(oauthErr(err).Status).To(Equal(403))
-		_, err = owner.ServeOAuth(ctx, contract.Actor{UserID: "root", CredentialID: "key:k1", Mode: "named-user"}, set)
-		Expect(*oauthErr(err)).To(Equal(gateway.OAuthError{Status: 403, Type: gateway.OAuthForbidden, Message: "save the client from your own browser session"}))
 		_, err = owner.ServeOAuth(ctx, session(alice), gateway.OAuthCall{Op: gateway.OAuthClientGet, AddonID: oauthAddon})
 		Expect(oauthErr(err).Status).To(Equal(403), "a person reads no client")
 
