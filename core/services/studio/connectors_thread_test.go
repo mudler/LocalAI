@@ -190,4 +190,17 @@ var _ = Describe("the earlier messages of a thread", func() {
 		answered(1)
 		Expect(r.h.Sent(chat())[0]).To(Equal("@bot can you retry?"))
 	})
+
+	It("is declared by the Slack kind and by no Telegram kind, which gets no call", func() {
+		Expect(studiobot.Slack(nil).Kind.ServesThreadHistory()).To(BeTrue())
+		Expect(studiobot.Telegram(nil).Kind.ServesThreadHistory()).To(BeFalse(), "a bot cannot read the history of a chat")
+		bot := newScriptedBot()
+		tg := newConnRig(newShared(), connStore(), bot, connSay("ok"), nil)
+		bnd := tg.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		Expect(tg.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: bnd.ID, ConnectorMessage: contract.ConnectorMessage{
+			Chat: "-100", Thread: "7", Mention: true, MessageID: "9", SenderID: "11", SenderName: "Cy", Text: "in a topic"}})).To(Succeed())
+		waitFor("the answer", func() bool { return len(bot.answers()) == 1 })
+		l, _ := tg.svc.List(ctx, alice, 10)
+		Expect(tg.h.Sent(l[0].ID)).To(Equal([]string{"in a topic"}))
+	})
 })
