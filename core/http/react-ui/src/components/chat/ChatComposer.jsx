@@ -120,6 +120,8 @@ export default function ChatComposer({
     const selected = switches.commands
     const chip = by === 'builtin' ? tc('tools.shell.machine') : by ? tc('tools.servedBy', { provider: by }) : undefined
     // Group discovery is not evidence of the selected provider's isolation.
+    // A chat that is not created yet has no status to read: say nothing of isolation.
+    if (selected.state === 'draft' && by) return { chip }
     if (!by || selected.provider !== by) return { chip, note: tc('tools.commands.unknown') }
     if (['host', 'host-off', 'host-unavailable', 'provider-host'].includes(selected.state)) return { chip, note: tc('tools.commands.providerHost'), warn: true }
     if (selected.state === 'available') return { chip, note: tc('tools.shell.isolated') }

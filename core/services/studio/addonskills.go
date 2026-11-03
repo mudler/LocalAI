@@ -122,7 +122,11 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 		if gate != nil && gate.Unavailable(ctx, p, set.AddonID, s.d.Files.Available()) != "" {
 			continue
 		}
-		if len(set.Isolated) > 0 && !isolatedProvider(command, set.AddonID) {
+		// A chat that does not exist yet has no status to read, so its list
+		// offers what the selected provider ships; the turn of the real chat
+		// still gates these skills on the status it reads then.
+		draftProvider := command.Draft && command.State == CommandsAvailable && command.Provider == set.AddonID
+		if len(set.Isolated) > 0 && !isolatedProvider(command, set.AddonID) && !draftProvider {
 			needs := func(n string) bool { return slices.Contains(set.Isolated, n) }
 			if command.State == CommandsAvailable && command.Provider == set.AddonID {
 				out.documentsWhy = s.documentsWhy(ctx, p, command)

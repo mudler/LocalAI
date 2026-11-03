@@ -214,6 +214,11 @@ function ChatPage() {
   const model = activeChat ? activeChat.model : draftModel
   // The network of the chat's isolated commands, read again on its events.
   const egress = useChatEgress(activeId, chat.ticks.egress)
+  // Switching an add-on or a tool group on or off changes who runs the commands
+  // and whether the network controls apply, so the network view is read again.
+  const { refresh: refreshEgress } = egress
+  const commandsRev = switches.commandsRev
+  useEffect(() => { if (commandsRev) refreshEgress() }, [commandsRev, refreshEgress])
   // The cards of the chat by their tool line; the ones that wait are drawn
   // under the live fold until the call ends.
   const egressCards = useMemo(() => ({

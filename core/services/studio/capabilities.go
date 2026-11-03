@@ -108,6 +108,9 @@ type Commands struct {
 	// FallbackReason "off" (switched off for the chat or not named by its
 	// agent) or why it cannot run.
 	Fallback, FallbackReason string
+	// Draft is set when the chat does not exist yet. No execution status can be
+	// read for it, so Isolation is unknown by construction, not by a failure.
+	Draft bool
 }
 
 // withHostBash is the state of a chat whose tools may hold the built-in bash:
@@ -300,6 +303,7 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	c.Draft = rec.ID == ""
 	if _, ok := s.d.AddonTools.(ExecutionObserver); ok {
 		c.ExecutionStatus = executionStatusView(ctx, p, c.Addon)
 	}
@@ -557,6 +561,7 @@ func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspac
 		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	c.Draft = rec.ID == ""
 	if c.State == CommandsAvailable {
 		c.Provider = c.Addon
 	}

@@ -48,6 +48,9 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   // A change of the add-ons or of the skills can bring a built-in skill back,
   // so the list is read again after one.
   const [skillsRev, setSkillsRev] = useState(0)
+  // Counts the changes after which what the chat can run changed: the network
+  // controls of the chat (its egress view) are read again.
+  const [commandsRev, setCommandsRev] = useState(0)
   const [error, setError] = useState('')
   const [skillsError, setSkillsError] = useState('')
   const [skillsBusy, setSkillsBusy] = useState(0)
@@ -116,9 +119,15 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
     if (ids.length === 0) return
     putAddons(next)
     setError('')
+    // A draft has no status to read and keeps the state the list gave it: a
+    // reset here would never be refilled, and the notice would stay unknown.
+    if (draftOn) {
+      ids.forEach((id) => choose('addons', id, !on))
+      setSkillsRev((n) => n + 1)
+      return
+    }
     const epoch = ++commandEpoch.current
     setCommands(noCommands)
-    if (draftOn) { ids.forEach((id) => choose('addons', id, !on)); return }
     try {
       const res = await chatAddonsApi.setOff(chatId, next.filter((a) => a.off).map((a) => a.id).sort())
       if (epoch !== commandEpoch.current) return
@@ -127,6 +136,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
         setCommands(commandsOf(res))
       }
       setSkillsRev((n) => n + 1)
+      setCommandsRev((n) => n + 1)
       // An add-on switched off or on changes who serves the tools it
       // replaces, and the notes about them.
       chatToolsApi.list(chatId)
@@ -183,6 +193,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
       const status = await chatAddonsApi.list(chatId)
       if (epoch !== commandEpoch.current) return
       setCommands(commandsOf(status))
+      setCommandsRev((n) => n + 1)
       putBuiltins(res.builtins || [])
       putMcp(mcpOf(res))
       setFallbacks(res.fallbacks || [])
@@ -242,7 +253,7 @@ export function useChatSwitches(chatId, filesOn, draft = null, actorSession = ''
   const resetDraft = useCallback(() => { choicesRef.current = emptyChoices() }, [])
 
   return {
-    draftSwitches, resetDraft, draft: draftOn,
+    draftSwitches, resetDraft, draft: draftOn, commandsRev,
     addons, builtins, fallbacks, commands: commands.context === context ? commands : noCommands, servers: mcp.servers, connectors: mcp.connectors, skills, replacedSkills: replaced, error, skillsError, skillsBusy: skillsBusy > 0,
     counts: toolsCounts({ builtins, addons, servers: mcp.servers, connectors: mcp.connectors }),
     toggleAddon, toggleBuiltin, toggleMCP, toggleSkill, setSkillsOn, setAddonsOn, setBuiltinsOn, setMCPOn,

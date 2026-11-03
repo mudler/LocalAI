@@ -76,6 +76,27 @@ var _ = Describe("document command eligibility", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(skills.Names(skills.Usable(list))).To(ContainElement("docx"))
 	})
+	It("offers the selected provider's document skills in a draft, and still gates a real chat on its status", func() {
+		ctx := context.Background()
+		b := &documentBroker{skillBroker: &skillBroker{}, isolation: "", defs: []AddonTool{{AddonID: "runbox", Name: "addon__runbox__exec", Shadows: "bash",
+			Execution: &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Runbox"}}}}
+		svc, f := newSkillService(b.skillBroker)
+		svc.d.AddonTools = b
+		Expect(f.SyncAddonSkills(ctx, "runbox", fstest.MapFS{"docx/SKILL.md": {Data: md("docx", "Runbox document.")}})).To(Succeed())
+		b.set(AddonSkillSet{AddonID: "runbox", Skills: []string{"docx"}, Shadows: []string{"docx"}, Isolated: []string{"docx"}, Running: true})
+		draft := documentCommands(svc, ctx, "alice", session.ChatRecord{}, nil)
+		Expect(draft.Draft).To(BeTrue())
+		list, _, err := svc.Skills(ctx, "alice", "")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(skills.Names(skills.Usable(list))).To(ContainElement("docx"), "a draft has no status to read, so it must not hide the skill")
+		rec, err := svc.Create(ctx, "alice", CreateInput{Model: "m"})
+		Expect(err).NotTo(HaveOccurred())
+		command := documentCommands(svc, ctx, "alice", rec, nil)
+		Expect(command.Draft).To(BeFalse())
+		list, _, err = chatSkillNotes(svc, ctx, nil, command)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(skills.Names(skills.Usable(list))).NotTo(ContainElement("docx"), "a real chat with unknown isolation stays closed")
+	})
 	It("does not switch a missing pinned document provider to Office", func() {
 		a := addonSkills{pins: map[string]string{"docx": "sandbox"}, usable: []AddonSkillSet{{AddonID: "office", Shadows: []string{"docx"}}}}
 		id, chosen := a.provider("docx")

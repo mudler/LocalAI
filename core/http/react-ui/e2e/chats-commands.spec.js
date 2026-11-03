@@ -113,6 +113,25 @@ test.describe('Chat that cannot run commands', () => {
     await expect(page.getByTestId('chat-commands-chip')).toHaveCount(0)
   })
 
+  test('switching the Sandbox on reads the network controls of the chat again', async ({ page }) => {
+    let egressReads = 0
+    await stubChat(page, (off) => {
+      const isOff = off === null ? true : off.includes('sandbox')
+      return { addons: [{ id: 'sandbox', tools: 7, off: isOff }], commands: isOff ? 'off' : 'available', commands_provider: 'sandbox', commands_isolation: isOff ? '' : 'isolated',
+        execution_status: isOff ? undefined : { readiness: 'available', isolation: 'isolated' } }
+    })
+    await page.route('**/api/chats/c1/egress', route => {
+      egressReads++
+      const on = egressReads > 1
+      return route.fulfill({ json: { preset: 'off', ceiling: 'all', effective: 'off', applies: on, applies_reason: on ? '' : 'none', addon: on ? 'sandbox' : '', registries: [], rules: [], cards: [] } })
+    })
+    await page.goto('/app/chats/c1')
+    await expect.poll(() => egressReads).toBe(1)
+    await page.getByTestId('chat-tools-button').click()
+    await page.getByRole('switch', { name: 'sandbox' }).check()
+    await expect.poll(() => egressReads).toBeGreaterThan(1)
+  })
+
   test('an unavailable selected provider gives its typed reason without an install link', async ({ page }) => {
     await stubChat(page, () => ({ addons: [{ id: 'sandbox', tools: 1, off: false }], commands: 'unavailable', commands_provider: 'sandbox', execution_status: { readiness: 'unavailable', explanation: 'no sandbox backend works on this host, so commands cannot run' }, commands_reason: 'no sandbox backend works on this host, so commands cannot run' }))
     await page.goto('/app/chats/c1')

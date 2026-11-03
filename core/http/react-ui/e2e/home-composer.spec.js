@@ -112,6 +112,28 @@ test.describe('Home composer', () => {
     expect(seen.created[0].switches).toEqual({ addons_off: ['office'], skills_off: ['builtin:pdf'] })
   })
 
+  test('toggling the Sandbox add-on in a draft keeps the commands notice away and reads the skills again', async ({ page }) => {
+    const seen = await server(page)
+    const skillReads = []
+    await page.route(/\/api\/chats\/draft\/addons(\?.*)?$/, route => route.fulfill({ json: {
+      addons: [{ id: 'sandbox', tools: 7, off: false }], commands: 'available', commands_provider: 'sandbox',
+      execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' },
+    } }))
+    await page.route(/\/api\/chats\/skills(\?.*)?$/, route => { skillReads.push(route.request().url()); return route.fulfill({ json: { skills: [
+      { id: 'addon:docx', name: 'docx', description: 'Word files', layer: 'addon', enabled: true },
+    ] } }) })
+    await ready(page)
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+    const reads = skillReads.length
+    await page.getByRole('switch', { name: 'sandbox' }).uncheck()
+    await page.getByRole('switch', { name: 'sandbox' }).check()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+    await expect(page.getByTestId('chat-commands-chip')).toHaveCount(0)
+    await expect.poll(() => skillReads.length).toBeGreaterThan(reads)
+    expect(seen.created).toHaveLength(0)
+  })
+
   test('the draft lists the groups of built-in tools, and one switched off goes with the new chat', async ({ page }) => {
     const seen = await server(page)
     await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {
