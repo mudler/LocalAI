@@ -159,6 +159,23 @@ func failFor(c echo.Context, err error) error {
 	})
 }
 
+// originFilter turns the origin parameter of the chat list into a test on a
+// chat. person keeps the chats a person started (no origin), automated keeps
+// every other chat, and any other word keeps the chats of that origin kind. An
+// empty value is no filter (nil), so a client that does not send it gets all.
+func originFilter(origin string) func(session.ChatRecord) bool {
+	switch origin {
+	case "":
+		return nil
+	case "person":
+		return func(r session.ChatRecord) bool { return r.Origin == "" }
+	case "automated":
+		return func(r session.ChatRecord) bool { return r.Origin != "" }
+	default:
+		return func(r session.ChatRecord) bool { return r.Origin == origin }
+	}
+}
+
 func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConversation {
 	return schema.ChatsConversation{
 		ID: rec.ID, Title: rec.Title, Model: rec.Model, Kind: rec.Kind, ParentID: rec.ParentID,
@@ -247,6 +264,7 @@ func (h *Handlers) Create(c echo.Context) error {
 // @Tags chats
 // @Param limit query int false "most conversations to return (default 50, at most 200)"
 // @Param kind query string false "with chat, sub-agent runs are left out and the limit counts chats"
+// @Param origin query string false "only chats of one origin, with sub-agent runs left out and the limit counting the chats kept: person (a person started it), automated (anything else) or one origin kind (trigger, connector, job, page). Without it, all chats"
 // @Success 200 {object} schema.ChatsConversationList "Conversations, including sub-agent runs unless kind=chat"
 // @Router /api/chats [get]
 func (h *Handlers) List(c echo.Context) error {
@@ -255,6 +273,12 @@ func (h *Handlers) List(c echo.Context) error {
 	list := h.svc.List
 	if c.QueryParam("kind") == "chat" {
 		list = h.svc.ListChats
+	}
+	// An origin filter reads chats only: a sub-agent run has no origin of its own.
+	if keep := originFilter(c.QueryParam("origin")); keep != nil {
+		list = func(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+			return h.svc.ListChatsWhere(ctx, user, limit, keep)
+		}
 	}
 	recs, err := list(c.Request().Context(), user, limit)
 	if err != nil {
