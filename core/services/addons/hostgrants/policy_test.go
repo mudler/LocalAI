@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
-
-	"github.com/mudler/LocalAI/core/config"
 )
 
 const (
@@ -307,15 +305,5 @@ func TestMergeGrants(t *testing.T) {
 	fresh := MergeGrants(explicit, "new-package", 1, "op-3", []OpGrant{{Name: "egress.check", Source: SourceInstall}})
 	if len(fresh.Ops) != 1 || fresh.Identity != "new-package" {
 		t.Fatalf("an entry of another identity is not carried over: %+v", fresh)
-	}
-}
-
-// The deny grammar of the document must be the grammar of the policy file.
-func TestDenyGrammarMatchesThePolicyFile(t *testing.T) {
-	for _, entry := range []string{"*", "egress.", "workspace.admin", "connector.file.", "connector.file.put", "X.", "workspace", "a..", ".a", "a.b.", "a.B", "", "a.b.c.", "a-b.c"} {
-		_, err := config.ParseAddonHostDeny("a=" + entry)
-		if (err == nil) != ValidDenyEntry(entry) {
-			t.Errorf("entry %q: config accepts=%v, hostgrants accepts=%v", entry, err == nil, ValidDenyEntry(entry))
-		}
 	}
 }

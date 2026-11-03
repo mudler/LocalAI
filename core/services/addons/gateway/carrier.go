@@ -147,6 +147,9 @@ type wireRequest struct {
 	// Library marks a library call: a change of the library sources, or the
 	// owner's half of a backend install. Such a call is never a typed dispatch.
 	Library *LibraryCall `json:"library,omitempty"`
+	// HostGrants marks a host access call (grants, deny rules, blanket
+	// approval). Such a call is never a typed dispatch.
+	HostGrants *HostGrantsCall `json:"hostGrants,omitempty"`
 }
 
 // exclusive reports whether exactly one routing payload is set. Each branch of
@@ -155,7 +158,7 @@ type wireRequest struct {
 // claims.
 func (w wireRequest) exclusive() bool {
 	set := 0
-	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil} {
+	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil, w.HostGrants != nil} {
 		if present {
 			set++
 		}
@@ -326,6 +329,22 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			}
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(out)
+			return
+		}
+		if wire.HostGrants != nil {
+			call := *wire.HostGrants
+			// The owner classifies by the call, not by the action the peer wrote.
+			if !wire.exclusive() || !call.valid() || wire.Request.Action != call.wireAction() {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			// The human mark is the signed field of this request, honored for
+			// a host access call only.
+			hctx := r.Context()
+			if m.HumanSurface {
+				hctx = WithHumanSurface(hctx)
+			}
+			g.hostGrantsLocalReply(hctx, w, actor, call)
 			return
 		}
 		if wire.Library != nil {
@@ -757,6 +776,8 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	if b, ok := hostops.BindingOf(ctx); ok {
 		m.Chat = &b
 	}
+	// Only a host access call carries the mark, whatever the context holds.
+	m.HumanSurface = wire.HostGrants != nil && HumanSurfaceOf(ctx)
 	m.Sign(c.config.SigningKey)
 	b, _ := json.Marshal(m)
 	req, e := http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))
@@ -871,7 +892,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action] && !hostGrantsRead[action]
 }
 
 // Act forwards an action call to the owner and waits for its answer, up to the

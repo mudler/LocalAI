@@ -68,6 +68,10 @@ type Gateway struct {
 	// Libraries is the owner's library administration. Frontends leave it nil
 	// and forward through Forward.
 	Libraries LibraryAdmin
+	// HostGrantsOwner serves the host access routes (grants, deny rules and
+	// the blanket approval). Only the owner holds it: a frontend leaves it
+	// nil and forwards, and never answers from its own flags or files.
+	HostGrantsOwner *HostGrantsOwner
 	// ModelsProbe returns the probe the owner wrote into its models path, or
 	// false when it has none. Frontends leave it nil.
 	ModelsProbe func() (modelsprobe.Probe, bool)
