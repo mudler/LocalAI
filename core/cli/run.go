@@ -50,6 +50,7 @@ type RunCMD struct {
 	AddonsOwnerAddress        string `name:"addons-owner-address" env:"LOCALAI_ADDONS_OWNER_ADDRESS" help:"Address of the add-on owner carrier, as https://host:port with no path. Use a stable service name, never a pod address. Required for the owner and frontend roles" group:"addons"`
 	AddonsOwnerListen         string `name:"addons-owner-listen" env:"LOCALAI_ADDONS_OWNER_LISTEN" help:"Owner role only: the address the carrier listens on. Empty listens on all interfaces, on the port of --addons-owner-address" group:"addons"`
 	AddonsCarrierDir          string `name:"addons-carrier-dir" env:"LOCALAI_ADDONS_CARRIER_DIR" type:"path" help:"Directory with the carrier key set made by 'local-ai util addons-carrier-keys'. Required for the owner and frontend roles" group:"addons"`
+	LogClient                 bool   `name:"log-client" env:"LOCALAI_LOG_CLIENT" default:"false" help:"Add the duration, client address, user agent and request id to the HTTP access log. Off by default. The address is the TCP peer, never read from X-Forwarded-For. Turn it on with --log-client" group:"logging"`
 	AutoUpgradeAddons         bool   `name:"auto-upgrade-addons" env:"LOCALAI_AUTO_UPGRADE_ADDONS" default:"false" help:"Upgrade installed add-ons on their own when a newer version appears in their library. Off by default; upgrades then stay manual" group:"addons"`
 	AddonsOfficialLibrary     bool   `name:"addons-official-library" env:"LOCALAI_ADDONS_OFFICIAL_LIBRARY" default:"true" help:"Register the official add-on library on the first start, when the add-on owner has no sources.json yet. A library the admin removes later stays removed. Turn it off with --addons-official-library=false" group:"addons"`
 	AddonsBackendLibrary      bool   `name:"addons-backend-library" env:"LOCALAI_ADDONS_BACKEND_LIBRARY" default:"true" help:"Register the backend library on the first start, when the add-on owner has no sources.json yet. A build from master reads it as the backend source; a tagged build reads the backend gallery until the release cutover. Turn it off to read the backend gallery only" group:"addons"`
@@ -394,6 +395,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) (result error) {
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithSystemState(systemState),
 		config.WithContextSize(r.ContextSize),
+		config.WithLogClient(r.LogClient),
 		config.WithDebug(ctx.Debug || (ctx.LogLevel != nil && *ctx.LogLevel == "debug")),
 		config.WithGeneratedContentDir(r.GeneratedContentPath),
 		config.WithUploadDir(r.UploadPath),

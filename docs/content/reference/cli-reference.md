@@ -20,6 +20,7 @@ model, see [Model Configuration]({{% relref "advanced/model-configuration" %}}).
 |-----------|---------|-------------|----------------------|
 | `-h, --help` | | Show context-sensitive help | |
 | `--log-level` | `info` | Set the level of logs to output [error,warn,info,debug,trace] | `$LOCALAI_LOG_LEVEL` |
+| `--log-client` | `false` | `local-ai run` only. Add `duration`, `remote` (the TCP peer address), `user_agent` (control characters replaced, cut to 80 characters), and `request_id` (when the request has one) to the `HTTP request` log line, so you can tell who sent a request that was refused. The address never comes from `X-Forwarded-For` or `X-Real-Ip`, so behind a reverse proxy it is the proxy address. Authorization headers, cookies, query strings and bodies are never logged. | `$LOCALAI_LOG_CLIENT` |
 | `--credentials-file` | | YAML file with credentials for private registries, galleries and download hosts. See [Private Registries and Galleries]({{% relref "advanced/private-sources" %}}) | `$LOCALAI_CREDENTIALS_FILE` |
 | `--debug` | `false` | **DEPRECATED** - Use `--log-level=debug` instead. Enable debug logging | `$LOCALAI_DEBUG`, `$DEBUG` |
 

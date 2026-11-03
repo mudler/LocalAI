@@ -338,45 +338,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Custom logger middleware using xlog
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			req := c.Request()
-			res := c.Response()
-			err := next(c)
-
-			// Echo's central HTTPErrorHandler runs *after* this middleware
-			// returns, so res.Status still reads the default 200 here when a
-			// handler returned an error without writing a response. Mirror
-			// echo.DefaultHTTPErrorHandler's status derivation so the access
-			// log reflects the status the client actually receives — without
-			// this, every silent handler error logs as 200.
-			status := res.Status
-			if err != nil && !res.Committed {
-				status = http.StatusInternalServerError
-				var he *echo.HTTPError
-				if errors.As(err, &he) {
-					status = he.Code
-				}
-			}
-
-			// Fix for #7989: Reduce log verbosity of Web UI polling, resources API, and health checks
-			// These paths are logged at DEBUG level (hidden by default) instead of INFO.
-			isQuietPath := false
-			for _, path := range quietPaths {
-				if req.URL.Path == path {
-					isQuietPath = true
-					break
-				}
-			}
-
-			if isQuietPath && status == 200 {
-				xlog.Debug("HTTP request", "method", req.Method, "path", req.URL.Path, "status", status)
-			} else {
-				xlog.Info("HTTP request", "method", req.Method, "path", req.URL.Path, "status", status)
-			}
-			return err
-		}
-	})
+	e.Use(accessLog(application.ApplicationConfig().LogClient))
 
 	// Recover middleware
 	if !application.ApplicationConfig().Debug {

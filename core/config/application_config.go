@@ -142,6 +142,7 @@ type ApplicationConfig struct {
 
 	F16                          bool
 	Debug                        bool
+	LogClient                    bool
 	EnableTracing                bool
 	MaxConcurrentBackendRequests int
 	TracingMaxItems              int
@@ -1068,6 +1069,13 @@ func WithF16(f16 bool) AppOption {
 func WithDebug(debug bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.Debug = debug
+	}
+}
+
+// WithLogClient adds the peer address and user agent to the HTTP access log.
+func WithLogClient(on bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LogClient = on
 	}
 }
 
