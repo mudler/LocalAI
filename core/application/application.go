@@ -118,6 +118,8 @@ type Application struct {
 	hostAuthority      hostops.Authority
 	addonAuthorityOnce sync.Once
 	addonGrantStore    addons.GrantStore
+	// addonGrants is the owner's host grants document and its glue; nil elsewhere.
+	addonGrants *addonHostGrants
 	// addonTransfers holds the handles of connector file transfers; see transfers.
 	addonTransfers     *hostops.Transfers
 	addonTransfersOnce sync.Once
@@ -735,6 +737,7 @@ func (a *Application) Shutdown() error {
 		if a.addonManager != nil {
 			err = a.addonManager.Close()
 		}
+		a.closeAddonHostGrants()
 		// Before distributed shutdown: the sync's subscriptions live on the
 		// NATS connection that closes there.
 		a.stopFailoverDistributed()
@@ -1005,12 +1008,17 @@ func (a *Application) startAddons() error {
 				a.addonHostSettingsClose()
 			}
 			_ = m.Close()
+			a.closeAddonHostGrants()
 		}
 	}()
 	if c.InstanceID == c.OwnerID && c.Transport != nil {
 		if err = a.openAddonHostSettings(); err != nil {
 			return err
 		}
+	}
+	if c.InstanceID == c.OwnerID && c.Root != "" {
+		a.openAddonHostGrants(c.Root)
+		a.addonGrants.bind(m)
 	}
 	m.SetHostOps(a.applicationConfig.AddonHostOps)
 	m.SetAuthority(a.addonAuthority())

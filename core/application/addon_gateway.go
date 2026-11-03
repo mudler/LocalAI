@@ -67,11 +67,7 @@ func (a *Application) AddonHostOps() *addonruntime.HostOps { return a.addonHostO
 func (a *Application) addonAuthority() hostops.Authority {
 	a.addonAuthorityOnce.Do(func() {
 		if a.hostAuthority == nil {
-			var floor map[string][]string
-			if a.applicationConfig != nil {
-				floor = a.applicationConfig.AddonHostOps
-			}
-			a.hostAuthority = hostops.NewStaticAuthority(floor)
+			a.hostAuthority = a.buildAddonAuthority()
 		}
 	})
 	return a.hostAuthority
@@ -378,6 +374,9 @@ func (a *Application) startAddonGateway() error {
 		return auth.ValidateAddonActor(ctx, a.authDB, actor, true)
 	}
 	if e := a.wireExecutionBinding(g); e != nil {
+		return e
+	}
+	if e := a.wireHostGrantsOwner(g); e != nil {
 		return e
 	}
 	// Only the owner holds the policy store. Other frontends reach it through the
