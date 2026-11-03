@@ -3,6 +3,7 @@ package studio
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -103,7 +104,7 @@ var _ = Describe("context files in the prompt of a chat", func() {
 	read := func(tt session.TurnTools, args string) (string, error) {
 		GinkgoHelper()
 		mr := tool(tt, contextfiles.ToolName)
-		Expect(mr).NotTo(BeNil(), "the chat has memory_read")
+		Expect(mr).NotTo(BeNil(), "the chat has context_read")
 		return mr.Run(ctx, json.RawMessage(args))
 	}
 
@@ -119,7 +120,8 @@ var _ = Describe("context files in the prompt of a chat", func() {
 		st, _ := store.NewJSON("")
 		ag, _ := agents.NewJSON("")
 		br = &ctxBroker{}
-		svc, err = New(Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, Agents: ag, AddonTools: br})
+		svc, err = New(Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, Agents: ag, AddonTools: br,
+			ProposalGate: proposals.GateFunc(func(context.Context, proposals.Request) error { return nil })})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			_ = svc.Close(context.Background())
@@ -188,7 +190,7 @@ var _ = Describe("context files in the prompt of a chat", func() {
 			Expect(out.Groups).To(BeEmpty())
 		})
 
-		It("loads the user index under the header and offers memory_read", func() {
+		It("loads the user index under the header and offers context_read", func() {
 			put("Memory/index.md", "- home: lives in Rome -> home.md\n")
 			put("Memory/home.md", "Rome, since 2020.")
 			tt, _ := turn(CreateInput{Model: "m"}, Origin{})
@@ -341,7 +343,7 @@ var _ = Describe("context files in the prompt of a chat", func() {
 			put("Memory/home.md", "user detail")
 		})
 
-		It("loads the index and serves memory_read while the add-on runs", func() {
+		It("loads the index and serves context_read while the add-on runs", func() {
 			br.set(memory(true))
 			tt, _ := turn(CreateInput{Model: "m"}, Origin{})
 			Expect(tt.Prompt).To(ContainSubstring(contextfiles.Header))
@@ -403,6 +405,34 @@ var _ = Describe("context files in the prompt of a chat", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(list.Groups).To(HaveLen(1))
 			Expect(list.Groups[0].Source).To(Equal("memory"))
+		})
+
+		It("reads back what propose_change writes, with the files the Memory add-on ships", func() {
+			raw, err := os.ReadFile("../../../addons/memory/manifest.json")
+			Expect(err).NotTo(HaveOccurred())
+			m, err := contract.ParseManifest(raw)
+			Expect(err).NotTo(HaveOccurred())
+			br.set(AddonContextSet{AddonID: m.ID, Running: true, Files: m.Capabilities.ContextFiles})
+			ag, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Bot", Model: "m", Addons: []string{m.ID}}, nil)
+			Expect(err).NotTo(HaveOccurred())
+			rec, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m", AgentID: ag.ID}, Origin{Kind: session.OriginConnector, ID: "b-tg"})
+			Expect(err).NotTo(HaveOccurred())
+			src := contract.ChangeSource{Kind: session.OriginConnector, ID: "b-tg", Chat: rec.ID}
+			for scope, note := range map[string]string{"user": "USERNOTE", "agent": "AGENTNOTE", "channel": "CHANNELNOTE"} {
+				// The first index is the one the Memory page may already hold.
+				p, err := svc.Changes().Propose(ctx, ProposeInput{User: "alice", Agent: ag.ID, Source: src, Kind: "memory", Scope: scope,
+					Target: "index.md", Content: "- fact: " + note + "\n", Summary: "remember " + scope})
+				Expect(err).NotTo(HaveOccurred(), scope)
+				_, err = svc.Changes().Confirm(ctx, "alice", p.ID)
+				Expect(err).NotTo(HaveOccurred(), scope)
+			}
+			x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			tt, err := svc.chatTools(ctx, x)
+			Expect(err).NotTo(HaveOccurred())
+			for _, note := range []string{"USERNOTE", "AGENTNOTE", "CHANNELNOTE"} {
+				Expect(tt.Prompt).To(ContainSubstring(note))
+			}
 		})
 
 		It("refuses a declaration the loader would refuse", func() {

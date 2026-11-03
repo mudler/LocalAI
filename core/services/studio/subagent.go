@@ -135,7 +135,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	// The agent's profile and the index of the user's notes follow the persona.
 	// The first is the user's standing rules for this agent; the second points
-	// the model at memory_read.
+	// the model at context_read.
 	var notes, notesKey string
 	if !sub {
 		extra := s.addonContextSources(ctx, a.Principal, rec.AddonsOff, sc)

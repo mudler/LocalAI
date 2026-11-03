@@ -86,7 +86,7 @@ func saveToolOf(tools []session.Tool) string {
 	return ""
 }
 
-// contextTools is memory_read, while a source applies to the chat.
+// contextTools is context_read, while a source applies to the chat.
 func (s *Service) contextTools(rec session.ChatRecord, tools []session.Tool, extra []contextfiles.Source) []session.Tool {
 	if !s.d.Files.Available() || len(s.ctxfiles.Sources(extra...)) == 0 {
 		return nil

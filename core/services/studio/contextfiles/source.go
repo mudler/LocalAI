@@ -20,7 +20,7 @@ const (
 	MaxTotalBytes = 6 << 10
 	// MaxProfileBytes is the most bytes of an agent profile.
 	MaxProfileBytes = 4 << 10
-	// MaxDetailBytes is the most bytes one memory_read call returns.
+	// MaxDetailBytes is the most bytes one context_read call returns.
 	MaxDetailBytes = 8 << 10
 	// MaxSources is the most sources a registry holds.
 	MaxSources = 8

@@ -6,7 +6,7 @@
 // index file and a byte cap. Each turn the Loader reads the index of every
 // source that applies to the chat and returns one block, under a fixed header
 // that tells the model to consult the notes. The details of a topic stay in
-// files next to the index and are read with the memory_read tool. Nothing in
+// files next to the index and are read with the context_read tool. Nothing in
 // this package knows which application started the chat: a plain Studio chat,
 // a chat that came from a messaging app and a chat of a saved agent all use
 // the same code.

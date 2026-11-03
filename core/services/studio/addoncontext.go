@@ -11,7 +11,7 @@ import (
 
 // Add-on context files. An add-on can declare small index files of the user's
 // home (capabilities.contextFiles in its manifest). The host loads them into
-// the prompt of a chat and serves their topics with memory_read, with the same
+// the prompt of a chat and serves their topics with context_read, with the same
 // loader as any other source. The add-on is not called: it only names paths,
 // and the host reads them as the user.
 //
