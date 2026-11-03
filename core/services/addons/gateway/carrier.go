@@ -153,6 +153,9 @@ type wireRequest struct {
 	// HostGrants marks a host access call (grants, deny rules, blanket
 	// approval). Such a call is never a typed dispatch.
 	HostGrants *HostGrantsCall `json:"hostGrants,omitempty"`
+	// OAuth marks an OAuth login or client call. Such a call is never a
+	// typed dispatch.
+	OAuth *OAuthCall `json:"oauth,omitempty"`
 }
 
 // exclusive reports whether exactly one routing payload is set. Each branch of
@@ -161,7 +164,7 @@ type wireRequest struct {
 // claims.
 func (w wireRequest) exclusive() bool {
 	set := 0
-	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil, w.HostGrants != nil} {
+	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil, w.HostGrants != nil, w.OAuth != nil} {
 		if present {
 			set++
 		}
@@ -348,6 +351,16 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				hctx = WithHumanSurface(hctx)
 			}
 			g.hostGrantsLocalReply(hctx, w, actor, call)
+			return
+		}
+		if wire.OAuth != nil {
+			call := *wire.OAuth
+			// The owner classifies by the call, not by the action the peer wrote.
+			if !wire.exclusive() || !call.valid() || wire.Request.Action != call.wireAction() {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			g.oauthLocalReply(r.Context(), w, actor, call)
 			return
 		}
 		if wire.Library != nil {
@@ -968,7 +981,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action] && !hostGrantsRead[action]
+	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action] && !hostGrantsRead[action] && !oauthRead[action]
 }
 
 // Act forwards an action call to the owner and waits for its answer, up to the

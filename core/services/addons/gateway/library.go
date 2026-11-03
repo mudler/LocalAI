@@ -200,6 +200,9 @@ func (g *Gateway) capabilities() Capabilities {
 	if g.HostGrantsOwner != nil {
 		c.Calls = append(c.Calls, CallHostGrants)
 	}
+	if g.OAuthOwner != nil {
+		c.Calls = append(c.Calls, CallOAuth)
+	}
 	return c
 }
 
