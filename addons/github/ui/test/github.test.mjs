@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { checkLine, extraBody, extraForm, extraValid, githubSecret, parseRepos, reposProblem, tokenProblem, WRITE_MODES, writeModeOf } from '../src/repos.js'
+import { checkFailure, checkItem, checkLine, defaultName, extraBody, extraForm, extraValid, followName, githubSecret, parseRepos, PERMISSIONS, reposIssue, reposProblem, tokenProblem, WRITE_MODES, writeModeOf } from '../src/repos.js'
 import { canSave, connectorPayload, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
 import en from '../src/i18n/github.en.json' with { type: 'json' }
 
@@ -13,14 +13,30 @@ test('github: only a fine-grained token is taken, and nothing typed keeps the sa
   assert.equal(githubSecret({ token: 'ghp_classic' }), '')
 })
 
-test('github: the repository list is read from lines, commas and spaces without repeats', () => {
-  assert.deepEqual(parseRepos('acme/widgets\n Acme/Tools, acme/widgets  x/y'), ['acme/widgets', 'Acme/Tools', 'x/y'])
+test('github: the repository list is read from lines and commas, never from spaces, without repeats', () => {
+  assert.deepEqual(parseRepos('acme/widgets\n Acme/Tools, acme/widgets\r\nx/y'), ['acme/widgets', 'Acme/Tools', 'x/y'])
+  assert.deepEqual(parseRepos('not a repo'), ['not a repo'], 'a space does not split an entry')
   assert.deepEqual(parseRepos(''), [])
   assert.equal(reposProblem('acme/widgets\nx/y'), '')
   assert.equal(reposProblem('widgets'), 'reposShape')
   assert.equal(reposProblem('a/b/c'), 'reposShape')
   assert.equal(reposProblem('a/../b'), 'reposShape')
+  assert.equal(reposProblem('acme/widgets  x/y'), 'reposShape')
   assert.equal(reposProblem(Array.from({ length: 51 }, (_, i) => `o/r${i}`).join('\n')), 'reposMany')
+})
+
+test('github: the error names the line that is wrong', () => {
+  assert.deepEqual(reposIssue('a/b\nnot a repo\nc/d'), { key: 'reposShape', entry: 'not a repo' })
+  assert.equal(reposIssue('a/b'), null)
+  assert.ok(reposIssue('x'.repeat(200)).entry.length <= 60)
+})
+
+test('github: the name follows the first repository until the person types one', () => {
+  assert.equal(defaultName('acme/widgets\nx/y'), 'GitHub: acme/widgets')
+  assert.equal(defaultName('nope'), '')
+  assert.equal(followName('', '', 'acme/widgets'), 'GitHub: acme/widgets')
+  assert.equal(followName('GitHub: acme/widgets', 'acme/widgets', 'acme/tools\nacme/widgets'), 'GitHub: acme/tools')
+  assert.equal(followName('Docs', 'acme/widgets', 'acme/tools'), 'Docs', 'a typed name stays')
 })
 
 test('github: the list rides in the request, a binding is never switched on, and a saved one reads back', () => {
@@ -38,15 +54,32 @@ test('github: the list rides in the request, a binding is never switched on, and
   assert.equal(extraValid({ repos_text: 'nope' }), false)
 })
 
-test('github: the Test lines say reachable, read only, or not reachable', () => {
-  const t = (key, o = {}) => en.check[key.replace('check.', '')].replace(/\{\{(\w+)\}\}/g, (_, k) => o[k])
-  assert.match(checkLine({ repo: 'a/b', reachable: false }, t), /not reachable/)
+test('github: the Test says reachable, read only, not reachable, refused or unfinished, each with a tone', () => {
+  const t = (key, o = {}) => key.split('.').reduce((n, k) => n[k], en).replace(/\{\{(\w+)\}\}/g, (_, k) => o[k])
+  assert.match(checkLine({ repo: 'a/b', reachable: false }, t), /cannot reach/)
   assert.match(checkLine({ repo: 'a/b', reachable: true, fullName: 'a/b', canWrite: false }, t), /read only/)
   assert.match(checkLine({ repo: 'a/b', reachable: true, fullName: 'a/b', canWrite: true }, t), /can write/)
+  assert.match(checkLine({ repo: 'a/b', failed: 'refused' }, t), /refused this token.*expired/)
+  assert.equal(checkItem({ repo: 'a/b', reachable: true }).tone, 'ok')
+  assert.equal(checkItem({ repo: 'a/b', reachable: false }).tone, 'warn')
+  assert.equal(checkItem({ repo: 'a/b', failed: 'other' }).tone, 'warn')
+  assert.equal(checkFailure({ status: 401 }), 'refused')
+  assert.equal(checkFailure(new Error('Bad credentials')), 'refused')
+  assert.equal(checkFailure(new Error('timeout')), 'other')
+})
+
+test('github: the permission table covers the permissions the steps name', () => {
+  assert.deepEqual(PERMISSIONS.map((p) => p.id), ['contents', 'issues', 'pulls', 'metadata'])
+  for (const p of PERMISSIONS) {
+    assert.ok(en.setup.table[p.id], p.id)
+    assert.ok(en.setup.table.levels[p.read] && en.setup.table.levels[p.write], p.id)
+  }
+  assert.equal(PERMISSIONS.find((p) => p.id === 'issues').write, 'readwrite')
+  assert.equal(PERMISSIONS.find((p) => p.id === 'contents').write, 'read', 'writing never needs to push code')
 })
 
 test('github: every word the page asks for exists', () => {
-  for (const key of ['title', 'intro', 'new', 'token', 'tokenHelp', 'tokenShape', 'tokenSpace', 'repos', 'reposHelp', 'reposShape', 'reposMany', 'writeMode', 'test', 'testOk', 'save', 'cancel', 'empty', 'noRepos', 'reposOf', 'agentOf', 'confirmDelete', 'setup']) {
+  for (const key of ['title', 'intro', 'new', 'token', 'tokenHelp', 'tokenShape', 'tokenSpace', 'repos', 'reposHelp', 'reposShape', 'reposMany', 'writeMode', 'test', 'testOk', 'save', 'cancel', 'empty', 'noRepos', 'reposOf', 'agentOf', 'confirmDelete', 'setup', 'limits', 'approval', 'check']) {
     assert.ok(en[key], key)
   }
 })
@@ -79,4 +112,14 @@ test('github: a connection can be saved without an agent, and the page has words
   assert.equal(canSave(form, false, true, null, true), true, 'agentOptional lets the connection hold credentials only')
   assert.equal(connectorPayload(form, 'github', 'github_pat_x', { enabled: false }).agent_id, '')
   for (const key of ['agentCredentialsOnly', 'agentOptionalHint', 'credentialsOnly']) assert.ok(en[key], key)
+})
+
+test('github: the page says what it does not do and links the token page', () => {
+  assert.match(en.limits, /does not answer @mentions/)
+  assert.match(en.setup.linkLabel, /new tab/)
+})
+
+test('github: every write mode has a title and a consequence line', () => {
+  for (const m of WRITE_MODES) assert.ok(en.writeMode.line[m], m)
+  assert.notEqual(en.writeMode.auto, 'Allowed')
 })
