@@ -383,7 +383,11 @@
           "an unknown delivery",
           "a page the UI does not declare",
           "a preview interval too short",
-          "a preview interval too long"
+          "a preview interval too long",
+          "names every kind and status once",
+          "tells a settled status from a pending one",
+          "keeps the wire version and omits empty fields",
+          "has the limits the owner decided"
         ]
       },
       {
