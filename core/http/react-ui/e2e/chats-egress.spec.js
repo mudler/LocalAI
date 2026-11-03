@@ -3,7 +3,7 @@ import { mockChat } from './chat-fixtures.js'
 import { mockSettings } from './settings-fixtures.js'
 import { app, installedAddon, mockAddons } from './addons-fixtures.js'
 
-// The network of a chat's Sandbox commands: the Network row of the Tools menu,
+// The network of a chat's commands: the Network row of the Tools menu,
 // the card a blocked host asks with, and the network-policy host control on
 // the Settings tab of the add-on that runs commands. The control is drawn for
 // any add-on the apps list entitles to it: the specs use the Sandbox and a
@@ -32,7 +32,7 @@ const DETAIL = {
 }
 const sandbox = { addons: [{ id: 'sandbox', tools: 2, off: false }], commands: 'available', commands_provider: 'sandbox', commands_isolation: 'isolated', execution_status: { readiness: 'available', isolation: 'isolated' } }
 const view = (over = {}) => ({
-  preset: 'off', ceiling: 'registries', effective: 'off', applies: true, applies_reason: '', addon: 'sandbox',
+  preset: 'off', ceiling: 'registries', effective: 'off', applies: true, applies_reason: '', addon: 'sandbox', network: { title: 'Sandbox', presets: [] },
   registries: [{ id: 'pypi', title: 'Python (PyPI)', hosts: ['pypi.org', 'files.pythonhosted.org'] }], allowed_hosts: [], rules: [], cards: [], ...over,
 })
 
@@ -77,7 +77,7 @@ async function stubChat(page, { egress, running = false, messages = [] }) {
   return { state, push }
 }
 
-test.describe('Network of the Sandbox commands', () => {
+test.describe('Network of the commands', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
   test('the Tools menu has a Network row up to the limit, and a panel with the rules', async ({ page }) => {
@@ -241,6 +241,42 @@ test.describe('Network of the Sandbox commands', () => {
   })
 })
 
+// A second add-on, with another ID and title than the shipped Sandbox, that
+// declares capabilities.network. The host draws the same row and card from its
+// declaration: its title in the text and its titles for the presets.
+test.describe('The network of a second add-on that declares it', () => {
+  test.beforeEach(async ({ page }) => { await mockChat(page) })
+  const declared = { title: 'Runbox', presets: [{ id: 'off', title: 'Closed' }, { id: 'all', title: 'Open web' }] }
+  const card = { id: 'k9', host: 'example.com', port: 443, kind: 'connect', state: 'pending', asked_at: '2026-10-30T10:01:00Z' }
+  const runbox = (over = {}) => view({ addon: 'devbox', network: declared, ceiling: 'all', ...over })
+
+  test('the Tools menu names the preset buttons from the declaration', async ({ page }) => {
+    await stubChat(page, { egress: runbox() })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-network-off')).toHaveText('Closed')
+    await expect(page.getByTestId('chat-network-all')).toHaveText('Open web')
+    await expect(page.getByTestId('chat-network-registries')).toHaveText('Package registries')
+    await expect(page.getByTestId('chat-network')).toContainText('Commands reach no network.')
+    await expect(page.getByTestId('chat-network')).not.toContainText('Sandbox')
+  })
+
+  test('a blocked host explains the limit without naming another add-on', async ({ page }) => {
+    await stubChat(page, { egress: runbox({ ceiling: 'off', cards: [{ ...card, above_ceiling: true }] }), running: true })
+    await page.goto('/app/chats/c1')
+    const blocked = page.getByTestId('chat-network-blocked')
+    await expect(blocked).toContainText('Network access is off for commands on this server.', { timeout: 15_000 })
+    await expect(blocked).not.toContainText('Sandbox')
+  })
+
+  test('the consent card asks with the preset titles of the add-on', async ({ page }) => {
+    await stubChat(page, { egress: runbox({ preset: 'off', cards: [card] }), running: true })
+    await page.goto('/app/chats/c1')
+    await expect(page.getByTestId('chat-network-consent')).toContainText('This chat: Closed. Limit set by your administrator: Open web.', { timeout: 15_000 })
+    await expect(page.getByTestId('chat-network-consent-once')).toBeVisible()
+  })
+})
+
 test.describe('A card the administrator\'s limit cannot admit', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
   const card = { id: 'k9', host: 'example.com', port: 443, kind: 'connect', state: 'pending', asked_at: '2026-10-30T10:01:00Z' }
@@ -300,7 +336,7 @@ async function stubNetworkAdmin(page, { settings = {}, egress = {}, events = [],
     { id: 'web_search', label: 'web_search', description: 'Search the web', setting: 'chats_web_search', provider: 'builtin', candidates: [] },
   ], skills: [] } }))
   await page.route('**/api/chats/admin/egress', route => route.fulfill({
-    json: { ceiling: 'registries', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], allowed_hosts: [], audit_days: 30, registries: [], sandbox: 'sandbox', isolation: 'isolated', allowed_24h: 0, blocked_24h: 0, ...egress },
+    json: { ceiling: 'registries', default: 'off', allow_private: false, ports: [80, 443], extra_registries: [], allowed_hosts: [], audit_days: 30, registries: [], sandbox: 'sandbox', network: { title: 'Sandbox', presets: [] }, isolation: 'isolated', allowed_24h: 0, blocked_24h: 0, ...egress },
   }))
   await page.route(/\/api\/chats\/admin\/egress\/events(\?.*)?$/, route => route.fulfill({ json: { events } }))
   return state
