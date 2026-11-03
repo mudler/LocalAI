@@ -210,7 +210,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// at its end, and the model must not lose the goal.
 		goal = goalBlock(rec.Goal)
 	}
-	prompt = joinBlocks(head, goal, webBlock(tools), prompt)
+	prompt = joinBlocks(head, goal, s.connectorBlock(ctx, rec, canWrite), webBlock(tools), prompt)
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
