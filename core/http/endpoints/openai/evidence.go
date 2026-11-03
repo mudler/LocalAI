@@ -3,6 +3,7 @@ package openai
 import (
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
@@ -63,7 +64,7 @@ func newEvidenceGate(cfg *config.ModelConfig, messages []schema.Message) *eviden
 	if !check.Numbers {
 		return nil
 	}
-	return &evidenceGate{note: check.EvidenceNote(), evidence: evidenceNumbers(cfg.SystemPrompt, messages)}
+	return &evidenceGate{note: check.EvidenceNote(), evidence: evidenceNumbers(cfg.RenderedSystemPrompt(time.Now()), messages)}
 }
 
 func (g *evidenceGate) markToolExecuted() {
