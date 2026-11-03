@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -131,4 +131,28 @@ test('chat connectors: sizes are written in KiB and MiB', () => {
 
 test('chat connectors: a saved limit reads back to the same number of bytes', () => {
   for (const bytes of [1, 1000, 100 * 1024, 256 * 1024, 5 * 1024 * 1024 + 7]) assert.equal(mibToBytes(bytesToMib(bytes)), bytes)
+})
+
+test('chat connectors: the approval of chat triggers asks by default and sends its limits as numbers', () => {
+  const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
+  assert.deepEqual(connectorPayload(base, 'telegram').approval, { mode: 'ask', max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
+  const auto = connectorPayload({ ...base, approval: { mode: 'auto', max_pending: '3', min_gap_minutes: '', max_runs_per_day: ' 8 ', max_lifetime_days: '14' } }, 'telegram')
+  assert.deepEqual(auto.approval, { mode: 'auto', max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 8, max_lifetime_days: 14 })
+  assert.equal(connectorPayload({ ...base, approval: { mode: 'sometimes' } }, 'telegram').approval.mode, 'ask', 'an unknown mode falls back to ask')
+})
+
+test('chat connectors: a saved approval reads back, with a zero limit shown as empty', () => {
+  assert.deepEqual(approvalForm({ mode: 'auto_readonly', max_pending: 4, min_gap_minutes: 0 }), { mode: 'auto_readonly', max_pending: '4', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' })
+  assert.equal(connectorForm({ id: 'b' }).approval.mode, 'ask')
+})
+
+test('chat connectors: an approval limit is a whole number within its bound, or empty', () => {
+  assert.equal(approvalProblem({ mode: 'auto', max_pending: '5' }), '')
+  assert.equal(approvalProblem({ mode: 'auto', max_pending: '51' }), 'max_pending')
+  assert.equal(approvalProblem({ mode: 'auto', max_runs_per_day: '2.5' }), 'max_runs_per_day')
+  assert.equal(approvalProblem({ mode: 'auto', max_lifetime_days: '0' }), 'max_lifetime_days')
+  assert.equal(approvalProblem({ mode: 'bad' }), 'mode')
+  const ok = { ...emptyConnector(), name: 'B', agent_id: 'a', token: '1:x' }
+  assert.equal(canSave({ ...ok, approval: { mode: 'auto', max_pending: '500' } }, false), false)
+  assert.equal(canSave(ok, false), true)
 })

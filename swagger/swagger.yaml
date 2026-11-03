@@ -3026,6 +3026,12 @@ definitions:
         items:
           type: string
         type: array
+      approval:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorApproval'
+        description: |-
+          Approval is what the host does with a trigger that the agent proposes
+          from a chat of this binding.
       caps:
         description: |-
           Caps are the capabilities you enabled for this binding: the ceiling of
@@ -3847,6 +3853,12 @@ definitions:
         items:
           type: string
         type: array
+      approval:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorApproval'
+        description: |-
+          Approval is what the host does with a trigger that the agent proposes
+          from a chat of this binding.
       caps:
         description: |-
           Caps are the capabilities you enabled for this binding: the ceiling of
@@ -4015,6 +4027,19 @@ definitions:
       id:
         type: string
       label:
+        type: string
+    type: object
+  schema.ChatsConnectorApproval:
+    properties:
+      max_lifetime_days:
+        type: integer
+      max_pending:
+        type: integer
+      max_runs_per_day:
+        type: integer
+      min_gap_minutes:
+        type: integer
+      mode:
         type: string
     type: object
   schema.ChatsConnectorFileLimit:
@@ -4221,6 +4246,13 @@ definitions:
         items:
           type: string
         type: array
+      approval:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorApproval'
+        description: |-
+          Approval sets how triggers that the agent proposes from a chat of the
+          binding are approved, and the limits of the automatic modes. Absent
+          means ask for a new binding and unchanged for an update.
       caps:
         description: |-
           Caps are the capabilities you enable for the binding (a closed list,

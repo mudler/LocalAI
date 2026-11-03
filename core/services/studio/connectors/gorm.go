@@ -39,6 +39,8 @@ type bindingRow struct {
 	Channels string
 	// WriteMode is added by AutoMigrate; a row stored before it reads as off.
 	WriteMode string `gorm:"size:16"`
+	// Approval is JSON, added by AutoMigrate; a row stored before it asks.
+	Approval string
 	// The columns of the file limits are added by AutoMigrate; a row stored
 	// before them has no limit of the owner.
 	FileReceiveMax int64
@@ -128,7 +130,7 @@ func (r bindingRow) binding() (Binding, error) {
 	for _, f := range []struct {
 		raw string
 		dst any
-	}{{r.Caps, &b.Caps}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}} {
+	}{{r.Caps, &b.Caps}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}} {
 		if f.raw == "" {
 			continue
 		}
@@ -157,7 +159,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(v)
 		return string(raw)
 	}
-	return s.db.WithContext(ctx).Save(&bindingRow{WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	return s.db.WithContext(ctx).Save(&bindingRow{Approval: enc(b.Approval, b.Approval == Approval{}), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
 		FilesOff: b.FilesOff, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
 		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error

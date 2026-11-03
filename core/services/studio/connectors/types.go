@@ -192,6 +192,10 @@ type Binding struct {
 	// WriteMode is one of WriteOff, WritePropose and WriteAuto. Empty means
 	// WriteOff.
 	WriteMode string
+	// Approval is what the host does with a trigger that the agent proposes
+	// from a chat of the binding, and the limits of the modes that create one
+	// without asking. The zero value asks.
+	Approval Approval
 	// Token is the bot token. In a Store it is sealed bytes; the Store returns
 	// what it was given.
 	Token   []byte
@@ -358,6 +362,9 @@ func Validate(b Binding) error {
 	}
 	if !ValidWriteMode(b.WriteMode) {
 		return bad("the write mode must be %s, %s or %s", WriteOff, WritePropose, WriteAuto)
+	}
+	if err := b.Approval.Validate(); err != nil {
+		return bad("%v", err)
 	}
 	if len(b.Options) > MaxOptions {
 		return bad("a binding has at most %d options", MaxOptions)

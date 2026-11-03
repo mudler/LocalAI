@@ -6,12 +6,56 @@ export const REPLY_MODES = ['off', 'progress', 'stream']
 export const CONVERSATIONS = ['sender', 'chat', 'window', 'thread']
 export const MAX_WINDOW_MINUTES = 7 * 24 * 60
 
+// How the triggers that the agent proposes in a chat are approved, and the
+// limits of the two modes that make one without asking. The server has the
+// same names, defaults and bounds (connectors.Approval).
+export const APPROVAL_MODES = ['ask', 'auto', 'auto_readonly']
+export const APPROVAL_LIMITS = [
+  { key: 'max_pending', max: 50, fallback: 5 },
+  { key: 'min_gap_minutes', max: 1440, fallback: 60 },
+  { key: 'max_runs_per_day', max: 200, fallback: 10 },
+  { key: 'max_lifetime_days', max: 365, fallback: 30 },
+]
+
+export function emptyApproval() {
+  return { mode: 'ask', max_pending: '', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' }
+}
+
+// The approval of a saved binding as a form: a limit of zero is the default
+// and shows empty.
+export function approvalForm(a) {
+  const f = { ...emptyApproval(), mode: a?.mode || 'ask' }
+  for (const { key } of APPROVAL_LIMITS) f[key] = a?.[key] > 0 ? String(a[key]) : ''
+  return f
+}
+
+// Why a typed limit cannot be saved: not a whole number from 1 to its bound.
+// Empty is fine (the default).
+export function approvalProblem(a) {
+  if (!a) return ''
+  if (!APPROVAL_MODES.includes(a.mode)) return 'mode'
+  for (const { key, max } of APPROVAL_LIMITS) {
+    const v = String(a[key] ?? '').trim()
+    if (v === '') continue
+    const n = Number(v)
+    if (!Number.isInteger(n) || n < 1 || n > max) return key
+  }
+  return ''
+}
+
+export function approvalPayload(a) {
+  const body = { mode: APPROVAL_MODES.includes(a?.mode) ? a.mode : 'ask' }
+  for (const { key } of APPROVAL_LIMITS) body[key] = Number(String(a?.[key] ?? '').trim()) || 0
+  return body
+}
+
 export function emptyConnector() {
   return {
     id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
     reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true,
     options: {},
     file_receive_mib: '', file_send_mib: '',
+    approval: emptyApproval(),
   }
 }
 
@@ -33,6 +77,7 @@ export function connectorForm(c) {
   return {
     ...emptyConnector(), ...c, token: '',
     file_receive_mib: bytesToMib(c.file_receive_max_bytes), file_send_mib: bytesToMib(c.file_send_max_bytes),
+    approval: approvalForm(c.approval),
   }
 }
 
@@ -86,6 +131,7 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
     options: Object.fromEntries(Object.entries(form.options || {}).filter(([, v]) => v)),
     file_receive_max_bytes: mibToBytes(form.file_receive_mib),
     file_send_max_bytes: mibToBytes(form.file_send_mib),
+    approval: approvalPayload(form.approval),
   }
   if (body.conversation === 'window') body.window_minutes = Number(form.window_minutes) || 0
   const secret = (token || '').trim()
@@ -113,6 +159,7 @@ export function canSave(form, confirmed, hasToken = Boolean((form.token || '').t
   if (!(form.name || '').trim() || !form.agent_id) return false
   if (!form.id && !hasToken) return false
   if (form.accept_any && !confirmed) return false
+  if (approvalProblem(form.approval)) return false
   if (fileLimitProblem(form.file_receive_mib, files?.receive?.allowed_bytes) || fileLimitProblem(form.file_send_mib, files?.send?.allowed_bytes)) return false
   if (form.conversation === 'window') {
     const m = Number(form.window_minutes)

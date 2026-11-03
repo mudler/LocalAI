@@ -18642,6 +18642,14 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "approval": {
+                    "description": "Approval is what the host does with a trigger that the agent proposes\nfrom a chat of this binding.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorApproval"
+                        }
+                    ]
+                },
                 "caps": {
                     "description": "Caps are the capabilities you enabled for this binding: the ceiling of\nwhat any sender can use. Grants give roles of the kind some of them.",
                     "type": "array",
@@ -19629,6 +19637,14 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "approval": {
+                    "description": "Approval is what the host does with a trigger that the agent proposes\nfrom a chat of this binding.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorApproval"
+                        }
+                    ]
+                },
                 "caps": {
                     "description": "Caps are the capabilities you enabled for this binding: the ceiling of\nwhat any sender can use. Grants give roles of the kind some of them.",
                     "type": "array",
@@ -19833,6 +19849,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorApproval": {
+            "type": "object",
+            "properties": {
+                "max_lifetime_days": {
+                    "type": "integer"
+                },
+                "max_pending": {
+                    "type": "integer"
+                },
+                "max_runs_per_day": {
+                    "type": "integer"
+                },
+                "min_gap_minutes": {
+                    "type": "integer"
+                },
+                "mode": {
                     "type": "string"
                 }
             }
@@ -20122,6 +20158,14 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "approval": {
+                    "description": "Approval sets how triggers that the agent proposes from a chat of the\nbinding are approved, and the limits of the automatic modes. Absent\nmeans ask for a new binding and unchanged for an update.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorApproval"
+                        }
+                    ]
                 },
                 "caps": {
                     "description": "Caps are the capabilities you enable for the binding (a closed list,\nsee the kind's permissions for the ones it can grant to a role).\nAbsent means none for a new binding and unchanged for an update; an\nempty list clears.",

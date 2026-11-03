@@ -62,6 +62,9 @@ type ConnectorInput struct {
 	// WriteMode is one of connectors.WriteOff, WritePropose and WriteAuto. Nil:
 	// new binding off, update unchanged.
 	WriteMode *string
+	// Approval is the owner's choice for the triggers the agent proposes from
+	// a chat of the binding. Nil: new binding asks, update unchanged.
+	Approval *connectors.Approval
 }
 
 // apply sets the fields of the input that an owner writes on a binding.
@@ -97,6 +100,9 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 	}
 	if in.WriteMode != nil {
 		b.WriteMode = *in.WriteMode
+	}
+	if in.Approval != nil {
+		b.Approval = *in.Approval
 	}
 }
 

@@ -1256,6 +1256,25 @@ type ChatsConnector struct {
 	// Paired are the senders you proved with a pairing code. A pairing ends
 	// at expires_at.
 	Paired []ChatsConnectorPaired `json:"paired"`
+	// Approval is what the host does with a trigger that the agent proposes
+	// from a chat of this binding.
+	Approval ChatsConnectorApproval `json:"approval"`
+}
+
+// ChatsConnectorApproval is the owner's choice for the triggers that the agent
+// proposes from a chat of a binding. mode is ask (the person answers the
+// proposal in the chat in plain words; the default), auto (the trigger is
+// made at once and the person is told how to cancel it) or auto_readonly (a
+// trigger whose runs only read and report is made at once; any other
+// proposal asks). The limits bound the modes that make a trigger without
+// asking; a zero limit means its default (5 live triggers, one hour between
+// runs of a recurring trigger, 10 runs a day, 30 days).
+type ChatsConnectorApproval struct {
+	Mode            string `json:"mode"`
+	MaxPending      int    `json:"max_pending"`
+	MinGapMinutes   int    `json:"min_gap_minutes"`
+	MaxRunsPerDay   int    `json:"max_runs_per_day"`
+	MaxLifetimeDays int    `json:"max_lifetime_days"`
 }
 
 // ChatsConnectorRoleGrant gives the capabilities caps to the senders that the
@@ -1464,6 +1483,10 @@ type ChatsConnectorWrite struct {
 	// WriteMode is off, propose or auto (see the connector record). Absent
 	// means off for a new binding and unchanged for an update.
 	WriteMode *string `json:"write_mode,omitempty" enums:"off,propose,auto"`
+	// Approval sets how triggers that the agent proposes from a chat of the
+	// binding are approved, and the limits of the automatic modes. Absent
+	// means ask for a new binding and unchanged for an update.
+	Approval *ChatsConnectorApproval `json:"approval,omitempty"`
 }
 
 // ChatsConnectorChannel is a chat of the platform where the agent may write.

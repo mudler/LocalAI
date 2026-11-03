@@ -263,6 +263,25 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(rec.Code).To(Equal(http.StatusOK), "an update that keeps the token is not checked: %s", rec.Body.String())
 	})
 
+	It("keeps the approval of chat triggers: ask by default, kept on an update that omits it, refused when out of bounds", func() {
+		ag := agent("alice", "Approval", "test-model")
+		rec := create("alice", map[string]any{"name": "Approval bot", "token": specToken, "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		b := decodeJSON(rec)
+		id := b["id"].(string)
+		Expect(b).To(HaveKeyWithValue("approval", HaveKeyWithValue("mode", "ask")))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Approval bot", "agent_id": ag,
+			"approval": map[string]any{"mode": "auto", "max_pending": 3, "max_runs_per_day": 6}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["approval"]).To(And(HaveKeyWithValue("mode", "auto"), HaveKeyWithValue("max_pending", BeNumerically("==", 3)), HaveKeyWithValue("max_runs_per_day", BeNumerically("==", 6))))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Approval bot", "agent_id": ag})
+		Expect(decodeJSON(rec)["approval"]).To(HaveKeyWithValue("mode", "auto"))
+		for _, bad := range []map[string]any{{"mode": "always"}, {"mode": "auto", "max_pending": 51}, {"mode": "auto", "max_lifetime_days": -1}} {
+			rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Approval bot", "agent_id": ag, "approval": bad})
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		}
+	})
+
 	It("keeps the capabilities of a binding, refuses unknown ones and issues a pairing code to its owner only", func() {
 		ag := agent("alice", "Caps", "test-model")
 		rec := create("alice", map[string]any{"name": "Caps bot", "token": specToken, "agent_id": ag, "caps": []string{"memory.write", "profile.write"}})

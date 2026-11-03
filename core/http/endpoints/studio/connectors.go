@@ -25,7 +25,20 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 	return schema.ChatsConnector{Caps: capsOut(i.Caps), Grants: grantsOut(i.Grants), Paired: pairedOut(i.Paired), ID: i.ID, Name: i.Name, Kind: i.Kind, Addon: i.AddonID, Active: i.Active, Reason: i.Reason, AgentID: i.AgentID, Enabled: i.Enabled, AcceptAny: i.AcceptAny,
 		Allow: allow, NotifyChat: i.NotifyChat, HasToken: i.HasToken, Created: i.Created,
 		ReplyMode: i.ReplyMode(), Conversation: i.ConversationMode(), WindowMinutes: i.WindowMinutes, SendFiles: i.SendsFiles(), Options: i.Options,
-		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes()}
+		Files: filesOut(i.Files), FileReceiveMaxBytes: i.FileReceiveMax, FileSendMaxBytes: i.FileSendMax, Resources: connectors.ResourceKeys(i.Resources), Channels: channelsOut(i.Channels), WriteMode: i.Writes(), Approval: approvalOut(i.Approval)}
+}
+
+func approvalOut(a connectors.Approval) schema.ChatsConnectorApproval {
+	return schema.ChatsConnectorApproval{Mode: a.ModeOrDefault(), MaxPending: a.MaxPending, MinGapMinutes: a.MinGapMinutes,
+		MaxRunsPerDay: a.MaxRunsPerDay, MaxLifetimeDays: a.MaxLifetimeDays}
+}
+
+func approvalIn(a *schema.ChatsConnectorApproval) *connectors.Approval {
+	if a == nil {
+		return nil
+	}
+	return &connectors.Approval{Mode: a.Mode, MaxPending: a.MaxPending, MinGapMinutes: a.MinGapMinutes,
+		MaxRunsPerDay: a.MaxRunsPerDay, MaxLifetimeDays: a.MaxLifetimeDays}
 }
 
 func capsOut(in []string) []string {
@@ -116,7 +129,7 @@ func connectorIn(req schema.ChatsConnectorWrite) studiosvc.ConnectorInput {
 	return studiosvc.ConnectorInput{Kind: req.Kind, Name: req.Name, Token: req.Token, AgentID: req.AgentID, Enabled: req.Enabled,
 		AcceptAny: req.AcceptAny, Allow: req.Allow, NotifyChat: req.NotifyChat,
 		Reply: req.ReplyMode, Conversation: req.Conversation, WindowMinutes: req.WindowMinutes, SendFiles: req.SendFiles, Options: req.Options,
-		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode}
+		FileReceiveMax: req.FileReceiveMaxBytes, FileSendMax: req.FileSendMaxBytes, Caps: req.Caps, Grants: grantsIn(req.Grants), Resources: req.Resources, Channels: channelsIn(req.Channels), WriteMode: req.WriteMode, Approval: approvalIn(req.Approval)}
 }
 
 var connectorRules = []errRule{
