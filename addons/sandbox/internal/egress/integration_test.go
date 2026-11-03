@@ -127,8 +127,7 @@ func proxyInGuest(newBackend func() sandbox.Backend) {
 		Expect(code).To(BeZero(), "%s%s", out, errOut)
 		Expect(out).To(Equal("hello from the host"))
 
-		// The preset goes to off. The allow above is cached for its call
-		// only, so the next call asks again.
+		// The preset goes to off. The next call checks current policy too.
 		end()
 		<-mu
 		decision = "off"

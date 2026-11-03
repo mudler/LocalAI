@@ -16,6 +16,7 @@
       "sdk": { "min": 2, "max": 2 },
       "pages": ["voice", "recognition", "library", "create", "speech"],
       "navigation": ["voice"],
+      "modelActions": [{"capability": "FLAG_SPEAKER_RECOGNITION", "page": "recognition"}],
       "mainPage": "voice",
       "icon": "ui/icon.png",
       "title": "Voice",

@@ -2,6 +2,7 @@
 import { Link, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { recordStats, stripOf, STRIP_LENGTH } from '../../utils/agentRuns'
+import { folderName, folderState } from '../../utils/chatAgents'
 import { useAuth } from '../../context/AuthContext'
 import { useHubAuth } from '../hub/useHubAuth'
 // eslint-disable-next-line no-unused-vars
@@ -78,8 +79,8 @@ export function RecordLine({ runs }) {
   )
 }
 
-export function Chip({ to, icon, children, mono = false, count, title }) {
-  const cls = `ag-chip${mono ? ' ag-chip--mono' : ''}${to ? ' ag-chip--link' : ''}`
+export function Chip({ to, icon, children, mono = false, count, title, warn = false, testId }) {
+  const cls = `ag-chip${mono ? ' ag-chip--mono' : ''}${to ? ' ag-chip--link' : ''}${warn ? ' ag-chip--warn' : ''}`
   const body = (
     <>
       {icon && <Icon name={icon} />}
@@ -88,8 +89,49 @@ export function Chip({ to, icon, children, mono = false, count, title }) {
     </>
   )
   return to
-    ? <Link className={cls} to={to} title={title}>{body}</Link>
-    : <span className={cls} title={title}>{body}</span>
+    ? <Link className={cls} to={to} title={title} data-testid={testId}>{body}</Link>
+    : <span className={cls} title={title} data-testid={testId}>{body}</span>
+}
+
+// The folder an agent works in: its name, with a lock when the agent can only
+// read it; a warning that opens the editor when the folder is gone or was
+// never chosen. An agent on all the files shows nothing, or with `all` the
+// words "All my files".
+//   meta   drawn as an item of the list's meta line instead of a chip
+export function FolderChip({ agent, all = false, meta = false }) {
+  const { t } = useTranslation('agents')
+  const st = folderState(agent)
+  if (st === 'none') return all ? <span className="ag-muted">{t('folder.all')}</span> : null
+  if (st !== 'ok') {
+    if (meta) {
+      return (
+        <Link to={agentPath(agent.id, '/edit')} className="ag-meta__warn" data-testid="agent-folder-chip" title={t(st === 'missing' ? 'folder.missing' : 'folder.unset')}>
+          <Icon name="warning" />{t(st === 'missing' ? 'folder.chipMissing' : 'folder.chipUnset')}
+        </Link>
+      )
+    }
+    return (
+      <Chip to={agentPath(agent.id, '/edit')} icon="warning" warn testId="agent-folder-chip" title={t(st === 'missing' ? 'folder.missing' : 'folder.unset')}>
+        {t(st === 'missing' ? 'folder.chipMissing' : 'folder.chipUnset')}
+      </Chip>
+    )
+  }
+  const read = agent.folder.mode !== 'write'
+  const name = folderName(agent.folder.path) || t('folder.home')
+  const mode = t(read ? 'folder.read' : 'folder.write')
+  const where = `${agent.folder.path === '/' ? t('folder.home') : agent.folder.path} · ${mode}`
+  if (meta) {
+    return (
+      <span data-testid="agent-folder-chip" title={where}>
+        <Icon name={read ? 'lock' : 'folder'} />{t('folder.chip', { name, mode: t(read ? 'folder.readShort' : 'folder.writeShort') })}
+      </span>
+    )
+  }
+  return (
+    <Chip icon={read ? 'lock' : 'folder'} testId="agent-folder-chip" title={where}>
+      {t('folder.chip', { name, mode: t(read ? 'folder.readShort' : 'folder.writeShort') })}
+    </Chip>
+  )
 }
 
 // The collections and skills an agent may use, as chips that open the shared

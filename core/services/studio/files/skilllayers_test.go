@@ -15,7 +15,7 @@ var _ = Describe("the skill layers", func() {
 			{Path: files.BuiltinSkillsPath, At: "shared-builtin-skills"},
 			{Path: files.AddonSkillsPath, At: "shared-addon-skills"},
 		}))
-		Expect(files.SharedGuestPath("/workspace/shared-builtin-skills/pdf/SKILL.md")).To(Equal(files.BuiltinSkillsPath + "/pdf/SKILL.md"))
+		Expect(files.SharedGuestPath("/workspace/shared-builtin-skills/writing-skills/SKILL.md")).To(Equal(files.BuiltinSkillsPath + "/writing-skills/SKILL.md"))
 		Expect(files.SharedGuestPath("/workspace/shared-addon-skills/office/xlsx/SKILL.md")).To(Equal(files.AddonSkillsPath + "/office/xlsx/SKILL.md"))
 	})
 })

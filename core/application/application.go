@@ -26,6 +26,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/backendlib"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostsettings"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/core/services/addons/pins"
 	"github.com/mudler/LocalAI/core/services/addons/policy"
@@ -97,11 +98,16 @@ type Application struct {
 	addonResourceExists func(context.Context, policy.ResourceKey) (bool, error)
 	// addonReconcileTick drives the pending-registration retry; nil is a real
 	// 30 second ticker. addonReconcile is that loop once the owner started it.
-	addonReconcileTick <-chan time.Time
-	addonReconcile     *policy.ReconcileLoop
-	addonGateway       *gateway.Gateway
-	addonServer        *http.Server
-	addonSources       *catalog.Sources
+	addonReconcileTick     <-chan time.Time
+	addonReconcile         *policy.ReconcileLoop
+	addonHostSettings      *hostsettings.Store
+	addonHostSettingsClose func()
+	addonHostSettingsDone  <-chan struct{}
+	// addonHostSettingsOnClose observes closure while owner storage is still guarded.
+	addonHostSettingsOnClose func()
+	addonGateway             *gateway.Gateway
+	addonServer              *http.Server
+	addonSources             *catalog.Sources
 	// addonAdminCheck is the owner's administrator check, the one the manager gets.
 	addonAdminCheck func(context.Context, contract.Actor) error
 	librarySnap     librarySnapshot
@@ -177,7 +183,7 @@ type Application struct {
 	studioTempDir         string                 // removed at shutdown; set only in memory-only mode
 	studioHostExec        *hostexec.Runner       // the chats' built-in bash on this machine
 	studioFiles           *files.Service
-	studioFilesIndex      io.Closer            // the JSON index of the workspace; nil when it uses the database
+	studioFilesIndex      io.Closer            // closes the workspace index: ends pending blob removals, frees the JSON folder
 	studioFilesTemp       string               // blob cache folder of a cluster with no data path; removed at shutdown
 	studioTextIndex       *textindex.Indexer   // the text of the documents in the files; nil when files are off
 	studioHistoryStore    *studiohistory.Store // the Studio add-on's generation history; see initStudioHistoryStore
@@ -705,7 +711,6 @@ func (a *Application) Shutdown() error {
 		if a.studioService != nil {
 			_ = a.studioService.Close(context.Background())
 		}
-		// After the studio service: a chat may still search a collection.
 		if svc := a.collectionsService.Load(); svc != nil {
 			svc.Close()
 		}
@@ -723,6 +728,9 @@ func (a *Application) Shutdown() error {
 		}
 		if a.addonStore != nil {
 			_ = a.addonStore.Close()
+		}
+		if a.addonHostSettingsClose != nil {
+			a.addonHostSettingsClose()
 		}
 		if a.addonManager != nil {
 			err = a.addonManager.Close()
@@ -969,6 +977,9 @@ func (a *Application) startAddons() error {
 	var installer *packages.Installer
 	// Replicas must not load even source metadata from the owner's volume.
 	if c.InstanceID == c.OwnerID && c.OwnerID != "" {
+		if err := validateAddonSettingsRoot(c.Root); err != nil {
+			return err
+		}
 		if c.AdminCheck == nil {
 			return addons.ErrForbidden
 		}
@@ -1000,6 +1011,22 @@ func (a *Application) startAddons() error {
 	if err != nil {
 		return err
 	}
+	started := false
+	defer func() {
+		if !started {
+			// The policy must stop accepting transactions before the manager
+			// releases the owner's storage guard, on every startup failure.
+			if a.addonHostSettingsClose != nil {
+				a.addonHostSettingsClose()
+			}
+			_ = m.Close()
+		}
+	}()
+	if c.InstanceID == c.OwnerID && c.Transport != nil {
+		if err = a.openAddonHostSettings(); err != nil {
+			return err
+		}
+	}
 	m.SetHostOps(a.applicationConfig.AddonHostOps)
 	if c.InstanceID == c.OwnerID {
 		// Data recovery sits beside the manager: an upgrade of an add-on that
@@ -1016,7 +1043,6 @@ func (a *Application) startAddons() error {
 			Retention:     recovery.Retention{Keep: c.BackupKeep, MaxAge: c.BackupMaxAge},
 		})
 		if rerr != nil {
-			_ = m.Close()
 			return rerr
 		}
 		m.SetRecovery(rec)
@@ -1024,7 +1050,6 @@ func (a *Application) startAddons() error {
 		// holds; it applies nothing, and its cache is bounded.
 		m.EnableUpdates(updates.Config{TTL: c.UpdateCacheTTL, MinRefresh: c.UpdateRefreshInterval})
 		if err = m.Reconcile(a.applicationConfig.Context); err != nil {
-			_ = m.Close()
 			return err
 		}
 	}
@@ -1038,12 +1063,10 @@ func (a *Application) startAddons() error {
 		a.addonDataRoot = filepath.Join(c.Root, "data")
 		supervisor, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(c.Root, "runtime"), DataRoot: filepath.Join(c.Root, "data"), Limits: limits, ReadyTimeout: limits.ReadTimeout, StableHealth: limits.BackoffMax, HostOps: a.addonHostOps})
 		if err != nil {
-			_ = m.Close()
 			return err
 		}
 		if err = m.AttachRuntime(a.applicationConfig.Context, supervisor); err != nil {
 			_ = supervisor.Close(context.Background())
-			_ = m.Close()
 			return err
 		}
 	}
@@ -1059,8 +1082,17 @@ func (a *Application) startAddons() error {
 		go a.runAddonAutoUpgrade(a.applicationConfig.Context, upgradeInitialDelay, upgradeCheckInterval)
 	}
 	if err := a.startAddonGateway(); err != nil {
-		_ = m.Close()
 		return err
+	}
+	started = true
+	if closeSettings := a.addonHostSettingsClose; closeSettings != nil {
+		go func() {
+			select {
+			case <-a.applicationConfig.Context.Done():
+				closeSettings()
+			case <-a.addonHostSettingsDone:
+			}
+		}()
 	}
 	return nil
 }

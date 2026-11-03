@@ -117,6 +117,15 @@ func (h *Triggers) ResolveTrigger(ctx context.Context, user, ref string) (trigge
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
+	return resolveTriggerIn(all, ref)
+}
+
+// resolveTriggerIn is ResolveTrigger among all.
+func resolveTriggerIn(all []triggers.Trigger, ref string) (triggers.Trigger, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return triggers.Trigger{}, fmt.Errorf("%w: give the ref from list_triggers", ErrUnknownTrigger)
+	}
 	var named []triggers.Trigger
 	for _, t := range all {
 		if TriggerRef(t.ID) == ref {

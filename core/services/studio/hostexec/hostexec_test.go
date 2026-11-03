@@ -5,8 +5,10 @@ package hostexec_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -52,24 +54,49 @@ type env struct {
 	a     workspace.Actor
 }
 
-func newEnv(tweak ...func(*hostexec.Options)) *env {
+// userActor is the actor of an unscoped chat, as the chat's access gives it.
+func userActor(_ context.Context, user, chat string) (workspace.Actor, error) {
+	a := files.UserActor(user)
+	a.ChatID = chat
+	return a, nil
+}
+
+// homeView is the view the chat's access gives an unscoped chat: the home,
+// the shared folders that shared lists, and the skill layers.
+func homeView(f *files.Service, shared []session.SharedRoot) func(context.Context, workspace.Actor) (workspace.View, error) {
+	return func(ctx context.Context, a workspace.Actor) (workspace.View, error) {
+		v, err := session.BuildView(ctx, f.Store(), a, session.HomePath(a.Principal), "", shared, slog.New(slog.DiscardHandler))
+		if err != nil {
+			return workspace.View{}, err
+		}
+		x, err := session.NewAccess(a, v)
+		if err != nil {
+			return workspace.View{}, err
+		}
+		return x.SandboxView(ctx, f.Store())
+	}
+}
+
+func newEnv(tweak ...func(*env, *hostexec.Options)) *env {
 	if os.Geteuid() == 0 {
 		Skip("the host backend refuses to run as root")
 	}
 	f := newFiles()
 	Expect(f.EnsureHome(context.Background(), "alice")).To(Succeed())
 	audit, _ := hostexec.NewJSONAudit("")
+	e := &env{f: f, audit: audit}
 	o := hostexec.Options{Store: f.Store(), StateDir: filepath.Join(GinkgoT().TempDir(), "scratch"), Audit: audit,
-		Actor: func(user, chat string) workspace.Actor { a := files.UserActor(user); a.ChatID = chat; return a }}
+		Actor: userActor, View: homeView(f, nil)}
 	for _, t := range tweak {
-		t(&o)
+		t(e, &o)
 	}
 	r := hostexec.New(o)
 	Expect(r.Unavailable()).To(BeEmpty())
 	DeferCleanup(func() { _ = r.Close(context.Background()) })
 	a := files.UserActor("alice")
 	a.ChatID = "c1"
-	return &env{f: f, r: r, audit: audit, a: a}
+	e.r, e.a = r, a
+	return e
 }
 
 func (e *env) bash(cmd string, timeout int) string {
@@ -192,15 +219,13 @@ var _ = Describe("commands on this machine", func() {
 	})
 
 	It("mounts the user's shared folders next to the home", func() {
-		e := newEnv(func(o *hostexec.Options) {
-			o.Shared = func(context.Context, workspace.Actor) ([]session.SharedRoot, error) {
-				return []session.SharedRoot{{Path: "/shared/team", Mode: workspace.ModeRead}}, nil
-			}
+		e := newEnv(func(e *env, o *hostexec.Options) {
+			o.View = homeView(e.f, []session.SharedRoot{{Path: "/shared/team", Mode: workspace.ModeRead}})
+			admin := workspace.Actor{Principal: files.AdminPrincipal}
+			_, err := e.f.Store().Put(context.Background(), admin, "/shared/team/plan.md", strings.NewReader("plan\n"), workspace.PutOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(e.f.Store().Grant(context.Background(), admin, "alice", "/shared/team", workspace.ModeRead)).To(Succeed())
 		})
-		admin := workspace.Actor{Principal: files.AdminPrincipal}
-		_, err := e.f.Store().Put(context.Background(), admin, "/shared/team/plan.md", strings.NewReader("plan\n"), workspace.PutOptions{})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(e.f.Store().Grant(context.Background(), admin, "alice", "/shared/team", workspace.ModeRead)).To(Succeed())
 		Expect(e.bash("cat ../shared-team/plan.md", 0)).To(Equal("plan\n"))
 	})
 
@@ -213,6 +238,69 @@ var _ = Describe("commands on this machine", func() {
 		out, err := r.Run(context.Background(), a, json.RawMessage(`{"command":"id"}`))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out).To(HavePrefix("This server cannot run commands"))
+	})
+
+	It("mounts only the view the chat's access gives", func() {
+		e := newEnv(func(e *env, o *hostexec.Options) {
+			e.put("/Proj/in.txt", "inside\n")
+			e.put("/top.txt", "OUTSIDE-9c2e\n")
+			o.View = func(ctx context.Context, a workspace.Actor) (workspace.View, error) {
+				return e.f.Store().View(ctx, a, []workspace.MountRequest{{Path: session.HomePath(a.Principal) + "/Proj", At: "home", Mode: workspace.ModeWrite}})
+			}
+		})
+		Expect(e.bash("ls; ls ..", 0)).To(Equal("in.txt\nhome\n"))
+		out := e.bash("cat top.txt ../top.txt ../../top.txt 2>&1; grep -r OUTSIDE-9c2e .. 2>&1; echo x > ../escape.txt; true", 0)
+		Expect(out).NotTo(ContainSubstring("OUTSIDE-9c2e"))
+		_, err := e.f.Store().Stat(context.Background(), e.f.Actor("alice"), session.HomePath("alice")+"/escape.txt")
+		Expect(err).To(MatchError(workspace.ErrNotFound))
+	})
+
+	It("refuses a scoped chat, also when its tool is called directly", func() {
+		e := newEnv()
+		e.put("/Proj/in.txt", "inside\n")
+		n, err := e.f.Store().Stat(context.Background(), e.f.Actor("alice"), session.HomePath("alice")+"/Proj")
+		Expect(err).NotTo(HaveOccurred())
+		scoped := e.a.Fenced(workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeWrite})
+		out, err := e.r.Tool(scoped).Run(context.Background(), json.RawMessage(`{"command":"echo ran > ran.txt"}`))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal(hostexec.ScopedText))
+		evs, err := e.audit.Events(context.Background(), 10)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(evs).To(BeEmpty(), "nothing ran")
+	})
+
+	It("refuses a chat whose access became scoped after its tool was built", func() {
+		e := newEnv(func(e *env, o *hostexec.Options) {
+			e.put("/Proj/in.txt", "inside\n")
+			o.Actor = func(ctx context.Context, user, chat string) (workspace.Actor, error) {
+				a, _ := userActor(ctx, user, chat)
+				n, err := e.f.Store().Stat(ctx, a, session.HomePath(user)+"/Proj")
+				if err != nil {
+					return workspace.Actor{}, err
+				}
+				return a.Fenced(workspace.FenceRoot{Node: n.ID, Mode: workspace.ModeWrite}), nil
+			}
+		})
+		Expect(e.bash("echo ran > ran.txt", 0)).To(Equal(hostexec.ScopedText))
+		_, err := e.f.Store().Stat(context.Background(), e.f.Actor("alice"), session.HomePath("alice")+"/ran.txt")
+		Expect(err).To(MatchError(workspace.ErrNotFound))
+	})
+
+	It("fails the call when the resolver fails", func() {
+		e := newEnv(func(_ *env, o *hostexec.Options) {
+			o.Actor = func(context.Context, string, string) (workspace.Actor, error) {
+				return workspace.Actor{}, errors.New("the folder of this agent is missing")
+			}
+		})
+		out, err := e.r.Run(context.Background(), e.a, json.RawMessage(`{"command":"echo ran"}`))
+		Expect(err).To(MatchError(ContainSubstring("folder of this agent is missing")))
+		Expect(out).To(BeEmpty())
+	})
+
+	It("is unavailable without the chat's actor and view", func() {
+		f := newFiles()
+		r := hostexec.New(hostexec.Options{Store: f.Store(), StateDir: GinkgoT().TempDir()})
+		Expect(r.Unavailable()).NotTo(BeEmpty())
 	})
 
 	It("tells the model it has no isolation and the network of the server", func() {

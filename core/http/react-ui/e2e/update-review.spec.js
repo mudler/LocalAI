@@ -47,20 +47,23 @@ test.describe('Add-on updates: after the confirmation', () => {
     expect(state.log.upgrade).toHaveLength(0)
   })
 
-  test('an add-on upgrade is listed in Activity while it runs, can be canceled, and is recorded when it ends', async ({ page }) => {
+  test('an add-on upgrade is listed in Activity while it runs, survives reload, and is recorded when it ends', async ({ page }) => {
     await signIn(page)
     await page.route('**/api/operations', route => route.fulfill({ json: { operations: [] } }))
     await page.route('**/api/operations/history', route => route.fulfill({ json: { operations: [] } }))
-    let release
-    const gate = new Promise(resolve => { release = resolve })
-    const state = await mockAddons(page, twoPending())
-    // The owner answers an upgrade only when the spec lets it.
-    await page.route(/\/api\/addons\/wiki\/upgrade$/, async route => {
-      await gate
-      const body = JSON.parse(route.request().postData() || '{}')
-      const a = state.installed.find(x => x.id === 'wiki')
-      a.generation += 1; a.version = a.update.version; delete a.update
-      return route.fulfill(ok({ OperationID: body.operationId, AddonID: 'wiki', Phase: 'completed', Generation: a.generation }))
+    let finished = false
+    let operationId
+    const state = await mockAddons(page, twoPending({
+      dispatch: body => {
+        if (body.action !== 'operation-status') return null
+        expect(body.operationId).toBe(operationId)
+        return ok({ OperationID: operationId, AddonID: 'wiki', Phase: finished ? 'completed' : 'running', stage: 'backing-up', Generation: finished ? 2 : 0 })
+      },
+    }))
+    await page.route(/\/api\/addons\/wiki\/upgrade$/, route => {
+      operationId = JSON.parse(route.request().postData() || '{}').operationId
+      state.log.upgrade.push({ operationId })
+      return route.fulfill(ok({ OperationID: operationId, AddonID: 'wiki', Phase: 'accepted', Generation: 0 }))
     })
     await page.goto('/app/addons')
     await page.locator('[data-testid="addon-tile"][data-app="wiki"]').getByTestId('update-upgrade-card').click()
@@ -73,7 +76,12 @@ test.describe('Add-on updates: after the confirmation', () => {
     await expect(card).toBeVisible()
     await expect(card).toContainText('Upgrading add-on')
     await expect(card).toContainText('0.9.0 to 1.0.0')
-    await expect(card.getByRole('button', { name: /cancel/i })).toBeVisible()
+    await expect(card.getByRole('button', { name: /cancel/i })).toHaveCount(0)
+    await expect(card.getByRole('progressbar')).toHaveCount(0)
+    await expect(card).toContainText('Creating and verifying backup')
+    await page.reload()
+    await expect(card).toContainText('Creating and verifying backup')
+    expect(state.log.upgrade).toHaveLength(1)
     await expect(card.getByRole('button', { name: /pause/i })).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Add-ons', exact: true }).click()
@@ -82,7 +90,9 @@ test.describe('Add-on updates: after the confirmation', () => {
     await expect(card).toHaveCount(0)
     await page.getByRole('button', { name: 'Add-ons', exact: true }).click()
 
-    release()
+    const installed = state.installed.find(x => x.id === 'wiki')
+    installed.generation += 1; installed.version = installed.update.version; delete installed.update
+    finished = true
     await expect(card).toHaveCount(0)
     const record = page.locator('.activity-row').filter({ hasText: 'Wiki' })
     await expect(record).toContainText('Upgraded')

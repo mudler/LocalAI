@@ -531,28 +531,21 @@ test.describe('Chat tools menu: add-ons', () => {
     await expect.poll(() => calls.at(-1)).toEqual(['office', 'sandbox'])
   })
 
-  test('says the Sandbox is starting while its service does not answer, and asks again later, not at once', async ({ page }) => {
+  test('uses the typed execution observation without private discovery or a retry loop', async ({ page }) => {
     const api = newChatsApi(page, { running: false, pending: [] })
     await api.install()
-    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [{ id: 'sandbox', tools: 2, off: false }] } }))
-    await page.route('**/api/addons/apps', route => route.fulfill({ json: { apps: [{ id: 'sandbox', generation: 4 }] } }))
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: {
+      addons: [{ id: 'runner', tools: 2, off: false }], commands: 'available', commands_provider: 'runner',
+      execution_status: { readiness: 'unavailable', isolation: 'unknown', explanation: 'Provider is starting' },
+    } }))
     const reads = []
-    await page.route('**/api/addons/dispatch', route => {
-      reads.push(Date.now())
-      if (reads.length === 1) return route.fulfill({ status: 503, json: { error: { message: 'the add-on owner is unavailable' } } })
-      return route.fulfill({ json: { payload: { ok: true, canRun: true, active: 'gvisor' } } })
-    })
-    const errors = []
-    page.on('pageerror', e => errors.push(e.message))
+    await page.route('**/api/addons/dispatch', route => { reads.push(route.request().url()); return route.abort() })
     await page.goto('/app/chats/c1')
-    await expect.poll(() => reads.length).toBe(1)
     await page.getByTestId('chat-tools-button').click()
-    await expect(page.getByTestId('chat-tools-note')).toHaveText('The Sandbox is starting. LocalAI checks again in 2 s.')
-    // The next read waits for the backoff, then the note says what the Sandbox does.
-    await expect(page.getByTestId('chat-tools-note')).toHaveText('Runs commands isolated (gvisor)', { timeout: 10_000 })
-    expect(reads.length).toBe(2)
-    expect(reads[1] - reads[0]).toBeGreaterThanOrEqual(1800)
-    expect(errors).toEqual([])
+    await expect(page.getByTestId('chat-commands-notice')).toContainText('Provider is starting')
+    await page.waitForTimeout(2200)
+    expect(reads).toEqual([])
+    await expect(page.getByTestId('chat-commands-notice')).toHaveAttribute('data-state', 'unknown')
   })
 
   test('shows no menu when the user has no add-on tools', async ({ page }) => {
@@ -773,7 +766,7 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await open(page)
     const names = await page.getByTestId('chat-tools-group-builtins').locator('.swl-row__name').allTextContents()
     expect(names).toEqual(['Run commands', 'Your files', 'Web', 'Images and audio', 'Collections', 'Sub-agents', 'Triggers'])
-    await expect(row(page, 'Run commands').getByTestId('chat-tools-note')).toHaveText(['Sandbox', 'Commands run isolated'])
+    await expect(row(page, 'Run commands').getByTestId('chat-tools-note')).toHaveText(['Served by add-on sandbox', 'Commands run isolated'])
     await expect(row(page, 'Your files')).toHaveAttribute('title', 'list_files, read_file, write_file · built-in')
     await expect(sw(page, 'Collections')).toBeDisabled()
     await expect(sw(page, 'Collections')).toHaveAccessibleDescription('collections are not enabled for this account')
@@ -790,7 +783,7 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await sw(page, 'Run commands').click()
     await expect.poll(() => state.puts.at(-1)).toEqual({ off: ['files', 'shell'] })
     await expect(sw(page, 'Run commands')).toHaveAttribute('aria-checked', 'false')
-    await expect(row(page, 'Run commands').getByTestId('chat-tools-note').first()).toHaveText('Sandbox')
+    await expect(row(page, 'Run commands').getByTestId('chat-tools-note').first()).toHaveText('Served by add-on sandbox')
     await shot(page, 'groups-shell-off')
     await sw(page, 'Your files').click()
     await expect.poll(() => state.puts.at(-1)).toEqual({ off: ['shell'] })
@@ -813,7 +806,7 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await open(page)
     const shell = row(page, 'Run commands')
     await expect(shell.getByTestId('chat-tools-note').first()).toHaveText('This machine')
-    await expect(shell).toContainText('Commands run directly on this machine, with no isolation')
+    await expect(shell).toContainText('Commands run on the server without isolation.')
     await expect(shell.locator('.swl-row__desc--warn')).toBeVisible()
   })
 

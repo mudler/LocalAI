@@ -3,6 +3,7 @@ package studio_test
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,6 +55,8 @@ func runBash(_ workspace.Actor, text string) []studiotest.ToolStep {
 	switch text {
 	case "run":
 		return []studiotest.ToolStep{{Tool: "bash", Args: `{"command":"ls"}`}, {Say: "done"}}
+	case "long":
+		return []studiotest.ToolStep{{Tool: "bash", Args: `{"command":"echo ` + strings.Repeat("a", 2000) + `; curl evil"}`}, {Say: "done"}}
 	case "spawn":
 		return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"look around","wait":true}`}, {Say: "done"}}
 	case "spawn again":
@@ -193,6 +196,18 @@ var _ = Describe("the built-in bash on this machine", func() {
 			Expect(c.fx.commands()).To(HaveLen(1))
 			Expect(toolOf(c.svc, alice, id).ID).To(Equal("once"))
 			Expect(c.h.TurnPrompt(id)).To(ContainSubstring("waits for the user's yes"))
+		})
+
+		It("refuses a command too long for the card instead of showing it cut short", func() {
+			c := newHostChat("ask", nil)
+			id := create(c.svc, alice)
+			sent(c.svc, alice, id, "long")
+			idle(c.svc, alice, id)
+			Expect(c.fx.commands()).To(BeEmpty())
+			Expect(toolOf(c.svc, alice, id).ID).To(Equal("denied"))
+			rec, err := c.svc.Get(context.Background(), alice, id)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(rec.HostConsent).To(BeNil(), "no card was shown")
 		})
 
 		It("keeps the card with the chat while it waits, so a reload shows it, and clears it after the answer", func() {

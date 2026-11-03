@@ -29,7 +29,7 @@ export const HOST_CONTROLS = Object.freeze({
 // machine get the host's own line, which needs no add-on.
 export function ChatToolsControls({ egress }) {
   const mode = networkMode(egress)
-  if (mode === 'host') return <NetworkRow egress={egress} />
+  if (mode === 'host' || mode === 'unverified') return <NetworkRow egress={egress} />
   if (mode !== 'row') return null
   const Row = HOST_CONTROLS[NETWORK_POLICY]['chat.tools']
   return <Row egress={egress} />

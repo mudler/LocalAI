@@ -28,7 +28,7 @@ async function setup(page, models = [audio, chat('writer'), chat('poet')], saved
     requests.push(route.request().postDataJSON())
     return route.fulfill({ contentType: 'audio/wav', body: silentWav() })
   })
-  await page.goto('/app/studio/sound')
+  await page.goto('/app/addons/studio/studio/sound')
   await expect(page.getByRole('button', { name: 'music', exact: true })).toBeVisible()
   return requests
 }

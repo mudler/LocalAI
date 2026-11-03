@@ -62,14 +62,14 @@ test('switching the files group off in a chat stores it, and Select all puts it 
   await expect.poll(async () => (await group('files')).off).toBe(false)
 })
 
-test('an add-on address with add-ons off lands on Home with a notice, and /studio offers Install Studio', async ({ page, request }) => {
+test('an add-on address with add-ons off lands on Home with a notice, without package-specific promotion', async ({ page, request }) => {
   const features = await (await request.get('/api/features')).json()
   test.skip(features.addons !== false, 'needs a server with add-ons off')
-  await page.goto('/app/image')
+  await page.goto('/app/addons/studio/studio/images')
   await page.waitForURL(/\/app$/)
   const note = page.getByTestId('home-addons-off')
   await expect(note).toContainText('Add-ons are off on this server')
-  await expect(note).toContainText('Studio is an add-on')
+  await expect(note).toContainText('That page is an add-on')
   // The Home blocks fade in; let them settle before the picture.
   await page.waitForTimeout(1000)
   await page.screenshot({ path: 'test-results/wiring-addons-off.png' })
@@ -77,7 +77,6 @@ test('an add-on address with add-ons off lands on Home with a notice, and /studi
   await expect(note).toHaveCount(0)
 
   await page.getByRole('combobox', { name: 'Message' }).fill('/studio')
-  await expect(page.getByRole('option', { name: /It is an add-on/ })).toBeVisible()
-  await page.keyboard.press('Enter')
-  await expect(page.getByTestId('home-addons-off')).toContainText('Studio is an add-on')
+  await expect(page.getByRole('option')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Install Studio' })).toHaveCount(0)
 })

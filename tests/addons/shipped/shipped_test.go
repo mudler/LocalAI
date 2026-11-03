@@ -407,20 +407,20 @@ var _ = Describe("shipped add-ons on the real server", Ordered, ContinueOnFailur
 		It("creates, reads and edits Word, Excel and PowerPoint files and keeps one undoable history", func() {
 			chat := newLetterChat(admin)
 			doc := toolResult(admin.toolCallIn(chat, "office__create-docx", map[string]any{"path": "/Reports/plan.docx", "title": "Plan",
-				"blocks": []map[string]any{{"kind": "heading", "level": 1, "text": "Q1 plan"}, {"kind": "paragraph", "text": "Ship the thing."}}}))
+				"markdown": "# Q1 plan\n\nShip the thing."}))
 			Expect(fmt.Sprint(doc["result"])).To(ContainSubstring("ok:true"))
 			edit := toolResult(admin.toolCallIn(newLetterChat(admin), "office__edit-docx", map[string]any{"path": "/Reports/plan.docx", "edits": []map[string]any{{"op": "replace", "find": "Ship", "text": "Launch"}}}))
 			Expect(fmt.Sprint(edit["result"])).To(ContainSubstring("replaced:1"))
 			read := toolResult(admin.toolCall("office__read-docx", map[string]any{"path": "/Reports/plan.docx"}))
 			Expect(fmt.Sprint(read["result"])).To(ContainSubstring("Launch the thing."))
-			x := toolResult(admin.toolCallIn(newLetterChat(admin), "office__create-xlsx", map[string]any{"path": "/Reports/b.xlsx", "sheets": []map[string]any{{"name": "S1", "rows": [][]string{{"a", "b"}, {"1", "2"}}}}}))
+			x := toolResult(admin.toolCallIn(newLetterChat(admin), "office__create-xlsx", map[string]any{"path": "/Reports/b.xlsx", "sheet": "S1", "csv": "a,b\n1,2\n"}))
 			Expect(fmt.Sprint(x["result"])).To(ContainSubstring("ok:true"))
 			p := toolResult(admin.toolCallIn(newLetterChat(admin), "office__create-pptx", map[string]any{"path": "/Reports/d.pptx", "slides": []map[string]any{{"title": "Hello", "bullets": []string{"x"}}}}))
 			Expect(fmt.Sprint(p["result"])).To(ContainSubstring("ok:true"))
 		})
 		It("runs an action tool in every chat, whatever the chat id looks like", func() {
 			chat := newDigitChat(admin)
-			msg := admin.toolCallIn(chat, "office__create-docx", map[string]any{"path": "/Reports/digit.docx", "blocks": []map[string]any{{"kind": "paragraph", "text": "a"}}})
+			msg := admin.toolCallIn(chat, "office__create-docx", map[string]any{"path": "/Reports/digit.docx", "markdown": "a"})
 			Expect(fmt.Sprint(toolResult(msg)["result"])).To(ContainSubstring("ok:true"), msg)
 		})
 	})

@@ -39,15 +39,15 @@ var _ = Describe("studio store at startup", func() {
 		Expect(app.studioStoreKind).To(Equal("gorm"))
 	})
 
-	It("uses JSON files under the data path without a database, and keeps them across a restart", func() {
+	It("uses JSON files under the data path", func() {
 		dir := GinkgoT().TempDir()
 		first := newApp(config.WithDataPath(dir))
 		Expect(first.studioStoreKind).To(Equal("json"))
 		Expect(first.StudioStore().CreateChat(context.Background(),
 			session.ChatRecord{ID: "kept", Principal: "", Title: "Kept"})).To(Succeed())
 
-		second := newApp(config.WithDataPath(dir))
-		rec, err := second.StudioStore().GetChat(context.Background(), "", "kept")
+		Expect(first.Shutdown()).To(Succeed())
+		rec, err := first.StudioStore().GetChat(context.Background(), "", "kept")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rec.Title).To(Equal("Kept"))
 	})

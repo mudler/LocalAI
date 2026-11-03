@@ -41,7 +41,7 @@ var _ = Describe("load_skill", func() {
 	// the commands that o gives.
 	load := func(name string, o loadOpts) (string, error) {
 		args, _ := json.Marshal(map[string]string{"name": name})
-		return svc.loadSkillRun(chatActor("alice", conv), o)(ctx, args)
+		return svc.loadSkillRun(userChatActor("alice", conv), o)(ctx, args)
 	}
 	full := loadOpts{files: true, exec: true}
 
@@ -153,7 +153,7 @@ var _ = Describe("load_skill", func() {
 	})
 
 	It("learns from the final tool list what the chat can do", func() {
-		built := svc.builtinsFor(ctx, chatActor("alice", conv), session.ChatRecord{ID: conv, Principal: "alice"}, false)
+		built := svc.builtinsFor(ctx, userChatActor("alice", conv), session.ChatRecord{ID: conv, Principal: "alice"}, false)
 		var tool session.Tool
 		for _, bt := range built {
 			if bt.ID == loadSkillName {
@@ -166,12 +166,12 @@ var _ = Describe("load_skill", func() {
 		Expect(tool.Description).To(ContainSubstring("review"))
 		Expect(tool.Description).NotTo(ContainSubstring("/workspace"))
 
-		tools := svc.fitLoadSkill(chatActor("alice", conv), []session.Tool{tool})
+		tools := svc.fitLoadSkill(userChatActor("alice", conv), []session.Tool{tool})
 		got, err := tools[0].Run(ctx, json.RawMessage(`{"name":"pdf"}`))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(HavePrefix("The skill pdf cannot be used in this chat"), "no bash in the list")
 
-		tools = svc.fitLoadSkill(chatActor("alice", conv), []session.Tool{tool, {Name: "bash", Provider: BuiltinProvider}})
+		tools = svc.fitLoadSkill(userChatActor("alice", conv), []session.Tool{tool, {Name: "bash", Provider: BuiltinProvider}})
 		got, err = tools[0].Run(ctx, json.RawMessage(`{"name":"pdf"}`))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(Equal("Built-in PDF body. See references/qa.md."), "no read_file in the list")
@@ -203,7 +203,7 @@ var _ = Describe("load_skill", func() {
 		Expect(err).To(MatchError(HavePrefix(`unknown skill "huge".`)), "the resolver skips it as invalid")
 
 		// A file that grows after the skills were resolved is refused too.
-		list, err := svc.loadableSkills(ctx, chatActor("alice", conv))
+		list, err := svc.loadableSkills(ctx, userChatActor("alice", conv))
 		Expect(err).NotTo(HaveOccurred())
 		personal("alice", "review", skillMD("review", "Check a change.", strings.Repeat("y", skills.MaxFileSize)))
 		_, err = svc.loadSkill(ctx, "alice", list, "review", full)
@@ -215,7 +215,7 @@ var _ = Describe("load_skill", func() {
 		rec, err := empty.Create(ctx, "alice", CreateInput{Model: "m"})
 		Expect(err).NotTo(HaveOccurred())
 		found := false
-		for _, bt := range empty.builtinsFor(ctx, chatActor("alice", rec.ID), rec, false) {
+		for _, bt := range empty.builtinsFor(ctx, userChatActor("alice", rec.ID), rec, false) {
 			if bt.ID == loadSkillName {
 				found = true
 				Expect(bt.OK).To(BeFalse())

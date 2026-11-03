@@ -452,6 +452,8 @@ func decodeResource[T any](raw json.RawMessage, err error) (T, error) {
 }
 
 // ListResources lists the resources of an addon the caller may use.
+// The Tables model adapter projects this host read only; management metadata
+// and resource mutations remain outside that discovery tool.
 func (g *Gateway) ListResources(ctx context.Context, a contract.Actor, addonID string) (ResourceList, error) {
 	return decodeResource[ResourceList](g.resourceCall(ctx, a, "", ResourceCall{Op: resourceList, AddonID: addonID}))
 }

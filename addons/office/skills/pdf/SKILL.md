@@ -1,10 +1,10 @@
 ---
 name: pdf
-description: Use when the user wants to read a PDF file or create a new PDF in their files. Works with the Office add-on tools, with no command runner.
+description: Use when the user wants to read a PDF file or create a new PDF in their files. Works with the Simple Office add-on tools, with no command runner.
 ---
-# PDF files with the Office tools
+# PDF files with the Simple Office tools
 
-Use the tools of the Office add-on: `addon__office__read-pdf` and
+Use the tools of the Simple Office add-on: `addon__office__read-pdf` and
 `addon__office__create-pdf`. A file is a path in the user's files, such as
 `/reports/plan.pdf`.
 
@@ -20,9 +20,13 @@ Use the tools of the Office add-on: `addon__office__read-pdf` and
 
 ## Create a PDF
 
-1. Use `create-pdf` with `path` and `blocks`. A block is a `heading`
-   (`text` and `level` 1 to 3), a `paragraph` (`text`), `bullets` (`items`)
-   or a `table` (`header` and `rows`).
+1. Use `create-pdf` with `path` and a `markdown` string. Headings,
+   paragraphs, bullet and numbered lists, bold/italic emphasis and simple
+   rectangular tables are supported. Code is literal text; links show labels
+   without fetching targets. HTML, images and unsupported constructs are refused.
+   Optional `title` is metadata, not an extra visible heading. All arguments
+   are strings. The former `blocks` argument is no longer accepted.
+   Example: `{"path":"/reports/plan.pdf","markdown":"# Plan\n\nA short summary."}`.
 2. The text must use Latin-1 characters only. Replace other characters, or
    tell the user which ones cannot be written.
 3. If the path is taken, the old file stays and the new one is saved next

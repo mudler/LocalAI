@@ -37,10 +37,7 @@ var _ = Describe("Service", func() {
 	})
 
 	It("starts a new account with no pins", func() {
-		// The upgrade ran earlier for the accounts that existed then.
-		ran, err := svc.Store.SeedExisting(ctx, []string{"old"}, SeedIDs)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(ran).To(BeTrue())
+		Expect(svc.Store.Replace(ctx, "old", []string{"studio", "talk"})).To(Succeed())
 		got, err := svc.List(ctx, "created-after-the-upgrade", vis("studio", "talk"))
 		Expect(err).ToNot(HaveOccurred())
 		Expect(got).To(BeEmpty(), "a new account must start with no pins")
@@ -50,19 +47,11 @@ var _ = Describe("Service", func() {
 		Expect(slices.Equal(got, []string{"talk"})).To(BeTrue(), "a read or a save must never add a pin of its own: %v", got)
 	})
 
-	It("pins Studio and Talk once at the upgrade seed", func() {
-		ran, err := svc.Store.SeedExisting(ctx, []string{"u1"}, SeedIDs)
-		Expect(err).ToNot(HaveOccurred())
-		Expect(ran).To(BeTrue())
-		got, err := svc.List(ctx, "u1", vis("studio", "talk"))
-		Expect(err).ToNot(HaveOccurred())
-		Expect(got).To(Equal([]string{"studio", "talk"}), "an account that existed at the upgrade keeps Studio and Talk")
-		_, err = svc.Put(ctx, "u1", []string{"talk"}, vis("studio", "talk"))
-		Expect(err).ToNot(HaveOccurred())
-		ran, _ = svc.Store.SeedExisting(ctx, []string{"u1"}, SeedIDs)
-		Expect(ran).To(BeFalse(), "the seed ran a second time")
-		got, _ = svc.List(ctx, "u1", vis("studio", "talk"))
-		Expect(got).To(Equal([]string{"talk"}), "an unpin did not stick")
+	It("keeps explicit pins and unpins on repeated reads", func() {
+		Expect(svc.Store.Replace(ctx, "u1", []string{"studio", "talk"})).To(Succeed())
+		Expect(svc.List(ctx, "u1", vis("studio", "talk"))).To(Equal([]string{"studio", "talk"}))
+		Expect(svc.Put(ctx, "u1", []string{"talk"}, vis("studio", "talk"))).To(Equal([]string{"talk"}))
+		Expect(svc.List(ctx, "u1", vis("studio", "talk"))).To(Equal([]string{"talk"}))
 	})
 
 	It("keeps pins the caller cannot see on Put", func() {

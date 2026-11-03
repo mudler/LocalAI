@@ -24,8 +24,7 @@ import (
 // jsonStore keeps chats in memory and, when it has a directory, mirrors them to
 // files: one small record file per chat (rewritten atomically), one
 // append-only transcript file per chat and one harness state file per chat
-// (written only when the state changes). One process owns the directory: the
-// locks below are in-process only, so two LocalAI processes must not share it.
+// (written only when the state changes). One process owns the directory.
 // A cluster uses the GORM store.
 //
 // mu guards the map only. Each chat has its own lock, held for the whole
@@ -72,6 +71,10 @@ func NewJSON(dir string) (Store, error) {
 	if dir == "" {
 		return s, nil
 	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return nil, err
+	}
+
 	if err := os.MkdirAll(s.chatDir(), 0o700); err != nil {
 		return nil, err
 	}
@@ -106,6 +109,14 @@ func NewJSON(dir string) (Store, error) {
 		for i := range c.Pending {
 			if c.Pending[i].Unconfirmed {
 				c.Pending[i].Delivered, c.Pending[i].Unconfirmed = false, false
+			}
+		}
+		if off, changed := normalizeDocumentSkillsOff(c.Rec.SkillsOff); changed {
+			// The legacy markers of the document skills become their add-on names.
+			// The next write stores them if this save fails.
+			c.Rec.SkillsOff = off
+			if err := s.save(&c); err != nil {
+				xlog.Warn("studio store: could not rewrite the legacy skill markers", "chat", c.Rec.ID, "error", err)
 			}
 		}
 		if err := s.loadEntries(&c); err != nil {
@@ -421,7 +432,7 @@ func (s *jsonStore) CreateChat(_ context.Context, rec session.ChatRecord) error 
 	if _, ok := s.chats[rec.ID]; ok {
 		return session.ErrExists
 	}
-	c := chatState{Rec: rec}
+	c := chatState{Rec: cloneRec(rec)}
 	c.Rec.HarnessState = nil
 	c.Rec.Egress = rec.Egress.Clone()
 	c.Rec.Goal = rec.Goal.Clone()
@@ -446,10 +457,40 @@ func (s *jsonStore) GetChat(_ context.Context, principal, id string) (session.Ch
 		return session.ChatRecord{}, err
 	}
 	defer unlock()
-	return cloneRec(c.Rec), nil
+	rec := cloneRec(c.Rec)
+	// A read never writes. The store rewrites the legacy markers when it loads;
+	// this covers a record that was created with them since.
+	rec.SkillsOff, _ = normalizeDocumentSkillsOff(rec.SkillsOff)
+	return rec, nil
 }
 
 func cloneRec(r session.ChatRecord) session.ChatRecord {
+	r.SkillsOff = append([]string(nil), r.SkillsOff...)
+	r.AddonsOff = append([]string(nil), r.AddonsOff...)
+	r.McpOff = append([]string(nil), r.McpOff...)
+	r.BuiltinsOff = append([]string(nil), r.BuiltinsOff...)
+	r.BuiltinsOn = append([]string(nil), r.BuiltinsOn...)
+	if r.HostConsent != nil {
+		cp := *r.HostConsent
+		r.HostConsent = &cp
+	}
+	if r.Snapshot != nil {
+		cp := *r.Snapshot
+		r.Snapshot = &cp
+	}
+	if r.Settings.Temperature != nil {
+		cp := *r.Settings.Temperature
+		r.Settings.Temperature = &cp
+	}
+	if r.Settings.TopP != nil {
+		cp := *r.Settings.TopP
+		r.Settings.TopP = &cp
+	}
+	if r.Settings.TopK != nil {
+		cp := *r.Settings.TopK
+		r.Settings.TopK = &cp
+	}
+
 	r.HarnessState = append([]byte(nil), r.HarnessState...)
 	r.Egress = r.Egress.Clone()
 	r.Goal = r.Goal.Clone()
@@ -486,6 +527,7 @@ func (s *jsonStore) edit(principal, id string, change func(next *chatState) erro
 	}
 	defer unlock()
 	next := c.chatState
+	next.Rec = cloneRec(c.Rec)
 	if err := change(&next); err != nil {
 		return err
 	}
@@ -500,6 +542,7 @@ func (s *jsonStore) edit(principal, id string, change func(next *chatState) erro
 			xlog.Warn("studio store: could not remove an old harness state file", "chat", id, "error", err)
 		}
 	}
+	next.Rec = cloneRec(next.Rec)
 	c.chatState = next
 	return nil
 }
@@ -524,7 +567,10 @@ func (s *jsonStore) UpdateChat(_ context.Context, rec session.ChatRecord) error 
 }
 
 func (s *jsonStore) SetSkillsOff(_ context.Context, principal, id string, off []string) error {
-	return s.set(principal, id, func(next *chatState) { next.Rec.SkillsOff = append([]string(nil), off...) })
+	return s.set(principal, id, func(next *chatState) {
+		clean, _ := normalizeDocumentSkillsOff(off)
+		next.Rec.SkillsOff = append([]string(nil), clean...)
+	})
 }
 
 func (s *jsonStore) SetAddonsOff(_ context.Context, principal, id string, off []string) error {
@@ -537,6 +583,10 @@ func (s *jsonStore) SetBuiltinsOff(_ context.Context, principal, id string, off 
 
 func (s *jsonStore) SetBuiltinsOn(_ context.Context, principal, id string, on []string) error {
 	return s.set(principal, id, func(next *chatState) { next.Rec.BuiltinsOn = append([]string(nil), on...) })
+}
+
+func (s *jsonStore) SetScopedAgent(_ context.Context, principal, id string, scoped bool) error {
+	return s.set(principal, id, func(next *chatState) { next.Rec.ScopedAgent = scoped })
 }
 
 func (s *jsonStore) SetHostConsent(_ context.Context, principal, id string, c *session.HostConsent) error {
@@ -953,7 +1003,8 @@ func (s *jsonStore) TouchTurn(_ context.Context, principal, id, runID string) er
 	return nil
 }
 
-func (s *jsonStore) ReapTurns(_ context.Context, olderThan time.Time) ([]ReapedTurn, error) {
+func (s *jsonStore) ReapTurns(_ context.Context, idle time.Duration) ([]ReapedTurn, error) {
+	olderThan := time.Now().UTC().Add(-idle)
 	var out []ReapedTurn
 	for _, c := range s.slots() {
 		reaped, err := s.reapTurn(c, olderThan)

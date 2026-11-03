@@ -216,15 +216,62 @@ func subtree(ctx context.Context, q querier, id int64, deepestFirst bool) ([]nod
 		SELECT `+nodeCols+` FROM studio_ws_nodes JOIN sub ON studio_ws_nodes.id = sub.id ORDER BY `+order, id))
 }
 
+// liveAncestors returns the node and every folder above it, nearest first,
+// and the set of those that are not deleted.
+func liveAncestors(ctx context.Context, q querier, id int64) ([]int64, map[int64]bool, error) {
+	rows, err := q.QueryContext(ctx, `WITH RECURSIVE up(id, parent_id, deleted, depth) AS (
+			SELECT id, parent_id, deleted, 0 FROM studio_ws_nodes WHERE id = ?
+			UNION ALL
+			SELECT n.id, n.parent_id, n.deleted, up.depth + 1 FROM studio_ws_nodes n JOIN up ON n.id = up.parent_id)
+		SELECT id, deleted FROM up ORDER BY depth`, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var out []int64
+	live := map[int64]bool{}
+	for rows.Next() {
+		var v int64
+		var del int
+		if err := rows.Scan(&v, &del); err != nil {
+			return nil, nil, err
+		}
+		out = append(out, v)
+		if del == 0 {
+			live[v] = true
+		}
+	}
+	return out, live, rows.Err()
+}
+
 // access returns the mode the actor has on a node: the highest grant on the
-// node or a folder above it, for the principal or one of its groups.
+// node or a folder above it, for the principal or one of its groups. For a
+// fenced actor it is at most what the fence allows there.
 func (s *Workspace) access(ctx context.Context, q querier, a Actor, id int64) (Mode, error) {
-	if s.admin != "" && a.Principal == s.admin {
+	if s.isAdmin(a) {
 		return ModeWrite, nil
 	}
 	if a.Principal == "" {
 		return ModeNone, nil
 	}
+	limit := ModeWrite
+	if HasFence(a) {
+		ancs, live, err := liveAncestors(ctx, q, id)
+		if err != nil {
+			return ModeNone, err
+		}
+		limit = FenceMode(a, ancs, func(n int64) bool { return live[n] })
+		if limit == ModeNone {
+			return ModeNone, nil
+		}
+	}
+	m, err := s.grantMode(ctx, q, a, id)
+	return min(m, limit), err
+}
+
+// grantMode returns the highest grant of the actor on the node or a folder
+// above it.
+func (s *Workspace) grantMode(ctx context.Context, q querier, a Actor, id int64) (Mode, error) {
 	ps := principals(a)
 	args := []any{id}
 	for _, p := range ps {
@@ -242,6 +289,9 @@ func (s *Workspace) access(ctx context.Context, q querier, a Actor, id int64) (M
 
 // needWrite returns ErrNotFound without read access and ErrReadOnly without write access.
 func (s *Workspace) needWrite(ctx context.Context, q querier, a Actor, n nodeRow) error {
+	if err := CheckFence(a); err != nil {
+		return err
+	}
 	m, err := s.access(ctx, q, a, n.id)
 	if err != nil {
 		return err
@@ -257,6 +307,9 @@ func (s *Workspace) needWrite(ctx context.Context, q querier, a Actor, n nodeRow
 
 // find resolves p for the actor. need is ModeRead or ModeWrite.
 func (s *Workspace) find(ctx context.Context, q querier, a Actor, p string, need Mode) (nodeRow, error) {
+	if err := CheckFence(a); err != nil {
+		return nodeRow{}, err
+	}
 	n, err := lookupPath(ctx, q, p)
 	if err != nil {
 		return nodeRow{}, err

@@ -52,7 +52,8 @@
             files="$(git diff --name-only "${BEFORE}" "${AFTER}")"
             echo "changed files:"; echo "${files:-<none>}"
             [ -z "${files}" ] && emit true "empty diff: building every image"
-            if echo "${files}" | grep -qvE '^(gallery/|docs/|examples/)|\.md$'; then
+            # Consume every path so an early match cannot SIGPIPE echo under pipefail.
+            if echo "${files}" | grep -vE '^(gallery/|docs/|examples/)|\.md$' >/dev/null; then
               emit true "push touches image-visible content: building"
             fi
             emit false "only gallery/docs/markdown changed: images identical, skipping"

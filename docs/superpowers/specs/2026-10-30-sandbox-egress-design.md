@@ -138,7 +138,7 @@ the person's browser session or the administrator's settings.
 | **Redirects** | registry host answers `302 Location: http://10.0.0.5/` | The proxy follows no redirect. The guest client follows it, which makes a new proxy request that goes through the same check (name, policy, addresses). For plain HTTP the proxy's `http.Transport` does not follow redirects either. |
 | **Domain fronting** | `CONNECT pypi.org:443`, then TLS SNI or `Host` of another tenant of the same CDN | On port 443 the proxy reads the TLS ClientHello (no decryption) and refuses a tunnel whose SNI is missing or differs from the CONNECT host. The inner `Host` header is encrypted and cannot be checked; residual risk, stated. |
 | **Proxy abuse** | non-TLS bytes in a 443 tunnel; CONNECT to port 22 or 25; scanning third parties under "Allow all"; smuggling a second request after CONNECT | Ports 80 and 443 only by default (`chats_egress_ports`). Port 443 tunnels must start with a TLS ClientHello. Plain HTTP: each request on a kept-alive connection is checked on its own; `Proxy-*` and hop-by-hop headers are dropped; a request whose `Host` differs from its absolute URI is refused. Rate limits per sandbox. |
-| **Resource exhaustion** | thousands of CONNECTs, slow-loris, a 50 GiB download, card floods | Limits table below; cards deduplicated per host and capped per chat; verdicts cached per call to keep host-operation traffic bounded. |
+| **Resource exhaustion** | thousands of CONNECTs, slow-loris, a 50 GiB download, card floods | Limits table below; cards deduplicated per host and capped per chat; connection rate and concurrency limits bound host-operation traffic. |
 | **Policy tampering** | the guest edits files in the home (mounted writable) to widen its own access | No network setting is a workspace file. Limits are administrator settings and the chat's preset lives in the chat record; both change only through an authenticated API call, never through the filesystem. |
 | **Card spoofing** | a host name made to look like a sentence or a URL | The card shows the host and port as plain text, max 253 bytes, punycode form. |
 | **Idle background processes** | `nohup curl ... &` that runs after the call ended | No call in progress means no live host operation, so every connection is blocked (reason `idle`) and counted; open tunnels are closed when the call ends. |
@@ -323,8 +323,8 @@ fail, as today; the docs say so.
   through `Guard.CheckHost` first; a failure is block with the guard's reason
   and no host operation.
 - **Verdict.** `egress.check` (section 7) with `{host, port, kind, tls}`.
-  Allow verdicts are cached for the call in progress, keyed by host and port,
-  for at most 30 s; block and ask are not cached, so a card answer applies
+  No verdict is cached. Each new upstream connection checks current owner
+  policy, including HTTP requests on kept-alive guest connections. A card answer applies
   at once.
 - **Dial.** `Guard.DialContext` with the verdict's `AllowPrivate`. A resolve
   or address failure is audited (`resolve`, `private`, `self`, `metadata`).
@@ -439,7 +439,7 @@ Per `.agents/distributed-state.md`:
 | Card answer delivery | bus fast path + store | `POST .../consent` writes the store, then sends `ControlMsg{Egress}` on the chat bus; the waiting handler wakes on the message or on a 2 s re-read of the card, so a lost message costs at most 2 s |
 | Audit | **shared** | database table in a cluster (`studio_egress_events`), JSON file under the data path in standalone, memory without one; like the host-exec audit |
 | Audit pruning | **single-runner** | `advisorylock.TryWithLockCtx` daily tick, new key in `keys.go`, removes rows older than `chats_egress_audit_days` |
-| Verdict cache, rate limits, tunnel counts | **documented per-instance** | the add-on process (the owner is a singleton); a cache entry lives at most 30 s and only within one call, so a setting change applies within 30 s on any node |
+| Rate limits, tunnel counts | **documented per-instance** | the add-on process (the owner is a singleton); no verdict cache, so new upstream connections check current policy |
 
 With `--addons-role frontend`, a frontend runs no proxy; the owner does. A
 two-instance test (fakebus) shows a card answered through frontend B wakes
@@ -460,8 +460,12 @@ check, no restart):
 | `chats_egress_extra_registries` | list of host names | empty | `Guard.CheckHost` on each, max 64 |
 | `chats_egress_audit_days` | int | 30 | 1 to 365 |
 
-Lowering the ceiling applies at the next check (at most 30 s on a cached
-allow); pending cards above the new ceiling become `refused`; stored rules
+Lowering the ceiling applies to every new upstream connection immediately.
+An unavailable owner blocks new connections, even after a prior allow.
+Established streams may finish under their original authorization; policy
+changes do not interrupt them. Idle, byte and call-end limits still apply,
+but no verdict TTL bounds stream lifetime.
+Pending cards above the new ceiling become `refused`; stored rules
 above it stay but do not apply (they show "above the limit").
 
 **No per-user file.** The preset of a **new** chat is the instance default
@@ -558,7 +562,7 @@ Docs ship with each phase (docs-with-code rule):
   registries table, limits, what fails (tools that ignore proxy variables,
   SSH remotes, raw sockets), residual risks (registry uploads, Allow all,
   inner Host header), and **Distributed mode: mode shared (settings, chat
-  record, audit), single-runner (audit prune), per-instance (verdict cache,
+  record, audit), single-runner (audit prune), per-instance (rate limits,
   limits)**. The Host operations section lists `egress.check` and
   `egress.audit` and the new `--addon-host-ops` default.
 - `docs/content/features/chats.md`, Running commands: the Network row, the
@@ -585,8 +589,8 @@ Docs ship with each phase (docs-with-code rule):
   HTTP; origin-form 400; SNI mismatch and non-TLS on 443 closed; a redirect
   answered by an upstream test server leads to a second request that is
   checked again; `idle` block with no call; tunnels closed at the end of
-  `Run`; every limit; the 403 text; allow cache expires after 30 s; block not
-  cached.
+  `Run`; every limit; the 403 text; fresh authorization after an allow, policy tightening and owner outage;
+  consumed grants are not reused by repeated or concurrent connections.
 - Host ops: chat comes from the envelope's `ResourceID`; identity arguments
   refused; no live operation refused; `egress.check` audits a block on its
   own; scope and feature checks.

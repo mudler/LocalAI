@@ -23,7 +23,28 @@ var _ = Describe("failed starts and interrupted lifecycle", func() {
 		admin := c.Token(cluster.FrontB, "admin")
 		marker := retainData(c, "found-tool")
 		r := lifecycle(admin, "found-tool", "upgrade", 0, "2.0.0")
-		Expect(r.Status).NotTo(Equal(200), "an upgrade whose process cannot start must not report success: "+r.String())
+		Expect(r.Status).To(Equal(200), r.String())
+		var accepted struct {
+			Payload struct{ OperationID, Phase string }
+		}
+		Expect(r.JSON(&accepted)).To(Succeed())
+		Expect(accepted.Payload.Phase).To(Equal("accepted"))
+		settle("the accepted upgrade reporting terminal failure", 30*time.Second, func() bool {
+			status := dispatch(admin, map[string]any{"operationId": accepted.Payload.OperationID, "addonId": "found-tool", "action": "operation-status", "arguments": map[string]any{}})
+			Expect(status.Status).To(Equal(200), status.String())
+			var out struct {
+				Payload struct {
+					Phase       string
+					FailureCode string `json:"failureCode"`
+				}
+			}
+			Expect(status.JSON(&out)).To(Succeed())
+			if out.Payload.Phase != "failed" {
+				return false
+			}
+			Expect(out.Payload.FailureCode).To(Equal("upgrade_failed"))
+			return true
+		})
 		a := appOf(admin, "found-tool")
 		Expect(a).NotTo(BeNil())
 		Expect(a.State).To(Equal("running"))

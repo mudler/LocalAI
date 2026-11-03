@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/mudler/xlog"
@@ -22,13 +23,11 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
-	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
 	"github.com/mudler/LocalAI/core/services/studio/media"
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
-	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
@@ -136,20 +135,32 @@ func (a *Application) initStudioService() {
 	}
 	// The built-in bash runs commands on this machine when no Sandbox serves
 	// bash. Its scratch folders are per process; the files are the truth.
-	var svcRef *studio.Service
+	// The hooks run in chat turns, which start only after svcRef is set; it
+	// is atomic because they read it from other goroutines.
+	var svcRef atomic.Pointer[studio.Service]
 	if f := a.StudioFiles(); f.Available() {
 		hxDir := filepath.Join(stateDir, "host-exec")
 		if dp := a.applicationConfig.DataPath; dp != "" {
 			hxDir = filepath.Join(dp, "chats", "host-exec")
 		}
+		// The actor and the view of each command come from the chat's
+		// resolved access, so they are the turn's: a chat whose agent works in
+		// one folder gets a fenced actor, which the runner refuses.
 		a.studioHostExec = hostexec.New(hostexec.Options{
 			Store: f.Store(), StateDir: hxDir, Audit: a.studioHostExecAudit(), Geteuid: os.Geteuid,
-			Actor: func(user, chat string) workspace.Actor { act := files.UserActor(user); act.ChatID = chat; return act },
-			Shared: func(ctx context.Context, act workspace.Actor) ([]session.SharedRoot, error) {
-				if svcRef == nil {
-					return nil, nil
+			Actor: func(ctx context.Context, user, chat string) (workspace.Actor, error) {
+				svc := svcRef.Load()
+				if svc == nil {
+					return workspace.Actor{}, errStudioStarting
 				}
-				return svcRef.SharedRoots(ctx, act)
+				return svc.CommandActor(ctx, user, chat)
+			},
+			View: func(ctx context.Context, act workspace.Actor) (workspace.View, error) {
+				svc := svcRef.Load()
+				if svc == nil {
+					return workspace.View{}, errStudioStarting
+				}
+				return svc.CommandView(ctx, act)
 			},
 		})
 		if r := a.studioHostExec.Unavailable(); r != "" {
@@ -164,7 +175,7 @@ func (a *Application) initStudioService() {
 		return a.applicationConfig.EffectiveChatsGoalMaxTurns(), a.applicationConfig.EffectiveChatsGoalMaxSteps()
 	}
 	deps.IsAdmin = a.studioIsAdmin
-	deps.ToolPins = func() map[string]string { return a.applicationConfig.ChatsToolProviders }
+	deps.ToolPins = a.studioToolPins
 	if d := a.Distributed(); d != nil && d.Nats != nil && a.applicationConfig.Distributed.ChatWorkers && !a.applicationConfig.Distributed.ChatWorker {
 		deps.Workers = nodes.NewNATSChatStarter(d.Nats, nodes.WithChatStartTimeout(a.applicationConfig.Distributed.ChatStartTimeout))
 	}
@@ -178,7 +189,7 @@ func (a *Application) initStudioService() {
 		return
 	}
 	a.studioService = svc
-	svcRef = svc
+	svcRef.Store(svc)
 	a.startStudioReaper(svc)
 	a.startStudioEgressPrune(svc)
 	if a.applicationConfig.Distributed.ChatWorker {
@@ -188,11 +199,26 @@ func (a *Application) initStudioService() {
 		return
 	}
 	a.startStudioConnectors(svc)
-	a.startStudioTriggers(svc)
-	a.startStudioLoops(svc)
-	a.startStudioJobs(svc)
+	if a.ownsAddonsOnly() {
+		xlog.Info("Chats: this is the add-on owner; connectors, triggers, loops and agent jobs run on the frontends")
+	} else {
+		a.startStudioTriggers(svc)
+		a.startStudioLoops(svc)
+		a.startStudioJobs(svc)
+	}
 	a.prepareStudioConversion(svc)
 }
+
+// ownsAddonsOnly says whether this process is a dedicated add-on owner
+// (--addons-role=owner). It hosts the add-ons and has no models, so the
+// background work that starts chat turns belongs to the frontends.
+func (a *Application) ownsAddonsOnly() bool {
+	return a.applicationConfig.Addons.DedicatedOwner
+}
+
+// errStudioStarting is the error of a command hook called before the chat
+// service is up. No chat turn runs then, so it is not expected.
+var errStudioStarting = errors.New("chats: the service is starting")
 
 // A turn beats every 15 seconds; one that has not beaten for this long belongs
 // to a frontend that died.
@@ -202,31 +228,43 @@ const (
 )
 
 // startStudioReaper frees the chats whose turn was left running by a process
-// that died. A standalone process runs once at startup with no grace: every
-// claim then belongs to a process that no longer exists. In a cluster the other
-// frontends are alive, so only turns that stopped beating are reaped, by the one
-// frontend that holds the advisory lock at each tick.
+// that died. Only turns that stopped beating are reaped: the database may be
+// shared with another live process, whose turns must go on. A process that
+// died leaves a claim that goes stale within studioTurnTimeout, and the next
+// tick frees it. In a cluster one frontend does this at each tick, the one that
+// holds the advisory lock.
 func (a *Application) startStudioReaper(svc *studio.Service) {
 	ctx := a.backgroundContext()
-	reap := func(olderThan time.Duration) {
-		n, err := svc.ReapStale(ctx, olderThan)
+	reap := func() {
+		n, err := svc.ReapStale(ctx, studioTurnTimeout)
 		if err != nil {
 			xlog.Warn("Chats: could not reap stale turns", "error", err)
 		} else if n > 0 {
 			xlog.Info("Chats: ended turns whose frontend stopped", "turns", n)
 		}
 	}
-	if a.Distributed() == nil {
-		if a.authDB != nil {
-			// The JSON store settles its own claims when it loads; a database does not.
-			reap(0)
-		}
-		return
-	}
 	if a.authDB == nil {
+		// The JSON store settles its own claims when it loads.
 		return
 	}
-	go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, func() { reap(studioTurnTimeout) })
+	if a.Distributed() != nil {
+		go advisorylock.RunLeaderLoop(ctx, a.authDB, advisorylock.KeyChatsReaper, studioReapEvery, reap)
+		return
+	}
+	// The conditional update of a reap is safe to race with another process.
+	reap()
+	go func() {
+		tick := time.NewTicker(studioReapEvery)
+		defer tick.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+				reap()
+			}
+		}
+	}()
 }
 
 // studioUsers returns the user lookup, or nil when auth is off.
@@ -395,7 +433,7 @@ func (a *Application) studioRemoteModel(model string) bool {
 // studioHostExecMode is chats_host_exec as it applies now. Empty is the
 // default: off on a server with accounts (several people), ask without.
 func (a *Application) studioHostExecMode() string {
-	if m := a.applicationConfig.ChatsHostExec; m != "" {
+	if m := a.applicationConfig.ChatSelectionSnapshot().HostExec; m != "" {
 		return m
 	}
 	if a.authDB != nil {
@@ -428,7 +466,7 @@ func (a *Application) studioHostExecAudit() hostexec.AuditStore {
 
 // studioEgressSettings is the chats_egress_* settings as they apply now. A
 // list value that does not parse keeps the last valid one (see lastGood).
-func (a *Application) studioEgressSettings() egress.Settings {
+func (a *Application) localStudioEgressSettings() egress.Settings {
 	cfg := a.applicationConfig
 	a.studioEgressListsOnce.Do(a.initStudioEgressLists)
 	return egress.Settings{

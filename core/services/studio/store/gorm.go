@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/egress"
@@ -47,10 +48,13 @@ type chatRow struct {
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
 	Assistant    bool
-	Settings     string `gorm:"type:text"` // JSON of session.ChatSettings
-	HostConsent  string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
-	Egress       string `gorm:"type:text"` // JSON of egress.ChatState
-	EgressRev    int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
+	// ScopedAgent came after the table existed: the default reads the rows of
+	// chats made before as not scoped, so AutoMigrate is its migration.
+	ScopedAgent bool   `gorm:"not null;default:false"`
+	Settings    string `gorm:"type:text"` // JSON of session.ChatSettings
+	HostConsent string `gorm:"type:text"` // JSON of session.HostConsent while a card waits
+	Egress      string `gorm:"type:text"` // JSON of egress.ChatState
+	EgressRev   int64  // bumped by UpdateEgress and UpdateHostConsent; their row lock
 	// Goal and GoalRev came after the table existed: the defaults fill the
 	// rows of chats made before, so AutoMigrate is their migration.
 	Goal    string `gorm:"type:text;not null;default:''"` // JSON of session.Goal; empty: no goal
@@ -140,7 +144,43 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if err := db.AutoMigrate(&chatRow{}, &entryRow{}, &pendingRow{}); err != nil {
 		return nil, fmt.Errorf("studio store: migrate: %w", err)
 	}
-	return &gormStore{db: db}, nil
+	s := &gormStore{db: db}
+	if err := s.migrateDocumentSkillsOff(); err != nil {
+		// Reads normalize the markers in memory, so the store works anyway.
+		xlog.Warn("studio store: could not rewrite the legacy skill markers", "error", err)
+	}
+	return s, nil
+}
+
+// migrateDocumentSkillsOff rewrites the legacy OFF markers of the document
+// skills (builtin:docx and the like) to their add-on names. It is idempotent.
+// Each row changes only if it still holds the value that was read, so it cannot
+// undo a concurrent explicit re-enable.
+func (s *gormStore) migrateDocumentSkillsOff() error {
+	var rows []chatRow
+	if err := s.db.Select("id", "skills_off").Where("skills_off LIKE ?", "%builtin:%").Find(&rows).Error; err != nil {
+		return err
+	}
+	var errs []error
+	for _, r := range rows {
+		var off []string
+		if json.Unmarshal([]byte(r.SkillsOff), &off) != nil {
+			continue
+		}
+		clean, changed := normalizeDocumentSkillsOff(off)
+		if !changed {
+			continue
+		}
+		raw, err := json.Marshal(clean)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if err := s.db.Model(&chatRow{}).Where("id = ? AND skills_off = ?", r.ID, r.SkillsOff).Update("skills_off", string(raw)).Error; err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }
 
 func (r chatRow) record() (session.ChatRecord, error) {
@@ -149,6 +189,7 @@ func (r chatRow) record() (session.ChatRecord, error) {
 		Created: r.Created, Updated: r.Updated, HarnessState: append([]byte(nil), r.HarnessState...),
 		Turns: r.Turns, Kind: r.Kind, ParentID: r.ParentID, Model: r.Model, Status: r.Status,
 		AgentID: r.AgentID, Origin: r.Origin, OriginID: r.OriginID, Assistant: r.Assistant,
+		ScopedAgent: r.ScopedAgent,
 	}
 	if r.SkillsOff != "" {
 		if err := json.Unmarshal([]byte(r.SkillsOff), &rec.SkillsOff); err != nil {
@@ -227,6 +268,7 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 		Created: rec.Created, Updated: rec.Updated, Snapshot: snap, HarnessState: rec.HarnessState,
 		Turns: rec.Turns, Kind: rec.Kind, ParentID: rec.ParentID, Model: rec.Model, Status: rec.Status,
 		AgentID: rec.AgentID, Origin: rec.Origin, OriginID: rec.OriginID, Assistant: rec.Assistant,
+		ScopedAgent: rec.ScopedAgent,
 	}
 	// A chat can start with its switches (the composer of a new chat drafts
 	// them), so they are written with the row.
@@ -283,7 +325,15 @@ func (s *gormStore) GetChat(ctx context.Context, principal, id string) (session.
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
-	return row.record()
+	rec, err := row.record()
+	if err != nil {
+		return session.ChatRecord{}, err
+	}
+	// A read never writes. Rows written before the document skills moved to
+	// add-ons are rewritten when the store opens; this covers a row that an
+	// older process wrote since.
+	rec.SkillsOff, _ = normalizeDocumentSkillsOff(rec.SkillsOff)
+	return rec, nil
 }
 
 func (s *gormStore) ListChats(ctx context.Context, principal string, before session.ChatCursor, limit int) ([]session.ChatRecord, error) {
@@ -332,6 +382,10 @@ func (s *gormStore) UpdateChat(ctx context.Context, rec session.ChatRecord) erro
 // setList saves a list of names in a column of the chat row; an empty list is
 // the empty text.
 func (s *gormStore) setList(ctx context.Context, column, principal, id string, list []string) error {
+	return setListDB(s.db.WithContext(ctx), column, principal, id, list)
+}
+
+func setListDB(db *gorm.DB, column, principal, id string, list []string) error {
 	raw := ""
 	if len(list) > 0 {
 		b, err := json.Marshal(list)
@@ -340,7 +394,7 @@ func (s *gormStore) setList(ctx context.Context, column, principal, id string, l
 		}
 		raw = string(b)
 	}
-	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update(column, raw)
+	res := db.Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update(column, raw)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -351,7 +405,8 @@ func (s *gormStore) setList(ctx context.Context, column, principal, id string, l
 }
 
 func (s *gormStore) SetSkillsOff(ctx context.Context, principal, id string, off []string) error {
-	return s.setList(ctx, "skills_off", principal, id, off)
+	clean, _ := normalizeDocumentSkillsOff(off)
+	return s.setList(ctx, "skills_off", principal, id, clean)
 }
 
 func (s *gormStore) SetAddonsOff(ctx context.Context, principal, id string, off []string) error {
@@ -364,6 +419,25 @@ func (s *gormStore) SetBuiltinsOff(ctx context.Context, principal, id string, of
 
 func (s *gormStore) SetBuiltinsOn(ctx context.Context, principal, id string, on []string) error {
 	return s.setList(ctx, "builtins_on", principal, id, on)
+}
+
+func (s *gormStore) SetScopedAgent(ctx context.Context, principal, id string, scoped bool) error {
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("scoped_agent", scoped)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		// An update to the value the row already has counts no row on some
+		// drivers; tell that apart from a missing chat.
+		var n int64
+		if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return session.ErrNotFound
+		}
+	}
+	return nil
 }
 
 func (s *gormStore) SetHostConsent(ctx context.Context, principal, id string, c *session.HostConsent) error {
@@ -840,10 +914,35 @@ func (s *gormStore) ConfirmPending(ctx context.Context, principal, id string, id
 	})
 }
 
+// now returns the time of the database server. A turn's beat is written by the
+// frontend that runs it and read by the one that reaps, so both use this one
+// clock: a skew between the machines must not end a live turn.
+func (s *gormStore) now(ctx context.Context) (time.Time, error) {
+	switch s.db.Dialector.Name() {
+	case "sqlite":
+		var v string
+		if err := s.db.WithContext(ctx).Raw("SELECT strftime('%Y-%m-%d %H:%M:%f', 'now')").Scan(&v).Error; err != nil {
+			return time.Time{}, err
+		}
+		return time.ParseInLocation("2006-01-02 15:04:05.000", v, time.UTC)
+	case "postgres":
+		var t time.Time
+		if err := s.db.WithContext(ctx).Raw("SELECT now()").Scan(&t).Error; err != nil {
+			return time.Time{}, err
+		}
+		return t.UTC(), nil
+	}
+	return time.Now().UTC(), nil
+}
+
 func (s *gormStore) ClaimTurn(ctx context.Context, principal, id, runID string) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND (run_id = ? OR run_id IS NULL)", id, principal, "").
-		Updates(map[string]any{"run_id": runID, "run_since": time.Now().UTC(), "run_beat": time.Now().UTC()})
+		Updates(map[string]any{"run_id": runID, "run_since": now, "run_beat": now})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -885,9 +984,13 @@ func (s *gormStore) Turn(ctx context.Context, principal, id string) (TurnInfo, e
 }
 
 func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) error {
+	now, err := s.now(ctx)
+	if err != nil {
+		return err
+	}
 	db := s.db.WithContext(ctx)
 	res := db.Model(&chatRow{}).Where("id = ? AND principal = ? AND run_id = ?", id, principal, runID).
-		Update("run_beat", time.Now().UTC())
+		Update("run_beat", now)
 	if res.Error != nil {
 		return res.Error
 	}
@@ -900,9 +1003,14 @@ func (s *gormStore) TouchTurn(ctx context.Context, principal, id, runID string) 
 	return ErrNotClaimed
 }
 
-func (s *gormStore) ReapTurns(ctx context.Context, olderThan time.Time) ([]ReapedTurn, error) {
+func (s *gormStore) ReapTurns(ctx context.Context, idle time.Duration) ([]ReapedTurn, error) {
+	now, err := s.now(ctx)
+	if err != nil {
+		return nil, err
+	}
+	olderThan := now.Add(-idle)
 	var rows []chatRow
-	err := s.db.WithContext(ctx).
+	err = s.db.WithContext(ctx).
 		Where("run_id <> ? AND run_id IS NOT NULL AND run_beat < ?", "", olderThan).
 		Find(&rows).Error
 	if err != nil {

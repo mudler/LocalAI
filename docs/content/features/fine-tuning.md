@@ -225,11 +225,11 @@ A user needs the fine-tuning permission. Without it, the page says the account c
 
 The Fine-Tune page is the `fine-tuning` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/fine-tuning/jobs` and can be shown in the sidebar. 
 
-The old link `/app/fine-tune` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
+Open the canonical add-on page from My add-ons. Historical standalone links are not registered.
 
 The API does not change. The page calls `/api/fine-tuning/*` with the signed-in user's own session, and the server checks the fine-tuning permission on every call, so the add-on never widens what a user may do.
 
-With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/fine-tune` leads back to `/app`, and every path under `/api/fine-tuning` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
+With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/addons/fine-tuning/jobs` leads back to `/app`, and every path under `/api/fine-tuning` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
 
 The add-on also offers tools to the chat: list jobs, propose a job, store a small dataset, read the status and the checkpoints of a job, stop a job and export a checkpoint as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or export it. In the chats, and in an agent or a trigger whose agent names the add-on, a tool call that starts a job runs at once, because you turned the add-on on; a trigger with no agent gets no such tool; the result says what an undo does (see below). On the OpenAI-compatible API and other surfaces, a tool only proposes the action and a person confirms it in an approval card. A model or a dataset given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `finetune.` prefix, and they run with the permissions of the person in the chat.
 

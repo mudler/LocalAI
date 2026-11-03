@@ -1,6 +1,7 @@
 package studio
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"slices"
@@ -21,33 +22,58 @@ import (
 const maxCommandSets = 50
 
 // commandMark returns the newest revision of the chat's change sets in the
-// home, or 0 when it has none (or the store cannot say: then every change set
-// of the chat counts, which only lists files twice).
+// files it can reach, or 0 when it has none (or the store cannot say: then
+// every change set of the chat counts, which only lists files twice).
 func (s *Service) commandMark(ctx context.Context, a workspace.Actor) int64 {
 	if !s.d.Files.Available() || a.ChatID == "" {
 		return 0
 	}
-	sets, err := s.d.Files.Store().History(ctx, userOf(a), workspace.HistoryQuery{Path: session.HomePath(a.Principal), ChatID: a.ChatID, Limit: 1})
+	sets, err := s.chatSets(ctx, a, 1)
 	if err != nil || len(sets) == 0 {
 		return 0
 	}
 	return sets[0].Rev
 }
 
-// userOf is the user's own actor, which reads the history of the whole home.
-func userOf(a workspace.Actor) workspace.Actor {
-	return workspace.Actor{Principal: a.Principal, Groups: a.Groups}
+// chatSets returns the newest change sets of the chat of a, newest first, as
+// a can read them. A chat on the whole home reads the history of the home; a
+// scoped chat cannot read the home, so it reads the history of each folder
+// it reaches and the store keeps every change set inside its fence.
+func (s *Service) chatSets(ctx context.Context, a workspace.Actor, limit int) ([]workspace.ChangeSet, error) {
+	ws := s.d.Files.Store()
+	if _, fenced := a.Fence(); !fenced {
+		return ws.History(ctx, a, workspace.HistoryQuery{Path: session.HomePath(a.Principal), ChatID: a.ChatID, Limit: limit})
+	}
+	roots, err := ws.ReadablePrefixes(ctx, a)
+	if err != nil {
+		return nil, err
+	}
+	seen := map[int64]bool{}
+	var out []workspace.ChangeSet
+	for _, root := range roots {
+		sets, err := ws.History(ctx, a, workspace.HistoryQuery{Path: root, ChatID: a.ChatID, Limit: limit})
+		if err != nil {
+			return nil, err
+		}
+		for _, cs := range sets {
+			if !seen[cs.Rev] {
+				seen[cs.Rev] = true
+				out = append(out, cs)
+			}
+		}
+	}
+	slices.SortFunc(out, func(x, y workspace.ChangeSet) int { return cmp.Compare(y.Rev, x.Rev) })
+	return out[:min(limit, len(out))], nil
 }
 
-// commandFiles lists the files of the user's home that the chat's change sets
+// commandFiles lists the files that the chat's change sets
 // after mark created, changed or deleted, oldest change first. A file that
 // several change sets touched is listed once, with the last of them.
 func (s *Service) commandFiles(ctx context.Context, a workspace.Actor, mark int64) []session.ToolFile {
 	if !s.d.Files.Available() || a.ChatID == "" {
 		return nil
 	}
-	home := session.HomePath(a.Principal)
-	sets, err := s.d.Files.Store().History(ctx, userOf(a), workspace.HistoryQuery{Path: home, ChatID: a.ChatID, Limit: maxCommandSets})
+	sets, err := s.chatSets(ctx, a, maxCommandSets)
 	if err != nil {
 		s.log.Warn("studio: the files a command changed are not on its card", "chat", a.ChatID, "error", err)
 		return nil
@@ -86,7 +112,7 @@ func (s *Service) commandFiles(ctx context.Context, a workspace.Actor, mark int6
 		}
 		// A folder is no file of the card: what is inside it is.
 		if !n.gone {
-			if st, err := s.d.Files.Store().Stat(ctx, userOf(a), n.path); err != nil || st.Kind != workspace.KindFile {
+			if st, err := s.d.Files.Store().Stat(ctx, a, n.path); err != nil || st.Kind != workspace.KindFile {
 				continue
 			}
 		}
@@ -126,7 +152,9 @@ func (s *Service) withCommandFiles(a workspace.Actor, run func(context.Context, 
 					created = append(created, f.Path)
 				}
 			}
-			out = withNudge(out, s.nudgeLine(ctx, a, created))
+			// a is the actor of the chat's access: it is fenced exactly
+			// when the access is scoped.
+			out = withNudge(out, s.nudgeLine(ctx, a, workspace.HasFence(a), created))
 		}
 		return out, nil
 	}

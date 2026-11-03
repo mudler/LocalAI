@@ -70,6 +70,9 @@ func (s *Store) Revoke(ctx context.Context, admin workspace.Actor, principal, p 
 // the mode the actor has.
 func (s *Store) View(ctx context.Context, a workspace.Actor, reqs []workspace.MountRequest) (workspace.View, error) {
 	v := workspace.View{Actor: a}
+	if err := workspace.CheckFence(a); err != nil {
+		return workspace.View{}, err
+	}
 	err := s.readLocked(ctx, func(d *data) error {
 		seen := map[string]bool{}
 		for _, r := range reqs {
@@ -108,7 +111,8 @@ func (s *Store) View(ctx context.Context, a workspace.Actor, reqs []workspace.Mo
 
 // ReadablePrefixes returns the folder paths where the actor has read access or
 // more, without a path that is under another one in the list, sorted. The
-// admin gets ["/"]. An actor with no grant gets an empty list.
+// admin gets ["/"]. An actor with no grant gets an empty list. A fenced actor
+// gets only folders that are roots of its fence or inside them.
 func (s *Store) ReadablePrefixes(ctx context.Context, a workspace.Actor) ([]string, error) {
 	if s.isAdmin(a) {
 		return []string{"/"}, nil
@@ -117,17 +121,34 @@ func (s *Store) ReadablePrefixes(ctx context.Context, a workspace.Actor) ([]stri
 	if a.Principal == "" {
 		return out, nil
 	}
+	if err := workspace.CheckFence(a); err != nil {
+		return nil, err
+	}
+	fenced := workspace.HasFence(a)
 	err := s.readLocked(ctx, func(d *data) error {
 		ps := a.Principals()
 		var paths []string
 		seen := map[int64]bool{}
-		for k, m := range d.grants {
-			n := d.nodes[k.Node]
-			if m < workspace.ModeRead || seen[k.Node] || n == nil || n.Deleted || n.Kind != workspace.KindDir || !slices.Contains(ps, k.Principal) {
-				continue
+		add := func(id int64) {
+			n := d.nodes[id]
+			if seen[id] || n == nil || n.Deleted || n.Kind != workspace.KindDir {
+				return
 			}
-			seen[k.Node] = true
-			paths = append(paths, d.pathOf(k.Node))
+			seen[id] = true
+			// A grant may cover more than the fence and a root may lie
+			// outside every grant: keep a folder only when both allow it.
+			if fenced && s.access(d, a, id) < workspace.ModeRead {
+				return
+			}
+			paths = append(paths, d.pathOf(id))
+		}
+		for k, m := range d.grants {
+			if m >= workspace.ModeRead && slices.Contains(ps, k.Principal) {
+				add(k.Node)
+			}
+		}
+		for _, id := range workspace.FenceNodes(a) {
+			add(id)
 		}
 		slices.Sort(paths)
 		// An ancestor is a string prefix of its descendants, so it sorts first

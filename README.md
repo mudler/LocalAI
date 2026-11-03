@@ -49,7 +49,7 @@
 - **Any hardware**: NVIDIA, AMD, Intel, Apple Silicon, Vulkan, or CPU-only
 - **Multi-user ready**: API key auth, user quotas, role-based access
 - **Chats with saved agents**: conversations the server keeps, with agents that use tools, MCP, skills and files, triggers, and a Telegram connector
-- **Add-ons**: Studio, Talk, Voice, Face, Office, Sandbox and more install from a signed catalog, and run beside the server
+- **Add-ons**: Studio, Talk, Voice, Face, Simple Office, Sandbox and more install from a signed catalog, and run beside the server
 - **Privacy-first**: your data never leaves your infrastructure
 
 ![A small LocalAI core with backends (llama.cpp, vLLM, MLX, whisper.cpp, stable-diffusion, kokoro, parakeet.cpp...) plugged in as separate on-demand images](docs/static/images/diagrams/composable-core.png)

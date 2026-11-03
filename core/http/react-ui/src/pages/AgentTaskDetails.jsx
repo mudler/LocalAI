@@ -4,7 +4,7 @@ import { Link, useParams, useNavigate, useOutletContext, useLocation } from 'rea
 import { useTranslation } from 'react-i18next'
 import { chatAgentsApi, chatTriggersApi, filesApi } from '../utils/api'
 // eslint-disable-next-line no-unused-vars
-import ModelSelector from '../components/ModelSelector'
+import ModelPicker from '../components/ModelPicker'
 // eslint-disable-next-line no-unused-vars
 import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 // eslint-disable-next-line no-unused-vars
@@ -514,7 +514,7 @@ function TaskForm({ id, isNew }) {
           {!picked?.model && (
             <div className="dk-field">
               <span className="dk-label" id="aj-model-l">{t('jobs.edit.model')}</span>
-              <ModelSelector value={task.model} onChange={(model) => set('model', model)} capability={CAP_CHAT} />
+              <ModelPicker variant="field" searchable value={task.model} onChange={(model) => set('model', model)} capability={CAP_CHAT} />
             </div>
           )}
           <div className="dk-field aj-enabled">

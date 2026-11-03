@@ -72,7 +72,7 @@ func newWorkRig(ws workspace.Store) *workRig {
 	}
 	r.h = &sessiontest.FakeHarness{Turns: turns}
 	o := session.Options{Store: r.store, Workspace: ws, Harness: r.h, StateDir: GinkgoT().TempDir()}
-	o.ChatTools = func(context.Context, workspace.Actor) (session.TurnTools, error) {
+	o.ChatTools = func(context.Context, session.Access) (session.TurnTools, error) {
 		return session.TurnTools{Prompt: "Base block.", WorkFolder: r.work}, nil
 	}
 	m, err := session.New(o)
@@ -83,7 +83,7 @@ func newWorkRig(ws workspace.Store) *workRig {
 }
 
 func (r *workRig) open(p, id string) *session.Chat {
-	c, err := r.m.Open(context.Background(), workspace.Actor{Principal: p, ChatID: id}, id)
+	c, err := openAs(r.m, context.Background(), workspace.Actor{Principal: p, ChatID: id}, id)
 	Expect(err).NotTo(HaveOccurred())
 	return c
 }
@@ -231,7 +231,7 @@ var _ = Describe("the work folder of a chat", func() {
 				return "ok", nil
 			}
 		}
-		o.ChatTools = func(context.Context, workspace.Actor) (session.TurnTools, error) {
+		o.ChatTools = func(context.Context, session.Access) (session.TurnTools, error) {
 			return session.TurnTools{Tools: []session.Tool{
 				{Name: "save", Description: "x", Schema: []byte(`{"type":"object"}`), Run: run(session.ToolCard{Kind: "tool_provider", ID: "sandbox"},
 					[]session.ToolFile{{Path: "/summary.docx", Rev: 4, Op: session.ToolFileCreated}, {Path: "/scripts/build.py", Rev: 4, Op: session.ToolFileCreated}})},
@@ -241,7 +241,7 @@ var _ = Describe("the work folder of a chat", func() {
 		m, err := session.New(o)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = m.Close(context.Background()) })
-		c, err := m.Open(context.Background(), workspace.Actor{Principal: "alice", ChatID: "c9"}, "c9")
+		c, err := openAs(m, context.Background(), workspace.Actor{Principal: "alice", ChatID: "c9"}, "c9")
 		Expect(err).NotTo(HaveOccurred())
 		turn(c, session.Message{Text: "go"})
 		Expect(calls).To(Equal(2))

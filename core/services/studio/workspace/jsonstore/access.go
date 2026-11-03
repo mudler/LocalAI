@@ -5,7 +5,8 @@ import (
 )
 
 // access returns the mode the actor has on a node: the highest grant on the
-// node or a folder above it, for the principal or one of its groups.
+// node or a folder above it, for the principal or one of its groups. For a
+// fenced actor it is at most what the fence allows there.
 func (s *Store) access(d *data, a workspace.Actor, id int64) workspace.Mode {
 	if s.isAdmin(a) {
 		return workspace.ModeWrite
@@ -13,19 +14,33 @@ func (s *Store) access(d *data, a workspace.Actor, id int64) workspace.Mode {
 	if a.Principal == "" {
 		return workspace.ModeNone
 	}
+	ancs := d.ancestors(id)
+	limit := workspace.FenceMode(a, ancs, d.isLive)
+	if limit == workspace.ModeNone {
+		return workspace.ModeNone
+	}
 	ps := a.Principals()
 	best := workspace.ModeNone
-	for _, anc := range d.ancestors(id) {
+	for _, anc := range ancs {
 		for _, p := range ps {
 			best = max(best, d.grants[grantKey{p, anc}])
 		}
 	}
-	return best
+	return min(best, limit)
+}
+
+// isLive reports whether the node id exists and is not deleted.
+func (d *data) isLive(id int64) bool {
+	n := d.nodes[id]
+	return n != nil && !n.Deleted
 }
 
 // needWrite returns ErrNotFound without read access and ErrReadOnly without
 // write access.
 func (s *Store) needWrite(d *data, a workspace.Actor, n nodeRow) error {
+	if err := workspace.CheckFence(a); err != nil {
+		return err
+	}
 	switch m := s.access(d, a, n.ID); {
 	case m < workspace.ModeRead:
 		return workspace.ErrNotFound
@@ -37,6 +52,9 @@ func (s *Store) needWrite(d *data, a workspace.Actor, n nodeRow) error {
 
 // find resolves p for the actor. need is ModeRead or ModeWrite.
 func (s *Store) find(d *data, a workspace.Actor, p string, need workspace.Mode) (nodeRow, error) {
+	if err := workspace.CheckFence(a); err != nil {
+		return nodeRow{}, err
+	}
 	n, err := d.lookupPath(p)
 	if err != nil {
 		return nodeRow{}, err

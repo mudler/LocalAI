@@ -137,6 +137,7 @@ func splitAddonConfig(role, mode, dataPath string, f addonRoleFlags) (config.Add
 	if role == addonRoleFrontend {
 		return c, nil
 	}
+	c.DedicatedOwner = true
 	c.Root, err = filepath.Abs(filepath.Join(dataPath, "addons"))
 	if err != nil {
 		return config.AddonConfig{}, err

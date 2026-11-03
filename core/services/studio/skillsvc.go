@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 )
@@ -103,14 +104,18 @@ func skillOff(off []string) func(skills.Skill) bool {
 // offered, and a built-in skill of the same name serves again. fallback is
 // one line for the turn note when a built-in skill serves because the add-on
 // skill that replaces it is off or not running here.
-func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []string, sc *scope, gate func(skills.Skill) string) (prompt, note, key, fallback string) {
+func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []string, sc *scope, command Commands, gate func(skills.Skill) string) (prompt, note, key, fallback string, err error) {
 	if !s.d.Files.Available() {
-		return "", "", "", ""
+		return "", "", "", "", nil
 	}
-	list, notes, fallback, err := s.chatSkillSet(ctx, p, off, addonsOff, sc)
+	list, notes, fallback, err := s.chatSkillSet(ctx, p, off, addonsOff, sc, command)
 	if err != nil {
+		var policyErr *providerPolicyError
+		if errors.As(err, &policyErr) {
+			return "", "", "", "", err
+		}
 		s.log.Warn("studio: skills unavailable", "user", p, "error", err)
-		return "", "", "", ""
+		return "", "", "", "", nil
 	}
 	// The key covers every valid skill file, switched off or not: a switch takes
 	// a line out of the index without changing a file, and must not refresh the
@@ -145,18 +150,21 @@ func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []stri
 		}
 	}
 	if valid == 0 {
-		return "", strings.Join(notes, "; "), "", fallback
+		return "", strings.Join(notes, "; "), "", fallback, nil
 	}
-	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback
+	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback, nil
 }
 
 // chatSkillSet resolves the skills of one chat: the user's layers, the skills
 // of the add-ons the chat may use now, the chat's switches and the grants of
 // its agent. The index of the turn and load_skill both read it, so the model
 // can load exactly the skills the index lists.
-func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []string, sc *scope) ([]skills.Skill, []string, string, error) {
+func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []string, sc *scope, command Commands) ([]skills.Skill, []string, string, error) {
 	skip := skillOff(off)
-	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	ad, err := s.addonSkillsFor(ctx, p, addonsOff, sc, command)
+	if err != nil {
+		return nil, nil, "", err
+	}
 	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
 		Logger: s.log,
@@ -164,7 +172,7 @@ func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []s
 	if err != nil {
 		return nil, nil, "", err
 	}
-	return list, notes, ad.markFallbacks(list), nil
+	return list, ad.withNotes(notes), ad.markFallbacks(list), nil
 }
 
 // Skills lists the skills the user has: every layer, with shadowed and skipped
@@ -178,14 +186,23 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	p := principal(user)
 	var off, addonsOff []string
 	var sc *scope
+	var rec session.ChatRecord
 	if conv != "" {
-		rec, err := s.d.Store.GetChat(ctx, p, conv)
+		var err error
+		rec, err = s.d.Store.GetChat(ctx, p, conv)
 		if err != nil {
 			return nil, nil, err
 		}
 		off, addonsOff, sc = rec.SkillsOff, rec.AddonsOff, s.scopeOf(ctx, rec)
 	}
-	ad := s.addonSkillsFor(ctx, p, addonsOff, sc)
+	command, err := s.addonCommandDescriptor(ctx, p, rec, sc)
+	if err != nil {
+		return nil, nil, err
+	}
+	ad, err := s.addonSkillsFor(ctx, p, addonsOff, sc, command)
+	if err != nil {
+		return nil, nil, err
+	}
 	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,
@@ -194,7 +211,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		return nil, nil, err
 	}
 	ad.markFallbacks(list)
-	return list, notes, nil
+	return list, ad.withNotes(notes), nil
 }
 
 // WellKnown returns the well-known files of the users' homes: persona.json,

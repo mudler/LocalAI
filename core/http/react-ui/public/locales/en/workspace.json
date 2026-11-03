@@ -688,5 +688,15 @@
       "server": "The server could not save it."
     },
     "said": "The server said: {{reason}}."
+  },
+  "picker": {
+    "retry": "Try again",
+    "noFolders": "No folders here"
+  },
+  "agentMark": {
+    "usedBy": "Used by {{agents}}",
+    "read": "{{name}} (can read)",
+    "write": "{{name}} (can read and change)",
+    "many": "{{count}} agents"
   }
 }

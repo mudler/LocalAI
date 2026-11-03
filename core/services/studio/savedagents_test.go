@@ -258,3 +258,85 @@ var _ = Describe("saved agents as sub-agents", func() {
 		Expect(res[0].Out).To(ContainSubstring("reviewed"))
 	})
 })
+
+var _ = Describe("list_agents and the folders of the agents", func() {
+	type listed struct {
+		ID, Name, Folder, FolderMode string
+		FolderMissing                bool
+	}
+	list := func(r *scopeTurnRig, chat string) []listed {
+		GinkgoHelper()
+		res := r.run(chat, "list", call("list_agents", `{}`))
+		Expect(res).To(HaveLen(1))
+		Expect(res[0].Err).NotTo(HaveOccurred(), outOf(res[0]))
+		var out struct {
+			Agents []struct {
+				ID            string `json:"id"`
+				Name          string `json:"name"`
+				Folder        string `json:"folder"`
+				FolderMode    string `json:"folder_mode"`
+				FolderMissing bool   `json:"folder_missing"`
+			} `json:"agents"`
+		}
+		Expect(json.Unmarshal([]byte(res[0].Out), &out)).To(Succeed(), res[0].Out)
+		var got []listed
+		for _, a := range out.Agents {
+			got = append(got, listed{a.ID, a.Name, a.Folder, a.FolderMode, a.FolderMissing})
+		}
+		return got
+	}
+	byName := func(got []listed, name string) (listed, bool) {
+		for _, l := range got {
+			if l.Name == name {
+				return l, true
+			}
+		}
+		return listed{}, false
+	}
+
+	It("lists each agent's folder name and mode", func() {
+		r := newScopeTurnRig()
+		r.agent("/Projects/Acme", agents.FolderWrite)
+		r.agent("/Other", agents.FolderRead)
+		r.agent("", "")
+		chat := r.chat("")
+		allowSavedAgents(r.svc, chat.ID)
+		got := list(r, chat.ID)
+		Expect(got).To(HaveLen(3))
+		a, ok := byName(got, "Agent /Projects/Acmewrite")
+		Expect(ok).To(BeTrue())
+		Expect(a.Folder).To(Equal("Acme"), "the name of the folder, not its path")
+		Expect(a.FolderMode).To(Equal(agents.FolderWrite))
+		o, ok := byName(got, "Agent /Otherread")
+		Expect(ok).To(BeTrue())
+		Expect(o.Folder).To(Equal("Other"))
+		Expect(o.FolderMode).To(Equal(agents.FolderRead))
+		n, ok := byName(got, "Agent")
+		Expect(ok).To(BeTrue())
+		Expect(n.Folder).To(BeEmpty())
+		Expect(n.FolderMode).To(BeEmpty())
+	})
+
+	It("lists only the agents a scoped chat may start", func() {
+		r := newScopeTurnRig()
+		parent := r.chat(r.agent("/Projects/Acme", agents.FolderRead).ID)
+		r.agent("/Projects/Acme/sub", agents.FolderWrite)
+		r.agent("/Other", agents.FolderRead)
+		r.agent("/Projects/Acme2", agents.FolderRead)
+		r.agent("/Projects", agents.FolderRead)
+		r.agent("", "")
+		allowSavedAgents(r.svc, parent.ID)
+		got := list(r, parent.ID)
+		var names []string
+		for _, l := range got {
+			names = append(names, l.Name)
+		}
+		Expect(names).To(ConsistOf("Agent /Projects/Acmeread", "Agent /Projects/Acme/subwrite", "Agent"),
+			"the agent of the parent, the one inside, and the one without a folder")
+		out, _ := json.Marshal(got)
+		Expect(string(out)).NotTo(ContainSubstring("Other"))
+		sub, ok := byName(got, "Agent /Projects/Acme/subwrite")
+		Expect(ok).To(BeTrue())
+		Expect(sub.Folder).To(Equal("sub"))
+	})
+})

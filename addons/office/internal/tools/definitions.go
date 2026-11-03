@@ -94,26 +94,12 @@ func Definitions() []contract.ToolDefinition {
 					"bullets":   list(obj{"type": "string"}, "add: the bullet lines.", 30),
 				}, "op"), "The changes, at most 200.", maxEdits),
 			}, "path", "edits")),
-		def(ToolCreateDocx, act, "Create a Word file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text) or bullets (items). If the path is taken, the old file stays and the new one is saved next to it.",
-			object(obj{
-				"path":  pathProp(".docx"),
-				"title": str("The document title. Optional."),
-				"blocks": list(object(obj{
-					"kind":  enum("The kind of block.", "heading", "paragraph", "bullets"),
-					"level": integer("heading: 1 to 3."),
-					"text":  str("heading and paragraph: the text."),
-					"items": list(obj{"type": "string"}, "bullets: the lines.", 100),
-				}, "kind"), "The blocks, in order.", 2000),
-			}, "path", "blocks")),
-		def(ToolCreateXlsx, act, "Create an Excel file. Each sheet has a name and rows of text values. A value starting with = is a formula, a number is stored as a number. The first row is the header. If the path is taken, the old file stays.",
-			object(obj{
-				"path":  pathProp(".xlsx"),
-				"title": str("The workbook title. Optional."),
-				"sheets": list(object(obj{
-					"name": str("The sheet name, at most 31 characters."),
-					"rows": list(list(obj{"type": "string"}, "One row.", 200), "The rows, top to bottom.", 5000),
-				}, "name", "rows"), "The sheets.", 32),
-			}, "path", "sheets")),
+		def(ToolCreateDocx, act, "Create a Word document from Markdown. Supports headings, paragraphs, lists, bold, italic and simple tables. If the path is taken, the old file stays and the new one is saved next to it.",
+			object(obj{"path": pathProp(".docx"), "markdown": str("The markdown content."), "title": str("Optional title metadata; does not add a heading.")}, "path", "markdown")),
+		def(ToolCreateXlsx, act, "Create one Excel sheet from comma-separated CSV. Every nonempty value is text, never a formula or number. Sheet defaults to Sheet1. If the path is taken, the old file stays and the new one is saved next to it.",
+			object(obj{"path": pathProp(".xlsx"), "csv": str("The csv content."), "title": str("Optional title metadata; does not add a heading."),
+				"sheet": str("The sheet name. Optional; defaults to Sheet1."),
+			}, "path", "csv")),
 		def(ToolCreatePptx, act, "Create a PowerPoint file from slides, each with a title and bullet lines. A slide without bullets is a title slide. If the path is taken, the old file stays and the new one is saved next to it.",
 			object(obj{
 				"path":  pathProp(".pptx"),
@@ -123,18 +109,7 @@ func Definitions() []contract.ToolDefinition {
 					"bullets": list(obj{"type": "string"}, "The bullet lines.", 30),
 				}, "title"), "The slides, in order.", 200),
 			}, "path", "slides")),
-		def(ToolCreatePdf, act, "Create a PDF file from blocks. A block has a kind: heading (text, level 1 to 3), paragraph (text), bullets (items) or table (header and rows). The text must use Latin-1 characters only. If the path is taken, the old file stays and the new one is saved next to it.",
-			object(obj{
-				"path":  pathProp(".pdf"),
-				"title": str("The document title. Optional."),
-				"blocks": list(object(obj{
-					"kind":   enum("The kind of block.", "heading", "paragraph", "bullets", "table"),
-					"level":  integer("heading: 1 to 3."),
-					"text":   str("heading and paragraph: the text."),
-					"items":  list(obj{"type": "string"}, "bullets: the lines.", 100),
-					"header": list(obj{"type": "string"}, "table: the column titles.", 20),
-					"rows":   list(list(obj{"type": "string"}, "One row.", 20), "table: the rows, top to bottom.", 500),
-				}, "kind"), "The blocks, in order.", 2000),
-			}, "path", "blocks")),
+		def(ToolCreatePdf, act, "Create a PDF from Markdown headings, paragraphs, lists, bold, italic and simple tables. Text must use Latin-1 characters only. If the path is taken, the old file stays and the new one is saved next to it.",
+			object(obj{"path": pathProp(".pdf"), "markdown": str("The markdown content."), "title": str("Optional title metadata; does not add a heading.")}, "path", "markdown")),
 	}
 }

@@ -43,6 +43,8 @@ var _ = Describe("the studio endpoint helpers", func() {
 			{"a missing conversation", failFor, session.ErrNotFound, 404, "not_found", "conversation not found"},
 			{"a wrapped sentinel still matches", failFor, fmt.Errorf("opening: %w", session.ErrNotFound), 404, "not_found", "conversation not found"},
 			{"a busy chat", failFor, studiosvc.ErrChatBusy, 409, "conflict", "a turn is running; stop it first"},
+			{"an agent over its folder budget", failFor, fmt.Errorf("secret /path: %w", studiosvc.ErrAgentFolderLimit), 409, "agent_folder_limit", "This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."},
+			{"an agent whose folder is missing", failFor, fmt.Errorf("opening: %w", studiosvc.ErrAgentFolderMissing), 409, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings."},
 			{"a refusal keeps its text less the package prefix", failFor, fmt.Errorf("%w", studiosvc.ErrNothingToRegenerate), 400, "invalid_request_error", "the chat has no message to answer again"},
 			{"an attachment over the limit", failFor, workspace.ErrTooLarge, 413, "invalid_request_error", "an attachment is too large"},
 			{"an unknown error hides its text", failFor, errors.New("secret detail"), 500, "server_error", "the request failed"},

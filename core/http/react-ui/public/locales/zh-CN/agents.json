@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "已删除“{{name}}”。",
     "undoLate": "“{{name}}”已被删除。",
-    "restored": "已恢复“{{name}}”。"
+    "restored": "已恢复“{{name}}”。",
+    "exportedFolder": "已导出智能体“{{name}}”。文件中记录了它的文件夹 {{path}}。在导入的地方，如果存在相同路径的文件夹，智能体就会使用它。"
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "文件夹"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "文件"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "运行一个任务后，回答会显示在这里。",
       "more": "再显示 {{count}} 条"
     }
+  },
+  "folder": {
+    "all": "我的所有文件",
+    "one": "一个文件夹",
+    "scopeLabel": "此智能体可访问的文件",
+    "allHelp": "与此智能体的对话可以访问你的所有文件，就像没有智能体的对话一样。",
+    "choose": "选择文件夹",
+    "chooseOther": "选择其他文件夹",
+    "change": "更改",
+    "home": "主页",
+    "modeLabel": "权限",
+    "read": "可读取",
+    "write": "可读取和修改",
+    "readShort": "只读",
+    "writeShort": "读取和修改",
+    "help": "与此智能体的对话只能看到这个文件夹和对话自己的文件夹。共享文件夹和技能仍可读取。你授予的 MCP 服务器和网络工具不受此文件夹限制。",
+    "commands": "此智能体的命令只在 Sandbox 插件中运行，绝不会直接在本机上运行。",
+    "nextMessage": "更改从每个对话的下一条消息开始生效。",
+    "missing": "此文件夹已不存在。请选择其他文件夹以使用此智能体。",
+    "unset": "尚未选择文件夹。请选择一个文件夹以使用此智能体。",
+    "needsChoice": "请选择一个文件夹，或选择“我的所有文件”。",
+    "summaryRead": "{{path}}，可读取",
+    "summaryWrite": "{{path}}，可读取和修改",
+    "summaryMissing": "文件夹缺失",
+    "summaryUnset": "未选择文件夹",
+    "dialogTitle": "选择文件夹",
+    "dialogText": "打开此智能体要工作的文件夹，然后使用它。",
+    "use": "使用 {{folder}}",
+    "useAll": "使用整个主页",
+    "cancel": "取消",
+    "managedHint": "此文件夹由 LocalAI 管理",
+    "sharedHint": "不能选择共享文件夹",
+    "exportNote": "文件中记录了文件夹 {{path}}。在导入的地方，如果存在相同路径的文件夹，智能体就会使用它，否则会请你选择一个。",
+    "chip": "{{name}}，{{mode}}",
+    "chipMissing": "文件夹缺失",
+    "chipUnset": "未选择文件夹"
   }
 }

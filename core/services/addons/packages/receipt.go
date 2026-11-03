@@ -111,3 +111,22 @@ func (i *Installer) Commit(ctx context.Context, s StagedPackage) (PackageReceipt
 	st.used = true
 	return receipt, nil
 }
+
+// Discard consumes an unpublished stage without publishing an installed receipt.
+// Only its creating installer can remove it; installed packages are untouched.
+func (i *Installer) Discard(s StagedPackage) error {
+	if s.state == nil {
+		return ErrPackage
+	}
+	st := s.state
+	st.mu.Lock()
+	defer st.mu.Unlock()
+	if st.owner != i || st.used {
+		return ErrPackage
+	}
+	if e := os.RemoveAll(st.dir); e != nil {
+		return e
+	}
+	st.used = true
+	return nil
+}

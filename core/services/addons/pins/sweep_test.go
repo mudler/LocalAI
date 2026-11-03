@@ -20,6 +20,44 @@ var _ = Describe("Sweep", func() {
 		s, _ = NewFileStore("")
 	})
 
+	It("keeps present IDs regardless of enablement and treats nil as a complete no-op", func() {
+		Expect(s.Replace(ctx, "u1", []string{"studio", "talk", "arbitrary"})).To(Succeed())
+		now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+		Expect(s.MarkMissing(ctx, []string{"studio", "talk", "arbitrary"}, now)).To(Succeed())
+		Expect(Sweep(ctx, s, nil, now.Add(2*Retention))).To(BeZero())
+		got, err := s.List(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(3))
+		for _, pin := range got {
+			Expect(pin.MissingSince).To(Equal(&now))
+		}
+		// Presence includes installed but disabled add-ons; enablement is not an input.
+		Expect(Sweep(ctx, s, []string{"studio", "talk", "arbitrary"}, now.Add(2*Retention))).To(BeZero())
+		got, err = s.List(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(HaveLen(3))
+		for _, pin := range got {
+			Expect(pin.MissingSince).To(BeNil())
+		}
+	})
+
+	It("applies equal retention to never-installed Studio Talk and arbitrary IDs", func() {
+		Expect(s.Replace(ctx, "u1", []string{"studio", "talk", "arbitrary"})).To(Succeed())
+		now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+		n, err := Sweep(ctx, s, []string{}, now)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(BeZero())
+		got, err := s.List(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		for _, pin := range got {
+			Expect(pin.MissingSince).To(Equal(&now), pin.AddonID)
+		}
+		n, err = Sweep(ctx, s, []string{}, now.Add(Retention+time.Second))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(n).To(BeEquivalentTo(3))
+		Expect(s.List(ctx, "u1")).To(BeEmpty())
+	})
+
 	It("keeps a removed pin for thirty days and restores it on reinstall", func() {
 		_ = s.Replace(ctx, "u1", []string{"studio", "notes"})
 		t0 := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
@@ -54,46 +92,17 @@ var _ = Describe("Sweep", func() {
 	})
 })
 
-var _ = Describe("Sweep of the seeded pins", func() {
-	ctx := context.Background()
-	t0 := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	day := 24 * time.Hour
-
-	It("keeps a seeded pin while its add-on was never installed, then applies the rule", func() {
-		s, _ := NewFileStore("")
-		_, err := s.SeedExisting(ctx, []string{"u1"}, SeedIDs)
-		Expect(err).ToNot(HaveOccurred())
-		// Ninety days with Studio and Talk not installed: nothing expires.
-		for d := 0; d <= 90; d += 10 {
-			n, err := Sweep(ctx, s, []string{"notes"}, t0.Add(time.Duration(d)*day))
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(BeZero(), "day %d", d)
-		}
-		got, _ := s.List(ctx, "u1")
-		Expect(idsOf(got)).To(Equal([]string{"studio", "talk"}))
-		for _, p := range got {
-			Expect(p.MissingSince).To(BeNil(), p.AddonID)
-		}
-
-		// Studio is installed, then removed: from then on its pin expires
-		// after Retention. Talk, never installed, stays.
-		_, _ = Sweep(ctx, s, []string{"studio"}, t0.Add(100*day))
-		Expect(s.Installed(ctx)).To(Equal([]string{"studio"}))
-		_, _ = Sweep(ctx, s, []string{"notes"}, t0.Add(101*day))
-		n, _ := Sweep(ctx, s, []string{"notes"}, t0.Add(101*day).Add(Retention).Add(time.Hour))
-		Expect(n).To(BeEquivalentTo(1))
-		got, _ = s.List(ctx, "u1")
-		Expect(idsOf(got)).To(Equal([]string{"talk"}))
-	})
-
-	It("clears the mark an older sweep set on a seeded pin that was never installed", func() {
-		s, _ := NewFileStore("")
-		_ = s.Replace(ctx, "u1", []string{"talk"})
-		Expect(s.MarkMissing(ctx, []string{"talk"}, t0)).To(Succeed())
-		_, err := Sweep(ctx, s, []string{"notes"}, t0.Add(day))
-		Expect(err).ToNot(HaveOccurred())
-		got, _ := s.List(ctx, "u1")
-		Expect(got).To(HaveLen(1))
-		Expect(got[0].MissingSince).To(BeNil())
+var _ = Describe("Sweep retention marks", func() {
+	It("preserves a never-installed pin's existing missing mark", func() {
+		ctx := context.Background()
+		s, err := NewFileStore("")
+		Expect(err).NotTo(HaveOccurred())
+		now := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+		Expect(s.Replace(ctx, "u1", []string{"talk"})).To(Succeed())
+		Expect(s.MarkMissing(ctx, []string{"talk"}, now)).To(Succeed())
+		Expect(Sweep(ctx, s, []string{}, now.Add(time.Hour))).To(BeZero())
+		got, err := s.List(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got[0].MissingSince).To(Equal(&now))
 	})
 })

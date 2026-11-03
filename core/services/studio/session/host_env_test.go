@@ -20,7 +20,7 @@ func openChat(h *sessiontest.FakeHarness, mutate func(*session.Options)) {
 	m, err := session.New(o)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = m.Close(context.Background()) })
-	_, err = m.Open(context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
+	_, err = openAs(m, context.Background(), workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
 	Expect(err).NotTo(HaveOccurred())
 }
 
@@ -54,7 +54,7 @@ var _ = Describe("the host environment of a harness", func() {
 	It("offers no sandbox tools without a sandbox", func() {
 		h := &sessiontest.FakeHarness{}
 		openChat(h, func(o *session.Options) {
-			o.ChatTools = func(context.Context, workspace.Actor) (session.TurnTools, error) {
+			o.ChatTools = func(context.Context, session.Access) (session.TurnTools, error) {
 				return session.TurnTools{Tools: []session.Tool{{Name: "only_host_tool", Description: "x", Schema: []byte(`{"type":"object"}`),
 					Run: func(context.Context, json.RawMessage) (string, error) { return "ok", nil }}}}, nil
 			}

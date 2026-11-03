@@ -291,8 +291,8 @@ test('slots: the SDK can present an approval of its own addon only through the h
 test('slots: a page that only needs the list reads it once and never retries a failed read', () => {
   const base = { allowed: true, onAddonsPage: false, apps: [], consumers: 3 }
   assert.equal(shouldPoll({ ...base, status: 'idle' }), true)
-  assert.equal(shouldPoll({ ...base, status: 'ready' }), false)
-  assert.equal(shouldPoll({ ...base, status: 'error' }), false, 'no loop of failing reads for a page that only draws slots')
+  assert.equal(shouldPoll({ ...base, status: 'ready' }), true)
+  assert.equal(shouldPoll({ ...base, status: 'error' }), true, 'mounted consumers recover after failing reads')
   assert.equal(shouldPoll({ ...base, status: 'idle', allowed: false }), false)
 })
 

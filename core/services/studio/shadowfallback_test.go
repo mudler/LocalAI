@@ -53,7 +53,7 @@ var _ = Describe("a replaced tool whose add-on cannot serve", func() {
 		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: tools}}
 		opts := []func(*studio.Deps){withWeb(&fakeWeb{search: true, fetch: true}), func(d *studio.Deps) {
 			d.AddonTools = listedAddons{fa, list}
-			d.ToolPins = func() map[string]string { return pins }
+			d.ToolPins = func(context.Context) (map[string]string, error) { return pins, nil }
 		}}
 		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }, append(opts, more...)...)
 		return svc

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path"
 	"slices"
 	"strings"
 )
@@ -36,8 +37,8 @@ func (s *Workspace) revs(ctx context.Context, query string, args ...any) ([]int6
 // opParents holds the parent ids of one journal row.
 type opParents struct{ old, new int64 }
 
-// readableParent tells whether the actor can read the folder with id.
-func (s *Workspace) readableParent(ctx context.Context, a Actor, id int64) (bool, error) {
+// readableParent checks current access and, when fenced, the historical location.
+func (s *Workspace) readableParent(ctx context.Context, a Actor, id int64, historicalPath string) (bool, error) {
 	if id == 0 {
 		return false, nil
 	}
@@ -45,13 +46,26 @@ func (s *Workspace) readableParent(ctx context.Context, a Actor, id int64) (bool
 	if err != nil {
 		return false, err
 	}
-	return m >= ModeRead, nil
+	if m < ModeRead {
+		return false, nil
+	}
+	// A parent moved into the fence must not reveal its former location.
+	// Keep the journal intact: only hide this historical side from the reader.
+	if HasFence(a) {
+		current, err := pathOf(ctx, s.db, id)
+		if err != nil {
+			return false, err
+		}
+		return current == path.Dir(historicalPath), nil
+	}
+	return true, nil
 }
 
 // visibleOps keeps what the actor can see of the operations of rev. A path
-// is visible when the actor can read its parent folder now. A move out of a
-// hidden folder shows as a create, and a move into a hidden folder shows as
-// a delete at the old path.
+// is visible when the actor can read its parent folder now. A fenced actor
+// also requires that parent to still have the historical location. A move
+// out of a hidden folder shows as a create, and a move into a hidden folder
+// shows as a delete at the old path.
 // When it drops or rewrites any operation, the title of the change set may
 // name hidden paths, so the result also tells the caller to use a generic one.
 func (s *Workspace) visibleOps(ctx context.Context, a Actor, rev int64, ops []Op) ([]Op, bool, error) {
@@ -79,11 +93,11 @@ func (s *Workspace) visibleOps(ctx context.Context, a Actor, rev int64, ops []Op
 	var out []Op
 	changed := false
 	for i, op := range ops {
-		oldOK, err := s.readableParent(ctx, a, ps[i].old)
+		oldOK, err := s.readableParent(ctx, a, ps[i].old, op.OldPath)
 		if err != nil {
 			return nil, false, err
 		}
-		newOK, err := s.readableParent(ctx, a, ps[i].new)
+		newOK, err := s.readableParent(ctx, a, ps[i].new, op.NewPath)
 		if err != nil {
 			return nil, false, err
 		}

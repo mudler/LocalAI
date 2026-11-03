@@ -38,7 +38,7 @@ var _ = Describe("compaction", func() {
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { _ = m.Close(context.Background()) }()
 		ctx := context.Background()
-		chat, err := m.Open(ctx, workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
+		chat, err := openAs(m, ctx, workspace.Actor{Principal: "alice", ChatID: "c1"}, "c1")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(chat.Send(ctx, session.Message{Text: "hi"})).To(Succeed())
 		var got *session.Event

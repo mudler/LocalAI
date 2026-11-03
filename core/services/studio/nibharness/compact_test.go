@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 type resumeDoc struct {
@@ -76,6 +77,26 @@ var _ = Describe("TranscriptState", func() {
 		raw, err = nibharness.TranscriptState(entries[:3])
 		Expect(err).NotTo(HaveOccurred())
 		Expect(raw).To(BeNil(), "nothing after the marker: no state")
+	})
+
+	It("names the files of a scoped chat's messages where its tools see them", func() {
+		a := workspace.Actor{Principal: "alice", ChatID: "c1"}.Fenced(
+			workspace.FenceRoot{Node: 10, Mode: workspace.ModeWrite}, workspace.FenceRoot{Node: 11, Mode: workspace.ModeWrite})
+		place := session.NewPlace(workspace.View{Actor: a, Mounts: []workspace.Mount{
+			{Path: "/users/alice/Acme", At: session.GuestHome, Mode: workspace.ModeWrite, NodeID: 10},
+			{Path: "/users/alice/Chats/Plan", At: session.GuestChat, Mode: workspace.ModeWrite, NodeID: 11},
+		}})
+		entries := []session.Entry{{Role: session.RoleUser, Text: "sum it", Attachments: []session.Attachment{{Path: "/Chats/Plan/q1.csv", Name: "q1.csv"}}}}
+		raw, err := nibharness.TranscriptStateIn(entries, place)
+		Expect(err).NotTo(HaveOccurred())
+		var st resumeDoc
+		Expect(json.Unmarshal(raw, &st)).To(Succeed())
+		Expect(st.History[0].Content).To(Equal("sum it\n\nThe user attached these files:\n- /workspace/chat/q1.csv"))
+
+		raw, err = nibharness.TranscriptState(entries)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(json.Unmarshal(raw, &st)).To(Succeed())
+		Expect(st.History[0].Content).To(HaveSuffix("- /workspace/home/Chats/Plan/q1.csv"), "an unscoped chat keeps the home path")
 	})
 
 	It("keeps the messages sent to go on with a goal and leaves the other goal lines out", func() {

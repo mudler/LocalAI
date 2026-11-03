@@ -667,5 +667,15 @@
       "server": "O servidor não conseguiu salvar."
     },
     "said": "O servidor respondeu: {{reason}}."
+  },
+  "picker": {
+    "retry": "Tentar de novo",
+    "noFolders": "Nenhuma pasta aqui"
+  },
+  "agentMark": {
+    "usedBy": "Usada por {{agents}}",
+    "read": "{{name}} (pode ler)",
+    "write": "{{name}} (pode ler e alterar)",
+    "many": "{{count}} agentes"
   }
 }

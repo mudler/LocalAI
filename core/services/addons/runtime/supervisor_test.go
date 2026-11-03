@@ -419,11 +419,28 @@ var _ = Describe("Process state observation", func() {
 	})
 	It("keeps reporting failed once the restart budget is exhausted", func() {
 		s := supervisor()
-		_, e := s.Start(context.Background(), fixture("crash", service), 1)
+		i, e := s.Start(context.Background(), fixture("normal", service), 1)
 		Expect(e).NotTo(HaveOccurred())
 		s.mu.Lock()
 		slot := s.slots["sample"]
 		s.mu.Unlock()
+		// A timed crash can beat the initial readiness handshake on a busy
+		// runner. Kill each incarnation only after the supervisor publishes it.
+		for attempt := 0; attempt <= 2; attempt++ {
+			Expect(s.Attempts("sample")).To(Equal(attempt))
+			Expect(i.process.cmd.Process.Kill()).To(Succeed())
+			if attempt < 2 {
+				previous := i.Incarnation
+				Eventually(func() string {
+					next, err := s.Current(context.Background(), "sample", 1)
+					if err != nil {
+						return ""
+					}
+					i = next
+					return next.Incarnation
+				}, time.Second).Should(And(Not(BeEmpty()), Not(Equal(previous))))
+			}
+		}
 		// The monitor returns only when the budget is spent.
 		Eventually(slot.workerDone, 5*time.Second).Should(BeClosed())
 		Expect(s.Attempts("sample")).To(Equal(2))
@@ -712,7 +729,7 @@ var _ = Describe("Addon data directory", func() {
 		}
 		Expect(call("wrong")).To(Equal(http.StatusUnauthorized))
 		Expect(call(credential)).To(Equal(http.StatusForbidden))
-		end := in.Begin(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}})
+		end := in.BeginRuntime(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}}, hostops.Binding{}, false, inst.Incarnation)
 		Expect(call(credential)).To(Equal(http.StatusOK))
 		end()
 		Expect(call(credential)).To(Equal(http.StatusForbidden))

@@ -86,7 +86,7 @@ test('updates: the client sends check and upgrade as the administrator\'s own ac
   assert.equal(calls[1].init.headers['X-LocalAI-Confirm'], 'chk-1')
   assert.equal(calls[1].init.credentials, 'same-origin')
   const done = await api.updates.upgrade('notes', { operationId: 'up-9', expectedDigest: 'sha256:a', candidateDigest: 'sha256:b', generation: 1 })
-  assert.deepEqual(done, { operationId: 'op-9', addonId: 'notes', phase: 'completed', generation: 2, runtimeState: '' })
+  assert.deepEqual(done, { operationId: 'op-9', addonId: 'notes', phase: 'completed', generation: 2, runtimeState: '', stage: '', failureCode: '' })
   assert.equal(calls[2].init.headers['X-LocalAI-Confirm'], 'up-9')
   assert.deepEqual(JSON.parse(calls[2].init.body), { operationId: 'up-9', expectedDigest: 'sha256:a', candidateDigest: 'sha256:b', generation: 1 })
   await assert.rejects(api.updates.upgrade('notes', { operationId: 'stale-1', expectedDigest: 'stale', candidateDigest: 'x' }), (e) => e instanceof AddonsError && e.kind === 'invalid' && e.type === 'stale_installed' && e.status === 409)

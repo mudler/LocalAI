@@ -26,6 +26,7 @@ executable: sandbox
 manifest: addons/sandbox/manifest.json
 # The directory whose content is laid at the package root (ui/sandbox.js ...).
 ui: addons/sandbox/ui/dist
+skills: addons/sandbox/skills
 platforms:
   - platform: linux/amd64
     enabled: true

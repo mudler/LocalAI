@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  SEARCH_MIN, changedIds, fallbackNotice, filterSkills, offList, pickerSkills, revertSkills, skillCounts, skillKey, skillSource, withSkillsSet,
+  skillDeclarationLabel, skillInstallNoticeKey, SEARCH_MIN, changedIds, fallbackNotice, filterSkills, offList, pickerSkills, revertSkills, skillCounts, skillKey, skillSource, withSkillsSet,
 } from '../../src/utils/chatSkills.js'
 
 const skills = [
@@ -50,15 +50,15 @@ test('chat skills: a failed request puts back its own ids only', () => {
 
 test('chat skills: an add-on skill wins, and the built-in one it replaces is listed apart', () => {
   const list = [
-    { id: 'addon:xlsx', name: 'xlsx', layer: 'addon', addon: 'office', addon_title: 'Office', enabled: true },
-    { id: 'builtin:xlsx', name: 'xlsx', layer: 'builtin', shadowed: 'addon', shadowed_by: 'office', enabled: true },
-    { id: 'builtin:docx', name: 'docx', layer: 'builtin', fallback: 'Office', enabled: true },
+    { id: 'addon:writing', name: 'writing', layer: 'addon', addon: 'office', addon_title: 'Office', enabled: true },
+    { id: 'builtin:writing', name: 'writing', layer: 'builtin', shadowed: 'addon', shadowed_by: 'office', enabled: true },
+    { id: 'builtin:apps', name: 'apps', layer: 'builtin', fallback: 'Office', enabled: true },
     { id: 'personal:docx', name: 'docx', layer: 'personal', shadowed: 'x', enabled: true },
     { id: 'addon:bad', name: 'bad', layer: 'addon', invalid: 'no name', enabled: true },
   ]
   const picked = pickerSkills(list)
-  assert.deepEqual(picked.skills.map(skillKey), ['addon:xlsx', 'builtin:docx'])
-  assert.deepEqual(picked.replaced.map(skillKey), ['builtin:xlsx'])
+  assert.deepEqual(picked.skills.map(skillKey), ['addon:writing', 'builtin:apps'])
+  assert.deepEqual(picked.replaced.map(skillKey), ['builtin:writing'])
   assert.deepEqual(pickerSkills(undefined), { skills: [], replaced: [] })
 })
 
@@ -71,9 +71,51 @@ test('chat skills: the source of a row is the add-on title or the layer', () => 
 test('chat skills: one notice names the built-in skills that serve for an add-on', () => {
   assert.equal(fallbackNotice([{ layer: 'builtin', name: 'xlsx', enabled: true }]), null)
   const n = fallbackNotice([
-    { layer: 'builtin', name: 'xlsx', fallback: 'Office', enabled: true },
-    { layer: 'builtin', name: 'docx', fallback: 'Office', enabled: true },
+    { layer: 'builtin', name: 'writing', fallback: 'Office', enabled: true },
+    { layer: 'builtin', name: 'apps', fallback: 'Office', enabled: true },
     { layer: 'builtin', name: 'pdf', fallback: 'Office', enabled: false },
   ])
-  assert.deepEqual(n, { skills: ['xlsx', 'docx'], addons: ['Office'] })
+  assert.deepEqual(n, { skills: ['writing', 'apps'], addons: ['Office'] })
+})
+
+// Document slots have providers, not a removed core implementation. Ordinary
+// replacements still describe and retain their existing built-in fallback.
+test('document declarations use provider-neutral labels, remaining built-ins use replacement labels', () => {
+  for (const name of ['docx', 'pptx', 'pdf', 'xlsx']) {
+    assert.equal(skillDeclarationLabel({ name, replaces: true }), 'provides')
+  }
+  assert.equal(skillDeclarationLabel({ name: 'writing', replaces: true }), 'replaces')
+  assert.equal(skillDeclarationLabel({ name: 'custom', replaces: false }), null)
+})
+
+test('document provider states never invent a built-in or fallback', () => {
+  for (const name of ['docx', 'pptx', 'pdf', 'xlsx']) {
+    for (const provider of ['office', 'sandbox']) {
+      for (const state of [{ enabled: true }, { enabled: false }, { enabled: true, unavailable: 'pinned provider unavailable' }]) {
+        const row = { id: `addon:${name}`, name, layer: 'addon', addon: provider, ...state }
+        const picked = pickerSkills([row])
+        assert.deepEqual(picked, { skills: [row], replaced: [] })
+        assert.equal(fallbackNotice(picked.skills), null)
+        assert.deepEqual(skillSource(row), { kind: 'addon', name: provider })
+      }
+    }
+  }
+  assert.deepEqual(pickerSkills([]), { skills: [], replaced: [] })
+})
+
+test('install document notices use flow provider keys and retain built-in replacement notices', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const en = JSON.parse(await readFile(new URL('../../public/locales/en/addons.json', import.meta.url)))
+  assert.equal(en.flow.skillProvides, 'This add-on provides the {{skill}} skill.')
+  assert.match(en.flow.skillProvidesWarning, /Another add-on/)
+  assert.match(en.flow.skillShadow, /built-in/)
+  assert.equal(en.skills.skillShadow, undefined)
+  const source = await readFile(new URL('../../src/components/addons/InstallDialog.jsx', import.meta.url), 'utf8')
+  assert.match(source, /skillInstallNoticeKey\(c\)/)
+  for (const skill of ['docx', 'pptx', 'pdf', 'xlsx']) {
+    assert.equal(skillInstallNoticeKey({ skill }), 'flow.skillProvides')
+    assert.equal(skillInstallNoticeKey({ skill, name: 'Office' }), 'flow.skillProvidesWarning')
+  }
+  assert.equal(skillInstallNoticeKey({ skill: 'writing' }), 'flow.skillShadow')
+  assert.equal(skillInstallNoticeKey({ skill: 'writing', name: 'Other' }), 'flow.skillShadowWarning')
 })

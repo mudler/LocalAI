@@ -13,7 +13,7 @@ import {
 import LoadingSpinner from '../components/LoadingSpinner'
 import Modal from '../components/Modal'
 import Lightbox from '../components/Lightbox'
-import HomeModelPicker from '../components/home/HomeModelPicker'
+import ModelPicker from '../components/ModelPicker'
 import { useMediaCapture, audioBufferToWavBlob } from '../hooks/useMediaCapture'
 import { useModels } from '../hooks/useModels'
 import { useResources } from '../hooks/useResources'
@@ -71,7 +71,7 @@ export const host = Object.freeze({
     Section, Field, Select, TextInput, Switch, Choice, Callout, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
     PageHeader, ConfirmDialog, ErrorWithTraceLink, ModelSelector, MediaInput, WaveformPlayer,
     DistributionBars, EmbeddingInspector, TabSwitch,
-    LoadingSpinner, Modal, Lightbox, HomeModelPicker,
+    LoadingSpinner, Modal, Lightbox, ModelPicker, HomeModelPicker: ModelPicker,
   },
   hooks: {
     useMediaCapture, useObjectUrl, useDelayedAction, audioBufferToWavBlob,

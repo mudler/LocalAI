@@ -6,16 +6,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/mudler/LocalAI/core/http/routes"
+	"github.com/mudler/LocalAI/core/services/galleryop"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
-	authpkg "github.com/mudler/LocalAI/core/http/auth"
 	. "github.com/mudler/LocalAI/core/http"
+	authpkg "github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/pkg/system"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -163,3 +167,81 @@ var _ = Describe("PUT /api/auth/profile field-tampering", func() {
 		Expect(code).To(Equal(http.StatusBadRequest))
 	})
 })
+
+// Capability visibility stays ID-based even when an alias inherits its target's flags.
+func TestUIAliasCapabilityAllowlist(t *testing.T) {
+	for _, tc := range []struct {
+		name, role    string
+		allowed, want []string
+	}{
+		{"alias only", authpkg.RoleUser, []string{"alias"}, []string{"alias"}},
+		{"target only", authpkg.RoleUser, []string{"target"}, []string{"target"}},
+		{"admin", authpkg.RoleAdmin, []string{"alias"}, []string{"alias", "target"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			st, err := system.GetSystemState(system.WithModelPath(root), system.WithBackendPath(root))
+			if err != nil {
+				t.Fatal(err)
+			}
+			appAt, err := application.New(config.WithContext(context.Background()), config.WithSystemState(st), config.WithDataPath(root), config.WithDisableLocalAIAssistant(true), config.WithAuthEnabled(true), config.WithAuthDatabaseURL(":memory:"), config.WithAuthAPIKeyHMACSecret("alias-test-secret"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = appAt.Shutdown() })
+			cl := appAt.ModelConfigLoader()
+			for name, body := range map[string]string{"target": "backend: llama-cpp\nknown_usecases: [chat]\n", "alias": "alias: target\n"} {
+				path := filepath.Join(root, name+".yaml")
+				if err := os.WriteFile(path, []byte("name: "+name+"\n"+body), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := cl.ReadModelConfig(path); err != nil {
+					t.Fatal(err)
+				}
+			}
+			user := authpkg.User{ID: "alias-user", Email: "alias@example.test", Role: tc.role, Status: authpkg.StatusActive, Provider: authpkg.ProviderLocal}
+			db := appAt.AuthDB()
+			if err := db.Create(&user).Error; err != nil {
+				t.Fatal(err)
+			}
+			if err := authpkg.UpdateModelAllowlist(db, user.ID, authpkg.ModelAllowlist{Enabled: true, Models: tc.allowed}); err != nil {
+				t.Fatal(err)
+			}
+			session, err := authpkg.CreateSession(db, user.ID, "alias-test-secret")
+			if err != nil {
+				t.Fatal(err)
+			}
+			e := echo.New()
+			e.Use(authpkg.Middleware(db, appAt.ApplicationConfig()))
+			gs := galleryop.NewGalleryService(appAt.ApplicationConfig(), appAt.ModelLoader())
+			routes.RegisterUIAPIRoutes(e, cl, appAt.ModelLoader(), appAt.ApplicationConfig(), gs, galleryop.NewOpCache(gs), appAt, func(next echo.HandlerFunc) echo.HandlerFunc { return next })
+			req := httptest.NewRequest(http.MethodGet, "/api/models/capabilities", nil)
+			req.AddCookie(&http.Cookie{Name: "session", Value: session})
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+			}
+			var response struct {
+				Data []struct {
+					ID           string
+					Capabilities []string
+				}
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+			var ids []string
+			for _, entry := range response.Data {
+				ids = append(ids, entry.ID)
+				if !slices.Equal(entry.Capabilities, []string{"FLAG_CHAT"}) {
+					t.Errorf("unexpected flags: %+v", entry)
+				}
+			}
+			slices.Sort(ids)
+			if !slices.Equal(ids, tc.want) {
+				t.Errorf("IDs %v, want %v", ids, tc.want)
+			}
+		})
+	}
+}

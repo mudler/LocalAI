@@ -35,7 +35,15 @@ func (a *Application) runAddonAutoUpgrade(ctx context.Context, initialDelay, int
 // upgrade an administrator starts by hand.
 func (a *Application) autoUpgradeAddons(ctx context.Context) {
 	m := a.addonManager
-	if m == nil || !a.applicationConfig.AutoUpgradeAddons {
+	if m == nil {
+		return
+	}
+	enabled, err := a.addonUpgradePolicy(ctx)
+	if err != nil {
+		xlog.Error("Skipping add-on auto-upgrade pass: owner policy unavailable", "error", err)
+		return
+	}
+	if !enabled {
 		return
 	}
 	results := m.AutoUpgrade(ctx)
@@ -46,4 +54,18 @@ func (a *Application) autoUpgradeAddons(ctx context.Context) {
 		}
 	}
 	xlog.Debug("Add-on auto-upgrade pass finished", "candidates", len(results), "upgraded", upgraded)
+}
+
+func (a *Application) addonUpgradePolicy(ctx context.Context) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+	if !a.applicationConfig.Addons.Enabled {
+		return a.applicationConfig.AutoUpgradeAddons, nil
+	}
+	snapshot, err := a.readAddonHostPolicy(ctx)
+	if err != nil {
+		return false, err
+	}
+	return snapshot.Policy.AutoUpgradeAddons, nil
 }

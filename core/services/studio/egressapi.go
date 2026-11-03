@@ -28,19 +28,21 @@ var (
 // The reasons the network settings do not apply to a chat.
 const (
 	EgressAppliesHost = "host" // commands run on this machine, with its network
-	EgressAppliesNone = "none" // no Sandbox serves bash in this chat
+	EgressAppliesNone = "none" // no Sandbox serves bash, or it does not report that it enforces the policy
 )
 
 // EgressView is the network of one chat, as its network panel shows it.
 type EgressView struct {
 	Preset, Ceiling, Effective egress.Preset
-	// Applies is false when commands run on this machine or no Sandbox serves
-	// bash; AppliesReason then says which.
+	// Applies is true when the provider that runs the commands reports that it
+	// enforces the network policy. It is false when commands run on this
+	// machine, no Sandbox serves bash, or the provider does not report
+	// enforcement; AppliesReason then says which.
 	Applies       bool
 	AppliesReason string
 	// Addon is the add-on that runs the chat's commands and carries the
 	// network-policy host control, which draws the network row of the chat:
-	// set only while Applies. Without it no add-on draws the controls, and
+	// set only for a provider that carries it. Without it no add-on draws the controls, and
 	// the policy still holds.
 	Addon      string
 	Registries []egress.Registry
@@ -72,12 +74,17 @@ func registriesView(s egress.Settings) []egress.Registry {
 // Egress returns the network of a chat for its owner. The chat of another
 // user is session.ErrNotFound.
 func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, error) {
+	ctx, closeScope := s.executionScope(ctx, principal(user), conv)
+	defer closeScope()
 	p := principal(user)
 	rec, err := s.d.Store.GetChat(ctx, p, conv)
 	if err != nil {
 		return EgressView{}, err
 	}
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return EgressView{}, err
+	}
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	if err != nil {
 		return EgressView{}, err
@@ -113,7 +120,13 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 	case cmds.State == CommandsAvailable && (cmds.Provider == BuiltinProvider || cmds.Isolation == "host"):
 		v.AppliesReason = EgressAppliesHost
 	case cmds.State == CommandsAvailable:
-		v.Applies = true
+		// Isolation alone does not establish network-policy enforcement: the
+		// settings apply only when the provider reports that it enforces them
+		// in a status that is available and isolated.
+		v.Applies = cmds.ExecutionStatus != nil && cmds.ExecutionStatus.NetworkPolicyEnforced
+		if !v.Applies {
+			v.AppliesReason = EgressAppliesNone
+		}
 		if c, ok := s.d.AddonTools.(AddonControls); ok && slices.Contains(c.Controls(ctx, p, cmds.Provider), contract.ControlNetworkPolicy) {
 			v.Addon = cmds.Provider
 		}
@@ -137,7 +150,11 @@ func (s *Service) SetEgressPreset(ctx context.Context, user, conv string, preset
 	if rec.Kind == session.KindSubAgent {
 		return ErrSubAgentReadOnly
 	}
-	if preset.Rank() > egress.Min(s.egressSettings().Ceiling, egress.PresetAll).Rank() {
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return err
+	}
+	if preset.Rank() > egress.Min(set.Ceiling, egress.PresetAll).Rank() {
 		return ErrEgressAboveCeiling
 	}
 	if err := s.d.Store.UpdateEgress(ctx, p, conv, func(st *egress.ChatState) error {
@@ -192,7 +209,10 @@ type EgressAdmin struct {
 // AdminEgress returns the settings in force, the registries list with the
 // extra hosts, whether a Sandbox serves and the counts of the last 24 hours.
 func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, error) {
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return EgressAdmin{}, err
+	}
 	set.Ceiling = egress.Min(set.Ceiling, egress.PresetAll)
 	set.Default = set.DefaultPreset()
 	if len(set.Ports) == 0 {
@@ -204,7 +224,10 @@ func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, er
 			out.AuditDays = d
 		}
 	}
-	out.Sandbox = s.servingRunner(ctx, principal(user))
+	out.Sandbox, err = s.servingRunner(ctx, principal(user))
+	if err != nil {
+		return EgressAdmin{}, err
+	}
 	if out.Sandbox != "" {
 		if iso, ok := s.d.AddonTools.(CommandIsolation); ok {
 			out.Isolation = iso.Isolation(ctx, principal(user), out.Sandbox)
@@ -228,13 +251,17 @@ func (s *Service) EgressEvents(ctx context.Context, q audit.Query) ([]audit.Even
 // install, or "" when none runs or the pinned one is stopped (the built-in
 // serves). It asks the broker, so every frontend of a cluster answers the
 // same, also right after a restart, and an add-on that was removed is gone.
-func (s *Service) servingRunner(ctx context.Context, user string) string {
+func (s *Service) servingRunner(ctx context.Context, user string) (string, error) {
+	pins, err := s.toolPins(ctx)
+	if err != nil {
+		return "", err
+	}
 	if s.d.AddonTools == nil {
-		return ""
+		return "", nil
 	}
 	defs, err := s.d.AddonTools.Tools(ctx, user)
 	if err != nil {
-		return ""
+		return "", nil
 	}
 	var running []string
 	installed := map[string]string{}
@@ -245,14 +272,11 @@ func (s *Service) servingRunner(ctx context.Context, user string) string {
 		}
 	}
 	if len(running) == 0 {
-		return ""
+		return "", nil
 	}
-	var pin string
-	if s.d.ToolPins != nil {
-		pin = s.d.ToolPins()[commandTool]
-	}
+	pin := pins[commandTool]
 	if s.shadowersFor(ctx, user).pinnedButIdle(commandTool, pin, running) {
-		return ""
+		return "", nil
 	}
-	return ChooseProvider(running, installed, pin)
+	return ChooseProvider(running, installed, pin), nil
 }

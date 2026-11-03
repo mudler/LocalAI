@@ -7,14 +7,15 @@ import { agentInfo } from '../utils/agentInfo'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { outcomeLine, recordStatus, runOfChat, STRIP_LENGTH, titleOf } from '../utils/agentRuns'
 // eslint-disable-next-line no-unused-vars
-import { StatusMark, RunStrip, RecordLine, Chip, LibraryChips, formatWhen, agentPath } from '../components/agents/AgentBits'
+import { StatusMark, RunStrip, RecordLine, Chip, FolderChip, LibraryChips, formatWhen, agentPath } from '../components/agents/AgentBits'
 // eslint-disable-next-line no-unused-vars
 import ActionMenu from '../components/ActionMenu'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
-import { Button, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import { deleteAgentWithUndo } from '../components/agents/agentUndo'
 import { firstLine } from '../utils/agentRuns'
+import { folderState } from '../utils/chatAgents'
 import './agents.css'
 
 // An agent as a home: what it is, its record, a button to chat with it, the
@@ -133,10 +134,20 @@ export default function AgentPage() {
         />
 
         {error && <LoadError title={t('load.agentStale')} error={error} onRetry={load} />}
+        {(folderState(agent) === 'missing' || folderState(agent) === 'unset') && (
+          <Callout
+            tone="warn" testId="agent-folder-warning"
+            actions={<Button size="sm" icon="folder" to={agentPath(agent.id, '/edit')}>{t('folder.chooseOther')}</Button>}
+          >
+            {t(folderState(agent) === 'missing' ? 'folder.missing' : 'folder.unset')}
+          </Callout>
+        )}
 
         <dl className="ag-facts" data-testid="agent-facts">
           <dt>{t('facts.model')}</dt>
           <dd className="ag-facts__model">{info.model || <span className="ag-muted">{t('facts.noModel')}</span>}</dd>
+          <dt>{t('facts.folder')}</dt>
+          <dd><FolderChip agent={agent} all /></dd>
           <dt>{t('facts.tools')}</dt>
           <dd>
             {hasTools

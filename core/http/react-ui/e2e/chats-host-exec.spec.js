@@ -43,7 +43,7 @@ const host = { addons: [], commands: 'available', commands_provider: 'builtin', 
 test.describe('Commands on this machine', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
 
-  test('the Tools menu and the chip say that commands run here, not isolated, with the install link', async ({ page }) => {
+  test('the Tools menu and chip warn that commands run here without isolation or install advice', async ({ page }) => {
     await stubChat(page, { addons: host })
     await page.goto('/app/chats/c1')
     const chip = page.getByTestId('chat-commands-chip')
@@ -51,8 +51,8 @@ test.describe('Commands on this machine', () => {
     await expect(chip).toHaveAttribute('data-state', 'host')
     await page.getByTestId('chat-tools-button').click()
     const notice = page.getByTestId('chat-commands-notice')
-    await expect(notice).toContainText('Commands run on this machine, with its files and network, not isolated. Install the Sandbox for isolation.')
-    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveAttribute('href', '/app/addons?tab=browse&q=sandbox')
+    await expect(notice).toContainText('Commands run on the server without isolation.')
+    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
     await shot(page, 'host-notice')
   })
 
@@ -81,7 +81,7 @@ test.describe('Commands on this machine', () => {
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     const notice = page.getByTestId('chat-commands-notice')
-    await expect(notice).toContainText('The Sandbox is off for this chat, so commands run on this machine')
+    await expect(notice).toContainText('Commands run on the server without isolation.')
     await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
   })
 
@@ -207,7 +207,7 @@ test.describe('Commands on this machine', () => {
     await expect(page.getByText('There is one file.')).toBeVisible({ timeout: 15_000 })
     await page.getByTestId('chat-activity').locator('.cx-fold__head').first().click()
     const tags = page.getByTestId('chat-step-provider')
-    await expect(tags).toHaveText(['This machine, allowed once', 'Sandbox'])
+    await expect(tags).toHaveText(['This machine, allowed once', 'Add-on sandbox'])
     await shot(page, 'host-provider-tags')
   })
 })

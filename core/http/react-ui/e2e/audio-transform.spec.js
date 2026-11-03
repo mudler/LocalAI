@@ -104,7 +104,7 @@ test.describe('Audio Transform', () => {
   })
 
   test('audio input has Upload + Record tabs', async ({ page }) => {
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
 
     // The Audio (required) input should expose both tabs.
@@ -114,7 +114,7 @@ test.describe('Audio Transform', () => {
   })
 
   test('echo-test button only appears once a reference is loaded', async ({ page }) => {
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
 
     // No reference yet → echo button hidden.
@@ -126,7 +126,7 @@ test.describe('Audio Transform', () => {
   })
 
   test('renders the AudioTransform page directly', async ({ page }) => {
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('heading', { name: /Audio Transform/ })).toBeVisible({ timeout: 10_000 })
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible()
     // Audio (required) + Reference (optional) drop zones
@@ -137,7 +137,7 @@ test.describe('Audio Transform', () => {
   test('uploads an audio file, posts multipart, renders enhanced waveform', async ({ page }) => {
     const submitted = mockAudioTransform(page, 'enhanced.wav')
 
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
 
     // Upload mic file via the hidden file input under "Audio (required)".
@@ -165,7 +165,7 @@ test.describe('Audio Transform', () => {
   test('reference file is forwarded as a multipart field when provided', async ({ page }) => {
     const submitted = mockAudioTransform(page)
 
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
 
     const inputs = page.locator('input[type="file"]')
@@ -185,7 +185,7 @@ test.describe('Audio Transform', () => {
   test('history entry appears after a successful transform and persists across navigation', async ({ page }) => {
     mockAudioTransform(page, 'enhanced.wav')
 
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
 
     await page.locator('input[type="file"]').first().setInputFiles(makeFakeWav('mic.wav'))
@@ -197,14 +197,14 @@ test.describe('Audio Transform', () => {
 
     // Persist across page reloads via localStorage.
     await page.waitForTimeout(600)
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByTestId('media-history-item')).toHaveCount(1)
   })
 
   test('renders an input spectrogram on upload and an output one after transform', async ({ page }) => {
     mockAudioTransform(page, 'enhanced.wav')
 
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
 
     // Choosing a clip should render its input spectrogram immediately — no
@@ -231,7 +231,7 @@ test.describe('Audio Transform', () => {
       })
     })
 
-    await page.goto('/app/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.getByRole('button', { name: 'localvqe' })).toBeVisible({ timeout: 10_000 })
 
     await page.locator('input[type="file"]').first().setInputFiles(makeFakeWav('mic.wav'))

@@ -14,9 +14,7 @@ var ErrTooMany = errors.New("too many pins")
 // built-in catalog and the Apps list, so a pin is filtered exactly like a tile.
 type Service struct{ Store Store }
 
-// List returns the caller's visible pins in order. It never seeds: the upgrade
-// seed runs once at start (Store.SeedExisting), for the accounts that exist
-// then, so an account created later starts with no pins.
+// List returns visible pins in order without changing the saved selection.
 func (s *Service) List(ctx context.Context, userID string, visible map[string]bool) ([]string, error) {
 	stored, err := s.Store.List(ctx, userID)
 	if err != nil {

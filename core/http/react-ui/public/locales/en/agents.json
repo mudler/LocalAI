@@ -58,7 +58,8 @@
     "templateFailed": "The starter agent could not be saved: {{message}}",
     "deletedUndo": "Deleted “{{name}}”.",
     "undoLate": "“{{name}}” was already deleted.",
-    "restored": "Restored “{{name}}”."
+    "restored": "Restored “{{name}}”.",
+    "exportedFolder": "Agent \"{{name}}\" exported. The file names its folder, {{path}}. Where you import it, the agent gets the folder with that path, if there is one."
   },
   "state": {
     "ready": "Ready",
@@ -97,7 +98,8 @@
     "instructions": "Instructions",
     "record": "Record",
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Folder"
   },
   "chips": {
     "none": "None",
@@ -186,7 +188,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "Files"
     },
     "name": "Name",
     "description": "Description",
@@ -683,5 +686,41 @@
     "anyModel": "Any model",
     "addons_one": "{{count}} add-on",
     "addons_other": "{{count}} add-ons"
+  },
+  "folder": {
+    "all": "All my files",
+    "one": "One folder",
+    "scopeLabel": "Files this agent can reach",
+    "allHelp": "Chats with this agent can reach all your files, as a chat without an agent can.",
+    "choose": "Choose folder",
+    "chooseOther": "Choose another folder",
+    "change": "Change",
+    "home": "Home",
+    "modeLabel": "Access",
+    "read": "Can read",
+    "write": "Can read and change",
+    "readShort": "read only",
+    "writeShort": "read and change",
+    "help": "Chats with this agent see only this folder and their own chat folder. Shared folders and skills stay readable. MCP servers and web tools you grant are not limited to this folder.",
+    "commands": "Commands of this agent run only in the Sandbox add-on, never directly on this machine.",
+    "nextMessage": "A change applies from the next message of each chat.",
+    "missing": "This folder is gone. Choose another folder to use this agent.",
+    "unset": "No folder is chosen yet. Choose a folder to use this agent.",
+    "needsChoice": "Choose a folder, or pick All my files.",
+    "summaryRead": "{{path}}, can read",
+    "summaryWrite": "{{path}}, can read and change",
+    "summaryMissing": "Folder missing",
+    "summaryUnset": "No folder chosen",
+    "dialogTitle": "Choose a folder",
+    "dialogText": "Open the folder this agent works in, then use it.",
+    "use": "Use {{folder}}",
+    "useAll": "Use all of Home",
+    "cancel": "Cancel",
+    "managedHint": "LocalAI manages this folder",
+    "sharedHint": "Shared folders cannot be chosen",
+    "exportNote": "The file names the folder {{path}}. Where you import it, the agent gets the folder with that path, if there is one, or asks you to choose one.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Folder missing",
+    "chipUnset": "No folder chosen"
   }
 }

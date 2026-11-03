@@ -22,25 +22,36 @@ const maxRulesNamed = 2
 // file costs about 25 tokens and only when it exists. A new rulesNudge is made
 // for each turn, so "once per folder" means once per turn.
 type rulesNudge struct {
-	s    *Service
-	a    workspace.Actor
-	home string
+	s *Service
+	a workspace.Actor
+	// place maps the model's paths; home is its primary folder (the home, or
+	// the agent's folder of a scoped chat), the top the walk stops at.
+	place session.Place
+	home  string
 
 	mu    sync.Mutex
 	has   map[string]bool // folder in the home -> it holds an AGENTS.md
 	named map[string]bool // folders the model was pointed at, or got the rules of
 }
 
-// newRulesNudge returns the nudge of one turn, or nil without files. A
-// trigger run got the rules of its folder and the folders above it in its
-// first message: those count as named.
-func (s *Service) newRulesNudge(ctx context.Context, a workspace.Actor, rec session.ChatRecord) *rulesNudge {
+// newRulesNudge returns the nudge of one turn for the access of the turn,
+// or nil without files. The walk starts in the access's primary folder and
+// stops there, so a scoped chat is pointed only at rules inside its agent's
+// folder. A trigger run got the rules of its folder and the folders above it
+// in its first message: those count as named.
+func (s *Service) newRulesNudge(ctx context.Context, x session.Access, rec session.ChatRecord) *rulesNudge {
 	if s.d.Files == nil || !s.d.Files.Available() {
 		return nil
 	}
-	n := &rulesNudge{s: s, a: a, home: session.HomePath(a.Principal), has: map[string]bool{}, named: map[string]bool{}}
+	a := x.Actor()
+	place := x.Place()
+	home := place.Primary()
+	if home == "" {
+		return nil
+	}
+	n := &rulesNudge{s: s, a: a, place: place, home: home, has: map[string]bool{}, named: map[string]bool{}}
 	if rec.Origin == session.OriginTrigger && s.triggers != nil {
-		if dir := s.triggers.rulesFolder(ctx, a.Principal, rec.OriginID); dir != "" {
+		if dir := s.triggers.rulesFolder(ctx, a.Principal, rec.OriginID, home); dir != "" {
 			for _, d := range upFrom(dir) {
 				n.named[d] = true
 			}
@@ -87,12 +98,16 @@ func (n *rulesNudge) pick(ctx context.Context, dir string) string {
 			continue
 		}
 		n.named[d] = true
-		paths = append(paths, guestRulesPath(d))
+		paths = append(paths, n.guestRulesPath(d))
 	}
 	return rulesLine(paths)
 }
 
-func guestRulesPath(dir string) string {
+func (n *rulesNudge) guestRulesPath(dir string) string {
+	abs := n.home + strings.TrimSuffix(dir, "/") + "/" + triggers.RulesFile
+	if g, ok := n.place.Guest(abs); ok {
+		return g
+	}
 	return session.GuestRoot + "/" + session.GuestHome + strings.TrimSuffix(dir, "/") + "/" + triggers.RulesFile
 }
 
@@ -114,44 +129,41 @@ func (n *rulesNudge) turnLine(ctx context.Context, rec session.ChatRecord) strin
 		return ""
 	}
 	dir := "/"
-	if rec.Folder != "" {
+	// A scoped chat's own folder is a mount of its own, outside the agent's
+	// folder: the walk starts at the agent's folder.
+	if rec.Folder != "" && !n.place.Scoped() {
 		dir = "/" + session.ChatsDir + "/" + rec.Folder
 	}
 	return n.pick(ctx, dir)
 }
 
 // rulesTools are the file tools whose calls can point at rules, and how to
-// find the folders a call touches.
-var rulesTools = map[string]func(args map[string]any) []string{
-	"list_files": func(m map[string]any) []string { return []string{asDir(m["path"], true)} },
-	"read_file":  func(m map[string]any) []string { return []string{asDir(m["path"], false)} },
-	"write_file": func(m map[string]any) []string { return []string{asDir(m["path"], false)} },
-	"move_file":  func(m map[string]any) []string { return []string{asDir(m["to"], false), asDir(m["from"], false)} },
+// find the folders a call touches. dir turns a path argument into the folder
+// a call works in.
+var rulesTools = map[string]func(args map[string]any, dir func(v any, isDir bool) string) []string{
+	"list_files": func(m map[string]any, dir func(any, bool) string) []string { return []string{dir(m["path"], true)} },
+	"read_file":  func(m map[string]any, dir func(any, bool) string) []string { return []string{dir(m["path"], false)} },
+	"write_file": func(m map[string]any, dir func(any, bool) string) []string { return []string{dir(m["path"], false)} },
+	"move_file": func(m map[string]any, dir func(any, bool) string) []string {
+		return []string{dir(m["to"], false), dir(m["from"], false)}
+	},
 }
 
-// homePath turns a path a file tool got into a clean path in the home, or ""
-// for a path outside it (a shared skill, for example).
-func homePath(v any) string {
+// homePath turns a path a file tool got into a clean path in the primary
+// folder ("/" is the folder), or "" for a path outside it (a shared skill,
+// the chat folder of a scoped chat) or one the place refuses.
+func (n *rulesNudge) homePath(v any) string {
 	p, _ := v.(string)
-	p = strings.TrimSpace(p)
-	guest := session.GuestRoot + "/" + session.GuestHome
-	switch {
-	case p == guest:
-		return "/"
-	case strings.HasPrefix(p, guest+"/"):
-		p = strings.TrimPrefix(p, guest)
-	case strings.HasPrefix(p, session.GuestRoot+"/"):
+	t, err := n.place.Resolve(p)
+	if err != nil || t.Root != n.home {
 		return ""
 	}
-	if p == "" {
-		return "/"
-	}
-	return path.Clean("/" + p)
+	return n.place.Rel(t.Abs)
 }
 
 // asDir is the folder a call works in: the path itself for a folder, else its parent.
-func asDir(v any, isDir bool) string {
-	p := homePath(v)
+func (n *rulesNudge) asDir(v any, isDir bool) string {
+	p := n.homePath(v)
 	if p == "" || isDir {
 		return p
 	}
@@ -181,14 +193,14 @@ func (n *rulesNudge) wrap(tools []session.Tool) []session.Tool {
 				return out, nil
 			}
 			if name == "read_file" {
-				if p := homePath(m["path"]); path.Base(p) == triggers.RulesFile {
+				if p := n.homePath(m["path"]); path.Base(p) == triggers.RulesFile {
 					n.mu.Lock()
 					n.named[path.Dir(p)] = true
 					n.mu.Unlock()
 				}
 			}
 			var lines []string
-			for _, d := range dirs(m) {
+			for _, d := range dirs(m, n.asDir) {
 				if d == "" {
 					continue
 				}

@@ -667,5 +667,15 @@
       "server": "Il server non è riuscito a salvarlo."
     },
     "said": "Il server ha risposto: {{reason}}."
+  },
+  "picker": {
+    "retry": "Riprova",
+    "noFolders": "Nessuna cartella qui"
+  },
+  "agentMark": {
+    "usedBy": "Usata da {{agents}}",
+    "read": "{{name}} (può leggere)",
+    "write": "{{name}} (può leggere e modificare)",
+    "many": "{{count}} agenti"
   }
 }

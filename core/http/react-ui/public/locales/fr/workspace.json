@@ -667,5 +667,15 @@
       "server": "Le serveur n’a pas pu l’enregistrer."
     },
     "said": "Réponse du serveur : {{reason}}."
+  },
+  "picker": {
+    "retry": "Réessayer",
+    "noFolders": "Aucun dossier ici"
+  },
+  "agentMark": {
+    "usedBy": "Utilisé par {{agents}}",
+    "read": "{{name}} (peut lire)",
+    "write": "{{name}} (peut lire et modifier)",
+    "many": "{{count}} agents"
   }
 }

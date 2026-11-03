@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "“{{name}}” excluído.",
     "undoLate": "“{{name}}” já foi excluído.",
-    "restored": "“{{name}}” restaurado."
+    "restored": "“{{name}}” restaurado.",
+    "exportedFolder": "Agente \"{{name}}\" exportado. O arquivo indica a pasta dele, {{path}}. Onde você importar, o agente recebe a pasta com esse caminho, se existir."
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Pasta"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "Arquivos"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "Execute uma tarefa e a resposta aparece aqui.",
       "more": "Mostrar mais {{count}}"
     }
+  },
+  "folder": {
+    "all": "Todos os meus arquivos",
+    "one": "Uma pasta",
+    "scopeLabel": "Arquivos que este agente pode alcançar",
+    "allHelp": "Os chats com este agente alcançam todos os seus arquivos, como um chat sem agente.",
+    "choose": "Escolher pasta",
+    "chooseOther": "Escolher outra pasta",
+    "change": "Alterar",
+    "home": "Início",
+    "modeLabel": "Acesso",
+    "read": "Pode ler",
+    "write": "Pode ler e alterar",
+    "readShort": "somente leitura",
+    "writeShort": "leitura e alteração",
+    "help": "Os chats com este agente veem apenas esta pasta e a própria pasta do chat. As pastas compartilhadas e as skills continuam legíveis. Os servidores MCP e as ferramentas web que você concede não ficam limitados a esta pasta.",
+    "commands": "Os comandos deste agente rodam apenas no complemento Sandbox, nunca diretamente nesta máquina.",
+    "nextMessage": "Uma alteração vale a partir da próxima mensagem de cada chat.",
+    "missing": "Esta pasta não existe mais. Escolha outra pasta para usar este agente.",
+    "unset": "Nenhuma pasta escolhida ainda. Escolha uma pasta para usar este agente.",
+    "needsChoice": "Escolha uma pasta, ou Todos os meus arquivos.",
+    "summaryRead": "{{path}}, pode ler",
+    "summaryWrite": "{{path}}, pode ler e alterar",
+    "summaryMissing": "Pasta ausente",
+    "summaryUnset": "Nenhuma pasta escolhida",
+    "dialogTitle": "Escolher uma pasta",
+    "dialogText": "Abra a pasta em que este agente trabalha e use-a.",
+    "use": "Usar {{folder}}",
+    "useAll": "Usar todo o Início",
+    "cancel": "Cancelar",
+    "managedHint": "O LocalAI gerencia esta pasta",
+    "sharedHint": "Pastas compartilhadas não podem ser escolhidas",
+    "exportNote": "O arquivo indica a pasta {{path}}. Onde você importar, o agente recebe a pasta com esse caminho, se existir, ou pede que você escolha uma.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Pasta ausente",
+    "chipUnset": "Nenhuma pasta escolhida"
   }
 }

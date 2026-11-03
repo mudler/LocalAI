@@ -285,11 +285,15 @@
       "hostOff": "此聊天已关闭 Sandbox，因此命令在这台机器上运行，可访问其文件和网络，没有隔离。在此菜单中打开 Sandbox 以隔离运行。",
       "hostUnavailable": "Sandbox 无法在此运行，因此命令在这台机器上运行，可访问其文件和网络，没有隔离。",
       "hostUnavailableWhy": "Sandbox 无法在此运行（{{reason}}），因此命令在这台机器上运行，可访问其文件和网络，没有隔离。",
-      "hostChipTitle": "此聊天中的命令在这台机器上运行，没有隔离。选择以查看详情。"
+      "hostChipTitle": "此聊天中的命令在这台机器上运行，没有隔离。选择以查看详情。",
+      "providerHost": "命令在服务器上运行，未隔离。",
+      "unknown": "执行就绪状态或隔离状态未知。",
+      "providerUnavailable": "所选执行提供程序不可用。",
+      "disabled": "此聊天已关闭命令执行。"
     },
     "consent": {
       "title": "在这台机器上运行此命令？",
-      "body": "命令在这台机器上运行，没有隔离。它们可以读取 LocalAI 能读取的文件，并访问互联网和你的网络。安装 Sandbox 以隔离运行。",
+      "body": "命令在这台机器上运行，没有隔离。它们可以读取 LocalAI 能读取的文件，并访问互联网和你的网络。",
       "once": "运行一次",
       "always": "在此实例上始终允许",
       "deny": "不运行",
@@ -395,7 +399,9 @@
     "allowedHostsOff": "网络开启时生效。",
     "allowedHostsNote": "管理员始终允许 {{count}} 个主机。",
     "limitNote": "此对话的网络。管理员决定对话最多能访问的范围。",
-    "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。"
+    "asksAbove": "此对话请求“{{choice}}”；管理员的限制是“{{limit}}”。",
+    "unverified": "尚未验证实际提供程序是否实施网络策略。这些设置目前不适用于其命令。",
+    "configuredPolicy": "已配置的网络策略：{{preset}}（未实施）。"
   },
   "inbox": {
     "unread": "{{count}} 条未读",

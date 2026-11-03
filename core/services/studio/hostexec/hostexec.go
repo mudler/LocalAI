@@ -9,6 +9,11 @@
 // (never root), with a fixed environment (PATH, HOME, LANG and TZ only), a
 // timeout, a cap on the output and a kill of the whole process group. They
 // have the network of the server. Every call is audited.
+//
+// The actor and the view of a call come from the chat's resolved access
+// (Options.Actor and Options.View). A chat whose agent works in one folder
+// never runs a command here: no workspace rule can confine a process that
+// reads what the server can read.
 package hostexec
 
 import (
@@ -63,11 +68,16 @@ type Options struct {
 	// StateDir holds the scratch folders. What an earlier run left there is
 	// removed.
 	StateDir string
-	// Shared lists the shared folders of a user, mounted next to the home.
-	// Nil: the home only.
-	Shared func(ctx context.Context, a workspace.Actor) ([]session.SharedRoot, error)
-	// Actor returns the actor that reads and commits for a user in a chat.
-	Actor func(user, chat string) workspace.Actor
+	// Actor returns the actor that reads and commits for a user in a chat:
+	// the actor of the chat's resolved access, asked at every call. A fenced
+	// actor (a chat whose agent has a folder) is refused: a command on this
+	// machine can read what the server can read, so no fence confines it.
+	Actor func(ctx context.Context, user, chat string) (workspace.Actor, error)
+	// View returns the view of the scratch folder of a: the view of the
+	// chat's resolved access (the home at home, the shared folders at
+	// shared-<name>) with the skill layers read only, at the names the file
+	// tools use, so a skill's scripts run in place.
+	View func(ctx context.Context, a workspace.Actor) (workspace.View, error)
 	// Audit keeps a line per call. Nil: memory.
 	Audit AuditStore
 	// Log gets the line of every command, with the prefix [host-exec].
@@ -105,6 +115,10 @@ func New(o Options) *Runner {
 		r.reason = "the server keeps no files"
 		return r
 	}
+	if o.Actor == nil || o.View == nil {
+		r.reason = "the chats do not say whose files a command may use"
+		return r
+	}
 	b, err := host.New(host.Options{Root: o.StateDir, Log: func(principal, command string) {
 		o.Log.Warn("[host-exec] command", "user", principal, "command", command)
 	}})
@@ -124,9 +138,9 @@ func New(o Options) *Runner {
 		KeepStateDir: true,
 		PerUser:      o.PerUser,
 		Total:        o.Total,
-		Actor:        o.Actor,
+		Actor:        r.actor,
+		View:         o.View,
 		Title:        "Command on this machine: ",
-		Mounts:       r.mounts,
 		Tools: func(acquire runner.Acquire) []runner.Tool {
 			return []runner.Tool{runner.Bash(acquire, runner.BashOptions{Description: Description, MaxTimeout: MaxTimeout, Done: r.audit})}
 		},
@@ -156,14 +170,30 @@ func (r *Runner) Tool(a workspace.Actor) session.Tool {
 		Run: func(ctx context.Context, args json.RawMessage) (string, error) { return r.Run(ctx, a, args) }}
 }
 
+// ErrScoped means the chat's agent works in one folder. A command on this
+// machine can read every file LocalAI can read, so nothing keeps it in that
+// folder: such a chat runs commands only in the Sandbox add-on.
+var ErrScoped = errors.New("hostexec: this agent works in one folder, and a command on this machine cannot be kept inside it")
+
+// ScopedText is the result of a call for a chat whose agent works in one
+// folder.
+const ScopedText = "Not run: this agent works in one folder, and a command on this machine could read files outside it. Commands for this agent run only in the Sandbox add-on."
+
 // Run runs one call of bash for a in its chat's scratch folder.
 func (r *Runner) Run(ctx context.Context, a workspace.Actor, args json.RawMessage) (string, error) {
 	if r.Unavailable() != "" {
 		return "This server cannot run commands: " + r.Unavailable() + ".", nil
 	}
+	if workspace.HasFence(a) {
+		return ScopedText, nil
+	}
 	op := make([]byte, 8)
 	_, _ = rand.Read(op)
-	return r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args})
+	out, err := r.m.Run(ctx, runner.Request{User: a.Principal, Conversation: a.ChatID, Operation: "hx" + hex.EncodeToString(op), Tool: "bash", Args: args})
+	if errors.Is(err, ErrScoped) {
+		return ScopedText, nil
+	}
+	return out, err
 }
 
 // Close removes every scratch folder. What the commands did is in the files.
@@ -174,31 +204,17 @@ func (r *Runner) Close(ctx context.Context) error {
 	return r.m.Close(ctx)
 }
 
-// mounts is the view of a scratch folder: the home, writable, at home, the
-// shared folders of the user at shared-<name>, and the skill layers read-only
-// (shared-skills, shared-builtin-skills, shared-addon-skills), with the names
-// the chat's file tools use, so a skill's scripts run in place.
-func (r *Runner) mounts(ctx context.Context, a workspace.Actor) ([]workspace.MountRequest, error) {
-	var shared []session.SharedRoot
-	if r.o.Shared != nil {
-		var err error
-		if shared, err = r.o.Shared(ctx, a); err != nil {
-			return nil, err
-		}
-	}
-	v, err := session.BuildView(ctx, r.o.Store, a, shared, slog.New(slog.DiscardHandler))
+// actor is the chat's actor of this call. It is resolved again at every call,
+// so a chat whose agent got a folder since the tool was built is refused too.
+func (r *Runner) actor(ctx context.Context, user, chat string) (workspace.Actor, error) {
+	a, err := r.o.Actor(ctx, user, chat)
 	if err != nil {
-		return nil, err
+		return workspace.Actor{}, err
 	}
-	out := make([]workspace.MountRequest, 0, len(v.Mounts)+len(session.SkillLayers))
-	for _, m := range v.Mounts {
-		out = append(out, workspace.MountRequest{Path: m.Path, At: m.At, Mode: m.Mode})
+	if workspace.HasFence(a) {
+		return workspace.Actor{}, ErrScoped
 	}
-	layers, err := session.SkillLayerMounts(ctx, r.o.Store, a)
-	if err != nil {
-		return nil, err
-	}
-	return append(out, layers...), nil
+	return a, nil
 }
 
 // audit records one call.

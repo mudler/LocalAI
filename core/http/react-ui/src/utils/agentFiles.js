@@ -12,7 +12,11 @@ export async function downloadAgentFile(agent, addToast, t) {
   try {
     const file = await chatAgentsApi.exportFile(agent.id)
     downloadJSON(`${agent.name}.json`, file)
-    addToast(t('toasts.exported', { name: agent.name }), 'success')
+    // The file names the folder by its path; where it is imported, the agent
+    // gets the folder with that path, if the person has one.
+    const path = agent.folder?.path
+    if (path) addToast(t('toasts.exportedFolder', { name: agent.name, path: path === '/' ? t('folder.home') : path }), 'success', 6000)
+    else addToast(t('toasts.exported', { name: agent.name }), 'success')
   } catch (err) {
     addToast(t('toasts.exportFailed', { message: err.message }), 'error')
   }

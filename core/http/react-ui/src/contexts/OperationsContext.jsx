@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { operationsApi } from '../utils/api'
 import { createTransferRateSampler } from '../utils/transferRate'
+import { addonUpgrades } from '../utils/addonUpgrades'
+import { createAddonsApi } from '../utils/addonsApi'
 import { useAuth } from '../context/AuthContext'
 
 // Serialize ops into a stable comparison key. Each op is a flat map of
@@ -29,7 +31,12 @@ export function OperationsProvider({ children, pollInterval = 1000 }) {
   const [error, setError] = useState(null)
   const [history, setHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
-  const { isAdmin } = useAuth()
+  const { isAdmin, user, authEnabled, loading: authLoading } = useAuth()
+  useEffect(() => {
+    if (authLoading) return
+    const principal = isAdmin ? (user?.id || (!authEnabled ? "local-owner" : "")) : ""
+    addonUpgrades.bind(createAddonsApi(), principal, window.sessionStorage)
+  }, [isAdmin, user?.id, authEnabled, authLoading])
   const intervalRef = useRef(null)
   const lastSerializedRef = useRef('[]')
   const liveIDsRef = useRef(new Set())

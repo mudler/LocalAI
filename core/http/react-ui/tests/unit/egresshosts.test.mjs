@@ -15,7 +15,7 @@ test('allowed hosts: an entry is written lower case, in punycode, with the port 
 
 test('allowed hosts: what is not an exact host name is refused with a reason', () => {
   const reason = (v, o) => checkHost(v, o).error
-  assert.equal(reason('*.example.com'), 'wildcard')
+  assert.equal(reason('foo*.example.com'), 'wildcard')
   assert.equal(reason('https://example.com'), 'shape')
   assert.equal(reason('example.com/path'), 'shape')
   assert.equal(reason('user@example.com'), 'shape')
@@ -56,7 +56,7 @@ test('allowed hosts: Apply stops on an entry the server would refuse', () => {
   const change = (to) => [{ field: FIELD, from: '', to }]
   const errors = (to, draft = {}) => runChecks(change(to), {}, draft).filter(c => c.level === 'error')
   assert.equal(errors('a.example, b.example:8443').length, 0)
-  assert.equal(errors('*.example.com').length, 1)
+  assert.equal(errors('*.example.com').length, 0)
   assert.equal(errors('10.0.0.5').length, 1)
   assert.equal(errors('10.0.0.5', { chats_egress_allow_private: true }).length, 0)
 })

@@ -23,9 +23,14 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
+	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
+	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
+	"github.com/mudler/LocalAI/pkg/sqlitedb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gorm.io/gorm"
 )
 
 func TestLifecycle(t *testing.T) {
@@ -691,6 +696,112 @@ var _ = Describe("the skills of a package", func() {
 		ids, e = m.InstalledSkillIDs(ctx)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(ids).To(BeEmpty())
+	})
+
+	It("installs upgrades and uninstalls the actual Sandbox document skills through verified receipts", func() {
+		// Keep the existing sample lifecycle transport/executable fixture; use the
+		// first-party Sandbox declarations and every byte of its real skill tree.
+		data, err := os.ReadFile("../../../addons/sandbox/manifest.json")
+		Expect(err).NotTo(HaveOccurred())
+		var sandbox contract.Manifest
+		Expect(json.Unmarshal(data, &sandbox)).To(Succeed())
+		data, err = os.ReadFile("../../../tests/addons/fixtures/packages/manifest.json")
+		Expect(err).NotTo(HaveOccurred())
+		var manifest contract.Manifest
+		Expect(json.Unmarshal(data, &manifest)).To(Succeed())
+		manifest.Capabilities.SkillDefinitions = sandbox.Capabilities.SkillDefinitions
+		data, err = json.Marshal(manifest)
+		Expect(err).NotTo(HaveOccurred())
+		tree := os.DirFS("../../../addons/sandbox/skills")
+		archive := map[string][]byte{}
+		Expect(fs.WalkDir(tree, ".", func(path string, entry fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				return nil
+			}
+			body, err := fs.ReadFile(tree, path)
+			if err != nil {
+				return err
+			}
+			archive["skills/"+path] = body
+			return nil
+		})).To(Succeed())
+		Expect(archive).NotTo(BeEmpty())
+		cfg, c, installer := fixtureWithFiles(data, "", archive)
+		manager := open(cfg, c, installer)
+		db, err := sqlitedb.Open("file:"+filepath.Join(GinkgoT().TempDir(), "workspace.db")+"?_busy_timeout=5000&_txlock=immediate", &gorm.Config{})
+		Expect(err).NotTo(HaveOccurred())
+		raw, err := db.DB()
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(raw.Close)
+		blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
+		Expect(err).NotTo(HaveOccurred())
+		store, err := gormstore.New(db, blobs, gormstore.Options{Admin: files.AdminPrincipal})
+		Expect(err).NotTo(HaveOccurred())
+		materialized := files.New(store)
+		Expect(materialized.EnsureHome(ctx, "alice")).To(Succeed())
+		var receipts []packages.PackageReceipt
+		manager.SetSkillSync(ctx, func(ctx context.Context, id string, receipt *packages.PackageReceipt) error {
+			if receipt == nil {
+				return materialized.RemoveAddonSkills(ctx, id)
+			}
+			Expect(receipt.Skills).To(HaveLen(4))
+			verified, err := packages.SkillFS(*receipt)
+			if err != nil {
+				return err
+			}
+			n := 0
+			for _, skill := range receipt.Skills {
+				var notice bool
+				for _, file := range skill.Files {
+					want := archive["skills/"+skill.Name+"/"+file.Path]
+					Expect(want).NotTo(BeNil())
+					Expect(file.Size).To(Equal(int64(len(want))))
+					Expect(file.SHA256).To(Equal(fmt.Sprintf("%x", sha256.Sum256(want))))
+					got, err := fs.ReadFile(verified, skill.Name+"/"+file.Path)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(got).To(Equal(want))
+					n++
+					notice = notice || file.Path == "notice.txt"
+				}
+				Expect(notice).To(BeTrue(), skill.Name)
+			}
+			Expect(n).To(Equal(len(archive)), "receipt must cover every actual file")
+			receipts = append(receipts, *receipt)
+			return materialized.SyncAddonSkills(ctx, id, verified)
+		})
+		check := func() {
+			for _, name := range []string{"docx", "pptx", "pdf", "xlsx"} {
+				_, body, err := materialized.ReadAddonSkill(ctx, "alice", "sample", name)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(body).NotTo(BeEmpty())
+			}
+			ids, err := materialized.AddonSkillIDs(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(ids).To(Equal([]string{"sample"}))
+		}
+		_, err = manager.Submit(ctx, actor, command("sandbox-tree-install", "install"))
+		Expect(err).NotTo(HaveOccurred())
+		check()
+		_, err = manager.Submit(ctx, actor, command("sandbox-tree-stop", "disable"))
+		Expect(err).NotTo(HaveOccurred())
+		_, err = manager.Submit(ctx, actor, command("sandbox-tree-upgrade", "upgrade"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(receipts).To(HaveLen(2))
+		Expect(receipts[1].Directory).NotTo(Equal(receipts[0].Directory))
+		Expect(receipts[1].Skills).To(Equal(receipts[0].Skills))
+		check()
+		_, err = manager.Submit(ctx, actor, command("sandbox-tree-uninstall", "uninstall"))
+		Expect(err).NotTo(HaveOccurred())
+		ids, err := materialized.AddonSkillIDs(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ids).To(BeEmpty())
+		for _, name := range []string{"docx", "pptx", "pdf", "xlsx"} {
+			_, _, err = materialized.ReadAddonSkill(ctx, "alice", "sample", name)
+			Expect(err).To(HaveOccurred())
+		}
 	})
 
 	It("never fails the operation when the copy fails", func() {

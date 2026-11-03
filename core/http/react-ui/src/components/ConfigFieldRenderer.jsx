@@ -3,13 +3,12 @@ import { useState } from 'react'
 import SettingRow from './SettingRow'
 import Toggle from './Toggle'
 import SearchableSelect from './SearchableSelect'
-import SearchableModelSelect from './SearchableModelSelect'
+import ModelPicker from './ModelPicker'
 import AutocompleteInput from './AutocompleteInput'
 import CodeEditor from './CodeEditor'
 import StructuredCodeEditor from './StructuredCodeEditor'
 import EntityActionListEditor from './EntityActionListEditor'
 import PatternListEditor from './PatternListEditor'
-import ModelMultiSelect from './ModelMultiSelect'
 import RouterCandidatesEditor from './RouterCandidatesEditor'
 import RouterPoliciesEditor from './RouterPoliciesEditor'
 import FailoverTargetsEditor from './FailoverTargetsEditor'
@@ -203,8 +202,12 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
     const cap = PROVIDER_TO_CAPABILITY[provider] || undefined
     return (
       <SettingRow label={<FieldLabel field={field} />} description={description}>
-        <SearchableModelSelect
+        <ModelPicker
           key={provider}
+          variant="field"
+          allowCustom
+          clearable
+          searchable
           value={value || ''}
           onChange={handleChange}
           capability={cap}
@@ -420,7 +423,7 @@ export default function ConfigFieldRenderer({ field, value, onChange, onRemove, 
             <div className="text-meta mt-xs">{description}</div>
           </div>
         </div>
-        <ModelMultiSelect value={value} onChange={handleChange} capability={cap} placeholder={field.placeholder} />
+        <ModelPicker variant="field" multiple searchable value={Array.isArray(value) ? value : []} onChange={handleChange} capability={cap} placeholder={field.placeholder} />
       </div>
     )
   }

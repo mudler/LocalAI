@@ -86,7 +86,7 @@ export function ChatAboutCard({ about, onClose }) {
   if (about.backend) rows.push([t('cmdcard.backend'), about.backend])
   rows.push([t('cmdcard.tools'), t('cmdcard.toolsOn', { count: about.tools || 0 })])
   rows.push([t('cmdcard.skills'), t('cmdcard.skillsOn', { count: about.skills || 0 })])
-  rows.push([t('cmdcard.commands'), about.commands === 'isolated' ? t('cmdcard.isolated') : about.commands === 'host' ? t('cmdcard.host') : t('cmdcard.noCommands')])
+  rows.push([t('cmdcard.commands'), about.commands === 'isolated' ? t('cmdcard.isolated') : about.commands === 'host' ? t('cmdcard.host') : about.commands === 'none' ? t('cmdcard.noCommands') : t('cmdcard.commandsUnknown')])
   rows.push([t('cmdcard.context'), about.limit > 0
     ? t('cmdcard.contextOf', { used: tokenCount(about.used || 0), limit: tokenCount(about.limit) })
     : (about.used > 0 ? t('cmdcard.contextUsed', { used: tokenCount(about.used) }) : t('cmdcard.unknown'))])

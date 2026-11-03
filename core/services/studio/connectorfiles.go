@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
 	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -46,9 +47,10 @@ func outboundType(name string) (string, bool) {
 
 var errFileTooLarge = errors.New("the file is too large")
 
-// readChatFile reads a file of the user's workspace, at most limit bytes.
-func (s *Service) readChatFile(ctx context.Context, user, p string, limit int64) ([]byte, error) {
-	r, n, err := s.d.Files.Store().Open(ctx, s.d.Files.Actor(principal(user)), p)
+// readChatFile reads a file of the chat's access, at most limit bytes. A
+// chat of a scoped agent reads only inside its folders.
+func (s *Service) readChatFile(ctx context.Context, x session.Access, p string, limit int64) ([]byte, error) {
+	r, n, err := s.d.Files.Store().Open(ctx, x.Actor(), p)
 	if err != nil {
 		return nil, err
 	}
@@ -66,14 +68,14 @@ func (s *Service) readChatFile(ctx context.Context, user, p string, limit int64)
 	return data, nil
 }
 
-// turnFiles are the files that a turn of a chat made or changed. turn is the
-// number of the turn; 0 means it is not known, and the files changed since
-// the turn began are taken instead.
-func (c *Connectors) turnFiles(ctx context.Context, b connectors.Binding, chatID string, turn int, since time.Time) []session.ChatFile {
+// turnFiles are the files that a turn of a chat made or changed, among those
+// the chat's access reaches. turn is the number of the turn; 0 means it is
+// not known, and the files changed since the turn began are taken instead.
+func (c *Connectors) turnFiles(ctx context.Context, b connectors.Binding, x session.Access, chatID string, turn int, since time.Time) []session.ChatFile {
 	if !c.svc.d.Files.Available() {
 		return nil
 	}
-	cf, err := c.svc.ChatFiles(ctx, b.Owner, chatID)
+	cf, err := c.svc.mgr.FilesIn(ctx, principal(b.Owner), chatID, x.Place())
 	if err != nil {
 		c.log.Warn("studio: could not list the files of a connector turn", "binding", b.ID, "error", err)
 		return nil
@@ -84,7 +86,7 @@ func (c *Connectors) turnFiles(ctx context.Context, b connectors.Binding, chatID
 			continue
 		}
 		if (turn > 0 && f.Turn == turn) || (turn == 0 && !f.At.Before(since)) {
-			out = append(out, f.ChatFile)
+			out = append(out, f)
 		}
 	}
 	return out
@@ -98,7 +100,14 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	files := c.turnFiles(ctx, b, chatID, turn, since)
+	// The files go with the chat's access, resolved now: a scoped agent's
+	// reply sends nothing from outside its folders.
+	x, err := c.svc.ChatAccess(ctx, b.Owner, chatID)
+	if err != nil {
+		c.log.Warn("studio: the files of a connector turn are not sent", "binding", b.ID, "error", err)
+		return
+	}
+	files := c.turnFiles(ctx, b, x, chatID, turn, since)
 	var notes []string
 	for i, f := range files {
 		if i == maxFilesPerTurn {
@@ -111,8 +120,10 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 			notes = append(notes, fmt.Sprintf("I made %s, but files of this type are not sent here.", name))
 			continue
 		}
-		data, err := c.svc.readChatFile(ctx, b.Owner, f.Path, contract.MaxConnectorFileBytes)
+		data, err := c.svc.readChatFile(ctx, x, f.Path, contract.MaxConnectorFileBytes)
 		switch {
+		case errors.Is(err, workspace.ErrNotFound):
+			continue // gone since, or outside the chat's access: not named
 		case errors.Is(err, errFileTooLarge):
 			notes = append(notes, fmt.Sprintf("%s is too large to send here (the limit is 1 MB). It is in the chat's files.", name))
 			continue

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { availableActions, filterActions } from '../../src/components/home/homeActions.js'
 
-const base = { isAdmin: true, hasModels: true, loadedCount: 0, studioInstalled: false, assistantAvailable: true }
+const base = { isAdmin: true, hasModels: true, loadedCount: 0, assistantAvailable: true }
 const ids = (ctx) => availableActions(ctx).map(a => a.id)
 
 test('home assistant: the /assistant action is offered to an admin when the server has the assistant', () => {

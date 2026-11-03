@@ -19,11 +19,25 @@ import (
 const (
 	agentExportKind    = "localai-agent"
 	maxAgentImportBody = 1 << 20
+	// maxAgentFileVersion is the newest version of the agent file this server
+	// reads. Version 2 is an agent with a folder: it got its own version so
+	// that a server that knows only version 1 refuses the file instead of
+	// importing the agent with access to all the files.
+	maxAgentFileVersion = 2
 )
+
+// agentFileVersion is the version an export writes: 1 for an agent without a
+// folder, so older servers keep importing it, and 2 for one with a folder.
+func agentFileVersion(hasFolder bool) int {
+	if hasFolder {
+		return 2
+	}
+	return 1
+}
 
 // ExportAgent returns a saved agent as a file.
 // @Summary Export a saved agent.
-// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
+// @Description Returns the definition as a JSON file (version, kind localai-agent, agent). It holds no ID, owner or time. An agent with a folder is version 2 and carries folder {path, mode}, the folder's home-relative path now (empty when the folder is missing, not chosen, or outside your home, even if readable); importing an empty path preserves the scope as unset with a warning; a server that knows only version 1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import reads it. This replaces the old /api/agents/{name}/export.
 // @Tags chats
 // @Param id path string true "the agent's id"
 // @Success 200 {object} schema.ChatsAgentExport "The agent file"
@@ -35,8 +49,17 @@ func (h *Handlers) ExportAgent(c echo.Context) error {
 	}
 	w := schema.ChatsAgentWrite{Name: a.Name, Description: a.Description, Instructions: a.Instructions, Model: a.Model,
 		MCPServers: a.MCPServers, Addons: a.Addons, Collections: a.Collections, Skills: a.Skills, Network: a.Network}
+	if st, ok := h.svc.AgentFolder(c.Request().Context(), userID(c), a); ok {
+		// Imports resolve paths in the home only. A followed root outside
+		// it must stay scoped but unset, not bind to a same-spelled home path.
+		exportPath := ""
+		if abs, live := h.svc.FolderResolver().PathOf(c.Request().Context(), h.svc.Principal(userID(c)), a.FolderID); live {
+			exportPath = h.svc.Files().Rel(h.svc.Principal(userID(c)), abs)
+		}
+		w.Folder = &schema.ChatsAgentFolderWrite{Path: exportPath, Mode: st.Mode}
+	}
 	c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", fileSafe(a.Name)+".json"))
-	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: 1, Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
+	return c.JSON(http.StatusOK, schema.ChatsAgentExport{Version: agentFileVersion(a.HasFolder()), Kind: agentExportKind, ExportedAt: time.Now().UTC(), Agent: w})
 }
 
 // fileSafe keeps a name usable as a file name in a header.
@@ -58,7 +81,7 @@ func fileSafe(name string) string {
 
 // ImportAgent saves an agent from a file.
 // @Summary Import a saved agent.
-// @Description Send the export file as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning.
+// @Description Send the export file (version 1, or 2 for an agent with a folder) as the JSON body, or as the file field of a multipart form. A bare agent definition (the body of POST /api/chats/agents) is accepted too. The agent is always new: a name you already use gets a number, and a model this server does not have, or you may not use, is dropped with a warning. A folder is looked up by its path in your files; when you have no such folder the agent keeps the mode without a folder (folder state unset) and does not start until you choose one, and a warning says so.
 // @Tags chats
 // @Accept json,mpfd
 // @Param request body schema.ChatsAgentExport true "the agent file"
@@ -105,18 +128,31 @@ func (h *Handlers) ImportAgent(c echo.Context) error {
 	}
 	a := agents.Agent{Name: def.Name, Description: def.Description, Instructions: def.Instructions, Model: def.Model,
 		MCPServers: def.MCPServers, Addons: def.Addons, Collections: def.Collections, Skills: def.Skills, Network: def.Network}
-	saved, err := h.svc.ImportAgent(c.Request().Context(), userID(c), a)
+	saved, err := h.svc.ImportAgent(c.Request().Context(), userID(c), a, folderIn(def.Folder))
 	if err != nil {
 		return failFor(c, err)
 	}
 	if saved.Name != strings.TrimSpace(def.Name) {
 		warnings = append(warnings, fmt.Sprintf("you already have an agent named %q, so the new one is named %q", strings.TrimSpace(def.Name), saved.Name))
 	}
-	return c.JSON(http.StatusCreated, schema.ChatsAgentImportResult{Agent: agentOut(saved), Warnings: warnings})
+	if saved.HasFolder() && saved.FolderID == 0 {
+		if def.Folder.Path != "" {
+			warnings = append(warnings, fmt.Sprintf("The folder %s was not found. Choose a folder before you use this agent.", def.Folder.Path))
+		} else {
+			warnings = append(warnings, "The file names no folder. Choose a folder before you use this agent.")
+		}
+	}
+	return c.JSON(http.StatusCreated, schema.ChatsAgentImportResult{Agent: h.agentFull(c, saved), Warnings: warnings})
 }
 
 // readAgentFile reads an export file, or a bare agent definition.
 func readAgentFile(raw []byte) (schema.ChatsAgentWrite, error) {
+	return readAgentFileUpTo(raw, maxAgentFileVersion)
+}
+
+// readAgentFileUpTo reads an export file of version 1 to newest, or a bare
+// definition. With newest 1 it is the check of a server from before folders.
+func readAgentFileUpTo(raw []byte, newest int) (schema.ChatsAgentWrite, error) {
 	var doc struct {
 		Version int                     `json:"version"`
 		Kind    string                  `json:"kind"`
@@ -126,7 +162,7 @@ func readAgentFile(raw []byte) (schema.ChatsAgentWrite, error) {
 		return schema.ChatsAgentWrite{}, errors.New("the body is not a valid agent file")
 	}
 	if doc.Agent != nil {
-		if doc.Version != 1 || (doc.Kind != "" && doc.Kind != agentExportKind) {
+		if doc.Version < 1 || doc.Version > newest || (doc.Kind != "" && doc.Kind != agentExportKind) {
 			return schema.ChatsAgentWrite{}, errors.New("this agent file has a version or kind this server does not know")
 		}
 		return *doc.Agent, nil

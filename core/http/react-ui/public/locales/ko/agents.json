@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "“{{name}}”을(를) 삭제했습니다.",
     "undoLate": "“{{name}}”은(는) 이미 삭제되었습니다.",
-    "restored": "“{{name}}”을(를) 복원했습니다."
+    "restored": "“{{name}}”을(를) 복원했습니다.",
+    "exportedFolder": "에이전트 \"{{name}}\"을(를) 내보냈습니다. 파일에 폴더 {{path}}이(가) 적혀 있습니다. 가져오는 곳에 같은 경로의 폴더가 있으면 에이전트가 그 폴더를 사용합니다."
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "폴더"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "파일"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "작업을 실행하면 답변이 여기에 표시됩니다.",
       "more": "{{count}}개 더 보기"
     }
+  },
+  "folder": {
+    "all": "내 모든 파일",
+    "one": "폴더 하나",
+    "scopeLabel": "이 에이전트가 접근할 수 있는 파일",
+    "allHelp": "이 에이전트와의 채팅은 에이전트 없는 채팅처럼 모든 파일에 접근합니다.",
+    "choose": "폴더 선택",
+    "chooseOther": "다른 폴더 선택",
+    "change": "변경",
+    "home": "홈",
+    "modeLabel": "권한",
+    "read": "읽기 가능",
+    "write": "읽기 및 변경 가능",
+    "readShort": "읽기 전용",
+    "writeShort": "읽기 및 변경",
+    "help": "이 에이전트와의 채팅은 이 폴더와 채팅 자체의 폴더만 봅니다. 공유 폴더와 스킬은 계속 읽을 수 있습니다. 허용한 MCP 서버와 웹 도구는 이 폴더로 제한되지 않습니다.",
+    "commands": "이 에이전트의 명령은 Sandbox 애드온에서만 실행되며, 이 컴퓨터에서 직접 실행되지 않습니다.",
+    "nextMessage": "변경 사항은 각 채팅의 다음 메시지부터 적용됩니다.",
+    "missing": "이 폴더가 더 이상 없습니다. 이 에이전트를 사용하려면 다른 폴더를 선택하세요.",
+    "unset": "아직 선택한 폴더가 없습니다. 이 에이전트를 사용하려면 폴더를 선택하세요.",
+    "needsChoice": "폴더를 선택하거나 내 모든 파일을 고르세요.",
+    "summaryRead": "{{path}}, 읽기 가능",
+    "summaryWrite": "{{path}}, 읽기 및 변경 가능",
+    "summaryMissing": "폴더 없음",
+    "summaryUnset": "선택한 폴더 없음",
+    "dialogTitle": "폴더 선택",
+    "dialogText": "이 에이전트가 작업할 폴더를 열고 사용하세요.",
+    "use": "{{folder}} 사용",
+    "useAll": "홈 전체 사용",
+    "cancel": "취소",
+    "managedHint": "LocalAI가 관리하는 폴더",
+    "sharedHint": "공유 폴더는 선택할 수 없습니다",
+    "exportNote": "파일에 폴더 {{path}}이(가) 적혀 있습니다. 가져오는 곳에 같은 경로의 폴더가 있으면 에이전트가 그 폴더를 사용하고, 없으면 폴더를 선택하라고 요청합니다.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "폴더 없음",
+    "chipUnset": "선택한 폴더 없음"
   }
 }

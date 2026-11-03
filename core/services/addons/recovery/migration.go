@@ -137,7 +137,13 @@ func (r *Recovery) UpgradeReceipt(ctx context.Context, addonID string, staged Ca
 	}
 	phase := func(p string) error {
 		j.Phase = p
-		return r.saveJournal(addonID, j)
+		if e := r.saveJournal(addonID, j); e != nil {
+			return e
+		}
+		if r.progress != nil {
+			return r.progress(p)
+		}
+		return nil
 	}
 	var q Quiesced
 	quiesced := false
@@ -153,6 +159,11 @@ func (r *Recovery) UpgradeReceipt(ctx context.Context, addonID string, staged Ca
 		defer stop()
 		err = r.undoUpgrade(dctx, host, addonID, info, j, q, quiesced && !published, err)
 	}()
+	if r.progress != nil {
+		if err = r.progress("backing-up"); err != nil {
+			return packages.PackageReceipt{}, err
+		}
+	}
 	if err = r.hook("before-backup"); err != nil {
 		return packages.PackageReceipt{}, err
 	}

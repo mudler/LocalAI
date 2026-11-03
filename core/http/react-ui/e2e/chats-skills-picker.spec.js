@@ -246,34 +246,49 @@ test.describe('Chat skills picker with add-on skills', () => {
     return state
   }
   const office = { id: 'addon:xlsx', name: 'xlsx', description: 'Read and edit spreadsheets with the Office tools', layer: 'addon', addon: 'office', addon_title: 'Office', enabled: true }
-  const builtinX = { id: 'builtin:xlsx', name: 'xlsx', description: 'Spreadsheets in a sandbox', layer: 'builtin', shadowed: 'addon', shadowed_by: 'office', enabled: true }
   const mine = { id: 'personal:review', name: 'review', description: 'Check a change', layer: 'personal', enabled: true }
 
-  test('labels each skill with its source and lists the built-in one an add-on replaces, dimmed and with no switch', async ({ page }) => {
-    await stubAddon(page, () => [office, builtinX, mine])
+  test('labels document skills with their provider, with no removed built-in', async ({ page }) => {
+    await stubAddon(page, () => [office, mine])
     await open(page)
     const sources = page.getByTestId('chat-skills-source')
     await expect(sources).toHaveText(['Office', 'Personal'])
     await expect(page.getByRole('switch')).toHaveCount(2)
     const replaced = page.getByTestId('chat-skills-replaced')
-    await expect(replaced).toHaveCount(1)
-    await expect(replaced).toContainText('xlsx')
-    await expect(replaced).toContainText('Replaced by Office')
+    await expect(replaced).toHaveCount(0)
     await expect(page.getByTestId('chat-skills-fallback')).toHaveCount(0)
     await expect(summary(page)).toHaveText('2 of 2 on')
     await shot(page, 'skills-picker-addon')
   })
 
-  test('switching the add-on skill off brings the built-in one back, with one line that says why', async ({ page }) => {
-    const state = await stubAddon(page, (s) => (s.puts.length === 0
-      ? [office, builtinX, mine]
-      : [{ ...office, enabled: false }, { ...builtinX, shadowed: undefined, shadowed_by: undefined, fallback: 'Office' }, mine]))
+  test('switching a document skill off persists OFF without a core fallback', async ({ page }) => {
+    const state = await stubAddon(page, s => [{ ...office, enabled: !s.puts.at(-1)?.off.includes('addon:xlsx') }, mine])
     await open(page)
     await sw(page, 'xlsx').click()
     await expect.poll(() => state.puts).toEqual([{ off: ['addon:xlsx'] }])
-    await expect(page.getByTestId('chat-skills-fallback')).toHaveText('Built-in xlsx in use: the Office add-on\'s own skill is off or not running here.')
+    await expect(sw(page, 'xlsx')).not.toBeChecked()
+    await expect(page.getByTestId('chat-skills-fallback')).toHaveCount(0)
     await expect(page.getByTestId('chat-skills-replaced')).toHaveCount(0)
-    await expect(page.locator('[data-testid="chat-skills-source"][data-kind="builtin"]')).toHaveText('Built-in')
-    await shot(page, 'skills-picker-fallback')
+    await expect(page.locator('[data-testid="chat-skills-source"][data-kind="builtin"]')).toHaveCount(0)
+  })
+
+  for (const addon of ['office', 'sandbox']) {
+    test(`${addon} supplies familiar document names without a builtin`, async ({ page }) => {
+      await stubAddon(page, () => ['docx', 'pptx', 'pdf', 'xlsx'].map(name => ({
+        ...office, id: `addon:${name}`, name, addon, addon_title: addon === 'office' ? 'Office' : 'Sandbox',
+      })))
+      await open(page)
+      await expect(page.getByRole('switch')).toHaveCount(4)
+      await expect(page.getByTestId('chat-skills-source')).toHaveText(Array(4).fill(addon === 'office' ? 'Office' : 'Sandbox'))
+      await expect(page.getByTestId('chat-skills-fallback')).toHaveCount(0)
+      await expect(page.getByTestId('chat-skills-replaced')).toHaveCount(0)
+    })
+  }
+
+  test('an unavailable pinned provider explains why without suggesting a fallback', async ({ page }) => {
+    await stubAddon(page, () => [{ ...office, unavailable: 'Pinned provider is not available for this chat.' }, mine])
+    await open(page)
+    await expect(page.getByTestId('chat-skills-item').first()).toContainText('Pinned provider is not available for this chat.')
+    await expect(page.getByTestId('chat-skills-fallback')).toHaveCount(0)
   })
 })

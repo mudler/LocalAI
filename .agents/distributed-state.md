@@ -147,3 +147,13 @@ When your PR adds or changes state that lives longer than a single request:
       feature's docs page under `docs/content/`
 - [ ] Standalone mode (no NATS/DB) still behaves correctly — most
       shared/single-runner code paths must degrade gracefully alone
+
+### Add-on settings acceptance
+
+- [ ] Declare the authority, persistence location, scope, startup migration, and failure contract for every setting. Separate host authorization policy from add-on-owned configuration.
+- [ ] Route reads, writes, background consumers, tool/skill routing, and enforcement to the same authority. Host-rendered add-on controls must not save owner-wide policy through frontend-local runtime settings.
+- [ ] Preserve standalone combined-owner operation without requiring an external database or messaging service.
+- [ ] Test save through frontend A, read and enforce through frontend B, repeated tightening, concurrent partial updates, owner restart, and owner outage. Never silently fall back to local policy or built-in providers.
+- [ ] Require revision conflicts and idempotent uncertain-write retries. Preserve unrelated provider keys, dirty edits, and unavailable state until reconciliation succeeds.
+- [ ] Verify the actual rendered control uses the intended API, and test an actual turn or proxy connection rather than only a configuration helper.
+- [ ] Keep private migration provenance off caller-facing responses. Extend the existing addon acceptance inventory with required cases; missing or skipped cases do not count as evidence.

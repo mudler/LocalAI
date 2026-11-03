@@ -14,6 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // loadSkillName is the name of the tool that loads a skill by its name.
@@ -42,7 +43,8 @@ type loadOpts struct {
 	files bool
 	// exec is true when the chat can run commands. A skill that requires
 	// them is refused with the reason when it cannot.
-	exec bool
+	exec    bool
+	sandbox *bool
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -67,7 +69,7 @@ func (s *Service) buildLoadSkill(ctx context.Context, c builtins.Chat) (session.
 	if !s.d.Files.Available() {
 		return session.Tool{}, false, "the files are off"
 	}
-	list, err := s.loadableSkills(ctx, c.Actor)
+	list, err := s.loadableSkillsForActor(ctx, c.Actor, nil)
 	if err != nil {
 		return session.Tool{}, false, "the skills cannot be read now"
 	}
@@ -93,22 +95,58 @@ func (s *Service) fitLoadSkill(a workspace.Actor, tools []session.Tool) []sessio
 	if i < 0 {
 		return tools
 	}
-	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools)})
+	// Final tools may only narrow the freshly checked descriptor at call time.
+	sandbox := addonRunner(tools) == "sandbox"
+	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), sandbox: &sandbox})
 	return tools
 }
 
 // loadableSkills returns the skills the chat of a offers now: the list the
 // index of its turn shows, from the same resolution.
 func (s *Service) loadableSkills(ctx context.Context, a workspace.Actor) ([]skills.Skill, error) {
+	return s.loadableSkillsWithCommands(ctx, a, nil)
+}
+
+func (s *Service) loadableSkillsWithCommands(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, error) {
+	list, _, err := s.loadableSkillsAndNotes(ctx, a, final)
+	return list, err
+}
+
+// loadableSkillsAndNotes also returns the notes of the resolution, which say
+// why a skill is missing.
+func (s *Service) loadableSkillsAndNotes(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, []string, error) {
+	access, err := s.AddonAccess(ctx, a.Principal, a.ChatID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return s.loadableSkillsAndNotesForActor(ctx, access.Actor(), final)
+}
+
+// loadableSkillsForActor is for initial tool construction, using its already
+// authorized actor. Public picker and tool calls resolve fresh access instead.
+func (s *Service) loadableSkillsForActor(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, error) {
+	list, _, err := s.loadableSkillsAndNotesForActor(ctx, a, final)
+	return list, err
+}
+
+func (s *Service) loadableSkillsAndNotesForActor(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, []string, error) {
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	list, _, _, err := s.chatSkillSet(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, s.scopeOf(ctx, rec))
+	sc := s.scopeOf(ctx, rec)
+	command, err := s.addonCommandDescriptorForActor(ctx, a, rec, sc)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return skills.Usable(list), nil
+	if final != nil && !*final {
+		command = Commands{State: CommandsNone}
+	}
+	list, notes, _, err := s.chatSkillSet(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, command)
+	if err != nil {
+		return nil, nil, err
+	}
+	return skills.Usable(list), notes, nil
 }
 
 // loadSkillRun is the Run of load_skill. It resolves the skills again at each
@@ -122,9 +160,17 @@ func (s *Service) loadSkillRun(a workspace.Actor, o loadOpts) func(context.Conte
 		if err != nil {
 			return "", err
 		}
-		list, err := s.loadableSkills(ctx, a)
+		list, notes, err := s.loadableSkillsAndNotes(ctx, a, o.sandbox)
 		if err != nil {
 			return "", fmt.Errorf("the skills cannot be read now: %w", err)
+		}
+		// The tool was offered because the chat had this skill; a document
+		// skill is missing now only because the Sandbox is not known to be
+		// isolated, and the model must say so rather than "no skills".
+		if _, ok := skills.Find(list, in.Name); !ok && contract.DocumentSkill(skills.Clean(in.Name)) {
+			if i := slices.IndexFunc(notes, func(n string) bool { return strings.HasPrefix(n, documentNotePrefix) }); i >= 0 {
+				return "", fmt.Errorf("unknown skill %q: %s", skills.Clean(in.Name), notes[i])
+			}
 		}
 		return s.loadSkill(ctx, a.Principal, list, in.Name, o)
 	}

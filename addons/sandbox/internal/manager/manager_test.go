@@ -169,9 +169,12 @@ func setup(tweak func(*runner.Options)) *fixture {
 	b := &counting{Backend: sbtest.NewFakeBackend(filepath.Join(data, "backend"))}
 	now := time.Date(2026, 10, 27, 9, 0, 0, 0, time.UTC)
 	f := &fixture{h: h, b: b, now: &now, data: data}
+	st := remote.New(h, data)
 	o := runner.Options{
 		Backend:  func() (sandbox.Backend, error) { return b, nil },
-		Store:    remote.New(h, data),
+		Store:    st,
+		Actor:    remote.Actor,
+		View:     st.HomeView,
 		StateDir: filepath.Join(data, "backend"),
 		Now:      func() time.Time { return *f.now },
 		Prepare: func(ctx context.Context, r runner.Request) context.Context {
@@ -368,7 +371,7 @@ var _ = Describe("Sandbox manager", func() {
 		state := filepath.Join(data, "backend")
 		Expect(os.MkdirAll(filepath.Join(state, "old-session", "lower"), 0o700)).To(Succeed())
 		h := &host{dataDir: data, commits: map[string]map[string]string{}}
-		m, err := runner.New(runner.Options{Backend: func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }, Store: remote.New(h, data), StateDir: state})
+		m, err := runner.New(runner.Options{Backend: func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }, Store: remote.New(h, data), Actor: remote.Actor, View: remote.New(h, data).HomeView, StateDir: state})
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { _ = m.Close(context.Background()) }()
 		entries, _ := os.ReadDir(state)
@@ -431,7 +434,7 @@ var _ = Describe("Sandbox manager", func() {
 		state := filepath.Join(data, "run")
 		Expect(os.MkdirAll(filepath.Join(state, "gvisor", "sess"), 0o700)).To(Succeed())
 		h := &host{dataDir: data, commits: map[string]map[string]string{}}
-		m, err := runner.New(runner.Options{Backend: func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }, Store: remote.New(h, data), StateDir: state, KeepStateDir: true})
+		m, err := runner.New(runner.Options{Backend: func() (sandbox.Backend, error) { return nil, runner.ErrNoSandbox }, Store: remote.New(h, data), Actor: remote.Actor, View: remote.New(h, data).HomeView, StateDir: state, KeepStateDir: true})
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { _ = m.Close(context.Background()) }()
 		_, err = os.Stat(filepath.Join(state, "gvisor", "sess"))

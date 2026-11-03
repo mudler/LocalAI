@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useFormContext } from '../contexts/FormContext'
-import SearchableModelSelect from './SearchableModelSelect'
+import ModelPicker from './ModelPicker'
 import Icon from './Icon'
 
 // RouterCandidatesEditor renders the routing table for a router model.
@@ -122,7 +122,8 @@ function CandidateRow({ index, total, row, knownLabels, knownLabelSet, onChange,
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--spacing-sm)', alignItems: 'center' }}>
-        <SearchableModelSelect
+        <ModelPicker
+          variant="field" allowCustom searchable
           value={row?.model || ''}
           onChange={(v) => onChange((r) => ({ ...r, model: v }))}
           placeholder="downstream model..."

@@ -150,7 +150,7 @@ test.describe('Library sources: Use official libraries', () => {
     await expect(settingRow(page)).toContainText('Use official libraries')
     await expect(toggle).toHaveAttribute('aria-checked', on ? 'false' : 'true')
     await toggle.click()
-    await page.getByRole('button', { name: 'Apply' }).click()
+    await page.getByTestId('settings-pending').getByRole('button', { name: 'Apply', exact: true }).click()
     await expect(page.getByText('Settings saved successfully')).toBeVisible()
   }
 

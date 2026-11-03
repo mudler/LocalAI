@@ -30,6 +30,44 @@ working as soon as the Telegram add-on is installed. Until then the binding is k
 switched as it was, and shown as not running with the reason "install the Telegram
 add-on"; nothing polls and nothing is lost.
 
+### How messages arrive: pull and push
+
+Each kind in the add-on manifest declares `delivery`:
+
+- **`pull`** (Slack and Telegram). The host polls the add-on. One process in the
+  cluster, the leader, does the polling. It stores the offset with the binding. When
+  the leader stops, a new leader continues from that offset.
+- **`push`**. The add-on calls the host operation `connector.inbound` for each
+  message. The turn then runs in the process that hosts the add-on. A push add-on
+  therefore needs a `combined` owner or a distributed owner (see
+  [The owner in distributed mode]({{% relref "features/addons" %}}#the-owner-in-distributed-mode)).
+
+### Multiple frontends and readiness
+
+In a multi-frontend deployment, connector discovery and calls go to the frontend
+that owns the add-on runtime over the private, peer-authenticated add-on carrier.
+You can create and test bindings from another frontend; it does not need its own
+Slack or Telegram runtime. Poll leadership is unchanged: the polling frontend
+and notification sender can reach the runtime owner without owning it themselves.
+Connector access still requires **Connectors**, not the separate **Add-ons**
+permission. Existing agent permissions and sender allowlists still apply.
+
+A healthy owner with no running connector kinds returns an empty list. An
+unreachable, unready or fenced owner returns an error instead: an empty list is
+not an outage signal. Check that the connector add-on is running and that the
+frontends can reach the configured private carrier before trying discovery again.
+
+If discovery fails or the platform explicitly refuses a token, creating a binding
+fails without saving it. Once discovery succeeds, a temporary outage during token
+verification retains the existing permissive save behavior; use **Test** when the
+platform is available again. An authorization denial or explicit token refusal
+during replacement leaves the stored binding unchanged. Binding calls use the
+owner's stored token. LocalAI does not replay a forwarded send automatically after
+a transport failure, since the platform may already have received it.
+
+Telegram's legacy binding resolution remains compatible with existing bindings.
+It is not a fallback for discovering other connector kinds or for owner outages.
+
 ## Telegram
 
 The Telegram add-on binds a bot to one of your [saved agents](/features/chats-agents/).
@@ -112,8 +150,9 @@ a channel. The add-on uses Socket Mode, so LocalAI needs no public address.
    subscribes to `app_mention` and the `message.*` events, and asks for the bot scopes
    `app_mentions:read`, `channels:history`, `groups:history`, `im:history`,
    `mpim:history`, `chat:write`, `files:read`, `files:write` and `users:read`. An app
-   made before `files:write` was in the manifest cannot send files: add the scope and
-   reinstall the app.
+   made before `files:write` was in the manifest cannot send files. Add the scope in
+   the app settings, then reinstall the app to the workspace: Slack applies new scopes
+   only after a reinstall.
 3. Install the app to your workspace and copy the **bot token** (`xoxb-`).
 4. Under **Basic Information**, **App-Level Tokens**, make a token with the scope
    `connections:write` and copy it (`xapp-`).
@@ -178,7 +217,10 @@ polled for two minutes (the binding was switched off or deleted) is closed.
 
 A binding is switched off, with a notification, when Slack refuses a token
 (`invalid_auth`, `token_revoked` and similar) or turns Socket Mode off for the app.
-Socket Mode spreads the events of an app over all its open links, so bind one app to
+Socket Mode spreads the events of an app over all its open links, so use one
+connection per Slack app. If an old external agent and the add-on use the same Slack
+app, each gets part of the events and some messages are lost or answered twice at
+random. Stop the old bot or make a second app. Bind one app to
 one LocalAI instance only. A cluster of LocalAI frontends counts as one instance: only
 the leader opens links. Two separate installations that bind the same app each get
 part of the events, and LocalAI cannot detect it (Telegram's `conflict` answer has no
@@ -223,6 +265,14 @@ gives the same events without one.
 - **Answers.** See [How the bot answers](#how-the-bot-answers). A message that
   arrives while the agent works waits and is read at the agent's next request, as in
   any chat; the answer of that turn covers it.
+- **An agent with a folder.** When the agent has a
+  [folder](/features/chats-agents/#one-folder-for-an-agent), the chat of each sender
+  reaches only that folder, its own chat folder, the shared folders and the skills,
+  and the bot sends only files from those folders (see `send_files`). When the
+  folder is deleted, unreadable or not chosen, the agent does not run: each message
+  gets one reply, "This agent cannot work right now: its folder is missing.", and
+  the server logs it. The binding stays on, so the agent answers again once you
+  restore the folder or choose another one.
 
 ## How the bot answers
 
@@ -471,7 +521,8 @@ used to probe the internal network, a connector may reach only public hosts:
 An administrator can allow private addresses with the runtime setting
 `mcp_connectors_allow_private` (Settings, Access and security; default off; no
 restart needed). Turn it on only when your users are trusted: with it, a connector
-can reach services on the server's own network. Turning it off closes the open
+can reach services on the server's own network. Cloud metadata addresses stay
+refused even then, and a request does not use a proxy from the environment. Turning it off closes the open
 sessions that were made to such addresses: a tool handed out before is refused,
 and the next turn connects again under the new rule. Likewise, a user who stops
 being an administrator loses their running local commands at their next use.

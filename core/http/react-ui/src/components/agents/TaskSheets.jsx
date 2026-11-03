@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import SideSheet from '../SideSheet'
+import ModelPicker from '../ModelPicker'
 import { Button, Callout, Switch } from '../ui'
 import { promptParams, taskErrors } from '../../utils/agentTasks'
 
@@ -81,12 +82,11 @@ export function TaskSheet({ editing, setForm, agents, models, onSave, onClose, s
           </Field>
           {form.runner === 'model' ? (
             <Field id="at-model" label={t('tasks.model')} error={err('model')}>
-              <span className="dk-select-wrap">
-                <select id="at-model" className="dk-select" value={form.model} onChange={(e) => setForm({ model: e.target.value })} {...inv('model')}>
-                  <option value="">{t('tasks.pick')}</option>
-                  {models.map(m => <option key={m.id} value={m.id}>{m.id}</option>)}
-                </select>
-              </span>
+              <ModelPicker
+                id="at-model" variant="field" searchable autoSelect={false} rememberSelection={false}
+                models={models} value={form.model} placeholder={t('tasks.pick')}
+                onChange={(model) => setForm({ model })} describedBy={inv('model')['aria-describedby']}
+              />
             </Field>
           ) : (
             <Field id="at-agent" label={t('tasks.agent')} error={err('agent_id')}>

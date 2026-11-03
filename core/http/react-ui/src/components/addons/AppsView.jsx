@@ -38,23 +38,27 @@ import { useAddonActions } from './useAddonActions'
 // refuses everyone else whatever this view shows.
 export default function AppsView({ api, adapter, onSummary }) {
   const { t, i18n } = useTranslation('addons')
-  const [state, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
+  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
   const reloadRef = useRef(() => {})
-  const { hasFeature, isAdmin } = useAuth()
+  const { hasFeature, isAdmin, user, sessionEpoch } = useAuth()
   // Without the feature there is no list to read and the route would answer 403.
   const canList = hasFeature(FEATURE_ADDONS)
   // The add-on registry does not read the list again while this tab is open:
   // every list read here is handed to it.
   const registry = useContext(RegistryContext)
-  const ingestRef = useRef(null)
-  ingestRef.current = registry ? registry.ingest : null
+  const actor = JSON.stringify([user?.id, sessionEpoch, isAdmin, canList])
+  const scope = useRef(actor)
+  scope.current = actor
+  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false }
+  const ingest = registry?.ingest
 
   // Poll with a timer chain: one request at a time, aborted on unmount. A
   // refresh asked for while one is in flight runs right after it, so there is
   // never more than one chain.
   useEffect(() => {
-    if (!canList) { setState({ status: 'ready', apps: [], error: null, stale: false }); return undefined }
+    if (!canList) { setState({ actor, status: 'ready', apps: [], error: null, stale: false }); return undefined }
+    const current = () => scope.current === actor
     const ctl = new AbortController()
     let timer = null
     let failures = 0
@@ -67,19 +71,19 @@ export default function AppsView({ api, adapter, onSummary }) {
       try {
         const apps = await api.apps.list(ctl.signal)
         failures = 0
-        if (alive) {
-          setState({ status: 'ready', apps, error: null, stale: false })
-          ingestRef.current?.(apps)
+        if (alive && current()) {
+          setState({ actor, status: 'ready', apps, error: null, stale: false })
+          ingest?.(apps)
         }
       } catch (error) {
-        if (!alive || (error && error.name === 'AbortError')) return
+        if (!alive || !current() || (error && error.name === 'AbortError')) return
         failures += 1
         // Keep what was on screen and say it may be out of date.
-        setState(s => ({ status: s.status === 'ready' ? 'ready' : 'error', apps: s.apps, error, stale: true }))
+        setState(s => ({ actor, status: s.actor === actor && s.status === 'ready' ? 'ready' : 'error', apps: s.actor === actor ? s.apps : [], error, stale: true }))
       } finally {
         inflight = false
       }
-      if (!alive) return
+      if (!alive || !current()) return
       const wait = queued ? 0 : pollDelay(failures, typeof document !== 'undefined' && document.hidden)
       queued = false
       clearTimeout(timer)
@@ -88,11 +92,12 @@ export default function AppsView({ api, adapter, onSummary }) {
     reloadRef.current = () => { if (inflight) { queued = true } else { clearTimeout(timer); tick() } }
     tick()
     return () => { alive = false; ctl.abort(); clearTimeout(timer) }
-  }, [api, reload, canList])
+  }, [api, reload, canList, actor, ingest])
 
   // The installed record of an add-on, for the administrator's Details in the
   // pane. A change reads it again.
-  const [installedInfo, setInstalledInfo] = useState({})
+  const [installedRecords, setInstalledInfo] = useState({})
+  const installedInfo = installedRecords.actor === actor ? installedRecords.value : {}
   const [installedReload, setInstalledReload] = useState(0)
   const actions = useAddonActions(api, {
     onSettled: () => {
@@ -150,12 +155,16 @@ export default function AppsView({ api, adapter, onSummary }) {
   // Reads the library of every installed add-on again. Only reads: it never
   // applies anything, and one add-on that cannot be checked does not stop the
   // rest.
-  const [checkingAll, setCheckingAll] = useState(false)
+  const [checkingActor, setCheckingActor] = useState(null)
+  const checkingAll = checkingActor === actor
   const checkAll = useCallback(async () => {
+    const current = () => scope.current === actor
+    if (!current()) return
     const signal = aborter.current.signal
-    setCheckingAll(true)
+    setCheckingActor(actor)
     let failed = 0
     for (const addon of installedList) {
+      if (!current()) return
       try {
         await api.updates.check(addon.id, { operationId: newOperationId() }, signal)
       } catch (error) {
@@ -163,10 +172,11 @@ export default function AppsView({ api, adapter, onSummary }) {
         failed += 1
       }
     }
-    setCheckingAll(false)
+    if (!current()) return
+    setCheckingActor(null)
     setInstalledReload(n => n + 1)
     addToast?.(failed > 0 ? t('updates.checkAllFailed', { count: failed }) : t('updates.checkAllDone', { count: installedList.length }), failed > 0 ? 'error' : 'info')
-  }, [api, installedList, addToast, t])
+  }, [api, installedList, addToast, t, actor])
 
   const nav = useNavigation()
   // Under the legacy switch the Build hub row draws the app.nav slot instead.
@@ -202,11 +212,12 @@ export default function AppsView({ api, adapter, onSummary }) {
   useEffect(() => {
     if (!isAdmin || !canList || !appsKey) return undefined
     const ctl = new AbortController()
+    const current = () => scope.current === actor && !ctl.signal.aborted
     api.installed(ctl.signal)
-      .then(list => setInstalledInfo(Object.fromEntries(list.map(a => [a.id, a]))))
+      .then(list => { if (current()) setInstalledInfo({ actor, value: Object.fromEntries(list.map(a => [a.id, a])) }) })
       .catch(() => { /* the pane says the source is not known */ })
     return () => ctl.abort()
-  }, [api, isAdmin, canList, appsKey, installedReload])
+  }, [api, isAdmin, canList, appsKey, installedReload, actor])
 
   // Everything that has an update notice, for "Upgrade all": the owner's
   // record when the administrator can read it, with the reason when the
@@ -224,7 +235,7 @@ export default function AppsView({ api, adapter, onSummary }) {
     runOne: async (item) => {
       if (!item.addon) return { ok: false, message: upgradeFailureWords('stale_installed', t) }
       const out = await upgrade.upgrade(item.addon)
-      return out.ok ? { ok: true } : { ok: false, message: upgradeFailureWords(out.message, t) }
+      return out?.ok ? { ok: true } : { ok: false, message: upgradeFailureWords(out?.message, t) }
     },
   })
 

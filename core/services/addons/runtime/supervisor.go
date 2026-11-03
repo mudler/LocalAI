@@ -492,12 +492,19 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 }
 
 // serveHostOps serves the host operation channel of one incarnation and
-// closes it when the process ends. terminate waits for the process, so the
-// endpoint never outlives it.
+// stops admission when the process ends. Cleanup drains active requests before
+// releasing correlations; a handler ignoring cancellation cannot block terminate.
 func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential string, prefixes []string) {
-	srv := &http.Server{Handler: s.config.HostOps.Broker.Handler(id, credential, prefixes), ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
+	endpoint := s.config.HostOps.Broker.EndpointForRuntime(id, credential, prefixes, p.registration.Generation, p.registration.Incarnation)
+	srv := &http.Server{Handler: endpoint, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
 	go func() { _ = srv.Serve(l) }()
-	go func() { <-p.done; _ = srv.Close() }()
+	go func() {
+		<-p.done
+		endpoint.Stop()
+		_ = srv.Close()
+		endpoint.Drain()
+		s.config.HostOps.InFlight.ForgetRuntime(id, p.registration.Incarnation)
+	}()
 }
 
 func (s *Supervisor) terminate(p *process) {

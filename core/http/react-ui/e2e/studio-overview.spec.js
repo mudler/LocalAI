@@ -35,26 +35,26 @@ async function mockCapabilities(page, payload = SOME_MODELS) {
 test.describe('Studio overview', () => {
   test('Studio opens on the overview rather than dropping into Images', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
   })
 
   test('a generator path opens that generator', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await expect(page.locator(OVERVIEW)).toHaveCount(0)
     await expect(page.locator('[data-testid="studio-workspace"]')).toBeVisible()
   })
 
   test('an unrecognised tab falls back to the overview, not to Images', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio/nonsense')
+    await page.goto('/app/addons/studio/studio/nonsense')
     await expect(page.locator(OVERVIEW)).toBeVisible()
   })
 
   test('the tab strip reports which modalities have a model', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     // Filled: something installed advertises the capability.
     await expect(tabFor(page, 'images').locator('.studio-tab__dot--on')).toBeVisible()
     await expect(tabFor(page, 'tts').locator('.studio-tab__dot--on')).toBeVisible()
@@ -65,7 +65,7 @@ test.describe('Studio overview', () => {
 
   test('the tab dots are quiet and the state is spoken, not only drawn', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(tabFor(page, 'images')).toContainText('(model installed)')
     await expect(tabFor(page, 'video')).toContainText('(no model installed)')
     await expect(page.getByRole('button', { name: /^Images \(model installed\)$/ })).toBeVisible()
@@ -88,7 +88,7 @@ test.describe('Studio overview', () => {
 
   test('a modality with no model offers a way to install one', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     // A hollow dot on the tab, because nothing serves it. Picking it in the
     // composer is how you learn what it needs.
     await expect(tabFor(page, 'video').locator('.studio-tab__dot--off')).toBeVisible()
@@ -99,7 +99,7 @@ test.describe('Studio overview', () => {
 
   test('a modality with a model names it instead of offering an install', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(tabFor(page, 'images').locator('.studio-tab__dot--on')).toBeVisible()
     await expect(page.locator('[data-testid="studio-model"]')).toHaveValue('flux.1-schnell')
     await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
@@ -118,7 +118,7 @@ test.describe('Studio overview', () => {
       },
     }))
     await mockCapabilities(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
     await expect(tabFor(page, 'threed')).toHaveCount(0)
     await expect(composer(page)).not.toHaveAttribute('data-types', /threed/)
@@ -131,7 +131,7 @@ test.describe('Studio overview', () => {
       calls += 1
       route.fulfill({ json: SOME_MODELS })
     })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
     await page.waitForTimeout(500)
     // useModels() fetches the whole list and filters in the browser, so one
@@ -141,7 +141,7 @@ test.describe('Studio overview', () => {
 
   test('an installation with no models at all still renders every modality', async ({ page }) => {
     await mockCapabilities(page, { data: [] })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator(OVERVIEW)).toBeVisible()
     await expect(composer(page)).toBeVisible()
     await expect(page.locator('.studio-tab__dot--off')).toHaveCount(7)
@@ -157,7 +157,7 @@ test.describe('Studio overview', () => {
         { id: 'i1', createdAt: Date.now(), model: 'flux.1-schnell', prompt: 'a brass orrery', results: [] },
       ]))
     })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     const tile = page.locator('[data-testid="work-tile"]')
     await expect(tile).toHaveCount(1)
     await expect(tile).toContainText('flux.1-schnell')
@@ -166,14 +166,14 @@ test.describe('Studio overview', () => {
 
   test('no history means no tiles, and an empty state that says what happens next', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="work-tile"]')).toHaveCount(0)
     await expect(page.locator('[data-testid="studio-work-empty"]')).toContainText('Nothing here yet')
   })
 
   test('the overview is reachable back from a generator tab', async ({ page }) => {
     await mockCapabilities(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await tabFor(page, 'overview').click()
     await expect(page.locator(OVERVIEW)).toBeVisible()
   })
@@ -182,7 +182,7 @@ test.describe('Studio overview', () => {
     // Bookmarks and older docs still use the query form; they must keep working
     // and must land on the canonical URL rather than a second spelling of it.
     await mockCapabilities(page)
-    await page.goto('/app/studio?tab=images')
+    await page.goto('/app/addons/studio/studio?tab=images')
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\/images$/)
     await expect(page.locator('[data-testid="studio-workspace"]')).toBeVisible()
   })

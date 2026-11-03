@@ -45,7 +45,10 @@ func (s *Service) scopedHostTools(ctx context.Context, a workspace.Actor) ([]ses
 	// tool that replaces bash, and the collection tools.
 	hidden := s.hiddenFor(ctx, rec)
 	var missing []string
-	t, m := s.addonTools(ctx, a, rec, sc)
+	t, m, err := s.addonTools(ctx, a, rec, sc)
+	if err != nil {
+		return nil, nil, err
+	}
 	tools, missing = append(tools, dropHidden(t, hidden)...), append(missing, m...)
 	if !hidden[collectionToolNames[0]] {
 		t, m = s.collectionTools(ctx, a, sc)

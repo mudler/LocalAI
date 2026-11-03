@@ -695,7 +695,9 @@
     "installNamed": "Installer {{name}}",
     "shadowWarning": "Ce module remplace l'outil intégré {{tool}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit.",
     "skillShadow": "Ce module remplace la compétence intégrée {{skill}}.",
-    "skillShadowWarning": "Ce module remplace la compétence intégrée {{skill}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit."
+    "skillShadowWarning": "Ce module remplace la compétence intégrée {{skill}}. Un autre module ({{name}}) le fait déjà. Un seul peut être actif ; vous choisissez lequel dans Paramètres > Outils. Tant que vous ne choisissez pas, c'est le premier installé qui le fournit.",
+    "skillProvides": "Cette extension fournit la compétence {{skill}}.",
+    "skillProvidesWarning": "Cette extension fournit la compétence {{skill}}. Une autre extension ({{name}}) la fournit aussi. Une seule peut être active ; choisissez dans Paramètres > Outils. Sans choix, celle installée en premier est utilisée."
   },
   "family": {
     "pages": "Vous cherchez des pages créées par vous ou par un agent ? Elles sont dans <go>Pages</go>."
@@ -735,6 +737,7 @@
   "skills": {
     "title_one": "{{count}} compétence de chat",
     "title_other": "{{count}} compétences de chat",
+    "provides": "fournit la compétence {{skill}}",
     "replaces": "remplace la compétence intégrée",
     "serves": "utilisée dans les discussions",
     "notServing": "non utilisée pour l'instant",

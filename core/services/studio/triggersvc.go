@@ -11,7 +11,6 @@ import (
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
-	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -39,6 +38,11 @@ const (
 	stopWait           = 20 * time.Second
 
 	reasonUserStop = "stopped by the user"
+
+	// The reasons of a run of a scoped agent that cannot run. Both switch the
+	// trigger off: a person must choose a folder again.
+	reasonFolderMissing = "the agent's folder is missing"
+	reasonOutsideFolder = "the trigger's folder is not inside the agent's folder"
 )
 
 // TriggerOptions configures the trigger host.
@@ -194,7 +198,7 @@ func (h *Triggers) ensureRunner() (*triggers.Runner, error) {
 		return h.runner, nil
 	}
 	opts := triggers.Options{
-		Store: h.o.Store, Admin: workspace.Actor{Principal: files.AdminPrincipal},
+		Store: h.o.Store, Admin: h.svc.admin,
 		Start: h.start, Stop: h.stopRun, Live: h.live, Clock: h.o.Clock, Tick: h.o.Tick, Interrupted: h.tellInterrupted,
 		Retention: h.o.Retention,
 		Logf:      func(format string, args ...any) { h.log.Warn("studio: " + fmt.Sprintf(format, args...)) },
@@ -276,17 +280,31 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 	if err := h.checkOwner(ctx, t); err != nil {
 		return "", err
 	}
+	// The folder of a scoped agent is checked before anything is read for
+	// the run: a run never falls back to the whole home.
+	var scope *folderScope
 	if t.AgentID != "" {
-		if _, err := h.svc.Agent(ctx, owner, t.AgentID); err != nil {
+		ag, err := h.svc.Agent(ctx, owner, t.AgentID)
+		if err != nil {
 			if errors.Is(err, agents.ErrNotFound) {
 				h.switchOff(t, "its agent was deleted")
 				return "", errors.New("the agent was deleted")
 			}
 			return "", errors.New(triggers.CutReason("could not read the agent: " + err.Error()))
 		}
+		if ag.HasFolder() {
+			scope, err = h.svc.liveFolder(ctx, owner, ag)
+			if errors.Is(err, ErrAgentFolderMissing) {
+				h.switchOff(t, "its agent's folder is missing")
+				return "", &triggers.SkipError{Reason: reasonFolderMissing}
+			}
+			if err != nil {
+				return "", errors.New(triggers.CutReason("could not find the agent's folder: " + err.Error()))
+			}
+		}
 	}
 	if t.Kind == triggers.KindFile {
-		if err := h.checkFolder(ctx, t); err != nil {
+		if err := h.checkFolder(ctx, t, scope); err != nil {
 			return "", err
 		}
 	}
@@ -294,7 +312,7 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 	if err != nil {
 		return "", err
 	}
-	text, err := h.runMessage(ctx, t, run)
+	text, err := h.runMessage(ctx, t, run, scope)
 	if err != nil {
 		return "", err
 	}
@@ -378,13 +396,21 @@ func (h *Triggers) checkOwner(ctx context.Context, t triggers.Trigger) error {
 }
 
 // checkFolder checks that the owner can still read the folder of a file
-// trigger. A folder that is gone or not readable skips the run and switches the
-// trigger off; another error fails the run and leaves the trigger on.
-func (h *Triggers) checkFolder(ctx context.Context, t triggers.Trigger) error {
+// trigger and, for a scoped agent (scope not nil), that the folder is inside
+// the agent's folder. A folder that is gone, not readable or outside skips the
+// run and switches the trigger off; another error fails the run and leaves the
+// trigger on.
+func (h *Triggers) checkFolder(ctx context.Context, t triggers.Trigger, scope *folderScope) error {
 	if !h.svc.d.Files.Available() {
 		return errors.New("files are not available on this server")
 	}
-	n, err := h.svc.d.Files.Store().Stat(ctx, h.svc.d.Files.Actor(t.Owner), t.Folder)
+	if scope != nil && !scope.contains(t.Folder) {
+		// A trigger made before its agent got a folder, or whose agent moved
+		// to another folder since.
+		h.switchOff(t, "its folder is not inside its agent's folder")
+		return &triggers.SkipError{Reason: reasonOutsideFolder}
+	}
+	n, err := h.svc.d.Files.Store().Stat(ctx, agentReader(t.Owner, scope), t.Folder)
 	switch {
 	case ctx.Err() != nil:
 		return ctx.Err()
@@ -439,25 +465,43 @@ func (h *Triggers) runTitle(t triggers.Trigger) string {
 }
 
 // runRulesFolder is the workspace folder whose rules, and the rules of the
-// folders above it, the first message of a run holds.
-func runRulesFolder(t triggers.Trigger) string {
-	if t.Kind == triggers.KindFile {
+// folders above it, the first message of a run holds: the folder of a file
+// trigger, else the agent's folder of a scoped agent (scope not nil), else
+// the home. The rules are read with agentReader, so a scoped run gets no rules
+// above its agent's folder.
+func runRulesFolder(t triggers.Trigger, scope *folderScope) string {
+	switch {
+	case t.Kind == triggers.KindFile:
 		return t.Folder
+	case scope != nil:
+		return scope.path
 	}
 	return session.HomePath(t.Owner)
 }
 
-// rulesFolder is runRulesFolder of the trigger id of owner, inside the
-// owner's home, or "" when it is not known.
-func (h *Triggers) rulesFolder(ctx context.Context, owner, id string) string {
-	if id == "" {
+// rulesFolder is runRulesFolder of the trigger id of owner, as a path inside
+// top (the primary folder of the run's chat: the home, or the agent's
+// folder), or "" when it is not known or not inside top.
+func (h *Triggers) rulesFolder(ctx context.Context, owner, id, top string) string {
+	if id == "" || top == "" {
 		return ""
 	}
 	t, err := h.o.Store.GetTrigger(ctx, id)
 	if err != nil || t.Owner != owner {
 		return ""
 	}
-	return h.svc.d.Files.Rel(owner, runRulesFolder(t))
+	scope, err := h.svc.agentScope(ctx, owner, t.AgentID)
+	if err != nil {
+		return ""
+	}
+	dir := runRulesFolder(t, scope)
+	switch {
+	case dir == top:
+		return "/"
+	case strings.HasPrefix(dir, top+"/"):
+		return strings.TrimPrefix(dir, top)
+	}
+	return ""
 }
 
 // runClosing ends the first message of every trigger run. A trigger prompt is
@@ -469,13 +513,21 @@ const runClosing = "When you are done, answer with one short plain sentence abou
 
 // runMessage is the first message of a run: the prompt, the rules of the folder
 // (untrusted text, as the package says), for a file run the file, and the
-// closing instruction. It is built once, when the chat is made.
-func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run triggers.Run) (string, error) {
+// closing instruction. It is built once, when the chat is made. For a scoped
+// agent (scope not nil) the rules are read as the agent and every path is
+// named as the agent's chats see it, under /workspace/home.
+func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run triggers.Run, scope *folderScope) (string, error) {
+	name := func(abs string) string { return h.RelPath(t.Owner, abs) }
+	if scope != nil {
+		name = func(abs string) string {
+			g, _ := scope.guest(abs)
+			return g
+		}
+	}
 	parts := []string{strings.TrimSpace(t.Prompt)}
 	if h.svc.d.Files.Available() {
-		folder := runRulesFolder(t)
-		rules, err := triggers.RulesAs(ctx, h.svc.d.Files.Store(), h.svc.d.Files.Actor(t.Owner), folder,
-			func(dir string) string { return h.RelPath(t.Owner, dir) })
+		folder := runRulesFolder(t, scope)
+		rules, err := triggers.RulesAs(ctx, h.svc.d.Files.Store(), agentReader(t.Owner, scope), folder, name)
 		if err != nil {
 			h.log.Warn("studio: could not read the folder rules for a run", "error", err)
 		} else if rules != "" {
@@ -483,11 +535,10 @@ func (h *Triggers) runMessage(ctx context.Context, t triggers.Trigger, run trigg
 		}
 	}
 	if run.File != "" {
-		p := run.File
-		if rel := h.svc.d.Files.Rel(t.Owner, run.File); rel != "" {
-			p = rel
+		if scope != nil && !scope.contains(run.File) {
+			return "", &triggers.SkipError{Reason: reasonOutsideFolder}
 		}
-		parts = append(parts, "A new file arrived: "+p)
+		parts = append(parts, "A new file arrived: "+name(run.File))
 	}
 	parts = append(parts, runClosing)
 	return strings.Join(parts, "\n\n"), nil

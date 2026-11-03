@@ -375,7 +375,7 @@ var _ = Describe("docx writer", func() {
 		Entry("empty heading", Document{Blocks: []Block{Heading{Level: 1, Text: ""}}}),
 		Entry("blank heading", Document{Blocks: []Block{Heading{Level: 1, Text: "  "}}}),
 		Entry("level 0", Document{Blocks: []Block{Heading{Level: 0, Text: "x"}}}),
-		Entry("level 4", Document{Blocks: []Block{Heading{Level: 4, Text: "x"}}}),
+		Entry("level 7", Document{Blocks: []Block{Heading{Level: 7, Text: "x"}}}),
 		Entry("bad heading colour", Document{Style: Style{HeadingColor: "12345"}, Blocks: nil}),
 		Entry("colour with hash", Document{Style: Style{HeadingColor: "#112233"}}),
 		Entry("non-hex colour", Document{Style: Style{HeadingColor: "GG0000"}}),

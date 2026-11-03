@@ -35,7 +35,8 @@ func main() {
 		// per committed operation, and "<Effects>.applies" with one line per
 		// apply request that reached the process, duplicates included. Empty
 		// keeps the receipts in memory only.
-		Effects string `json:"effects"`
+		Effects        string `json:"effects"`
+		ObservationLog string `json:"observationLog"`
 	}
 	b, _ := os.ReadFile("fixture.json")
 	_ = json.Unmarshal(b, &config)
@@ -153,6 +154,21 @@ func main() {
 		case "/read", "/preview":
 			var v contract.Envelope
 			if !read(&v) || !valid(v, r.URL.Path[1:]) {
+				return
+			}
+			if config.Mode == "execution-status" && r.URL.Path == "/read" {
+				// Record the authenticated envelope in a private test artifact, not
+				// in the status payload (whose schema is deliberately closed).
+				b, _ := json.Marshal(struct {
+					Incarnation string            `json:"incarnation"`
+					Envelope    contract.Envelope `json:"envelope"`
+				}{startup.Registration.Incarnation, v})
+				noteLine(config.ObservationLog, string(b))
+				if string(v.Request.Arguments) != `{"tool":"health"}` && string(v.Request.Arguments) != `{"tool":"inspect"}` {
+					http.Error(w, "wrong status tool", 400)
+					return
+				}
+				_ = json.NewEncoder(w).Encode(contract.Result{Payload: json.RawMessage(`{"readiness":"available","isolation":"isolated"}`)})
 				return
 			}
 			if v.Request.Action == "delay" {

@@ -122,6 +122,27 @@ func (s *Store) Stat(ctx context.Context, a workspace.Actor, p string) (workspac
 	return node, err
 }
 
+func (s *Store) NodeByID(ctx context.Context, a workspace.Actor, id int64) (workspace.Node, error) {
+	var node workspace.Node
+	err := s.readLocked(ctx, func(d *data) error {
+		if err := workspace.CheckFence(a); err != nil {
+			return err
+		}
+		for _, anc := range d.ancestors(id) {
+			if !d.isLive(anc) {
+				return workspace.ErrNotFound
+			}
+		}
+		n := d.nodes[id]
+		if n == nil || s.access(d, a, id) < workspace.ModeRead {
+			return workspace.ErrNotFound
+		}
+		node = d.toNode(*n)
+		return nil
+	})
+	return node, err
+}
+
 func (s *Store) List(ctx context.Context, a workspace.Actor, p string) ([]workspace.Node, error) {
 	var out []workspace.Node
 	err := s.readLocked(ctx, func(d *data) error {

@@ -691,7 +691,9 @@
     "installNamed": "Pasang {{name}}",
     "shadowWarning": "Add-on ini menggantikan {{tool}} bawaan. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
     "skillShadow": "Add-on ini menggantikan skill bawaan {{skill}}.",
-    "skillShadowWarning": "Add-on ini menggantikan skill bawaan {{skill}}. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya."
+    "skillShadowWarning": "Add-on ini menggantikan skill bawaan {{skill}}. Add-on lain ({{name}}) sudah melakukannya. Hanya satu yang bisa aktif; Anda memilih yang mana di Pengaturan > Alat. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
+    "skillProvides": "Add-on ini menyediakan keterampilan {{skill}}.",
+    "skillProvidesWarning": "Add-on ini menyediakan keterampilan {{skill}}. Add-on lain ({{name}}) juga menyediakannya. Hanya satu yang dapat aktif; pilih di Pengaturan > Alat. Tanpa pilihan, yang dipasang lebih dahulu akan digunakan."
   },
   "family": {
     "pages": "Mencari halaman yang Anda atau agen buat? Ada di <go>Halaman</go>."
@@ -731,6 +733,7 @@
   "skills": {
     "title_one": "{{count}} skill obrolan",
     "title_other": "{{count}} skill obrolan",
+    "provides": "menyediakan keterampilan {{skill}}",
     "replaces": "menggantikan skill bawaan",
     "serves": "dipakai di obrolan",
     "notServing": "tidak dipakai sekarang",

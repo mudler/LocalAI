@@ -1,10 +1,10 @@
 ---
 name: xlsx
-description: Use when the user wants to read, change or create an Excel workbook (.xlsx) in their files. Works with the Office add-on tools, with no command runner.
+description: Use when the user wants to read, change or create an Excel workbook (.xlsx) in their files. Works with the Simple Office add-on tools, with no command runner.
 ---
-# Excel workbooks with the Office tools
+# Excel workbooks with the Simple Office tools
 
-Use the tools of the Office add-on: `addon__office__read-xlsx`,
+Use the tools of the Simple Office add-on: `addon__office__read-xlsx`,
 `addon__office__edit-xlsx` and `addon__office__create-xlsx`. A file is a
 path in the user's files, such as `/reports/plan.xlsx`.
 
@@ -31,10 +31,21 @@ path in the user's files, such as `/reports/plan.xlsx`.
 
 ## Create a workbook
 
-Use `create-xlsx` only when no file exists. Give each sheet a `name` and
-its `rows`; the first row is the header. A value that starts with `=` is a
-formula, and a number is stored as a number. If the path is taken, the old
-file stays and the new one is saved next to it: give the user the new path.
+Use `create-xlsx` with `path` and a comma-separated `csv` string, only when
+no file exists. It creates exactly one sheet; optional `sheet` defaults to
+`Sheet1`, and optional `title` is metadata. All arguments are strings. The
+former `sheets`/`rows` creation structure is no longer accepted.
+
+Example: `{"path":"/reports/status.xlsx","csv":"Name,Status\nWorker,Ready\n","sheet":"Status"}`.
+Standard CSV quoting, escaped quotes, multiline cells and LF/CRLF are supported.
+Every nonempty field stays text, including leading zeros and values beginning
+with `=`, `+`, `-` or `@`; no formulas or numbers are inferred. Empty cells
+stay blank in place. The first row is ordinary data, not a styled header.
+Use `edit-xlsx` afterwards for explicit numbers or formulas. Ragged rows,
+malformed quoting, empty content and invalid sheet names are refused.
+Limits: 5000 rows, 200 columns and 100000 grid cells, including empty fields.
+If the path is taken, the old file stays and the new one is saved next to it:
+give the user the new path.
 
 ## When the tools cannot do it
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
@@ -25,6 +26,13 @@ var (
 	// ErrSubAgentLimit means the conversation already runs the most background
 	// sub-agents it may.
 	ErrSubAgentLimit = errors.New("the limit of background sub-agents for this conversation is reached; wait for one to finish")
+	// errNoTurnAccess means the hook got an access that has no folder: the
+	// chat's access was not resolved, so it gets no tools.
+	// ErrAgentOutsideFolder means spawn_agent named a saved agent whose folder
+	// is not the folder of the chat's own agent or inside it. A sub-agent never
+	// has more reach than its parent, so the agent is refused, not widened.
+	ErrAgentOutsideFolder = errors.New("this agent works in another folder than this chat")
+	errNoTurnAccess       = errors.New("studio: the chat's access was not resolved; no tools this turn")
 )
 
 type child struct {
@@ -37,8 +45,17 @@ type child struct {
 // gets the host tools plus spawn_agent; a sub-agent gets only the tools its
 // parent chose and never spawn_agent. A sub-agent started from a saved agent
 // gets what the agent grants instead, read from the store like any chat with
-// an agent, so it needs no tool list in memory.
-func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.TurnTools, error) {
+// an agent, so it needs no tool list in memory. Every tool is built from the
+// chat's access for the turn: its actor is fenced when the chat's agent has a
+// folder.
+func (s *Service) chatTools(ctx context.Context, x session.Access) (session.TurnTools, error) {
+	a := x.Actor()
+	if s.d.Files.Available() && x.Place().Primary() == "" {
+		// An access without a folder was never resolved for this chat
+		// (chatAccess gives every chat at least its home or its agent's
+		// folder). Refuse the tools rather than build them on a guess.
+		return session.TurnTools{}, errNoTurnAccess
+	}
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return session.TurnTools{}, err
@@ -54,13 +71,17 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 			prompt = subAgentCommandsBlock
 		}
 		if canWriteFiles(tools, cmds) {
-			work = s.subWorkBlock(ctx, rec)
+			work = s.subWorkBlock(ctx, rec, x)
 		}
 		prompt = joinBlocks(prompt, webBlock(tools), work)
 		return session.TurnTools{Tools: tools, Prompt: prompt}, nil
 	}
 	tools, missing, err := s.scopedHostTools(ctx, a)
 	if err != nil {
+		var policyErr *providerPolicyError
+		if errors.As(err, &policyErr) {
+			return session.TurnTools{}, err
+		}
 		s.log.Warn("studio: host tools unavailable", "chat", a.ChatID, "error", err)
 	}
 	sc := s.scopeOf(ctx, rec)
@@ -76,20 +97,28 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// them from subset, built for the parent chat; one from a saved agent gets
 	// them here, built for the parent chat too, so the parent's Files pane
 	// sees its changes.
-	fa := a
+	// Every file and media tool takes the access of this turn, resolved
+	// once by chatAccess: none builds a view of its own.
+	fx := x
 	if sub {
-		fa.ChatID = rec.ParentID
+		if fx, err = x.ForChat(rec.ParentID); err != nil {
+			return session.TurnTools{}, err
+		}
 	}
-	nudge := s.newRulesNudge(ctx, a, rec)
-	tools = append(tools, nudge.wrap(s.fileNudgeTools(fa, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(fa), hidden)))))...)
+	fa := fx.Actor()
+	nudge := s.newRulesNudge(ctx, x, rec)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fx, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(fx), hidden)))))...)
 	if s.d.Media != nil {
-		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, a, rec.Model), hidden))...)
+		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, x, rec.Model), hidden))...)
 	}
 	// What the prompt may tell the model to do with the files follows the
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	if err != nil {
+		return session.TurnTools{}, err
+	}
 	if !canWrite {
 		prompt = withoutWriteHint(prompt)
 	}
@@ -123,7 +152,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	if !sub && !hidden[spawnAgentName] {
 		// The agent argument is offered only when list_agents is: the chat
 		// switched the saved agents on and its user may use them.
-		tools = append(tools, s.spawnTool(a, hasTool(tools, listAgentsName)))
+		tools = append(tools, s.spawnTool(x, hasTool(tools, listAgentsName)))
 	}
 	// The assistant tools are not part of hostTools, so a sub-agent never gets
 	// them, whatever its parent names.
@@ -152,7 +181,11 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// The network of the Sandbox commands, in one line: it follows the
 	// chat's preset at each turn and needs no restart of the harness.
 	if cmds.State == CommandsAvailable && cmds.Isolation == "isolated" && cmds.Provider != BuiltinProvider {
-		note = strings.TrimSpace(s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName)) + " " + note)
+		line, err := s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName))
+		if err != nil {
+			return session.TurnTools{}, err
+		}
+		note = strings.TrimSpace(line + " " + note)
 	}
 	// The AGENTS.md files of the chat's folder and the home: a pointer, first,
 	// so the cut of a long note keeps it. A chat that cannot read them is
@@ -166,7 +199,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// its end, and this block must reach the model.
 	// What the chat can see follows it, for the same reason. Images reach a
 	// chat only as files, so a chat without files has no such block.
-	head := commandsBlock(cmds, hasTool(tools, "write_file"), hasTool(tools, "read_file"), skillsOff > 0)
+	head := commandsBlock(cmds, hasTool(tools, "write_file"), hasTool(tools, "read_file"), skillsOff > 0, x.Place())
 	if s.d.Files.Available() {
 		sees := s.d.Modalities != nil && s.d.Modalities(rec.Model).Vision
 		head += "\n\n" + imagesBlock(sees, s.d.Media.VisionModel(rec.Model), hasTool(tools, "describe_image"))
@@ -184,7 +217,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	}
 	// The files go last: the prompt is cut at its end, and a block that
 	// changes between turns leaves the start of the prompt as it was.
-	if fp := s.filesPrompt(ctx, a); fp != "" {
+	if fp := s.filesPrompt(ctx, x); fp != "" {
 		if !canRead {
 			fp += "\n" + filesNote
 		}
@@ -195,7 +228,7 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	// A chat that cannot save a file has no use for one.
 	work := !sub && s.workFolderOn() && s.d.Files.Available() && canWrite
 	if sub && canWrite {
-		prompt = joinBlocks(prompt, s.subWorkBlock(ctx, rec))
+		prompt = joinBlocks(prompt, s.subWorkBlock(ctx, rec, x))
 	}
 	// load_skill learns from the final list whether the chat can read a
 	// skill's files and run what a skill needs.
@@ -203,7 +236,9 @@ func (s *Service) chatTools(ctx context.Context, a workspace.Actor) (session.Tur
 	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
 }
 
-func (s *Service) spawnTool(a workspace.Actor, savedAgents bool) session.Tool {
+// spawnTool is spawn_agent for the chat of x: a generic sub-agent gets
+// tools built from x, so it reaches what the parent's turn reaches.
+func (s *Service) spawnTool(x session.Access, savedAgents bool) session.Tool {
 	desc := "Start a sub-agent that works on a task and reports back. Use it for a self-contained piece of work. " +
 		"By default you wait for its answer. With wait=false it runs in the background and its result arrives later as a message."
 	agent := ""
@@ -220,11 +255,12 @@ func (s *Service) spawnTool(a workspace.Actor, savedAgents bool) session.Tool {
 			`"tools":{"type":"array","items":{"type":"string"},"description":"Names of your tools the sub-agent may use. Omit to give it all of them; [] gives it none."},` +
 			`"wait":{"type":"boolean","description":"true (default): wait for the answer. false: carry on now."}},` +
 			`"required":["task"]}`),
-		Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return s.spawn(ctx, a, raw) },
+		Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return s.spawn(ctx, x, raw) },
 	}
 }
 
-func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMessage) (string, error) {
+func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessage) (string, error) {
+	a := x.Actor()
 	var args struct {
 		Task  string    `json:"task"`
 		Agent string    `json:"agent"`
@@ -267,8 +303,11 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 		if agent, err = s.resolveAgent(ctx, a.Principal, ref); err != nil {
 			return "", err
 		}
+		if err := s.agentFitsChat(ctx, parent, agent); err != nil {
+			return "", err
+		}
 	} else {
-		if subset, err = s.subset(ctx, a, args.Tools); err != nil {
+		if subset, err = s.subset(ctx, x, args.Tools); err != nil {
 			return "", err
 		}
 		// A sub-agent has the parent's tools or fewer: when none of them runs
@@ -299,7 +338,10 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	}
 	now := parent.Updated
 	rec := session.ChatRecord{ID: childID, Principal: a.Principal, Title: title, Created: now, Updated: now,
-		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID}
+		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID,
+		// The child is refused, never given the whole home, when the folder
+		// it works in can no longer be found (chatScopes).
+		ScopedAgent: parent.ScopedAgent || agent.HasFolder()}
 	if err := s.d.Store.CreateChat(ctx, rec); err != nil {
 		s.forgetChild(parentKey, childID)
 		return "", err
@@ -338,10 +380,38 @@ func (s *Service) spawn(ctx context.Context, a workspace.Actor, raw json.RawMess
 	}
 }
 
+// agentFitsChat checks that a saved agent may run as a sub-agent of the
+// chat: when the chat's own agent has a folder, the agent has none or has one
+// that is the same or inside it. The check is made from the stores at the
+// call, before any chat is made for the child.
+func (s *Service) agentFitsChat(ctx context.Context, chat session.ChatRecord, ag agents.Agent) error {
+	outer, err := s.agentFolderScope(ctx, chat, false)
+	if err != nil {
+		return err
+	}
+	if !s.agentFitsScope(ctx, chat.Principal, outer, ag) {
+		return ErrAgentOutsideFolder
+	}
+	return nil
+}
+
+// agentFitsScope says whether ag may work under outer, the folder of the
+// chat's agent (nil for a chat with none). An agent whose folder cannot be
+// found does not fit a folder: nothing says it is inside.
+func (s *Service) agentFitsScope(ctx context.Context, p string, outer *folderScope, ag agents.Agent) bool {
+	if outer == nil || !ag.HasFolder() {
+		return true
+	}
+	inner, err := s.liveFolder(ctx, p, ag)
+	return err == nil && workspace.Within(inner.path, outer.path)
+}
+
 // subset picks the tools a sub-agent gets from the parent's host tools and
-// file tools. Nil
-// asks for all of them but the named-only ones; a name the parent does not have is an error.
-func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string) ([]session.Tool, error) {
+// file tools, built from x, the parent's access for this turn. Nil asks for
+// all of them but the named-only ones; a name the parent does not have is an
+// error.
+func (s *Service) subset(ctx context.Context, x session.Access, names *[]string) ([]session.Tool, error) {
+	a := x.Actor()
 	have, err := s.hostTools(ctx, a)
 	if err != nil {
 		return nil, fmt.Errorf("could not list your tools: %w", err)
@@ -349,12 +419,12 @@ func (s *Service) subset(ctx context.Context, a workspace.Actor, names *[]string
 	// The built-in file tools act for the parent chat: what a sub-agent changes
 	// is an agent change of the parent, and the parent's Files pane refreshes.
 	parent, perr := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
-	fileTools := s.d.Files.Tools(a)
+	fileTools := s.d.Files.Tools(x)
 	if perr == nil {
 		// A sub-agent never gets a tool its parent switched off.
 		fileTools = dropHidden(fileTools, s.hiddenFor(ctx, parent))
 	}
-	have = append(have, s.fileNudgeTools(a, s.announceFileChanges(a, s.skillHintTools(a, fileTools)))...)
+	have = append(have, s.fileNudgeTools(x, s.announceFileChanges(a, s.skillHintTools(a, fileTools)))...)
 	if perr == nil {
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.
@@ -471,11 +541,9 @@ func (s *Service) forgetWaiter(k string, ch <-chan store.TurnStatus) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ws := s.waiters[k]
-	for i, w := range ws {
-		if (<-chan store.TurnStatus)(w) == ch {
-			s.waiters[k] = append(ws[:i:i], ws[i+1:]...)
-			break
-		}
+	if i := slices.IndexFunc(ws, func(w chan store.TurnStatus) bool { return (<-chan store.TurnStatus)(w) == ch }); i >= 0 {
+		// A copy: notifyWaiters may hold the old slice.
+		s.waiters[k] = slices.Delete(slices.Clone(ws), i, i+1)
 	}
 	if len(s.waiters[k]) == 0 {
 		delete(s.waiters, k)
@@ -574,15 +642,10 @@ func truncate(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	return session.CapText(s, n) + "…"
 }
 
 // hasTool says whether the list has a tool of that name.
 func hasTool(tools []session.Tool, name string) bool {
-	for _, t := range tools {
-		if t.Name == name {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(tools, func(t session.Tool) bool { return t.Name == name })
 }

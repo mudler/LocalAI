@@ -22,7 +22,7 @@ const generate = (page) => page.locator('[data-testid="studio-generate"]')
 test.describe('Studio composer: choosing a type', () => {
   test('opens on Images with a prompt box, starters and the model that will run', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.getByRole('heading', { name: 'What do you want to make?' })).toBeVisible()
     await expect(composer(page)).toHaveAttribute('data-type', 'images')
     await expect(prompt(page)).toHaveAttribute('placeholder', /Describe the image/)
@@ -32,7 +32,7 @@ test.describe('Studio composer: choosing a type', () => {
 
   test('has no chip row: the tabs are the modes, and the composer names the one it will open', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('.studio-types')).toHaveCount(0)
     await expect(composer(page)).toHaveAttribute('data-types', 'images video threed tts sound transform diarization')
     await expect(page.getByTestId('studio-current-type')).toHaveText('Images')
@@ -42,7 +42,7 @@ test.describe('Studio composer: choosing a type', () => {
 
   test('a starter fills the prompt and the starters go away', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await page.locator('[data-testid="studio-starters"] button', { hasText: 'Macro fern' }).click()
     await expect(prompt(page)).toHaveValue(/dew-covered fern/)
     await expect(page.locator('[data-testid="studio-starters"]')).toHaveCount(0)
@@ -50,7 +50,7 @@ test.describe('Studio composer: choosing a type', () => {
 
   test('size and count appear only where the workspace has them', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="studio-size"]')).toBeVisible()
     await expect(page.locator('[data-testid="studio-count"]')).toBeVisible()
     await pickType(page, 'video')
@@ -63,7 +63,7 @@ test.describe('Studio composer: choosing a type', () => {
 
   test('types that start from a file say so instead of offering a prompt box', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     for (const key of ['threed', 'transform', 'diarization']) {
       await pickType(page, key)
       await expect(prompt(page)).toHaveCount(0)
@@ -76,7 +76,7 @@ test.describe('Studio composer: choosing a type', () => {
 test.describe('Studio composer: suggesting a type', () => {
   test('typing a video-sounding sentence suggests Video and offers to switch', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('Slow dolly through a misty pine forest, drone shot')
     await expect(hint(page)).toContainText('Sounds like Video')
     await page.locator('[data-testid="studio-switch"]').click()
@@ -87,7 +87,7 @@ test.describe('Studio composer: suggesting a type', () => {
 
   test('the suggestion never switches the type on its own', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('Read this aloud in a warm voice')
     await expect(hint(page)).toContainText('Sounds like TTS')
     await expect(composer(page)).toHaveAttribute('data-type', 'images')
@@ -95,7 +95,7 @@ test.describe('Studio composer: suggesting a type', () => {
 
   test('Alt+Enter takes the suggestion', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('Lo-fi piano with rain on glass')
     await expect(hint(page)).toContainText('Sounds like Sound')
     await page.keyboard.press('Alt+Enter')
@@ -104,7 +104,7 @@ test.describe('Studio composer: suggesting a type', () => {
 
   test('a short or ordinary sentence suggests nothing', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('hello')
     await expect(hint(page)).toHaveText('')
     await prompt(page).fill('My cat sleeping on the sofa')
@@ -113,14 +113,14 @@ test.describe('Studio composer: suggesting a type', () => {
 
   test('no suggestion when the sentence already fits the chosen type', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('A poster of a lighthouse at dusk')
     await expect(hint(page)).toHaveText('')
   })
 
   test('a suggested type with no model says so and offers to show what it needs', async ({ page }) => {
     await mockStudio(page, { types: ['images'] })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('Slow dolly through a misty pine forest')
     await expect(hint(page)).toContainText('no Video model is installed yet')
     await page.locator('[data-testid="studio-switch"]').click()
@@ -133,7 +133,7 @@ test.describe('Studio composer: suggesting a type', () => {
 test.describe('Studio composer: keys', () => {
   test('/ focuses the prompt from anywhere on the page', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     // The add-on shell titles the page; click that title, away from every field.
     await page.locator('h1.page-title').first().click()
     await page.keyboard.press('/')
@@ -145,7 +145,7 @@ test.describe('Studio composer: keys', () => {
 
   test('Alt+1 to Alt+7 pick a type', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     // The key handler is armed when the composer mounts: wait for it before the
     // first press, and retry a press that lands during a re-render.
     await expect(prompt(page)).toBeVisible()
@@ -160,7 +160,7 @@ test.describe('Studio composer: keys', () => {
 
   test('Ctrl+Enter generates, and does nothing with an empty prompt', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).focus()
     await page.keyboard.press('Control+Enter')
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio$/)
@@ -173,7 +173,7 @@ test.describe('Studio composer: keys', () => {
 test.describe('Studio composer: Generate', () => {
   test('is disabled with a reason until there is a prompt', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(generate(page)).toBeDisabled()
     await expect(page.locator('[data-testid="studio-why"]')).toHaveText('Write a prompt first')
     await prompt(page).fill('a brass orrery')
@@ -183,7 +183,7 @@ test.describe('Studio composer: Generate', () => {
 
   test('is disabled with the install reason when the type has no model', async ({ page }) => {
     await mockStudio(page, { types: ['images'] })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     await prompt(page).fill('waves on black sand')
     await expect(generate(page)).toBeDisabled()
@@ -192,13 +192,13 @@ test.describe('Studio composer: Generate', () => {
 
   test('the model select offers the installed models of the chosen type', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="studio-model"] option')).toHaveText(INSTALLED.images)
   })
 
   test('shows how the model fits this machine when the gallery can say', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="studio-fit"]')).toContainText('Needs 13.0 GB')
     await expect(page.locator('[data-testid="studio-fit"]')).toHaveAttribute('data-fit', 'fits')
   })
@@ -206,7 +206,7 @@ test.describe('Studio composer: Generate', () => {
   test('shows no fit at all when nothing is known about the model', async ({ page }) => {
     await mockStudio(page)
     await page.route(/\/api\/models\/estimate\//, route => route.fulfill({ json: {} }))
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="studio-model"]')).toHaveValue('flux.1-schnell')
     await expect(page.locator('[data-testid="studio-fit"]')).toHaveCount(0)
   })
@@ -217,7 +217,7 @@ test.describe('Studio composer: Generate', () => {
 test.describe('Studio composer: hand-off to the workspaces', () => {
   test('Images opens with the prompt, model, size and count filled in', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('A brass orrery on a walnut desk')
     await page.locator('[data-testid="studio-model"]').selectOption('sd-1.5-lcm')
     await page.locator('[data-testid="studio-size"]').selectOption('768x768')
@@ -234,7 +234,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
 
   test('Video opens with the prompt, model and size', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     await prompt(page).fill('Waves rolling onto black sand, drone shot')
     await page.locator('[data-testid="studio-size"]').selectOption('1280x720')
@@ -247,7 +247,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
 
   test('TTS opens with the words in the text box', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'tts')
     await prompt(page).fill('Welcome to the harbour tour.')
     await generate(page).click()
@@ -258,7 +258,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
 
   test('Sound opens with the description in the simple prompt', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'sound')
     await prompt(page).fill('Wind through pines, no music')
     await generate(page).click()
@@ -270,7 +270,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await mockStudio(page)
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'threed')
     await pickSource(page, /ceramic bowls/)
     await generate(page).click()
@@ -286,9 +286,9 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await mockStudio(page)
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     for (const [key, edge] of [['transform', 'transform'], ['diarization', 'diarize']]) {
-      await page.goto('/app/studio')
+      await page.goto('/app/addons/studio/studio')
       await pickType(page, key)
       await pickSource(page, /Welcome to the harbour tour/)
       await generate(page).click()
@@ -303,7 +303,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await mockStudio(page)
     await page.route('**/generated-audio/**', route => route.fulfill({ status: 404, body: '' }))
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/diarization?from=tts-welcome&edge=diarize')
+    await page.goto('/app/addons/studio/studio/diarization?from=tts-welcome&edge=diarize')
     const note = page.locator('[data-testid="studio-handoff"]')
     await expect(note).toHaveAttribute('data-status', 'error')
     await expect(note).toContainText('could not be loaded')
@@ -312,14 +312,14 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
 
   test('a source that is not in this browser is reported plainly', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio/video?from=gone&edge=animate')
+    await page.goto('/app/addons/studio/studio/video?from=gone&edge=animate')
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'missing')
     await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toBeVisible()
   })
 
   test('a workspace opened by hand has no hand-off note and an empty form', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveCount(0)
     await expect(page.locator('[data-testid="ws-compose"] textarea').first()).toHaveValue('')
   })
@@ -333,7 +333,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     // shows "Loading" until its module has run. That takes about two seconds
     // here and over seven on a loaded machine, so the first assertion after
     // each load gets a longer budget than the default five seconds.
-    await page.goto('/app/studio/video?prompt=Slow%20push-in&from=img-forest&edge=animate&model=wan2.1-t2v-1.3b')
+    await page.goto('/app/addons/studio/studio/video?prompt=Slow%20push-in&from=img-forest&edge=animate&model=wan2.1-t2v-1.3b')
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready', { timeout: 20_000 })
     await page.getByRole('button', { name: /generate/i }).click()
     await expect(page.locator('[data-testid="media-history-item"]').first()).toBeVisible()
@@ -342,7 +342,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     expect(saved.edge).toBe('animate')
     expect(saved.prompt).toBe('Slow push-in')
     // And the front page now stacks the forest picture with its clip.
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="work-project"][data-id="img-forest"]')).toHaveAttribute('data-count', '2', { timeout: 20_000 })
   })
 
@@ -350,7 +350,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await mockStudio(page)
     await page.route('**/v1/images/generations', route => route.fulfill({ json: { data: [{ url: '/generated-images/solo.png' }] } }))
     await stubMedia(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await page.locator('[data-testid="ws-compose"] textarea').first().fill('a lone picture')
     await page.getByRole('button', { name: /generate/i }).click()
     await expect.poll(async () => (await readStore(page, 'localai_image_history'))?.length).toBe(1)
@@ -363,7 +363,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await mockStudio(page)
     await stubMedia(page)
     await page.route('**/v1/images/generations', route => route.fulfill({ json: { data: [{ url: '/generated-images/long.png' }] } }))
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await page.locator('[data-testid="ws-compose"] textarea').first().fill('x'.repeat(5000))
     await page.getByRole('button', { name: /generate/i }).click()
     await expect.poll(async () => (await readStore(page, 'localai_image_history'))?.length).toBe(1)
@@ -375,7 +375,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     await page.route('**/v1/audio/diarization', route => route.fulfill({
       json: { segments: [{ speaker: 'SPEAKER_00', label: 0, start: 0, end: 4 }, { speaker: 'SPEAKER_01', label: 1, start: 4, end: 9 }], speakers: [{ label: 0, id: 'SPEAKER_00' }, { label: 1, id: 'SPEAKER_01' }] },
     }))
-    await page.goto('/app/studio/diarization')
+    await page.goto('/app/addons/studio/studio/diarization')
     await page.locator('#diarization-file').setInputFiles({ name: 'meeting.wav', mimeType: 'audio/wav', buffer: Buffer.alloc(64) })
     await page.getByRole('button', { name: 'Diarize' }).click()
     await expect.poll(async () => (await readStore(page, 'localai_diarization_history'))?.length).toBe(1)
@@ -383,7 +383,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
     expect(saved.prompt).toBe('meeting.wav')
     expect(saved.params).toEqual({ speakers: 2, seconds: 9 })
     expect(saved.results).toEqual([])
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="work-tile"][data-type="diarization"]')).toContainText('meeting.wav')
   })
 })
@@ -391,7 +391,7 @@ test.describe('Studio composer: hand-off to the workspaces', () => {
 test.describe('Studio composer: a model that is missing', () => {
   test('the missing type has a hollow tab dot and opens its note only when picked', async ({ page }) => {
     await mockStudio(page, { types: ['images', 'tts'] })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(tabDot(page, 'video', 'off')).toBeVisible()
     await expect(tabDot(page, 'images', 'on')).toBeVisible()
     await expect(page.locator('[data-testid="studio-install-note"]')).toHaveCount(0)
@@ -413,7 +413,7 @@ test.describe('Studio composer: a model that is missing', () => {
 
   test('Install asks the gallery for that model, keeps the typed words, and the note goes when the model arrives', async ({ page }) => {
     const state = await mockStudio(page, { types: ['images'], installOnPost: true })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     await prompt(page).fill('Waves rolling onto black sand, drone shot')
     await page.locator('[data-testid="studio-install"]').click()
@@ -429,7 +429,7 @@ test.describe('Studio composer: a model that is missing', () => {
 
   test('shows the progress of the install from the operations list', async ({ page }) => {
     await mockStudio(page, { types: ['images'], operations: [{ id: 'wan2.1-t2v-1.3b', name: 'wan2.1-t2v-1.3b', jobID: 'j1', progress: 42, isBackend: false, isDeletion: false, taskType: 'installation' }] })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     const note = page.locator('[data-testid="studio-install-note"]')
     await expect(note).toContainText('Installing wan2.1-t2v-1.3b 42%')
@@ -439,7 +439,7 @@ test.describe('Studio composer: a model that is missing', () => {
 
   test('a failed install says why, in words, and offers the button again', async ({ page }) => {
     await mockStudio(page, { types: ['images'], installStatus: 500 })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     await page.locator('[data-testid="studio-install"]').click()
     await expect(page.getByRole('alert')).toContainText('The install did not start')
@@ -449,7 +449,7 @@ test.describe('Studio composer: a model that is missing', () => {
   test('when the gallery lists nothing for a type it says so and points to the models page', async ({ page }) => {
     await mockStudio(page, { types: ['images'] })
     await page.route(/\/api\/models(\?.*)?$/, route => route.fulfill({ json: { models: [], total_pages: 1 } }))
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     const note = page.locator('[data-testid="studio-install-note"]')
     await expect(note).toContainText('The gallery lists no Video model')
@@ -459,7 +459,7 @@ test.describe('Studio composer: a model that is missing', () => {
   test('when the gallery cannot be reached it says so', async ({ page }) => {
     await mockStudio(page, { types: ['images'] })
     await page.route(/\/api\/models(\?.*)?$/, route => route.fulfill({ status: 500, json: { error: 'down' } }))
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     await expect(page.locator('[data-testid="studio-install-note"]')).toContainText('could not be reached')
   })
@@ -467,7 +467,7 @@ test.describe('Studio composer: a model that is missing', () => {
   test('a download size the server does not know is not invented', async ({ page }) => {
     await mockStudio(page, { types: ['images'] })
     await page.route(/\/api\/models\/estimate\//, route => route.fulfill({ json: {} }))
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await pickType(page, 'video')
     const note = page.locator('[data-testid="studio-install-note"]')
     await expect(note).toContainText('has no download size listed')
@@ -476,7 +476,7 @@ test.describe('Studio composer: a model that is missing', () => {
 
   test('a new user with no models at all gets one honest path, not a wall', async ({ page }) => {
     await mockStudio(page, { types: [] })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('.studio-tab__dot--off')).toHaveCount(7)
     await expect(page.locator('[data-testid="studio-first-run"]')).toContainText('Nothing is installed yet')
     await expect(page.locator('[data-testid="studio-install-note"]')).toContainText('No Images model installed')
@@ -486,7 +486,7 @@ test.describe('Studio composer: a model that is missing', () => {
 
   test('a machine with one model has that tab filled and the rest hollow', async ({ page }) => {
     await mockStudio(page, { types: ['tts'] })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('.studio-tab__dot--off')).toHaveCount(6)
     // It opens on the first type that works, not on one that cannot.
     await expect(composer(page)).toHaveAttribute('data-type', 'tts')
@@ -495,7 +495,7 @@ test.describe('Studio composer: a model that is missing', () => {
 
   test('when the installed models cannot be read it says so and offers one action', async ({ page }) => {
     const state = await mockStudio(page, { capabilitiesStatus: 500 })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     const error = page.locator('[data-testid="studio-models-error"]')
     await expect(error).toContainText('could not read the installed models')
     await expect(error.getByRole('button')).toHaveCount(1)
@@ -511,7 +511,7 @@ test.describe('Studio composer: layout', () => {
   test('on a phone the composer fits the width and Generate stays reachable', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('a brass orrery')
     await expect(generate(page)).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
@@ -527,7 +527,7 @@ test.describe('Studio composer: layout', () => {
       await new Promise(r => setTimeout(r, 3_000))
       route.fulfill({ json: { data: [] } })
     })
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="studio-composer-loading"]')).toBeVisible()
     await expect(page.locator('[data-testid="studio-first-run"]')).toHaveCount(0)
     await expect(page.locator('[data-testid="studio-composer"]')).toBeVisible()
@@ -538,7 +538,7 @@ test.describe('Studio composer: layout', () => {
     await mockStudio(page)
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     const name = await page.locator('[data-testid="work-tile"]').first().evaluate(el => getComputedStyle(el).animationName)
     expect(name).toBe('none')
   })
@@ -549,7 +549,7 @@ test.describe('Studio composer: draft survives', () => {
     await mockStudio(page)
     await stubMedia(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await prompt(page).fill('half a thought')
     await page.locator('[data-testid="work-tile"][data-id="img-forest"]').getByRole('button').first().click()
     await expect(page.locator('[data-testid="studio-lineage"]')).toBeVisible()
@@ -560,7 +560,7 @@ test.describe('Studio composer: draft survives', () => {
 
 test('3D history written by the 3D workspace shows on the front page', async ({ page }) => {
   await mockStudio(page)
-  await page.goto('/app/studio')
+  await page.goto('/app/addons/studio/studio')
   await seedThreeD(page, [{ id: 'm1', createdAt: Date.now() - 1000, name: 'vase.glb', label: 'Ribbed vase', model: 'trellis-image-to-3d', outputType: 'mesh', operation: 'generate' }])
   await page.reload()
   const tile = page.locator('[data-testid="work-tile"][data-type="threed"]')

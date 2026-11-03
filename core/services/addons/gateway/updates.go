@@ -107,7 +107,7 @@ func (g *Gateway) updateAction(ctx context.Context, actor contract.Actor, reques
 			err = addons.ErrConflict
 			break
 		}
-		data, err = g.Manager.Submit(ctx, actor, cmd)
+		data, err = g.Manager.SubmitUpgrade(ctx, actor, cmd)
 	default:
 		return contract.Result{}, ErrForbidden
 	}

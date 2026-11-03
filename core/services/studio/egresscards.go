@@ -67,7 +67,7 @@ func (s *Service) egressCardWait() time.Duration {
 // answer. A second connection to the same host and port waits on the same
 // card. It returns the verdict of the answer, or a block when nobody answered
 // in time, the call ended or the ceiling went down meanwhile.
-func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.ChatRecord, op string, r egress.Request) egress.Verdict {
+func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.ChatRecord, op string, r egress.Request) (egress.Verdict, error) {
 	owner := pol.rec
 	k := key(owner.Principal, owner.ID)
 	var want atomic.Value
@@ -111,10 +111,10 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 	}
 	switch {
 	case errors.Is(err, errEgressCardsFull):
-		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCardsFull}
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCardsFull}, nil
 	case err != nil:
 		s.log.Warn("Chats: could not keep a network card with the chat", "chat", owner.ID, "error", err)
-		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}, nil
 	}
 	id := want.Load().(string)
 	if created {
@@ -129,14 +129,15 @@ func (s *Service) askEgress(ctx context.Context, pol egressPolicy, _ session.Cha
 		}
 	}
 	var v egress.Verdict
+	var verdictErr error
 	if !s.waitConsent(ctx, wake, wait, func() bool {
 		var done bool
-		v, done = s.cardVerdict(ctx, owner, id, op, r)
+		v, done, verdictErr = s.cardVerdict(ctx, owner, id, op, r)
 		return done
 	}) {
-		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}, nil
 	}
-	return v
+	return v, verdictErr
 }
 
 var errEgressCardsFull = errors.New("studio: the chat has as many network cards waiting as it may")
@@ -144,37 +145,40 @@ var errEgressCardsFull = errors.New("studio: the chat has as many network cards 
 // cardVerdict reads the card and the chat again. Once the card is answered
 // (or refused), the request is decided again with the stored state, which now
 // holds the rule or the grant; done is false while the card waits.
-func (s *Service) cardVerdict(ctx context.Context, owner session.ChatRecord, id, op string, r egress.Request) (egress.Verdict, bool) {
+func (s *Service) cardVerdict(ctx context.Context, owner session.ChatRecord, id, op string, r egress.Request) (egress.Verdict, bool, error) {
 	rec, err := s.d.Store.GetChat(ctx, owner.Principal, owner.ID)
 	if err != nil {
-		return egress.Verdict{}, false
+		return egress.Verdict{}, false, nil
 	}
 	c, ok := rec.Egress.Card(id)
 	if !ok {
-		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}, true
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}, true, nil
 	}
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return egress.Verdict{Action: egress.Block, Reason: "policy_unavailable"}, true, err
+	}
 	if c.State == egress.CardPending {
 		if egress.Admits(set, r, egress.BuiltinRegistries()) {
-			return egress.Verdict{}, false
+			return egress.Verdict{}, false, nil
 		}
 		// The ceiling went down while the card waited.
 		s.refuseCard(ctx, owner, id)
-		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCeiling}, true
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCeiling}, true, nil
 	}
 	if c.State == egress.CardRefused {
-		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCeiling}, true
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonCeiling}, true, nil
 	}
 	pol, err := s.egressPolicyOf(ctx, rec, op)
 	if err != nil {
-		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}, true
+		return egress.Verdict{Action: egress.Block, Reason: egress.ReasonNoAnswer}, true, nil
 	}
 	pol.chat.Attended = false // decided by the answer: no second card
 	v := egress.Decide(set, pol.chat, r, egress.BuiltinRegistries())
 	if v.Action != egress.Allow && c.State == egress.CardDenied {
 		v.Reason = egress.ReasonDenied
 	}
-	return v, true
+	return v, true, nil
 }
 
 func (s *Service) refuseCard(ctx context.Context, owner session.ChatRecord, id string) {
@@ -204,10 +208,13 @@ func (s *Service) EgressDecide(ctx context.Context, user, conv, id, decision str
 		return ErrEgressBadDecision
 	}
 	admin := s.isAdmin(ctx, p)
-	set := s.egressSettings()
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return err
+	}
 	now := s.now().UTC()
 	refused, again := false, false
-	err := s.d.Store.UpdateEgress(ctx, p, conv, func(st *egress.ChatState) error {
+	err = s.d.Store.UpdateEgress(ctx, p, conv, func(st *egress.ChatState) error {
 		c, ok := st.Card(id)
 		if !ok {
 			return ErrEgressNoCard

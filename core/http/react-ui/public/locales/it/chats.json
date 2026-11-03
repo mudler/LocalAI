@@ -285,11 +285,15 @@
       "hostOff": "Il Sandbox è spento per questa chat, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento. Accendi il Sandbox in questo menu per isolarli.",
       "hostUnavailable": "Il Sandbox non può funzionare qui, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
       "hostUnavailableWhy": "Il Sandbox non può funzionare qui ({{reason}}), quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
-      "hostChipTitle": "I comandi di questa chat vengono eseguiti su questa macchina, senza isolamento. Seleziona per i dettagli."
+      "hostChipTitle": "I comandi di questa chat vengono eseguiti su questa macchina, senza isolamento. Seleziona per i dettagli.",
+      "providerHost": "I comandi vengono eseguiti sul server senza isolamento.",
+      "unknown": "La disponibilità o l’isolamento dell’esecuzione non sono noti.",
+      "providerUnavailable": "Il provider di esecuzione selezionato non è disponibile.",
+      "disabled": "L’esecuzione dei comandi è disattivata per questa chat."
     },
     "consent": {
       "title": "Eseguire questo comando su questa macchina?",
-      "body": "I comandi vengono eseguiti su questa macchina senza isolamento. Possono leggere i file che LocalAI può leggere e raggiungere internet e la tua rete. Installa il Sandbox per isolarli.",
+      "body": "I comandi vengono eseguiti su questa macchina senza isolamento. Possono leggere i file che LocalAI può leggere e raggiungere internet e la tua rete.",
       "once": "Esegui una volta",
       "always": "Sempre su questa istanza",
       "deny": "Non eseguire",
@@ -395,7 +399,9 @@
     "allowedHostsOff": "Valgono quando la rete è attiva.",
     "allowedHostsNote": "{{count}} host sono sempre consentiti dal tuo amministratore.",
     "limitNote": "Rete di questa chat. L’amministratore imposta il massimo che una chat può raggiungere.",
-    "asksAbove": "Questa chat chiede {{choice}}; il limite dell’amministratore è {{limit}}."
+    "asksAbove": "Questa chat chiede {{choice}}; il limite dell’amministratore è {{limit}}.",
+    "unverified": "L’applicazione dei criteri di rete non è verificata per il provider effettivo. Queste impostazioni non si applicano ai suoi comandi.",
+    "configuredPolicy": "Criterio di rete configurato: {{preset}} (non applicato)."
   },
   "inbox": {
     "unread": "{{count}} non lette",

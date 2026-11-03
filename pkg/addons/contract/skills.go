@@ -22,9 +22,9 @@ type SkillDefinition struct {
 	// Name is the skill's name and the name of its folder. A plain skill is
 	// named after the add-on: the add-on ID, or the ID and a dash and more
 	// (office-quickstart), so two add-ons never ship one plain name. A skill
-	// that replaces a built-in one has the built-in's name (see Shadows).
+	// for a reserved document slot has the slot's name (see Shadows).
 	Name string `json:"name"`
-	// Shadows names the built-in skill this skill replaces. It must equal Name
+	// Shadows names the document-provider slot this skill supplies. It must equal Name
 	// and be one of ReplaceableSkills. It repeats the name on purpose: the
 	// replacement is an explicit act, which the install warning and the check
 	// read from the manifest without opening the package. Empty: a plain
@@ -35,7 +35,7 @@ type SkillDefinition struct {
 // protectedSkills are the built-in skills that no add-on may replace or
 // ship under their name: they describe LocalAI itself. A test derives the
 // built-in names from the embedded tree and fails when one is neither here
-// nor replaceable.
+// nor a reserved document slot.
 var protectedSkills = []string{"localai-workspace", "localai-apps", "writing-skills"}
 
 // ProtectedSkill reports whether name is a built-in skill that an add-on may
@@ -44,20 +44,20 @@ func ProtectedSkill(name string) bool {
 	return slices.Contains(protectedSkills, name)
 }
 
-// ReplaceableSkills are the built-in skills an add-on skill may replace by
-// name. They describe a way to work with office files; an add-on that brings
-// its own tools for those files brings the procedure that matches them.
-var ReplaceableSkills = []string{"xlsx", "docx", "pptx", "pdf"}
+// reservedDocumentSkills are provider slots, independent of embedded core skills.
+var reservedDocumentSkills = []string{"xlsx", "docx", "pptx", "pdf"}
 
-// ReplaceableSkill reports whether an add-on skill may replace the built-in
-// skill name.
-func ReplaceableSkill(name string) bool {
-	return slices.Contains(ReplaceableSkills, name)
-}
+// DocumentSkill reports whether name is a supported document-provider slot.
+func DocumentSkill(name string) bool { return slices.Contains(reservedDocumentSkills, name) }
 
-// BuiltinSkillName reports whether name is the name of a skill that ships with
-// the host.
-func BuiltinSkillName(name string) bool { return ProtectedSkill(name) || ReplaceableSkill(name) }
+// ReplaceableSkills retains the existing slot inventory for compatibility.
+var ReplaceableSkills = slices.Clone(reservedDocumentSkills)
+
+// ReplaceableSkill is the compatibility name for DocumentSkill.
+func ReplaceableSkill(name string) bool { return DocumentSkill(name) }
+
+// BuiltinSkillName reports the protected core skill names, not provider slots.
+func BuiltinSkillName(name string) bool { return ProtectedSkill(name) }
 
 // PlainSkillName reports whether name is a plain skill name the add-on id may
 // ship: the id itself, or the id followed by a dash and more.
@@ -88,9 +88,12 @@ func validateSkillDefinitions(id string, defs []SkillDefinition) error {
 			case d.Shadows != d.Name:
 				return fmt.Errorf("skill %s: shadows must repeat the skill's name", d.Name)
 			case !ReplaceableSkill(d.Shadows):
-				return fmt.Errorf("skill %s: %q is not a built-in skill an add-on may replace", d.Name, d.Shadows)
+				return fmt.Errorf("skill %s: %q is not a document-provider slot an add-on may replace", d.Name, d.Shadows)
 			}
 			continue
+		}
+		if DocumentSkill(d.Name) {
+			return fmt.Errorf("skill %s: reserved document name requires same-name shadows", d.Name)
 		}
 		if BuiltinSkillName(d.Name) {
 			return fmt.Errorf("skill %s: the name is a built-in skill", d.Name)
@@ -102,8 +105,8 @@ func validateSkillDefinitions(id string, defs []SkillDefinition) error {
 	return nil
 }
 
-// ShadowedSkills lists, in definition order, the built-in skills that the skill
-// definitions replace.
+// ShadowedSkills lists, in definition order, the document slots supplied by
+// the skill definitions.
 func ShadowedSkills(defs []SkillDefinition) []string {
 	var out []string
 	for _, d := range defs {

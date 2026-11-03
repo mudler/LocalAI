@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path"
 	"slices"
 	"strings"
 
@@ -43,7 +44,8 @@ var (
 	ErrSavedAgentWithTools = errors.New("tools cannot be combined with agent: the saved agent's definition decides its tools")
 )
 
-const listAgentsDescription = "List the saved agents of the user that you may start as sub-agents: id, name and description. " +
+const listAgentsDescription = "List the saved agents of the user that you may start as sub-agents: id, name and description, and the folder and mode (read or write) of an agent that works in one. " +
+	"When you work in a folder, only agents that work in that folder, inside it or in no folder are listed. " +
 	"Start one with spawn_agent and its id (or its name) in agent; it then works with its own instructions, model and tools."
 
 // registerSavedAgents adds list_agents to the registry of built-in tools. It is
@@ -73,7 +75,9 @@ func (s *Service) registerSavedAgents() error {
 			}
 			return session.Tool{Description: listAgentsDescription, Schema: json.RawMessage(`{"type":"object","properties":{}}`),
 				// The user comes from the chat, never from the arguments.
-				Run: func(ctx context.Context, _ json.RawMessage) (string, error) { return s.listAgentsTool(ctx, p) }}, true, ""
+				Run: func(ctx context.Context, _ json.RawMessage) (string, error) {
+					return s.listAgentsTool(ctx, p, c.Actor.ChatID)
+				}}, true, ""
 		},
 	})
 }
@@ -129,11 +133,29 @@ type listedAgent struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Model       string `json:"model,omitempty"`
+	// Folder is the name of the folder the agent works in and FolderMode is
+	// "read" or "write"; both are empty for an agent without a folder. The
+	// path is not given: it would show the folders above the chat's own.
+	Folder     string `json:"folder,omitempty"`
+	FolderMode string `json:"folder_mode,omitempty"`
+	// FolderMissing is set when the agent has a folder that is deleted or not
+	// chosen: it cannot run until the person fixes it.
+	FolderMissing bool `json:"folder_missing,omitempty"`
 }
 
-// listAgentsTool is list_agents: the user's own agents, never another's.
-func (s *Service) listAgentsTool(ctx context.Context, p string) (string, error) {
+// listAgentsTool is list_agents: the user's own agents, never another's. For
+// a chat whose agent has a folder it lists only the agents spawn_agent would
+// start there (agentFitsScope), so the model is not offered one it cannot use.
+func (s *Service) listAgentsTool(ctx context.Context, p, chatID string) (string, error) {
 	if err := s.mayUseAgents(ctx, p); err != nil {
+		return "", err
+	}
+	chat, err := s.d.Store.GetChat(ctx, p, chatID)
+	if err != nil {
+		return "", err
+	}
+	outer, err := s.agentFolderScope(ctx, chat, false)
+	if err != nil {
 		return "", err
 	}
 	list, err := s.d.Agents.List(ctx, p)
@@ -145,11 +167,23 @@ func (s *Service) listAgentsTool(ctx context.Context, p string) (string, error) 
 		Truncated bool          `json:"truncated,omitempty"`
 	}{Agents: []listedAgent{}}
 	for _, a := range list {
+		if !s.agentFitsScope(ctx, p, outer, a) {
+			continue
+		}
 		if len(out.Agents) == listAgentsMax {
 			out.Truncated = true
 			break
 		}
-		out.Agents = append(out.Agents, listedAgent{ID: a.ID, Name: a.Name, Description: a.Description, Model: a.Model})
+		l := listedAgent{ID: a.ID, Name: a.Name, Description: a.Description, Model: a.Model}
+		if a.HasFolder() {
+			l.FolderMode = a.FolderMode
+			if sc, err := s.liveFolder(ctx, p, a); err != nil {
+				l.FolderMissing = true
+			} else {
+				l.Folder = path.Base(sc.path)
+			}
+		}
+		out.Agents = append(out.Agents, l)
 	}
 	b, err := json.Marshal(out)
 	if err != nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -109,16 +110,22 @@ func (s *Service) registerTriggerTools() error {
 				}
 			}},
 		{listTriggersName, "List triggers", listTriggersDescription, listTriggersSchema, true,
-			func(h *Triggers, a workspace.Actor, _ builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
-				return func(ctx context.Context, raw json.RawMessage) (string, error) { return h.listTool(ctx, a, raw) }
+			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, raw json.RawMessage) (string, error) {
+					return h.listTool(ctx, a, c.AgentID, raw)
+				}
 			}},
 		{updateTriggerName, "Change a trigger", updateTriggerDescription, updateTriggerSchema, false,
-			func(h *Triggers, a workspace.Actor, _ builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
-				return func(ctx context.Context, raw json.RawMessage) (string, error) { return h.updateTool(ctx, a, raw) }
+			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, raw json.RawMessage) (string, error) {
+					return h.updateTool(ctx, a, c.AgentID, raw)
+				}
 			}},
 		{deleteTriggerName, "Delete a trigger", deleteTriggerDescription, deleteTriggerSchema, false,
-			func(h *Triggers, a workspace.Actor, _ builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
-				return func(ctx context.Context, raw json.RawMessage) (string, error) { return h.deleteTool(ctx, a, raw) }
+			func(h *Triggers, a workspace.Actor, c builtins.Chat) func(context.Context, json.RawMessage) (string, error) {
+				return func(ctx context.Context, raw json.RawMessage) (string, error) {
+					return h.deleteTool(ctx, a, c.AgentID, raw)
+				}
 			}},
 	}
 	for _, d := range defs {
@@ -173,6 +180,68 @@ func (s *Service) mayUseTriggers(ctx context.Context, p string) error {
 	return nil
 }
 
+// The trigger tools of a chat of a scoped agent (a fenced chat) see and
+// change only the triggers of that agent, and name folders as the chat does:
+// a path of its place, which must be inside the agent's folder. A trigger of
+// another agent, or of none, may reach the whole home; the person changes
+// those on the Triggers page.
+
+// toolScope is the folder that bounds the trigger tools of a chat: nil for a
+// chat without a fence. A fenced chat whose agent's folder cannot be found
+// gets an error, never the whole home.
+func (h *Triggers) toolScope(ctx context.Context, a workspace.Actor, agentID string) (*folderScope, error) {
+	if !workspace.HasFence(a) {
+		return nil, nil
+	}
+	sc, err := h.svc.agentScope(ctx, a.Principal, agentID)
+	if err == nil && sc == nil {
+		// No agent, or it lost its folder since the turn began: the turn
+		// is still fenced.
+		err = ErrAgentFolderMissing
+	}
+	return sc, err
+}
+
+// toolFolder turns the folder that a model names into a path of the owner's
+// home, as TriggerInput takes it. Without a scope it is a path of the home
+// already.
+func (h *Triggers) toolFolder(owner string, sc *folderScope, p string) (string, error) {
+	if sc == nil {
+		return p, nil
+	}
+	abs, err := sc.inFolder(p)
+	if err != nil {
+		return "", errOutsideFolder
+	}
+	rel := h.svc.d.Files.Rel(owner, abs)
+	if rel == "" {
+		return "", bad("a trigger can only watch a folder of your home")
+	}
+	return rel, nil
+}
+
+// toolTrigger finds the trigger that a model names, among the triggers the
+// chat may see.
+func (h *Triggers) toolTrigger(ctx context.Context, a workspace.Actor, agentID string, sc *folderScope, ref string) (triggers.Trigger, error) {
+	if sc == nil {
+		return h.ResolveTrigger(ctx, a.Principal, ref)
+	}
+	all, err := h.toolTriggers(ctx, a, agentID, sc)
+	if err != nil {
+		return triggers.Trigger{}, err
+	}
+	return resolveTriggerIn(all, ref)
+}
+
+// toolTriggers lists the triggers the chat may see.
+func (h *Triggers) toolTriggers(ctx context.Context, a workspace.Actor, agentID string, sc *folderScope) ([]triggers.Trigger, error) {
+	all, err := h.ListTriggers(ctx, a.Principal)
+	if err != nil || sc == nil {
+		return all, err
+	}
+	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return t.AgentID != agentID }), nil
+}
+
 func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, agentID, model string, raw json.RawMessage) (string, error) {
 	var args struct {
 		Name     string          `json:"name"`
@@ -203,6 +272,15 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, agentID, 
 	default:
 		return "", errors.New("when must be a schedule text or {\"file_arrives_in\": folder}")
 	}
+	sc, err := h.toolScope(ctx, a, agentID)
+	if err != nil {
+		return "", toolErr(err)
+	}
+	if in.Kind == triggers.KindFile {
+		if in.Folder, err = h.toolFolder(a.Principal, sc, in.Folder); err != nil {
+			return "", toolErr(err)
+		}
+	}
 	t, err := h.ProposeTrigger(ctx, a.Principal, in)
 	if err != nil {
 		return "", errors.New(strings.TrimPrefix(err.Error(), ErrBadTrigger.Error()+": "))
@@ -214,7 +292,7 @@ func (h *Triggers) proposeTool(ctx context.Context, a workspace.Actor, agentID, 
 	return fmt.Sprintf("Proposed %q (%s). It is not active: the user must confirm it in the chat or on the Triggers page. Do not say it will run until they do.", t.Name, h.summary(t)), nil
 }
 
-func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, raw json.RawMessage) (string, error) {
+func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
 	var args struct {
 		Ref           string `json:"ref"`
 		IncludePrompt bool   `json:"include_prompt"`
@@ -243,10 +321,14 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, raw json.Raw
 		LastRun string  `json:"last_run,omitempty"`
 		Detail  *detail `json:"detail,omitempty"`
 	}
+	sc, err := h.toolScope(ctx, a, agentID)
+	if err != nil {
+		return "", toolErr(err)
+	}
 	var all []triggers.Trigger
 	switch {
 	case args.Ref != "":
-		t, err := h.ResolveTrigger(ctx, a.Principal, args.Ref)
+		t, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
 		if err != nil {
 			return "", errors.New(strings.TrimPrefix(err.Error(), "studio: "))
 		}
@@ -254,8 +336,7 @@ func (h *Triggers) listTool(ctx context.Context, a workspace.Actor, raw json.Raw
 	case args.IncludePrompt:
 		return "", errors.New("include_prompt needs the ref of one trigger")
 	default:
-		var err error
-		if all, err = h.ListTriggers(ctx, a.Principal); err != nil {
+		if all, err = h.toolTriggers(ctx, a, agentID, sc); err != nil {
 			return "", err
 		}
 	}
@@ -291,7 +372,7 @@ func toolErr(err error) error {
 	return errors.New(msg)
 }
 
-func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, raw json.RawMessage) (string, error) {
+func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
 	var args struct {
 		Ref      string          `json:"ref"`
 		Name     *string         `json:"name"`
@@ -308,7 +389,11 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, raw json.R
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
-	target, err := h.ResolveTrigger(ctx, a.Principal, args.Ref)
+	sc, err := h.toolScope(ctx, a, agentID)
+	if err != nil {
+		return "", toolErr(err)
+	}
+	target, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
 	if err != nil {
 		return "", toolErr(err)
 	}
@@ -323,7 +408,11 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, raw json.R
 		case json.Unmarshal(args.When, &text) == nil && text != "":
 			p.Kind, p.Schedule = triggers.KindSchedule, text
 		case json.Unmarshal(args.When, &obj) == nil && obj.FileArrivesIn != "":
-			p.Kind, p.Folder = triggers.KindFile, obj.FileArrivesIn
+			folder, err := h.toolFolder(a.Principal, sc, obj.FileArrivesIn)
+			if err != nil {
+				return "", toolErr(err)
+			}
+			p.Kind, p.Folder = triggers.KindFile, folder
 		default:
 			return "", errors.New("when must be a schedule text or {\"file_arrives_in\": folder}")
 		}
@@ -344,14 +433,18 @@ func (h *Triggers) updateTool(ctx context.Context, a workspace.Actor, raw json.R
 		target.Name, strings.Join(changedFields(target, asTrigger(rec)), ", ")), nil
 }
 
-func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, raw json.RawMessage) (string, error) {
+func (h *Triggers) deleteTool(ctx context.Context, a workspace.Actor, agentID string, raw json.RawMessage) (string, error) {
 	var args struct {
 		Ref string `json:"ref"`
 	}
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", fmt.Errorf("bad arguments: %w", err)
 	}
-	target, err := h.ResolveTrigger(ctx, a.Principal, args.Ref)
+	sc, err := h.toolScope(ctx, a, agentID)
+	if err != nil {
+		return "", toolErr(err)
+	}
+	target, err := h.toolTrigger(ctx, a, agentID, sc, args.Ref)
 	if err != nil {
 		return "", toolErr(err)
 	}

@@ -56,7 +56,8 @@ var ErrTokenRefused = fmt.Errorf("%w: the platform refused the bot token", conne
 
 // VerifyTokenWithMe returns a token check for ConnectorOptions.VerifyToken
 // that asks the platform, through the binding's add-on, who the bot of the
-// token is. Only a refusal of the token fails the check: a binding whose
+// token is. Host authority denial and explicit token refusal fail the check;
+// transport or platform outages remain permissive: a binding whose
 // add-on does not run, or a platform that cannot be reached, is saved, and
 // the binding reports the problem when it runs.
 func VerifyTokenWithMe(tr ConnectorTransport) func(ctx context.Context, b connectors.Binding, token string) error {
@@ -70,7 +71,10 @@ func VerifyTokenWithMe(tr ConnectorTransport) func(ctx context.Context, b connec
 		}
 		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		defer cancel()
-		resp, err := tr.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+		resp, err := tr.Call(ctx, verificationScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+		if errors.Is(err, connectors.ErrForbidden) {
+			return err
+		}
 		if err == nil && resp.Error != nil && resp.Error.Code == contract.ConnectorUnauthorized {
 			return ErrTokenRefused
 		}
@@ -391,7 +395,7 @@ func (c *Connectors) TestConnector(ctx context.Context, user, id string) (Connec
 	if err != nil {
 		return ConnectorBot{}, err
 	}
-	resp, err := c.o.Transport.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
+	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpMe, Kind: b.Kind, Token: token})
 	if err == nil && resp.Error != nil {
 		err = resp.Error
 	}

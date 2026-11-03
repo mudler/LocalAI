@@ -50,7 +50,7 @@ func newFilesRig() *filesRig {
 }
 
 func (r *filesRig) open(p, id string) *session.Chat {
-	c, err := r.m.Open(context.Background(), workspace.Actor{Principal: p, ChatID: id}, id)
+	c, err := openAs(r.m, context.Background(), workspace.Actor{Principal: p, ChatID: id}, id)
 	Expect(err).NotTo(HaveOccurred())
 	return c
 }

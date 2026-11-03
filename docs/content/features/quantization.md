@@ -164,11 +164,11 @@ A user needs the quantization permission. Without it, the page says the account 
 
 The Quantize page is the `quantization` add-on. It does not ship with LocalAI. An administrator installs it from **Find add-ons** with **Install and turn on**. Once it is on, it opens from My add-ons at `/app/addons/quantization/jobs` and can be shown in the sidebar. 
 
-The old link `/app/quantize` keeps working. It opens the add-on page while the add-on is installed and usable, and it opens the same page in the core web UI otherwise.
+Open the canonical add-on page from My add-ons. Historical standalone links are not registered.
 
 The API does not change. The page calls `/api/quantization/*` with the signed-in user's own session, and the server checks the quantization permission on every call.
 
-With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/quantize` leads back to `/app`, and every path under `/api/quantization` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
+With `--addons-enabled=false` this feature is off, like every add-on. The UI shows no entry for it, `/app/addons/quantization/jobs` leads back to `/app`, and every path under `/api/quantization` answers `503`. See [The addons feature gate](../addons/#the-addons-feature-gate).
 
 The add-on also offers tools to the chat: list jobs, propose a job, read the status of a job, stop a job and import the result as a model. A tool can only control a job that a tool started. A job started in the page is listed, but a tool cannot stop or import it. In the chats, an agent and a trigger, a tool call that starts a job runs at once, because you turned the add-on on for that chat; the result says what an undo does (see below). On the OpenAI-compatible API and other surfaces, a tool only proposes the action and a person confirms it in an approval card. A model given as a local path is refused. The tools call the engine through the host operations (see [Host operations](../addons/#host-operations)), which the host setting `LOCALAI_ADDON_HOST_OPS` grants to this add-on by the `quantize.` prefix, and they run with the permissions of the person in the chat.
 

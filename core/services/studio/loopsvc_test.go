@@ -436,7 +436,7 @@ var _ = Describe("Loops of a chat", func() {
 		until("the run to start", func() bool { return turn(a.svc, alice, chat).Running })
 		// The process dies: its host stops, and the reaper frees the chat.
 		a.host.Close()
-		_, err := sh.chats.ReapTurns(ctx, time.Now().Add(time.Hour))
+		_, err := sh.chats.ReapTurns(ctx, -time.Hour)
 		Expect(err).NotTo(HaveOccurred())
 
 		b := sh.rig(say, studio.LoopOptions{})

@@ -180,6 +180,8 @@ func (c Capabilities) Supports(call string) bool {
 
 func (g *Gateway) capabilities() Capabilities {
 	c := Capabilities{Protocol: 2, OS: g.OS, Arch: g.Arch}
+	// Transport support is not permission to select or observe a provider.
+	c.Calls = append(c.Calls, executionStatusAction, executionBindingAction)
 	if c.OS == "" {
 		c.OS = runtime.GOOS
 	}

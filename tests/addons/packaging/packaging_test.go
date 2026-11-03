@@ -72,7 +72,7 @@ var _ = BeforeSuite(func() {
 func matrix() string {
 	GinkgoHelper()
 	p := filepath.Join(GinkgoT().TempDir(), "platforms.yaml")
-	body := "schema: 1\naddon: tables\nexecutable: tables\nmanifest: addons/tables/manifest.json\nui: addons/tables/ui/dist\nplatforms:\n" +
+	body := "schema: 1\naddon: tables\nexecutable: tables\nmanifest: addons/tables/manifest.json\nui: addons/tables/ui/dist\nskills: addons/tables/skills\nplatforms:\n" +
 		"  - platform: " + hostPlat + "\n    enabled: true\n    runner: native\n    native_check: executable-start\n"
 	Expect(os.WriteFile(p, []byte(body), 0o644)).To(Succeed())
 	return p
@@ -226,6 +226,11 @@ var _ = Describe("first-party package", func() {
 		Expect(info.Mode().Perm() & 0o100).NotTo(BeZero())
 		Expect(filepath.Join(receipt.Directory, "ui", "tables.js")).To(BeAnExistingFile())
 		Expect(filepath.Join(receipt.Directory, "ui", "tables.css")).To(BeAnExistingFile())
+		skill, err := os.ReadFile(filepath.Join(receipt.Directory, "skills", "tables-readonly", "SKILL.md"))
+		Expect(err).NotTo(HaveOccurred())
+		source, err := os.ReadFile(filepath.Join(repoRoot, "addons/tables/skills/tables-readonly/SKILL.md"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(skill).To(Equal(source))
 
 		limits := contract.DefaultLimits()
 		sup, err := addonruntime.NewSupervisor(addonruntime.Config{StateRoot: filepath.Join(GinkgoT().TempDir(), "runtime"), DataRoot: filepath.Join(GinkgoT().TempDir(), "data"), Limits: limits, ReadyTimeout: 20 * time.Second, StableHealth: limits.BackoffMax})

@@ -280,7 +280,27 @@
     "rowUpgraded": "Upgraded in {{duration}}",
     "rowUpgradedPlain": "Upgraded",
     "viewInAddons": "View in Add-ons",
-    "upgradeWaiting": "Waiting for the add-on service to start. Next check in {{seconds}} s."
+    "upgradeWaiting": "Waiting for the add-on service to start. Next check in {{seconds}} s.",
+    "addonStage": {
+      "submitting": "Submitting upgrade",
+      "accepted": "Accepted by owner",
+      "running": "Running upgrade",
+      "preparing-package": "Preparing package",
+      "committing-package": "Committing package",
+      "backing-up": "Creating and verifying backup",
+      "backed-up": "Backup verified",
+      "staged": "Package committed",
+      "migrating": "Starting candidate and checking migration",
+      "healthy": "Candidate healthy",
+      "publishing": "Publishing generation",
+      "completed": "Upgrade completed",
+      "failed": "Upgrade failed"
+    },
+    "addonFailure": {
+      "upgrade_failed": "Upgrade failed. Check the owner logs for details.",
+      "interrupted": "Upgrade interrupted by owner shutdown or restart. It was not replayed.",
+      "recovery_required": "Upgrade interrupted. Data recovery is required before this add-on can run."
+    }
   },
   "backends": {
     "title": "Backend Management",

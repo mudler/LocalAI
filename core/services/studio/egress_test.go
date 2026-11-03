@@ -9,9 +9,11 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
+	"github.com/mudler/LocalAI/core/services/studio/executionrequest"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	model "github.com/mudler/LocalAI/pkg/addons/model/executionstatus"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -23,7 +25,7 @@ var _ = Describe("the Sandbox network state of a chat", func() {
 		st, _ := store.NewJSON("")
 		settings := egress.Settings{Ceiling: egress.PresetRegistries, Default: egress.PresetAll}
 		svc := newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = func(context.Context) (egress.Settings, error) { return settings, nil }
 		})
 		id := create(svc, alice)
 		rec, err := svc.Get(ctx, alice, id)
@@ -106,7 +108,7 @@ var _ = Describe("egress.check and egress.audit on the chats service", func() {
 		a, _ = audit.NewJSON("")
 		settings = egress.Settings{Ceiling: egress.PresetRegistries, Default: egress.PresetRegistries}
 		svc = newServiceOn(st, studiotest.NewGateHarness(), func(d *studio.Deps) {
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = func(context.Context) (egress.Settings, error) { return settings, nil }
 			d.EgressAudit = a
 		})
 	})
@@ -187,7 +189,7 @@ var _ = Describe("the network line of a turn", func() {
 		return newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return []studiotest.ToolStep{{Say: "ok"}} }, func(d *studio.Deps) {
 			d.Files = f
 			d.AddonTools = isolatedAddons{fa, "isolated"}
-			d.EgressSettings = func() egress.Settings { return settings }
+			d.EgressSettings = func(context.Context) (egress.Settings, error) { return settings, nil }
 		})
 	}
 	turn := func(svc *studio.Service, h *studiotest.ToolHarness) string {
@@ -222,6 +224,73 @@ func (c controlledAddons) Controls(_ context.Context, _, addonID string) []strin
 	return c.controls[addonID]
 }
 
+// reportingAddons is a broker whose runner reports its typed execution status.
+type reportingAddons struct {
+	controlledAddons
+	status model.Value
+	// enforced is what the runner says about the network policy.
+	enforced bool
+}
+
+func (r reportingAddons) NewExecutionObservation(ctx context.Context, user, _ string) (*executionrequest.Request, string, func() studio.ExecutionDetail) {
+	b := model.Binding{Actor: user, Addon: "sandbox", Generation: "1", Incarnation: "one", ExecutionTool: "bash", StatusTool: "status"}
+	req := executionrequest.New(ctx, b, "q", model.Eligible, executionrequest.IO{
+		Validate: func(context.Context, model.Binding) error { return nil },
+		Read: func(context.Context, model.Binding, model.ObservationID, time.Time) (model.Payload, error) {
+			return model.ValidPayload(r.status), nil
+		},
+	}, nil)
+	return req, b.Addon, func() studio.ExecutionDetail { return studio.ExecutionDetail{NetworkPolicyEnforced: r.enforced} }
+}
+
+func (r reportingAddons) Isolation(ctx context.Context, user, addonID string) string {
+	v, _ := studio.ExecutionObservation(ctx, user, addonID)
+	if v.Readiness != model.Available {
+		return ""
+	}
+	return string(v.Isolation)
+}
+
+var _ = Describe("whether the network settings apply to the commands of a chat", func() {
+	egressOf := func(status model.Value, enforced bool, controls ...string) studio.EgressView {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}
+		f := newFiles()
+		svc, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, func(d *studio.Deps) {
+			d.Files = f
+			d.AddonTools = reportingAddons{controlledAddons{isolatedAddons{fa, "isolated"}, map[string][]string{"sandbox": controls}}, status, enforced}
+		})
+		v, err := svc.Egress(context.Background(), alice, create(svc, alice))
+		Expect(err).NotTo(HaveOccurred())
+		return v
+	}
+	isolated := model.Value{Readiness: model.Available, Isolation: model.Isolated}
+
+	It("applies when the isolated runner reports that it enforces the policy", func() {
+		v := egressOf(isolated, true, "network-policy")
+		Expect(v.Applies).To(BeTrue())
+		Expect(v.AppliesReason).To(BeEmpty())
+		Expect(v.JSON().Addon).To(Equal("sandbox"))
+	})
+	It("does not apply when the runner does not report enforcement", func() {
+		v := egressOf(isolated, false, "network-policy")
+		Expect(v.Applies).To(BeFalse())
+		Expect(v.AppliesReason).To(Equal(studio.EgressAppliesNone))
+	})
+	It("does not trust an enforcement report from a runner that is not isolated", func() {
+		v := egressOf(model.Value{Readiness: model.Available, Isolation: model.Host}, true, "network-policy")
+		Expect(v.Applies).To(BeFalse())
+	})
+	It("does not trust an enforcement report from a runner that is not available", func() {
+		v := egressOf(model.Value{Readiness: model.Unavailable}, true, "network-policy")
+		Expect(v.Applies).To(BeFalse())
+	})
+	It("applies but draws no row without the network-policy control", func() {
+		v := egressOf(isolated, true, "tool-providers")
+		Expect(v.Applies).To(BeTrue())
+		Expect(v.JSON().Addon).To(BeEmpty())
+	})
+})
+
 var _ = Describe("the add-on that draws the network row of a chat", func() {
 	runner := func(addonID string) []studio.AddonTool {
 		bash := addonTool(addonID, "bash")
@@ -238,11 +307,11 @@ var _ = Describe("the add-on that draws the network row of a chat", func() {
 		return svc
 	}
 
-	It("is the add-on that runs the commands and carries the network policy", func() {
+	It("names the runner control without claiming host network enforcement", func() {
 		svc := service("sandbox", "isolated", map[string][]string{"sandbox": {"network-policy", "tool-providers"}})
 		v, err := svc.Egress(context.Background(), alice, create(svc, alice))
 		Expect(err).NotTo(HaveOccurred())
-		Expect(v.Applies).To(BeTrue())
+		Expect(v.Applies).To(BeFalse())
 		Expect(v.JSON().Addon).To(Equal("sandbox"))
 	})
 
@@ -252,10 +321,10 @@ var _ = Describe("the add-on that draws the network row of a chat", func() {
 		Expect(v.JSON().Addon).To(Equal("devbox"))
 	})
 
-	It("is none when the runner has no network policy, and the policy still applies", func() {
+	It("is none when the runner has no network policy and enforcement is unknown", func() {
 		svc := service("sandbox", "isolated", map[string][]string{"sandbox": {"tool-providers"}})
 		v, _ := svc.Egress(context.Background(), alice, create(svc, alice))
-		Expect(v.Applies).To(BeTrue())
+		Expect(v.Applies).To(BeFalse())
 		Expect(v.JSON().Addon).To(BeEmpty())
 	})
 

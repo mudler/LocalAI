@@ -72,7 +72,14 @@ func (s *Service) chatSkills(ctx context.Context, p string, rec session.ChatReco
 	}
 	sc := s.scopeOf(ctx, rec)
 	skip := skillOff(rec.SkillsOff)
-	ad := s.addonSkillsFor(ctx, p, rec.AddonsOff, sc)
+	command, err := s.addonCommandDescriptor(ctx, p, rec, sc)
+	if err != nil {
+		return nil, err
+	}
+	ad, err := s.addonSkillsFor(ctx, p, rec.AddonsOff, sc, command)
+	if err != nil {
+		return nil, err
+	}
 	list, _, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
 		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
 		Logger: s.log,
@@ -117,7 +124,11 @@ func (s *Service) skillDirective(ctx context.Context, p string, rec session.Chat
 		return "", nil, fmt.Errorf("%w: no skill %q in this chat; its skills are: %s", ErrBadCommand, name, strings.Join(names, ", "))
 	}
 	if slices.Contains(found.Requires, skills.RequireExec) {
-		if c := s.commandsFor(ctx, p, rec); c.State != CommandsAvailable {
+		c, err := s.commandsFor(ctx, p, rec)
+		if err != nil {
+			return "", nil, err
+		}
+		if c.State != CommandsAvailable {
 			return "", nil, fmt.Errorf("%w: the skill %q needs to run commands, and this chat cannot", ErrBadCommand, name)
 		}
 	}
@@ -249,6 +260,9 @@ func (s *Service) contextCommand(ctx context.Context, p, conv string, fn func(re
 	return err
 }
 
+// compactLimit bounds the model call of a compaction.
+const compactLimit = 10 * time.Minute
+
 // Compact shrinks the model's context of the chat now, with the summary the
 // loop makes when the context fills up, and returns its size in tokens before
 // and after. The transcript keeps every message and gets a marker; the next
@@ -270,7 +284,10 @@ func (s *Service) Compact(ctx context.Context, user, conv string) (before, after
 				s.log.Warn("studio: could not close the chat after a compaction", "chat", conv, "error", cerr)
 			}
 		}()
-		before, after, err = chat.Compact(context.WithoutCancel(ctx))
+		// The summary is one model call that outlives the request; bound it.
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), compactLimit)
+		defer cancel()
+		before, after, err = chat.Compact(cctx)
 		switch {
 		case errors.Is(err, session.ErrNothingToCompact):
 			return ErrNothingToCompact

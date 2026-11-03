@@ -249,18 +249,35 @@ func (s *Workspace) purge(ctx context.Context, a Actor, dryRun bool, pick func(q
 	for sha := range freed {
 		shas = append(shas, sha)
 	}
-	blob.RemoveLater(s.blobs, shas, blob.Grace(s.grace), s.blobsInUse)
+	s.removeBlobs(ctx, shas)
 	return res, nil
 }
 
+// removeBlobs removes the blobs that nothing refers to any more. On a shared
+// filesystem the removal runs in the caller's scope when there is no grace,
+// and under the revision lock; see blobsInUseLocked.
+func (s *Workspace) removeBlobs(ctx context.Context, shas []string) {
+	sw := blob.Sweep{Store: s.blobs, Grace: blob.Grace(s.grace), InUse: s.blobsInUse, Life: s.life}
+	if s.sharedFilesystem {
+		sw.InUse = s.blobsInUseLocked
+	} else {
+		ctx = context.Background()
+	}
+	sw.RemoveLater(ctx, shas)
+}
+
 // blobsInUse tells which of shas a node or a journal row refers to.
-func (s *Workspace) blobsInUse(ctx context.Context, shas []string) (map[string]bool, error) {
+func (s *Workspace) blobsInUse(ctx context.Context, shas []string) (map[string]bool, func(), error) {
+	used, err := blobsInUse(ctx, s.db, shas)
+	return used, nil, err
+}
+func blobsInUse(ctx context.Context, q querier, shas []string) (map[string]bool, error) {
 	used := make(map[string]bool, len(shas))
 	err := chunks(shas, func(part []string) error {
 		list := inList(len(part))
 		args := idArgs(part)
 		all := append(append(append([]any{}, args...), args...), args...)
-		rows, err := s.db.QueryContext(ctx, `SELECT blob FROM studio_ws_nodes WHERE blob IN (`+list+`)
+		rows, err := q.QueryContext(ctx, `SELECT blob FROM studio_ws_nodes WHERE blob IN (`+list+`)
 			UNION SELECT old_blob FROM studio_ws_journal WHERE old_blob IN (`+list+`)
 			UNION SELECT new_blob FROM studio_ws_journal WHERE new_blob IN (`+list+`)`, all...)
 		if err != nil {
@@ -281,4 +298,28 @@ func scanStrings(rows *sql.Rows, into map[string]bool) error {
 		into[sha] = true
 	}
 	return rows.Err()
+}
+
+// blobsInUseLocked is blobsInUse under the revision row lock, which stays held
+// until release. A writer publishes a blob and the row that refers to it under
+// the same lock, so no writer can reference a blob between this check and its
+// removal on any PostgreSQL connection. Grace alone cannot do that.
+func (s *Workspace) blobsInUseLocked(ctx context.Context, shas []string) (map[string]bool, func(), error) {
+	t, err := s.db.BeginTx(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	// Nothing is written: the transaction only holds the lock, so release
+	// rolls it back.
+	release := func() { _ = t.Rollback() }
+	if _, err := t.ExecContext(ctx, `UPDATE studio_ws_meta SET value = value WHERE key = 'rev'`); err != nil {
+		release()
+		return nil, nil, err
+	}
+	used, err := blobsInUse(ctx, t, shas)
+	if err != nil {
+		release()
+		return nil, nil, err
+	}
+	return used, release, nil
 }

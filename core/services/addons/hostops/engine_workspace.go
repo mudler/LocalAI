@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -30,29 +31,31 @@ const (
 	maxCopyBytes = 256 << 20
 )
 
-// WorkspaceFiles is what the workspace operations need from the files service.
-type WorkspaceFiles interface {
-	EnsureHome(ctx context.Context, principal string) error
-	Abs(principal, rel string) (string, error)
-	Actor(principal string) workspace.Actor
-	Rel(principal, abs string) string
-}
-
 // WorkspaceHost is the host side of the workspace operations. Principal maps
 // the actor of the live request to the user whose files are used; DataDir is
 // the data directory of an add-on, the only place an operation reads or
 // writes on disk.
 type WorkspaceHost struct {
 	Store     workspace.Store
-	Files     WorkspaceFiles
 	Principal func(contract.Actor) string
 	DataDir   func(addonID string) string
-	// Chat maps the resource of the live request (for an action tool, the
-	// key of the chat) to the chat of the user, so the change set of a
-	// commit belongs to that chat as a file tool's would: the chat lists the
-	// files the command saved. "" (or a nil Chat) commits for no chat.
+	// Access resolves what a call may reach. For chatID "" (a call that no
+	// chat made: an add-on page, the web interface) it is the user's whole
+	// home, as the Files page is. For a chat it is the chat's access: fenced
+	// to the agent's folder and the chat folder when the chat's agent has a
+	// folder. An error refuses the call; it never falls back to the home.
+	Access func(ctx context.Context, principal, chatID string) (session.Access, error)
+	// Chat maps the resource of an action request that carries no chat
+	// binding (an older frontend forwarded it) to the chat of the user: an
+	// action tool always works for one chat, and its resource is the key of
+	// that chat. "" (or a nil Chat) means no chat, and the call is refused.
 	Chat func(ctx context.Context, principal, resourceID string) string
 }
+
+// errNoChat is the refusal of a call whose chat the host cannot resolve: the
+// chat is gone, its agent's folder is missing, or the binding names another
+// user. It says nothing more, and the call never runs user-wide instead.
+var errNoChat = fmt.Errorf("%w: the chat of this call is not available", ErrBadRequest)
 
 // principal maps the actor to the owner of the files. An empty answer from
 // Principal means the actor has no files here; the operation is refused
@@ -65,50 +68,140 @@ func (h *WorkspaceHost) principal(c Call) (string, error) {
 	return p, nil
 }
 
+// access is what the call may reach: the access of the chat the live request
+// was made for, or the user's whole home for a request that no chat made.
+func (h *WorkspaceHost) access(ctx context.Context, c Call) (session.Access, error) {
+	p, err := h.principal(c)
+	if err != nil {
+		return session.Access{}, err
+	}
+	chat := ""
+	switch {
+	case c.ChatID != "":
+		if c.ChatPrincipal != p {
+			return session.Access{}, errNoChat
+		}
+		chat = c.ChatID
+	case c.Scope == "act" && c.ResourceID != "":
+		if h.Chat != nil {
+			chat = h.Chat(ctx, p, c.ResourceID)
+		}
+		if chat == "" {
+			return session.Access{}, errNoChat
+		}
+	}
+	x, err := h.Access(ctx, p, chat)
+	switch {
+	case err != nil && chat != "":
+		return session.Access{}, errNoChat
+	case err != nil:
+		return session.Access{}, fmt.Errorf("%w: files are not available", ErrBadRequest)
+	}
+	return x, nil
+}
+
+// target maps a path the add-on names to a workspace path of the access, and
+// says whether the access may write there. The add-on's "/" is the primary
+// folder of the access: the user's home, or the agent's folder of a scoped
+// chat. A scoped chat's add-on may also name the other places of the chat's
+// layout, such as /workspace/chat/x for the chat folder. A parent reference,
+// NUL or a control character is refused; an encoded or look-alike separator is
+// part of a name.
+func target(x session.Access, p string) (abs string, write bool, err error) {
+	pl := x.Place()
+	if x.Scoped() {
+		t, err := pl.Resolve(p)
+		if err != nil {
+			return "", false, err
+		}
+		return t.Abs, t.Write, nil
+	}
+	primary := pl.Primary()
+	if primary == "" {
+		return "", false, workspace.ErrNotFound
+	}
+	if !strings.HasPrefix(p, "/") {
+		p = "/" + p
+	}
+	segs, err := workspace.SplitPath(p)
+	if err != nil {
+		return "", false, err
+	}
+	return primary + strings.TrimSuffix(workspace.JoinPath(segs), "/"), pl.PrimaryWritable(), nil
+}
+
+// addonPath turns a workspace path back into the add-on's terms: a path of the
+// primary folder ("/" is the folder), or the guest path of another place of
+// the chat (/workspace/chat/x). It never names the user's home or another
+// folder by its workspace path.
+func addonPath(x session.Access, abs string) string {
+	if r := x.Place().Rel(abs); r != "" {
+		return r
+	}
+	if g, ok := x.Place().Guest(abs); ok {
+		return g
+	}
+	return ""
+}
+
 type mountArg struct {
 	Path  string `json:"path"`
 	At    string `json:"at"`
 	Write bool   `json:"write"`
 }
 
-func (h *WorkspaceHost) view(ctx context.Context, c Call, mounts []mountArg) (workspace.View, workspace.Actor, error) {
+// view builds the view of the folders the add-on asks for, inside the access.
+// When a scoped chat's add-on mounts its "/" at home, the host adds the chat
+// folder at chat, so the add-on sees the layout of the chat without a change.
+func (h *WorkspaceHost) view(ctx context.Context, x session.Access, mounts []mountArg) (workspace.View, error) {
 	if len(mounts) == 0 || len(mounts) > maxMounts {
-		return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: mounts must hold 1 to %d folders", ErrBadRequest, maxMounts)
+		return workspace.View{}, fmt.Errorf("%w: mounts must hold 1 to %d folders", ErrBadRequest, maxMounts)
 	}
-	p, err := h.principal(c)
-	if err != nil {
-		return workspace.View{}, workspace.Actor{}, err
-	}
-	if err := h.Files.EnsureHome(ctx, p); err != nil {
-		return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: files are not available", ErrBadRequest)
-	}
-	reqs := make([]workspace.MountRequest, 0, len(mounts))
+	reqs := make([]workspace.MountRequest, 0, len(mounts)+1)
+	homeAsked, homeWrite, chatTaken := false, false, false
 	for _, m := range mounts {
-		abs, err := h.Files.Abs(p, m.Path)
+		abs, write, err := target(x, m.Path)
 		if err != nil {
-			return workspace.View{}, workspace.Actor{}, fmt.Errorf("%w: path of a mount", ErrBadRequest)
+			return workspace.View{}, fmt.Errorf("%w: path of a mount", ErrBadRequest)
 		}
 		mode := workspace.ModeRead
-		if m.Write {
+		if m.Write && write {
 			mode = workspace.ModeWrite
+		}
+		switch {
+		case m.At == session.GuestChat:
+			chatTaken = true
+		case m.At == session.GuestHome && abs == x.Place().Primary():
+			homeAsked, homeWrite = true, m.Write
 		}
 		reqs = append(reqs, workspace.MountRequest{Path: abs, At: m.At, Mode: mode})
 	}
-	a := h.Files.Actor(p)
-	v, err := h.Store.View(ctx, a, reqs)
-	if err != nil {
-		return workspace.View{}, workspace.Actor{}, workspaceErr(err)
+	if chat := x.Place().Chat(); x.Scoped() && homeAsked && !chatTaken && chat != "" {
+		mode := workspace.ModeRead
+		if homeWrite {
+			mode = workspace.ModeWrite
+		}
+		reqs = append(reqs, workspace.MountRequest{Path: chat, At: session.GuestChat, Mode: mode})
 	}
-	return v, a, nil
+	v, err := x.SubView(ctx, h.Store, reqs)
+	if err != nil {
+		return workspace.View{}, workspaceErr(err)
+	}
+	return v, nil
 }
+
+// errReadOnly is the refusal of a write to a folder the call may only read.
+var errReadOnly = fmt.Errorf("%w: the folder is read-only", ErrBadRequest)
 
 // workspaceErr maps a store error to what the add-on may see: fixed text only.
 func workspaceErr(err error) error {
 	switch {
 	case errors.Is(err, workspace.ErrNotFound):
 		return ErrNotFound
-	case errors.Is(err, workspace.ErrBadName), errors.Is(err, workspace.ErrInvalid):
+	case errors.Is(err, workspace.ErrBadName), errors.Is(err, workspace.ErrInvalid), errors.Is(err, session.ErrInvalid):
 		return fmt.Errorf("%w: the folder is not available", ErrBadRequest)
+	case errors.Is(err, workspace.ErrReadOnly):
+		return errReadOnly
 	}
 	return err
 }
@@ -174,10 +267,11 @@ func (h *WorkspaceHost) dataDir(addonID, rel string, create bool) (*os.Root, err
 // RegisterWorkspace registers the workspace.* operations: materialize builds
 // the read-only view of some folders in the data directory of the add-on,
 // commit takes the upper layer the add-on left there as one change set, and
-// changes lists what changed after a revision. Everything runs as the user of
-// the live request. A nil host registers nothing.
+// changes lists what changed after a revision. Everything runs with the access
+// of the live request: the chat's, when a chat made it, else the user's. A nil
+// host registers nothing.
 func RegisterWorkspace(b *Broker, h *WorkspaceHost) error {
-	if h == nil || h.Store == nil || h.Files == nil || h.Principal == nil || h.DataDir == nil {
+	if h == nil || h.Store == nil || h.Access == nil || h.Principal == nil || h.DataDir == nil {
 		return nil
 	}
 	specs := []Spec{
@@ -213,7 +307,11 @@ func (h *WorkspaceHost) materialize(ctx context.Context, c Call) (json.RawMessag
 		return nil, err
 	}
 	defer func() { _ = dir.Close() }()
-	v, _, err := h.view(ctx, c, a.Mounts)
+	x, err := h.access(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	v, err := h.view(ctx, x, a.Mounts)
 	if err != nil {
 		return nil, err
 	}
@@ -259,14 +357,18 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
 		return nil, fmt.Errorf("%w: %s is not a file", ErrBadRequest, upperName)
 	}
-	v, actor, err := h.view(ctx, c, a.Mounts)
+	x, err := h.access(ctx, c)
 	if err != nil {
 		return nil, err
 	}
-	if h.Chat != nil && c.ResourceID != "" {
-		actor.ChatID = h.Chat(ctx, actor.Principal, c.ResourceID)
+	v, err := h.view(ctx, x, a.Mounts)
+	if err != nil {
+		return nil, err
 	}
-	cs, conflicts, err := h.Store.CommitUpper(ctx, v, actor, a.Base, workspace.ArchiveSource(f), workspace.UpperOptions{Title: a.Title, Own: a.Own})
+	// The actor of a chat's access names the chat, so the change set belongs
+	// to that chat as a file tool's would: the chat lists the files the
+	// command saved.
+	cs, conflicts, err := h.Store.CommitUpper(ctx, v, x.Actor(), a.Base, workspace.ArchiveSource(f), workspace.UpperOptions{Title: a.Title, Own: a.Own})
 	if err != nil {
 		return nil, workspaceErr(err)
 	}
@@ -279,15 +381,10 @@ func (h *WorkspaceHost) commit(ctx context.Context, c Call) (json.RawMessage, er
 		Revision  int64      `json:"revision"`
 		Conflicts []conflict `json:"conflicts"`
 	}{Revision: cs.Rev, Conflicts: []conflict{}}
-	// The paths go back in the add-on's terms, relative to the user's files
-	// as its mounts are, so it can name them to the model. A path outside
-	// every mount is already a path of the view.
-	rel := func(p string) string {
-		if r := h.Files.Rel(actor.Principal, p); r != "" {
-			return r
-		}
-		return p
-	}
+	// The paths go back in the add-on's terms, as its mounts are, so it can
+	// name them to the model. A path outside every mount is already a path of
+	// the view.
+	rel := func(p string) string { return addonPath(x, p) }
 	for _, k := range conflicts {
 		x := conflict{Path: k.Path, Reason: k.Reason}
 		if k.Reason != workspace.ReasonOutsideView {
@@ -312,14 +409,13 @@ func (h *WorkspaceHost) changes(ctx context.Context, c Call) (json.RawMessage, e
 	if a.Limit <= 0 || a.Limit > maxChangeSet {
 		a.Limit = maxChangeSet
 	}
-	p, err := h.principal(c)
+	x, err := h.access(ctx, c)
 	if err != nil {
 		return nil, err
 	}
-	if err := h.Files.EnsureHome(ctx, p); err != nil {
-		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
-	}
-	sets, err := h.Store.ChangesSince(ctx, h.Files.Actor(p), a.Since, a.Limit)
+	// The store lists only the change sets the access's actor may read: for
+	// a scoped chat, none outside its folders.
+	sets, err := h.Store.ChangesSince(ctx, x.Actor(), a.Since, a.Limit)
 	if err != nil {
 		return nil, workspaceErr(err)
 	}
@@ -360,7 +456,8 @@ func (h *WorkspaceHost) dataFile(addonID, rel string, create bool) (*os.Root, st
 	return base, name, nil
 }
 
-// export copies one file of the user to the data directory of the add-on.
+// export copies one file the access reaches to the data directory of the
+// add-on.
 func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, error) {
 	var a struct {
 		Path string `json:"path"`
@@ -369,14 +466,11 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 	if err := decodeArgs(c.Arguments, &a); err != nil {
 		return nil, err
 	}
-	p, err := h.principal(c)
+	x, err := h.access(ctx, c)
 	if err != nil {
 		return nil, err
 	}
-	if err := h.Files.EnsureHome(ctx, p); err != nil {
-		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
-	}
-	abs, err := h.Files.Abs(p, a.Path)
+	abs, _, err := target(x, a.Path)
 	if err != nil {
 		return nil, fmt.Errorf("%w: path", ErrBadRequest)
 	}
@@ -385,7 +479,7 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 		return nil, err
 	}
 	defer func() { _ = dstDir.Close() }()
-	rc, node, err := h.Store.Open(ctx, h.Files.Actor(p), abs)
+	rc, node, err := h.Store.Open(ctx, x.Actor(), abs)
 	if err != nil {
 		return nil, workspaceErr(err)
 	}
@@ -407,8 +501,8 @@ func (h *WorkspaceHost) export(ctx context.Context, c Call) (json.RawMessage, er
 	return json.Marshal(map[string]int64{"version": node.Version})
 }
 
-// importFile writes one file of the data directory of the add-on into the
-// files of the user.
+// importFile writes one file of the data directory of the add-on into a folder
+// the access may write.
 func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage, error) {
 	var a struct {
 		From        string `json:"from"`
@@ -419,16 +513,16 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if err := decodeArgs(c.Arguments, &a); err != nil {
 		return nil, err
 	}
-	p, err := h.principal(c)
+	x, err := h.access(ctx, c)
 	if err != nil {
 		return nil, err
 	}
-	if err := h.Files.EnsureHome(ctx, p); err != nil {
-		return nil, fmt.Errorf("%w: files are not available", ErrBadRequest)
-	}
-	abs, err := h.Files.Abs(p, a.Path)
+	abs, write, err := target(x, a.Path)
 	if err != nil {
 		return nil, fmt.Errorf("%w: path", ErrBadRequest)
+	}
+	if !write {
+		return nil, errReadOnly
 	}
 	srcDir, src, err := h.dataFile(c.AddonID, a.From, false)
 	if err != nil {
@@ -443,15 +537,15 @@ func (h *WorkspaceHost) importFile(ctx context.Context, c Call) (json.RawMessage
 	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() || fi.Size() > maxCopyBytes {
 		return nil, fmt.Errorf("%w: not a file, or too large", ErrBadRequest)
 	}
-	node, err := h.Store.Put(ctx, h.Files.Actor(p), abs, f, workspace.PutOptions{BaseVersion: a.BaseVersion, Overwrite: a.Overwrite, MaxSize: maxCopyBytes, Title: "Write " + path.Base(abs)})
+	node, err := h.Store.Put(ctx, x.Actor(), abs, f, workspace.PutOptions{BaseVersion: a.BaseVersion, Overwrite: a.Overwrite, MaxSize: maxCopyBytes, Title: "Write " + path.Base(abs)})
 	if err != nil {
 		return nil, workspaceErr(err)
 	}
-	out := map[string]any{"version": node.Version, "path": h.Files.Rel(p, node.Path)}
+	out := map[string]any{"version": node.Version, "path": addonPath(x, node.Path)}
 	if node.ConflictOf != "" {
 		// Someone changed the file after the add-on read it, so the store kept
 		// both. conflictOf is the path the add-on asked for.
-		out["conflictOf"] = h.Files.Rel(p, node.ConflictOf)
+		out["conflictOf"] = addonPath(x, node.ConflictOf)
 	}
 	return json.Marshal(out)
 }

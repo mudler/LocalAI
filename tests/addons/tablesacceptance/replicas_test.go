@@ -434,6 +434,23 @@ var _ = Describe("Tables upgrade with an explicit check between two packaged ver
 		op := opID("up")
 		done := upgrade(cluster.FrontB, op, installed, candidate)
 		Expect(done.Status).To(Equal(200), done.String())
+		Expect(payload(done)).To(HaveKeyWithValue("Phase", "accepted"))
+		Expect(payload(done)).To(HaveKeyWithValue("OperationID", op))
+		// A running old generation is not evidence that accepted work finished.
+		// Observe the same actor-bound operation through the other frontend.
+		var terminal map[string]any
+		Eventually(func() string {
+			status := d.tab(cluster.FrontA, "admin", "POST", "/api/addons/dispatch", map[string]any{
+				"addonId": "tables", "operationId": op, "action": "operation-status", "arguments": map[string]any{},
+			}, "")
+			Expect(status.Status).To(Equal(200), status.String())
+			terminal = payload(status)
+			Expect(terminal).To(HaveKeyWithValue("OperationID", op))
+			phase, _ := terminal["Phase"].(string)
+			return phase
+		}, 30*time.Second, 100*time.Millisecond).Should(Or(Equal("completed"), Equal("failed")))
+		Expect(terminal).To(HaveKeyWithValue("Phase", "completed"))
+		Expect(terminal).To(HaveKeyWithValue("Generation", float64(genBefore+1)))
 		d.waitState("running")
 		for _, n := range nodes {
 			a := d.app(d.c.Token(n, "admin"))
@@ -442,6 +459,7 @@ var _ = Describe("Tables upgrade with an explicit check between two packaged ver
 		// The same operation from another node is the recorded result.
 		again := upgrade(cluster.FrontA, op, installed, candidate)
 		Expect(again.Status).To(Equal(200), again.String())
+		Expect(payload(again)).To(Equal(terminal), "the same ID replays the terminal receipt without another upgrade")
 		// Data, grants and the receipts survived, and the new generation works.
 		for _, n := range nodes {
 			Expect(d.rowCount(n, "member", res)).To(Equal(before), n)

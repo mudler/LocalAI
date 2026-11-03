@@ -43,7 +43,9 @@ var _ = Describe("a CSV export downloaded through the owner and both frontends",
 		}
 		Expect(json.Unmarshal(raw, &m)).To(Succeed())
 		delete(m.Capabilities, "ui")
-		Expect(c.Library.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Executable: "bin/tables", Binary: tables}, c.Effects)).To(Succeed())
+		skill, err := os.ReadFile("../../../addons/tables/skills/tables-readonly/SKILL.md")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.Library.Add(cluster.Package{ID: "tables", Version: "0.1.0", Capabilities: m.Capabilities, Files: map[string]string{"skills/tables-readonly/SKILL.md": string(skill)}, Executable: "bin/tables", Binary: tables}, c.Effects)).To(Succeed())
 		Expect(c.Up()).To(Succeed())
 		admin := c.Token(cluster.FrontA, "admin")
 		life := func(cl cluster.Client, action string, gen uint64, extra map[string]any) {

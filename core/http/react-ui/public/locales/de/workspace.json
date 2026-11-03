@@ -667,5 +667,15 @@
       "server": "Der Server konnte die Datei nicht speichern."
     },
     "said": "Der Server meldet: {{reason}}."
+  },
+  "picker": {
+    "retry": "Erneut versuchen",
+    "noFolders": "Hier gibt es keine Ordner"
+  },
+  "agentMark": {
+    "usedBy": "Verwendet von {{agents}}",
+    "read": "{{name}} (darf lesen)",
+    "write": "{{name}} (darf lesen und ändern)",
+    "many": "{{count}} Agenten"
   }
 }

@@ -40,22 +40,48 @@ var _ = Describe("studio service at startup", func() {
 		Expect(withAuth.StudioService()).NotTo(BeNil())
 	})
 
-	It("frees a turn that a previous process left running", func() {
-		dbPath := filepath.Join(GinkgoT().TempDir(), "auth.db")
-		dataDir := GinkgoT().TempDir()
-		ctx := context.Background()
-		first := newApp(config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbPath), config.WithDataPath(dataDir))
-		rec, err := first.StudioService().Create(ctx, "u1", studio.CreateInput{Model: "m"})
-		Expect(err).NotTo(HaveOccurred())
-		// The process dies in the middle of a turn: its claim is never released.
-		Expect(first.StudioStore().ClaimTurn(ctx, "u1", rec.ID, "dead-run")).To(Succeed())
-		Expect(first.Shutdown()).To(Succeed())
+	Describe("turns left running in a shared database", func() {
+		start := func(dbPath, dataDir string) *Application {
+			return newApp(config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbPath), config.WithDataPath(dataDir))
+		}
 
-		second := newApp(config.WithAuthEnabled(true), config.WithAuthDatabaseURL(dbPath), config.WithDataPath(dataDir))
-		info, err := second.StudioService().Turn(ctx, "u1", rec.ID)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(info.Running).To(BeFalse())
-		Expect(info.Last).To(Equal(store.TurnInterrupted))
+		It("keeps the turn that another live process is running", func() {
+			dbPath := filepath.Join(GinkgoT().TempDir(), "auth.db")
+			dataDir := GinkgoT().TempDir()
+			ctx := context.Background()
+			first := start(dbPath, dataDir)
+			rec, err := first.StudioService().Create(ctx, "u1", studio.CreateInput{Model: "m"})
+			Expect(err).NotTo(HaveOccurred())
+			// A second process on the same database is beating this claim.
+			Expect(first.StudioStore().ClaimTurn(ctx, "u1", rec.ID, "live-run")).To(Succeed())
+
+			second := start(dbPath, dataDir)
+			info, err := second.StudioService().Turn(ctx, "u1", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Running).To(BeTrue(), "a process starting must not end a live turn of another process")
+			Expect(info.RunID).To(Equal("live-run"))
+		})
+
+		It("frees a turn that stopped beating when a process starts", func() {
+			dbPath := filepath.Join(GinkgoT().TempDir(), "auth.db")
+			dataDir := GinkgoT().TempDir()
+			ctx := context.Background()
+			first := start(dbPath, dataDir)
+			rec, err := first.StudioService().Create(ctx, "u1", studio.CreateInput{Model: "m"})
+			Expect(err).NotTo(HaveOccurred())
+			// The process dies in the middle of a turn: its claim is never released
+			// and its beat goes stale.
+			Expect(first.StudioStore().ClaimTurn(ctx, "u1", rec.ID, "dead-run")).To(Succeed())
+			Expect(first.Shutdown()).To(Succeed())
+			stale := time.Now().Add(-2 * studioTurnTimeout).UTC()
+			Expect(first.authDB.Exec("UPDATE studio_chats SET run_beat = ? WHERE id = ?", stale, rec.ID).Error).To(Succeed())
+
+			second := start(dbPath, dataDir)
+			info, err := second.StudioService().Turn(ctx, "u1", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(info.Running).To(BeFalse())
+			Expect(info.Last).To(Equal(store.TurnInterrupted))
+		})
 	})
 
 	It("gives each model its configured context size", func() {

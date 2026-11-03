@@ -16,6 +16,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/core/services/studio/session/sessiontest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
@@ -29,6 +31,10 @@ type wsFixture struct {
 	files *files.Service
 	data  string
 	host  *WorkspaceHost
+	mgr   *session.Manager
+	// chats makes the access of a chat of alice by its ID. A chat that is not
+	// here and not "plain" or "chat1" does not exist.
+	chats map[string]func() (session.Access, error)
 }
 
 func newWSFixture() *wsFixture {
@@ -49,12 +55,34 @@ func newWSFixture() *wsFixture {
 	fs := files.New(ws)
 	data := filepath.Join(tmp, "data")
 	Expect(os.MkdirAll(filepath.Join(data, "sandbox"), 0o700)).To(Succeed())
-	f := &wsFixture{fixture: &fixture{inflight: NewInFlight(), seen: &Call{}}, files: fs, data: data}
+	mgr, err := session.New(session.Options{Store: sessiontest.NewMemoryStore(), Workspace: ws, Harness: &sessiontest.FakeHarness{}, StateDir: filepath.Join(tmp, "state")})
+	Expect(err).ToNot(HaveOccurred())
+	DeferCleanup(func() { _ = mgr.Close(context.Background()) })
+	f := &wsFixture{fixture: &fixture{inflight: NewInFlight(), seen: &Call{}}, files: fs, data: data, mgr: mgr, chats: map[string]func() (session.Access, error){}}
 	f.b = New(f.inflight, always, contract.DefaultLimits())
 	f.host = &WorkspaceHost{
-		Store: ws, Files: fs,
+		Store:     ws,
 		Principal: func(a contract.Actor) string { return a.UserID }, // empty means no files
 		DataDir:   func(id string) string { return filepath.Join(data, id) },
+		// As the chats service does: a person's own call is user-wide, a
+		// chat's call takes the chat's access.
+		Access: func(ctx context.Context, p, chat string) (session.Access, error) {
+			if chat == "" {
+				if err := fs.EnsureHome(ctx, p); err != nil {
+					return session.Access{}, err
+				}
+				return mgr.PersonAccess(ctx, files.UserActor(p))
+			}
+			if mk, ok := f.chats[chat]; ok && p == "alice" {
+				return mk()
+			}
+			if chat == "plain" || chat == "chat1" {
+				a := files.UserActor(p)
+				a.ChatID = chat
+				return mgr.UserAccess(ctx, a)
+			}
+			return session.Access{}, session.ErrNotFound
+		},
 	}
 	Expect(RegisterWorkspace(f.b, f.host)).To(Succeed())
 	f.h = f.b.Handler("sandbox", "secret", []string{"workspace."})

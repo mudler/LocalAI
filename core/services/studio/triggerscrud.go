@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
@@ -148,6 +149,22 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 		}
 		t.Writes = strings.TrimPrefix(w, "/")
 	}
+	// The agent comes first: a scoped agent's folder bounds a file trigger.
+	var scope *folderScope
+	if t.AgentID != "" {
+		ag, err := h.svc.Agent(ctx, owner, t.AgentID)
+		if err != nil {
+			return t, err
+		}
+		if t.Model == "" {
+			t.Model = ag.Model
+		}
+		if ag.HasFolder() {
+			if scope, err = h.svc.liveFolder(ctx, owner, ag); err != nil {
+				return t, scopeErr(err)
+			}
+		}
+	}
 	switch in.Kind {
 	case triggers.KindSchedule:
 		sch, err := triggers.ParseSchedule(in.Schedule)
@@ -163,20 +180,10 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 		if err != nil {
 			return t, bad("the folder is not a path in your files")
 		}
-		n, err := h.svc.d.Files.Store().Stat(ctx, h.svc.d.Files.Actor(owner), abs)
-		if err != nil || n.Kind != workspace.KindDir {
-			return t, bad("the folder %s does not exist in your files", in.Folder)
-		}
-		t.Folder = abs
-	}
-	if t.AgentID != "" {
-		ag, err := h.svc.Agent(ctx, owner, t.AgentID)
-		if err != nil {
+		if err := h.checkTriggerFolder(ctx, owner, abs, scope); err != nil {
 			return t, err
 		}
-		if t.Model == "" {
-			t.Model = ag.Model
-		}
+		t.Folder = abs
 	}
 	if t.Model == "" && t.SourceChatID != "" {
 		if src, err := h.svc.d.Store.GetChat(ctx, owner, t.SourceChatID); err == nil {
@@ -190,6 +197,37 @@ func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (tr
 		return t, bad("%v", err)
 	}
 	return t, nil
+}
+
+// errOutsideFolder is the refusal of a file trigger of a scoped agent whose
+// folder is outside the agent's folder.
+var errOutsideFolder = bad("the trigger's folder must be inside the agent's folder")
+
+// scopeErr is the refusal of a trigger whose agent's folder cannot be found.
+func scopeErr(err error) error {
+	if errors.Is(err, ErrAgentFolderMissing) {
+		return bad("the agent's folder is missing: choose a folder in the agent's settings")
+	}
+	return err
+}
+
+// checkTriggerFolder checks the folder abs of a file trigger: inside the
+// agent's folder for a scoped agent (scope not nil), and a folder the agent
+// (or, without a folder, the owner) can read. The check reads as the agent,
+// so it says nothing about a folder outside.
+func (h *Triggers) checkTriggerFolder(ctx context.Context, owner, abs string, scope *folderScope) error {
+	if scope != nil && !scope.contains(abs) {
+		return errOutsideFolder
+	}
+	n, err := h.svc.d.Files.Store().Stat(ctx, agentReader(owner, scope), abs)
+	if err != nil || n.Kind != workspace.KindDir {
+		shown := h.RelPath(owner, abs)
+		if g, ok := scope.guest(abs); ok {
+			shown = g
+		}
+		return bad("the folder %s does not exist in your files", shown)
+	}
+	return nil
 }
 
 // CreateTrigger makes a trigger of the user. It is armed now: it runs nothing
@@ -404,9 +442,20 @@ func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (tr
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
 	}
-	// A folder that was readable when it was proposed may be gone now.
+	// A folder that was readable when it was proposed may be gone now, and
+	// the agent's folder may have moved or gone since.
+	scope, err := h.svc.agentScope(ctx, t.Owner, t.AgentID)
+	switch {
+	case errors.Is(err, agents.ErrNotFound):
+		// The run says the agent was deleted, as for any trigger.
+	case err != nil:
+		return triggers.Trigger{}, scopeErr(err)
+	}
 	if t.Kind == triggers.KindFile {
-		if n, err := h.svc.d.Files.Store().Stat(ctx, h.svc.d.Files.Actor(t.Owner), t.Folder); err != nil || n.Kind != workspace.KindDir {
+		if scope != nil && !scope.contains(t.Folder) {
+			return triggers.Trigger{}, errOutsideFolder
+		}
+		if n, err := h.svc.d.Files.Store().Stat(ctx, agentReader(t.Owner, scope), t.Folder); err != nil || n.Kind != workspace.KindDir {
 			return triggers.Trigger{}, bad("the folder does not exist in your files any more")
 		}
 	}

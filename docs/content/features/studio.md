@@ -6,7 +6,7 @@ url = "/features/studio/"
 +++
 
 {{% notice note %}}
-Studio is an add-on. It is not part of the web bundle: install it from **Find add-ons** in the [Add-ons](../addons/#the-studio-add-on) page with **Install and turn on**. Once it is usable, it is in My add-ons and can be shown in the sidebar, and it opens at `/app/addons/studio/studio`. The old links (`/app/studio`, `/app/image` and the other generator links) open it there.
+Studio is an add-on. It is not part of the web bundle: install it from **Find add-ons** in the [Add-ons](../addons/#the-studio-add-on) page with **Install and turn on**. Once it is usable, it is in My add-ons and can be shown in the sidebar, and it opens at `/app/addons/studio/studio`. Use its canonical add-on page address.
 {{% /notice %}}
 
 Studio is the part of the web UI where you make images, video, 3D objects, speech, sound and transformed audio, and find what you made before. It opens on a front page with a prompt box and your own work. Each type still has its own workspace page (Images, Video, 3D, TTS, Sound, Transform, Diarization) where a run happens.
@@ -75,4 +75,4 @@ Diarization lists who spoke when as one lane per speaker, the talk time of each 
 
 ## What a workspace accepts from the front page
 
-The workspaces read these query parameters, so a link of your own works too: `prompt`, `model`, `size`, `n` (count), `from` (the id of the result it starts from) and `edge` (how). For example `/app/studio/video?prompt=Slow%20push-in&from=<id>&edge=animate`.
+The workspaces read these query parameters, so a link of your own works too: `prompt`, `model`, `size`, `n` (count), `from` (the id of the result it starts from) and `edge` (how). For example `/app/addons/studio/studio/video?prompt=Slow%20push-in&from=<id>&edge=animate`.

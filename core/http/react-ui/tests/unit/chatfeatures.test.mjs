@@ -142,21 +142,19 @@ test('tool refusals: the typed codes of the add-on tools are read, an untyped er
   assert.equal(toolRefusal('read_file: /a\nplain text'), null)
 })
 
-test('sandbox state: the Tools picker reads isolated, host, cannot-run or unknown from the status read', async () => {
-  const { sandboxState } = await import('../../src/utils/sandboxStatus.js')
-  assert.deepEqual(sandboxState({ ok: true, canRun: true, active: 'gvisor' }), { state: 'isolated', backend: 'gvisor', reason: '' })
-  assert.equal(sandboxState({ ok: true, canRun: true, active: 'host', hostNotice: true }).state, 'host')
-  assert.deepEqual(sandboxState({ ok: true, canRun: false, backends: [{ name: 'kvm', usable: false, reason: 'no /dev/kvm' }] }), { state: 'cannot', backend: '', reason: 'no /dev/kvm' })
-  assert.equal(sandboxState(null).state, 'unknown')
-  assert.equal(sandboxState({ ok: false }).state, 'unknown')
-  const { startingState } = await import('../../src/utils/sandboxStatus.js')
-  assert.deepEqual(startingState(4000.4), { state: 'starting', backend: '', reason: '', retryMs: 4000 })
+test('command state: private discovery fields cannot establish selected provider isolation', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  for (const provider of ['copper-runner', 'violet-executor']) {
+    const res = { commands: 'available', commands_provider: provider, ok: true, canRun: true, active: 'gvisor' }
+    assert.equal(commandsState(res).state, 'unknown')
+    assert.equal(commandsState({ ...res, execution_status: { readiness: 'available', isolation: 'isolated' } }).state, 'available')
+    assert.equal(commandsState({ ...res, execution_status: { readiness: 'unknown', isolation: 'isolated' } }).state, 'unknown')
+  }
 })
 
-test('home actions: an administrator without Studio gets Install Studio under the same command', async () => {
+test('home actions: only generic Apps browsing is native, never an install command', async () => {
   const { availableActions } = await import('../../src/components/home/homeActions.js')
-  const ids = (ctx) => availableActions(ctx).filter(a => a.cmd === '/studio').map(a => a.id)
-  assert.deepEqual(ids({ isAdmin: true, studioInstalled: false }), ['studioInstall'])
-  assert.deepEqual(ids({ isAdmin: true, studioInstalled: true }), ['studio'])
-  assert.deepEqual(ids({ isAdmin: false, studioInstalled: false }), [])
+  assert.ok(availableActions({ hasAddons: true }).some(a => a.cmd === '/apps'))
+  assert.ok(!availableActions({ hasAddons: false }).some(a => a.cmd === '/apps'))
+  assert.ok(!availableActions({ isAdmin: true }).some(a => a.cmd === '/studio'))
 })

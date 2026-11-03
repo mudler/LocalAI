@@ -4,12 +4,16 @@ import (
 	. "github.com/mudler/LocalAI/core/services/studio/workspace"
 
 	"context"
+	"errors"
+	"slices"
 	"sort"
 	"strings"
 )
 
+// isAdmin reports whether a is the administrator. A fenced actor never is,
+// whatever its principal: the fence would mean nothing otherwise.
 func (s *Workspace) isAdmin(a Actor) bool {
-	return s.admin != "" && a.Principal == s.admin
+	return s.admin != "" && a.Principal == s.admin && !HasFence(a)
 }
 
 // Grant gives principal mode m on the folder p and everything below it.
@@ -49,6 +53,9 @@ func (s *Workspace) Revoke(ctx context.Context, admin Actor, principal, p string
 // the mode the actor has.
 func (s *Workspace) View(ctx context.Context, a Actor, reqs []MountRequest) (View, error) {
 	v := View{Actor: a}
+	if err := CheckFence(a); err != nil {
+		return View{}, err
+	}
 	seen := map[string]bool{}
 	for _, r := range reqs {
 		at, err := cleanName(r.At)
@@ -89,7 +96,8 @@ func (s *Workspace) View(ctx context.Context, a Actor, reqs []MountRequest) (Vie
 
 // ReadablePrefixes returns the folder paths where the actor has read access or
 // more, without a path that is under another one in the list, sorted. The
-// admin gets ["/"]. An actor with no grant gets an empty list.
+// admin gets ["/"]. An actor with no grant gets an empty list. A fenced actor
+// gets only folders that are roots of its fence or inside them.
 func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, error) {
 	if s.isAdmin(a) {
 		return []string{"/"}, nil
@@ -97,6 +105,9 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 	out := []string{}
 	if a.Principal == "" {
 		return out, nil
+	}
+	if err := CheckFence(a); err != nil {
+		return nil, err
 	}
 	ps := principals(a)
 	args := []any{int(ModeRead)}
@@ -122,6 +133,11 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 	if err != nil {
 		return nil, err
 	}
+	if HasFence(a) {
+		if ids, err = s.fencedPrefixNodes(ctx, a, ids); err != nil {
+			return nil, err
+		}
+	}
 	var paths []string
 	for _, id := range ids {
 		p, err := pathOf(ctx, s.db, id)
@@ -145,6 +161,37 @@ func (s *Workspace) ReadablePrefixes(ctx context.Context, a Actor) ([]string, er
 		}
 		if !covered {
 			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+// fencedPrefixNodes keeps, of the granted folders and the roots of the
+// actor's fence, the live folders the actor can read. A grant may cover more
+// than the fence and a root may lie outside every grant, so both must allow
+// the folder.
+func (s *Workspace) fencedPrefixNodes(ctx context.Context, a Actor, granted []int64) ([]int64, error) {
+	var out []int64
+	for _, id := range append(granted, FenceNodes(a)...) {
+		if slices.Contains(out, id) {
+			continue
+		}
+		n, err := getNode(ctx, s.db, id)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if n.deleted || n.kind != KindDir {
+			continue
+		}
+		m, err := s.access(ctx, s.db, a, id)
+		if err != nil {
+			return nil, err
+		}
+		if m >= ModeRead {
+			out = append(out, id)
 		}
 	}
 	return out, nil

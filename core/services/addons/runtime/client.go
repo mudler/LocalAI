@@ -26,6 +26,8 @@ type Client struct {
 	mu                   sync.Mutex
 	accept               bool
 	active               int
+	observationLeases    int
+	observations         map[string]context.CancelFunc
 	endpoint, credential string
 	registration         Registration
 	limits               contract.Limits
@@ -45,16 +47,23 @@ func newClient(r Registration, credential string, l contract.Limits) (*Client, e
 	t := httpclient.HardenedTransport()
 	t.Proxy = nil
 	t.MaxResponseHeaderBytes = 16 << 10
-	return &Client{endpoint: r.Endpoint, credential: credential, registration: r, limits: l, http: httpclient.New(httpclient.WithTransport(t))}, nil
+	return &Client{inflight: hostops.NewInFlight(), endpoint: r.Endpoint, credential: credential, registration: r, limits: l, http: httpclient.New(httpclient.WithTransport(t))}, nil
 }
 func (c *Client) admitting() bool { c.mu.Lock(); defer c.mu.Unlock(); return c.accept }
-func (c *Client) withdraw()       { c.mu.Lock(); c.accept = false; c.mu.Unlock() }
+func (c *Client) withdraw() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.accept = false
+	for _, cancel := range c.observations {
+		cancel()
+	}
+}
 func (c *Client) drain(ctx context.Context) {
 	ticker := time.NewTicker(time.Millisecond)
 	defer ticker.Stop()
 	for {
 		c.mu.Lock()
-		n := c.active
+		n := c.active + c.observationLeases
 		c.mu.Unlock()
 		if n == 0 {
 			return
@@ -176,13 +185,18 @@ func (c *Client) health(ctx context.Context, r Registration) error {
 	return nil
 }
 
-// begin records the envelope of a call for the host operation channel. The
-// returned function ends the record.
-func (c *Client) begin(env *contract.Envelope) func() {
+// begin records the envelope of a call for the host operation channel, with
+// the chat the call was made for when ctx carries one (hostops.WithBinding).
+// The binding stays in the host's record: the envelope sent to the add-on is
+// the same with or without it. The returned function ends the record.
+func (c *Client) begin(ctx context.Context, env *contract.Envelope) func() {
 	if c.inflight == nil || env == nil {
 		return func() {}
 	}
-	return c.inflight.Begin(*env)
+	if b, ok := hostops.BindingOf(ctx); ok {
+		return c.inflight.BeginRuntime(*env, b, true, c.registration.Incarnation)
+	}
+	return c.inflight.BeginRuntime(*env, hostops.Binding{}, false, c.registration.Incarnation)
 }
 func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, in, out any, timeout time.Duration) error {
 	done, e := c.admit()
@@ -190,7 +204,7 @@ func (c *Client) call(ctx context.Context, path string, env *contract.Envelope, 
 		return e
 	}
 	defer done()
-	defer c.begin(env)()
+	defer c.begin(ctx, env)()
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	resp, e := c.send(ctx, path, in)
@@ -317,7 +331,7 @@ func (c *Client) OpenOutput(ctx context.Context, v contract.Envelope, handle str
 		return nil, e
 	}
 	// The record lasts as long as the stream, like the admission slot.
-	end := c.begin(&v)
+	end := c.begin(ctx, &v)
 	done := func() { end(); admitted() }
 	ctx, cancel := context.WithTimeout(ctx, c.limits.ReadTimeout)
 	resp, e := c.send(ctx, "/output", OutputRequest{v, handle})

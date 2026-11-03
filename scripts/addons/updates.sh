@@ -88,6 +88,7 @@ m['version'] = '0.1.0-dev'
 json.dump(m, open(sys.argv[2], 'w'))
 PY
     cp -R "$pkg/dist/ui" "$d/ui"
+    cp -R "$root/addons/tables/skills" "$d/skills"
     printf 'build %s\n' "$n" >"$d/build.txt"
     printf 'development\n' >"$d/.fixture-channel"
     printf '%s\n' "$n" >"$d/.fixture-generation"

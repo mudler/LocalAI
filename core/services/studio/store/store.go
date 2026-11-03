@@ -118,6 +118,10 @@ type Store interface {
 	// switched on, the way SetAddonsOff does for add-ons.
 	SetBuiltinsOn(ctx context.Context, principal, chatID string, on []string) error
 
+	// SetScopedAgent sets ChatRecord.ScopedAgent. UpdateChat leaves it alone,
+	// like the switches above.
+	SetScopedAgent(ctx context.Context, principal, chatID string, scoped bool) error
+
 	// SetHostConsent sets the consent card of the built-in bash that waits for
 	// an answer, or clears it with nil. UpdateChat leaves it alone, like the
 	// switches above.
@@ -164,11 +168,12 @@ type Store interface {
 	// TouchTurn records that the run holding the chat is still alive. The
 	// frontend that runs a turn calls it on a timer.
 	TouchTurn(ctx context.Context, principal, chatID, runID string) error
-	// ReapTurns ends every running turn whose last sign of life is before
-	// olderThan: the chat is free again, its last outcome is interrupted, and
+	// ReapTurns ends every running turn that has not beaten for idle, measured
+	// on the clock of the store, so that frontends with different clocks agree:
+	// the chat is free again, its last outcome is interrupted, and
 	// the messages a request took but nobody confirmed are undelivered again. A
 	// frontend that died leaves such turns behind. It returns the turns it ended.
-	ReapTurns(ctx context.Context, olderThan time.Time) ([]ReapedTurn, error)
+	ReapTurns(ctx context.Context, idle time.Duration) ([]ReapedTurn, error)
 	// Turn returns the turn state of the chat.
 	Turn(ctx context.Context, principal, chatID string) (TurnInfo, error)
 }

@@ -2,6 +2,7 @@ package studio
 
 import (
 	"context"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"slices"
 	"time"
 
@@ -69,9 +70,9 @@ func (s *Service) AdminBuiltinTools(ctx context.Context, user string) ([]Builtin
 			}
 		}
 	}
-	var pins map[string]string
-	if s.d.ToolPins != nil {
-		pins = s.d.ToolPins()
+	pins, err := s.toolPins(ctx)
+	if err != nil {
+		return nil, err
 	}
 	// The running candidates come from the tools; the lister adds the
 	// installed add-ons that are stopped, so an administrator can choose one
@@ -192,8 +193,15 @@ type BuiltinSkillInfo struct {
 // built-in skills that at least one installed add-on replaces: who serves each
 // one now and the add-ons to choose from. The choice is the same pin map as
 // for the tools (chats_tool_providers).
-func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) []BuiltinSkillInfo {
-	ad := s.addonSkillsFor(ctx, principal(user), nil, nil)
+func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) ([]BuiltinSkillInfo, error) {
+	command, err := s.addonCommandDescriptor(ctx, principal(user), session.ChatRecord{}, nil)
+	if err != nil {
+		return nil, err
+	}
+	ad, err := s.addonSkillsFor(ctx, principal(user), nil, nil, command)
+	if err != nil {
+		return nil, err
+	}
 	var out []BuiltinSkillInfo
 	for _, name := range contract.ReplaceableSkills {
 		info := BuiltinSkillInfo{ID: name, Pinned: ad.pins[name], Titles: map[string]string{}}
@@ -215,7 +223,7 @@ func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) []Builtin
 		}
 		out = append(out, info)
 	}
-	return out
+	return out, nil
 }
 
 // installTimesOf keeps the known install times of ids.

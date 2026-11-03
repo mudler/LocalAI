@@ -62,7 +62,7 @@ var _ = Describe("action tools in the adapter", func() {
 
 	It("runs an action tool for the chats adapter as the actor, with the act action, and returns its payload", func() {
 		f, _, chats := build()
-		res, err := chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Kind).To(Equal(tools.ResultData))
 		Expect(res.JSON()).To(ContainSubstring("hi"))
@@ -78,12 +78,12 @@ var _ = Describe("action tools in the adapter", func() {
 
 	It("tells an action tool which conversation it runs in, from the chat and never from the model", func() {
 		f, _, chats := build()
-		_, err := chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))
+		_, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), tools.ToolName("sandbox", "bash"), args(`{"command":"echo hi"}`))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(f.acts[0].Request.ResourceID).To(Equal(toolargs.ActionResourceID("conv1")))
 		Expect(toolargs.ValidResourceID(f.acts[0].Request.ResourceID)).To(BeTrue())
 		// The arguments cannot name it: the schema has no such property.
-		_, err = chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"x","resourceId":"conv2"}`))
+		_, err = chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), tools.ToolName("sandbox", "bash"), args(`{"command":"x","resourceId":"conv2"}`))
 		Expect(f.acts).To(HaveLen(1), "the second call must not reach the owner")
 		Expect(err).To(HaveOccurred())
 		// A call with no conversation has none to give.
@@ -103,14 +103,14 @@ var _ = Describe("action tools in the adapter", func() {
 	It("is unavailable when the owner cannot act, and never falls back to a read or a proposal", func() {
 		f := &fake{list: apps.List{Apps: []apps.App{sandboxApp()}}}
 		chats := tools.NewChatToolAdapter(f)
-		_, err := chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"x"}`))
+		_, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), tools.ToolName("sandbox", "bash"), args(`{"command":"x"}`))
 		Expect(err).To(HaveOccurred())
 		Expect(f.calls()).To(BeZero())
 	})
 
 	It("keeps the argument rules: an identity argument is refused before anything runs", func() {
 		f, _, chats := build()
-		_, err := chats.ExecuteIn(ctx, member, "conv1", tools.ToolName("sandbox", "bash"), args(`{"command":"x","userId":"root"}`))
+		_, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), tools.ToolName("sandbox", "bash"), args(`{"command":"x","userId":"root"}`))
 		Expect(err).To(HaveOccurred())
 		Expect(f.acts).To(BeEmpty())
 	})

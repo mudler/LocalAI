@@ -1,5 +1,17 @@
 # Add-on navigation Implementation Plan
 
+
+> Routing update: historical addon-specific redirect requirements below are
+> superseded by the approved model-actions amendment (2026-11-02). Use declared
+> canonical add-on pages; native chat handoff and addon-local adapters remain.
+
+> Pin behavior update: the unreleased seed proposal and seed code examples below are
+> superseded. Startup adds no implicit pins and does not scan accounts. Existing saved
+> pins remain intact. Explicit selections persist across reopen and frontends. Studio,
+> Talk, and arbitrary never-installed IDs use equal retention. See the current
+> [pin behavior](../../content/features/addons.md) and [design](../specs/2026-10-16-addons-navigation-design.md#explicit-pins).
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace the long sidebar with four top-level items (Chat, Models, Add-ons, Settings) and a per-user Pinned section, and move Studio, Talk, fine-tuning, quantization, the Voice add-on and the Face add-on behind the Add-ons drawer without breaking any old URL or weakening any permission. Voice, Face, fine-tuning and quantization are add-on packages that do not ship with LocalAI: users find them in Browse add-ons and, once installed, in the drawer.

@@ -33,7 +33,11 @@ func (s *Service) DraftAddons(ctx context.Context, user, model, agentID string) 
 	if err != nil {
 		return nil, Commands{}, err
 	}
-	return list, s.commandsFor(ctx, principal(user), rec), nil
+	commands, err := s.commandsFor(ctx, principal(user), rec)
+	if err != nil {
+		return nil, Commands{}, err
+	}
+	return list, commands, nil
 }
 
 // draftRecord is the record a new chat would have, with no ID and no switch.

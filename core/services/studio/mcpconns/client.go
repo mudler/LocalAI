@@ -16,6 +16,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/httpclient"
 	"github.com/mudler/LocalAI/pkg/mcptransport"
+	"github.com/mudler/LocalAI/pkg/web/safehttp"
 )
 
 // maxTools bounds what one server may offer.
@@ -73,7 +74,15 @@ func (s *Service) httpClientFor(c Connector, sec Secrets) (*http.Client, error) 
 	}
 	maps.Copy(headers, sec.Headers)
 	if s.o.AllowPrivate() {
-		rt := &headerRT{base: httpclient.HardenedTransport(), origin: origin, headers: headers}
+		// Private networks are allowed, but not the cloud metadata addresses
+		// or the addresses of DenyAddrs. The guard resolves once, checks every
+		// answer and dials the checked address. No proxy: it would be dialed
+		// instead of the target and the target would not be checked.
+		g := safehttp.NewGuard(safehttp.GuardPolicy{AllowPrivate: true, DenyAddrs: s.o.DenyAddrs}, nil)
+		t := httpclient.HardenedTransport()
+		t.Proxy = nil
+		t.DialContext = g.DialContext
+		rt := &headerRT{base: t, origin: origin, headers: headers}
 		return httpclient.New(httpclient.WithTransport(rt)), nil
 	}
 	rt := &headerRT{base: httpclient.New(httpclient.WithExternalOnly()).Transport, origin: origin, headers: headers}

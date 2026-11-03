@@ -28,19 +28,18 @@ var _ = Describe("Two frontends over one database", func() {
 		Expect(got).To(Equal([]string{"x", "talk"}), "the second frontend sees a different list")
 	})
 
-	// Two frontends that start together run the upgrade seed once between them.
-	It("seed once when they start together", func() {
+	// Opening a second frontend does not alter a saved selection.
+	It("preserve explicit unpins when another frontend opens", func() {
 		db, err := auth.InitDB(":memory:")
-		Expect(err).ToNot(HaveOccurred())
-		a, _ := NewGormStore(db)
-		b, _ := NewGormStore(db)
+		Expect(err).NotTo(HaveOccurred())
+		a, err := NewGormStore(db)
+		Expect(err).NotTo(HaveOccurred())
 		ctx := context.Background()
-		ranA, errA := a.SeedExisting(ctx, []string{"u1"}, SeedIDs)
-		ranB, errB := b.SeedExisting(ctx, []string{"u1"}, SeedIDs)
-		Expect(errA).ToNot(HaveOccurred())
-		Expect(errB).ToNot(HaveOccurred())
-		Expect(ranA).ToNot(Equal(ranB), "exactly one frontend must seed")
-		got, _ := a.List(ctx, "u1")
-		Expect(idsOf(got)).To(Equal([]string{"studio", "talk"}), "seeded twice or not at all")
+		Expect(a.Replace(ctx, "u1", []string{"studio", "talk"})).To(Succeed())
+		Expect(a.Replace(ctx, "u1", []string{})).To(Succeed())
+		b, err := NewGormStore(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(b.List(ctx, "u1")).To(BeEmpty())
+		Expect(b.List(ctx, "u2")).To(BeEmpty())
 	})
 })

@@ -3,11 +3,68 @@ name: 'tests'
 
 on:
   pull_request:
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'backend/cpp/**'
+      - 'gallery/**'
+      - 'docs/content/features/addons.md'
+      - 'docs/content/features/tables.md'
+      - 'docs/content/features/image-generation.md'
+      - 'docs/content/features/diagnostics.md'
+      - 'docs/content/reference/cli-reference.md'
+      - 'docs/content/getting-started/troubleshooting.md'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/test.yml'
+      - 'backend/index.yaml'
+      - 'coverage-baseline.txt'
   push:
-    branches:
-      - master
-    tags:
-      - '*'
+    branches: [master]
+    tags: ['*']
+    paths:
+      - 'core/**'
+      - 'pkg/**'
+      - 'cmd/**'
+      - 'internal/**'
+      - 'backend/go/**'
+      - 'backend/*.proto'
+      - 'backend/*/*.proto'
+      - 'addons/**'
+      - 'tests/**'
+      - 'configuration/**'
+      - 'swagger/**'
+      - 'prompt-templates/**'
+      - 'backend/cpp/**'
+      - 'gallery/**'
+      - 'docs/content/features/addons.md'
+      - 'docs/content/features/tables.md'
+      - 'docs/content/features/image-generation.md'
+      - 'docs/content/features/diagnostics.md'
+      - 'docs/content/reference/cli-reference.md'
+      - 'docs/content/getting-started/troubleshooting.md'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Makefile'
+      - 'scripts/**'
+      - '.github/actions/**'
+      - '.github/workflows/test.yml'
+      - 'backend/index.yaml'
+      - 'coverage-baseline.txt'
+  workflow_dispatch:
 
 concurrency:
   group: ci-tests-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
@@ -72,7 +129,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install curl ffmpeg libopus-dev
+          sudo apt-get install curl ffmpeg libopus-dev poppler-utils
       - name: Setup Node.js
         uses: actions/setup-node@v7
         with:
@@ -143,7 +200,7 @@ jobs:
         run: go version
       - name: Dependencies
         run: |
-          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm opus ffmpeg poppler
           pip install --user --no-cache-dir grpcio-tools grpcio
       - name: Setup Node.js
         uses: actions/setup-node@v7

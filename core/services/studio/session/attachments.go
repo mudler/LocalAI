@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path"
 	"strings"
+
+	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
 // Attachment is a file the user attached to a message. The transcript keeps
@@ -24,8 +26,35 @@ type Attachment struct {
 	Missing bool `json:"-"`
 }
 
-// GuestPath is the path the model's tools use for the file.
+// GuestPath is the path the model's tools use for the file in a chat that
+// works on the whole home. It is also the spelling a stored message keeps
+// (SplitMessage reads it back).
 func (a Attachment) GuestPath() string { return guestHomeRoot + a.Path }
+
+// GuestPathIn is the path the tools of a chat with place p use for the file.
+// In a scoped chat (its agent works in one folder) a file of the chat's own
+// folder is under /workspace/chat: the file tools, the media tools and the
+// commands all see it there, and the home spelling names nothing for a
+// command. Any other file, and every file of an unscoped chat, keeps
+// GuestPath.
+func (a Attachment) GuestPathIn(p Place) string {
+	if !p.Scoped() || p.Home() == "" {
+		return a.GuestPath()
+	}
+	chat := p.Chat()
+	if chat == "" {
+		return a.GuestPath()
+	}
+	segs, err := workspace.SplitPath(a.Path)
+	if err != nil || len(segs) == 0 {
+		return a.GuestPath()
+	}
+	abs := p.Home() + workspace.JoinPath(segs)
+	if abs != chat && !strings.HasPrefix(abs, chat+"/") {
+		return a.GuestPath()
+	}
+	return guestOf(GuestChat, chat, abs)
+}
 
 // guestHomeRoot is the home folder as the model's tools see it.
 const guestHomeRoot = GuestRoot + "/" + GuestHome
@@ -38,6 +67,13 @@ const attachedHead = "The user attached these files:\n"
 // then the guest paths of the files. A message sent before the transcript kept
 // the files apart holds this text as it is.
 func ComposeMessage(text, note string, atts []Attachment) string {
+	return ComposeMessageIn(text, note, atts, Place{})
+}
+
+// ComposeMessageIn is ComposeMessage with the files named as the tools of a
+// chat with place p see them (GuestPathIn). It is the text the model gets;
+// what is stored keeps ComposeMessage's spelling.
+func ComposeMessageIn(text, note string, atts []Attachment, p Place) string {
 	body := strings.TrimSpace(text + note)
 	if len(atts) == 0 {
 		return body
@@ -48,7 +84,7 @@ func ComposeMessage(text, note string, atts []Attachment) string {
 	}
 	b.WriteString(attachedHead)
 	for _, a := range atts {
-		b.WriteString("- " + a.GuestPath() + "\n")
+		b.WriteString("- " + a.GuestPathIn(p) + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
@@ -174,10 +210,14 @@ func DisplayEntry(e Entry) Entry {
 
 // ModelText is the text the model gets for an entry: for a user message, the
 // words, the text read from the files and the list of the files.
-func ModelText(e Entry) string {
+func ModelText(e Entry) string { return ModelTextIn(e, Place{}) }
+
+// ModelTextIn is ModelText for a chat with place p: the files of a user
+// message are named as that chat's tools see them (GuestPathIn).
+func ModelTextIn(e Entry, p Place) string {
 	text := e.Text
 	if e.Role == RoleUser && (len(e.Attachments) > 0 || e.Note != "") {
-		text = ComposeMessage(e.Text, e.Note, e.Attachments)
+		text = ComposeMessageIn(e.Text, e.Note, e.Attachments, p)
 	}
 	if e.Role == RoleUser && e.Loop != nil {
 		text = LoopPreamble(*e.Loop) + "\n\n" + text

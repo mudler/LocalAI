@@ -42,19 +42,18 @@ type Limits struct {
 	HeaderBytes       int           // size of a request head
 	UpBytes           int64         // bytes from the guest, per call
 	DownBytes         int64         // bytes to the guest, per call
-	CacheTTL          time.Duration // an allow verdict, within one call
 	CheckTimeout      time.Duration // one egress.check, card wait included
 }
 
 // DefaultLimits are the limits of the design: 32 tunnels per sandbox, 256 per
 // process, 20 new connections a second (burst 40), a 10 s dial, 120 s idle,
-// 64 MiB up and 4 GiB down per call, an allow cached 30 s.
+// 64 MiB up and 4 GiB down per call. Every connection needs a fresh verdict.
 func DefaultLimits() Limits {
 	return Limits{
 		TunnelsPerSandbox: 32, TunnelsTotal: 256, Rate: 20, Burst: 40,
 		Dial: 10 * time.Second, Idle: 120 * time.Second, Header: 30 * time.Second, Hello: 10 * time.Second,
 		HeaderBytes: 16 << 10, UpBytes: 64 << 20, DownBytes: 4 << 30,
-		CacheTTL: 30 * time.Second, CheckTimeout: 75 * time.Second,
+		CheckTimeout: 75 * time.Second,
 	}
 }
 
@@ -173,9 +172,6 @@ func New(o Options) *Proxy {
 	if l.DownBytes <= 0 {
 		l.DownBytes = d.DownBytes
 	}
-	if l.CacheTTL <= 0 {
-		l.CacheTTL = d.CacheTTL
-	}
 	if l.CheckTimeout <= 0 {
 		l.CheckTimeout = d.CheckTimeout
 	}
@@ -223,9 +219,8 @@ type box struct {
 	last    time.Time
 	up      int64
 	down    int64
-	cache   map[string]time.Time // allowed host:port of the call, until
-	events  []Event              // audit lines of the call, not sent yet
-	idle    []Event              // connections while no call ran
+	events  []Event // audit lines of the call, not sent yet
+	idle    []Event // connections while no call ran
 }
 
 func (p *Proxy) box(key string) *box {
@@ -233,7 +228,7 @@ func (p *Proxy) box(key string) *box {
 	defer p.mu.Unlock()
 	b := p.boxes[key]
 	if b == nil {
-		b = &box{cache: map[string]time.Time{}, tokens: float64(p.o.Limits.Burst)}
+		b = &box{tokens: float64(p.o.Limits.Burst)}
 		p.boxes[key] = b
 	}
 	return b
@@ -257,7 +252,6 @@ func (p *Proxy) Begin(ctx context.Context, user, conv, op string) (end func()) {
 	b.mu.Lock()
 	b.op, b.callCtx, b.cancel = op, callCtx, cancel
 	b.up, b.down = 0, 0
-	b.cache = map[string]time.Time{}
 	idle := b.idle
 	b.idle = nil
 	b.mu.Unlock()
@@ -278,7 +272,6 @@ func (p *Proxy) Begin(ctx context.Context, user, conv, op string) (end func()) {
 			evs := b.events
 			b.events = nil
 			b.op, b.callCtx, b.cancel = "", nil, nil
-			b.cache = map[string]time.Time{}
 			b.mu.Unlock()
 			if len(evs) > 0 {
 				p.send(ctx, op, evs)
@@ -362,28 +355,10 @@ func (b *box) call() (op string, ctx context.Context, done func()) {
 	return b.op, b.callCtx, b.conns.Done
 }
 
-// cached says whether an allow of host:port is cached for the call.
-func (p *Proxy) cached(b *box, k string) bool {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	until, ok := b.cache[k]
-	return ok && p.o.Now().Before(until)
-}
-
-func (p *Proxy) cache(b *box, k string) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.cache[k] = p.o.Now().Add(p.o.Limits.CacheTTL)
-}
-
-// verdict asks the host, or uses an allow cached for the call. A block or an
-// ask is never cached, so a card answer applies at once. A host that does not
-// answer blocks.
+// verdict asks the host for every new upstream connection, including HTTP
+// requests on a kept-alive guest connection. No verdict is cached: a previous
+// allow must not bypass a policy change, consumed grant, or unavailable owner.
 func (p *Proxy) verdict(ctx context.Context, b *box, op string, a CheckArgs) Verdict {
-	k := net.JoinHostPort(a.Host, strconv.Itoa(a.Port))
-	if !a.Private && p.cached(b, k) {
-		return Verdict{Action: "allow", Reason: "cached"}
-	}
 	cctx, cancel := context.WithTimeout(ctx, p.o.Limits.CheckTimeout)
 	defer cancel()
 	v, err := p.o.Host.Check(cctx, op, a)
@@ -391,9 +366,6 @@ func (p *Proxy) verdict(ctx context.Context, b *box, op string, a CheckArgs) Ver
 		return Verdict{Action: "block", Reason: "unavailable"}
 	}
 	p.learn(v)
-	if v.Action == "allow" && !a.Private && !v.AllowPrivate {
-		p.cache(b, k)
-	}
 	return v
 }
 

@@ -5,6 +5,11 @@
   },
   "arch": "amd64",
   "capabilities": {
+    "hostOperations": {
+      "optional": [
+        "workspace.admin"
+      ]
+    },
     "toolDefinitions": [
       {
         "name": "search",

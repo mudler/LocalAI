@@ -61,6 +61,7 @@ rm -rf "$fixture_dir"
 mkdir -p "$fixture_dir/tables" "$fixture_dir/tables-next"
 cp "$root/addons/tables/manifest.json" "$fixture_dir/tables/manifest.json"
 cp -R "$pkg/dist/ui" "$fixture_dir/tables/ui"
+cp -R "$root/addons/tables/skills" "$fixture_dir/tables/skills"
 # A second release, for the stale-tab checks: the same package, one patch up.
 python3 -I - "$root/addons/tables/manifest.json" "$fixture_dir/tables-next/manifest.json" <<'PY'
 import json, sys
@@ -69,6 +70,7 @@ m['version'] = '0.1.1'
 json.dump(m, open(sys.argv[2], 'w'))
 PY
 cp -R "$pkg/dist/ui" "$fixture_dir/tables-next/ui"
+cp -R "$root/addons/tables/skills" "$fixture_dir/tables-next/skills"
 
 free_port() { python3 -I -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])'; }
 named_port=$(free_port)
@@ -94,7 +96,7 @@ wait_for() {
     i=0
     until [ -s "$file" ] && python3 -I -c "import sys,urllib.request;urllib.request.urlopen('http://127.0.0.1:$port/readyz',timeout=1)" 2>/dev/null; do
         i=$((i + 1))
-        kill -0 "$pid" 2>/dev/null || { echo 'UI test server exited' >&2; tail -20 "$cache/logs/tables-ui-server.log" "$cache/logs/tables-ui-local-server.log" >&2; exit 1; }
+        kill -0 "$pid" 2>/dev/null || { echo 'UI test server exited' >&2; tail -n 20 "$cache/logs/tables-ui-server.log" "$cache/logs/tables-ui-local-server.log" >&2; exit 1; }
         [ "$i" -lt 180 ] || { echo 'UI test server readiness timed out' >&2; exit 1; }
         sleep 1
     done

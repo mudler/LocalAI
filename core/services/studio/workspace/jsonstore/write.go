@@ -105,6 +105,12 @@ func (w *writer) apply(id int64, kind workspace.Kind, op workspace.OpKind, ns st
 		if err != nil {
 			return nodeRow{}, err
 		}
+		// The last guard for every path that changes a node (Undo, an
+		// upper layer, a folder deleted with what is below it): a fenced
+		// actor never deletes, moves or renames a root of its fence.
+		if workspace.IsFenceRoot(w.actor, id) && (ns.Parent != cur.Parent || ns.Name != cur.Name || ns.Deleted != cur.Deleted) {
+			return nodeRow{}, workspace.ErrReadOnly
+		}
 		before, beforePath = cur.state, d.pathOf(id)
 		n = cur
 		n.Version++

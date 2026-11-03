@@ -14,6 +14,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -32,6 +33,7 @@ import (
 	"path/filepath"
 	"sync"
 	"sync/atomic"
+	"testing"
 	"time"
 )
 
@@ -260,39 +262,7 @@ var _ = Describe("addon policy bootstrap", func() {
 
 	It("keeps named-user mode by default and selects local-owner only explicitly with a warning", func() {
 		requireAddonRuntime()
-		logs := &logCapture{}
-		xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
-		DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
-
-		named := setup()
-		named.authDB = authDB()
-		Expect(start(named, base())).To(Succeed())
-		DeferCleanup(named.Shutdown)
-		Expect(named.AddonOwnershipMode()).To(Equal("named-user"))
-		Expect(logs.String()).NotTo(ContainSubstring("local-owner"))
-		// Named mode still refuses to run without the account database.
-		noDB := setup()
-		Expect(start(noDB, base())).NotTo(Succeed())
-
-		c := base()
-		c.OwnershipMode = "local-owner"
-		a := setup() // no account database: local-owner mode does not need one
-		Expect(start(a, c)).To(Succeed())
-		DeferCleanup(a.Shutdown)
-		Expect(a.AddonOwnershipMode()).To(Equal("local-owner"))
-		Expect(logs.String()).To(ContainSubstring("local-owner"))
-		Expect(logs.String()).To(ContainSubstring("unauthenticated callers share"))
-		Expect(logs.String()).To(ContainSubstring("can reach this port can confirm addon proposals"))
-		local := contract.Actor{UserID: "local-owner", CredentialID: "local-owner", Mode: "local-owner"}
-		key, e := a.AddonPolicy().Register(context.Background(), local, "ghost")
-		Expect(e).To(HaveOccurred(), "creation authority still needs an installed addon")
-		_ = key
-		// Sharing is disabled by the store mode.
-		Expect(a.AddonPolicy().SetGrant(context.Background(), local, policy.ResourceKey{AddonID: "sample", ResourceID: "x"}, "bob", policy.RoleViewer)).NotTo(Succeed())
-
-		bad := base()
-		bad.OwnershipMode = "shared"
-		Expect(start(setup(), bad)).NotTo(Succeed())
+		runWarningCase("TestAddonOwnershipWarningProcess", "owner-mode")
 	})
 })
 
@@ -336,3 +306,66 @@ var _ = Describe("addon owner in a full application start", func() {
 		Expect(a.AddonManager()).NotTo(BeNil())
 	})
 })
+
+// TestAddonOwnershipWarningProcess deliberately does not run the Ginkgo suite.
+// The logger is installed before producers start and is never restored.
+func TestAddonOwnershipWarningProcess(t *testing.T) {
+	if os.Getenv(warningCaseEnv) == "" {
+		return
+	}
+	RegisterTestingT(t)
+	Expect(os.Getenv(warningCaseEnv)).To(Equal("owner-mode"))
+	dir, err := filepath.EvalSymlinks(os.Getenv(warningDirEnv))
+	Expect(err).NotTo(HaveOccurred())
+	next := 0
+	setup := func() *Application {
+		return &Application{applicationConfig: &config.ApplicationConfig{Context: context.Background()}}
+	}
+	base := func() config.AddonConfig {
+		next++
+		return config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: filepath.Join(dir, fmt.Sprintf("addons-%d", next)), ListenAddress: "127.0.0.1:0", Transport: ownerTransport()}
+	}
+	authDB := func() *gorm.DB {
+		db, err := auth.InitDB(filepath.Join(dir, "auth.db"))
+		Expect(err).NotTo(HaveOccurred())
+		return db
+	}
+	start := func(a *Application, c config.AddonConfig) error {
+		a.applicationConfig.Addons = c
+		return a.startAddons()
+	}
+
+	logs := &logCapture{}
+	xlog.SetLogger(xlog.NewLoggerWithHandler(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelWarn}), xlog.LogLevelWarn))
+
+	named := setup()
+	named.authDB = authDB()
+	Expect(start(named, base())).To(Succeed())
+	defer func() { Expect(named.Shutdown()).To(Succeed()) }()
+	Expect(named.AddonOwnershipMode()).To(Equal("named-user"))
+	Expect(logs.String()).NotTo(ContainSubstring("local-owner"))
+	// Named mode still refuses to run without the account database.
+	noDB := setup()
+	Expect(start(noDB, base())).NotTo(Succeed())
+
+	c := base()
+	c.OwnershipMode = "local-owner"
+	a := setup() // no account database: local-owner mode does not need one
+	Expect(start(a, c)).To(Succeed())
+	defer func() { Expect(a.Shutdown()).To(Succeed()) }()
+	Expect(a.AddonOwnershipMode()).To(Equal("local-owner"))
+	Expect(logs.String()).To(ContainSubstring("local-owner"))
+	Expect(logs.String()).To(ContainSubstring("unauthenticated callers share"))
+	Expect(logs.String()).To(ContainSubstring("can reach this port can confirm addon proposals"))
+	local := contract.Actor{UserID: "local-owner", CredentialID: "local-owner", Mode: "local-owner"}
+	key, e := a.AddonPolicy().Register(context.Background(), local, "ghost")
+	Expect(e).To(HaveOccurred(), "creation authority still needs an installed addon")
+	_ = key
+	// Sharing is disabled by the store mode.
+	Expect(a.AddonPolicy().SetGrant(context.Background(), local, policy.ResourceKey{AddonID: "sample", ResourceID: "x"}, "bob", policy.RoleViewer)).NotTo(Succeed())
+
+	bad := base()
+	bad.OwnershipMode = "shared"
+	Expect(start(setup(), bad)).NotTo(Succeed())
+	fmt.Println("warning case passed: owner-mode")
+}

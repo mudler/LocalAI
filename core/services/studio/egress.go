@@ -21,21 +21,15 @@ const DefaultEgressAuditDays = 30
 
 // egressSettings returns the limits in force now. Without the dependency the
 // ceiling is off: no command reaches the network.
-func (s *Service) egressSettings() egress.Settings {
+func (s *Service) egressSettings(ctx context.Context) (egress.Settings, error) {
 	if s.d.EgressSettings == nil {
-		return egress.Settings{Ceiling: egress.PresetOff}
+		return egress.Settings{Ceiling: egress.PresetOff}, nil
 	}
-	return s.d.EgressSettings()
+	return s.d.EgressSettings(ctx)
 }
 
 // egressAudit returns the audit store; an in-memory one when none was given.
 func (s *Service) egressAudit() audit.Store { return s.egressAuditStore }
-
-// newChatEgress is the network state of a chat a person starts: the
-// instance default, capped by the ceiling.
-func (s *Service) newChatEgress() egress.ChatState {
-	return egress.ChatState{Preset: s.egressSettings().DefaultPreset()}
-}
 
 // forkEgress is the network state a fork copies: the preset and the allow
 // rules. The cards and the deny rules belong to the chat that asked.
@@ -80,8 +74,11 @@ func (s *Service) now() time.Time {
 // network of its commands is: the preset that applies (the chat's, its
 // parent's for a sub-agent, its agent's for an unattended run) under the
 // ceiling.
-func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bool) string {
-	set := s.egressSettings()
+func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bool) (string, error) {
+	set, err := s.egressSettings(ctx)
+	if err != nil {
+		return "", err
+	}
 	pol, err := s.egressPolicyOf(ctx, rec, "")
 	preset := egress.PresetOff
 	ceiling := egress.Min(set.Ceiling, egress.PresetAll)
@@ -92,7 +89,7 @@ func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bo
 	}
 	if ceiling == egress.PresetOff {
 		// Hint would tell the model to ask the user to turn the network on.
-		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), false)
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), false), nil
 	}
 	// A card appears only in a chat a person watches (not an unattended run
 	// or a sub-agent), and only for a host the ceiling admits beyond the
@@ -100,7 +97,7 @@ func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bo
 	attended := rec.Origin == "" && rec.Kind != session.KindSubAgent
 	asks := attended && (ceiling.Rank() > preset.Rank() || set.AllowPrivate)
 	if capped {
-		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web)
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web), nil
 	}
-	return egress.Describe(preset, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web)
+	return egress.Describe(preset, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web), nil
 }

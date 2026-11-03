@@ -2,6 +2,7 @@
 package apps
 
 import (
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"sort"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -12,9 +13,10 @@ import (
 // process observation. It never carries a package location, a source address,
 // a data path or a credential.
 type Installed struct {
-	ID          string `json:"id" example:"notes"`
-	Title       string `json:"title" example:"Notes"`
-	Description string `json:"description,omitempty"`
+	HostOperations *hostops.RequestSummary `json:"hostOperations,omitempty"`
+	ID             string                  `json:"id" example:"notes"`
+	Title          string                  `json:"title" example:"Notes"`
+	Description    string                  `json:"description,omitempty"`
 	// Icon is the same-origin icon URL of the installed generation.
 	Icon    string `json:"icon,omitempty"`
 	Version string `json:"version" example:"1.2.3"`
@@ -117,7 +119,7 @@ func BuildInstalled(snaps []Snapshot) []Installed {
 		a := build(s, true)
 		m, r := s.Receipt.Manifest, s.Receipt
 		out = append(out, Installed{
-			ID: s.AddonID, Title: a.Title, Description: a.Description, Icon: a.Icon, Version: m.Version, InstalledAt: s.InstalledAt, Generation: s.Generation,
+			ID: s.AddonID, HostOperations: s.HostOperations, Title: a.Title, Description: a.Description, Icon: a.Icon, Version: m.Version, InstalledAt: s.InstalledAt, Generation: s.Generation,
 			Enabled: s.Enabled, State: a.State, SourceID: r.SourceID, Channel: r.Channel, Selection: r.Selection, Verification: r.Verification, Digest: r.Digest,
 			Platform:      Platform{OS: m.OS, Arch: m.Arch},
 			Compatibility: Compatibility{Host: m.Host, API: m.API, Protocol: m.Protocol, DataFormat: m.DataFormat},

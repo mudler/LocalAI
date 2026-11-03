@@ -48,7 +48,7 @@ test('switches inputs, generates animation, scrubs playback and restores history
     request = route.request().postDataJSON()
     return route.fulfill({ json: { data: [{ url: '/generated-3d/animation.glb' }] } })
   })
-  await page.goto('/app/studio/threed')
+  await page.goto('/app/addons/studio/studio/threed')
   await page.getByRole('button', { name: 'trellis-test', exact: true }).click()
   await page.getByRole('option', { name: 'kimodo-test', exact: true }).click()
   await expect(page.locator('#threed-image-file')).toHaveCount(0)
@@ -87,7 +87,7 @@ test('switches inputs, generates animation, scrubs playback and restores history
 
 test('plays in real time across delayed frames, looping, pause and seek', async ({ page }) => {
   await page.route('**/3d/animate', route => route.fulfill({ json: { data: [{ url: '/generated-3d/animation.glb' }] } }))
-  await page.goto('/app/studio/threed')
+  await page.goto('/app/addons/studio/studio/threed')
   await page.getByRole('button', { name: 'trellis-test', exact: true }).click()
   await page.getByRole('option', { name: 'kimodo-test', exact: true }).click()
   await page.getByLabel('Motion prompt').fill('Walk.')
@@ -136,14 +136,14 @@ test('keeps the 3D Studio category available with only an animation model', asyn
   await page.route('**/api/models/capabilities', route => route.fulfill({ json: { data: [
     { id: 'kimodo-test', capabilities: ['FLAG_3D_ANIMATION'], three_d_operations: [animationOperation] },
   ] } }))
-  await page.goto('/app/studio/threed')
+  await page.goto('/app/addons/studio/studio/threed')
   await expect(page.getByLabel('Motion prompt')).toBeVisible()
   await expect(page.getByRole('button', { name: 'kimodo-test', exact: true })).toBeVisible()
 })
 
 test('validates the prompt byte limit before submitting', async ({ page }) => {
   // The model query is now read as a hand-off, so pick the model in the page as a person would.
-  await page.goto('/app/studio/threed')
+  await page.goto('/app/addons/studio/studio/threed')
   await page.getByRole('button', { name: 'trellis-test', exact: true }).click()
   await page.getByRole('option', { name: 'kimodo-test', exact: true }).click()
   await page.getByLabel('Motion prompt').fill('🦊'.repeat(1025))
@@ -165,7 +165,7 @@ test('renders media conditioning and enumerated parameters from model capabiliti
     request = route.request().postDataJSON()
     return route.fulfill({ status: 400, json: { error: { message: 'Fixture stops after request validation' } } })
   })
-  await page.goto('/app/studio/threed')
+  await page.goto('/app/addons/studio/studio/threed')
   await page.getByLabel('Motion prompt').fill('Wave.')
   await page.getByLabel('Source mesh').setInputFiles({ name: 'character.glb', mimeType: 'model/gltf-binary', buffer: animationGlb() })
   await page.getByLabel('Motion mode').selectOption('once')
@@ -179,7 +179,7 @@ test('renders media conditioning and enumerated parameters from model capabiliti
 test('reports unsupported skeleton transforms without displaying a stale pose', async ({ page }) => {
   await page.route('**/generated-3d/animation.glb', route => route.fulfill({ contentType: 'model/gltf-binary', body: animationGlb(document => { document.nodes[1].translation = [0, 1] }) }))
   await page.route('**/3d/animate', route => route.fulfill({ json: { data: [{ url: '/generated-3d/animation.glb' }] } }))
-  await page.goto('/app/studio/threed')
+  await page.goto('/app/addons/studio/studio/threed')
   await page.getByRole('button', { name: 'trellis-test', exact: true }).click()
   await page.getByRole('option', { name: 'kimodo-test', exact: true }).click()
   await page.getByLabel('Motion prompt').fill('Walk.')

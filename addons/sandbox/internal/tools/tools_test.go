@@ -160,7 +160,7 @@ var _ = Describe("Sandbox tools", func() {
 	// chat's own file tools. Its bash replaces the chat's built-in bash.
 	It("offers bash and the settings tools only, and bash shadows the built-in", func() {
 		Expect(tools.Tools).To(Equal([]string{"bash"}))
-		Expect(tools.Declared()).To(Equal([]string{"bash", "status", "set-backend", "confirm-host"}))
+		Expect(tools.Declared()).To(Equal([]string{"bash", "execution-status", "status", "set-backend", "confirm-host"}))
 		for _, d := range tools.Definitions() {
 			if d.Name == "bash" {
 				Expect(d.Shadows).To(Equal("bash"))
@@ -279,7 +279,7 @@ var _ = Describe("Sandbox tools", func() {
 			switch d.Name {
 			case "status":
 				Expect(d.Kind).To(Equal(contract.ToolKindRead), "status must be a read tool")
-			case "set-backend", "confirm-host":
+			case "execution-status", "set-backend", "confirm-host":
 				Expect(d.Kind).To(Equal(contract.ToolKindRead), "%s must be a read tool for the settings page only", d.Name)
 				Expect(d.UIOnly).To(BeTrue(), "%s must be a read tool for the settings page only", d.Name)
 			default:

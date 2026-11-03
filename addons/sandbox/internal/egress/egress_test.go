@@ -32,6 +32,7 @@ func TestEgress(t *testing.T) {
 // fakeHost decides with a function and records the checks and the audit.
 type fakeHost struct {
 	mu     sync.Mutex
+	err    error
 	decide func(egress.CheckArgs) egress.Verdict
 	checks []egress.CheckArgs
 	ops    []string
@@ -42,8 +43,11 @@ func (f *fakeHost) Check(_ context.Context, op string, a egress.CheckArgs) (egre
 	f.mu.Lock()
 	f.checks = append(f.checks, a)
 	f.ops = append(f.ops, op)
-	d := f.decide
+	d, err := f.decide, f.err
 	f.mu.Unlock()
+	if err != nil {
+		return egress.Verdict{}, err
+	}
 	return d(a), nil
 }
 
@@ -350,7 +354,7 @@ var _ = Describe("the proxy", func() {
 		for _, a := range f.host.checks {
 			hosts = append(hosts, a.Host)
 		}
-		Expect(hosts).To(Equal([]string{"public.test", "other.test"}), "public.test was cached for the call; other.test was checked")
+		Expect(hosts).To(Equal([]string{"public.test", "public.test", "other.test"}), "every upstream connection needs a fresh check")
 	})
 
 	It("refuses the origin form, https in absolute form, an Upgrade and a Host that is not the URL's", func() {
@@ -372,27 +376,49 @@ var _ = Describe("the proxy", func() {
 		Expect(f.host.nChecks()).To(BeZero())
 	})
 
-	It("keeps an allow for 30 seconds of the call only", func() {
+	It("checks every new request immediately and again in a new call", func() {
 		f := newFixture(0, allow, egress.Limits{})
 		port := portOf(plainSrv.URL)
-		get := func() {
+		get := func(want int) {
 			c := f.dial()
 			_, _ = fmt.Fprintf(c, "GET http://public.test:%d/ HTTP/1.1\r\nHost: public.test:%d\r\nConnection: close\r\n\r\n", port, port)
 			resp := readResponse(c, bufio.NewReader(c), nil)
-			Expect(body(resp)).To(Equal("plain"))
+			Expect(resp.StatusCode).To(Equal(want))
+			if want == http.StatusOK {
+				Expect(body(resp)).To(Equal("plain"))
+			} else {
+				_ = body(resp)
+			}
 		}
 		end := f.proxy.Begin(context.Background(), "alice", "c1", "op1")
-		get()
-		get()
-		Expect(f.host.nChecks()).To(Equal(1))
-		f.advance(31 * time.Second)
-		get()
-		Expect(f.host.nChecks()).To(Equal(2))
+		defer end()
+		get(http.StatusOK)
+		get(http.StatusOK)
+		Expect(f.host.nChecks()).To(Equal(2), "no clock advance between requests")
+		f.host.mu.Lock()
+		f.host.decide = func(egress.CheckArgs) egress.Verdict {
+			return egress.Verdict{Action: "block", Reason: "ceiling"}
+		}
+		f.host.mu.Unlock()
+		get(http.StatusForbidden)
+		Expect(f.host.nChecks()).To(Equal(3), "revocation applies immediately")
+		f.host.mu.Lock()
+		f.host.decide = allow
+		f.host.mu.Unlock()
+		get(http.StatusOK)
+		f.host.mu.Lock()
+		f.host.err = fmt.Errorf("owner unavailable")
+		f.host.mu.Unlock()
+		get(http.StatusForbidden)
+		Expect(f.host.nChecks()).To(Equal(5), "prior allow cannot bypass an outage")
 		end()
+		f.host.mu.Lock()
+		f.host.err = nil
+		f.host.mu.Unlock()
 		end2 := f.proxy.Begin(context.Background(), "alice", "c1", "op2")
-		get()
-		end2()
-		Expect(f.host.nChecks()).To(Equal(3), "a new call asks again")
+		defer end2()
+		get(http.StatusOK)
+		Expect(f.host.nChecks()).To(Equal(6), "a new call asks again")
 	})
 
 	It("closes the tunnels of a call when it ends", func() {
@@ -448,7 +474,7 @@ var _ = Describe("the proxy", func() {
 		Expect(f.host.checks[1].Private).To(BeTrue())
 	})
 
-	It("refuses the server's own public address that the host sends with an allow, also from the cache", func() {
+	It("refuses the server's own public address that the host sends with each fresh allow", func() {
 		// 8.8.4.4 stands for the public address of the server (the host of
 		// its external base URL): not an interface of the add-on's machine,
 		// so only the host's list can name it. The guard refuses it before
@@ -463,7 +489,7 @@ var _ = Describe("the proxy", func() {
 			Expect(body(resp)).To(ContainSubstring("(self)"))
 		}
 		end()
-		Expect(f.host.nChecks()).To(Equal(1), "the second connection used the cached allow and was still refused")
+		Expect(f.host.nChecks()).To(Equal(2), "both fresh allows still enforce the self-address guard")
 		self := 0
 		for _, e := range f.host.audit() {
 			if e.Reason == "self" {

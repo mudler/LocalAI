@@ -61,11 +61,17 @@ func main() {
 			proxy := egress.New(egress.Options{Host: hostEgress{client}})
 			ports, begin = proxy.Ports, proxy.Begin
 		}
+		store := remote.New(client, s.DataDir)
 		m, err := runner.New(runner.Options{
 			Ports:   ports,
 			Begin:   begin,
 			Backend: sel.Backend,
-			Store:   remote.New(client, s.DataDir),
+			Store:   store,
+			// The host binds each workspace operation to the call's chat and
+			// mounts only that chat's folders (a scoped chat: the agent's
+			// folder at home and the chat folder at chat).
+			Actor: remote.Actor,
+			View:  store.HomeView,
 			// The backends keep their sandboxes under run/. The manager needs the
 			// folder to remove the snapshots it gives up, and leaves it alone at
 			// start because each backend stops the sandboxes of an earlier

@@ -71,12 +71,14 @@ func sentAsMedia(m Modalities, f session.ChatFile) bool {
 
 // filesPrompt is the block of the turn prompt that lists the chat's files. It
 // is "" when the chat has none, or when the index cannot be read: a turn
-// never fails for it.
-func (s *Service) filesPrompt(ctx context.Context, a workspace.Actor) string {
+// never fails for it. The files are named by the place of the turn's access:
+// a scoped chat hears of no file outside its folders.
+func (s *Service) filesPrompt(ctx context.Context, x session.Access) string {
 	if !s.d.Files.Available() {
 		return ""
 	}
-	cf, err := s.mgr.Files(ctx, a.Principal, a.ChatID)
+	a := x.Actor()
+	cf, err := s.mgr.FilesIn(ctx, a.Principal, a.ChatID, x.Place())
 	if err != nil {
 		s.log.Warn("studio: the chat's files are not in the prompt", "chat", a.ChatID, "error", err)
 		return ""

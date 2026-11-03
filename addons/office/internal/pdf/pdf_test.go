@@ -232,7 +232,7 @@ var _ = Describe("PDF creation and editing", func() {
 			}
 			cases := map[string]Spec{
 				"no pages":          {},
-				"heading level 4":   {Pages: []Page{{Blocks: []Block{Heading{Level: 4, Text: "x"}}}}},
+				"heading level 7":   {Pages: []Page{{Blocks: []Block{Heading{Level: 7, Text: "x"}}}}},
 				"heading level 0":   {Pages: []Page{{Blocks: []Block{Heading{Level: 0, Text: "x"}}}}},
 				"empty heading":     {Pages: []Page{{Blocks: []Block{Heading{Level: 1, Text: " "}}}}},
 				"empty bullets":     {Pages: []Page{{Blocks: []Block{Bullets{}}}}},

@@ -1,10 +1,10 @@
 ---
 name: docx
-description: Use when the user wants to read, change or create a Word document (.docx) in their files. Works with the Office add-on tools, with no command runner.
+description: Use when the user wants to read, change or create a Word document (.docx) in their files. Works with the Simple Office add-on tools, with no command runner.
 ---
-# Word documents with the Office tools
+# Word documents with the Simple Office tools
 
-Use the tools of the Office add-on: `addon__office__read-docx`,
+Use the tools of the Simple Office add-on: `addon__office__read-docx`,
 `addon__office__edit-docx` and `addon__office__create-docx`. A file is a
 path in the user's files, such as `/reports/plan.docx`.
 
@@ -33,9 +33,15 @@ path in the user's files, such as `/reports/plan.docx`.
 
 ## Create a document
 
-Use `create-docx` with `path` and `blocks`. A block is a `heading` (`text`
-and `level` 1 to 3), a `paragraph` (`text`) or `bullets` (`items`). If the
-path is taken, the old file stays and the new one is saved next to it.
+Use `create-docx` with `path` and a `markdown` string. Markdown supports
+headings, paragraphs, bullet and numbered lists, bold/italic emphasis and
+simple rectangular tables. Code is literal text; links show their labels
+without fetching targets. HTML, images and unsupported constructs are refused.
+Optional `title` is metadata, not an extra visible heading. All arguments
+are strings. The former `blocks` argument is no longer accepted.
+
+Example: `{"path":"/reports/plan.docx","markdown":"# Plan\n\nA **short** summary."}`.
+If the path is taken, the old file stays and the new one is saved next to it.
 
 ## When the tools cannot do it
 

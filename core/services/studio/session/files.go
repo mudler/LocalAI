@@ -135,6 +135,15 @@ type attachment struct {
 // answer and nothing is kept in memory. Another principal's chat is
 // ErrNotFound. Without a workspace the index is empty.
 func (m *Manager) Files(ctx context.Context, principal, chatID string) (ChatFiles, error) {
+	return m.FilesIn(ctx, principal, chatID, Place{primary: -1})
+}
+
+// FilesIn is Files with the guest paths of a chat's place. For a scoped
+// place, a file outside every mount of the place is left out, so the list
+// (and the prompt made from it) never names a file outside the chat's
+// folders; the chat folder is named at /workspace/chat. Any other place
+// gives what Files gives.
+func (m *Manager) FilesIn(ctx context.Context, principal, chatID string, place Place) (ChatFiles, error) {
 	rec, err := m.o.Store.GetChat(ctx, principal, chatID)
 	if err != nil {
 		return ChatFiles{}, err
@@ -149,6 +158,9 @@ func (m *Manager) Files(ctx context.Context, principal, chatID string) (ChatFile
 	ix := fileIndex{
 		ws: m.o.Workspace, user: workspace.Actor{Principal: principal}, home: HomePath(principal),
 		entries: entries, byID: map[int64]*ChatFile{},
+	}
+	if place.Scoped() {
+		ix.place = &place
 	}
 	if err := ix.build(ctx, rec); err != nil {
 		return ChatFiles{}, err
@@ -178,6 +190,7 @@ type fileIndex struct {
 	ws      workspace.Store
 	user    workspace.Actor
 	home    string
+	place   *Place // a scoped chat's place, or nil
 	entries []Entry
 	byID    map[int64]*ChatFile
 	stale   []string
@@ -357,7 +370,7 @@ func (ix *fileIndex) walkFolder(ctx context.Context, folder string, agent map[in
 // addPath adds the file at p when it exists and is not in the index yet; set
 // fills its origin. A missing path is skipped: the file was moved or deleted.
 func (ix *fileIndex) addPath(ctx context.Context, p string, set func(*ChatFile)) error {
-	if guestPath(ix.home, p) == "" {
+	if ix.guest(p) == "" {
 		return nil
 	}
 	n, err := ix.ws.Stat(ctx, ix.user, p)
@@ -377,7 +390,7 @@ func (ix *fileIndex) addPath(ctx context.Context, p string, set func(*ChatFile))
 
 func (ix *fileIndex) fileOf(n workspace.Node) *ChatFile {
 	return &ChatFile{
-		NodeID: n.ID, Path: n.Path, GuestPath: guestPath(ix.home, n.Path), Name: n.Name,
+		NodeID: n.ID, Path: n.Path, GuestPath: ix.guest(n.Path), Name: n.Name,
 		Size: n.Size, Mime: MimeOf(n.Name),
 	}
 }
@@ -416,6 +429,9 @@ func (ix *fileIndex) findStale(ctx context.Context, rec ChatRecord) error {
 func (ix *fileIndex) result(rec ChatRecord) ChatFiles {
 	out := ChatFiles{Files: make([]ChatFile, 0, len(ix.byID)), Stale: ix.stale}
 	for _, f := range ix.byID {
+		if ix.place != nil && f.GuestPath == "" {
+			continue // outside every folder of a scoped chat
+		}
 		f.Kind = workfiles.Deliverable
 		if f.Origin != FileFromUser {
 			f.Kind = workfiles.Kind(f.GuestPath)
@@ -431,8 +447,24 @@ func (ix *fileIndex) result(rec ChatRecord) ChatFiles {
 	})
 	if rec.Folder != "" && !ix.noFolder {
 		out.Folder = GuestRoot + "/" + GuestHome + "/" + ChatsDir + "/" + rec.Folder + "/"
+		if ix.place != nil {
+			out.Folder = ""
+			if g, ok := ix.place.Guest(ix.home + "/" + ChatsDir + "/" + rec.Folder); ok {
+				out.Folder = g + "/"
+			}
+		}
 	}
 	return out
+}
+
+// guest is the path the model's tools use for a workspace path, or "" when
+// the chat's tools cannot name it.
+func (ix *fileIndex) guest(abs string) string {
+	if ix.place == nil {
+		return guestPath(ix.home, abs)
+	}
+	g, _ := ix.place.Guest(abs)
+	return g
 }
 
 // MaxPromptFiles is how many files the prompt block lists. The rest are

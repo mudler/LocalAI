@@ -187,7 +187,7 @@ func (c *Connectors) startLive(b connectors.Binding, token string, m contract.Co
 func (c *Connectors) workingMessage(b connectors.Binding, token string, m contract.ConnectorMessage, l *liveReply, text string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	resp, err := c.o.Transport.Call(ctx, b.AddonID, contract.ConnectorRequest{Op: contract.ConnectorOpSend, Kind: b.Kind, Token: token, Chat: m.Chat, Thread: m.Thread, Text: text})
+	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), contract.ConnectorRequest{Op: contract.ConnectorOpSend, Kind: b.Kind, Token: token, Chat: m.Chat, Thread: m.Thread, Text: text})
 	if err == nil && resp.Error != nil {
 		err = resp.Error
 	}
@@ -292,7 +292,7 @@ func (c *Connectors) finish(b connectors.Binding, token string, m contract.Conne
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	req := contract.ConnectorRequest{Op: contract.ConnectorOpSend, Kind: b.Kind, Token: token, Chat: m.Chat, Thread: m.Thread, Text: answer, MessageID: l.id}
-	resp, err := c.o.Transport.Call(ctx, b.AddonID, req)
+	resp, err := c.o.Transport.Call(ctx, BindingConnectorScope(b), req)
 	if err == nil && resp.Error != nil {
 		err = resp.Error
 	}

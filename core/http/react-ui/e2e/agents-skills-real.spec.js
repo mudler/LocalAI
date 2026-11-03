@@ -25,3 +25,44 @@ test('a skill written on the page shows in the list and can be deleted', async (
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete' }).click()
   await expect(page.getByTestId(`skill-row-${name}`)).toHaveCount(0)
 })
+
+// No route interception: these checks cover the application's actual skills,
+// saved-agent and preference APIs on a server without an authoring provider.
+test('document names keep agent selections and normalize OFF without a core provider', async ({ request }) => {
+  const names = ['docx', 'pptx', 'pdf', 'xlsx']
+  const list = await request.get('/api/chats/skills')
+  expect(list.ok()).toBeTruthy()
+  const { skills } = await list.json()
+  expect(skills.filter(skill => names.includes(skill.name))).toEqual([])
+
+  const saved = await request.post('/api/chats/agents', {
+    data: { name: `document-selection-${Date.now()}`, model: 'mock-model', skills: names, addons: [] },
+  })
+  expect(saved.status()).toBe(201)
+  const agent = await saved.json()
+  let chat
+  try {
+    expect(agent.skills).toEqual(names)
+    expect(agent.addons).toEqual([])
+    const created = await request.post('/api/chats', { data: { model: 'mock-model', agent_id: agent.id } })
+    expect(created.status()).toBe(201)
+    chat = await created.json()
+    const off = await request.put(`/api/chats/${chat.id}/skills`, { data: { off: ['builtin:docx'] } })
+    expect(off.ok()).toBeTruthy()
+    expect((await off.json()).off).toEqual(['addon:docx'])
+    const reload = await request.get(`/api/chats/${chat.id}`)
+    expect(reload.ok()).toBeTruthy()
+    expect((await reload.json()).agent_id).toBe(agent.id)
+    const picker = await request.get(`/api/chats/skills?chat=${chat.id}`)
+    expect(picker.ok()).toBeTruthy()
+    expect((await picker.json()).skills.filter(skill => names.includes(skill.name))).toEqual([])
+    const enabled = await request.put(`/api/chats/${chat.id}/skills`, { data: { off: [] } })
+    expect(enabled.ok()).toBeTruthy()
+    expect((await enabled.json()).off).toEqual([])
+    const reread = await request.get(`/api/chats/agents/${agent.id}`)
+    expect((await reread.json()).skills).toEqual(names)
+  } finally {
+    if (chat) expect((await request.delete(`/api/chats/${chat.id}`)).ok()).toBeTruthy()
+    expect((await request.delete(`/api/chats/agents/${agent.id}`)).ok()).toBeTruthy()
+  }
+})

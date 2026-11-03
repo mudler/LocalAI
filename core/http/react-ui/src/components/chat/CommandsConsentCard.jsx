@@ -1,12 +1,11 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router-dom'
 import Button from '../ui/Button'
 import Callout from '../ui/Callout'
 import { useAuth } from '../../context/AuthContext'
 import { chatHostExecApi, settingsApi } from '../../utils/api'
-import { SANDBOX_INSTALL_LINK, consentExpired } from '../../utils/chatCommands'
+import { consentExpired } from '../../utils/chatCommands'
 
 // The card a command of the built-in bash waits on, when the server asks before
 // each command (chats_host_exec ask). The command runs directly on this
@@ -74,7 +73,7 @@ export default function CommandsConsentCard({ consent }) {
       <p>{t('tools.consent.body')}</p>
       <pre className="cmd-consent__command" data-testid="chat-host-consent-command">{consent.command}</pre>
       {isAdmin
-        ? <p className="cmd-consent__hint">{t('tools.consent.alwaysHint')} <Link to={SANDBOX_INSTALL_LINK}>{t('tools.commands.install')}</Link></p>
+        ? <p className="cmd-consent__hint">{t('tools.consent.alwaysHint')}</p>
         : <p className="cmd-consent__hint" data-testid="chat-host-consent-ask">{t('tools.consent.askAdmin')}</p>}
       {error && <p className="cmd-consent__error" role="alert">{error}</p>}
     </Callout>

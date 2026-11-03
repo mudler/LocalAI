@@ -34,7 +34,9 @@ import { widgetList } from '../utils/wellKnown'
 import { useResources } from '../hooks/useResources'
 import { usePolling } from '../hooks/usePolling'
 import { useOperations } from '../hooks/useOperations'
-import { useAddonPage } from '../addons/useAddonPage'
+import { useAddonHomeCommands } from '../addons/useAddonRegistry'
+import { projectHomeCommands } from '../addons/homeCommands'
+import { reservedNames, usableSkills } from '../utils/slashCommands'
 import { backendControlApi, chatsApi, modelsApi, systemApi, nodesApi } from '../utils/api'
 import { greetingKey } from '../utils/greeting'
 import { resumeItems } from '../utils/homeConversations'
@@ -109,9 +111,8 @@ export default function Home() {
   const pickerRef = useRef(null)
   const stripRef = useRef(null)
   const location = useLocation()
-  const [addonsOn, setAddonsOn] = useState(true)
   // An add-on address opened while add-ons are off on the server lands here
-  // (see AddonsShell); so does /studio without Studio installed. The notice
+  // (see AddonsShell). The notice
   // says why, and how to get the add-on.
   const [addonNotice, setAddonNotice] = useState(() => location.state?.addonsOff || '')
 
@@ -123,7 +124,6 @@ export default function Home() {
         setDistributedMode(!!data.distributed)
         setAssistantOn(!!data.localai_assistant)
         setCollectionsOn(data.collections !== false)
-        setAddonsOn(data.addons !== false)
       })
       .catch(() => {})
   }, [])
@@ -204,6 +204,7 @@ export default function Home() {
   // What a message that left for its chat clears on Home, run as Home closes.
   // A reload or a closed tab can come first while the chat page still loads,
   // so leaving the page runs it too: the sent text must not come back.
+  const homeCommandRef = useRef(null)
   const sentRef = useRef(null)
   useEffect(() => {
     const run = () => {
@@ -221,6 +222,7 @@ export default function Home() {
     let text = (own ? message : override).trim()
     const attached = own ? files : []
     if ((!text && attached.length === 0) || sending) return
+    if (own && await homeCommandRef.current?.(text)) return
     // A message typed as a command goes with its skill or saved agent (the
     // drafted switches of the new chat decide which it has).
     const savedGroup = switches.builtins.find(b => b.group === 'saved_agents')
@@ -387,17 +389,31 @@ export default function Home() {
   const stripBusy = !!stagingOp || !!failedOp
   useEffect(() => { if (stripBusy) setStripOpen(true) }, [stripBusy])
 
-  // Studio is an add-on: its command is offered only while it is installed.
-  const studioPage = useAddonPage('studio', 'studio')
+  const addonRegistry = useAddonHomeCommands()
+  const addonOptions = { nativeNames: reservedNames(), skillNames: usableSkills(switches.skills).map(s => s.name), language: addonRegistry.language }
+  const addonProjection = projectHomeCommands(addonRegistry, addonOptions)
+  const addonExamples = addonProjection.commands.filter(c => c.cmd === c.canonical).slice(0, 1).map(c => c.cmd)
+  const [addonUnavailable, setAddonUnavailable] = useState(false)
+  homeCommandRef.current = async text => {
+    const exact = addonProjection.commands.find(c => c.cmd === text)
+    if (!exact && !/^\/addon:/.test(text)) return false
+    const ok = exact ? await addonRegistry.navigateHomeCommand(exact, addonOptions) : false
+    setAddonUnavailable(!ok)
+    return true
+  }
   const slashContext = useMemo(
     () => ({
-      isAdmin, hasModels: hasModels && !firstRun, loadedCount, studioInstalled: Boolean(studioPage), assistantAvailable: assistantOn,
+      isAdmin, hasModels: hasModels && !firstRun, loadedCount, addonRegistry, hasAddons: hasFeature('addons'), assistantAvailable: assistantOn,
       hasChats: hasFeature('chats'), hasCollections: hasFeature('collections') && collectionsOn,
     }),
-    [isAdmin, hasModels, firstRun, loadedCount, studioPage, assistantOn, hasFeature, collectionsOn],
+    [isAdmin, hasModels, firstRun, loadedCount, addonRegistry, assistantOn, hasFeature, collectionsOn],
   )
 
   const runAction = useCallback((id, item) => {
+    if (item?.addonId) {
+      addonRegistry.navigateHomeCommand(item, item.addonOptions || { nativeNames: reservedNames(), skillNames: usableSkills(switches.skills).map(s => s.name) }).then(ok => setAddonUnavailable(!ok))
+      return
+    }
     switch (id) {
       case 'model': pickerRef.current?.open(); break
       case 'new': openNewChat(); break
@@ -414,17 +430,13 @@ export default function Home() {
       case 'mcp': navigate('/app/mcp-connectors'); break
       case 'memory': navigate('/app/collections'); break
       case 'skills': navigate('/app/skills'); break
-      case 'studio': if (studioPage) navigate(studioPage); break
-      case 'studioInstall':
-        if (addonsOn) navigate('/app/addons?tab=browse&q=studio')
-        else setAddonNotice('studio')
-        break
+      case 'apps': navigate('/app/addons'); break
       case 'settings': navigate('/app/settings'); break
       case 'docs': window.open(DOCS_URL, '_blank', 'noopener,noreferrer'); break
       case 'help': setHelp(item || { entries: [], skills: [] }); break
       default: break
     }
-  }, [navigate, openNewChat, openAssistantChat, studioPage, addonsOn])
+  }, [navigate, openNewChat, openAssistantChat, addonRegistry, switches.skills])
 
   // "/" from anywhere that is not a text field starts a command.
   useEffect(() => {
@@ -513,6 +525,13 @@ export default function Home() {
             textareaTestId="home-input"
             sendTestId="home-send"
           />
+          {isAdmin && addonProjection.diagnostics.length > 0 && (
+            <details data-testid="addon-command-diagnostics">
+              <summary>{t('slash.commandDiagnostics')}</summary>
+              <pre>{JSON.stringify(addonProjection.diagnostics, null, 2)}</pre>
+            </details>
+          )}
+          {addonUnavailable && <Callout tone="info" role="status">{t('notice.appUnavailable')}</Callout>}
           {help && <SlashHelpCard entries={help.entries} skills={help.skills} onClose={() => setHelp(null)} />}
           {!firstRun && <ReadyLine model={selectedModel} warm={loadedIds.has(selectedModel)} />}
           {examplePicked && (
@@ -550,7 +569,7 @@ export default function Home() {
                 </>
               )}
             >
-              {t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: addonNotice === 'studio' ? 'Studio' : addonNotice === 'addons' ? t('notice.thisPage') : addonNotice })}
+              {t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: t('notice.thisPage') })}
             </Callout>
           )}
 
@@ -629,7 +648,7 @@ export default function Home() {
             onAll={() => navigate('/app/chats/all')}
             emptyHint={(
               <div className="home-examples" aria-label={t('jump.examples')}>
-                {(isAdmin ? ['/gallery', '/import'] : []).concat(studioPage ? ['/studio'] : []).map(c => (
+                {(isAdmin ? ['/gallery', '/import'] : []).concat(addonExamples).map(c => (
                   <code key={c}>{c}</code>
                 ))}
               </div>

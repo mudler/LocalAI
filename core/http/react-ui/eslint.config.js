@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
+  { files: ['src/components/chat/ChatComposer.jsx'], rules: { 'no-undef': 'error' } },
   { ignores: ['dist'] },
   {
     files: ['**/*.{js,jsx}'],

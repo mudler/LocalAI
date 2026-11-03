@@ -5,21 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path"
 	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 )
 
-// readableParent tells whether the actor can read the folder with id.
-func (s *Store) readableParent(d *data, a workspace.Actor, id int64) bool {
-	return id != 0 && s.access(d, a, id) >= workspace.ModeRead
+// readableParent checks current access and, when fenced, the historical location.
+func (s *Store) readableParent(d *data, a workspace.Actor, id int64, historicalPath string) bool {
+	if id == 0 || s.access(d, a, id) < workspace.ModeRead {
+		return false
+	}
+	// A parent moved into the fence must not reveal its former location.
+	// Keep the journal intact: only hide this historical side from the reader.
+	return !workspace.HasFence(a) || d.pathOf(id) == path.Dir(historicalPath)
 }
 
 // visibleOps keeps what the actor can see of the operations of rev. A path
-// is visible when the actor can read its parent folder now. A move out of a
-// hidden folder shows as a create, and a move into a hidden folder shows as
-// a delete at the old path.
+// is visible when the actor can read its parent folder now. A fenced actor
+// also requires that parent to still have the historical location. A move
+// out of a hidden folder shows as a create, and a move into a hidden folder
+// shows as a delete at the old path.
 // When it drops or rewrites any operation, the title of the change set may
 // name hidden paths, so the result also tells the caller to use a generic one.
 func (s *Store) visibleOps(d *data, a workspace.Actor, rev int64, ops []workspace.Op) ([]workspace.Op, bool, error) {
@@ -31,8 +38,8 @@ func (s *Store) visibleOps(d *data, a workspace.Actor, rev int64, ops []workspac
 	changed := false
 	for i, op := range ops {
 		row := d.journal[rows[i]]
-		oldOK := s.readableParent(d, a, row.Old.Parent)
-		newOK := s.readableParent(d, a, row.New.Parent)
+		oldOK := s.readableParent(d, a, row.Old.Parent, op.OldPath)
+		newOK := s.readableParent(d, a, row.New.Parent, op.NewPath)
 		if (row.Old.Parent != 0 && !oldOK) || (row.New.Parent != 0 && !newOK) {
 			changed = true
 		}

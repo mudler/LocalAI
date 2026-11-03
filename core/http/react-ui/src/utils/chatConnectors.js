@@ -1,5 +1,5 @@
 // Helpers of the connectors page. No React, so a node test drives them.
-import { addonPageAddress } from './legacyRoutes.js'
+import { addonPageAddress } from '../addons/addresses.js'
 
 // Groups the bindings of the user by the connector add-on that serves them. A
 // kind that a running add-on serves gets a group with the address of the

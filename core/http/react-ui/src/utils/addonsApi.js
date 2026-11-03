@@ -30,6 +30,8 @@ export function normalizeOperation(payload) {
     operationId: p.OperationID || p.operationId || '',
     addonId: p.AddonID || p.addonId || '',
     phase: p.Phase || p.phase || '',
+    stage: p.stage || '',
+    failureCode: p.failureCode || '',
     generation: Number(p.Generation ?? p.generation ?? 0),
     runtimeState: p.runtimeState || '',
   }

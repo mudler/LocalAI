@@ -21,14 +21,23 @@ var (
 	ErrNotUserMessage = errors.New("studio: only a message you sent can be edited")
 )
 
-// rebuildState makes the resume state of a chat whose transcript was cut or
-// copied. A test harness has none: the next turn then replays the end of the
-// transcript through the system prompt, as for any chat without a state.
-func (s *Service) rebuildState(entries []session.Entry) []byte {
+// rebuildState makes the resume state of the chat of rec whose transcript was
+// cut or copied. A test harness has none: the next turn then replays the end
+// of the transcript through the system prompt, as for any chat without a
+// state. The files of the messages are named as the chat's tools see them; a
+// chat whose access cannot be resolved now keeps the home spelling, which the
+// file tools still read.
+func (s *Service) rebuildState(ctx context.Context, rec session.ChatRecord, entries []session.Entry) []byte {
 	if s.d.Harness != nil {
 		return nil
 	}
-	state, err := nibharness.TranscriptState(entries)
+	var place session.Place
+	if rec.AgentID != "" || rec.ScopedAgent || rec.Kind == session.KindSubAgent {
+		if x, err := s.chatAccess(ctx, rec); err == nil {
+			place = x.Place()
+		}
+	}
+	state, err := nibharness.TranscriptStateIn(entries, place)
 	if err != nil {
 		s.log.Warn("studio: could not rebuild the model state of a chat", "error", err)
 		return nil
@@ -189,7 +198,7 @@ func (s *Service) cut(ctx context.Context, p, conv string, pick func([]session.E
 	if err != nil {
 		return session.Message{}, err
 	}
-	rec.HarnessState, rec.Updated = s.rebuildState(kept), time.Now().UTC()
+	rec.HarnessState, rec.Updated = s.rebuildState(ctx, rec, kept), time.Now().UTC()
 	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
 		return session.Message{}, err
 	}
@@ -257,7 +266,7 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 			return fail(err)
 		}
 	}
-	rec.HarnessState = s.rebuildState(kept)
+	rec.HarnessState = s.rebuildState(ctx, rec, kept)
 	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
 		return fail(err)
 	}

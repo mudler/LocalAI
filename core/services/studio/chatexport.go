@@ -171,7 +171,7 @@ func (s *Service) ImportExport(ctx context.Context, user string, in ChatExport, 
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
-	if state := s.rebuildState(stored); len(state) > 0 {
+	if state := s.rebuildState(ctx, rec, stored); len(state) > 0 {
 		cur, err := s.d.Store.GetChat(ctx, p, rec.ID)
 		if err != nil {
 			return session.ChatRecord{}, err

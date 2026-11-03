@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/auth"
 	studioendpoint "github.com/mudler/LocalAI/core/http/endpoints/studio"
 	"github.com/mudler/LocalAI/core/schema"
@@ -14,19 +15,35 @@ import (
 )
 
 // NewStudioModelChecker says whether a user may start a conversation with a
-// model: it must be a model this instance has, and the user's model allowlist,
-// when they have one, must include it. The chat route checks the allowlist again
+// model: it must be a model this instance has (an alias counts when its target
+// resolves), and the user's model allowlist, when they have one, must include
+// the name they chose. The allowlist is matched against that name, an alias
+// or not, exactly as the request middleware does. The chat route checks the allowlist again
 // on every request, so this only gives an early, clear answer.
 func NewStudioModelChecker(app *application.Application) studioendpoint.ModelChecker {
 	return studioendpoint.ModelCheckerFunc(func(_ context.Context, user *auth.User, model string) error {
-		if _, ok := app.ModelConfigLoader().GetModelConfig(model); !ok {
-			return studioendpoint.ErrUnknownModel
+		if err := checkStudioModelResolves(app.ModelConfigLoader(), model); err != nil {
+			return err
 		}
 		if db := app.AuthDB(); db != nil && user != nil && !auth.IsModelAllowed(db, user, model) {
 			return studioendpoint.ErrModelNotAllowed
 		}
 		return nil
 	})
+}
+
+// checkStudioModelResolves rejects a model with no config and an alias that
+// points nowhere, so a broken alias is refused when it is saved and not when
+// the first message fails.
+func checkStudioModelResolves(cl *config.ModelConfigLoader, model string) error {
+	cfg, ok := cl.GetModelConfig(model)
+	if !ok {
+		return studioendpoint.ErrUnknownModel
+	}
+	if _, _, err := cl.ResolveAlias(&cfg); err != nil {
+		return studioendpoint.ErrUnknownModel
+	}
+	return nil
 }
 
 // RegisterStudioRoutes registers the chats API. Without a service (the chats

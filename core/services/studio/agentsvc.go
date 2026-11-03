@@ -8,18 +8,36 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 )
 
 // SaveAgent creates a saved agent of the user (a.ID empty) or replaces one (a.ID
 // set; it must be the user's). The caller's Principal, Created and Updated are
-// ignored. It returns the stored agent.
+// ignored. A replace keeps the stored folder and mode: SaveAgentWithFolder
+// changes them. It returns the stored agent.
 func (s *Service) SaveAgent(ctx context.Context, user string, a agents.Agent) (agents.Agent, error) {
+	return s.SaveAgentWithFolder(ctx, user, a, nil)
+}
+
+// SaveAgentWithFolder is SaveAgent with a choice of the agent's folder. A nil
+// folder keeps the stored folder on a replace, so a caller that does not know
+// about folders cannot widen an agent, and takes a.FolderID and a.FolderMode
+// as they are on a create. A folder with an empty path clears it; any other
+// path must be a folder of the user's home (see FolderResolver.NodeOf).
+func (s *Service) SaveAgentWithFolder(ctx context.Context, user string, a agents.Agent, folder *AgentFolderWrite) (agents.Agent, error) {
 	if s.d.Agents == nil {
 		return agents.Agent{}, ErrAgentsOff
 	}
 	p := principal(user)
+	if folder != nil {
+		id, mode, err := s.resolveAgentFolder(ctx, p, *folder)
+		if err != nil {
+			return agents.Agent{}, err
+		}
+		a.FolderID, a.FolderMode = id, mode
+	}
 	if err := agents.Validate(a); err != nil {
 		return agents.Agent{}, err
 	}
@@ -28,8 +46,14 @@ func (s *Service) SaveAgent(ctx context.Context, user string, a agents.Agent) (a
 	a.Updated = now
 	if a.ID == "" {
 		a.ID, a.Created = newID(), now
-	} else if _, err := s.d.Agents.Get(ctx, p, a.ID); err != nil {
-		return agents.Agent{}, err
+	} else {
+		old, err := s.d.Agents.Get(ctx, p, a.ID)
+		if err != nil {
+			return agents.Agent{}, err
+		}
+		if folder == nil {
+			a.FolderID, a.FolderMode = old.FolderID, old.FolderMode
+		}
 	}
 	if err := s.d.Agents.Put(ctx, a); err != nil {
 		return agents.Agent{}, err
@@ -70,8 +94,31 @@ var ErrNoTemplate = errors.New("studio: no such agent template")
 // ImportAgent saves an agent that came from a file as a new agent of the user.
 // When the user already has an agent with the name, " (2)", " (3)" and so on
 // is added to the name. The ID, owner and times of the file are not used.
-func (s *Service) ImportAgent(ctx context.Context, user string, a agents.Agent) (agents.Agent, error) {
-	a.ID = ""
+//
+// folder is the folder the file names, or nil for a file without one. Its
+// path is looked up in the importing user's home. When there is no such
+// folder (or the path is empty), the agent keeps the mode and gets no folder,
+// the unset state: it does not start until the user chooses one. It is never
+// saved as an agent without a folder.
+func (s *Service) ImportAgent(ctx context.Context, user string, a agents.Agent, folder *AgentFolderWrite) (agents.Agent, error) {
+	a.ID, a.FolderID, a.FolderMode = "", 0, ""
+	if folder != nil {
+		if folder.Mode != agents.FolderRead && folder.Mode != agents.FolderWrite {
+			return agents.Agent{}, folderRefused("the mode must be read or write")
+		}
+		a.FolderMode = folder.Mode
+		if folder.Path != "" {
+			id, _, err := s.resolveAgentFolder(ctx, principal(user), *folder)
+			switch {
+			case err == nil:
+				a.FolderID = id
+			case errors.Is(err, ErrAgentFolder), errors.Is(err, files.ErrUnavailable):
+				// Unset: the user chooses the folder here.
+			default:
+				return agents.Agent{}, err
+			}
+		}
+	}
 	name := trimName(a.Name)
 	for n := 1; n <= maxImportRenames; n++ {
 		a.Name = name

@@ -22,7 +22,7 @@ async function setup(page, opts = {}) {
 test.describe('Workspace frame (Images)', () => {
   test('the type tabs switch the workspace', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await expect(page.locator('[data-testid="studio-workspace"]')).toHaveAttribute('data-type', 'images')
     await expect(page.locator('.studio-tab')).toHaveCount(8)
     await page.locator('.studio-tab[data-tab="tts"]').click()
@@ -32,7 +32,7 @@ test.describe('Workspace frame (Images)', () => {
 
   test('the compose card has the model chip, the essentials, an estimate and one action', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     // The page title is Studio's own h1 above the tabs; the card heading is a section.
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('Studio')
     await expect(compose(page).getByRole('heading', { level: 2 })).toContainText('Image')
@@ -50,7 +50,7 @@ test.describe('Workspace frame (Images)', () => {
 
   test('starters fill the prompt and go away once there are words', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await page.locator('[data-testid="ws-starters"] button').first().click()
     await expect(prompt(page)).not.toHaveValue('')
     await expect(page.locator('[data-testid="ws-starters"]')).toHaveCount(0)
@@ -58,7 +58,7 @@ test.describe('Workspace frame (Images)', () => {
 
   test('the Advanced fold names what is inside, opens on demand and keeps what is set in its name', async ({ page }) => {
     await setup(page)
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     const bar = compose(page).getByRole('button', { name: /Advanced Settings/ })
     await expect(bar).toHaveAttribute('aria-expanded', 'false')
     await expect(bar).toContainText('negative prompt, steps, seed')
@@ -74,7 +74,7 @@ test.describe('Workspace frame (Images)', () => {
     await setup(page)
     let release
     await page.route('**/v1/images/generations', async route => { await new Promise(r => { release = r }); await route.fulfill({ json: { data: [{ url: '/generated-images/x.png' }] } }) })
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await prompt(page).fill('a lighthouse')
     await generate(page).click()
     const job = page.locator('[data-testid="ws-job"]')
@@ -95,7 +95,7 @@ test.describe('Workspace frame (Images)', () => {
       if (calls === 1) return route.fulfill({ status: 500, json: { error: { message: 'out of memory while sampling' } } })
       return route.fulfill({ json: { data: [{ url: '/generated-images/ok.png' }] } })
     })
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await prompt(page).fill('a lighthouse')
     await generate(page).click()
     const failed = page.locator('[data-testid="ws-failed"]')
@@ -109,7 +109,7 @@ test.describe('Workspace frame (Images)', () => {
 
   test('with no model for the type the install note shows and Generate says why it cannot run', async ({ page }) => {
     await setup(page, { types: ['tts'] })
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await expect(page.locator('[data-testid="studio-install-note"]')).toBeVisible()
     await prompt(page).fill('a lighthouse')
     await expect(generate(page)).toBeDisabled()
@@ -121,7 +121,7 @@ test.describe('Workspace frame (Images)', () => {
   test('the strip lists this type from the shared history, filters favourites and toggles them', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory(), { favourites: ['img-forest'] })
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await expect(tile(page)).toHaveCount(4)
     await page.getByRole('tab', { name: /Favourites/ }).click()
     await expect(tile(page)).toHaveCount(1)
@@ -141,7 +141,7 @@ test.describe('Workspace frame (Images)', () => {
   test('Use in lists the next steps and opens the destination with the result as its source', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await tile(page).filter({ hasText: 'Misty pine forest' }).locator('.ws-tile__open').click()
     await page.locator('[data-testid="ws-use-in"]').click()
     await expect(page.locator('[data-testid="use-in-animate"]')).toBeEnabled()
@@ -155,7 +155,7 @@ test.describe('Workspace frame (Images)', () => {
   test('a step the destination cannot start from is listed, disabled, with the reason', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/video')
+    await page.goto('/app/addons/studio/studio/video')
     await tile(page).locator('.ws-tile__open').click()
     await page.locator('[data-testid="ws-use-in"]').click()
     const item = page.locator('[data-testid="use-in-soundtrack"]')
@@ -166,7 +166,7 @@ test.describe('Workspace frame (Images)', () => {
   test('a type with nothing to send on has Use in disabled with the reason', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/diarization')
+    await page.goto('/app/addons/studio/studio/diarization')
     await tile(page).locator('.ws-tile__open').click()
     await expect(page.locator('[data-testid="ws-use-in"]')).toBeDisabled()
   })
@@ -174,7 +174,7 @@ test.describe('Workspace frame (Images)', () => {
   test('Lineage opens the front page lineage view for the result', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await tile(page).filter({ hasText: 'Misty pine forest' }).locator('.ws-tile__open').click()
     await page.locator('[data-testid="ws-lineage"]').click()
     await expect(page).toHaveURL(/\/app\/addons\/studio\/studio\?work=img-forest/)
@@ -184,7 +184,7 @@ test.describe('Workspace frame (Images)', () => {
   test('a result made through a hand-off names where it came from and links to it', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/video')
+    await page.goto('/app/addons/studio/studio/video')
     await tile(page).locator('.ws-tile__open').click()
     const from = page.locator('[data-testid="ws-from"]')
     await expect(from).toContainText('animate')
@@ -199,7 +199,7 @@ test.describe('Workspace frame (Images)', () => {
     await seedHistory(page, history)
     let body
     await page.route('**/v1/images/generations', route => { body = route.request().postDataJSON(); return route.fulfill({ json: { data: [{ url: '/generated-images/again.png' }] } }) })
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await tile(page).filter({ hasText: 'Misty pine forest' }).locator('.ws-tile__open').click()
     await page.locator('[data-testid="ws-rerun"]').click()
     await expect(prompt(page)).toHaveValue(/Misty pine forest/)
@@ -222,7 +222,7 @@ test.describe('Workspace frame (Images)', () => {
   test('Re-run with edits is disabled, with the reason, when the input was not kept', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/diarization')
+    await page.goto('/app/addons/studio/studio/diarization')
     await tile(page).locator('.ws-tile__open').click()
     await expect(page.locator('[data-testid="ws-rerun"]')).toBeDisabled()
     await expect(page.locator('[data-testid="ws-rerun"]')).toHaveAttribute('title', /not kept/)
@@ -231,7 +231,7 @@ test.describe('Workspace frame (Images)', () => {
   test('deleting and clearing from the strip remove entries', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await expect(tile(page)).toHaveCount(4)
     await tile(page).first().hover()
     await tile(page).first().getByTestId('media-history-delete').click()
@@ -243,7 +243,7 @@ test.describe('Workspace frame (Images)', () => {
   test('the hand-off note and source chip show when the page starts from a result', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/video?prompt=Slow%20push-in&from=img-forest&edge=animate')
+    await page.goto('/app/addons/studio/studio/video?prompt=Slow%20push-in&from=img-forest&edge=animate')
     await expect(page.locator('[data-testid="studio-handoff"]')).toHaveAttribute('data-status', 'ready')
     await expect(compose(page).locator('.ws-source--filled img')).toBeVisible()
     await expect(prompt(page)).toHaveValue('Slow push-in')
@@ -255,7 +255,7 @@ test.describe('Workspace run-throughs', () => {
     await setup(page)
     let body
     await page.route('**/video', route => { if (route.request().method() !== 'POST') return route.fallback(); body = route.request().postDataJSON(); return route.fulfill({ json: { data: [{ url: '/generated-videos/new.mp4' }] } }) })
-    await page.goto('/app/studio/video')
+    await page.goto('/app/addons/studio/studio/video')
     await prompt(page).fill('Boats drift on calm water')
     await page.locator('[data-testid="ws-size"]').selectOption('832x480')
     await page.locator('[data-testid="ws-duration"]').fill('3')
@@ -275,7 +275,7 @@ test.describe('Workspace run-throughs', () => {
       body = route.request().postDataJSON()
       return route.fulfill({ status: 200, headers: { 'Content-Type': 'audio/wav', 'Content-Disposition': 'attachment; filename="line.wav"' }, body: silentWav(2) })
     })
-    await page.goto('/app/studio/tts')
+    await page.goto('/app/addons/studio/studio/tts')
     await prompt(page).fill('Welcome to the harbour.')
     await page.locator('[data-testid="ws-voice"]').fill('af_bella')
     await generate(page).click()
@@ -293,7 +293,7 @@ test.describe('Workspace run-throughs', () => {
       body = route.request().postDataJSON()
       return route.fulfill({ status: 200, headers: { 'Content-Type': 'audio/wav', 'Content-Disposition': 'attachment; filename="pads.wav"' }, body: silentWav(2) })
     })
-    await page.goto('/app/studio/sound')
+    await page.goto('/app/addons/studio/studio/sound')
     await page.getByRole('tab', { name: 'Advanced' }).click()
     await compose(page).getByLabel('Caption').fill('slow pads')
     await compose(page).getByLabel('Lyrics').fill('la la')
@@ -312,7 +312,7 @@ test.describe('Workspace run-throughs', () => {
       headers: { 'Content-Type': 'audio/wav', 'Content-Disposition': 'attachment; filename="clean.wav"', 'X-Audio-Input-Url': '/generated-audio/in.wav' },
       body: silentWav(2),
     }))
-    await page.goto('/app/studio/transform')
+    await page.goto('/app/addons/studio/studio/transform')
     await expect(page.locator('[data-testid="ws-why"]')).toContainText('Add an audio file first')
     await page.locator('input[type="file"]').first().setInputFiles({ name: 'mic.wav', mimeType: 'audio/wav', buffer: silentWav(2) })
     await expect(page.locator('[data-testid="ws-view"]')).toContainText('waiting to be transformed')
@@ -326,7 +326,7 @@ test.describe('Workspace run-throughs', () => {
     await setup(page)
     await page.route('**/3d/generations', route => route.fulfill({ json: { data: [{ url: '/generated-3d/t.glb' }] } }))
     await page.route('**/generated-3d/t.glb', route => route.fulfill({ contentType: 'model/gltf-binary', body: tinyGlb() }))
-    await page.goto('/app/studio/threed')
+    await page.goto('/app/addons/studio/studio/threed')
     await expect(page.locator('[data-testid="ws-why"]')).toContainText('Add a picture first')
     await page.locator('#threed-image-file').setInputFiles({ name: 'in.png', mimeType: 'image/png', buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64') })
     await generate(page).click()
@@ -344,7 +344,7 @@ test.describe('Workspace run-throughs', () => {
         { id: 1, speaker: 'SPEAKER_01', label: '1', start: 6, end: 10, text: 'Hello.' },
       ],
     } }))
-    await page.goto('/app/studio/diarization')
+    await page.goto('/app/addons/studio/studio/diarization')
     await page.locator('#diarization-file').setInputFiles({ name: 'call.wav', mimeType: 'audio/wav', buffer: silentWav(2) })
     await generate(page).click()
     await expect(page.locator('[data-testid="ws-timeline"] .ws-timeline__lane')).toHaveCount(2)
@@ -365,7 +365,7 @@ test.describe('Workspace on a phone', () => {
     test(`${type} fits the width and its action stays reachable`, async ({ page }) => {
       await setup(page)
       await seedHistory(page, sampleHistory())
-      await page.goto(`/app/studio/${type}`)
+      await page.goto(`/app/addons/studio/studio/${type}`)
       await expect(compose(page)).toBeVisible()
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
       expect(overflow).toBeLessThanOrEqual(0)
@@ -378,7 +378,7 @@ test.describe('Workspace on a phone', () => {
   test('the result toolbar and the strip fit after a run', async ({ page }) => {
     await setup(page)
     await seedHistory(page, sampleHistory())
-    await page.goto('/app/studio/images')
+    await page.goto('/app/addons/studio/studio/images')
     await tile(page).first().locator('.ws-tile__open').click()
     await expect(page.locator('[data-testid="ws-result"]')).toBeVisible()
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
@@ -390,7 +390,7 @@ test('with reduced motion the job bar is still, not a moving stripe', async ({ p
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await setup(page)
   await page.route('**/v1/images/generations', () => new Promise(() => {}))
-  await page.goto('/app/studio/images')
+  await page.goto('/app/addons/studio/studio/images')
   await prompt(page).fill('a lighthouse')
   await generate(page).click()
   const bar = page.locator('[data-testid="ws-job"] .dk-progress-bar')

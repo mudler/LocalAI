@@ -260,7 +260,7 @@ export const FIELDS = [
     desc: 'Exact host names added to the package registries list, comma separated, for example an internal mirror. They count as registries, so they need a chat on the Package registries choice (HTTPS only). To allow a host for any request, use Always allowed hosts. No patterns.',
     placeholder: 'pypi.mirror.example.org', default: '', apply: 'live' },
   { key: 'chats_egress_allowed_hosts', group: 'tools', was: 'chats', kind: 'hosts', max: 64, label: 'Always allowed hosts',
-    desc: 'Exact hosts (or host:port) that every chat with the network on may reach without asking, over any protocol. Unlike extra package registries, they are not tied to the Package registries list. They do nothing with the network off or above the limit, and private addresses stay refused unless the private switch below allows them.',
+    desc: 'Exact hosts, *.domain (descendants only, not the apex), or * (public destinations only), optionally with :port. Wildcards obey the network ceiling, allowed ports and private-address guard even when private access is enabled. Extra package registries still require exact names. The owner validates every change.',
     placeholder: 'api.example.org', default: '', apply: 'live' },
   // The step limit of a chat turn (core/config/runtime_settings_registry.go;
   // read when a turn starts, so live). A model's agent.max_iterations wins.

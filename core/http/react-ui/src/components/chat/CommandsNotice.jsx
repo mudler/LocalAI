@@ -36,6 +36,7 @@ export function CommandsNotice({ notice, testId = 'chat-commands-notice' }) {
       )}
     >
       {t(`tools.commands.${info.textKey}`, { reason: info.reason })}
+      {info.reason && ['provider-host', 'unknown', 'provider-unavailable'].includes(info.state) && <p>{info.reason}</p>}
       {info.askKey && <> {t(`tools.commands.${info.askKey}`)}</>}
     </Callout>
   )

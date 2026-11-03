@@ -6,8 +6,8 @@
 // agent, a scheduled job) meets add-on tools. It never decides authority:
 //
 //   - discovery shows only what the owner lists for the authenticated actor:
-//     enabled, running add-ons with a tool definition in their verified
-//     manifest;
+//     enabled, running add-ons with verified manifest tools, plus the narrow
+//     host-owned Tables database listing;
 //   - a read goes to the gateway read path with that actor;
 //   - a change, a schema change or a creation goes to the proposal broker and
 //     returns a reference to the stored proposal. The adapter has no way to
@@ -25,13 +25,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	"github.com/mudler/LocalAI/core/services/addons/toolargs"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -316,18 +316,31 @@ func randomOperationID() (string, error) {
 	return "t" + hex.EncodeToString(raw[:]), nil
 }
 
-var toolName = regexp.MustCompile(`^addon__([a-z][a-z0-9-]{0,63})__([a-z][a-z0-9-]{0,63})$`)
-
-// ToolName is the function name of an add-on tool.
+// ToolName formats a qualified identity. Callers validate components and, for
+// model-callable tools, the total length with ParseToolName.
 func ToolName(addonID, tool string) string { return Prefix + addonID + "__" + tool }
 
-// ParseToolName splits a namespaced name. It accepts nothing else.
-func ParseToolName(name string) (addonID, tool string, ok bool) {
-	m := toolName.FindStringSubmatch(name)
-	if m == nil || len(name) > MaxNameLength {
+// ParseQualifiedToolName splits an add-on tool identity with valid contract
+// components. It does not apply the model's total name limit: Studio stand-ins
+// identify unavailable add-ons, including long IDs, rather than dispatch tools.
+func ParseQualifiedToolName(name string) (addonID, tool string, ok bool) {
+	qualified, ok := strings.CutPrefix(name, Prefix)
+	if !ok {
 		return "", "", false
 	}
-	return m[1], m[2], true
+	addonID, tool, ok = strings.Cut(qualified, "__")
+	if !ok || !contract.ValidName(addonID) || !contract.ValidName(tool) {
+		return "", "", false
+	}
+	return addonID, tool, true
+}
+
+// ParseToolName splits a model-callable name, enforcing its total length limit.
+func ParseToolName(name string) (addonID, tool string, ok bool) {
+	if len(name) > MaxNameLength {
+		return "", "", false
+	}
+	return ParseQualifiedToolName(name)
 }
 
 // IsToolName reports whether name is in the namespace reserved for add-on
@@ -352,7 +365,10 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 	}
 	var out []apps.App
 	for _, a := range list.Apps {
-		if a.Enabled && a.State == "running" && a.Generation > 0 && len(a.ToolDefinitions) > 0 {
+		if a.Enabled && a.State == "running" && a.Generation > 0 && (len(a.ToolDefinitions) > 0 || (a.ID == "tables" && t.hasResourceLister())) {
+			if err := validateTablesListing(a); err != nil {
+				return nil, err
+			}
 			out = append(out, a)
 		}
 	}
@@ -493,6 +509,9 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 	}
 	var out []ToolDefinition
 	for _, a := range list {
+		if a.ID == "tables" && t.hasResourceLister() && len(out) < MaxTools {
+			out = append(out, databaseListingDefinition())
+		}
 		for _, d := range a.ToolDefinitions {
 			if d.Kind == contract.ToolKindAction && !t.actions {
 				continue
@@ -512,11 +531,46 @@ func (t *ToolAdapter) Execute(ctx context.Context, actor contract.Actor, name st
 	return t.ExecuteIn(ctx, actor, "", name, arguments)
 }
 
+// ChatCall is the chat a tool call comes from: the user whose files the chat
+// uses, as the chats service names them, and the chat's ID. The chat turn
+// builds it from its own record of the chat, never from the model's arguments.
+type ChatCall struct {
+	principal, conversation string
+}
+
+// NewChatCall returns the chat of a tool call.
+func NewChatCall(principal, conversation string) ChatCall {
+	return ChatCall{principal: principal, conversation: conversation}
+}
+
+// ExecuteChat runs one tool call of a chat, of any kind. The call is bound to
+// the chat on the host side (hostops.WithBinding): the owner records the chat
+// next to the envelope, so the add-on's workspace operations act with the
+// chat's access, also for a read tool that names no resource. The envelope the
+// add-on receives does not change. The conversation is the chat's ID, used as
+// ExecuteIn uses it.
+func (t *ToolAdapter) ExecuteChat(ctx context.Context, actor contract.Actor, call ChatCall, name string, arguments json.RawMessage) (ToolResult, error) {
+	b := hostops.Binding{Principal: call.principal, ChatID: call.conversation}
+	if !b.Valid() || !ValidConversationID(call.conversation) {
+		return ToolResult{}, ErrInvalidArguments
+	}
+	return t.execute(hostops.WithBinding(ctx, b), actor, call.conversation, name, arguments)
+}
+
 // ExecuteIn runs one tool call of a conversation. The conversation ID comes
 // from the consumer's authenticated request, never from the arguments: it is
 // used only when the call names no resource, to resolve the conversation's
 // selection at the owner. An empty ID means the consumer has no conversation.
+// The chats adapter refuses a conversation here: a chat's call goes through
+// ExecuteChat, so it is never made without its binding.
 func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
+	if t.actions && conversationID != "" {
+		return ToolResult{}, ErrInvalidArguments
+	}
+	return t.execute(ctx, actor, conversationID, name, arguments)
+}
+
+func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
 	if conversationID != "" && !ValidConversationID(conversationID) {
 		return ToolResult{}, ErrInvalidArguments
 	}
@@ -535,6 +589,9 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 		if a.ID != addonID {
 			continue
 		}
+		if addonID == "tables" && tool == "databases-list" && t.hasResourceLister() {
+			return t.listDatabases(ctx, actor, name, arguments)
+		}
 		for _, d := range a.ToolDefinitions {
 			if d.Name != tool {
 				continue
@@ -552,6 +609,11 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 	}
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
+		if errors.Is(err, ErrInvalidArguments) {
+			if message := officeCreationDiagnostic(addonID, tool, arguments); message != "" {
+				return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Message: message}, nil
+			}
+		}
 		return ToolResult{}, err
 	}
 	if resource == "" && conversationID != "" && requiresResource(def) {

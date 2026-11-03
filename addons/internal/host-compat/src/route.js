@@ -10,6 +10,7 @@
 export const MOVED = Object.freeze([
   { prefix: '/app/studio', addon: 'studio', page: 'studio' },
   { prefix: '/app/talk', addon: 'talk', page: 'talk' },
+  { prefix: '/app/voice', addon: 'voice', page: 'voice' },
 ])
 
 export function parseAddress(to) {

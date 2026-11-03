@@ -18,6 +18,8 @@
 #                tool answers "This host cannot run commands." and nothing runs.
 # --local-check  allow a package with a stand-in guest image, for a check
 #                that does not publish.
+# Both the workspace command and guest document-helper fixture cases run.
+# --require isolated makes either case fail if no isolated backend is usable.
 # Scratch files go under SANDBOX_SMOKE_WORK (default: .cache/sandbox-smoke).
 set -eu
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)

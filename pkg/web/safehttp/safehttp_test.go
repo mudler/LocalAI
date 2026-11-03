@@ -164,6 +164,31 @@ var _ = Describe("Allowed", func() {
 	})
 })
 
+var _ = Describe("Allowed with metadata addresses", func() {
+	DescribeTable("refuses, with and without private addresses",
+		func(a string) {
+			addr := netip.MustParseAddr(a)
+			Expect(safehttp.Allowed(addr, false)).To(BeFalse())
+			Expect(safehttp.Allowed(addr, true)).To(BeFalse())
+		},
+		Entry("AWS", "169.254.169.254"),
+		Entry("Azure wire server", "168.63.129.16"),
+		Entry("Oracle", "192.0.0.192"),
+		Entry("Alibaba", "100.100.100.200"),
+		Entry("Azure through NAT64", "64:ff9b::a83f:8110"),
+		Entry("AWS through NAT64", "64:ff9b::a9fe:a9fe"),
+		Entry("AWS through 6to4", "2002:a9fe:a9fe::1"),
+		Entry("AWS through IPv4-compatible", "::a9fe:a9fe"),
+	)
+
+	It("lets private addresses through NAT64 only when allowed", func() {
+		a := netip.MustParseAddr("64:ff9b::a00:1") // 10.0.0.1
+		Expect(safehttp.Allowed(a, false)).To(BeFalse())
+		Expect(safehttp.Allowed(a, true)).To(BeTrue())
+		Expect(safehttp.Allowed(netip.MustParseAddr("64:ff9b::808:808"), false)).To(BeTrue(), "8.8.8.8")
+	})
+})
+
 var _ = Describe("Get", func() {
 	var (
 		srv      *httptest.Server

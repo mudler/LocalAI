@@ -92,26 +92,19 @@ test('upgrade store: an add-on without a confirmed candidate, or one already run
   void first
 })
 
-test('upgrade store: cancel aborts the request and reports what the owner says, not the click', async () => {
-  const abortable = (signal) => new Promise((_, reject) => signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))))
-  const owner = fakeOwner({ fate: { notes: abortable, cal: abortable }, status: async () => ({ phase: 'failed' }) })
+test('upgrade store: owner-managed upgrades report stages, not synthetic percentages or cancellation', async () => {
+  let finish
+  const owner = fakeOwner({ fate: { notes: () => new Promise(resolve => { finish = resolve }) } })
   const s = store()
   const run = s.start(owner.api, pendingAddon('notes'))
   await new Promise(r => setImmediate(r))
   const job = s.getSnapshot().live[0]
-  assert.equal(job.cancellable, true)
-  assert.equal(s.cancel(job.jobID), true)
-  assert.equal(s.getSnapshot().live[0].state, 'cancelling')
-  const out = await run
-  assert.equal(out.outcome, 'cancelled')
-  assert.equal(s.getSnapshot().live.length, 0)
-  assert.equal(s.getSnapshot().records[0].outcome, 'cancelled')
-  // The owner finished it before the cancel landed: that is an upgrade.
-  const owner2 = fakeOwner({ fate: { cal: abortable }, status: async () => ({ phase: 'completed' }) })
-  const run2 = s.start(owner2.api, pendingAddon('cal'))
-  await new Promise(r => setImmediate(r))
-  s.cancel(s.getSnapshot().live[0].jobID)
-  assert.equal((await run2).ok, true)
+  assert.equal(job.cancellable, false)
+  assert.equal(job.progress, 0)
+  assert.equal(job.phase, 'submitting')
+  assert.equal(s.cancel(job.jobID), false)
+  finish('applied')
+  assert.equal((await run).ok, true)
 })
 
 test('upgrade store: an unknown outcome is read on retry and never submitted a second time', async () => {
@@ -200,4 +193,58 @@ test('upgrade store: check now ends the wait of a followed upgrade', async () =>
   const out = await done
   assert.equal(out.ok, true)
   assert.equal(s.checkNow(op.jobID), false)
+})
+
+
+test('upgrade observers resume the same ID after reload and isolate account changes/logout', async () => {
+ const values = new Map()
+ const storage = { getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k) }
+ const api = { updates: { upgrade: async () => ({ phase: 'accepted' }) }, operationStatus: async () => ({ phase: 'running', stage: 'backing-up' }), installed: async () => [] }
+ const first = store()
+ first.bind(api, 'alice', storage)
+ await first.start(api, pendingAddon('notes'))
+ const id = first.getSnapshot().live[0].operationId
+ let reads = []
+ const resumedApi = { ...api, operationStatus: async op => { reads.push(op); return { phase: 'failed', failureCode: 'interrupted' } } }
+ const reloaded = store()
+ reloaded.bind(resumedApi, 'bob', storage)
+ assert.equal(reloaded.getSnapshot().live.length, 0)
+ reloaded.bind(resumedApi, 'alice', storage)
+ await new Promise(r => setImmediate(r))
+ assert.deepEqual(reads, [id])
+ assert.equal(reloaded.getSnapshot().live[0].failureCode, 'interrupted')
+ reloaded.bind(resumedApi, '', storage)
+ assert.equal(reloaded.getSnapshot().live.length, 0)
+ assert.equal(values.has('addon-upgrades:alice'), false)
+})
+
+
+test('account change gives Bob a fresh action identity and restores Alice unknown identity on return', async () => {
+  const values = new Map()
+  const storage = { getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k) }
+  const owner = fakeOwner({ fate: { notes: async () => { throw new AddonsError({ kind: 'unknown_outcome' }) } }, status: async () => ({ phase: 'running' }) })
+  const s = store()
+  s.bind(owner.api, 'alice', storage)
+  await s.start(owner.api, pendingAddon('notes'))
+  const aliceID = owner.calls[0].body.operationId
+  s.bind(owner.api, 'bob', storage)
+  await s.start(owner.api, pendingAddon('notes'))
+  const bobID = owner.calls[1].body.operationId
+  assert.notEqual(bobID, aliceID)
+  s.bind(owner.api, 'alice', storage)
+  await new Promise(r => setImmediate(r))
+  const job = s.getSnapshot().live[0]
+  assert.equal(job.operationId, aliceID)
+  await s.retry(owner.api, job.jobID)
+  assert.equal(owner.calls.length, 2, 'restored unknown operation must only poll, never resubmit')
+})
+
+test('logout cleanup clears persisted observers even in a fresh unbound store before navigation', () => {
+  const values = new Map([['addon-upgrades:alice', '[{"operationId":"private"}]'], ['unrelated', 'keep']])
+  const storage = { get length() { return values.size }, key: i => [...values.keys()][i], getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k) }
+  const fresh = store()
+  fresh.clearSession(storage)
+  assert.equal(values.has('addon-upgrades:alice'), false)
+  assert.equal(values.get('unrelated'), 'keep')
+  assert.deepEqual(fresh.getSnapshot(), { live: [], records: [] })
 })

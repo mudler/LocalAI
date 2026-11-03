@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "“{{name}}” dihapus.",
     "undoLate": "“{{name}}” sudah dihapus.",
-    "restored": "“{{name}}” dipulihkan."
+    "restored": "“{{name}}” dipulihkan.",
+    "exportedFolder": "Agen \"{{name}}\" diekspor. File ini menyebut foldernya, {{path}}. Di tempat Anda mengimpornya, agen mendapat folder dengan jalur itu, jika ada."
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Folder"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "File"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "Jalankan sebuah tugas dan jawabannya muncul di sini.",
       "more": "Tampilkan {{count}} lagi"
     }
+  },
+  "folder": {
+    "all": "Semua file saya",
+    "one": "Satu folder",
+    "scopeLabel": "File yang dapat dijangkau agen ini",
+    "allHelp": "Chat dengan agen ini menjangkau semua file Anda, seperti chat tanpa agen.",
+    "choose": "Pilih folder",
+    "chooseOther": "Pilih folder lain",
+    "change": "Ubah",
+    "home": "Beranda",
+    "modeLabel": "Akses",
+    "read": "Bisa membaca",
+    "write": "Bisa membaca dan mengubah",
+    "readShort": "hanya baca",
+    "writeShort": "baca dan ubah",
+    "help": "Chat dengan agen ini hanya melihat folder ini dan folder chat-nya sendiri. Folder bersama dan skill tetap bisa dibaca. Server MCP dan alat web yang Anda izinkan tidak dibatasi ke folder ini.",
+    "commands": "Perintah agen ini hanya berjalan di add-on Sandbox, tidak pernah langsung di mesin ini.",
+    "nextMessage": "Perubahan berlaku mulai pesan berikutnya di setiap chat.",
+    "missing": "Folder ini sudah tidak ada. Pilih folder lain untuk memakai agen ini.",
+    "unset": "Belum ada folder yang dipilih. Pilih folder untuk memakai agen ini.",
+    "needsChoice": "Pilih folder, atau Semua file saya.",
+    "summaryRead": "{{path}}, bisa membaca",
+    "summaryWrite": "{{path}}, bisa membaca dan mengubah",
+    "summaryMissing": "Folder hilang",
+    "summaryUnset": "Belum ada folder",
+    "dialogTitle": "Pilih folder",
+    "dialogText": "Buka folder tempat agen ini bekerja, lalu gunakan.",
+    "use": "Gunakan {{folder}}",
+    "useAll": "Gunakan seluruh Beranda",
+    "cancel": "Batal",
+    "managedHint": "LocalAI mengelola folder ini",
+    "sharedHint": "Folder bersama tidak bisa dipilih",
+    "exportNote": "File ini menyebut folder {{path}}. Di tempat Anda mengimpornya, agen mendapat folder dengan jalur itu, jika ada, atau meminta Anda memilih satu.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Folder hilang",
+    "chipUnset": "Belum ada folder"
   }
 }

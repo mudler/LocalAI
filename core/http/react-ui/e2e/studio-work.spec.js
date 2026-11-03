@@ -11,7 +11,7 @@ async function open(page, opts = {}) {
   await mockStudio(page)
   await stubMedia(page)
   await seedHistory(page, sampleHistory(), opts)
-  await page.goto('/app/studio')
+  await page.goto('/app/addons/studio/studio')
   await expect(page.locator('[data-testid="studio-work"]')).toBeVisible()
 }
 
@@ -127,7 +127,7 @@ test.describe('Your work', () => {
 
   test('shows a skeleton while 3D history is read, not an empty state', async ({ page }) => {
     await mockStudio(page)
-    await page.goto('/app/studio')
+    await page.goto('/app/addons/studio/studio')
     await expect(page.locator('[data-testid="studio-work"]')).toBeVisible()
     // Once answered, the empty state is the truth.
     await expect(page.locator('[data-testid="studio-work-empty"]')).toBeVisible()

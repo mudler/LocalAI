@@ -67,14 +67,44 @@ export async function stubAddonRoutes(page) {
   await page.context().route('**/api/addons/pins', route => route.fulfill({ json: [] }))
 }
 
+// The owner's host settings policy (core/services/addons/hostsettings.Policy),
+// in the exact shape host-settings-read answers. Keys of `over` that are not
+// policy fields (other runtime settings) are ignored.
+const HOST_POLICY_DEFAULTS = {
+  chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false,
+  chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '',
+  chats_tool_providers: {}, auto_upgrade_addons: false,
+}
+export function hostPolicy(over = {}) {
+  const policy = structuredClone(HOST_POLICY_DEFAULTS)
+  for (const key of Object.keys(policy)) if (Object.hasOwn(over, key)) policy[key] = structuredClone(over[key])
+  return policy
+}
+
+// Applies a host-settings-update patch: present keys replace, a null provider
+// value deletes that pin. Mirrors hostsettings.Patch.
+function applyHostPatch(policy, patch) {
+  const next = structuredClone(policy)
+  for (const [key, value] of Object.entries(patch || {})) {
+    if (key !== 'chats_tool_providers') { next[key] = value; continue }
+    for (const [name, provider] of Object.entries(value || {})) {
+      if (provider === null) delete next.chats_tool_providers[name]
+      else next.chats_tool_providers[name] = provider
+    }
+  }
+  return next
+}
+
 // Installs the routes and returns the mutable state the spec reads and edits.
 export async function mockAddons(page, options = {}) {
   const state = {
+    // The owner's host settings; log.hostSettings collects each update patch.
+    hostSettings: { revision: 1, policy: hostPolicy(options.hostSettings) },
     apps: options.apps || [app()],
     installed: options.installed || [installedAddon()],
     sources: options.sources || [{ id: 'main', name: 'Main', url: 'https://catalog.example/releases.json', enabled: true, policy: { requireSignature: false }, refresh: { checkedAt: new Date().toISOString(), lastSuccess: new Date().toISOString(), count: 2, failed: false } }],
     releases: options.releases || [release('notes'), release('tables', { policy: { requireSignature: true, issuer: 'https://issuer.example', identity: 'release@catalog.example' } })],
-    log: { appsList: 0, start: [], stop: [], dispatch: [], check: [], upgrade: [], library: [] },
+    log: { appsList: 0, start: [], stop: [], dispatch: [], check: [], upgrade: [], library: [], hostSettings: [] },
     // Overrides for the update routes: each takes the parsed body.
     check: options.check || null,
     upgrade: options.upgrade || null,
@@ -224,6 +254,14 @@ export async function mockAddons(page, options = {}) {
         return route.fulfill(ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 0 }))
       case 'operation-status':
         return route.fulfill(ok({ OperationID: body.operationId, AddonID: body.addonId, Phase: 'completed', Generation: 0 }))
+      case 'host-settings-read':
+        return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))
+      case 'host-settings-update': {
+        if (args.expectedRevision !== state.hostSettings.revision) return route.fulfill(ok({ error: 'revision_conflict' }))
+        state.log.hostSettings.push(args.patch)
+        state.hostSettings = { revision: state.hostSettings.revision + 1, policy: applyHostPatch(state.hostSettings.policy, args.patch) }
+        return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))
+      }
       default:
         return route.fulfill(fail(403, 'addon_error'))
     }

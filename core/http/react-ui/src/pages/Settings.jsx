@@ -10,6 +10,8 @@ import UnsavedChangesGuard from '../components/UnsavedChangesGuard'
 import HomeUndoToast from '../components/home/HomeUndoToast'
 import SettingField from '../components/settings/SettingField'
 import BuiltinToolsSection from '../components/settings/BuiltinToolsSection'
+import AddonUpgradeSettings from '../components/settings/AddonUpgradeSettings'
+import OwnerBuiltinToolsSection from '../components/settings/OwnerBuiltinToolsSection'
 import PendingBar from '../components/settings/PendingBar'
 import HistorySheet from '../components/settings/HistorySheet'
 import Icon from '../components/Icon'
@@ -322,16 +324,16 @@ export default function Settings() {
 
   const searching = query.trim().length > 0
   // A setting that a host control draws is on the add-on's page, not here.
-  const results = searching ? searchFields(query, settings).filter(f => !ownedByControl(f.key)) : []
-  const withDefaults = FIELDS.filter(f => hasDefault(f) && !ownedByControl(f.key))
+  const results = searching ? searchFields(query, settings).filter(f => !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons')) : []
+  const withDefaults = FIELDS.filter(f => hasDefault(f) && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons'))
   const changedFromDefault = withDefaults.filter(f => isChanged(f, settings)).length
   const showAddons = addonSettings.length > 0
   const onAddons = group === ADDONS_GROUP && showAddons
-  const pageFields = FIELDS.filter(f => !ownedByControl(f.key)).length
-  const groupFields = onAddons ? [] : FIELDS.filter(f => f.group === group && !ownedByControl(f.key))
+  const pageFields = FIELDS.filter(f => !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons')).length
+  const groupFields = onAddons ? [] : FIELDS.filter(f => f.group === group && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons'))
   const active = GROUPS.find(g => g.id === group) || GROUPS[0]
 
-  const countFor = (g) => FIELDS.filter(f => f.group === g.id && !ownedByControl(f.key) && isChanged(f, settings)).length
+  const countFor = (g) => FIELDS.filter(f => f.group === g.id && !ownedByControl(f.key) && !(settings.addon_host_settings_authority && f.key === 'auto_upgrade_addons') && isChanged(f, settings)).length
   const draftIn = (g) => FIELDS.some(f => f.group === g.id && pendingKeys.has(f.key))
 
   const renderField = (field, showWhere) => (
@@ -419,11 +421,14 @@ export default function Settings() {
           ) : (
             <section aria-labelledby="st-group-title">
               <h2 className="st-h2" id="st-group-title">{active.label}<span className="st-sub">{active.hint}</span></h2>
+              {group === 'backends' && settings.addon_host_settings_authority && <AddonUpgradeSettings />}
               {group === 'memory' && <MemoryNow resources={resources} settings={settings} onRefresh={fetchResources} />}
               {group === 'access' && (
                 <p className="st-note">Sign-in, users, invites and per-user API keys are under Users and keys when authentication is on.</p>
               )}
-              {group === 'tools' && <BuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />}
+              {group === 'tools' && (settings.addon_host_settings_authority
+                ? <OwnerBuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />
+                : <BuiltinToolsSection settings={settings} onChange={onChange} addonLinks={toolLinks} />)}
               {group === 'tools' && networkApps.length > 0 && <ControlledElsewhere apps={networkApps} />}
               <div className="st-list">
                 {groupFields.filter(f => f.custom !== group).map(f => {

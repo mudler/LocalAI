@@ -238,13 +238,33 @@ test.describe('Add-on updates and the explicit upgrade through the real owner', 
     expect(results.map(r => r.status).sort(), JSON.stringify(results)).toEqual([200, 409])
     const loser = results.find(r => r.status === 409)
     expect(loser.json.error.type).toBe('upgrade_conflict')
+    const winnerIndex = results.findIndex(r => r.status === 200)
+    const winnerId = [one, two][winnerIndex]
+    const winnerPage = [a.page, b.page][winnerIndex]
+    expect(results[winnerIndex].json.payload.OperationID).toBe(winnerId)
+    expect(results[winnerIndex].json.payload.Phase).toBe('accepted')
+    // Acceptance does not publish a generation. Poll as the winning browser
+    // session so this read remains bound to the actor that submitted the work.
+    let terminal
+    await expect.poll(async () => {
+      const status = await pageFetch(winnerPage, '/api/addons/dispatch', {
+        method: 'POST', body: { addonId: 'tables', operationId: winnerId, action: 'operation-status', arguments: {} },
+      })
+      expect(status.status, JSON.stringify(status.json)).toBe(200)
+      terminal = status.json.payload
+      expect(terminal.OperationID).toBe(winnerId)
+      return terminal.Phase
+    }).toMatch(/^(completed|failed)$/)
+    expect(terminal.Phase, JSON.stringify(terminal)).toBe('completed')
+    expect(terminal.Generation).toBe(3)
     const after = await installed(api)
     expect(after.generation).toBe(3)
     expect(after.digest).toBe(now.update.digest)
     state.thirdDigest = after.digest
     // The winner's operation replays and does not run again.
-    const again = await pageFetch(a.page, '/api/addons/tables/upgrade', { method: 'POST', body: body(results[0].status === 200 ? one : two), headers: { 'X-LocalAI-Confirm': results[0].status === 200 ? one : two } })
+    const again = await pageFetch(winnerPage, '/api/addons/tables/upgrade', { method: 'POST', body: body(winnerId), headers: { 'X-LocalAI-Confirm': winnerId } })
     expect(again.status).toBe(200)
+    expect(again.json.payload).toEqual(terminal)
     expect((await installed(api)).generation).toBe(3)
     await a.context.close()
     await b.context.close()

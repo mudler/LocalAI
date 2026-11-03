@@ -3,6 +3,7 @@ package files_test
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,10 +20,33 @@ type toolBox struct {
 	tools map[string]session.Tool
 }
 
+// sharedOf holds the shared folders each test service's chats mount, as the
+// chat service's shared folders would list them.
+var sharedOf = map[*files.Service][]session.SharedRoot{}
+
+// setShared makes the chats of f mount roots as their shared folders.
+func setShared(f *files.Service, roots ...session.SharedRoot) {
+	sharedOf[f] = roots
+	DeferCleanup(func() { delete(sharedOf, f) })
+}
+
+// unscopedAccess is the access of a chat whose agent has no folder: the home
+// at home and the shared folders of setShared, as the chat service builds it.
+func unscopedAccess(f *files.Service, user, chat string) session.Access {
+	GinkgoHelper()
+	a := workspace.Actor{Principal: user, ChatID: chat}
+	v, err := session.BuildView(context.Background(), f.Store(), a, session.HomePath(user), "", sharedOf[f], slog.New(slog.DiscardHandler))
+	Expect(err).NotTo(HaveOccurred())
+	x, err := session.NewAccess(a, v)
+	Expect(err).NotTo(HaveOccurred())
+	return x
+}
+
 func newToolBox(f *files.Service, user, chat string) *toolBox {
 	Expect(f.EnsureHome(context.Background(), user)).To(Succeed())
 	b := &toolBox{f: f, tools: map[string]session.Tool{}}
-	for _, tool := range f.Tools(workspace.Actor{Principal: user, ChatID: chat}) {
+	x := unscopedAccess(f, user, chat)
+	for _, tool := range f.Tools(x) {
 		b.tools[tool.Name] = tool
 	}
 	return b

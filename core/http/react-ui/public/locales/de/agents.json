@@ -43,11 +43,13 @@
     "notAnAgent": "The file is not an exported agent",
     "deletedUndo": "„{{name}}“ gelöscht.",
     "undoLate": "„{{name}}“ wurde bereits gelöscht.",
-    "restored": "„{{name}}“ wiederhergestellt."
+    "restored": "„{{name}}“ wiederhergestellt.",
+    "exportedFolder": "Agent \"{{name}}\" exportiert. Die Datei nennt seinen Ordner, {{path}}. Wo du sie importierst, erhält der Agent den Ordner mit diesem Pfad, falls es ihn gibt."
   },
   "facts": {
     "addons": "Add-ons",
-    "connector": "MCP connector"
+    "connector": "MCP connector",
+    "folder": "Ordner"
   },
   "agent": {
     "triggers": "Triggers",
@@ -77,7 +79,8 @@
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
-      "export": "Export"
+      "export": "Export",
+      "Files": "Dateien"
     },
     "name": "Name",
     "description": "Description",
@@ -444,5 +447,41 @@
       "emptyBody": "Führe eine Aufgabe aus, dann erscheint ihre Antwort hier.",
       "more": "{{count}} weitere anzeigen"
     }
+  },
+  "folder": {
+    "all": "Alle meine Dateien",
+    "one": "Ein Ordner",
+    "scopeLabel": "Dateien, die dieser Agent erreicht",
+    "allHelp": "Chats mit diesem Agenten erreichen alle deine Dateien, wie ein Chat ohne Agent.",
+    "choose": "Ordner wählen",
+    "chooseOther": "Anderen Ordner wählen",
+    "change": "Ändern",
+    "home": "Start",
+    "modeLabel": "Zugriff",
+    "read": "Darf lesen",
+    "write": "Darf lesen und ändern",
+    "readShort": "nur lesen",
+    "writeShort": "lesen und ändern",
+    "help": "Chats mit diesem Agenten sehen nur diesen Ordner und ihren eigenen Chat-Ordner. Geteilte Ordner und Skills bleiben lesbar. MCP-Server und Web-Tools, die du freigibst, sind nicht auf diesen Ordner beschränkt.",
+    "commands": "Befehle dieses Agenten laufen nur im Sandbox-Add-on, nie direkt auf diesem Rechner.",
+    "nextMessage": "Eine Änderung gilt ab der nächsten Nachricht jedes Chats.",
+    "missing": "Dieser Ordner existiert nicht mehr. Wähle einen anderen Ordner, um diesen Agenten zu nutzen.",
+    "unset": "Noch kein Ordner gewählt. Wähle einen Ordner, um diesen Agenten zu nutzen.",
+    "needsChoice": "Wähle einen Ordner oder Alle meine Dateien.",
+    "summaryRead": "{{path}}, darf lesen",
+    "summaryWrite": "{{path}}, darf lesen und ändern",
+    "summaryMissing": "Ordner fehlt",
+    "summaryUnset": "Kein Ordner gewählt",
+    "dialogTitle": "Ordner wählen",
+    "dialogText": "Öffne den Ordner, in dem dieser Agent arbeitet, und verwende ihn.",
+    "use": "{{folder}} verwenden",
+    "useAll": "Ganz Start verwenden",
+    "cancel": "Abbrechen",
+    "managedHint": "LocalAI verwaltet diesen Ordner",
+    "sharedHint": "Geteilte Ordner sind nicht wählbar",
+    "exportNote": "Die Datei nennt den Ordner {{path}}. Wo du sie importierst, erhält der Agent den Ordner mit diesem Pfad, falls es ihn gibt, oder fragt dich nach einem.",
+    "chip": "{{name}}, {{mode}}",
+    "chipMissing": "Ordner fehlt",
+    "chipUnset": "Kein Ordner gewählt"
   }
 }

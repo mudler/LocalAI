@@ -1,4 +1,6 @@
 // eslint-disable-next-line no-unused-vars
+import ModelLaunch from '../../../addons/ModelLaunch'
+// eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
 import { useCleanupFacts } from '../../../hooks/useCleanupFacts'
 import { renderMarkdown, stripMarkdown } from '../../../utils/markdown'
@@ -236,9 +238,7 @@ export default function OverviewTab({ view }) {
                     <dt>{t('lifecycle.open.title')}</dt>
                     <dd>
                       <div className="modelpage-tags">
-                        {useCases.map(u => u.route
-                          ? <Link key={u.cap} className="dk-chip dk-chip--sm modelpage-chip" to={u.route(view.id)}>{t(`lifecycle.open.${u.labelKey}`)}</Link>
-                          : <span key={u.cap} className="dk-chip dk-chip--sm modelpage-chip">{t(`lifecycle.open.${u.labelKey}`)}</span>)}
+                        {useCases.map(u => <ModelLaunch key={u.cap} useCase={u} model={view.id} label={t(`lifecycle.open.${u.labelKey}`)} className="dk-chip dk-chip--sm modelpage-chip" />)}
                       </div>
                     </dd>
                   </>
