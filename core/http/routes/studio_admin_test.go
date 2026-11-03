@@ -27,7 +27,7 @@ var _ = Describe("Chats administrator view", func() {
 			"schedule": "daily 07:30", "time_zone": "UTC", "enabled": true, "model": "test-model"})
 		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
 		trigID = decodeJSON(rec)["id"].(string)
-		rec = s.do("alice", http.MethodPost, "/api/chats/connectors", map[string]any{"name": "Bot", "token": specToken, "agent_id": agentID, "enabled": false})
+		rec = s.do("alice", http.MethodPost, "/api/chats/connectors", map[string]any{"kind": "telegram", "name": "Bot", "token": specToken, "agent_id": agentID, "enabled": false})
 		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
 		conID = decodeJSON(rec)["id"].(string)
 	})

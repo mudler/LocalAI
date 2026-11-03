@@ -119,7 +119,7 @@ var _ = Describe("connector owner routing", func() {
 		Expect(kinds).To(BeEmpty())
 	})
 
-	It("persists an offline Telegram connector with the real transport when add-ons are disabled", func() {
+	It("refuses a connector with the real transport when add-ons are disabled, and keeps nothing", func() {
 		ctx := context.Background()
 		app := &Application{applicationConfig: &config.ApplicationConfig{}}
 		Expect(app.startAddons()).To(Succeed())
@@ -139,17 +139,13 @@ var _ = Describe("connector owner routing", func() {
 		DeferCleanup(client.Close)
 		ag, err := svc.SaveAgent(ctx, studio.AnonymousPrincipal, agents.Agent{Name: "Offline", Model: "fake"})
 		Expect(err).NotTo(HaveOccurred())
-		created, err := client.CreateConnector(ctx, studio.AnonymousPrincipal, studio.ConnectorInput{Kind: "telegram", Name: "Telegram", AgentID: ag.ID, Token: "offline-secret", AcceptAny: true})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(created.Active).To(BeFalse())
+		_, err = client.CreateConnector(ctx, studio.AnonymousPrincipal, studio.ConnectorInput{Kind: "telegram", Name: "Telegram", AgentID: ag.ID, Token: "offline-secret", AcceptAny: true})
+		Expect(err).To(MatchError(connectors.ErrInvalid))
 		reopened, err := connectors.NewJSON(dir)
 		Expect(err).NotTo(HaveOccurred())
-		persisted, err := reopened.GetBinding(ctx, created.ID)
+		left, err := reopened.ListBindings(ctx, studio.AnonymousPrincipal)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(persisted.Kind).To(Equal("telegram"))
-		Expect(persisted.AddonID).To(Equal("telegram"))
-		Expect(persisted.AgentID).To(Equal(ag.ID))
-		Expect(persisted.Token).NotTo(BeEmpty())
+		Expect(left).To(BeEmpty())
 	})
 
 	It("keeps configured missing gateways and unreachable nonowners unavailable", func() {
