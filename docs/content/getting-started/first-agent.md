@@ -16,7 +16,7 @@ An agent that uses tools needs a model that can call them. Open **Models**, inst
 1. Open **Agents** in the sidebar.
 2. Choose **New agent**. Give it a name and the instructions it should always follow, for example: `Answer in French. Cite the file you used.`
 3. Leave the lists empty for an agent that only talks. Add an MCP server of the model, an add-on, a collection or a skill to give it more. An empty list grants nothing: an agent never has more than you put in it.
-4. Optional: in **Files**, choose **One folder** and pick a folder, for example `/Projects/Acme`, with **Can read** or **Can read and change**. Chats with the agent then see only that folder and their own chat folder, not the rest of your files. See [One folder for an agent](/features/chats-agents/#one-folder-for-an-agent).
+4. Optional: in **Files**, choose **Chosen folders** and pick a folder, for example `/Projects/Acme`, with **Can read** or **Can read and change**. You can add up to eight folders, each with its own access. Chats with the agent then see only those folders and their own chat folder, not the rest of your files. See [Folders of an agent](/features/chats-agents/#folders-of-an-agent).
 5. Save it.
 
 ## Talk to it
