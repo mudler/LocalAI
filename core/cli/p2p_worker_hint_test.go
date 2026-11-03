@@ -56,4 +56,23 @@ var _ = Describe("P2P limits CLI boundary", func() {
 			Expect(explorer.P2PEnableLimits == "true").To(Equal(value == "true"))
 		}
 	})
+
+	It("accepts the documented --p2p-enable-limits flag at every entry point", func() {
+		GinkgoT().Setenv("LOCALAI_P2P_ENABLE_LIMITS", "")
+		run := RunCMD{}
+		rpc := worker.P2P{}
+		mlx := worker.P2PMLX{}
+		explorer := ExplorerCMD{}
+		entries := map[string]*string{
+			"run": &run.P2PEnableLimits, "rpc": &rpc.P2PEnableLimits,
+			"mlx": &mlx.P2PEnableLimits, "explorer": &explorer.P2PEnableLimits,
+		}
+		for name, entry := range map[string]any{"run": &run, "rpc": &rpc, "mlx": &mlx, "explorer": &explorer} {
+			parser, err := kong.New(entry, kong.Vars{"basepath": ".", "generatedcontentpath": ".", "uploadpath": ".", "galleries": config.DefaultGalleriesJSON, "backends": config.DefaultBackendGalleriesJSON, "version": "test"})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = parser.Parse([]string{"--p2p-enable-limits=true"})
+			Expect(err).NotTo(HaveOccurred(), name)
+			Expect(*entries[name]).To(Equal("true"), name)
+		}
+	})
 })
