@@ -27,6 +27,11 @@ type ChatGrant struct {
 	Caps []string `json:"caps,omitempty"`
 	// Denied says why a capability in the ceiling is not held, by name.
 	Denied map[string]string `json:"denied,omitempty"`
+	// Direct says the chat is one-to-one and Paired that the sender is paired
+	// with the bot. A grant from an older frontend has neither, which reads as
+	// a group chat and an unpaired sender.
+	Direct bool `json:"direct,omitempty"`
+	Paired bool `json:"paired,omitempty"`
 }
 
 // ChatStartReply is the worker's answer to a ChatStartRequest. With Error

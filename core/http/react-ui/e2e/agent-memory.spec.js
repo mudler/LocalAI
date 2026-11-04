@@ -25,10 +25,10 @@ const GROUPS = [
   { source: 'memory', scope: 'agent', key: 'gone', deleted: true, max_bytes: 2048, max_lines: 40, files: [f('Memory/agents/gone/index.md', { index: true, lines: 1 })] },
 ]
 
-async function serve(page, { enabled = true, agents = AGENTS, groups = GROUPS } = {}) {
+async function serve(page, { enabled = true, agents = AGENTS, groups = GROUPS, save = 'ask' } = {}) {
   const s = await installAgents(page, { agents })
   await page.route('**/api/chats/agents/builtin-grants', route => route.fulfill({ json: { grants: GRANTS } }))
-  await page.route('**/api/chats/memory', route => route.fulfill({ json: { enabled, enabled_set: true, save_mode: 'ask', save_mode_set: false, provider: 'builtin', available: true } }))
+  await page.route('**/api/chats/memory', route => route.fulfill({ json: { enabled, enabled_set: true, save_mode: save, messaging_save: 'ask', save_mode_set: false, provider: 'builtin', available: true } }))
   await page.route('**/api/chats/context-files', route => route.fulfill({ json: { limits: LIMITS, groups } }))
   await page.route('**/api/chats/memory/export*', route => route.fulfill({ status: 200, contentType: 'application/zip', body: 'PK' }))
   // A delete that says what to do with the notes carries a query, which the shared stub does not match.
@@ -106,6 +106,50 @@ test.describe('Memory section of the agent form', () => {
     await fold(page, 'Notes').locator('.ag-fold__button').click()
     await expect(page.getByTestId('agent-memory-user-off')).toContainText('Memory is off in your settings')
     await shot(page, 'agent-memory-user-off', { fullPage: true })
+  })
+})
+
+test.describe('The save rule of the agent', () => {
+  const open = async (page, path) => {
+    await page.goto(path)
+    await fold(page, 'Notes').locator('.ag-fold__button').click()
+  }
+
+  test('offers three cards, never auto, says what is in force, and sends nothing until it is changed', async ({ page }) => {
+    const s = await serve(page, { save: 'auto' })
+    await open(page, '/app/agents/a2/edit')
+    const rule = page.getByTestId('agent-memory-rule')
+    await expect(rule.getByRole('radio')).toHaveCount(3)
+    await expect(rule.locator('.am__title')).toHaveText(['Use my setting', 'Always confirm', 'Never'])
+    await expect(rule).toContainText('Currently: Save it and tell me.')
+    await expect(page.getByTestId('agent-memory-rule-use_mine').locator('input')).toBeChecked()
+    await expect(rule.getByText('Save it and tell me', { exact: true })).toHaveCount(0)
+    await expect(page.getByTestId('agent-memory-rule-hint')).toContainText('never less')
+    await shot(page, 'agent-memory-rule', { fullPage: true })
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect('memory_save' in s.calls.find(c => c.method === 'PUT').body).toBe(false)
+  })
+
+  test('sends always, then never, then use_mine to clear it', async ({ page }) => {
+    const s = await serve(page, { agents: [{ ...AGENTS[1], memory: 'own', memory_save: 'always' }] })
+    await open(page, '/app/agents/a2/edit')
+    await expect(page.getByTestId('agent-memory-rule-always').locator('input')).toBeChecked()
+    await page.getByTestId('agent-memory-rule-never').click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.filter(c => c.method === 'PUT').at(-1).body.memory_save).toBe('never')
+    await open(page, '/app/agents/a2/edit')
+    await page.getByTestId('agent-memory-rule-use_mine').click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect(page).toHaveURL(/\/app\/agents$/)
+    expect(s.calls.filter(c => c.method === 'PUT').at(-1).body.memory_save).toBe('use_mine')
+  })
+
+  test('is hidden when the agent has no memory', async ({ page }) => {
+    await serve(page, { agents: [{ ...AGENTS[1], memory: 'none' }] })
+    await open(page, '/app/agents/a2/edit')
+    await expect(page.getByTestId('agent-memory-rule')).toHaveCount(0)
   })
 })
 

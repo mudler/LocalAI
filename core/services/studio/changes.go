@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -158,9 +159,11 @@ func (c *Changes) Propose(ctx context.Context, in ProposeInput) (contract.Change
 	p := contract.ChangeProposal{V: contract.ChangeProposalVersion, ID: uuid.NewString(), Owner: principal(in.User), Agent: in.Agent,
 		Kind: kind.Name, Scope: contract.ChangeScope(in.Scope), Summary: cleanSummary(in.Summary), Content: in.Content, Source: in.Source,
 		Status: contract.ProposalPending, Auto: in.Auto}
-	if in.Auto && (in.Source.Kind != "" || kind.Name != contract.ChangeMemory) {
+	if in.Auto && !c.autoAllowed(ctx, in, kind.Name) {
 		// Defence in depth: the tool decides this too, but nothing but a memory
-		// note from the person's own chat is ever applied unasked.
+		// note from the person's own chat, or a note to the conversation of a
+		// paired sender in a private chat that the person allowed, is ever
+		// applied unasked.
 		c.audit(ctx, proposals.ActionRefuse, p, 0, "automatic save is for a memory note from the person's own chat")
 		return contract.ChangeProposal{}, fmt.Errorf("%w: only a memory note from your own chat can be saved at once", ErrBadChange)
 	}
@@ -540,4 +543,29 @@ func (c *Changes) kindsHeld(ch builtins.Chat) []contract.ChangeKind {
 		}
 	}
 	return out
+}
+
+// autoAllowed says whether the host lets a proposal be applied unasked. It is
+// the second check after the tool: a note from the person's own chat unless
+// the level in force is always or never, and a note to the conversation of a
+// messaging chat only when the level in force is auto, which needs the row
+// paired_private, a paired sender and a one-to-one chat (see
+// effectiveSaveLevel). Anything else asks.
+func (c *Changes) autoAllowed(ctx context.Context, in ProposeInput, kind contract.ChangeKind) bool {
+	if kind != contract.ChangeMemory {
+		return false
+	}
+	switch in.Source.Kind {
+	case "":
+		level := effectiveSaveLevel(SaveInputs{User: c.storedSaveMode(ctx, in.User), Agent: c.s.agentMemorySave(ctx, in.User, in.Agent)})
+		return level != SaveAlways && level != SaveNever
+	case session.OriginConnector:
+		if in.Scope != string(contract.ScopeChannel) {
+			return false
+		}
+		direct, paired := c.s.messagingFacts(in.Source.Chat)
+		return effectiveSaveLevel(SaveInputs{User: c.storedSaveMode(ctx, in.User), Agent: c.s.agentMemorySave(ctx, in.User, in.Agent),
+			Messaging: c.storedMessagingSave(ctx, in.User), Origin: session.OriginConnector, Direct: direct, Paired: paired}) == SaveAuto
+	}
+	return false
 }

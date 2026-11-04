@@ -1,10 +1,12 @@
 package studio
 
 import (
+	"encoding/json"
 	"slices"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/workerctl"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -131,6 +133,28 @@ var _ = Describe("the grant of a turn", func() {
 	})
 	It("is empty when one sender may do nothing", func() {
 		Expect(g("A", nil, "memory.write").merge(g("B", nil)).Caps).To(BeEmpty())
+	})
+	It("is a private chat with a paired sender only when every sender of the turn is", func() {
+		both := turnGrant{Senders: []string{"A"}, Direct: true, Paired: true}
+		Expect(both.merge(turnGrant{Senders: []string{"A"}, Direct: true, Paired: true})).To(And(HaveField("Direct", true), HaveField("Paired", true)))
+		Expect(both.merge(turnGrant{Senders: []string{"B"}, Direct: true})).To(And(HaveField("Direct", true), HaveField("Paired", false)))
+		Expect(both.merge(turnGrant{Senders: []string{"B"}, Paired: true})).To(And(HaveField("Direct", false), HaveField("Paired", true)))
+		Expect(turnGrant{}.merge(both)).To(And(HaveField("Direct", false), HaveField("Paired", false)), "an unknown grant counts as a group and unpaired")
+	})
+	It("carries the chat kind and the pairing over the wire, and reads an older grant as a group", func() {
+		held := turnGrant{Binding: "b1", Senders: []string{"A"}, Direct: true, Paired: true}
+		back := grantOf(held.wire())
+		Expect(back.Direct).To(BeTrue())
+		Expect(back.Paired).To(BeTrue())
+		raw, err := json.Marshal(held.wire())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"direct":true`))
+		Expect(string(raw)).To(ContainSubstring(`"paired":true`))
+		var old workerctl.ChatGrant
+		Expect(json.Unmarshal([]byte(`{"binding":"b1","senders":["A"],"caps":["memory.write"]}`), &old)).To(Succeed())
+		got := grantOf(&old)
+		Expect(got.Direct).To(BeFalse())
+		Expect(got.Paired).To(BeFalse())
 	})
 })
 

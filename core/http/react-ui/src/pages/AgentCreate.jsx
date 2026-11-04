@@ -8,7 +8,7 @@ import { useAgentTools } from '../hooks/useAgentTools'
 import { useToolGroups } from '../hooks/useToolGroups'
 import { useMemorySettings } from '../hooks/useMemorySettings'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, MEMORY_GRANT, memoryChoiceOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
+import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, MEMORY_GRANT, memoryChoiceOf, memorySaveOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
@@ -109,10 +109,10 @@ export default function AgentCreate() {
         let initialForm = newAgent()
         if (isEdit) {
           const agent = await chatAgentsApi.get(id)
-          initialForm = { ...emptyAgent(), ...agent, memory: memoryChoiceOf(agent), folders: folderRows(agent) }
+          initialForm = { ...emptyAgent(), ...agent, memory: memoryChoiceOf(agent), memory_save: memorySaveOf(agent), folders: folderRows(agent) }
           setSavedConfig(agent)
         } else if (imported) {
-          initialForm = { ...emptyAgent(), ...imported.agent, memory: memoryChoiceOf(imported.agent), folders: folderRows(imported.agent) }
+          initialForm = { ...emptyAgent(), ...imported.agent, memory: memoryChoiceOf(imported.agent), memory_save: memorySaveOf(imported.agent), folders: folderRows(imported.agent) }
         } else if (templateId) {
           // A starting point fills the form; nothing is saved until the person saves.
           const tpl = AGENT_TEMPLATES.find(x => x.id === templateId)
@@ -329,6 +329,9 @@ export default function AgentCreate() {
             saves={(form.builtins || []).includes(MEMORY_GRANT)}
             onSaves={(on) => updateField('builtins', setGrant(form.builtins, MEMORY_GRANT, on))}
             userOff={memoryUser.settings?.enabled === false}
+            saveRule={form.memory_save || ''}
+            onSaveRule={(r) => updateField('memory_save', r || 'use_mine')}
+            userLevel={memoryUser.settings?.save_mode}
           />
         )
       case 'MemorySettings':

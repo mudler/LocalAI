@@ -276,10 +276,16 @@ type turnGrant struct {
 	// ones that are in the ceiling of the binding. The tools use it to tell
 	// the person what the owner can change.
 	Denied map[string]string
+	// Direct says the chat of the turn is one-to-one (a direct message, a
+	// private chat) and Paired that the sender is paired with the bot. Both
+	// are false when unknown, and only both together let a note be saved at
+	// once (see effectiveSaveLevel). With several senders they hold only when
+	// they hold for each.
+	Direct, Paired bool
 }
 
 func (g turnGrant) merge(o turnGrant) turnGrant {
-	out := turnGrant{Binding: g.Binding, Kind: g.Kind}
+	out := turnGrant{Binding: g.Binding, Kind: g.Kind, Direct: g.Direct && o.Direct, Paired: g.Paired && o.Paired}
 	out.Senders = unionOf(g.Senders, o.Senders)
 	out.Roles = unionOf(g.Roles, o.Roles)
 	if len(g.Denied)+len(o.Denied) > 0 {
@@ -312,19 +318,20 @@ func unionOf(a, b []string) []string {
 }
 
 func grantOf(w *workerctl.ChatGrant) turnGrant {
-	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied}
+	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied, Direct: w.Direct, Paired: w.Paired}
 }
 
 func (g turnGrant) wire() *workerctl.ChatGrant {
-	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied}
+	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied, Direct: g.Direct, Paired: g.Paired}
 }
 
 // grantFor computes what the sender of a message may do, for the whole closed
 // list. It records nothing: the tools record a decision when they use it.
 func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage) turnGrant {
 	kind := c.kindOf(ctx, b)
-	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{m.SenderID}, Roles: slices.Clone(m.Roles)}
 	now := c.o.Clock()
+	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{m.SenderID}, Roles: slices.Clone(m.Roles),
+		Direct: m.Direct, Paired: m.SenderID != "" && b.IsPaired(m.SenderID, now)}
 	for _, name := range contract.ConnectorCapabilityNames() {
 		d := Authorize(b, kind, c.subjectOf(b, m, true), name, now, c.offReason(ctx, b, name))
 		switch {
@@ -493,6 +500,17 @@ func (s *Service) turnAllow(chat string) (allow func(string) (bool, string), aud
 		s.access.record(s.now(), connectors.Binding{ID: g.Binding, Kind: g.Kind}, g.Senders, g.Roles, d)
 	}
 	return allow, audit
+}
+
+// messagingFacts says whether the chat of the running turn is one-to-one and
+// its sender paired. Without a grant (no turn of a sender runs) both are false:
+// an unknown chat counts as a group and an unknown sender as unpaired.
+func (s *Service) messagingFacts(chat string) (direct, paired bool) {
+	g, ok := s.access.get(chat)
+	if !ok {
+		return false, false
+	}
+	return g.Direct, g.Paired
 }
 
 // AccessSubjectView is what one kind of sender may do on a binding.

@@ -889,13 +889,36 @@
         "title": "Speichern und Bescheid geben",
         "body": "In deinen eigenen Chats wird die Notiz sofort gespeichert. Der Chat zeigt „Im Gedächtnis gespeichert“ mit Rückgängig. Bis zu 5 Notizen pro Antwort. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem auf dich."
       },
+      "always": {
+        "title": "Immer bestätigen",
+        "body": "Wie Erst fragen, und nichts kann es lockern. Auch Rückgängig und Vergessen warten auf dich. Keine Einstellung eines Agenten oder einer Messaging-App hebt es auf."
+      },
       "never": {
         "title": "Nie",
         "body": "Der Assistent kann keine Notizen speichern. Er sagt dir, dass das Speichern aus ist."
       }
     },
     "default": "Standard",
-    "saveNote": "Chats aus Messaging-Apps fragen immer zuerst. Hintergrundläufe und Trigger speichern nie eine Notiz. Ein gespeicherter Agent darf mehr fragen, aber nie weniger als du hier gewählt hast.",
+    "saveNote": "Hintergrundläufe und Trigger speichern nie eine Notiz. Ein gespeicherter Agent darf mehr fragen, aber nie weniger als du hier gewählt hast.",
+    "messaging": {
+      "title": "In Messaging-Apps",
+      "lede": "Was passiert, wenn in einem Chat einer Messaging-App eine Notiz vorgeschlagen wird, wo der Absender nicht du sein muss.",
+      "ask": {
+        "title": "Erst fragen",
+        "body": "Der Bot fragt im Chat: „Antworte mit Ja zum Speichern.“ Ein gelisteter Absender kann dort antworten. Andere warten auf dich in der App."
+      },
+      "paired_private": {
+        "title": "Für einen gekoppelten Absender im privaten Chat speichern",
+        "body": "Wird nur sofort gespeichert, wenn der Absender gekoppelt ist und der Chat ein Einzelchat ist. Die Notiz geht in diese Unterhaltung, mit Rückgängig. Eine Notiz, die wie ein Geheimnis aussieht, wartet weiter."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Aus Messaging-Apps werden keine Notizen gespeichert."
+      },
+      "limit": "Nie lockerer als die Einstellung oben.",
+      "lockedAlways": "Deine Einstellung oben ist Immer bestätigen, daher kann diese Zeile keine Notiz sofort speichern.",
+      "lockedNever": "Deine Einstellung oben ist Nie, daher wird aus Messaging-Apps keine Notiz gespeichert."
+    },
     "saveFailed": "Deine Auswahl konnte nicht gespeichert werden.",
     "loadError": "Die Gedächtnis-Einstellungen konnten nicht geladen werden.",
     "notesTitle": "Notizen verwalten",
@@ -970,6 +993,22 @@
         "title": "Notizen ebenfalls löschen",
         "body": "Sie wandern in den Papierkorb und lassen sich über Dateien wiederherstellen."
       }
+    },
+    "rule": {
+      "title": "Wenn er eine Notiz speichern will",
+      "use_mine": {
+        "title": "Meine Einstellung",
+        "body": "Aktuell: {{level}}."
+      },
+      "always": {
+        "title": "Immer bestätigen",
+        "body": "Strenger als meine Einstellung."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Liest, speichert nie."
+      },
+      "hint": "Ein Agent darf mehr fragen als deine Einstellung, aber nie weniger. „Speichern und Bescheid geben“ gibt es hier nicht. In einem Messaging-Chat geht eine Notiz zuerst in diese Unterhaltung und erreicht die eigenen Notizen dieses Agenten nur von einem gekoppelten Absender."
     }
   }
 }

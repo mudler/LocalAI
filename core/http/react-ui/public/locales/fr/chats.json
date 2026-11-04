@@ -889,13 +889,36 @@
         "title": "Enregistrer et me prévenir",
         "body": "Dans vos propres conversations, la note est enregistrée tout de suite. La conversation affiche « Enregistré dans la mémoire » avec Annuler. Jusqu'à 5 notes par réponse. Une note longue, ou qui ressemble à un secret, attend quand même votre accord."
       },
+      "always": {
+        "title": "Toujours confirmer",
+        "body": "Comme Me demander d'abord, et rien ne peut l'assouplir. Annuler et oublier attendent aussi votre réponse. Aucun réglage d'agent ou de messagerie ne peut le contourner."
+      },
       "never": {
         "title": "Jamais",
         "body": "L'assistant ne peut pas enregistrer de notes. Il vous dit que l'enregistrement est désactivé."
       }
     },
     "default": "Par défaut",
-    "saveNote": "Les conversations des applications de messagerie demandent toujours d'abord. Les exécutions en arrière-plan et les déclencheurs n'enregistrent jamais de note. Un agent enregistré peut demander plus, jamais moins, que ce que vous choisissez ici.",
+    "saveNote": "Les exécutions en arrière-plan et les déclencheurs n'enregistrent jamais de note. Un agent enregistré peut demander plus, jamais moins, que ce que vous choisissez ici.",
+    "messaging": {
+      "title": "Dans les applications de messagerie",
+      "lede": "Ce qui se passe quand une note est proposée dans une conversation d'une application de messagerie, où l'expéditeur n'est pas forcément vous.",
+      "ask": {
+        "title": "Me demander d'abord",
+        "body": "Le bot demande dans la conversation : « Répondez oui pour l'enregistrer. » Un expéditeur de la liste peut y répondre. Les autres attendent votre réponse dans l'application."
+      },
+      "paired_private": {
+        "title": "Enregistrer pour un expéditeur associé dans une conversation privée",
+        "body": "Enregistrée tout de suite seulement si l'expéditeur est associé et la conversation en tête-à-tête. La note va dans cette conversation, avec Annuler. Une note qui ressemble à un secret attend toujours."
+      },
+      "never": {
+        "title": "Jamais",
+        "body": "Aucune note n'est enregistrée depuis les applications de messagerie."
+      },
+      "limit": "Jamais plus souple que le réglage ci-dessus.",
+      "lockedAlways": "Votre réglage ci-dessus est Toujours confirmer : cette ligne ne peut pas enregistrer une note tout de suite.",
+      "lockedNever": "Votre réglage ci-dessus est Jamais : aucune note n'est enregistrée depuis une application de messagerie."
+    },
     "saveFailed": "Impossible d'enregistrer votre choix.",
     "loadError": "Impossible de charger vos réglages de mémoire.",
     "notesTitle": "Gérer vos notes",
@@ -970,6 +993,22 @@
         "title": "Supprimer aussi les notes",
         "body": "Elles vont dans la corbeille et vous pouvez les restaurer depuis Fichiers."
       }
+    },
+    "rule": {
+      "title": "Quand il veut enregistrer une note",
+      "use_mine": {
+        "title": "Utiliser mon réglage",
+        "body": "Actuellement : {{level}}."
+      },
+      "always": {
+        "title": "Toujours confirmer",
+        "body": "Plus strict que mon réglage."
+      },
+      "never": {
+        "title": "Jamais",
+        "body": "Il lit, n'enregistre jamais."
+      },
+      "hint": "Un agent peut demander plus que votre réglage, jamais moins. « Enregistrer et me prévenir » n'est pas proposé ici. Dans une conversation de messagerie, la note va d'abord à cette conversation et n'atteint les notes propres de cet agent que depuis un expéditeur associé."
     }
   }
 }

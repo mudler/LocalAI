@@ -97,6 +97,13 @@ func proposeChangeDescriptionFor(memory []string) string {
 	if memory == nil {
 		return proposeChangeDescription
 	}
+	if memory[0] == string(contract.ScopeChannel) {
+		// A messaging chat: the note goes to this conversation unless the
+		// sender is paired and the agent's choice allows more.
+		fixed := "scope is user (every chat of the person), agent (this agent only) or channel (this conversation only); the other kinds say which. " +
+			"A memory note is saved to this conversation's memory (scope channel) unless the result says otherwise: leave scope out for a note. "
+		return strings.Replace(proposeChangeDescription, scopeSentence, fixed, 1)
+	}
 	where := "the user's own memory (scope user)"
 	if slices.Contains(memory, string(contract.ScopeAgent)) {
 		where = "this agent's own memory (scope agent)"
@@ -161,7 +168,7 @@ func (s *Service) registerChangeTools() error {
 					}
 					// An agent with a choice of notes saves to the scope the host
 					// fixes; the model is not offered another.
-					fixed := s.memoryWriteScopes(ctx, c)
+					fixed := s.memoryChatScopes(ctx, c)
 					schema, desc = proposeChangeSchemaFor(kinds, fixed), proposeChangeDescriptionFor(fixed)
 					if !slices.Contains(kinds, contract.ChangeMemory) {
 						schema, desc = proposeChangeSchema(kinds), proposeChangeDescription
@@ -182,8 +189,11 @@ func (s *Service) registerChangeTools() error {
 
 // memoryScopeWords says where a scope of notes is, for a refusal the model reads.
 func memoryScopeWords(scope string) string {
-	if scope == string(contract.ScopeAgent) {
+	switch scope {
+	case string(contract.ScopeAgent):
 		return "its own memory"
+	case string(contract.ScopeChannel):
+		return "this conversation's memory"
 	}
 	return "the user's memory"
 }
@@ -240,12 +250,14 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 		// The host, not the model, decides where a note of an agent with a
 		// choice of notes goes. Leaving the scope out takes the one the
 		// choice allows; any other is refused.
-		if fixed := h.s.memoryWriteScopes(ctx, c); fixed != nil {
+		if fixed := h.s.memoryChatScopes(ctx, c); fixed != nil {
 			switch {
 			case len(fixed) == 0:
 				return "", errors.New("memory is off here, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
 			case args.Scope == "":
 				args.Scope = fixed[0]
+			case c.Origin == session.OriginConnector && !slices.Contains(fixed, args.Scope) && args.Scope != string(contract.ScopeChannel):
+				return "", fmt.Errorf("only a sender who is paired with this bot can add to %s, and this sender is not. Use scope channel (this conversation's memory), or leave scope out", memoryScopeWords(args.Scope))
 			case !slices.Contains(fixed, args.Scope):
 				return "", fmt.Errorf("this agent saves notes to %s only (scope %s). Use that scope, or leave scope out", memoryScopeWords(fixed[0]), fixed[0])
 			}
@@ -274,6 +286,12 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 				Scope: contract.ChangeScope(in.Scope), Source: in.Source}, 0, "the person turned memory notes off")
 			return "", errors.New("the person turned off saving to their memory, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
 		case SaveAuto:
+			if c.Origin == session.OriginConnector && args.Scope != string(contract.ScopeChannel) {
+				// A messaging chat saves at once only to its own conversation.
+				// Notes for the agent or the person wait for a confirmation.
+				autoNote = " It was not saved at once because a note for the agent or the person needs a confirmation; a note for this conversation is saved at once."
+				break
+			}
 			ok, why := autoFits(args.Content, turn)
 			if ok {
 				return h.saveNow(ctx, in, turn)
@@ -335,6 +353,23 @@ func (h *Changes) revertTool(ctx context.Context, c builtins.Chat, raw json.RawM
 	}
 	if err := h.allowRevert(ctx, c.Actor.Principal, c.AgentID, sourceOf(c)); err != nil {
 		return "", changeErr(err)
+	}
+	// Always confirm: nothing is loosened, and undoing or forgetting is a
+	// change like any other. The model cannot do it by itself; the person
+	// can, with the Undo of the note or by saying undo in the messaging chat.
+	// A change that is not a note is not covered, so a named id of another
+	// kind still reverts.
+	if h.saveModeOf(ctx, c) == SaveAlways {
+		kind := ""
+		if args.ID != "" {
+			if q, gerr := h.Get(ctx, c.Actor.Principal, args.ID); gerr == nil {
+				kind = string(q.Kind)
+			}
+		}
+		if args.ID == "" || kind == "" || memoryKindOf(kind) {
+			return "", errors.New("the person chose Always confirm for memory, so you cannot undo or forget a note yourself. " +
+				"Tell them they can undo it themselves (the Undo on the note, or by sending undo in this chat), or ask them to confirm a new proposal that removes it. Do not try again.")
+		}
 	}
 	var p contract.ChangeProposal
 	var err error

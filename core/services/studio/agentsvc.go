@@ -57,6 +57,13 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	// A write without the memory choice keeps the stored one: a client that
 	// does not know the field cannot widen what the agent reads or saves.
 	keepMemory := a.Memory == ""
+	// The save rule of the agent is kept the same way, so an older client
+	// cannot drop a stricter rule. A client that knows it writes use_mine to
+	// clear it.
+	keepMemorySave := a.MemorySave == ""
+	if a.MemorySave == agents.MemorySaveUseMine {
+		a.MemorySave = ""
+	}
 	grants, err := cleanGrants(a.Builtins, false)
 	if err != nil {
 		return agents.Agent{}, fmt.Errorf("%w: %w", agents.ErrInvalid, err)
@@ -113,6 +120,9 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 		}
 		if keepMemory {
 			a.Memory = old.Memory
+		}
+		if keepMemorySave {
+			a.MemorySave = old.MemorySave
 		}
 	}
 	// The grant saved_agents is the opt-in group of the same name: the chats of

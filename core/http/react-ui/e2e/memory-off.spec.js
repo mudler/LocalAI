@@ -20,8 +20,8 @@ async function shot(page, name, options = {}) {
 const LIMITS = { index_lines: 40, index_bytes: 2048, profile_bytes: 4096, turn_bytes: 6144 }
 const NOTES = { 'Memory/index.md': '- home: lives in Rome -> home.md\n- units: metric, 24-hour clock -> units.md\n', 'Memory/home.md': 'Rome.\n', 'Memory/units.md': 'Metric.\n' }
 
-async function serveAccount(page, { enabled = true, save = 'ask', fail = false } = {}) {
-  const s = { enabled, save, puts: [], exports: 0, removed: [] }
+async function serveAccount(page, { enabled = true, save = 'ask', messaging = 'ask', fail = false } = {}) {
+  const s = { enabled, save, messaging, puts: [], exports: 0, removed: [] }
   await mockChat(page)
   await page.route('**/api/chats/memory', (route) => {
     const req = route.request()
@@ -31,8 +31,9 @@ async function serveAccount(page, { enabled = true, save = 'ask', fail = false }
       if (fail) return route.fulfill({ status: 503, json: { error: { message: 'the memory settings cannot be stored on this server' } } })
       if (typeof body.enabled === 'boolean') s.enabled = body.enabled
       if (body.save_mode) s.save = body.save_mode
+      if (body.messaging_save) s.messaging = body.messaging_save
     }
-    return route.fulfill({ json: { enabled: s.enabled, enabled_set: s.puts.length > 0, save_mode: s.save, save_mode_set: false, provider: 'builtin', available: true } })
+    return route.fulfill({ json: { enabled: s.enabled, enabled_set: s.puts.length > 0, save_mode: s.save, messaging_save: s.messaging, save_mode_set: false, provider: 'builtin', available: true } })
   })
   await page.route('**/api/chats/memory/export*', (route) => { s.exports++; return route.fulfill({ status: 200, contentType: 'application/zip', body: 'PK' }) })
   await page.route('**/api/chats/context-files', route => route.fulfill({ json: {
@@ -81,18 +82,47 @@ test.describe('Settings, Memory: the switch and how a note is saved', () => {
     await expect(card).toHaveAttribute('data-state', 'on')
   })
 
-  test('lists the three save levels, marks the default and stores the one picked', async ({ page }) => {
+  test('lists the four save levels, marks the default and stores the one picked', async ({ page }) => {
     const s = await serveAccount(page)
     await page.goto('/app/account?tab=memory')
-    const radios = page.getByRole('radio')
-    await expect(radios).toHaveCount(3)
-    await expect(page.getByRole('radio', { name: /Ask me first/ })).toBeChecked()
+    const levels = page.getByRole('radiogroup', { name: 'Saving a note' })
+    await expect(levels.getByRole('radio')).toHaveCount(4)
+    await shot(page, 'memory-settings-default', { fullPage: true })
+    await expect(levels.locator('.ms-level__title')).toHaveText(['Save it and tell me', 'Ask me firstDefault', 'Always confirm', 'Never'])
+    await expect(levels.getByRole('radio', { name: /^Ask me first/ })).toBeChecked()
     await expect(page.getByTestId('memory-save-ask')).toContainText('Default')
-    await page.getByRole('radio', { name: /Save it and tell me/ }).click()
+    await levels.getByRole('radio', { name: /^Save it and tell me/ }).click()
     await expect.poll(() => s.puts).toEqual([{ save_mode: 'auto' }])
-    await expect(page.getByRole('radio', { name: /Save it and tell me/ })).toBeChecked()
-    await page.getByRole('radio', { name: /Never/ }).click()
+    await expect(levels.getByRole('radio', { name: /^Save it and tell me/ })).toBeChecked()
+    await levels.getByRole('radio', { name: /^Always confirm/ }).click()
+    await expect.poll(() => s.puts.at(-1)).toEqual({ save_mode: 'always' })
+    await expect(levels.getByRole('radio', { name: /^Always confirm/ })).toBeChecked()
+    await expect(page.getByTestId('memory-save-always')).toContainText('nothing can loosen it')
+    await levels.getByRole('radio', { name: /Never/ }).click()
     await expect.poll(() => s.puts.at(-1)).toEqual({ save_mode: 'never' })
+    await shot(page, 'memory-settings-levels', { fullPage: true })
+  })
+
+  test('has an In messaging apps row: Ask first by default, stores the choice, and says when it cannot loosen the level', async ({ page }) => {
+    const s = await serveAccount(page)
+    await page.goto('/app/account?tab=memory')
+    const row = page.getByRole('radiogroup', { name: 'In messaging apps' })
+    await expect(row.locator('.ms-level__title')).toHaveText(['Ask me firstDefault', 'Save it for a paired sender in a private chat', 'Never'])
+    await expect(row.getByRole('radio', { name: /^Ask me first/ })).toBeChecked()
+    await expect(page.getByTestId('memory-messaging-paired_private')).toContainText('Never looser than the setting above.')
+    await expect(page.getByTestId('memory-messaging-locked')).toHaveCount(0)
+    await row.getByRole('radio', { name: /paired sender in a private chat/ }).click()
+    await expect.poll(() => s.puts).toEqual([{ messaging_save: 'paired_private' }])
+    await expect(row.getByRole('radio', { name: /paired sender/ })).toBeChecked()
+    await row.getByRole('radio', { name: /^Never/ }).click()
+    await expect.poll(() => s.puts.at(-1)).toEqual({ messaging_save: 'never' })
+    // The levels above and the row are independent controls: picking a level does not touch the row.
+    await page.getByRole('radiogroup', { name: 'Saving a note' }).getByRole('radio', { name: /^Always confirm/ }).click()
+    await expect.poll(() => s.puts.at(-1)).toEqual({ save_mode: 'always' })
+    await expect(page.getByTestId('memory-messaging-locked')).toContainText('Always confirm, so this row cannot save a note at once')
+    await page.getByRole('radiogroup', { name: 'Saving a note' }).getByRole('radio', { name: /^Never/ }).click()
+    await expect(page.getByTestId('memory-messaging-locked')).toContainText('Your setting above is Never')
+    await shot(page, 'memory-settings-messaging', { fullPage: true })
   })
 
   test('a choice the server did not store is not shown as stored', async ({ page }) => {

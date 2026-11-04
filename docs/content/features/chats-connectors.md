@@ -932,8 +932,10 @@ The button follows `fix.kind`: `open_connection` jumps to that setting on the pa
 When the agent proposes a change that lasts (a memory note, a change of its rules, a
 skill, a page or the Home dashboard, with `propose_change`) in a chat from a messaging
 app, LocalAI writes the question in that chat. The model does not write it, and it does
-not send the person to Studio. Messaging chats always ask first; this only gives the
-answer a place.
+not send the person to Studio. A messaging chat asks first by default; the owner can let a
+paired sender in a private chat save at once with the row **In messaging apps** (see
+[Memory](/features/short-memory/#in-messaging-apps)). This section is the answer to the
+question.
 
 - **The language.** The question and the replies come in the reply language of the
   binding ([Reply language](#reply-language-reply_language)); the examples here are in
@@ -962,6 +964,16 @@ answer a place.
   owner can confirm this.` or `Only the person who asked can confirm this.`, and the
   proposal keeps waiting. When the sender who asked cannot confirm, the bot writes no
   question and the proposal waits in Studio for the owner; the model is told so.
+- **Notes, scope and pairing.** A memory note from a messaging chat goes to the notes of
+  that conversation (`scope` channel) unless the sender is paired and the agent's memory
+  choice allows the agent's or the owner's notes. A note for those scopes is confirmed by a
+  paired sender only. When the owner chose **Always confirm** (or the agent's rule is
+  **Always confirm**), only the paired sender who asked can confirm, in a private chat too,
+  and the model cannot undo or forget a note by itself.
+- **One-to-one chats.** The host knows a chat is one-to-one from the `direct` field of the
+  connector message (a Telegram private chat, a Slack direct message, a Discord direct
+  message). The turn carries it, with whether the sender is paired, to the worker. A
+  message that does not say counts as a group chat.
 - **Time.** A proposal lapses after 24 hours. For 15 minutes after that, a bare word is
   answered with `That proposal expired. Ask again if you still want it.`; later it is
   an ordinary message.

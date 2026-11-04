@@ -70,6 +70,11 @@ type Agent struct {
 	// the choice existed: it reads the notes when its add-ons name Memory and
 	// the model picks the scope of a note. The host enforces any other value.
 	Memory string
+	// MemorySave is the agent's own rule for saving a note: MemorySaveAlways
+	// or MemorySaveNever. Empty uses the person's setting. It can only be
+	// stricter than the person's setting, so there is no value that saves at
+	// once: the host takes the stricter of the two.
+	MemorySave string
 	// Connections names the connections (connector binding IDs) the agent's
 	// chats may use for each add-on whose tools run with a credential, by
 	// add-on ID. The owner chooses them; a chat of the agent cannot change
@@ -112,6 +117,23 @@ const (
 	// MemoryNone: read and write nothing.
 	MemoryNone = "none"
 )
+
+// The values of Agent.MemorySave. Empty uses the person's setting.
+const (
+	// MemorySaveAlways: every note waits for the person, and the model cannot
+	// undo or forget by itself.
+	MemorySaveAlways = "always"
+	// MemorySaveNever: the agent reads notes and never saves one.
+	MemorySaveNever = "never"
+	// MemorySaveUseMine is what a client writes to clear the override. It is
+	// never stored: the stored value is empty.
+	MemorySaveUseMine = "use_mine"
+)
+
+// ValidMemorySave reports whether v is a value of Agent.MemorySave, or empty.
+func ValidMemorySave(v string) bool {
+	return v == "" || v == MemorySaveAlways || v == MemorySaveNever
+}
 
 // ValidMemory reports whether v is a choice of Agent.Memory, or empty.
 func ValidMemory(v string) bool {
@@ -206,6 +228,9 @@ func Validate(a Agent) error {
 	}
 	if !ValidMemory(a.Memory) {
 		return bad("memory must be own, mine_and_own, mine or none")
+	}
+	if !ValidMemorySave(a.MemorySave) {
+		return bad("memory_save must be always or never")
 	}
 	switch a.Network {
 	case "", "off", "registries", "all":

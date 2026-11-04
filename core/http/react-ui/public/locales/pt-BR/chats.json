@@ -889,13 +889,36 @@
         "title": "Salvar e me avisar",
         "body": "Nos seus próprios chats a nota é salva na hora. O chat mostra \"Salvo na memória\" com Desfazer. Até 5 notas por resposta. Uma nota longa, ou que parece um segredo, ainda espera por você."
       },
+      "always": {
+        "title": "Sempre confirmar",
+        "body": "Como Perguntar antes, e nada pode afrouxá-lo. Desfazer e esquecer também esperam por você. Nenhuma configuração de agente ou de mensagens pode sobrepô-lo."
+      },
       "never": {
         "title": "Nunca",
         "body": "O assistente não pode salvar notas. Ele diz que salvar está desativado."
       }
     },
     "default": "Padrão",
-    "saveNote": "Chats de apps de mensagens sempre perguntam antes. Execuções em segundo plano e gatilhos nunca salvam uma nota. Um agente salvo pode perguntar mais, nunca menos, do que você escolheu aqui.",
+    "saveNote": "Execuções em segundo plano e gatilhos nunca salvam uma nota. Um agente salvo pode perguntar mais, nunca menos, do que você escolheu aqui.",
+    "messaging": {
+      "title": "Em apps de mensagens",
+      "lede": "O que acontece quando uma nota é proposta em um chat de app de mensagens, onde quem escreve pode não ser você.",
+      "ask": {
+        "title": "Perguntar antes",
+        "body": "O bot pergunta no chat: \"Responda sim para salvar.\" Um remetente da lista pode responder lá. Os outros esperam por você no app."
+      },
+      "paired_private": {
+        "title": "Salvar para um remetente pareado em chat privado",
+        "body": "Salva na hora só se o remetente estiver pareado e o chat for individual. A nota vai para essa conversa, com Desfazer. Uma nota que pareça um segredo continua esperando."
+      },
+      "never": {
+        "title": "Nunca",
+        "body": "Nenhuma nota é salva a partir de apps de mensagens."
+      },
+      "limit": "Nunca mais frouxo que a configuração acima.",
+      "lockedAlways": "Sua configuração acima é Sempre confirmar, então esta linha não pode salvar uma nota na hora.",
+      "lockedNever": "Sua configuração acima é Nunca, então nenhuma nota é salva a partir de apps de mensagens."
+    },
     "saveFailed": "Não foi possível salvar sua escolha.",
     "loadError": "Não foi possível carregar suas configurações de memória.",
     "notesTitle": "Gerenciar suas notas",
@@ -970,6 +993,22 @@
         "title": "Excluir as notas também",
         "body": "Vão para a Lixeira e você pode restaurá-las em Arquivos."
       }
+    },
+    "rule": {
+      "title": "Quando quer salvar uma nota",
+      "use_mine": {
+        "title": "Usar minha configuração",
+        "body": "Agora: {{level}}."
+      },
+      "always": {
+        "title": "Sempre confirmar",
+        "body": "Mais rígido que minha configuração."
+      },
+      "never": {
+        "title": "Nunca",
+        "body": "Lê, nunca salva."
+      },
+      "hint": "Um agente pode perguntar mais que a sua configuração, nunca menos. \"Salvar e me avisar\" não é oferecido aqui. Em um chat de mensagens, a nota vai primeiro para essa conversa e só chega às notas próprias deste agente vinda de um remetente pareado."
     }
   }
 }

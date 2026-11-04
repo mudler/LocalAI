@@ -25,8 +25,11 @@ type MemorySettings struct {
 	// EnabledSet is true once the person chose. Before that the switch is on,
 	// unless they had disabled the Memory add-on to stop memory.
 	EnabledSet bool `json:"enabled_set"`
-	// SaveMode is how a note is saved: ask, auto or never.
+	// SaveMode is how a note is saved: ask, auto, always or never.
 	SaveMode string `json:"save_mode"`
+	// MessagingSave is how a note proposed in a messaging chat is saved: ask,
+	// paired_private or never. It never loosens always or never in SaveMode.
+	MessagingSave string `json:"messaging_save"`
 	// SaveModeSet is true once the person chose in this setting. Before that
 	// the value they gave on the page of the Memory add-on, if any, applies.
 	SaveModeSet bool `json:"save_mode_set"`
@@ -40,12 +43,14 @@ type MemorySettings struct {
 type MemoryUpdate struct {
 	Enabled  *bool
 	SaveMode *string
+	// MessagingSave is the messaging row: ask, paired_private or never.
+	MessagingSave *string
 }
 
 // MemorySettings reads the memory settings of a person.
 func (s *Service) MemorySettings(ctx context.Context, user string) (MemorySettings, error) {
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, user))
-	out := MemorySettings{Provider: s.memory.ID(), Available: s.d.Files.Available(), SaveMode: SaveAsk}
+	out := MemorySettings{Provider: s.memory.ID(), Available: s.d.Files.Available(), SaveMode: SaveAsk, MessagingSave: MessagingAsk}
 	out.Enabled = s.memoryUserOn(ctx, user, legacy)
 	if s.d.UserSetting != nil {
 		if v, ok, err := s.d.UserSetting(ctx, principal(user), HostSettingsID, MemoryEnabledKey); err == nil && ok && (v == MemoryOn || v == MemoryOff) {
@@ -56,6 +61,7 @@ func (s *Service) MemorySettings(ctx context.Context, user string) (MemorySettin
 		}
 	}
 	out.SaveMode = s.changes.storedSaveMode(ctx, user)
+	out.MessagingSave = s.changes.storedMessagingSave(ctx, user)
 	return out, nil
 }
 
@@ -63,9 +69,12 @@ func (s *Service) MemorySettings(ctx context.Context, user string) (MemorySettin
 // allowed ones is ErrInvalidSettings.
 func (s *Service) SetMemory(ctx context.Context, user string, in MemoryUpdate) (MemorySettings, error) {
 	if in.SaveMode != nil && !ValidSaveMode(*in.SaveMode) {
-		return MemorySettings{}, fmt.Errorf("%w: save_mode must be ask, auto or never", ErrInvalidSettings)
+		return MemorySettings{}, fmt.Errorf("%w: save_mode must be ask, auto, always or never", ErrInvalidSettings)
 	}
-	if (in.Enabled != nil || in.SaveMode != nil) && s.d.SetUserSetting == nil {
+	if in.MessagingSave != nil && !ValidMessagingSave(*in.MessagingSave) {
+		return MemorySettings{}, fmt.Errorf("%w: messaging_save must be ask, paired_private or never", ErrInvalidSettings)
+	}
+	if (in.Enabled != nil || in.SaveMode != nil || in.MessagingSave != nil) && s.d.SetUserSetting == nil {
 		return MemorySettings{}, ErrMemorySettings
 	}
 	if in.Enabled != nil {
@@ -79,6 +88,11 @@ func (s *Service) SetMemory(ctx context.Context, user string, in MemoryUpdate) (
 	}
 	if in.SaveMode != nil {
 		if err := s.d.SetUserSetting(ctx, principal(user), HostSettingsID, MemorySaveKey, *in.SaveMode); err != nil {
+			return MemorySettings{}, fmt.Errorf("%w: %v", ErrMemorySettings, err)
+		}
+	}
+	if in.MessagingSave != nil {
+		if err := s.d.SetUserSetting(ctx, principal(user), HostSettingsID, MemorySaveMessagingKey, *in.MessagingSave); err != nil {
 			return MemorySettings{}, fmt.Errorf("%w: %v", ErrMemorySettings, err)
 		}
 	}

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { agentPayload, CONNECTOR_GRANTS, emptyAgent, MEMORY_CHOICES, memoryChoiceOf, memorySaves, newAgent, withMemoryChoice } from '../../src/utils/chatAgents.js'
+import { agentPayload, CONNECTOR_GRANTS, emptyAgent, MEMORY_CHOICES, MEMORY_SAVE_RULES, memoryChoiceOf, memorySaveOf, memorySaves, newAgent, stricterLevel, withMemoryChoice } from '../../src/utils/chatAgents.js'
 import { agentNoteCount, agentNotes, noteTabs } from '../../src/utils/memoryFiles.js'
 
 test('a new agent starts with Mine and its own, the grant to save, and the connector defaults', () => {
@@ -32,6 +32,33 @@ test('a choice that saves switches the grant on, and none leaves the grants alon
   const had = { ...emptyAgent(), builtins: ['memory.write'] }
   assert.deepEqual(withMemoryChoice(had, 'own').builtins, ['memory.write'])
   assert.deepEqual([...MEMORY_CHOICES.filter(memorySaves)], ['mine_and_own', 'own', 'mine'])
+})
+
+test('the save rule of an agent is always or never, and auto is not offered', () => {
+  assert.deepEqual(MEMORY_SAVE_RULES, ['always', 'never'])
+  assert.equal(memorySaveOf({ memory_save: 'always' }), 'always')
+  assert.equal(memorySaveOf({ memory_save: 'never' }), 'never')
+  assert.equal(memorySaveOf({}), '', 'an agent without a rule uses my setting')
+  assert.equal(memorySaveOf({ memory_save: 'auto' }), '', 'an agent cannot be looser')
+  assert.equal(memorySaveOf({ memory_save: 'ask' }), '')
+})
+
+test('the payload sends a save rule only when the form holds one, and use_mine clears it', () => {
+  assert.equal('memory_save' in agentPayload(emptyAgent()), false, 'an older form leaves the stored rule alone')
+  assert.equal(agentPayload({ ...emptyAgent(), memory_save: 'always' }).memory_save, 'always')
+  assert.equal(agentPayload({ ...emptyAgent(), memory_save: 'never' }).memory_save, 'never')
+  assert.equal(agentPayload({ ...emptyAgent(), memory_save: 'use_mine' }).memory_save, 'use_mine')
+  assert.equal('memory_save' in agentPayload({ ...emptyAgent(), memory_save: 'auto' }), false, 'auto is never sent')
+  assert.equal('memory_save' in agentPayload({ ...emptyAgent(), memory_save: '' }), false)
+})
+
+test('the stricter of the setting and the rule is the level in force', () => {
+  assert.equal(stricterLevel('auto', 'always'), 'always')
+  assert.equal(stricterLevel('ask', ''), 'ask')
+  assert.equal(stricterLevel('auto', ''), 'auto')
+  assert.equal(stricterLevel('always', 'never'), 'never')
+  assert.equal(stricterLevel('never', 'always'), 'never', 'a rule never loosens')
+  assert.equal(stricterLevel('bogus', ''), 'ask', 'an unknown level counts as ask')
 })
 
 const g = (o) => ({ source: 'memory', files: [{ path: `${o.key || 'u'}/index.md` }, { path: `${o.key || 'u'}/b.md` }], ...o })

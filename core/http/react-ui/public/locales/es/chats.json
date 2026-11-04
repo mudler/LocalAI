@@ -889,13 +889,36 @@
         "title": "Guardar y avisarme",
         "body": "En tus propios chats la nota se guarda al instante. El chat muestra «Guardado en la memoria» con Deshacer. Hasta 5 notas por respuesta. Una nota larga, o una que parece un secreto, sigue esperando tu confirmación."
       },
+      "always": {
+        "title": "Confirmar siempre",
+        "body": "Como Preguntarme antes, y nada puede relajarlo. Deshacer y olvidar también esperan tu respuesta. Ningún ajuste de agente ni de mensajería puede anularlo."
+      },
       "never": {
         "title": "Nunca",
         "body": "El asistente no puede guardar notas. Te dice que guardar está desactivado."
       }
     },
     "default": "Predeterminado",
-    "saveNote": "Los chats de apps de mensajería siempre preguntan antes. Las ejecuciones en segundo plano y los disparadores nunca guardan una nota. Un agente guardado puede preguntar más, nunca menos, de lo que elijas aquí.",
+    "saveNote": "Las ejecuciones en segundo plano y los disparadores nunca guardan una nota. Un agente guardado puede preguntar más, nunca menos, de lo que elijas aquí.",
+    "messaging": {
+      "title": "En apps de mensajería",
+      "lede": "Qué pasa cuando se propone una nota en un chat de una app de mensajería, donde quien escribe puede no ser tú.",
+      "ask": {
+        "title": "Preguntarme antes",
+        "body": "El bot pregunta en el chat: «Responde sí para guardarla». Un remitente de la lista puede responder allí. Los demás esperan a que lo hagas en la app."
+      },
+      "paired_private": {
+        "title": "Guardar para un remitente emparejado en un chat privado",
+        "body": "Se guarda al instante solo si el remitente está emparejado y el chat es uno a uno. La nota va a esa conversación, con Deshacer. Una nota que parezca un secreto sigue esperando."
+      },
+      "never": {
+        "title": "Nunca",
+        "body": "No se guardan notas desde apps de mensajería."
+      },
+      "limit": "Nunca más permisivo que el ajuste de arriba.",
+      "lockedAlways": "Tu ajuste de arriba es Confirmar siempre, así que esta fila no puede guardar una nota al instante.",
+      "lockedNever": "Tu ajuste de arriba es Nunca, así que no se guarda ninguna nota desde apps de mensajería."
+    },
     "saveFailed": "No se pudo guardar tu elección.",
     "loadError": "No se pudieron cargar los ajustes de memoria.",
     "notesTitle": "Gestionar tus notas",
@@ -970,6 +993,22 @@
         "title": "Eliminar también las notas",
         "body": "Van a la papelera y puedes restaurarlas desde Archivos."
       }
+    },
+    "rule": {
+      "title": "Cuando quiere guardar una nota",
+      "use_mine": {
+        "title": "Usar mi ajuste",
+        "body": "Ahora: {{level}}."
+      },
+      "always": {
+        "title": "Confirmar siempre",
+        "body": "Más estricto que mi ajuste."
+      },
+      "never": {
+        "title": "Nunca",
+        "body": "Lee, nunca guarda."
+      },
+      "hint": "Un agente puede preguntar más que tu ajuste, nunca menos. «Guardar y avisarme» no se ofrece aquí. En un chat de mensajería la nota va primero a esa conversación y llega a las notas propias de este agente solo desde un remitente emparejado."
     }
   }
 }
