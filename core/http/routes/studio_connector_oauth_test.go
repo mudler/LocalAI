@@ -465,6 +465,21 @@ var _ = Describe("OAuth routes of the connections", func() {
 			}
 		})
 
+		It("refuses a plain http address unless the host is loopback or the administrator set it", func() {
+			env.base = ""
+			resolver, err := clientip.New([]string{"192.0.2.0/24"})
+			Expect(err).NotTo(HaveOccurred())
+			s.e.Pre(middleware.TrustedProxies(resolver))
+			refused("10.0.0.5:8080", func(r *http.Request) {
+				r.RemoteAddr = "192.0.2.10:4444"
+				r.Header.Set("X-Forwarded-Host", "chat.example.test")
+				r.Header.Set("X-Forwarded-Proto", "http")
+			})
+			env.base = "http://chat.example.test"
+			Expect(redirect("anything.example.test", nil)).To(Equal("http://chat.example.test/api/chats/connectors/oauth/callback"),
+				"an administrator chose this address")
+		})
+
 		It("believes the forwarding headers of a trusted proxy, and sets a secure cookie for https", func() {
 			env.base = ""
 			resolver, err := clientip.New([]string{"192.0.2.0/24"})

@@ -111,13 +111,22 @@ func validReturnTo(s string) bool {
 // reaches it. It needs an origin the server can trust: LOCALAI_BASE_URL, a
 // trusted proxy's forwarding headers, or a loopback host. Otherwise anyone
 // could choose the address the service sends the code to, and the answer is
-// false.
+// false. The address must be https, unless its host is loopback or an
+// administrator set it as LOCALAI_BASE_URL: over plain http the code, the
+// state and the nonce cookie cross the network in clear text.
 func oauthRedirectURI(c echo.Context) (string, bool) {
 	ext, _ := c.Get("_external_base_url").(string)
 	if ext == "" && !middleware.ForwardedHeadersTrusted(c) && !loopbackHost(c.Request().Host) {
 		return "", false
 	}
-	return strings.TrimSuffix(middleware.BaseURL(c), "/") + OAuthCallbackPath, true
+	uri := strings.TrimSuffix(middleware.BaseURL(c), "/") + OAuthCallbackPath
+	if ext == "" {
+		u, err := url.Parse(uri)
+		if err != nil || (u.Scheme != "https" && !loopbackHost(u.Host)) {
+			return "", false
+		}
+	}
+	return uri, true
 }
 
 func loopbackHost(hostport string) bool {
@@ -181,7 +190,7 @@ func setNonceCookie(c echo.Context, value string) {
 
 // StartConnectorOAuth starts the login of an oauth2 binding.
 // @Summary Start the login of a connection that uses OAuth.
-// @Description Returns the address of the service's login page; open it in the same browser. The required scopes of the add-on are always asked for, plus the optional ones in scopes. The service sends the browser back to the callback route, which ends on return_to (a page of the web app; default the Connectors page). The response sets an HttpOnly cookie that binds the login to this browser for ten minutes. The callback address is built from LOCALAI_BASE_URL, or from the forwarding headers of a trusted proxy, or from a loopback host; without one of them the start is a 409. An administrator must have saved the add-on's client first (409 needs_approval).
+// @Description Returns the address of the service's login page; open it in the same browser. The required scopes of the add-on are always asked for, plus the optional ones in scopes. The service sends the browser back to the callback route, which ends on return_to (a page of the web app; default the Connectors page). The response sets an HttpOnly cookie that binds the login to this browser for ten minutes. The callback address is built from LOCALAI_BASE_URL, or from the forwarding headers of a trusted proxy, or from a loopback host; without one of them, or when a trusted proxy forwards plain http for a host that is not loopback, the start is a 409 base_url_required. An administrator must have saved the add-on's client first (409 needs_approval).
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Param request body schema.ChatsConnectorOAuthStart false "the optional scopes and the page to come back to"
@@ -208,7 +217,7 @@ func (h *Handlers) StartConnectorOAuth(c echo.Context) error {
 	}
 	redirect, ok := oauthRedirectURI(c)
 	if !ok {
-		return fail(c, http.StatusConflict, "base_url_required", "the server cannot tell its own address: set LOCALAI_BASE_URL, or reach it through a trusted proxy")
+		return fail(c, http.StatusConflict, "base_url_required", "the server cannot tell its own https address: set LOCALAI_BASE_URL, or reach it over https through a trusted proxy")
 	}
 	a, d, err := h.oauthActor(c)
 	if err != nil {

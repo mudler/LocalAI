@@ -17653,8 +17653,9 @@ paths:
         page). The response sets an HttpOnly cookie that binds the login to this browser
         for ten minutes. The callback address is built from LOCALAI_BASE_URL, or from
         the forwarding headers of a trusted proxy, or from a loopback host; without
-        one of them the start is a 409. An administrator must have saved the add-on's
-        client first (409 needs_approval).
+        one of them, or when a trusted proxy forwards plain http for a host that is
+        not loopback, the start is a 409 base_url_required. An administrator must
+        have saved the add-on's client first (409 needs_approval).
       parameters:
       - description: the binding's id
         in: path

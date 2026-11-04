@@ -753,6 +753,11 @@ read returns it as `callback_url`. The host builds it, in this order, from
 request when the host is `localhost` or a loopback address. When none of them
 applies, the start is a `409` with the type `base_url_required`, because the
 service would otherwise send the code to an address that anyone can choose.
+The address must use `https`, so that the code, the state and the nonce cookie
+do not cross the network in clear text: a trusted proxy that forwards plain
+`http` for a host that is not loopback also gets `base_url_required`. An
+`http` address works only for a loopback host, or when an administrator sets it
+as `LOCALAI_BASE_URL`.
 The address of a login is stored with its state and sent again at the
 exchange.
 
