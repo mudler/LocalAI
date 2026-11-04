@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -38,9 +39,9 @@ type write struct {
 func sum64(parts ...string) uint64 {
 	h := sha256.New()
 	for _, p := range parts {
-		var l [4]byte
-		binary.BigEndian.PutUint32(l[:], uint32(len(p)))
-		h.Write(l[:])
+		// The length is written as text, so each part is delimited and no
+		// integer conversion is needed.
+		h.Write([]byte(strconv.Itoa(len(p)) + ":"))
 		h.Write([]byte(p))
 	}
 	return binary.BigEndian.Uint64(h.Sum(nil)[:8]) | 1

@@ -118,6 +118,7 @@ func (a Account) Encode() (string, error) {
 	if err := a.Validate(); err != nil {
 		return "", err
 	}
+	// #nosec G117 -- the record is the credential: the host seals this string and never logs it
 	b, err := json.Marshal(a)
 	if err != nil {
 		return "", err
