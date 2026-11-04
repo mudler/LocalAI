@@ -55,7 +55,9 @@ var ErrAgentsOff = errors.New("studio: saved agents are not available")
 var ErrPushOff = errors.New("studio: browser push is not available")
 
 // ErrConnectorsOff means the service has no connector manager.
-var ErrConnectorsOff = errors.New("studio: connectors are not available")
+var ErrConnectorsOff = errors.New("studio: " + msgConnectorsOff)
+
+const msgConnectorsOff = "connectors are not available"
 
 // ErrNotificationsOff means the service has no inbox.
 var ErrNotificationsOff = errors.New("studio: notifications are not available")

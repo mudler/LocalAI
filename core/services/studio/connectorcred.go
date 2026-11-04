@@ -224,7 +224,7 @@ func (c *Connectors) CredentialFor(ctx context.Context, user, addonID, bindingID
 	usable := len(b.Token) > 0
 	if b.UsesOAuth() {
 		if usable, err = c.hasGrant(ctx, b); err != nil {
-			return CredentialGrant{}, ErrCredentialUnavailable
+			return CredentialGrant{}, c.unavailable(b, causeStore)
 		}
 	}
 	entry, err := connectors.EntryWith(b, usable, key)

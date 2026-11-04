@@ -92,10 +92,16 @@ var (
 	ErrOAuthUnavailable = errors.New("studio: the OAuth login of this add-on is not available here")
 	// ErrNeedsApproval means no administrator approved the current OAuth
 	// descriptor of the add-on.
-	ErrNeedsApproval = errors.New("studio: an administrator must approve this add-on first")
+	ErrNeedsApproval = errors.New("studio: " + msgNeedsApproval)
 	// ErrApprovalStale means the descriptor changed after the administrator
 	// looked at it.
-	ErrApprovalStale = errors.New("studio: the add-on's login changed; review it again")
+	ErrApprovalStale = errors.New("studio: " + msgApprovalStale)
+)
+
+// The texts of the errors above that the OAuth owner sends as they are.
+const (
+	msgNeedsApproval = "an administrator must approve this add-on first"
+	msgApprovalStale = "the add-on's login changed; review it again"
 )
 
 // oauthAccess is a usable access token of a grant.
@@ -103,6 +109,23 @@ type oauthAccess struct {
 	secret  string
 	scopes  []string
 	version int64
+}
+
+// Causes of an unusable credential that unavailable logs. They are fixed
+// classes: the text of a store or sealer error is never logged.
+const (
+	causeStore  = "store"
+	causeSealer = "sealer"
+	// causeClient: the approved client could not be read (store or sealer).
+	causeClient = "client"
+)
+
+// unavailable logs why the credential of b cannot be used now and returns
+// ErrCredentialUnavailable, which is what the gateway is told. Without the
+// line an outage of the store or the sealer would look like any slow refresh.
+func (c *Connectors) unavailable(b connectors.Binding, cause string) error {
+	c.log.Warn("studio: the credential of an OAuth connection is not available now", "binding", b.ID, "addon", b.AddonID, "cause", cause)
+	return ErrCredentialUnavailable
 }
 
 // oauthDescriptor returns the current descriptor of an add-on.
@@ -237,7 +260,7 @@ func (c *Connectors) readGrant(ctx context.Context, b connectors.Binding) (conne
 		return g, connectors.ErrNoCredential
 	}
 	if err != nil {
-		return g, ErrCredentialUnavailable
+		return g, c.unavailable(b, causeStore)
 	}
 	if !g.BelongsTo(b) {
 		return g, connectors.ErrNoCredential
@@ -246,8 +269,11 @@ func (c *Connectors) readGrant(ctx context.Context, b connectors.Binding) (conne
 		return g, ErrReconnectNeeded
 	}
 	a, err := c.approval(ctx, b.AddonID)
-	if err != nil {
+	if errors.Is(err, ErrOAuthUnavailable) {
 		return g, ErrCredentialUnavailable
+	}
+	if err != nil {
+		return g, c.unavailable(b, causeClient)
 	}
 	if !a.ok {
 		return g, c.holdGrant(ctx, b, g)
@@ -297,7 +323,10 @@ func (c *Connectors) carryOver(ctx context.Context, b connectors.Binding, g conn
 		})
 	}
 	wrote, err := c.o.Store.UpdateGrant(ctx, next, g.Version)
-	if err != nil || !wrote {
+	if err != nil {
+		return g, c.unavailable(b, causeStore)
+	}
+	if !wrote {
 		// Another call wrote the grant first; the next call reads it.
 		return g, ErrCredentialUnavailable
 	}
@@ -341,7 +370,7 @@ func (c *Connectors) openAccess(ctx context.Context, b connectors.Binding, g con
 func (c *Connectors) openGrant(ctx context.Context, b connectors.Binding, g connectors.Grant) (connectors.GrantSecrets, error) {
 	s, err := c.sealerFor(ctx)
 	if err != nil {
-		return connectors.GrantSecrets{}, ErrCredentialUnavailable
+		return connectors.GrantSecrets{}, c.unavailable(b, causeSealer)
 	}
 	sec, err := s.OpenGrant(connectors.GrantAAD(b.ID, b.Owner, b.AddonID), g.Sealed)
 	if err != nil || sec.Access == "" {
@@ -407,7 +436,7 @@ func (c *Connectors) refreshShared(ctx context.Context, b connectors.Binding, se
 		}
 		won, err := c.o.Store.LeaseGrant(ctx, b.ID, g.Version, c.instance, c.o.Clock(), oauthLeaseTTL)
 		if err != nil {
-			return oauthAccess{}, ErrCredentialUnavailable
+			return oauthAccess{}, c.unavailable(b, causeStore)
 		}
 		if won {
 			return c.refreshHeld(ctx, b, g)
@@ -438,7 +467,10 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	a, err := c.approval(ctx, b.AddonID)
 	if err != nil {
 		release()
-		return oauthAccess{}, ErrCredentialUnavailable
+		if errors.Is(err, ErrOAuthUnavailable) {
+			return oauthAccess{}, ErrCredentialUnavailable
+		}
+		return oauthAccess{}, c.unavailable(b, causeClient)
 	}
 	if !a.ok {
 		return oauthAccess{}, c.holdGrant(ctx, b, g)
@@ -492,11 +524,13 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	if rotated {
 		keep.Refresh = tok.Refresh
 	}
+	cause := causeSealer
 	s, err := c.sealerFor(ctx)
 	if err == nil {
 		next.Sealed, err = s.SealGrant(connectors.GrantAAD(b.ID, b.Owner, b.AddonID), keep)
 	}
 	if err == nil {
+		cause = causeStore
 		for range oauthWriteTries {
 			var wrote bool
 			wrote, err = c.o.Store.UpdateGrant(ctx, next, g.Version)
@@ -514,6 +548,11 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonWriteFailed)
 	}
 	release()
+	// err is nil when the grant moved under the lease; only an outage is
+	// logged.
+	if err != nil {
+		return oauthAccess{}, c.unavailable(b, cause)
+	}
 	return oauthAccess{}, ErrCredentialUnavailable
 }
 

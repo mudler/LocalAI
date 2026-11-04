@@ -4,6 +4,7 @@ package studio
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -66,7 +67,7 @@ func (o OAuthOwner) ServeOAuth(ctx context.Context, a contract.Actor, call gatew
 		return gateway.OAuthReply{Revoked: told}, nil
 	case gateway.OAuthClientGet, gateway.OAuthClientSet:
 		if o.Admin == nil || o.Admin(ctx, a) != nil {
-			return gateway.OAuthReply{}, &gateway.OAuthError{Status: 403, Type: gateway.OAuthForbidden, Message: "administrator role required"}
+			return gateway.OAuthReply{}, &gateway.OAuthError{Status: http.StatusForbidden, Type: gateway.OAuthForbidden, Message: "administrator role required"}
 		}
 		if call.Op == gateway.OAuthClientGet {
 			st, err := c.GetClientStatus(ctx, call.AddonID)
@@ -76,8 +77,7 @@ func (o OAuthOwner) ServeOAuth(ctx context.Context, a contract.Actor, call gatew
 			return gateway.OAuthReply{Client: clientView(st)}, nil
 		}
 		st, err := c.SetClient(ctx, call.AddonID, OAuthClientInput{Digest: call.Digest, ClientID: call.ClientID, Secret: call.ClientSecret, ApprovedBy: a.UserID})
-		if errors.Is(err, ErrApprovalStale) {
-			oe := oauthFailure(err).(*gateway.OAuthError)
+		if oe, ok := oauthRefusal(err); ok && errors.Is(err, ErrApprovalStale) {
 			if cur, cerr := c.GetClientStatus(ctx, call.AddonID); cerr == nil {
 				oe.CurrentDigest = cur.CurrentDigest
 			}
@@ -96,27 +96,49 @@ func clientView(s OAuthClientStatus) *gateway.OAuthClientView {
 		ApprovedDigest: s.ApprovedDigest, CurrentDigest: s.CurrentDigest, ApprovedBy: s.ApprovedBy, ApprovedAt: s.ApprovedAt, Descriptor: s.Descriptor}
 }
 
-// oauthFailure maps an error of the connector service to the typed refusal
-// that crosses the carrier. Only host text goes in it.
-func oauthFailure(err error) error {
-	fail := func(status int, kind, msg string) error {
-		return &gateway.OAuthError{Status: status, Type: kind, Message: msg}
+// oauthRule maps the errors that match is (errors.Is) to a refusal. An empty
+// msg means the text of the error after its sentinel.
+type oauthRule struct {
+	is     error
+	status int
+	typ    string
+	msg    string
+}
+
+// oauthRules are tried in order. Only host text goes in a refusal.
+var oauthRules = []oauthRule{
+	{connectors.ErrNotFound, http.StatusNotFound, gateway.OAuthNotFound, "connector not found"},
+	// The reason of an invalid input is written for the person; many
+	// producers wrap the sentinel, so its text is the part after it.
+	{connectors.ErrInvalid, http.StatusBadRequest, gateway.OAuthInvalid, ""},
+	{ErrNeedsApproval, http.StatusConflict, gateway.OAuthNeedsApproval, msgNeedsApproval},
+	{ErrApprovalStale, http.StatusConflict, gateway.OAuthApprovalStale, msgApprovalStale},
+	{ErrOAuthUnavailable, http.StatusServiceUnavailable, gateway.OAuthUnavailable, "the login of this add-on is not available now; check that the add-on runs"},
+	{ErrConnectorsOff, http.StatusConflict, gateway.OAuthConnectorsOff, msgConnectorsOff},
+	{ErrTooManyLogins, http.StatusTooManyRequests, gateway.OAuthTooManyLogins, "too many logins were started; finish one, or wait a few minutes and try again"},
+}
+
+// oauthRefusal maps an error of the connector service to the typed refusal
+// that crosses the carrier. ok is false for an outage.
+func oauthRefusal(err error) (*gateway.OAuthError, bool) {
+	for _, r := range oauthRules {
+		if !errors.Is(err, r.is) {
+			continue
+		}
+		msg := r.msg
+		if msg == "" {
+			msg = strings.TrimPrefix(err.Error(), r.is.Error()+": ")
+		}
+		return &gateway.OAuthError{Status: r.status, Type: r.typ, Message: msg}, true
 	}
-	switch {
-	case errors.Is(err, connectors.ErrNotFound):
-		return fail(404, gateway.OAuthNotFound, "connector not found")
-	case errors.Is(err, connectors.ErrInvalid):
-		return fail(400, gateway.OAuthInvalid, strings.TrimPrefix(err.Error(), connectors.ErrInvalid.Error()+": "))
-	case errors.Is(err, ErrNeedsApproval):
-		return fail(409, gateway.OAuthNeedsApproval, "an administrator must approve this add-on first")
-	case errors.Is(err, ErrApprovalStale):
-		return fail(409, gateway.OAuthApprovalStale, "the add-on's login changed; review it again")
-	case errors.Is(err, ErrOAuthUnavailable):
-		return fail(503, gateway.OAuthUnavailable, "the login of this add-on is not available now; check that the add-on runs")
-	case errors.Is(err, ErrConnectorsOff):
-		return fail(409, gateway.OAuthConnectorsOff, "connectors are not available")
-	case errors.Is(err, ErrTooManyLogins):
-		return fail(429, gateway.OAuthTooManyLogins, "too many logins were started; finish one, or wait a few minutes and try again")
+	return nil, false
+}
+
+// oauthFailure is oauthRefusal as an error: gateway.ErrUnavailable for an
+// outage, whose cause is never returned.
+func oauthFailure(err error) error {
+	if oe, ok := oauthRefusal(err); ok {
+		return oe
 	}
 	return gateway.ErrUnavailable
 }
