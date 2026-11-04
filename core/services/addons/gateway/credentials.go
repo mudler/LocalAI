@@ -91,6 +91,13 @@ type CredentialGrant struct {
 	Version int64
 }
 
+// SetOn puts the credential, the resource key and the granted scopes of g on
+// r. The resource ID is left to the caller: it decides the resource of the
+// call, which the caller checks or sets once.
+func (g CredentialGrant) SetOn(r *contract.Request) {
+	r.Credential, r.ResourceKey, r.GrantedScopes = g.Credential, g.ResourceKey, g.GrantedScopes
+}
+
 // CredentialSource finds the credential and the allowed resource for a call.
 // It is wired on the owner, where the add-on runs: a frontend forwards the
 // call and never adds a credential itself. An error it returns that is not a
@@ -228,7 +235,7 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 	if err != nil {
 		return nil, credentialError(err)
 	}
-	r.Credential, r.ResourceKey, r.GrantedScopes = grant.Credential, grant.ResourceKey, grant.GrantedScopes
+	grant.SetOn(r)
 	if grant.ResourceID != "" {
 		r.ResourceID = grant.ResourceID
 	}

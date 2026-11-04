@@ -931,20 +931,17 @@ func (b *Broker) Propose(ctx context.Context, actor contract.Actor, request cont
 		run := func(cg gateway.CredentialGrant) error {
 			wire := request
 			if credentialed {
-				wire.Credential, wire.ResourceKey, wire.GrantedScopes = cg.Credential, cg.ResourceKey, cg.GrantedScopes
+				cg.SetOn(&wire)
 			}
 			env := contract.Envelope{Request: wire, Authority: contract.Authority{Actor: actor, Scope: "preview", ExpiresAt: b.opts.Now().Add(b.opts.Limits.PreviewTimeout)}}
 			var err error
 			preview, err = instance.Client.Preview(rctx, env)
 			return err
 		}
-		if credentialed {
-			// A preview changes nothing, so a rejected OAuth token is renewed
-			// and the preview tried once more.
-			e = gateway.WithRenewal(rctx, b.opts.Credentials, actor, request.AddonID, grant, run)
-		} else {
-			e = run(grant)
-		}
+		// A preview changes nothing, so a rejected OAuth token is renewed and
+		// the preview tried once more. Without a credential the grant is the
+		// zero value, whose version zero WithRenewal never renews.
+		e = gateway.WithRenewal(rctx, b.opts.Credentials, actor, request.AddonID, grant, run)
 		if e != nil {
 			if rctx.Err() != nil {
 				return rctx.Err()
@@ -1599,7 +1596,7 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 	apply := func(cg gateway.CredentialGrant) error {
 		w := wire
 		if r.Credentialed {
-			w.Credential, w.ResourceKey, w.GrantedScopes = cg.Credential, cg.ResourceKey, cg.GrantedScopes
+			cg.SetOn(&w)
 		}
 		env := contract.Envelope{
 			Request:   w,
@@ -1609,14 +1606,11 @@ func (b *Broker) execute(ctx context.Context, actor contract.Actor, id string) (
 		receipt, err = instance.Client.Apply(ctx, env, r.Revision)
 		return err
 	}
-	if r.Credentialed {
-		// The add-on answers credential_rejected only when the service
-		// refused the token and nothing changed, so the apply may run again
-		// with a renewed one.
-		err = gateway.WithRenewal(ctx, b.opts.Credentials, actor, r.AddonID, grant, apply)
-	} else {
-		err = apply(grant)
-	}
+	// The add-on answers credential_rejected only when the service refused
+	// the token and nothing changed, so the apply may run again with a
+	// renewed one. Without a credential the grant is the zero value, which
+	// WithRenewal never renews.
+	err = gateway.WithRenewal(ctx, b.opts.Credentials, actor, r.AddonID, grant, apply)
 	if b.hooks.afterApply != nil {
 		b.hooks.afterApply(id)
 	}
