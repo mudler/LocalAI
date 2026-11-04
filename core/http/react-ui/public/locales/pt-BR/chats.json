@@ -290,7 +290,15 @@
         "reported_unknown": "A disponibilidade ou o isolamento da execução é desconhecido: o complemento informou que não sabe dizer."
       },
       "providerUnavailable": "O provedor de execução selecionado está indisponível.",
-      "disabled": "A execução de comandos está desativada para esta conversa."
+      "disabled": "A execução de comandos está desativada para esta conversa.",
+      "hostOff": {
+        "reason": "O bash integrado do servidor está desativado, então o assistente pode escrever arquivos, mas não executar scripts nem comandos.",
+        "whoAdmin": "Você é administrador. Em Configurações, Ferramentas, ative a linha Comandos (bash). Perguntar a cada vez é a escolha mais segura. Os comandos passam a rodar no servidor sem isolamento e podem ler o que o servidor pode ler.",
+        "whoMember": "Peça a um administrador deste servidor para ativá-lo.",
+        "fix": "Abrir a configuração",
+        "sandboxText": "Para comandos isolados, instale um complemento que execute comandos de forma isolada.",
+        "sandbox": "Abrir Complementos"
+      }
     },
     "consent": {
       "title": "Rodar este comando nesta máquina?",

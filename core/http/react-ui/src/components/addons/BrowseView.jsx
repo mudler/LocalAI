@@ -6,11 +6,11 @@ import Icon from '../Icon'
 import CatalogView from '../catalog/CatalogView'
 import { paramsToQuery, queryToParams } from '../catalog/catalogState'
 import { AppIcon, UnknownNotice, VersionText } from './AddonBits'
-import { Button, StatusChip } from '../ui'
+import { Button, Notice, StatusChip } from '../ui'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
 import { addedByEntry } from './addonState'
-import { updateView, entryUpdateNote } from './updateState'
+import { updateView, entryUpdateNote, updateNoticeSeverity, upgradeAvailability } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 import { useAddonUpgrade } from './useAddonUpgrade'
@@ -80,13 +80,29 @@ export default function BrowseView({ api, adapter }) {
           </p>
           {have && !updatable && (() => {
             const note = entryUpdateNote(have.update)
-            return <p className="ad-entry__note" data-testid="entry-update-note" data-state={note.state} data-tone={note.tone}>{t(`updates.state.${note.state}`, { version: note.version })}</p>
+            const severity = updateNoticeSeverity(note.state)
+            const text = t(`updates.state.${note.state}`, { version: note.version })
+            // Up to date is not a problem: one quiet line. Every other state
+            // is a notice that says what it is.
+            if (!severity) return <p className="ad-entry__note" data-testid="entry-update-note" data-state={note.state} data-tone={note.tone}>{text}</p>
+            return <Notice className="ad-entry__notice" severity={severity} title={text} testId="entry-update-note" data-state={note.state} data-tone={note.tone} />
           })()}
-          {updatable && (
-            <div className="ad-entry__upgrade" data-testid="entry-upgrade">
-              <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} variant="secondary" working={pending || upgrade.working(have.id)} />
-            </div>
-          )}
+          {updatable && (() => {
+            const view = updateView(have.update)
+            const working = pending || upgrade.working(have.id)
+            const availability = upgradeAvailability(have, { isAdmin: true, pending: true, checked: upgrade.checks[have.id]?.phase === 'done' })
+            return (
+              <Notice
+                className="ad-entry__notice"
+                severity="warn"
+                title={t('updates.state.update-available', { version: view.version })}
+                testId="entry-upgrade"
+                fix={availability.startable ? { label: t('updates.upgrade'), onClick: () => upgrade.ask(have), busy: working, disabled: working, testId: 'update-upgrade-card', ariaLabel: t('updates.upgradeNamed', { name: have.title }) } : null}
+              >
+                {!availability.startable && <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} variant="secondary" working={working} />}
+              </Notice>
+            )
+          })()}
           <EntryFacts entry={entry} have={have} />
           {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
           {!pending && !(dialog && dialog.key === entry.key) && <FlowStatus flow={flow} name={entry.title} onRetry={flow?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on' }) : undefined} />}

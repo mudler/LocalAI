@@ -833,10 +833,10 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
   })
 
   test('the shell row is disabled with the reason when nothing can run commands', async ({ page }) => {
-    await stubGroups(page, { shell: null, commands: { commands: 'none' } })
+    await stubGroups(page, { shell: null, commands: { commands: 'none', commands_host_exec: 'off' } })
     await open(page)
     await expect(sw(page, 'Run commands')).toBeDisabled()
-    await expect(sw(page, 'Run commands')).toHaveAccessibleDescription('No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.')
+    await expect(sw(page, 'Run commands')).toHaveAccessibleDescription("The server's built-in bash is off, so the assistant can write files but cannot run scripts or commands.")
   })
 })
 

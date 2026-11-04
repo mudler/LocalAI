@@ -411,7 +411,15 @@
         "reported_unknown": "Execution readiness or isolation is unknown: the add-on reported that it cannot tell."
       },
       "providerUnavailable": "The selected execution provider is unavailable.",
-      "disabled": "Running commands is switched off for this chat."
+      "disabled": "Running commands is switched off for this chat.",
+      "hostOff": {
+        "reason": "The server's built-in bash is off, so the assistant can write files but cannot run scripts or commands.",
+        "whoAdmin": "You are an administrator. In Settings, Tools, turn on the Commands (bash) row. Ask each time is the safer choice. Commands then run on the server without isolation and can read what the server can read.",
+        "whoMember": "Ask an administrator of this server to turn it on.",
+        "fix": "Open the setting",
+        "sandboxText": "For isolated commands, install an add-on that runs commands in isolation instead.",
+        "sandbox": "Open Add-ons"
+      }
     },
     "consent": {
       "title": "Run this command on this machine?",

@@ -290,7 +290,15 @@
         "reported_unknown": "Se desconoce la disponibilidad o el aislamiento de la ejecución: el complemento informó de que no puede saberlo."
       },
       "providerUnavailable": "El proveedor de ejecución seleccionado no está disponible.",
-      "disabled": "La ejecución de comandos está desactivada para este chat."
+      "disabled": "La ejecución de comandos está desactivada para este chat.",
+      "hostOff": {
+        "reason": "El bash integrado del servidor está desactivado, así que el asistente puede escribir archivos pero no ejecutar scripts ni comandos.",
+        "whoAdmin": "Eres administrador. En Ajustes, Herramientas, activa la fila Comandos (bash). Preguntar cada vez es la opción más segura. Los comandos se ejecutan entonces en el servidor sin aislamiento y pueden leer lo que el servidor puede leer.",
+        "whoMember": "Pide a un administrador de este servidor que lo active.",
+        "fix": "Abrir el ajuste",
+        "sandboxText": "Para comandos aislados, instala mejor un complemento que ejecute comandos de forma aislada.",
+        "sandbox": "Abrir Complementos"
+      }
     },
     "consent": {
       "title": "¿Ejecutar este comando en esta máquina?",

@@ -425,6 +425,19 @@
   .ui-callout__actions { grid-column: 2; margin: 0; }
 }
 
+/* ---- Notice -------------------------------------------------------------- */
+/* A callout that says what is off, why, who can fix it, and the fix, in that
+   order (Notice.jsx). The add-on UIs draw the same markup with their own
+   component, so these rules are the one place that styles it. */
+.ui-notice .ui-callout__title,
+.ui-notice__reason,
+.ui-notice__who {
+  display: block;
+}
+.ui-notice__reason { margin-top: var(--sp-1); }
+.ui-notice__who { margin-top: var(--sp-1); }
+.ui-notice__extra { display: block; margin-top: var(--sp-1); }
+
 /* ---- Status chip --------------------------------------------------------- */
 /* Tone colour, icon and words, 22 px. Text on wash is 4.5:1 in both themes. */
 .ui-chip {

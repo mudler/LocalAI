@@ -35,7 +35,12 @@ async function stubChat(page, addons) {
   return calls
 }
 
-const none = () => ({ addons: [], commands: 'none' })
+// No add-on runs commands and the server's built-in bash is off.
+const none = () => ({ addons: [], commands: 'none', commands_host_exec: 'off' })
+// An older server does not say the mode of the built-in bash.
+const noneUnsaid = () => ({ addons: [], commands: 'none' })
+const REASON = "The server's built-in bash is off, so the assistant can write files but cannot run scripts or commands."
+
 
 test.describe('Chat that cannot run commands', () => {
   test.beforeEach(async ({ page }) => { await mockChat(page) })
@@ -49,9 +54,16 @@ test.describe('Chat that cannot run commands', () => {
     await page.getByTestId('chat-tools-button').click()
     const notice = page.getByTestId('chat-commands-notice')
     await expect(notice).toContainText("Commands can't run here")
-    await expect(notice).toContainText('No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.')
-    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
+    await expect(notice).toContainText(REASON)
+    // The administrator is told where to turn it on, and that Ask each time is the safer choice.
+    await expect(notice).toContainText('You are an administrator. In Settings, Tools, turn on the Commands (bash) row. Ask each time is the safer choice.')
+    await expect(notice).toContainText('without isolation')
     await expect(notice).not.toContainText('Ask an administrator')
+    const link = notice.getByTestId('chat-commands-notice-link')
+    await expect(link).toHaveText('Open the setting')
+    await expect(link).toHaveAttribute('href', /\/app\/settings\?group=tools#settings-tools-row-bash$/)
+    await expect(notice.getByTestId('chat-commands-notice-sandbox')).toHaveAttribute('href', /\/app\/addons$/)
+    await expect(notice).toHaveAttribute('role', 'status')
     await shot(page, 'tools-menu-admin')
   })
 
@@ -63,7 +75,7 @@ test.describe('Chat that cannot run commands', () => {
     await page.keyboard.press('Enter')
     await expect(chip).toHaveAttribute('aria-expanded', 'true')
     const dialog = page.getByRole('dialog', { name: "Commands can't run here" })
-    await expect(dialog.getByTestId('chat-commands-pop')).toContainText('No add-on that runs code is installed')
+    await expect(dialog.getByTestId('chat-commands-pop')).toContainText("The server's built-in bash is off")
     await shot(page, 'chip-popover')
     await page.keyboard.press('Escape')
     await expect(dialog).toHaveCount(0)
@@ -76,10 +88,21 @@ test.describe('Chat that cannot run commands', () => {
     await page.goto('/app/chats/c1')
     await page.getByTestId('chat-tools-button').click()
     const notice = page.getByTestId('chat-commands-notice')
-    await expect(notice).not.toContainText('Ask an administrator')
-    await expect(notice).toContainText('No add-on that runs code is installed')
+    await expect(notice).toContainText(REASON)
+    await expect(notice).toContainText('Ask an administrator of this server to turn it on.')
+    await expect(notice).not.toContainText('Open the setting')
     await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
+    await expect(notice.getByTestId('chat-commands-notice-sandbox')).toHaveCount(0)
     await shot(page, 'tools-menu-user')
+  })
+
+  test('a server that does not report the mode of its built-in bash keeps the plain notice', async ({ page }) => {
+    await stubChat(page, noneUnsaid)
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    const notice = page.getByTestId('chat-commands-notice')
+    await expect(notice).toContainText('No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.')
+    await expect(notice.getByTestId('chat-commands-notice-link')).toHaveCount(0)
   })
 
   test('hiding the notice hides the chip and leaves one line in the Tools menu, but returns after a reload', async ({ page }) => {

@@ -290,7 +290,15 @@
         "reported_unknown": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on ha segnalato di non poterlo dire."
       },
       "providerUnavailable": "Il provider di esecuzione selezionato non è disponibile.",
-      "disabled": "L’esecuzione dei comandi è disattivata per questa chat."
+      "disabled": "L’esecuzione dei comandi è disattivata per questa chat.",
+      "hostOff": {
+        "reason": "Il bash integrato del server è disattivato, quindi l'assistente può scrivere file ma non può eseguire script o comandi.",
+        "whoAdmin": "Sei un amministratore. In Impostazioni, Strumenti, attiva la riga Comandi (bash). Chiedere ogni volta è la scelta più sicura. I comandi vengono poi eseguiti sul server senza isolamento e possono leggere ciò che il server può leggere.",
+        "whoMember": "Chiedi a un amministratore di questo server di attivarlo.",
+        "fix": "Apri l'impostazione",
+        "sandboxText": "Per comandi isolati, installa invece un componente aggiuntivo che esegue i comandi in isolamento.",
+        "sandbox": "Apri Componenti aggiuntivi"
+      }
     },
     "consent": {
       "title": "Eseguire questo comando su questa macchina?",

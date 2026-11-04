@@ -930,5 +930,10 @@
       "downgrade": "This installs version {{version}}, which is older than the installed version {{installed}}. An older version may not read data that a newer one wrote.",
       "downgradeConfirm": "I want to install the older version"
     }
+  },
+  "notice": {
+    "enableFailedTitle": "Could not turn on {{name}}",
+    "incompatibleTitle": "Cannot turn on {{name}}: not compatible with this server",
+    "noUpgrade": "No newer version is listed yet. Keep it off, or remove it."
   }
 }

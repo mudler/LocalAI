@@ -290,7 +290,15 @@
         "reported_unknown": "Kesiapan atau isolasi eksekusi tidak diketahui: add-on melaporkan bahwa ia tidak dapat mengetahuinya."
       },
       "providerUnavailable": "Penyedia eksekusi yang dipilih tidak tersedia.",
-      "disabled": "Eksekusi perintah dinonaktifkan untuk percakapan ini."
+      "disabled": "Eksekusi perintah dinonaktifkan untuk percakapan ini.",
+      "hostOff": {
+        "reason": "Bash bawaan server mati, jadi asisten bisa menulis berkas tetapi tidak bisa menjalankan skrip atau perintah.",
+        "whoAdmin": "Anda administrator. Di Pengaturan, Alat, aktifkan baris Perintah (bash). Tanya setiap kali adalah pilihan yang lebih aman. Perintah lalu berjalan di server tanpa isolasi dan dapat membaca apa yang dapat dibaca server.",
+        "whoMember": "Minta administrator server ini untuk mengaktifkannya.",
+        "fix": "Buka pengaturan",
+        "sandboxText": "Untuk perintah yang terisolasi, pasang add-on yang menjalankan perintah secara terisolasi sebagai gantinya.",
+        "sandbox": "Buka Add-on"
+      }
     },
     "consent": {
       "title": "Jalankan perintah ini di mesin ini?",

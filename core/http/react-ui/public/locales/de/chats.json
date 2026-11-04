@@ -290,7 +290,15 @@
         "reported_unknown": "Ausführungsbereitschaft oder Isolation ist unbekannt: das Add-on hat gemeldet, dass es das nicht sagen kann."
       },
       "providerUnavailable": "Der ausgewählte Ausführungsanbieter ist nicht verfügbar.",
-      "disabled": "Die Befehlsausführung ist für diesen Chat ausgeschaltet."
+      "disabled": "Die Befehlsausführung ist für diesen Chat ausgeschaltet.",
+      "hostOff": {
+        "reason": "Das eingebaute Bash des Servers ist aus, deshalb kann der Assistent Dateien schreiben, aber keine Skripte oder Befehle ausführen.",
+        "whoAdmin": "Du bist Administrator. Schalte in den Einstellungen unter Werkzeuge die Zeile Befehle (bash) ein. Jedes Mal fragen ist die sicherere Wahl. Befehle laufen dann ohne Isolierung auf dem Server und können lesen, was der Server lesen kann.",
+        "whoMember": "Bitte einen Administrator dieses Servers, es einzuschalten.",
+        "fix": "Einstellung öffnen",
+        "sandboxText": "Für isolierte Befehle installiere stattdessen ein Add-on, das Befehle isoliert ausführt.",
+        "sandbox": "Add-ons öffnen"
+      }
     },
     "consent": {
       "title": "Diesen Befehl auf diesem Rechner ausführen?",

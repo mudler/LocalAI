@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
-import { Button, Callout } from '../ui'
+import { Button, Callout, Notice } from '../ui'
 import { apiUrl } from '../../utils/basePath'
 import { pushLayer } from '../../utils/modalLayers'
 import { StateChip, AppIcon, BuiltinIcon, UnknownNotice, UpdateChip, VersionText } from './AddonBits'
@@ -104,6 +104,28 @@ export default function AddonPreview({ tile, language, title, pinned, onPin, onM
   )
 }
 
+// A refused or failed turn on. The reason is the server's own words. An add-on
+// whose package this server cannot run (installed_incompatible) says so, and
+// offers the upgrade when a version that fits is listed; with none listed it
+// says there is nothing to do but keep it off or remove it.
+const INSTALLED_INCOMPATIBLE = 'installed_incompatible'
+
+function EnableFailed({ title, outcome, reason, fix }) {
+  const { t } = useTranslation('addons')
+  const incompatible = outcome.error && outcome.error.type === INSTALLED_INCOMPATIBLE
+  return (
+    <Notice
+      severity="error"
+      title={t(incompatible ? 'notice.incompatibleTitle' : 'notice.enableFailedTitle', { name: title })}
+      reason={reason}
+      who={incompatible && !fix ? t('notice.noUpgrade') : undefined}
+      fix={fix}
+      testId="pane-enable-failed"
+      data-cause={incompatible ? INSTALLED_INCOMPATIBLE : undefined}
+    />
+  )
+}
+
 function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop, onRemove, isAdmin, source, update, upgrade, links, children }) {
   const { t } = useTranslation('addons')
   const description = localizedText(app, 'description', language)
@@ -122,6 +144,8 @@ function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop
   const restarts = Number(source?.restarts) || 0
   const canUpgrade = Boolean(upgrade && source && update?.state === 'update-available' && upgradeAvailability(source, { isAdmin, pending: true }).startable)
   const upgrading = Boolean(source && upgrade) && upgrade.working(app.id)
+  // The turn-on failure of an incompatible package carries the Upgrade button, so the plain update notice steps aside.
+  const incompatibleShown = !pending && result?.error?.type === INSTALLED_INCOMPATIBLE && Boolean(result.outcome)
   return (
     <div className="ad-pane__body">
       {attention === 'failed' && (
@@ -130,16 +154,15 @@ function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop
           {added.tools > 0 ? t('attention.toolsOff', { count: added.tools }) : added.page ? t('attention.pageOff') : ''}
         </Callout>
       )}
-      {canUpgrade && (
-        <Callout
-          tone="warn"
+      {canUpgrade && !incompatibleShown && (
+        <Notice
+          severity="warn"
           icon="arrow-up"
           title={t('preview.updateTitle', { version: update.version })}
+          reason={t('attention.updateBody', { current: source.version })}
           testId="pane-update"
-          actions={<Button size="sm" busy={upgrading} disabled={upgrading || pending} onClick={() => upgrade.ask(source)} aria-label={t('updates.upgradeNamed', { name: title })}>{t('updates.upgrade')}</Button>}
-        >
-          {t('attention.updateBody', { current: source.version })}
-        </Callout>
+          fix={{ label: t('updates.upgrade'), onClick: () => upgrade.ask(source), busy: upgrading, disabled: upgrading || pending, ariaLabel: t('updates.upgradeNamed', { name: title }) }}
+        />
       )}
       {description && <p className="ad-pane__text">{description}</p>}
       <div className="ad-pane__acts">
@@ -158,7 +181,16 @@ function PreviewBody({ app, title, language, pinned, onPin, actions, onStartStop
       {pending
         ? <UnknownNotice addonId={app.id} actions={actions} className="ad-card__note" />
         : outcome && outcome.outcome && describeOutcome(outcome.outcome, t, outcome.error) && (
-          <Callout tone="error" role="alert">{describeOutcome(outcome.outcome, t, outcome.error)}</Callout>
+          outcome === result
+            ? (
+              <EnableFailed
+                title={title}
+                outcome={outcome}
+                reason={describeOutcome(outcome.outcome, t, outcome.error)}
+                fix={canUpgrade ? { label: t('updates.upgrade'), onClick: () => upgrade.ask(source), busy: upgrading, disabled: upgrading, ariaLabel: t('updates.upgradeNamed', { name: title }) } : null}
+              />
+            )
+            : <Callout tone="error" role="alert">{describeOutcome(outcome.outcome, t, outcome.error)}</Callout>
         )}
       {shots.length > 0 && (
         <ul className="ad-shots" data-testid="addon-shots" aria-label={t('preview.screenshots')}>

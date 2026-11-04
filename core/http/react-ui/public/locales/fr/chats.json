@@ -290,7 +290,15 @@
         "reported_unknown": "La disponibilité ou l’isolation de l’exécution est inconnue : l’add-on a indiqué qu’il ne peut pas le dire."
       },
       "providerUnavailable": "Le fournisseur d’exécution sélectionné est indisponible.",
-      "disabled": "L’exécution des commandes est désactivée pour cette discussion."
+      "disabled": "L’exécution des commandes est désactivée pour cette discussion.",
+      "hostOff": {
+        "reason": "Le bash intégré du serveur est désactivé : l'assistant peut écrire des fichiers mais ne peut pas exécuter de scripts ni de commandes.",
+        "whoAdmin": "Vous êtes administrateur. Dans Paramètres, Outils, activez la ligne Commandes (bash). Demander à chaque fois est le choix le plus sûr. Les commandes s'exécutent alors sur le serveur sans isolation et peuvent lire ce que le serveur peut lire.",
+        "whoMember": "Demandez à un administrateur de ce serveur de l'activer.",
+        "fix": "Ouvrir le paramètre",
+        "sandboxText": "Pour des commandes isolées, installez plutôt un module qui exécute les commandes de façon isolée.",
+        "sandbox": "Ouvrir les modules"
+      }
     },
     "consent": {
       "title": "Exécuter cette commande sur cette machine ?",

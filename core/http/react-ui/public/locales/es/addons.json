@@ -930,5 +930,10 @@
       "downgrade": "Esto instala la versión {{version}}, que es anterior a la versión instalada {{installed}}. Una versión anterior puede no leer los datos que escribió una más nueva.",
       "downgradeConfirm": "Quiero instalar la versión anterior"
     }
+  },
+  "notice": {
+    "enableFailedTitle": "No se pudo activar {{name}}",
+    "incompatibleTitle": "No se puede activar {{name}}: no es compatible con este servidor",
+    "noUpgrade": "Todavía no hay una versión más reciente en la lista. Déjalo desactivado o quítalo."
   }
 }

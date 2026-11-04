@@ -930,5 +930,10 @@
       "downgrade": "Ini memasang versi {{version}}, yang lebih lama daripada versi terpasang {{installed}}. Versi yang lebih lama mungkin tidak bisa membaca data yang ditulis versi yang lebih baru.",
       "downgradeConfirm": "Saya ingin memasang versi yang lebih lama"
     }
+  },
+  "notice": {
+    "enableFailedTitle": "{{name}} tidak dapat diaktifkan",
+    "incompatibleTitle": "{{name}} tidak dapat diaktifkan: tidak kompatibel dengan server ini",
+    "noUpgrade": "Belum ada versi yang lebih baru di daftar. Biarkan mati, atau hapus."
   }
 }

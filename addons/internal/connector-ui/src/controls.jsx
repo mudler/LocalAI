@@ -123,3 +123,38 @@ export function Notice({ tone = 'info', role, testId, children, className = '' }
     </div>
   )
 }
+
+// "This is off or not available, why, and the fix": the add-on side of the
+// host's <Notice> (core/http/react-ui/src/components/ui/Notice.jsx). It draws
+// the same markup, so the host's ui.css styles both. The order is always what
+// (title), why (reason), who can fix it (who), then one fix button.
+//   severity   info | warn | error (error is role alert, warn status, info note)
+//   fix        { label, onClick | href, testId }
+//   secondary  the same shape, drawn as a ghost button
+const NOTICE_ROLE = { error: 'alert', warn: 'status', info: 'note' }
+const NOTICE_ICON = { info: 'info', warn: 'warning', error: 'alert-circle' }
+
+export function FixNotice({ severity = 'info', title, reason, who, fix, secondary, testId, className = '', children }) {
+  const level = NOTICE_ROLE[severity] ? severity : 'info'
+  const draw = (a, variant) => {
+    if (!a || !a.label) return null
+    const cls = `dk-btn dk-btn--${variant} dk-btn--sm`
+    if (a.href) return <a className={cls} href={a.href} data-testid={a.testId}>{a.label}</a>
+    if (typeof a.onClick !== 'function') return null
+    return <button type="button" className={cls} onClick={a.onClick} disabled={a.disabled} data-testid={a.testId}>{a.label}</button>
+  }
+  const primary = draw(fix, 'primary')
+  const second = draw(secondary, 'ghost')
+  return (
+    <div className={`ui-callout ui-callout--${level} ui-notice ${className}`.trim()} role={NOTICE_ROLE[level]} data-severity={level} data-testid={testId}>
+      <Icon name={NOTICE_ICON[level]} className="ui-callout__icon" />
+      <div className="ui-callout__text">
+        {title && <strong className="ui-callout__title">{title}</strong>}
+        {reason && <span className="ui-notice__reason">{reason}</span>}
+        {who && <span className="ui-notice__who">{who}</span>}
+        {children}
+      </div>
+      {(primary || second) && <div className="ui-callout__actions">{primary}{second}</div>}
+    </div>
+  )
+}
