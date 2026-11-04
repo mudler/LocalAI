@@ -59,6 +59,14 @@ type ChatsAgent struct {
 	// unattended runs: off (the default), registries or all, capped by the
 	// administrator's ceiling.
 	Network string `json:"network"`
+	// Memory is the choice of notes for this agent: own (its own notes only),
+	// mine_and_own (reads your notes and its own, saves to its own; the
+	// default of a new agent in the interface), mine (your notes only) or
+	// none. The host enforces it: it decides which notes go in the prompt of
+	// a chat and where a note is saved. Absent is "as before", an agent saved
+	// before the choice existed: it reads notes when its add-ons name Memory
+	// and the model picks the scope of a note.
+	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none" example:"mine_and_own"`
 	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
 	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
 	// agents) they start with. The names are the ones GET /api/chats/{id}/tools
@@ -140,6 +148,11 @@ type ChatsAgentWrite struct {
 	Collections  []string `json:"collections,omitempty"`
 	Skills       []string `json:"skills,omitempty"`
 	Network      string   `json:"network,omitempty"`
+	// Memory is the choice of notes (see ChatsAgent). A write without it keeps
+	// the stored choice, so a client that does not know it cannot widen the
+	// agent; the value must be own, mine_and_own, mine or none (400 otherwise).
+	// A new agent written without it is "as before".
+	Memory string `json:"memory,omitempty" enums:"own,mine_and_own,mine,none"`
 	// BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
 	// the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
 	// the agent); an empty list clears them.

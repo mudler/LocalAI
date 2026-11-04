@@ -22,7 +22,8 @@ tool. Two built-in skills, `memory` and `memory-check-own-files`, tell the
 model to consult memory for almost every request and to say what it can and cannot read.
 While you have no notes, nothing is added to the prompt.
 
-There are three kinds of notes, each in the Memory folder of your files:
+There are three kinds of notes, each in the Memory folder of your files. The **Memory** tab
+lists them in tabs: yours, one for each saved agent, and **Deleted agents**.
 
 | Kind | File | Applies to |
 |---|---|---|
@@ -125,12 +126,57 @@ whatever you choose:
 
 If the server cannot read your choice, it asks first.
 
-## Saved agents and messaging apps
+## Memory for each agent
 
-A saved agent reads notes only when its **Add-ons** list names `memory` in the agent
-editor (a choice of memory for each agent is planned). A chat that came from a messaging app reads your notes and the notes of its own
-conversation, and never the notes of another conversation. A saved agent can only
-propose a change when the owner granted it the right.
+A saved agent has its own choice of notes. You set it in the agent form, in the
+**Memory** section, when you make the agent and again later. The host enforces it: the
+model does not choose where a note goes.
+
+| Choice | The chat reads | A note is saved to |
+|---|---|---|
+| **Mine and its own** (new agents) | Your notes and the agent's own | The agent's own notes |
+| **Its own only** | The agent's own notes | The agent's own notes |
+| **Mine** | Your notes | Your notes (every chat of yours sees it) |
+| **None** | Nothing | Nowhere |
+| **As before** (agents saved earlier) | Your notes and the agent's own, when its **Add-ons** list names `memory` | The model chooses `user`, `agent` or `channel`, as it did |
+
+How it works:
+
+- **Reads.** The notes in the prompt, and the scopes `context_read` accepts, follow the
+  choice. The notes of a messaging conversation stay with every choice but **None**.
+- **Writes.** The `memory` kind of `propose_change` accepts only the scope of the choice.
+  The tool offered to the model lists only the scopes it may use, a note needs no `scope`
+  (the host fills it in) and any other scope is refused. **None** offers no memory kind.
+  The grant **Remember things** (`memory.write`) still decides whether the agent may save;
+  the choice decides where.
+- **Your switch wins.** With memory off in your settings, or in a private chat, every choice
+  reads and saves nothing. An agent cannot widen your choice. The form shows "Memory is off
+  in your settings" and the chat says which level is off.
+- **Sub-agents** get no notes and cannot save. **Triggers and other runs that start by
+  themselves** read per the choice and cannot save.
+- **A chat without an agent** reads your notes and saves to them, as before.
+- **Existing agents** are not changed: they show **As before** in the form, with a way to
+  pick one of the clearer choices. An agent that never had the field keeps reading and
+  saving exactly as it did. A `PUT` that does not send `memory` keeps the stored choice.
+- **Messaging apps.** This does not change what a chat from a messaging app reads: it
+  still reads your notes and those of its own conversation, and it still asks you before it
+  saves. Limiting that to a paired sender is planned.
+
+The API field is `memory` on an agent (`own`, `mine_and_own`, `mine`, `none`; absent is as
+before). It is part of an agent export file and of an import. A new agent that a client
+writes without `memory` is "as before"; the interface sends `mine_and_own`.
+
+### Delete or copy an agent
+
+An agent's own notes are the folder `Memory/agents/<id>/`. When you delete an agent that
+has notes, the interface asks what to do with them: **Keep** (the default), **Export then
+delete**, or **Delete**. `DELETE /api/chats/agents/{id}?memory=keep|export|delete` does the
+same: `keep` leaves them, `delete` moves them to the Trash, and `export` answers with a zip
+file of the notes and then moves them to the Trash. Kept notes show on the **Memory** tab
+under **Deleted agents** until you delete them.
+
+Copying an agent (an export and an import) makes a new agent with the same choice and
+**no notes**: its own notes stay with the original.
 
 ## Your control
 

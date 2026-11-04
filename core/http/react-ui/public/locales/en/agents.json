@@ -190,7 +190,8 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Files",
-      "Tools": "Tools"
+      "Tools": "Tools",
+      "Notes": "Memory"
     },
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",

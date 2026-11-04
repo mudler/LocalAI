@@ -113,3 +113,19 @@ func (s *Service) WriteHomeFiles(ctx context.Context, principal string, fs []Hom
 	}
 	return cs.Rev, nil
 }
+
+// DeleteHome moves a file or folder of the home of principal to the Trash, as
+// the user, so it can be restored. A path that is not there is not an error.
+func (s *Service) DeleteHome(ctx context.Context, principal, rel string) error {
+	if !s.Available() {
+		return ErrUnavailable
+	}
+	abs, err := s.Abs(principal, rel)
+	if err != nil {
+		return err
+	}
+	if err := s.ws.Delete(ctx, s.Actor(principal), abs); err != nil && !errors.Is(err, workspace.ErrNotFound) {
+		return err
+	}
+	return nil
+}

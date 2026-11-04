@@ -812,7 +812,9 @@
       "user": "Vos notes",
       "agent": "Notes de l'agent {{key}}",
       "channel": "Notes de la conversation {{key}}",
-      "profile": "Profil de l'agent {{key}}"
+      "profile": "Profil de l'agent {{key}}",
+      "agentNamed": "Notes de l'agent {{name}}",
+      "profileNamed": "Profil de l'agent {{name}}"
     },
     "edit": "Modifier",
     "save": "Enregistrer",
@@ -833,7 +835,18 @@
     "clearYes_one": "Supprimer {{count}} fichier",
     "clearYes_other": "Supprimer {{count}} fichiers",
     "cleared_one": "{{count}} fichier déplacé dans la corbeille.",
-    "cleared_other": "{{count}} fichiers déplacés dans la corbeille."
+    "cleared_other": "{{count}} fichiers déplacés dans la corbeille.",
+    "tabs": {
+      "label": "Notes de",
+      "mine": "Les miennes",
+      "deleted": "Agents supprimés",
+      "channels": "Conversations",
+      "export": "Exporter ces notes",
+      "clearAgent": "Supprimer les notes de cet agent",
+      "clearDeleted": "Supprimer ces notes"
+    },
+    "deletedNote": "Ces agents ont été supprimés. Leurs notes restent jusqu'à ce que vous les supprimiez ici.",
+    "tabEmpty": "Aucune note ici."
   },
   "triggerActs": {
     "help": "Une exécution démarre seule, donc personne n'approuve une étape. Elle peut lire et rendre compte. Cochez ce qu'elle peut faire en plus. Elle n'obtient jamais plus que son agent.",
@@ -901,5 +914,62 @@
     "chipPrivate": "Conversation privée",
     "fixUser": "Réglages, Mémoire",
     "userRow": "Désactivée dans vos réglages. Activez-la dans Réglages, Mémoire."
+  },
+  "agentMemory": {
+    "title": "Mémoire",
+    "lede": "Choisissez les notes que cet agent lit et où il enregistre les nouvelles.",
+    "offUser": "La mémoire est désactivée dans vos réglages : ce choix n'a aucun effet tant que vous ne la réactivez pas.",
+    "offUserFix": "Réglages, Mémoire",
+    "recommended": "Recommandé",
+    "mine_and_own": {
+      "title": "Les miennes et les siennes",
+      "body": "Lit vos notes et les siennes. N'enregistre que dans les siennes."
+    },
+    "own": {
+      "title": "Les siennes seulement",
+      "body": "Lit et enregistre uniquement ses propres notes. Vos notes restent hors de sa portée."
+    },
+    "mine": {
+      "title": "Les miennes",
+      "body": "Lit et enregistre vos notes."
+    },
+    "none": {
+      "title": "Aucune",
+      "body": "Ne lit ni n'enregistre rien."
+    },
+    "mineWarn": "Cet agent peut ajouter des notes à votre mémoire, pour tous les chats. Vous confirmez chacune.",
+    "asBefore": {
+      "title": "Comme avant",
+      "body": "Cet agent a été enregistré avant que ce choix existe. Il lit vos notes si sa liste de modules nomme Memory, et le modèle choisit où une note est enregistrée. Choisissez une option ci-dessous pour changer cela."
+    },
+    "saveGrant": "Autoriser l'enregistrement de notes",
+    "saveGrantHelp": "Active l'autorisation Retenir des choses. Sans elle, l'agent lit les notes mais ne peut pas en enregistrer.",
+    "copyNote": "Exporter un agent, ou l'importer comme nouvel agent, garde ce choix et ne copie jamais ses notes.",
+    "summary": {
+      "mine_and_own": "Les miennes et les siennes",
+      "own": "Les siennes seulement",
+      "mine": "Les miennes",
+      "none": "Aucune",
+      "asBefore": "Comme avant"
+    },
+    "delete": {
+      "title": "Supprimer {{name}} ?",
+      "ask": "Cet agent a des notes à lui ({{count}}). Que faire ?",
+      "legend": "Que faire des notes",
+      "default": "par défaut",
+      "confirm": "Supprimer l'agent",
+      "keep": {
+        "title": "Garder les notes",
+        "body": "Elles restent sur la page Mémoire sous Agents supprimés jusqu'à ce que vous les supprimiez."
+      },
+      "export": {
+        "title": "Exporter, puis supprimer",
+        "body": "Télécharge les notes en fichier zip, puis les déplace dans la corbeille."
+      },
+      "delete": {
+        "title": "Supprimer aussi les notes",
+        "body": "Elles vont dans la corbeille et vous pouvez les restaurer depuis Fichiers."
+      }
+    }
   }
 }

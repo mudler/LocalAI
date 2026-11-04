@@ -812,7 +812,9 @@
       "user": "Catatan Anda",
       "agent": "Catatan agen {{key}}",
       "channel": "Catatan percakapan {{key}}",
-      "profile": "Profil agen {{key}}"
+      "profile": "Profil agen {{key}}",
+      "agentNamed": "Catatan agen {{name}}",
+      "profileNamed": "Profil agen {{name}}"
     },
     "edit": "Edit",
     "save": "Simpan",
@@ -833,7 +835,18 @@
     "clearYes_one": "Hapus {{count}} berkas",
     "clearYes_other": "Hapus {{count}} berkas",
     "cleared_one": "{{count}} berkas dipindahkan ke Tempat Sampah.",
-    "cleared_other": "{{count}} berkas dipindahkan ke Tempat Sampah."
+    "cleared_other": "{{count}} berkas dipindahkan ke Tempat Sampah.",
+    "tabs": {
+      "label": "Catatan milik",
+      "mine": "Milik saya",
+      "deleted": "Agen yang dihapus",
+      "channels": "Percakapan",
+      "export": "Ekspor catatan ini",
+      "clearAgent": "Hapus catatan agen ini",
+      "clearDeleted": "Hapus catatan ini"
+    },
+    "deletedNote": "Agen ini sudah dihapus. Catatannya tetap ada sampai Anda menghapusnya di sini.",
+    "tabEmpty": "Tidak ada catatan di sini."
   },
   "triggerActs": {
     "help": "Satu jalan dimulai sendiri, jadi tidak ada yang menyetujui langkahnya. Ia bisa membaca dan melapor. Centang apa yang boleh dilakukannya juga. Ia tidak pernah mendapat lebih dari yang dimiliki agennya.",
@@ -901,5 +914,62 @@
     "chipPrivate": "Obrolan pribadi",
     "fixUser": "Pengaturan, Memori",
     "userRow": "Nonaktif di pengaturan Anda. Aktifkan di Pengaturan, Memori."
+  },
+  "agentMemory": {
+    "title": "Memori",
+    "lede": "Pilih catatan yang dibaca agen ini dan tempat ia menyimpan catatan baru.",
+    "offUser": "Memori mati di pengaturan Anda, jadi pilihan ini tidak berpengaruh sampai Anda menyalakannya.",
+    "offUserFix": "Pengaturan, Memori",
+    "recommended": "Disarankan",
+    "mine_and_own": {
+      "title": "Milik saya dan miliknya",
+      "body": "Membaca catatan Anda dan catatannya sendiri. Menyimpan hanya ke catatannya sendiri."
+    },
+    "own": {
+      "title": "Hanya miliknya",
+      "body": "Membaca dan menyimpan hanya catatannya sendiri. Catatan Anda tidak tersentuh."
+    },
+    "mine": {
+      "title": "Milik saya",
+      "body": "Membaca dan menyimpan catatan Anda."
+    },
+    "none": {
+      "title": "Tidak ada",
+      "body": "Tidak membaca dan tidak menyimpan apa pun."
+    },
+    "mineWarn": "Agen ini dapat menambah catatan ke memori Anda, untuk setiap obrolan. Anda mengonfirmasi tiap catatan.",
+    "asBefore": {
+      "title": "Seperti sebelumnya",
+      "body": "Agen ini disimpan sebelum pilihan ini ada. Ia membaca catatan Anda jika daftar add-on-nya menyebut Memory, dan model memilih tempat menyimpan catatan. Pilih salah satu opsi di bawah untuk mengubahnya."
+    },
+    "saveGrant": "Izinkan menyimpan catatan",
+    "saveGrantHelp": "Menyalakan izin Mengingat hal. Tanpa izin ini agen membaca catatan tetapi tidak dapat menyimpan.",
+    "copyNote": "Mengekspor agen, atau mengimpornya sebagai agen baru, mempertahankan pilihan ini dan tidak pernah menyalin catatannya.",
+    "summary": {
+      "mine_and_own": "Milik saya dan miliknya",
+      "own": "Hanya miliknya",
+      "mine": "Milik saya",
+      "none": "Tidak ada",
+      "asBefore": "Seperti sebelumnya"
+    },
+    "delete": {
+      "title": "Hapus {{name}}?",
+      "ask": "Agen ini punya catatan sendiri ({{count}}). Apa yang harus dilakukan?",
+      "legend": "Apa yang dilakukan pada catatan",
+      "default": "bawaan",
+      "confirm": "Hapus agen",
+      "keep": {
+        "title": "Simpan catatan",
+        "body": "Tetap ada di halaman Memori di bawah Agen yang dihapus sampai Anda menghapusnya."
+      },
+      "export": {
+        "title": "Ekspor, lalu hapus",
+        "body": "Unduh catatan sebagai berkas zip, lalu pindahkan ke Sampah."
+      },
+      "delete": {
+        "title": "Hapus juga catatannya",
+        "body": "Dipindahkan ke Sampah dan dapat dipulihkan dari Berkas."
+      }
+    }
   }
 }

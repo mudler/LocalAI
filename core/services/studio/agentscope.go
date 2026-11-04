@@ -22,6 +22,7 @@ type scope struct {
 	addons       map[string]bool
 	collections  map[string]bool
 	skills       map[string]bool
+	memory       string          // the agent's choice of notes; empty is "as before"
 	builtins     map[string]bool // the builtin grants the agent holds now
 	builtinNames []string
 	skillNames   []string
@@ -57,7 +58,7 @@ func (s *Service) scopeOf(ctx context.Context, rec session.ChatRecord) *scope {
 	return &scope{
 		agentID: rec.AgentID, agentName: ag.Name,
 		builtins: set(held), builtinNames: held,
-		instructions: strings.TrimSpace(ag.Instructions), mcp: ag.MCPServers,
+		instructions: strings.TrimSpace(ag.Instructions), mcp: ag.MCPServers, memory: ag.Memory,
 		addons: set(ag.Addons), collections: set(ag.Collections), skills: set(ag.Skills),
 		addonNames: ag.Addons, collNames: ag.Collections, skillNames: ag.Skills,
 	}

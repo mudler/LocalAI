@@ -5424,7 +5424,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Chats that ran with it keep their history; their next turn runs without the agent's tools.",
+                "description": "Chats that ran with it keep their history; their next turn runs without the agent's tools. The agent's own memory notes (Memory/agents/{id}) are not part of it: memory says what to do with them. keep (the default) leaves them, listed under Deleted agents on the Memory page until you delete them. delete moves them to the Trash. export answers 200 with a zip file of the notes and then moves them to the Trash (204 when the agent has none). A value that is not one of these is a 400 and nothing is deleted.",
                 "tags": [
                     "chats"
                 ],
@@ -5436,11 +5436,35 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "enum": [
+                            "keep",
+                            "export",
+                            "delete"
+                        ],
+                        "type": "string",
+                        "default": "keep",
+                        "description": "what to do with the agent's own notes",
+                        "name": "memory",
+                        "in": "query"
                     }
                 ],
                 "responses": {
+                    "200": {
+                        "description": "Deleted; a zip file of the agent's notes (memory=export)",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
                     "204": {
                         "description": "Deleted"
+                    },
+                    "400": {
+                        "description": "memory is not keep, export or delete",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
                     },
                     "404": {
                         "description": "No such conversation, or it is another user's",
@@ -20849,6 +20873,17 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "memory": {
+                    "description": "Memory is the choice of notes for this agent: own (its own notes only),\nmine_and_own (reads your notes and its own, saves to its own; the\ndefault of a new agent in the interface), mine (your notes only) or\nnone. The host enforces it: it decides which notes go in the prompt of\na chat and where a note is saved. Absent is \"as before\", an agent saved\nbefore the choice existed: it reads notes when its add-ons name Memory\nand the model picks the scope of a note.",
+                    "type": "string",
+                    "enum": [
+                        "own",
+                        "mine_and_own",
+                        "mine",
+                        "none"
+                    ],
+                    "example": "mine_and_own"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -21120,6 +21155,16 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "memory": {
+                    "description": "Memory is the choice of notes (see ChatsAgent). A write without it keeps\nthe stored choice, so a client that does not know it cannot widen the\nagent; the value must be own, mine_and_own, mine or none (400 otherwise).\nA new agent written without it is \"as before\".",
+                    "type": "string",
+                    "enum": [
+                        "own",
+                        "mine_and_own",
+                        "mine",
+                        "none"
+                    ]
                 },
                 "model": {
                     "type": "string"
@@ -30365,6 +30410,9 @@ const docTemplate = `{
         "studio.ContextGroup": {
             "type": "object",
             "properties": {
+                "deleted": {
+                    "type": "boolean"
+                },
                 "files": {
                     "type": "array",
                     "items": {
@@ -30372,6 +30420,10 @@ const docTemplate = `{
                     }
                 },
                 "key": {
+                    "type": "string"
+                },
+                "label": {
+                    "description": "Label is the name of the saved agent of an agent group. Deleted is true\nwhen no saved agent of the user has that ID any more: its notes were\nkept when the agent was deleted, and the Memory page lists them apart.",
                     "type": "string"
                 },
                 "max_bytes": {

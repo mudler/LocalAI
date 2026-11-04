@@ -8,7 +8,7 @@ import { useAgentTools } from '../hooks/useAgentTools'
 import { useToolGroups } from '../hooks/useToolGroups'
 import { useMemorySettings } from '../hooks/useMemorySettings'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
-import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, missingConnectorGrants, setGrant } from '../utils/chatAgents'
+import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, MEMORY_GRANT, memoryChoiceOf, missingConnectorGrants, newAgent, setGrant, withMemoryChoice } from '../utils/chatAgents'
 import { downloadAgentFile } from '../utils/agentFiles'
 import { joinAgentMCP, splitAgentMCP } from '../utils/chatMCP'
 import './agents.css'
@@ -27,6 +27,8 @@ import { Button, Callout, LoadError, Page, PageHeader, Segmented, SkeletonRows }
 // eslint-disable-next-line no-unused-vars
 import AgentFolderDialog from '../components/agents/AgentFolderDialog'
 // eslint-disable-next-line no-unused-vars
+import AgentMemoryChoice from '../components/agents/AgentMemoryChoice'
+// eslint-disable-next-line no-unused-vars
 import { SwitchPanel } from '../components/chat/SwitchMenu'
 import { switchCounts, switchRows } from '../utils/chatSwitchRows'
 // eslint-disable-next-line no-unused-vars
@@ -38,6 +40,7 @@ const SECTIONS = [
   { id: 'ModelSettings', icon: 'brain' },
   { id: 'PromptsGoals', icon: 'target' },
   { id: 'Files', icon: 'folder' },
+  { id: 'Notes', icon: 'memory' },
   { id: 'MemorySettings', icon: 'database' },
   { id: 'Skills', icon: 'sparkles' },
   { id: 'Tools', icon: 'plug' },
@@ -58,7 +61,7 @@ export default function AgentCreate() {
   const navigate = useNavigate()
   const location = useLocation()
   const { addToast } = useOutletContext()
-  const { t } = useTranslation(['agents', 'library'])
+  const { t } = useTranslation(['agents', 'library', 'chats'])
   const [searchParams] = useSearchParams()
   const templateId = searchParams.get('template') || ''
   const isEdit = !!id
@@ -101,13 +104,15 @@ export default function AgentCreate() {
     const init = async () => {
       setLoadError(null)
       try {
-        let initialForm = emptyAgent()
+        // A new agent starts with the default choice of notes. An agent that
+        // is read or imported keeps what it has: none means "as before".
+        let initialForm = newAgent()
         if (isEdit) {
           const agent = await chatAgentsApi.get(id)
-          initialForm = { ...initialForm, ...agent, folders: folderRows(agent) }
+          initialForm = { ...emptyAgent(), ...agent, memory: memoryChoiceOf(agent), folders: folderRows(agent) }
           setSavedConfig(agent)
         } else if (imported) {
-          initialForm = { ...initialForm, ...imported.agent, folders: folderRows(imported.agent) }
+          initialForm = { ...emptyAgent(), ...imported.agent, memory: memoryChoiceOf(imported.agent), folders: folderRows(imported.agent) }
         } else if (templateId) {
           // A starting point fills the form; nothing is saved until the person saves.
           const tpl = AGENT_TEMPLATES.find(x => x.id === templateId)
@@ -209,7 +214,12 @@ export default function AgentCreate() {
     let summary = ''
     let state = 'empty'
     let keys = (SUMMARY_FIELDS[s.id] || []).map(f => f.name)
-    if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
+    if (s.id === 'Notes') {
+      keys = ['memory']
+      summary = t(`chats:agentMemory.summary.${form.memory || 'asBefore'}`)
+      state = 'ready'
+    }
+    else if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
     else if (s.id === 'Tools') {
       keys = ['builtins_off', 'builtins_on', 'builtins', 'addons', 'mcp_servers', 'network', 'connections']
@@ -310,6 +320,16 @@ export default function AgentCreate() {
             <textarea id="ag-instructions" className="textarea" rows={10} value={form.instructions} onChange={(e) => updateField('instructions', e.target.value)} />
             <p className="ag-note">{t('create.instructionsHelp')}</p>
           </div>
+        )
+      case 'Notes':
+        return (
+          <AgentMemoryChoice
+            value={form.memory || ''}
+            onChange={(c) => setForm(prev => withMemoryChoice(prev, c))}
+            saves={(form.builtins || []).includes(MEMORY_GRANT)}
+            onSaves={(on) => updateField('builtins', setGrant(form.builtins, MEMORY_GRANT, on))}
+            userOff={memoryUser.settings?.enabled === false}
+          />
         )
       case 'MemorySettings':
         return (

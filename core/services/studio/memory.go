@@ -4,6 +4,7 @@ import (
 	"context"
 	"slices"
 
+	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -113,6 +114,10 @@ type MemoryState struct {
 	// By is who holds the switch that is off: "chat", "agent", "user" or
 	// "server".
 	By string
+	// Field names the field of the agent form that holds the switch, for the
+	// level "agent": "memory" (the choice None) or "tools:memory" (the old
+	// switch of the group).
+	Field string
 }
 
 func memoryOff(code, by string) MemoryState { return MemoryState{Code: code, By: by} }
@@ -128,8 +133,15 @@ func (s *Service) memoryState(ctx context.Context, rec session.ChatRecord, legac
 		// The chat switched the Memory add-on off: the same switch, in the
 		// words it had before memory was built in.
 		return memoryOff(MemoryOffChat, "chat")
+	case s.agentMemory(ctx, rec.Principal, rec.AgentID) == agents.MemoryNone:
+		// The agent's choice None: it reads and saves nothing.
+		st := memoryOff(MemoryOffAgent, "agent")
+		st.Field = "memory"
+		return st
 	case slices.Contains(s.agentOff(ctx, rec), builtins.GroupMemory):
-		return memoryOff(MemoryOffAgent, "agent")
+		st := memoryOff(MemoryOffAgent, "agent")
+		st.Field = "tools:" + builtins.GroupMemory
+		return st
 	case !s.memoryUserOn(ctx, rec.Principal, legacy):
 		return memoryOff(MemoryOffUser, "user")
 	case !s.d.Files.Available():
@@ -176,14 +188,70 @@ const (
 	MemoryOff = "off"
 )
 
-// memoryReads says whether the chat reads the notes. A saved agent reads them
-// only when it names the Memory add-on, as before; the choice per agent comes
-// later. A chat without an agent reads them.
+// memoryReads says whether the chat reads the notes. A saved agent with a
+// choice of its own (agents.Memory) reads what the choice names; one saved
+// before the choice ("as before") reads them only when it names the Memory
+// add-on. A chat without an agent reads them.
 func (s *Service) memoryReads(ctx context.Context, rec session.ChatRecord, sc *scope, legacy legacyMemory) bool {
 	if !s.memoryState(ctx, rec, legacy).On {
 		return false
 	}
-	return sc == nil || sc.addons[MemoryAddonID]
+	return sc == nil || sc.memory != "" || sc.addons[MemoryAddonID]
+}
+
+// agentMemory is the choice of notes of a saved agent: one of the agents.Memory
+// values, or empty for a chat without an agent, an agent that cannot be read
+// and an agent saved before the choice ("as before").
+func (s *Service) agentMemory(ctx context.Context, user, agentID string) string {
+	if agentID == "" || s.d.Agents == nil {
+		return ""
+	}
+	ag, err := s.d.Agents.Get(ctx, user, agentID)
+	if err != nil {
+		return ""
+	}
+	return ag.Memory
+}
+
+// memorySourcesFor narrows the index files of the notes to what a choice of
+// the agent reads. The notes of a messaging conversation stay with every
+// choice but None: they belong to the chat, and a conversation outside a
+// messaging app has none. Empty (as before) and Mine and its own read all.
+func memorySourcesFor(all []contextfiles.Source, choice string) []contextfiles.Source {
+	var keep func(contextfiles.Scope) bool
+	switch choice {
+	case agents.MemoryNone:
+		return nil
+	case agents.MemoryOwn:
+		keep = func(sc contextfiles.Scope) bool { return sc != contextfiles.ScopeUser }
+	case agents.MemoryMine:
+		keep = func(sc contextfiles.Scope) bool { return sc != contextfiles.ScopeAgent }
+	default:
+		return all
+	}
+	var out []contextfiles.Source
+	for _, src := range all {
+		if keep(src.Scope) {
+			out = append(out, src)
+		}
+	}
+	return out
+}
+
+// memoryWriteScopes are the scopes a chat may save a note to, enforced by the
+// host: Mine and its own and Its own only save to the agent, Mine saves to the
+// person, None saves nowhere. It is nil when the model chooses, which is a
+// chat without an agent and an agent saved before the choice ("as before").
+func (s *Service) memoryWriteScopes(ctx context.Context, c builtins.Chat) []string {
+	switch s.agentMemory(ctx, c.Actor.Principal, c.AgentID) {
+	case agents.MemoryOwn, agents.MemoryMineAndOwn:
+		return []string{string(contract.ScopeAgent)}
+	case agents.MemoryMine:
+		return []string{string(contract.ScopeUser)}
+	case agents.MemoryNone:
+		return []string{}
+	}
+	return nil
 }
 
 // memorySkillsOff adds the memory skills to the skills a chat has switched off
@@ -253,7 +321,7 @@ func memoryReason(st MemoryState, rec session.ChatRecord) MemoryReason {
 		out.Fix = &Fix{Kind: FixOpenToolsMenu, Target: "memory"}
 	case MemoryOffAgent:
 		out.Reason = "Memory is off for the agent of this chat."
-		out.Fix = &Fix{Kind: FixOpenAgent, Target: rec.AgentID, Field: "tools:" + builtins.GroupMemory}
+		out.Fix = &Fix{Kind: FixOpenAgent, Target: rec.AgentID, Field: st.Field}
 	case MemoryOffUser:
 		out.Reason = "Memory is off in your settings."
 		out.Fix = &Fix{Kind: FixOpenMemorySettings, Target: "memory"}

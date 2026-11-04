@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -22,6 +23,10 @@ const (
 	revertChangeName  = "revert_change"
 )
 
+// scopeSentence tells the model what the scopes mean. A chat whose agent has a
+// choice of notes hears a different one: the host fixes where a note goes.
+const scopeSentence = "scope is user (every chat of the person), agent (this agent only) or channel (this conversation only). "
+
 const proposeChangeDescription = "Ask to change something that lasts: a note in the user's memory, the profile of this agent, a skill, a page or the Home dashboard. " +
 	"Use it when the user asks you to remember, change or forget something, gives a rule you must keep, or asks for a skill, a page or a dashboard change. " +
 	"Unless the result says the note was saved, it changes nothing by itself: the person must confirm it (the result says how), and the proposal expires after a day. " +
@@ -31,22 +36,73 @@ const proposeChangeDescription = "Ask to change something that lasts: a note in 
 	"skill (a full SKILL.md with name and description, target is the skill name, scope user or agent; a skill its owner locked cannot be changed), " +
 	"page (a small app: target is the page name, scope user, files is an object of path to text and must hold index.html) " +
 	"or dashboard (the full home.json, scope user; it must follow the schema of the localai-workspace skill). " +
-	"scope is user (every chat of the person), agent (this agent only) or channel (this conversation only). " +
+	scopeSentence +
 	"target is the file name for memory, such as index.md or food.md, the name for a skill or a page; a profile and the dashboard have no target. " +
 	"summary is one line that tells the owner what changes."
 
 // proposeChangeSchema is the schema of the tool for a chat that may propose
 // the given kinds.
 func proposeChangeSchema(kinds []contract.ChangeKind) string {
+	return proposeChangeSchemaFor(kinds, nil)
+}
+
+// kindScopes are the scopes the kinds other than memory accept.
+var kindScopes = map[contract.ChangeKind][]string{
+	contract.ChangeProfile:   {"agent"},
+	contract.ChangeSkill:     {"user", "agent"},
+	contract.ChangePage:      {"user"},
+	contract.ChangeDashboard: {"user"},
+}
+
+// proposeChangeSchemaFor is proposeChangeSchema for a chat whose agent has a
+// choice of notes: memory is the scopes a memory note may go to (nil: the
+// model chooses, as for a chat without an agent). With a choice the scope
+// list holds only what the kinds offered accept, and a note needs no scope:
+// the host puts it where the choice says.
+func proposeChangeSchemaFor(kinds []contract.ChangeKind, memory []string) string {
 	enum, _ := json.Marshal(kinds)
+	scopes, required := `["user","agent","channel"]`, `["kind","scope","summary"]`
+	if memory != nil && slices.Contains(kinds, contract.ChangeMemory) {
+		want := map[string]bool{}
+		for _, sc := range memory {
+			want[sc] = true
+		}
+		for _, k := range kinds {
+			for _, sc := range kindScopes[k] {
+				want[sc] = true
+			}
+		}
+		var list []string
+		for _, sc := range []string{"user", "agent", "channel"} {
+			if want[sc] {
+				list = append(list, sc)
+			}
+		}
+		b, _ := json.Marshal(list)
+		scopes, required = string(b), `["kind","summary"]`
+	}
 	return `{"type":"object","properties":{` +
 		`"kind":{"type":"string","enum":` + string(enum) + `},` +
-		`"scope":{"type":"string","enum":["user","agent","channel"]},` +
+		`"scope":{"type":"string","enum":` + scopes + `},` +
 		`"target":{"type":"string","maxLength":64,"description":"File name for a memory change, such as index.md; the name of a skill or a page."},` +
 		`"content":{"type":"string","description":"The full new text of the file. For a page use files instead."},` +
 		`"files":{"type":"object","additionalProperties":{"type":"string"},"description":"For a page: file paths inside the page folder and their text, such as index.html."},` +
 		`"summary":{"type":"string","minLength":1,"maxLength":160,"description":"One line for the owner."}},` +
-		`"required":["kind","scope","summary"]}`
+		`"required":` + required + `}`
+}
+
+// proposeChangeDescriptionFor words the tool for a chat whose notes go to
+// fixed scopes: the model is told where a note goes and not to choose.
+func proposeChangeDescriptionFor(memory []string) string {
+	if memory == nil {
+		return proposeChangeDescription
+	}
+	where := "the user's own memory (scope user)"
+	if slices.Contains(memory, string(contract.ScopeAgent)) {
+		where = "this agent's own memory (scope agent)"
+	}
+	fixed := "scope is user (every chat of the person) or agent (this agent only); the other kinds say which. A memory note is saved to " + where + ": the host fixes that, so leave scope out for a note. "
+	return strings.Replace(proposeChangeDescription, scopeSentence, fixed, 1)
 }
 
 const revertChangeDescription = "Undo a change that the owner confirmed earlier, for example when the user says to forget that. " +
@@ -93,7 +149,7 @@ func (s *Service) registerChangeTools() error {
 				if len(kinds) == 0 {
 					return session.Tool{}, false, "this agent was not given the right to change anything"
 				}
-				schema := d.schema
+				schema, desc := d.schema, d.desc
 				if d.id == proposeChangeName {
 					// The person can turn memory notes off: the model then does
 					// not see the memory kind and cannot propose one.
@@ -103,11 +159,17 @@ func (s *Service) registerChangeTools() error {
 							return session.Tool{}, false, "saving to memory is turned off in the settings of the person"
 						}
 					}
-					schema = proposeChangeSchema(kinds)
+					// An agent with a choice of notes saves to the scope the host
+					// fixes; the model is not offered another.
+					fixed := s.memoryWriteScopes(ctx, c)
+					schema, desc = proposeChangeSchemaFor(kinds, fixed), proposeChangeDescriptionFor(fixed)
+					if !slices.Contains(kinds, contract.ChangeMemory) {
+						schema, desc = proposeChangeSchema(kinds), proposeChangeDescription
+					}
 				}
 				// The count of automatic writes is for this turn's tools.
 				turn := &autoTurn{}
-				return session.Tool{Description: d.desc, Schema: json.RawMessage(schema),
+				return session.Tool{Description: desc, Schema: json.RawMessage(schema),
 					Run: func(ctx context.Context, raw json.RawMessage) (string, error) { return d.run(ctx, c, raw, turn) }}, true, ""
 			},
 		})
@@ -116,6 +178,14 @@ func (s *Service) registerChangeTools() error {
 		}
 	}
 	return nil
+}
+
+// memoryScopeWords says where a scope of notes is, for a refusal the model reads.
+func memoryScopeWords(scope string) string {
+	if scope == string(contract.ScopeAgent) {
+		return "its own memory"
+	}
+	return "the user's memory"
 }
 
 // changeKindCaps are the capabilities that the kinds of change need in a
@@ -165,6 +235,21 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	}
 	if memoryKindOf(args.Kind) && !h.s.memoryWritable(ctx, c) {
 		return "", errors.New("memory is off here, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
+	}
+	if memoryKindOf(args.Kind) {
+		// The host, not the model, decides where a note of an agent with a
+		// choice of notes goes. Leaving the scope out takes the one the
+		// choice allows; any other is refused.
+		if fixed := h.s.memoryWriteScopes(ctx, c); fixed != nil {
+			switch {
+			case len(fixed) == 0:
+				return "", errors.New("memory is off here, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
+			case args.Scope == "":
+				args.Scope = fixed[0]
+			case !slices.Contains(fixed, args.Scope):
+				return "", fmt.Errorf("this agent saves notes to %s only (scope %s). Use that scope, or leave scope out", memoryScopeWords(fixed[0]), fixed[0])
+			}
+		}
 	}
 	if args.Files != nil {
 		if args.Kind != string(contract.ChangePage) || args.Content != "" {

@@ -17,6 +17,9 @@ var _ = Describe("agent validation", func() {
 		for _, n := range []string{"", "off", "registries", "all"} {
 			Expect(agents.Validate(agents.Agent{Name: "a", Network: n})).To(Succeed(), n)
 		}
+		for _, m := range []string{"", "own", "mine_and_own", "mine", "none"} {
+			Expect(agents.Validate(agents.Agent{Name: "a", Memory: m})).To(Succeed(), m)
+		}
 		for _, f := range []agents.Agent{
 			{Name: "a"},
 			{Name: "a", FolderID: 7, FolderMode: agents.FolderRead},
@@ -40,6 +43,7 @@ var _ = Describe("agent validation", func() {
 			"empty collection": {Name: "a", Collections: []string{" "}},
 			"long entry":       {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
 			"bad network":      {Name: "a", Network: "everything"},
+			"bad memory":       {Name: "a", Memory: "everything"},
 			"folder, no mode":  {Name: "a", FolderID: 7},
 			"bad folder mode":  {Name: "a", FolderID: 7, FolderMode: "admin"},
 		} {

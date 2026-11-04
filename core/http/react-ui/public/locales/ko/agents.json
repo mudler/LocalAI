@@ -81,7 +81,8 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "파일",
-      "Tools": "도구"
+      "Tools": "도구",
+      "Notes": "메모리"
     },
     "name": "Name",
     "description": "Description",

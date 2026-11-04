@@ -812,7 +812,9 @@
       "user": "Suas notas",
       "agent": "Notas do agente {{key}}",
       "channel": "Notas da conversa {{key}}",
-      "profile": "Perfil do agente {{key}}"
+      "profile": "Perfil do agente {{key}}",
+      "agentNamed": "Notas do agente {{name}}",
+      "profileNamed": "Perfil do agente {{name}}"
     },
     "edit": "Editar",
     "save": "Salvar",
@@ -833,7 +835,18 @@
     "clearYes_one": "Excluir {{count}} arquivo",
     "clearYes_other": "Excluir {{count}} arquivos",
     "cleared_one": "{{count}} arquivo movido para a Lixeira.",
-    "cleared_other": "{{count}} arquivos movidos para a Lixeira."
+    "cleared_other": "{{count}} arquivos movidos para a Lixeira.",
+    "tabs": {
+      "label": "Notas de",
+      "mine": "Minhas",
+      "deleted": "Agentes excluídos",
+      "channels": "Conversas",
+      "export": "Exportar estas notas",
+      "clearAgent": "Excluir as notas deste agente",
+      "clearDeleted": "Excluir estas notas"
+    },
+    "deletedNote": "Estes agentes foram excluídos. As notas deles ficam até você excluí-las aqui.",
+    "tabEmpty": "Nenhuma nota aqui."
   },
   "triggerActs": {
     "help": "Uma execução começa sozinha, então ninguém aprova um passo. Ela pode ler e relatar. Marque o que ela também pode fazer. Ela nunca recebe mais do que o seu agente tem.",
@@ -901,5 +914,62 @@
     "chipPrivate": "Chat privado",
     "fixUser": "Configurações, Memória",
     "userRow": "Desativada nas suas configurações. Ative em Configurações, Memória."
+  },
+  "agentMemory": {
+    "title": "Memória",
+    "lede": "Escolha quais notas este agente lê e onde salva as novas.",
+    "offUser": "A memória está desligada nas suas configurações, então esta escolha não tem efeito até você ligá-la.",
+    "offUserFix": "Configurações, Memória",
+    "recommended": "Recomendado",
+    "mine_and_own": {
+      "title": "Minhas e dele",
+      "body": "Lê suas notas e as dele. Salva só nas dele."
+    },
+    "own": {
+      "title": "Só dele",
+      "body": "Lê e salva apenas as notas dele. Suas notas ficam fora do alcance."
+    },
+    "mine": {
+      "title": "Minhas",
+      "body": "Lê e salva suas notas."
+    },
+    "none": {
+      "title": "Nenhuma",
+      "body": "Não lê nem salva nada."
+    },
+    "mineWarn": "Este agente pode adicionar notas à sua memória, para todos os chats. Você confirma cada uma.",
+    "asBefore": {
+      "title": "Como antes",
+      "body": "Este agente foi salvo antes de existir esta escolha. Ele lê suas notas se a lista de complementos dele citar Memory, e o modelo escolhe onde salvar uma nota. Escolha uma das opções abaixo para mudar isso."
+    },
+    "saveGrant": "Deixar salvar notas",
+    "saveGrantHelp": "Liga a permissão Lembrar coisas. Sem ela, o agente lê notas mas não consegue salvar nenhuma.",
+    "copyNote": "Exportar um agente, ou importá-lo como novo, mantém esta escolha e nunca copia as notas dele.",
+    "summary": {
+      "mine_and_own": "Minhas e dele",
+      "own": "Só dele",
+      "mine": "Minhas",
+      "none": "Nenhuma",
+      "asBefore": "Como antes"
+    },
+    "delete": {
+      "title": "Excluir {{name}}?",
+      "ask": "Este agente tem notas próprias ({{count}}). O que fazer com elas?",
+      "legend": "O que fazer com as notas",
+      "default": "padrão",
+      "confirm": "Excluir agente",
+      "keep": {
+        "title": "Manter as notas",
+        "body": "Ficam na página Memória em Agentes excluídos até você excluí-las."
+      },
+      "export": {
+        "title": "Exportar e depois excluir",
+        "body": "Baixa as notas como arquivo zip e depois as move para a Lixeira."
+      },
+      "delete": {
+        "title": "Excluir as notas também",
+        "body": "Vão para a Lixeira e você pode restaurá-las em Arquivos."
+      }
+    }
   }
 }

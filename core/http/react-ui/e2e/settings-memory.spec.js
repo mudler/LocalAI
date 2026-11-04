@@ -92,6 +92,7 @@ test('lists the notes of the user, of an agent and its profile with their sizes 
   await expect(user.getByTestId('memory-file')).toHaveCount(3)
   await expect(user.getByTestId('memory-file').first()).toContainText('index.md')
   await expect(user.getByTestId('memory-file').first()).toContainText('Index')
+  await page.getByRole('tab', { name: 'bot' }).click()
   await expect(group(page, 'notes-agent:bot').getByRole('heading')).toHaveText('Notes of agent bot')
   const profile = group(page, 'profile:bot')
   await expect(profile.getByRole('heading')).toHaveText('Profile of agent bot')

@@ -477,7 +477,8 @@ export const chatAgentsApi = {
   get: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`),
   create: (body) => postJSON('/api/chats/agents', body),
   update: (id, body) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'PUT', body: JSON.stringify(body) }),
-  remove: (id) => fetchJSON(`/api/chats/agents/${enc2(id)}`, { method: 'DELETE' }),
+  // memory says what to do with the agent's own notes: keep (the default) or delete.
+  remove: (id, memory) => fetchJSON(`/api/chats/agents/${enc2(id)}${q({ memory })}`, { method: 'DELETE' }),
   // The agent file of the server (kind localai-agent). Import takes it, the
   // body of a create, or an export of the old agents; it always makes a new
   // agent and says in `warnings` what it changed.

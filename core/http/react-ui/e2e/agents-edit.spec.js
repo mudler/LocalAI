@@ -35,7 +35,9 @@ test.describe('Agent form', () => {
     await expect(page).toHaveURL(/\/app\/agents$/)
     expect(s.calls.find(c => c.method === 'POST').body).toEqual({
       name: 'Reviewer', description: 'Checks a change', instructions: 'Answer in French.', model: '',
-      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [], builtins: [], network: 'off',
+      mcp_servers: ['connector:m1'], addons: [], collections: ['handbook'], skills: ['citations'], builtins_off: [], builtins_on: [],
+      // A new agent reads yours and its own notes and saves to its own; the connector defaults stay.
+      builtins: ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload', 'memory.write'], memory: 'mine_and_own', network: 'off',
     })
   })
 

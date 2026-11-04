@@ -81,7 +81,8 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "文件",
-      "Tools": "工具"
+      "Tools": "工具",
+      "Notes": "记忆"
     },
     "name": "Name",
     "description": "Description",

@@ -148,7 +148,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// exists yet, as before; everyone else gets no block until a note
 		// exists.
 		if s.memoryReads(ctx, rec, sc, legacy) {
-			extra = append(s.memory.Sources(), extra...)
+			choice := ""
+			if sc != nil {
+				choice = sc.memory
+			}
+			extra = append(memorySourcesFor(s.memory.Sources(), choice), extra...)
 		}
 		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
 		tools = append(tools, s.contextTools(rec, tools, extra)...)

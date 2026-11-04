@@ -10,7 +10,8 @@ import Icon from '../components/Icon'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SearchField, SkeletonRows, StatusChip } from '../components/ui'
 // eslint-disable-next-line no-unused-vars
 import { AgentViews, FolderChip, RunStrip, RecordLine, agentPath } from '../components/agents/AgentBits'
-import { deleteAgentWithUndo, usePendingAgentDeletes } from '../components/agents/agentUndo'
+import { usePendingAgentDeletes } from '../components/agents/agentUndo'
+import { useAgentDelete } from '../components/agents/useAgentDelete'
 import { agentInfo } from '../utils/agentInfo'
 import { outcomeLine, recordStatus, runOfChat } from '../utils/agentRuns'
 import { AGENT_TEMPLATES } from '../utils/agentConfigTools'
@@ -92,8 +93,10 @@ export default function Agents() {
     return items
   }, [rows])
 
-  // Delete is reversible for the Undo window, so it asks nothing.
-  const handleDelete = (agent) => deleteAgentWithUndo(agent, { addToast, t, onDeleted: load })
+  // Delete is reversible for the Undo window, so it asks nothing, unless the
+  // agent has notes of its own: then it asks what to do with them.
+  const agentDelete = useAgentDelete({ addToast, t, onDeleted: load })
+  const handleDelete = (agent) => agentDelete.ask(agent)
 
   const handleExport = (agent) => downloadAgentFile(agent, addToast, t)
 
@@ -239,6 +242,7 @@ export default function Agents() {
           </section>
         </div>
       )}
+      {agentDelete.dialog}
     </Page>
   )
 }

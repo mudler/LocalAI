@@ -812,7 +812,9 @@
       "user": "Deine Notizen",
       "agent": "Notizen von Agent {{key}}",
       "channel": "Notizen der Unterhaltung {{key}}",
-      "profile": "Profil von Agent {{key}}"
+      "profile": "Profil von Agent {{key}}",
+      "agentNamed": "Notizen des Agenten {{name}}",
+      "profileNamed": "Profil des Agenten {{name}}"
     },
     "edit": "Bearbeiten",
     "save": "Speichern",
@@ -833,7 +835,18 @@
     "clearYes_one": "{{count}} Datei löschen",
     "clearYes_other": "{{count}} Dateien löschen",
     "cleared_one": "{{count}} Datei in den Papierkorb verschoben.",
-    "cleared_other": "{{count}} Dateien in den Papierkorb verschoben."
+    "cleared_other": "{{count}} Dateien in den Papierkorb verschoben.",
+    "tabs": {
+      "label": "Notizen von",
+      "mine": "Meine",
+      "deleted": "Gelöschte Agenten",
+      "channels": "Unterhaltungen",
+      "export": "Diese Notizen exportieren",
+      "clearAgent": "Die Notizen dieses Agenten löschen",
+      "clearDeleted": "Diese Notizen löschen"
+    },
+    "deletedNote": "Diese Agenten wurden gelöscht. Ihre Notizen bleiben, bis du sie hier löschst.",
+    "tabEmpty": "Keine Notizen hier."
   },
   "triggerActs": {
     "help": "Ein Lauf startet von selbst, also bestätigt niemand einen Schritt. Er kann lesen und berichten. Hake an, was er zusätzlich tun darf. Er bekommt nie mehr, als sein Agent hat.",
@@ -901,5 +914,62 @@
     "chipPrivate": "Privater Chat",
     "fixUser": "Einstellungen, Gedächtnis",
     "userRow": "In deinen Einstellungen aus. Schalte es unter Einstellungen, Gedächtnis an."
+  },
+  "agentMemory": {
+    "title": "Gedächtnis",
+    "lede": "Lege fest, welche Notizen dieser Agent liest und wohin er neue speichert.",
+    "offUser": "Das Gedächtnis ist in deinen Einstellungen aus, daher wirkt diese Auswahl erst, wenn du es einschaltest.",
+    "offUserFix": "Einstellungen, Gedächtnis",
+    "recommended": "Empfohlen",
+    "mine_and_own": {
+      "title": "Meine und eigene",
+      "body": "Liest deine Notizen und seine eigenen. Speichert nur in seinen eigenen."
+    },
+    "own": {
+      "title": "Nur eigene",
+      "body": "Liest und speichert nur seine eigenen Notizen. Deine Notizen bleiben unberührt."
+    },
+    "mine": {
+      "title": "Meine",
+      "body": "Liest und speichert deine Notizen."
+    },
+    "none": {
+      "title": "Keine",
+      "body": "Liest und speichert nichts."
+    },
+    "mineWarn": "Dieser Agent kann Notizen zu deinem Gedächtnis hinzufügen, für jeden Chat. Du bestätigst jede einzelne.",
+    "asBefore": {
+      "title": "Wie bisher",
+      "body": "Dieser Agent wurde gespeichert, bevor es diese Auswahl gab. Er liest deine Notizen, wenn seine Add-on-Liste Memory nennt, und das Modell wählt, wohin eine Notiz gespeichert wird. Wähle unten eine der Optionen, um das zu ändern."
+    },
+    "saveGrant": "Notizen speichern lassen",
+    "saveGrantHelp": "Schaltet die Berechtigung „Dinge merken“ ein. Ohne sie liest der Agent Notizen, kann aber keine speichern.",
+    "copyNote": "Beim Exportieren eines Agenten oder beim Import als neuen Agenten bleibt diese Auswahl erhalten; seine Notizen werden nie kopiert.",
+    "summary": {
+      "mine_and_own": "Meine und eigene",
+      "own": "Nur eigene",
+      "mine": "Meine",
+      "none": "Keine",
+      "asBefore": "Wie bisher"
+    },
+    "delete": {
+      "title": "{{name}} löschen?",
+      "ask": "Dieser Agent hat eigene Notizen ({{count}}). Was soll damit geschehen?",
+      "legend": "Was mit den Notizen geschehen soll",
+      "default": "Standard",
+      "confirm": "Agent löschen",
+      "keep": {
+        "title": "Notizen behalten",
+        "body": "Sie bleiben auf der Seite Gedächtnis unter Gelöschte Agenten, bis du sie löschst."
+      },
+      "export": {
+        "title": "Exportieren, dann löschen",
+        "body": "Die Notizen als Zip-Datei herunterladen und dann in den Papierkorb legen."
+      },
+      "delete": {
+        "title": "Notizen ebenfalls löschen",
+        "body": "Sie wandern in den Papierkorb und lassen sich über Dateien wiederherstellen."
+      }
+    }
   }
 }

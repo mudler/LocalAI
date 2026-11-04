@@ -134,6 +134,7 @@ var chatRules = []errRule{
 	fixed(http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server", studiosvc.ErrAssistantOff),
 	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
 	verbatim(http.StatusConflict, typeAgentsOff, "", studiosvc.ErrAgentsOff),
+	verbatim(http.StatusInternalServerError, "server_error", "studio: ", studiosvc.ErrAgentNotesKept),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow commands on this machine; anyone can refuse them", studiosvc.ErrHostExecDecision),
 	fixed(http.StatusBadRequest, typeInvalid, "the body must be {id, decision} with decision once or deny", studiosvc.ErrHostExecBadDecision),
 	fixed(http.StatusGone, "consent_expired", "the card expired: the turn that asked has ended, so the command did not run", studiosvc.ErrHostExecExpired),

@@ -40,6 +40,11 @@ type ContextGroup struct {
 	MaxBytes int           `json:"max_bytes"`
 	MaxLines int           `json:"max_lines,omitempty"`
 	Files    []ContextFile `json:"files"`
+	// Label is the name of the saved agent of an agent group. Deleted is true
+	// when no saved agent of the user has that ID any more: its notes were
+	// kept when the agent was deleted, and the Memory page lists them apart.
+	Label   string `json:"label,omitempty"`
+	Deleted bool   `json:"deleted,omitempty"`
 }
 
 // ContextLimits are the caps that keep a turn small.
@@ -96,7 +101,35 @@ func (s *Service) ListContextFiles(ctx context.Context, user string) (ContextFil
 			out.Groups = append(out.Groups, g)
 		}
 	}
+	s.nameAgentGroups(ctx, user, out.Groups)
 	return out, nil
+}
+
+// nameAgentGroups gives the groups of agents the agent's name, or marks them
+// deleted when the user has no such agent. A store that cannot answer leaves
+// the groups as they are: nothing is called deleted on a guess.
+func (s *Service) nameAgentGroups(ctx context.Context, user string, groups []ContextGroup) {
+	if s.d.Agents == nil {
+		return
+	}
+	list, err := s.d.Agents.List(ctx, principal(user))
+	if err != nil {
+		return
+	}
+	names := make(map[string]string, len(list))
+	for _, a := range list {
+		names[a.ID] = a.Name
+	}
+	for i := range groups {
+		if groups[i].Scope != contextfiles.ScopeAgent || groups[i].Key == "" {
+			continue
+		}
+		if name, ok := names[groups[i].Key]; ok {
+			groups[i].Label = name
+		} else {
+			groups[i].Deleted = true
+		}
+	}
 }
 
 type contextPath struct{ path, key string }

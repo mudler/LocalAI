@@ -81,7 +81,8 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Arquivos",
-      "Tools": "Ferramentas"
+      "Tools": "Ferramentas",
+      "Notes": "Memória"
     },
     "name": "Name",
     "description": "Description",

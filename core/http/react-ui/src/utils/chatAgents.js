@@ -27,6 +27,39 @@ export function setGrant(list, name, on) {
 }
 
 
+// The choices of notes of an agent, in the order the form shows them. An
+// agent saved before the choice has none ("as before"): it is a note in the
+// form, not a card, so it cannot be picked again.
+export const MEMORY_CHOICES = ['mine_and_own', 'own', 'mine', 'none']
+export const DEFAULT_MEMORY = 'mine_and_own'
+export const MEMORY_GRANT = 'memory.write'
+
+// The choice as the form holds it: one of MEMORY_CHOICES, or '' for as before.
+export function memoryChoiceOf(agent) {
+  return MEMORY_CHOICES.includes(agent?.memory) ? agent.memory : ''
+}
+
+// Whether a choice saves notes somewhere (None does not).
+export const memorySaves = (choice) => choice === 'own' || choice === 'mine_and_own' || choice === 'mine'
+
+// A brand new agent: it reads your notes and its own and saves to its own. It
+// is given the grant that lets it save, and, because a list of grants is the
+// whole answer once it exists, the four connector grants an agent without a
+// list has by default, so a new agent loses nothing on its messaging
+// connections.
+export function newAgent() {
+  return { ...emptyAgent(), memory: DEFAULT_MEMORY, builtins: [...CONNECTOR_GRANTS, MEMORY_GRANT] }
+}
+
+// The form with another choice of notes. A choice that saves notes also
+// switches the grant on, because the choice says where and the grant says
+// whether; None leaves the grants alone.
+export function withMemoryChoice(form, choice) {
+  const next = { ...form, memory: choice }
+  if (memorySaves(choice) && !(form.builtins || []).includes(MEMORY_GRANT)) next.builtins = setGrant(form.builtins, MEMORY_GRANT, true)
+  return next
+}
+
 export function emptyAgent() {
   return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [], builtins: [], network: 'off', folders: [] }
 }
@@ -55,6 +88,9 @@ export function agentPayload(form, opts) {
     // The network of the isolated commands of the agent's unattended runs.
     network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
+  // The choice of notes. An agent saved before it has none, and a write
+  // without it keeps the stored one.
+  if (MEMORY_CHOICES.includes(form.memory)) body.memory = form.memory
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)
   // The connections the agent's chats may use for each add-on with a
   // credential (add-on ID to a list of binding IDs). The server keeps the

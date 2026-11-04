@@ -1134,7 +1134,9 @@
       "user": "Your notes",
       "agent": "Notes of agent {{key}}",
       "channel": "Notes of conversation {{key}}",
-      "profile": "Profile of agent {{key}}"
+      "profile": "Profile of agent {{key}}",
+      "agentNamed": "Notes of agent {{name}}",
+      "profileNamed": "Profile of agent {{name}}"
     },
     "edit": "Edit",
     "save": "Save",
@@ -1155,7 +1157,18 @@
     "clearYes_one": "Delete {{count}} file",
     "clearYes_other": "Delete {{count}} files",
     "cleared_one": "Moved {{count}} file to the Trash.",
-    "cleared_other": "Moved {{count}} files to the Trash."
+    "cleared_other": "Moved {{count}} files to the Trash.",
+    "tabs": {
+      "label": "Notes of",
+      "mine": "Mine",
+      "deleted": "Deleted agents",
+      "channels": "Conversations",
+      "export": "Export these notes",
+      "clearAgent": "Delete the notes of this agent",
+      "clearDeleted": "Delete these notes"
+    },
+    "deletedNote": "These agents were deleted. Their notes stay until you delete them here.",
+    "tabEmpty": "No notes here."
   },
   "triggerActs": {
     "help": "A run starts by itself, so nobody is there to approve a step. It can read and report. Tick what it may also do. It never gets more than its agent holds.",
@@ -1223,5 +1236,62 @@
     "chipPrivate": "Private chat",
     "fixUser": "Settings, Memory",
     "userRow": "Off in your settings. Turn it on in Settings, Memory."
+  },
+  "agentMemory": {
+    "title": "Memory",
+    "lede": "Choose which notes this agent reads and where it saves new ones.",
+    "offUser": "Memory is off in your settings, so this choice has no effect until you turn it on.",
+    "offUserFix": "Settings, Memory",
+    "recommended": "Recommended",
+    "mine_and_own": {
+      "title": "Mine and its own",
+      "body": "Reads your notes and its own. Saves only to its own."
+    },
+    "own": {
+      "title": "Its own only",
+      "body": "Reads and saves only its own notes. Your notes stay out of reach."
+    },
+    "mine": {
+      "title": "Mine",
+      "body": "Reads and saves your notes."
+    },
+    "none": {
+      "title": "None",
+      "body": "Reads and saves nothing."
+    },
+    "mineWarn": "This agent can add notes to your memory, for every chat. You confirm each one.",
+    "asBefore": {
+      "title": "As before",
+      "body": "This agent was saved before this choice existed. It reads your notes when its add-ons list names Memory, and the model picks where a note is saved. Pick one of the choices below to change that."
+    },
+    "saveGrant": "Let it save notes",
+    "saveGrantHelp": "Turns on the permission Remember things. Without it the agent reads notes but cannot save any.",
+    "copyNote": "Exporting an agent, or importing it as a new one, keeps this choice and never copies its notes.",
+    "summary": {
+      "mine_and_own": "Mine and its own",
+      "own": "Its own only",
+      "mine": "Mine",
+      "none": "None",
+      "asBefore": "As before"
+    },
+    "delete": {
+      "title": "Delete {{name}}?",
+      "ask": "This agent has notes of its own ({{count}}). What should happen to them?",
+      "legend": "What to do with the notes",
+      "default": "default",
+      "confirm": "Delete agent",
+      "keep": {
+        "title": "Keep the notes",
+        "body": "They stay on the Memory page under Deleted agents until you delete them."
+      },
+      "export": {
+        "title": "Export, then delete",
+        "body": "Download the notes as a zip file, then move them to the Trash."
+      },
+      "delete": {
+        "title": "Delete the notes too",
+        "body": "They move to the Trash and you can restore them from Files."
+      }
+    }
   }
 }

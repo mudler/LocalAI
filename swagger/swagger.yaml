@@ -3967,6 +3967,22 @@ definitions:
         items:
           type: string
         type: array
+      memory:
+        description: |-
+          Memory is the choice of notes for this agent: own (its own notes only),
+          mine_and_own (reads your notes and its own, saves to its own; the
+          default of a new agent in the interface), mine (your notes only) or
+          none. The host enforces it: it decides which notes go in the prompt of
+          a chat and where a note is saved. Absent is "as before", an agent saved
+          before the choice existed: it reads notes when its add-ons name Memory
+          and the model picks the scope of a note.
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        example: mine_and_own
+        type: string
       model:
         type: string
       name:
@@ -4195,6 +4211,18 @@ definitions:
         items:
           type: string
         type: array
+      memory:
+        description: |-
+          Memory is the choice of notes (see ChatsAgent). A write without it keeps
+          the stored choice, so a client that does not know it cannot widen the
+          agent; the value must be own, mine_and_own, mine or none (400 otherwise).
+          A new agent written without it is "as before".
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        type: string
       model:
         type: string
       name:
@@ -11038,11 +11066,19 @@ definitions:
     type: object
   studio.ContextGroup:
     properties:
+      deleted:
+        type: boolean
       files:
         items:
           $ref: '#/definitions/studio.ContextFile'
         type: array
       key:
+        type: string
+      label:
+        description: |-
+          Label is the name of the saved agent of an agent group. Deleted is true
+          when no saved agent of the user has that ID any more: its notes were
+          kept when the agent was deleted, and the Memory page lists them apart.
         type: string
       max_bytes:
         description: |-
@@ -16714,17 +16750,39 @@ paths:
       - chats
   /api/chats/agents/{id}:
     delete:
-      description: Chats that ran with it keep their history; their next turn runs
-        without the agent's tools.
+      description: 'Chats that ran with it keep their history; their next turn runs
+        without the agent''s tools. The agent''s own memory notes (Memory/agents/{id})
+        are not part of it: memory says what to do with them. keep (the default) leaves
+        them, listed under Deleted agents on the Memory page until you delete them.
+        delete moves them to the Trash. export answers 200 with a zip file of the
+        notes and then moves them to the Trash (204 when the agent has none). A value
+        that is not one of these is a 400 and nothing is deleted.'
       parameters:
       - description: the agent's id
         in: path
         name: id
         required: true
         type: string
+      - default: keep
+        description: what to do with the agent's own notes
+        enum:
+        - keep
+        - export
+        - delete
+        in: query
+        name: memory
+        type: string
       responses:
+        "200":
+          description: Deleted; a zip file of the agent's notes (memory=export)
+          schema:
+            type: file
         "204":
           description: Deleted
+        "400":
+          description: memory is not keep, export or delete
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such conversation, or it is another user's
           schema:

@@ -40,3 +40,40 @@ export const groupId = (g) => `${g.source}:${g.key || ''}`
 export function allFiles(groups) {
   return (groups || []).flatMap((g) => g.files || [])
 }
+
+// The notes of one saved agent in a list of groups: the memory files in the
+// agent's own folder (the host marks the groups of agents that were deleted).
+export function agentNotes(groups, agentId) {
+  return (groups || []).filter((g) => g.source === 'memory' && g.scope === 'agent' && g.key === agentId)
+}
+
+// How many notes a saved agent has of its own.
+export function agentNoteCount(groups, agentId) {
+  return allFiles(agentNotes(groups, agentId)).length
+}
+
+// The tabs of the notes list: yours, one for each saved agent that has notes,
+// the notes of agents that were deleted, and the conversations. A tab is
+// { id, kind, name, groups }; name is the agent's name for an agent tab. A tab
+// with no group is left out, except Mine, which stays as the first.
+export function noteTabs(groups) {
+  const list = groups || []
+  const tabs = [{ id: 'mine', kind: 'mine', groups: list.filter((g) => g.scope === 'user') }]
+  const byAgent = new Map()
+  const deleted = []
+  const channels = []
+  for (const g of list) {
+    if (g.scope === 'channel') channels.push(g)
+    else if (g.scope === 'agent') {
+      if (g.deleted) deleted.push(g)
+      else {
+        if (!byAgent.has(g.key)) byAgent.set(g.key, { id: `agent:${g.key}`, kind: 'agent', name: g.label || g.key, groups: [] })
+        byAgent.get(g.key).groups.push(g)
+      }
+    }
+  }
+  tabs.push(...[...byAgent.values()].sort((a, b) => a.name.localeCompare(b.name)))
+  if (deleted.length) tabs.push({ id: 'deleted', kind: 'deleted', groups: deleted })
+  if (channels.length) tabs.push({ id: 'channels', kind: 'channels', groups: channels })
+  return tabs
+}
