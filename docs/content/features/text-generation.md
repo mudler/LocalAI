@@ -344,7 +344,7 @@ the identity that created them.
 | `temperature` | float | No | Sampling temperature |
 | `top_p` | float | No | Nucleus sampling parameter |
 | `instructions` | string | No | System instructions |
-| `tools` | array | No | Array of tool definitions |
+| `tools` | array | No | Array of tool definitions: `function` tools, and `namespace` entries such as the ones Codex sends for MCP servers. The model sees a namespace member as `ns_{namespace}___{name}`; the `function_call` items returned carry the `namespace` and `name` again |
 | `tool_choice` | string/object | No | Tool choice: "auto", "required", "none", or specific tool |
 | `stream` | boolean | No | Enable streaming responses |
 | `background` | boolean | No | Run request in background (returns immediately) |

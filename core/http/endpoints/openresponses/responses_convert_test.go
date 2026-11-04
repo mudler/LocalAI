@@ -110,6 +110,16 @@ var _ = Describe("convertORInputToMessages", func() {
 				Expect(msgs[i].StringContent).To(Equal(expected.text))
 			}
 		})
+
+		It("replays a namespaced function_call under the name the model was offered", func() {
+			msgs := convertRequest(outputItems(schema.ORItemField{
+				Type: "function_call", CallID: "call_1", Namespace: "mcp__docs", Name: "search", Arguments: `{"q":"x"}`,
+			}))
+			Expect(msgs).To(HaveLen(1))
+			Expect(msgs[0].ToolCalls).To(HaveLen(1))
+			Expect(msgs[0].ToolCalls[0].FunctionCall.Name).To(Equal("ns_mcp__docs___search"))
+			Expect(msgs[0].ToolCalls[0].FunctionCall.Arguments).To(Equal(`{"q":"x"}`))
+		})
 	})
 
 	It("does not treat a non-message item (no content key) as a message", func() {
@@ -136,6 +146,46 @@ var _ = Describe("convertORToolsToOpenAIFormat", func() {
 		Expect(converted[0].Type).To(Equal("function"))
 		Expect(converted[0].Function.Name).To(Equal("example_function"))
 		Expect(converted[0].Function.Parameters).To(Equal(map[string]any{"type": "object"}))
+	})
+
+	It("flattens namespace members to ns_{namespace}___{name}", func() {
+		var tools []schema.ORFunctionTool
+		Expect(json.Unmarshal([]byte(`[
+			{"type": "function", "name": "exec_command"},
+			{"type": "namespace", "name": "mcp__docs", "tools": [
+				{"type": "function", "name": "search", "description": "Search the docs", "parameters": {"type": "object"}},
+				{"type": "function", "name": "fetch"}
+			]}
+		]`), &tools)).To(Succeed())
+
+		converted := convertORToolsToOpenAIFormat(tools)
+
+		Expect(converted).To(HaveLen(3))
+		Expect(converted[0].Function.Name).To(Equal("exec_command"))
+		Expect(converted[1].Function.Name).To(Equal("ns_mcp__docs___search"))
+		Expect(converted[1].Function.Description).To(Equal("Search the docs"))
+		Expect(converted[1].Function.Parameters).To(Equal(map[string]any{"type": "object"}))
+		Expect(converted[2].Function.Name).To(Equal("ns_mcp__docs___fetch"))
+	})
+})
+
+var _ = Describe("splitResponsesToolName", func() {
+	DescribeTable("splits only flattened namespace names", func(flat, wantNamespace, wantName string) {
+		namespace, name := splitResponsesToolName(flat)
+		Expect(namespace).To(Equal(wantNamespace))
+		Expect(name).To(Equal(wantName))
+	},
+		Entry("flattened name", "ns_mcp__docs___search", "mcp__docs", "search"),
+		Entry("plain function", "exec_command", "", "exec_command"),
+		Entry("prefix without separator", "ns_docs", "", "ns_docs"),
+		Entry("empty member name", "ns_docs___", "", "ns_docs___"),
+	)
+
+	It("round-trips responsesToolName", func() {
+		namespace, name := splitResponsesToolName(responsesToolName("mcp__docs", "search"))
+		Expect(namespace).To(Equal("mcp__docs"))
+		Expect(name).To(Equal("search"))
+		Expect(responsesToolName("", "search")).To(Equal("search"))
 	})
 })
 
