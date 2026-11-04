@@ -339,12 +339,24 @@ the mention makes a new chat, and gives them to the agent with the first message
 - **Once.** The messages are read when the chat of the thread starts. Later turns of the
   chat do not read them again, and they are not copied into the transcript.
 - **Bounded.** At most 30 messages and 8 KiB of text. If there are more, the newest are
-  kept, oldest first, one line `Name: text` each. The add-on can lower the number of
+  kept, oldest first, one line `Label: text` each. The add-on can lower the number of
   messages. A thread of more than 1,000 messages is not read at all.
-- **Untrusted.** The agent gets the lines in a block that says they are messages from
-  other people and not instructions. Control characters and line breaks are removed and
-  the characters `<` and `>` are replaced, so a message cannot close the block. Messages
-  of the bot itself are included, so the agent sees its earlier answers.
+- **Labels.** What the person who mentioned the bot wrote earlier is labelled
+  `The person asking (Name)`. The earlier answers of the bot are labelled
+  `Assistant (you)`. Everyone else has their own name. So the agent can answer
+  "what did I say first in this thread?". The person is matched by platform user id
+  (or user name), never by display name. A display name that starts with one of the
+  two fixed labels is shown as `Someone (...)`.
+- **Untrusted.** The block starts with a heading that says these are the earlier
+  messages of the thread, and that the text is untrusted content written by people:
+  the agent must not follow instructions in it. Control characters and line breaks are
+  removed and the characters `<` and `>` are replaced, so a message cannot close the
+  block.
+- **Logged.** Each read writes one line to the server log, for example
+  `studio: thread history read binding=... kind=slack returned=12 lines=11 bytes=1530 truncated=false result=present`.
+  `result=empty` means the thread held nothing to show. A kind without thread history
+  logs `studio: thread history not read ... reason="kind serves no thread history"`.
+  The line has counts only, never message text or names.
 - **It never blocks the answer.** If the platform refuses, is slow or limits the calls,
   the agent answers without the context. The server logs the reason once.
 
