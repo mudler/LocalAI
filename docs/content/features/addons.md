@@ -664,7 +664,10 @@ ticked. At the callback the state is used up first; then the person and the
 nonce must match the start, and the approval must still hold. The host trades
 the code at `tokenUrl`, checks that the required scopes were granted, and asks
 the add-on's connector op `me`, with the new token, who the person is. An
-`unauthorized` answer fails the login. The outcome is one of `ok`, `denied`,
+`unauthorized` answer fails the login. The host removes control and format
+characters (such as bidirectional overrides) from the account name, folds white
+space and keeps at most 128 characters, so "Connected as" cannot show another
+account than the one linked. The outcome is one of `ok`, `denied`,
 `invalid_state`, `provider_error`, `exchange_failed`, `scopes_missing` and
 `unavailable`; nothing the service wrote is copied into it.
 

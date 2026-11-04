@@ -42,8 +42,10 @@ const (
 type meTransport struct {
 	mu     sync.Mutex
 	refuse map[string]bool
-	calls  atomic.Int32
-	conns  *studio.Connectors
+	// label, when set, is the account name "me" answers.
+	label string
+	calls atomic.Int32
+	conns *studio.Connectors
 }
 
 func (t *meTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
@@ -61,6 +63,9 @@ func (t *meTransport) Call(ctx context.Context, scope studio.ConnectorCallScope,
 	defer t.mu.Unlock()
 	if t.refuse[req.Token] {
 		return contract.ConnectorResponse{Error: &contract.ConnectorError{Code: contract.ConnectorUnauthorized}}, nil
+	}
+	if t.label != "" {
+		return contract.ConnectorResponse{BotUsername: t.label}, nil
 	}
 	return contract.ConnectorResponse{BotUsername: oauthAccountName}, nil
 }
@@ -329,6 +334,18 @@ var _ = Describe("OAuth connections", func() {
 					Expect(res.Outcome).To(Equal(studio.LoginUnavailable))
 					_, err := r.st.GetGrant(ctx, b.ID)
 					Expect(err).To(MatchError(connectors.ErrNotFound))
+				})
+
+				It("removes control and bidirectional characters from the account name and bounds it", func() {
+					r.tr.mu.Lock()
+					r.tr.label = "\u202eevil\u200b\x00 user\n\t\u2066name\u2069  " + strings.Repeat("é", 300)
+					r.tr.mu.Unlock()
+					b := r.connect()
+					st, err := r.conns.ConnectionState(ctx, alice, b.ID)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(st.AccountLabel).To(HavePrefix("evil user name "))
+					Expect([]rune(st.AccountLabel)).To(HaveLen(studio.MaxAccountLabelRunes))
+					Expect(r.grant(b.ID).AccountLabel).To(Equal(st.AccountLabel), "the stored label is the clean one")
 				})
 
 				It("fails when the service refuses the new token at the connector's me, or the descriptor changed since the start", func() {

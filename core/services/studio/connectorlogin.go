@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -313,10 +314,46 @@ func (c *Connectors) connectedAs(ctx context.Context, b connectors.Binding, acce
 	if label == "" {
 		label = resp.BotID
 	}
-	if utf8.RuneCountInString(label) > 255 {
-		label = string([]rune(label)[:255])
+	return cleanAccountLabel(label), ""
+}
+
+// MaxAccountLabelRunes bounds the account name of a login.
+const MaxAccountLabelRunes = 128
+
+// cleanAccountLabel makes the account name the service gave safe to show as
+// "Connected as ...": control and format characters (bidirectional overrides
+// and isolates, zero-width characters) are removed, so the text cannot show
+// another account than the one linked, runs of white space become one space,
+// and the name is bounded.
+func cleanAccountLabel(s string) string {
+	var b strings.Builder
+	space := false
+	n := 0
+	for _, r := range s {
+		if n == MaxAccountLabelRunes {
+			break
+		}
+		switch {
+		case r == utf8.RuneError, unicode.Is(unicode.Cf, r):
+			continue
+		case unicode.IsSpace(r):
+			space = b.Len() > 0
+			continue
+		case unicode.IsControl(r):
+			continue
+		}
+		if space {
+			b.WriteByte(' ')
+			n++
+			space = false
+			if n == MaxAccountLabelRunes {
+				break
+			}
+		}
+		b.WriteRune(r)
+		n++
 	}
-	return label, ""
+	return b.String()
 }
 
 // Disconnect ends the login of a binding of the user. When the descriptor has
