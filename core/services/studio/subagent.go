@@ -92,7 +92,8 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
-	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, sub))
+	built := s.builtinsFor(ctx, a, rec, sub)
+	tools = s.applyBuiltins(tools, built)
 	cmds = shellSwitched(s.withHostBash(cmds, tools), hidden)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
 	// them from subset, built for the parent chat; one from a saved agent gets
@@ -178,6 +179,12 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	if aNote != "" {
 		note = strings.TrimSpace(note + " " + aNote)
+	}
+	// A tool the sender of a connector message may not use is not offered. The
+	// model hears why, so it tells the person what the owner can change
+	// instead of saying that it has no such tool.
+	if line := deniedToolsNote(rec, built); line != "" {
+		note = strings.TrimSpace(line + " " + note)
 	}
 	// What the user did with the triggers this chat proposed: the tool result
 	// said they were waiting, so a later turn must hear how they ended.

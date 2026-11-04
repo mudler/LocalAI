@@ -133,3 +133,137 @@ var _ = Describe("the grant of a turn", func() {
 		Expect(g("A", nil, "memory.write").merge(g("B", nil)).Caps).To(BeEmpty())
 	})
 })
+
+// The trust of a sender who is on the allowlist by name: every capability that
+// is not sensitive, within the ceiling of the binding and while no switch is
+// off. A sender who got in through a channel entry is not trusted this way.
+var _ = Describe("Authorize for a listed sender", func() {
+	now := time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC)
+	all := contract.ConnectorCapabilityNames()
+	var plainCaps, sensitiveCaps []string
+	for _, n := range all {
+		if contract.SensitiveCapability(n) {
+			sensitiveCaps = append(sensitiveCaps, n)
+		} else {
+			plainCaps = append(plainCaps, n)
+		}
+	}
+	kind := contract.ConnectorKind{ID: "chat", Roles: []contract.ConnectorRole{{ID: "admin", Title: "Admin"}}}
+	binding := connectors.Binding{
+		ID: "b1", Kind: "chat", AgentID: "a1", Caps: slices.Clone(all),
+		Allow:  []string{"U1", "@owner", "C123"},
+		Paired: []connectors.PairedSender{{SenderID: "P", At: now.Add(-time.Hour)}},
+	}
+	listed := AccessSubject{SenderID: "U1", Allowlisted: true, Listed: true}
+
+	It("trusts a listed sender with every capability that is not sensitive", func() {
+		for _, name := range plainCaps {
+			d := Authorize(binding, &kind, listed, name, now, "")
+			Expect(d.Allowed).To(BeTrue(), name)
+			Expect(d.Via).To(Equal("allowlist"), name)
+		}
+	})
+	It("does not trust a listed sender with a sensitive capability, and says what to do", func() {
+		for _, name := range sensitiveCaps {
+			d := Authorize(binding, &kind, listed, name, now, "")
+			Expect(d.Allowed).To(BeFalse(), name)
+			Expect(d.Reason).To(ContainSubstring("paired"), name)
+		}
+	})
+	It("lets a pairing hold a sensitive capability, and names the pairing", func() {
+		s := AccessSubject{SenderID: "P", Allowlisted: true, Listed: true}
+		for _, name := range sensitiveCaps {
+			d := Authorize(binding, &kind, s, name, now, "")
+			Expect(d.Allowed).To(BeTrue(), name)
+			Expect(d.Via).To(Equal("paired"), name)
+		}
+	})
+	It("gives nothing to a sender who is allowed only through a channel entry", func() {
+		s := AccessSubject{SenderID: "U9", Allowlisted: true}
+		for _, name := range all {
+			d := Authorize(binding, &kind, s, name, now, "")
+			Expect(d.Allowed).To(BeFalse(), name)
+			Expect(d.Reason).NotTo(BeEmpty(), name)
+		}
+	})
+	It("still lets a role grant a channel-only sender a capability that is not sensitive", func() {
+		k := kind
+		k.Permissions = []string{contract.CapMemoryWrite}
+		b := binding
+		b.Grants = []connectors.RoleGrant{{Role: "admin", Caps: []string{contract.CapMemoryWrite}}}
+		d := Authorize(b, &k, AccessSubject{SenderID: "U9", Allowlisted: true, Roles: []string{"admin"}}, contract.CapMemoryWrite, now, "")
+		Expect(d.Via).To(Equal("role:admin"))
+	})
+	It("gives nothing to a sender who is not allowed", func() {
+		for _, name := range all {
+			Expect(Authorize(binding, &kind, AccessSubject{SenderID: "U1", Listed: true}, name, now, "").Allowed).To(BeFalse(), name)
+		}
+	})
+	It("gives nothing to a listed sender with no ID", func() {
+		Expect(Authorize(binding, &kind, AccessSubject{Allowlisted: true, Listed: true}, contract.CapMemoryWrite, now, "").Allowed).To(BeFalse())
+	})
+	It("keeps the ceiling: a capability the owner did not tick is denied", func() {
+		b := binding
+		b.Caps = []string{contract.CapMemoryWrite}
+		Expect(Authorize(b, &kind, listed, contract.CapMemoryWrite, now, "").Allowed).To(BeTrue())
+		d := Authorize(b, &kind, listed, contract.CapTriggersPropose, now, "")
+		Expect(d.Allowed).To(BeFalse())
+		Expect(d.Reason).To(Equal("the owner has not enabled triggers.propose for this bot"))
+	})
+	It("keeps the switches: an off switch denies with its reason", func() {
+		d := Authorize(binding, &kind, listed, contract.CapTriggersPropose, now, "triggers are off for this agent")
+		Expect(d.Allowed).To(BeFalse())
+		Expect(d.Reason).To(Equal("triggers are off for this agent"))
+	})
+	It("does not need the kind to be running", func() {
+		Expect(Authorize(binding, nil, listed, contract.CapTriggersPropose, now, "").Allowed).To(BeTrue())
+	})
+	It("gives nothing to a binding that holds credentials only", func() {
+		b := binding
+		b.AgentID = ""
+		Expect(Authorize(b, &kind, listed, contract.CapMemoryWrite, now, "").Allowed).To(BeFalse())
+	})
+	It("tells the owner what to do when a plain capability is not trusted", func() {
+		d := Authorize(binding, &kind, AccessSubject{SenderID: "U9", Allowlisted: true}, contract.CapTriggersPropose, now, "")
+		Expect(d.Reason).To(ContainSubstring("allowlist"))
+		Expect(d.Reason).To(ContainSubstring("paired"))
+	})
+
+	Describe("subjectOf", func() {
+		c := &Connectors{}
+		msg := func(id, user, chat string, direct bool) contract.ConnectorMessage {
+			return contract.ConnectorMessage{SenderID: id, SenderUsername: user, Chat: chat, Direct: direct, Mention: true}
+		}
+		It("lists a sender by ID", func() {
+			Expect(c.subjectOf(binding, msg("U1", "", "D1", true), true).Listed).To(BeTrue())
+		})
+		It("lists a sender by handle, ignoring case", func() {
+			Expect(c.subjectOf(binding, msg("U7", "Owner", "D7", true), true).Listed).To(BeTrue())
+		})
+		It("does not list a sender whose channel is on the list", func() {
+			s := c.subjectOf(binding, msg("U9", "someone", "C123", false), true)
+			Expect(s.Listed).To(BeFalse())
+			Expect(s.Allowlisted).To(BeTrue())
+		})
+		It("does not list a sender when the binding accepts anyone", func() {
+			open := binding
+			open.Allow = nil
+			open.AcceptAny = true
+			Expect(c.subjectOf(open, msg("U9", "someone", "D9", true), true).Listed).To(BeFalse())
+		})
+		It("does not list an empty sender ID", func() {
+			b := binding
+			b.Allow = []string{""}
+			Expect(c.subjectOf(b, msg("", "", "D", true), true).Listed).To(BeFalse())
+		})
+	})
+})
+
+var _ = Describe("the grant of a turn, denied reasons", func() {
+	It("keeps the reasons of both senders", func() {
+		a := turnGrant{Binding: "b", Senders: []string{"A"}, Caps: []string{"memory.write"}, Denied: map[string]string{"x": "ra"}}
+		b := turnGrant{Binding: "b", Senders: []string{"B"}, Denied: map[string]string{"memory.write": "rb"}}
+		m := a.merge(b)
+		Expect(m.Denied).To(Equal(map[string]string{"x": "ra", "memory.write": "rb"}))
+	})
+})

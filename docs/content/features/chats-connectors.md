@@ -500,8 +500,15 @@ grants nothing you would mind sharing.
 
 ### Capabilities, roles and pairing
 
-Three things sit on top of the allowlist. They work the same for every connector
+Four things sit on top of the allowlist. They work the same for every connector
 add-on.
+
+- **A listed sender.** A person who is on the allowlist themselves, by their ID or
+  their `@name`, is trusted with every capability that is not sensitive, as far as
+  `caps` and the switches of the agent and the server allow it. Nobody needs a
+  pairing or a role for that. Someone who is let in only because their channel or group
+  is listed, or because the binding accepts anyone, is not a listed sender and gets no
+  capability this way.
 
 - **Capabilities** (`caps`). The ceiling you enable for a binding, from a closed list
   (`proposals.confirm`, `memory.write`, `files.upload`, `triggers.propose`,
@@ -523,7 +530,7 @@ add-on.
   with `grants: [{"role", "caps"}]`. A grant is within `caps`, within what the kind
   lists as `permissions`, and never a sensitive capability. The kind list
   (`GET /api/chats/connectors/kinds`) shows each kind's `roles` and `permissions`.
-- **Pairing.** A sender you pair may use the sensitive capabilities. Ask for a code
+- **Pairing.** Only a sender you pair may use the sensitive capabilities. Ask for a code
   with `POST /api/chats/connectors/<id>/pairing`; send it as a direct message to the
   bot from an account on the allowlist. The code looks like `LA-` and eight characters,
   works once and lasts ten minutes. The host checks it before any model turn, so
@@ -536,10 +543,24 @@ add-on.
 Pairing needs only a stable sender ID, so an add-on without roles supports it too.
 
 The host checks these values for every message. A sender may use a capability when
-the capability is in `caps`, the sender is on the allowlist, and the sender is paired
-or has a role that you granted it. A sensitive capability needs a pairing; a role
-never counts. If several people share one turn, the turn gets only what all of them
-may do.
+the capability is in `caps`, no switch is off, and:
+
+- for a capability that is not sensitive: the sender is on the allowlist by ID or
+  `@name`, or is paired, or has a role that you granted it;
+- for a sensitive capability: the sender is paired. The allowlist and a role never
+  count.
+
+The allowlist can hold people and channels together. The host matches the sender of
+the message against the people entries (ID, and `@name` without regard to case). It
+matches the chat only to decide whether the bot answers, never to trust the sender.
+So a listed channel lets its members talk to the bot, but each of them gets
+capabilities only through a role, a pairing or an entry of their own. A binding with
+`accept_any` lists nobody. A sender who is let in but is not trusted still gets a
+role or a pairing as before.
+
+The access view and the log name the way a sender got a capability: `allowlist`,
+`paired` or `role:<id>`. If several people share one turn, the turn gets only what
+all of them may do.
 
 A tool of an add-on that holds your credential and changes something outside
 LocalAI (a comment on an issue, for example) needs `tools.write`. The host reads
@@ -554,7 +575,12 @@ the capability and the agent must hold the grant.
 
 The check decides which tools the model gets. A tool that the sender may not use is
 not offered, so the model cannot be talked into it. If the model calls one anyway, the
-call is refused with the reason, and the model tells the person. Today this gates the
+call is refused with the reason, and the model tells the person. When a tool is held
+back for a missing right, the turn also carries one short note for the model with the
+reason in plain words (for example "the owner has not enabled reminders and scheduled
+tasks for this bot", or "starting conversations in new channels needs a sender that the
+owner paired with this bot"). The model is told to relay it and not to say that it has
+no such tool. Today this gates the
 agent's change proposals (`memory.write` for a memory note, `profile.write` for a
 profile), files sent to the bot (`files.upload`), the trigger tools
 (`triggers.propose`), and the confirm phrase (`proposals.confirm`). Messages from a
@@ -573,7 +599,8 @@ kind list also returns `capabilities`, the closed list with a title, a descripti
 and the `sensitive` and `usual` flags of each, so a page needs no list of its own.
 
 To see the result, call `GET /api/chats/connectors/<id>/access`. It runs the same check
-for a sender on the allowlist, a paired sender and a sender of each role the kind
+for a sender on the allowlist by ID or name (`listed`), a sender let in through a
+listed channel (`anyone`), a paired sender and a sender of each role the kind
 declares, and lists the latest decisions this server made (sender IDs, roles,
 capability and result, never message text or codes). An add-on settings page can show
 it.
@@ -594,8 +621,8 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   LocalAI handles it before any model turn. When several proposals wait in one thread, a
   bare word is not enough: the bot lists the codes, and the person writes `yes CODE`,
   `confirm CODE` or `cancel CODE`. Any longer message goes to the agent as usual. It
-  needs the capability `proposals.confirm` for that sender (a paired sender, or a role
-  with the grant); a message from any other sender, or text the agent read, never answers
+  needs the capability `proposals.confirm` for that sender (a sender on the allowlist by ID
+  or name, a paired sender, or a role with the grant); a message from any other sender, or text the agent read, never answers
   a proposal. A code is used once, and a proposal lapses after 24 hours. Studio always
   works as well.
 - **Permissions are in the text.** The proposal says what a run may do with nobody

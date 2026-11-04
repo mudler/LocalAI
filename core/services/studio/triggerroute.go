@@ -175,6 +175,8 @@ func ParsePhrase(text string) (verb, code string, ok bool) {
 type PhraseFrom struct {
 	Binding, Owner, Agent string
 	Chat, Thread, Sender  string
+	// Username is the handle of the sender, when the message had one.
+	Username string
 	// Roles are the roles of the sender that the kind declares.
 	Roles []string
 }
@@ -220,7 +222,7 @@ func sameThread(t triggers.Trigger, from PhraseFrom) bool {
 // of the binding.
 func (h *Triggers) canAnswer(ctx context.Context, from PhraseFrom) bool {
 	return h.svc.allowCap(ctx, CapabilityRequest{Capability: CapProposalsConfirm, Binding: from.Binding, Owner: from.Owner, Agent: from.Agent,
-		Sender: from.Sender, Roles: from.Roles, Kind: "trigger"})
+		Sender: from.Sender, Username: from.Username, Roles: from.Roles, Kind: "trigger"})
 }
 
 // answerBare answers with a word that has no code. It acts only when the

@@ -1,0 +1,77 @@
+package studio
+
+import (
+	"slices"
+	"strings"
+
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/session"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
+)
+
+// capabilityWords says a capability in the words a person uses, for the note
+// that the model reads. The reasons of Authorize name the capability; the model
+// should not repeat a key that the person never saw.
+var capabilityWords = map[string]string{
+	contract.CapProposalsConfirm: "confirming proposals",
+	contract.CapMemoryWrite:      "saving to memory",
+	contract.CapFilesUpload:      "receiving files",
+	contract.CapTriggersPropose:  "reminders and scheduled tasks",
+	contract.CapTriggersRun:      "running scheduled tasks",
+	contract.CapTalkbackChannels: "writing to other channels",
+	contract.CapTalkbackNewChan:  "starting conversations in new channels",
+	contract.CapProfileWrite:     "changing the agent's rules",
+	contract.CapSkillsWrite:      "saving skills",
+	contract.CapPagesWrite:       "publishing pages",
+	contract.CapDashboardWrite:   "changing the dashboard",
+	contract.CapToolsWrite:       "changes made by add-on tools",
+}
+
+// The note is cut at 400 characters by the session, so it names the reasons
+// and not every tool, stays short, and goes first in the note of the turn.
+const (
+	deniedNoteStart  = "Held back from this sender: "
+	deniedNoteEnd    = " If asked for one of these, say why; never say it does not exist."
+	deniedNoteBudget = 400 - len(deniedNoteStart) - len(deniedNoteEnd) - 1
+)
+
+// deniedToolsNote tells the model which tools of this turn the sender may not
+// use and why, so that a request for one gets an answer the person can act on
+// ("the owner has not enabled reminders for this bot") and not "I have no such
+// tool". It is empty for a chat that no connector started, and when nothing was
+// held back for a missing right.
+func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
+	if rec.Origin != session.OriginConnector {
+		return ""
+	}
+	prefix := builtins.ReasonNotPermitted + ": "
+	var words []string
+	for name, w := range capabilityWords {
+		words = append(words, name, w)
+	}
+	say := strings.NewReplacer(words...)
+	var reasons []string
+	for _, b := range built {
+		why, ok := strings.CutPrefix(b.Reason, prefix)
+		if b.OK || !ok || why == "" {
+			continue
+		}
+		if why = say.Replace(why); !slices.Contains(reasons, why) {
+			reasons = append(reasons, why)
+		}
+	}
+	slices.Sort(reasons)
+	var kept []string
+	used := 0
+	for _, why := range reasons {
+		if used+len(why)+2 > deniedNoteBudget {
+			break
+		}
+		kept = append(kept, why)
+		used += len(why) + 2
+	}
+	if len(kept) == 0 {
+		return ""
+	}
+	return deniedNoteStart + strings.Join(kept, "; ") + "." + deniedNoteEnd
+}

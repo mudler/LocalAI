@@ -5854,7 +5854,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors/{id}/access": {
             "get": {
-                "description": "Runs the permission check the host uses for each turn, for a sender on the allowlist, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.",
+                "description": "Runs the permission check the host uses for each turn, for a sender on the allowlist by ID or name (trusted with every capability that is not sensitive), a sender let in only through a listed channel, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.",
                 "tags": [
                     "chats"
                 ],

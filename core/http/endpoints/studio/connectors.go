@@ -408,7 +408,7 @@ func (h *Handlers) StartConnectorPairing(c echo.Context) error {
 
 // ConnectorAccess explains what each kind of sender may do on a binding.
 // @Summary Show what each kind of sender may do on a connector binding.
-// @Description Runs the permission check the host uses for each turn, for a sender on the allowlist, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.
+// @Description Runs the permission check the host uses for each turn, for a sender on the allowlist by ID or name (trusted with every capability that is not sensitive), a sender let in only through a listed channel, a paired sender and a sender of each role the kind declares, and lists the latest decisions. A settings page of the add-on can show it.
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Success 200 {object} schema.ChatsConnectorAccess "The effective permissions"

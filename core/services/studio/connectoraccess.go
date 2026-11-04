@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -24,16 +25,25 @@ import (
 // the IDs that the kind declares (Ingest dropped the others); nothing here is
 // a name or text that the sender wrote.
 type AccessSubject struct {
-	SenderID    string
-	Roles       []string
+	SenderID string
+	Roles    []string
+	// Allowlisted says the message was let in: the sender is listed, or the
+	// chat is (a listed group), or the binding accepts anyone.
 	Allowlisted bool
+	// Listed says the sender itself is on the allowlist, by ID or by handle.
+	// A match through a channel or group entry, or a binding that accepts
+	// anyone, does not set it: those let a whole room talk to the bot, and the
+	// trust of a listed sender must not reach the rest of the room.
+	Listed bool
 }
 
 // Decision is the outcome of Authorize for one capability.
 type Decision struct {
 	Capability string `json:"capability"`
 	Allowed    bool   `json:"allowed"`
-	// Via says how the sender got the capability: "paired" or "role:<id>".
+	// Via says how the sender got the capability: "paired", "allowlist" (a
+	// sender on the allowlist, for a capability that is not sensitive) or
+	// "role:<id>".
 	Via string `json:"via,omitempty"`
 	// Reason says why the capability was refused. It is safe to show to the
 	// sender and to the model.
@@ -42,12 +52,15 @@ type Decision struct {
 
 // Authorize decides whether the sender may use a capability on a binding. The
 // default is no. The capability must be in the closed list and in the ceiling
-// of the binding (Caps), the sender must be on the allowlist, and then:
+// of the binding (Caps), the sender must be allowed to talk to the bot, and
+// then:
 //
-//   - a sensitive capability needs a pairing that has not ended; a role never
-//     counts;
-//   - any other capability needs a pairing, or a role of the sender that the
-//     owner granted the capability (Grants) and that the kind can grant
+//   - a sensitive capability needs a pairing that has not ended; neither a
+//     role nor the allowlist counts;
+//   - any other capability is held by a pairing, by a sender who is on the
+//     allowlist themselves (Listed: their ID or handle is an entry; an entry
+//     for a channel or group does not count), or by a role of the sender that
+//     the owner granted the capability (Grants) and that the kind can grant
 //     (Permissions).
 //
 // kind is nil when the kind is not running: a role then counts for nothing.
@@ -76,6 +89,9 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 	if contract.SensitiveCapability(capability) {
 		return deny("%s needs a sender that the owner paired with this bot", capability)
 	}
+	if s.Listed && s.SenderID != "" {
+		return Decision{Capability: capability, Allowed: true, Via: "allowlist"}
+	}
 	if kind != nil && kind.Grantable(capability) {
 		for _, id := range kind.FilterRoles(s.Roles) {
 			for _, g := range b.Grants {
@@ -85,7 +101,7 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 			}
 		}
 	}
-	return deny("%s is not granted to this sender", capability)
+	return deny("%s needs a sender on this bot's allowlist, or one that the owner paired with this bot", capability)
 }
 
 // CapabilitySwitch is an extra switch in the chain of a capability: a global
@@ -126,8 +142,14 @@ func (c *Connectors) kindOf(ctx context.Context, b connectors.Binding) *contract
 	return nil
 }
 
+// subjectOf describes the sender of a message that Ingest let in. Listed is
+// true only when the sender itself is an entry of the allowlist (ID or
+// handle). The entry of a channel or group is matched against the chat, never
+// against the sender, and AcceptAny lists nobody: neither makes a sender
+// Listed.
 func (c *Connectors) subjectOf(b connectors.Binding, m contract.ConnectorMessage, allowlisted bool) AccessSubject {
-	return AccessSubject{SenderID: m.SenderID, Roles: m.Roles, Allowlisted: allowlisted}
+	return AccessSubject{SenderID: m.SenderID, Roles: m.Roles, Allowlisted: allowlisted,
+		Listed: m.SenderID != "" && b.Allows(m.SenderID, m.SenderUsername)}
 }
 
 // Authorize decides whether the sender of a message may use a capability, and
@@ -175,12 +197,27 @@ type turnGrant struct {
 	Senders       []string
 	Roles         []string
 	Caps          []string
+	// Denied says why a capability of the closed list is not held, for the
+	// ones that are in the ceiling of the binding. The tools use it to tell
+	// the person what the owner can change.
+	Denied map[string]string
 }
 
 func (g turnGrant) merge(o turnGrant) turnGrant {
 	out := turnGrant{Binding: g.Binding, Kind: g.Kind}
 	out.Senders = unionOf(g.Senders, o.Senders)
 	out.Roles = unionOf(g.Roles, o.Roles)
+	if len(g.Denied)+len(o.Denied) > 0 {
+		out.Denied = maps.Clone(g.Denied)
+		if out.Denied == nil {
+			out.Denied = map[string]string{}
+		}
+		for k, v := range o.Denied {
+			if _, ok := out.Denied[k]; !ok {
+				out.Denied[k] = v
+			}
+		}
+	}
 	for _, c := range g.Caps {
 		if slices.Contains(o.Caps, c) {
 			out.Caps = append(out.Caps, c)
@@ -200,11 +237,11 @@ func unionOf(a, b []string) []string {
 }
 
 func grantOf(w *workerctl.ChatGrant) turnGrant {
-	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps}
+	return turnGrant{Binding: w.Binding, Kind: w.Kind, Senders: w.Senders, Roles: w.Roles, Caps: w.Caps, Denied: w.Denied}
 }
 
 func (g turnGrant) wire() *workerctl.ChatGrant {
-	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps}
+	return &workerctl.ChatGrant{Binding: g.Binding, Kind: g.Kind, Senders: g.Senders, Roles: g.Roles, Caps: g.Caps, Denied: g.Denied}
 }
 
 // grantFor computes what the sender of a message may do, for the whole closed
@@ -214,8 +251,15 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 	g := turnGrant{Binding: b.ID, Kind: b.Kind, Senders: []string{m.SenderID}, Roles: slices.Clone(m.Roles)}
 	now := c.o.Clock()
 	for _, name := range contract.ConnectorCapabilityNames() {
-		if Authorize(b, kind, c.subjectOf(b, m, true), name, now, c.offReason(ctx, b, name)).Allowed {
+		d := Authorize(b, kind, c.subjectOf(b, m, true), name, now, c.offReason(ctx, b, name))
+		switch {
+		case d.Allowed:
 			g.Caps = append(g.Caps, name)
+		case d.Reason != "":
+			if g.Denied == nil {
+				g.Denied = map[string]string{}
+			}
+			g.Denied[name] = d.Reason
 		}
 	}
 	return g
@@ -356,6 +400,9 @@ func (s *Service) turnAllow(chat string) (allow func(string) (bool, string), aud
 		case slices.Contains(g.Caps, capability):
 			return true, ""
 		}
+		if why := g.Denied[capability]; why != "" {
+			return false, why
+		}
 		return false, "the owner has not allowed " + capability + " for the sender of this message"
 	}
 	audit = func(capability string, ok bool, reason string) {
@@ -371,7 +418,8 @@ func (s *Service) turnAllow(chat string) (allow func(string) (bool, string), aud
 
 // AccessSubjectView is what one kind of sender may do on a binding.
 type AccessSubjectView struct {
-	// ID is "anyone" (an allowlisted sender with no role), "paired", or
+	// ID is "listed" (a sender on the allowlist by ID or name), "anyone" (a
+	// sender let in by a listed channel, with no role), "paired", or
 	// "role:<id>".
 	ID    string `json:"id"`
 	Title string `json:"title"`
@@ -406,7 +454,8 @@ func (c *Connectors) Access(ctx context.Context, user, id string) (AccessView, e
 		return v
 	}
 	out := AccessView{Binding: b.ID}
-	out.Subjects = append(out.Subjects, view("anyone", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true}))
+	out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
+	out.Subjects = append(out.Subjects, view("anyone", "A sender let in through a listed channel", b, AccessSubject{SenderID: "x", Allowlisted: true}))
 	paired := b
 	paired.Paired = []connectors.PairedSender{{SenderID: "paired", At: now}}
 	out.Subjects = append(out.Subjects, view("paired", "A paired sender", paired, AccessSubject{SenderID: "paired", Allowlisted: true}))
@@ -436,10 +485,11 @@ func (c *Connectors) CapabilityGate() CapabilityGate {
 			return c.CeilingAllows(ctx, b, r.Capability).Allowed
 		}
 		roles := r.Roles
+		listed := b.Allows(r.Sender, r.Username)
 		if r.Sensitive {
-			roles = nil
+			roles, listed = nil, false
 		}
-		d := Authorize(b, c.kindOf(ctx, b), AccessSubject{SenderID: r.Sender, Roles: roles, Allowlisted: true},
+		d := Authorize(b, c.kindOf(ctx, b), AccessSubject{SenderID: r.Sender, Roles: roles, Allowlisted: true, Listed: listed},
 			r.Capability, c.o.Clock(), c.offReason(ctx, b, r.Capability))
 		c.svc.access.record(c.o.Clock(), b, []string{r.Sender}, roles, d)
 		return d.Allowed

@@ -213,12 +213,23 @@ var _ = Describe("builtin grants in the turns of a connector chat", func() {
 			Expect(lastResult("addon__office__comment").Err).To(MatchError(ContainSubstring("no tool named")))
 		})
 
-		It("are not offered to a sender who is not paired and holds no role with the capability", func() {
+		It("are offered to a sender on the allowlist who is not paired and holds no role", func() {
+			setup()
+			bb, _ := r.store.GetBinding(ctx, b.ID)
+			bb.Paired = slices.DeleteFunc(bb.Paired, func(p connectors.PairedSender) bool { return p.SenderID == "12" })
+			Expect(r.store.PutBinding(ctx, bb)).To(Succeed())
+			say("12", "comment")
+			waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) == 1 })
+			Expect(tools()).To(ContainElement("addon__office__comment"))
+		})
+
+		It("are not offered to a sender who only came in through a listed channel, and is not paired and holds no role", func() {
 			setup()
 			say("12", "hello")
 			waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) == 1 })
 			bb, _ := r.store.GetBinding(ctx, b.ID)
 			bb.Paired = slices.DeleteFunc(bb.Paired, func(p connectors.PairedSender) bool { return p.SenderID == "12" })
+			bb.Allow = []string{chatID}
 			Expect(r.store.PutBinding(ctx, bb)).To(Succeed())
 			say("12", "comment")
 			waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) == 2 })
@@ -245,6 +256,7 @@ var _ = Describe("builtin grants in the turns of a connector chat", func() {
 			setup()
 			bb, _ := r.store.GetBinding(ctx, b.ID)
 			bb.Paired, bb.Grants = nil, nil
+			bb.Allow = []string{chatID}
 			Expect(r.store.PutBinding(ctx, bb)).To(Succeed())
 			Expect(r.conns.Ingest(ctx, "chat-addon", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 				Chat: chatID, Thread: thread, Mention: true, MessageID: "mr", SenderID: "11", SenderName: "S", Text: "comment", Roles: []string{"writer"}}})).To(Succeed())

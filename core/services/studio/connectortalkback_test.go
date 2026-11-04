@@ -122,13 +122,27 @@ var _ = Describe("talk-back from a connector chat", func() {
 			Expect(chatTools()).NotTo(ContainElement("send_message"))
 		})
 
-		It("is absent when the sender is not paired and has no granted role", func() {
+		It("is offered to a sender on the allowlist who is not paired", func() {
 			setup(nil)
 			bb, _ := r.store.GetBinding(ctx, b.ID)
 			bb.Paired = nil
 			Expect(r.store.PutBinding(ctx, bb)).To(Succeed())
 			turn("hello")
+			Expect(chatTools()).To(ContainElement("send_message"))
+		})
+
+		It("is absent when the sender only came in through a listed channel and is not paired", func() {
+			setup(nil)
+			bb, _ := r.store.GetBinding(ctx, b.ID)
+			bb.Paired = nil
+			bb.Allow = []string{chatID}
+			Expect(r.store.PutBinding(ctx, bb)).To(Succeed())
+			turn("hello")
 			Expect(chatTools()).NotTo(ContainElement("send_message"))
+			l, _ := r.svc.List(ctx, alice, 10)
+			prompt := strings.Join(r.h.SentRaw(l[0].ID), "\n")
+			Expect(prompt).To(ContainSubstring("writing to other channels needs a sender"), "the model is told why")
+			Expect(prompt).To(ContainSubstring("never say it does not exist"))
 		})
 
 		It("is absent when the server switch is off", func() {

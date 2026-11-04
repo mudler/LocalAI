@@ -25,6 +25,8 @@ type ChatGrant struct {
 	Roles   []string `json:"roles,omitempty"`
 	// Caps are the capabilities every sender of the turn holds.
 	Caps []string `json:"caps,omitempty"`
+	// Denied says why a capability in the ceiling is not held, by name.
+	Denied map[string]string `json:"denied,omitempty"`
 }
 
 // ChatStartReply is the worker's answer to a ChatStartRequest. With Error
