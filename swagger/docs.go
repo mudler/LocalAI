@@ -22487,7 +22487,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "reason": {
-                    "description": "Reason is a fixed code: revoked, client_rejected, refused,\nneeds_approval, credential_rejected, expired, write_failed or\nunreadable.",
+                    "description": "Reason is a fixed code: revoked, client_rejected, refused,\nneeds_approval, credential_rejected, expired, write_failed, unreadable,\nscopes_missing or endpoint_changed.",
                     "type": "string"
                 },
                 "scopes": {
@@ -22498,7 +22498,7 @@ const docTemplate = `{
                     }
                 },
                 "state": {
-                    "description": "State is connected, reconnect_needed (the login ended; reason says\nwhy), not_connected (nobody logged in yet) or needs_approval (an\nadministrator must save the add-on's client first, or again after its\nlogin changed). It is read from the shared store: a changed login of\nthe add-on shows as needs_approval once a call or a refresh found it.",
+                    "description": "State is connected, reconnect_needed (the login ended; reason says\nwhy), not_connected (nobody logged in yet) or needs_approval (an\nadministrator must save the add-on's client first, or approve it again\nafter its login changed; a login that exists keeps its tokens until\nthen). It is read from the shared store: a changed login of the add-on\nshows as needs_approval once a call or a refresh found it.",
                     "type": "string",
                     "enum": [
                         "connected",

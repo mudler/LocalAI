@@ -23,6 +23,8 @@ type grantRow struct {
 	State            string `gorm:"size:32"`
 	Reason           string `gorm:"size:64"`
 	DescriptorDigest string `gorm:"size:64"`
+	TokenURL         string `gorm:"size:2048"`
+	RevokeURL        string `gorm:"size:2048"`
 	Version          int64
 	LeaseOwner       string `gorm:"size:128"`
 	LeaseUntil       time.Time
@@ -81,7 +83,7 @@ func decList(s string) []string {
 func (r grantRow) grant() Grant {
 	return Grant{Binding: r.Binding, Owner: r.Owner, AddonID: r.AddonID, Sealed: append([]byte(nil), r.Sealed...), ExpiresAt: r.ExpiresAt.UTC(),
 		Scopes: decList(r.Scopes), AccountLabel: r.AccountLabel, State: r.State, Reason: r.Reason, DescriptorDigest: r.DescriptorDigest,
-		Version: r.Version, LeaseOwner: r.LeaseOwner, LeaseUntil: r.LeaseUntil.UTC(), Updated: r.Updated.UTC()}
+		TokenURL: r.TokenURL, RevokeURL: r.RevokeURL, Version: r.Version, LeaseOwner: r.LeaseOwner, LeaseUntil: r.LeaseUntil.UTC(), Updated: r.Updated.UTC()}
 }
 
 func (s *gormStore) GetGrant(ctx context.Context, binding string) (Grant, error) {
@@ -124,7 +126,7 @@ func (s *gormStore) PutGrant(ctx context.Context, g Grant) (int64, error) {
 		}
 		return tx.Save(&grantRow{Binding: g.Binding, Owner: g.Owner, AddonID: g.AddonID, Sealed: g.Sealed, ExpiresAt: g.ExpiresAt.UTC(),
 			Scopes: encList(g.Scopes), AccountLabel: g.AccountLabel, State: g.State, Reason: g.Reason, DescriptorDigest: g.DescriptorDigest,
-			Version: version, Updated: g.Updated.UTC()}).Error
+			TokenURL: g.TokenURL, RevokeURL: g.RevokeURL, Version: version, Updated: g.Updated.UTC()}).Error
 	})
 	return version, err
 }
@@ -133,7 +135,7 @@ func (s *gormStore) UpdateGrant(ctx context.Context, g Grant, version int64) (bo
 	// A map writes the zero values too: an empty secret or a cleared reason.
 	res := s.db.WithContext(ctx).Model(&grantRow{}).Where("binding = ? AND version = ?", g.Binding, version).Updates(map[string]any{
 		"sealed": g.Sealed, "expires_at": g.ExpiresAt.UTC(), "scopes": encList(g.Scopes), "account_label": g.AccountLabel,
-		"state": g.State, "reason": g.Reason, "descriptor_digest": g.DescriptorDigest, "version": version + 1,
+		"state": g.State, "reason": g.Reason, "descriptor_digest": g.DescriptorDigest, "token_url": g.TokenURL, "revoke_url": g.RevokeURL, "version": version + 1,
 		"lease_owner": "", "lease_until": time.Time{}, "updated": g.Updated.UTC(),
 	})
 	return res.RowsAffected == 1, res.Error

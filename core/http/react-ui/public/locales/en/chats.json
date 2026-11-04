@@ -359,7 +359,8 @@
         "write_failed": "The renewed login could not be saved.",
         "unreadable": "The saved login could not be read.",
         "unknown": "The login no longer works.",
-        "scopes_missing": "The service no longer grants all the access this add-on needs. Connect again and allow it."
+        "scopes_missing": "The service no longer grants all the access this add-on needs. Connect again and allow it.",
+        "endpoint_changed": "The add-on now sends logins to another address of the service, so this login cannot move with it. Connect again."
       },
       "approvalUser": "An administrator must approve this add-on first.",
       "approvalUserChanged": "The login of this add-on changed. An administrator must approve it again.",

@@ -324,7 +324,7 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 	}
 	now := c.o.Clock().UTC()
 	g := connectors.Grant{Binding: b.ID, Owner: b.Owner, AddonID: b.AddonID, Scopes: scopes, AccountLabel: label,
-		State: connectors.GrantConnected, DescriptorDigest: st.DescriptorDigest, Updated: now}
+		State: connectors.GrantConnected, DescriptorDigest: st.DescriptorDigest, TokenURL: d.TokenURL, RevokeURL: d.RevokeURL, Updated: now}
 	if tok.ExpiresIn > 0 {
 		g.ExpiresAt = now.Add(tok.ExpiresIn)
 	}
@@ -547,6 +547,7 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 	if err := c.o.Store.PutOAuthClient(ctx, next); err != nil {
 		return OAuthClientStatus{}, err
 	}
+	c.approveGrants(ctx, addonID, d)
 	return clientStatus(next, d, true), nil
 }
 

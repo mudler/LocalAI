@@ -1200,7 +1200,11 @@ may add. Before anyone can connect:
 3. Select **Approve and save**. Saving approves the login that the form shows.
    If the add-on's login changed while the form was open, nothing is saved;
    select **Show the new login**, review it and save again. An upgrade that
-   changes the login also needs a new approval.
+   changes the login also needs a new approval. Until then the connections of
+   the add-on wait and show that an administrator must approve it; they keep
+   their logins. After the approval they work again without a reconnect,
+   unless the add-on now sends logins to another address of the service: then
+   each person connects again.
 
 ### With the API
 

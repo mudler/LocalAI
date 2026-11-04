@@ -615,16 +615,75 @@ var _ = Describe("OAuth connections", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 
-				It("never sends the refresh token to a descriptor that changed, and asks for an approval", func() {
+				DescribeTable("holds a login whose descriptor changed until an administrator approves it again",
+					func(upgrade func(d *contract.OAuthDescriptor), keeps bool) {
+						b := r.connect()
+						r.sh.clock.Advance(time.Hour)
+						r.setDescriptor(upgrade)
+						_, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+						Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+						Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(1), "no token call before the approval")
+						held := r.grant(b.ID)
+						Expect(held.State).To(Equal(connectors.GrantNeedsApproval))
+						Expect(held.Sealed).NotTo(BeEmpty(), "the tokens stay")
+						st, _ := r.conns.ConnectionState(ctx, alice, b.ID)
+						Expect(st.State).To(Equal(connectors.GrantNeedsApproval))
+						_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+						Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+						Expect(r.grant(b.ID).Sealed).NotTo(BeEmpty(), "still held, not wiped, on later calls")
+
+						r.approve()
+						after := r.grant(b.ID)
+						if !keeps {
+							// The refresh token never goes to another token endpoint.
+							Expect(after.State).To(Equal(connectors.GrantReconnectNeeded))
+							Expect(after.Reason).To(Equal(studio.ReasonEndpointChanged))
+							Expect(after.Sealed).To(BeEmpty())
+							_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+							Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+							Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(1))
+							return
+						}
+						Expect(after.State).To(Equal(connectors.GrantConnected), "the approval carries the login over")
+						Expect(after.DescriptorDigest).To(Equal(r.digest()))
+						got, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+						Expect(err).NotTo(HaveOccurred(), "the person does not reconnect")
+						Expect(got.Secret).NotTo(BeEmpty())
+						Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(2), "the refresh went to the unchanged token endpoint")
+					},
+					Entry("an optional scope added, the token endpoint unchanged", func(d *contract.OAuthDescriptor) {
+						d.Scopes.Optional = append(d.Scopes.Optional, "admin")
+					}, true),
+					Entry("the token endpoint moved to another host", func(d *contract.OAuthDescriptor) {
+						d.Hosts = append(d.Hosts, "tokens.example.test")
+						d.TokenURL = "https://tokens.example.test/token"
+					}, false),
+					Entry("the token endpoint moved on the same host", func(d *contract.OAuthDescriptor) {
+						d.TokenURL = "https://" + oauthtokentest.Host + "/other"
+					}, false),
+				)
+
+				It("carries a held login over at the next call when the approval came another way", func() {
 					b := r.connect()
-					r.sh.clock.Advance(time.Hour)
-					r.setDescriptor(func(d *contract.OAuthDescriptor) { d.TokenURL = "https://" + oauthtokentest.Host + "/other" })
+					r.setDescriptor(func(d *contract.OAuthDescriptor) { d.Scopes.Optional = append(d.Scopes.Optional, "admin") })
 					_, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
-					Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(1), "only the exchange")
+					cl, err := r.st.GetOAuthClient(ctx, oauthAddon)
+					Expect(err).NotTo(HaveOccurred())
+					cl.DescriptorDigest = r.digest()
+					Expect(r.st.PutOAuthClient(ctx, cl)).To(Succeed())
+					_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(r.grant(b.ID).State).To(Equal(connectors.GrantConnected))
+				})
+
+				It("ends a held login whose new descriptor requires a scope it was not granted", func() {
+					b := r.connect()
+					r.setDescriptor(func(d *contract.OAuthDescriptor) { d.Scopes.Required = append(d.Scopes.Required, "admin") })
+					r.approve()
 					g := r.grant(b.ID)
-					Expect(g.Reason).To(Equal(studio.ReasonNeedsApproval))
-					Expect(g.Sealed).To(BeEmpty())
+					Expect(g.State).To(Equal(connectors.GrantReconnectNeeded))
+					Expect(g.Reason).To(Equal(studio.ReasonScopesMissing))
 				})
 
 				It("ends a grant whose token ended when there is no refresh token", func() {

@@ -40,10 +40,15 @@ func validAuthKind(b Binding) error {
 const (
 	// GrantConnected is a grant whose tokens the host can use or refresh.
 	GrantConnected = "connected"
-	// GrantReconnectNeeded is a grant that the service refused or that lost
-	// its approval. Its secrets are wiped; Reason says why. The person must
-	// log in again.
+	// GrantReconnectNeeded is a grant that the service refused, or whose
+	// add-on now sends its refresh token to another endpoint. Its secrets are
+	// wiped; Reason says why. The person must log in again.
 	GrantReconnectNeeded = "reconnect_needed"
+	// GrantNeedsApproval is a grant whose add-on declares a descriptor that no
+	// administrator approved yet, for example after an upgrade. Its secrets
+	// stay, but the host neither uses nor refreshes them until an approval
+	// carries the grant over (see TokenURL).
+	GrantNeedsApproval = "needs_approval"
 )
 
 // LoginStateTTL is how long a login may take, from start to callback.
@@ -82,9 +87,15 @@ type Grant struct {
 	State        string
 	// Reason is a fixed code that says why the state is GrantReconnectNeeded.
 	Reason string
-	// DescriptorDigest is the digest of the OAuth descriptor the login used.
+	// DescriptorDigest is the digest of the OAuth descriptor the grant was
+	// last approved for: the one the login used, or a later one an
+	// administrator approved.
 	DescriptorDigest string
-	Version          int64
+	// TokenURL and RevokeURL are the endpoints of that descriptor, the only
+	// ones the refresh token goes to. A newer descriptor carries the grant
+	// over only when they did not change.
+	TokenURL, RevokeURL string
+	Version             int64
 	// LeaseOwner holds the refresh of the grant until LeaseUntil.
 	LeaseOwner string
 	LeaseUntil time.Time

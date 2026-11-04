@@ -161,8 +161,8 @@ func (c *Connectors) oauthView(ctx context.Context, b connectors.Binding) *OAuth
 		return v
 	case g.State == connectors.GrantConnected:
 		v.State = OAuthConnected
-	case g.Reason == ReasonNeedsApproval:
-		v.State, v.Reason = OAuthNeedsApproval, g.Reason
+	case g.State == connectors.GrantNeedsApproval:
+		v.State, v.Reason = OAuthNeedsApproval, ReasonNeedsApproval
 	default:
 		v.State, v.Reason = OAuthReconnectNeeded, g.Reason
 	}

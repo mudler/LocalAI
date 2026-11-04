@@ -52,7 +52,8 @@ const (
 	// an answer the host cannot use.
 	ReasonRefused = "refused"
 	// ReasonNeedsApproval: the descriptor of the add-on changed, or its
-	// client was removed, so an administrator must approve it again.
+	// client was removed, so an administrator must approve it again. The
+	// grant is held (connectors.GrantNeedsApproval) with its tokens.
 	ReasonNeedsApproval = "needs_approval"
 	// ReasonCredentialRejected: the add-on rejected a fresh token too.
 	ReasonCredentialRejected = "credential_rejected"
@@ -63,8 +64,13 @@ const (
 	ReasonWriteFailed = "write_failed"
 	// ReasonUnreadable: the sealed tokens do not open.
 	ReasonUnreadable = "unreadable"
-	// ReasonScopesMissing: a refresh granted fewer than the required scopes.
+	// ReasonScopesMissing: a refresh granted fewer than the required scopes,
+	// or a newly approved descriptor requires a scope the login lacks.
 	ReasonScopesMissing = "scopes_missing"
+	// ReasonEndpointChanged: the approved descriptor of the add-on sends the
+	// refresh token to another token or revocation endpoint than the one the
+	// login used. The token is never sent there.
+	ReasonEndpointChanged = "endpoint_changed"
 )
 
 // Errors of the OAuth credentials.
@@ -200,8 +206,10 @@ func refreshMargin(g connectors.Grant) time.Duration {
 
 // readGrant reads the grant of an OAuth binding and checks that it may be
 // used: it is the binding's, it is connected, and the approval of the
-// add-on still holds for the descriptor the login used. A broken approval
-// ends the grant, so its refresh token never goes to a changed endpoint.
+// add-on holds for the descriptor of the grant. A grant whose add-on now
+// declares a descriptor that no administrator approved is held
+// (GrantNeedsApproval): its tokens stay but are not used. Once the new
+// descriptor is approved, the grant is carried over to it (carryOver).
 func (c *Connectors) readGrant(ctx context.Context, b connectors.Binding) (connectors.Grant, error) {
 	g, err := c.o.Store.GetGrant(ctx, b.ID)
 	if errors.Is(err, connectors.ErrNotFound) {
@@ -213,7 +221,7 @@ func (c *Connectors) readGrant(ctx context.Context, b connectors.Binding) (conne
 	if g.Owner != b.Owner || g.AddonID != b.AddonID {
 		return g, connectors.ErrNoCredential
 	}
-	if g.State != connectors.GrantConnected {
+	if g.State != connectors.GrantConnected && g.State != connectors.GrantNeedsApproval {
 		return g, ErrReconnectNeeded
 	}
 	d, err := c.oauthDescriptor(ctx, b.AddonID)
@@ -224,10 +232,84 @@ func (c *Connectors) readGrant(ctx context.Context, b connectors.Binding) (conne
 	if err != nil {
 		return g, ErrCredentialUnavailable
 	}
-	if !ok || g.DescriptorDigest != d.Digest() {
-		return g, c.endGrant(ctx, b, g, ReasonNeedsApproval)
+	if !ok {
+		return g, c.holdGrant(ctx, b, g)
+	}
+	if g.State != connectors.GrantConnected || g.DescriptorDigest != d.Digest() {
+		return c.carryOver(ctx, b, g, d)
 	}
 	return g, nil
+}
+
+// holdGrant marks a grant needs_approval and keeps its secrets: an upgrade
+// of the add-on must not log every person out before an administrator had
+// the chance to approve the new descriptor. It returns ErrReconnectNeeded,
+// since the grant cannot be used either way.
+func (c *Connectors) holdGrant(ctx context.Context, b connectors.Binding, g connectors.Grant) error {
+	if g.State == connectors.GrantNeedsApproval {
+		return ErrReconnectNeeded
+	}
+	next := g
+	next.State, next.Reason, next.Updated = connectors.GrantNeedsApproval, ReasonNeedsApproval, c.o.Clock().UTC()
+	_, err := c.o.Store.UpdateGrant(ctx, next, g.Version)
+	c.log.Info("studio: an OAuth connection waits for an approval of its add-on", "binding", b.ID, "addon", b.AddonID, "stored", err == nil)
+	return ErrReconnectNeeded
+}
+
+// carryOver moves a grant to the descriptor d, which an administrator
+// approved. The refresh token was issued for the endpoints of the grant's
+// descriptor, so the grant is carried over only when d sends it to the same
+// token and revocation endpoints; otherwise it ends (ReasonEndpointChanged)
+// and the person logs in again. A grant without a scope that d requires ends
+// too (ReasonScopesMissing), and the scopes that d no longer names are
+// dropped.
+func (c *Connectors) carryOver(ctx context.Context, b connectors.Binding, g connectors.Grant, d contract.OAuthDescriptor) (connectors.Grant, error) {
+	if g.TokenURL != d.TokenURL || g.RevokeURL != d.RevokeURL {
+		return g, c.endGrant(ctx, b, g, ReasonEndpointChanged)
+	}
+	for _, req := range d.Scopes.Required {
+		if !slices.Contains(g.Scopes, req) {
+			return g, c.endGrant(ctx, b, g, ReasonScopesMissing)
+		}
+	}
+	next := g
+	next.DescriptorDigest, next.State, next.Reason = d.Digest(), connectors.GrantConnected, ""
+	if next.Scopes != nil {
+		next.Scopes = slices.DeleteFunc(slices.Clone(g.Scopes), func(s string) bool {
+			return !slices.Contains(d.Scopes.Required, s) && !slices.Contains(d.Scopes.Optional, s)
+		})
+	}
+	wrote, err := c.o.Store.UpdateGrant(ctx, next, g.Version)
+	if err != nil || !wrote {
+		// Another call wrote the grant first; the next call reads it.
+		return g, ErrCredentialUnavailable
+	}
+	c.log.Info("studio: an OAuth connection moved to the approved login of its add-on", "binding", b.ID, "addon", b.AddonID)
+	next.Version = g.Version + 1
+	return next, nil
+}
+
+// approveGrants carries the held grants of an add-on over to its approved
+// descriptor d, or ends them, right after an administrator approved it, so
+// the Connectors page shows the result without waiting for a call.
+func (c *Connectors) approveGrants(ctx context.Context, addonID string, d contract.OAuthDescriptor) {
+	all, err := c.o.Store.AllBindings(ctx)
+	if err != nil {
+		return
+	}
+	for _, b := range all {
+		if b.AddonID != addonID || !b.UsesOAuth() {
+			continue
+		}
+		g, err := c.o.Store.GetGrant(ctx, b.ID)
+		if err != nil || g.Owner != b.Owner || g.AddonID != b.AddonID {
+			continue
+		}
+		if g.State == connectors.GrantNeedsApproval || (g.State == connectors.GrantConnected && g.DescriptorDigest != d.Digest()) {
+			_, _ = c.carryOver(ctx, b, g, d)
+		}
+	}
+	c.Notify()
 }
 
 func (c *Connectors) openAccess(ctx context.Context, b connectors.Binding, g connectors.Grant) (oauthAccess, error) {
@@ -342,8 +424,15 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 		release()
 		return oauthAccess{}, ErrCredentialUnavailable
 	}
-	if !ok || g.DescriptorDigest != d.Digest() {
-		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonNeedsApproval)
+	if !ok {
+		return oauthAccess{}, c.holdGrant(ctx, b, g)
+	}
+	if g.DescriptorDigest != d.Digest() || g.TokenURL != d.TokenURL {
+		// The approval changed since the grant was read; the next call
+		// carries it over. The refresh token goes only to the endpoint of
+		// the grant.
+		release()
+		return oauthAccess{}, ErrCredentialUnavailable
 	}
 	tok, err := c.tokenClient().Refresh(ctx, d, cred, sec.Refresh)
 	var limited *contract.ErrRateLimited
@@ -450,8 +539,8 @@ func (c *Connectors) RenewCredential(ctx context.Context, user, addonID, binding
 // OAuthConnection is the state of the login of an OAuth binding, without any
 // secret.
 type OAuthConnection struct {
-	// State is "" when the binding has no login, else connectors.GrantConnected
-	// or connectors.GrantReconnectNeeded.
+	// State is "" when the binding has no login, else connectors.GrantConnected,
+	// connectors.GrantNeedsApproval or connectors.GrantReconnectNeeded.
 	State        string
 	Reason       string
 	AccountLabel string

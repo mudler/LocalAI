@@ -293,7 +293,8 @@
         "write_failed": "Non è stato possibile salvare l'accesso rinnovato.",
         "unreadable": "Non è stato possibile leggere l'accesso salvato.",
         "unknown": "L'accesso non funziona più.",
-        "scopes_missing": "Il servizio non concede più tutto l'accesso che serve a questo add-on. Connettiti di nuovo e consentilo."
+        "scopes_missing": "Il servizio non concede più tutto l'accesso che serve a questo add-on. Connettiti di nuovo e consentilo.",
+        "endpoint_changed": "L'add-on ora invia gli accessi a un altro indirizzo del servizio, quindi questo accesso non può seguirlo. Connettiti di nuovo."
       },
       "approvalUser": "Prima un amministratore deve approvare questo add-on.",
       "approvalUserChanged": "L'accesso di questo add-on è cambiato. Un amministratore deve approvarlo di nuovo.",

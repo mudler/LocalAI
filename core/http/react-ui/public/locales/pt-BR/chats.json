@@ -293,7 +293,8 @@
         "write_failed": "Não foi possível salvar o login renovado.",
         "unreadable": "Não foi possível ler o login salvo.",
         "unknown": "O login não funciona mais.",
-        "scopes_missing": "O serviço não concede mais todo o acesso de que este add-on precisa. Conecte de novo e permita."
+        "scopes_missing": "O serviço não concede mais todo o acesso de que este add-on precisa. Conecte de novo e permita.",
+        "endpoint_changed": "O add-on agora envia os logins para outro endereço do serviço, então este login não pode ser levado junto. Conecte de novo."
       },
       "approvalUser": "Um administrador precisa aprovar este add-on primeiro.",
       "approvalUserChanged": "O login deste add-on mudou. Um administrador precisa aprová-lo de novo.",

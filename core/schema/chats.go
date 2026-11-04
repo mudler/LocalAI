@@ -1711,13 +1711,14 @@ type ChatsConnectorChannel struct {
 type ChatsConnectorOAuth struct {
 	// State is connected, reconnect_needed (the login ended; reason says
 	// why), not_connected (nobody logged in yet) or needs_approval (an
-	// administrator must save the add-on's client first, or again after its
-	// login changed). It is read from the shared store: a changed login of
-	// the add-on shows as needs_approval once a call or a refresh found it.
+	// administrator must save the add-on's client first, or approve it again
+	// after its login changed; a login that exists keeps its tokens until
+	// then). It is read from the shared store: a changed login of the add-on
+	// shows as needs_approval once a call or a refresh found it.
 	State string `json:"state" enums:"connected,reconnect_needed,not_connected,needs_approval"`
 	// Reason is a fixed code: revoked, client_rejected, refused,
-	// needs_approval, credential_rejected, expired, write_failed or
-	// unreadable.
+	// needs_approval, credential_rejected, expired, write_failed, unreadable,
+	// scopes_missing or endpoint_changed.
 	Reason string `json:"reason,omitempty"`
 	// AccountLabel is who the login is at the service, as the add-on says.
 	AccountLabel string `json:"account_label,omitempty"`

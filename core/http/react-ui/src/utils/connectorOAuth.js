@@ -9,7 +9,7 @@ export const OAUTH_STATES = Object.freeze(['connected', 'reconnect_needed', 'not
 
 // The fixed reasons of a reconnect. An unknown one (a newer server) gets the
 // generic text.
-const REASONS = new Set(['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing'])
+const REASONS = new Set(['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing', 'endpoint_changed'])
 
 // The classes of oauth=error&class=<c> on the page the login returns to.
 const RETURN_CLASSES = new Set(['invalid_state', 'provider_error', 'exchange_failed', 'scopes_missing', 'unavailable'])

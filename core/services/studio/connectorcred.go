@@ -91,9 +91,13 @@ func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]C
 			}
 			if err == nil && g.Owner == b.Owner && g.AddonID == b.AddonID {
 				mine = append(mine, b)
-				states[b.ID] = OAuthReconnectNeeded
-				if g.State == connectors.GrantConnected {
+				switch g.State {
+				case connectors.GrantConnected:
 					states[b.ID] = OAuthConnected
+				case connectors.GrantNeedsApproval:
+					states[b.ID] = OAuthNeedsApproval
+				default:
+					states[b.ID] = OAuthReconnectNeeded
 				}
 			}
 		} else if len(b.Token) > 0 {

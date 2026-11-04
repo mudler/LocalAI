@@ -601,6 +601,17 @@ parameter lists, or on whitespace. An administrator approves the add-on for
 that digest, and a change of the descriptor, for example in an upgrade, voids
 the approval.
 
+An upgrade that changes the descriptor does not log people out. Their logins
+keep their tokens but are held: the host neither uses nor refreshes them, and
+the connections show `needs_approval`, until an administrator approves the new
+descriptor. The approval then moves each held login to the new descriptor when
+it sends the refresh token to the same `tokenUrl` and `revokeUrl` as before,
+and the login works again without a reconnect. When either endpoint changed,
+the host never sends the refresh token there: the login ends with the reason
+`endpoint_changed` and the person connects again. A login that lacks a scope
+the new descriptor requires ends with `scopes_missing`, and the scopes the new
+descriptor no longer names are dropped.
+
 The apps list (`GET /api/addons/apps`) gives an add-on with an `oauth2` slot an
 `oauth` object with `requiredScopes` and `optionalScopes`, so the Connectors
 page can offer the optional scopes when a person connects, and the add-on's
@@ -636,7 +647,7 @@ folder of a single process):
 
 | Record | Table | Key | Sealed | Plain |
 |---|---|---|---|---|
-| Grant | `studio_connector_grants` | binding | access token, refresh token, token type | expiry, scopes, account label, state (`connected` or `reconnect_needed`), reason, descriptor digest, version, lease |
+| Grant | `studio_connector_grants` | binding | access token, refresh token, token type | expiry, scopes, account label, state (`connected`, `needs_approval` or `reconnect_needed`), reason, descriptor digest, token and revocation endpoints, version, lease |
 | OAuth client | `studio_oauth_clients` | add-on ID | client secret | descriptor digest, client ID, who approved it and when |
 | Login state | `studio_oauth_states` | SHA-256 of the `state` parameter | PKCE verifier | binding, owner, add-on, descriptor digest, redirect URI, scopes, return path, nonce hash, expiry |
 
@@ -695,7 +706,9 @@ Every credentialed call reads the grant:
 | `invalid_grant`, `invalid_client`, another refusal | `reconnect_needed` | secrets wiped, state `reconnect_needed` |
 | a `scope` without a required scope | `reconnect_needed`, reason `scopes_missing` | secrets wiped |
 | a `scope` with other scopes | the token is used | the granted scopes become those of the login that the service still grants; a scope the login never had is not added |
-| (descriptor changed since the approval) | `reconnect_needed`, reason `needs_approval`; the refresh token is not sent | secrets wiped |
+| (descriptor changed, not approved yet) | `reconnect_needed` to the call; the connection shows `needs_approval`, and no token is used or sent | secrets kept, state `needs_approval` |
+| (new descriptor approved, same `tokenUrl` and `revokeUrl`) | the login works again, without a reconnect | moved to the new descriptor |
+| (new descriptor approved, another `tokenUrl` or `revokeUrl`) | `reconnect_needed`, reason `endpoint_changed`; the refresh token is never sent to the new endpoint | secrets wiped |
 
 Disconnect revokes the refresh token (or the access token when there is no
 refresh token) at `revokeUrl` when the descriptor has one, with a 10 s limit,
@@ -801,9 +814,10 @@ callback, which:
 object: `state` (`connected`, `reconnect_needed`, `not_connected` or
 `needs_approval`), the fixed `reason` of a reconnect, `account_label`,
 `scopes`, `expires_at` and `has_client`. It never holds a token. The state is
-read from the shared store, so every frontend shows the same; a login that
-changed in an upgrade shows `needs_approval` once a call or a refresh found
-it. The add-on list of a chat (`GET /api/chats/{id}/addons`) gives each
+read from the shared store, so every frontend shows the same; a login whose
+descriptor changed in an upgrade shows `needs_approval` once a call or a
+refresh found it, and the result of the approval as soon as an administrator
+saves it. The add-on list of a chat (`GET /api/chats/{id}/addons`) gives each
 connection a `connection_state`, and the add-on a `connection_state` of
 `reconnect_needed` when a connection the chat may use must be connected again.
 

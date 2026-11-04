@@ -17,7 +17,7 @@ func grant(bindingID string) connectors.Grant {
 	// #nosec G101 -- test data: a made-up sealed blob and example addresses, not a credential
 	return connectors.Grant{Binding: bindingID, Owner: "u1", AddonID: "providerA", Sealed: []byte("sealed-grant-" + bindingID),
 		ExpiresAt: t0.Add(time.Hour), Scopes: []string{"read", "write"}, AccountLabel: "someone@example.test",
-		State: connectors.GrantConnected, DescriptorDigest: "d1", Updated: t0}
+		State: connectors.GrantConnected, DescriptorDigest: "d1", TokenURL: "https://auth.example.test/token", RevokeURL: "https://auth.example.test/revoke", Updated: t0}
 }
 
 // bindFor stores a binding of u1 for a grant: a store keeps a grant only for
@@ -61,8 +61,8 @@ func runOAuth(newStore NewStore) {
 		Expect(got.Sealed).To(Equal([]byte("sealed-grant-b1")))
 		Expect(got.Scopes).To(Equal([]string{"read", "write"}))
 		Expect(got.ExpiresAt.Equal(t0.Add(time.Hour))).To(BeTrue())
-		Expect([]string{got.Owner, got.AddonID, got.State, got.AccountLabel, got.DescriptorDigest}).
-			To(Equal([]string{"u1", "providerA", connectors.GrantConnected, "someone@example.test", "d1"}))
+		Expect([]string{got.Owner, got.AddonID, got.State, got.AccountLabel, got.DescriptorDigest, got.TokenURL, got.RevokeURL}).
+			To(Equal([]string{"u1", "providerA", connectors.GrantConnected, "someone@example.test", "d1", "https://auth.example.test/token", "https://auth.example.test/revoke"}))
 		got.Scopes[0], got.Sealed[0] = "changed", 'X'
 		again, _ := s.GetGrant(ctx, "b1")
 		Expect(again.Scopes[0]).To(Equal("read"), "the store returned its own slice")
@@ -78,6 +78,7 @@ func runOAuth(newStore NewStore) {
 		_, _ = s.PutGrant(ctx, grant("b1"))
 		next := grant("b1")
 		next.Sealed, next.ExpiresAt, next.Scopes = []byte("rotated"), t0.Add(2*time.Hour), []string{"read"}
+		next.State, next.DescriptorDigest, next.RevokeURL = connectors.GrantNeedsApproval, "d2", ""
 		ok, err := s.UpdateGrant(ctx, next, 1)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeTrue())
@@ -88,6 +89,7 @@ func runOAuth(newStore NewStore) {
 		Expect(got.Version).To(BeEquivalentTo(2))
 		Expect(got.Sealed).To(Equal([]byte("rotated")))
 		Expect(got.Scopes).To(Equal([]string{"read"}))
+		Expect([]string{got.State, got.DescriptorDigest, got.TokenURL, got.RevokeURL}).To(Equal([]string{connectors.GrantNeedsApproval, "d2", "https://auth.example.test/token", ""}))
 		ok, err = s.UpdateGrant(ctx, grant("missing"), 1)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ok).To(BeFalse())

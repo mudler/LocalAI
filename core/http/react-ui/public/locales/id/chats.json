@@ -293,7 +293,8 @@
         "write_failed": "Login yang diperbarui tidak dapat disimpan.",
         "unreadable": "Login yang tersimpan tidak dapat dibaca.",
         "unknown": "Login tidak berfungsi lagi.",
-        "scopes_missing": "Layanan tidak lagi memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan."
+        "scopes_missing": "Layanan tidak lagi memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
+        "endpoint_changed": "Add-on ini sekarang mengirim login ke alamat lain dari layanan, jadi login ini tidak bisa ikut pindah. Hubungkan lagi."
       },
       "approvalUser": "Administrator harus menyetujui add-on ini terlebih dahulu.",
       "approvalUserChanged": "Login add-on ini berubah. Administrator harus menyetujuinya lagi.",
