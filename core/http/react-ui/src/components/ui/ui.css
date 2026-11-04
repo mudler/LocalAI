@@ -194,9 +194,12 @@
   letter-spacing: -0.02em;
   color: var(--color-text-primary);
   text-wrap: balance;
+  /* A name with no spaces (a path, an id) breaks instead of widening the page. */
+  overflow-wrap: anywhere;
 }
 .page-header__supporting {
   margin: 0;
+  overflow-wrap: anywhere;
   max-width: 64ch;
   color: var(--color-text-secondary);
   font-size: var(--fs-body);
@@ -213,6 +216,9 @@
 @media (max-width: 639px) {
   .page-header {
     flex-direction: column;
+    /* A wrapping column sizes its one line to the widest item, so a long
+       unbroken title would stretch the header past the phone. */
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: var(--sp-4);
   }

@@ -31,6 +31,11 @@
   min-height: var(--ctl-h-sm);
   margin-left: calc(-1 * var(--sp-2));
   padding: 0 var(--sp-2);
+  /* The name of the agent has no spaces at times: it wraps, the page does not widen. */
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
   border-radius: var(--r-md);
   color: var(--dk-muted);
   font-size: var(--fs-small);
@@ -182,7 +187,7 @@ a.ag-row__name:hover { text-decoration: underline; text-underline-offset: 3px; }
 .ag-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0; margin: 0; border-top: 1px solid var(--dk-edge); }
 .ag-facts dt, .ag-facts dd { margin: 0; padding: 10px 0; min-height: 44px; display: flex; align-items: center; border-bottom: 1px solid var(--dk-edge); }
 .ag-facts dt { padding-right: var(--sp-8); font-size: var(--fs-small); font-weight: 500; color: var(--dk-muted); }
-.ag-facts dd { font-size: var(--fs-body); min-width: 0; flex-wrap: wrap; gap: 6px; }
+.ag-facts dd { font-size: var(--fs-body); min-width: 0; flex-wrap: wrap; gap: 6px; overflow-wrap: anywhere; }
 .ag-facts dd.ag-facts__text { display: block; overflow-wrap: anywhere; }
 .ag-facts__model { font-family: var(--font-mono); font-size: var(--fs-small); }
 .ag-record { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
