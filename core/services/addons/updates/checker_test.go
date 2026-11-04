@@ -227,6 +227,21 @@ var _ = Describe("Update detection", func() {
 				}}, r.lib, r.inst)
 		}
 
+		It("offers the moved build to an install that recorded the channel name, not the label, and never calls a failed lookup current", func() {
+			r := newRig(installed("0.0.0-dev.9301fcf8b8ee", "development", "development", digestA), devRel())
+			withTag(r, digestB, nil)
+			st := check(r, true)
+			Expect(st.State).To(Equal(updates.UpdateAvailable))
+			Expect(st.CandidateDigest).To(Equal(digestB))
+			Expect(st.CandidateVersion).To(Equal(label + ".bbbbbbbbbbbb"))
+			// The registry cannot be reached: the answer is a failure, never up to date.
+			r = newRig(installed("0.0.0-dev.9301fcf8b8ee", "development", "development", digestA), devRel())
+			r.checker = updates.New(updates.Config{Host: host, TTL: time.Hour, MaxEntries: 3, MinRefresh: time.Minute, Now: func() time.Time { return *r.clock },
+				Lookup: func(context.Context, string, string) (string, error) { return "", errors.New("registry down") }}, r.lib, r.inst)
+			st = check(r, true)
+			Expect(st.State).To(Equal(updates.CheckFailed))
+			Expect(st.Available).To(BeFalse())
+		})
 		It("never reports an update it cannot pin to a digest", func() {
 			r := newRig(devInstall(digestA), devRel())
 			for _, refresh := range []bool{false, true} {

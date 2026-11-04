@@ -10,7 +10,7 @@ import { Button, StatusChip } from '../ui'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
 import { addedByEntry } from './addonState'
-import { updateView } from './updateState'
+import { updateView, entryUpdateNote } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 import { useAddonUpgrade } from './useAddonUpgrade'
@@ -78,6 +78,10 @@ export default function BrowseView({ api, adapter }) {
             <span className="ad-meta__item"><VersionText version={entry.version} /></span>
             {have && have.version !== entry.version && <span className="ad-meta__item" data-testid="entry-have">{t('browse.installedOther', { version: have.version })}</span>}
           </p>
+          {have && !updatable && (() => {
+            const note = entryUpdateNote(have.update)
+            return <p className="ad-entry__note" data-testid="entry-update-note" data-state={note.state} data-tone={note.tone}>{t(`updates.state.${note.state}`, { version: note.version })}</p>
+          })()}
           {updatable && (
             <div className="ad-entry__upgrade" data-testid="entry-upgrade">
               <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} variant="secondary" working={pending || upgrade.working(have.id)} />
