@@ -482,6 +482,118 @@
     - "fine-tune-checkpoints"
     - "fine-tune-stop"
     - "fine-tune-export"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
+- id: "gdrive"
+  name: Google Drive
+  description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:gdrive-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Google Drive"
+    description: "Let your agents read the files in the Drive folders you choose, and create or change text files if you allow it."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "search"
+    - "list-folder"
+    - "get-metadata"
+    - "read-file"
+    - "create-file"
+    - "update-file"
+    - "move-file"
+    - "trash-file"
 - id: "github"
   name: GitHub
   description: "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."

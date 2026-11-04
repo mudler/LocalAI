@@ -7,7 +7,7 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github) and the [Jellyfin add-on](#jellyfin) hold a token for your agents instead of carrying messages). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github), the [Google Drive add-on](#google-drive) and the [Jellyfin add-on](#jellyfin) hold a token or a login for your agents instead of carrying messages). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -165,6 +165,56 @@ Everything the agent writes is public to everyone who can see the repository. Th
 Over the API the connection has a `write_mode` field: `off`, `propose` or `auto`. Absent means off for a new connection and unchanged for an update.
 
 This version does not listen for mentions.
+
+## Google Drive
+
+The Google Drive add-on lets your [saved agents](/features/chats-agents/) read the files in the Drive folders you choose: search, list a folder, read the details of a file and read its text. Google Docs are read as Markdown, Google Sheets as CSV (the first sheet) and Google Slides as plain text. If you allow it, they can also create a text file, replace the text of a file, rename or move a file, and move a file to the trash. It never shares a file, changes who can see it, makes it public or deletes it for good. Every change waits for your OK.
+
+It logs in to Google with OAuth 2.0 (see [Connections that log in with OAuth](#connections-that-log-in-with-oauth)). Each LocalAI server brings its own Google client; no client is shipped with LocalAI.
+
+### Create the Google client (administrators)
+
+1. In the Google Cloud console, create a project and turn on the **Google Drive API** for it.
+2. Set up the **OAuth consent screen**. Add the scope `https://www.googleapis.com/auth/drive.readonly`, and the scope `https://www.googleapis.com/auth/drive.file` if people may write. Then **publish the app to production**. While the app is in the *Testing* state, Google ends every refresh token after 7 days, and the connections stop working until each person connects again.
+3. Create a client of the type **Web application**. As the authorized redirect URI, enter the callback address of your server: the base URL followed by `/api/chats/connectors/oauth/callback`, for example `https://localai.example.test/api/chats/connectors/oauth/callback`. The **Settings** tab of the add-on shows it as the **Callback address**. Set the external base URL of the server first if the form says it does not know its public address (see [the login routes](/features/addons/#the-login-routes)).
+4. On the **Add-ons** page open **Google Drive**, select the **Settings** tab, enter the **Client ID** and **Client secret** of the client and select **Approve and save**.
+
+`drive.readonly` is a restricted scope. An app that stays unverified can still be used, but Google shows a warning at sign-in and limits the app to 100 users. If you need more users, or the app belongs to an organization outside your own Google Workspace, the app must pass Google's verification for restricted scopes, which includes a security assessment. In a Google Workspace you can set the user type to **Internal**, which needs no verification and allows only the people of that organization.
+
+### Connect an account
+
+1. Install the **Google Drive** add-on from the add-on gallery.
+2. On the **Connectors** page choose **Add a connection** in the Google Drive group, name it, and select **Connect**. Tick **Also allow** for the write access if the agent may change files. Without it the connection reads only, and a write tool answers with a message that names the missing access, so the model can ask you to reconnect.
+3. Select **Edit connections**. On the add-on page paste the folders the agent may use, one folder ID or folder address per line (at most 50), and choose the write mode. The ID is the part of the address of a folder after `/folders/`; use `root` for the top of My Drive. The ID of a shared drive also works. IDs are case sensitive. Press **Test** to see the account the connection belongs to.
+
+The list is checked by LocalAI before the add-on is called, so an agent is refused any folder that is not on it. The add-on then checks that each file it reads or changes lies inside that folder, at any depth, and refuses a file outside it. A shortcut is not followed. A search can come back with fewer items than asked, because files outside the folder are left out of each page.
+
+### Tools
+
+| Tool | Kind | What it does |
+|---|---|---|
+| `search` | read | Finds files by name, text, media type, change date or parent folder. Trashed files are left out unless asked for. 30 results per page, up to 50, with a cursor for the next page. |
+| `list-folder` | read | Lists a folder, folders first, with a cursor. |
+| `get-metadata` | read | Gives the name, type, size, change time, parent and link of a file. |
+| `read-file` | read | Reads the text of a file, by byte offset. Binary files that cannot be exported give the details only. |
+| `create-file` | write | Creates a text file (plain text, Markdown, CSV or JSON, up to 64 KiB). |
+| `update-file` | write | Renames a file or replaces its text. Only plain text files can have their text replaced. |
+| `move-file` | write | Moves a file or folder to another folder inside the allowed folder. |
+| `trash-file` | write | Moves a file, not a folder, to the trash, where you can restore it. |
+
+A search filter is a set of fields, never a Drive query. The add-on writes the query itself and escapes every value, so a name that holds a quote or a backslash cannot add a condition.
+
+What Drive returns (names and file text) is written by other people. Every result says so and tells the model to treat it as data. A text longer than 96 KiB is cut: the result says so and gives `nextOffset`, and the agent reads the next part with `offset`. The add-on asks for items of shared drives in every call.
+
+### Writing to Drive
+
+The write tools need the optional access `https://www.googleapis.com/auth/drive.file`, which you allow when you connect. Google gives that access only to the files that the add-on created, so `update-file`, `move-file` and `trash-file` work on files made through this add-on; on any other file the tool answers that the change was refused and nothing was sent. The read access reaches all files in the folders.
+
+The tools declare that a person must approve every change, so a chat or an agent never applies one, even when the connection's write mode would let a chat act. The approval card shows the file, the folder and the exact text that will be saved. The change is refused when the file changed after the preview. A created file carries a private property that names the operation, so if Drive took a change and the answer was lost, the add-on finds the file and does not create it twice.
+
+### Limits
+
+A call ends after 30 seconds. A request or a result is at most 1 MiB, and a result that the model reads at most 128 KiB. A page has at most 50 entries. A Google Docs export is limited by Google to 10 MB. Finding out where a file lies takes at most 150 requests to Drive per call. When Drive limits the rate of calls or fails, the agent is told how long to wait (the `Retry-After` of Google, or 30 seconds for a limit and 5 seconds for a failure). When Google refuses the access token, LocalAI renews it once; when that fails the connection asks you to reconnect. The add-on never logs a token or the content of a file.
 
 ## Jellyfin
 

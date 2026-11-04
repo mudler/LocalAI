@@ -108,7 +108,7 @@ var _ = Describe("provider-neutral host code", func() {
 	// officialIDs are the IDs of the add-ons the repository ships. Host code
 	// outside deployment policy must not name them as literals.
 	officialIDs := []string{
-		"face", "fine-tuning", "github", "memory", "office", "quantization", "sandbox",
+		"face", "fine-tuning", "gdrive", "github", "memory", "office", "quantization", "sandbox",
 		"slack", "studio", "tables", "talk", "telegram", "voice", "web",
 	}
 	// allowed maps "path: literal" to the reason that the literal is not an
