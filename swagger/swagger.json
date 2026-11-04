@@ -5875,6 +5875,47 @@
                 }
             }
         },
+        "/api/chats/connectors/{id}/access/preview": {
+            "post": {
+                "description": "Runs the same permission chain as the access view on the state in the request: the server setting, the Tools switch of the agent, the agent permission, the permission of the connection and the trust of the sender, in that order, and reports the first problem of each capability with a code, a plain message, one fix and the links not yet checked. Fields that are absent keep the saved value. Use the id \"new\" with a kind for a connection that is not saved yet. It writes nothing, records no decision, and neither takes nor returns the token. Same sign-in and Connectors feature as the other connector routes.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Preview what each kind of sender may do on a connector binding, before saving.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "the binding's id, or new",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the form state to check",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorAccessPreviewRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "The effective permissions of that state",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsConnectorAccess"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/connectors/{id}/disable": {
             "post": {
                 "tags": [
@@ -21438,6 +21479,10 @@
                 "binding": {
                     "type": "string"
                 },
+                "preview": {
+                    "description": "Preview is true when the view is for a form that is not saved.",
+                    "type": "boolean"
+                },
                 "recent": {
                     "type": "array",
                     "items": {
@@ -21458,11 +21503,38 @@
                 "allowed": {
                     "type": "boolean"
                 },
+                "blocked_by": {
+                    "description": "BlockedBy is the link that refused: server, tools, agent, connection\nor sender.",
+                    "type": "string"
+                },
                 "capability": {
+                    "type": "string"
+                },
+                "code": {
+                    "description": "Code says which link of the chain refused first. It is one of\nserver_setting_off, tools_switch_off, agent_permission_off,\nagent_unavailable, connection_permission_off, no_agent,\nsender_not_listed, sender_needs_pairing, channel_not_trusted,\nrole_not_granted, kind_not_running, context_rule or\nunknown_capability. Only a refused capability has it.",
+                    "type": "string"
+                },
+                "fix": {
+                    "description": "Fix points at the one place that solves it. The server sends no URL.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsConnectorAccessFix"
+                        }
+                    ]
+                },
+                "message": {
+                    "description": "Message is one plain sentence for the owner. It names no setting.",
                     "type": "string"
                 },
                 "reason": {
                     "type": "string"
+                },
+                "then_check": {
+                    "description": "ThenCheck lists the links after the first problem that were not\nlooked at, in order: tools, agent, connection, sender and, for\ntriggers.propose, approval. More problems may follow.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "via": {
                     "description": "Via is how the capability is reached: paired, or role:\u003cid\u003e.",
@@ -21482,6 +21554,10 @@
                 "capability": {
                     "type": "string"
                 },
+                "code": {
+                    "description": "Code is the code of a refusal, as in the decisions.",
+                    "type": "string"
+                },
                 "reason": {
                     "type": "string"
                 },
@@ -21498,6 +21574,61 @@
                     }
                 },
                 "via": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorAccessFix": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "description": "Field narrows the target: the capability to tick on the connection or\nto grant on the agent, or tools:\u003cgroup\u003e for a Tools switch.",
+                    "type": "string"
+                },
+                "kind": {
+                    "description": "Kind is open_server_setting, open_agent, open_connection, pair_sender\nor add_person.",
+                    "type": "string"
+                },
+                "target": {
+                    "description": "Target is a stable ID: the key of a server setting, an agent ID, a field\nof the connection form (caps, grants, agent_id, allow) or pairing.",
+                    "type": "string"
+                }
+            }
+        },
+        "schema.ChatsConnectorAccessPreviewRequest": {
+            "type": "object",
+            "properties": {
+                "accept_any": {
+                    "type": "boolean"
+                },
+                "agent_id": {
+                    "type": "string"
+                },
+                "allow": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "caps": {
+                    "description": "Caps and Grants are the form's permissions; an empty list clears.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "grants": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsConnectorRoleGrant"
+                    }
+                },
+                "kind": {
+                    "description": "Kind is read only for the id \"new\" (a connection that is not saved).",
+                    "type": "string"
+                },
+                "sender": {
+                    "description": "Sender limits the answer to one kind of sender: listed, paired,\nchannel_member, anyone or role:\u003cid\u003e. Absent means every kind.",
                     "type": "string"
                 }
             }

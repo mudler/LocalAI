@@ -71,20 +71,59 @@ func grantVerdict(capability string, listed, held []string, hasAgent bool) strin
 // of a binding. It fails closed: a binding whose agent cannot be read gets
 // nothing.
 func agentGrantSwitch(s *Service) CapabilitySwitch {
-	return func(ctx context.Context, b connectors.Binding, capability string) string {
+	return func(ctx context.Context, b connectors.Binding, capability string) Block {
 		if !GrantGatedCapability(capability) {
-			return ""
+			return Block{}
 		}
 		if b.AgentID == "" {
-			return "this connection has no agent"
+			return Block{Code: CodeNoAgent, Reason: "this connection has no agent"}
 		}
+		unreadable := Block{Code: CodeAgentUnavailable, Reason: "the agent of this bot cannot be read",
+			Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID}}
 		if s.d.Agents == nil {
-			return "the agent of this bot cannot be read"
+			return unreadable
 		}
 		ag, err := s.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
 		if err != nil {
-			return "the agent of this bot cannot be read"
+			return unreadable
 		}
-		return grantVerdict(capability, ag.Builtins, s.usableGrants(ctx, principal(b.Owner), ag.Builtins), true)
+		if why := grantVerdict(capability, ag.Builtins, s.usableGrants(ctx, principal(b.Owner), ag.Builtins), true); why != "" {
+			return Block{Code: CodeAgentPermissionOff, Reason: why,
+				Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: capability}}
+		}
+		return Block{}
+	}
+}
+
+// toolGroupOf names the Tools switch group that serves a capability in a
+// connector chat: the tool that uses the capability is not built while its
+// group is off, so the capability is not usable either.
+var toolGroupOf = map[string]string{
+	contract.CapTriggersPropose: builtins.GroupTriggers,
+	contract.CapMemoryWrite:     builtins.GroupChanges,
+	contract.CapProfileWrite:    builtins.GroupChanges,
+	contract.CapSkillsWrite:     builtins.GroupChanges,
+	contract.CapPagesWrite:      builtins.GroupChanges,
+	contract.CapDashboardWrite:  builtins.GroupChanges,
+}
+
+// toolsSwitch is the CapabilitySwitch of the Tools switch: a capability whose
+// tool group the agent of the binding turns off is off. The grant of the agent
+// is a separate link (agentGrantSwitch).
+func toolsSwitch(s *Service) CapabilitySwitch {
+	return func(ctx context.Context, b connectors.Binding, capability string) Block {
+		group := toolGroupOf[capability]
+		if group == "" || b.AgentID == "" || s.d.Agents == nil {
+			return Block{}
+		}
+		ag, err := s.d.Agents.Get(ctx, principal(b.Owner), b.AgentID)
+		if err != nil {
+			return Block{} // the grants switch reports an agent it cannot read
+		}
+		if slices.Contains(ag.BuiltinsOff, group) || (s.builtins.IsOptIn(group) && !slices.Contains(ag.BuiltinsOn, group)) {
+			return Block{Code: CodeToolsSwitchOff, Reason: "the " + group + " tools are switched off for the agent of this bot",
+				Fix: &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: "tools:" + group}}
+		}
+		return Block{}
 	}
 }

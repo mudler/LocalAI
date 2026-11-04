@@ -423,18 +423,54 @@ func (h *Handlers) ConnectorAccess(c echo.Context) error {
 	if err != nil {
 		return failConnector(c, err)
 	}
-	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}}
+	return c.JSON(http.StatusOK, accessOut(v))
+}
+
+func accessOut(v studiosvc.AccessView) schema.ChatsConnectorAccess {
+	out := schema.ChatsConnectorAccess{Binding: v.Binding, Subjects: []schema.ChatsConnectorAccessSubject{}, Recent: []schema.ChatsConnectorAccessEvent{}, Preview: v.Preview}
 	for _, s := range v.Subjects {
 		o := schema.ChatsConnectorAccessSubject{ID: s.ID, Title: s.Title, Decisions: []schema.ChatsConnectorAccessDecision{}}
 		for _, d := range s.Decisions {
-			o.Decisions = append(o.Decisions, schema.ChatsConnectorAccessDecision{Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason})
+			od := schema.ChatsConnectorAccessDecision{Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason,
+				Code: d.Code, BlockedBy: d.BlockedBy, Message: d.Message, ThenCheck: d.ThenCheck}
+			if d.Fix != nil {
+				od.Fix = &schema.ChatsConnectorAccessFix{Kind: d.Fix.Kind, Target: d.Fix.Target, Field: d.Fix.Field}
+			}
+			o.Decisions = append(o.Decisions, od)
 		}
 		out.Subjects = append(out.Subjects, o)
 	}
 	for _, e := range v.Recent {
-		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason})
+		out.Recent = append(out.Recent, schema.ChatsConnectorAccessEvent{At: e.At, Senders: e.Senders, Roles: e.Roles, Capability: e.Capability, Allowed: e.Allowed, Via: e.Via, Reason: e.Reason, Code: e.Code})
 	}
-	return c.JSON(http.StatusOK, out)
+	return out
+}
+
+// ConnectorAccessPreview explains what each kind of sender would be allowed
+// to do on a connection form that is not saved.
+// @Summary Preview what each kind of sender may do on a connector binding, before saving.
+// @Description Runs the same permission chain as the access view on the state in the request: the server setting, the Tools switch of the agent, the agent permission, the permission of the connection and the trust of the sender, in that order, and reports the first problem of each capability with a code, a plain message, one fix and the links not yet checked. Fields that are absent keep the saved value. Use the id "new" with a kind for a connection that is not saved yet. It writes nothing, records no decision, and neither takes nor returns the token. Same sign-in and Connectors feature as the other connector routes.
+// @Tags chats
+// @Param id path string true "the binding's id, or new"
+// @Param request body schema.ChatsConnectorAccessPreviewRequest true "the form state to check"
+// @Success 200 {object} schema.ChatsConnectorAccess "The effective permissions of that state"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
+// @Router /api/chats/connectors/{id}/access/preview [post]
+func (h *Handlers) ConnectorAccessPreview(c echo.Context) error {
+	host, ok := h.connectorHost(c)
+	if !ok {
+		return nil
+	}
+	req, ok := bind[schema.ChatsConnectorAccessPreviewRequest](c, msgNotJSON)
+	if !ok {
+		return nil
+	}
+	v, err := host.AccessPreview(c.Request().Context(), userID(c), c.Param("id"), studiosvc.AccessDraft{
+		Kind: req.Kind, AgentID: req.AgentID, AcceptAny: req.AcceptAny, Allow: req.Allow, Caps: req.Caps, Grants: grantsIn(req.Grants), Sender: req.Sender})
+	if err != nil {
+		return failConnector(c, err)
+	}
+	return c.JSON(http.StatusOK, accessOut(v))
 }
 
 // RemoveConnectorPaired ends the pairing of a sender.

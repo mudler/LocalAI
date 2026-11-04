@@ -1391,6 +1391,37 @@ type ChatsConnectorAccessDecision struct {
 	// Via is how the capability is reached: paired, or role:<id>.
 	Via    string `json:"via,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// Code says which link of the chain refused first. It is one of
+	// server_setting_off, tools_switch_off, agent_permission_off,
+	// agent_unavailable, connection_permission_off, no_agent,
+	// sender_not_listed, sender_needs_pairing, channel_not_trusted,
+	// role_not_granted, kind_not_running, context_rule or
+	// unknown_capability. Only a refused capability has it.
+	Code string `json:"code,omitempty"`
+	// BlockedBy is the link that refused: server, tools, agent, connection
+	// or sender.
+	BlockedBy string `json:"blocked_by,omitempty"`
+	// Message is one plain sentence for the owner. It names no setting.
+	Message string `json:"message,omitempty"`
+	// Fix points at the one place that solves it. The server sends no URL.
+	Fix *ChatsConnectorAccessFix `json:"fix,omitempty"`
+	// ThenCheck lists the links after the first problem that were not
+	// looked at, in order: tools, agent, connection, sender and, for
+	// triggers.propose, approval. More problems may follow.
+	ThenCheck []string `json:"then_check,omitempty"`
+}
+
+// ChatsConnectorAccessFix is the one place that solves a refusal.
+type ChatsConnectorAccessFix struct {
+	// Kind is open_server_setting, open_agent, open_connection, pair_sender
+	// or add_person.
+	Kind string `json:"kind"`
+	// Target is a stable ID: the key of a server setting, an agent ID, a field
+	// of the connection form (caps, grants, agent_id, allow) or pairing.
+	Target string `json:"target"`
+	// Field narrows the target: the capability to tick on the connection or
+	// to grant on the agent, or tools:<group> for a Tools switch.
+	Field string `json:"field,omitempty"`
 }
 
 // ChatsConnectorAccessSubject is what one kind of sender may do: a sender on
@@ -1411,6 +1442,8 @@ type ChatsConnectorAccessEvent struct {
 	Allowed    bool      `json:"allowed"`
 	Via        string    `json:"via,omitempty"`
 	Reason     string    `json:"reason,omitempty"`
+	// Code is the code of a refusal, as in the decisions.
+	Code string `json:"code,omitempty"`
 }
 
 // ChatsConnectorAccess is the effective permissions of a binding, as the host
@@ -1419,6 +1452,25 @@ type ChatsConnectorAccess struct {
 	Binding  string                        `json:"binding"`
 	Subjects []ChatsConnectorAccessSubject `json:"subjects"`
 	Recent   []ChatsConnectorAccessEvent   `json:"recent"`
+	// Preview is true when the view is for a form that is not saved.
+	Preview bool `json:"preview,omitempty"`
+}
+
+// ChatsConnectorAccessPreviewRequest is the state of a connection form that
+// the permission chain reads, saved or not. A field that is absent keeps the
+// saved value. It has no token: a preview never takes or returns one.
+type ChatsConnectorAccessPreviewRequest struct {
+	// Kind is read only for the id "new" (a connection that is not saved).
+	Kind      string   `json:"kind,omitempty"`
+	AgentID   *string  `json:"agent_id,omitempty"`
+	AcceptAny *bool    `json:"accept_any,omitempty"`
+	Allow     []string `json:"allow,omitempty"`
+	// Caps and Grants are the form's permissions; an empty list clears.
+	Caps   []string                  `json:"caps,omitempty"`
+	Grants []ChatsConnectorRoleGrant `json:"grants,omitempty"`
+	// Sender limits the answer to one kind of sender: listed, paired,
+	// channel_member, anyone or role:<id>. Absent means every kind.
+	Sender string `json:"sender,omitempty"`
 }
 
 // ChatsConnectorPairing is a pairing code. Send it from the account to pair, as

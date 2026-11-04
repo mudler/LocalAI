@@ -4622,6 +4622,9 @@ definitions:
     properties:
       binding:
         type: string
+      preview:
+        description: Preview is true when the view is for a form that is not saved.
+        type: boolean
       recent:
         items:
           $ref: '#/definitions/schema.ChatsConnectorAccessEvent'
@@ -4635,10 +4638,40 @@ definitions:
     properties:
       allowed:
         type: boolean
+      blocked_by:
+        description: |-
+          BlockedBy is the link that refused: server, tools, agent, connection
+          or sender.
+        type: string
       capability:
+        type: string
+      code:
+        description: |-
+          Code says which link of the chain refused first. It is one of
+          server_setting_off, tools_switch_off, agent_permission_off,
+          agent_unavailable, connection_permission_off, no_agent,
+          sender_not_listed, sender_needs_pairing, channel_not_trusted,
+          role_not_granted, kind_not_running, context_rule or
+          unknown_capability. Only a refused capability has it.
+        type: string
+      fix:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorAccessFix'
+        description: Fix points at the one place that solves it. The server sends
+          no URL.
+      message:
+        description: Message is one plain sentence for the owner. It names no setting.
         type: string
       reason:
         type: string
+      then_check:
+        description: |-
+          ThenCheck lists the links after the first problem that were not
+          looked at, in order: tools, agent, connection, sender and, for
+          triggers.propose, approval. More problems may follow.
+        items:
+          type: string
+        type: array
       via:
         description: 'Via is how the capability is reached: paired, or role:<id>.'
         type: string
@@ -4651,6 +4684,9 @@ definitions:
         type: string
       capability:
         type: string
+      code:
+        description: Code is the code of a refusal, as in the decisions.
+        type: string
       reason:
         type: string
       roles:
@@ -4662,6 +4698,53 @@ definitions:
           type: string
         type: array
       via:
+        type: string
+    type: object
+  schema.ChatsConnectorAccessFix:
+    properties:
+      field:
+        description: |-
+          Field narrows the target: the capability to tick on the connection or
+          to grant on the agent, or tools:<group> for a Tools switch.
+        type: string
+      kind:
+        description: |-
+          Kind is open_server_setting, open_agent, open_connection, pair_sender
+          or add_person.
+        type: string
+      target:
+        description: |-
+          Target is a stable ID: the key of a server setting, an agent ID, a field
+          of the connection form (caps, grants, agent_id, allow) or pairing.
+        type: string
+    type: object
+  schema.ChatsConnectorAccessPreviewRequest:
+    properties:
+      accept_any:
+        type: boolean
+      agent_id:
+        type: string
+      allow:
+        items:
+          type: string
+        type: array
+      caps:
+        description: Caps and Grants are the form's permissions; an empty list clears.
+        items:
+          type: string
+        type: array
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
+      kind:
+        description: Kind is read only for the id "new" (a connection that is not
+          saved).
+        type: string
+      sender:
+        description: |-
+          Sender limits the answer to one kind of sender: listed, paired,
+          channel_member, anyone or role:<id>. Absent means every kind.
         type: string
     type: object
   schema.ChatsConnectorAccessSubject:
@@ -16833,6 +16916,42 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConnectorAccess'
       summary: Show what each kind of sender may do on a connector binding.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/access/preview:
+    post:
+      description: 'Runs the same permission chain as the access view on the state
+        in the request: the server setting, the Tools switch of the agent, the agent
+        permission, the permission of the connection and the trust of the sender,
+        in that order, and reports the first problem of each capability with a code,
+        a plain message, one fix and the links not yet checked. Fields that are absent
+        keep the saved value. Use the id "new" with a kind for a connection that is
+        not saved yet. It writes nothing, records no decision, and neither takes nor
+        returns the token. Same sign-in and Connectors feature as the other connector
+        routes.'
+      parameters:
+      - description: the binding's id, or new
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the form state to check
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsConnectorAccessPreviewRequest'
+      responses:
+        "200":
+          description: The effective permissions of that state
+          schema:
+            $ref: '#/definitions/schema.ChatsConnectorAccess'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview what each kind of sender may do on a connector binding, before
+        saving.
       tags:
       - chats
   /api/chats/connectors/{id}/disable:

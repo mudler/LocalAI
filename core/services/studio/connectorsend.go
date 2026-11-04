@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -116,13 +117,32 @@ func listedChannels(b connectors.Binding) string {
 	return "; the channels are " + strings.Join(parts, ", ")
 }
 
+// ServerSwitch is a CapabilitySwitch for a feature that an administrator
+// turned off for the whole server. setting is the stable key of that setting
+// (the fix of the answer points at it, a client names the page); reason is the
+// English line for the log.
+func ServerSwitch(setting, reason string, capabilities ...string) CapabilitySwitch {
+	return func(_ context.Context, _ connectors.Binding, capability string) Block {
+		if slices.Contains(capabilities, capability) {
+			return Block{Code: CodeServerSettingOff, Reason: reason, Fix: &Fix{Kind: FixOpenServerSetting, Target: setting}}
+		}
+		return Block{}
+	}
+}
+
 // TalkbackSwitch is a CapabilitySwitch that turns off both talk-back
 // capabilities, with the reason shown to the owner. The operator switch uses it.
 func TalkbackSwitch(reason string) CapabilitySwitch {
-	return func(_ context.Context, _ connectors.Binding, capability string) string {
-		if capability == contract.CapTalkbackChannels || capability == contract.CapTalkbackNewChan {
-			return reason
-		}
-		return ""
-	}
+	return ServerSwitch(SettingDisableConnectorTalkback, reason, contract.CapTalkbackChannels, contract.CapTalkbackNewChan)
+}
+
+// The keys of the server settings that the chain can point at.
+const (
+	SettingDisableTriggers          = "disable_triggers"
+	SettingDisableConnectorTalkback = "disable_connector_talkback"
+)
+
+// TriggersSwitch turns off the capabilities of triggers for the whole server.
+func TriggersSwitch(reason string) CapabilitySwitch {
+	return ServerSwitch(SettingDisableTriggers, reason, contract.CapTriggersPropose, contract.CapTriggersRun)
 }

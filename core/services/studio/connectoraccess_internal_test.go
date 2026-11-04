@@ -75,7 +75,7 @@ var _ = Describe("Authorize", func() {
 			}
 			var got []string
 			for _, name := range all {
-				d := Authorize(binding, k, r.subject, name, now, r.off)
+				d := Authorize(binding, k, r.subject, name, now, Block{Reason: r.off})
 				Expect(d.Capability).To(Equal(name))
 				if d.Allowed {
 					got = append(got, name)
@@ -96,23 +96,23 @@ var _ = Describe("Authorize", func() {
 			if !contract.SensitiveCapability(name) {
 				continue
 			}
-			d := Authorize(binding, &kind, AccessSubject{SenderID: "U", Allowlisted: true, Roles: []string{"admin"}}, name, now, "")
+			d := Authorize(binding, &kind, AccessSubject{SenderID: "U", Allowlisted: true, Roles: []string{"admin"}}, name, now, Block{})
 			Expect(d.Allowed).To(BeFalse(), name)
 		}
 	})
 	It("denies a name that is not in the closed list", func() {
-		d := Authorize(binding, &kind, AccessSubject{SenderID: "P", Allowlisted: true}, "shell.run", now, "")
+		d := Authorize(binding, &kind, AccessSubject{SenderID: "P", Allowlisted: true}, "shell.run", now, Block{})
 		Expect(d.Allowed).To(BeFalse())
 	})
 	It("names the way a sender got the capability", func() {
-		Expect(Authorize(binding, &kind, AccessSubject{SenderID: "U", Allowlisted: true, Roles: []string{"admin"}}, contract.CapMemoryWrite, now, "").Via).To(Equal("role:admin"))
-		Expect(Authorize(binding, &kind, AccessSubject{SenderID: "P", Allowlisted: true}, contract.CapMemoryWrite, now, "").Via).To(Equal("paired"))
+		Expect(Authorize(binding, &kind, AccessSubject{SenderID: "U", Allowlisted: true, Roles: []string{"admin"}}, contract.CapMemoryWrite, now, Block{}).Via).To(Equal("role:admin"))
+		Expect(Authorize(binding, &kind, AccessSubject{SenderID: "P", Allowlisted: true}, contract.CapMemoryWrite, now, Block{}).Via).To(Equal("paired"))
 	})
 	It("denies everything to a binding with an empty ceiling", func() {
 		empty := binding
 		empty.Caps = nil
 		for _, name := range all {
-			Expect(Authorize(empty, &kind, AccessSubject{SenderID: "P", Allowlisted: true}, name, now, "").Allowed).To(BeFalse(), name)
+			Expect(Authorize(empty, &kind, AccessSubject{SenderID: "P", Allowlisted: true}, name, now, Block{}).Allowed).To(BeFalse(), name)
 		}
 	})
 })
@@ -158,14 +158,14 @@ var _ = Describe("Authorize for a listed sender", func() {
 
 	It("trusts a listed sender with every capability that is not sensitive", func() {
 		for _, name := range plainCaps {
-			d := Authorize(binding, &kind, listed, name, now, "")
+			d := Authorize(binding, &kind, listed, name, now, Block{})
 			Expect(d.Allowed).To(BeTrue(), name)
 			Expect(d.Via).To(Equal("allowlist"), name)
 		}
 	})
 	It("does not trust a listed sender with a sensitive capability, and says what to do", func() {
 		for _, name := range sensitiveCaps {
-			d := Authorize(binding, &kind, listed, name, now, "")
+			d := Authorize(binding, &kind, listed, name, now, Block{})
 			Expect(d.Allowed).To(BeFalse(), name)
 			Expect(d.Reason).To(ContainSubstring("paired"), name)
 		}
@@ -173,7 +173,7 @@ var _ = Describe("Authorize for a listed sender", func() {
 	It("lets a pairing hold a sensitive capability, and names the pairing", func() {
 		s := AccessSubject{SenderID: "P", Allowlisted: true, Listed: true}
 		for _, name := range sensitiveCaps {
-			d := Authorize(binding, &kind, s, name, now, "")
+			d := Authorize(binding, &kind, s, name, now, Block{})
 			Expect(d.Allowed).To(BeTrue(), name)
 			Expect(d.Via).To(Equal("paired"), name)
 		}
@@ -181,7 +181,7 @@ var _ = Describe("Authorize for a listed sender", func() {
 	It("gives nothing to a sender who is allowed only through a channel entry", func() {
 		s := AccessSubject{SenderID: "U9", Allowlisted: true}
 		for _, name := range all {
-			d := Authorize(binding, &kind, s, name, now, "")
+			d := Authorize(binding, &kind, s, name, now, Block{})
 			Expect(d.Allowed).To(BeFalse(), name)
 			Expect(d.Reason).NotTo(BeEmpty(), name)
 		}
@@ -191,40 +191,40 @@ var _ = Describe("Authorize for a listed sender", func() {
 		k.Permissions = []string{contract.CapMemoryWrite}
 		b := binding
 		b.Grants = []connectors.RoleGrant{{Role: "admin", Caps: []string{contract.CapMemoryWrite}}}
-		d := Authorize(b, &k, AccessSubject{SenderID: "U9", Allowlisted: true, Roles: []string{"admin"}}, contract.CapMemoryWrite, now, "")
+		d := Authorize(b, &k, AccessSubject{SenderID: "U9", Allowlisted: true, Roles: []string{"admin"}}, contract.CapMemoryWrite, now, Block{})
 		Expect(d.Via).To(Equal("role:admin"))
 	})
 	It("gives nothing to a sender who is not allowed", func() {
 		for _, name := range all {
-			Expect(Authorize(binding, &kind, AccessSubject{SenderID: "U1", Listed: true}, name, now, "").Allowed).To(BeFalse(), name)
+			Expect(Authorize(binding, &kind, AccessSubject{SenderID: "U1", Listed: true}, name, now, Block{}).Allowed).To(BeFalse(), name)
 		}
 	})
 	It("gives nothing to a listed sender with no ID", func() {
-		Expect(Authorize(binding, &kind, AccessSubject{Allowlisted: true, Listed: true}, contract.CapMemoryWrite, now, "").Allowed).To(BeFalse())
+		Expect(Authorize(binding, &kind, AccessSubject{Allowlisted: true, Listed: true}, contract.CapMemoryWrite, now, Block{}).Allowed).To(BeFalse())
 	})
 	It("keeps the ceiling: a capability the owner did not tick is denied", func() {
 		b := binding
 		b.Caps = []string{contract.CapMemoryWrite}
-		Expect(Authorize(b, &kind, listed, contract.CapMemoryWrite, now, "").Allowed).To(BeTrue())
-		d := Authorize(b, &kind, listed, contract.CapTriggersPropose, now, "")
+		Expect(Authorize(b, &kind, listed, contract.CapMemoryWrite, now, Block{}).Allowed).To(BeTrue())
+		d := Authorize(b, &kind, listed, contract.CapTriggersPropose, now, Block{})
 		Expect(d.Allowed).To(BeFalse())
 		Expect(d.Reason).To(Equal("the owner has not enabled triggers.propose for this bot"))
 	})
 	It("keeps the switches: an off switch denies with its reason", func() {
-		d := Authorize(binding, &kind, listed, contract.CapTriggersPropose, now, "triggers are off for this agent")
+		d := Authorize(binding, &kind, listed, contract.CapTriggersPropose, now, Block{Reason: "triggers are off for this agent"})
 		Expect(d.Allowed).To(BeFalse())
 		Expect(d.Reason).To(Equal("triggers are off for this agent"))
 	})
 	It("does not need the kind to be running", func() {
-		Expect(Authorize(binding, nil, listed, contract.CapTriggersPropose, now, "").Allowed).To(BeTrue())
+		Expect(Authorize(binding, nil, listed, contract.CapTriggersPropose, now, Block{}).Allowed).To(BeTrue())
 	})
 	It("gives nothing to a binding that holds credentials only", func() {
 		b := binding
 		b.AgentID = ""
-		Expect(Authorize(b, &kind, listed, contract.CapMemoryWrite, now, "").Allowed).To(BeFalse())
+		Expect(Authorize(b, &kind, listed, contract.CapMemoryWrite, now, Block{}).Allowed).To(BeFalse())
 	})
 	It("tells the owner what to do when a plain capability is not trusted", func() {
-		d := Authorize(binding, &kind, AccessSubject{SenderID: "U9", Allowlisted: true}, contract.CapTriggersPropose, now, "")
+		d := Authorize(binding, &kind, AccessSubject{SenderID: "U9", Allowlisted: true}, contract.CapTriggersPropose, now, Block{})
 		Expect(d.Reason).To(ContainSubstring("allowlist"))
 		Expect(d.Reason).To(ContainSubstring("paired"))
 	})

@@ -56,6 +56,7 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Entry("senders", http.MethodGet, "/api/chats/connectors/c1/senders"),
 		Entry("allow", http.MethodPost, "/api/chats/connectors/c1/senders/42/allow"),
 		Entry("access", http.MethodGet, "/api/chats/connectors/c1/access"),
+		Entry("access preview", http.MethodPost, "/api/chats/connectors/c1/access/preview"),
 		Entry("pairing", http.MethodPost, "/api/chats/connectors/c1/pairing"),
 		Entry("unpair", http.MethodDelete, "/api/chats/connectors/c1/paired/42"),
 	)
@@ -351,5 +352,51 @@ var _ = Describe("Chats connectors endpoints", func() {
 		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
 		Expect(decodeJSON(rec)).To(And(HaveKeyWithValue("binding", id), HaveKeyWithValue("subjects", Not(BeEmpty())), HaveKey("recent")))
 		Expect(s.do("bob", http.MethodGet, "/api/chats/connectors/"+id+"/access", nil).Code).To(Equal(http.StatusNotFound))
+
+		// The preview answers for a form that is not saved, with the first
+		// blocker as data, and never carries the token.
+		subject := func(v map[string]any, subj string) map[string]any {
+			for _, x := range v["subjects"].([]any) {
+				if m := x.(map[string]any); m["id"] == subj {
+					return m
+				}
+			}
+			Fail("no subject " + subj)
+			return nil
+		}
+		decision := func(v map[string]any, subj, capability string) map[string]any {
+			for _, x := range subject(v, subj)["decisions"].([]any) {
+				if m := x.(map[string]any); m["capability"] == capability {
+					return m
+				}
+			}
+			Fail("no capability " + capability)
+			return nil
+		}
+		preview := "/api/chats/connectors/" + id + "/access/preview"
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id+"/access", nil)
+		blocked := decision(decodeJSON(rec), "listed", "triggers.propose")
+		Expect(blocked).To(And(HaveKeyWithValue("allowed", false), HaveKeyWithValue("code", "connection_permission_off"),
+			HaveKeyWithValue("blocked_by", "connection"), HaveKey("message"), HaveKey("reason"),
+			HaveKeyWithValue("fix", HaveKeyWithValue("kind", "open_connection")), HaveKeyWithValue("then_check", ContainElement("sender"))))
+		rec = s.do("alice", http.MethodPost, preview, map[string]any{"caps": []string{"triggers.propose"}, "sender": "listed"})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		v := decodeJSON(rec)
+		Expect(v).To(HaveKeyWithValue("preview", true))
+		Expect(v["subjects"]).To(HaveLen(1))
+		allowed := decision(v, "listed", "triggers.propose")
+		Expect(allowed).To(And(HaveKeyWithValue("allowed", true), HaveKeyWithValue("via", "allowlist")))
+		Expect(allowed).NotTo(HaveKey("code"))
+		Expect(rec.Body.String()).NotTo(ContainSubstring(specToken))
+		// Nothing was saved.
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil)
+		Expect(decodeJSON(rec)).To(HaveKeyWithValue("caps", BeEmpty()))
+		Expect(s.do("alice", http.MethodPost, preview, map[string]any{"sender": "root"}).Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("alice", http.MethodPost, preview, "not json").Code).To(Equal(http.StatusBadRequest))
+		Expect(s.do("bob", http.MethodPost, preview, map[string]any{}).Code).To(Equal(http.StatusNotFound))
+		Expect(s.do("carol", http.MethodPost, preview, map[string]any{}).Code).To(Equal(http.StatusForbidden))
+		rec = s.do("alice", http.MethodPost, "/api/chats/connectors/new/access/preview", map[string]any{"kind": "telegram", "agent_id": ag, "caps": []string{"memory.write"}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decision(decodeJSON(rec), "listed", "memory.write")).To(HaveKeyWithValue("allowed", true))
 	})
 })

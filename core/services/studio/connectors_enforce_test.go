@@ -116,7 +116,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		ask("11", []string{"admin"}, "profile")
 		res = r.h.ResultsFor("propose_change")
 		Expect(res).To(HaveLen(2))
-		Expect(res[1].Err).To(MatchError(ContainSubstring("not permitted: profile.write needs a sender that the owner paired with this bot")))
+		Expect(res[1].Err).To(MatchError(ContainSubstring("not permitted: changing the agent's rules needs you to be paired with this bot by the owner")))
 		list, _ := r.svc.Changes().List(ctx, alice)
 		Expect(list).To(HaveLen(1), "the refused change made no proposal")
 	})
@@ -207,11 +207,11 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 	It("lets an extra switch turn a capability off for everyone", func() {
 		setup([]string{contract.CapMemoryWrite}, nil, "11")
 		off := true
-		r.conns.AddCapabilitySwitch(func(_ context.Context, _ connectors.Binding, c string) string {
+		r.conns.AddCapabilitySwitch(func(_ context.Context, _ connectors.Binding, c string) studio.Block {
 			if off && c == contract.CapMemoryWrite {
-				return "memory is switched off on this server"
+				return studio.Block{Code: studio.CodeServerSettingOff, Reason: "memory is switched off on this server"}
 			}
-			return ""
+			return studio.Block{}
 		})
 		ask("11", nil, "remember")
 		Expect(tools()).NotTo(ContainElement("propose_change"))

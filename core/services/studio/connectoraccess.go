@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,13 +49,30 @@ type Decision struct {
 	// Reason says why the capability was refused. It is safe to show to the
 	// sender and to the model.
 	Reason string `json:"reason,omitempty"`
+	// The fields below describe the first link of the chain that refused (see
+	// connectorreasons.go). They are empty for an allowed capability.
+	//
+	// Code is one of the Code constants; BlockedBy is the link (server,
+	// tools, agent, connection or sender); Message is one plain sentence for
+	// the owner; Fix points at the one place that solves it; ThenCheck lists
+	// the links after it that were not looked at.
+	Code      string   `json:"code,omitempty"`
+	BlockedBy string   `json:"blocked_by,omitempty"`
+	Message   string   `json:"message,omitempty"`
+	Fix       *Fix     `json:"fix,omitempty"`
+	ThenCheck []string `json:"then_check,omitempty"`
 }
 
 // Authorize decides whether the sender may use a capability on a binding. The
-// default is no. The capability must be in the closed list and in the ceiling
-// of the binding (Caps), the sender must be allowed to talk to the bot, and
-// then:
+// default is no. The links are checked in this order, and the first that
+// fails is the answer:
 //
+//   - the binding must have an agent and the capability must be on the closed
+//     list;
+//   - off: a switch that is off now (the server, the Tools switch of the
+//     agent, the grants of the agent);
+//   - the capability must be in the ceiling of the binding (Caps);
+//   - the sender must be allowed to talk to the bot, and then
 //   - a sensitive capability needs a pairing that has not ended; neither a
 //     role nor the allowlist counts;
 //   - any other capability is held by a pairing, by a sender who is on the
@@ -64,30 +82,36 @@ type Decision struct {
 //     (Permissions).
 //
 // kind is nil when the kind is not running: a role then counts for nothing.
-// off is the reason of a switch that is off now (a global setting or the
-// grants of the agent), or empty. Authorize reads nothing else and writes
-// nothing, so the whole matrix can be tested.
-func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubject, capability string, now time.Time, off string) Decision {
-	deny := func(format string, a ...any) Decision {
-		return Decision{Capability: capability, Reason: fmt.Sprintf(format, a...)}
+// off is the verdict of the switches (see Connectors.offReason); the zero
+// value means none is off. Authorize reads nothing else and writes nothing,
+// so the whole matrix can be tested.
+func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubject, capability string, now time.Time, off Block) Decision {
+	deny := func(code, format string, a ...any) Decision {
+		return refusal(b, capability, code, fmt.Sprintf(format, a...), nil)
 	}
 	switch {
 	case b.CredentialsOnly():
-		return deny("this connection has no agent: it holds credentials only")
+		return deny(CodeNoAgent, "this connection has no agent: it holds credentials only")
 	case !contract.KnownCapability(capability):
-		return deny("%q is not a capability", capability)
-	case !s.Allowlisted:
-		return deny("the sender is not on the allowlist")
+		d := deny(CodeUnknownCapability, "%q is not a capability", capability)
+		d.ThenCheck = nil
+		return d
+	case off.Off():
+		code := off.Code
+		if code == "" {
+			code = CodeServerSettingOff
+		}
+		return refusal(b, capability, code, off.Reason, off.Fix)
 	case !slices.Contains(b.Caps, capability):
-		return deny("the owner has not enabled %s for this bot", capability)
-	case off != "":
-		return deny("%s", off)
+		return deny(CodeConnectionPermissionOff, "the owner has not enabled %s for this bot", capability)
+	case !s.Allowlisted:
+		return deny(CodeSenderNotListed, "the sender is not on the allowlist")
 	}
 	if s.SenderID != "" && b.IsPaired(s.SenderID, now) {
 		return Decision{Capability: capability, Allowed: true, Via: "paired"}
 	}
 	if contract.SensitiveCapability(capability) {
-		return deny("%s needs a sender that the owner paired with this bot", capability)
+		return deny(CodeSenderNeedsPairing, "%s needs a sender that the owner paired with this bot", capability)
 	}
 	if s.Listed && s.SenderID != "" {
 		return Decision{Capability: capability, Allowed: true, Via: "allowlist"}
@@ -101,14 +125,57 @@ func Authorize(b connectors.Binding, kind *contract.ConnectorKind, s AccessSubje
 			}
 		}
 	}
-	return deny("%s needs a sender on this bot's allowlist, or one that the owner paired with this bot", capability)
+	reason := fmt.Sprintf("%s needs a sender on this bot's allowlist, or one that the owner paired with this bot", capability)
+	switch {
+	case len(s.Roles) > 0 && kind == nil:
+		return refusal(b, capability, CodeKindNotRunning, reason, nil)
+	case len(s.Roles) > 0:
+		return refusal(b, capability, CodeRoleNotGranted, reason, nil)
+	}
+	return refusal(b, capability, CodeChannelNotTrusted, reason, nil)
+}
+
+// refusal builds the Decision of a refused capability from its code: who holds
+// the link, the sentence for the owner, the fix and the links not looked at.
+// reason is the English sentence of the log. fix, when nil, is the usual one
+// for the code.
+func refusal(b connectors.Binding, capability, code, reason string, fix *Fix) Decision {
+	row := blockTable[code]
+	if fix == nil {
+		fix = defaultFix(b, capability, code)
+	}
+	return Decision{Capability: capability, Reason: reason, Code: code, BlockedBy: row.By,
+		Message: blockMessage(code, capability), Fix: fix, ThenCheck: thenCheck(row.By, capability)}
+}
+
+// defaultFix is the fix of the links that Authorize itself checks. The
+// switches name their own.
+func defaultFix(b connectors.Binding, capability, code string) *Fix {
+	switch code {
+	case CodeNoAgent:
+		return &Fix{Kind: FixOpenConnection, Target: "agent_id"}
+	case CodeConnectionPermissionOff:
+		return &Fix{Kind: FixOpenConnection, Target: "caps", Field: capability}
+	case CodeSenderNotListed, CodeChannelNotTrusted:
+		return &Fix{Kind: FixAddPerson, Target: "allow"}
+	case CodeSenderNeedsPairing:
+		return &Fix{Kind: FixPairSender, Target: "pairing"}
+	case CodeRoleNotGranted:
+		return &Fix{Kind: FixOpenConnection, Target: "grants", Field: capability}
+	case CodeAgentUnavailable, CodeAgentPermissionOff, CodeToolsSwitchOff:
+		if b.AgentID != "" {
+			return &Fix{Kind: FixOpenAgent, Target: b.AgentID, Field: capability}
+		}
+	}
+	return nil
 }
 
 // CapabilitySwitch is an extra switch in the chain of a capability: a global
-// setting, or the grants of the agent. It returns the reason when the
-// capability is off for the binding, or "" when it is on. It runs for every
-// check, so it must be cheap and must not block.
-type CapabilitySwitch func(ctx context.Context, b connectors.Binding, capability string) string
+// setting, the Tools switch of the agent, or the grants of the agent. It
+// returns the verdict when the capability is off for the binding, or the zero
+// Block when it is on. It runs for every check, so it must be cheap and must
+// not block.
+type CapabilitySwitch func(ctx context.Context, b connectors.Binding, capability string) Block
 
 // AddCapabilitySwitch adds a switch. The capability is off when any gate says so.
 func (c *Connectors) AddCapabilitySwitch(g CapabilitySwitch) {
@@ -117,16 +184,20 @@ func (c *Connectors) AddCapabilitySwitch(g CapabilitySwitch) {
 	c.gates = append(c.gates, g)
 }
 
-func (c *Connectors) offReason(ctx context.Context, b connectors.Binding, capability string) string {
+// offReason runs every switch and returns the refusal that stands first in the
+// chain (server, then Tools, then agent), so the answer does not depend on the
+// order in which the switches were added.
+func (c *Connectors) offReason(ctx context.Context, b connectors.Binding, capability string) Block {
 	c.gmu.Lock()
 	gates := slices.Clone(c.gates)
 	c.gmu.Unlock()
+	var first Block
 	for _, g := range gates {
-		if why := g(ctx, b, capability); why != "" {
-			return why
+		if why := g(ctx, b, capability); why.Off() && (!first.Off() || chainRank(why.Code) < chainRank(first.Code)) {
+			first = why
 		}
 	}
-	return ""
+	return first
 }
 
 // kindOf finds the running kind that serves a binding.
@@ -164,7 +235,7 @@ func (c *Connectors) Authorize(ctx context.Context, b connectors.Binding, m cont
 	if d.Allowed {
 		for _, f := range check {
 			if why := f(); why != "" {
-				d = Decision{Capability: capability, Reason: why}
+				d = refusal(b, capability, CodeContextRule, why, nil)
 				break
 			}
 		}
@@ -180,12 +251,16 @@ func (c *Connectors) Authorize(ctx context.Context, b connectors.Binding, m cont
 func (c *Connectors) CeilingAllows(ctx context.Context, b connectors.Binding, capability string) Decision {
 	switch {
 	case !contract.KnownCapability(capability):
-		return Decision{Capability: capability, Reason: "not a capability"}
+		return refusal(b, capability, CodeUnknownCapability, "not a capability", nil)
 	case !slices.Contains(b.Caps, capability):
-		return Decision{Capability: capability, Reason: "not enabled for this bot"}
+		return refusal(b, capability, CodeConnectionPermissionOff, "not enabled for this bot", nil)
 	}
-	if why := c.offReason(ctx, b, capability); why != "" {
-		return Decision{Capability: capability, Reason: why}
+	if off := c.offReason(ctx, b, capability); off.Off() {
+		code := off.Code
+		if code == "" {
+			code = CodeServerSettingOff
+		}
+		return refusal(b, capability, code, off.Reason, off.Fix)
 	}
 	return Decision{Capability: capability, Allowed: true, Via: "binding"}
 }
@@ -259,7 +334,9 @@ func (c *Connectors) grantFor(ctx context.Context, b connectors.Binding, m contr
 			if g.Denied == nil {
 				g.Denied = map[string]string{}
 			}
-			g.Denied[name] = d.Reason
+			// The model and the person read this, so it is the plain
+			// sentence of the code, not the English line of the log.
+			g.Denied[name] = d.Say()
 		}
 	}
 	return g
@@ -301,6 +378,8 @@ type AccessEvent struct {
 	Allowed    bool      `json:"allowed"`
 	Via        string    `json:"via,omitempty"`
 	Reason     string    `json:"reason,omitempty"`
+	// Code is the code of the refusal (see connectorreasons.go).
+	Code string `json:"code,omitempty"`
 	// The fields below are set by a message the host wrote on its own (see
 	// Connectors.Send). They hold where, how long and a hash of the text, and
 	// never the text.
@@ -360,7 +439,7 @@ func (a *accessState) get(chat string) (turnGrant, bool) {
 
 func (a *accessState) record(now time.Time, b connectors.Binding, senders, roles []string, d Decision) {
 	e := AccessEvent{At: now.UTC(), Binding: b.ID, Kind: b.Kind, Senders: senders, Roles: roles,
-		Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason}
+		Capability: d.Capability, Allowed: d.Allowed, Via: d.Via, Reason: d.Reason, Code: d.Code}
 	a.append(e)
 }
 
@@ -403,7 +482,7 @@ func (s *Service) turnAllow(chat string) (allow func(string) (bool, string), aud
 		if why := g.Denied[capability]; why != "" {
 			return false, why
 		}
-		return false, "the owner has not allowed " + capability + " for the sender of this message"
+		return false, BlockSay(CodeConnectionPermissionOff, capability)
 	}
 	audit = func(capability string, ok bool, reason string) {
 		g, _ := s.access.get(chat)
@@ -433,17 +512,115 @@ type AccessView struct {
 	Binding  string              `json:"binding"`
 	Subjects []AccessSubjectView `json:"subjects"`
 	Recent   []AccessEvent       `json:"recent"`
+	// Preview is true when the view describes a draft that is not saved.
+	Preview bool `json:"preview,omitempty"`
 }
 
-// Access explains what each kind of sender may do on a binding of the user,
-// by running Authorize for a sender with no role, a paired sender and a sender
-// of each role the kind declares. Nothing in it is a guess: it is the same
-// function the turns use.
+// Access explains what each kind of sender may do on a binding, by running
+// Authorize for a sender with no role, a paired sender and a sender of each
+// role the kind declares. Nothing in it is a guess: it is the same function
+// the turns use.
 func (c *Connectors) Access(ctx context.Context, user, id string) (AccessView, error) {
 	b, err := c.owned(ctx, user, id)
 	if err != nil {
 		return AccessView{}, err
 	}
+	out := c.accessOf(ctx, b, "")
+	out.Recent = c.svc.access.recent(b.ID, 50)
+	return out, nil
+}
+
+// The kinds of sender that a preview can ask for. SenderChannelMember and
+// SenderAnyone both mean a sender let in without being on the list by name;
+// the answer lists it as "anyone".
+const (
+	SenderListed        = "listed"
+	SenderPaired        = "paired"
+	SenderChannelMember = "channel_member"
+	SenderAnyone        = "anyone"
+	SenderRolePrefix    = "role:"
+)
+
+// AccessDraft is the state of a connection as the form holds it, before it is
+// saved. A field that is nil (or an empty Kind) keeps what is saved. Only the
+// fields that the permission chain reads are here. There is no token: a
+// preview never takes one, and never returns one.
+type AccessDraft struct {
+	// Kind is read only for a connection that is not saved yet (the id "new").
+	Kind      string
+	AgentID   *string
+	AcceptAny *bool
+	Allow     []string
+	Caps      []string
+	Grants    []connectors.RoleGrant
+	// Sender, when set, limits the answer to one kind of sender: "listed",
+	// "paired", "channel_member", "anyone" or "role:<id>".
+	Sender string
+}
+
+// ErrBadSender means a preview asked for a kind of sender that does not exist.
+var ErrBadSender = fmt.Errorf("%w: sender must be listed, paired, channel_member, anyone or role:<id>", connectors.ErrInvalid)
+
+// NewConnectionID is the id under which a preview describes a connection that
+// is not saved yet.
+const NewConnectionID = "new"
+
+// AccessPreview answers like Access for the state in the draft, which is not
+// saved. It writes nothing, records no decision and returns nothing from the
+// token: the binding's stored secrets are not read. The chain is the one the
+// turns use, run on the draft.
+func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d AccessDraft) (AccessView, error) {
+	var b connectors.Binding
+	if id == NewConnectionID {
+		if d.Kind == "" {
+			return AccessView{}, connectorBad("a connection that is not saved needs a kind")
+		}
+		addon, err := c.resolveAddon(ctx, d.Kind)
+		if err != nil {
+			return AccessView{}, err
+		}
+		b = connectors.Binding{ID: NewConnectionID, Owner: principal(user), Kind: d.Kind, AddonID: addon}
+	} else {
+		var err error
+		if b, err = c.owned(ctx, user, id); err != nil {
+			return AccessView{}, err
+		}
+	}
+	b.Token = nil // the preview never needs it, so it never holds it
+	if d.AgentID != nil {
+		b.AgentID = *d.AgentID
+	}
+	if d.AcceptAny != nil {
+		b.AcceptAny = *d.AcceptAny
+	}
+	if d.Allow != nil {
+		b.Allow = slices.Clone(d.Allow)
+	}
+	if d.Caps != nil {
+		b.Caps = slices.Clone(d.Caps)
+	}
+	if d.Grants != nil {
+		b.Grants = slices.Clone(d.Grants)
+	}
+	switch s := d.Sender; {
+	case s == "", s == SenderListed, s == SenderPaired, s == SenderChannelMember, s == SenderAnyone:
+	case strings.HasPrefix(s, SenderRolePrefix):
+		kind := c.kindOf(ctx, b)
+		if kind == nil || !slices.ContainsFunc(kind.Roles, func(r contract.ConnectorRole) bool { return SenderRolePrefix+r.ID == s }) {
+			return AccessView{}, ErrBadSender
+		}
+	default:
+		return AccessView{}, ErrBadSender
+	}
+	out := c.accessOf(ctx, b, d.Sender)
+	out.Preview = true
+	return out, nil
+}
+
+// accessOf runs the chain for each kind of sender of a binding, or for the one
+// kind asked for. It is the one computation behind the saved view and the
+// preview.
+func (c *Connectors) accessOf(ctx context.Context, b connectors.Binding, only string) AccessView {
 	kind := c.kindOf(ctx, b)
 	now := c.o.Clock()
 	view := func(id, title string, bind connectors.Binding, s AccessSubject) AccessSubjectView {
@@ -453,19 +630,32 @@ func (c *Connectors) Access(ctx context.Context, user, id string) (AccessView, e
 		}
 		return v
 	}
+	want := func(id string) bool {
+		if only == SenderChannelMember {
+			only = SenderAnyone
+		}
+		return only == "" || only == id
+	}
 	out := AccessView{Binding: b.ID}
-	out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
-	out.Subjects = append(out.Subjects, view("anyone", "A sender let in through a listed channel", b, AccessSubject{SenderID: "x", Allowlisted: true}))
-	paired := b
-	paired.Paired = []connectors.PairedSender{{SenderID: "paired", At: now}}
-	out.Subjects = append(out.Subjects, view("paired", "A paired sender", paired, AccessSubject{SenderID: "paired", Allowlisted: true}))
+	if want("listed") {
+		out.Subjects = append(out.Subjects, view("listed", "A sender on the allowlist", b, AccessSubject{SenderID: "x", Allowlisted: true, Listed: true}))
+	}
+	if want("anyone") {
+		out.Subjects = append(out.Subjects, view("anyone", "A sender let in through a listed channel", b, AccessSubject{SenderID: "x", Allowlisted: true}))
+	}
+	if want("paired") {
+		paired := b
+		paired.Paired = []connectors.PairedSender{{SenderID: "paired", At: now}}
+		out.Subjects = append(out.Subjects, view("paired", "A paired sender", paired, AccessSubject{SenderID: "paired", Allowlisted: true}))
+	}
 	if kind != nil {
 		for _, r := range kind.Roles {
-			out.Subjects = append(out.Subjects, view("role:"+r.ID, r.Title, b, AccessSubject{SenderID: "x", Allowlisted: true, Roles: []string{r.ID}}))
+			if want("role:" + r.ID) {
+				out.Subjects = append(out.Subjects, view("role:"+r.ID, r.Title, b, AccessSubject{SenderID: "x", Allowlisted: true, Roles: []string{r.ID}}))
+			}
 		}
 	}
-	out.Recent = c.svc.access.recent(b.ID, 50)
-	return out, nil
+	return out
 }
 
 // CapabilityGate returns the gate that answers the questions of the features

@@ -6,26 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
-
-// capabilityWords says a capability in the words a person uses, for the note
-// that the model reads. The reasons of Authorize name the capability; the model
-// should not repeat a key that the person never saw.
-var capabilityWords = map[string]string{
-	contract.CapProposalsConfirm: "confirming proposals",
-	contract.CapMemoryWrite:      "saving to memory",
-	contract.CapFilesUpload:      "receiving files",
-	contract.CapTriggersPropose:  "reminders and scheduled tasks",
-	contract.CapTriggersRun:      "running scheduled tasks",
-	contract.CapTalkbackChannels: "writing to other channels",
-	contract.CapTalkbackNewChan:  "starting conversations in new channels",
-	contract.CapProfileWrite:     "changing the agent's rules",
-	contract.CapSkillsWrite:      "saving skills",
-	contract.CapPagesWrite:       "publishing pages",
-	contract.CapDashboardWrite:   "changing the dashboard",
-	contract.CapToolsWrite:       "changes made by add-on tools",
-}
 
 // The note is cut at 400 characters by the session, so it names the reasons
 // and not every tool, stays short, and goes first in the note of the turn.

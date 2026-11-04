@@ -655,8 +655,85 @@ To see the result, call `GET /api/chats/connectors/<id>/access`. It runs the sam
 for a sender on the allowlist by ID or name (`listed`), a sender let in through a
 listed channel (`anyone`), a paired sender and a sender of each role the kind
 declares, and lists the latest decisions this server made (sender IDs, roles,
-capability and result, never message text or codes). An add-on settings page can show
+capability and result, never message text). An add-on settings page can show
 it.
+
+### Why a capability is blocked
+
+Every capability in the access view says `allowed`. A refused one also says why, as data
+a page can turn into a sentence and a link, in the first place the check failed:
+
+```json
+{
+  "capability": "triggers.propose",
+  "allowed": false,
+  "reason": "the owner has not enabled triggers.propose for this bot",
+  "code": "connection_permission_off",
+  "blocked_by": "connection",
+  "message": "This connection does not allow reminders and scheduled tasks.",
+  "fix": {"kind": "open_connection", "target": "caps", "field": "triggers.propose"},
+  "then_check": ["sender", "approval"]
+}
+```
+
+An allowed capability has `allowed: true` and `via` (`paired`, `allowlist` or
+`role:<id>`) and none of the other fields. `reason` stays the English line for logs.
+
+The check goes through these links in order and reports the first that fails:
+
+1. `server`: an administrator turned the feature off for the whole server.
+2. `tools`: the Tools switch of the agent has the tool group off.
+3. `agent`: the agent has not been given the permission.
+4. `connection`: the permission is not ticked on this connection (or it has no agent).
+5. `sender`: the person is not trusted for it (not on the list, needs a pairing, got in
+   through a channel, or has a role without the grant).
+
+`then_check` lists the links after the failed one that were not looked at, so more
+problems may follow. For `triggers.propose` it ends with `approval`: the approval mode
+shapes the result and never blocks.
+
+| `code` | `blocked_by` | Meaning | `fix.kind` |
+|---|---|---|---|
+| `server_setting_off` | `server` | The feature is off for the server. `fix.target` is the setting key, `disable_triggers` or `disable_connector_talkback`. | `open_server_setting` |
+| `tools_switch_off` | `tools` | The Tools switch of the agent is off. `fix.field` is `tools:<group>`. | `open_agent` |
+| `agent_permission_off` | `agent` | The agent lacks the permission. `fix.field` is the permission. | `open_agent` |
+| `agent_unavailable` | `agent` | The agent cannot be read. | `open_agent` |
+| `no_agent` | `connection` | The connection has no agent. `fix.target` is `agent_id`. | `open_connection` |
+| `connection_permission_off` | `connection` | The permission is not ticked. `fix.target` is `caps`. | `open_connection` |
+| `sender_not_listed` | `sender` | The sender is not let in. | `add_person` |
+| `sender_needs_pairing` | `sender` | A sensitive permission needs a pairing. | `pair_sender` |
+| `channel_not_trusted` | `sender` | The sender got in through a channel or because the bot accepts anyone. | `add_person` |
+| `role_not_granted` | `sender` | The role of the sender has no grant. `fix.target` is `grants`. | `open_connection` |
+| `kind_not_running` | `sender` | The app of the connection is not running, so roles are unknown. | none |
+| `context_rule` | `connection` | Held, but not in this place or thread. | none |
+| `unknown_capability` | `server` | Not a capability. | none |
+
+The server sends no URL. A page maps `fix.kind` and `fix.target` to its own links. The
+set of codes is closed, and the recent decisions carry `code` too.
+
+The same codes feed the words a sender and the model get when a tool is held back. The
+note for the model and the tool error use one plain sentence per code ("the owner has
+not allowed reminders and scheduled tasks for this bot"), with no setting names, host
+names or error codes. The host never posts it to a channel on its own.
+
+### Preview before saving
+
+`POST /api/chats/connectors/<id>/access/preview` answers like the access view for a form
+that is not saved. The body has the fields that the check reads, with the names of the
+update call: `agent_id`, `accept_any`, `allow`, `caps` and `grants`. A field that is
+absent keeps the saved value; an empty list clears it. `sender` limits the answer to one
+kind of sender: `listed`, `paired`, `channel_member` (or `anyone`), or `role:<id>`;
+an unknown value is a 400. Use the id `new` with a `kind` for a connection that is not
+saved yet. The reply has the shape of the access view, with `preview: true` and no recent
+decisions.
+
+```json
+{"caps": ["memory.write", "triggers.propose"], "sender": "listed"}
+```
+
+The preview writes nothing and records no decision. It does not take a token and the
+reply never has one. It uses the same sign-in, Connectors feature and routing as the
+other connector routes, and the connection of another user is a 404.
 
 ## Triggers from a connector chat
 

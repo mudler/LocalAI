@@ -149,6 +149,7 @@ var RouteFeatureRegistry = []RouteFeature{
 	{"GET", "/api/chats/connectors/:id/senders", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/senders/:sender/allow", FeatureConnectors},
 	{"GET", "/api/chats/connectors/:id/access", FeatureConnectors},
+	{"POST", "/api/chats/connectors/:id/access/preview", FeatureConnectors},
 	{"POST", "/api/chats/connectors/:id/pairing", FeatureConnectors},
 	{"DELETE", "/api/chats/connectors/:id/paired/:sender", FeatureConnectors},
 	{"GET", "/api/chats/mcp-connectors", FeatureChats},
