@@ -87,9 +87,11 @@ const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'co
  * @param {Function} [props.extraValid] whether they allow saving: (form) => boolean
  * @param {Function} [props.testExtra] more checks after the Test button: async (binding, t) => string
  * @param {Function} [props.RowInfo]   a line under a binding in the list ({ c, t })
+ * @param {boolean} [props.canAdd]     false for a kind whose connections are made elsewhere (a login on the
+ *                                     Connectors page): the page then edits the saved ones and has no New button
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
-  messaging = true, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
+  messaging = true, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo, canAdd = true }) {
   const { t } = useTranslation([ns, 'connector'])
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
@@ -233,9 +235,11 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
-        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open({ ...emptyConnector(), ...(extraForm ? extraForm({}) : {}) })}>
-          <Icon name="plus" /> {t('new')}
-        </button>
+        {canAdd && (
+          <button type="button" className="dk-btn dk-btn--primary" onClick={() => open({ ...emptyConnector(), ...(extraForm ? extraForm({}) : {}) })}>
+            <Icon name="plus" /> {t('new')}
+          </button>
+        )}
       </header>
       <p className="cn-muted">{t('intro')}</p>
       {Help && <Help t={t} />}
