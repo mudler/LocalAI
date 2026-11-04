@@ -18,7 +18,7 @@ import (
 var _ = Describe("Host requirements carrier", func() {
 	It("preserves bounded owner admission refusals over mTLS without frontend grants", func() {
 		actor := contract.Actor{UserID: "admin", CredentialID: "key:admin", Mode: "named-user"}
-		raw := `{"schemaVersion":1,"id":"sample","version":"1.2.3","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"hostOperations":{"required":["workspace.materialize"]}}}`
+		raw := `{"schemaVersion":1,"id":"sample","version":"1.2.3","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"hostOperations":{"required":["workspace.materialize"]}}}`
 		m := ownerManagerPackage(actor, false, raw, nil, 1, map[string][]string{})
 		owner := &Gateway{Manager: m, Revalidate: func(context.Context, contract.Actor) error { return nil }}
 		_, cs := carrierFixture(func(c *Carrier) http.Handler {

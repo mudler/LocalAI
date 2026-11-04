@@ -80,7 +80,7 @@ not depend on the bot checks of the engines. When an administrator sets
 keyless engines (`searxng,duckduckgo,brave_html`) to fall back to them when
 SearXNG does not answer. The instance must allow the JSON format: add `json`
 to `search.formats` in its `settings.yml`. The [Web add-on](#the-web-add-on)
-adds providers with a key (Brave Search API, Tavily, Google).
+adds providers with a key (Brave Search API, Tavily, Google) and Keenable, which also works without one.
 
 **Privacy.** The query of each search goes to the engine that answers it, and
 to each engine before it that failed. The engines see the address of the
@@ -228,7 +228,8 @@ The Web add-on is an optional add-on of the official library (`web`). It replace
 `web_search` and `web_fetch` while it is installed, running and on for the chat. It adds:
 
 - search providers that need a key: Brave Search, Tavily and Google Programmable Search,
-  next to SearXNG and the keyless pages of the built-in tool;
+  and Keenable, which takes a key but also works without one, next to SearXNG and the
+  keyless pages of the built-in tool;
 - an order of providers: when one fails (it refuses the key, its key reached its limit, it
   is down or does not answer in 8 seconds), the next one is tried;
 - the text of PDF files in `web_fetch`.
@@ -245,7 +246,7 @@ Settings > Tools, with the same choice, and those rows on Settings > Tools link 
 ### Providers
 
 An administrator sets the providers on the **Settings** tab of the Web add-on's details
-on the Add-ons page (the Web page links to it). The tab lists the five providers in the
+on the Add-ons page (the Web page links to it). The tab lists the six providers in the
 order they are tried; a switch takes a provider in or out of the order, and Up and Down
 move it. A provider without what it needs is
 skipped.
@@ -255,6 +256,7 @@ skipped.
 | Brave Search | An API key of the Brave Search API | `X-Subscription-Token` header |
 | Tavily | An API key | `Authorization: Bearer` header |
 | Google Programmable Search | An API key of the Custom Search JSON API and the search engine ID (`cx`) | `X-Goog-Api-Key` header |
+| Keenable | Nothing, or an optional API key | `X-API-Key` header with a key; without one, the `X-Keenable-Title` header names LocalAI |
 | SearXNG | The address of your instance (it must allow the JSON format) | no key |
 | Search without a key | nothing | no key |
 
@@ -263,6 +265,9 @@ DuckDuckGo, then Brave Search, then Bing, with the same cool-down (an engine tha
 with a bot check or refuses this server is skipped for 5 minutes). Its saved name in the
 order is `duckduckgo`. The default order is Brave Search, Tavily, Google, SearXNG, Search
 without a key, so with no key set the add-on searches like the built-in tool does.
+Keenable is not in the default order: an administrator adds it. Without a key it uses the
+keyless Keenable endpoint, which Keenable limits per IP address, and your queries go to
+Keenable.
 Installing the add-on only to read PDF files does not make search worse. Take Search
 without a key out of the order to never use the keyless pages.
 

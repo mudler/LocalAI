@@ -15,12 +15,16 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
+
+// sandboxExecution is how the Sandbox add-on declares its commands tool.
+var sandboxExecution = &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Sandbox", Note: sandbox.GuestToolsNote}
 
 // runAddon is the Sandbox add-on as the broker lists it: bash runs commands.
 func runAddon() []studio.AddonTool {
 	bash := addonTool("sandbox", "bash")
-	bash.Action, bash.Shadows = true, "bash"
+	bash.Action, bash.Shadows, bash.Execution = true, "bash", sandboxExecution
 	read := addonTool("sandbox", "read")
 	read.Action = true
 	return []studio.AddonTool{bash, read}
@@ -76,7 +80,7 @@ var _ = Describe("capabilities", func() {
 		Expect(prompt).To(ContainSubstring("do not ask a sub-agent to run it"))
 		Expect(prompt).To(ContainSubstring("write the output directly with write_file"))
 		Expect(prompt).To(ContainSubstring("give the user the script to run"))
-		Expect(prompt).To(ContainSubstring("an administrator can enable running code by installing the Sandbox add-on"))
+		Expect(prompt).To(ContainSubstring("an administrator can enable running code by installing an add-on that runs commands"))
 		Expect(prompt).To(ContainSubstring("A skill marked unavailable here needs this"))
 		Expect(prompt).To(ContainSubstring("- xlsx: Work with xlsx files. (unavailable here: needs command execution)"))
 		Expect(prompt).NotTo(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"), "an unavailable skill must not give the path to start it")
@@ -106,14 +110,14 @@ var _ = Describe("capabilities", func() {
 		id := create(svc, alice)
 		prompt := turnPrompt(svc, h, id)
 
-		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated sandbox."))
+		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated environment (Sandbox)."))
 		Expect(prompt).To(ContainSubstring(sandbox.GuestToolsNote), "the isolated sandbox lists its programs")
-		Expect(prompt).To(ContainSubstring("Skill folders are not visible in the Sandbox: load skills with load_skill."))
+		Expect(prompt).To(ContainSubstring("Skill folders are not visible in the isolated environment: load skills with load_skill."))
 		Expect(prompt).NotTo(ContainSubstring("nothing in this chat runs code"))
 		Expect(prompt).To(ContainSubstring("\n- xlsx: "))
 		Expect(prompt).NotTo(ContainSubstring("/workspace/shared-skills/xlsx/SKILL.md"), "the index names no path")
 		Expect(prompt).NotTo(ContainSubstring("unavailable here"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox"}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "sandbox", Provider: "sandbox", Title: "Sandbox", Note: sandbox.GuestToolsNote}))
 	})
 
 	It("warns when commands run on the server with no isolation", func() {
@@ -133,7 +137,7 @@ var _ = Describe("capabilities", func() {
 		prompt := turnPrompt(svc, h, id)
 		Expect(prompt).To(ContainSubstring("nothing in this chat runs code or commands"))
 		Expect(prompt).To(ContainSubstring("they can switch the Sandbox add-on on in the Tools menu of this chat"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsOff, Addon: "sandbox"}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsOff, Addon: "sandbox", Title: "Sandbox"}))
 	})
 
 	It("says the Sandbox cannot run when no backend works", func() {
@@ -143,7 +147,7 @@ var _ = Describe("capabilities", func() {
 		id := create(svc, alice)
 		prompt := turnPrompt(svc, h, id)
 		Expect(prompt).To(ContainSubstring("the Sandbox add-on cannot run commands on this server"))
-		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsUnavailable, Reason: "no sandbox backend works on this host", Addon: "sandbox"}))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsUnavailable, Reason: "no sandbox backend works on this host", Addon: "sandbox", Title: "Sandbox"}))
 	})
 
 	It("does not call the add-on off for a user who cannot use it", func() {
@@ -276,5 +280,122 @@ var _ = Describe("execution presentation DTO", func() {
 				Expect(c.ExecutionStatus.Readiness).To(Equal("unknown"))
 			}
 		}
+	})
+})
+
+var _ = Describe("the execution status of a chat that does not exist yet", func() {
+	It("says the chat is a draft, not that the add-on is not selected", func() {
+		broker := presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.ExecutionStatus).NotTo(BeNil())
+		Expect(c.ExecutionStatus.UnknownReason).To(Equal("draft"))
+	})
+})
+
+// observingAddons reads the execution status in Unavailable, as the real
+// gateway does, so a call outside an execution scope trips the guard.
+type observingAddons struct{ presentationAddons }
+
+func (b observingAddons) Unavailable(ctx context.Context, user, addon string, _ bool) string {
+	studio.ExecutionObservation(ctx, user, addon)
+	return ""
+}
+
+var _ = Describe("the commands state of a draft with switches", func() {
+	broker := func() presentationAddons {
+		return presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}
+	}
+	It("is not switched off without switches", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.State).NotTo(Equal(studio.CommandsSwitchedOff))
+	})
+	It("is switched off when the draft switched the shell group off", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		_, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{BuiltinsOff: []string{"shell"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(c.State).To(Equal(studio.CommandsSwitchedOff))
+	})
+	It("lists an add-on the draft switched off as off, and says the commands are off", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		list, c, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{AddonsOff: []string{"sandbox"}})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).NotTo(BeEmpty())
+		for _, a := range list {
+			Expect(a.Off).To(BeTrue(), a.ID)
+		}
+		Expect(c.State).To(Equal(studio.CommandsOff))
+	})
+	It("refuses a group that does not exist", func() {
+		svc, _, _ := newCapsChat(broker(), nil)
+		_, _, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{BuiltinsOff: []string{"nope"}})
+		Expect(err).To(MatchError(studio.ErrBadBuiltinGroup))
+	})
+})
+
+var _ = Describe("the draft lists of a chat that does not exist yet", func() {
+	// The scopeless guard of this suite fails the spec when a draft path reads
+	// the execution status outside an execution scope.
+	It("reads the add-on status inside a scope for the tools list", func() {
+		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, err := svc.DraftTools(context.Background(), alice, "m", "")
+		Expect(err).NotTo(HaveOccurred())
+	})
+	It("reads the add-on status inside a scope for the tools of a stored chat", func() {
+		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, err := svc.Tools(context.Background(), alice, create(svc, alice))
+		Expect(err).NotTo(HaveOccurred())
+	})
+	It("reads the add-on status inside a scope for the add-on list", func() {
+		broker := observingAddons{presentationAddons{fakeAddons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: runAddon()}}, bound: true}}
+		svc, _, _ := newCapsChat(broker, nil)
+		_, _, err := svc.DraftAddons(context.Background(), alice, "m", "", studio.Switches{})
+		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("a second provider of commands", func() {
+	runbox := func() []studio.AddonTool {
+		bash := addonTool("runbox", "bash")
+		bash.Action, bash.Shadows = true, "bash"
+		bash.Execution = &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Runbox", Note: "Runbox has python3 and jq."}
+		return []studio.AddonTool{bash}
+	}
+	It("is described by the title and the note it declares, not by a name known to the host", func() {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: runbox()}}
+		svc, h, _ := newCapsChat(isolatedAddons{fakeAddons: fa, mode: "isolated"}, nil)
+		id := create(svc, alice)
+		prompt := turnPrompt(svc, h, id)
+		Expect(prompt).To(ContainSubstring("Commands: bash runs commands and code in an isolated environment (Runbox)."))
+		Expect(prompt).To(ContainSubstring("Runbox has python3 and jq."))
+		Expect(prompt).NotTo(ContainSubstring("Sandbox"))
+		Expect(svc.CommandRunner(context.Background(), alice, id)).To(Equal(studio.Commands{State: studio.CommandsAvailable, Tool: "bash", Isolation: "isolated", Addon: "runbox", Provider: "runbox", Title: "Runbox", Note: "Runbox has python3 and jq."}))
+	})
+	It("is named when the chat switched it off and when it cannot run", func() {
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: runbox()}}
+		svc, h, _ := newCapsChat(fa, nil)
+		id := create(svc, alice)
+		Expect(svc.SetAddonsOff(context.Background(), alice, id, []string{"runbox"})).To(Succeed())
+		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("they can switch the Runbox add-on on in the Tools menu of this chat"))
+
+		gate := gatedAddons{fakeAddons: fa, reasons: map[string]string{"runbox": "no backend works"}}
+		svc, h, _ = newCapsChat(gate, nil)
+		id = create(svc, alice)
+		prompt := turnPrompt(svc, h, id)
+		Expect(prompt).To(ContainSubstring("the Runbox add-on cannot run commands on this server"))
+		Expect(prompt).NotTo(ContainSubstring("Sandbox"))
+	})
+	It("behaves as an unnamed provider when its manifest declares no descriptor", func() {
+		bash := addonTool("runbox", "bash")
+		bash.Action, bash.Shadows = true, "bash"
+		fa := &fakeAddons{tools: map[string][]studio.AddonTool{alice: {bash}}}
+		svc, h, _ := newCapsChat(isolatedAddons{fakeAddons: fa, mode: ""}, nil)
+		id := create(svc, alice)
+		Expect(turnPrompt(svc, h, id)).To(ContainSubstring("Commands: bash runs commands and code."))
 	})
 })

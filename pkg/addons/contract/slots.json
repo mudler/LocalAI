@@ -1,0 +1,6 @@
+[
+  {"name": "xlsx", "kind": "documents", "extensions": [".xlsx"], "words": ["xlsx", "excel"], "library": "openpyxl"},
+  {"name": "docx", "kind": "documents", "extensions": [".docx"], "words": ["docx", "word"], "library": "python-docx"},
+  {"name": "pptx", "kind": "documents", "extensions": [".pptx"], "words": ["pptx", "powerpoint"], "library": "python-pptx"},
+  {"name": "pdf", "kind": "documents", "extensions": [".pdf"], "words": ["pdf"], "library": "pypdf"}
+]

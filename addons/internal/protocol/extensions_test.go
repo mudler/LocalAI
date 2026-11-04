@@ -35,7 +35,7 @@ var _ = Describe("typed declaration echo", func() {
 				caps.HostOperations = &contract.HostOperations{Required: []string{"workspace.materialize"}, Optional: []string{"egress.check"}}
 			}
 			v := contract.VersionRange{Min: 1, Max: 1}
-			manifest := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "bin/sample", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: caps}
+			manifest := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "bin/sample", OS: "linux", Arch: "amd64", Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: caps}
 			b, e := json.Marshal(manifest)
 			Expect(e).NotTo(HaveOccurred())
 			parsed, e := contract.ParseManifest(b)

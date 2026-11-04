@@ -196,3 +196,55 @@ var _ = Describe("Trigger types", func() {
 		}
 	})
 })
+
+var _ = Describe("Route", func() {
+	It("reads the empty value as the Inbox, always", func() {
+		var r Route
+		Expect(r.TargetOrDefault()).To(Equal(TargetInbox))
+		Expect(r.ModeOrDefault()).To(Equal(ModeAlways))
+		Expect(r.FromConnector()).To(BeFalse())
+		Expect(r.Validate()).To(Succeed())
+	})
+	It("lets a run report to the origin only when a connector chat proposed it", func() {
+		Expect(Route{Target: TargetOrigin}.Validate()).NotTo(Succeed())
+		Expect(Route{Binding: "b", Chat: "C", Target: TargetOrigin, Mode: ModeOnProblem}.Validate()).To(Succeed())
+		Expect(Route{Target: "elsewhere"}.Validate()).NotTo(Succeed())
+		Expect(Route{Mode: "sometimes"}.Validate()).NotTo(Succeed())
+	})
+	It("expires a waiting proposal that has a time, and no other", func() {
+		now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+		p := Trigger{Proposed: true, Route: Route{Expires: now.Add(time.Hour)}}
+		Expect(p.Expired(now)).To(BeFalse())
+		Expect(p.Expired(now.Add(time.Hour))).To(BeTrue())
+		p.Outcome = OutcomeDeclined
+		Expect(p.Expired(now.Add(2*time.Hour))).To(BeFalse(), "an answered proposal does not expire")
+		Expect(Trigger{Proposed: true}.Expired(now.Add(1000*time.Hour))).To(BeFalse(), "a proposal without a time never does")
+	})
+})
+
+var _ = Describe("a one-off trigger", func() {
+	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	once := func(text, tz string) Trigger {
+		t := goodSchedule()
+		t.Schedule, t.TZ = text, tz
+		return t
+	}
+	It("tells its time in its own zone", func() {
+		at, ok := once("once 2026-11-03 18:00", "Europe/Rome").OnceAt()
+		Expect(ok).To(BeTrue())
+		Expect(at.UTC()).To(Equal(time.Date(2026, 11, 3, 17, 0, 0, 0, time.UTC)))
+		Expect(once("once 2026-11-03 18:00", "").OneOff()).To(BeTrue())
+	})
+	It("is not a recurring schedule or a file trigger", func() {
+		Expect(goodSchedule().OneOff()).To(BeFalse())
+		Expect(goodFile().OneOff()).To(BeFalse())
+		Expect(once("not a schedule", "").OneOff()).To(BeFalse())
+	})
+	It("expires as a proposal once its time has passed, though its 24 hours have not", func() {
+		p := once("once 2026-11-03 12:30", "")
+		p.Proposed, p.Route.Expires = true, now.Add(24*time.Hour)
+		Expect(p.Expired(now)).To(BeFalse())
+		Expect(p.Expired(now.Add(30 * time.Minute))).To(BeTrue())
+		Expect(p.Expired(now.Add(31 * time.Minute))).To(BeTrue())
+	})
+})

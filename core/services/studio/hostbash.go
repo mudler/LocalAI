@@ -86,6 +86,10 @@ func (s *Service) hostExecMode() string {
 	return hostexec.ModeOff
 }
 
+// HostExecMode is the mode of chats_host_exec as it applies now: off, ask or
+// on. A server with no such setting reads as off.
+func (s *Service) HostExecMode() string { return s.hostExecMode() }
+
 func (s *Service) isAdmin(ctx context.Context, user string) bool {
 	if s.d.IsAdmin == nil {
 		return true // no accounts: the one person is the administrator
@@ -101,11 +105,10 @@ func (s *Service) isAdmin(ctx context.Context, user string) bool {
 func (s *Service) registerHostBash() error {
 	host := s.d.HostExec != nil
 	return s.builtins.Register(builtins.Tool{
-		ID:    commandTool,
-		Group: builtins.GroupShell,
-		Label: "Commands (bash)",
-		Description: "Runs commands and code for the chats directly on this machine, with no isolation: commands can read what LocalAI can read " +
-			"and reach the internet and your network. The Sandbox add-on replaces it with isolated commands.",
+		ID:          commandTool,
+		Group:       builtins.GroupShell,
+		Label:       "Commands (bash)",
+		Description: hostBashDescription,
 		Setting:     builtins.SettingHostExec,
 		Unlisted:    !host,
 		Replaceable: true,
@@ -115,10 +118,15 @@ func (s *Service) registerHostBash() error {
 	})
 }
 
+// hostBashDescription is the line of Settings > Tools for the built-in bash.
+// It says that an add-on can replace it and names none.
+const hostBashDescription = "Runs commands and code for the chats directly on this machine, with no isolation: commands can read what LocalAI can read " +
+	"and reach the internet and your network. An add-on that runs commands in isolation can replace it."
+
 // scopedHostBashReason is why a chat whose agent works in one folder has no
 // built-in bash (D10 of the agent folder design): a command on this machine
 // reads what the server can read, and no workspace rule confines it.
-const scopedHostBashReason = "this agent works in one folder, and commands on this machine could read files outside it; it runs commands only in the Sandbox add-on"
+const scopedHostBashReason = "this agent works in one folder, and commands on this machine could read files outside it; it runs commands only in an add-on that isolates them"
 
 // buildHostBash gives a chat the built-in bash when the setting allows it.
 // A chat whose actor is fenced (its agent, or its parent's, has a folder)
@@ -362,8 +370,14 @@ func (s *Service) Builtins() *builtins.Registry { return s.builtins }
 // builtinsFor builds the built-in tools of a chat.
 func (s *Service) builtinsFor(ctx context.Context, a workspace.Actor, rec session.ChatRecord, subAgent bool) []builtins.Built {
 	off, on := s.switchesOf(ctx, rec)
-	return s.builtins.Build(ctx, builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
-		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, GoalActive: goalActive(rec) && !subAgent})
+	chat := builtins.Chat{Actor: a, Origin: rec.Origin, OriginID: rec.OriginID, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: subAgent,
+		Admin: s.isAdmin(ctx, a.Principal), GroupsOff: off, GroupsOn: on, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec) && !subAgent}
+	if rec.Origin == session.OriginConnector {
+		// A connector chat acts for the sender of the turn, not for its owner:
+		// the tools that need a right ask what that sender holds.
+		chat.Allow, chat.Audit = s.turnAllow(a.ChatID)
+	}
+	return s.builtins.Build(ctx, chat)
 }
 
 // applyBuiltins adds the built-in tools that no add-on serves. When the

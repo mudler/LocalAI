@@ -108,7 +108,7 @@ Tool names use hyphens because LocalAI manifests accept only
 `addon__tables__databases-list` takes exactly `{}` and reads the host's resource
 registry, not the Tables executable. It is available only through existing
 authorized actor-bound consumers when Tables is visible, enabled and running,
-and the backend supports host resource listing. Existing chat opt-ins, hidden
+and the backend supports host resource listing. The tool exists because the Tables manifest declares it under `capabilities.resources.list` (see [Resource listing](../addons/#resource-listing)); a copy of Tables with an older manifest keeps it until the add-on updates. Existing chat opt-ins, hidden
 add-ons and agent allowlists still apply. Shared MCP sessions and consumers
 without a principal do not gain access.
 

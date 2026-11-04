@@ -128,7 +128,7 @@ for (const change of ['recording', 'model']) test(`late inference and save canno
   await page.getByRole('button', { name: 'Diarize', exact: true }).click(); await req
   const replace = async () => {
     if (change === 'recording') await page.getByLabel('Recording', { exact: true }).setInputFiles({ ...file, name: 'new.wav' })
-    else { await page.getByRole('button', { name: 'diarizer', exact: true }).click(); await page.getByRole('option', { name: 'other', exact: true }).click() }
+    else { await page.getByRole('button', { name: 'diarizer', exact: true }).click(); await page.getByRole('option', { name: /^other/ }).click() }
   }
   const inferenceResponse = page.waitForResponse('**/v1/audio/diarization')
   await replace(); release(); await inferenceResponse

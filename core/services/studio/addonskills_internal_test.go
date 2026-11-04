@@ -18,6 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/blob"
 	"github.com/mudler/LocalAI/core/services/studio/workspace/gormstore"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/sqlitedb"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -252,6 +253,21 @@ var _ = Describe("add-on skills that replace built-in skills", func() {
 		prompt, _, fallback = turn(nil, nil)
 		Expect(prompt).To(ContainSubstring("Built-in sheets."))
 		Expect(fallback).To(ContainSubstring("xlsx (Office)"), "the turn says why the built-in skill serves")
+	})
+
+	It("serves a slot that an add-on declares, with no change in the host", func() {
+		Expect(f.SyncAddonSkills(ctx, "odfkit", fstest.MapFS{"odt/SKILL.md": {Data: md("odt", "ODF documents.")}})).To(Succeed())
+		slot := contract.Slot{Name: "odt", SlotDefinition: contract.SlotDefinition{Kind: contract.SlotKindDocuments, Extensions: []string{".odt"}}}
+		b.set(AddonSkillSet{AddonID: "odfkit", Title: "ODF", Skills: []string{"odt"}, Shadows: []string{"odt"}, Slots: []contract.Slot{slot}, Running: true})
+		prompt, _, _ := turn(nil, nil)
+		Expect(prompt).To(ContainSubstring("- odt: ODF documents."))
+		list, err := svc.AdminBuiltinSkills(ctx, "alice")
+		Expect(err).NotTo(HaveOccurred())
+		var names []string
+		for _, i := range list {
+			names = append(names, i.ID)
+		}
+		Expect(names).To(ContainElement("odt"))
 	})
 
 	It("gives the built-in skill back, with the notice, when the chat switches the add-on or its skill off", func() {

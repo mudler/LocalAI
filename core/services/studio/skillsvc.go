@@ -12,6 +12,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // ErrBadSkillName means a switch names something that is not a skill name, or
@@ -155,6 +156,32 @@ func (s *Service) skillTurn(ctx context.Context, p string, off, addonsOff []stri
 	return skills.Index(on), strings.Join(notes, "; "), hex.EncodeToString(h.Sum(nil)), fallback, nil
 }
 
+// agentSkillRoots returns the agent layer of the chat's saved agent: none for a
+// plain chat or an agent that is gone.
+func agentSkillRoots(principal string, sc *scope) []skills.Root {
+	if sc == nil || sc.deleted || !files.ValidAgentID(sc.agentID) {
+		return nil
+	}
+	return []skills.Root{files.AgentSkillsRoot(principal, sc.agentID, sc.agentName)}
+}
+
+// writingSkillsName is the built-in skill that teaches the model to write a
+// skill. The grant skills.write exposes it to a saved agent.
+const writingSkillsName = "writing-skills"
+
+// grantsSkill reports whether a saved agent may use the skill sk: one it was
+// granted, anything in its own skills layer (the agent made or was given it),
+// and writing-skills when it holds skills.write.
+func (sc *scope) grantsSkill(sk skills.Skill) bool {
+	switch {
+	case sk.Layer == skills.LayerAgent:
+		return true
+	case sk.Layer == skills.LayerBuiltin && sk.Name == writingSkillsName && sc.builtins[contract.CapSkillsWrite]:
+		return true
+	}
+	return sc.skills[sk.Name]
+}
+
 // chatSkillSet resolves the skills of one chat: the user's layers, the skills
 // of the add-ons the chat may use now, the chat's switches and the grants of
 // its agent. The index of the turn and load_skill both read it, so the model
@@ -165,8 +192,8 @@ func (s *Service) chatSkillSet(ctx context.Context, p string, off, addonsOff []s
 	if err != nil {
 		return nil, nil, "", err
 	}
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
-		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.skills[sk.Name]) },
+	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
+		Off:    func(sk skills.Skill) bool { return skip(sk) || (sc != nil && !sc.grantsSkill(sk)) },
 		Logger: s.log,
 	}))
 	if err != nil {
@@ -193,7 +220,8 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 		if err != nil {
 			return nil, nil, err
 		}
-		off, addonsOff, sc = rec.SkillsOff, rec.AddonsOff, s.scopeOf(ctx, rec)
+		sc = s.scopeOf(ctx, rec)
+		off, addonsOff = s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff
 	}
 	command, err := s.addonCommandDescriptor(ctx, p, rec, sc)
 	if err != nil {
@@ -203,7 +231,7 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	if err != nil {
 		return nil, nil, err
 	}
-	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, ad.roots()...), ad.options(skills.Options{
+	list, notes, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p), s.d.Files.SkillRoots(p, append(ad.roots(), agentSkillRoots(p, sc)...)...), ad.options(skills.Options{
 		Off:    skillOff(off),
 		Logger: s.log,
 	}))
@@ -212,6 +240,37 @@ func (s *Service) Skills(ctx context.Context, user, conv string) ([]skills.Skill
 	}
 	ad.markFallbacks(list)
 	return list, ad.withNotes(notes), nil
+}
+
+// AgentSkills lists the agent-layer skills of every saved agent of the user,
+// for the Skills page. Each agent is resolved on its own, because two agents
+// may keep a skill of one name. A chat never sees this list: it resolves the
+// layer of its own agent only (chatSkillSet).
+func (s *Service) AgentSkills(ctx context.Context, user string) ([]skills.Skill, error) {
+	p := principal(user)
+	if !s.d.Files.Available() {
+		return nil, fmt.Errorf("%w: %s", files.ErrUnavailable, s.d.Files.Unavailable())
+	}
+	if s.d.Agents == nil {
+		return nil, nil
+	}
+	all, err := s.d.Agents.List(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	var out []skills.Skill
+	for _, ag := range all {
+		if !files.ValidAgentID(ag.ID) {
+			continue
+		}
+		list, _, err := skills.Resolve(ctx, s.d.Files.Store(), s.d.Files.Actor(p),
+			[]skills.Root{files.AgentSkillsRoot(p, ag.ID, ag.Name)}, skills.Options{Logger: s.log})
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, list...)
+	}
+	return out, nil
 }
 
 // WellKnown returns the well-known files of the users' homes: persona.json,

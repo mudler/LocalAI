@@ -604,7 +604,7 @@ func validKindFields(r Release) bool {
 	if r.IsMeta() {
 		// A meta backend has no image, so it has no UI path or requirements
 		// either; its alias follows the same rule as any backend.
-		return r.UI == (EntryUI{}) && r.Requires == (Requirements{}) && r.ToolCount == 0 && len(r.Tools) == 0 && (r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, "..")))
+		return r.UI.IsZero() && r.Requires == (Requirements{}) && r.ToolCount == 0 && len(r.Tools) == 0 && (r.Alias == "" || (backendNamePattern.MatchString(r.Alias) && !strings.Contains(r.Alias, "..")))
 	}
 	if !strings.HasPrefix(r.Artifact, "oci://") || r.UI.MainPage != "" || r.UI.Icon != "" || r.UI.LaunchMode != "" || r.Requires != (Requirements{}) || r.ToolCount != 0 || len(r.Tools) > 0 {
 		return false
@@ -620,7 +620,26 @@ func validEntryUI(u EntryUI) bool {
 		(u.Description == "" || contract.ValidPlainText(u.Description, contract.MaxDescriptionChars)) &&
 		(u.MainPage == "" || contract.ValidName(u.MainPage)) &&
 		(u.Icon == "" || contract.ValidIconPath(u.Icon)) &&
-		(u.LaunchMode == "" || u.LaunchMode == contract.LaunchModeAlways)
+		(u.LaunchMode == "" || u.LaunchMode == contract.LaunchModeAlways) &&
+		validTranslations(u.Titles, contract.MaxTitleChars) && validTranslations(u.Descriptions, contract.MaxDescriptionChars)
+}
+
+// validTranslations applies the rules of a manifest language map to the
+// translated text of an entry. English is the entry's own text, never a
+// translation, and a tag may appear once whatever its case.
+func validTranslations(m map[string]string, max int) bool {
+	if len(m) > contract.MaxLanguages {
+		return false
+	}
+	seen := map[string]bool{}
+	for tag, text := range m {
+		key := strings.ToLower(tag)
+		if !contract.ValidLanguageTag(tag) || key == "en" || strings.HasPrefix(key, "en-") || seen[key] || !contract.ValidPlainText(text, max) {
+			return false
+		}
+		seen[key] = true
+	}
+	return true
 }
 
 // validRequirements accepts a zero range (no claim) or a well formed one.

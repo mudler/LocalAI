@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { usePendingChanges } from '../hooks/usePendingChanges'
 import { disablePush, enablePush, pushState } from '../utils/chatPush'
 import { relativeDate } from '../utils/fileBrowser'
 import {
@@ -130,6 +131,7 @@ export default function ChatInbox({ inbox }) {
   const [busy, setBusy] = useState(false)
   const [fresh, setFresh] = useState(() => new Set())
   const [announce, setAnnounce] = useState('')
+  const waiting = usePendingChanges()
   const ref = useRef(null)
   const btnRef = useRef(null)
   const panelRef = useRef(null)
@@ -169,6 +171,7 @@ export default function ChatInbox({ inbox }) {
   useEffect(() => {
     if (!open) { setConfirm(''); setDone(''); setError(''); return }
     inbox.refresh()
+    waiting.refresh()
     panelRef.current?.focus({ preventScroll: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once per opening
   }, [open])
@@ -239,8 +242,11 @@ export default function ChatInbox({ inbox }) {
     }
   }
 
-  const badge = badgeText(inbox.unread)
-  const buttonName = inbox.unread > 0 ? t('inbox.buttonUnread', { count: inbox.unread }) : t('inbox.title')
+  // The badge counts what needs a look: unread notifications and the changes
+  // that wait for an answer.
+  const attention = inbox.unread + waiting.count
+  const badge = badgeText(attention)
+  const buttonName = attention > 0 ? t('inbox.buttonUnread', { count: attention }) : t('inbox.title')
   const filters = [
     { id: 'all', label: t('inbox.filterAll') },
     { id: 'unread', label: t('inbox.filterUnread') },
@@ -340,6 +346,19 @@ export default function ChatInbox({ inbox }) {
             </Callout>
           )}
           <div className="nx-body">
+            {waiting.count > 0 && (
+              <button
+                type="button" className="nx-waiting" data-testid="inbox-proposals"
+                onClick={() => { setOpen(false); navigate('/app/chats/proposals') }}
+              >
+                <span className="nx-tile nx-tile--accent" aria-hidden="true"><Icon name="edit" /></span>
+                <span className="nx-waiting__text">
+                  <span className="nx-item__title">{t('inbox.proposalsWaiting', { count: waiting.count })}</span>
+                  <span className="nx-item__body">{t('inbox.proposalsBody')}</span>
+                </span>
+                <Icon name="arrow-right" className="nx-item__go" />
+              </button>
+            )}
             {done && <p className="nx-note nx-note--ok" role="status" data-testid="inbox-done"><Icon name="check-circle" />{done}</p>}
             {error && <p className="nx-note nx-note--error" role="alert"><Icon name="alert-circle" />{error}</p>}
             {failedLoad && (

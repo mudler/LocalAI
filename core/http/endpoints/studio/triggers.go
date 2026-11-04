@@ -41,7 +41,10 @@ func triggerOut(ctx context.Context, host *studiosvc.Triggers, t triggers.Trigge
 		Folder: host.RelFolder(t), QuietSeconds: int(t.Quiet / time.Second), DailyCap: t.CapOrDefault(), Enabled: t.Enabled,
 		AgentID: t.AgentID, Model: t.Model, SourceChatID: t.SourceChatID, Summary: host.Summary(t),
 		Plan: schema.ChatsTriggerPlan{Reads: t.Reads, Writes: t.Writes, Widget: t.Widget},
-		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)}}
+		Cost: schema.ChatsTriggerCost{EstimatedTokens: t.EstTokens, MaxRunsPerDay: host.MaxRunsPerDay(t), Remote: host.RemoteModel(t.Model)},
+		Acts: t.Acts}
+	av := host.ActsView(ctx, t)
+	out.ActsHeld, out.ReadOnly, out.ReadOnlyWhy = av.Held, av.ReadOnly, av.Why
 	if t.Kind == triggers.KindFile {
 		out.MinGapSeconds = int(t.GapOrDefault() / time.Second)
 	}
@@ -75,6 +78,9 @@ func triggerIn(req schema.ChatsTriggerWrite) studiosvc.TriggerInput {
 		Folder: req.Folder, Quiet: time.Duration(req.QuietSeconds) * time.Second, DailyCap: req.DailyCap,
 		AgentID: req.AgentID, Model: req.Model, SourceChatID: req.SourceChatID, Enabled: req.Enabled}
 	in.MinGap, in.EstTokens = time.Duration(req.MinGapSeconds)*time.Second, req.EstimatedTokens
+	if req.Acts != nil {
+		in.Acts = req.Acts
+	}
 	if req.Plan != nil {
 		in.Reads, in.Writes, in.Widget = req.Plan.Reads, req.Plan.Writes, req.Plan.Widget
 	}
@@ -87,7 +93,7 @@ var triggerRules = []errRule{
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrTooManyTriggers, studiosvc.ErrTooManyProposals),
 	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrTooManyChanges, studiosvc.ErrChangeStale),
 	sentinelText(http.StatusConflict, typeConflict, studiosvc.ErrCannotUndo),
-	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrProposalAnswered),
+	verbatim(http.StatusConflict, typeConflict, "studio: ", studiosvc.ErrProposalAnswered, studiosvc.ErrProposalExpired),
 	verbatim(http.StatusConflict, typeTriggersOff, "", studiosvc.ErrTriggersOff),
 	fixed(http.StatusServiceUnavailable, typeServerError, "the server is shutting down", studiosvc.ErrTriggersClosed),
 }

@@ -117,6 +117,9 @@ var _ = BeforeSuite(func() {
 	modelConfig := map[string]any{
 		"name":    "mock-model",
 		"backend": "mock-backend",
+		// A chat reports the window of the model, and the tool schemas of a
+		// chat no longer fit in the default one.
+		"context_size": 32768,
 		"parameters": map[string]any{
 			"model": "mock-model.bin",
 		},
@@ -708,6 +711,11 @@ var _ = BeforeSuite(func() {
 			},
 		}
 		for _, cfg := range cloudProxyConfigs {
+			// A chat reports the window of its model, and the tool schemas
+			// of a chat do not fit in the 4096 default.
+			if cfg["backend"] == "cloud-proxy" {
+				cfg["context_size"] = 32768
+			}
 			data, err := yaml.Marshal(cfg)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(os.WriteFile(filepath.Join(modelsPath, cfg["name"].(string)+".yaml"), data, 0644)).To(Succeed())

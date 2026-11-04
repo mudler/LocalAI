@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import StatusChip from '../ui/StatusChip'
 import Button from '../ui/Button'
-import { addedByEntry, hueOf, monogram, stateChip, versionLabel } from './addonState'
+import { addedByEntry, hueOf, monogram, operationOf, stateChip, versionLabel } from './addonState'
 import { installSteps } from './installSteps'
 import './addons.css'
 
@@ -22,6 +22,21 @@ export function StateChip({ app, className = '' }) {
   )
 }
 
+// The operation the owner runs on an add-on now ("Upgrading… Downloading and
+// checking"). It is separate from the process state: the old generation can
+// keep running while the next one is fetched and checked.
+export function OperationChip({ app, className = '' }) {
+  const { t } = useTranslation('addons')
+  const op = operationOf(app)
+  if (!op) return null
+  const text = `${t(`operation.kind.${op.kind}`)} · ${t(`operation.phase.${op.phase}`)}`
+  return (
+    <span className={`ad-state ${className}`.trim()} data-tone="accent" data-testid="operation-chip" data-operation={op.kind} data-phase={op.phase} role="img" aria-label={t('operation.label', { operation: text })}>
+      <StatusChip status="starting" label={text} />
+    </span>
+  )
+}
+
 // The mark of an update the owner's check found. It is a separate chip from the
 // process state: an add-on can be running and have an update pending. With the
 // version known (administrators), the chip names it.
@@ -30,6 +45,18 @@ export function UpdateChip({ version }) {
   const text = version ? t('state.updateTo', { version }) : t('state.update-pending')
   return (
     <span className="ad-state" data-tone="warn" data-state="update-pending" data-testid="update-chip" role="img" aria-label={t('state.label', { state: text })}>
+      <StatusChip status="update-available" label={text} />
+    </span>
+  )
+}
+
+// An upgrade that waits for the administrator to approve the host access the new
+// version asks for. The old version keeps running.
+export function ApprovalChip() {
+  const { t } = useTranslation('addons')
+  const text = t('hostAccess.chip')
+  return (
+    <span className="ad-state" data-tone="warn" data-state="approval-pending" data-testid="approval-chip" role="img" aria-label={t('state.label', { state: text })}>
       <StatusChip status="update-available" label={text} />
     </span>
   )

@@ -98,6 +98,23 @@ func RegisterAddonRoutesFor(e *echo.Echo, gw *gateway.Gateway, db *gorm.DB, owne
 	group.GET("/:id/update", endpoints.GetUpdate(gw, db, mode))
 	group.POST("/:id/update/check", endpoints.CheckUpdate(gw, db, mode))
 	group.POST("/:id/upgrade", endpoints.UpgradeAddon(gw, db, mode))
+	// Host access: what each add-on may ask the host to do, the deny rules and
+	// the blanket approval. Reads are administrator-only; every write accepts
+	// only the administrator's own browser session, and the frontend forwards
+	// that decision to the owner as a signed field. Never tools: no MCP tool
+	// maps to them.
+	// Install from a zip file: the file is staged on the owner first. The install
+	// itself is host-grants/install with sourceId local-file.
+	group.POST("/files", endpoints.UploadAddonFile(gw, db, mode))
+	group.GET("/files/:fileId", endpoints.GetAddonFile(gw, db, mode))
+	group.DELETE("/files/:fileId", endpoints.DeleteAddonFile(gw, db, mode))
+	group.GET("/host-grants", endpoints.GetHostGrants(gw, db, mode))
+	group.POST("/host-grants/preview", endpoints.PreviewHostGrants(gw, db, mode))
+	group.POST("/host-grants/install", endpoints.InstallWithHostGrants(gw, db, mode))
+	group.PUT("/host-grants/blanket", endpoints.SetHostGrantsBlanket(gw, db, mode))
+	group.PUT("/host-grants/deny", endpoints.SetHostGrantsDeny(gw, db, mode))
+	group.PUT("/host-grants/:addonId", endpoints.EditHostGrants(gw, db, mode))
+	group.DELETE("/host-grants/:addonId", endpoints.RevokeHostGrants(gw, db, mode))
 	// Immutable UI code of an installed, enabled addon, by package digest. A
 	// read for every caller with the feature; the owner serves only declared
 	// files of the current package. No MCP tool maps to it.

@@ -5,9 +5,18 @@ import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import { Field, FieldError, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/slack.en.json'
+import it from './i18n/slack.it.json'
+import es from './i18n/slack.es.json'
+import de from './i18n/slack.de.json'
+import fr from './i18n/slack.fr.json'
+import zh from './i18n/slack.zh-CN.json'
+import id from './i18n/slack.id.json'
+import ko from './i18n/slack.ko.json'
+import pt from './i18n/slack.pt-BR.json'
 import { APP_MANIFEST, SLACK_LISTS, slackSecret, tokenProblem } from './tokens'
 
-registerLocales({ slack: { en } })
+// The words of the page, in every language of the web UI; a key a language lacks reads in English.
+registerLocales({ slack: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
 // The two tokens of a Slack app. They are typed only to replace them.
 function SlackTokens({ form, setForm, t }) {

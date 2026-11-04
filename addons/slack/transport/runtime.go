@@ -7,7 +7,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"regexp"
+	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -37,6 +40,9 @@ type Runtime struct {
 	idle.Runtime
 	API    *API
 	Socket *Socket
+	// Host is the host operation channel, with which a file moves by handle.
+	// Nil: the add-on keeps the inline path.
+	Host connector.Host
 
 	mu      sync.Mutex
 	working map[string]placeholder
@@ -57,7 +63,7 @@ var _ contract.ConnectorRuntime = (*Runtime)(nil)
 // Connector serves one call of the host through the shared route of the
 // connector add-ons.
 func (r *Runtime) Connector(ctx context.Context, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
-	return connector.Serve(ctx, platform{r}, req)
+	return connector.ServeWith(ctx, platform{r}, r.Host, req)
 }
 
 // Close closes the Socket Mode links.
@@ -68,10 +74,11 @@ func (r *Runtime) Close() { r.Socket.Close() }
 type platform struct{ r *Runtime }
 
 var (
-	_ connector.Formatter   = platform{}
-	_ connector.Splitter    = platform{}
-	_ connector.MediaReader = platform{}
-	_ connector.FileSender  = platform{}
+	_ connector.Formatter     = platform{}
+	_ connector.Splitter      = platform{}
+	_ connector.HistoryReader = platform{}
+	_ connector.StreamReader  = platform{}
+	_ connector.StreamSender  = platform{}
 )
 
 func (platform) Kind() string                  { return Kind }
@@ -148,15 +155,6 @@ func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) err
 	return nil
 }
 
-// SendFile uploads a file into the conversation and returns the file's ID.
-func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error) {
-	b, err := bot(req.Token)
-	if err != nil {
-		return "", err
-	}
-	return p.r.API.Upload(ctx, b, req.Chat, req.Thread, req.File.Name, req.File.Data)
-}
-
 // Me checks both tokens: the bot token names the bot, and the app-level token
 // must open a Socket Mode link (the ticket it gets is not used).
 func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
@@ -180,31 +178,42 @@ func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {
 
 var fileID = regexp.MustCompile(`^F[A-Z0-9]{1,31}$`)
 
-// Media reads a file of a message, by its Slack ID.
-func (p platform) Media(ctx context.Context, token, ref string) (contract.ConnectorFile, error) {
+// MediaStream streams a file of a message, by its Slack ID, to the host. The
+// platform names the size first, so a file over the bound is refused before
+// any byte moves.
+func (p platform) MediaStream(ctx context.Context, token, ref string, max int64) (connector.MediaStream, error) {
 	b, err := bot(token)
 	if err != nil {
-		return contract.ConnectorFile{}, err
+		return connector.MediaStream{}, err
 	}
 	if !fileID.MatchString(ref) {
-		return contract.ConnectorFile{}, errors.New("slack: not a file ID")
+		return connector.MediaStream{}, errors.New("slack: not a file ID")
 	}
 	f, err := p.r.API.FileInfo(ctx, b, ref)
 	if err != nil {
-		return contract.ConnectorFile{}, err
+		return connector.MediaStream{}, err
 	}
-	if f.Size > contract.MaxConnectorFileBytes {
-		return contract.ConnectorFile{}, ErrTooLarge
+	if f.Size > max {
+		return connector.MediaStream{}, ErrTooLarge
 	}
-	data, err := p.r.API.Download(ctx, b, f.Download, contract.MaxConnectorFileBytes)
+	body, err := p.r.API.DownloadStream(ctx, b, f.Download)
 	if err != nil {
-		return contract.ConnectorFile{}, err
+		return connector.MediaStream{}, err
 	}
 	name := f.Name
 	if name == "" {
 		name = f.ID
 	}
-	return contract.ConnectorFile{Name: name, MIME: f.Mimetype, Data: data}, nil
+	return connector.MediaStream{Name: name, MIME: f.Mimetype, Size: f.Size, Body: body}, nil
+}
+
+// SendStream uploads a file that the host hands over by handle.
+func (p platform) SendStream(ctx context.Context, req contract.ConnectorRequest, body io.Reader) (string, error) {
+	b, err := bot(req.Token)
+	if err != nil {
+		return "", err
+	}
+	return p.r.API.UploadStream(ctx, b, req.Chat, req.Thread, req.Transfer.Name, req.Transfer.Size, body)
 }
 
 // mark is the key of the "working" message of a conversation. It holds a hash
@@ -222,4 +231,78 @@ func (r *Runtime) take(req contract.ConnectorRequest) (string, bool) {
 	ph, ok := r.working[key]
 	delete(r.working, key)
 	return ph.ts, ok && time.Since(ph.at) < placeholderLife
+}
+
+// Limits of the history of a thread.
+const (
+	// repliesPage is the size of one page of conversations.replies.
+	repliesPage = 200
+	// repliesPages is how many pages one history reads. Slack returns a thread
+	// oldest first, so the newest messages are at its end: a thread longer
+	// than repliesPages pages is refused, not shown from its middle.
+	repliesPages = 5
+	// historyNames bounds the people whose names one history looks up.
+	historyNames = 30
+)
+
+// errThreadTooLong means the thread has more messages than one history reads.
+var errThreadTooLong = errors.New("slack: the thread is too long to read")
+
+// History returns the earlier messages of a thread: the newest req.Limit
+// before req.Before, oldest first, with the names of their authors. A message
+// of the bot is marked Own. Messages that no person or app wrote (joins,
+// deletions) are left out. The file bytes are never read, only their names.
+func (p platform) History(ctx context.Context, req contract.ConnectorRequest) ([]contract.ConnectorHistoryMessage, bool, error) {
+	b, err := bot(req.Token)
+	if err != nil {
+		return nil, false, err
+	}
+	var all []Reply
+	cursor := ""
+	for page := 0; ; page++ {
+		if page == repliesPages {
+			return nil, false, errThreadTooLong
+		}
+		got, next, err := p.r.API.Replies(ctx, b, req.Chat, req.Thread, req.Before, cursor, repliesPage)
+		if err != nil {
+			return nil, false, err
+		}
+		all = append(all, got...)
+		if next == "" {
+			break
+		}
+		cursor = next
+	}
+	all = slices.DeleteFunc(all, func(m Reply) bool {
+		return m.TS == req.Before || (m.Subtype != "" && !personal[m.Subtype] && m.Subtype != "bot_message")
+	})
+	more := len(all) > req.Limit
+	if more {
+		all = all[len(all)-req.Limit:]
+	}
+	self := p.r.Socket.botUser(ctx, req.Token)
+	users := p.r.Socket.namer(ParseTokens(req.Token))
+	out := make([]contract.ConnectorHistoryMessage, 0, len(all))
+	for _, m := range all {
+		h := contract.ConnectorHistoryMessage{MessageID: m.TS, SenderID: m.User, Text: Plain(m.Text, ""), Own: self != "" && m.User == self}
+		if sec, err := strconv.ParseFloat(m.TS, 64); err == nil {
+			h.TS = time.UnixMicro(int64(sec * 1e6)).UTC()
+		}
+		switch {
+		case m.User != "":
+			if u, ok := users(ctx, m.User); ok {
+				h.SenderName, h.SenderUsername = u.Display(), u.Name
+			}
+		case m.BotID != "":
+			h.SenderID, h.SenderName = m.BotID, m.Username
+		}
+		for _, f := range m.Files {
+			h.Media++
+			if len(h.MediaNames) < contract.MaxHistoryMedia && f.Name != "" {
+				h.MediaNames = append(h.MediaNames, f.Name)
+			}
+		}
+		out = append(out, h)
+	}
+	return out, more, nil
 }

@@ -311,13 +311,13 @@ func ensureService(ctx context.Context, n *node.Node, nd *schema.NodeData, sserv
 }
 
 // This is the P2P worker main
-func ExposeService(ctx context.Context, host, port, token, servicesID string) (*node.Node, error) {
+func ExposeService(ctx context.Context, host, port, token, servicesID string, settings ...NodeConfig) (*node.Node, error) {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
 	llger := logger.New(log.LevelFatal)
 
-	nodeOpts, err := newNodeOpts(token)
+	nodeOpts, err := newNodeOpts(token, settings...)
 	if err != nil {
 		return nil, err
 	}
@@ -359,8 +359,8 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) (*
 	return n, err
 }
 
-func NewNode(token string) (*node.Node, error) {
-	nodeOpts, err := newNodeOpts(token)
+func NewNode(token string, settings ...NodeConfig) (*node.Node, error) {
+	nodeOpts, err := newNodeOpts(token, settings...)
 	if err != nil {
 		return nil, err
 	}
@@ -373,13 +373,37 @@ func NewNode(token string) (*node.Node, error) {
 	return n, nil
 }
 
-func newNodeOpts(token string) ([]node.Option, error) {
+func newNodeOpts(token string, settings ...NodeConfig) ([]node.Option, error) {
 	llger := logger.New(log.LevelFatal)
+
+	c := newNodeConfig(token, settings...)
+
+	nodeOpts, _, err := c.ToOpts(llger)
+	if err != nil {
+		return nil, fmt.Errorf("parsing options: %w", err)
+	}
+
+	nodeOpts = append(nodeOpts, services.Alive(30*time.Second, 900*time.Second, 15*time.Minute)...)
+
+	return nodeOpts, nil
+}
+
+// NodeConfig carries P2P settings supplied by the caller.
+type NodeConfig struct{ EnableLimits bool }
+
+// newNodeConfig builds the edgevpn node configuration from the LOCALAI_P2P_*
+// environment variables.
+func newNodeConfig(token string, settings ...NodeConfig) config.Config {
 	defaultInterval := 10 * time.Second
 
 	// TODO: move this up, expose more config options when creating a node
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
-	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") != "true"
+	// Resource limits are opt-in: the libp2p resource manager is enabled only
+	// when this is set to "true", as documented.
+	enableLimits := false
+	if len(settings) > 0 {
+		enableLimits = settings[0].EnableLimits
+	}
 
 	var listenMaddrs []string
 	var bootstrapPeers []string
@@ -400,11 +424,11 @@ func newNodeOpts(token string) ([]node.Option, error) {
 	if libp2ploglevel == "" {
 		libp2ploglevel = "fatal"
 	}
-	c := config.Config{
+	return config.Config{
 		ListenMaddrs:      listenMaddrs,
 		DHTAnnounceMaddrs: dhtAnnounceMaddrs,
 		Limit: config.ResourceLimit{
-			Enable:   noLimits,
+			Enable:   enableLimits,
 			MaxConns: 100,
 		},
 		NetworkToken:   token,
@@ -435,15 +459,6 @@ func newNodeOpts(token string) ([]node.Option, error) {
 			MaxConnections: 1000,
 		},
 	}
-
-	nodeOpts, _, err := c.ToOpts(llger)
-	if err != nil {
-		return nil, fmt.Errorf("parsing options: %w", err)
-	}
-
-	nodeOpts = append(nodeOpts, services.Alive(30*time.Second, 900*time.Second, 15*time.Minute)...)
-
-	return nodeOpts, nil
 }
 
 func stringsToMultiAddr(peers []string) []multiaddr.Multiaddr {

@@ -75,12 +75,14 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "Conhecimento",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Arquivos"
+      "Files": "Arquivos",
+      "Tools": "Ferramentas",
+      "Notes": "Memória"
     },
     "name": "Name",
     "description": "Description",
@@ -93,7 +95,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "As coleções que um chat com este agente pode pesquisar. A lista é exata: uma lista vazia não concede nenhuma.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -128,12 +130,28 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Rede dos comandos em execuções sem supervisão",
-    "networkHelp": "Quando um gatilho ou um conector roda este agente, os comandos do Sandbox dele alcançam esta parte da rede, até o limite definido por um administrador. Uma execução nunca pergunta: um host fora dela é bloqueado. Um chat que você inicia com este agente também começa assim.",
+    "networkHelp": "Quando um gatilho ou um conector roda este agente, os comandos dele alcançam esta parte da rede, até o limite definido por um administrador. Uma execução nunca pergunta: um host fora dela é bloqueado. Um chat que você inicia com este agente também começa assim.",
     "networkPresets": {
       "off": "Desligada",
       "registries": "Registros de pacotes",
       "all": "Todos os sites públicos"
-    }
+    },
+    "toolsSummary": "{{on}} de {{total}} ligadas",
+    "toolsHelp": "Escolha o que um chat com este agente pode usar. São as mesmas chaves do menu Ferramentas de um chat, com as opções de cada chave abaixo. Uma ferramenta desligada nunca é oferecida ao modelo. Sem nenhuma opção marcada, o agente mantém os padrões das suas conexões de mensagens; ao marcar alguma, só as marcadas funcionam.",
+    "toolsHeading": "Ferramentas deste agente",
+    "skillsLater": "Um chat com este agente lê apenas as skills ligadas.",
+    "skillsHeading": "Skills deste agente",
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Propor também de aplicativos de mensagens",
+      "triggers_run": "Deixar gatilhos começarem de aplicativos de mensagens",
+      "talkback_channels": "Responder em canais conhecidos",
+      "files_upload": "Receber arquivos de aplicativos de mensagens"
+    },
+    "memoryOffUser": "A memória está desativada nas suas configurações, então este agente não lê nem salva notas, não importa o que você defina aqui.",
+    "memoryOffFix": "Configurações, Memória"
   },
   "run": {
     "workingLine": "Working"
@@ -204,7 +222,8 @@
       "watches": "Watches the folder {{folder}}",
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
-      "prompt": "What to do"
+      "prompt": "What to do",
+      "acts": "Permissões"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -220,7 +239,8 @@
         "basics": "Basics",
         "prompt": "What to do",
         "schedule": "When",
-        "limits": "Limits"
+        "limits": "Limits",
+        "acts": "Permissões"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -228,7 +248,9 @@
         "promptEmpty": "Nothing to do yet",
         "folderEmpty": "Needs a folder",
         "cap": "Up to {{count}} runs a day",
-        "capDefault": "Default limit"
+        "capDefault": "Default limit",
+        "acts_one": "Pode usar {{count}} tipo de ação",
+        "acts_other": "Pode usar {{count}} tipos de ação"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -450,7 +472,7 @@
   },
   "folder": {
     "all": "Todos os meus arquivos",
-    "one": "Uma pasta",
+    "one": "Pastas escolhidas",
     "scopeLabel": "Arquivos que este agente pode alcançar",
     "allHelp": "Os chats com este agente alcançam todos os seus arquivos, como um chat sem agente.",
     "choose": "Escolher pasta",
@@ -463,7 +485,7 @@
     "readShort": "somente leitura",
     "writeShort": "leitura e alteração",
     "help": "Os chats com este agente veem apenas esta pasta e a própria pasta do chat. As pastas compartilhadas e as skills continuam legíveis. Os servidores MCP e as ferramentas web que você concede não ficam limitados a esta pasta.",
-    "commands": "Os comandos deste agente rodam apenas no complemento Sandbox, nunca diretamente nesta máquina.",
+    "commands": "Os comandos deste agente rodam apenas em um complemento que os isola, nunca diretamente nesta máquina.",
     "nextMessage": "Uma alteração vale a partir da próxima mensagem de cada chat.",
     "missing": "Esta pasta não existe mais. Escolha outra pasta para usar este agente.",
     "unset": "Nenhuma pasta escolhida ainda. Escolha uma pasta para usar este agente.",
@@ -482,6 +504,15 @@
     "exportNote": "O arquivo indica a pasta {{path}}. Onde você importar, o agente recebe a pasta com esse caminho, se existir, ou pede que você escolha uma.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Pasta ausente",
-    "chipUnset": "Nenhuma pasta escolhida"
+    "chipUnset": "Nenhuma pasta escolhida",
+    "add": "Adicionar pasta",
+    "remove": "Remover {{path}}",
+    "removeRow": "Remover",
+    "count": "{{n}} de {{max}} pastas",
+    "summaryMany": "{{n}} pastas",
+    "effectiveRead": "Está dentro de uma pasta somente leitura, então esta só pode ser lida.",
+    "effectiveWrite": "Está dentro de uma pasta que pode ser alterada, então esta também pode ser alterada.",
+    "notMounted": "{{n}} pastas compartilhadas não cabem no limite de acesso de um chat e não são montadas.",
+    "exportNoteMany": "O arquivo cita {{n}} pastas. Onde você importar, o agente recebe as pastas com esses caminhos que existirem e pede que você escolha as outras."
   }
 }

@@ -22,6 +22,16 @@ type BlobOpener interface {
 	Open(ctx context.Context, sha string) (io.ReadSeekCloser, error)
 }
 
+// OpenBlob opens a blob of the workspace store by its SHA-256, for a caller
+// that holds the hash from the host itself (a finished connector transfer).
+// It checks no access: the caller must have proved the right to the content.
+func (s *Service) OpenBlob(ctx context.Context, sha string) (io.ReadSeekCloser, error) {
+	if s == nil || s.blobs == nil {
+		return nil, ErrNoVersions
+	}
+	return s.blobs.Open(ctx, sha)
+}
+
 // Option configures a Service.
 type Option func(*Service)
 

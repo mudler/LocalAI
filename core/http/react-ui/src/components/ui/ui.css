@@ -194,9 +194,12 @@
   letter-spacing: -0.02em;
   color: var(--color-text-primary);
   text-wrap: balance;
+  /* A name with no spaces (a path, an id) breaks instead of widening the page. */
+  overflow-wrap: anywhere;
 }
 .page-header__supporting {
   margin: 0;
+  overflow-wrap: anywhere;
   max-width: 64ch;
   color: var(--color-text-secondary);
   font-size: var(--fs-body);
@@ -213,6 +216,9 @@
 @media (max-width: 639px) {
   .page-header {
     flex-direction: column;
+    /* A wrapping column sizes its one line to the widest item, so a long
+       unbroken title would stretch the header past the phone. */
+    flex-wrap: nowrap;
     align-items: stretch;
     gap: var(--sp-4);
   }
@@ -424,6 +430,19 @@
   .ui-callout { grid-template-columns: 20px minmax(0, 1fr); }
   .ui-callout__actions { grid-column: 2; margin: 0; }
 }
+
+/* ---- Notice -------------------------------------------------------------- */
+/* A callout that says what is off, why, who can fix it, and the fix, in that
+   order (Notice.jsx). The add-on UIs draw the same markup with their own
+   component, so these rules are the one place that styles it. */
+.ui-notice .ui-callout__title,
+.ui-notice__reason,
+.ui-notice__who {
+  display: block;
+}
+.ui-notice__reason { margin-top: var(--sp-1); }
+.ui-notice__who { margin-top: var(--sp-1); }
+.ui-notice__extra { display: block; margin-top: var(--sp-1); }
 
 /* ---- Status chip --------------------------------------------------------- */
 /* Tone colour, icon and words, 22 px. Text on wash is 4.5:1 in both themes. */

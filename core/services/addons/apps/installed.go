@@ -58,6 +58,8 @@ type Installed struct {
 	// for this addon. It carries the state of the check, so a failed check is
 	// never read as up to date.
 	Update *Update `json:"update,omitempty"`
+	// Operation is the lifecycle operation that runs on the add-on now.
+	Operation *Operation `json:"operation,omitempty"`
 	// Recovery is the recovery state of the add-on's data when it is not
 	// ready: upgrading, restoring, needs-recovery or purging. An add-on in
 	// needs-recovery is not started until an administrator restores a backup
@@ -123,7 +125,7 @@ func BuildInstalled(snaps []Snapshot) []Installed {
 			Enabled: s.Enabled, State: a.State, SourceID: r.SourceID, Channel: r.Channel, Selection: r.Selection, Verification: r.Verification, Digest: r.Digest,
 			Platform:      Platform{OS: m.OS, Arch: m.Arch},
 			Compatibility: Compatibility{Host: m.Host, API: m.API, Protocol: m.Protocol, DataFormat: m.DataFormat},
-			Tools:         a.Tools, ToolCount: a.ToolCount, Shadows: a.Shadows, SkillShadows: a.SkillShadows, HasUI: a.HasUI, MainPage: a.MainPage, LaunchMode: a.LaunchMode,
+			Tools:         a.Tools, ToolCount: a.ToolCount, Shadows: a.Shadows, SkillShadows: a.SkillShadows, HasUI: a.HasUI, MainPage: a.MainPage, LaunchMode: a.LaunchMode, Operation: a.Operation,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })

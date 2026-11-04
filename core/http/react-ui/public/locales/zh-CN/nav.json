@@ -44,7 +44,7 @@
     "voiceRecognition": "语音识别",
     "agents": "智能体",
     "skills": "技能",
-    "memory": "记忆库",
+    "memory": "知识库",
     "mcpJobs": "MCP CI 任务",
     "usage": "用量",
     "users": "用户",
@@ -117,5 +117,7 @@
   "recentChats": "最近对话",
   "newChat": "新对话",
   "untitledChat": "未命名对话",
-  "chatRunning": "进行中"
+  "chatRunning": "进行中",
+  "automatedWaiting": "等待你处理的自动聊天：{{count}}",
+  "automatedRunning": "运行中的自动聊天：{{count}}"
 }

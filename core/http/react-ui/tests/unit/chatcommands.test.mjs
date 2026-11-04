@@ -267,18 +267,16 @@ for (const provider of ['copper-runner', 'violet-executor']) test(`typed safety:
     ...imports, chatAddonsApi:{list:() => new Promise(resolve => requests.push(resolve))},
     chatToolsApi:{list:async () => ({})}, chatSkillsApi:{list:async () => ({})},
   })
-  const composer = hookHarness('../../src/components/chat/ChatComposer.jsx', 'ChatComposer', {
-    useTranslation:() => ({t:key => key}), useAuth:() => ({isAdmin:true,user:{id:'alice'}}),
-    useModelFit:() => ({}), useCommandsNotice:() => ({info:null}), unknownTextKey: imports.unknownTextKey,
-    // Only the original code needs these; keeping them permits a genuine RED run.
-    SANDBOX_ADDON:'sandbox', useSandboxStatus:() => null,
-  }, source => source.replace('export default function', 'function').split('  // What a row of the model list')[0] + 'return shellNote\n}')
+  // The rows of the Tools list come from useToolGroups, which the Tools menu
+  // of a chat and the agent form both use.
+  const toolGroups = hookHarness('../../src/hooks/useToolGroups.js', 'useToolGroups', {
+    useTranslation:() => ({t:key => key}), connectorRef: imports.connectorRef, unknownTextKey: imports.unknownTextKey, ...await import('../../src/utils/toolOptions.js'),
+  }, source => source.replace(/export const/g, 'const'))
   const group = {group:'shell',providers:{bash:provider},provider,usable:true}
   const render = (actor = 'alice:1', override) => {
-    const switches = switchesHook.render('same-chat', false, null, actor)
+    const switches = { ...switchesHook.render('same-chat', false, null, actor), builtins: [group], toggleBuiltin() {} }
     if (override) switches.commands = override
-    const shellNote = composer.render({composer:{drafts:{},switches,models:[]}})
-    return shellNote(group)
+    return toolGroups.render(switches, {}).find(g => g.key === 'builtins').rows[0]
   }
   const unknown = note => {
     assert.equal(note.note, 'tools.commands.unknown')
@@ -319,4 +317,73 @@ test('unknown status: each reason code has its own text key, and a code from a n
   assert.equal(unknownTextKey('from_the_future'), 'unknown')
   assert.equal(unknownTextKey(''), 'unknown')
   assert.equal(commandsState({ commands: 'available', commands_provider: 'sandbox', execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'x' } }).code, '')
+})
+
+test('a draft chat has no execution status to warn about', async () => {
+  const { commandsState } = await import('../../src/utils/chatCommands.js')
+  const draft = { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' }
+  const available = commandsState({ commands: 'available', commands_provider: 'sandbox', execution_status: draft })
+  assert.equal(available.state, 'draft')
+  assert.equal(commandsNotice(available.state), null)
+  assert.equal(commandsState({ commands: 'none', execution_status: draft }).state, 'none')
+})
+
+test('the hide button hides a notice whose state has no binding identity yet', async () => {
+  const { readFileSync } = await import('node:fs')
+  const source = readFileSync(new URL('../../src/hooks/useCommandsNotice.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, '').replace('export function', 'function')
+  let hidden = ''
+  const hook = new Function('useState', 'useEffect', 'useCallback', 'commandsNotice', `${source}; return useCommandsNotice`)(
+    () => [hidden, v => { hidden = v }], () => {}, fn => fn, commandsNotice)
+  const read = () => hook({ state: 'unknown', reason: '', identity: '' }, false, ['user', null, 'm', ''])
+  assert.ok(read().info)
+  assert.equal(read().hidden, false)
+  read().hide()
+  assert.equal(read().hidden, true, 'a click on Hide must hide the notice even with no identity')
+})
+
+test('a draft chat keeps its commands state when a tool is switched on and off', async () => {
+  const { hookHarness } = await import('./chatcommands-lifecycle.mjs')
+  const names = ['chatMCP', 'chatSwitchRows', 'chatSkills', 'chatCommands', 'chatDraftSwitches']
+  const imports = Object.assign({}, ...await Promise.all(names.map(name => import(`../../src/utils/${name}.js`))))
+  const draftReply = { commands: 'available', commands_provider: 'sandbox', addons: [{ id: 'sandbox', tools: 1 }], execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' } }
+  let draftCalls = 0
+  const h = hookHarness('../../src/hooks/useChatSwitches.js', 'useChatSwitches', {
+    ...imports,
+    chatAddonsApi: { draft: async () => { draftCalls++; return draftReply }, list: async () => ({}), setOff: async () => ({}) },
+    chatToolsApi: { draft: async () => ({ builtins: [{ group: 'shell', off: false }] }), list: async () => ({}), setBuiltinsOff: async () => ({}) },
+    chatSkillsApi: { list: async () => ({ skills: [] }) },
+  })
+  const render = () => h.render(null, true, { model: 'm', agentId: '' }, 'A:1')
+  const settle = () => new Promise(resolve => setImmediate(resolve))
+  render(); h.flush(); await settle()
+  assert.equal(render().commands.state, 'draft')
+  assert.equal(commandsNotice(render().commands.state), null, 'no banner for a draft that is ready at its first message')
+  for (const step of ['builtin off', 'builtin on', 'addon off', 'addon on']) {
+    const s = render()
+    if (step.startsWith('builtin')) await s.toggleBuiltin('shell', step.endsWith('on'))
+    else await s.toggleAddon('sandbox', step.endsWith('on'))
+    h.flush(); await settle()
+    const now = render()
+    assert.equal(commandsNotice(now.commands.state), null, `${step}: no banner`)
+    assert.ok(now.commands.identity, `${step}: the state is the list's, not a reset`)
+  }
+})
+
+test('chat commands: with the built-in bash off the notice says who can turn it on', async () => {
+  const { HOST_EXEC_SETTING, ADDONS_PAGE } = await import('../../src/utils/chatCommands.js')
+  const admin = commandsNotice('none', { isAdmin: true, hostExec: 'off' })
+  assert.equal(admin.hostOff, true)
+  assert.equal(admin.severity, 'warn')
+  assert.equal(admin.whoKey, 'hostOff.whoAdmin')
+  assert.deepEqual(admin.link, { to: HOST_EXEC_SETTING, labelKey: 'hostOff.fix' })
+  assert.deepEqual(admin.sandboxLink, { to: ADDONS_PAGE, labelKey: 'hostOff.sandbox' })
+  // Anyone else is told to ask: no setting link, no add-on link.
+  const member = commandsNotice('none', { isAdmin: false, hostExec: 'off' })
+  assert.equal(member.whoKey, 'hostOff.whoMember')
+  assert.equal(member.link, null)
+  assert.equal(member.sandboxLink, null)
+  // A server that does not say the mode, or says it is on, keeps the plain notice.
+  for (const hostExec of ['', 'ask', 'on', undefined]) assert.equal(commandsNotice('none', { isAdmin: true, hostExec }).textKey, 'none')
+  // The setting link opens Settings, Tools, on the bash row.
+  assert.match(HOST_EXEC_SETTING, /^\/app\/settings\?group=tools#settings-tools-row-bash$/)
 })

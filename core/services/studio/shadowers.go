@@ -120,7 +120,7 @@ func (s *Service) toolFallbacks(ctx context.Context, rec session.ChatRecord, too
 	offList, onList := s.switchesOf(ctx, rec)
 	off, on := set(offList), set(onList)
 	c := builtins.Chat{Actor: s.chatActorFor(ctx, rec), Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: rec.Kind == session.KindSubAgent,
-		Admin: s.isAdmin(ctx, rec.Principal)}
+		Admin: s.isAdmin(ctx, rec.Principal), Grants: s.chatGrants(ctx, rec)}
 	byID := map[string]builtins.Tool{}
 	for _, t := range s.builtins.Tools() {
 		byID[t.ID] = t

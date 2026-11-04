@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next'
 import { Button, Callout, LoadError, SkeletonRows, Switch } from '../ui'
 import { chatEgressApi } from '../../utils/api'
 import { FIELD_BY_KEY, getValue, setValue } from '../../utils/settingsSchema'
+import { useAddonTitle } from '../../addons/useAddonRegistry'
 import { EGRESS_CONFIRM_KEY, EGRESS_PRIVATE_PHRASE } from '../../utils/settingsPending'
 
-// Settings > Tools: the network of the chats' Sandbox commands, from GET
+// Settings > Tools: the network of the chats' isolated commands, from GET
 // /api/chats/admin/egress. The limit, the default, the ports, the extra
 // registries and the retention are rows of the page; this section shows who
 // serves commands, the registries list, the private-network switch with its
@@ -124,11 +125,14 @@ export default function EgressSection({ settings, initial, onChange, showKey = t
     return () => { live = false }
   }, [reload])
 
+  // The name of the add-on that runs commands is its declared title.
+  const runnerTitle = useAddonTitle(state.info?.sandbox || '')
+
   if (state.loading) return <SkeletonRows rows={2} />
   if (state.error) return <LoadError title={t('settings.egress.loadFailed')} error={state.error} onRetry={() => setReload(n => n + 1)} />
   const info = state.info || {}
   const serves = info.sandbox
-    ? t(info.isolation === 'host' ? 'settings.egress.servesHost' : 'settings.egress.serves', { name: info.sandbox })
+    ? t(info.isolation === 'host' ? 'settings.egress.servesHost' : 'settings.egress.serves', { name: runnerTitle || info.sandbox })
     : t('settings.egress.servesNone')
   return (
     <div className="st-list st-tools" id="settings-egress" data-testid="settings-egress">

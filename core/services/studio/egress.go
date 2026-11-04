@@ -9,8 +9,8 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
-// The network of the Sandbox commands. The guest has no network device: the
-// only way out is the proxy of the Sandbox add-on, which asks this service
+// The network of the commands an add-on runs. The environment has no network
+// device: the only way out is the add-on's proxy, which asks this service
 // about each connection through the host operations egress.check and
 // egress.audit (see egresscheck.go). The limits are the administrator's
 // runtime settings; the chat's preset, rules and cards live in its record.
@@ -73,8 +73,8 @@ func (s *Service) now() time.Time {
 // egressLine is the line of the turn's note that tells the model what the
 // network of its commands is: the preset that applies (the chat's, its
 // parent's for a sub-agent, its agent's for an unattended run) under the
-// ceiling.
-func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bool) (string, error) {
+// ceiling. name is the network of the add-on that runs the commands.
+func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bool, name string) (string, error) {
 	set, err := s.egressSettings(ctx)
 	if err != nil {
 		return "", err
@@ -89,7 +89,7 @@ func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bo
 	}
 	if ceiling == egress.PresetOff {
 		// Hint would tell the model to ask the user to turn the network on.
-		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), false), nil
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), false, name), nil
 	}
 	// A card appears only in a chat a person watches (not an unattended run
 	// or a sub-agent), and only for a host the ceiling admits beyond the
@@ -97,7 +97,7 @@ func (s *Service) egressLine(ctx context.Context, rec session.ChatRecord, web bo
 	attended := rec.Origin == "" && rec.Kind != session.KindSubAgent
 	asks := attended && (ceiling.Rank() > preset.Rank() || set.AllowPrivate)
 	if capped {
-		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web), nil
+		return egress.DescribeLimit(preset, ceiling, egress.BuiltinRegistries(), asks, name) + " " + egress.Hint(preset, web, name), nil
 	}
-	return egress.Describe(preset, egress.BuiltinRegistries(), asks) + " " + egress.Hint(preset, web), nil
+	return egress.Describe(preset, egress.BuiltinRegistries(), asks, name) + " " + egress.Hint(preset, web, name), nil
 }

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/addons/testhost"
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/media"
@@ -73,11 +74,19 @@ func noChats(r *connRig) {
 
 // hostileMedia is the Telegram add-on, except that the op media answers a
 // file whose name climbs out of any folder.
-type hostileMedia struct{ inner contract.ConnectorRuntime }
+type hostileMedia struct {
+	inner contract.ConnectorRuntime
+	host  testhost.Host
+}
 
 func (h hostileMedia) Connector(ctx context.Context, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
 	if req.Op == contract.ConnectorOpMedia {
-		return contract.ConnectorResponse{File: &contract.ConnectorFile{Name: "../../../escape/evil.png", MIME: "image/png", Data: pngBytes}}, nil
+		var res contract.ConnectorFilePutResult
+		put := contract.ConnectorFilePut{Handle: req.Transfer.Handle, Data: pngBytes, Final: true}
+		if err := h.host.Do(ctx, req.Transfer.Handle, contract.ConnectorFilePutOp, put, &res); err != nil {
+			return contract.ConnectorResponse{}, err
+		}
+		return contract.ConnectorResponse{Received: &contract.ConnectorReceived{Name: "../../../escape/evil.png", MIME: "image/png"}}, nil
 	}
 	return h.inner.Connector(ctx, req)
 }
@@ -123,7 +132,7 @@ var _ = Describe("connectors media", func() {
 
 	It("a photo that is too large gets a sentence, and its caption still goes", func() {
 		r, bot := mediaRig(nil, "ok")
-		bot.media["big"] = botMedia{Path: "photos/big.png", Size: 5 << 20, Data: pngBytes}
+		bot.media["big"] = botMedia{Path: "photos/big.png", Size: 25 << 20, Data: pngBytes}
 		bot.message(1, 11, photoOf("big"))
 		waitFor("the sentence", func() bool { return len(bot.answers()) == 1 })
 		Expect(bot.answers()[0]).To(ContainSubstring("too large"))
@@ -175,7 +184,8 @@ var _ = Describe("connectors media", func() {
 		sh, bot := newShared(), newScriptedBot()
 		api := &transport.API{BaseURL: bot.srv.URL, Client: bot.srv.Client()}
 		tg := studiobot.Telegram(api)
-		tg.Runtime = hostileMedia{inner: tg.Runtime}
+		withHost := tg.WithHost
+		tg.WithHost = func(h testhost.Host) contract.ConnectorRuntime { return hostileMedia{inner: withHost(h), host: h} }
 		r := newConnRigWith(sh, connStore(), studiobot.NewTransport(tg), connSay("ok"), nil)
 		r.bot = bot
 		r.bind(studio.ConnectorInput{Allow: []string{"11"}})

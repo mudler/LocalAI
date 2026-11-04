@@ -1,10 +1,10 @@
-// Package egress is the network policy of the commands a chat runs in the
-// Sandbox. The guest has no network device; its only way out is a proxy on the
-// host, and every connection the proxy is asked for is decided here: by the
-// administrator's ceiling, the chat's preset, the rules the person stored for
-// the chat and the answers to the cards that asked them. The package holds the
-// policy and nothing that does I/O, so the same decision is made on every
-// frontend.
+// Package egress is the network policy of the commands a chat runs in an
+// add-on that declares a network capability. The environment has no network
+// device; its only way out is a proxy that asks the host, and every connection
+// the proxy is asked for is decided here: by the administrator's ceiling, the
+// chat's preset, the rules the person stored for the chat and the answers to
+// the cards that asked them. The package holds the policy and nothing that
+// does I/O, so the same decision is made on every frontend.
 package egress
 
 import (
@@ -491,11 +491,12 @@ func Admits(s Settings, r Request, reg *Registries) bool {
 }
 
 // Describe is the one line the model reads about the network of its commands.
-// asks says whether a blocked host can raise a card that a person answers:
-// only in a chat a person watches, under a ceiling wider than the chat's
+// name is the title of the environment that runs them, from the add-on's
+// declaration. asks says whether a blocked host can raise a card that a person
+// answers: only in a chat a person watches, under a ceiling wider than the chat's
 // preset. Without it the model is told to ask the user in its answer, since
 // no card can appear.
-func Describe(p Preset, reg *Registries, asks bool) string {
+func Describe(p Preset, reg *Registries, asks bool, name string) string {
 	tail := " A blocked host asks the user; do not try to get around the proxy."
 	if !asks {
 		tail = " A blocked host is refused, and nothing asks the user; say which host you need in your answer, and do not try to get around the proxy."
@@ -504,7 +505,7 @@ func Describe(p Preset, reg *Registries, asks bool) string {
 	case PresetRegistries:
 		return "Network for commands: package registries only (" + strings.Join(reg.Titles(), ", ") + ")." + tail
 	case PresetAll:
-		return "Network for commands: all public sites, through the proxy the sandbox sets." + tail
+		return "Network for commands: all public sites, through the proxy that " + name + " sets." + tail
 	}
 	return "Network for commands: off." + tail
 }
@@ -513,14 +514,14 @@ func Describe(p Preset, reg *Registries, asks bool) string {
 // not the chat, keeps the network narrower than the chat asked: the
 // administrator's ceiling. Nobody can approve a host outside the limit, so
 // the line says not to retry one; only an administrator can change it. asks
-// is as for Describe, for the hosts inside the limit.
-func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool) string {
+// and name are as for Describe, for the hosts inside the limit.
+func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool, name string) string {
 	const where = "An administrator can change it on the Settings tab of the add-on that runs the commands, on the Add-ons page."
 	if normal(ceiling) == PresetOff {
-		return "Network for commands: off. The server's setting for the Sandbox network does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
+		return "Network for commands: off. The server's setting for the " + name + " network does not allow any access, and no user approval changes that, so do not wait for one or retry a blocked request. " +
 			"Tell the user the network is off by the server's setting. " + where
 	}
-	return Describe(eff, reg, asks) + " The server's setting for the Sandbox network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
+	return Describe(eff, reg, asks, name) + " The server's setting for the " + name + " network limits it; a host outside the limit is blocked by that setting, not by a missing approval, so do not retry it. Tell the user. " + where
 }
 
 // Hint is the sentence after Describe in the turn's note: which tool to use
@@ -528,12 +529,12 @@ func DescribeLimit(eff, ceiling Preset, reg *Registries, asks bool) string {
 // anything, so the sentence says that instead. web says whether the chat has
 // web_fetch or web_search (the built-in ones or an add-on's): only then are
 // they named.
-func Hint(p Preset, web bool) string {
+func Hint(p Preset, web bool, name string) string {
 	if normal(p) == PresetOff {
 		return "curl, pip and git cannot reach anything now; ask the user to turn the network on if a task needs it."
 	}
 	if web {
-		return "curl, pip and git work in the sandbox through the proxy. To read or search web pages use web_fetch or web_search; use curl for APIs, downloads and installs."
+		return "curl, pip and git work in " + name + " through the proxy. To read or search web pages use web_fetch or web_search; use curl for APIs, downloads and installs."
 	}
-	return "curl, pip and git work in the sandbox through the proxy."
+	return "curl, pip and git work in " + name + " through the proxy."
 }

@@ -38,6 +38,7 @@ import { useAddonHomeCommands } from '../addons/useAddonRegistry'
 import { projectHomeCommands } from '../addons/homeCommands'
 import { reservedNames, usableSkills } from '../utils/slashCommands'
 import { backendControlApi, chatsApi, modelsApi, systemApi, nodesApi } from '../utils/api'
+import { addonsNotice } from '../utils/addonsNotice'
 import { greetingKey } from '../utils/greeting'
 import { resumeItems } from '../utils/homeConversations'
 // eslint-disable-next-line no-unused-vars
@@ -114,7 +115,26 @@ export default function Home() {
   // An add-on address opened while add-ons are off on the server lands here
   // (see AddonsShell). The notice
   // says why, and how to get the add-on.
-  const [addonNotice, setAddonNotice] = useState(() => location.state?.addonsOff || '')
+  // The state outlives the cause: a refresh keeps it after add-ons are back, so
+  // it is checked against /api/features before it is shown.
+  const [addonNotice, setAddonNotice] = useState('')
+  const [addonNoticeKind, setAddonNoticeKind] = useState('off')
+  const stateAddon = location.state?.addonsOff || ''
+  const pathname = location.pathname
+  const clearAddonState = useCallback(() => {
+    if (stateAddon) navigate(pathname, { replace: true, state: null })
+  }, [navigate, pathname, stateAddon])
+  const checkAddons = useCallback(async () => {
+    if (!stateAddon) return
+    let data = null
+    try { data = await (await fetch(apiUrl('/api/features'))).json() } catch { /* keep the notice */ }
+    const notice = addonsNotice(stateAddon, data)
+    setAddonNotice(notice.addon)
+    setAddonNoticeKind(notice.kind)
+    if (!notice.addon) clearAddonState()
+  }, [stateAddon, clearAddonState])
+  useEffect(() => { checkAddons() }, [checkAddons])
+  const dismissAddonNotice = () => { setAddonNotice(''); clearAddonState() }
 
   // Detect distributed mode.
   useEffect(() => {
@@ -328,7 +348,7 @@ export default function Home() {
   // chats leaves the strip empty.
   useEffect(() => {
     let live = true
-    chatsApi.list(1, 'chat').then(r => {
+    chatsApi.list(1, 'chat', 'person').then(r => {
       if (!live) return
       setConversations(resumeItems(r.conversations))
       setChatServer({ files: r.files !== false, filesReason: r.files_reason || '', persistent: r.persistent !== false, imageModel: r.image_model || '' })
@@ -561,15 +581,19 @@ export default function Home() {
           {addonNotice && (
             <Callout
               tone="info" icon="puzzle" role="note" testId="home-addons-off"
-              title={t('notice.addonsOffTitle')}
+              title={t(addonNoticeKind === 'unreachable' ? 'notice.addonsDownTitle' : 'notice.addonsOffTitle')}
               actions={(
                 <>
-                  <Button size="sm" href={ADDONS_DOCS_URL} target="_blank" rel="noopener noreferrer">{t('notice.addonsDocs')}</Button>
-                  <Button size="sm" variant="ghost" onClick={() => setAddonNotice('')}>{t('notice.dismiss')}</Button>
+                  {addonNoticeKind === 'unreachable'
+                    ? <Button size="sm" onClick={checkAddons}>{t('notice.addonsRetry')}</Button>
+                    : <Button size="sm" href={ADDONS_DOCS_URL} target="_blank" rel="noopener noreferrer">{t('notice.addonsDocs')}</Button>}
+                  <Button size="sm" variant="ghost" onClick={dismissAddonNotice}>{t('notice.dismiss')}</Button>
                 </>
               )}
             >
-              {t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: t('notice.thisPage') })}
+              {addonNoticeKind === 'unreachable'
+                ? t('notice.addonsDownBody', { name: t('notice.thisPage') })
+                : t(isAdmin ? 'notice.addonsOffAdmin' : 'notice.addonsOffReader', { name: t('notice.thisPage') })}
             </Callout>
           )}
 

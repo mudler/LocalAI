@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -38,17 +39,20 @@ func (c *tclock) Advance(d time.Duration) {
 
 // shared is what two frontends of one cluster share: every store.
 type shared struct {
-	chats   store.Store
-	files   *files.Service
-	agents  agents.Store
-	notices notify.Store
-	trg     triggers.Store
-	clock   *tclock
-	users   func(string) error
-	allowed func(*auth.User, string) bool
-	addons  *fakeAddons
-	net     *testutil.FakeBus  // when set, notifications travel over it, as between frontends
-	deps    func(*studio.Deps) // when set, it changes the service's dependencies last
+	chats store.Store
+	files *files.Service
+	// transfers is the table of file handles over the blob store of files: the
+	// connector rigs give it to the add-ons.
+	transfers *hostops.Transfers
+	agents    agents.Store
+	notices   notify.Store
+	trg       triggers.Store
+	clock     *tclock
+	users     func(string) error
+	allowed   func(*auth.User, string) bool
+	addons    *fakeAddons
+	net       *testutil.FakeBus  // when set, notifications travel over it, as between frontends
+	deps      func(*studio.Deps) // when set, it changes the service's dependencies last
 }
 
 func newShared() *shared {
@@ -57,7 +61,8 @@ func newShared() *shared {
 	ag, _ := agents.NewJSON("")
 	ns, _ := notify.NewJSON("")
 	ts, _ := triggers.NewJSON("")
-	return &shared{chats: st, files: newFiles(), agents: ag, notices: ns, trg: ts,
+	fs, blobs := newFilesWithBlobs()
+	return &shared{chats: st, files: fs, transfers: hostops.NewTransfers(blobs), agents: ag, notices: ns, trg: ts,
 		clock:  &tclock{t: time.Date(2026, 10, 27, 7, 0, 0, 0, time.UTC)},
 		addons: &fakeAddons{tools: map[string][]studio.AddonTool{alice: {addonTool("office", "read-doc"), {Name: "addon__sandbox__bash", AddonID: "sandbox", Action: true, Description: "bash"}}}},
 	}
@@ -642,7 +647,7 @@ var _ = Describe("trigger runs of a scoped agent", func() {
 		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID})
 		// An imported agent whose folder does not exist here: limited, not chosen.
 		unset := s.agent
-		unset.FolderID = 0
+		unset.Folders, unset.FolderID = []agents.AgentFolder{{Mode: agents.FolderRead}}, 0
 		Expect(s.sh.agents.Put(s.ctx, unset)).To(Succeed())
 		s.due()
 		run := s.waitEnded(tr.ID)
@@ -714,7 +719,8 @@ var _ = Describe("trigger runs of a scoped agent", func() {
 			}
 		})
 		s.put("/Projects/Other/secret.txt", "OUTSIDE-SECRET-MARKER")
-		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID})
+		// A run that nobody watches writes only with act.files (the action policy).
+		tr := s.schedule(studio.TriggerInput{AgentID: s.agent.ID, Acts: []string{"act.files"}})
 		s.due()
 		run := s.waitEnded(tr.ID)
 		Expect(run.Status).To(Equal(triggers.StatusDone), "run = %+v", run)

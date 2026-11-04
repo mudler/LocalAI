@@ -12,6 +12,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -86,6 +87,26 @@ var _ = Describe("subagent", func() {
 		Expect(kids[0].Kind).To(Equal(session.KindSubAgent), "children = %+v, want one sub-agent of the same user and model", kids)
 		Expect(kids[0].Principal).To(Equal(alice), "children = %+v, want one sub-agent of the same user and model", kids)
 		Expect(kids[0].Model).To(Equal("m"), "children = %+v, want one sub-agent of the same user and model", kids)
+	})
+
+	It("a sub-agent uses the connections its parent chose, and the parent's record is not shared", func() {
+		var st store.Store
+		svc, _ := newToolService(func(a workspace.Actor, text string) []studiotest.ToolStep {
+			switch text {
+			case "go":
+				return []studiotest.ToolStep{{Tool: "spawn_agent", Args: `{"task":"find the answer","wait":true}`}, {Say: "parent done"}}
+			case "find the answer":
+				return []studiotest.ToolStep{{Say: "42"}}
+			}
+			return nil
+		}, func(d *studio.Deps) { st = d.Store })
+		id := create(svc, alice)
+		Expect(st.SetConnections(context.Background(), alice, id, connsets.Sets{"tracker": {"b-work", "b-home"}})).To(Succeed())
+		sent(svc, alice, id, "go")
+		idle(svc, alice, id)
+		kids := childrenOf(svc, alice, id)
+		Expect(kids).To(HaveLen(1))
+		Expect(kids[0].Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}))
 	})
 
 	It("a background sub agent reports back as a message and an event", func() {

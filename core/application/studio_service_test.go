@@ -89,8 +89,30 @@ var _ = Describe("studio service at startup", func() {
 		size := 4096
 		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{{Name: "small", LLMConfig: config.LLMConfig{ContextSize: &size}}, {Name: "unset"}})
 		Expect(app.studioContextTokens("small")).To(Equal(4096))
-		Expect(app.studioContextTokens("unset")).To(Equal(0))
+		// No context_size: the backend runs with its default window.
+		Expect(app.studioContextTokens("unset")).To(Equal(config.DefaultContextSize))
 		Expect(app.studioContextTokens("missing")).To(Equal(0))
+	})
+
+	It("reads the window of an alias from its target, not from the alias", func() {
+		app := newApp()
+		big, fallback := 100096, 4096
+		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{
+			{Name: "target-model", LLMConfig: config.LLMConfig{ContextSize: &big}},
+			// The loader gives every alias the generic default window.
+			{Name: "default", Alias: "target-model", LLMConfig: config.LLMConfig{ContextSize: &fallback}},
+		})
+		Expect(app.studioContextTokens("default")).To(Equal(100096))
+		Expect(app.studioContextTokens("target-model")).To(Equal(100096))
+	})
+
+	It("reads the agent options of an alias from its target", func() {
+		app := newApp()
+		app.ModelConfigLoader().ReplaceModelConfigs([]config.ModelConfig{
+			{Name: "target-model", Agent: config.AgentConfig{MaxIterations: 7}},
+			{Name: "default", Alias: "target-model"},
+		})
+		Expect(app.studioAgentOptions("default").Iterations).To(Equal(7))
 	})
 
 	Describe("MCP servers of a chat", func() {

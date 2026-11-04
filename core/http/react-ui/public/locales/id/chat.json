@@ -4,7 +4,10 @@
     "tool": "Alat",
     "result": "Hasil",
     "toolResult": "Hasil {{name}}",
-    "thinking": "Berpikir..."
+    "thinking": "Berpikir...",
+    "toolCall": "Pemanggilan alat",
+    "toolCalls_one": "{{count}} panggilan alat",
+    "toolCalls_other": "{{count}} panggilan alat"
   },
   "header": {
     "manageModeTooltip": "Obrolan ini dapat menginstal model, mengedit konfigurasi, dan mengelola backend dengan berbicara melalui LocalAI.",
@@ -12,7 +15,10 @@
     "chatSettings": "Pengaturan Obrolan",
     "modelInfoTitle": "Info model: {{model}}",
     "editConfig": "Edit konfigurasi",
-    "close": "Tutup"
+    "close": "Tutup",
+    "chatName": "Nama obrolan",
+    "find": "Cari dalam obrolan",
+    "more": "Lainnya"
   },
   "modelInfo": {
     "backend": "Backend",
@@ -33,7 +39,18 @@
     "agent": "Agen",
     "agentHelp": "Obrolan ini memakai agen {{name}}: instruksinya dan hanya alat yang diizinkannya.",
     "editAgent": "Ubah agen",
-    "deleteHelp": "Hapus obrolan ini dan pesannya secara permanen."
+    "deleteHelp": "Hapus obrolan ini dan pesannya secara permanen.",
+    "focusMode": "Mode fokus",
+    "focusModeDesc": "Ciutkan sidebar dan rampingkan header saat percakapan aktif. Tekan Esc untuk memulihkan sementara; nonaktifkan ini untuk mempertahankan tata letak penuh.",
+    "behaviour": "Perilaku",
+    "conversation": "Percakapan ini",
+    "systemPrompt": "System Prompt",
+    "systemPromptPlaceholder": "Anda adalah asisten yang membantu...",
+    "temperature": "Temperatur",
+    "topP": "Top P",
+    "topK": "Top K",
+    "contextSize": "Ukuran Konteks",
+    "modelDefault": "model bawaan"
   },
   "empty": {
     "manageTitle": "Kelola LocalAI dengan obrolan",
@@ -56,7 +73,12 @@
     "recent": "Terbaru",
     "hintEnter": "Enter untuk mengirim",
     "hintShiftEnter": "Shift+Enter untuk baris baru",
-    "hintAttach": "Lampirkan file"
+    "hintAttach": "Lampirkan file",
+    "title": "Apa yang sedang kita kerjakan?",
+    "try": "Coba",
+    "warmReady": "{{model}} telah dimuat dan siap.",
+    "coldReady": "{{model}} belum dimuat. Akan memuat saat balasan pertama.",
+    "hintKeys": "Enter untuk mengirim, Shift+Enter untuk baris baru. Tekan Ctrl+K untuk semua obrolan."
   },
   "errors": {
     "viewTraces": "Lihat trace untuk detailnya"
@@ -65,15 +87,23 @@
     "copy": "Salin",
     "regenerate": "Hasilkan ulang",
     "jumpToLatest": "Lompat ke terbaru",
-    "reuse": "Ubah dan kirim lagi"
+    "reuse": "Ubah dan kirim lagi",
+    "editMessage": "Edit pesan",
+    "branch": "Cabangkan dari sini"
   },
   "streaming": {
     "transferring": "Mentransfer model...",
-    "transferringTo": "Mentransfer model ke {{node}}..."
+    "transferringTo": "Mentransfer model ke {{node}}...",
+    "waiting": "Menunggu balasan"
   },
   "input": {
     "stopGenerating": "Hentikan pembuatan",
-    "placeholderQueue": "Model sedang bekerja. Pesan yang dikirim sekarang menunggu langkah berikutnya."
+    "placeholderQueue": "Model sedang bekerja. Pesan yang dikirim sekarang menunggu langkah berikutnya.",
+    "send": "Kirim pesan",
+    "placeholderModel": "Pesan {{model}}...",
+    "placeholderNoModel": "Instal model untuk memulai obrolan",
+    "selectModelFirst": "Pilih model dahulu",
+    "placeholderPick": "Pilih model untuk memulai"
   },
   "deleteAllDialog": {
     "title": "Hapus Semua Obrolan",
@@ -84,7 +114,8 @@
     "selectModel": "Silahkan pilih model",
     "copied": "Berhasil disalin ke papan klip",
     "copyFailed": "Gagal menyalin ke papan klip",
-    "newChatForModel": "Obrolan mempertahankan modelnya. Obrolan baru dimulai dengan {{model}}."
+    "newChatForModel": "Obrolan mempertahankan modelnya. Obrolan baru dimulai dengan {{model}}.",
+    "chatCopied": "Obrolan disalin ke papan klip"
   },
   "menu": {
     "trigger": "Obrolan",
@@ -102,12 +133,83 @@
     "untitled": "Obrolan baru",
     "origin": {
       "trigger": "Dimulai oleh pemicu",
-      "connector": "Dari konektor"
+      "connector": "Dari konektor",
+      "job": "Dimulai oleh job",
+      "page": "Dimulai oleh halaman",
+      "other": "Dimulai oleh hal lain"
+    },
+    "originBadge": {
+      "trigger": "Pemicu",
+      "connector": "Konektor",
+      "job": "Job",
+      "page": "Halaman",
+      "other": "Otomatis"
+    },
+    "copyChat": "Salin obrolan",
+    "title": "Percakapan",
+    "noModel": "Tidak ada model",
+    "group": {
+      "today": "Hari ini",
+      "yesterday": "Kemarin",
+      "week": "Awal minggu ini",
+      "older": "Lebih lama"
+    },
+    "keys": {
+      "move": "pindah",
+      "open": "buka",
+      "rename": "ganti nama",
+      "delete": "hapus",
+      "clear": "hapus"
+    },
+    "deleted": "\"{{title}}\" telah dihapus",
+    "undo": "Urungkan",
+    "dismiss": "Tutup",
+    "find": {
+      "searching": "Mencari…",
+      "count_one": "{{count}} hasil",
+      "count_other": "{{count}} hasil",
+      "more_one": "{{count}} kecocokan lain di chat ini",
+      "more_other": "{{count}} kecocokan lain di chat ini",
+      "indexing": "Chat lama masih diindeks. Hasil mungkin belum lengkap.",
+      "partial": "Mencari di {{searched}} chat terbaru dari {{total}}.",
+      "failed": "Pencarian gagal.",
+      "retry": "Coba lagi",
+      "noMatchFor": "Tidak ada chat yang cocok dengan “{{query}}”.",
+      "noMatchFiltered": "Tidak ada chat yang cocok dengan “{{query}}” dengan filter ini.",
+      "inTitle": "Cocok dengan judul",
+      "you": "Anda",
+      "assistant": "Asisten",
+      "filters": "Filter pencarian",
+      "agent": "Agen",
+      "anyAgent": "Agen apa pun",
+      "origin": "Sumber",
+      "anyOrigin": "Di mana saja",
+      "originName": {
+        "person": "Chat saya",
+        "automated": "Add-on dan otomatisasi",
+        "trigger": "Pemicu",
+        "connector": "Aplikasi pesan",
+        "job": "Job",
+        "page": "Halaman"
+      },
+      "when": "Kapan",
+      "anyTime": "Kapan saja",
+      "range": {
+        "day": "24 jam terakhir",
+        "week": "7 hari terakhir",
+        "month": "30 hari terakhir",
+        "year": "Setahun terakhir",
+        "custom": "Pilih tanggal…"
+      },
+      "from": "Dari",
+      "to": "Sampai",
+      "reset": "Atur ulang filter"
     }
   },
   "message": {
-    "you": "You",
-    "loopRun": "Perulangan, jalan ke-{{run}}"
+    "you": "Anda",
+    "loopRun": "Perulangan, jalan ke-{{run}}",
+    "assistant": "Asisten"
   },
   "tools": {
     "label": "Alat",
@@ -128,7 +230,8 @@
     "failed": "Gagal menyimpan. Sakelar kembali seperti semula.",
     "unavailable": "Tidak tersedia di obrolan ini",
     "toolCount_one": "{{count}} alat",
-    "toolCount_other": "{{count}} alat"
+    "toolCount_other": "{{count}} alat",
+    "optionsOf": "Opsi {{name}}"
   },
   "skills": {
     "label": "Keahlian",
@@ -172,15 +275,19 @@
       "desc": "Hapus percakapan ini"
     },
     "assistant": {
-      "desc": "Mulai obrolan yang bisa mengelola LocalAI"
+      "desc": "Mulai obrolan yang bisa mengelola LocalAI",
+      "label": "Mode kelola"
     },
     "settings": {
-      "desc": "Mode fokus, agen, dan info model"
+      "desc": "Mode fokus, agen, dan info model",
+      "label": "Pengaturan obrolan"
     },
     "group": {
       "context": "Konteks",
       "skills": "Skill dan agen",
-      "help": "Bantuan"
+      "help": "Bantuan",
+      "chat": "Obrolan",
+      "view": "Lihat"
     },
     "models": {
       "label": "Model",
@@ -255,11 +362,41 @@
       "desc": "Tetapkan tujuan yang terus dikerjakan chat sendiri",
       "clearDesc": "Hapus tujuan",
       "resumeDesc": "Teruskan tujuan"
+    },
+    "model": {
+      "label": "Ganti model",
+      "desc": "Pilih model obrolan yang berbeda"
+    },
+    "new": {
+      "label": "Obrolan baru",
+      "desc": "Mulai percakapan baru"
+    },
+    "chats": {
+      "label": "Percakapan",
+      "desc": "Buka daftar obrolan Anda"
+    },
+    "find": {
+      "label": "Cari di obrolan",
+      "desc": "Cari dalam percakapan ini"
+    },
+    "export": {
+      "label": "Ekspor sebagai Markdown",
+      "desc": "Unduh percakapan ini"
     }
   },
   "shortcuts": {
     "onMessage": "Pada pesan: salin, ubah, buat ulang",
-    "editLast": "Ubah pesan terakhir Anda"
+    "editLast": "Ubah pesan terakhir Anda",
+    "title": "Pintasan papan tik",
+    "conversations": "Buka percakapan Anda",
+    "find": "Cari di obrolan ini",
+    "actions": "Aksi",
+    "send": "Kirim",
+    "newline": "Baris baru",
+    "inEmptyBox": "di dalam kotak kosong",
+    "stop": "Hentikan balasan",
+    "moveMessages": "Pindah antarpesan",
+    "close": "Tutup"
   },
   "files": {
     "title": "File di obrolan ini",
@@ -386,7 +523,38 @@
     "loadFailed": "Tidak dapat memuat obrolan Anda.",
     "emptyTitle": "Belum ada obrolan",
     "emptyBody": "Obrolan dimulai di Beranda: ketik pesan lalu kirim. Setelah itu obrolan Anda tercantum di sini.",
-    "start": "Mulai obrolan"
+    "start": "Mulai obrolan",
+    "tabsLabel": "Daftar obrolan",
+    "tab": {
+      "mine": "Obrolan saya",
+      "automated": "Dari add-on dan otomatisasi"
+    },
+    "automated": {
+      "intro": "Percakapan yang dimulai oleh sesuatu selain Anda, seperti konektor, pemicu, atau job. Percakapan ini tidak muncul di daftar obrolan Anda.",
+      "empty": "Belum ada yang memulai obrolan sendiri.",
+      "kind": {
+        "trigger": "Pemicu",
+        "connector": "Konektor",
+        "job": "Job",
+        "page": "Halaman",
+        "other": "Lainnya"
+      },
+      "badge": {
+        "trigger": "Pemicu",
+        "connector": "Konektor",
+        "job": "Job",
+        "page": "Halaman",
+        "other": "Otomatis"
+      },
+      "chats": "Obrolan: {{count}}",
+      "lastActive": "Terakhir aktif {{when}}",
+      "running": "Berjalan",
+      "waiting": "Menunggu Anda",
+      "waitingCount": "Obrolan yang menunggu Anda: {{count}}",
+      "open": "Buka {{title}}",
+      "showAll": "Tampilkan semua ({{count}})",
+      "showLess": "Tampilkan lebih sedikit"
+    }
   },
   "foot": {
     "state": {
@@ -578,7 +746,7 @@
     "skillsOn_one": "{{count}} skill",
     "skillsOn_other": "{{count}} skill",
     "commands": "Perintah",
-    "isolated": "Berjalan di sandbox terisolasi",
+    "isolated": "Berjalan terisolasi",
     "host": "Berjalan di mesin ini",
     "noCommands": "Tidak bisa dijalankan",
     "context": "Konteks",
@@ -599,6 +767,48 @@
     "chipMissing": "Folder hilang",
     "missing": "Folder agen ini sudah tidak ada. Pilih folder lain di agen.",
     "startError": "Folder agen ini hilang, jadi chat tidak bisa dimulai. Pilih folder lain untuk agen.",
-    "editAgent": "Edit agen"
+    "editAgent": "Edit agen",
+    "toolsMany": "File: hanya {{n}} folder: {{list}}. Folder bersama dan skill tetap bisa dibaca."
+  },
+  "origin": {
+    "banner": "Percakapan ini dimulai oleh {{title}}.",
+    "open": "Buka {{title}}",
+    "kindFallback": {
+      "trigger": "sebuah pemicu",
+      "connector": "sebuah konektor",
+      "job": "sebuah job",
+      "page": "sebuah halaman",
+      "other": "hal lain"
+    }
+  },
+  "picker": {
+    "readyNow": "siap sekarang",
+    "fits": "{{amount}} GB tersedia",
+    "spill": "{{amount}} GB berjalan di CPU",
+    "over": "{{amount}} GB lebih besar dari kapasitas perangkat ini",
+    "memory": "Memori",
+    "gpuMemory": "Memori GPU",
+    "memoryUsed": "{{used}} dari {{total}} {{unit}} terpakai"
+  },
+  "find": {
+    "placeholder": "Cari di obrolan ini",
+    "count": "{{current}} dari {{total}}",
+    "none": "Tidak ada hasil",
+    "previous": "Hasil sebelumnya",
+    "next": "Hasil berikutnya",
+    "close": "Tutup pencarian"
+  },
+  "load": {
+    "title": "Memuat",
+    "bytes": "{{sent}} dari {{total}}",
+    "queued": "Pesan Anda masuk antrean dan akan dikirim setelah model siap. Tekan Berhenti untuk membatalkannya.",
+    "cold": "Model ini belum dimuat, jadi balasan pertama akan memakan waktu lebih lama. Pesan Anda akan terkirim begitu siap."
+  },
+  "noModel": {
+    "title": "Obrolan membutuhkan model bahasa",
+    "body": "Instal salah satu untuk memulai obrolan. Apa yang Anda ketik di sini tidak akan hilang selama proses instalasi.",
+    "bodyMember": "Belum ada model obrolan yang terinstal di server ini. Hubungi administrator untuk menginstalnya.",
+    "gallery": "Jelajahi galeri",
+    "import": "Impor model"
   }
 }

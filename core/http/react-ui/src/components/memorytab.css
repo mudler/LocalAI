@@ -1,0 +1,33 @@
+/* Settings > Memory: the context files of the prompt, with their sizes. */
+.mt-tab { display: grid; gap: var(--sp-4); max-width: 720px; }
+.mt-lede, .mt-limits { margin: 0; color: var(--dk-muted); font-size: var(--text-sm); }
+.mt-limits { font-size: var(--text-xs); }
+.mt-group { display: grid; gap: var(--sp-2); padding: var(--sp-4); border-radius: var(--dk-radius-2); background: var(--dk-card); box-shadow: inset 0 0 0 1px var(--dk-edge); }
+.mt-group__title { margin: 0; font-size: var(--text-md, 15px); color: var(--dk-text); overflow-wrap: anywhere; }
+.mt-use { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-3); margin: 0; font-size: var(--text-xs); color: var(--dk-muted); }
+.mt-use__bar { width: 120px; height: 6px; accent-color: var(--dk-accent); }
+.mt-use--over { color: var(--dk-error-text, var(--dk-error)); }
+.mt-use--over .mt-use__bar { accent-color: var(--dk-error); }
+.mt-files { margin: 0; padding: 0; list-style: none; display: grid; }
+.mt-file { border-top: 1px solid var(--dk-edge); }
+.mt-file__row { display: flex; align-items: center; gap: var(--sp-3); padding: 4px 0; }
+.mt-file__name { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; min-width: 0; padding: 6px 0; border: 0; background: none; color: var(--dk-text); font: inherit; text-align: left; cursor: pointer; overflow-wrap: anywhere; }
+.mt-file__name:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: 2px; border-radius: var(--dk-radius-1); }
+.mt-file__size { flex: none; color: var(--dk-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
+.mt-file__acts { flex: none; display: flex; gap: 4px; }
+.mt-tag { padding: 0 6px; border-radius: var(--dk-radius-3); background: var(--dk-accent-wash); color: var(--dk-accent-text); font-size: var(--text-xs); }
+.mt-panel { display: grid; gap: var(--sp-2); padding: 0 0 var(--sp-3); }
+.mt-text { margin: 0; padding: var(--sp-3); max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: var(--dk-radius-2); background: var(--dk-inset); font-family: var(--font-mono); font-size: var(--text-xs); }
+.mt-edit { width: 100%; font-family: var(--font-mono); font-size: var(--text-xs); resize: vertical; }
+.mt-foot { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.mt-edit { height: auto; padding: var(--sp-2) var(--sp-3); }
+.mt-help { margin: var(--sp-1) 0 var(--sp-2); font-size: var(--text-xs); color: var(--dk-muted); }
+.mt-help--err { color: var(--dk-error-text, var(--dk-error)); }
+.mt-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.mt-panel .dk-label { display: block; margin-bottom: var(--sp-1); }
+
+.mt-tabs { display: flex; flex-wrap: wrap; gap: var(--sp-1); border-bottom: 1px solid var(--dk-edge); }
+.mt-tabs__tab { padding: var(--sp-2) var(--sp-3); border: 0; border-bottom: 2px solid transparent; background: none; color: var(--dk-muted); font: inherit; font-size: var(--text-sm); cursor: pointer; overflow-wrap: anywhere; }
+.mt-tabs__tab[aria-selected="true"] { color: var(--dk-text); border-bottom-color: var(--dk-accent); font-weight: 600; }
+.mt-tabs__tab:focus-visible { outline: 2px solid var(--focus-ring-color); outline-offset: -2px; border-radius: var(--dk-radius-1); }
+.mt-panelgroup { display: grid; gap: var(--sp-4); }

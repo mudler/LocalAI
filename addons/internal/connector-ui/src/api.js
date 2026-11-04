@@ -23,12 +23,13 @@ async function call(path, init = {}) {
   return response.json()
 }
 
-const send = (method, path, body) => call(path, { method, body: body === undefined ? undefined : JSON.stringify(body) })
+const send = (method, path, body, signal) => call(path, { method, body: body === undefined ? undefined : JSON.stringify(body), signal })
 
 export const agentsApi = { list: () => call('/api/chats/agents') }
 
 export const connectorsApi = {
   list: () => call('/api/chats/connectors'),
+  kinds: () => call('/api/chats/connectors/kinds'),
   create: (body) => send('POST', '/api/chats/connectors', body),
   update: (id, body) => send('PUT', `/api/chats/connectors/${enc(id)}`, body),
   remove: (id) => send('DELETE', `/api/chats/connectors/${enc(id)}`),
@@ -37,4 +38,12 @@ export const connectorsApi = {
   test: (id) => send('POST', `/api/chats/connectors/${enc(id)}/test`, {}),
   senders: (id) => call(`/api/chats/connectors/${enc(id)}/senders`),
   allow: (id, sender) => send('POST', `/api/chats/connectors/${enc(id)}/senders/${enc(sender)}/allow`, {}),
+  // Pairing proves that the owner controls a platform account: the code is sent
+  // to the bot as a direct message from that account.
+  pair: (id) => send('POST', `/api/chats/connectors/${enc(id)}/pairing`, {}),
+  // What each kind of sender may do on a binding now, and the latest decisions.
+  access: (id) => call(`/api/chats/connectors/${enc(id)}/access`),
+  // What the form as it is now will do, before it is saved. The id is "new" for a connection that is not saved yet.
+  preview: (id, body, signal) => send('POST', `/api/chats/connectors/${enc(id)}/access/preview`, body, signal),
+  unpair: (id, sender) => send('DELETE', `/api/chats/connectors/${enc(id)}/paired/${enc(sender)}`),
 }

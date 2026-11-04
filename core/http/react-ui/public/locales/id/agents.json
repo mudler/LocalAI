@@ -75,12 +75,14 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "Pengetahuan",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "File"
+      "Files": "File",
+      "Tools": "Alat",
+      "Notes": "Memori"
     },
     "name": "Name",
     "description": "Description",
@@ -93,7 +95,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "Koleksi yang boleh dicari dalam obrolan dengan agen ini. Daftarnya persis: daftar kosong berarti tidak ada akses.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -128,12 +130,28 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Jaringan perintah dalam proses tanpa pengawasan",
-    "networkHelp": "Saat pemicu atau konektor menjalankan agen ini, perintah Sandbox-nya menjangkau jaringan sejauh ini, sampai batas yang diatur administrator. Proses tidak pernah bertanya: host di luarnya diblokir. Chat yang Anda mulai dengan agen ini juga dimulai dengan ini.",
+    "networkHelp": "Saat pemicu atau konektor menjalankan agen ini, perintahnya menjangkau jaringan sejauh ini, sampai batas yang diatur administrator. Proses tidak pernah bertanya: host di luarnya diblokir. Chat yang Anda mulai dengan agen ini juga dimulai dengan ini.",
     "networkPresets": {
       "off": "Mati",
       "registries": "Registri paket",
       "all": "Semua situs publik"
-    }
+    },
+    "toolsSummary": "{{on}} dari {{total}} aktif",
+    "toolsHelp": "Pilih apa yang dapat dipakai obrolan dengan agen ini. Ini sakelar yang sama dengan menu Alat pada obrolan, dengan opsi tiap sakelar di bawahnya. Alat yang mati tidak pernah ditawarkan ke model. Tanpa opsi yang dicentang, agen memakai bawaan koneksi pesannya; setelah Anda mencentang satu, hanya yang dicentang yang berlaku.",
+    "toolsHeading": "Alat agen ini",
+    "skillsLater": "Chat dengan agen ini hanya membaca skill yang aktif.",
+    "skillsHeading": "Skill agen ini",
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Usulkan juga dari aplikasi pesan",
+      "triggers_run": "Biarkan pemicu dimulai dari aplikasi pesan",
+      "talkback_channels": "Membalas di kanal yang dikenal",
+      "files_upload": "Menerima file dari aplikasi pesan"
+    },
+    "memoryOffUser": "Memori nonaktif di pengaturan Anda, jadi agen ini tidak membaca atau menyimpan catatan, apa pun yang Anda atur di sini.",
+    "memoryOffFix": "Pengaturan, Memori"
   },
   "run": {
     "workingLine": "Working"
@@ -204,7 +222,8 @@
       "watches": "Watches the folder {{folder}}",
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
-      "prompt": "What to do"
+      "prompt": "What to do",
+      "acts": "Izin"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -220,7 +239,8 @@
         "basics": "Basics",
         "prompt": "What to do",
         "schedule": "When",
-        "limits": "Limits"
+        "limits": "Limits",
+        "acts": "Izin"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -228,7 +248,9 @@
         "promptEmpty": "Nothing to do yet",
         "folderEmpty": "Needs a folder",
         "cap": "Up to {{count}} runs a day",
-        "capDefault": "Default limit"
+        "capDefault": "Default limit",
+        "acts_one": "Boleh memakai {{count}} jenis tindakan",
+        "acts_other": "Boleh memakai {{count}} jenis tindakan"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -450,7 +472,7 @@
   },
   "folder": {
     "all": "Semua file saya",
-    "one": "Satu folder",
+    "one": "Folder terpilih",
     "scopeLabel": "File yang dapat dijangkau agen ini",
     "allHelp": "Chat dengan agen ini menjangkau semua file Anda, seperti chat tanpa agen.",
     "choose": "Pilih folder",
@@ -463,7 +485,7 @@
     "readShort": "hanya baca",
     "writeShort": "baca dan ubah",
     "help": "Chat dengan agen ini hanya melihat folder ini dan folder chat-nya sendiri. Folder bersama dan skill tetap bisa dibaca. Server MCP dan alat web yang Anda izinkan tidak dibatasi ke folder ini.",
-    "commands": "Perintah agen ini hanya berjalan di add-on Sandbox, tidak pernah langsung di mesin ini.",
+    "commands": "Perintah agen ini hanya berjalan di add-on yang mengisolasinya, tidak pernah langsung di mesin ini.",
     "nextMessage": "Perubahan berlaku mulai pesan berikutnya di setiap chat.",
     "missing": "Folder ini sudah tidak ada. Pilih folder lain untuk memakai agen ini.",
     "unset": "Belum ada folder yang dipilih. Pilih folder untuk memakai agen ini.",
@@ -482,6 +504,15 @@
     "exportNote": "File ini menyebut folder {{path}}. Di tempat Anda mengimpornya, agen mendapat folder dengan jalur itu, jika ada, atau meminta Anda memilih satu.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Folder hilang",
-    "chipUnset": "Belum ada folder"
+    "chipUnset": "Belum ada folder",
+    "add": "Tambah folder",
+    "remove": "Hapus {{path}}",
+    "removeRow": "Hapus",
+    "count": "{{n}} dari {{max}} folder",
+    "summaryMany": "{{n}} folder",
+    "effectiveRead": "Ada di dalam folder yang hanya bisa dibaca, jadi folder ini hanya bisa dibaca.",
+    "effectiveWrite": "Ada di dalam folder yang bisa diubah, jadi folder ini juga bisa diubah.",
+    "notMounted": "{{n}} folder bersama tidak muat dalam batas akses sebuah chat dan tidak dipasang.",
+    "exportNoteMany": "File ini menyebut {{n}} folder. Di tempat Anda mengimpornya, agen mendapat folder dengan path itu yang ada, dan meminta Anda memilih sisanya."
   }
 }

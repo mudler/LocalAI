@@ -272,6 +272,7 @@ var _ = Describe("Sandbox tools", func() {
 			Expect(d.Description).To(Equal(want[i].Description), "definition %s differs from the runtime", d.Name)
 			Expect(d.UIOnly).To(Equal(want[i].UIOnly), "definition %s differs from the runtime", d.Name)
 			Expect(d.Shadows).To(Equal(want[i].Shadows), "definition %s differs from the runtime", d.Name)
+			Expect(d.Execution).To(Equal(want[i].Execution), "definition %s differs from the runtime", d.Name)
 			Expect(a).To(Equal(b), "definition %s differs from the runtime", d.Name)
 			Expect(contract.ValidateToolSchema(d.InputSchema, d.Kind)).To(Succeed(), "schema of %s", d.Name)
 		}

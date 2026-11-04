@@ -31,6 +31,7 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 		Entry("export", http.MethodGet, "/api/chats/agents/a1/export"),
 		Entry("import", http.MethodPost, "/api/chats/agents/import"),
 		Entry("templates", http.MethodGet, "/api/chats/agents/templates"),
+		Entry("builtin grants", http.MethodGet, "/api/chats/agents/builtin-grants"),
 		Entry("use a template", http.MethodPost, "/api/chats/agents/templates/reviewer/create"),
 		Entry("runs", http.MethodGet, "/api/chats/agents/a1/runs"),
 	)
@@ -69,6 +70,62 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 		Expect(bob["agent"]).To(HaveKeyWithValue("name", "Reviewer"))
 		Expect(bob).NotTo(HaveKey("warnings"))
 		Expect(decodeJSON(s.do("bob", http.MethodGet, "/api/chats/agents", nil))["agents"]).To(HaveLen(1))
+	})
+
+	Describe("builtin grants", func() {
+		It("lists the declared grants with their sensitivity", func() {
+			rec := s.do("alice", http.MethodGet, "/api/chats/agents/builtin-grants", nil)
+			Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+			list := decodeJSON(rec)["grants"].([]any)
+			byName := map[string]map[string]any{}
+			for _, g := range list {
+				m := g.(map[string]any)
+				Expect(m["title"]).NotTo(BeEmpty())
+				Expect(m["description"]).NotTo(BeEmpty())
+				byName[m["name"].(string)] = m
+			}
+			Expect(byName).To(And(HaveKey("memory.write"), HaveKey("skills.write"), HaveKey("pages.write"), HaveKey("dashboard.write"), HaveKey("saved_agents")))
+			Expect(byName["skills.write"]["sensitive"]).To(BeTrue())
+			Expect(byName["memory.write"]["sensitive"]).To(BeFalse())
+		})
+
+		It("saves, keeps, clears, exports and imports the grants of an agent", func() {
+			create := s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Maker", "model": "test-model", "builtins": []string{"memory.write", "skills.write"}})
+			Expect(create.Code).To(Equal(http.StatusCreated), create.Body.String())
+			a := decodeJSON(create)
+			id := a["id"].(string)
+			Expect(a["builtins"]).To(ConsistOf("memory.write", "skills.write"))
+
+			// A new agent has none, and the field is always present.
+			plain := decodeJSON(s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Plain", "model": "test-model"}))
+			Expect(plain).To(HaveKeyWithValue("builtins", BeEmpty()))
+
+			// A write that omits the field keeps the grants; an empty list clears them.
+			keep := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Maker", "model": "test-model", "instructions": "x"})
+			Expect(keep.Code).To(Equal(http.StatusOK), keep.Body.String())
+			Expect(decodeJSON(keep)["builtins"]).To(ConsistOf("memory.write", "skills.write"))
+
+			exp := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+id+"/export", nil))
+			Expect(exp["agent"].(map[string]any)["builtins"]).To(ConsistOf("memory.write", "skills.write"))
+			imp := s.do("bob", http.MethodPost, "/api/chats/agents/import", exp)
+			Expect(imp.Code).To(Equal(http.StatusCreated), imp.Body.String())
+			Expect(decodeJSON(imp)["agent"].(map[string]any)["builtins"]).To(ConsistOf("memory.write", "skills.write"))
+
+			clear := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Maker", "model": "test-model", "builtins": []string{}})
+			Expect(decodeJSON(clear)["builtins"]).To(BeEmpty())
+		})
+
+		It("refuses an unknown grant on a write and drops it on an import; an old file imports as before", func() {
+			bad := s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Bad", "model": "test-model", "builtins": []string{"root.shell"}})
+			Expect(bad.Code).To(Equal(http.StatusBadRequest), bad.Body.String())
+			file := map[string]any{"version": 1, "kind": "localai-agent", "agent": map[string]any{"name": "Future", "model": "test-model", "builtins": []string{"memory.write", "from.the.future"}}}
+			imp := s.do("alice", http.MethodPost, "/api/chats/agents/import", file)
+			Expect(imp.Code).To(Equal(http.StatusCreated), imp.Body.String())
+			Expect(decodeJSON(imp)["agent"].(map[string]any)["builtins"]).To(ConsistOf("memory.write"))
+			old := s.do("alice", http.MethodPost, "/api/chats/agents/import", map[string]any{"version": 1, "kind": "localai-agent", "agent": map[string]any{"name": "Old", "model": "test-model"}})
+			Expect(old.Code).To(Equal(http.StatusCreated), old.Body.String())
+			Expect(decodeJSON(old)["agent"].(map[string]any)["builtins"]).To(BeEmpty())
+		})
 	})
 
 	It("imports a file sent as a multipart form, and drops a model the server does not have", func() {
@@ -179,7 +236,7 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 			mkdir("alice", "/shared/Team/Acme")
 			got := s.do("alice", http.MethodGet, "/api/chats/agents/"+id, nil)
 			Expect(got.Code).To(Equal(http.StatusOK))
-			Expect(decodeJSON(got)["folder"]).To(Equal(map[string]any{"path": "/shared/Team/Acme", "name": "Acme", "mode": "read", "state": "ok"}))
+			Expect(decodeJSON(got)["folder"]).To(Equal(map[string]any{"path": "/shared/Team/Acme", "name": "Acme", "mode": "read", "effective": "read", "state": "ok"}))
 			a, err := s.svc.Agent(ctx, "alice", id)
 			Expect(err).NotTo(HaveOccurred())
 			followed, ok := s.svc.FolderResolver().PathOf(ctx, "alice", a.FolderID)
@@ -215,6 +272,46 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 			Expect(file["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "", "mode": "read"})))
 		})
 
+		It("saves several folders, shows them in order and exports them as version 3", func() {
+			mkdir("alice", "/Projects/Acme")
+			mkdir("alice", "/Notes")
+			rec := s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Multi",
+				"folders": []map[string]string{{"path": "/Projects/Acme", "mode": "write"}, {"path": "/Notes", "mode": "read"}}})
+			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+			a := decodeJSON(rec)
+			Expect(a["folders"]).To(HaveLen(2))
+			Expect(a["folder"]).To(HaveKeyWithValue("path", "/Projects/Acme"), "folder is the first")
+			id := a["id"].(string)
+
+			file := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+id+"/export", nil))
+			Expect(file).To(HaveKeyWithValue("version", BeNumerically("==", 3)))
+			Expect(file["agent"]).To(HaveKeyWithValue("folders", Equal([]any{
+				map[string]any{"path": "/Projects/Acme", "mode": "write"}, map[string]any{"path": "/Notes", "mode": "read"}})))
+			Expect(file["agent"]).NotTo(HaveKey("folder"))
+
+			mkdir("bob", "/Projects/Acme")
+			imp := decodeJSON(s.do("bob", http.MethodPost, "/api/chats/agents/import", file))
+			Expect(imp["agent"]).To(HaveKeyWithValue("folders", HaveLen(2)))
+			Expect(imp["warnings"]).To(ConsistOf("The folder /Notes was not found. Choose a folder before you use this agent."))
+		})
+
+		It("refuses nine folders and keeps the folders when a write has none", func() {
+			var nine []map[string]string
+			for i := 0; i < 9; i++ {
+				p := "/F" + string(rune('A'+i))
+				mkdir("alice", p)
+				nine = append(nine, map[string]string{"path": p, "mode": "read"})
+			}
+			Expect(s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Nine", "folders": nine}).Code).To(Equal(http.StatusBadRequest))
+			rec := s.do("alice", http.MethodPost, "/api/chats/agents", map[string]any{"name": "Eight", "folders": nine[:8]})
+			Expect(rec.Code).To(Equal(http.StatusCreated))
+			id := decodeJSON(rec)["id"].(string)
+			put := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Eight"})
+			Expect(decodeJSON(put)["folders"]).To(HaveLen(8))
+			cleared := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Eight", "folders": []any{}})
+			Expect(decodeJSON(cleared)).NotTo(HaveKey("folders"))
+		})
+
 		It("exports an agent without a folder as version 1", func() {
 			id := save("alice")
 			file := decodeJSON(s.do("alice", http.MethodGet, "/api/chats/agents/"+id+"/export", nil))
@@ -248,7 +345,7 @@ var _ = Describe("Chats agent export, import, templates and history", func() {
 			Expect(imp.Code).To(Equal(http.StatusCreated), imp.Body.String())
 			res := decodeJSON(imp)
 			Expect(res).NotTo(HaveKey("warnings"))
-			Expect(res["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "/Projects/Acme", "name": "Acme", "mode": "read", "state": "ok"})))
+			Expect(res["agent"]).To(HaveKeyWithValue("folder", Equal(map[string]any{"path": "/Projects/Acme", "name": "Acme", "mode": "read", "effective": "read", "state": "ok"})))
 		})
 
 		It("imports a version 2 file whose folder is missing as unset with a warning", func() {

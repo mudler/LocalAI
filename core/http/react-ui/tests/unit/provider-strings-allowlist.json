@@ -1,0 +1,18 @@
+{
+  "admin:settingsTools.descriptions.web_search": "the web (the internet) as a noun, translated; not the Web add-on",
+  "admin:settingsTools.labels.web_search": "the web (the internet) as a noun: the label of the built-in search tool",
+  "admin:usage.sources.ribbonAria": "Web UI: the browser interface as a source of API traffic",
+  "admin:usage.sources.webUI": "Web UI: the browser interface as a source of API traffic",
+  "auth:login.signInWithGitHub": "GitHub as the OAuth identity service a person signs in with; the service, not the GitHub add-on",
+  "chat:steps.verb.websearch": "the web (the internet) as a noun: the verb of a search step",
+  "chats:connectorsPage.noAddonHint": "Telegram is named as an example of a platform a connector carries; content, not a provider",
+  "chats:egress.presetHint.registries": "GitHub releases as a package source the registries preset allows; the service host, not the GitHub add-on",
+  "chats:mcpPage.family": "Telegram and Slack are examples of messaging platforms; content, not a provider",
+  "chats:tools.builtin.web": "the name of the built-in Web tool group of the Tools menu",
+  "collections:sources.title": "web sources of a collection: pages fetched from the internet",
+  "nav:footer.github": "the footer link to the project's GitHub repository; the service, not the GitHub add-on",
+  "pages:subtitle": "a sandbox as the isolated frame a page runs in; not the Sandbox add-on",
+  "pages:viewer.sandboxShared": "a sandbox as the isolated frame a page runs in; not the Sandbox add-on",
+  "settings:chats_web_allow_private.label": "the web (the internet) as a noun: web pages the built-in fetch tool may read",
+  "settings:chats_web_search.label": "the web (the internet) as a noun: the label of the built-in search switch"
+}

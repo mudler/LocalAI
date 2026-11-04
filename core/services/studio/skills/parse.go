@@ -105,6 +105,20 @@ func Requires(data []byte) []string {
 	return out
 }
 
+// Locked reads the optional "locked" key of the frontmatter: the owner's mark
+// that a skill is theirs to change and no agent may propose an edit of it. Only
+// the value true (any case) locks; a file without frontmatter is not locked.
+func Locked(data []byte) bool {
+	if len(data) > MaxFileSize {
+		return false
+	}
+	fm, ok := frontmatter(string(data))
+	if !ok {
+		return false
+	}
+	return strings.EqualFold(strings.TrimSpace(keyValues(fm)["locked"]), "true")
+}
+
 // Clean drops invalid UTF-8, control characters and format characters from s,
 // turns every run of white space into one space and trims the ends.
 func Clean(s string) string {

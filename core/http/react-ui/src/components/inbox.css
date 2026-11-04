@@ -152,6 +152,27 @@
 .nx-item__main:focus { outline: none; }
 .nx-item__main:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring-color); }
 
+.nx-waiting {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 16px;
+  align-items: center;
+  column-gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--dk-accent-wash);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.nx-waiting:focus { outline: none; }
+.nx-waiting:focus-visible { box-shadow: inset 0 0 0 2px var(--focus-ring-color); }
+.nx-waiting__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.nx-waiting .nx-item__title { color: var(--color-text-primary); font-weight: var(--font-weight-medium, 600); }
+.nx-waiting .nx-item__go { opacity: 1; }
+
 .nx-tile {
   display: grid;
   place-items: center;

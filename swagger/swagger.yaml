@@ -52,6 +52,75 @@ definitions:
         description: Digest is the digest of the proposal as it was displayed.
         type: string
     type: object
+  addons.FileView:
+    properties:
+      addonId:
+        type: string
+      api:
+        allOf:
+        - $ref: '#/definitions/contract.VersionRange'
+        description: API is the host API range the manifest declares.
+      fileId:
+        type: string
+      installed:
+        type: boolean
+      installedVersion:
+        type: string
+      name:
+        type: string
+      optional:
+        items:
+          type: string
+        type: array
+      origin:
+        type: string
+      platform:
+        type: string
+      relation:
+        description: Relation is new, upgrade, same or downgrade.
+        type: string
+      required:
+        description: Required and Optional are the host operations the manifest asks
+          for.
+        items:
+          type: string
+        type: array
+      sha256:
+        description: |-
+          SHA256 is the digest of the whole file, in hex. The install approval
+          binds to "sha256:" plus this value.
+        type: string
+      size:
+        type: integer
+      source:
+        description: Source and Origin say that nothing signs the file.
+        type: string
+      title:
+        type: string
+      version:
+        type: string
+    type: object
+  addons.OperationStatus:
+    properties:
+      addonID:
+        type: string
+      failureCode:
+        type: string
+      generation:
+        format: int64
+        type: integer
+      hostOperations:
+        $ref: '#/definitions/hostops.RequestSummary'
+      operationID:
+        type: string
+      phase:
+        type: string
+      runtimeState:
+        type: string
+      stage:
+        description: RuntimeState is an observation, never a durable execution receipt.
+        type: string
+    type: object
   addons.RecoveryBackupRequest:
     properties:
       operationId:
@@ -160,12 +229,54 @@ definitions:
         example: upgrade-notes-1
         type: string
     type: object
+  addons.UserSettingRequest:
+    properties:
+      key:
+        example: save-mode
+        type: string
+      value:
+        example: auto
+        type: string
+    type: object
+  addons.UserSettingView:
+    properties:
+      default:
+        description: Default is the answer of a person who has not chosen.
+        example: ask
+        type: string
+      key:
+        description: Key is the name the add-on declared.
+        example: save-mode
+        type: string
+      value:
+        description: 'Value is the answer in force: the person''s own, or the default.'
+        example: ask
+        type: string
+      values:
+        description: Values are the answers the add-on allows.
+        example:
+        - ask
+        - auto
+        - never
+        items:
+          type: string
+        type: array
+    type: object
+  addons.UserSettingsResponse:
+    properties:
+      settings:
+        items:
+          $ref: '#/definitions/addons.UserSettingView'
+        type: array
+    type: object
   apps.AdminView:
     properties:
       canStart:
         type: boolean
       canStop:
         type: boolean
+      hostOperations:
+        $ref: '#/definitions/hostops.RequestSummary'
       managementUrl:
         description: ManagementURL opens the management view of the addon.
         example: /app/addons?manage=notes
@@ -177,6 +288,20 @@ definitions:
         allOf:
         - $ref: '#/definitions/apps.AdminView'
         description: Admin is present only for administrators.
+      contextFiles:
+        description: |-
+          ContextFiles are the index files the add-on asks the host to load into
+          the prompt of a chat, from the verified manifest. The host reads them as
+          the person; the add-on is not called.
+        items:
+          $ref: '#/definitions/contract.ContextFile'
+        type: array
+      credentialed:
+        description: |-
+          Credentialed is true when the manifest declares credentials: the tools
+          work with a secret that the person keeps in a connector binding. A
+          connector chat holds its write tools to contract.ToolPermission.
+        type: boolean
       description:
         example: Keep notes.
         type: string
@@ -218,8 +343,24 @@ definitions:
           several add-ons replace.
         example: "2026-10-30T09:15:00Z"
         type: string
+      language:
+        description: |-
+          Language, LocalizedTitle and LocalizedDescription are present only when
+          the request named a language (the lang query parameter, else the
+          Accept-Language header) that the manifest translates. Language is the
+          tag that matched. Each localized field falls back to English on its own,
+          so a title without a translation is the English title. No other field
+          changes: Title and Description stay the default-language text.
+        example: it
+        type: string
       launchMode:
         example: always
+        type: string
+      localizedDescription:
+        example: Tieni degli appunti.
+        type: string
+      localizedTitle:
+        example: Appunti
         type: string
       mainPage:
         description: |-
@@ -231,6 +372,20 @@ definitions:
       name:
         example: notes
         type: string
+      network:
+        allOf:
+        - $ref: '#/definitions/apps.NetworkView'
+        description: |-
+          Network is the network policy the add-on declares, present only while
+          the host draws its network-policy control (see contract.EntitledControls).
+      operation:
+        allOf:
+        - $ref: '#/definitions/apps.Operation'
+        description: |-
+          Operation is the lifecycle operation that runs on the add-on now (an
+          upgrade, say). It is absent when none runs. The observation is
+          separate from State: the process can run on while the owner stages
+          the next generation.
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -305,6 +460,13 @@ definitions:
         - update-pending
         example: update-pending
         type: string
+      userSettings:
+        description: |-
+          UserSettings are the per-person choices the add-on declares, from the
+          verified manifest. The host keeps the answers; the add-on is not called.
+        items:
+          $ref: '#/definitions/contract.UserSetting'
+        type: array
       version:
         example: 1.2.3
         type: string
@@ -351,12 +513,92 @@ definitions:
         example: summarize
         type: string
     type: object
+  apps.HomeCommandView:
+    properties:
+      alias:
+        type: string
+      icon:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      labels:
+        additionalProperties:
+          type: string
+        type: object
+      page:
+        type: string
+    type: object
   apps.List:
     properties:
       apps:
         items:
           $ref: '#/definitions/apps.App'
         type: array
+      stale:
+        description: |-
+          Stale is true when the receiving frontend could not reach the owner in
+          time and answers with the last list it received from it. The list may be
+          out of date; Apps still carries the operations the owner reported then.
+        type: boolean
+      staleReason:
+        description: |-
+          StaleReason is why the list is stale: owner_busy when the owner did not
+          answer within the read deadline, owner_unavailable when it could not be
+          reached at all.
+        enum:
+        - owner_busy
+        - owner_unavailable
+        type: string
+      staleSince:
+        description: StaleSince is when the owner last answered, RFC 3339 in UTC.
+        type: string
+    type: object
+  apps.NetworkView:
+    properties:
+      kind:
+        description: Kind is the declared kind of network policy.
+        enum:
+        - egress-check
+        example: egress-check
+        type: string
+      presets:
+        description: Presets are the titles the add-on gives the host's network presets.
+        items:
+          $ref: '#/definitions/contract.NetworkPreset'
+        type: array
+      title:
+        description: 'Title names the network in text: the declared title, else the
+          add-on''s.'
+        example: Example provider
+        type: string
+    type: object
+  apps.Operation:
+    properties:
+      kind:
+        description: 'Kind is the action: install, upgrade, enable, disable or uninstall.'
+        enum:
+        - install
+        - upgrade
+        - enable
+        - disable
+        - uninstall
+        example: upgrade
+        type: string
+      phase:
+        description: |-
+          Phase is the step the owner is in: queued, downloading (fetch and
+          verify the package), backing-up, installing, migrating, starting or
+          working for a step without a name of its own.
+        example: downloading
+        type: string
+      since:
+        description: |-
+          Since is when the operation was accepted, RFC 3339 in UTC. It is absent
+          for an operation recorded before the owner kept the time.
+        example: "2026-11-04T17:18:00Z"
+        type: string
     type: object
   apps.SlotView:
     properties:
@@ -441,6 +683,18 @@ definitions:
           package digest, so a new package is a new URL.
         example: /api/addons/notes/assets/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef/ui.js
         type: string
+      homeCommands:
+        description: HomeCommands contains only resolved navigation metadata for this
+          app.
+        items:
+          $ref: '#/definitions/apps.HomeCommandView'
+        type: array
+      modelActions:
+        description: ModelActions contains only declared destinations for this installed
+          UI.
+        items:
+          $ref: '#/definitions/contract.ModelAction'
+        type: array
       navigation:
         items:
           type: string
@@ -627,6 +881,171 @@ definitions:
       name:
         type: string
     type: object
+  connsets.Sets:
+    additionalProperties:
+      items:
+        type: string
+      type: array
+    type: object
+  contextfiles.Scope:
+    enum:
+    - user
+    - agent
+    - channel
+    type: string
+    x-enum-varnames:
+    - ScopeUser
+    - ScopeAgent
+    - ScopeChannel
+  contract.ChangeKind:
+    enum:
+    - memory
+    - profile
+    - skill
+    - page
+    - dashboard
+    type: string
+    x-enum-varnames:
+    - ChangeMemory
+    - ChangeProfile
+    - ChangeSkill
+    - ChangePage
+    - ChangeDashboard
+  contract.ChangeProposal:
+    properties:
+      agent:
+        type: string
+      answered:
+        type: string
+      auto:
+        description: |-
+          Auto is true when the host applied the change at once because the person
+          chose so (the memory save setting), not after a confirmation. The change
+          set is the same and can be undone the same way.
+        type: boolean
+      base_hash:
+        type: string
+      content:
+        type: string
+      created:
+        type: string
+      expires:
+        type: string
+      id:
+        type: string
+      kind:
+        $ref: '#/definitions/contract.ChangeKind'
+      owner:
+        type: string
+      rev:
+        description: |-
+          Rev is the workspace change set that applying wrote; RevertRev the one
+          that reverting wrote. Zero until then.
+        type: integer
+      revert_rev:
+        type: integer
+      scope:
+        $ref: '#/definitions/contract.ChangeScope'
+      source:
+        $ref: '#/definitions/contract.ChangeSource'
+      status:
+        $ref: '#/definitions/contract.ProposalStatus'
+      summary:
+        type: string
+      target:
+        type: string
+      v:
+        type: integer
+    type: object
+  contract.ChangeScope:
+    enum:
+    - user
+    - agent
+    - channel
+    type: string
+    x-enum-varnames:
+    - ScopeUser
+    - ScopeAgent
+    - ScopeChannel
+  contract.ChangeSource:
+    properties:
+      chat:
+        type: string
+      id:
+        type: string
+      kind:
+        type: string
+      sender:
+        description: |-
+          Sender is the platform ID of the sender whose message made a connector
+          chat propose this change. The host keeps it so that, in a shared chat,
+          only that sender can answer the proposal there.
+        type: string
+      thread:
+        type: string
+    type: object
+  contract.ContextFile:
+    properties:
+      cap:
+        description: |-
+          Cap is the most bytes of the index the prompt carries. Zero means
+          MaxContextFileBytes.
+        type: integer
+      path:
+        description: |-
+          Path is relative to the user's home, under ContextFilesRoot, and ends
+          in .md.
+        type: string
+      scope:
+        $ref: '#/definitions/contract.ChangeScope'
+    type: object
+  contract.ExecutionDescriptor:
+    properties:
+      class:
+        description: Class is ExecutionClassCommands.
+        type: string
+      note:
+        description: |-
+          Note is one plain sentence for the model when the provider reports
+          isolated execution, such as the programs its environment has.
+        type: string
+      skills:
+        allOf:
+        - $ref: '#/definitions/contract.ExecutionSkills'
+        description: Skills says which skills run on this provider.
+      title:
+        description: |-
+          Title names the provider in the text the host shows the person and the
+          model, for example "Sandbox". It falls back to the add-on's title.
+        type: string
+    type: object
+  contract.ExecutionSkills:
+    properties:
+      providesRuntimeFor:
+        description: |-
+          ProvidesRuntimeFor lists skill kinds (SkillKindDocuments). The host
+          offers the add-on's skills of those kinds only while the provider
+          reports isolated execution.
+        items:
+          type: string
+        type: array
+    type: object
+  contract.ModelAction:
+    properties:
+      capability:
+        type: string
+      page:
+        type: string
+      path:
+        type: string
+    type: object
+  contract.NetworkPreset:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+    type: object
   contract.OutputDescription:
     properties:
       handle:
@@ -638,6 +1057,22 @@ definitions:
       size:
         type: integer
     type: object
+  contract.ProposalStatus:
+    enum:
+    - pending
+    - applied
+    - dismissed
+    - expired
+    - reverted
+    - stale
+    type: string
+    x-enum-varnames:
+    - ProposalPending
+    - ProposalApplied
+    - ProposalDismissed
+    - ProposalExpired
+    - ProposalReverted
+    - ProposalStale
   contract.Receipt:
     properties:
       operationId:
@@ -684,6 +1119,16 @@ definitions:
         type: string
       resourceId:
         type: string
+      resourceKey:
+        description: |-
+          ResourceKey and Credential are set by the host alone, for an add-on that
+          declares credentials (see CredentialSlot). ResourceKey is the external
+          name of the resource the call works on, after the host checked it against
+          the person's list, and ResourceID is then the host ID of that entry.
+          Credential is the secret of the person's binding. An add-on never stores
+          or logs it, and the host drops both fields from every request that a
+          caller sends.
+        type: string
     type: object
   contract.Result:
     properties:
@@ -708,22 +1153,66 @@ definitions:
           Name is the skill's name and the name of its folder. A plain skill is
           named after the add-on: the add-on ID, or the ID and a dash and more
           (office-quickstart), so two add-ons never ship one plain name. A skill
-          that replaces a built-in one has the built-in's name (see Shadows).
+          for a reserved document slot has the slot's name (see Shadows).
         type: string
       shadows:
         description: |-
-          Shadows names the built-in skill this skill replaces. It must equal Name
-          and be one of ReplaceableSkills. It repeats the name on purpose: the
+          Shadows names the document-provider slot this skill supplies. It must equal Name
+          and name a slot: one the skill declares (Slot) or a default one
+          (DefaultSlots). It repeats the name on purpose: the
           replacement is an explicit act, which the install warning and the check
           read from the manifest without opening the package. Empty: a plain
           add-on skill.
         type: string
+      slot:
+        allOf:
+        - $ref: '#/definitions/contract.SlotDefinition'
+        description: |-
+          Slot describes the slot this skill serves: the files it covers and the
+          words to say about them (see SlotDefinition). It needs Shadows. A skill that shadows a default slot may leave it out.
+    type: object
+  contract.SlotDefinition:
+    properties:
+      extensions:
+        description: |-
+          Extensions are the file extensions the skill covers, lower case with the
+          dot, such as ".docx".
+        items:
+          type: string
+        type: array
+      kind:
+        description: Kind is SlotKindDocuments.
+        type: string
+      library:
+        description: Library names what a script can use to read these files, shown
+          as a hint.
+        type: string
+      words:
+        description: Words are lower-case words that a skill of this slot has in its
+          name.
+        items:
+          type: string
+        type: array
     type: object
   contract.ToolDefinition:
     properties:
+      approval:
+        description: |-
+          Approval, when it is ApprovalAlways, is a ceiling the person cannot lift:
+          the host stores a proposal for a write tool of this kind and applies it
+          only when a person confirms it at a host surface. A chat or an agent
+          never applies it, even when the person allowed writes without asking.
+          Only a write tool may set it.
+        type: string
       description:
         description: Description is plain text for the model.
         type: string
+      execution:
+        allOf:
+        - $ref: '#/definitions/contract.ExecutionDescriptor'
+        description: |-
+          Execution declares that this tool runs commands and what the host may
+          say about the provider. Only a tool that shadows bash may declare it.
       inputSchema:
         description: |-
           InputSchema is the JSON schema of the arguments object. It is an
@@ -751,6 +1240,32 @@ definitions:
           administrator. It is never offered to a model, a chat or an agent. The
           page has no resource to name, so it must be a read tool without one.
         type: boolean
+    type: object
+  contract.UserSetting:
+    properties:
+      default:
+        description: Default is the answer of a person who has not chosen. It is one
+          of Values.
+        type: string
+      key:
+        description: |-
+          Key names the setting inside the add-on: lowercase letters, digits and
+          dashes, at most 40.
+        type: string
+      role:
+        description: |-
+          Role names what the host does with the answer, when the host reads it
+          itself. Empty: the setting is only for the add-on's own page. A known
+          role fixes the values and the default (see roleRules), so the manifest
+          cannot make the host more permissive than its own default.
+        type: string
+      values:
+        description: |-
+          Values are the allowed answers, in the order the add-on lists them. Each
+          one has the same form as the key.
+        items:
+          type: string
+        type: array
     type: object
   contract.VersionRange:
     properties:
@@ -1378,6 +1893,385 @@ definitions:
       resourceId:
         type: string
     type: object
+  gateway.HostBlanketChange:
+    properties:
+      id:
+        type: string
+      ops:
+        items:
+          type: string
+        type: array
+    type: object
+  gateway.HostBlanketPreview:
+    properties:
+      applies:
+        type: boolean
+      revision:
+        type: integer
+    type: object
+  gateway.HostBlanketSkip:
+    properties:
+      id:
+        type: string
+      reason:
+        type: string
+    type: object
+  gateway.HostBlanketView:
+    properties:
+      includeOptional:
+        type: boolean
+      mode:
+        type: string
+      revision:
+        type: integer
+      setBy:
+        description: SetBy is ui, or deployment when a flag fixes the mode.
+        type: string
+    type: object
+  gateway.HostDenyAffect:
+    properties:
+      id:
+        type: string
+      loses:
+        items:
+          type: string
+        type: array
+      willStop:
+        type: boolean
+    type: object
+  gateway.HostFloorAddon:
+    properties:
+      id:
+        type: string
+      prefixes:
+        items:
+          type: string
+        type: array
+    type: object
+  gateway.HostGrantsAddon:
+    properties:
+      blanketGrants:
+        type: integer
+      id:
+        type: string
+      identityMismatch:
+        type: boolean
+      newOptional:
+        items:
+          type: string
+        type: array
+      noLongerRequested:
+        items:
+          $ref: '#/definitions/gateway.HostOpView'
+        type: array
+      ops:
+        items:
+          $ref: '#/definitions/gateway.HostOpView'
+        type: array
+      pendingUpgrade:
+        $ref: '#/definitions/gateway.PendingUpgrade'
+      requested:
+        $ref: '#/definitions/gateway.HostRequested'
+      sourceId:
+        type: string
+      state:
+        type: string
+      stopped:
+        description: |-
+          Stopped lists the required operations the add-on lacks, which keep it
+          from running ("stopped: needs X").
+        type: string
+      title:
+        type: string
+      version:
+        type: string
+    type: object
+  gateway.HostGrantsAddonResult:
+    properties:
+      addon:
+        $ref: '#/definitions/gateway.HostGrantsAddon'
+      revision:
+        type: integer
+    type: object
+  gateway.HostGrantsApprove:
+    properties:
+      digest:
+        type: string
+      nonce:
+        type: string
+      ops:
+        items:
+          type: string
+        type: array
+      revision:
+        type: integer
+    type: object
+  gateway.HostGrantsBlanketRequest:
+    properties:
+      applyToInstalled:
+        type: boolean
+      confirm:
+        description: |-
+          Confirm is the typed confirmation text, required to turn the switch
+          on or widen it.
+        type: string
+      includeOptional:
+        type: boolean
+      mode:
+        type: string
+      operationId:
+        type: string
+      revision:
+        type: integer
+      revokeOnOff:
+        description: RevokeOnOff, with mode off, also revokes the grants the blanket
+          made.
+        type: boolean
+    type: object
+  gateway.HostGrantsBlanketResult:
+    properties:
+      blanket:
+        $ref: '#/definitions/gateway.HostBlanketView'
+      changed:
+        items:
+          $ref: '#/definitions/gateway.HostBlanketChange'
+        type: array
+      revision:
+        type: integer
+      revoked:
+        items:
+          type: string
+        type: array
+      skipped:
+        items:
+          $ref: '#/definitions/gateway.HostBlanketSkip'
+        type: array
+    type: object
+  gateway.HostGrantsDenyRequest:
+    properties:
+      deny:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      dryRun:
+        description: DryRun answers what the rules would do and changes nothing.
+        type: boolean
+      operationId:
+        type: string
+      revision:
+        type: integer
+    type: object
+  gateway.HostGrantsDenyResult:
+    properties:
+      affects:
+        items:
+          $ref: '#/definitions/gateway.HostDenyAffect'
+        type: array
+      deny:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      dryRun:
+        type: boolean
+      revision:
+        type: integer
+    type: object
+  gateway.HostGrantsDenyView:
+    properties:
+      file:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      ui:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+    type: object
+  gateway.HostGrantsEditRequest:
+    properties:
+      keep:
+        description: |-
+          Keep names held blanket grants to relabel as the administrator's own,
+          so revoking the blanket grants leaves them.
+        items:
+          type: string
+        type: array
+      operationId:
+        type: string
+      ops:
+        items:
+          type: string
+        type: array
+      revision:
+        type: integer
+    type: object
+  gateway.HostGrantsFloor:
+    properties:
+      addons:
+        items:
+          $ref: '#/definitions/gateway.HostFloorAddon'
+        type: array
+      source:
+        type: string
+    type: object
+  gateway.HostGrantsInstallRequest:
+    properties:
+      action:
+        description: Action is install or upgrade.
+        type: string
+      addonId:
+        type: string
+      approve:
+        $ref: '#/definitions/gateway.HostGrantsApprove'
+      candidateDigest:
+        type: string
+      downgrade:
+        description: |-
+          Downgrade confirms that a local file may install an older version than
+          the installed one. Only a sourceId of local-file reads it.
+        type: boolean
+      expectedDigest:
+        description: ExpectedDigest and CandidateDigest pin an upgrade; both or neither.
+        type: string
+      operationId:
+        type: string
+      sourceId:
+        type: string
+      version:
+        type: string
+    type: object
+  gateway.HostGrantsPreviewRequest:
+    properties:
+      addonId:
+        type: string
+      sourceId:
+        type: string
+      version:
+        type: string
+    type: object
+  gateway.HostGrantsPreviewView:
+    properties:
+      added:
+        description: |-
+          Added are the operations this version asks for that the installed
+          version did not. Empty on an install.
+        items:
+          type: string
+        type: array
+      addonId:
+        type: string
+      blanket:
+        $ref: '#/definitions/gateway.HostBlanketPreview'
+      blockedRequired:
+        items:
+          type: string
+        type: array
+      canInstall:
+        type: boolean
+      digest:
+        type: string
+      installed:
+        type: boolean
+      locked:
+        type: boolean
+      lockedReason:
+        type: string
+      nonce:
+        type: string
+      nonceExpiresAt:
+        type: string
+      official:
+        type: boolean
+      ops:
+        items:
+          $ref: '#/definitions/gateway.HostOpView'
+        type: array
+      requested:
+        $ref: '#/definitions/gateway.HostRequested'
+      revision:
+        type: integer
+      title:
+        type: string
+      version:
+        type: string
+    type: object
+  gateway.HostGrantsRevision:
+    properties:
+      changed:
+        type: boolean
+      revision:
+        type: integer
+    type: object
+  gateway.HostGrantsView:
+    properties:
+      addons:
+        items:
+          $ref: '#/definitions/gateway.HostGrantsAddon'
+        type: array
+      blanket:
+        $ref: '#/definitions/gateway.HostBlanketView'
+      deny:
+        $ref: '#/definitions/gateway.HostGrantsDenyView'
+      floor:
+        $ref: '#/definitions/gateway.HostGrantsFloor'
+      locked:
+        type: boolean
+      lockedReason:
+        description: LockedReason is LockedByDeployment or LockedNoAuth when Locked.
+        type: string
+      revision:
+        type: integer
+    type: object
+  gateway.HostOpView:
+    properties:
+      at:
+        type: string
+      by:
+        type: string
+      hint:
+        description: |-
+          Hint is true in a preview when the operation was granted before an
+          earlier uninstall, so the dialog may tick it. It grants nothing.
+        type: boolean
+      name:
+        type: string
+      reason:
+        type: string
+      required:
+        type: boolean
+      risk:
+        type: string
+      source:
+        type: string
+      status:
+        description: |-
+          Status is allowed, not_allowed, blocked or unsupported, in the page and
+          in a preview alike. In a preview not_allowed means the dialog may grant it.
+        type: string
+      text:
+        type: string
+      title:
+        type: string
+    type: object
+  gateway.HostRequested:
+    properties:
+      optional:
+        items:
+          type: string
+        type: array
+      required:
+        items:
+          type: string
+        type: array
+    type: object
   gateway.OperationStatus:
     properties:
       operationId:
@@ -1413,6 +2307,15 @@ definitions:
           $ref: '#/definitions/gateway.Proposal'
         type: array
     type: object
+  gateway.PendingUpgrade:
+    properties:
+      delta:
+        items:
+          type: string
+        type: array
+      version:
+        type: string
+    type: object
   gateway.Proposal:
     properties:
       action:
@@ -1424,6 +2327,12 @@ definitions:
           Arguments are the canonical stored arguments. They are the only
           arguments that can ever be submitted for this proposal.
         type: object
+      awaitsPerson:
+        description: |-
+          AwaitsPerson reports a proposal that only a person may apply, from a
+          host surface such as the browser: a chat or an agent never applies it.
+          The write mode of the binding or the approval of the tool asks for it.
+        type: boolean
       blocked:
         description: |-
           Blocked reports that another operation on the resource has an
@@ -1431,6 +2340,14 @@ definitions:
           operation itself belongs to its proposer and is shown only to the
           resource's owner role, in the unresolved listing and in the denial.
         type: boolean
+      connectionId:
+        description: |-
+          ConnectionID and ConnectionName say which connection of the person the
+          change will be made with. They are present for a write of an add-on that
+          runs with a credential, and the apply uses that very connection.
+        type: string
+      connectionName:
+        type: string
       createdAt:
         type: string
       digest:
@@ -1728,6 +2645,48 @@ definitions:
       id:
         example: 4f1c
         type: string
+    type: object
+  hostops.RequestSummary:
+    properties:
+      deniedOptional:
+        items:
+          type: string
+        type: array
+      deniedRequired:
+        description: |-
+          DeniedRequired and DeniedOptional are the missing operations that a deny
+          rule forbids. They are also listed in the Missing lists. An operation
+          that is denied can never be approved, so a caller reads this to tell
+          "ask the administrator to approve" from "blocked by policy".
+        items:
+          type: string
+        type: array
+      granted:
+        items:
+          type: string
+        type: array
+      grantedCount:
+        type: integer
+      missingOptional:
+        items:
+          type: string
+        type: array
+      missingRequired:
+        items:
+          type: string
+        type: array
+      optional:
+        items:
+          type: string
+        type: array
+      optionalCount:
+        type: integer
+      required:
+        items:
+          type: string
+        type: array
+      requiredCount:
+        type: integer
     type: object
   library.Info:
     properties:
@@ -2124,6 +3083,33 @@ definitions:
         description: staging, loading, loaded, unloading, idle
         type: string
       updated_at:
+        type: string
+    type: object
+  proposals.Event:
+    properties:
+      action:
+        type: string
+      agent:
+        type: string
+      at:
+        type: string
+      detail:
+        type: string
+      hash:
+        type: string
+      kind:
+        $ref: '#/definitions/contract.ChangeKind'
+      owner:
+        type: string
+      proposal:
+        type: string
+      rev:
+        type: integer
+      scope:
+        $ref: '#/definitions/contract.ChangeScope'
+      source:
+        $ref: '#/definitions/contract.ChangeSource'
+      target:
         type: string
     type: object
   proto.MemoryUsageData:
@@ -2539,10 +3525,41 @@ definitions:
     type: object
   schema.ChatsAddon:
     properties:
+      connection_by:
+        type: string
+      connections:
+        items:
+          $ref: '#/definitions/schema.ChatsConnection'
+        type: array
+      credentialed:
+        description: |-
+          Credentialed is true when the tools of the add-on run with the token of
+          your connections. Connections lists them, oldest first. Enabled is the
+          IDs of the ones this chat may use (empty when none is enabled) and
+          ConnectionBy says why: chat (you chose them), agent (the agent of the
+          chat names the set; you cannot change it here), binding (the chat was
+          started by that binding) or only (it is your only connection).
+          NeedsConnection is true while none is enabled: the tools are not offered
+          to the model until you enable one. With two or more enabled, the model
+          names the connection in every call.
+        type: boolean
+      description:
+        type: string
+      enabled_connections:
+        items:
+          type: string
+        type: array
       id:
         type: string
+      needs_connection:
+        type: boolean
       "off":
         type: boolean
+      title:
+        description: |-
+          Title and Description are what the add-on's manifest declares for
+          people. Title is empty when the add-on declares none; the interface then shows the ID.
+        type: string
       tools:
         type: integer
     type: object
@@ -2574,6 +3591,12 @@ definitions:
         type: string
       commands_fallback_reason:
         type: string
+      commands_host_exec:
+        description: |-
+          CommandsHostExec is the mode of the setting chats_host_exec as it applies
+          now (off, ask or on), so a client can say that the built-in bash is off
+          when no add-on runs commands. Every signed-in user may read it.
+        type: string
       commands_isolation:
         description: |-
           CommandsIsolation is isolated (a sandbox) or host (directly on this
@@ -2587,6 +3610,8 @@ definitions:
       commands_reason:
         description: CommandsReason is why commands cannot run, when Commands is unavailable.
         type: string
+      execution_status:
+        $ref: '#/definitions/schema.ChatsExecutionStatus'
     type: object
   schema.ChatsAddonSwitches:
     properties:
@@ -2647,10 +3672,31 @@ definitions:
       addon:
         type: string
       agent_id:
+        description: AgentID is empty for a binding of a kind that declares agent_optional.
         type: string
       allow:
         items:
           type: string
+        type: array
+      approval:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorApproval'
+        description: |-
+          Approval is what the host does with a trigger that the agent proposes
+          from a chat of this binding.
+      caps:
+        description: |-
+          Caps are the capabilities you enabled for this binding: the ceiling of
+          what any sender can use. Grants give roles of the kind some of them.
+        items:
+          type: string
+        type: array
+      channels:
+        description: |-
+          Channels are the chats where the agent may write besides the
+          conversation. Only you can change the list.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorChannel'
         type: array
       conversation:
         description: |-
@@ -2662,8 +3708,30 @@ definitions:
         type: string
       created:
         type: string
+      credentials_only:
+        description: |-
+          CredentialsOnly is true for a binding without an agent: it holds the
+          token, the resource list and the write mode, and never answers messages.
+        type: boolean
       enabled:
         type: boolean
+      file_receive_max_bytes:
+        description: |-
+          FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
+          zero means you set none and the limit of the kind applies.
+        type: integer
+      file_send_max_bytes:
+        type: integer
+      files:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFiles'
+        description: |-
+          Files are the limits of the files the bot reads and sends, with the
+          limit that you set for this bot.
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
       has_token:
         type: boolean
       id:
@@ -2674,10 +3742,31 @@ definitions:
         type: string
       notify_chat:
         type: string
+      options:
+        additionalProperties:
+          type: string
+        description: |-
+          Options are the choices made for the options of the kind, by option id.
+          An option that is absent has its default (see ChatsConnectorKind).
+        type: object
       owner:
         type: string
+      paired:
+        description: |-
+          Paired are the senders you proved with a pairing code. A pairing ends
+          at expires_at.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorPaired'
+        type: array
       reason:
         description: Reason says in plain words why the binding is not active.
+        type: string
+      reply_language:
+        description: |-
+          ReplyLanguage is the language of the sentences the bot writes itself in
+          the chat (confirmations, refusals, notes about files): auto (the
+          language of the sender's message), en, it, de, es, fr or pt-BR. The
+          answers of the model follow the conversation, not this setting.
         type: string
       reply_mode:
         description: |-
@@ -2686,6 +3775,14 @@ definitions:
           start) or stream (a working message that shows the answer as it is
           written). The answer replaces the working message.
         type: string
+      resources:
+        description: |-
+          Resources are the external resources, such as repositories, that the
+          tools of the add-on may reach with this binding. Nothing else is
+          reachable.
+        items:
+          type: string
+        type: array
       send_files:
         description: |-
           SendFiles sends the files that a turn makes to the sender, after the
@@ -2693,6 +3790,17 @@ definitions:
         type: boolean
       window_minutes:
         type: integer
+      write_mode:
+        description: |-
+          WriteMode says what the tools of the add-on may change with this
+          binding's credential: off (nothing), propose (each change waits for your
+          confirmation) or auto (a chat of yours applies it at once, except a tool
+          the add-on marks as always needing your confirmation).
+        enum:
+        - "off"
+        - propose
+        - auto
+        type: string
     type: object
   schema.ChatsAdminConnectorList:
     properties:
@@ -2703,6 +3811,24 @@ definitions:
     type: object
   schema.ChatsAdminTrigger:
     properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use:
+          act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
+          without any only reads.
+        items:
+          type: string
+        type: array
+      acts_held:
+        description: |-
+          ActsHeld are the act.* names that apply to a run now: Acts within the
+          grants of the agent, plus act.files when the plan names a file it writes.
+          ReadOnly is true when a run can only read, and ReadOnlyWhy says why:
+          declared (the proposal said so), binding (a connection in read only mode
+          made it), no_acts (it holds none) or agent (its agent holds none of them).
+        items:
+          type: string
+        type: array
       agent_id:
         type: string
       cost:
@@ -2747,6 +3873,10 @@ definitions:
         type: string
       quiet_seconds:
         type: integer
+      read_only:
+        type: boolean
+      read_only_why:
+        type: string
       schedule:
         type: string
       source_chat_id:
@@ -2772,10 +3902,40 @@ definitions:
         items:
           type: string
         type: array
+      builtins:
+        description: |-
+          Builtins are the builtin capabilities granted to the agent, by the names
+          that GET /api/chats/agents/builtin-grants lists (memory.write,
+          skills.write and so on). Empty grants none. A chat of the agent holds
+          the grants you may use at that moment.
+        items:
+          type: string
+        type: array
+      builtins_off:
+        description: |-
+          BuiltinsOff are the groups of built-in tools (web, files, triggers...)
+          the agent's chats never have, and BuiltinsOn the opt-in groups (saved
+          agents) they start with. The names are the ones GET /api/chats/{id}/tools
+          lists. Empty for an agent that has every group a chat has by default.
+        items:
+          type: string
+        type: array
+      builtins_on:
+        items:
+          type: string
+        type: array
       collections:
         items:
           type: string
         type: array
+      connections:
+        allOf:
+        - $ref: '#/definitions/connsets.Sets'
+        description: |-
+          Connections names, for each add-on whose tools run with a credential
+          (by add-on ID), the connections (binding IDs) the agent's chats may use.
+          A chat of the agent cannot change the set. An add-on with no entry gets
+          none from the agent: the person chooses in the chat.
       created:
         type: string
       description:
@@ -2786,6 +3946,19 @@ definitions:
         description: |-
           Folder is the one folder that chats with the agent work in. It is
           absent for an agent that works on all your files.
+      folder_notice:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsAgentFolderNotice'
+        description: |-
+          FolderNotice is set when shared folders do not fit the access limit of
+          a chat of this agent and are left out.
+      folders:
+        description: |-
+          Folders are all the folders of the agent (at most 8), in order; Folder
+          is the first of them. Absent for an agent that works on all your files.
+        items:
+          $ref: '#/definitions/schema.ChatsAgentFolder'
+        type: array
       id:
         type: string
       instructions:
@@ -2794,6 +3967,22 @@ definitions:
         items:
           type: string
         type: array
+      memory:
+        description: |-
+          Memory is the choice of notes for this agent: own (its own notes only),
+          mine_and_own (reads your notes and its own, saves to its own; the
+          default of a new agent in the interface), mine (your notes only) or
+          none. The host enforces it: it decides which notes go in the prompt of
+          a chat and where a note is saved. Absent is "as before", an agent saved
+          before the choice existed: it reads notes when its add-ons name Memory
+          and the model picks the scope of a note.
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        example: mine_and_own
+        type: string
       model:
         type: string
       name:
@@ -2824,6 +4013,12 @@ definitions:
     type: object
   schema.ChatsAgentFolder:
     properties:
+      effective:
+        description: |-
+          Effective is the mode the folder has in a chat: read for a shared
+          folder, and the mode of the outer folder when the folder is inside
+          another folder of the same agent.
+        type: string
       mode:
         description: |-
           Mode is read (the agent's chats can read the folder) or write (they can
@@ -2834,8 +4029,10 @@ definitions:
         type: string
       path:
         description: |-
-          Path is the folder's path in your files now ("/" is all of them). It
-          is absent when the folder is missing or not chosen.
+          Path is home-relative ("/" is the whole home), or /shared/<name>/...
+          for a followed readable shared folder. It is absent when missing,
+          not chosen, or readable outside these public locations; a readable
+          folder without a public path still has state ok.
         type: string
       state:
         description: |-
@@ -2844,6 +4041,11 @@ definitions:
           folder was not found). An agent whose folder is missing or unset does
           not start.
         type: string
+    type: object
+  schema.ChatsAgentFolderNotice:
+    properties:
+      not_mounted:
+        type: integer
     type: object
   schema.ChatsAgentFolderWrite:
     properties:
@@ -2950,10 +4152,39 @@ definitions:
         items:
           type: string
         type: array
+      builtins:
+        description: |-
+          Builtins are the builtin grants of the agent (see ChatsAgent). A write
+          without them keeps the stored ones; an empty list clears them; a name
+          the server does not declare is a 400, except in an import, which drops it.
+        items:
+          type: string
+        type: array
+      builtins_off:
+        description: |-
+          BuiltinsOff and BuiltinsOn are the switches of the built-in tools of
+          the agent's chats (see ChatsAgent). A write without them keeps the stored ones (an older client cannot widen
+          the agent); an empty list clears them.
+        items:
+          type: string
+        type: array
+      builtins_on:
+        items:
+          type: string
+        type: array
       collections:
         items:
           type: string
         type: array
+      connections:
+        allOf:
+        - $ref: '#/definitions/connsets.Sets'
+        description: |-
+          Connections names the connections the agent's chats may use for each
+          add-on with a credential (see ChatsAgent). A write without it keeps the
+          stored ones; an empty object clears them. Each binding must be your own
+          for that add-on. A single string is read as a set of one. An export file
+          never carries it: a binding ID belongs to one server.
       description:
         type: string
       folder:
@@ -2962,13 +4193,36 @@ definitions:
         description: |-
           Folder chooses the one folder the agent's chats work in. A write
           without it keeps the folder the agent has; {"path": ""} clears it. In
-          an export file it is the folder's path and mode when the file was made.
+          an export file it is the home-relative path and mode when the file was
+          made. A missing, unchosen or non-home folder has an empty export path;
+          import preserves its mode as unset and warns instead of clearing scope.
+      folders:
+        description: |-
+          Folders chooses up to 8 folders, each with its own mode. When both are
+          sent, folders wins. A write without folders and folder keeps the folders
+          the agent has; "folders": [] clears them. Where a folder is inside
+          another one, it gets the outer folder's mode.
+        items:
+          $ref: '#/definitions/schema.ChatsAgentFolderWrite'
+        type: array
       instructions:
         type: string
       mcp_servers:
         items:
           type: string
         type: array
+      memory:
+        description: |-
+          Memory is the choice of notes (see ChatsAgent). A write without it keeps
+          the stored choice, so a client that does not know it cannot widen the
+          agent; the value must be own, mine_and_own, mine or none (400 otherwise).
+          A new agent written without it is "as before".
+        enum:
+        - own
+        - mine_and_own
+        - mine
+        - none
+        type: string
       model:
         type: string
       name:
@@ -3014,8 +4268,34 @@ definitions:
       skipped:
         type: integer
     type: object
+  schema.ChatsBuiltinGrant:
+    properties:
+      description:
+        description: Description says what the agent can do with the grant, in English.
+        type: string
+      name:
+        description: Name is the value to put in an agent's builtins list.
+        type: string
+      sensitive:
+        description: |-
+          Sensitive grants change what the agent may do or reach later. They are
+          never on by default and the editor marks them.
+        type: boolean
+      title:
+        type: string
+    type: object
+  schema.ChatsBuiltinGrantList:
+    properties:
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsBuiltinGrant'
+        type: array
+    type: object
   schema.ChatsBuiltinGroup:
     properties:
+      description:
+        example: The model can search the web and read a public page by its address.
+        type: string
       group:
         example: web
         type: string
@@ -3042,6 +4322,13 @@ definitions:
         type: object
       reason:
         type: string
+      title:
+        description: |-
+          Title and Description say what the group is and what the model can do
+          when its switch is on; WhenOff says what it cannot do when it is off.
+          They are English; the interface may translate them by group.
+        example: Look things up online
+        type: string
       tools:
         example:
         - web_search
@@ -3054,6 +4341,9 @@ definitions:
           Usable is false when the group cannot serve this chat now; Reason says
           why.
         type: boolean
+      when_off:
+        example: The model cannot look anything up online.
+        type: string
     type: object
   schema.ChatsBuiltinSkill:
     properties:
@@ -3257,14 +4547,29 @@ definitions:
     type: object
   schema.ChatsChatHit:
     properties:
+      at:
+        description: At is when the matching line was written.
+        type: string
       chat:
         $ref: '#/definitions/schema.ChatsConversation'
+      highlights:
+        description: Highlights are the parts of Snippet that match, in order.
+        items:
+          $ref: '#/definitions/schema.ChatsSearchRange'
+        type: array
       in_title:
         description: InTitle is true when the title matches.
         type: boolean
+      matches:
+        description: Matches is how many lines of the chat match, among the newest
+          matches.
+        type: integer
+      role:
+        description: 'Role is user or assistant: who wrote the matching line.'
+        type: string
       seq:
-        description: Seq is the first matching transcript line, or 0 when only the
-          title matches.
+        description: Seq is the matching transcript line, or 0 when only the title
+          matches.
         type: integer
       snippet:
         description: Snippet is the matching text with a little around it.
@@ -3272,9 +4577,53 @@ definitions:
     type: object
   schema.ChatsChatSearchResponse:
     properties:
+      engine:
+        description: 'Engine is how the server searched: fts5, pg_trgm or scan.'
+        type: string
       hits:
         items:
           $ref: '#/definitions/schema.ChatsChatHit'
+        type: array
+      indexing:
+        description: |-
+          Indexing is true while the server still adds earlier chats to its
+          search index, so older chats may be missing from the hits.
+        type: boolean
+      partial:
+        description: |-
+          Partial is true when a server without an index stopped before it had
+          read every chat; SearchedChats of TotalChats were read.
+        type: boolean
+      searched_chats:
+        type: integer
+      total_chats:
+        type: integer
+    type: object
+  schema.ChatsConnection:
+    properties:
+      handle:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.ChatsConnectionSwitch:
+    properties:
+      addon:
+        description: Addon is the add-on ID.
+        type: string
+      connection:
+        description: |-
+          Connection is the older form: one binding ID, read as a set of one when
+          connections is absent.
+        type: string
+      connections:
+        description: |-
+          Connections are the IDs of your connector bindings for that add-on that
+          the chat may use; empty clears the choice.
+        items:
+          type: string
         type: array
     type: object
   schema.ChatsConnector:
@@ -3289,10 +4638,31 @@ definitions:
       addon:
         type: string
       agent_id:
+        description: AgentID is empty for a binding of a kind that declares agent_optional.
         type: string
       allow:
         items:
           type: string
+        type: array
+      approval:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorApproval'
+        description: |-
+          Approval is what the host does with a trigger that the agent proposes
+          from a chat of this binding.
+      caps:
+        description: |-
+          Caps are the capabilities you enabled for this binding: the ceiling of
+          what any sender can use. Grants give roles of the kind some of them.
+        items:
+          type: string
+        type: array
+      channels:
+        description: |-
+          Channels are the chats where the agent may write besides the
+          conversation. Only you can change the list.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorChannel'
         type: array
       conversation:
         description: |-
@@ -3304,8 +4674,30 @@ definitions:
         type: string
       created:
         type: string
+      credentials_only:
+        description: |-
+          CredentialsOnly is true for a binding without an agent: it holds the
+          token, the resource list and the write mode, and never answers messages.
+        type: boolean
       enabled:
         type: boolean
+      file_receive_max_bytes:
+        description: |-
+          FileReceiveMaxBytes and FileSendMaxBytes are your limits for this bot;
+          zero means you set none and the limit of the kind applies.
+        type: integer
+      file_send_max_bytes:
+        type: integer
+      files:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFiles'
+        description: |-
+          Files are the limits of the files the bot reads and sends, with the
+          limit that you set for this bot.
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
       has_token:
         type: boolean
       id:
@@ -3316,8 +4708,29 @@ definitions:
         type: string
       notify_chat:
         type: string
+      options:
+        additionalProperties:
+          type: string
+        description: |-
+          Options are the choices made for the options of the kind, by option id.
+          An option that is absent has its default (see ChatsConnectorKind).
+        type: object
+      paired:
+        description: |-
+          Paired are the senders you proved with a pairing code. A pairing ends
+          at expires_at.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorPaired'
+        type: array
       reason:
         description: Reason says in plain words why the binding is not active.
+        type: string
+      reply_language:
+        description: |-
+          ReplyLanguage is the language of the sentences the bot writes itself in
+          the chat (confirmations, refusals, notes about files): auto (the
+          language of the sender's message), en, it, de, es, fr or pt-BR. The
+          answers of the model follow the conversation, not this setting.
         type: string
       reply_mode:
         description: |-
@@ -3326,6 +4739,14 @@ definitions:
           start) or stream (a working message that shows the answer as it is
           written). The answer replaces the working message.
         type: string
+      resources:
+        description: |-
+          Resources are the external resources, such as repositories, that the
+          tools of the add-on may reach with this binding. Nothing else is
+          reachable.
+        items:
+          type: string
+        type: array
       send_files:
         description: |-
           SendFiles sends the files that a turn makes to the sender, after the
@@ -3333,26 +4754,320 @@ definitions:
         type: boolean
       window_minutes:
         type: integer
+      write_mode:
+        description: |-
+          WriteMode says what the tools of the add-on may change with this
+          binding's credential: off (nothing), propose (each change waits for your
+          confirmation) or auto (a chat of yours applies it at once, except a tool
+          the add-on marks as always needing your confirmation).
+        enum:
+        - "off"
+        - propose
+        - auto
+        type: string
+    type: object
+  schema.ChatsConnectorAccess:
+    properties:
+      binding:
+        type: string
+      preview:
+        description: Preview is true when the view is for a form that is not saved.
+        type: boolean
+      recent:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorAccessEvent'
+        type: array
+      subjects:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorAccessSubject'
+        type: array
+    type: object
+  schema.ChatsConnectorAccessDecision:
+    properties:
+      allowed:
+        type: boolean
+      blocked_by:
+        description: |-
+          BlockedBy is the link that refused: server, tools, agent, connection
+          or sender.
+        type: string
+      capability:
+        type: string
+      code:
+        description: |-
+          Code says which link of the chain refused first. It is one of
+          server_setting_off, tools_switch_off, agent_permission_off,
+          agent_unavailable, connection_permission_off, no_agent,
+          sender_not_listed, sender_needs_pairing, channel_not_trusted,
+          role_not_granted, kind_not_running, context_rule or
+          unknown_capability. Only a refused capability has it.
+        type: string
+      fix:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorAccessFix'
+        description: Fix points at the one place that solves it. The server sends
+          no URL.
+      message:
+        description: Message is one plain sentence for the owner. It names no setting.
+        type: string
+      reason:
+        type: string
+      then_check:
+        description: |-
+          ThenCheck lists the links after the first problem that were not
+          looked at, in order: tools, agent, connection, sender and, for
+          triggers.propose, approval. More problems may follow.
+        items:
+          type: string
+        type: array
+      via:
+        description: 'Via is how the capability is reached: paired, or role:<id>.'
+        type: string
+    type: object
+  schema.ChatsConnectorAccessEvent:
+    properties:
+      allowed:
+        type: boolean
+      at:
+        type: string
+      capability:
+        type: string
+      code:
+        description: Code is the code of a refusal, as in the decisions.
+        type: string
+      reason:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      senders:
+        items:
+          type: string
+        type: array
+      via:
+        type: string
+    type: object
+  schema.ChatsConnectorAccessFix:
+    properties:
+      field:
+        description: |-
+          Field narrows the target: the capability to tick on the connection or
+          to grant on the agent, or tools:<group> for a Tools switch.
+        type: string
+      kind:
+        description: |-
+          Kind is open_server_setting, open_agent, open_connection, pair_sender
+          or add_person.
+        type: string
+      target:
+        description: |-
+          Target is a stable ID: the key of a server setting, an agent ID, a field
+          of the connection form (caps, grants, agent_id, allow) or pairing.
+        type: string
+    type: object
+  schema.ChatsConnectorAccessPreviewRequest:
+    properties:
+      accept_any:
+        type: boolean
+      agent_id:
+        type: string
+      allow:
+        items:
+          type: string
+        type: array
+      caps:
+        description: Caps and Grants are the form's permissions; an empty list clears.
+        items:
+          type: string
+        type: array
+      grants:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
+      kind:
+        description: Kind is read only for the id "new" (a connection that is not
+          saved).
+        type: string
+      sender:
+        description: |-
+          Sender limits the answer to one kind of sender: listed, paired,
+          channel_member, anyone or role:<id>. Absent means every kind.
+        type: string
+    type: object
+  schema.ChatsConnectorAccessSubject:
+    properties:
+      decisions:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorAccessDecision'
+        type: array
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsConnectorApproval:
+    properties:
+      acts:
+        items:
+          type: string
+        type: array
+      max_lifetime_days:
+        type: integer
+      max_pending:
+        type: integer
+      max_runs_per_day:
+        type: integer
+      min_gap_minutes:
+        type: integer
+      mode:
+        type: string
+    type: object
+  schema.ChatsConnectorCapability:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      sensitive:
+        description: |-
+          Sensitive capabilities are never granted to a role: only a paired
+          sender can use them.
+        type: boolean
+      title:
+        type: string
+      usual:
+        description: Usual capabilities are what a one-click preset turns on.
+        type: boolean
+    type: object
+  schema.ChatsConnectorChannel:
+    properties:
+      approved:
+        type: boolean
+      id:
+        type: string
+      label:
+        type: string
+    type: object
+  schema.ChatsConnectorFileLimit:
+    properties:
+      allowed_bytes:
+        description: AllowedBytes is the most you may set for a bot.
+        type: integer
+      declared_bytes:
+        description: DeclaredBytes is the ability the kind declares, or zero.
+        type: integer
+      effective_bytes:
+        description: |-
+          EffectiveBytes is the largest file that moves now: the smallest of the
+          host ceiling, the declared ability and your limit.
+        type: integer
+      layer:
+        description: |-
+          Layer names the one that sets EffectiveBytes: owner (your limit for
+          this bot), addon (the ability the kind declares), host (the ceiling of
+          the server) or inline (the cap of the inline path).
+        type: string
+    type: object
+  schema.ChatsConnectorFiles:
+    properties:
+      host_ceiling_bytes:
+        description: |-
+          HostCeilingBytes is the ceiling of the server for a connector file, set
+          by the add-on owner; no limit above it applies.
+        type: integer
+      receive:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFileLimit'
+        description: Receive is the limit of the files that people send to the bot.
+      send:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFileLimit'
+        description: Send is the limit of the files that the bot sends.
     type: object
   schema.ChatsConnectorKind:
     properties:
       addon:
         type: string
+      agent_optional:
+        description: |-
+          AgentOptional is true when a binding of this kind may have no agent. It
+          then only holds credentials (token, resource list, write mode).
+        type: boolean
       description:
         type: string
+      descriptions:
+        additionalProperties:
+          type: string
+        type: object
+      files:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorFiles'
+        description: |-
+          Files are the limits of a binding of this kind that has no limit of
+          your own.
       kind:
         type: string
+      language:
+        description: |-
+          Language, LocalizedTitle and LocalizedDescription are present only when
+          the request names a language (the lang query parameter, else the
+          Accept-Language header) that the kind translates. Each falls back to
+          English on its own.
+        type: string
+      localized_description:
+        type: string
+      localized_title:
+        type: string
+      options:
+        description: Options are the choices the add-on lets each binding of this
+          kind make.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorOption'
+        type: array
       page:
         description: Page is the add-on page that adds and edits bindings of this
           kind.
         type: string
+      permissions:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorPermission'
+        type: array
+      roles:
+        description: |-
+          Roles are the roles the add-on can report for a sender, and
+          Permissions the capabilities the kind lists. Grant them to a role with
+          the grants of a binding.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRole'
+        type: array
       sender_hint:
         type: string
+      thread_history:
+        description: |-
+          ThreadHistory is true when the platform can give the earlier messages
+          of a thread. The host then reads them whenever the bot is mentioned in a
+          thread.
+        type: boolean
       title:
         type: string
+      titles:
+        additionalProperties:
+          type: string
+        description: |-
+          Titles and Descriptions carry the translated text of the manifest by
+          language tag, when it has some. Title and Description stay English.
+        type: object
     type: object
   schema.ChatsConnectorKindList:
     properties:
+      capabilities:
+        description: |-
+          Capabilities is the closed list of capabilities that a binding can
+          enable, with a title and a description of each, for a settings page.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorCapability'
+        type: array
       kinds:
         items:
           $ref: '#/definitions/schema.ChatsConnectorKind'
@@ -3364,6 +5079,69 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsConnector'
         type: array
+    type: object
+  schema.ChatsConnectorOption:
+    properties:
+      default:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+      values:
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorOptionValue'
+        type: array
+    type: object
+  schema.ChatsConnectorOptionValue:
+    properties:
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsConnectorPaired:
+    properties:
+      expires_at:
+        type: string
+      paired_at:
+        type: string
+      sender_id:
+        type: string
+    type: object
+  schema.ChatsConnectorPairing:
+    properties:
+      code:
+        type: string
+      expires:
+        type: string
+    type: object
+  schema.ChatsConnectorPermission:
+    properties:
+      name:
+        type: string
+      sensitive:
+        type: boolean
+    type: object
+  schema.ChatsConnectorRole:
+    properties:
+      description:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  schema.ChatsConnectorRoleGrant:
+    properties:
+      caps:
+        items:
+          type: string
+        type: array
+      role:
+        type: string
     type: object
   schema.ChatsConnectorSender:
     properties:
@@ -3404,6 +5182,34 @@ definitions:
         items:
           type: string
         type: array
+      approval:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsConnectorApproval'
+        description: |-
+          Approval sets how triggers that the agent proposes from a chat of the
+          binding are approved, and the limits of the automatic modes. Absent
+          means ask for a new binding and unchanged for an update. When it is
+          present it replaces the whole approval, acts included: send the acts
+          again to keep them. An act that is not in the closed list is refused.
+      caps:
+        description: |-
+          Caps are the capabilities you enable for the binding (a closed list,
+          see the kind's permissions for the ones it can grant to a role).
+          Absent means none for a new binding and unchanged for an update; an
+          empty list clears.
+        items:
+          type: string
+        type: array
+      channels:
+        description: |-
+          Channels are the chats of the platform where the agent may write
+          besides the conversation, at most 10: {id, label, approved}. A channel
+          that is not approved needs a paired sender for each message. Absent
+          means none for a new binding and unchanged for an update; an empty list
+          clears it.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorChannel'
+        type: array
       confirm_accept_any:
         description: |-
           ConfirmAcceptAny must be the exact text "accept any message" in the
@@ -3416,18 +5222,63 @@ definitions:
         type: string
       enabled:
         type: boolean
+      file_receive_max_bytes:
+        description: |-
+          FileReceiveMaxBytes and FileSendMaxBytes limit the files the bot reads
+          and sends, in bytes. A limit can only lower the limit of the kind, which
+          the kind list shows as allowed_bytes. Zero removes your limit. Absent
+          means none for a new binding and unchanged for an update.
+        type: integer
+      file_send_max_bytes:
+        type: integer
+      grants:
+        description: |-
+          Grants map roles of the kind to capabilities within caps. A sensitive
+          capability is never granted to a role. Absent means unchanged; an empty
+          list clears.
+        items:
+          $ref: '#/definitions/schema.ChatsConnectorRoleGrant'
+        type: array
       kind:
         description: |-
-          Kind is the platform, such as telegram. It is used to create a binding and
-          ignored by an update. Empty means telegram.
+          Kind is the platform, as a connector add-on declares it (see the kinds
+          call). It is required to create a binding and ignored by an update.
         type: string
       name:
         type: string
       notify_chat:
         type: string
+      options:
+        additionalProperties:
+          type: string
+        description: |-
+          Options are the choices for the options of the kind, by option id. Absent
+          means the defaults for a new binding and unchanged for an update.
+        type: object
+      reply_language:
+        description: |-
+          ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto
+          for a new binding and unchanged for an update.
+        enum:
+        - auto
+        - en
+        - it
+        - de
+        - es
+        - fr
+        - pt-BR
+        type: string
       reply_mode:
         description: ReplyMode is off, progress or stream; empty means progress.
         type: string
+      resources:
+        description: |-
+          Resources are the external resources the tools of the add-on may reach
+          with this binding, such as "owner/repo", at most 50. Absent means none
+          for a new binding and unchanged for an update; an empty list clears it.
+        items:
+          type: string
+        type: array
       send_files:
         description: |-
           SendFiles turns the sending of a turn's files on or off. Absent means
@@ -3438,6 +5289,15 @@ definitions:
       window_minutes:
         description: WindowMinutes is the time window of the window mode, 1 to 10080.
         type: integer
+      write_mode:
+        description: |-
+          WriteMode is off, propose or auto (see the connector record). Absent
+          means off for a new binding and unchanged for an update.
+        enum:
+        - "off"
+        - propose
+        - auto
+        type: string
     type: object
   schema.ChatsContextResult:
     properties:
@@ -3680,8 +5540,10 @@ definitions:
         type: array
       applies:
         description: |-
-          Applies is false when commands run on this machine (applies_reason
-          host) or no Sandbox serves bash (none).
+          Applies is true when the add-on that runs the commands reports that it
+          enforces the network policy. It is false when commands run on this
+          machine (applies_reason host), or no Sandbox serves bash or the add-on
+          does not report enforcement (none).
         type: boolean
       applies_reason:
         type: string
@@ -3695,6 +5557,12 @@ definitions:
       effective:
         description: the lower of the two
         type: string
+      network:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsEgressNetwork'
+        description: |-
+          Network names the network of addon in text and gives the preset titles
+          the add-on declares. Set with addon.
       preset:
         description: off, registries, all
         type: string
@@ -3731,6 +5599,10 @@ definitions:
         type: array
       isolation:
         type: string
+      network:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsEgressNetwork'
+        description: Network names the network of that add-on in text. Set with sandbox.
       ports:
         items:
           type: integer
@@ -3741,8 +5613,9 @@ definitions:
         type: array
       sandbox:
         description: |-
-          Sandbox is the add-on that runs commands, empty when none serves;
-          Isolation is isolated, host, or empty when unknown.
+          Sandbox is the add-on that runs commands, empty when none serves (the
+          name of the field is kept for existing clients); Isolation is isolated,
+          host, or empty when unknown.
         type: string
     type: object
   schema.ChatsEgressCard:
@@ -3817,6 +5690,35 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsEgressEvent'
         type: array
+    type: object
+  schema.ChatsEgressNetwork:
+    properties:
+      presets:
+        description: |-
+          Presets are the titles the add-on gives the host's presets; a preset
+          that is not listed keeps the host's title.
+        items:
+          $ref: '#/definitions/schema.ChatsEgressNetworkPreset'
+        type: array
+      title:
+        description: |-
+          Title names the network in text: the declared title, else the title of
+          the commands tool.
+        example: Sandbox
+        type: string
+    type: object
+  schema.ChatsEgressNetworkPreset:
+    properties:
+      id:
+        enum:
+        - "off"
+        - registries
+        - all
+        example: "off"
+        type: string
+      title:
+        example: Closed
+        type: string
     type: object
   schema.ChatsEgressPreset:
     properties:
@@ -3898,6 +5800,26 @@ definitions:
         allOf:
         - $ref: '#/definitions/schema.ChatsUsage'
         description: 'Usage is set on usage events: what one model request used.'
+    type: object
+  schema.ChatsExecutionStatus:
+    properties:
+      explanation:
+        type: string
+      generation:
+        type: string
+      incarnation:
+        type: string
+      isolation:
+        type: string
+      readiness:
+        type: string
+      unknown_reason:
+        description: |-
+          UnknownReason says why the status is unknown: owner_unreachable,
+          not_reported, stale, invalid_status, not_selected, no_answer,
+          reported_unknown or draft (the chat does not exist yet). Absent when the status is known.
+        example: owner_unreachable
+        type: string
     type: object
   schema.ChatsExport:
     properties:
@@ -4530,6 +6452,83 @@ definitions:
           type: string
         type: array
     type: object
+  schema.ChatsMemoryFix:
+    properties:
+      field:
+        type: string
+      kind:
+        example: open_memory_settings
+        type: string
+      target:
+        example: memory
+        type: string
+    type: object
+  schema.ChatsMemoryRequest:
+    properties:
+      enabled:
+        example: false
+        type: boolean
+      save_mode:
+        example: ask
+        type: string
+    type: object
+  schema.ChatsMemorySettings:
+    properties:
+      available:
+        description: Available is false when the server has no files, which notes
+          need.
+        example: true
+        type: boolean
+      enabled:
+        description: Enabled is memory On or Off for all your chats and agents.
+        example: true
+        type: boolean
+      enabled_set:
+        description: |-
+          EnabledSet is true once you chose. Before that memory is on, unless you
+          had disabled the Memory add-on to stop it.
+        example: false
+        type: boolean
+      provider:
+        description: 'Provider is what serves memory: builtin.'
+        example: builtin
+        type: string
+      save_mode:
+        description: 'SaveMode is how a note is saved: ask, auto or never.'
+        example: ask
+        type: string
+      save_mode_set:
+        description: SaveModeSet is true once you chose in this setting.
+        example: false
+        type: boolean
+    type: object
+  schema.ChatsMemoryState:
+    properties:
+      blocked_by:
+        description: 'BlockedBy is who holds that switch: chat, agent, user or server.'
+        example: chat
+        type: string
+      code:
+        description: |-
+          Code names the level that is off: memory_off_chat, memory_off_agent,
+          memory_off_user or memory_off_files. Absent when on.
+        example: memory_off_chat
+        type: string
+      fix:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsMemoryFix'
+        description: |-
+          Fix says where to turn memory on again: kind open_tools_menu,
+          open_memory_settings, open_agent or open_server_setting.
+      "on":
+        description: On is true when the chat reads and may save notes.
+        example: false
+        type: boolean
+      reason:
+        description: Reason is an English sentence for logs; the interface words it
+          by Code.
+        type: string
+    type: object
   schema.ChatsMessage:
     properties:
       after:
@@ -4738,6 +6737,13 @@ definitions:
       snippet:
         type: string
     type: object
+  schema.ChatsSearchRange:
+    properties:
+      end:
+        type: integer
+      start:
+        type: integer
+    type: object
   schema.ChatsSearchResult:
     properties:
       hits:
@@ -4819,6 +6825,13 @@ definitions:
         type: string
       addon_title:
         type: string
+      agent:
+        description: |-
+          Agent and AgentName name the saved agent that owns a skill of the agent
+          layer: the agent proposed it and the owner confirmed it.
+        type: string
+      agent_name:
+        type: string
       description:
         type: string
       editable:
@@ -4844,13 +6857,19 @@ definitions:
       layer:
         description: |-
           Layer is where it comes from: folder (a .skills folder of your files),
-          personal, shared, addon (an installed add-on ships it) or builtin.
+          agent (a saved agent proposed it), personal, shared, addon (an installed
+          add-on ships it) or builtin.
         type: string
       name:
         type: string
       path:
         description: Path is the path of its SKILL.md as the model sees it.
         type: string
+      removable:
+        description: |-
+          Removable is true when the skill can be deleted from the Skills page
+          although it cannot be edited there (a skill of the agent layer).
+        type: boolean
       shadowed:
         description: Shadowed names the layer of a nearer skill with the same name,
           which wins.
@@ -4959,6 +6978,14 @@ definitions:
         items:
           type: string
         type: array
+      connections:
+        allOf:
+        - $ref: '#/definitions/connsets.Sets'
+        description: |-
+          Connections is the set of connections (connector binding IDs) the chat
+          may use for each add-on whose tools run with a credential, by add-on ID.
+          Each must be one of your own for that add-on. A single string is read as
+          a set of one.
       mcp_off:
         items:
           type: string
@@ -5103,6 +7130,12 @@ definitions:
         items:
           $ref: '#/definitions/schema.ChatsToolFallback'
         type: array
+      memory:
+        allOf:
+        - $ref: '#/definitions/schema.ChatsMemoryState'
+        description: |-
+          Memory says whether memory works in this chat and, when it does not,
+          which level turned it off and where to turn it on again.
       "off":
         description: Off is the list of MCP switches in force.
         items:
@@ -5158,6 +7191,24 @@ definitions:
     type: object
   schema.ChatsTrigger:
     properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use:
+          act.files, act.addons, act.addons:<id>, act.send, act.spend. A run
+          without any only reads.
+        items:
+          type: string
+        type: array
+      acts_held:
+        description: |-
+          ActsHeld are the act.* names that apply to a run now: Acts within the
+          grants of the agent, plus act.files when the plan names a file it writes.
+          ReadOnly is true when a run can only read, and ReadOnlyWhy says why:
+          declared (the proposal said so), binding (a connection in read only mode
+          made it), no_acts (it holds none) or agent (its agent holds none of them).
+        items:
+          type: string
+        type: array
       agent_id:
         type: string
       cost:
@@ -5200,6 +7251,10 @@ definitions:
         type: string
       quiet_seconds:
         type: integer
+      read_only:
+        type: boolean
+      read_only_why:
+        type: string
       schedule:
         type: string
       source_chat_id:
@@ -5340,6 +7395,14 @@ definitions:
     type: object
   schema.ChatsTriggerWrite:
     properties:
+      acts:
+        description: |-
+          Acts are the action classes that a run with nobody present may use
+          (act.files, act.addons, act.addons:<id>, act.send, act.spend). Leave it
+          out to keep the trigger's value; an empty list takes all of them away.
+        items:
+          type: string
+        type: array
       agent_id:
         description: |-
           AgentID is optional. Model is needed when neither the agent nor the source
@@ -7320,6 +9383,14 @@ definitions:
       batch:
         description: Custom parameters - not present in the OpenAI API
         type: integer
+      chat_template_kwargs:
+        additionalProperties: {}
+        description: |-
+          ChatTemplateKwargs is the per-request chat_template_kwargs field that
+          llama.cpp's llama-server, vLLM and SGLang accept (e.g.
+          {"enable_thinking": false}). Scalar values are folded into Metadata, so
+          they take the same path to the backend; an explicit Metadata key wins.
+        type: object
       clip_skip:
         description: Diffusers
         type: integer
@@ -9033,6 +11104,70 @@ definitions:
           which a client sends back (Last-Event-ID or ?after=) to resume.
         type: integer
     type: object
+  studio.ContextFile:
+    properties:
+      index:
+        type: boolean
+      lines:
+        type: integer
+      modified:
+        type: string
+      name:
+        type: string
+      path:
+        description: Path is the path inside the user's home.
+        type: string
+      size:
+        type: integer
+    type: object
+  studio.ContextFiles:
+    properties:
+      groups:
+        items:
+          $ref: '#/definitions/studio.ContextGroup'
+        type: array
+      limits:
+        $ref: '#/definitions/studio.ContextLimits'
+    type: object
+  studio.ContextGroup:
+    properties:
+      deleted:
+        type: boolean
+      files:
+        items:
+          $ref: '#/definitions/studio.ContextFile'
+        type: array
+      key:
+        type: string
+      label:
+        description: |-
+          Label is the name of the saved agent of an agent group. Deleted is true
+          when no saved agent of the user has that ID any more: its notes were
+          kept when the agent was deleted, and the Memory page lists them apart.
+        type: string
+      max_bytes:
+        description: |-
+          MaxBytes and MaxLines are the caps of the index. MaxLines is zero when
+          the file has no line cap.
+        type: integer
+      max_lines:
+        type: integer
+      scope:
+        $ref: '#/definitions/contextfiles.Scope'
+      source:
+        type: string
+    type: object
+  studio.ContextLimits:
+    properties:
+      index_bytes:
+        type: integer
+      index_lines:
+        type: integer
+      profile_bytes:
+        type: integer
+      turn_bytes:
+        type: integer
+    type: object
   updates.State:
     enum:
     - unknown
@@ -9827,6 +11962,96 @@ paths:
         browser session)
       tags:
       - Addons
+  /api/addons/{id}/user-settings:
+    get:
+      description: 'Returns the per-person settings that the add-on declares in its
+        manifest (userSettings), each with the allowed values, the default and the
+        answer in force for the caller: the caller''s own choice, or the default when
+        none was made or the declaration no longer allows it. The answers are kept
+        by the host for the signed-in person, not by the add-on. An add-on that declares
+        none gives an empty list. The route does not reveal an add-on the caller cannot
+        see.'
+      parameters:
+      - description: Add-on ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The settings of the add-on
+          schema:
+            $ref: '#/definitions/addons.UserSettingsResponse'
+        "401":
+          description: Authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: No such add-on
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: The settings store or the add-on owner is unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read the caller's settings for an add-on
+      tags:
+      - AddonNavigation
+    put:
+      consumes:
+      - application/json
+      description: 'Stores one answer for the signed-in person. The key must be declared
+        in the manifest of the add-on and the value must be one of the values declared
+        for it; anything else is 400 and nothing is stored. The write needs the person''s
+        own browser session (same-origin fetch with X-LocalAI-Confirm equal to the
+        add-on ID): an API key, a bearer token, an MCP session or a tool call is refused
+        with 403 not_human_surface, so no model or add-on can change a person''s setting.
+        Repeating the same write has the same result. The add-on is not called and
+        cannot set a value for a person.'
+      parameters:
+      - description: Add-on ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: The key and the new value
+        in: body
+        name: setting
+        required: true
+        schema:
+          $ref: '#/definitions/addons.UserSettingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The settings of the add-on after the write
+          schema:
+            $ref: '#/definitions/addons.UserSettingsResponse'
+        "400":
+          description: Unknown key, or a value the add-on does not allow
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not the person's own browser session
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: No such add-on
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: The settings store or the add-on owner is unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Set the caller's setting for an add-on
+      tags:
+      - AddonNavigation
   /api/addons/apps:
     get:
       description: Returns the installed addons that are enabled, for every authenticated
@@ -9841,7 +12066,22 @@ paths:
         and the management link. An app carries update update-pending, separate from
         state, only when the owner's cached update check says an update is available
         for the installed package; the list never evaluates a check and never reaches
-        a library.
+        a library. Text that the manifest translates (ui.title and ui.description
+        language maps) is returned in all languages in titles and descriptions. When
+        the request names a language, each app that translates it also carries language,
+        localizedTitle and localizedDescription, resolved per field with English as
+        the fallback; title and description never change.
+      parameters:
+      - description: Language tag to resolve the text for, such as it or pt-BR. Wins
+          over Accept-Language. An unknown language gives the English text.
+        in: query
+        name: lang
+        type: string
+      - description: Used when lang is absent. Quality values are honored; English
+          or no match adds no localized field.
+        in: header
+        name: Accept-Language
+        type: string
       produces:
       - application/json
       responses:
@@ -9858,7 +12098,9 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: Addons or the owner are unavailable
+          description: Addons or the owner are unavailable, or the owner did not answer
+            in time and this frontend has no earlier list to show (type owner_busy
+            or owner_unavailable)
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: List the addon apps the caller may use
@@ -10353,6 +12595,507 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: Submit a typed addon lifecycle operation or read an addon resource
+      tags:
+      - Addons
+  /api/addons/files:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 'Administrators only (an administrator''s session or API key).
+        Multipart form with one part named file, the add-on zip made by `make addons-zip`.
+        The bytes stream to the add-on owner, which keeps them in a private staging
+        area for one hour, bound to the uploading user, and verifies the file: its
+        digest manifest, its paths and sizes, its platform and its add-on manifest.
+        Nothing is installed. Returns the file ID, the sha256 of the file, the add-on
+        ID, version, platform and API range, the host operations the manifest asks
+        for, how the file relates to the installed version (new, upgrade, same or
+        downgrade) and the origin "local file, unsigned": nothing signs a local file,
+        so the administrator chooses what to install. The install is host-grants/preview
+        and host-grants/install with sourceId local-file and version equal to the
+        file ID; it needs the administrator''s own browser session. Refusals carry
+        the rule that failed as the error type: bad_zip, unsafe_path, unsupported_entry,
+        too_large, too_many_files, compression_ratio, bad_manifest, digest_mismatch,
+        wrong_platform or bad_mode. No MCP tool maps to this route.'
+      parameters:
+      - description: The add-on zip
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The verified file
+          schema:
+            $ref: '#/definitions/addons.FileView'
+        "400":
+          description: Not a multipart form with a file, or the file broke a rule
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "413":
+          description: The file is over the size limit
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "429":
+          description: Too many staged files
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Upload an add-on zip file to install from a file (administrators)
+      tags:
+      - Addons
+  /api/addons/files/{fileId}:
+    delete:
+      description: Administrators only. Removes a file of the calling user that waits
+        for an install. 404 when the file is gone or belongs to another user.
+      parameters:
+      - description: File ID from the upload
+        in: path
+        name: fileId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Removed
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: No such file
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Remove a staged add-on file (administrators)
+      tags:
+      - Addons
+    get:
+      description: Administrators only. The same answer as the upload, for a file
+        of the calling user that has not expired. 404 when the file is gone or belongs
+        to another user.
+      parameters:
+      - description: File ID from the upload
+        in: path
+        name: fileId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The staged file
+          schema:
+            $ref: '#/definitions/addons.FileView'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: No such file
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read a staged add-on file (administrators)
+      tags:
+      - Addons
+  /api/addons/host-grants:
+    get:
+      description: Administrators only (an administrator's session or API key). Returns
+        the revision of the grants document, whether the deployment locks the UI store,
+        the blanket approval switch (mode off, official or any; setBy ui or deployment),
+        the deployment floor (the policy file and flags, read-only), the deny rules
+        by source (file and flags, which cannot be edited here, and ui), and for each
+        installed add-on the operations its verified manifest requests (required and
+        optional) with a plain title, text and risk, whether each is allowed, not_allowed,
+        blocked or unsupported, where the grant comes from (deployment, install, upgrade,
+        edit or blanket), when and by whom, the operations granted that the manifest
+        no longer requests, an identity mismatch flag and a pending upgrade that waits
+        for approval. Read-only. Nothing in the answer is a credential. No MCP tool
+        maps to this route.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Host access state
+          schema:
+            $ref: '#/definitions/gateway.HostGrantsView'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Read the host access policy and what each add-on holds (administrators)
+      tags:
+      - Addons
+  /api/addons/host-grants/{addonId}:
+    delete:
+      description: 'Administrators only, from their own browser session (X-LocalAI-Confirm
+        equal to the add-on ID). Removes the UI and blanket grants of the add-on;
+        grants of the policy file stay. Query: revision (the revision the caller read)
+        and, optionally, operationId. Takes effect for the next call with no restart;
+        a running call finishes. An add-on whose required operation is revoked becomes
+        unavailable.'
+      parameters:
+      - description: Add-on ID
+        in: path
+        name: addonId
+        required: true
+        type: string
+      - description: Revision of the grants document the caller read
+        in: query
+        name: revision
+        required: true
+        type: integer
+      - description: Operation ID (optional)
+        in: query
+        name: operationId
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The new revision
+          schema:
+            $ref: '#/definitions/gateway.HostGrantsRevision'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: not_human_surface, locked_by_deployment or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: The add-on is not installed
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: revision_conflict or operation_conflict
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Revoke every host operation granted to an add-on through the UI (browser
+        session)
+      tags:
+      - Addons
+    put:
+      consumes:
+      - application/json
+      description: 'Administrators only, from their own browser session (X-LocalAI-Confirm
+        equal to the add-on ID). operationId is optional (the host makes one); send
+        your own to make a retry the same change. ops is the full set the add-on keeps:
+        operations left out are revoked, new ones must be declared by the installed
+        manifest, registered by the host and not denied (403 blocked_by_policy). Grants
+        made by the policy file or flags are not editable here. keep names held blanket
+        grants to relabel as the administrator''s own. revision is the revision the
+        caller read; a stale one is 409 revision_conflict. Takes effect for the next
+        call of the add-on with no restart.'
+      parameters:
+      - description: Add-on ID
+        in: path
+        name: addonId
+        required: true
+        type: string
+      - description: Edit
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.HostGrantsEditRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The add-on entry and the new revision
+          schema:
+            $ref: '#/definitions/gateway.HostGrantsAddonResult'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: not_human_surface, locked_by_deployment, blocked_by_policy
+            or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "404":
+          description: The add-on is not installed
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: revision_conflict or operation_conflict
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Set the host operations an add-on keeps through the UI (browser session)
+      tags:
+      - Addons
+  /api/addons/host-grants/blanket:
+    put:
+      consumes:
+      - application/json
+      description: 'Administrators only, from their own browser session (X-LocalAI-Confirm
+        equal to "blanket"). Mode off, official or any. With it on, an install or
+        upgrade grants the add-on the operations its verified manifest declares as
+        required (also the optional ones with includeOptional) without the dialog
+        step; it never grants an undeclared or unregistered operation and never overrides
+        a deny rule. Mode official covers only the official library with its official
+        signer. Mode any covers every library the administrator configured: ANY LIBRARY
+        ENTRY THEN RECEIVES EXACTLY THE OPERATIONS ITS MANIFEST DECLARES, with no
+        review, so a malicious or compromised entry gets what it asks for. Turning
+        it on, or widening it, needs confirm equal to "grant official add-ons what
+        they declare" (official) or "grant any library add-on what it declares" (any),
+        else 400 confirmation_mismatch. applyToInstalled also grants the installed
+        add-ons in the same revision. Turning it off keeps the grants it made, marked
+        blanket; revokeOnOff revokes them all. When the deployment fixes the mode
+        the answer is 403 locked_by_deployment.'
+      parameters:
+      - description: Blanket change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.HostGrantsBlanketRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The switch, the add-ons that were granted or skipped and the
+            add-ons whose blanket grants were revoked
+          schema:
+            $ref: '#/definitions/gateway.HostGrantsBlanketResult'
+        "400":
+          description: Malformed request, or confirmation_mismatch
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: not_human_surface, locked_by_deployment or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: revision_conflict or operation_conflict
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Turn the blanket approval on, off or wider (browser session, typed
+        confirmation)
+      tags:
+      - Addons
+  /api/addons/host-grants/deny:
+    put:
+      consumes:
+      - application/json
+      description: 'Administrators only. A deny rule beats every grant. deny maps
+        an add-on ID, or "*" for all, to prefixes ("egress."), exact operation names
+        or the single token "*". The rules of the policy file and flags are not editable
+        here and are unioned with these. With dryRun true the answer is the affected
+        add-ons only (affects: the operations each would lose and whether it will
+        stop because a required one is lost) and nothing changes; a dry run needs
+        the administrator but not the browser session. Without dryRun the change needs
+        the administrator''s own browser session (X-LocalAI-Confirm equal to "deny"),
+        the revision the caller read (409 revision_conflict otherwise), and applies
+        to the next call with no restart.'
+      parameters:
+      - description: Deny rules
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.HostGrantsDenyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The rules and what they take
+          schema:
+            $ref: '#/definitions/gateway.HostGrantsDenyResult'
+        "400":
+          description: Malformed request or invalid rule
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: not_human_surface, locked_by_deployment or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: revision_conflict or operation_conflict
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Replace the deny rules set in the UI, or preview their effect (browser
+        session)
+      tags:
+      - Addons
+  /api/addons/host-grants/install:
+    post:
+      consumes:
+      - application/json
+      description: 'Administrators only, from their own browser session (same-origin
+        fetch, X-LocalAI-Confirm equal to addonId@digest, the add-on and the digest
+        of the approved package). API keys, bearer tokens, MCP sessions and tool calls
+        are refused with 403 not_human_surface. Carries the approval the dialog collected:
+        the digest of the previewed package, the operations ticked, the revision of
+        the grants document and the preview nonce. The owner stages the package again
+        and grants only the operations that are approved AND declared by that verified
+        manifest AND registered by the host AND not denied; a different package is
+        409 approval_stale, a changed document 409 revision_conflict, an expired or
+        reused nonce 409 approval_stale. A required operation that is neither held
+        nor approved is refused (approval_required) and one that a deny rule blocks
+        is 403 blocked_by_policy; nothing is written then. For action upgrade, expectedDigest
+        and candidateDigest pin the upgrade as in the plain upgrade. The plain dispatch
+        install carries no approval. Repeating the operationId with the same request
+        returns the recorded operation. After outcome_unknown keep the operationId
+        and poll the operation status.'
+      parameters:
+      - description: Install with approval
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.HostGrantsInstallRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: The lifecycle operation, with the host operations summary
+          schema:
+            $ref: '#/definitions/addons.OperationStatus'
+        "400":
+          description: Malformed request
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Not a human surface (not_human_surface), locked_by_deployment,
+            blocked_by_policy, approval_required, or administration denied
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "409":
+          description: revision_conflict or approval_stale
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Unavailable, or outcome_unknown (with operationId)
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Install or upgrade an add-on with the host access the administrator
+        approved (browser session)
+      tags:
+      - Addons
+  /api/addons/host-grants/preview:
+    post:
+      consumes:
+      - application/json
+      description: Administrators only (an administrator's session or API key). The
+        owner resolves and stages the release, reads the verified manifest of the
+        staged package, computes the answer against the policy and discards the stage.
+        Returns the digest of the staged package, the requested operations with plain
+        text and risk, and for each one held (already allowed), grantable, blocked
+        (a deny rule, which wins over every grant) or unsupported; canInstall false
+        with blockedRequired when a required operation is blocked; whether the blanket
+        approval would grant on install; the revision of the grants document; and
+        a single-use nonce (five minutes, bound to the caller's credential, the add-on,
+        the digest and the revision) that the install must present. Operations granted
+        before an earlier uninstall carry hinted true so the dialog may tick them;
+        a hint grants nothing. Changes no state.
+      parameters:
+      - description: Release to preview
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/gateway.HostGrantsPreviewRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: What the release asks for
+          schema:
+            $ref: '#/definitions/gateway.HostGrantsPreviewView'
+        "400":
+          description: Malformed or unknown request fields
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "401":
+          description: Named authentication required
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "403":
+          description: Feature or administration denied, or the release could not
+            be verified
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+        "503":
+          description: Addons or the owner are unavailable
+          schema:
+            $ref: '#/definitions/addons.AddonErrorResponse'
+      summary: Preview the host access an install or upgrade would ask for (administrators)
       tags:
       - Addons
   /api/addons/pins:
@@ -12056,6 +14799,13 @@ paths:
         in: query
         name: kind
         type: string
+      - description: 'only chats of one origin, with sub-agent runs left out and the
+          limit counting the chats kept: person (a person started it), automated (anything
+          else) or one origin kind (trigger, connector, job, page). Without it, all
+          chats'
+        in: query
+        name: origin
+        type: string
       responses:
         "200":
           description: Conversations, including sub-agent runs unless kind=chat
@@ -12090,7 +14840,8 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
-          description: The saved agent's folder is missing or not chosen (agent_folder_missing)
+          description: The saved agent's folder is missing or not chosen (agent_folder_missing),
+            or its complete file access exceeds the folder limit (agent_folder_limit)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Start a chat.
@@ -12171,8 +14922,10 @@ paths:
         and with its network, or the add-on''s ID) and commands_isolation says isolated
         or host; commands_consent is ask when each command waits for a yes in the
         chat, and commands_fallback names an add-on that would serve but does not
-        (commands_fallback_reason: off, or why it cannot run). Without the add-on
-        host the list is empty.'
+        (commands_fallback_reason: off, or why it cannot run). commands_host_exec
+        is the mode of chats_host_exec now (off, ask or on), so a client can say that
+        the built-in bash is off when commands is none. Without the add-on host the
+        list is empty.'
       parameters:
       - description: conversation id
         in: path
@@ -12308,13 +15061,15 @@ paths:
         write_file, edit_file, move_file, delete_file, search_files and read_document),
         media (describe_image and transcribe_audio), collections (list_collections
         and search_collection), subagents (spawn_agent), triggers (propose_trigger,
-        list_triggers, update_trigger and delete_trigger) and saved_agents. A sub-agent
-        follows the switches of its parent chat. An opt-in group (opt_in in the list,
-        such as saved_agents: list_agents and the agent argument of spawn_agent) is
-        off until on names it; on replaces the earlier list of opt-in groups that
-        are on, and an opt-in group in off is ignored. Omit on to keep it. A switch
-        never adds what the administrator has off or the user may not use. The next
-        turn of the chat gets the tools that are on.'
+        list_triggers, update_trigger and delete_trigger), memory (your notes: off
+        makes the chat a private chat that neither reads nor saves memory) saved_agents
+        and history (search_chats and read_chat). A sub-agent follows the switches
+        of its parent chat. An opt-in group (opt_in in the list, such as saved_agents:
+        list_agents and the agent argument of spawn_agent) is off until on names it;
+        on replaces the earlier list of opt-in groups that are on, and an opt-in group
+        in off is ignored. Omit on to keep it. A switch never adds what the administrator
+        has off or the user may not use. The next turn of the chat gets the tools
+        that are on.'
       parameters:
       - description: conversation id
         in: path
@@ -12412,11 +15167,50 @@ paths:
       summary: Compact a chat's context now.
       tags:
       - chats
+  /api/chats/{id}/connections:
+    put:
+      description: 'For an add-on whose tools run with the token of one of your connections,
+        the host never picks connections for you. With exactly one it is enabled;
+        with several, choose the set here, and until then the tools of the add-on
+        are not offered to the model. With two or more enabled, the model names the
+        connection in every tool call by a generic connection argument; it can only
+        name an enabled one. An empty list clears the choice. Choosing connections
+        switches the add-on on for the chat. If the saved agent of the chat names
+        the set, the answer is 400: the agent decides. A request with the older single
+        connection field is read as a set of one.'
+      parameters:
+      - description: conversation id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the add-on and the connections
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsConnectionSwitch'
+      responses:
+        "200":
+          description: The add-ons and their switches now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsAddonList'
+        "400":
+          description: The request is not valid, or the agent names the connection
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "404":
+          description: No such conversation, or it is another user's
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Choose the connections a chat may use for an add-on.
+      tags:
+      - chats
   /api/chats/{id}/egress:
     get:
       description: The preset of the chat (off, registries, all), the administrator's
         ceiling, the preset in force (the lower of the two), whether it applies (false
-        when commands run on this machine, applies_reason host, or no Sandbox serves
+        when commands run on this machine, applies_reason host, or no add-on serves
         bash, none), addon (the add-on that runs the commands and draws the network
         controls of the chat, from its network-policy host control; absent when none
         does), the package registries the preset registries admits, the chat's allow
@@ -12438,7 +15232,7 @@ paths:
           description: No such conversation, or it is another user's
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Read the network of a chat's Sandbox commands.
+      summary: Read the network of a chat's commands.
       tags:
       - chats
     put:
@@ -12471,7 +15265,7 @@ paths:
           description: No such conversation, or it is another user's
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Set the network preset of a chat's Sandbox commands.
+      summary: Set the network preset of a chat's commands.
       tags:
       - chats
   /api/chats/{id}/egress/consent:
@@ -12518,14 +15312,14 @@ paths:
             the same answer again is 204
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
-      summary: Answer a network card of a chat's Sandbox commands.
+      summary: Answer a network card of a chat's commands.
       tags:
       - chats
   /api/chats/{id}/egress/rules/{host}/{port}:
     delete:
       description: Removes the rule that allows or denies one host and port for the
-        chat's Sandbox commands. A host that was denied asks again; one that was allowed
-        follows the preset again.
+        chat's commands. A host that was denied asks again; one that was allowed follows
+        the preset again.
       parameters:
       - description: conversation id
         in: path
@@ -13228,7 +16022,8 @@ paths:
             $ref: '#/definitions/schema.ErrorResponse'
         "409":
           description: A turn is running for a command, or the saved agent's folder
-            is missing (agent_folder_missing)
+            is missing (agent_folder_missing), or its complete file access exceeds
+            the folder limit (agent_folder_limit)
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Send a message to a chat.
@@ -13430,14 +16225,16 @@ paths:
   /api/chats/{id}/tools:
     get:
       description: The groups of built-in tools (shell, web, files, media, collections,
-        subagents, triggers and saved_agents; a group the server does not offer is
-        absent, and shell is listed even when nothing can run commands, not usable
-        with the reason), add-ons, the MCP servers of the chat's model and your MCP
-        connectors, each with the chat's switch and whether it can be used now (with
-        the reason when not). A chat with a saved agent lists only what the agent
-        grants. fallbacks lists the built-in tools (bash, web_search, web_fetch) that
-        an installed add-on replaces but that no add-on serves in this chat now, with
-        the add-on and whether the built-in serves instead.
+        subagents, triggers, memory, saved_agents and history; a group the server
+        does not offer is absent, and shell is listed even when nothing can run commands,
+        not usable with the reason), add-ons, the MCP servers of the chat's model
+        and your MCP connectors, each with the chat's switch and whether it can be
+        used now (with the reason when not). A chat with a saved agent lists only
+        what the agent grants. memory says whether memory works in the chat and, when
+        it does not, the level that turned it off (code, blocked_by) and where to
+        turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch)
+        that an installed add-on replaces but that no add-on serves in this chat now,
+        with the add-on and whether the built-in serves instead.
       parameters:
       - description: conversation id
         in: path
@@ -13560,15 +16357,15 @@ paths:
           description: The settings in force
           schema:
             $ref: '#/definitions/schema.ChatsEgressAdmin'
-      summary: Read the settings of the Sandbox network (administrators).
+      summary: Read the settings of the network of commands (administrators).
       tags:
       - chats
   /api/chats/admin/egress/events:
     get:
-      description: 'Every request a command made through the Sandbox proxy, newest
-        first: who, which chat, host, port, kind (connect or http), verdict (allow,
-        block, or done when an allowed connection ended, with its address, bytes and
-        duration) and reason.'
+      description: 'Every request a command made through the proxy of the add-on,
+        newest first: who, which chat, host, port, kind (connect or http), verdict
+        (allow, block, or done when an allowed connection ended, with its address,
+        bytes and duration) and reason.'
       parameters:
       - description: How many lines (default 100, at most 500)
         in: query
@@ -13595,7 +16392,7 @@ paths:
           description: The newest lines first
           schema:
             $ref: '#/definitions/schema.ChatsEgressEventList'
-      summary: Read the audit of the Sandbox network requests (administrators).
+      summary: Read the audit of the network of commands requests (administrators).
       tags:
       - chats
   /api/chats/admin/host-exec/events:
@@ -13993,9 +16790,10 @@ paths:
       description: 'An agent is a definition: instructions and exact lists of the
         MCP servers, add-ons, collections and skills a chat with it may use. A chat
         gets what the lists name and you may use at that moment, never more. Start
-        a chat with it by passing agent_id to POST /api/chats. folder {path, mode}
-        gives the agent one folder of your files, read or write; without it the agent
-        works on all your files.'
+        a chat with it by passing agent_id to POST /api/chats. folders [{path, mode}]
+        gives the agent up to 8 folders of your files, each read or write (folder
+        {path, mode} is the same with one entry); without them the agent works on
+        all your files.'
       parameters:
       - description: the agent
         in: body
@@ -14017,17 +16815,39 @@ paths:
       - chats
   /api/chats/agents/{id}:
     delete:
-      description: Chats that ran with it keep their history; their next turn runs
-        without the agent's tools.
+      description: 'Chats that ran with it keep their history; their next turn runs
+        without the agent''s tools. The agent''s own memory notes (Memory/agents/{id})
+        are not part of it: memory says what to do with them. keep (the default) leaves
+        them, listed under Deleted agents on the Memory page until you delete them.
+        delete moves them to the Trash. export answers 200 with a zip file of the
+        notes and then moves them to the Trash (204 when the agent has none). A value
+        that is not one of these is a 400 and nothing is deleted.'
       parameters:
       - description: the agent's id
         in: path
         name: id
         required: true
         type: string
+      - default: keep
+        description: what to do with the agent's own notes
+        enum:
+        - keep
+        - export
+        - delete
+        in: query
+        name: memory
+        type: string
       responses:
+        "200":
+          description: Deleted; a zip file of the agent's notes (memory=export)
+          schema:
+            type: file
         "204":
           description: Deleted
+        "400":
+          description: memory is not keep, export or delete
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
         "404":
           description: No such conversation, or it is another user's
           schema:
@@ -14056,9 +16876,10 @@ paths:
       - chats
     put:
       description: 'The body replaces every field but folder: a body without folder
-        keeps the folder the agent has, so a client that does not know the field cannot
-        widen the agent, and folder {path: ""} clears it. Chats that already run with
-        the agent use the new definition from their next turn.'
+        or folders keeps the folders the agent has, so a client that does not know
+        the fields cannot widen the agent, and folders [] (or folder {path: ""}) clears
+        them. Chats that already run with the agent use the new definition from their
+        next turn.'
       parameters:
       - description: the agent's id
         in: path
@@ -14089,12 +16910,18 @@ paths:
       - chats
   /api/chats/agents/{id}/export:
     get:
-      description: Returns the definition as a JSON file (version, kind localai-agent,
-        agent). It holds no ID, owner or time. An agent with a folder is version 2
-        and carries folder {path, mode}, the folder's path in your files now (empty
-        when the folder is missing or not chosen); a server that knows only version
-        1 refuses it. An agent without a folder is version 1. POST /api/chats/agents/import
-        reads it. This replaces the old /api/agents/{name}/export.
+      description: 'Returns the definition as a JSON file (version, kind localai-agent,
+        agent). It holds no ID, owner or time. An agent with one folder is version
+        2 and carries folder {path, mode}; an agent with several is version 3 and
+        carries folders [{path, mode}], the folder''s home-relative path now (empty
+        when the folder is missing, not chosen, or outside your home, even if readable);
+        importing an empty path preserves the scope as unset with a warning; a server
+        that knows only version 1 refuses it. An agent with switches of built-in tool
+        groups (builtins_off, builtins_on) is version 4. An agent without a folder
+        or switches is version 1. The builtins list (builtin grants) is an extra field
+        of any version: a server that does not know it ignores it, so the agent comes
+        back without the grants. POST /api/chats/agents/import reads it. This replaces
+        the old /api/agents/{name}/export.'
       parameters:
       - description: the agent's id
         in: path
@@ -14132,19 +16959,34 @@ paths:
       summary: Show what an agent has run.
       tags:
       - chats
+  /api/chats/agents/builtin-grants:
+    get:
+      description: Each grant has a name (the value for builtins in an agent), a title,
+        a description and sensitive. A sensitive grant changes what the agent may
+        do or reach later (profile, skills, pages, dashboard, new channels, actions
+        of unattended runs); none is on by default. A chat of the agent holds only
+        the grants you may use at that moment.
+      responses:
+        "200":
+          description: The grants, in display order
+          schema:
+            $ref: '#/definitions/schema.ChatsBuiltinGrantList'
+      summary: List the builtin grants of a saved agent.
+      tags:
+      - chats
   /api/chats/agents/import:
     post:
       consumes:
       - application/json
       - multipart/form-data
-      description: 'Send the export file (version 1, or 2 for an agent with a folder)
-        as the JSON body, or as the file field of a multipart form. A bare agent definition
-        (the body of POST /api/chats/agents) is accepted too. The agent is always
-        new: a name you already use gets a number, and a model this server does not
-        have, or you may not use, is dropped with a warning. A folder is looked up
-        by its path in your files; when you have no such folder the agent keeps the
-        mode without a folder (folder state unset) and does not start until you choose
-        one, and a warning says so.'
+      description: 'Send the export file (version 1, 2 for an agent with a folder,
+        or 3 for an agent with several) as the JSON body, or as the file field of
+        a multipart form. A bare agent definition (the body of POST /api/chats/agents)
+        is accepted too. The agent is always new: a name you already use gets a number,
+        and a model this server does not have, or you may not use, is dropped with
+        a warning. A folder is looked up by its path in your files; when you have
+        no such folder the agent keeps the mode without a folder (folder state unset)
+        and does not start until you choose one, and a warning says so.'
       parameters:
       - description: the agent file
         in: body
@@ -14198,6 +17040,148 @@ paths:
       summary: Save a starter agent as your own.
       tags:
       - chats
+  /api/chats/changes:
+    get:
+      description: A model proposes a change to your memory or an agent profile with
+        the propose_change tool, from a Studio chat or a connector chat. Nothing is
+        written until you confirm. A proposal expires after 24 hours. Newest first;
+        status keeps only one status.
+      parameters:
+      - description: pending, applied, dismissed, expired, reverted or stale
+        in: query
+        name: status
+        type: string
+      responses:
+        "200":
+          description: Your proposals
+          schema:
+            items:
+              $ref: '#/definitions/contract.ChangeProposal'
+            type: array
+        "400":
+          description: The status is not known
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: List the changes that a chat proposed.
+      tags:
+      - chats
+  /api/chats/changes/{id}:
+    get:
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The proposal, with the text it would write
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Get a proposed change.
+      tags:
+      - chats
+  /api/chats/changes/{id}/confirm:
+    post:
+      description: 'Writes the change to your files as one change set that Undo can
+        take back. A JSON body {"content": "..."} writes your own text in place of
+        the proposed one; it has the same size limit. It is refused with 409 when
+        the file changed since the proposal, or when the proposal expired or was answered.'
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The applied proposal
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Stale, expired or answered
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Confirm a proposed change.
+      tags:
+      - chats
+  /api/chats/changes/{id}/dismiss:
+    post:
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The dismissed proposal
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Not waiting
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Dismiss a proposed change.
+      tags:
+      - chats
+  /api/chats/changes/{id}/undo:
+    post:
+      description: Restores the file with the change set the confirmation wrote. It
+        is refused with 409 when the file was edited since.
+      parameters:
+      - description: the proposal
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The reverted proposal
+          schema:
+            $ref: '#/definitions/contract.ChangeProposal'
+        "404":
+          description: Not yours or unknown
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "409":
+          description: Not applied, or edited since
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Undo an applied change.
+      tags:
+      - chats
+  /api/chats/changes/audit:
+    get:
+      description: Who proposed, confirmed, dismissed or reverted what, from which
+        source, newest first. It holds a hash of the text, never the text.
+      parameters:
+      - description: most lines (default 50, at most 200)
+        in: query
+        name: limit
+        type: integer
+      responses:
+        "200":
+          description: Your audit lines
+          schema:
+            items:
+              $ref: '#/definitions/proposals.Event'
+            type: array
+      summary: List the audit of proposed changes.
+      tags:
+      - chats
   /api/chats/connectors:
     get:
       description: 'A binding connects a bot of a messaging platform (served by a
@@ -14217,12 +17201,13 @@ paths:
         returned) and an agent of yours that names a model. The token is checked with
         the platform when its add-on runs: a token that the platform refuses is a
         400. reply_mode (off, progress, stream; default progress), conversation (sender,
-        chat, window with window_minutes, thread; default sender) and send_files (default
-        true) say how the bot answers. The allowlist is empty at first, so nobody
-        is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone
-        who can message the bot then uses the agent''s tools; the request that turns
-        it on must also carry confirm_accept_any set to "accept any message", or it
-        is a 400). At most 10 bindings.'
+        chat, window with window_minutes, thread; default sender), send_files (default
+        true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the
+        language of the sentences the bot writes itself) say how the bot answers.
+        The allowlist is empty at first, so nobody is accepted: add chat IDs, user
+        IDs or @usernames, or set accept_any (anyone who can message the bot then
+        uses the agent''s tools; the request that turns it on must also carry confirm_accept_any
+        set to "accept any message", or it is a 400). At most 10 bindings.'
       parameters:
       - description: the binding
         in: body
@@ -14275,9 +17260,9 @@ paths:
       - chats
     put:
       description: 'The body replaces every field except the token, which is kept
-        unless the request has a new one, and send_files, which is kept when it is
-        absent. A new token is checked with the platform: a token that the platform
-        refuses is a 400 and nothing is saved.'
+        unless the request has a new one, and send_files and reply_language, which
+        are kept when absent. A new token is checked with the platform: a token that
+        the platform refuses is a 400 and nothing is saved.'
       parameters:
       - description: the binding's id
         in: path
@@ -14300,6 +17285,63 @@ paths:
           schema:
             $ref: '#/definitions/schema.ErrorResponse'
       summary: Replace a connector binding.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/access:
+    get:
+      description: Runs the permission check the host uses for each turn, for a sender
+        on the allowlist by ID or name (trusted with every capability that is not
+        sensitive), a sender let in only through a listed channel, a paired sender
+        and a sender of each role the kind declares, and lists the latest decisions.
+        A settings page of the add-on can show it.
+      parameters:
+      - description: the binding's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The effective permissions
+          schema:
+            $ref: '#/definitions/schema.ChatsConnectorAccess'
+      summary: Show what each kind of sender may do on a connector binding.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/access/preview:
+    post:
+      description: 'Runs the same permission chain as the access view on the state
+        in the request: the server setting, the Tools switch of the agent, the agent
+        permission, the permission of the connection and the trust of the sender,
+        in that order, and reports the first problem of each capability with a code,
+        a plain message, one fix and the links not yet checked. Fields that are absent
+        keep the saved value. Use the id "new" with a kind for a connection that is
+        not saved yet. It writes nothing, records no decision, and neither takes nor
+        returns the token. Same sign-in and Connectors feature as the other connector
+        routes.'
+      parameters:
+      - description: the binding's id, or new
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the form state to check
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsConnectorAccessPreviewRequest'
+      responses:
+        "200":
+          description: The effective permissions of that state
+          schema:
+            $ref: '#/definitions/schema.ChatsConnectorAccess'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Preview what each kind of sender may do on a connector binding, before
+        saving.
       tags:
       - chats
   /api/chats/connectors/{id}/disable:
@@ -14332,6 +17374,49 @@ paths:
           schema:
             $ref: '#/definitions/schema.ChatsConnector'
       summary: Switch a connector binding on.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/paired/{sender}:
+    delete:
+      description: The sender can pair again with a new code.
+      parameters:
+      - description: the binding's id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: the sender's id
+        in: path
+        name: sender
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The binding
+          schema:
+            $ref: '#/definitions/schema.ChatsConnector'
+      summary: End the pairing of a sender of a connector binding.
+      tags:
+      - chats
+  /api/chats/connectors/{id}/pairing:
+    post:
+      description: Pairing proves that you control a platform account. Send the code,
+        as a direct message to the bot, from an account on the allowlist, within ten
+        minutes. The code works once, and a new code replaces the old one. A paired
+        sender may use the sensitive capabilities you enabled; a pairing ends after
+        90 days. At most three senders are paired.
+      parameters:
+      - description: the binding's id
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: The code and when it expires
+          schema:
+            $ref: '#/definitions/schema.ChatsConnectorPairing'
+      summary: Make a pairing code for a connector binding.
       tags:
       - chats
   /api/chats/connectors/{id}/senders:
@@ -14398,7 +17483,16 @@ paths:
     get:
       description: The messaging platforms that a running connector add-on serves,
         with the add-on page that adds and edits their bindings. Empty when no connector
-        add-on is installed.
+        add-on is installed. A kind whose manifest translates its text carries titles
+        and descriptions by language and, when the request names a language it translates
+        (lang, else Accept-Language), language, localized_title and localized_description
+        with English as the fallback for each field; title and description stay English.
+      parameters:
+      - description: Language tag to resolve the kind text for, such as it or pt-BR.
+          Wins over Accept-Language. An unknown language gives the English text.
+        in: query
+        name: lang
+        type: string
       responses:
         "200":
           description: The kinds
@@ -14407,14 +17501,28 @@ paths:
       summary: List the connector kinds you can bind.
       tags:
       - chats
+  /api/chats/context-files:
+    get:
+      description: The short index files that the host loads into every chat (your
+        memory, an agent's notes, a conversation's notes), with the topic files next
+        to them, the agent profiles and the caps that keep a turn small. It only reads;
+        change a file on the Files page or confirm a proposal.
+      responses:
+        "200":
+          description: Your context files
+          schema:
+            $ref: '#/definitions/studio.ContextFiles'
+      summary: List your context files.
+      tags:
+      - chats
   /api/chats/conversion:
     get:
       description: At start the server converts the old chat page, agents, tasks,
-        skills and Telegram connectors into chats, saved agents, triggers, skills
-        and connector bindings. Triggers and connectors are made switched off. This
-        lists the items that belong to you, with what was dropped and why; an administrator
-        also gets the totals of all users. It never holds a token or the text of a
-        prompt.
+        skills and connectors into chats, saved agents, triggers and skills. Triggers
+        are made switched off; connectors are listed as dropped and are made again
+        in the Connectors page. This lists the items that belong to you, with what
+        was dropped and why; an administrator also gets the totals of all users. It
+        never holds a token or the text of a prompt.
       responses:
         "200":
           description: The report
@@ -14427,7 +17535,10 @@ paths:
     get:
       description: 'What GET /api/chats/{id}/addons lists, for a chat that does not
         exist yet, as GET /api/chats/draft/tools takes it: the add-ons with their
-        default switch and whether the chat could run commands at its first turn.'
+        switch and whether the chat could run commands at its first turn. The draft''s
+        current switches may be passed (addons_off, builtins_off, builtins_on: comma-separated
+        lists, as the create request takes them) so the answer is the one the chat
+        would get: with the shell group off, commands is switched_off.'
       parameters:
       - description: the model of the new chat
         in: query
@@ -14437,9 +17548,22 @@ paths:
         in: query
         name: agent_id
         type: string
+      - description: comma-separated add-on IDs the draft switched off
+        in: query
+        name: addons_off
+        type: string
+      - description: comma-separated built-in groups the draft switched off
+        in: query
+        name: builtins_off
+        type: string
+      - description: comma-separated opt-in built-in groups the draft switched on
+        in: query
+        name: builtins_on
+        type: string
       responses:
         "200":
-          description: The add-ons and their default switches
+          description: The add-ons and the commands state, with the draft switches
+            applied
           schema:
             $ref: '#/definitions/schema.ChatsAddonList'
         "400":
@@ -15026,6 +18150,89 @@ paths:
       summary: Test an MCP connector.
       tags:
       - chats
+  /api/chats/memory:
+    get:
+      description: 'Memory is the short notes the assistant reads before it answers
+        and may save. enabled is the switch for all your chats and agents: a private
+        chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent
+        that turns memory off, or this switch off each make memory off in a chat,
+        and the narrowest wins; a saved agent cannot widen your choice. enabled_set
+        is false until you choose; before that memory is on, unless you had disabled
+        the Memory add-on to stop it. save_mode is how a note is saved (ask, auto
+        or never) and applies as the strictest rule with the rules of the host; a
+        chat from a messaging app always asks. Your notes stay and can be listed,
+        exported and deleted while memory is off.'
+      responses:
+        "200":
+          description: Your memory settings
+          schema:
+            $ref: '#/definitions/schema.ChatsMemorySettings'
+      summary: Read your memory settings.
+      tags:
+      - chats
+    put:
+      consumes:
+      - application/json
+      description: Sets enabled (memory On or Off for every chat and agent) and save_mode
+        (ask, auto or never). A field left out stays as it is. Off means nothing is
+        put in the prompt, the model has no tool or skill for notes, nothing is proposed
+        or saved (also by triggers and other runs that start by themselves) and the
+        model is told in one line that memory is off. The settings are kept per person
+        with the account, so every frontend of a cluster reads the same answer. 400
+        for a value that is not allowed.
+      parameters:
+      - description: the choices to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ChatsMemoryRequest'
+      responses:
+        "200":
+          description: Your memory settings now in force
+          schema:
+            $ref: '#/definitions/schema.ChatsMemorySettings'
+        "400":
+          description: A value is not allowed
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+        "503":
+          description: The settings cannot be stored on this server
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Change your memory settings.
+      tags:
+      - chats
+  /api/chats/memory/export:
+    get:
+      description: The Markdown files of your memory folders (yours, each agent's
+        and each messaging conversation's) with their paths. scope (user, agent or
+        channel) and key (the agent ID or the conversation folder name, as GET /api/chats/context-files
+        lists them) narrow it to one group. It works while memory is off. 404 when
+        there is nothing to export.
+      parameters:
+      - description: user, agent or channel
+        in: query
+        name: scope
+        type: string
+      - description: the agent ID or the conversation folder, with scope
+        in: query
+        name: key
+        type: string
+      produces:
+      - application/zip
+      responses:
+        "200":
+          description: A zip file of the notes
+          schema:
+            type: file
+        "404":
+          description: No notes
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
+      summary: Download your memory notes as a zip file.
+      tags:
+      - chats
   /api/chats/notifications:
     delete:
       description: Name the ids, or pass all to empty your inbox; with all, read_only
@@ -15399,23 +18606,61 @@ paths:
       - chats
   /api/chats/search:
     get:
-      description: Finds chats whose title or messages contain the text, ignoring
-        case. The newest chats come first. It reads the newest 500 chats.
+      description: 'Finds the messages and titles of your chats that hold every word
+        of the text (a phrase in double quotes counts as one word), ignoring case.
+        It searches all your chats, not only the newest, except the runs of sub-agents.
+        The best match comes first: whole words, the whole phrase and newer messages
+        rank higher. By default each chat appears once, with its best line; group=message
+        returns every matching line. A hit has the line (seq), who wrote it, when,
+        a snippet and the parts of the snippet that match (highlights, UTF-16 offsets).
+        Messages written before the search index existed are added in the background
+        after an upgrade (indexing is true meanwhile). A server that keeps chats in
+        files has no index: it scans for a few seconds and says when it stopped early
+        (partial).'
       parameters:
-      - description: text to find
+      - description: 'text to find: words that must all be in the message'
         in: query
         name: q
         required: true
         type: string
-      - description: most chats to return (default 50, at most 200)
+      - description: most hits to return (default 50, at most 200)
         in: query
         name: limit
         type: integer
+      - description: only chats of this saved agent
+        in: query
+        name: agent
+        type: string
+      - description: 'only chats of one origin: person, automated, trigger, connector,
+          job or page'
+        in: query
+        name: origin
+        type: string
+      - description: only lines written by user or assistant
+        in: query
+        name: role
+        type: string
+      - description: only lines at or after this date (YYYY-MM-DD) or time (RFC 3339)
+        in: query
+        name: since
+        type: string
+      - description: only lines before this time, or on or before this date (YYYY-MM-DD)
+        in: query
+        name: until
+        type: string
+      - description: 'chat (default): one hit per chat; message: every matching line'
+        in: query
+        name: group
+        type: string
       responses:
         "200":
           description: The matching chats
           schema:
             $ref: '#/definitions/schema.ChatsChatSearchResponse'
+        "400":
+          description: The request is not valid
+          schema:
+            $ref: '#/definitions/schema.ErrorResponse'
       summary: Search your chats.
       tags:
       - chats
@@ -15711,7 +18956,8 @@ paths:
     get:
       description: 'Skills from every layer: .skills folders of your files, your personal
         skills, the shared ones, the ones of the add-ons you may use now (addon, with
-        the add-on in addon and addon_title) and the built-in ones. The nearest wins;
+        the add-on in addon and addon_title) and the built-in ones. A chat with a
+        saved agent also lists the skills of that agent (agent). The nearest wins;
         a skill that another overrides says so in shadowed. With chat set, the chat''s
         switches are applied.'
       parameters:
@@ -15719,6 +18965,11 @@ paths:
         in: query
         name: chat
         type: string
+      - description: 'true: add the skills of your saved agents (layer agent), for
+          the Skills page; ignored with chat'
+        in: query
+        name: agents
+        type: boolean
       responses:
         "200":
           description: The skills
@@ -15753,12 +19004,17 @@ paths:
   /api/chats/skills/{layer}/{name}:
     delete:
       description: The skill's folder goes to the Trash of your files, where it can
-        be restored. Shared skills need an administrator.
+        be restored. Shared skills need an administrator. A skill of the agent layer
+        is deleted with the agent query parameter.
       parameters:
-      - description: personal or shared
+      - description: personal, shared or agent
         in: path
         name: layer
         required: true
+        type: string
+      - description: the saved agent's ID, for the agent layer
+        in: query
+        name: agent
         type: string
       - description: the skill's name
         in: path
@@ -15781,7 +19037,7 @@ paths:
       - chats
     get:
       parameters:
-      - description: personal, shared, addon or builtin
+      - description: personal, shared, agent, addon or builtin
         in: path
         name: layer
         required: true
@@ -15794,6 +19050,10 @@ paths:
       - description: the add-on's ID, for the addon layer
         in: query
         name: addon
+        type: string
+      - description: the saved agent's ID, for the agent layer
+        in: query
+        name: agent
         type: string
       responses:
         "200":

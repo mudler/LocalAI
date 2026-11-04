@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 	"time"
 	"unicode"
@@ -23,8 +24,9 @@ import (
 //     the add-on calls the host operation ConnectorInboundOp.
 //   - Outbound. The host calls "/connector" with the ops "send", "edit",
 //     "typing", "send_file" and "me", "media" to read a file a message
-//     carries, and "draft" for a kind that declares drafts. The host passes
-//     the token on every call; the add-on never stores it.
+//     carries, "draft" for a kind that declares drafts and "history" for a
+//     kind that declares history. The host passes the token on every call;
+//     the add-on never stores it.
 
 // Delivery says how messages reach the host.
 const (
@@ -55,6 +57,10 @@ const (
 	// that is not a message yet. The platform replaces it when the answer
 	// is sent. Only a kind with Drafts serves it.
 	ConnectorOpDraft = "draft"
+	// ConnectorOpHistory returns the earlier messages of the thread
+	// ConnectorRequest.Thread of Chat, oldest first. Only a kind with
+	// History serves it; the host never calls it for another kind.
+	ConnectorOpHistory = "history"
 )
 
 // Codes of a ConnectorError.
@@ -66,8 +72,9 @@ const (
 	// ConnectorRateLimited means the platform asks the host to wait RetryAfter seconds.
 	ConnectorRateLimited = "rate_limited"
 	// ConnectorTooLarge means the file that the op media names is larger than
-	// MaxConnectorFileBytes or than the platform lets a bot download. The host
-	// tells the sender so, instead of saying that the file could not be read.
+	// the bound of the handle (ConnectorTransfer.MaxBytes) or than the platform
+	// lets a bot download. The host tells the sender so, instead of saying that
+	// the file could not be read.
 	ConnectorTooLarge = "too_large"
 	// ConnectorFailed is any other failure of the platform or of the network.
 	ConnectorFailed = "failed"
@@ -79,16 +86,20 @@ const (
 	MaxConnectorMedia  = 8
 	MaxPollSeconds     = 25
 	MaxConnectorSender = 64 // the width of the sender column of the stores
-	// MaxConnectorFileBytes is the largest file the ops media and send_file
-	// carry. The body is JSON, so the file with its base64 overhead stays
-	// within the envelope limit of the add-on route.
-	MaxConnectorFileBytes = 1 << 20
 	// MaxConnectorFileName is the longest file name, in bytes, that the op
 	// send_file takes.
 	MaxConnectorFileName = 128
 	// MinPreviewMs and MaxPreviewMs bound ConnectorKind.PreviewMs.
 	MinPreviewMs = 250
 	MaxPreviewMs = 10000
+	// DefaultHistoryMessages is how many messages the host asks the op
+	// history for when the kind declares no limit of its own.
+	DefaultHistoryMessages = 30
+	// MaxHistoryMessages bounds ConnectorHistory.MaxMessages and the Limit of
+	// a history request.
+	MaxHistoryMessages = 200
+	// MaxHistoryMedia is how many file names one history message carries.
+	MaxHistoryMedia = 8
 )
 
 // ConnectorKind is one kind of binding an add-on serves, such as telegram.
@@ -106,6 +117,11 @@ type ConnectorKind struct {
 	// Page is the add-on page that adds and edits bindings of this kind. It
 	// must be one of the pages of the add-on's UI.
 	Page string `json:"page,omitempty"`
+	// AgentOptional lets a binding of this kind have no agent. Such a binding
+	// is credentials only: it holds the token, the resource list and the write
+	// mode for the tools of a chat, and the host never delivers a message to it
+	// or answers one from it. A kind without it needs an agent on every binding.
+	AgentOptional bool `json:"agentOptional,omitempty"`
 	// Drafts tells that the add-on serves the op draft. The host then shows
 	// a live answer in a direct conversation as a draft, not as a working
 	// message that it edits.
@@ -114,6 +130,127 @@ type ConnectorKind struct {
 	// of an answer (an edit or a draft) of one binding. Zero: the host's
 	// default, one second. Else MinPreviewMs to MaxPreviewMs.
 	PreviewMs int `json:"previewMs,omitempty"`
+	// History declares that the add-on serves the op history. A kind without
+	// it keeps the behaviour of a platform that cannot be asked for old
+	// messages.
+	History *ConnectorHistory `json:"history,omitempty"`
+	// Options are the choices of the add-on that each binding of this kind
+	// makes, such as how the bot follows a thread. The host shows them next to
+	// the other settings of the binding, keeps the choice, checks it against
+	// this declaration and sends it with the op poll.
+	Options []ConnectorOption `json:"options,omitempty"`
+	// Files declares the files the kind can receive and send, with a limit
+	// for each direction. A kind that declares none moves no files; a
+	// direction it leaves out is not served. The bytes travel by handle, never
+	// in the connector envelope.
+	Files *ConnectorFiles `json:"files,omitempty"`
+	// Roles are the roles the kind can give to a sender. The add-on owns
+	// the membership and sends the role IDs with each message; the owner of
+	// a binding maps each role to capabilities.
+	Roles []ConnectorRole `json:"roles,omitempty"`
+	// Permissions are the capabilities (see ConnectorCapabilityNames) that the kind can
+	// grant to a role. A sensitive name may be listed to explain the pairing
+	// path, but it is never granted to a role.
+	Permissions []string `json:"permissions,omitempty"`
+}
+
+// ConnectorOption is one choice among a few values.
+type ConnectorOption struct {
+	// ID names the option in ConnectorRequest.Options.
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
+	// Values are the allowed answers; Default is one of them. A binding that
+	// makes no choice has the default.
+	Values  []ConnectorOptionValue `json:"values"`
+	Default string                 `json:"default"`
+}
+
+// ConnectorOptionValue is one answer of an option.
+type ConnectorOptionValue struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// Limits of the options of a kind.
+const (
+	MaxConnectorOptions = 4
+	MaxOptionValues     = 8
+)
+
+var (
+	optionID      = regexp.MustCompile(`^[a-z][A-Za-z0-9]{0,31}$`)
+	optionValueID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+)
+
+// Option returns the option of the kind with the given ID.
+func (k ConnectorKind) Option(id string) (ConnectorOption, bool) {
+	for _, o := range k.Options {
+		if o.ID == id {
+			return o, true
+		}
+	}
+	return ConnectorOption{}, false
+}
+
+// ResolveOptions checks the choices of a binding against the options of the
+// kind and returns the value in effect for each option: the choice, or the
+// default. An unknown option or value is an error.
+func (k ConnectorKind) ResolveOptions(chosen map[string]string) (map[string]string, error) {
+	for id, v := range chosen {
+		o, ok := k.Option(id)
+		if !ok {
+			return nil, fmt.Errorf("the option %q is not one of this kind", id)
+		}
+		if !o.allows(v) {
+			return nil, fmt.Errorf("%q is not a value of the option %q", v, id)
+		}
+	}
+	if len(k.Options) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]string, len(k.Options))
+	for _, o := range k.Options {
+		out[o.ID] = o.Default
+		if v, ok := chosen[o.ID]; ok {
+			out[o.ID] = v
+		}
+	}
+	return out, nil
+}
+
+func (o ConnectorOption) allows(v string) bool {
+	for _, x := range o.Values {
+		if x.ID == v {
+			return true
+		}
+	}
+	return false
+}
+
+// ConnectorHistory is the ability to read old messages of a platform.
+type ConnectorHistory struct {
+	// Thread says that the op history returns the earlier messages of a
+	// thread. It must be true: it is the only ability so far.
+	Thread bool `json:"thread"`
+	// MaxMessages is the most messages one call returns. Zero: the host
+	// asks for DefaultHistoryMessages. At most MaxHistoryMessages.
+	MaxMessages int `json:"maxMessages,omitempty"`
+}
+
+// ServesThreadHistory reports whether the kind answers the op history for threads.
+func (k ConnectorKind) ServesThreadHistory() bool { return k.History != nil && k.History.Thread }
+
+// HistoryLimit is how many messages the host asks for at most: the limit it
+// wants (zero: DefaultHistoryMessages), cut to what the kind declares.
+func (k ConnectorKind) HistoryLimit(want int) int {
+	if want <= 0 || want > MaxHistoryMessages {
+		want = DefaultHistoryMessages
+	}
+	if k.History != nil && k.History.MaxMessages > 0 && k.History.MaxMessages < want {
+		want = k.History.MaxMessages
+	}
+	return want
 }
 
 // ConnectorCapability is the manifest field capabilities.connector.
@@ -143,6 +280,22 @@ func validateConnector(c *ConnectorCapability, ui *UI) error {
 		if k.PreviewMs != 0 && (k.PreviewMs < MinPreviewMs || k.PreviewMs > MaxPreviewMs) {
 			return fmt.Errorf("connector previewMs must be 0 or %d to %d", MinPreviewMs, MaxPreviewMs)
 		}
+		if h := k.History; h != nil {
+			if !h.Thread || h.MaxMessages < 0 || h.MaxMessages > MaxHistoryMessages {
+				return fmt.Errorf("connector history needs thread and maxMessages 0 to %d", MaxHistoryMessages)
+			}
+		}
+		if len(k.Options) > 0 {
+			if err := validateOptions(k.Options); err != nil {
+				return err
+			}
+		}
+		if err := k.Files.validate(); err != nil {
+			return err
+		}
+		if err := validatePermissions(k); err != nil {
+			return err
+		}
 		if k.Page != "" {
 			ok := false
 			if ui != nil {
@@ -153,6 +306,30 @@ func validateConnector(c *ConnectorCapability, ui *UI) error {
 			if !ok {
 				return fmt.Errorf("connector page must be a declared page")
 			}
+		}
+	}
+	return nil
+}
+
+func validateOptions(opts []ConnectorOption) error {
+	if len(opts) > MaxConnectorOptions {
+		return fmt.Errorf("a connector kind has at most %d options", MaxConnectorOptions)
+	}
+	seen := map[string]bool{}
+	for _, o := range opts {
+		if !optionID.MatchString(o.ID) || seen[o.ID] || !plainText(o.Title, MaxTitleChars) || (o.Description != "" && !plainText(o.Description, MaxDescriptionChars)) {
+			return fmt.Errorf("invalid or repeated connector option")
+		}
+		seen[o.ID] = true
+		if len(o.Values) < 2 || len(o.Values) > MaxOptionValues || !o.allows(o.Default) {
+			return fmt.Errorf("a connector option needs 2 to %d values and a default among them", MaxOptionValues)
+		}
+		vs := map[string]bool{}
+		for _, v := range o.Values {
+			if !optionValueID.MatchString(v.ID) || vs[v.ID] || !plainText(v.Title, MaxTitleChars) {
+				return fmt.Errorf("invalid or repeated connector option value")
+			}
+			vs[v.ID] = true
 		}
 	}
 	return nil
@@ -197,6 +374,11 @@ type ConnectorMessage struct {
 	// is a voice message, which the host transcribes, and the transcript is
 	// the text of the turn.
 	Media []string `json:"media,omitempty"`
+	// Roles are the IDs of the roles (ConnectorKind.Roles) that the sender
+	// has, at most MaxMessageRoles. The host drops an ID the kind does not
+	// declare, and the whole field for a kind with no roles. Roles are never
+	// authority for a sensitive capability.
+	Roles []string `json:"roles,omitempty"`
 }
 
 // ConnectorInbound is the argument object of ConnectorInboundOp. It names the
@@ -216,6 +398,9 @@ type ConnectorRequest struct {
 	// poll
 	Offset         int64 `json:"offset,omitempty"`
 	TimeoutSeconds int   `json:"timeoutSeconds,omitempty"`
+	// Options are the values in effect, by option ID, of the options the kind
+	// declares (ConnectorKind.Options). The host sends them with poll.
+	Options map[string]string `json:"options,omitempty"`
 	// send, edit, typing, send_file, draft
 	Chat   string `json:"chat,omitempty"`
 	Thread string `json:"thread,omitempty"`
@@ -232,17 +417,16 @@ type ConnectorRequest struct {
 	DraftID int64 `json:"draftId,omitempty"`
 	// media: one reference of ConnectorMessage.Media.
 	Media string `json:"media,omitempty"`
-	// send_file: the file. Its name is SafeFileName of itself and its data
-	// is 1 to MaxConnectorFileBytes long.
-	File *ConnectorFile `json:"file,omitempty"`
-}
-
-// ConnectorFile is a file that the op media returns or the op send_file
-// carries. Data is at most MaxConnectorFileBytes.
-type ConnectorFile struct {
-	Name string `json:"name"`
-	MIME string `json:"mime,omitempty"`
-	Data []byte `json:"data"`
+	// history: Chat and Thread name the thread. Limit is the most messages to
+	// return (1 to MaxHistoryMessages): the newest ones before Before. Before
+	// is the ID of the message that the host handles now; it and the later
+	// messages are not returned.
+	Limit  int    `json:"limit,omitempty"`
+	Before string `json:"before,omitempty"`
+	// Transfer is the handle for the bytes of a file, set for the ops media and
+	// send_file. media: the add-on writes the file with ConnectorFilePutOp.
+	// send_file: the add-on reads the file with ConnectorFileGetOp.
+	Transfer *ConnectorTransfer `json:"transfer,omitempty"`
 }
 
 // ConnectorError is a failure the add-on reports. The host maps the code to
@@ -266,8 +450,32 @@ type ConnectorResponse struct {
 	// me
 	BotID       string `json:"botId,omitempty"`
 	BotUsername string `json:"botUsername,omitempty"`
-	// media
-	File *ConnectorFile `json:"file,omitempty"`
+	// Received answers the op media: the file was written by handle. The host
+	// adds Size and SHA256 from its record.
+	Received *ConnectorReceived `json:"received,omitempty"`
+	// history: the messages, oldest first, at most the Limit asked for.
+	// Truncated says that older messages exist that are not returned.
+	Messages  []ConnectorHistoryMessage `json:"messages,omitempty"`
+	Truncated bool                      `json:"truncated,omitempty"`
+}
+
+// ConnectorHistoryMessage is one earlier message of a thread. The text is
+// what other people wrote: the host treats it as untrusted content.
+type ConnectorHistoryMessage struct {
+	MessageID      string `json:"messageId,omitempty"`
+	SenderID       string `json:"senderId,omitempty"`
+	SenderName     string `json:"senderName,omitempty"`
+	SenderUsername string `json:"senderUsername,omitempty"`
+	Text           string `json:"text,omitempty"`
+	// TS is the time of the message, when the platform tells it.
+	TS time.Time `json:"ts,omitzero"`
+	// Own is true for a message of the bot itself.
+	Own bool `json:"own,omitempty"`
+	// Media is how many files the message carries; MediaNames names them
+	// when the platform does, at most MaxHistoryMedia. The bytes are never
+	// part of a history.
+	Media      int      `json:"media,omitempty"`
+	MediaNames []string `json:"mediaNames,omitempty"`
 }
 
 // ConnectorRuntime is a runtime that serves the connector route. An add-on
@@ -279,6 +487,18 @@ type ConnectorRuntime interface {
 // ConnectorTimeout is how long one connector call may run: a poll waits up to
 // MaxPollSeconds for the platform.
 const ConnectorTimeout = (MaxPollSeconds + 20) * time.Second
+
+// ConnectorTransferTimeout is how long a call that carries a Transfer may
+// run: it moves a whole file chunk by chunk, and a large file takes minutes.
+const ConnectorTransferTimeout = 15 * time.Minute
+
+// CallTimeout is the time one connector call may run.
+func (r ConnectorRequest) CallTimeout() time.Duration {
+	if r.Transfer != nil {
+		return ConnectorTransferTimeout
+	}
+	return ConnectorTimeout
+}
 
 // SafeFileName returns a file name that every platform takes: the last
 // element of a path, without control characters, quotes or path separators,

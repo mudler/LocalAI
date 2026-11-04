@@ -11,7 +11,7 @@ import (
 
 const kindDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
-const oldShapeIndex = `- addonId: tables
+const addonEntry = `- id: tables
   name: Tables
   version: 1.0.0
   artifact: oci://registry.example/tables
@@ -39,39 +39,39 @@ const unknownKindEntry = `- kind: gizmo
 
 var _ = Describe("entry kinds", func() {
 	It("reads an index written before kinds existed, and the entry is an add-on", func() {
-		res, err := ReadIndex([]byte(oldShapeIndex), KindAddon)
+		res, err := ReadIndex([]byte(addonEntry), KindAddon)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Skipped).To(BeEmpty())
 		Expect(res.Releases).To(HaveLen(1))
 		Expect(res.Releases[0].Kind).To(BeEmpty())
 		Expect(res.Releases[0].EntryKind()).To(Equal(KindAddon))
-		releases, err := DecodeIndex([]byte(oldShapeIndex))
+		releases, err := DecodeIndex([]byte(addonEntry))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(releases).To(HaveLen(1))
 	})
 
 	It("reads a backend entry on a reader that knows backends", func() {
-		res, err := ReadIndex([]byte(oldShapeIndex+backendEntry), KindAddon, KindBackend)
+		res, err := ReadIndex([]byte(addonEntry+backendEntry), KindAddon, KindBackend)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Skipped).To(BeEmpty())
 		Expect(res.Releases).To(HaveLen(2))
 		Expect(res.Releases[1].EntryKind()).To(Equal(KindBackend))
 		Expect(res.Releases[1].Alias).To(Equal("local-store"))
 		// The reader of this host knows backends too.
-		releases, err := DecodeIndex([]byte(oldShapeIndex + backendEntry))
+		releases, err := DecodeIndex([]byte(addonEntry + backendEntry))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(releases).To(HaveLen(2))
 	})
 
 	It("skips a backend entry on an add-on only reader and says so", func() {
-		res, err := ReadIndex([]byte(oldShapeIndex+backendEntry), KindAddon)
+		res, err := ReadIndex([]byte(addonEntry+backendEntry), KindAddon)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Releases).To(HaveLen(1))
 		Expect(res.Skipped).To(Equal([]SkippedEntry{{Position: 1, Kind: "backend", ID: "cpu-local-store"}}))
 	})
 
 	It("skips an unknown kind without reading its fields, and keeps the rest", func() {
-		res, err := ReadIndex([]byte(oldShapeIndex+unknownKindEntry+backendEntry), KindAddon, KindBackend)
+		res, err := ReadIndex([]byte(addonEntry+unknownKindEntry+backendEntry), KindAddon, KindBackend)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Releases).To(HaveLen(2))
 		Expect(res.Skipped).To(Equal([]SkippedEntry{{Position: 1, Kind: "gizmo", ID: "widget"}}))
@@ -82,31 +82,18 @@ var _ = Describe("entry kinds", func() {
 	})
 
 	It("skips the reserved model kind in this phase", func() {
-		res, err := ReadIndex([]byte("- kind: model\n  addonId: m\n  files: []\n"), ReadableKinds...)
+		res, err := ReadIndex([]byte("- kind: model\n  id: m\n  files: []\n"), ReadableKinds...)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Releases).To(BeEmpty())
 		Expect(res.SkippedKinds()).To(Equal([]string{"model"}))
 	})
 
-	It("reports the id of a skipped entry, written as id or as the legacy addonId", func() {
-		res, err := ReadIndex([]byte("- kind: model\n  id: m1\n- kind: model\n  addonId: m2\n"), ReadableKinds...)
+	It("reports the id of a skipped entry", func() {
+		res, err := ReadIndex([]byte("- kind: model\n  id: m1\n- kind: model\n  id: m2\n"), ReadableKinds...)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Skipped).To(HaveLen(2))
 		Expect(res.Skipped[0].ID).To(Equal("m1"))
 		Expect(res.Skipped[1].ID).To(Equal("m2"))
-	})
-
-	It("reads a backend entry that still uses the legacy addonId, and refuses one that has both", func() {
-		legacy := strings.Replace(backendEntry, "  id: cpu-local-store", "  addonId: cpu-local-store", 1)
-		res, err := ReadIndex([]byte(legacy), ReadableKinds...)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(res.Releases).To(HaveLen(1))
-		Expect(res.Releases[0].ID).To(Equal("cpu-local-store"))
-		_, err = ReadIndex([]byte(backendEntry+"  addonId: cpu-local-store\n"), ReadableKinds...)
-		Expect(err).To(HaveOccurred())
-		out, err := EncodeIndex(res.Releases)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(string(out)).NotTo(ContainSubstring("addonId"))
 	})
 
 	It("still refuses an unknown field on an entry of a known kind", func() {
@@ -116,7 +103,7 @@ var _ = Describe("entry kinds", func() {
 
 	It("refuses a malformed kind", func() {
 		for _, bad := range []string{"kind: 3", "kind: \"\"", "kind: Backend", "kind: [backend]", "kind: " + strings.Repeat("a", 40)} {
-			_, err := ReadIndex([]byte("- "+bad+"\n  addonId: x\n"), ReadableKinds...)
+			_, err := ReadIndex([]byte("- "+bad+"\n  id: x\n"), ReadableKinds...)
 			Expect(err).To(HaveOccurred(), bad)
 		}
 	})
@@ -132,7 +119,7 @@ var _ = Describe("kinds in a library", func() {
 	}
 
 	It("refreshes an index with an unknown kind and reports what it skipped", func() {
-		res, s, err := refresh(oldShapeIndex+unknownKindEntry+backendEntry, VerificationPolicy{})
+		res, s, err := refresh(addonEntry+unknownKindEntry+backendEntry, VerificationPolicy{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res.Count).To(Equal(2))
 		Expect(res.Skipped).To(Equal(1))
@@ -143,7 +130,7 @@ var _ = Describe("kinds in a library", func() {
 	})
 
 	It("lists add-ons by default and backends on request", func() {
-		_, s, err := refresh(oldShapeIndex+backendEntry, VerificationPolicy{})
+		_, s, err := refresh(addonEntry+backendEntry, VerificationPolicy{})
 		Expect(err).NotTo(HaveOccurred())
 		c := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}
 		page, err := c.Search(ctx, Query{})
@@ -178,7 +165,7 @@ var _ = Describe("kinds in a library", func() {
 			"backend with a main page":       backendEntry + "  ui:\n    mainPage: x\n",
 			"backend name with a slash":      strings.Replace(backendEntry, "id: cpu-local-store", "id: a/b", 1),
 			"backend name with dots":         strings.Replace(backendEntry, "id: cpu-local-store", "id: a..b", 1),
-			"add-on with an alias":           oldShapeIndex + "  alias: x\n",
+			"add-on with an alias":           addonEntry + "  alias: x\n",
 		} {
 			_, _, err := refresh(body, VerificationPolicy{})
 			Expect(err).To(HaveOccurred(), name)

@@ -1,13 +1,12 @@
-// Package convert turns what the old chat, agents, tasks, skills and Telegram
+// Package convert turns what the old chat, agents, tasks, skills and
 // connectors left on disk and in the database into the definitions of the chats:
-// saved agents, triggers, personal and shared skills, chats and connector
-// bindings. It reads the old data with its own structs, so it needs none of the
+// saved agents, triggers, personal and shared skills and chats. It reads the old data with its own structs, so it needs none of the
 // code that is removed, and it never deletes or changes what it reads.
 //
 // A run is safe to repeat. Each source item that was converted is marked, and
 // is not converted again; one that failed is tried again at the next run, with
 // its error in the report. Nothing converted runs, answers or acts by itself:
-// triggers and connector bindings are made switched off.
+// triggers are made switched off.
 package convert
 
 import (
@@ -154,12 +153,6 @@ type ChatIn struct {
 	Entries          []EntryIn
 }
 
-// BindingIn is a Telegram binding to make, switched off.
-type BindingIn struct {
-	Name, Token, AgentID string
-	Allow                []string
-}
-
 // Targets is where converted things go. The application implements it over the
 // services of the chats; a test implements it with fakes. user is the owner as
 // the old data named it: "" is the user of a server with no accounts.
@@ -177,7 +170,6 @@ type Targets interface {
 	// DiscardChat deletes the chats of the user with this title and creation
 	// time: what an import that a crash cut short left behind.
 	DiscardChat(ctx context.Context, user, title string, created time.Time) error
-	CreateBinding(ctx context.Context, user string, in BindingIn) error
 	// IsAdmin says whether the user may have a local MCP command. A server with
 	// no accounts has one user, who is the administrator.
 	IsAdmin(ctx context.Context, user string) (bool, error)

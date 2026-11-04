@@ -2,7 +2,7 @@
 name: 'add-on packages'
 
 # Builds, checks, signs and publishes the first-party add-on OCI packages
-# (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Telegram, Slack, Office and
+# (Tables, Voice, Face, Fine-tuning, Quantization, Studio, Talk, Telegram, Slack, Discord, Office and
 # Sandbox). This workflow is
 # independent of the backend image workflows: it has its own registry input,
 # its own signer identity and its own jobs.
@@ -38,6 +38,16 @@ name: 'add-on packages'
 # attaches it to the GitHub release as addons-index.yaml. A release build of
 # LocalAI reads that file (core/services/addons/catalog/official.go), so it
 # installs the packages its own release built, not the moving development ones.
+#
+# Concurrency. Every run builds and publishes all add-ons from the whole tree,
+# and the development alias moves only in the promote job, so only the newest
+# master commit matters for the development channel. All pushes to master share
+# one group with cancel-in-progress off: a running publish is never cancelled
+# half-way through pushing images or moving an alias, and a newer queued run
+# replaces an older queued one (GitHub keeps one pending run per group). A pull
+# request groups by its number and cancels its own older runs. A tag push and a
+# release event group by SHA, so they never share the master group and are never
+# replaced.
 #
 # Sandbox guest image. The sandbox-image job (sandbox-images.yml) builds and
 # signs the guest image and exposes its reference by digest as the output
@@ -91,7 +101,7 @@ on:
     types: [published]
 
 concurrency:
-  group: ci-addons-package-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
+  group: ci-addons-package-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref == 'refs/heads/master' && 'master') || github.sha }}-${{ github.repository }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -107,7 +117,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, office, sandbox, web]
+        addon: [tables, voice, face, fine-tuning, quantization, studio, talk, telegram, slack, discord, github, home-assistant, jellyfin, office, pikvm, sandbox, web, memory]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -226,7 +236,7 @@ jobs:
           # event it fails the plan. A missing or malformed platform file, or
           # any other error, fails the plan on every event.
           include='[]'
-          for id in tables voice face fine-tuning quantization studio talk telegram slack office sandbox web; do
+          for id in tables voice face fine-tuning quantization studio talk telegram slack discord github home-assistant jellyfin office pikvm sandbox web memory; do
             cfg="addons/$id/package/platforms.yaml"
             err="matrix-$id.err"
             if rows=$(go run ./scripts/addons/cmd/addonpkg matrix --config "$cfg" 2>"$err"); then

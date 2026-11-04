@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/hostexec"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // BuiltinToolInfo is one built-in chat tool as Settings > Tools shows it.
@@ -203,7 +202,7 @@ func (s *Service) AdminBuiltinSkills(ctx context.Context, user string) ([]Builti
 		return nil, err
 	}
 	var out []BuiltinSkillInfo
-	for _, name := range contract.ReplaceableSkills {
+	for _, name := range ad.slotNames() {
 		info := BuiltinSkillInfo{ID: name, Pinned: ad.pins[name], Titles: map[string]string{}}
 		installed := ad.installTimes()
 		info.Candidates = OrderProviders(ad.shippers(ad.known, name), installed)

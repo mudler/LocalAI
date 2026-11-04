@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/addons"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -25,6 +26,12 @@ var ErrNotSent = fmt.Errorf("the add-on is not running now and nothing was sent:
 // Gateway deliberately admits lifecycle commands only until resource admission
 // and proposal confirmation are installed. Installation admin is not data access.
 type Gateway struct {
+	// appsCache backs the stale answer of the apps list; see Apps.
+	appsCache appsCache
+	// Transfers holds the handles of connector file transfers on the process
+	// that runs the add-ons. Without it a call that carries a handle is
+	// unavailable.
+	Transfers          *hostops.Transfers
 	Connectors         ConnectorSource
 	ConnectorAuthority ConnectorAuthority
 	// HostSettings is owner-only durable policy; frontends forward, never fall back.
@@ -37,12 +44,16 @@ type Gateway struct {
 	// execution feature permission, access and builtin replacement authority on the owner.
 	// Nil denies all observations. Status is never selection authorization.
 	AuthorizeExecutionStatus func(context.Context, contract.Actor, ExecutionStatusBinding) error
-	Limits                   RelayLimits
-	Manager                  *addons.Manager
-	Runtime                  CurrentRuntime
-	Forward                  *Carrier
-	Admission                Admission
-	Resolver                 ResourceResolver
+	// Credentials supplies the secret and the allowed resource of a call of
+	// an add-on that declares credentials. Only the owner holds it; a gateway
+	// with none refuses such calls as unavailable.
+	Credentials CredentialSource
+	Limits      RelayLimits
+	Manager     *addons.Manager
+	Runtime     CurrentRuntime
+	Forward     *Carrier
+	Admission   Admission
+	Resolver    ResourceResolver
 	// Tools reports the tools each installed add-on declares. When nil the
 	// Manager is used; with neither, a request that names a tool is denied.
 	Tools ToolSource
@@ -59,6 +70,10 @@ type Gateway struct {
 	// Libraries is the owner's library administration. Frontends leave it nil
 	// and forward through Forward.
 	Libraries LibraryAdmin
+	// HostGrantsOwner serves the host access routes (grants, deny rules and
+	// the blanket approval). Only the owner holds it: a frontend leaves it
+	// nil and forwards, and never answers from its own flags or files.
+	HostGrantsOwner *HostGrantsOwner
 	// ModelsProbe returns the probe the owner wrote into its models path, or
 	// false when it has none. Frontends leave it nil.
 	ModelsProbe func() (modelsprobe.Probe, bool)
@@ -107,6 +122,7 @@ type RelayRequest struct {
 }
 
 func (g *Gateway) Dispatch(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
+	scrub(&request)
 	// The act action has its own door, Act. A frontend that forwarded it from
 	// here would let the owner run it for a consumer that was never offered it.
 	if request.Action == "act" {

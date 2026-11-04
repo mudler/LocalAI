@@ -12,6 +12,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.16
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.17
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.99.1
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/charmbracelet/glamour v1.0.0
 	github.com/containerd/containerd v1.7.33
 	github.com/coreos/go-oidc/v3 v3.18.0

@@ -103,16 +103,34 @@ func (s *Service) registerToolGroups() error {
 
 // switchesOf returns the groups a chat switched off and on. A sub-agent has
 // none of its own: it follows its parent chat.
+//
+// The groups the chat's saved agent turns off are off whatever the chat says:
+// they are the agent's ceiling, and a sub-agent follows the ceiling of the
+// agent of its parent.
 func (s *Service) switchesOf(ctx context.Context, rec session.ChatRecord) (off, on []string) {
 	if rec.Kind == session.KindSubAgent && rec.ParentID != "" {
 		parent, err := s.d.Store.GetChat(ctx, rec.Principal, rec.ParentID)
 		if err == nil {
-			return parent.BuiltinsOff, parent.BuiltinsOn
+			return mergeGroups(slices.Clone(parent.BuiltinsOff), s.agentOff(ctx, parent)), parent.BuiltinsOn
 		}
 		s.log.Warn("studio: the parent of a sub-agent is gone; it keeps every group off", "chat", rec.ID, "error", err)
 		return s.builtins.Groups(), nil
 	}
-	return rec.BuiltinsOff, rec.BuiltinsOn
+	return mergeGroups(slices.Clone(rec.BuiltinsOff), s.agentOff(ctx, rec)), rec.BuiltinsOn
+}
+
+// agentOff are the groups of built-in tools the saved agent of the chat turns
+// off, or none for a chat without an agent or an agent that cannot be read
+// (the scope of a missing agent already leaves the chat without tools).
+func (s *Service) agentOff(ctx context.Context, rec session.ChatRecord) []string {
+	if rec.AgentID == "" || s.d.Agents == nil {
+		return nil
+	}
+	ag, err := s.d.Agents.Get(ctx, rec.Principal, rec.AgentID)
+	if err != nil {
+		return nil
+	}
+	return ag.BuiltinsOff
 }
 
 // hiddenFor returns the names of the tools the chat's switches take away
@@ -154,17 +172,17 @@ func shellSwitched(c Commands, hidden map[string]bool) Commands {
 func shellReason(c Commands, buildReason string) string {
 	switch c.State {
 	case CommandsOff:
-		return "the Sandbox add-on is off for this chat"
+		return commandsPhrase(c) + " is off for this chat"
 	case CommandsUnavailable:
 		if c.Reason != "" {
-			return "the Sandbox add-on cannot run commands here: " + c.Reason
+			return commandsPhrase(c) + " cannot run commands here: " + c.Reason
 		}
-		return "the Sandbox add-on cannot run commands here"
+		return commandsPhrase(c) + " cannot run commands here"
 	}
 	if buildReason != "" && buildReason != builtins.ReasonOff {
 		return buildReason
 	}
-	return "nothing here runs commands: no Sandbox add-on is installed and commands on this machine are off"
+	return "nothing here runs commands: no add-on that runs commands is installed and commands on this machine are off"
 }
 
 // filesNote is the line under the chat's file list when the chat has no

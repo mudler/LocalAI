@@ -198,18 +198,18 @@ test('sidebar entries own one route each: Apps on /app/addons, never a hub', asy
   assert.equal(hubOwnsPath(addons, '/app/addons', { ...auth, features: { addon_navigation: false } }), true)
 })
 
-test('the primary items: files, pages, agents, MCP connectors, memory, skills, models and add-ons', () => {
+test('the primary items: files, pages, agents, MCP connectors, knowledge, skills, models and add-ons', () => {
   assert.deepEqual(primaryDestinations.map(i => i.path), [
     '/app/files', '/app/pages', '/app/agents', '/app/mcp-connectors', '/app/collections', '/app/skills', '/app/models', '/app/addons',
   ])
   const all = { isAdmin: true, hasFeature: () => true, hasBuiltin: false, features: {}, hasPages: true }
   assert.equal(visiblePrimary(primaryDestinations, all).length, 8)
-  // A server without collections hides Memory; a user without chats sees no chat pages.
+  // A server without collections hides Knowledge; a user without chats sees no chat pages.
   // Agents have their own feature: an administrator grants it apart from the chats.
   assert.ok(!visiblePrimary(primaryDestinations, { ...all, features: { collections: false } }).some(i => i.path === '/app/collections'))
   const noChats = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'chats' }).map(i => i.path)
   assert.deepEqual(noChats, ['/app/agents', '/app/collections', '/app/models', '/app/addons'])
-  // Skills sit right after Memory.
+  // Skills sit right after Knowledge.
   const order = visiblePrimary(primaryDestinations, all).map(i => i.path)
   assert.equal(order[order.indexOf('/app/collections') + 1], '/app/skills')
   const noAgents = visiblePrimary(primaryDestinations, { ...all, hasFeature: f => f !== 'agents' }).map(i => i.path)

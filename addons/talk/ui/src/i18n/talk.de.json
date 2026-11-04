@@ -1,0 +1,149 @@
+{
+  "title": "Talk",
+  "subtitle": "Echtzeit-Sprache",
+  "stage": "Sprachsitzung",
+  "picker": {
+    "title": "Sprach-Pipeline: zuhören, denken, sprechen",
+    "heading": "Pipeline-Modelle",
+    "label": "Pipeline-Modell",
+    "none": "Keine Pipeline",
+    "defaultVoice": "Standardstimme",
+    "auto": "auto"
+  },
+  "view": {
+    "idle": {
+      "title": "Bereit",
+      "body": "Starte eine Sitzung und sprich. Das Mikrofon wird nur genutzt, solange eine Sitzung offen ist.",
+      "note": "Dein Mikrofon überträgt, solange die Sitzung läuft. Der Server erkennt, wenn du aufhörst zu sprechen, und antwortet von selbst.",
+      "noteManual": "Dein Mikrofon überträgt, solange die Sitzung läuft. Dieses Modell hat keine Spracherkennung, drücke daher am Ende jedes Beitrags auf Fertig gesprochen."
+    },
+    "connecting": {
+      "title": "Verbindung wird aufgebaut",
+      "body": "Der Anruf wird eingerichtet. Das Modell hört noch nicht zu."
+    },
+    "listening": {
+      "title": "Ich höre zu",
+      "body": "Sag, was du brauchst. Ich antworte, wenn du aufhörst.",
+      "hearing": "Ich höre dich sprechen.",
+      "manual": "Sag, was du brauchst, und drücke dann auf Fertig gesprochen."
+    },
+    "interrupted": {
+      "title": "Unterbrochen",
+      "body": "Ich habe aufgehört. Sprich ruhig, ich höre zu."
+    },
+    "thinking": {
+      "title": "Ich denke nach",
+      "body": "Eine Antwort wird erarbeitet."
+    },
+    "speaking": {
+      "title": "Ich spreche",
+      "body": "Sprich jederzeit dazwischen, um mich zu unterbrechen."
+    },
+    "blocked": {
+      "title": "Mikrofon blockiert",
+      "body": "Der Browser hat dieser Seite das Mikrofon nicht gegeben.",
+      "cardTitle": "Mikrofon erlauben",
+      "card": "Klicke auf das Schloss-Symbol in der Adressleiste, stelle Mikrofon auf Zulassen und versuche es dann erneut. Es wurde nichts aufgenommen."
+    },
+    "lost": {
+      "title": "Verbindung verloren",
+      "body": "Die Verbindung zum Server ist abgebrochen.",
+      "cardTitle": "Die Sitzung ist beendet",
+      "card": "Die WebRTC-Verbindung ist fehlgeschlagen. Das bisherige Gespräch bleibt im Transkript."
+    },
+    "error": {
+      "title": "Etwas ist schiefgelaufen",
+      "body": "Der Anruf konnte nicht eingerichtet werden, oder der Server hat einen Fehler gemeldet."
+    },
+    "nopipe": {
+      "title": "Talk braucht ein Pipeline-Modell",
+      "body": "Ein Pipeline-Modell verbindet ein Speech-to-Text-Modell, ein Chat-Modell und ein Text-to-Speech-Modell zu einem Sprachassistenten. Noch ist keines eingerichtet. Erstelle eines oder suche zuerst die Modelle in der Galerie.",
+      "create": "Pipeline-Modell erstellen",
+      "gallery": "Galerie durchsuchen"
+    }
+  },
+  "detail": {
+    "tool": "{{name}} wird ausgeführt.",
+    "processing": "Eine Antwort wird erarbeitet.",
+    "generating": "Die Antwort wird geschrieben.",
+    "server": "Der Server hat einen Fehler gemeldet: {{message}}",
+    "insecure": "Der Mikrofonzugriff braucht HTTPS oder localhost.",
+    "noMic": "Es wurde kein Mikrofon gefunden.",
+    "failed": "Der Anruf konnte nicht eingerichtet werden: {{message}}",
+    "unknown": "unbekannter Fehler"
+  },
+  "controls": {
+    "start": "Sitzung starten",
+    "end": "Sitzung beenden",
+    "testTone": "Testton",
+    "endTurn": "Fertig gesprochen",
+    "diagnostics": "Diagnose",
+    "viewTraces": "Traces ansehen",
+    "retry": {
+      "blocked": "Erneut versuchen",
+      "lost": "Neu verbinden",
+      "error": "Erneut versuchen"
+    }
+  },
+  "transcript": {
+    "title": "Transkript",
+    "copy": "Kopieren",
+    "empty": "Was du sagst und was das Modell antwortet, erscheint hier, während es passiert. Es wird nicht gespeichert.",
+    "emptyNoPipeline": "Noch nichts anzuzeigen.",
+    "user": "Du",
+    "assistant": "Antwort",
+    "tool_call": "Werkzeug",
+    "tool_result": "Ergebnis",
+    "interrupted": "Antwort unterbrochen",
+    "toneRequested": "Testton angefordert"
+  },
+  "settings": {
+    "title": "Sitzungseinstellungen",
+    "desc": "Gilt, wenn die Sitzung startet.",
+    "close": "Schließen",
+    "voiceLanguage": "Stimme und Sprache",
+    "voice": "Stimme",
+    "voicePlaceholder": "Name der Stimme (leer lassen für den Modellstandard)",
+    "language": "Transkriptionssprache",
+    "languagePlaceholder": "Sprachcode, zum Beispiel de (leer erkennt sie automatisch)",
+    "instructions": "Anweisungen",
+    "instructionsPlaceholder": "Systemanweisungen für das Modell",
+    "instructionsHelp": "Werden als Sitzungsanweisungen gesendet. Halte sie kurz: Antworten werden gesprochen.",
+    "tools": "Werkzeuge",
+    "manage": "Verwaltungsmodus",
+    "manageDesc": "Das Modell darf LocalAI abfragen: Modelle, Backends und Systeminfos.",
+    "manageLocked": "Fest, solange eine Sitzung offen ist. Beende die Sitzung, um es zu ändern.",
+    "pipeline": "{{name}} im Detail",
+    "anyToAny": "Speech-to-Speech-Modell: Ein Modell hört dich, antwortet und spricht. Es braucht kein getrenntes Transkriptions-, Sprach- oder Sprachausgabemodell.",
+    "noVad": "Es ist kein Modell zur Spracherkennung gesetzt. Drücke nach jedem Beitrag auf Fertig gesprochen.",
+    "editConfig": "Modellkonfiguration bearbeiten",
+    "editPipeline": "Pipeline bearbeiten",
+    "slot": {
+      "vad": "Spracherkennung",
+      "transcription": "Transkription",
+      "llm": "Sprachmodell",
+      "tts": "Sprachausgabe"
+    }
+  },
+  "diag": {
+    "title": "Audio-Diagnose",
+    "waveform": "Wellenform",
+    "spectrum": "Spektrum (FFT)",
+    "waiting": "Warte auf Statistiken...",
+    "peakFreq": "Spitzenfrequenz",
+    "thd": "THD",
+    "rms": "RMS-Pegel",
+    "sampleRate": "Abtastrate",
+    "packetsRecv": "Empfangene Pakete",
+    "packetsLost": "Verlorene Pakete",
+    "jitter": "Jitter",
+    "concealed": "Verdeckte Samples"
+  },
+  "toasts": {
+    "selectModel": "Wähle zuerst ein Pipeline-Modell.",
+    "modelsFailed": "Die Echtzeit-Modelle konnten nicht geladen werden: {{message}}",
+    "viewTraces": "Traces ansehen",
+    "copied": "Transkript kopiert",
+    "copyFailed": "Kopieren in die Zwischenablage nicht möglich"
+  }
+}

@@ -183,3 +183,62 @@ var _ = Describe("the layout of a chat's view", func() {
 		Expect(strings.Count(p, "\n- ")).To(Equal(3))
 	})
 })
+
+var _ = Describe("the view of an agent with several folders", func() {
+	It("mounts the first at home and the others by name, each capped by the fence", func() {
+		r := newLayoutRig()
+		other := session.HomePath("alice") + "/Other"
+		on, err := r.ws.Stat(context.Background(), r.admin, other)
+		Expect(err).NotTo(HaveOccurred())
+		a := workspace.Actor{Principal: "alice", ChatID: "c1"}.Fenced(
+			workspace.FenceRoot{Node: r.acme.ID, Mode: workspace.ModeWrite},
+			workspace.FenceRoot{Node: on.ID, Mode: workspace.ModeRead},
+			workspace.FenceRoot{Node: r.chat.ID, Mode: workspace.ModeWrite},
+		)
+		v, err := session.BuildViewFolders(context.Background(), r.ws, a, r.acme.Path, []string{other}, r.chat.Path, nil, quiet)
+		Expect(err).NotTo(HaveOccurred())
+		home, ok := mountAt(v, session.GuestHome)
+		Expect(ok).To(BeTrue())
+		Expect(home.Path).To(Equal(r.acme.Path))
+		Expect(home.Mode).To(Equal(workspace.ModeWrite))
+		o, ok := mountAt(v, "folder-Other")
+		Expect(ok).To(BeTrue(), "%+v", v.Mounts)
+		Expect(o.Mode).To(Equal(workspace.ModeRead), "the fence caps the mount")
+		Expect(session.LayoutPrompt(v, session.PromptScope(v))).To(ContainSubstring("/workspace/folder-Other"))
+	})
+
+	It("skips a folder outside the fence instead of widening it", func() {
+		r := newLayoutRig()
+		other := session.HomePath("alice") + "/Other"
+		v, err := session.BuildViewFolders(context.Background(), r.ws, r.scoped(workspace.ModeWrite), r.acme.Path, []string{other}, r.chat.Path, nil, quiet)
+		Expect(err).NotTo(HaveOccurred())
+		_, ok := mountAt(v, "folder-Other")
+		Expect(ok).To(BeFalse(), "the folder is not a root of the fence")
+	})
+
+	It("names two folders with the same name apart and never takes a reserved name", func() {
+		names := session.FolderMountNames([]string{"/users/a/X/Docs", "/users/a/Y/Docs", "/users/a/Z/Docs"})
+		Expect(names).To(Equal([]string{"folder-Docs", "folder-Docs 2", "folder-Docs 3"}))
+	})
+
+	It("refuses a path that climbs out of a mounted folder", func() {
+		r := newLayoutRig()
+		other := session.HomePath("alice") + "/Other"
+		on, _ := r.ws.Stat(context.Background(), r.admin, other)
+		a := workspace.Actor{Principal: "alice", ChatID: "c1"}.Fenced(
+			workspace.FenceRoot{Node: r.acme.ID, Mode: workspace.ModeWrite},
+			workspace.FenceRoot{Node: on.ID, Mode: workspace.ModeRead},
+			workspace.FenceRoot{Node: r.chat.ID, Mode: workspace.ModeWrite})
+		v, err := session.BuildViewFolders(context.Background(), r.ws, a, r.acme.Path, []string{other}, r.chat.Path, nil, quiet)
+		Expect(err).NotTo(HaveOccurred())
+		pl := session.NewPlace(v)
+		for _, p := range []string{"/workspace/folder-Other/../home/x", "/workspace/folder-Other/../../alice/secret", "folder-Other/.."} {
+			_, err := pl.Resolve(p)
+			Expect(err).To(HaveOccurred(), p)
+		}
+		t, err := pl.Resolve("/workspace/folder-Other/notes.md")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(t.Write).To(BeFalse())
+		Expect(t.Abs).To(Equal(other + "/notes.md"))
+	})
+})

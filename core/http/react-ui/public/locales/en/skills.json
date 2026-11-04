@@ -24,6 +24,7 @@
     "shadowed": "Hidden by a {{layer}} skill",
     "shadowedLong": "Hidden by a {{layer}} skill of the same name",
     "providedBy": "Provided by {{name}}",
+    "proposedBy": "Proposed by {{name}} and confirmed by you. Only that agent uses it.",
     "replacedBy": "Replaced by {{name}}",
     "notActive": "Not active: the built-in skill serves",
     "notActiveBy": "Not active: {{name}} provides it",
@@ -71,6 +72,7 @@
   "layers": {
     "label": "Layer",
     "personal": "Personal",
+    "agent": "Agent",
     "shared": "Shared",
     "builtin": "Built-in",
     "folder": "Workspace",

@@ -4,8 +4,8 @@ package config
 
 import "github.com/mudler/LocalAI/pkg/egresspolicy"
 
-// EgressPrivatePhrase is what an administrator types to let the Sandbox
-// commands reach private addresses (chats_egress_allow_private). It is checked
+// EgressPrivatePhrase is what an administrator types to let the commands of an add-on
+// reach private addresses (chats_egress_allow_private). It is checked
 // by the settings endpoint and never stored.
 const EgressPrivatePhrase = egresspolicy.EgressPrivatePhrase
 
@@ -15,7 +15,7 @@ const MaxEgressExtraRegistries = egresspolicy.MaxEgressExtraRegistries
 // MaxEgressAllowedHosts bounds chats_egress_allowed_hosts.
 const MaxEgressAllowedHosts = egresspolicy.MaxEgressAllowedHosts
 
-// ValidEgressPreset says whether v is a preset of the Sandbox network: off,
+// ValidEgressPreset says whether v is a preset of the network of commands: off,
 // registries, all, or empty for the default (off).
 func ValidEgressPreset(v string) bool {
 	return egresspolicy.ValidEgressPreset(v)

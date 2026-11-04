@@ -3,7 +3,7 @@ import { Suspense, useMemo, useState } from 'react'
 import { Callout, LoadError, SkeletonRows } from '../ui'
 import PendingBar from '../settings/PendingBar'
 import UnsavedChangesGuard from '../UnsavedChangesGuard'
-import { EGRESS_CONFIRM_KEY, pendingChanges, payloadFor, runChecks, visibleChanges } from '../../utils/settingsPending'
+import { pendingChanges, payloadFor, runChecks, visibleChanges } from '../../utils/settingsPending'
 import { createHostSettingsClient } from '../../utils/hostSettingsClient'
 import { createAddonsApi } from '../../utils/addonsApi'
 import { apiUrl } from '../../utils/basePath'
@@ -52,9 +52,8 @@ export default function HostControlsForm({ app, client = ownerClient }) {
         saving={saving} showDiff={showDiff} onToggleDiff={() => setShowDiff(v => !v)}
         onApply={() => {
           const patch = payloadFor(changes, settings)
-          // The typed phrase is checked above, but only the legacy runtime
-          // endpoint accepts it. The owner patch contains policy fields only.
-          delete patch[EGRESS_CONFIRM_KEY]
+          // The phrase stays in the patch: the owner checks it too, so a
+          // direct admin API call cannot skip the confirmation.
           if (patch.chats_tool_providers) {
             const before = initial.chats_tool_providers, after = patch.chats_tool_providers
             patch.chats_tool_providers = Object.fromEntries([...new Set([...Object.keys(before), ...Object.keys(after)])].filter(k => before[k] !== after[k]).map(k => [k, after[k] ?? null]))

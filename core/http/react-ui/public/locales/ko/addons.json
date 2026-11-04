@@ -10,6 +10,7 @@
   "approval": {
     "title": "승인이 필요합니다",
     "from": "{{addon}}의 요청",
+    "connection": "연결: {{name}}",
     "loading": "요청을 불러오는 중",
     "failed": "이 요청을 사용할 수 없습니다.",
     "rejected": "요청을 완료하지 못했습니다. 상태를 확인하고 다시 시도하세요.",
@@ -65,6 +66,13 @@
     "loadError": {
       "title": "지금은 애드온을 사용할 수 없습니다.",
       "paused": "서비스가 돌아올 때까지 애드온 페이지와 도구는 일시 중지됩니다."
+    },
+    "busy": {
+      "upgrading": "애드온 서버가 바쁩니다({{names}} 업그레이드 중)",
+      "generic": "애드온 서버가 바쁩니다",
+      "unreachable": "애드온 서버에 연결할 수 없습니다",
+      "reason": "마지막으로 알려진 상태를 표시합니다. 이 페이지는 스스로 다시 시도합니다.",
+      "retry": "지금 다시 시도"
     }
   },
   "browse": {
@@ -137,7 +145,8 @@
     "invalid": "서버가 이 요청을 받아들일 수 없습니다.",
     "network": "서버에 연결할 수 없습니다. 연결을 확인하세요.",
     "unavailable": "지금은 애드온을 사용할 수 없습니다. 잠시 후 다시 시도하세요.",
-    "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요."
+    "unknownOutcome": "결과를 확인할 수 없습니다. 다시 시도하기 전에 상태를 확인하세요.",
+    "busy": "애드온 서버가 바빠서 제때 응답하지 못했습니다. 잠시 후 다시 시도하세요."
   },
   "installed": {
     "disabled": "꺼짐",
@@ -357,7 +366,8 @@
     "apps": "설치됨",
     "browse": "애드온 찾기",
     "label": "애드온 섹션",
-    "libraries": "소스"
+    "libraries": "소스",
+    "access": "호스트 접근"
   },
   "title": "애드온",
   "trust": {
@@ -749,6 +759,209 @@
     "controls": {
       "loadFailed": "설정을 읽을 수 없습니다",
       "saveFailed": "설정을 저장할 수 없습니다: {{message}}"
+    }
+  },
+  "hostAccess": {
+    "addonsTitle": "애드온",
+    "approve": {
+      "action": "승인 후 업그레이드",
+      "body": "{{name}} {{current}} 버전은 계속 실행됩니다. 승인하면 새 버전이 이 작업을 실행할 수 있습니다. 새 항목은 표시됩니다.",
+      "done": "{{name}}을(를) 업그레이드했습니다.",
+      "title": "{{name}} {{version}}의 호스트 접근 승인"
+    },
+    "asksNothing": "이 애드온은 호스트 접근을 요청하지 않습니다.",
+    "blanket": {
+      "alsoRevoke": "부여한 허용도 함께 취소",
+      "alsoRevokeHint": "접근을 잃을 애드온: {{names}}. 필요한 접근을 잃은 애드온은 중지됩니다.",
+      "applyInstalled": "이미 설치된 애드온에도 적용",
+      "applyInstalledHint": "꺼짐: 새 설치와 업그레이드에만 적용합니다.",
+      "change": "변경",
+      "fixed": "배포 설정으로 정해졌습니다. 여기서 바꿀 수 없습니다.",
+      "held": "일괄 스위치가 부여한 허용을 가진 애드온: {{count}}",
+      "includeOptional": "선택 작업 포함",
+      "includeOptionalHint": "꺼짐: 필수 작업만 부여합니다.",
+      "intro": "기본값은 꺼짐입니다. 켜면 설치하거나 업그레이드하는 애드온이 설치 대화 상자의 단계 없이, 매니페스트에 필요하다고 적힌 호스트 작업을 받습니다. 허용 안 함에 있는 작업은 계속 차단됩니다.",
+      "modeAny": "모든 라이브러리",
+      "modeLabel": "범위",
+      "modeOfficial": "공식 라이브러리",
+      "nowOff": "일괄 승인이 꺼졌습니다. 이미 부여한 허용은 유지됩니다.",
+      "nowOn": "일괄 승인이 켜졌습니다.",
+      "offBody": "새로 설치할 때 다시 승인이 필요합니다. 스위치가 이미 부여한 허용은 일괄로 표시된 채 유지되어 아무것도 갑자기 멈추지 않습니다.",
+      "offText": "꺼짐. 설치할 때 애드온마다 승인합니다.",
+      "offTitle": "일괄 승인 끄기",
+      "onTitle": "일괄 승인 켜기",
+      "revokeAll": "모든 일괄 허용 취소",
+      "revoked": "일괄 허용을 취소했습니다.",
+      "risk": {
+        "any": "이 기능을 켜면 설정한 모든 라이브러리에서 설치하는 모든 애드온이 검토 없이, 매니페스트에 필요하다고 적힌 호스트 작업을 받습니다. 어떤 라이브러리의 어떤 항목이든 선언한 것을 받으므로, 악의적이거나 손상된 항목도 그 작업을 즉시 얻습니다. 허용 안 함에서 차단한 작업은 계속 차단됩니다.",
+        "official": "이 기능을 켜면 공식 라이브러리에서 설치하는 모든 애드온이 검토 없이, 매니페스트에 필요하다고 적힌 호스트 작업을 받습니다. 손상된 항목은 선언한 작업을 정확히 받게 됩니다. 허용 안 함에서 차단한 작업은 계속 차단됩니다."
+      },
+      "scope": {
+        "any": "모든 라이브러리의 애드온에 켜져 있습니다.",
+        "official": "공식 라이브러리의 애드온에 켜져 있습니다."
+      },
+      "switch": "일괄 승인",
+      "title": "애드온이 요청하는 모든 것을 승인",
+      "turnOff": "끄기",
+      "turnOn": "켜기",
+      "typeLabel": "확인하려면 다음을 입력하세요: {{phrase}}",
+      "withOptional": "선택 작업도 포함됩니다."
+    },
+    "cannotInstallBlocked": "이 애드온은 {{ops}}이(가) 필요하지만 관리자 정책이 차단합니다. 설치할 수 없습니다.",
+    "cannotInstallUnsupported": "이 애드온은 {{ops}}이(가) 필요하지만 이 LocalAI가 지원하지 않습니다. 설치할 수 없습니다.",
+    "chip": "승인 대기 중",
+    "confirm": {
+      "revokeBody": "{{name}}은(는) 내가 또는 일괄 스위치가 허용한 모든 것을 잃습니다. 배포 설정의 허용은 유지됩니다. 필요한 접근을 잃으면 중지됩니다.",
+      "revokeTitle": "{{name}}의 모든 호스트 접근을 취소할까요?",
+      "stopAction": "끄고 중지",
+      "stopBody": "{{name}}은(는) {{op}} 없이 실행되지 않습니다. 중지되며 다시 허용할 때까지 중지된 채로 남습니다.",
+      "stopTitle": "{{name}}에 필요한 접근을 끌까요?"
+    },
+    "deny": {
+      "add": "규칙 추가",
+      "added": "규칙을 추가했습니다.",
+      "affectsNone": "접근을 잃는 설치된 애드온이 없습니다.",
+      "allAddons": "모든 애드온",
+      "checkFailed": "이 규칙이 무엇을 바꾸는지 확인하지 못했습니다. 아무것도 저장하지 않았습니다.",
+      "confirmAction": "규칙 추가",
+      "confirmBody": "적용 대상: {{target}}. 즉시 적용됩니다. 이미 실행 중인 호출은 끝까지 진행됩니다.",
+      "confirmTitle": "{{entry}}을(를) 허용 안 함으로 할까요?",
+      "entry": "작업, 그룹 또는 *",
+      "everything": "전체",
+      "fromFile": "배포에서 설정됨",
+      "hint": "그룹은 점으로 끝납니다. 예: egress. 정확한 이름은 egress.check 같은 형태입니다. 별표는 모두 차단합니다.",
+      "intro": "다른 무엇이 허용하더라도 어떤 애드온도 쓸 수 없는 작업입니다. 여기의 규칙이 항상 우선합니다.",
+      "invalid": "egress.check 같은 작업, egress. 같은 그룹 또는 *를 입력하세요.",
+      "none": "아직 규칙이 없습니다.",
+      "remove": "제거",
+      "removeNamed": "{{target}}의 {{entry}} 규칙 제거",
+      "removed": "규칙을 제거했습니다.",
+      "target": "적용 대상",
+      "title": "허용 안 함",
+      "willStop": "중지됨, 이 작업이 필요함"
+    },
+    "emptyBody": "호스트 접근을 요청하는 애드온은 설치 후 여기에 표시됩니다.",
+    "emptyTitle": "설치된 애드온이 없습니다",
+    "errors": {
+      "approval_required": "이 애드온에는 호스트 접근이 필요합니다. 브라우저의 설치 대화 상자에서 승인하세요.",
+      "approval_stale": "확인한 뒤 패키지가 바뀌었습니다. 새 목록을 검토하고 다시 승인하세요.",
+      "blocked_by_policy": "관리자 정책이 이 애드온에 필요한 작업을 차단합니다. 아무것도 바뀌지 않았습니다.",
+      "locked_by_deployment": "배포 설정이 호스트 접근을 잠갔습니다. 여기서 바꿀 수 없습니다.",
+      "not_human_surface": "관리자가 이 브라우저에서 직접 변경해야 합니다. API 키나 도구로는 할 수 없습니다.",
+      "revision_conflict": "다른 곳에서 호스트 접근이 바뀌었습니다. 페이지를 다시 읽었습니다. 확인한 뒤 다시 시도하세요."
+    },
+    "family": {
+      "connector": "커넥터",
+      "egress": "네트워크 확인",
+      "finetune": "파인튜닝",
+      "quantize": "양자화",
+      "workspace": "작업 공간 파일"
+    },
+    "fileEntry": "배포의 정책 파일 또는 플래그에서 설정됨.",
+    "identityMismatch": "이 허용은 이름이 같은 다른 패키지에 부여된 것입니다. 효력이 없습니다. 제거하세요.",
+    "intro": "애드온이 이 서버에서 실행할 수 있는 작업, 각 작업을 허용한 주체, 취소하는 방법입니다. 애드온은 승인한 것만 가집니다.",
+    "keepOwn": "내 허용으로 유지",
+    "keepOwnNamed": "{{name}}의 일괄 허용을 내 허용으로 유지",
+    "loadError": "호스트 접근을 불러오지 못했습니다",
+    "loading": "이 애드온이 요청하는 내용을 읽는 중...",
+    "loadingPage": "호스트 접근을 불러오는 중",
+    "locked": "배포 설정이 호스트 접근 변경을 꺼 두었습니다. 이 페이지는 읽을 수만 있습니다.",
+    "lockedNoAuth": "로그인이 꺼져 있어 이 서버에 접근할 수 있는 누구나 이를 바꿀 수 있습니다. 관리자가 정책 파일에서 설정합니다.",
+    "newOptional": "새 버전은 {{ops}}도 요청합니다. 선택 항목이며 허용되지 않았습니다.",
+    "noLongerRequested": "이 버전은 더 이상 요청하지 않습니다. 끌 수 있습니다.",
+    "notOfficial": "이 애드온은 공식 라이브러리가 아니라 {{library}}에서 왔습니다.",
+    "op": {
+      "alreadyAllowed": "이미 허용됨",
+      "blocked": "관리자 정책이 차단함",
+      "byDeployment": "배포 설정이 이미 허용함",
+      "new": "이 버전에서 새로 추가됨",
+      "optional": "선택. 없어도 애드온은 실행되지만 기능이 줄어듭니다.",
+      "required": "필수. 이것이 없으면 애드온이 실행되지 않습니다.",
+      "unsupported": "이 LocalAI가 지원하지 않음"
+    },
+    "previewFailed": "이 애드온이 요청하는 호스트 접근을 읽지 못했습니다. 다시 시도하세요. 승인하지 않은 접근이 필요하면 설치가 거부되고 아무것도 바뀌지 않습니다.",
+    "removeStale": "제거",
+    "revokeAll": "모두 취소",
+    "revokeAllNamed": "{{name}}의 모든 호스트 접근 취소",
+    "risk": {
+      "changes_data": "데이터 변경",
+      "network": "네트워크",
+      "read": "읽기",
+      "runs_jobs": "작업 실행"
+    },
+    "source": {
+      "blanket": "일괄",
+      "deployment": "배포",
+      "you": "나"
+    },
+    "stepFooter": "허용하면 이 애드온이 이 서버에서 사용자를 위해 이 작업을 실행할 수 있습니다. 호스트 접근 페이지에서 검토하거나 취소할 수 있습니다.",
+    "stepIntro": "{{name}}이(가) 이 서버에서 다음 작업을 실행하려고 합니다. 필수 항목은 작동에 꼭 필요합니다. 선택 항목은 켜기 전까지 꺼져 있습니다.",
+    "stepTitle": "호스트 접근",
+    "stopped": "중지됨: {{ops}}이(가) 필요하지만 더 이상 허용되지 않습니다.",
+    "tabWaiting": "대기 중인 승인: {{count}}",
+    "waiting": {
+      "body": "새 버전은 현재 버전에 없는 호스트 접근을 요청합니다. 승인할 때까지 {{current}} 버전이 계속 실행됩니다. 추가되는 작업: {{count}}.",
+      "review": "검토 후 승인",
+      "reviewNamed": "{{name}}의 호스트 접근 검토 후 승인",
+      "title": "{{name}} {{version}}이(가) 승인을 기다립니다"
+    }
+  },
+  "file": {
+    "button": "파일에서 설치",
+    "checking": "파일을 확인하는 중…",
+    "pick": "애드온 zip 파일 선택",
+    "rejected": "파일이 받아들여지지 않았습니다.",
+    "gone": "파일이 없습니다. 파일은 업로드 후 한 시간 동안 보관됩니다. 다시 업로드하세요.",
+    "installTitle": "파일에서 {{name}}을(를) 설치할까요?",
+    "upgradeTitle": "파일에서 {{name}}을(를) 업데이트할까요?",
+    "confirmBody": "파일 {{name}}의 {{version}} 버전을 설치한 다음 켭니다.",
+    "confirmBodyUpgrade": "파일 {{name}}의 {{version}} 버전을 설치합니다. 애드온은 지금처럼 켜짐 또는 꺼짐 상태를 유지합니다.",
+    "upgradeAction": "{{version}}(으)로 업데이트",
+    "upgraded": "{{name}}이(가) 이제 {{version}} 버전으로 실행됩니다.",
+    "unsignedTitle": "로컬 파일, 서명 없음",
+    "unsignedNotice": "이 파일에는 서명한 사람이 없어서 LocalAI는 누가 만들었는지 알 수 없습니다. 출처를 신뢰할 때만 설치하세요.",
+    "unsignedShort": "로컬 파일, 서명 없음",
+    "badge": "로컬 파일, 서명 없음",
+    "sourceValue": "로컬 파일, 서명 없음",
+    "hostNotice": "이 애드온은 아무도 서명하지 않은 로컬 파일에서 왔습니다. 꼭 필요하다고 확신하는 호스트 접근 권한만 주세요.",
+    "facts": {
+      "file": "파일",
+      "sha256": "파일 SHA-256",
+      "addon": "애드온",
+      "platform": "플랫폼",
+      "api": "호스트 API"
+    },
+    "relation": {
+      "upgrade": "설치된 {{installed}} 버전을 {{version}} 버전으로 바꿉니다. 애드온의 데이터는 유지됩니다.",
+      "same": "{{version}} 버전은 이미 설치되어 있습니다. 다른 버전의 파일을 선택하세요.",
+      "downgradeTitle": "이전 버전",
+      "downgrade": "설치된 {{installed}} 버전보다 오래된 {{version}} 버전을 설치합니다. 이전 버전은 새 버전이 쓴 데이터를 읽지 못할 수 있습니다.",
+      "downgradeConfirm": "이전 버전을 설치하겠습니다"
+    }
+  },
+  "notice": {
+    "enableFailedTitle": "{{name}}을(를) 켤 수 없습니다",
+    "incompatibleTitle": "{{name}}을(를) 켤 수 없습니다: 이 서버와 호환되지 않습니다",
+    "noUpgrade": "아직 더 새로운 버전이 목록에 없습니다. 꺼 두거나 제거하세요."
+  },
+  "operation": {
+    "kind": {
+      "install": "설치 중…",
+      "upgrade": "업그레이드 중…",
+      "uninstall": "제거 중…",
+      "enable": "시작 중…",
+      "disable": "중지 중…",
+      "working": "작업 중…"
+    },
+    "label": "진행 중: {{operation}}",
+    "phase": {
+      "queued": "대기 중",
+      "downloading": "다운로드 및 확인",
+      "backing-up": "데이터 백업",
+      "installing": "설치",
+      "migrating": "데이터 마이그레이션",
+      "starting": "시작",
+      "working": "작업 중"
     }
   }
 }

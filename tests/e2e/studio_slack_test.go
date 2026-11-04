@@ -171,12 +171,25 @@ var _ = Describe("Chats Slack connector", Label("Chats", "Slack"), func() {
 	})
 
 	It("hands a file of a message to the chat", func() {
-		bot, appToken, id := app(obj{"allow": []string{"U100"}})
+		// A binding holds no capability until the owner enables it, and a sender
+		// without a role needs a pairing to receive files.
+		bot, appToken, id := app(obj{"allow": []string{"U100"}, "caps": []string{"files.upload"}})
+		code, out := chatsDo(http.MethodPost, chatsBase()+"/connectors/"+id+"/pairing", nil)
+		Expect(code).To(Equal(http.StatusOK), string(out))
+		f().Push(appToken, slacktest.DM("D100", "U100", decode(out)["code"].(string)))
+		Eventually(func() int {
+			code, out := chatsDo(http.MethodGet, chatsBase()+"/connectors/"+id, nil)
+			Expect(code).To(Equal(http.StatusOK), string(out))
+			paired, _ := decode(out)["paired"].([]any)
+			return len(paired)
+		}, 30*time.Second, 200*time.Millisecond).Should(Equal(1))
+		// The bot confirms the pairing with a post of its own.
+		before := len(answers(bot)())
 		f().AddFile("F777", "brief.txt", "text/plain", []byte("the brief"))
 		ev := slacktest.DM("D100", "U100", "read the brief")
 		ev["files"] = []any{map[string]any{"id": "F777"}}
 		f().Push(appToken, ev)
-		Eventually(answers(bot), 90*time.Second, 200*time.Millisecond).Should(HaveLen(1))
+		Eventually(answers(bot), 90*time.Second, 200*time.Millisecond).Should(HaveLen(before + 1))
 		chats := chatsOf(id)
 		Expect(chats).To(HaveLen(1))
 		// The file is an attachment of the user line, apart from its words.

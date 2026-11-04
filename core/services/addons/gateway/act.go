@@ -18,6 +18,7 @@ import (
 // The call is never repeated. A frontend forwards it to the owner and a lost
 // answer is an unknown outcome, because the tool may have run.
 func (g *Gateway) Act(ctx context.Context, actor contract.Actor, request contract.Request) (contract.Result, error) {
+	scrub(&request)
 	if request.Action != "act" {
 		return contract.Result{}, ErrForbidden
 	}

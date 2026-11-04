@@ -57,7 +57,7 @@ func sameView(a, b workspace.View) bool {
 // is the one place a chat's view is built: UserAccess (the home) and
 // ScopedAccess (the agent's folder and the chat folder) both call it, so an
 // unscoped and a scoped chat get the same layout rules.
-func (m *Manager) buildView(ctx context.Context, a workspace.Actor, primary, chat string) (workspace.View, error) {
+func (m *Manager) buildView(ctx context.Context, a workspace.Actor, primary string, extra []string, chat string) (workspace.View, error) {
 	if m.o.Workspace == nil {
 		return workspace.View{Actor: a}, nil
 	}
@@ -68,7 +68,7 @@ func (m *Manager) buildView(ctx context.Context, a workspace.Actor, primary, cha
 			return workspace.View{}, fmt.Errorf("session: list shared folders: %w", err)
 		}
 	}
-	return BuildView(ctx, m.o.Workspace, a, primary, chat, shared, m.log)
+	return BuildViewFolders(ctx, m.o.Workspace, a, primary, extra, chat, shared, m.log)
 }
 
 // UserAccess is the access of a chat that works on the whole home: the
@@ -78,7 +78,7 @@ func (m *Manager) UserAccess(ctx context.Context, a workspace.Actor) (Access, er
 	if _, fenced := a.Fence(); fenced {
 		return Access{}, fmt.Errorf("%w: a fenced actor has no view of the home", ErrInvalid)
 	}
-	v, err := m.buildView(ctx, a, HomePath(a.Principal), "")
+	v, err := m.buildView(ctx, a, HomePath(a.Principal), nil, "")
 	if err != nil {
 		return Access{}, err
 	}
@@ -93,6 +93,13 @@ func (m *Manager) UserAccess(ctx context.Context, a workspace.Actor) (Access, er
 // primary) or an error that wraps workspace.ErrNotFound (the chat folder),
 // never a view of the home.
 func (m *Manager) ScopedAccess(ctx context.Context, a workspace.Actor, primary, chat string) (Access, error) {
+	return m.ScopedAccessFolders(ctx, a, primary, nil, chat)
+}
+
+// ScopedAccessFolders is ScopedAccess for an agent with several folders:
+// primary is the first one, at "home", and extra are the others, at
+// "folder-<name>" (see FolderMountNames).
+func (m *Manager) ScopedAccessFolders(ctx context.Context, a workspace.Actor, primary string, extra []string, chat string) (Access, error) {
 	if !workspace.HasFence(a) {
 		return Access{}, fmt.Errorf("%w: a scoped access needs a fenced actor", ErrInvalid)
 	}
@@ -102,7 +109,7 @@ func (m *Manager) ScopedAccess(ctx context.Context, a workspace.Actor, primary, 
 	if m.o.Workspace == nil {
 		return Access{}, ErrNoWorkspace
 	}
-	v, err := m.buildView(ctx, a, primary, chat)
+	v, err := m.buildView(ctx, a, primary, extra, chat)
 	if err != nil {
 		return Access{}, err
 	}

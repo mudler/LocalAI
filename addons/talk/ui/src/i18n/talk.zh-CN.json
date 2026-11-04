@@ -1,0 +1,149 @@
+{
+  "title": "对话",
+  "subtitle": "实时语音",
+  "stage": "语音会话",
+  "picker": {
+    "title": "语音流水线：听、想、说",
+    "heading": "流水线模型",
+    "label": "流水线模型",
+    "none": "没有流水线",
+    "defaultVoice": "默认声音",
+    "auto": "自动"
+  },
+  "view": {
+    "idle": {
+      "title": "就绪",
+      "body": "开始会话，然后说话。只有会话打开时才会使用麦克风。",
+      "note": "会话进行期间，你的麦克风会持续传输音频。服务器会察觉你停止说话，并自行回答。",
+      "noteManual": "会话进行期间，你的麦克风会持续传输音频。此模型没有语音检测，因此每轮说完后请按“说完了”。"
+    },
+    "connecting": {
+      "title": "正在连接",
+      "body": "正在建立通话。模型还没有在听。"
+    },
+    "listening": {
+      "title": "正在聆听",
+      "body": "说出你的需求。你一停下，我就回答。",
+      "hearing": "正在听你说话。",
+      "manual": "说出你的需求，然后按“说完了”。"
+    },
+    "interrupted": {
+      "title": "已打断",
+      "body": "我已停下。请继续，我在听。"
+    },
+    "thinking": {
+      "title": "正在思考",
+      "body": "正在组织回复。"
+    },
+    "speaking": {
+      "title": "正在说话",
+      "body": "随时开口即可打断我。"
+    },
+    "blocked": {
+      "title": "麦克风被阻止",
+      "body": "浏览器没有向此页面开放麦克风。",
+      "cardTitle": "允许使用麦克风",
+      "card": "点击地址栏中的锁形图标，把“麦克风”设为允许，然后重试。没有录下任何内容。"
+    },
+    "lost": {
+      "title": "连接已断开",
+      "body": "与服务器的链接中断了。",
+      "cardTitle": "会话已结束",
+      "card": "WebRTC 链接失败。到目前为止的对话仍保留在转录中。"
+    },
+    "error": {
+      "title": "出了点问题",
+      "body": "无法建立通话，或服务器报告了错误。"
+    },
+    "nopipe": {
+      "title": "“对话”需要一个流水线模型",
+      "body": "流水线模型把语音转文字模型、聊天模型和文字转语音模型组合成一个语音助手。目前还没有配置。请创建一个，或先到库中查找这些模型。",
+      "create": "创建流水线模型",
+      "gallery": "浏览库"
+    }
+  },
+  "detail": {
+    "tool": "正在运行 {{name}}。",
+    "processing": "正在组织回复。",
+    "generating": "正在撰写回复。",
+    "server": "服务器报告了错误：{{message}}",
+    "insecure": "使用麦克风需要 HTTPS 或 localhost。",
+    "noMic": "没有找到麦克风。",
+    "failed": "无法建立通话：{{message}}",
+    "unknown": "未知错误"
+  },
+  "controls": {
+    "start": "开始会话",
+    "end": "结束会话",
+    "testTone": "测试音",
+    "endTurn": "说完了",
+    "diagnostics": "诊断",
+    "viewTraces": "查看追踪",
+    "retry": {
+      "blocked": "重试",
+      "lost": "重新连接",
+      "error": "重试"
+    }
+  },
+  "transcript": {
+    "title": "转录",
+    "copy": "复制",
+    "empty": "你说的话和模型的回答会在发生时显示在这里。不会被保存。",
+    "emptyNoPipeline": "暂无内容可显示。",
+    "user": "你",
+    "assistant": "回复",
+    "tool_call": "工具",
+    "tool_result": "结果",
+    "interrupted": "回复已被打断",
+    "toneRequested": "已请求测试音"
+  },
+  "settings": {
+    "title": "会话设置",
+    "desc": "会话开始时生效。",
+    "close": "关闭",
+    "voiceLanguage": "声音和语言",
+    "voice": "声音",
+    "voicePlaceholder": "声音名称（留空则使用模型默认值）",
+    "language": "转录语言",
+    "languagePlaceholder": "语言代码，例如 en（留空则自动检测）",
+    "instructions": "指令",
+    "instructionsPlaceholder": "给模型的系统指令",
+    "instructionsHelp": "作为会话指令发送。请保持简短：回复是用语音说出来的。",
+    "tools": "工具",
+    "manage": "管理模式",
+    "manageDesc": "让模型查询 LocalAI：模型、后端和系统信息。",
+    "manageLocked": "会话打开期间无法更改。请先结束会话再修改。",
+    "pipeline": "{{name}} 详情",
+    "anyToAny": "语音到语音模型：一个模型负责听、回答和说话。它不需要单独的转录、语言或语音模型。",
+    "noVad": "未设置语音检测模型。每轮说完后请按“说完了”。",
+    "editConfig": "编辑模型配置",
+    "editPipeline": "编辑流水线",
+    "slot": {
+      "vad": "语音检测",
+      "transcription": "转录",
+      "llm": "语言模型",
+      "tts": "语音"
+    }
+  },
+  "diag": {
+    "title": "音频诊断",
+    "waveform": "波形",
+    "spectrum": "频谱 (FFT)",
+    "waiting": "正在等待统计数据...",
+    "peakFreq": "峰值频率",
+    "thd": "THD",
+    "rms": "RMS 电平",
+    "sampleRate": "采样率",
+    "packetsRecv": "已接收数据包",
+    "packetsLost": "丢失数据包",
+    "jitter": "抖动",
+    "concealed": "已补偿的采样"
+  },
+  "toasts": {
+    "selectModel": "请先选择流水线模型。",
+    "modelsFailed": "无法加载实时模型：{{message}}",
+    "viewTraces": "查看追踪",
+    "copied": "转录已复制",
+    "copyFailed": "无法复制到剪贴板"
+  }
+}

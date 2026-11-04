@@ -19,16 +19,13 @@ import (
 
 // decodeTextCreation is deliberately local to the three string creation tools.
 // Bound raw JSON before decoding, and never echo decoder errors or user content.
-func decodeTextCreation(raw json.RawMessage, v any, field, legacy string) error {
+func decodeTextCreation(raw json.RawMessage, v any, field string) error {
 	if len(raw) > 1<<20 {
 		return refuse("arguments exceed 1 MiB; shorten %s", field)
 	}
 	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return refuse("arguments must be a JSON object with path and %s strings", field)
-	}
-	if _, ok := fields[legacy]; ok {
-		return refuse("%s is no longer supported; use the %s string", legacy, field)
 	}
 	for _, key := range []string{"path", field, "title", "sheet"} {
 		value, ok := fields[key]
@@ -52,7 +49,7 @@ func (w *work) createDocx(raw json.RawMessage) (any, error) {
 		Title    string `json:"title"`
 		Markdown string `json:"markdown"`
 	}
-	if err := decodeTextCreation(raw, &a, "markdown", "blocks"); err != nil {
+	if err := decodeTextCreation(raw, &a, "markdown"); err != nil {
 		return nil, err
 	}
 	if err := checkPath(a.Path, ".docx"); err != nil {
@@ -85,7 +82,7 @@ func (w *work) createXlsx(raw json.RawMessage) (any, error) {
 		CSV   string `json:"csv"`
 		Sheet string `json:"sheet"`
 	}
-	if err := decodeTextCreation(raw, &a, "csv", "sheets"); err != nil {
+	if err := decodeTextCreation(raw, &a, "csv"); err != nil {
 		return nil, err
 	}
 	if err := checkPath(a.Path, ".xlsx"); err != nil {
@@ -156,7 +153,7 @@ func (w *work) createPdf(raw json.RawMessage) (any, error) {
 		Title    string `json:"title"`
 		Markdown string `json:"markdown"`
 	}
-	if err := decodeTextCreation(raw, &a, "markdown", "blocks"); err != nil {
+	if err := decodeTextCreation(raw, &a, "markdown"); err != nil {
 		return nil, err
 	}
 	if err := checkPath(a.Path, ".pdf"); err != nil {

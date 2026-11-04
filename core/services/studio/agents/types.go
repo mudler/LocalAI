@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 )
 
 // Errors. An agent that does not exist, or belongs to another principal, is
@@ -51,21 +53,84 @@ type Agent struct {
 	Addons      []string // add-on IDs
 	Collections []string // collection names
 	Skills      []string // skill names
+	// BuiltinsOff are the groups of built-in tools (web, files, triggers...)
+	// the agent's chats never have, and BuiltinsOn the opt-in groups (saved
+	// agents) they have from the start. They are a ceiling: a chat of the
+	// agent cannot switch on a group listed in BuiltinsOff. Empty: every
+	// group a chat has by default, as agents saved before the field.
+	BuiltinsOff []string
+	BuiltinsOn  []string
+	// Builtins are the built-in capabilities the owner granted the agent, by
+	// the names of core/services/studio/builtins (memory.write, skills.write
+	// and so on). Empty grants nothing: no grant is on by default, and a chat
+	// gets the intersection with what its user may use at the turn.
+	Builtins []string
+	// Memory is the agent's choice of notes: MemoryOwn, MemoryMineAndOwn,
+	// MemoryMine or MemoryNone. Empty is "as before", an agent saved before
+	// the choice existed: it reads the notes when its add-ons name Memory and
+	// the model picks the scope of a note. The host enforces any other value.
+	Memory string
+	// Connections names the connections (connector binding IDs) the agent's
+	// chats may use for each add-on whose tools run with a credential, by
+	// add-on ID. The owner chooses them; a chat of the agent cannot change
+	// them. An add-on with no entry gets none from the agent: the person
+	// chooses in the chat. The service checks that each binding is the
+	// owner's and belongs to the add-on.
+	Connections connsets.Sets
 	// Network is the network preset of the Sandbox commands of the agent's
 	// unattended runs (triggers, connectors): off, registries or all, capped
 	// by the administrator's ceiling. Empty is off. A run never asks a
 	// person: a host outside the preset is blocked.
 	Network string
-	// FolderID is the workspace node of the agent's folder, kept by node so a
-	// rename or a move of the folder is followed. FolderMode is FolderRead or
-	// FolderWrite for an agent with a folder and "" for an agent that works
-	// on the whole home. FolderMode set with FolderID 0 is an agent whose
-	// folder is not chosen yet (an import whose folder was not found): it
-	// must not start.
+	// Folders are the folders the agent works in, at most MaxFolders, in the
+	// order the person gave them. Each is kept by workspace node so a rename
+	// or a move of the folder is followed. No folder means the agent works on
+	// the whole home. An entry with node 0 is a folder that is not chosen yet
+	// (an import whose folder was not found): the agent must not start.
+	Folders []AgentFolder
+	// FolderID and FolderMode are the first entry of Folders, kept for one
+	// release so a rollback to a server that knows one folder still works.
+	//
+	// Deprecated: use Folders. A store fills Folders from these two fields
+	// when it reads an agent that has only them, and fills these two from the
+	// first of Folders when it writes.
 	FolderID   int64
 	FolderMode string
 	Created    time.Time
 	Updated    time.Time
+}
+
+// The choices of Agent.Memory. Empty (not listed) is "as before".
+const (
+	// MemoryOwn: read and write the notes of this agent only.
+	MemoryOwn = "own"
+	// MemoryMineAndOwn: read the person's notes and the agent's own, write the
+	// agent's own. The default of a new agent.
+	MemoryMineAndOwn = "mine_and_own"
+	// MemoryMine: read and write the person's notes.
+	MemoryMine = "mine"
+	// MemoryNone: read and write nothing.
+	MemoryNone = "none"
+)
+
+// ValidMemory reports whether v is a choice of Agent.Memory, or empty.
+func ValidMemory(v string) bool {
+	switch v {
+	case "", MemoryOwn, MemoryMineAndOwn, MemoryMine, MemoryNone:
+		return true
+	}
+	return false
+}
+
+// MaxFolders is the most folders one agent may have.
+const MaxFolders = 8
+
+// AgentFolder is one folder of an agent: a workspace node and the most the
+// agent may do there. Where one folder is inside another, the outer mode caps
+// the inner one.
+type AgentFolder struct {
+	Node int64
+	Mode string // FolderRead or FolderWrite
 }
 
 // The access modes of an agent's folder.
@@ -74,8 +139,33 @@ const (
 	FolderWrite = "write"
 )
 
-// HasFolder reports whether the agent is limited to a folder, chosen or not.
-func (a Agent) HasFolder() bool { return a.FolderMode != "" }
+// HasFolder reports whether the agent is limited to folders, chosen or not.
+func (a Agent) HasFolder() bool { return len(a.FolderList()) > 0 }
+
+// FolderList returns the folders of the agent. An agent read from a store that
+// kept one folder in FolderID and FolderMode has them as a one-entry list.
+func (a Agent) FolderList() []AgentFolder {
+	if len(a.Folders) > 0 {
+		return a.Folders
+	}
+	if a.FolderMode != "" {
+		return []AgentFolder{{Node: a.FolderID, Mode: a.FolderMode}}
+	}
+	return nil
+}
+
+// normalizeFolders makes Folders and the deprecated pair agree: Folders is the
+// truth, the pair mirrors its first entry, and the slice is a copy.
+func (a Agent) normalizeFolders() Agent {
+	list := a.FolderList()
+	a.Folders = append([]AgentFolder(nil), list...)
+	if len(list) == 0 {
+		a.Folders, a.FolderID, a.FolderMode = nil, 0, ""
+		return a
+	}
+	a.FolderID, a.FolderMode = list[0].Node, list[0].Mode
+	return a
+}
 
 // Store is the storage of saved agents.
 type Store interface {
@@ -114,24 +204,38 @@ func Validate(a Agent) error {
 	if utf8.RuneCountInString(a.Model) > MaxModelRunes {
 		return bad("the model name is longer than %d characters", MaxModelRunes)
 	}
+	if !ValidMemory(a.Memory) {
+		return bad("memory must be own, mine_and_own, mine or none")
+	}
 	switch a.Network {
 	case "", "off", "registries", "all":
 	default:
 		return bad("the network must be off, registries or all")
 	}
-	switch a.FolderMode {
-	case "", FolderRead, FolderWrite:
-	default:
-		return bad("the folder mode must be read or write")
+	if len(a.Connections) > MaxListEntries {
+		return bad("connections has more than %d entries", MaxListEntries)
 	}
-	if a.FolderID < 0 || (a.FolderID != 0 && a.FolderMode == "") {
+	for addon, ids := range a.Connections {
+		if !addonIDShape.MatchString(addon) || len(ids) == 0 || len(ids) > MaxListEntries {
+			return bad("a connection needs an add-on ID and one or more binding IDs")
+		}
+		for _, binding := range ids {
+			if strings.TrimSpace(binding) == "" || utf8.RuneCountInString(binding) > MaxEntryRunes {
+				return bad("a connection needs an add-on ID and a binding ID")
+			}
+		}
+	}
+	if a.FolderMode == "" && a.FolderID != 0 && len(a.Folders) == 0 {
 		return bad("a folder needs a mode, read or write")
+	}
+	if err := ValidateFolders(a.FolderList()); err != nil {
+		return err
 	}
 	for _, l := range []struct {
 		name    string
 		entries []string
 		addon   bool
-	}{{"MCP servers", a.MCPServers, false}, {"add-ons", a.Addons, true}, {"collections", a.Collections, false}, {"skills", a.Skills, false}} {
+	}{{"MCP servers", a.MCPServers, false}, {"add-ons", a.Addons, true}, {"collections", a.Collections, false}, {"skills", a.Skills, false}, {"built-in tool groups off", a.BuiltinsOff, false}, {"built-in tool groups on", a.BuiltinsOn, false}, {"built-in grants", a.Builtins, false}} {
 		if len(l.entries) > MaxListEntries {
 			return bad("%s has more than %d entries", l.name, MaxListEntries)
 		}
@@ -149,11 +253,46 @@ func Validate(a Agent) error {
 	return nil
 }
 
+// ValidateFolders checks a folder list: at most MaxFolders entries, a mode
+// on each, no node twice. Node 0 (not chosen yet) may repeat. The error wraps
+// ErrInvalid. A caller that knows which nodes are shared folders must also
+// refuse write on those; the store does not know.
+func ValidateFolders(list []AgentFolder) error {
+	bad := func(format string, args ...any) error {
+		return fmt.Errorf("%w: %s", ErrInvalid, fmt.Sprintf(format, args...))
+	}
+	if len(list) > MaxFolders {
+		return bad("an agent may have at most %d folders", MaxFolders)
+	}
+	seen := map[int64]bool{}
+	for _, f := range list {
+		switch f.Mode {
+		case FolderRead, FolderWrite:
+		case "":
+			return bad("a folder needs a mode, read or write")
+		default:
+			return bad("the folder mode must be read or write")
+		}
+		if f.Node < 0 {
+			return bad("a folder node cannot be negative")
+		}
+		if f.Node != 0 && seen[f.Node] {
+			return bad("the same folder is listed twice")
+		}
+		seen[f.Node] = true
+	}
+	return nil
+}
+
 // clone copies the lists so a caller cannot change a stored agent.
 func (a Agent) clone() Agent {
 	a.MCPServers = append([]string(nil), a.MCPServers...)
 	a.Addons = append([]string(nil), a.Addons...)
 	a.Collections = append([]string(nil), a.Collections...)
 	a.Skills = append([]string(nil), a.Skills...)
-	return a
+	a.BuiltinsOff = append([]string(nil), a.BuiltinsOff...)
+	a.BuiltinsOn = append([]string(nil), a.BuiltinsOn...)
+	a.Builtins = append([]string(nil), a.Builtins...)
+	a.Connections = connsets.Clone(a.Connections)
+	return a.normalizeFolders()
 }

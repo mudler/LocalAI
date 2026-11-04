@@ -102,6 +102,9 @@ export function classifyResponse(status, body) {
   if (status === 503 && type === 'outcome_unknown') {
     return { kind: 'unknown_outcome', status, message, operationId: typeof err.operationId === 'string' ? err.operationId : '' }
   }
+  // The owner is up but did not answer in time (an upgrade runs on it). The
+  // page keeps what it shows and asks again; this is never "no add-ons".
+  if (status === 503 && type === 'owner_busy') return { kind: 'busy', status, message, type }
   return { kind: 'unavailable', status, message }
 }
 

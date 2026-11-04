@@ -2,7 +2,8 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import Icon from './Icon'
-import { useRecentChats } from '../hooks/useRecentChats'
+import { useAutomatedChats, useRecentChats } from '../hooks/useRecentChats'
+import { attention } from '../utils/originChats'
 import { allChatsDestination } from '../utils/navigationModel'
 import { preloadRoute } from '../router'
 
@@ -21,7 +22,14 @@ export default function SidebarChats({ onClose, collapsed }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const chats = useRecentChats(true, RECENT_CHATS, pathname)
+  // The chats that no person started are not listed here (All chats has them
+  // on a tab of their own); the entry only says when one needs the person.
+  const automated = useAutomatedChats(true, pathname)
+  const { waiting, running } = attention(automated.chats, automated.needsYou)
   const allLabel = t(allChatsDestination.labelKey)
+  const badge = waiting > 0
+    ? t('automatedWaiting', { count: waiting })
+    : running > 0 ? t('automatedRunning', { count: running }) : ''
   const preload = () => preloadRoute('/app/chats')
 
   return (
@@ -64,6 +72,8 @@ export default function SidebarChats({ onClose, collapsed }) {
       >
         <Icon name={allChatsDestination.icon} className="nav-icon" aria-hidden="true" />
         <span className="nav-label">{allLabel}</span>
+        {waiting > 0 && <span className="nav-chat-all__badge" data-testid="sidebar-automated-badge" title={badge} aria-label={badge}>{waiting > 9 ? '9+' : waiting}</span>}
+        {waiting === 0 && running > 0 && <span className="nav-chat-all__dot" data-testid="sidebar-automated-running" title={badge} role="img" aria-label={badge} />}
       </NavLink>
     </div>
   )

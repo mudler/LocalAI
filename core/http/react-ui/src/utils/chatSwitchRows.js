@@ -15,6 +15,11 @@ export function switchCounts(rows) {
   return { on: usable.filter((r) => r.on).length, total: usable.length }
 }
 
+// The rows of the groups that have a setter (onSet): the ones a count and a
+// bulk change cover. A group without one, such as the grants of an agent,
+// lists rights that only a click on their own row changes.
+export const switchRows = (groups) => groups.filter((g) => g.onSet).flatMap((g) => g.rows)
+
 // The ids of the rows that "Select all" (on) or "Disable all" (off) changes.
 export function bulkIds(rows, on) {
   return rows

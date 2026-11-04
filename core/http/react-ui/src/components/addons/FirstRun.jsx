@@ -5,14 +5,14 @@ import { Button, Callout, EmptyState, SkeletonRows } from '../ui'
 import { AppIcon, EntryAdds, VersionText } from './AddonBits'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
-import { featuredEntries } from './addonState'
+import { featuredEntries, localizeEntry } from './addonState'
 import { describeError } from './errors'
 
 // Nothing is installed yet. An administrator sees what add-ons are for, the
 // way to find them, and three add-ons from the sources as rows with Install:
 // one confirmation, then the install and the turn on run one after the other.
 export default function FirstRun({ adapter, actions }) {
-  const { t } = useTranslation('addons')
+  const { t, i18n } = useTranslation('addons')
   const [state, setState] = useState({ status: 'loading', entries: [], error: null })
   const [confirm, setConfirm] = useState(null)
 
@@ -48,7 +48,7 @@ export default function FirstRun({ adapter, actions }) {
         <>
           <h3 className="ad-first__label">{t('apps.firstRun.featuredLabel')}</h3>
           <ul className="ad-featured" aria-label={t('apps.firstRun.featuredLabel')} data-testid="featured">
-            {state.entries.map(entry => (
+            {state.entries.map(raw => localizeEntry(raw, i18n.language)).map(entry => (
               <li key={entry.key} className="ad-entry ad-featured__item" data-addon={entry.id}>
                 <AppIcon src="" id={entry.id} name={entry.title} />
                 <div className="ad-entry__body">

@@ -9,13 +9,24 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 )
 
-// The JSON forms of the Sandbox network, shared by the routes and the
+// The JSON forms of the network of commands, shared by the routes and the
 // in-process assistant tools so that both answer the same.
 
 func registriesJSON(list []egress.Registry) []schema.ChatsEgressRegistry {
 	out := make([]schema.ChatsEgressRegistry, 0, len(list))
 	for _, r := range list {
 		out = append(out, schema.ChatsEgressRegistry{ID: r.ID, Title: r.Title, Hosts: append([]string{}, r.Hosts...)})
+	}
+	return out
+}
+
+func networkJSON(n *AddonNetwork) *schema.ChatsEgressNetwork {
+	if n == nil {
+		return nil
+	}
+	out := &schema.ChatsEgressNetwork{Title: n.Title, Presets: []schema.ChatsEgressNetworkPreset{}}
+	for _, p := range n.Presets {
+		out.Presets = append(out.Presets, schema.ChatsEgressNetworkPreset{ID: p.ID, Title: p.Title})
 	}
 	return out
 }
@@ -34,7 +45,7 @@ func EgressCardJSON(c egress.Card) schema.ChatsEgressCard {
 // JSON is the answer of GET /api/chats/{id}/egress.
 func (v EgressView) JSON() schema.ChatsEgress {
 	out := schema.ChatsEgress{Preset: string(v.Preset), Ceiling: string(v.Ceiling), Effective: string(v.Effective), Applies: v.Applies,
-		AppliesReason: v.AppliesReason, Addon: v.Addon, Registries: registriesJSON(v.Registries), AllowedHosts: v.AllowedHosts, Rules: []schema.ChatsEgressRule{}, Cards: []schema.ChatsEgressCard{}}
+		AppliesReason: v.AppliesReason, Addon: v.Addon, Network: networkJSON(v.Network), Registries: registriesJSON(v.Registries), AllowedHosts: v.AllowedHosts, Rules: []schema.ChatsEgressRule{}, Cards: []schema.ChatsEgressCard{}}
 	for _, r := range v.Rules {
 		out.Rules = append(out.Rules, schema.ChatsEgressRule{Host: r.Host, Port: r.Port, Allow: r.Allow, By: r.By, Admin: r.Admin, At: r.At, AboveLimit: r.AboveLimit})
 	}
@@ -55,7 +66,7 @@ func (a EgressAdmin) JSON() schema.ChatsEgressAdmin {
 	return schema.ChatsEgressAdmin{
 		Ceiling: string(a.Settings.Ceiling), Default: string(a.Settings.Default), AllowPrivate: a.Settings.AllowPrivate,
 		Ports: a.Settings.Ports, ExtraRegistries: extra, AllowedHosts: a.Settings.AllowedHostList(), AuditDays: a.AuditDays, Registries: registriesJSON(a.Registries),
-		Sandbox: a.Sandbox, Isolation: a.Isolation, Allowed: a.Last24h.Allowed, Blocked: a.Last24h.Blocked,
+		Sandbox: a.Runner, Network: networkJSON(a.Network), Isolation: a.Isolation, Allowed: a.Last24h.Allowed, Blocked: a.Last24h.Blocked,
 	}
 }
 

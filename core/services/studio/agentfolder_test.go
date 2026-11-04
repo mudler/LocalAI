@@ -59,7 +59,7 @@ var _ = Describe("agent folders", func() {
 		Expect(a.FolderMode).To(Equal(agents.FolderRead))
 		st, ok := svc.AgentFolder(ctx, alice, a)
 		Expect(ok).To(BeTrue())
-		Expect(st).To(Equal(studio.AgentFolderState{Path: "/Projects/Acme", Name: "Acme", Mode: "read", State: studio.AgentFolderOK}))
+		Expect(st).To(Equal(studio.AgentFolderState{Path: "/Projects/Acme", Name: "Acme", Mode: "read", Effective: "read", State: studio.AgentFolderOK}))
 
 		_, err = ws.Move(ctx, user, home+"/Projects/Acme", home+"/Projects/Acme Corp")
 		Expect(err).NotTo(HaveOccurred())
@@ -88,7 +88,7 @@ var _ = Describe("agent folders", func() {
 		Expect(err).NotTo(HaveOccurred())
 		st, ok := svc.AgentFolder(ctx, alice, a)
 		Expect(ok).To(BeTrue())
-		Expect(st).To(Equal(studio.AgentFolderState{Name: "Notes", Mode: "read", State: studio.AgentFolderOK}))
+		Expect(st).To(Equal(studio.AgentFolderState{Name: "Notes", Mode: "read", Effective: "read", State: studio.AgentFolderOK}))
 		abs, live := svc.FolderResolver().PathOf(ctx, alice, a.FolderID)
 		Expect(live).To(BeTrue())
 		Expect(abs).To(Equal(otherHome + "/Notes"))
@@ -125,7 +125,7 @@ var _ = Describe("agent folders", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(a.FolderID).To(Equal(root.ID))
 		st, _ := svc.AgentFolder(ctx, alice, a)
-		Expect(st).To(Equal(studio.AgentFolderState{Path: "/", Mode: "read", State: studio.AgentFolderOK}))
+		Expect(st).To(Equal(studio.AgentFolderState{Path: "/", Mode: "read", Effective: "read", State: studio.AgentFolderOK}))
 	})
 
 	It("refuses a file, a missing path, Chats, LocalAI, a bad path and a bad mode as the folder", func() {

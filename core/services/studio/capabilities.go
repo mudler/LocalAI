@@ -9,10 +9,10 @@ import (
 	"time"
 
 	addontools "github.com/mudler/LocalAI/core/services/addons/tools"
-	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // A chat that has no tool to run commands must say so. Without that fact a
@@ -25,7 +25,7 @@ import (
 // CommandIsolation is implemented by a broker that can tell how the tool that
 // runs commands is isolated. It is optional.
 type CommandIsolation interface {
-	// Isolation is "isolated" when commands run in a sandbox, "host" when they
+	// Isolation is "isolated" when commands run in an isolated environment, "host" when they
 	// run directly on the server with no isolation, and "" when the broker
 	// cannot tell.
 	Isolation(ctx context.Context, user, addonID string) string
@@ -37,6 +37,24 @@ type AddonControls interface {
 	// Controls returns the host controls the host draws for the add-on, as
 	// the apps list the user can read gives them, or nil.
 	Controls(ctx context.Context, user, addonID string) []string
+}
+
+// AddonNetwork is the network an add-on declares for the commands it runs,
+// as the host shows it (see contract.NetworkCapability).
+type AddonNetwork struct {
+	// Title names the network in text: the declared title, else the add-on's.
+	Title string
+	// Presets are the titles the add-on gives the host's network presets.
+	Presets []contract.NetworkPreset
+}
+
+// AddonNetworks is implemented by a broker that knows the network each
+// add-on declares. It is optional: an add-on it does not answer for gets the
+// title of its commands tool.
+type AddonNetworks interface {
+	// Network returns the network of the add-on while the host draws its
+	// network-policy control.
+	Network(ctx context.Context, user, addonID string) (AddonNetwork, bool)
 }
 
 // CommandState says whether a chat can run commands.
@@ -73,6 +91,12 @@ type Commands struct {
 	// Addon is the add-on that runs commands, or that would (off,
 	// unavailable).
 	Addon string
+	// Title names the add-on in the text the model and the person read: the
+	// title its commands tool declares, or the add-on's own.
+	Title string
+	// Note is the sentence the add-on declares for the model when its commands
+	// are isolated, or "".
+	Note string
 	// Provider serves the tool when State is available: the add-on's ID, or
 	// BuiltinProvider for the built-in bash on this machine.
 	Provider string
@@ -84,6 +108,9 @@ type Commands struct {
 	// FallbackReason "off" (switched off for the chat or not named by its
 	// agent) or why it cannot run.
 	Fallback, FallbackReason string
+	// Draft is set when the chat does not exist yet. No execution status can be
+	// read for it, so Isolation is unknown by construction, not by a failure.
+	Draft bool
 }
 
 // withHostBash is the state of a chat whose tools may hold the built-in bash:
@@ -132,6 +159,17 @@ func addonRunner(tools []session.Tool) string {
 	return ""
 }
 
+// commandsDeclared is what the add-on that serves the commands in tools
+// declares about its commands tool.
+func commandsDeclared(tools []session.Tool, addon string) *contract.ExecutionDescriptor {
+	for _, t := range tools {
+		if t.Provider == addon && t.Execution != nil {
+			return t.Execution
+		}
+	}
+	return nil
+}
+
 // standInRunner returns the add-on whose stand-in tool (the add-on cannot
 // work) is in the list, when that add-on replaces bash.
 func standInRunner(tools []session.Tool) string {
@@ -174,19 +212,47 @@ func (s *Service) commandAddons(ctx context.Context, user string) []string {
 	return OrderProviders(ids, installed)
 }
 
+// commandTitle is the name of an add-on that is not serving commands now: the
+// title of its manifest when the broker lists add-ons in any state, else the
+// title its commands tool declares, else its ID.
+func (s *Service) commandTitle(ctx context.Context, user, id string) string {
+	if _, ok := s.d.AddonTools.(ShadowLister); ok {
+		if t := s.shadowersFor(ctx, user).title[id]; t != "" {
+			return t
+		}
+	}
+	if s.d.AddonTools == nil {
+		return id
+	}
+	if defs, err := s.d.AddonTools.Tools(ctx, user); err == nil {
+		for _, d := range defs {
+			if d.AddonID == id && d.Execution != nil && d.Execution.Title != "" {
+				return d.Execution.Title
+			}
+		}
+	}
+	return id
+}
+
 // commandsOf says whether the tools of a chat can run commands. addonsOff are
 // the add-ons the chat switched off and sc the agent's scope, for a chat that
 // cannot: they tell an add-on that is installed but off from none at all.
 func (s *Service) commandsOf(ctx context.Context, user string, tools []session.Tool, addonsOff []string, sc *scope) Commands {
 	if addon := addonRunner(tools); addon != "" {
-		c := Commands{State: CommandsAvailable, Tool: commandTool, Addon: addon}
+		c := Commands{State: CommandsAvailable, Tool: commandTool, Addon: addon, Title: addon}
+		if e := commandsDeclared(tools, addon); e != nil {
+			c.Note = e.Note
+			if e.Title != "" {
+				c.Title = e.Title
+			}
+		}
 		if iso, ok := s.d.AddonTools.(CommandIsolation); ok {
 			c.Isolation = iso.Isolation(ctx, user, addon)
 		}
 		return c
 	}
 	if addon := standInRunner(tools); addon != "" {
-		c := Commands{State: CommandsUnavailable, Addon: addon}
+		c := Commands{State: CommandsUnavailable, Addon: addon, Title: s.commandTitle(ctx, user, addon)}
 		if gate, ok := s.d.AddonTools.(AddonGate); ok {
 			c.Reason = gate.Unavailable(ctx, user, addon, s.d.Files.Available())
 		}
@@ -195,7 +261,7 @@ func (s *Service) commandsOf(ctx context.Context, user string, tools []session.T
 	off := set(addonsOff)
 	for _, id := range s.commandAddons(ctx, user) {
 		if off[id] || (sc != nil && !sc.addons[id]) {
-			return Commands{State: CommandsOff, Addon: id}
+			return Commands{State: CommandsOff, Addon: id, Title: s.commandTitle(ctx, user, id)}
 		}
 	}
 	return Commands{State: CommandsNone}
@@ -218,6 +284,8 @@ func (s *Service) CommandRunner(ctx context.Context, user, conv string) (Command
 // commandsFor says whether the chat of rec can run commands at its next turn.
 func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRecord) (Commands, error) {
 	conv := rec.ID
+	ctx, closeScope := s.executionScope(ctx, p, conv)
+	defer closeScope()
 	a := s.chatActorFor(ctx, rec)
 	if rec.Kind == session.KindSubAgent && rec.AgentID == "" {
 		s.mu.Lock()
@@ -235,6 +303,7 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	c.Draft = rec.ID == ""
 	if _, ok := s.d.AddonTools.(ExecutionObserver); ok {
 		c.ExecutionStatus = executionStatusView(ctx, p, c.Addon)
 	}
@@ -242,13 +311,13 @@ func (s *Service) commandsFor(ctx context.Context, p string, rec session.ChatRec
 	return shellSwitched(s.withHostBash(c, tools), s.hiddenFor(ctx, rec)), nil
 }
 
-// sandboxWhere is where a command of the Sandbox starts and what it keeps.
+// commandsWhere is where a command of an add-on starts and what it keeps.
 // fileTools says whether the chat has the file tools, which see the same
 // files: a chat without them must not hear of them. A scoped chat (its agent
 // works in one folder) has that folder at /workspace/home, at the agent's
 // mode, and its chat folder at /workspace/chat; its shared folders are read
 // only.
-func sandboxWhere(fileTools bool, place session.Place) string {
+func commandsWhere(fileTools bool, place session.Place) string {
 	same := ""
 	if fileTools {
 		same = ", the same files as the file tools"
@@ -263,10 +332,28 @@ func sandboxWhere(fileTools bool, place session.Place) string {
 	return "It starts in /workspace/home, the user's home" + same + "; only what it saves under /workspace/home or a writable shared folder is kept."
 }
 
-// skillsNotInSandbox is the sentence that keeps a model from looking for a
-// skill folder in the Sandbox, which sees the user's home only, and points it
-// at the tool that loads a skill by its name.
-const skillsNotInSandbox = "Skill folders are not visible in the Sandbox: load skills with load_skill."
+// skillsNotInProvider is the sentence that keeps a model from looking for a
+// skill folder in an isolated environment, which sees the user's home only, and
+// points it at the tool that loads a skill by its name.
+const skillsNotInProvider = "Skill folders are not visible in the isolated environment: load skills with load_skill."
+
+// commandsTitle is the name the prompt gives the add-on that runs commands.
+func commandsTitle(c Commands) string {
+	if c.Title != "" {
+		return c.Title
+	}
+	return "the add-on"
+}
+
+// commandsPhrase names the add-on that runs commands in a sentence: the
+// declared title when there is one, else a generic description. The title comes
+// from the add-on's declaration, never from this file.
+func commandsPhrase(c Commands) string {
+	if c.Title != "" {
+		return "the " + c.Title + " add-on"
+	}
+	return "the add-on that runs commands"
+}
 
 // commandsBlock is the block of the system prompt that states whether the chat
 // can run commands. writeFile says whether the chat has write_file,
@@ -292,11 +379,15 @@ func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool, place sessi
 		case c.Isolation == "isolated":
 			// The turn's note is cut at 400 characters and the tool description
 			// is capped, so the list of programs goes here, in the prompt.
-			return "Commands: " + c.Tool + " runs commands and code in an isolated sandbox. " + sandboxWhere(fileTools, place) + " " + sandbox.GuestToolsNote + " " + skillsNotInSandbox
+			b := "Commands: " + c.Tool + " runs commands and code in an isolated environment (" + commandsTitle(c) + "). " + commandsWhere(fileTools, place) + " "
+			if c.Note != "" {
+				b += c.Note + " "
+			}
+			return b + skillsNotInProvider
 		case c.Isolation == "host":
-			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + sandboxWhere(fileTools, place)
+			return "Commands: " + c.Tool + " runs commands directly on the server, with no isolation. Ask before you delete or change anything outside the task. " + commandsWhere(fileTools, place)
 		}
-		return "Commands: " + c.Tool + " runs commands and code. " + sandboxWhere(fileTools, place)
+		return "Commands: " + c.Tool + " runs commands and code. " + commandsWhere(fileTools, place)
 	}
 	var b strings.Builder
 	b.WriteString("Commands: nothing in this chat runs code or commands. Never claim or imply that you ran anything, and do not ask a sub-agent to run it: it has the same tools. Instead ")
@@ -308,11 +399,11 @@ func commandsBlock(c Commands, writeFile, fileTools, skillsOff bool, place sessi
 	case CommandsSwitchedOff:
 		b.WriteString("they switched running commands off for this chat and can switch Run commands on in its Tools menu.")
 	case CommandsOff:
-		b.WriteString("they can switch the Sandbox add-on on in the Tools menu of this chat.")
+		b.WriteString("they can switch " + commandsPhrase(c) + " on in the Tools menu of this chat.")
 	case CommandsUnavailable:
-		b.WriteString("the Sandbox add-on cannot run commands on this server; an administrator can fix that.")
+		b.WriteString(commandsPhrase(c) + " cannot run commands on this server; an administrator can fix that.")
 	default:
-		b.WriteString("an administrator can enable running code by installing the Sandbox add-on.")
+		b.WriteString("an administrator can enable running code by installing an add-on that runs commands.")
 	}
 	if skillsOff {
 		b.WriteString(" A skill marked unavailable here needs this: say so instead of starting it.")
@@ -426,10 +517,13 @@ func (s *Service) repeatedTask(ctx context.Context, a workspace.Actor, task stri
 	return true, nil
 }
 
-// sandboxDocumentEligible requires the selected command provider, not just an
-// installed guest or generic command authority. Unknown isolation fails closed.
-func sandboxDocumentEligible(c Commands) bool {
-	return c.State == CommandsAvailable && c.Isolation == "isolated" && c.Addon == "sandbox" && c.Provider == "sandbox"
+// isolatedProvider reports whether the add-on serves the chat's commands and
+// the typed execution status says they are isolated. It is what the skills of
+// that add-on that need isolation require: the selected command provider, not
+// just an installed guest or generic command authority. Unknown isolation
+// fails closed.
+func isolatedProvider(c Commands, addon string) bool {
+	return c.State == CommandsAvailable && c.Isolation == "isolated" && c.Addon == addon && c.Provider == addon
 }
 
 // addonCommandDescriptor describes existing add-on authority without building
@@ -450,6 +544,8 @@ func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspac
 	if sc != nil && sc.deleted {
 		return Commands{State: CommandsNone}, nil
 	}
+	ctx, closeScope := s.executionScope(ctx, p, rec.ID)
+	defer closeScope()
 	var tools []session.Tool
 	// Only ad-hoc children inherit a pruned tool set. Saved-agent children
 	// resolve current grants through their scope, just like their turn tools.
@@ -465,6 +561,7 @@ func (s *Service) addonCommandDescriptorForActor(ctx context.Context, a workspac
 		}
 	}
 	c := s.commandsOf(ctx, p, tools, rec.AddonsOff, sc)
+	c.Draft = rec.ID == ""
 	if c.State == CommandsAvailable {
 		c.Provider = c.Addon
 	}

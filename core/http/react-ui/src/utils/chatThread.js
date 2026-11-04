@@ -16,6 +16,8 @@
 import { conversationItems, toolKey } from './chatLive.js'
 import { messageParts } from './chatAttachments.js'
 import { fileSize } from './fileInfo.js'
+import { PROPOSAL_CARD, CHANGE_CARD } from './chatProposal.js'
+import { CHANGE_PROPOSAL_CARD } from './changeProposal.js'
 
 const isActivity = (role) => role === 'reasoning' || role === 'tool'
 
@@ -71,6 +73,53 @@ export function threadRows(messages, live) {
   }
   flush('end')
   return rows
+}
+
+const PROPOSAL_KINDS = new Set([PROPOSAL_CARD, CHANGE_CARD, CHANGE_PROPOSAL_CARD])
+const isProposalLine = (m) => m.role === 'tool' && PROPOSAL_KINDS.has(m.card?.kind) && Boolean(m.card.id)
+
+// Where the cards of proposals go. A card waits for the person, so it comes
+// after the words that explain it: the end of the turn, not where the tool ran.
+// A turn is everything after a message of the person (or a marker) up to the
+// next one, and it can hold several model messages and tool runs. The tool
+// lines and their results keep their place; only the cards move.
+//
+// Each row gets a field `proposals`: the tool lines whose cards that row draws,
+// in the order they happened. It is [] on a row that draws none. The cards of a
+// turn go on its last model message; a turn with no model message yet, or a
+// turn that is still streaming, gets a row of its own (kind 'proposals') at the
+// end, which the page draws after the streaming turn, so the card is appended
+// below the text and does not jump when the text grows.
+export function placeProposals(rows, { streaming = false } = {}) {
+  const out = []
+  let turn = []
+  const close = (isLast) => {
+    const lines = turn.flatMap((r) => (r.kind === 'activity' ? r.items : r.activity || [])).filter(isProposalLine)
+    if (turn.length > 0 || lines.length > 0) {
+      let carrier = -1
+      if (!(isLast && streaming)) {
+        for (let i = turn.length - 1; i >= 0; i--) {
+          if (turn[i].kind === 'msg' && turn[i].msg.role === 'assistant') { carrier = i; break }
+        }
+      }
+      turn.forEach((r, i) => {
+        if (r.kind === 'activity' || r.kind === 'msg') out.push({ ...r, proposals: i === carrier ? lines : [] })
+        else out.push(r)
+      })
+      if (lines.length > 0 && carrier < 0) {
+        out.push({ kind: 'proposals', key: `p-${isLast ? 'end' : turn.length}-${lines[0].seq ?? lines[0].card.id}`, items: lines })
+      }
+    }
+    turn = []
+  }
+  for (const r of rows) {
+    if ((r.kind === 'msg' && r.msg.role === 'user') || r.kind === 'marker') {
+      close(false)
+      out.push(r)
+    } else turn.push(r)
+  }
+  close(true)
+  return out
 }
 
 // What the streaming turn shows: the reasoning and text so far and the tool
@@ -163,6 +212,8 @@ export function menuChats(conversations) {
     model: c.model || '',
     running: Boolean(c.running),
     origin: c.origin || '',
+    originId: c.origin_id || '',
+    lastTurn: c.last_turn || '',
     agentId: c.agent_id || '',
     assistant: Boolean(c.assistant),
     createdAt: Date.parse(c.created) || 0,

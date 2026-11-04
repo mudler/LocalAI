@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -41,6 +42,10 @@ type triggerRow struct {
 	// Change is the JSON of Trigger.Change, empty on a record that is not a
 	// change.
 	Change string `gorm:"size:1024"`
+	// Route is the JSON of Trigger.Route, empty on a trigger made in Studio.
+	Route string `gorm:"size:1024"`
+	// Acts is Trigger.Acts, comma separated; empty: read only runs.
+	Acts string `gorm:"size:1024"`
 }
 
 func (triggerRow) TableName() string { return "studio_triggers" }
@@ -96,7 +101,7 @@ func (r triggerRow) trigger() Trigger {
 		Schedule: r.Schedule, TZ: r.TZ, Folder: r.Folder, Quiet: time.Duration(r.QuietNs), DailyCap: r.DailyCap,
 		Since: utc(r.Since), AgentID: r.AgentID, SourceChatID: r.SourceChatID, Model: r.Model, Proposed: r.Proposed,
 		MinGap: time.Duration(r.MinGapNs), Reads: r.Reads, Writes: r.Writes, Widget: r.Widget, EstTokens: r.EstTokens,
-		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change)}
+		Outcome: r.Outcome, OutcomeAt: utc(r.OutcomeAt), Touched: r.Touched, Change: changeOf(r.Change), Route: routeOf(r.Route), Acts: actsOf(r.Acts)}
 }
 
 func changeOf(raw string) Change {
@@ -115,12 +120,35 @@ func changeText(c Change) string {
 	return string(raw)
 }
 
+func actsOf(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	return strings.Split(raw, ",")
+}
+
+func routeOf(raw string) Route {
+	var r Route
+	if raw != "" {
+		_ = json.Unmarshal([]byte(raw), &r) // a broken value reads as a trigger made in Studio
+	}
+	return r
+}
+
+func routeText(r Route) string {
+	if r == (Route{}) {
+		return ""
+	}
+	raw, _ := json.Marshal(r)
+	return string(raw)
+}
+
 func (s *gormStore) PutTrigger(ctx context.Context, t Trigger) error {
 	row := triggerRow{ID: t.ID, Owner: t.Owner, Name: t.Name, Prompt: t.Prompt, Enabled: t.Enabled, Kind: string(t.Kind),
 		Schedule: t.Schedule, TZ: t.TZ, Folder: t.Folder, QuietNs: int64(t.Quiet), DailyCap: t.DailyCap,
 		Since: utc(t.Since), AgentID: t.AgentID, SourceChatID: t.SourceChatID, Model: t.Model, Proposed: t.Proposed,
 		MinGapNs: int64(t.MinGap), Reads: t.Reads, Writes: t.Writes, Widget: t.Widget, EstTokens: t.EstTokens,
-		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change)}
+		Outcome: t.Outcome, OutcomeAt: utc(t.OutcomeAt), Touched: t.Touched, Change: changeText(t.Change), Route: routeText(t.Route), Acts: strings.Join(t.Acts, ",")}
 	return s.db.WithContext(ctx).Save(&row).Error
 }
 

@@ -63,43 +63,43 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 			}
 
 			// Handle connections in a new goroutine, forwarding to the p2p service
-			go func() {
-				workerID := ""
-				if fs.workerTarget != "" {
-					workerID = fs.workerTarget
-				} else if fs.loadBalanced {
-					xlog.Debug("Load balancing request")
-
-					workerID = fs.SelectLeastUsedServer()
-					if workerID == "" {
-						xlog.Debug("Least used server not found, selecting random")
-						workerID = fs.RandomServer()
-					}
-				} else {
-					workerID = fs.RandomServer()
-				}
-
-				if workerID == "" {
-					xlog.Error("No available nodes yet")
-					fs.sendHTMLResponse(conn, 503, "Sorry, waiting for nodes to connect")
-					return
-				}
-
-				xlog.Debug("Selected node", "node", workerID)
-				nodeData, exists := GetNode(fs.service, workerID)
-				if !exists {
-					xlog.Error("Node not found", "node", workerID)
-					fs.sendHTMLResponse(conn, 404, "Node not found")
-					return
-				}
-
-				proxyP2PConnection(ctx, node, nodeData.ServiceID, conn)
-				if fs.loadBalanced {
-					fs.RecordRequest(workerID)
-				}
-			}()
+			go fs.handleConnection(conn, func(serviceID string, conn net.Conn) {
+				proxyP2PConnection(ctx, node, serviceID, conn)
+			})
 		}
 	}
+}
+
+func (fs *FederatedServer) handleConnection(conn net.Conn, forward func(string, net.Conn)) {
+	workerID := ""
+	if fs.workerTarget != "" {
+		workerID = fs.workerTarget
+	} else if fs.loadBalanced {
+		xlog.Debug("Load balancing request")
+
+		workerID = fs.SelectLeastUsedServer()
+		if workerID != "" {
+			defer fs.ReleaseRequest(workerID)
+		}
+	} else {
+		workerID = fs.RandomServer()
+	}
+
+	if workerID == "" {
+		xlog.Error("No available nodes yet")
+		fs.sendHTMLResponse(conn, 503, "Sorry, waiting for nodes to connect")
+		return
+	}
+
+	xlog.Debug("Selected node", "node", workerID)
+	nodeData, exists := GetNode(fs.service, workerID)
+	if !exists {
+		xlog.Error("Node not found", "node", workerID)
+		fs.sendHTMLResponse(conn, 404, "Node not found")
+		return
+	}
+
+	forward(nodeData.ServiceID, conn)
 }
 
 // sendHTMLResponse sends a basic HTML response with a status code and a message.

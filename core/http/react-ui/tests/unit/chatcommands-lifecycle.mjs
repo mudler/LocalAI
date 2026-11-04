@@ -6,6 +6,9 @@ export function hookHarness(file, name, imports, transform = source => source) {
   const slots = []
   let cursor = 0
   let pending = new Map()
+  // Layout effects run at commit, before the render returns to its caller and
+  // before any passive effect. A discarded render never commits them.
+  let layout = new Map()
   const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]))
   const hooks = {
     useState(initial) {
@@ -24,6 +27,13 @@ export function hookHarness(file, name, imports, transform = source => source) {
         slots[i] = { deps, cleanup: fn() }
       })
     },
+    useLayoutEffect(fn, deps) {
+      const i = cursor++
+      if (!same(slots[i]?.deps, deps)) layout.set(i, () => {
+        slots[i]?.cleanup?.()
+        slots[i] = { deps, cleanup: fn() }
+      })
+    },
     useMemo(fn, deps) {
       const i = cursor++
       if (!same(slots[i]?.deps, deps)) slots[i] = { deps, value: fn() }
@@ -37,7 +47,14 @@ export function hookHarness(file, name, imports, transform = source => source) {
   const scope = { ...hooks, ...imports }
   const hook = new Function(...Object.keys(scope), `${source}; return ${name}`)(...Object.values(scope))
   return {
-    render(...args) { cursor = 0; return hook(...args) },
+    render(...args) {
+      cursor = 0
+      const out = hook(...args)
+      const effects = layout; layout = new Map(); effects.forEach(fn => fn())
+      return out
+    },
+    // A render that React throws away: nothing is committed, so no layout effect runs.
+    renderDiscarded(...args) { cursor = 0; const out = hook(...args); layout = new Map(); return out },
     unmount() { pending.clear(); slots.forEach(slot => slot?.cleanup?.()) },
     flush() { const effects = pending; pending = new Map(); effects.forEach(fn => fn()) },
   }

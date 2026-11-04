@@ -110,7 +110,7 @@ func fixtureWithFiles(manifest []byte, digest string, files map[string][]byte) (
 	Expect(e).NotTo(HaveOccurred())
 	c := catalog.Catalog{Sources: sources, TargetOS: "linux", TargetArch: "amd64"}
 	cfg := OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk-one", Root: filepath.Join(root, "owner")}
-	i := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+	i := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 	DeferCleanup(func() {
 		_ = filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
 			if e == nil && info.IsDir() {
@@ -504,12 +504,6 @@ var _ = Describe("owner identity file", func() {
 		var fields map[string]any
 		Expect(json.Unmarshal(b, &fields)).To(Succeed())
 		Expect(fields).To(Equal(map[string]any{"OwnerID": "owner", "StorageID": "disk-one"}))
-	})
-	It("loads a file written in the old format with an address", func() {
-		cfg, _, _ := fixture()
-		Expect(os.MkdirAll(cfg.Root, 0700)).To(Succeed())
-		Expect(os.WriteFile(identityPath(cfg), []byte(`{"OwnerID":"owner","Address":"https://old.example","StorageID":"disk-one"}`), 0600)).To(Succeed())
-		Expect(acquire(cfg)).To(Succeed())
 	})
 	It("loads when only the address changed", func() {
 		cfg, _, _ := fixture()

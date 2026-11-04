@@ -6,12 +6,12 @@ import Button from '../ui/Button'
 import Callout from '../ui/Callout'
 import { useAuth } from '../../context/AuthContext'
 import { chatEgressApi } from '../../utils/api'
-import { cardAnswers, cardStateKey, hostPort } from '../../utils/chatEgress'
+import { cardAnswers, cardStateKey, hostPort, presetLabel } from '../../utils/chatEgress'
 import { addonSettingsAddress } from '../../utils/addonSettings'
 import { useAddonTitle } from '../../addons/useAddonRegistry'
 import './network.css'
 
-// The card a command of the Sandbox waits on when it asks for a host the chat
+// The card an isolated command waits on when it asks for a host the chat
 // does not allow but the administrator's limit would. Allow once covers the
 // rest of that command; Allow for this chat stores a rule; Deny is remembered
 // so the host does not ask again. The host is shown as plain text, in
@@ -70,7 +70,7 @@ export default function NetworkConsentCard({ card, chatId, egress }) {
     return (
       <Callout tone="warn" icon="globe" className="cmd-consent" role="status" title={t(off ? 'egress.blocked.titleOff' : 'egress.blocked.titleCapped')} testId="chat-network-blocked">
         <p>
-          {t(off ? 'egress.blocked.bodyOff' : 'egress.blocked.bodyCapped', { limit: t(`egress.preset.${egress?.ceiling || 'off'}`) })}{' '}
+          {t(off ? 'egress.blocked.bodyOff' : 'egress.blocked.bodyCapped', { limit: presetLabel(egress, egress?.ceiling || 'off', t) })}{' '}
           <code className="chat-network__host" data-testid="chat-network-consent-host">{target}</code>
         </p>
         <AdminHint isAdmin={isAdmin} egress={egress} testId="chat-network-blocked-admin" />
@@ -90,7 +90,7 @@ export default function NetworkConsentCard({ card, chatId, egress }) {
       <p>{t('egress.consent.body')} <code className="chat-network__host" data-testid="chat-network-consent-host">{target}</code></p>
       {egress && (
         <p className="cmd-consent__hint">
-          {t('egress.consent.preset', { preset: t(`egress.preset.${egress.preset || 'off'}`), limit: t(`egress.preset.${egress.ceiling || 'off'}`) })}
+          {t('egress.consent.preset', { preset: presetLabel(egress, egress.preset || 'off', t), limit: presetLabel(egress, egress.ceiling || 'off', t) })}
         </p>
       )}
       {card.private && !isAdmin && <p className="cmd-consent__hint" data-testid="chat-network-consent-admin">{t('egress.consent.adminOnly')}</p>}

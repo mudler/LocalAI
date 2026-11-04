@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/xlog"
 	"gorm.io/gorm"
 
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/sandbox"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -44,6 +45,7 @@ type chatRow struct {
 	McpOff       string `gorm:"type:text"` // JSON list of MCP server names and connector:<id>
 	BuiltinsOff  string `gorm:"type:text"` // JSON list of built-in tool groups
 	BuiltinsOn   string `gorm:"type:text"` // JSON list of opt-in built-in tool groups
+	Connections  string `gorm:"type:text"` // JSON object, add-on ID to a list of binding IDs (older rows: one ID)
 	AgentID      string `gorm:"size:128"`
 	Origin       string `gorm:"size:32"`
 	OriginID     string `gorm:"size:128"`
@@ -134,14 +136,33 @@ type pendingRow struct {
 
 func (pendingRow) TableName() string { return "studio_pending" }
 
-type gormStore struct{ db *gorm.DB }
+type gormStore struct {
+	db   *gorm.DB
+	text textIndex
+
+	// The backfill of the chat search index runs in the background: Close
+	// stops it and waits, so nothing writes once the owner of the database
+	// (or of its folder) is gone.
+	stopBackfill context.CancelFunc
+	backfillDone chan struct{}
+}
+
+// Close stops the background indexing of earlier chats and waits for it. It
+// does not close the database, which the caller owns.
+func (s *gormStore) Close() error {
+	if s.stopBackfill != nil {
+		s.stopBackfill()
+		<-s.backfillDone
+	}
+	return nil
+}
 
 // NewGORM returns a Store on db (SQLite or PostgreSQL) and creates its tables.
 func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("studio store: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&chatRow{}, &entryRow{}, &pendingRow{}); err != nil {
+	if err := db.AutoMigrate(&chatRow{}, &entryRow{}, &pendingRow{}, &textRow{}, &textStateRow{}); err != nil {
 		return nil, fmt.Errorf("studio store: migrate: %w", err)
 	}
 	s := &gormStore{db: db}
@@ -149,6 +170,17 @@ func NewGORM(db *gorm.DB) (Store, error) {
 		// Reads normalize the markers in memory, so the store works anyway.
 		xlog.Warn("studio store: could not rewrite the legacy skill markers", "error", err)
 	}
+	s.setupTextIndex()
+	// Indexing is true from here, so a search never reports the index as
+	// complete before the first look at the history.
+	s.text.indexing.Store(true)
+	var ctx context.Context
+	ctx, s.stopBackfill = context.WithCancel(context.Background())
+	s.backfillDone = make(chan struct{})
+	go func() {
+		defer close(s.backfillDone)
+		s.backfillTexts(ctx)
+	}()
 	return s, nil
 }
 
@@ -213,6 +245,11 @@ func (r chatRow) record() (session.ChatRecord, error) {
 	}
 	if r.BuiltinsOn != "" {
 		if err := json.Unmarshal([]byte(r.BuiltinsOn), &rec.BuiltinsOn); err != nil {
+			return rec, err
+		}
+	}
+	if r.Connections != "" {
+		if err := json.Unmarshal([]byte(r.Connections), &rec.Connections); err != nil {
 			return rec, err
 		}
 	}
@@ -284,6 +321,13 @@ func (s *gormStore) CreateChat(ctx context.Context, rec session.ChatRecord) erro
 			return err
 		}
 		*l.to = string(raw)
+	}
+	if len(rec.Connections) > 0 {
+		raw, err := json.Marshal(rec.Connections)
+		if err != nil {
+			return err
+		}
+		row.Connections = string(raw)
 	}
 	if rec.Settings != (session.ChatSettings{}) {
 		raw, err := json.Marshal(rec.Settings)
@@ -419,6 +463,31 @@ func (s *gormStore) SetBuiltinsOff(ctx context.Context, principal, id string, of
 
 func (s *gormStore) SetBuiltinsOn(ctx context.Context, principal, id string, on []string) error {
 	return s.setList(ctx, "builtins_on", principal, id, on)
+}
+
+func (s *gormStore) SetConnections(ctx context.Context, principal, id string, connections connsets.Sets) error {
+	raw := ""
+	if len(connections) > 0 {
+		b, err := json.Marshal(connections)
+		if err != nil {
+			return err
+		}
+		raw = string(b)
+	}
+	res := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Update("connections", raw)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		var n int64
+		if err := s.db.WithContext(ctx).Model(&chatRow{}).Where("id = ? AND principal = ?", id, principal).Count(&n).Error; err != nil {
+			return err
+		}
+		if n == 0 {
+			return session.ErrNotFound
+		}
+	}
+	return nil
 }
 
 func (s *gormStore) SetScopedAgent(ctx context.Context, principal, id string, scoped bool) error {
@@ -623,6 +692,9 @@ func (s *gormStore) TruncateEntries(ctx context.Context, principal, id string, k
 		if err := tx.Where("chat_id = ? AND seq > ?", id, keep).Delete(&entryRow{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("chat_id = ? AND seq > ?", id, keep).Delete(&textRow{}).Error; err != nil {
+			return err
+		}
 		// lock bumped the counter; the next entry is keep+1.
 		return tx.Model(&chatRow{}).Where("id = ?", id).UpdateColumn("next_entry", keep).Error
 	})
@@ -638,6 +710,9 @@ func (s *gormStore) DeleteChat(ctx context.Context, principal, id string) error 
 			return session.ErrNotFound
 		}
 		if err := tx.Where("chat_id = ?", id).Delete(&entryRow{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("chat_id = ?", id).Delete(&textRow{}).Error; err != nil {
 			return err
 		}
 		return tx.Where("chat_id = ?", id).Delete(&pendingRow{}).Error
@@ -683,6 +758,9 @@ func (s *gormStore) AppendEntry(ctx context.Context, id string, e session.Entry)
 		if err := tx.Create(&row).Error; err != nil {
 			return err
 		}
+		if err := putTexts(tx, textRows(id, seq, []session.Entry{e})); err != nil {
+			return err
+		}
 		stored = seq
 		return nil
 	})
@@ -708,17 +786,22 @@ func (s *gormStore) AppendEntries(ctx context.Context, id string, entries []sess
 			}
 		}
 		rows := make([]entryRow, len(entries))
+		stamped := make([]session.Entry, len(entries))
 		for i, e := range entries {
 			if e.At.IsZero() {
 				e.At = time.Now().UTC()
 			}
+			stamped[i] = e
 			row, err := toEntryRow(id, first+int64(i), e)
 			if err != nil {
 				return err
 			}
 			rows[i] = row
 		}
-		return tx.CreateInBatches(&rows, 100).Error
+		if err := tx.CreateInBatches(&rows, 100).Error; err != nil {
+			return err
+		}
+		return putTexts(tx, textRows(id, first, stamped))
 	})
 }
 

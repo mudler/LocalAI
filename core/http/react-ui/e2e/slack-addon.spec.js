@@ -28,6 +28,7 @@ test.describe('Slack add-on', () => {
     await expect(page.getByText('No Slack apps yet.')).toBeVisible()
     await page.getByRole('button', { name: 'New Slack app' }).click()
     await page.getByLabel('Name', { exact: true }).fill('Team app')
+    await expect(page.getByTestId('connector-thread-context')).toHaveCount(0)
     await page.getByLabel('Bot token').fill('xoxb-secret-bot')
     await expect(page.getByTestId('token-problem')).toContainText('Type both tokens')
     await expect(page.getByRole('button', { name: 'Save' })).toBeDisabled()
@@ -49,6 +50,8 @@ test.describe('Slack add-on', () => {
     const body = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
     expect(body).toMatchObject({ kind: 'slack', name: 'Team app', token: 'xoxb-secret-bot xapp-secret-app', agent_id: 'a1', allow: ['U001', 'C001'] })
     expect(body).not.toHaveProperty('bot_token')
+    // The host always reads the thread of a mention: no setting is offered or sent.
+    expect(body).not.toHaveProperty('thread_context')
     await expect(page.locator('body')).not.toContainText('secret-bot')
   })
 
@@ -100,7 +103,7 @@ test.describe('Slack add-on', () => {
     await expect(page.getByText('Connected to localai (Acme).')).toBeVisible()
     await page.getByRole('button', { name: 'Senders' }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Newcomer · 2 messages · U042')
-    await page.getByRole('button', { name: 'Allow' }).click()
+    await page.getByRole('button', { name: 'Allow', exact: true }).click()
     await expect(page.getByTestId('sender-log')).toContainText('Accepted')
     expect(a.s.calls.some(c => c.url === '/api/chats/connectors/b1/senders/U042/allow')).toBe(true)
   })
@@ -124,5 +127,20 @@ test.describe('Slack add-on', () => {
     await expect(page.getByRole('form')).toBeVisible()
     await expect(page.getByTestId('connector-row')).toHaveCount(0)
     expect(a.s.items).toHaveLength(0)
+  })
+
+  test('a list of channels only is named in the readiness list, and a person added fixes it', async ({ page }) => {
+    const a = api(page, [{ ...BINDING, allow: ['C001'], caps: ['memory.write'] }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const who = page.getByTestId('connector-ready-who')
+    await expect(who).toContainText('Only channels are on the list')
+    await expect(page.getByTestId('connector-can-sender').locator('option')).toContainText(['A person on the allowed list', 'A member of an allowed channel'])
+    await who.getByRole('button', { name: 'Add a person' }).click()
+    await page.getByTestId('connector-allow').getByRole('textbox').fill('U001')
+    await page.getByTestId('connector-allow').getByRole('textbox').press('Enter')
+    await expect(who).toHaveAttribute('data-state', 'after_save')
+    await expect.poll(() => [...(a.s.previews.at(-1)?.body.allow || [])].sort()).toEqual(['C001', 'U001'])
   })
 })

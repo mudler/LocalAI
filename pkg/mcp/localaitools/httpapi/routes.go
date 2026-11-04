@@ -12,7 +12,6 @@ import (
 // registrations in core/http/routes/localai.go — the Tool↔REST drift detector
 // in coverage_test.go documents the mapping.
 const (
-	routeWelcome                = "/"
 	routeModelsApply            = "/models/apply"
 	routeModelsAvail            = "/models/available"
 	routeModelsGall             = "/models/galleries"
@@ -37,6 +36,9 @@ const (
 	routeMiddleware             = "/api/middleware/status"
 	routeRouterDecisions        = "/api/router/decisions"
 	routeVoiceProfiles          = "/api/voice-profiles"
+	routeModelsCapabilities     = "/api/models/capabilities"
+	routeVersion                = "/version"
+	routeSystem                 = "/system"
 	routeFailover               = "/api/failover"
 	routeSharedFolders          = "/api/chats/admin/shared-folders"
 	routeSharedFolderRestore    = "/api/chats/admin/shared-folders/restore"

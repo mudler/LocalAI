@@ -25,7 +25,8 @@ const (
 	CodeQuota          = "quota"
 	CodeContext        = "context_too_small"
 	CodeUnknownTool    = "unknown_tool"
-	CodeAgent          = "agent" // anything else
+	CodeToolSchema     = "tool_schema" // the model refused the definition of a tool
+	CodeAgent          = "agent"       // anything else
 )
 
 // Marks the model client puts in the error of a model that could not be loaded.
@@ -60,6 +61,8 @@ var (
 	retryAfterRe     = regexp.MustCompile(`retry after (?:(\d+)m)?(?:(\d+)s)?`)
 	notFoundModelRe  = regexp.MustCompile(`(?i)model (?:"([^"]{1,128})"|'([^']{1,128})'|([A-Za-z0-9._:/@+-]{1,128})) (?:was )?not found`)
 	safeModelRe      = regexp.MustCompile(`^[A-Za-z0-9._:/@+ -]{1,128}$`)
+	toolSchemasRe    = regexp.MustCompile(`tool schemas use (\d+k?) of the (\d+k?) context window`)
+	windowFullRe     = regexp.MustCompile(`the prompt is about (\d+) tokens of a (\d+)-token window`)
 	httpStatusFiveRe = regexp.MustCompile(`HTTP (5\d\d)`)
 )
 
@@ -100,6 +103,17 @@ func Classify(err error) Failure {
 	case errors.Is(err, context.Canceled) || strings.Contains(lower, "context canceled"):
 		f.Code = CodeCancelled
 		f.Reason = "The turn was cancelled before the model answered."
+	case toolSchemasRe.MatchString(msg):
+		m := toolSchemasRe.FindStringSubmatch(msg)
+		f.Code = CodeContext
+		f.Reason = reasonContextPrefix + " for the tools of this agent: the tools take " + m[1] + " tokens of a " + m[2] + "-token window. Use a model with a larger context window, switch some tools off, or ask an administrator to raise the context size."
+	case windowFullRe.MatchString(msg):
+		m := windowFullRe.FindStringSubmatch(msg)
+		f.Code = CodeContext
+		f.Reason = reasonContextPrefix + " for this conversation: it takes about " + m[1] + " tokens of a " + m[2] + "-token window. Start a new chat, or use a model with a larger context window."
+	case strings.Contains(lower, "tool schema") && (strings.Contains(lower, "invalid") || strings.Contains(lower, "rejected") || strings.Contains(lower, "unsupported")):
+		f.Code = CodeToolSchema
+		f.Reason = reasonToolSchemaPrefix + ": a tool of this agent has a definition that the model does not accept. Switch tools off one by one to find it, or use another model."
 	case strings.Contains(lower, "context") && (strings.Contains(lower, "exceed") || strings.Contains(lower, "too long") ||
 		strings.Contains(lower, "too small") || strings.Contains(lower, "too large") || strings.Contains(lower, "overflow")):
 		f.Code, f.Reason = CodeContext, contextReason(msg)

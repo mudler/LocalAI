@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/session/sessiontest"
@@ -49,6 +50,7 @@ func texts(ps []store.Pending) []string {
 func Run(newStore New) {
 	// The loop's own transcript contract.
 	sessiontest.RunStoreSuite(func() session.Store { return newStore() })
+	runSearch(newStore)
 
 	It("skill switches round-trip, survive a chat update and belong to the owner", func() {
 		s := newStore()
@@ -362,6 +364,30 @@ func Run(newStore New) {
 		Expect(rec.AddonsOff).To(BeEmpty(), "after clearing")
 	})
 
+	It("the connections of a chat round-trip, survive a chat update, copy on read and belong to the owner", func() {
+		s := newStore()
+		chat(s, "c1", "alice")
+		Expect(s.SetConnections(ctx(), "alice", "c1", connsets.Sets{"tracker": {"b1", "b3"}})).To(Succeed())
+		rec, err := s.GetChat(ctx(), "alice", "c1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Connections).To(Equal(connsets.Sets{"tracker": {"b1", "b3"}}))
+		rec.Connections["tracker"][0] = "changed"
+		stale := rec
+		stale.Connections = nil
+		stale.Title, stale.Updated = "Renamed", t0.Add(time.Minute)
+		Expect(s.UpdateChat(ctx(), stale)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Connections).To(Equal(connsets.Sets{"tracker": {"b1", "b3"}}), "want the choice kept")
+		Expect(s.SetConnections(ctx(), "bob", "c1", connsets.Sets{"tracker": {"b2"}})).To(MatchError(session.ErrNotFound), "another principal's SetConnections")
+		Expect(s.SetConnections(ctx(), "alice", "c1", nil)).To(Succeed())
+		rec, _ = s.GetChat(ctx(), "alice", "c1")
+		Expect(rec.Connections).To(BeEmpty(), "after clearing")
+		made := session.ChatRecord{ID: "c2", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "m", Connections: connsets.Sets{"tracker": {"b1", "b3"}}}
+		Expect(s.CreateChat(ctx(), made)).To(Succeed())
+		got, _ := s.GetChat(ctx(), "alice", "c2")
+		Expect(got.Connections).To(Equal(connsets.Sets{"tracker": {"b1", "b3"}}), "a chat created with its choice keeps it")
+	})
+
 	It("a chat created with its switches keeps them", func() {
 		s := newStore()
 		rec := session.ChatRecord{ID: "c1", Principal: "alice", Title: "New", Created: t0, Updated: t0, Kind: session.KindChat, Model: "qwen3",
@@ -575,15 +601,18 @@ func Run(newStore New) {
 	})
 
 	It("a turn that stops beating is reaped, one that keeps beating is not", func() {
+		// The margin is wide: on a loaded runner under -race a few store calls
+		// can take longer than a tight threshold.
+		const stale = 300 * time.Millisecond
 		s := newStore()
 		chat(s, "stale", "alice")
 		chat(s, "alive", "alice")
 		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-stale")).To(Succeed())
 		Expect(s.ClaimTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(2 * stale)
 		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
 
-		got, err := s.ReapTurns(ctx(), 50*time.Millisecond)
+		got, err := s.ReapTurns(ctx(), stale)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got).To(HaveLen(1), "reaped = %+v, want only the chat that stopped beating", got)
 		Expect(got[0].ChatID).To(Equal("stale"))
@@ -597,7 +626,8 @@ func Run(newStore New) {
 		// The run that was reaped can no longer beat or release, and the chat is free.
 		Expect(s.TouchTurn(ctx(), "alice", "stale", "r-stale")).To(MatchError(store.ErrNotClaimed), "TouchTurn on a reaped run")
 		Expect(s.ClaimTurn(ctx(), "alice", "stale", "r-next")).To(Succeed(), "claim after reap")
-		again, _ := s.ReapTurns(ctx(), 50*time.Millisecond)
+		Expect(s.TouchTurn(ctx(), "alice", "alive", "r-alive")).To(Succeed())
+		again, _ := s.ReapTurns(ctx(), stale)
 		Expect(again).To(BeEmpty(), "a second reap found %+v", again)
 	})
 

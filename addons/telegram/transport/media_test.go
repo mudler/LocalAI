@@ -55,7 +55,7 @@ var _ = Describe("the files of messages", func() {
 		ups, err := f.client().Updates(ctx, secretToken, 1, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(ups).To(HaveLen(7))
-		Expect(ups[0].Media).To(Equal([]string{"photo:big"}), "the largest size that fits")
+		Expect(ups[0].Media).To(Equal([]string{"photo:huge"}), "the largest size that a bot may download")
 		Expect(ups[0].Text).To(Equal("what is this?"))
 		Expect(ups[0].Unsupported).To(BeFalse())
 		Expect(ups[1].Media).To(Equal([]string{"voice:v1"}))
@@ -71,7 +71,9 @@ var _ = Describe("the files of messages", func() {
 
 	It("finds a mention of the bot in the caption of a photo in a group", func() {
 		f := newFakeBot()
-		f.reply["getMe"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"id":123456,"username":"helper_bot"}}` }
+		f.reply["getMe"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":{"id":123456,"username":"helper_bot"}}`
+		}
 		f.reply["getUpdates"] = func(map[string]any) (int, string) {
 			return 200, updates(`{"update_id":1,"message":{"chat":{"id":-300,"type":"supergroup"},"from":{"id":7},"caption":"@helper_bot read this","caption_entities":[{"type":"mention","offset":0,"length":11}],"photo":[{"file_id":"p1","file_size":10,"width":1,"height":1}]}}`)
 		}
@@ -138,18 +140,21 @@ var _ = Describe("the files of messages", func() {
 			}
 			return 200, `{"ok":true,"result":{"file_id":"v1","file_unique_id":"AgAD-v1","file_size":66,"file_path":"voice/file_2.oga"}}`
 		}
-		r := transport.Runtime{API: f.client()}
-		out, err := r.Connector(ctx, contract.ConnectorRequest{Op: "media", Kind: "telegram", Token: secretToken, Media: "photo:p1"})
+		h := &memHost{}
+		r := transport.Runtime{API: f.client(), Host: h}
+		handle := &contract.ConnectorTransfer{Handle: "h", MaxBytes: 1 << 20}
+		out, err := r.Connector(ctx, contract.ConnectorRequest{Op: "media", Kind: "telegram", Token: secretToken, Media: "photo:p1", Transfer: handle})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Error).To(BeNil())
-		Expect(out.File.Name).To(Equal("photo-AQAD-u1.jpg"))
-		Expect(out.File.MIME).To(Equal("image/jpeg"))
-		Expect(out.File.Data).To(Equal(jpegBytes))
-		out, err = r.Connector(ctx, contract.ConnectorRequest{Op: "media", Kind: "telegram", Token: secretToken, Media: "voice:v1"})
+		Expect(out.Received.Name).To(Equal("photo-AQAD-u1.jpg"))
+		Expect(out.Received.MIME).To(Equal("image/jpeg"))
+		Expect(h.got.Bytes()).To(Equal(jpegBytes))
+		h.got.Reset()
+		out, err = r.Connector(ctx, contract.ConnectorRequest{Op: "media", Kind: "telegram", Token: secretToken, Media: "voice:v1", Transfer: handle})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Error).To(BeNil())
-		Expect(out.File.Name).To(Equal("voice-AgAD-v1.ogg"))
-		Expect(out.File.MIME).To(Equal("application/ogg"))
+		Expect(out.Received.Name).To(Equal("voice-AgAD-v1.ogg"))
+		Expect(out.Received.MIME).To(Equal("application/ogg"))
 		Expect(f.called("file_1.jpg")[0].Path).To(Equal("/file/bot" + secretToken + "/photos/file_1.jpg"))
 	})
 
@@ -163,17 +168,19 @@ var _ = Describe("the files of messages", func() {
 				}
 				return 200, getFile
 			}
-			out, err := transport.Runtime{API: f.client()}.Connector(ctx, contract.ConnectorRequest{Op: "media", Kind: "telegram", Token: secretToken, Media: ref})
+			h := &memHost{max: 1 << 20}
+			out, err := transport.Runtime{API: f.client(), Host: h}.Connector(ctx, contract.ConnectorRequest{Op: "media", Kind: "telegram", Token: secretToken, Media: ref,
+				Transfer: &contract.ConnectorTransfer{Handle: "h", MaxBytes: 1 << 20}})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(out.Error).NotTo(BeNil())
 			Expect(out.Error.Code).To(Equal(code))
 			Expect(out.Error.Message).NotTo(ContainSubstring("SECRET"))
-			Expect(out.File).To(BeNil())
+			Expect(out.Received).To(BeNil())
 			Expect(f.called("file_1.jpg")).To(HaveLen(downloads))
 		},
-		Entry("larger than the add-on hands over, by its size", "photo:p1", `{"ok":true,"result":{"file_size":2000000,"file_path":"photos/file_1.jpg"}}`, jpegBytes, contract.ConnectorTooLarge, 0),
+		Entry("larger than the bound of the handle, by its size", "photo:p1", `{"ok":true,"result":{"file_size":2000000,"file_path":"photos/file_1.jpg"}}`, jpegBytes, contract.ConnectorTooLarge, 0),
 		Entry("larger than Telegram lets a bot download", "voice:v1", `{"ok":false,"error_code":400,"description":"Bad Request: file is too big"}`, jpegBytes, contract.ConnectorTooLarge, 0),
-		Entry("larger than it said", "photo:p1", `{"ok":true,"result":{"file_size":10,"file_path":"photos/file_1.jpg"}}`, bytes.Repeat([]byte{0xff}, contract.MaxConnectorFileBytes+1), contract.ConnectorTooLarge, 1),
+		Entry("larger than it said", "photo:p1", `{"ok":true,"result":{"file_size":10,"file_path":"photos/file_1.jpg"}}`, append(append([]byte{}, jpegBytes...), bytes.Repeat([]byte{0xff}, 1<<20)...), contract.ConnectorTooLarge, 1),
 		Entry("a photo that is not an image", "photo:p1", `{"ok":true,"result":{"file_size":10,"file_path":"photos/file_1.jpg"}}`, []byte("#!/bin/sh\necho hi"), contract.ConnectorFailed, 1),
 		Entry("a voice message that is not audio", "voice:v1", `{"ok":true,"result":{"file_size":10,"file_path":"photos/file_1.jpg"}}`, jpegBytes, contract.ConnectorFailed, 1),
 		Entry("a path out of the files of the bot", "photo:p1", `{"ok":true,"result":{"file_size":10,"file_path":"../../bot1/photos/file_1.jpg"}}`, jpegBytes, contract.ConnectorFailed, 0),
@@ -186,7 +193,7 @@ var _ = Describe("the files of messages", func() {
 		f.reply["getFile"] = func(map[string]any) (int, string) {
 			return 200, `{"ok":true,"result":{"file_size":10,"file_path":"photos/missing.jpg"}}`
 		}
-		_, err := f.client().Media(ctx, secretToken, "photo:p1")
+		_, err := f.client().MediaStream(ctx, secretToken, "photo:p1", 1<<20)
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
 		Expect(errors.Is(err, transport.ErrTooLarge)).To(BeFalse())

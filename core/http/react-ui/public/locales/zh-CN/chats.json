@@ -22,6 +22,7 @@
       "undone": "已撤销：",
       "again": "重新安排",
       "declined": "已拒绝：",
+      "expired": "已过期：",
       "restore": "恢复",
       "blocked": {
         "ran": "它已经运行过一次；请在触发器页面中删除。",
@@ -55,7 +56,8 @@
       "costUnknown_one": "每次运行的 token 数在首次运行后可知。每天最多 {{count}} 次。",
       "remoteNote": "{{model}} 是远程服务：运行读取的内容会离开此服务器。",
       "stopWidget": "在小组件中暂停，或在触发器中删除",
-      "stop": "在触发器中关闭或删除"
+      "stop": "在触发器中关闭或删除",
+      "actsLabel": "权限"
     }
   },
   "mcpPage": {
@@ -270,26 +272,33 @@
     "commands": {
       "title": "此处无法运行命令",
       "none": "未安装可运行代码的插件，因此助手可以写入文件，但无法运行脚本或命令。",
-      "off": "此对话已关闭 Sandbox 插件。在“工具”菜单中开启后，助手即可运行代码。",
-      "unavailable": "Sandbox 插件已安装，但无法在此服务器上运行命令。",
-      "unavailableWhy": "Sandbox 插件无法在此服务器上运行命令：{{reason}}",
-      "install": "安装 Sandbox",
-      "openSandbox": "打开 Sandbox 插件",
-      "askInstall": "请联系管理员安装 Sandbox 插件。",
       "askFix": "请联系管理员修复。",
       "hide": "隐藏",
       "hideLabel": "隐藏此提示",
       "chipTitle": "此对话无法运行代码或命令。选择以查看详情。",
       "hostTitle": "命令在这台机器上运行",
-      "host": "命令在这台机器上运行，可访问其文件和网络，没有隔离。安装 Sandbox 以隔离运行。",
-      "hostOff": "此聊天已关闭 Sandbox，因此命令在这台机器上运行，可访问其文件和网络，没有隔离。在此菜单中打开 Sandbox 以隔离运行。",
-      "hostUnavailable": "Sandbox 无法在此运行，因此命令在这台机器上运行，可访问其文件和网络，没有隔离。",
-      "hostUnavailableWhy": "Sandbox 无法在此运行（{{reason}}），因此命令在这台机器上运行，可访问其文件和网络，没有隔离。",
       "hostChipTitle": "此聊天中的命令在这台机器上运行，没有隔离。选择以查看详情。",
       "providerHost": "命令在服务器上运行，未隔离。",
       "unknown": "执行就绪状态或隔离状态未知。",
+      "unknownBy": {
+        "owner_unreachable": "执行就绪状态或隔离状态未知：无法联系插件的所有者。",
+        "not_reported": "执行就绪状态或隔离状态未知：插件尚未报告其执行状态。",
+        "stale": "执行就绪状态或隔离状态未知：状态与插件的当前版本不一致。",
+        "invalid_status": "执行就绪状态或隔离状态未知：插件发送了主机无法接受的状态。",
+        "not_selected": "执行就绪状态或隔离状态未知：该插件不是运行此聊天命令的插件。",
+        "no_answer": "执行就绪状态或隔离状态未知：插件未在规定时间内响应。",
+        "reported_unknown": "执行就绪状态或隔离状态未知：插件报告无法确定。"
+      },
       "providerUnavailable": "所选执行提供程序不可用。",
-      "disabled": "此聊天已关闭命令执行。"
+      "disabled": "此聊天已关闭命令执行。",
+      "hostOff": {
+        "reason": "服务器内置的 bash 已关闭，所以助手可以写文件，但不能运行脚本或命令。",
+        "whoAdmin": "你是管理员。在设置的工具中，打开“命令 (bash)”一行。“每次询问”是更安全的选择。之后命令会在服务器上无隔离地运行，并且可以读取服务器能读取的内容。",
+        "whoMember": "请让此服务器的管理员打开它。",
+        "fix": "打开设置",
+        "sandboxText": "如需隔离的命令，请改为安装能隔离运行命令的附加组件。",
+        "sandbox": "打开附加组件"
+      }
     },
     "consent": {
       "title": "在这台机器上运行此命令？",
@@ -302,7 +311,6 @@
       "expired": "未回应：提出请求的这一轮已结束，因此命令没有运行。"
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "插件 {{name}}",
       "host": "这台机器，未隔离",
       "hostOnce": "这台机器，已允许一次",
@@ -314,26 +322,147 @@
     "builtin": {
       "web": "网页",
       "saved_agents": "已保存的智能体",
-      "triggers": "触发器",
+      "triggers": "创建和管理触发器",
       "shell": "运行命令",
       "files": "你的文件",
       "media": "图片和音频",
       "collections": "知识库",
-      "subagents": "子代理"
+      "subagents": "子代理",
+      "changes": "建议的更改",
+      "memory": "记忆",
+      "history": "以前的对话"
     },
     "builtinBy": "{{tools}} · 内置",
     "builtinByAddon": "{{tools}} · 由 {{provider}} 提供",
     "servedBy": "由附加组件 {{provider}} 提供",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "内置",
-    "sandbox": {
-      "starting": "Sandbox 正在启动。LocalAI 将在 {{seconds}} 秒后再次检查。"
-    },
     "fallbackBuiltin": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务（已停止、在此关闭或未授权）：使用内置 {{tool}}。",
     "fallbackNone": "{{addon}} 替代了 {{tool}}，但现在无法为此聊天提供服务，且内置 {{tool}} 已关闭：此聊天没有 {{tool}}。",
     "shell": {
       "machine": "本机",
       "isolated": "命令在隔离环境中运行"
+    },
+    "describe": {
+      "shell": "模型可以运行 shell 命令和脚本。",
+      "files": "模型可以列出、读取、写入和搜索你的文件。",
+      "web": "模型可以搜索网页并读取公开页面。",
+      "media": "模型可以描述图片，并转写你文件中的录音。",
+      "collections": "模型可以搜索你的集合。",
+      "subagents": "模型可以为一项任务启动子智能体并获取其报告。",
+      "saved_agents": "模型可以把你已保存的智能体之一作为子智能体启动。",
+      "triggers": "模型可以提议、列出、修改和删除触发器。每个新触发器或修改都由你确认。",
+      "changes": "模型可以提议修改你的笔记、它自己的规则、技能、页面和仪表板。每一项都由你确认。",
+      "memory": "模型可以在回答前读取你的笔记并保存新的笔记。关闭后此聊天为私密聊天：不读取也不保存你的笔记。你的其他聊天不受影响。",
+      "history": "允许模型搜索并读取你以前的对话。"
+    },
+    "whenOff": {
+      "shell": "模型可以写文件,但不能运行任何东西。",
+      "files": "模型看不到也无法更改你的文件。",
+      "web": "模型无法在线查询任何内容。",
+      "media": "模型无法自行读取图片或录音。",
+      "collections": "模型无法读取你的集合。",
+      "subagents": "模型独自工作。",
+      "saved_agents": "模型看不到也无法启动你保存的智能体。",
+      "triggers": "模型无法提议或管理触发器。",
+      "changes": "模型无法提议修改你的笔记、它自己的规则、技能、页面或仪表板。",
+      "memory": "这是私密聊天。模型不会读取或保存你的笔记。",
+      "history": "模型看不到你以前的对话。"
+    },
+    "addonDescribe_one": "向模型提供此附加组件的 {{count}} 个工具。",
+    "addonDescribe_other": "向模型提供此附加组件的 {{count}} 个工具。",
+    "serverDescribe": "模型的一个 MCP 服务器:其工具会提供给模型。",
+    "connectorDescribe": "你的 MCP 连接器之一:其工具会提供给模型。",
+    "gone": "此处已不可用。关闭它即可移除。",
+    "grants": "其他权限",
+    "grantSensitive": "敏感：这会改变智能体之后可以做或可以访问的内容。",
+    "connection": {
+      "label": "连接",
+      "help": "选择此聊天可以使用的连接。助手只能使用你勾选的连接。",
+      "helpMany": "助手会在每次操作中指明连接，并且只能指明已勾选的连接。",
+      "sole": "这是你唯一的连接，因此会使用它。",
+      "choose": "至少选择一个连接以使用这些工具",
+      "none": "还没有连接",
+      "create": "添加连接",
+      "byAgent": "此聊天的智能体决定连接。请在智能体上更改。",
+      "agentLabel": "此智能体的聊天可用的连接",
+      "agentHelp": "此智能体的聊天只能使用这些连接，且不能更改。",
+      "perChatHelp": "未选择：每个聊天自行选择。"
+    },
+    "optionNeeds": "打开“{{name}}”才能使用此项。",
+    "connectionMissing": "{{name}} 尚未允许此项。",
+    "connectionOpen": "打开其权限",
+    "section": {
+      "messaging": {
+        "title": "消息应用",
+        "intro": "适用于从消息应用开始的聊天。该连接必须在自己的权限页面允许同样的事。"
+      },
+      "unattended": {
+        "title": "无人看管时",
+        "intro": "适用于由触发器或消息应用启动的运行，这类运行中无人能确认某一步。"
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "记住事情",
+        "description": "模型可以提议一条笔记，存入你的记忆或智能体自己的记忆。每条笔记由你确认。"
+      },
+      "profile_write": {
+        "title": "修改自身规则",
+        "description": "模型可以提议修改智能体的长期规则。每次修改由你确认。"
+      },
+      "skills_write": {
+        "title": "编写技能",
+        "description": "模型可以提议新的或修改后的技能。每一项由你确认。"
+      },
+      "pages_write": {
+        "title": "创建页面",
+        "description": "模型可以提议一个在沙箱框架中打开的小应用。由你确认。"
+      },
+      "dashboard_write": {
+        "title": "修改仪表板",
+        "description": "模型可以提议你首页仪表板的新布局。每次修改由你确认。"
+      },
+      "triggers_propose": {
+        "title": "也可从消息应用提议",
+        "description": "有人在消息应用中提出请求时，模型可以提议触发器。由你确认。"
+      },
+      "triggers_run": {
+        "title": "允许触发器从消息应用启动",
+        "description": "绑定到消息连接的触发器可以启动运行，并把结果送到那里。"
+      },
+      "talkback_channels": {
+        "title": "在已知频道回复",
+        "description": "模型可以向它已在其中交流的频道发送消息。"
+      },
+      "talkback_new_channel": {
+        "title": "开启新频道",
+        "description": "模型可以在它从未用过的频道上开始对话。"
+      },
+      "files_upload": {
+        "title": "从消息应用接收文件",
+        "description": "发送者可以附上文件供模型读取。模型不能向外发送文件。"
+      },
+      "act_files": {
+        "title": "自行写入文件",
+        "description": "无人看管的运行可以在智能体的文件夹中写入文件。"
+      },
+      "act_addons": {
+        "title": "自行使用插件动作",
+        "description": "无人看管的运行可以调用智能体插件的动作。"
+      },
+      "act_send": {
+        "title": "自行发送消息",
+        "description": "无人看管的运行可以在其投递目标之外发送消息。"
+      },
+      "act_spend": {
+        "title": "自行使用付费或外部工具",
+        "description": "无人看管的运行可以使用付费或外部工具以及网络。"
+      },
+      "history_read": {
+        "title": "读取你以前的对话",
+        "description": "允许模型搜索并读取你以前的对话。在某个文件夹中工作的智能体只能读取自己的对话。"
+      }
     }
   },
   "vision": {
@@ -348,13 +477,13 @@
       "all": "所有公共网站"
     },
     "presetHint": {
-      "off": "沙盒中的命令无法访问任何网络。",
+      "off": "命令无法访问任何网络。",
       "registries": "命令只能访问软件包仓库（PyPI、npm、Go、crates.io、RubyGems、Maven Central、GitHub 发布）。",
       "all": "命令可以访问所有公共网站。"
     },
     "limited": "受管理员限制",
     "limitedBy": "管理员最多允许：{{limit}}。",
-    "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要 Sandbox 插件。",
+    "hostNetwork": "命令在这台机器上运行，并使用它的网络。网络限制需要可隔离命令的插件。",
     "panel": "规则和请求（{{count}}）",
     "rules": "此聊天的规则",
     "cards": "此聊天的请求",
@@ -386,8 +515,8 @@
     "blocked": {
       "titleOff": "网络访问已关闭",
       "titleCapped": "网络访问受到限制",
-      "bodyOff": "此服务器已关闭沙盒的网络访问。有一条命令想访问",
-      "bodyCapped": "此服务器只允许沙盒网络使用：{{limit}}。有一条命令想访问",
+      "bodyOff": "此服务器已关闭命令的网络访问。有一条命令想访问",
+      "bodyCapped": "此服务器只允许命令的网络使用：{{limit}}。有一条命令想访问",
       "adminOff": "管理员可以在 {{name}} 的设置中开启。",
       "adminCapped": "管理员可以在 {{name}} 的设置中提高限制。",
       "adminLink": "打开 {{name}} 的设置",
@@ -454,7 +583,10 @@
     "itemUnread": "{{title}}，未读",
     "arrived": "新通知：{{title}}",
     "arrivedMany_one": "{{count}} 条新通知",
-    "arrivedMany_other": "{{count}} 条新通知"
+    "arrivedMany_other": "{{count}} 条新通知",
+    "proposalsWaiting_one": "{{count}} 项更改等待你处理",
+    "proposalsWaiting_other": "{{count}} 项更改等待你处理",
+    "proposalsBody": "模型提议了一项更改。在你回应之前不会保存任何内容。"
   },
   "change": {
     "loading": "正在读取触发器更改...",
@@ -582,6 +714,262 @@
       "noChat": "先发送第一条消息，然后在此聊天中启动循环。",
       "stopped_one": "已停止 {{count}} 个循环。",
       "stopped_other": "已停止 {{count}} 个循环。"
+    }
+  },
+  "changes": {
+    "loading": "正在读取提议的更改...",
+    "unread": "无法读取提议的更改：{{message}}",
+    "removed": "此提议已不存在。",
+    "kind": {
+      "memory": "记忆",
+      "profile": "配置文件",
+      "skill": "技能",
+      "page": "页面",
+      "dashboard": "仪表板"
+    },
+    "scope": {
+      "user": "你的所有聊天",
+      "agent": "智能体 {{agent}}",
+      "agentAny": "一个智能体",
+      "channel": "此对话"
+    },
+    "help": "确认之前不会保存任何内容。",
+    "row": {
+      "kind": "类型",
+      "target": "文件",
+      "source": "来源",
+      "expires": "剩余时间"
+    },
+    "source": {
+      "chat": "聊天",
+      "connector": "连接器 {{name}}",
+      "connectorFrom": "连接器 {{name}}，来自 {{sender}}"
+    },
+    "expiresHours": "{{hours}} 小时 {{minutes}} 分钟",
+    "expiresMinutes": "{{minutes}} 分钟",
+    "diff": {
+      "label": "对 {{target}} 的更改",
+      "newFile": "新文件",
+      "added_one": "新增 {{count}} 行",
+      "added_other": "新增 {{count}} 行",
+      "removed_one": "删除 {{count}} 行",
+      "removed_other": "删除 {{count}} 行",
+      "same": "与当前文本没有差异。",
+      "gap_one": "{{count}} 行未变",
+      "gap_other": "{{count}} 行未变",
+      "more_one": "另有 {{count}} 行未显示",
+      "more_other": "另有 {{count}} 行未显示",
+      "srAdded": "新增：",
+      "srRemoved": "删除："
+    },
+    "unreadFile": "无法读取当前文件，因此全部文本都视为新内容。",
+    "confirm": "确认",
+    "edit": "编辑后确认",
+    "confirmEdited": "用我的文本确认",
+    "editLabel": "保存到 {{target}} 的文本",
+    "failed": "无法保存更改：{{message}}。它仍在等待你处理。",
+    "receipt": {
+      "applied": "已应用：",
+      "savedAuto": "已保存到记忆：",
+      "reverted": "已撤销：",
+      "dismissed": "已拒绝：",
+      "expired": "已过期：",
+      "stale": "未应用："
+    },
+    "why": {
+      "expired": "已等待超过一天，未保存任何内容。",
+      "stale": "文件在提议之后发生了变化，因此未保存任何内容。"
+    },
+    "askAgain": "重新请求",
+    "askAgainText": "请重新提议这项更改，文件此后已变化：{{summary}}（{{target}}）",
+    "announce": {
+      "applied": "更改已应用。",
+      "dismissed": "更改已拒绝。",
+      "undone": "更改已撤销。",
+      "asked": "已请助手重新提议。"
+    }
+  },
+  "proposalsPage": {
+    "title": "提议",
+    "supporting": "模型提出、等待你回应的更改。",
+    "emptyTitle": "没有待处理的内容",
+    "emptyBody": "当模型提议更改你的笔记、智能体配置文件、技能、页面或仪表板时，会显示在这里，直到你作出回应。",
+    "loadError": "无法加载提议。"
+  },
+  "memoryPage": {
+    "lede": "LocalAI 放入你聊天提示词中的笔记。只有在你确认提议后，模型才会修改它们。你可以在这里查看、编辑和删除。",
+    "limits": "上限：索引最多 {{lines}} 行和 {{index}}，配置文件 {{profile}}，每轮对话最多携带 {{turn}} 的笔记。",
+    "proposalsLink": "查看等待处理的更改",
+    "emptyTitle": "还没有笔记",
+    "emptyBody": "当你让助手记住某事并确认后，笔记会显示在这里。",
+    "loadError": "无法加载你的笔记。",
+    "use": "{{size}} / {{max}} · {{lines}} / {{maxLines}} 行",
+    "useBytes": "{{size}} / {{max}}",
+    "useLabel": "索引大小与上限",
+    "over": "超出上限：末尾部分不会发送给模型。",
+    "index": "索引",
+    "group": {
+      "user": "你的笔记",
+      "agent": "智能体 {{key}} 的笔记",
+      "channel": "对话 {{key}} 的笔记",
+      "profile": "智能体 {{key}} 的配置文件",
+      "agentNamed": "智能体 {{name}} 的笔记",
+      "profileNamed": "智能体 {{name}} 的资料"
+    },
+    "edit": "编辑",
+    "save": "保存",
+    "editLabel": "{{name}} 的文本",
+    "editSizeIndex": "{{size}} / {{max}} · {{lines}} / {{maxLines}} 行",
+    "editSize": "{{size}} / {{max}}",
+    "tooBig": "太长：请缩短后再保存。",
+    "saveFailed": "无法保存：{{message}}",
+    "saved": "已保存 {{name}}。",
+    "emptyFile": "（空）",
+    "delete": "删除 {{name}}",
+    "deleteYes": "删除",
+    "confirmDelete": "删除 {{name}}？",
+    "deleted": "已将 {{name}} 移到回收站。",
+    "clear": "全部忘记",
+    "clearAsk_one": "删除 {{count}} 个文件？文件会移到回收站，可在“文件”中恢复。",
+    "clearAsk_other": "删除 {{count}} 个文件？文件会移到回收站，可在“文件”中恢复。",
+    "clearYes_one": "删除 {{count}} 个文件",
+    "clearYes_other": "删除 {{count}} 个文件",
+    "cleared_one": "已将 {{count}} 个文件移到回收站。",
+    "cleared_other": "已将 {{count}} 个文件移到回收站。",
+    "tabs": {
+      "label": "笔记归属",
+      "mine": "我的",
+      "deleted": "已删除的智能体",
+      "channels": "对话",
+      "export": "导出这些笔记",
+      "clearAgent": "删除此智能体的笔记",
+      "clearDeleted": "删除这些笔记"
+    },
+    "deletedNote": "这些智能体已被删除。它们的笔记会保留，直到你在这里删除。",
+    "tabEmpty": "这里没有笔记。"
+  },
+  "triggerActs": {
+    "help": "运行会自行开始，没有人批准每一步。它可以读取并汇报。勾选它还可以做什么。它得到的权限不会超过其代理。",
+    "noAgent": "未选择代理，因此只有你勾选的项目起限制作用。",
+    "readOnly": "只读",
+    "canAct": "可自行操作",
+    "canActText_one": "一次运行可在不询问的情况下使用 {{count}} 类操作。",
+    "canActText_other": "一次运行可在不询问的情况下使用 {{count}} 类操作。",
+    "sensitive": "需谨慎",
+    "addonRow": "一次运行可使用附加组件 {{id}} 的操作。",
+    "blocked": "你的代理没有此权限，因此无法勾选。请先将它添加到代理。",
+    "unused": "你的代理没有此权限，因此运行不会使用它。",
+    "unusedList": "已列出，但代理没有，所以不使用：{{names}}。",
+    "writesNote": "其计划指明了文件 {{file}}，因此一次运行也可以写入文件。",
+    "listCan_one": "可操作（{{count}}）",
+    "listCan_other": "可操作（{{count}}）",
+    "why": {
+      "no_acts": "未设置操作权限，因此其运行只读取并汇报。",
+      "agent": "其代理没有它要求的权限，因此其运行只读取并汇报。",
+      "declared": "它被设置为只读取并汇报。在此勾选不会改变这一点。",
+      "binding": "它由只读模式的连接创建。在此勾选不会改变这一点。"
+    }
+  },
+  "memorySettings": {
+    "titleOn": "记忆已开启",
+    "titleOff": "记忆已关闭",
+    "ledeOn": "你的聊天会保留关于你的简短笔记，并在回答前读取。关闭后，任何地方都不再读取或保存。笔记保持原样。",
+    "ledeOff": "在任何聊天或智能体中，都不会读取或保存你的笔记。如果你让助手记住某事，它会说明记忆已关闭。笔记仍然保留，你仍可查看、导出和删除。",
+    "on": "开",
+    "off": "关",
+    "unavailable": "笔记是文件，而此服务器已关闭文件，因此记忆无法在这里工作。",
+    "saveTitle": "保存笔记",
+    "saveLede": "助手想要保留某些内容时会发生什么。始终以最严格的规则为准。",
+    "save": {
+      "ask": {
+        "title": "先问我",
+        "body": "聊天中会出现一张卡片。你可以确认、编辑或忽略。"
+      },
+      "auto": {
+        "title": "保存并告知我",
+        "body": "在你自己的聊天中，笔记会立即保存。聊天会显示“已保存到记忆”和撤销。每次回复最多 5 条。过长或看起来像机密的笔记仍需你确认。"
+      },
+      "never": {
+        "title": "从不",
+        "body": "助手不能保存笔记，并会告诉你保存已关闭。"
+      }
+    },
+    "default": "默认",
+    "saveNote": "来自消息应用的聊天总是先询问。后台运行和触发器从不保存笔记。已保存的智能体可以比这里的选择问得更多，但不会更少。",
+    "saveFailed": "无法保存你的选择。",
+    "loadError": "无法加载你的记忆设置。",
+    "notesTitle": "管理你的笔记",
+    "notesLede": "可以查看、编辑、导出或删除。记忆关闭时同样可用。",
+    "export": "导出"
+  },
+  "memoryOff": {
+    "title": "此处记忆已关闭。",
+    "line": {
+      "chat": "这是私密聊天：不读取也不保存任何内容，你的笔记不受影响。可在工具菜单中开启。",
+      "user": "没有任何聊天或智能体会读取或保存笔记，你的笔记不受影响。",
+      "agent": "此聊天的智能体已关闭记忆。",
+      "files": "笔记是文件，而此服务器已关闭文件。"
+    },
+    "chip": "记忆已关",
+    "chipPrivate": "私密聊天",
+    "fixUser": "设置，记忆",
+    "userRow": "已在你的设置中关闭。请在“设置，记忆”中开启。"
+  },
+  "agentMemory": {
+    "title": "记忆",
+    "lede": "选择这个智能体读取哪些笔记，以及把新笔记存到哪里。",
+    "offUser": "你的设置中记忆已关闭，所以这个选择在你重新开启前不会生效。",
+    "offUserFix": "设置，记忆",
+    "recommended": "推荐",
+    "mine_and_own": {
+      "title": "我的和它自己的",
+      "body": "读取你的笔记和它自己的笔记，只保存到它自己的笔记。"
+    },
+    "own": {
+      "title": "仅它自己的",
+      "body": "只读取和保存它自己的笔记，你的笔记不会被触及。"
+    },
+    "mine": {
+      "title": "我的",
+      "body": "读取并保存你的笔记。"
+    },
+    "none": {
+      "title": "无",
+      "body": "不读取也不保存任何内容。"
+    },
+    "mineWarn": "这个智能体可以向你的记忆添加笔记，对所有聊天生效。每条都需要你确认。",
+    "asBefore": {
+      "title": "保持原样",
+      "body": "这个智能体保存于这个选项出现之前。如果它的插件列表包含 Memory，它会读取你的笔记，并由模型决定笔记存到哪里。选择下面的某个选项即可更改。"
+    },
+    "saveGrant": "允许保存笔记",
+    "saveGrantHelp": "开启“记住内容”权限。没有它，智能体只能读取笔记，不能保存。",
+    "copyNote": "导出智能体，或将其作为新智能体导入，会保留这个选择，但不会复制它的笔记。",
+    "summary": {
+      "mine_and_own": "我的和它自己的",
+      "own": "仅它自己的",
+      "mine": "我的",
+      "none": "无",
+      "asBefore": "保持原样"
+    },
+    "delete": {
+      "title": "删除 {{name}}？",
+      "ask": "这个智能体有自己的笔记（{{count}} 条）。要如何处理？",
+      "legend": "如何处理这些笔记",
+      "default": "默认",
+      "confirm": "删除智能体",
+      "keep": {
+        "title": "保留笔记",
+        "body": "笔记会留在“记忆”页面的“已删除的智能体”下，直到你删除它们。"
+      },
+      "export": {
+        "title": "导出后删除",
+        "body": "将笔记下载为 zip 文件，然后移到回收站。"
+      },
+      "delete": {
+        "title": "同时删除笔记",
+        "body": "笔记会移到回收站，可从“文件”中恢复。"
+      }
     }
   }
 }

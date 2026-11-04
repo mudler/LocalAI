@@ -1,0 +1,149 @@
+{
+  "title": "Talk",
+  "subtitle": "voz em tempo real",
+  "stage": "Sessão de voz",
+  "picker": {
+    "title": "Pipeline de voz: ouvir, pensar, falar",
+    "heading": "Modelos de pipeline",
+    "label": "Modelo de pipeline",
+    "none": "Nenhum pipeline",
+    "defaultVoice": "voz padrão",
+    "auto": "auto"
+  },
+  "view": {
+    "idle": {
+      "title": "Pronto",
+      "body": "Inicie uma sessão e fale. O microfone só é usado enquanto uma sessão está aberta.",
+      "note": "Seu microfone transmite enquanto a sessão roda. O servidor percebe quando você para de falar e responde sozinho.",
+      "noteManual": "Seu microfone transmite enquanto a sessão roda. Este modelo não tem detecção de voz, então pressione Terminei de falar ao fim de cada turno."
+    },
+    "connecting": {
+      "title": "Conectando",
+      "body": "Preparando a chamada. O modelo ainda não está ouvindo."
+    },
+    "listening": {
+      "title": "Ouvindo",
+      "body": "Diga o que precisa. Respondo quando você parar.",
+      "hearing": "Ouvindo você falar.",
+      "manual": "Diga o que precisa e depois pressione Terminei de falar."
+    },
+    "interrupted": {
+      "title": "Interrompido",
+      "body": "Parei. Pode falar, estou ouvindo."
+    },
+    "thinking": {
+      "title": "Pensando",
+      "body": "Elaborando uma resposta."
+    },
+    "speaking": {
+      "title": "Falando",
+      "body": "Fale por cima de mim a qualquer momento para interromper."
+    },
+    "blocked": {
+      "title": "Microfone bloqueado",
+      "body": "O navegador não deu o microfone a esta página.",
+      "cardTitle": "Permitir o microfone",
+      "card": "Clique no ícone de cadeado na barra de endereço, defina Microfone como Permitir e tente de novo. Nada foi gravado."
+    },
+    "lost": {
+      "title": "Conexão perdida",
+      "body": "A ligação com o servidor caiu.",
+      "cardTitle": "A sessão terminou",
+      "card": "A ligação WebRTC falhou. A conversa até aqui continua na transcrição."
+    },
+    "error": {
+      "title": "Algo deu errado",
+      "body": "Não foi possível preparar a chamada ou o servidor informou um erro."
+    },
+    "nopipe": {
+      "title": "O Talk precisa de um modelo de pipeline",
+      "body": "Um modelo de pipeline junta um modelo de fala para texto, um modelo de chat e um modelo de texto para fala em um único assistente de voz. Nenhum está configurado ainda. Crie um, ou procure antes os modelos na galeria.",
+      "create": "Criar um modelo de pipeline",
+      "gallery": "Explorar a galeria"
+    }
+  },
+  "detail": {
+    "tool": "Executando {{name}}.",
+    "processing": "Elaborando uma resposta.",
+    "generating": "Escrevendo a resposta.",
+    "server": "O servidor informou um erro: {{message}}",
+    "insecure": "O acesso ao microfone exige HTTPS ou localhost.",
+    "noMic": "Nenhum microfone foi encontrado.",
+    "failed": "Não foi possível preparar a chamada: {{message}}",
+    "unknown": "erro desconhecido"
+  },
+  "controls": {
+    "start": "Iniciar sessão",
+    "end": "Encerrar sessão",
+    "testTone": "Tom de teste",
+    "endTurn": "Terminei de falar",
+    "diagnostics": "Diagnóstico",
+    "viewTraces": "Ver traces",
+    "retry": {
+      "blocked": "Tentar de novo",
+      "lost": "Reconectar",
+      "error": "Tentar de novo"
+    }
+  },
+  "transcript": {
+    "title": "Transcrição",
+    "copy": "Copiar",
+    "empty": "O que você diz e o que o modelo responde aparece aqui conforme acontece. Não é salvo.",
+    "emptyNoPipeline": "Nada para mostrar ainda.",
+    "user": "Você",
+    "assistant": "Resposta",
+    "tool_call": "Ferramenta",
+    "tool_result": "Resultado",
+    "interrupted": "Resposta interrompida",
+    "toneRequested": "Tom de teste solicitado"
+  },
+  "settings": {
+    "title": "Configurações da sessão",
+    "desc": "Vale quando a sessão começa.",
+    "close": "Fechar",
+    "voiceLanguage": "Voz e idioma",
+    "voice": "Voz",
+    "voicePlaceholder": "Nome da voz (deixe em branco para o padrão do modelo)",
+    "language": "Idioma da transcrição",
+    "languagePlaceholder": "Código do idioma, por exemplo pt (em branco detecta)",
+    "instructions": "Instruções",
+    "instructionsPlaceholder": "Instruções de sistema para o modelo",
+    "instructionsHelp": "Enviadas como as instruções da sessão. Mantenha-as curtas: as respostas são faladas.",
+    "tools": "Ferramentas",
+    "manage": "Modo de gerenciamento",
+    "manageDesc": "Deixe o modelo consultar o LocalAI: modelos, backends e informações do sistema.",
+    "manageLocked": "Fixo enquanto uma sessão está aberta. Encerre a sessão para alterá-lo.",
+    "pipeline": "{{name}} em detalhe",
+    "anyToAny": "Modelo de fala para fala: um único modelo ouve você, responde e fala. Não precisa de um modelo separado de transcrição, de idioma nem de fala.",
+    "noVad": "Nenhum modelo de detecção de voz está definido. Pressione Terminei de falar a cada turno.",
+    "editConfig": "Editar configuração do modelo",
+    "editPipeline": "Editar pipeline",
+    "slot": {
+      "vad": "Detecção de voz",
+      "transcription": "Transcrição",
+      "llm": "Modelo de linguagem",
+      "tts": "Fala"
+    }
+  },
+  "diag": {
+    "title": "Diagnóstico de áudio",
+    "waveform": "Forma de onda",
+    "spectrum": "Espectro (FFT)",
+    "waiting": "Aguardando estatísticas...",
+    "peakFreq": "Frequência de pico",
+    "thd": "THD",
+    "rms": "Nível RMS",
+    "sampleRate": "Taxa de amostragem",
+    "packetsRecv": "Pacotes recebidos",
+    "packetsLost": "Pacotes perdidos",
+    "jitter": "Jitter",
+    "concealed": "Amostras ocultadas"
+  },
+  "toasts": {
+    "selectModel": "Selecione primeiro um modelo de pipeline.",
+    "modelsFailed": "Falha ao carregar os modelos de tempo real: {{message}}",
+    "viewTraces": "Ver traces",
+    "copied": "Transcrição copiada",
+    "copyFailed": "Não foi possível copiar para a área de transferência"
+  }
+}

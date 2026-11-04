@@ -39,11 +39,38 @@ type Snapshot struct {
 	HostOps        []string
 	HostOperations *hostops.RequestSummary
 	Unavailable    bool
+	// Operation is the lifecycle operation that runs on the add-on now, or nil.
+	Operation *Operation
+}
+
+// Operation names the lifecycle operation that runs on an add-on. The apps
+// list reports it so a page can say "upgrading" while the owner works, and the
+// list stays readable meanwhile: reading never waits for the operation.
+type Operation struct {
+	// Kind is the action: install, upgrade, enable, disable or uninstall.
+	Kind string `json:"kind" enums:"install,upgrade,enable,disable,uninstall" example:"upgrade"`
+	// Phase is the step the owner is in: queued, downloading (fetch and
+	// verify the package), backing-up, installing, migrating, starting or
+	// working for a step without a name of its own.
+	Phase string `json:"phase" example:"downloading"`
+	// Since is when the operation was accepted, RFC 3339 in UTC. It is absent
+	// for an operation recorded before the owner kept the time.
+	Since string `json:"since,omitempty" example:"2026-11-04T17:18:00Z"`
 }
 
 // List is the response of the apps list.
 type List struct {
 	Apps []App `json:"apps"`
+	// Stale is true when the receiving frontend could not reach the owner in
+	// time and answers with the last list it received from it. The list may be
+	// out of date; Apps still carries the operations the owner reported then.
+	Stale bool `json:"stale,omitempty"`
+	// StaleReason is why the list is stale: owner_busy when the owner did not
+	// answer within the read deadline, owner_unavailable when it could not be
+	// reached at all.
+	StaleReason string `json:"staleReason,omitempty" enums:"owner_busy,owner_unavailable"`
+	// StaleSince is when the owner last answered, RFC 3339 in UTC.
+	StaleSince string `json:"staleSince,omitempty"`
 }
 
 // StartRequest is the body of the start and stop routes. The generation is
@@ -55,6 +82,47 @@ type StartRequest struct {
 	OperationID string `json:"operationId" example:"start-notes-1"`
 	// Generation is the installed generation the caller saw in the list.
 	Generation uint64 `json:"generation" example:"3"`
+}
+
+// Localize returns a copy of the app with the text in the language the
+// request negotiates: the explicit language, else the Accept-Language header,
+// else none. An app whose manifest translates nothing in that language is
+// returned as it is.
+func (a App) Localize(explicit, acceptLanguage string) App {
+	available := map[string]bool{}
+	for tag := range a.Titles {
+		available[tag] = true
+	}
+	for tag := range a.Descriptions {
+		available[tag] = true
+	}
+	tags := make([]string, 0, len(available))
+	for tag := range available {
+		tags = append(tags, tag)
+	}
+	tag := contract.NegotiateLanguage(explicit, acceptLanguage, tags)
+	if tag == "" {
+		return a
+	}
+	pick := func(m map[string]string, fallback string) string {
+		if got, ok := contract.MatchLanguage(tag, languagesOf(m)); ok && m[got] != "" {
+			return m[got]
+		}
+		return fallback
+	}
+	a.Titles, a.Descriptions = maps.Clone(a.Titles), maps.Clone(a.Descriptions)
+	a.Language = tag
+	a.LocalizedTitle = pick(a.Titles, a.Title)
+	a.LocalizedDescription = pick(a.Descriptions, a.Description)
+	return a
+}
+
+func languagesOf(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for tag := range m {
+		out = append(out, tag)
+	}
+	return out
 }
 
 // MaxTools bounds the tool names of one app.
@@ -76,6 +144,15 @@ type App struct {
 	Titles       map[string]string `json:"titles,omitempty"`
 	Description  string            `json:"description,omitempty" example:"Keep notes."`
 	Descriptions map[string]string `json:"descriptions,omitempty"`
+	// Language, LocalizedTitle and LocalizedDescription are present only when
+	// the request named a language (the lang query parameter, else the
+	// Accept-Language header) that the manifest translates. Language is the
+	// tag that matched. Each localized field falls back to English on its own,
+	// so a title without a translation is the English title. No other field
+	// changes: Title and Description stay the default-language text.
+	Language             string `json:"language,omitempty" example:"it"`
+	LocalizedTitle       string `json:"localizedTitle,omitempty" example:"Appunti"`
+	LocalizedDescription string `json:"localizedDescription,omitempty" example:"Tieni degli appunti."`
 	// Icon is a same-origin URL of the verified immutable icon of this
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`
@@ -99,6 +176,11 @@ type App struct {
 	// observation from State and is absent otherwise: an unchecked, failed
 	// or up to date add-on has none. The list never reaches a library.
 	Update string `json:"update,omitempty" enums:"update-pending" example:"update-pending"`
+	// Operation is the lifecycle operation that runs on the add-on now (an
+	// upgrade, say). It is absent when none runs. The observation is
+	// separate from State: the process can run on while the owner stages
+	// the next generation.
+	Operation *Operation `json:"operation,omitempty"`
 	// MainPage is the path the Open action navigates to. It is present only
 	// for an enabled addon whose manifest declares a main page that is one of
 	// its pages.
@@ -116,16 +198,49 @@ type App struct {
 	// the argument schema and the kind of each tool. The host serves them to
 	// chat from the verified manifest; the add-on process is never asked.
 	ToolDefinitions []contract.ToolDefinition `json:"toolDefinitions,omitempty"`
+	// Credentialed is true when the manifest declares credentials: the tools
+	// work with a secret that the person keeps in a connector binding. A
+	// connector chat holds its write tools to contract.ToolPermission.
+	Credentialed bool `json:"credentialed,omitempty"`
+	// ResourceArgument and ResourceLabel come from the credential slot: the
+	// argument that names the resource of a call, and the word for it in the
+	// lines that say which connection acted. They are not part of the apps API.
+	ResourceArgument string `json:"-"`
+	ResourceLabel    string `json:"-"`
+	// Resources is the resource mapping of the manifest, with the listing
+	// declaration the host acts on. It is not part of the apps API.
+	Resources *contract.ResourceTools `json:"-"`
 	// Skills are the skills the package ships, from the verified manifest.
 	// The owner copies their files into the chats' skill layer.
 	Skills []contract.SkillDefinition `json:"skills,omitempty"`
 	// SkillShadows lists the built-in skills the add-on replaces (xlsx, say).
 	SkillShadows []string `json:"skillShadows,omitempty"`
+	// ContextFiles are the index files the add-on asks the host to load into
+	// the prompt of a chat, from the verified manifest. The host reads them as
+	// the person; the add-on is not called.
+	ContextFiles []contract.ContextFile `json:"contextFiles,omitempty"`
+	// UserSettings are the per-person choices the add-on declares, from the
+	// verified manifest. The host keeps the answers; the add-on is not called.
+	UserSettings []contract.UserSetting `json:"userSettings,omitempty"`
 	// UI describes what the shell loads for this app. It is present only for
 	// an enabled addon with a UI whose installed package has a sha256 digest.
 	UI *UIView `json:"ui,omitempty"`
+	// Network is the network policy the add-on declares, present only while
+	// the host draws its network-policy control (see contract.EntitledControls).
+	Network *NetworkView `json:"network,omitempty"`
 	// Admin is present only for administrators.
 	Admin *AdminView `json:"admin,omitempty"`
+}
+
+// NetworkView is the network of the commands an add-on runs, as the host
+// names it in the text it shows.
+type NetworkView struct {
+	// Kind is the declared kind of network policy.
+	Kind string `json:"kind" enums:"egress-check" example:"egress-check"`
+	// Title names the network in text: the declared title, else the add-on's.
+	Title string `json:"title" example:"Example provider"`
+	// Presets are the titles the add-on gives the host's network presets.
+	Presets []contract.NetworkPreset `json:"presets,omitempty"`
 }
 
 // UIView is the registry entry of an addon UI: the same-origin URLs of its
@@ -246,8 +361,18 @@ func build(s Snapshot, admin bool) App {
 		d.InputSchema = slices.Clone(d.InputSchema)
 		a.ToolDefinitions = append(a.ToolDefinitions, d)
 	}
+	a.Credentialed = len(m.Capabilities.Credentials) > 0
+	if a.Credentialed {
+		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
+	}
+	a.Resources = resourceTools(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
 	a.SkillShadows = contract.ShadowedSkills(m.Capabilities.SkillDefinitions)
+	a.ContextFiles = slices.Clone(m.Capabilities.ContextFiles)
+	for _, us := range m.Capabilities.UserSettings {
+		us.Values = slices.Clone(us.Values)
+		a.UserSettings = append(a.UserSettings, us)
+	}
 	if u := m.Capabilities.UI; u != nil {
 		a.HasUI = true
 		if u.Title != nil {
@@ -269,16 +394,33 @@ func build(s Snapshot, admin bool) App {
 			a.UI = uiView(id, s.Receipt.Digest, u)
 			if a.UI != nil {
 				a.UI.Controls = contract.EntitledControls(m, s.HostOps)
+				a.Network = networkView(a.Title, m.Capabilities.Network, a.UI.Controls)
 			}
 		}
 	}
 	if s.UpdatePending {
 		a.Update = "update-pending"
 	}
+	if s.Operation != nil {
+		op := *s.Operation
+		a.Operation = &op
+	}
 	if admin {
 		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
 	}
 	return a
+}
+
+// networkView is the declared network of an add-on whose network-policy
+// control the host draws, or nil.
+func networkView(title string, n *contract.NetworkCapability, controls []string) *NetworkView {
+	if n == nil || !slices.Contains(controls, contract.ControlNetworkPolicy) {
+		return nil
+	}
+	if n.Title != "" {
+		title = n.Title
+	}
+	return &NetworkView{Kind: n.Kind, Title: title, Presets: slices.Clone(n.Presets)}
 }
 
 // state never claims more than was observed: a disabled addon is stopped, and
@@ -376,4 +518,17 @@ func contributions(u *contract.UI) ([]ChatActionView, []SlotView, []contract.Ren
 		slots = append(slots, SlotView{ID: s.ID, Slot: s.Slot, Component: s.Component, Extensions: slices.Clone(s.Extensions)})
 	}
 	return actions, slots, slices.Clone(u.Renderers)
+}
+
+// resourceTools copies the resource mapping of the manifest.
+func resourceTools(m contract.Manifest) *contract.ResourceTools {
+	if m.Capabilities.Resources == nil {
+		return nil
+	}
+	r := *m.Capabilities.Resources
+	if r.List != nil {
+		l := *r.List
+		r.List = &l
+	}
+	return &r
 }

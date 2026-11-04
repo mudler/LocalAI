@@ -2,6 +2,7 @@ package transport
 
 import (
 	"context"
+	"io"
 	"strconv"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
@@ -21,6 +22,8 @@ const Kind = "telegram"
 type Runtime struct {
 	idle.Runtime
 	API *API
+	// Host is the host operation channel, with which a file moves by handle.
+	Host connector.Host
 }
 
 var _ contract.ConnectorRuntime = Runtime{}
@@ -32,7 +35,7 @@ func (r Runtime) Connector(ctx context.Context, req contract.ConnectorRequest) (
 	if api == nil {
 		api = &API{}
 	}
-	return connector.Serve(ctx, platform{api}, req)
+	return connector.ServeWith(ctx, platform{api}, r.Host, req)
 }
 
 // platform is the Bot API as a connector.Platform. Telegram names chats and
@@ -47,11 +50,9 @@ func (p platform) Poll(ctx context.Context, token string, offset int64, wait int
 }
 
 var (
-	_ connector.FileSender  = platform{}
-	_ connector.MediaReader = platform{}
-	_ connector.RichSender  = platform{}
-	_ connector.Drafter     = platform{}
-	_ connector.Splitter    = platform{}
+	_ connector.RichSender = platform{}
+	_ connector.Drafter    = platform{}
+	_ connector.Splitter   = platform{}
 )
 
 // Split cuts an answer, which is Markdown, without breaking a code block. A
@@ -91,12 +92,18 @@ func messageRef(id int64) string {
 	return strconv.FormatInt(id, 10)
 }
 
-func (p platform) SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error) {
+// MediaStream streams a file of a message to the host by handle.
+func (p platform) MediaStream(ctx context.Context, token, ref string, max int64) (connector.MediaStream, error) {
+	return p.api.MediaStream(ctx, token, ref, max)
+}
+
+// SendStream sends a file that the host hands over by handle.
+func (p platform) SendStream(ctx context.Context, req contract.ConnectorRequest, body io.Reader) (string, error) {
 	chat, thread, err := where(req)
 	if err != nil {
 		return "", err
 	}
-	id, err := p.api.SendFile(ctx, req.Token, chat, thread, req.File.Name, req.File.MIME, req.File.Data)
+	id, err := p.api.SendFileStream(ctx, req.Token, chat, thread, req.Transfer.Name, req.Transfer.MIME, req.Transfer.Size, body)
 	return messageRef(id), err
 }
 
@@ -157,12 +164,6 @@ func (p platform) Typing(ctx context.Context, req contract.ConnectorRequest) err
 		return err
 	}
 	return p.api.Typing(ctx, req.Token, chat, thread)
-}
-
-// Media reads a photo, a voice message, an audio file, a video note or a
-// document of a message, by the reference that Updates made.
-func (p platform) Media(ctx context.Context, token, ref string) (contract.ConnectorFile, error) {
-	return p.api.Media(ctx, token, ref)
 }
 
 func (p platform) Me(ctx context.Context, token string) (connector.Bot, error) {

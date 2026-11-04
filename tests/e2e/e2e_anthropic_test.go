@@ -134,6 +134,56 @@ var _ = Describe("Anthropic API E2E test", func() {
 			})
 		})
 
+		Context("max_tokens stop reason", func() {
+			// The mock backend reports 10 completion tokens for a plain
+			// non-streaming reply and one per character when streaming, so a
+			// max_tokens of 5 is always exhausted.
+			It("reports max_tokens when the non-streaming reply hits the limit", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model",
+					MaxTokens: 5,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Hello")),
+					},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(message.Usage.OutputTokens).To(BeNumerically(">=", 5))
+				Expect(string(message.StopReason)).To(Equal("max_tokens"))
+			})
+
+			It("reports max_tokens when the streamed reply hits the limit", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model",
+					MaxTokens: 5,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Hello")),
+					},
+				})
+				message := anthropic.Message{}
+				for stream.Next() {
+					Expect(message.Accumulate(stream.Current())).To(Succeed())
+				}
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(string(message.StopReason)).To(Equal("max_tokens"))
+			})
+
+			It("keeps end_turn when the streamed reply stays under the limit", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Hello")),
+					},
+				})
+				message := anthropic.Message{}
+				for stream.Next() {
+					Expect(message.Accumulate(stream.Current())).To(Succeed())
+				}
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(string(message.StopReason)).To(Equal("end_turn"))
+			})
+		})
+
 		Context("Tool calling", func() {
 			It("handles tool calls in non-streaming mode", func() {
 				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
@@ -382,6 +432,59 @@ var _ = Describe("Anthropic API E2E test", func() {
 				Expect(foundToolUse).To(BeTrue(), "Model should have called the get_weather tool in streaming mode")
 				Expect(string(message.StopReason)).To(Equal("tool_use"))
 			})
+		})
+
+		Context("tool_choice", func() {
+			weatherTool := []anthropic.ToolUnionParam{{
+				OfTool: &anthropic.ToolParam{
+					Name: "get_weather",
+					InputSchema: anthropic.ToolInputSchemaParam{
+						Type:       constant.ValueOf[constant.Object](),
+						Properties: map[string]any{"location": map[string]any{"type": "string"}},
+					},
+				},
+			}}
+
+			It("does not call a tool when tool_choice is none", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "mock-model",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
+					},
+					Tools:      weatherTool,
+					ToolChoice: anthropic.ToolChoiceUnionParam{OfNone: &anthropic.ToolChoiceNoneParam{}},
+				})
+				Expect(err).ToNot(HaveOccurred())
+				for _, block := range message.Content {
+					Expect(string(block.Type)).ToNot(Equal("tool_use"))
+				}
+				Expect(string(message.StopReason)).To(Equal("end_turn"))
+			})
+
+			// The llama.cpp backend turns any object tool_choice into
+			// "required", so the Anthropic object must reach the backend
+			// in its OpenAI form.
+			DescribeTable("forwards tool_choice to the backend in OpenAI form",
+				func(toolChoice anthropic.ToolChoiceUnionParam, expected string) {
+					message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+						Model:     "mock-model",
+						MaxTokens: 1024,
+						Messages: []anthropic.MessageParam{
+							anthropic.NewUserMessage(anthropic.NewTextBlock("ECHO_TOOL_CHOICE")),
+						},
+						Tools:      weatherTool,
+						ToolChoice: toolChoice,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(message.Content).ToNot(BeEmpty())
+					Expect(message.Content[0].Text).To(Equal("TOOL_CHOICE=" + expected))
+				},
+				Entry("auto", anthropic.ToolChoiceUnionParam{OfAuto: &anthropic.ToolChoiceAutoParam{}}, `"auto"`),
+				Entry("any", anthropic.ToolChoiceUnionParam{OfAny: &anthropic.ToolChoiceAnyParam{}}, `"required"`),
+				Entry("none", anthropic.ToolChoiceUnionParam{OfNone: &anthropic.ToolChoiceNoneParam{}}, `"none"`),
+				Entry("tool", anthropic.ToolChoiceParamOfTool("get_weather"), `{"function":{"name":"get_weather"},"type":"function"}`),
+			)
 		})
 
 		Context("ChatDeltas (C++ autoparser)", func() {

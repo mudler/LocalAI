@@ -2,6 +2,7 @@ package builtins_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
@@ -123,5 +124,73 @@ var _ = Describe("the registry of built-in tools", func() {
 		t, ok := r.Lookup("web_search")
 		Expect(ok).To(BeTrue())
 		Expect(t.Options).To(Equal([]string{"o"}))
+	})
+})
+
+var _ = Describe("a tool gated by a capability", func() {
+	var held map[string]bool
+	var audited []string
+	chat := func() builtins.Chat {
+		return builtins.Chat{
+			Origin: "connector",
+			Allow: func(c string) (bool, string) {
+				if held[c] {
+					return true, ""
+				}
+				return false, "no " + c
+			},
+			Audit: func(c string, ok bool, _ string) { audited = append(audited, c) },
+		}
+	}
+	register := func() *builtins.Registry {
+		r := builtins.NewRegistry()
+		ran := func(context.Context, builtins.Chat) (session.Tool, bool, string) {
+			return session.Tool{Description: "x", Run: func(context.Context, json.RawMessage) (string, error) { return "ran", nil }}, true, ""
+		}
+		Expect(r.Register(builtins.Tool{ID: "gated", Unlisted: true, Capabilities: []string{"memory.write"}, Build: ran})).To(Succeed())
+		Expect(r.Register(builtins.Tool{ID: "open", Unlisted: true, Build: ran})).To(Succeed())
+		return r
+	}
+	BeforeEach(func() { held, audited = map[string]bool{}, nil })
+
+	It("refuses a capability that is not in the closed list", func() {
+		err := builtins.NewRegistry().Register(builtins.Tool{ID: "x", Unlisted: true, Capabilities: []string{"shell.run"}, Build: func(context.Context, builtins.Chat) (session.Tool, bool, string) { return session.Tool{}, true, "" }})
+		Expect(err).To(HaveOccurred())
+	})
+	It("is not offered to a sender without the capability, and the others are", func() {
+		got := register().Build(context.Background(), chat())
+		Expect(got[0].OK).To(BeFalse())
+		Expect(got[0].Reason).To(HavePrefix(builtins.ReasonNotPermitted))
+		Expect(got[1].OK).To(BeTrue())
+	})
+	It("is offered to a chat that has no sender check", func() {
+		got := register().Build(context.Background(), builtins.Chat{})
+		Expect(got[0].OK).To(BeTrue())
+	})
+	It("is refused at the call when the capability went away after the tool was offered", func() {
+		held["memory.write"] = true
+		got := register().Build(context.Background(), chat())
+		Expect(got[0].OK).To(BeTrue())
+		out, err := got[0].Tool.Run(context.Background(), nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(out).To(Equal("ran"))
+		held["memory.write"] = false
+		_, err = got[0].Tool.Run(context.Background(), nil)
+		Expect(err).To(MatchError(ContainSubstring("not permitted: no memory.write")))
+		Expect(audited).To(Equal([]string{"memory.write"}))
+	})
+})
+
+var _ = Describe("the files.upload grant", func() {
+	// The connector gate enforces files.upload on the files a sender attaches to
+	// a message (the sender's files going to the agent). The text of the editor
+	// must say that, not the opposite direction.
+	It("says that senders' files reach the agent, and not that the agent sends files", func() {
+		g, ok := builtins.LookupGrant(builtins.GrantFilesUpload)
+		Expect(ok).To(BeTrue())
+		Expect(g.Title).To(Equal("Receive files"))
+		Expect(g.Description).To(ContainSubstring("attach files for the agent to read"))
+		Expect(g.Title + g.Description).NotTo(ContainSubstring("from your folders"))
+		Expect(g.Sensitive).To(BeFalse())
 	})
 })

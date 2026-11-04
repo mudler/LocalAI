@@ -120,11 +120,59 @@ var _ = Describe("Google Programmable Search", func() {
 	})
 })
 
+var _ = Describe("Keenable", func() {
+	answer := `{"query":"local ai","mode":"pro","results":[
+		{"title":"LocalAI","url":"https://localai.io/","description":"","snippet":"The free, open source alternative."},
+		{"title":"bad","url":"ftp://example.org/","description":"","snippet":""}]}`
+
+	It("posts the query with the key in its header, site and freshness, and reads the snippets", func() {
+		srv, got := fake(200, answer)
+		p, err := providers.NewKeenable(srv.URL+"/v1/search", key)
+		Expect(err).NotTo(HaveOccurred())
+		res, err := p.Search(context.Background(), q)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).To(Equal([]search.Result{{Title: "LocalAI", URL: "https://localai.io/", Snippet: "The free, open source alternative."}}))
+		Expect(got.method).To(Equal(http.MethodPost))
+		Expect(got.path).To(Equal("/v1/search"))
+		Expect(got.header.Get("X-API-Key")).To(Equal(key))
+		Expect(got.header.Get("X-Keenable-Title")).To(BeEmpty())
+		Expect(got.body).To(HaveKeyWithValue("query", "local ai"))
+		Expect(got.body).To(HaveKeyWithValue("max_results", BeNumerically("==", 3)))
+		Expect(got.body).To(HaveKeyWithValue("published_after", "7d"))
+		Expect(got.body).To(HaveKeyWithValue("site", "github.com"))
+		Expect(p.Name()).To(Equal("keenable"))
+	})
+
+	It("uses the keyless endpoint with the application name when no key is set", func() {
+		srv, got := fake(200, answer)
+		p, err := providers.NewKeenable(srv.URL+"/v1/search", "")
+		Expect(err).NotTo(HaveOccurred())
+		res, err := p.Search(context.Background(), search.Query{Text: "local ai", MaxResults: 5})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res).To(HaveLen(1))
+		Expect(got.path).To(Equal("/v1/search/public"))
+		Expect(got.header.Get("X-Keenable-Title")).To(Equal(providers.KeenableTitle))
+		Expect(got.header.Get("X-API-Key")).To(BeEmpty())
+		Expect(got.body).NotTo(HaveKey("published_after"))
+		Expect(got.body).NotTo(HaveKey("site"))
+	})
+
+	It("refuses a malformed key", func() {
+		for _, k := range []string{"short", "has space 12345", strings.Repeat("a", 257)} {
+			_, err := providers.NewKeenable(providers.KeenableEndpoint, k)
+			Expect(err).To(MatchError(providers.ErrNoKey), k)
+		}
+	})
+})
+
 var _ = Describe("the keyed providers", func() {
 	build := map[string]func(endpoint string) (search.Provider, error){
 		"brave":  func(e string) (search.Provider, error) { return providers.NewBrave(e, key) },
 		"tavily": func(e string) (search.Provider, error) { return providers.NewTavily(e, key) },
 		"google": func(e string) (search.Provider, error) { return providers.NewGoogle(e, key, "cx1") },
+		"keenable": func(e string) (search.Provider, error) {
+			return providers.NewKeenable(e, key)
+		},
 	}
 
 	It("refuse a missing or malformed key", func() {
@@ -207,6 +255,7 @@ var _ = Describe("the keyed providers", func() {
 
 	It("list the keyed ones", func() {
 		Expect(providers.Keyed("brave")).To(BeTrue())
+		Expect(providers.Keyed("keenable")).To(BeTrue())
 		Expect(providers.Keyed("duckduckgo")).To(BeFalse())
 		Expect(providers.ValidEngineID("a b")).To(BeFalse())
 	})

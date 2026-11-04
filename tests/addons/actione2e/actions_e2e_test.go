@@ -143,7 +143,7 @@ func startAddonFrom(id, packageDir string) *world {
 	sup, err := addonruntime.NewSupervisor(addonruntime.Config{
 		StateRoot: filepath.Join(root, "state"), DataRoot: dataRoot, Limits: limits,
 		ReadyTimeout: 20 * time.Second, StableHealth: time.Second,
-		HostOps: &addonruntime.HostOps{Broker: broker, InFlight: inflight, Allowed: map[string][]string{id: {"workspace."}}},
+		HostOps: &addonruntime.HostOps{Broker: broker, InFlight: inflight, Authority: hostops.NewStaticAuthority(map[string][]string{id: {"workspace."}})},
 	})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = sup.Close(context.Background()) })

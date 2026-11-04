@@ -115,33 +115,24 @@ test.describe('Skills, agents, triggers and connectors against the real server',
 })
 
 test.describe('Connector bindings against the real server', () => {
-  test('a binding made through the API is listed, waits for its add-on, is switched on and off; the token is never returned', async ({ page }) => {
+  // A binding is made for a kind that a running add-on serves. The test server
+  // runs none, so the server refuses the binding and says so; listing, switching
+  // and token handling of a binding are covered by the add-on specs.
+  test('a binding for a kind no add-on serves is refused, and nothing is stored or leaked', async ({ page }) => {
     const name = unique('bot')
-    // The add-on of a platform adds and edits bindings; the test server has none
-    // installed, so the binding is made through the API and kept as inactive.
     const made = await page.request.post('/api/chats/agents', { data: { name: `${name}-agent`, model: 'mock-model', instructions: 'x' } })
     expect(made.ok()).toBe(true)
     const agent = await made.json()
+    const before = await (await page.request.get('/api/chats/connectors')).json()
     const bound = await page.request.post('/api/chats/connectors', { data: { kind: 'telegram', name, token: '123456:SECRET-TOKEN-VALUE', agent_id: agent.id, enabled: false } })
-    expect(bound.status(), await bound.text()).toBe(201)
-    const saved = await bound.json()
-    expect(JSON.stringify(saved)).not.toContain('SECRET-TOKEN-VALUE')
-    expect(saved.has_token).toBe(true)
-
-    await page.goto('/app/chats/connectors')
-    await expect(page.getByTestId('connector-row').filter({ hasText: name })).toBeVisible()
-    await expect(page.getByTestId('connector-inactive').first()).toContainText('Not running')
-    // No form here: the page lists the bindings and switches them.
-    await expect(page.getByLabel('Bot token')).toHaveCount(0)
-
-    await page.getByRole('checkbox', { name: `${name} on` }).check()
-    await expect.poll(async () => (await json(page, `/api/chats/connectors/${saved.id}`)).enabled).toBe(true)
-    await page.getByRole('checkbox', { name: `${name} on` }).uncheck()
-    await expect.poll(async () => (await json(page, `/api/chats/connectors/${saved.id}`)).enabled).toBe(false)
+    expect(bound.status()).toBe(400)
+    const body = await bound.text()
+    expect(body).toContain('no installed add-on serves the kind')
+    expect(body).not.toContain('SECRET-TOKEN-VALUE')
     const text = await (await page.request.get('/api/chats/connectors')).text()
+    expect(text).not.toContain(name)
     expect(text).not.toContain('SECRET-TOKEN-VALUE')
-
-    expect((await page.request.delete(`/api/chats/connectors/${saved.id}`)).ok()).toBe(true)
+    expect(JSON.stringify(before)).not.toContain(name)
     await page.request.delete(`/api/chats/agents/${agent.id}`)
   })
 })

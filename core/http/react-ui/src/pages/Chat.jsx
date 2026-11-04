@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
-import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { useParams, useOutletContext, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { fromState } from '../utils/editorNav'
 import { useServerChat } from '../hooks/useServerChat'
@@ -8,9 +8,11 @@ import { useComposerArrival } from '../hooks/useComposerTransition'
 import { useChatEgress } from '../hooks/useChatEgress'
 import { cardsByTool } from '../utils/chatEgress'
 import { useInbox } from '../hooks/useInbox'
+import { useOriginContext } from '../hooks/useOriginContext'
+import { isAutomated, knownKind, resolveOrigin } from '../utils/originChats'
 import { highlightAll, enhanceCodeBlocks } from '../utils/markdown'
 import {
-  threadRows, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
+  threadRows, placeProposals, streamingParts, lastUserText, chatMarkdown, menuChats, downloadFrom, chatFromExport,
 } from '../utils/chatThread'
 import { chatFootState, showHint } from '../utils/chatFoot'
 import { BROWSER_IMPORT_DISMISSED, browserChatStores, importBrowserChats } from '../utils/browserChats'
@@ -59,7 +61,7 @@ import NetworkConsentCard from '../components/chat/NetworkConsentCard'
 import LoopBar, { LoopList } from '../components/chat/LoopBar'
 import { EgressCardsContext } from '../components/chat/egressCardsContext'
 import MessageAttachments from '../components/chat/Attachments'
-import ChatMessage, { ActivityRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
+import ChatMessage, { ActivityRow, ProposalsRow, StreamingTurn, ErrorCard } from '../components/chat/ChatMessage'
 // eslint-disable-next-line no-unused-vars
 import { AppRow } from '../components/chat/ActivityFold'
 import { resumeItems } from '../utils/homeConversations'
@@ -72,10 +74,12 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import ChatsMenu from '../components/ChatsMenu'
 // eslint-disable-next-line no-unused-vars
 import ChatInbox from '../components/ChatInbox'
+import { ChatSendContext } from '../components/chat/chatSendContext'
 import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
 import { copyToClipboard } from '../utils/clipboard'
+import { chatAddress, seqOfSearch } from '../utils/chatSearch'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
@@ -209,8 +213,13 @@ function ChatPage() {
   }, [])
 
   const model = activeChat ? activeChat.model : draftModel
-  // The network of the chat's Sandbox commands, read again on its events.
+  // The network of the chat's isolated commands, read again on its events.
   const egress = useChatEgress(activeId, chat.ticks.egress)
+  // Switching an add-on or a tool group on or off changes who runs the commands
+  // and whether the network controls apply, so the network view is read again.
+  const { refresh: refreshEgress } = egress
+  const commandsRev = switches.commandsRev
+  useEffect(() => { if (commandsRev) refreshEgress() }, [commandsRev, refreshEgress])
   // The cards of the chat by their tool line; the ones that wait are drawn
   // under the live fold until the call ends.
   const egressCards = useMemo(() => ({
@@ -418,6 +427,29 @@ function ChatPage() {
       }
     })
   }, [find.index, find.count, find.query])
+
+  // A link from the chat search names a message (?seq=14): scroll to it once
+  // the transcript has it, and flash it so the eye finds it. location.key
+  // makes a second click on the same hit jump again.
+  const wantSeq = seqOfSearch(location.search)
+  const jumpedRef = useRef('')
+  useEffect(() => {
+    if (!wantSeq || !activeId || routeId !== activeId) return undefined
+    const mark = `${location.key}:${activeId}:${wantSeq}`
+    if (jumpedRef.current === mark) return undefined
+    const el = messagesRef.current?.querySelector(`[data-testid="chat-message"][data-index="${wantSeq}"]`)
+    if (!el) return undefined
+    jumpedRef.current = mark
+    el.scrollIntoView({ block: 'center' })
+    el.focus({ preventScroll: true })
+    // on, then off (the colour fades by a transition), then gone. Not cleared
+    // by the cleanup: a new message in the transcript re-runs this effect and
+    // must not cut the flash short.
+    el.setAttribute('data-flash', 'on')
+    setTimeout(() => el.setAttribute('data-flash', 'off'), 1400)
+    setTimeout(() => el.removeAttribute('data-flash'), 2800)
+    return undefined
+  }, [wantSeq, activeId, routeId, messages, location.key])
 
   // Highlight code blocks and add per-block Copy and Download buttons, and
   // Open preview on a block that is a result (a page, an SVG, a long block, a
@@ -698,8 +730,14 @@ function ChatPage() {
     () => menuChats(chat.chats).filter(c => c.id !== pendingDelete?.id),
     [chat.chats, pendingDelete],
   )
-  // The sidebar's recent chats follow this list.
-  useEffect(() => { announceChats(visibleChats) }, [visibleChats])
+  // The sidebar's recent chats follow this list, without the chats that no
+  // person started: they have their own area (All chats, second tab).
+  useEffect(() => { announceChats(visibleChats.filter(c => !c.origin)) }, [visibleChats])
+  // What started a chat is named by the connector and trigger lists. They are
+  // read only when this page shows a chat that something else started.
+  const hasAutomated = visibleChats.some(c => c.origin) || Boolean(activeChat?.origin)
+  const originCtx = useOriginContext(hasAutomated)
+  const originTitle = (c) => resolveOrigin({ origin: c.origin, originId: c.originId }, originCtx).title
 
   const promptDeleteAll = () => setConfirmDialog({
     title: t('deleteAllDialog.title'),
@@ -708,7 +746,8 @@ function ChatPage() {
     danger: true,
     onConfirm: async () => {
       setConfirmDialog(null)
-      for (const c of visibleChats) {
+      // Clear all removes the person's own chats. The ones that something else started stay.
+      for (const c of visibleChats.filter(x => !x.origin)) {
         try { await chat.remove(c.id); drafts.clear(c.id); pane.forget(c.id) } catch (e) { addToast(e.message || tc('errors.delete'), 'error'); break }
       }
       navigate('/app')
@@ -757,7 +796,9 @@ function ChatPage() {
     },
   }), [])
 
-  const rows = useMemo(() => threadRows(messages, chat.live), [messages, chat.live])
+  const rows = useMemo(() => placeProposals(threadRows(messages, chat.live), { streaming: chat.running }), [messages, chat.live, chat.running])
+  // The cards of a turn that is still running go after the streaming text.
+  const tailProposals = rows.length > 0 && rows[rows.length - 1].kind === 'proposals' ? rows[rows.length - 1] : null
   // Only the last answer can be answered again (the server cuts after the last
   // message you sent).
   const lastAnswerKey = useMemo(() => {
@@ -1019,14 +1060,15 @@ function ChatPage() {
               ref={chatsMenuRef}
               chats={visibleChats}
               activeChatId={activeId}
-              onSelect={(id) => navigate(`/app/chats/${id}`)}
+              onSelect={(id, opts) => navigate(chatAddress(id, opts))}
               onNew={() => navigate('/app')}
               onDelete={requestDelete}
               onDeleteAll={promptDeleteAll}
               onRename={(id, name) => chat.rename(id, name)}
               onExport={(c) => exportChat(c.id)}
               onCopyChat={(c) => copyChat(c.id)}
-              onSearch={(text) => chatsApi.search(text, 50)}
+              onSearch={(text, params) => chatsApi.search(text, 50, params)}
+              originTitle={originTitle}
             />
           )}
           manageMode={manage}
@@ -1055,13 +1097,27 @@ function ChatPage() {
           />
         )}
 
+        {activeId && isAutomated(activeChat) && (() => {
+          const o = resolveOrigin({ origin: activeChat.origin, originId: activeChat.origin_id }, originCtx)
+          const kind = knownKind(o.kind)
+          const name = o.title || t(`origin.kindFallback.${kind}`)
+          return (
+            <p className="cx-notice cx-origin-banner" role="note" data-testid="chat-origin-banner">
+              <span>{t('origin.banner', { title: name })}</span>
+              {o.href && <Link className="cx-link" to={o.href} data-testid="chat-origin-link">{t('origin.open', { title: name })}</Link>}
+            </p>
+          )
+        })()}
+
         <div className="cx-stage">
           <div className="cx-body" ref={messagesRef}>
             {isEmpty && <EmptyHead name={activeId ? title : (pickedAgent?.name || '')} manage={manage} />}
             <div className="cx-thread" data-testid="chat-thread" role="region" aria-label={tc('transcript')} hidden={isEmpty}>
               <EgressCardsContext.Provider value={egressCards}>
+              <ChatSendContext.Provider value={sendLive}>
               {rows.map((row, i) => {
-                if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} />
+                if (row.kind === 'proposals') return row === tailProposals ? null : <ProposalsRow key={row.key} items={row.items} proposalTick={chat.ticks.proposals} />
+                if (row.kind === 'activity') return <ActivityRow key={row.key} id={`cx-act-${row.key}`} items={row.items} proposalTick={chat.ticks.proposals} withProposals={false} />
                 if (row.kind === 'app') return <AppRow key={row.key} chatId={activeId} row={row} onSend={sendLive} />
                 if (row.kind === 'marker') return <ContextMarker key={row.key} marker={row.marker} before={row.before} after={row.after} />
                 if (row.kind === 'goal') return <GoalMarker key={row.key} msg={row.msg} />
@@ -1074,6 +1130,7 @@ function ChatPage() {
                     warm={modelWarm}
                     busy={chat.running}
                     activityItems={row.activity}
+                    proposalItems={row.proposals}
                     actions={messageActions}
                     conversationId={activeId}
                     canRegenerate={!chat.running && row.key === lastAnswerKey}
@@ -1083,6 +1140,7 @@ function ChatPage() {
                   fileChipsFor(row),
                 ]
               })}
+              </ChatSendContext.Provider>
               </EgressCardsContext.Provider>
 
               {(chat.running || streaming.text || streaming.reasoning || streaming.tools.length > 0) && (
@@ -1099,6 +1157,7 @@ function ChatPage() {
                   )}
                 />
               )}
+              {tailProposals && <ProposalsRow key={tailProposals.key} items={tailProposals.items} proposalTick={chat.ticks.proposals} />}
               {chat.hostConsent && !streaming.tools.some(tc => tc.consent?.id === chat.hostConsent.id) && (
                 <CommandsConsentCard consent={chat.hostConsent} />
               )}

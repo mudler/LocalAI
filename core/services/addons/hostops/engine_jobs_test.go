@@ -74,8 +74,15 @@ func (q *fakeQ) List(user string) []*schema.QuantizationJob {
 
 type backends struct{}
 
-func (backends) FineTune() []string     { return []string{"trl"} }
-func (backends) Quantization() []string { return []string{"llama-cpp-quantization"} }
+func (backends) Backends(tag string) []string {
+	switch tag {
+	case TagFineTuning:
+		return []string{"trl"}
+	case TagQuantization:
+		return []string{"llama-cpp-quantization"}
+	}
+	return nil
+}
 
 func call(spec Spec, mode, user, args string) (json.RawMessage, error) {
 	return spec.Handler(context.Background(), Call{AddonID: "fine-tuning", OperationID: "op1", Actor: contract.Actor{UserID: user, Mode: mode}, Arguments: json.RawMessage(args)})
@@ -84,6 +91,13 @@ func call(spec Spec, mode, user, args string) (json.RawMessage, error) {
 func register(ft FineTuner, q Quantizer) map[string]Spec {
 	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
 	Expect(RegisterEngineJobs(b, ft, q, backends{})).To(Succeed())
+	return b.specs
+}
+
+// registerWith is register over a given backend lister.
+func registerWith(ft FineTuner, q Quantizer, l BackendLister) map[string]Spec {
+	b := New(NewInFlight(), func(string, string) bool { return true }, contract.DefaultLimits())
+	Expect(RegisterEngineJobs(b, ft, q, l)).To(Succeed())
 	return b.specs
 }
 
@@ -96,8 +110,12 @@ func registerWithout(ft FineTuner, q Quantizer) map[string]Spec {
 
 type noBackends struct{}
 
-func (noBackends) FineTune() []string     { return nil }
-func (noBackends) Quantization() []string { return nil }
+func (noBackends) Backends(string) []string { return nil }
+
+// tagged is a lister over a fixed map of engines per tag.
+type tagged struct{ engines map[string][]string }
+
+func (t tagged) Backends(tag string) []string { return t.engines[tag] }
 
 func specs(ft FineTuner) map[string]Spec {
 	return register(ft, nil)
@@ -162,7 +180,7 @@ var _ = Describe("Fine-tuning and quantization job operations", func() {
 			s := registerWithout(&fakeFT{}, nil)
 			_, err := call(s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data"}`)
 			Expect(err).To(MatchError(ErrBadRequest))
-			Expect(err.Error()).To(ContainSubstring("fine-tuning engine trl is not installed"))
+			Expect(err.Error()).To(ContainSubstring("no fine-tuning engine is installed"))
 			_, err = call(s["finetune.start"], "named-user", "u1", `{"model":"org/base","datasetSource":"org/data","backend":"../x"}`)
 			Expect(err).To(MatchError(ErrBadRequest))
 			Expect(err.Error()).NotTo(ContainSubstring(".."))
@@ -261,7 +279,7 @@ var _ = Describe("Fine-tuning and quantization job operations", func() {
 			s := registerWithout(nil, &fakeQ{})
 			_, err := call(s["quantize.start"], "named-user", "u1", `{"model":"org/base"}`)
 			Expect(err).To(MatchError(ErrBadRequest))
-			Expect(err.Error()).To(ContainSubstring("quantization engine llama-cpp-quantization is not installed"))
+			Expect(err.Error()).To(ContainSubstring("no quantization engine is installed"))
 		})
 
 		It("start refuses a field that is not in the tool schema", func() {

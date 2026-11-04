@@ -24,8 +24,15 @@ An agent has:
 | `addons` | IDs of installed add-ons. |
 | `collections` | Names of your collections. |
 | `skills` | Names of skills. The index of skills and the `load_skill` tool of the chat offer only these. |
+| `builtins_off` | Groups of built-in tools the agent's chats never have: `shell`, `files`, `web`, `media`, `collections`, `subagents`, `triggers` and `changes`. It is a ceiling: a chat with the agent shows the group switched off and cannot switch it on. Empty (the default): the chat has every group it has by default. A group this server does not offer is dropped. |
+| `builtins_on` | Opt-in groups of built-in tools that chats with the agent start with: `saved_agents`. The chat can switch them off. |
 | `network` | The network of the [Sandbox]({{%relref "features/addons#network-access" %}}) commands of the agent's trigger and connector runs: `off` (the default), `registries` (the package registries) or `all` (every public host), capped by the administrator's `chats_egress_ceiling`. A run never shows a card: a host outside it is blocked, and the block is in the run's output. A chat you start with the agent starts with this preset too; you change it in the chat's Tools menu. The agent form sets it in the add-ons fold. |
-| `folder` | Optional. One folder of your files that chats with the agent work in, and the mode: `read` or `write`. Without it the agent works on all your files. See [One folder for an agent](#one-folder-for-an-agent). |
+| `folders` | Optional. Up to 8 folders of your files that chats with the agent work in, each with its own mode: `read` or `write`. `folder` is the same with one entry. Without them the agent works on all your files. See [Folders of an agent](#folders-of-an-agent). |
+
+The agent form shows the same Tools list as the Tools menu of a chat, with a
+short description under each switch: the built-in tool groups, the add-ons, your
+connectors, and the skills. What you switch on is saved in `addons`, `mcp_servers`
+and `skills`; what you switch off among the built-in groups is saved in `builtins_off`.
 
 Each list is an exact grant. An empty list grants nothing: a chat with an agent
 that names no add-ons has no add-on tools, even when you could use some. A
@@ -97,23 +104,65 @@ curl -X POST .../api/chats -d '{"agent_id": "<id>", "model": "my-model"}'
 ```
 
 `GET`, `PUT` and `DELETE /api/chats/agents/{id}` read, replace and delete one.
-A `PUT` replaces every field except `folder` (see below). Chats that already run with the agent use the new
+A `PUT` replaces every field except `folders` (see below), the tool switches `builtins_off` and `builtins_on` and the [connections](#connections-of-an-agent), which it keeps when the body does not name them (an empty list or object clears them). Chats that already run with the agent use the new
 definition from their next turn. Another user's agent is always `404`.
 
 Agents need the `agents` feature, which is off by default for a user (see
 [Chats permissions](/features/chats/#permissions)). They have no administration
 tools, as they are your own settings.
 
-### One folder for an agent
+### Memory of an agent
 
-`folder` gives the agent one folder of your files and a mode, `read` (the
-agent's chats can read it) or `write` (they can read and change it):
+The optional field `memory` chooses the notes of an agent: `mine_and_own` (reads your notes
+and its own, saves to its own; the interface sets it for a new agent), `own`, `mine` or `none`.
+An agent without it is "as before": it reads notes when its add-ons name `memory`, and the
+model chooses where a note goes. The host enforces the choice. A `PUT` without `memory`
+keeps the stored one. `DELETE /api/chats/agents/{id}?memory=keep|export|delete` says what
+to do with the agent's own notes (default `keep`). See [Short memory](/features/short-memory/#memory-for-each-agent).
+
+### Connections of an agent
+
+An add-on whose tools run with the token of one of your
+[connections](/features/chats-connectors/#github) lets the agent name which
+connections its chats may use. In the agent form, the add-on's row in **Tools**
+has a **Connections for chats of this agent** list with a checkbox for each
+connection. A chat of the agent uses that set, shows it read only, and cannot
+change it. With two or more in the set, the model names the connection in each
+tool call (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)).
+With none ticked (the default) each chat chooses its own; until a person
+chooses, the add-on's tools are not offered.
+
+Over the API an agent has `connections`, an object from add-on ID to a list of
+binding IDs (`{"<add-on id>": ["<binding id>", ...]}`). Every binding must be
+yours and belong to that add-on, else `400`. A single binding ID in place of the
+list is read as a set of one. A `PUT` that does not name `connections` keeps
+them, and `{}` clears them. The export file never carries them: a binding ID
+belongs to one server, so the format and its version are unchanged, and an
+imported agent has no connections until you choose some.
+
+### Folders of an agent
+
+`folders` gives the agent up to eight folders of your files, each with a mode, `read` (the
+agent's chats can read it) or `write` (they can read and change it). `folder`, one `{path, mode}`, is read as a list with one entry. Responses carry `folders` in the order you gave them, and `folder`, the first of them:
 
 ```
-curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Projects/Acme", "mode": "read"}}'
+curl -X POST .../api/chats/agents -d '{"name": "Acme", "folders": [
+  {"path": "/Projects/Acme", "mode": "write"}, {"path": "/Reference", "mode": "read"}]}'
 # {"id":"...","name":"Acme",...,
-#  "folder":{"path":"/Projects/Acme","name":"Acme","mode":"read","state":"ok"}}
+#  "folder":{"path":"/Projects/Acme","name":"Acme","mode":"write","effective":"write","state":"ok"},
+#  "folders":[{"path":"/Projects/Acme",...},{"path":"/Reference","name":"Reference","mode":"read","effective":"read","state":"ok"}]}
 ```
+
+- A list has at most 8 folders and each folder once. Nine folders, a repeat, a
+  row without a path or a row without a mode is `400`.
+- Where one folder is inside another folder of the same agent, the inner
+  folder works at the mode of the outer one, and `effective` says so. The file
+  store gives a folder the highest mode among the folders above it, so a read
+  only folder inside a write folder cannot be kept read only, and a write
+  folder inside a read only folder cannot be written. A folder in the shared
+  folders is always read only.
+- A folder that is `missing` or `unset` stops the agent, and the error names
+  the row ("folder 2 was deleted..."). The other folders do not take its place.
 
 - `path` is a folder of your files, as the Files page shows it. `/` is all of
   your files, which with `read` makes an agent that can read everything and
@@ -135,24 +184,25 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   same way. Choose a folder in the agent's settings, or restore the folder
   from the Trash (it comes back as the same folder, so the agent needs no
   edit), and send the message again.
-- A chat with the agent reaches its folder (read only for `read`), its own
+- A chat with the agent reaches its folders (read only for `read`), its own
   chat folder under `Chats` (attachments and the work folder, read and write),
-  every readable shared folder and the skills (read only), and nothing else,
-  provided that the complete set fits the folder limit below.
-- Scoped access has a limit of **32 folder roots per scope**: the agent folder,
-  one reserved chat folder, every skill folder that exists, and every readable
-  shared folder. Three skill folders leave room for 27 shared folders. LocalAI
-  never drops shared folders to fit. If the complete set exceeds the limit,
-  `POST /api/chats` and the next message to an existing chat answer `409` with
-  type `agent_folder_limit`. This is a capacity refusal, not a missing folder.
-  Ask an administrator to reduce the shared folders available to you, then
-  retry. The Tools panel exposes no file access while this check fails, even
-  before the chat folder exists. Each turn checks access again, so a smaller
-  shared set allows a retry without editing the agent. A failure to enumerate
-  shared folders also refuses access instead of silently omitting them.
-  Chats without an agent folder keep their existing access.
-- The model sees the agent's folder at `/workspace/home`, so `/a.txt` and
-  `/workspace/home/a.txt` are `a.txt` in that folder. The chat folder is at
+  the readable shared folders and the skills (read only), and nothing else.
+  A folder next to the agent's folders, or above them, is not reachable.
+- Scoped access has a limit of **32 folder roots per scope**: the chat folder,
+  the agent's folders (at most 8), every skill folder that exists, and the
+  shared folders. A chat is never refused for this. The skill folders and the
+  agent's folders are always kept. A shared folder that is inside a folder
+  already kept is left out, as it is reachable there. Of the others the ones
+  with the lowest IDs are kept until the limit is full. The rest are not
+  mounted: the model is told how many, and the response of the agent carries
+  `folder_notice.not_mounted`, shown in the agent form. Leaving a shared folder
+  out only removes access. Each turn checks again, so a change of the shared
+  folders applies from the next message. A failure to enumerate shared folders
+  refuses access instead of silently omitting them.
+- The model sees the agent's first folder at `/workspace/home`, so `/a.txt` and
+  `/workspace/home/a.txt` are `a.txt` in that folder. The other folders are at
+  `/workspace/folder-<name>`, with " 2", " 3" and so on when two folders have
+  the same name. The chat folder is at
   `/workspace/chat`, with the work folder at `/workspace/chat/work/`. The
   shared folders are at `/workspace/shared-<name>`. The file tools, the image
   and document tools, the file search and the system prompt use this layout,
@@ -160,9 +210,9 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   message is named to the model at `/workspace/chat/<file>`.
 - A sub-agent never reaches more than the chat that started it, in folder or
   in mode. A plain sub-agent and a saved agent without a folder work in the
-  chat's folder, at the chat's mode. A saved agent with a folder can start from
-  the chat only when its folder is the chat's folder or inside it; it then works
-  in its own folder at the lower of the two modes. Any other agent is refused
+  chat's folder, at the chat's mode. A saved agent with folders can start from
+  the chat only when each of its folders is one of the chat's folders or inside
+  one; it then works in its own folders at the lower of the two modes. Any other agent is refused
   with "this agent works in another folder than this chat", and `list_agents`
   does not list it.
 - Commands of the chat run only in the Sandbox add-on. Its sandbox has the
@@ -179,9 +229,9 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   agent's folder, and the Sandbox sees the chat folder next to it at
   `/workspace/chat`. This holds for every tool, also one that only reads. See
   [Workspace operations]({{%relref "features/addons#workspace-operations" %}}).
-- A `PUT` without `folder` keeps the folder the agent has, so a client that
-  does not know the field cannot give the agent more files by editing it.
-  `"folder": {"path": ""}` clears the folder.
+- A `PUT` without `folders` or `folder` keeps the folders the agent has, so a
+  client that does not know the fields cannot give the agent more files by
+  editing it. `"folders": []` clears them. When both are sent, `folders` wins.
 - The folder limits what the chat reaches through your files only. The MCP
   servers, web tools and collections that the agent grants are separate
   grants and are not limited to the folder. The chat is not told to build
@@ -195,9 +245,9 @@ curl -X POST .../api/chats/agents -d '{"name": "Acme", "folder": {"path": "/Proj
   the [connectors page](/features/chats-connectors/#what-a-message-gets).
 
 In the web interface, the **Files** section of the agent form sets the folder:
-**All my files**, or **One folder** with **Choose folder**, which opens a folder
+**All my files**, or **Chosen folders**: one row for each folder, with **Choose folder**, which opens a folder
 picker of your files (`LocalAI`, `Chats` and shared folders cannot be chosen),
-and the access, **Can read** or **Can read and change**. The agents list and the
+the access of that row, **Can read** or **Can read and change**, and a remove button. **Add folder** stops at eight. A row inside another row shows the mode it works at. The agents list and the
 agent's page show the folder and its access, with a lock for read only, or
 **Folder missing** with a link to the form. The Files page marks a folder that
 an agent uses. A chat with the agent shows the folder next to the agent in the
@@ -211,7 +261,7 @@ folder or the mode applies from the next message of a chat that is open; a
 turn that is running finishes with the access it started with.
 
 **Downgrade.** A server older than this feature does not know the folder of an
-agent. If you go back to such a version, its agents work on all your files
+agent, and one from before several folders reads only the first. If you go back to such a version, its agents work on all your files
 again, without a warning, and an agent file of version 2 cannot be imported
 there. Before you downgrade, export and delete the agents that have a folder,
 or switch off their triggers and connectors.
@@ -223,6 +273,55 @@ assistant, a code reviewer, a daily digest, a writing editor). They grant
 nothing. `POST /api/chats/agents/templates/{id}/create` saves one as your own
 (`{"name": "..."}` is optional); then grant it tools with `PUT`.
 
+### Builtin grants
+
+An agent can be given built-in capabilities in its `builtins` list. The list is
+empty by default, no template or import turns a grant on, and a chat of the
+agent holds only the grants you may use at that moment.
+`GET /api/chats/agents/builtin-grants` returns `{grants: [{name, title,
+description, sensitive}]}` for the editor. The names are `memory.write`,
+`profile.write`, `skills.write`, `pages.write`, `dashboard.write`,
+`triggers.propose`, `triggers.run`, `talkback.channels`, `talkback.new_channel`,
+`files.upload`, `act.files`, `act.addons`, `act.send`, `act.spend`,
+`saved_agents` (the opt-in group of that name; granting it also switches the
+group on) and `history.read` (the agent can search and read your earlier chats
+with the opt-in group **Past chats**; granting it also switches the group on, an
+agent that works in a folder reads only its own chats, and a run that nobody
+watches, a messaging chat and a sub-agent never hold it; see
+[Past chats]({{%relref "features/chats#past-chats" %}})). A sensitive grant changes what the agent may do or reach later; the
+editor marks it. The five `*.write` grants let the agent propose a memory note,
+its profile, a skill, a page or a dashboard change with `propose_change`; you
+confirm every proposal, and you can undo it. The **Tools** list of the agent form
+and of a chat show each grant once, as an option under the switch it refines:
+"Create and manage triggers" holds "Also propose from messaging apps" (`triggers.propose`)
+and "Let triggers start from messaging apps" (`triggers.run`); "Suggested
+changes" holds the five `*.write` grants; "Your files" holds `files.upload` and
+`act.files`. An option is greyed, with the reason, while its switch is off, and keeps its
+stored value. `talkback.channels` and `talkback.new_channel` are in the section
+"Messaging apps", and `act.addons`, `act.send` and `act.spend` in "When nobody is
+watching". "Saved agents" is one switch: either the group `saved_agents` in
+`builtins_on` or the grant of that name turns it on, switching it off removes both, and
+switching it on adds only the group. Each switch and option has one line that says what it
+lets the model do, and the form names a messaging connection of the agent that does not
+allow an option the agent holds, with a link to the permissions of that connection. A chat
+of the agent lists the grants it holds, read only. "Select all" never touches a grant. A write to the agent without the
+`builtins` field keeps them, an empty list clears them and an unknown name is
+refused (an import drops it).
+
+In a chat that a messaging connection started, the grants also decide which tools
+the model gets. A tool exists when the sender holds the capability on the
+connection, the agent holds the grant, and the chat did not switch the tool off.
+Four grants work this way: `triggers.propose`, `triggers.run`, `talkback.channels`
+and `files.upload` (a sender's files going to the agent; it does not let the agent send files out), plus the sensitive
+`talkback.new_channel`. An agent that has no `builtins` list at all keeps the
+non-sensitive ones, as before. A sensitive grant is never implied: it needs to be
+on the list. The moment you grant any built-in, the list is the whole answer, so
+add the connector grants you want to keep (granting only `memory.write` to an agent
+that proposed triggers from a messaging app turns those off; nothing is deleted
+and they work again when you grant `triggers.propose`). The `act.*` grants are
+the ceiling of the action policy of unattended runs (see
+[Action policy of unattended runs](#action-policy-of-unattended-runs)).
+
 ### Export and import
 
 ```
@@ -232,16 +331,20 @@ curl -X POST .../api/chats/agents/import -F file=@reviewer.json
 ```
 
 The file holds the definition only (kind `localai-agent`): no ID, owner or
-time. An agent without a folder is version 1. An agent with a folder is
+time. An agent with tool switches (`builtins_off`, `builtins_on`) is version 4, so that a server that does not know them refuses the file instead of giving the agent every tool. The `builtins` list and `memory` are extra fields of any version; a server that does not know them ignores them, so the agent arrives without the grants and as before. An import makes a new agent: it has the exported `memory` choice and none of the original's notes. An agent without a folder or tool switches is version 1. An agent with one folder is
 version 2 and carries `folder` with the folder's path at export time and the
 mode, for example `{"path": "/Projects/Acme", "mode": "read"}` (the path is
 empty when the folder is missing, not chosen, or now outside your home).
 A followed folder in a shared location stays usable by the original agent,
 but its export carries an empty path and the mode. Import keeps it scoped
 with state `unset` and warns you to choose a folder; it never interprets the
-shared path as a folder in your home. A server that reads only
-version 1 refuses a version 2 file, so an agent limited to one folder is never
-imported somewhere as an agent with all the files. An import always makes a
+shared path as a folder in your home. An agent with several folders is version 3 and carries `folders`, a list of
+the same `{path, mode}` entries. A server that reads only
+version 1 refuses a version 2 file, and one that reads only version 2 refuses
+a version 3 file, so an agent limited to folders is never
+imported somewhere as an agent with more files. On import each path is looked up;
+a folder that is not found stays in the list as a row that is not chosen, with
+the mode, and a warning names it. An import always makes a
 new agent. The folder is looked up by its path in your files; when you have
 no such folder, the agent is saved with the mode and no folder (`state:
 unset`), it does not start until you choose one, and a warning says so. A name you already use gets
@@ -339,9 +442,75 @@ message as rules for the run. Treat it as text from whoever can write there.
   "the agent's folder is missing" and switches the trigger off. Each of these
   tells the owner.
 
+### Action policy of unattended runs
+
+A trigger run or an agent job has nobody at the screen to approve a step, so it
+starts read only. LocalAI checks every tool call of such a run at the moment of
+the call, not in the prompt. A tool that only reads always runs. Any other tool
+runs only if the run holds the grant for its class. Add-on tools and MCP tools
+always have a class. The other built-in tools either read or need a grant that a
+run which started by itself never holds. Nothing is allowed on a doubt: a trigger or a connection
+that cannot be read at that moment gives a read only run.
+
+| Class | Grant | Tools |
+|---|---|---|
+| Read | none | Tools that only read: the add-on tools of kind `read`, the file reading tools, web search and fetch, and the other built-in tools that only read. |
+| Files | `act.files` | `write_file`, `edit_file`, `move_file`, `delete_file`, and the built-in `bash` of this machine. |
+| Add-on actions | `act.addons`, or `act.addons:<add-on id>` for one add-on | Every add-on tool whose kind is not `read` (`action`, `write`, `schema`, `create`), including an add-on that serves `bash`. |
+| Outside | `act.spend` | MCP tools (of a server or a connector), and an add-on action tool that the add-on declares with a permission, which means it acts outside LocalAI with a credential. The last one needs `act.addons` as well. |
+| Send | `act.send` | Reserved for messages beyond the delivery target. No tool of this class exists yet. |
+
+What a run holds:
+
+- **A trigger run** holds the `acts` of its trigger, limited to the `act.*`
+  grants of its agent (`builtins`). A trigger without an agent has no ceiling but
+  its own `acts`. Set `acts` in the body of `POST /api/chats/triggers` or
+  `PUT /api/chats/triggers/{id}`: leave it out to keep the value, send `[]` to
+  clear it. The trigger form (the **Permissions** section on the Triggers page)
+  edits the same list. A model can ask for `acts` only when it proposes a trigger
+  (`propose_trigger` takes an optional `acts` list), and only for what its own
+  agent holds; no tool changes the `acts` of a trigger afterwards. The proposal
+  card lists them, and confirming it grants exactly those. A proposal from a
+  chat of a messaging app carries only the acts that the binding allows
+  (`approval.acts`, see [Runs may act](../chats-connectors/#runs-may-act)) and the
+  agent holds; the rest is dropped and named in the proposal. A connection starts
+  such a trigger without asking only in the `auto` mode, when every act is allowed
+  for the binding and the sender is paired; otherwise it is left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
+  `act.files`, because you saw that file on the proposal card. Triggers that exist
+  before this change keep running, but they now read only unless they set `acts`
+  or `plan.writes`.
+- **An agent job run** holds the `act.*` grants of its agent, and nothing without
+  an agent. A job has no `acts` of its own.
+- **Read only runs.** A trigger whose proposal said its runs only read
+  (`access: read_only`), or that a connection made without asking while its
+  approval mode is `auto_readonly` (see
+  [Approval modes](../chats-connectors/#approval-modes)), holds nothing: every
+  tool that is not a read is refused, whatever `acts` and the agent say. A
+  connection that cannot be read is treated as `auto_readonly`.
+- **Sub-agents.** A sub-agent of an unattended run has the same limits as its
+  parent. A run that nobody watches cannot start a saved agent as a sub-agent.
+
+The trigger as REST returns it says what applies: `acts` is the list the trigger
+holds, `acts_held` the part of it that applies to a run (within the grants of the
+agent, plus `act.files` for a plan that writes a file), `read_only` whether a run
+can only read and `read_only_why` why: `no_acts` (it holds none), `agent` (its
+agent holds none of them), `declared` (the proposal said `read_only`) or `binding`
+(a connection in `auto_readonly` mode made it). A trigger that a connection made
+without asking also holds only the acts that its binding allows now. The Triggers page shows the same:
+a "Read only" mark on each row, and the reason on the trigger.
+
+A refused tool stays in the tool list and answers with one plain sentence instead
+of running, for example "I did not run write_file: nobody is here to approve it
+and this run has no permission for act.files. Say in your answer what you wanted
+to do; the owner can allow act.files for this run." The model then reports it in
+its answer. The refusal is a result, not an error, so the model does not retry.
+Each call of a tool that is not a read writes one log line, `studio: unattended
+action`, with the chat, the trigger or job, the tool, `allowed`, `reason`
+(`granted`, `not_granted` or `read_only`) and the missing grant.
+
 ### Triggers of an agent with a folder
 
-A trigger whose agent has a [folder](#one-folder-for-an-agent) keeps to that
+A trigger whose agent has a [folder](#folders-of-an-agent) keeps to that
 folder, like every chat of the agent:
 
 - A file trigger must watch the agent's folder or a folder inside it. Saving
@@ -493,7 +662,10 @@ and a `trigger_proposed` event announces it to a client that is watching.
 A change does not count towards the 50 triggers or the 10 waiting proposals. At
 most 10 changes wait at a time. Like the other trigger tools, these tools are
 offered only in a chat a person started: a trigger run, a connector run and a
-sub-agent never get them.
+sub-agent never get them. A chat that a messaging app started gets `propose_trigger`
+and `list_triggers` when the connection holds `triggers.propose` and the agent holds
+the grant "Also propose from messaging apps"; `update_trigger` and `delete_trigger` stay in
+the app.
 
 ### Clusters
 

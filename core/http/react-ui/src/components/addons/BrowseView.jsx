@@ -6,11 +6,11 @@ import Icon from '../Icon'
 import CatalogView from '../catalog/CatalogView'
 import { paramsToQuery, queryToParams } from '../catalog/catalogState'
 import { AppIcon, UnknownNotice, VersionText } from './AddonBits'
-import { Button, StatusChip } from '../ui'
+import { Button, Notice, StatusChip } from '../ui'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
-import { addedByEntry } from './addonState'
-import { updateView } from './updateState'
+import { addedByEntry, localizeEntry, localizeRecord, sortEntriesByTitle } from './addonState'
+import { updateView, entryUpdateNote, updateNoticeSeverity, upgradeAvailability } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
 import { useAddonUpgrade } from './useAddonUpgrade'
@@ -22,7 +22,7 @@ import { UpdateBadge } from '../upgrade/UpgradeBits'
 // the other. An add-on that is installed but off offers Turn on. Backends are
 // not listed here: they belong to the Backends page.
 export default function BrowseView({ api, adapter }) {
-  const { t } = useTranslation('addons')
+  const { t, i18n } = useTranslation('addons')
   const [params, setParams] = useSearchParams()
   const [installed, setInstalled] = useState({})
   const [reload, setReload] = useState(0)
@@ -53,8 +53,9 @@ export default function BrowseView({ api, adapter }) {
 
   const openInstall = (entry) => setDialog(entry)
 
-  const renderEntry = (entry) => {
-    const have = installed[entry.id]
+  const renderEntry = (raw) => {
+    const entry = localizeEntry(raw, i18n.language)
+    const have = installed[entry.id] ? localizeRecord(installed[entry.id], i18n.language) : undefined
     const flow = actions.flows[`flow:${entry.key}`]
     const pending = Boolean(actions.unknown[entry.id])
     const working = ['install', 'turn-on'].includes(flow?.step)
@@ -78,11 +79,31 @@ export default function BrowseView({ api, adapter }) {
             <span className="ad-meta__item"><VersionText version={entry.version} /></span>
             {have && have.version !== entry.version && <span className="ad-meta__item" data-testid="entry-have">{t('browse.installedOther', { version: have.version })}</span>}
           </p>
-          {updatable && (
-            <div className="ad-entry__upgrade" data-testid="entry-upgrade">
-              <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} variant="secondary" working={pending || upgrade.working(have.id)} />
-            </div>
-          )}
+          {have && !updatable && (() => {
+            const note = entryUpdateNote(have.update)
+            const severity = updateNoticeSeverity(note.state)
+            const text = t(`updates.state.${note.state}`, { version: note.version })
+            // Up to date is not a problem: one quiet line. Every other state
+            // is a notice that says what it is.
+            if (!severity) return <p className="ad-entry__note" data-testid="entry-update-note" data-state={note.state} data-tone={note.tone}>{text}</p>
+            return <Notice className="ad-entry__notice" severity={severity} title={text} testId="entry-update-note" data-state={note.state} data-tone={note.tone} />
+          })()}
+          {updatable && (() => {
+            const view = updateView(have.update)
+            const working = pending || upgrade.working(have.id)
+            const availability = upgradeAvailability(have, { isAdmin: true, pending: true, checked: upgrade.checks[have.id]?.phase === 'done' })
+            return (
+              <Notice
+                className="ad-entry__notice"
+                severity="warn"
+                title={t('updates.state.update-available', { version: view.version })}
+                testId="entry-upgrade"
+                fix={availability.startable ? { label: t('updates.upgrade'), onClick: () => upgrade.ask(have), busy: working, disabled: working, testId: 'update-upgrade-card', ariaLabel: t('updates.upgradeNamed', { name: have.title }) } : null}
+              >
+                {!availability.startable && <AddonUpgradeAction addon={have} pending isAdmin upgrade={upgrade} variant="secondary" working={working} />}
+              </Notice>
+            )
+          })()}
           <EntryFacts entry={entry} have={have} />
           {pending && <UnknownNotice addonId={entry.id} actions={actions} />}
           {!pending && !(dialog && dialog.key === entry.key) && <FlowStatus flow={flow} name={entry.title} onRetry={flow?.step === 'failed' ? () => actions.installAndTurnOn(entry, { skipInstall: flow.failedStep === 'turn-on' }) : undefined} />}
@@ -107,6 +128,7 @@ export default function BrowseView({ api, adapter }) {
         query={query}
         onQueryChange={onQueryChange}
         renderEntry={renderEntry}
+        orderEntries={entries => sortEntriesByTitle(entries, i18n.language)}
         reloadToken={reload}
         describeError={e => describeError(e, t)}
         searchLabel={t('browse.search')}

@@ -19,7 +19,6 @@ const (
 
 // BindingConnectorScope also covers background calls with fresh contexts.
 func BindingConnectorScope(b connectors.Binding) ConnectorCallScope {
-	b = connectors.Normalize(b)
 	return ConnectorCallScope{Purpose: ConnectorPurposeBinding, Principal: b.Owner, BindingID: b.ID, AgentID: b.AgentID, AddonID: b.AddonID, Kind: b.Kind}
 }
 func verificationScope(b connectors.Binding) ConnectorCallScope {
@@ -46,7 +45,6 @@ func (c *Connectors) AuthorizeConnector(ctx context.Context, s ConnectorCallScop
 	if s.BindingID != "" {
 		var err error
 		b, err = c.o.Store.GetBinding(ctx, s.BindingID)
-		b = connectors.Normalize(b)
 		if err != nil || b.Owner != s.Principal || b.AddonID != s.AddonID || b.Kind != s.Kind || b.AgentID != s.AgentID {
 			return deny()
 		}
@@ -78,7 +76,10 @@ func (c *Connectors) AuthorizeConnector(ctx context.Context, s ConnectorCallScop
 		if !b.Enabled {
 			return deny()
 		}
-	case contract.ConnectorOpMe, contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpMedia, contract.ConnectorOpSendFile:
+	case contract.ConnectorOpMe, contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpMedia, contract.ConnectorOpSendFile, contract.ConnectorOpHistory:
+		// History reads the thread named by the request with the stored token,
+		// as a send writes to it: the binding is the whole authority, and a
+		// disabled binding keeps it, like for a send.
 	default:
 		return deny()
 	}

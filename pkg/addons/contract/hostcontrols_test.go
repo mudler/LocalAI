@@ -4,6 +4,7 @@ package contract
 import (
 	"encoding/json"
 	"os"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -16,13 +17,18 @@ var _ = Describe("Host controls", func() {
 	// runner is an add-on that runs commands, with the controls it asks for.
 	// Any ID works: the host never looks at it.
 	runner := func(id string, controls ...string) Manifest {
-		return Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/" + id, OS: "linux", Arch: "amd64",
-			Host: VersionRange{Min: 1, Max: 1}, API: VersionRange{Min: 1, Max: 1}, Protocol: VersionRange{Min: 1, Max: 1}, DataFormat: VersionRange{Min: 1, Max: 1},
+		m := Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/" + id, OS: "linux", Arch: "amd64",
+			Host: VersionRange{Min: 1, Max: 1}, API: VersionRange{Min: 2, Max: 2}, Protocol: VersionRange{Min: 1, Max: 1}, DataFormat: VersionRange{Min: 1, Max: 1},
 			Capabilities: Capabilities{Actions: true, Tools: []string{"bash"},
 				ToolDefinitions: []ToolDefinition{{Name: "bash", Description: "Run a command.", Kind: ToolKindAction, InputSchema: json.RawMessage(bashSchema), Shadows: "bash"}},
 				UI:              &UI{Entry: "ui/main.js", SDK: VersionRange{Min: 2, Max: 2}, Controls: controls}}}
+		if slices.Contains(controls, ControlNetworkPolicy) {
+			m.Capabilities.Network = &NetworkCapability{Kind: NetworkKindEgressCheck}
+			m.Capabilities.HostOperations = &HostOperations{Optional: []string{"egress.check"}}
+		}
+		return m
 	}
-	host := HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: HostSDKVersion, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	host := HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: HostSDKVersion, DataFormat: 1, OS: "linux", Arch: "amd64"}
 
 	It("accepts known controls and refuses an unknown or repeated one", func() {
 		Expect(ValidateManifest(runner("sandbox", ControlNetworkPolicy, ControlToolProviders), host)).To(Succeed())
@@ -48,15 +54,15 @@ var _ = Describe("Host controls", func() {
 		Expect(m.Capabilities.UI.Controls).To(Equal([]string{ControlToolProviders}))
 	})
 
-	It("draws the network policy only for an add-on granted egress that runs bash", func() {
+	It("draws the network policy only for an add-on granted egress that declares a network", func() {
 		Expect(EntitledControls(runner("sandbox", ControlNetworkPolicy), []string{"workspace.", "egress."})).To(Equal([]string{ControlNetworkPolicy}))
 		// A narrower grant that still covers the check is enough.
 		Expect(EntitledControls(runner("sandbox", ControlNetworkPolicy), []string{"egress.check"})).To(Equal([]string{ControlNetworkPolicy}))
 		Expect(EntitledControls(runner("sandbox", ControlNetworkPolicy), []string{"workspace."})).To(BeEmpty())
 		Expect(EntitledControls(runner("sandbox", ControlNetworkPolicy), nil)).To(BeEmpty())
 		m := runner("sandbox", ControlNetworkPolicy)
-		m.Capabilities.ToolDefinitions[0].Shadows = ""
-		Expect(EntitledControls(m, []string{"egress."})).To(BeEmpty())
+		m.Capabilities.Network = nil
+		Expect(EntitledControls(m, []string{"egress."})).To(BeEmpty(), "a bash tool alone does not attach the control")
 	})
 
 	It("serves a second add-on with the same controls, by its grant and not by its name", func() {
@@ -69,10 +75,11 @@ var _ = Describe("Host controls", func() {
 	It("draws the tool providers for an add-on that replaces any built-in tool", func() {
 		web := runner("web", ControlToolProviders, ControlNetworkPolicy)
 		web.Capabilities.Actions = false
+		web.Capabilities.Network, web.Capabilities.HostOperations = nil, nil
 		web.Capabilities.Tools = []string{"fetch"}
 		web.Capabilities.ToolDefinitions = []ToolDefinition{{Name: "fetch", Description: "Read a page.", Kind: ToolKindRead, InputSchema: json.RawMessage(fetchSchema), Shadows: "web_fetch"}}
 		Expect(ValidateManifest(web, host)).To(Succeed())
-		// The network policy needs bash, even with the grant.
+		// The network policy needs a declared network, even with the grant.
 		Expect(EntitledControls(web, []string{"egress."})).To(Equal([]string{ControlToolProviders}))
 		web.Capabilities.ToolDefinitions[0].Shadows = ""
 		Expect(EntitledControls(web, []string{"egress."})).To(BeEmpty())

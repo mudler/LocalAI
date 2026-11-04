@@ -35,7 +35,7 @@ var _ = Describe("Skill definitions in a manifest", func() {
 	}
 
 	It("parses skillDefinitions from the manifest", func() {
-		b := []byte(`{"schemaVersion":1,"id":"sample","version":"1.2.3","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"skillDefinitions":[{"name":"sample"},{"name":"sample-quickstart"}]}}`)
+		b := []byte(`{"schemaVersion":1,"id":"sample","version":"1.2.3","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"skillDefinitions":[{"name":"sample"},{"name":"sample-quickstart"}]}}`)
 		m, e := ParseManifest(b)
 		Expect(e).NotTo(HaveOccurred())
 		Expect(SkillNames(m.Capabilities.SkillDefinitions)).To(Equal([]string{"sample", "sample-quickstart"}))

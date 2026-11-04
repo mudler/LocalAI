@@ -49,6 +49,19 @@ If installation fails with `SHA mismatch`, compare the reported metadata checksu
 with the current gallery entry. An outdated gallery checksum can reject a complete
 download. Report a persistent mismatch with both checksum values and the model name.
 
+### Stable Audio SFX installation
+
+Install the Stable Audio 3 Small SFX model for text-to-sound generation:
+
+```bash
+local-ai models install audio-cpp-stable-audio-sfx
+```
+
+The gallery pins the Q8_0 file to an immutable upstream revision that matches
+its SHA256 checksum. Changes to the upstream `main` branch do not change this
+download. Use this model with `/v1/sound-generation` and set `duration_seconds`
+to control the sound length.
+
 ## What it serves
 
 One model serves one family, and a family advertises the tasks it can perform. The

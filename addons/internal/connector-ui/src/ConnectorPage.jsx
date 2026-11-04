@@ -4,16 +4,27 @@
 // log live in core; this page edits them through the core API. An add-on
 // gives its own words (an i18n namespace), the fields of its token, and its
 // allowlists; the rest is the same for every platform.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
 import AnswerFields, { answerSummary, answerT } from './AnswerFields'
-import { Check, Field, Notice, RadioCards, Select, Switch, TextInput } from './controls'
+import AccessView from './AccessView'
+import CapabilitiesPanel, { useAccessPreview, useIsAdmin } from './CapabilitiesPanel'
+import ReadinessList from './ReadinessList'
+import { useAuth } from '../../host-compat/src/context/AuthContext'
+import ApprovalOptions from './ApprovalFields'
+import FilesFields from './FilesFields'
+import { Check, Field, HintLabels, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
+import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi } from './api'
-import { canSave, connectorPayload, emptyConnector, listEntries, replaceList, senderLine } from './connector'
+import { canSave, channelOnly, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
+import { registerConnectorLocales } from './i18n'
 import './connector.css'
+
+// The shared words, in every language of the web UI, under the namespace "connector".
+registerConnectorLocales()
 
 function Senders({ id, onAllowed, t }) {
   const [list, setList] = useState(null)
@@ -30,7 +41,7 @@ function Senders({ id, onAllowed, t }) {
       {list.map((s) => (
         <li key={s.id}>
           <span className={`cn-status cn-status--${s.allowed ? 'done' : 'skipped'}`}>{s.allowed ? t('accepted') : t('ignored')}</span>
-          <span>{senderLine(s)}</span>
+          <span>{senderLine(s, answerT(t))}</span>
           {!s.allowed && (
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
               onClick={async () => {
@@ -68,9 +79,18 @@ const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'co
  * @param {Array} [props.lists]        the allowlists: { key, label, hint, testId, match }
  * @param {Function} [props.Help]      a block under the intro ({ t })
  * @param {string} [props.notifyMode]  the inputMode of the notification field
+ * @param {boolean} [props.messaging]  false for a kind that carries no messages: the page then hides the sender,
+ *                                     reply, file and notification settings and the switch of the binding
+ * @param {Function} [props.ExtraFields] more fields of the add-on's own ({ form, setForm, t })
+ * @param {Function} [props.extraBody] the request fields they make: (form) => object
+ * @param {Function} [props.extraForm] their values from a saved binding: (binding) => object
+ * @param {Function} [props.extraValid] whether they allow saving: (form) => boolean
+ * @param {Function} [props.testExtra] more checks after the Test button: async (binding, t) => string
+ * @param {Function} [props.RowInfo]   a line under a binding in the list ({ c, t })
  */
-export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text' }) {
-  const { t } = useTranslation(ns)
+export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
+  messaging = true, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
+  const { t } = useTranslation([ns, 'connector'])
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
   const [off, setOff] = useState('')
@@ -81,6 +101,19 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   const [busy, setBusy] = useState(false)
   const [toDelete, setToDelete] = useState(null)
   const [openSenders, setOpenSenders] = useState('')
+  const [kindInfo, setKindInfo] = useState(null)
+  const [capabilities, setCapabilities] = useState([])
+  const [accessVersion, setAccessVersion] = useState(0)
+  // The last token test of each saved binding in this session: { ok, bot, reason }.
+  const [tokenChecks, setTokenChecks] = useState({})
+  // The pairings of the open binding, as pairing here changes them.
+  const [pairedList, setPairedList] = useState(null)
+  const kindFiles = kindInfo?.files || null
+  // A kind that declares agent_optional lets a binding hold credentials only.
+  const agentOptional = Boolean(kindInfo?.agent_optional)
+  const s = answerT(t)
+  const pairedChanged = useCallback((list) => { if (Array.isArray(list)) setPairedList(list); setAccessVersion((v) => v + 1) }, [])
+  const isAdmin = useIsAdmin(useAuth)
 
   const fail = useCallback((e) => {
     if (e?.status === 409 && e.body?.error?.type === 'connectors_off') { setOff(e.body.error.message); return }
@@ -96,10 +129,44 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }, [fail, kind])
 
   useEffect(() => { load() }, [load])
+  // What the add-on of this kind offers: the choices of its options.
+  useEffect(() => {
+    connectorsApi.kinds().then((r) => {
+      setKindInfo((r.kinds || []).find((k) => k.kind === kind) || null)
+      setCapabilities(r.capabilities || [])
+    }).catch(() => {})
+  }, [kind])
   useEffect(() => { agentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
+  // A link with ?binding=<id> (from the Tools list of an agent) opens that
+  // binding and brings its permissions into view, once.
+  const linked = useRef(false)
+  useEffect(() => {
+    if (linked.current || items.length === 0) return
+    const id = new URLSearchParams(window.location.search).get('binding')
+    const c = id && items.find((x) => x.id === id)
+    if (!c) return
+    linked.current = true
+    open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })
+    setTimeout(() => document.querySelector('[data-testid="connector-permissions"]')?.scrollIntoView?.({ block: 'start' }), 50)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
+
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
-  const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote('') }
+  const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote(''); setPairedList(null) }
+  const extra = (form) => ({ ...(messaging ? {} : { enabled: false, accept_any: false }), ...(extraBody ? extraBody(form) : {}) })
+  const check = async (c) => {
+    try {
+      const r = await connectorsApi.test(c.id)
+      let text = t('testOk', { bot: r.bot_username })
+      if (testExtra) text += ` ${await testExtra(c, t)}`
+      setTokenChecks((m) => ({ ...m, [c.id]: { ok: true, bot: text } }))
+      return text
+    } catch (e) {
+      setTokenChecks((m) => ({ ...m, [c.id]: { ok: false, reason: e?.message || '' } }))
+      throw e
+    }
+  }
 
   // The server refuses a token that the platform refuses. After a save with
   // a new token, the page names the bot the token belongs to.
@@ -110,23 +177,47 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
     setNote('')
     try {
       const token = tokenOf(form).trim()
-      const body = connectorPayload(form, kind, token)
+      const body = connectorPayload(form, kind, token, extra(form))
       const saved = form.id ? await connectorsApi.update(form.id, body) : await connectorsApi.create(body)
       setForm(null)
       await load()
       if (token && saved?.id) {
         try {
-          const r = await connectorsApi.test(saved.id)
-          setNote(t('testOk', { bot: r.bot_username }))
+          setNote(await check(saved))
         } catch (err) { setError(t('checkFailed', { reason: err?.message || '' })) }
       }
     } catch (err) { fail(err) } finally { setBusy(false) }
+  }
+
+  // The preset for a saved binding that has no permission on: the usual set,
+  // saved at once, with every other setting as it was.
+  const allowUsual = async (c) => {
+    setBusy(true)
+    setError('')
+    setNote('')
+    try {
+      const f = { ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) }
+      f.caps = usualCaps(capabilities)
+      await connectorsApi.update(c.id, connectorPayload(f, kind, '', extra(f)))
+      setNote(s('perm.usualSaved', { name: c.name }))
+      await load()
+    } catch (e) { fail(e) } finally { setBusy(false) }
   }
 
   const act = async (fn) => {
     setError('')
     try { await fn(); await load() } catch (e) { fail(e) }
   }
+
+  // What the form will do, asked of the host for the form as it is now.
+  const preview = useAccessPreview({ form, kind, enabled: Boolean(form) && messaging && capabilities.length > 0, version: accessVersion })
+  const savedItem = form?.id ? items.find((x) => x.id === form.id) : null
+  const savedForm = savedItem ? { ...connectorForm(savedItem), ...(extraForm ? extraForm(savedItem) : {}) } : null
+  const tokenTyped = form ? Boolean(tokenOf(form).trim()) : false
+  const dirty = form ? !savedForm || tokenTyped || JSON.stringify(connectorPayload(form, kind, '', extra(form))) !== JSON.stringify(connectorPayload(savedForm, kind, '', extra(savedForm))) : false
+  const people = form ? (lists.length > 1 ? listEntries(form.allow, lists, 0).length : (form.allow || []).length) : 0
+  const fixCtx = { agentId: form?.agent_id || '', isAdmin, lists, form: form || {}, people }
+  const readyInput = form && { form, saved: savedForm, kindInfo, capabilities, agents, lists, tokenTyped, token: form.id ? tokenChecks[form.id] : null, preview, paired: pairedList || form.paired || [], agentOptional, messaging }
 
   if (off) {
     return (
@@ -138,10 +229,11 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }
 
   return (
+    <HintLabels.Provider value={{ more: s('more'), less: s('less'), optional: s('optional') }}>
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
-        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open(emptyConnector())}>
+        <button type="button" className="dk-btn dk-btn--primary" onClick={() => open({ ...emptyConnector(), ...(extraForm ? extraForm({}) : {}) })}>
           <Icon name="plus" /> {t('new')}
         </button>
       </header>
@@ -151,29 +243,34 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       {error && (
         <Notice tone="error" role="alert">
           <span>{error}</span>
-          <button type="button" className="cn-link" aria-label={t('dismiss', { defaultValue: 'Dismiss' })} onClick={() => setError('')}>×</button>
+          <button type="button" className="cn-link" aria-label={answerT(t)('dismiss')} onClick={() => setError('')}>×</button>
         </Notice>
       )}
       {note && <Notice tone="ok" role="status">{note}</Notice>}
 
       {form && (
         <div className="cn-formgrid">
-          <form className="cn-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')}>
+          <form className="cn-form" onSubmit={save} aria-label={form.id ? t('edit') : t('new')} data-testid="connector-form">
+            {messaging && capabilities.length > 0 && (
+              <ReadinessList s={s} ctx={fixCtx} rowsInput={readyInput} />
+            )}
             <Field label={t('name')}>
               {(p) => <TextInput {...p} value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />}
             </Field>
             <TokenFields form={form} setForm={setForm} t={t} />
-            <Field label={t('agent')}>
+            <Field label={t('agent')} hint={agentOptional ? answerT(t)('agentOptionalHint') : undefined} optional={agentOptional}>
               {(p) => (
-                <Select {...p} aria-label={t('agent')} value={form.agent_id} required onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
-                  <option value="">{t('agentNone')}</option>
+                <Select {...p} data-testid="connector-agent" aria-label={t('agent')} value={form.agent_id} required={!agentOptional} onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
+                  <option value="">{agentOptional ? answerT(t)('agentCredentialsOnly') : t('agentNone')}</option>
                   {agents.map((a) => (
                     <option key={a.id} value={a.id} disabled={!a.model}>{a.model ? a.name : t('agentNoModel', { name: a.name })}</option>
                   ))}
                 </Select>
               )}
             </Field>
-            <fieldset className="cn-group">
+            {ExtraFields && <ExtraFields form={form} setForm={setForm} t={t} />}
+            {messaging && (<>
+            <fieldset className="cn-group" data-testid="connector-who" tabIndex={-1}>
               <legend>{t('who')}</legend>
               <RadioCards name="who" legend={t('who')} value={form.accept_any} onChange={(any) => { setForm({ ...form, accept_any: any }); if (!any) setConfirmed(false) }}
                 options={[{ value: false, label: t('onlyListed') }, { value: true, label: t('anyone') }]} />
@@ -189,15 +286,24 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               ))}
             </fieldset>
             <Field label={t('notifyChat')} hint={t('notifyHelp')} optional>
-              {(p) => <TextInput {...p} mono inputMode={notifyMode} value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />}
+              {(p) => <TextInput {...p} mono inputMode={notifyMode} data-testid="connector-notify" value={form.notify_chat} onChange={(e) => setForm({ ...form, notify_chat: e.target.value })} />}
             </Field>
-            <AnswerFields form={form} setForm={setForm} t={t} />
+            <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
+            <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
+            <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} agent={agents.find((a) => a.id === form.agent_id)} channelsOnly={channelOnly(form, lists)} />
+            {/* The approval of proposed triggers sits under the permission Propose triggers; an older host with no capability list has no such row, so it shows here. */}
+            {capabilities.length === 0 && <ApprovalOptions form={form} setForm={setForm} s={s} />}
+            {capabilities.length > 0 && (<>
+              <CapabilitiesPanel form={form} kindInfo={kindInfo} capabilities={capabilities} lists={lists} preview={preview} dirty={dirty} s={s} ctx={fixCtx} />
+              <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />
+            </>)}
+            </>)}
             <div className="cn-actions">
-              <button type="submit" className="dk-btn dk-btn--primary" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()))}>{t('save')}</button>
+              <button type="submit" className="dk-btn dk-btn--primary" data-testid="connector-save" aria-busy={busy ? 'true' : undefined} disabled={busy || !canSave(form, confirmed, Boolean(tokenOf(form).trim()), kindFiles, agentOptional) || (extraValid ? !extraValid(form) : false)}>{t('save')}</button>
               <button type="button" className="dk-btn dk-btn--secondary" onClick={() => setForm(null)}>{t('cancel')}</button>
             </div>
           </form>
-          <aside className="cn-aside" aria-label={answerT(t)('aside.title')}>
+          {messaging && <aside className="cn-aside" aria-label={answerT(t)('aside.title')}>
             <h2 className="cn-aside__title">{answerT(t)('aside.title')}</h2>
             <ol className="cn-aside__steps">
               <li>{answerT(t)('aside.step1')}</li>
@@ -206,7 +312,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </ol>
             <h2 className="cn-aside__title">{answerT(t)('aside.testTitle')}</h2>
             <p className="cn-muted">{answerT(t)('aside.testText')}</p>
-          </aside>
+          </aside>}
         </div>
       )}
 
@@ -215,27 +321,35 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
           <li key={c.id} className="cn-row" data-testid="connector-row">
             <div className="cn-row__text">
               <span className="cn-row__name">{c.name}</span>
+              {messaging ? (<>
               <span className="cn-muted">
-                {t('agentOf', { name: agentName(c.agent_id) })}
+                {c.credentials_only ? answerT(t)('credentialsOnly') : t('agentOf', { name: agentName(c.agent_id) })}
                 {' · '}
                 {t('accepts', { who: c.accept_any ? t('modes.anyone') : (c.allow || []).length === 0 ? t('modes.nobody') : t('modes.listed', { count: c.allow.length }) })}
               </span>
               <span className="cn-muted" data-testid="connector-answer-summary">{answerSummary(c, t)}</span>
+              </>) : <span className="cn-muted" data-testid={c.credentials_only ? 'connector-credentials-only' : undefined}>
+                {c.credentials_only ? answerT(t)('credentialsOnly') : t('agentOf', { name: agentName(c.agent_id) })}
+              </span>}
+              {RowInfo && <RowInfo c={c} t={t} />}
+              {messaging && capabilities.length > 0 && hasNoCaps(c) && (
+                <NoCapsNotice capabilities={capabilities} s={s} busy={busy} name={c.name} onUsual={() => allowUsual(c)} />
+              )}
               {c.active === false && <span className="cn-muted" data-testid="connector-inactive">{t('inactive', { reason: c.reason })}</span>}
               {openSenders === c.id && <Senders id={c.id} onAllowed={load} t={t} />}
             </div>
             <span className="cn-row__actions">
-              <Switch checked={c.enabled} label={t('onFor', { name: c.name })}
+              {messaging && <Switch checked={c.enabled} label={t('onFor', { name: c.name })}
                 onChange={(on) => {
                   setItems((list) => list.map((x) => (x.id === c.id ? { ...x, enabled: on } : x)))
                   act(() => (on ? connectorsApi.enable(c.id) : connectorsApi.disable(c.id)))
-                }} />
+                }} />}
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
-                onClick={async () => { setError(''); try { const r = await connectorsApi.test(c.id); setNote(t('testOk', { bot: r.bot_username })) } catch (e) { fail(e) } }}>
+                onClick={async () => { setError(''); try { setNote(await check(c)) } catch (e) { fail(e) } }}>
                 {t('test')}
               </button>
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>
-              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open({ ...emptyConnector(), ...c, token: '' })}>{t('editButton')}</button>
+              {messaging && <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setOpenSenders(openSenders === c.id ? '' : c.id)}>{t('senders')}</button>}
+              <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })}>{t('editButton')}</button>
               <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" onClick={() => setToDelete(c)}>{t('delete')}</button>
             </span>
           </li>
@@ -252,5 +366,6 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
         onCancel={() => setToDelete(null)}
       />
     </div>
+    </HintLabels.Provider>
   )
 }

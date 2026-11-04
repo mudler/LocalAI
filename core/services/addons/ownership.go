@@ -73,8 +73,7 @@ func (g OwnerGuard) Acquire(ctx context.Context) (func() error, error) {
 		return releaseErr
 	}
 	// The address is runtime configuration and a frontend may reach the owner at
-	// a new one, so identity is the owner and the storage only. An older file
-	// that still carries an address is read and the address is ignored.
+	// a new one, so identity is the owner and the storage only.
 	identity := ownerIdentity{OwnerID: c.OwnerID, StorageID: c.StorageID}
 	expected, _ := json.Marshal(identity)
 	p := filepath.Join(c.Root, "identity.json")

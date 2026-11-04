@@ -14,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
-	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // loadSkillName is the name of the tool that loads a skill by its name.
@@ -43,8 +42,12 @@ type loadOpts struct {
 	files bool
 	// exec is true when the chat can run commands. A skill that requires
 	// them is refused with the reason when it cannot.
-	exec    bool
-	sandbox *bool
+	exec bool
+	// provided is true when an add-on, not the built-in bash, serves the
+	// chat's commands in the final tool list. Without it the commands count as
+	// absent when the skills resolve, so a skill that needs an add-on's
+	// isolation is not loaded on the strength of a stale descriptor.
+	provided *bool
 }
 
 // registerLoadSkill adds load_skill to the registry of built-in tools. It has
@@ -96,8 +99,8 @@ func (s *Service) fitLoadSkill(a workspace.Actor, tools []session.Tool) []sessio
 		return tools
 	}
 	// Final tools may only narrow the freshly checked descriptor at call time.
-	sandbox := addonRunner(tools) == "sandbox"
-	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), sandbox: &sandbox})
+	provided := addonRunner(tools) != ""
+	tools[i].Run = s.loadSkillRun(a, loadOpts{files: hasTool(tools, "read_file"), exec: s.runsCommands(tools), provided: &provided})
 	return tools
 }
 
@@ -130,6 +133,10 @@ func (s *Service) loadableSkillsForActor(ctx context.Context, a workspace.Actor,
 }
 
 func (s *Service) loadableSkillsAndNotesForActor(ctx context.Context, a workspace.Actor, final *bool) ([]skills.Skill, []string, error) {
+	// The harness calls a tool with a context of its own, without the turn's
+	// scope. The status of the commands is read here, so the scope is too.
+	ctx, closeScope := s.executionScope(ctx, a.Principal, a.ChatID)
+	defer closeScope()
 	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
 	if err != nil {
 		return nil, nil, err
@@ -142,7 +149,7 @@ func (s *Service) loadableSkillsAndNotesForActor(ctx context.Context, a workspac
 	if final != nil && !*final {
 		command = Commands{State: CommandsNone}
 	}
-	list, notes, _, err := s.chatSkillSet(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, command)
+	list, notes, _, err := s.chatSkillSet(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, command)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -160,20 +167,44 @@ func (s *Service) loadSkillRun(a workspace.Actor, o loadOpts) func(context.Conte
 		if err != nil {
 			return "", err
 		}
-		list, notes, err := s.loadableSkillsAndNotes(ctx, a, o.sandbox)
+		list, notes, err := s.loadableSkillsAndNotes(ctx, a, o.provided)
 		if err != nil {
 			return "", fmt.Errorf("the skills cannot be read now: %w", err)
 		}
 		// The tool was offered because the chat had this skill; a document
-		// skill is missing now only because the Sandbox is not known to be
+		// skill is missing now only because its add-on is not known to be
 		// isolated, and the model must say so rather than "no skills".
-		if _, ok := skills.Find(list, in.Name); !ok && contract.DocumentSkill(skills.Clean(in.Name)) {
-			if i := slices.IndexFunc(notes, func(n string) bool { return strings.HasPrefix(n, documentNotePrefix) }); i >= 0 {
+		if _, ok := skills.Find(list, in.Name); !ok {
+			name := skills.Clean(in.Name)
+			if i := slices.IndexFunc(notes, func(n string) bool { return hiddenDocumentNote(n, name) }); i >= 0 {
 				return "", fmt.Errorf("unknown skill %q: %s", skills.Clean(in.Name), notes[i])
 			}
 		}
-		return s.loadSkill(ctx, a.Principal, list, in.Name, o)
+		text, err := s.loadSkill(ctx, a.Principal, list, in.Name, o)
+		if err != nil {
+			return text, err
+		}
+		return s.writingSkillsPreamble(ctx, a, list, in.Name) + text, nil
 	}
+}
+
+// agentWritingPreamble leads writing-skills in a chat that runs a saved agent.
+// The skill text names the .skills folder, which a saved agent cannot write:
+// its skills are proposals the owner confirms.
+const agentWritingPreamble = "Do not write files. Call " + proposeChangeName + " with kind skill.\n\n"
+
+// writingSkillsPreamble returns agentWritingPreamble when the skill loaded is
+// the built-in writing-skills and the chat runs a saved agent, else "".
+func (s *Service) writingSkillsPreamble(ctx context.Context, a workspace.Actor, list []skills.Skill, name string) string {
+	sk, ok := skills.Find(list, name)
+	if !ok || sk.Name != writingSkillsName || sk.Layer != skills.LayerBuiltin {
+		return ""
+	}
+	rec, err := s.d.Store.GetChat(ctx, a.Principal, a.ChatID)
+	if err != nil || rec.AgentID == "" {
+		return ""
+	}
+	return agentWritingPreamble
 }
 
 // loadSkill returns the instructions of the skill of a name among list, read

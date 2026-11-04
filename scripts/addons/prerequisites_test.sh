@@ -135,10 +135,15 @@ reject contracts-empty 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REP
 reject contracts-skipped 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" contracts
 # Every gateway report is mandatory, including a missing second report.
 cat > "$fixture/scripts/addons/suites.json" <<'JSON'
-{"gateway":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture"]],"cases":["sqlite transaction","http"],"report":".cache/report.json","reports":[{"path":".cache/report.json","cases":["sqlite transaction"]},{"path":".cache/second.json","cases":["http"]}]}}
+{"gateway":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture"]],"report":".cache/report.json","reports":[{"path":".cache/report.json","cases":["sqlite transaction"]},{"path":".cache/second.json","cases":["http"]}]}}
 JSON
 reject gateway-missing-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"passed","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
 reject gateway-skipped-report 'Ginkgo report' env PATH="$fixture/bin:$PATH" FIXTURE_REPORT='[{"SuiteSucceeded":true,"SpecReports":[{"State":"skipped","LeafNodeType":"It","LeafNodeText":"sqlite transaction"}]}]' sh "$verify" gateway
+# The same cases listed at the top level and per report would drift apart.
+cat > "$fixture/scripts/addons/suites.json" <<'JSON'
+{"gateway":{"kind":"ginkgo","commands":[["go","test","-count=1","-tags","auth","./fixture"]],"cases":["sqlite transaction"],"report":".cache/report.json","reports":[{"path":".cache/report.json","cases":["sqlite transaction"]}]}}
+JSON
+reject cases-listed-twice 'lists its cases twice' env PATH="$fixture/bin:$PATH" sh "$verify" gateway
 # Pin/browser setup fixtures never build or download: make their disk
 # prerequisite deterministic without bypassing the real preparation gate.
 cat > "$fixture/bin/df" <<'TOOL'

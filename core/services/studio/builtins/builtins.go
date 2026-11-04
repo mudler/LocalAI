@@ -12,8 +12,10 @@ package builtins
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -43,8 +45,18 @@ const (
 	GroupMedia = "media"
 	// GroupCollections holds list_collections and search_collection.
 	GroupCollections = "collections"
+	// GroupChanges holds propose_change and revert_change: a chat can ask to
+	// change the person's memory or an agent profile, and the person confirms.
+	GroupChanges = "changes"
+	// GroupMemory is the switch of the notes of the chat: off makes it a
+	// private chat, which neither reads nor saves memory.
+	GroupMemory = "memory"
 	// GroupSubAgents holds spawn_agent.
 	GroupSubAgents = "subagents"
+	// GroupHistory holds search_chats and read_chat: the model can search and
+	// read the person's earlier chats. It is opt-in: off until the chat, or the
+	// saved agent that holds the grant history.read, switches it on.
+	GroupHistory = "history"
 )
 
 // The runtime settings of the built-in tools.
@@ -65,6 +77,9 @@ type Chat struct {
 	Actor workspace.Actor
 	// Origin is "" for a chat a person watches, or trigger, connector, job.
 	Origin string
+	// OriginID names the trigger, the connector binding or the job that
+	// started the chat.
+	OriginID string
 	// Agent is true when the chat runs a saved agent, whose grants the owner
 	// chose: an unattended run without one gets no tool that acts at once.
 	Agent bool
@@ -80,8 +95,52 @@ type Chat struct {
 	GroupsOff []string
 	// GroupsOn are the opt-in switch groups the chat switched on.
 	GroupsOn []string
+	// Grants are the builtin grants of the chat's saved agent after the
+	// intersection with what the user may use. Empty for a chat without an
+	// agent: see HoldsGrant.
+	Grants []string
 	// GoalActive is true while the chat works toward an active goal.
 	GoalActive bool
+	// Allow answers whether the sender of this turn may use a capability
+	// (contract.ConnectorCapabilityNames), with the reason when not. It is set
+	// for a connector chat and nil for any other, which has no sender to
+	// check. Audit records the use of a capability; it is nil when Allow is.
+	Allow func(capability string) (bool, string)
+	Audit func(capability string, allowed bool, reason string)
+}
+
+// Require checks a capability at the moment a tool uses it and records the
+// decision. A chat without a sender check passes. The error is worded for the
+// model, which tells the person.
+func (c Chat) Require(capability string) error {
+	if c.Allow == nil {
+		return nil
+	}
+	ok, why := c.Allow(capability)
+	if c.Audit != nil {
+		c.Audit(capability, ok, why)
+	}
+	if !ok {
+		return fmt.Errorf("not permitted: %s. Tell the person you cannot do this for them here", why)
+	}
+	return nil
+}
+
+// Holds says, without recording, whether the sender of the turn holds any one
+// of the capabilities. A chat without a sender check holds all.
+func (c Chat) Holds(capabilities ...string) (bool, string) {
+	if c.Allow == nil || len(capabilities) == 0 {
+		return true, ""
+	}
+	why := ""
+	for _, name := range capabilities {
+		ok, w := c.Allow(name)
+		if ok {
+			return true, ""
+		}
+		why = w
+	}
+	return false, why
 }
 
 // Tool is one built-in chat tool.
@@ -122,6 +181,13 @@ type Tool struct {
 	// the chat can have it, Registry.Build leaves it out, and the builder
 	// asks Hidden whether the chat switched it off. It needs a Group.
 	External bool
+	// Capabilities are the capabilities that gate the tool in a connector
+	// chat: it is offered only when the sender of the turn holds at least one,
+	// and a call is refused at once when none is held. A tool whose right
+	// depends on its arguments lists the capabilities of all its uses and
+	// checks the one it needs with Chat.Require. Empty: not gated. A chat
+	// that is not a connector chat is never gated.
+	Capabilities []string
 	// Enabled reports whether administrators left the tool on. Nil: on.
 	Enabled func() bool
 	// Build returns the tool for one chat, or ok false and a short reason when
@@ -135,8 +201,48 @@ func (t Tool) On() bool { return t.Enabled == nil || t.Enabled() }
 
 // Registry holds the built-in tools. It is safe for concurrent use.
 type Registry struct {
-	mu    sync.RWMutex
-	tools []Tool
+	mu     sync.RWMutex
+	tools  []Tool
+	groups map[string]GroupInfo
+}
+
+// GroupInfo is what a person reads about a switch group: a title and a
+// description of what the model can do when the switch is on. Both are
+// English; the interface may translate them by group ID. A group without a
+// declaration falls back to the label and description of its first tool.
+type GroupInfo struct {
+	Title, Description string
+	// WhenOff says what changes for the model when the switch is off. Empty
+	// when "the model has none of these tools" says it all.
+	WhenOff string
+}
+
+// DescribeGroup declares the title and description of a switch group. The
+// code that registers the tools of a group declares it next to them.
+func (r *Registry) DescribeGroup(group string, info GroupInfo) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.groups == nil {
+		r.groups = map[string]GroupInfo{}
+	}
+	r.groups[group] = info
+}
+
+// GroupInfo returns the declared information of a group, or the label and
+// description of its first registered tool.
+func (r *Registry) GroupInfo(group string) GroupInfo {
+	r.mu.RLock()
+	info, ok := r.groups[group]
+	r.mu.RUnlock()
+	if ok {
+		return info
+	}
+	for _, t := range r.Tools() {
+		if t.Group == group {
+			return GroupInfo{Title: t.Label, Description: t.Description}
+		}
+	}
+	return GroupInfo{}
 }
 
 // NewRegistry returns an empty registry.
@@ -159,6 +265,8 @@ func (r *Registry) Register(t Tool) error {
 		return fmt.Errorf("builtins: %s is opt-in but has no Group", t.ID)
 	case t.External && t.Group == "":
 		return fmt.Errorf("builtins: %s is external but has no Group", t.ID)
+	case slices.ContainsFunc(t.Capabilities, func(n string) bool { return !contract.KnownCapability(n) }):
+		return fmt.Errorf("builtins: %s names a capability that is not in the closed list", t.ID)
 	case t.Covers && (t.Group == "" || !t.Replaceable):
 		return fmt.Errorf("builtins: %s covers its replacement but has no Group or is not replaceable", t.ID)
 	}
@@ -268,7 +376,30 @@ const (
 	// ReasonNotOn: the tool's group is opt-in and the chat did not switch it
 	// on.
 	ReasonNotOn = "not switched on for this chat"
+	// ReasonNotPermitted: the sender of a connector turn lacks the capability
+	// that the tool needs. The text after it says which.
+	ReasonNotPermitted = "not permitted"
 )
+
+// gateCall makes a gated tool check its capabilities again when the model calls
+// it: the grant of a turn can shrink after the tools were offered, when a
+// less trusted sender joins the conversation.
+func gateCall(tool session.Tool, t Tool, c Chat) session.Tool {
+	if len(t.Capabilities) == 0 || c.Allow == nil || tool.Run == nil {
+		return tool
+	}
+	run := tool.Run
+	tool.Run = func(ctx context.Context, raw json.RawMessage) (string, error) {
+		if held, why := c.Holds(t.Capabilities...); !held {
+			if c.Audit != nil {
+				c.Audit(strings.Join(t.Capabilities, "|"), false, why)
+			}
+			return "", fmt.Errorf("not permitted: %s. Tell the person you cannot do this for them here", why)
+		}
+		return run(ctx, raw)
+	}
+	return tool
+}
 
 // Built is a built-in tool built for a chat, or why not.
 type Built struct {
@@ -304,9 +435,16 @@ func (r *Registry) Build(ctx context.Context, c Chat) []Built {
 			out = append(out, Built{ID: t.ID, Reason: ReasonNotOn})
 			continue
 		}
+		if len(t.Capabilities) > 0 {
+			if held, why := c.Holds(t.Capabilities...); !held {
+				out = append(out, Built{ID: t.ID, Reason: ReasonNotPermitted + ": " + why})
+				continue
+			}
+		}
 		tool, ok, reason := t.Build(ctx, c)
 		if ok {
 			tool.Name, tool.Provider = t.ID, BuiltinProvider
+			tool = gateCall(tool, t, c)
 		}
 		out = append(out, Built{ID: t.ID, Tool: tool, OK: ok, Reason: reason})
 	}

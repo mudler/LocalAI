@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { addEntry, agentFolderMarks, agentPayload, emptyAgent, folderName, folderPayload, folderPickable, folderState, grantSummary, isFolderMissingError, removeEntry } from '../../src/utils/chatAgents.js'
+import { addEntry, agentFolderMarks, agentPayload, emptyAgent, effectiveModes, folderName, folderPickable, folderRows, folderState, foldersPayload, foldersUnchosen, MAX_FOLDERS, grantSummary, isFolderMissingError, removeEntry, missingConnectorGrants, setGrant, CONNECTOR_GRANTS } from '../../src/utils/chatAgents.js'
 
 test('chat agents: an entry is trimmed and added once', () => {
   assert.deepEqual(addEntry([], ' office '), ['office'])
@@ -38,31 +38,46 @@ test('chat agents: the network of unattended runs is off unless chosen, and only
 
 const ACME = { path: '/Projects/Acme', name: 'Acme', mode: 'read', state: 'ok' }
 
-test('chat agents: folder omitted when unchanged', () => {
-  const form = { ...emptyAgent(), name: 'a', folder: ACME }
-  assert.equal('folder' in agentPayload(form, { initialFolder: ACME }), false)
-  assert.equal('folder' in agentPayload(form, { initialFolder: { ...ACME } }), false)
-  assert.equal('folder' in agentPayload({ ...emptyAgent(), name: 'a' }, { initialFolder: null }), false)
-  // Without the saved folder the body never names one: the dirty check and
+test('chat agents: folders omitted when unchanged', () => {
+  const form = { ...emptyAgent(), name: 'a', folders: [ACME] }
+  assert.equal('folders' in agentPayload(form, { initialFolders: [ACME] }), false)
+  assert.equal('folders' in agentPayload(form, { initialFolders: [{ ...ACME }] }), false)
+  assert.equal('folders' in agentPayload({ ...emptyAgent(), name: 'a' }, { initialFolders: [] }), false)
+  // Without the saved rows the body never names folders: the dirty check and
   // the preview baseline use it.
-  assert.equal('folder' in agentPayload(form), false)
-  // A missing or unset folder the person did not replace is kept.
-  const gone = { mode: 'read', state: 'missing' }
-  assert.equal('folder' in agentPayload({ ...form, folder: gone }, { initialFolder: gone }), false)
-  assert.equal(folderPayload({ mode: 'write', state: 'unset' }, { mode: 'read', state: 'unset' }), undefined)
+  assert.equal('folders' in agentPayload(form), false)
+  // A missing or unset row the person did not touch is kept.
+  const gone = [{ mode: 'read', state: 'missing' }]
+  assert.equal('folders' in agentPayload({ ...form, folders: gone }, { initialFolders: gone }), false)
 })
 
-test('chat agents: empty path clears', () => {
-  assert.deepEqual(agentPayload({ ...emptyAgent(), name: 'a', folder: null }, { initialFolder: ACME }).folder, { path: '' })
-  assert.deepEqual(folderPayload({ mode: 'read', state: 'missing' }, null), { path: '' })
+test('chat agents: removing every row clears, and a row without a path is not sent', () => {
+  assert.deepEqual(agentPayload({ ...emptyAgent(), name: 'a', folders: [] }, { initialFolders: [ACME] }).folders, [])
+  assert.deepEqual(foldersPayload([{ mode: 'read', state: 'missing' }], []), [])
+  assert.deepEqual(foldersPayload([ACME], [ACME, { mode: 'read' }]), [{ path: '/Projects/Acme', mode: 'read' }])
+  assert.equal(foldersUnchosen([ACME], [ACME, { mode: 'read' }]), true)
+  assert.equal(foldersUnchosen([ACME], [ACME]), false)
+  assert.equal(foldersUnchosen([{ mode: 'read', state: 'unset' }], [{ mode: 'read', state: 'unset' }]), false)
 })
 
-test('chat agents: mode read maps to "read"', () => {
-  assert.deepEqual(folderPayload(null, { path: '/Projects/Acme', mode: 'read' }), { path: '/Projects/Acme', mode: 'read' })
-  assert.deepEqual(folderPayload(ACME, { ...ACME, mode: 'write' }), { path: '/Projects/Acme', mode: 'write' })
-  assert.deepEqual(folderPayload(null, { path: '/', mode: 'nonsense' }), { path: '/', mode: 'read' })
-  assert.deepEqual(folderPayload({ mode: 'read', state: 'missing' }, { path: '/Other', mode: 'read' }), { path: '/Other', mode: 'read' })
-  assert.deepEqual(folderPayload(ACME, { path: '/Other', mode: 'read' }), { path: '/Other', mode: 'read' })
+test('chat agents: each row keeps its own mode, and a nonsense mode is read', () => {
+  assert.deepEqual(foldersPayload([], [{ path: '/A', mode: 'write' }, { path: '/B', mode: 'read' }]), [{ path: '/A', mode: 'write' }, { path: '/B', mode: 'read' }])
+  assert.deepEqual(foldersPayload([ACME], [{ ...ACME, mode: 'write' }]), [{ path: '/Projects/Acme', mode: 'write' }])
+  assert.deepEqual(foldersPayload(null, [{ path: '/', mode: 'nonsense' }]), [{ path: '/', mode: 'read' }])
+  assert.equal(MAX_FOLDERS, 8)
+})
+
+test('chat agents: a folder inside another takes the outer mode', () => {
+  assert.deepEqual(effectiveModes([{ path: '/P', mode: 'write' }, { path: '/P/A', mode: 'read' }]), ['write', 'write'])
+  assert.deepEqual(effectiveModes([{ path: '/P', mode: 'read' }, { path: '/P/A', mode: 'write' }]), ['read', 'read'])
+  assert.deepEqual(effectiveModes([{ path: '/P', mode: 'read' }, { path: '/Pq', mode: 'write' }]), ['read', 'write'])
+  assert.deepEqual(effectiveModes([{ path: '/', mode: 'read' }, { path: '/A', mode: 'write' }]), ['read', 'read'])
+})
+
+test('chat agents: rows come from folders, or from the first folder', () => {
+  assert.deepEqual(folderRows({ folder: ACME }), [ACME])
+  assert.deepEqual(folderRows({ folder: ACME, folders: [ACME, { ...ACME, path: '/B' }] }).length, 2)
+  assert.deepEqual(folderRows({}), [])
 })
 
 test('chat agents: the folder state, name and what the picker may choose', () => {
@@ -70,6 +85,7 @@ test('chat agents: the folder state, name and what the picker may choose', () =>
   assert.equal(folderState({ folder: ACME }), 'ok')
   assert.equal(folderState({ folder: { mode: 'read', state: 'missing' } }), 'missing')
   assert.equal(folderState({ folder: { mode: 'read', state: 'unset' } }), 'unset')
+  assert.equal(folderState({ folders: [ACME, { mode: 'read', state: 'missing' }] }), 'missing')
   assert.equal(folderName('/Projects/Acme'), 'Acme')
   assert.equal(folderName('/'), '')
   assert.equal(folderPickable({ kind: 'dir', path: '/Projects' }), true)
@@ -96,4 +112,23 @@ test('chat agents: a 409 agent_folder_missing is told apart from other errors', 
   assert.equal(isFolderMissingError({ status: 409, body: { error: { type: 'conflict' } } }), false)
   assert.equal(isFolderMissingError(new Error('x')), false)
   assert.equal(isFolderMissingError(null), false)
+})
+
+test('chat agents: the first grant on an agent without a list names the connector grants that turn off', () => {
+  assert.deepEqual(missingConnectorGrants([], ['memory.write']), CONNECTOR_GRANTS)
+  assert.deepEqual(missingConnectorGrants(undefined, ['memory.write', 'triggers.run']), ['triggers.propose', 'talkback.channels', 'files.upload'])
+  assert.deepEqual(missingConnectorGrants([], CONNECTOR_GRANTS), [])
+})
+
+test('chat agents: no notice when the agent had a list, or the form still has none', () => {
+  assert.deepEqual(missingConnectorGrants(['memory.write'], ['memory.write', 'skills.write']), [])
+  assert.deepEqual(missingConnectorGrants([], []), [])
+  assert.deepEqual(missingConnectorGrants([], undefined), [])
+})
+
+test('chat agents: a grant is switched on once and off again', () => {
+  assert.deepEqual(setGrant([], 'memory.write', true), ['memory.write'])
+  assert.deepEqual(setGrant(['memory.write'], 'memory.write', true), ['memory.write'])
+  assert.deepEqual(setGrant(['memory.write', 'files.upload'], 'memory.write', false), ['files.upload'])
+  assert.deepEqual(agentPayload({ ...emptyAgent(), name: 'a', builtins: ['memory.write', ' memory.write'] }).builtins, ['memory.write'])
 })

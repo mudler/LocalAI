@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -22,8 +23,8 @@ var (
 	ErrUnauthorized = errors.New("the platform refused the token")
 	// ErrConflict means another process reads the updates of the same bot.
 	ErrConflict = errors.New("another process reads the updates of this bot")
-	// ErrTooLarge means a file of a message is larger than the add-on may
-	// hand over (contract.MaxConnectorFileBytes) or than the platform lets a
+	// ErrTooLarge means a file of a message is larger than the bound of the
+	// handle (contract.ConnectorTransfer.MaxBytes) or than the platform lets a
 	// bot download.
 	ErrTooLarge = errors.New("the file is too large")
 )
@@ -67,17 +68,6 @@ type Formatter interface {
 	Format(markdown string) string
 }
 
-// MediaReader is a Platform that reads the files of messages for the op media.
-type MediaReader interface {
-	Media(ctx context.Context, token, ref string) (contract.ConnectorFile, error)
-}
-
-// FileSender is a Platform that sends files for the op send_file. It returns
-// the ID of the message that holds the file.
-type FileSender interface {
-	SendFile(ctx context.Context, req contract.ConnectorRequest) (string, error)
-}
-
 // RichSender is a Platform that sends an answer in its own markup and falls
 // back to plain text itself when the platform refuses the markup. The op send
 // uses SendRich and EditRich for each part of req.Text, which is Markdown; the
@@ -93,6 +83,14 @@ type Drafter interface {
 	Draft(ctx context.Context, req contract.ConnectorRequest) error
 }
 
+// HistoryReader is a Platform that reads the earlier messages of a thread for
+// the op history. It returns the messages oldest first, the newest of those
+// before req.Before, at most req.Limit of them, and whether older messages
+// exist. Serve checks the request and bounds the answer.
+type HistoryReader interface {
+	History(ctx context.Context, req contract.ConnectorRequest) ([]contract.ConnectorHistoryMessage, bool, error)
+}
+
 // Splitter is a Platform that cuts its texts itself; others use Split.
 type Splitter interface {
 	Split(text string) []string
@@ -103,6 +101,14 @@ type Splitter interface {
 // means. A request for another kind, without a token or with an unknown op is
 // refused.
 func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	return ServeWith(ctx, p, nil, req)
+}
+
+// ServeWith is Serve for an add-on that has the host operation channel, so it
+// can move file bytes by handle (see ConnectorTransfer). The ops media and
+// send_file need a handle and a Platform that serves it; any other request for
+// them is refused.
+func ServeWith(ctx context.Context, p Platform, host Host, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
 	if req.Kind != p.Kind() || req.Token == "" {
 		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown kind or no token", contract.ErrRefused)
 	}
@@ -141,26 +147,43 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 			out.BotID, out.BotUsername = bot.ID, bot.Username
 		}
 	case contract.ConnectorOpSendFile:
-		fs, ok := p.(FileSender)
-		if !ok || !validFile(req.File) {
+		ss, ok := p.(StreamSender)
+		if !ok || req.Transfer == nil || req.Transfer.Handle == "" || req.Transfer.Size <= 0 || req.Transfer.Name != contract.SafeFileName(req.Transfer.Name) {
 			return contract.ConnectorResponse{}, fmt.Errorf("%w: no file, or one this platform cannot send", contract.ErrRefused)
 		}
 		err = Retry(ctx, func() error {
-			id, err := fs.SendFile(ctx, req)
+			id, err := ss.SendStream(ctx, req, Get(ctx, host, req.Transfer))
 			out.MessageID = id
 			return err
 		})
 	case contract.ConnectorOpMedia:
-		m, ok := p.(MediaReader)
-		if !ok || req.Media == "" {
-			return contract.ConnectorResponse{}, fmt.Errorf("%w: no media", contract.ErrRefused)
+		if req.Transfer == nil {
+			return contract.ConnectorResponse{}, fmt.Errorf("%w: no handle", contract.ErrRefused)
 		}
-		var f contract.ConnectorFile
-		if f, err = m.Media(ctx, req.Token, req.Media); err == nil {
-			out.File = &f
+		out.Received, err = receive(ctx, p, host, req)
+	case contract.ConnectorOpHistory:
+		h, ok := p.(HistoryReader)
+		if !ok || req.Chat == "" || req.Thread == "" {
+			return contract.ConnectorResponse{}, fmt.Errorf("%w: no thread, or a platform that cannot read one", contract.ErrRefused)
+		}
+		if req.Limit < 1 || req.Limit > contract.MaxHistoryMessages {
+			req.Limit = contract.DefaultHistoryMessages
+		}
+		// Not retried after a wait: the history is context, and the host
+		// would rather answer without it than hold the answer behind it.
+		var msgs []contract.ConnectorHistoryMessage
+		var more bool
+		if msgs, more, err = h.History(ctx, req); err == nil {
+			if len(msgs) > req.Limit {
+				msgs, more = msgs[len(msgs)-req.Limit:], true
+			}
+			out.Messages, out.Truncated = msgs, more
 		}
 	default:
 		return contract.ConnectorResponse{}, fmt.Errorf("%w: unknown op", contract.ErrRefused)
+	}
+	if errors.Is(err, contract.ErrRefused) {
+		return contract.ConnectorResponse{}, err
 	}
 	if err != nil {
 		return contract.ConnectorResponse{Error: Typed(err)}, nil
@@ -168,7 +191,39 @@ func Serve(ctx context.Context, p Platform, req contract.ConnectorRequest) (cont
 	return out, nil
 }
 
+// receive streams the file of a reference to the host by the handle.
+func receive(ctx context.Context, p Platform, host Host, req contract.ConnectorRequest) (*contract.ConnectorReceived, error) {
+	sr, ok := p.(StreamReader)
+	if !ok || req.Media == "" || req.Transfer.Handle == "" || req.Transfer.MaxBytes <= 0 {
+		return nil, fmt.Errorf("%w: no media, or a platform that cannot stream it", contract.ErrRefused)
+	}
+	m, err := sr.MediaStream(ctx, req.Token, req.Media, req.Transfer.MaxBytes)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = m.Body.Close() }()
+	if m.Size > req.Transfer.MaxBytes {
+		return nil, ErrTooLarge
+	}
+	// One byte past the bound shows a file that is larger than it said.
+	if _, err := Put(ctx, host, req.Transfer, io.LimitReader(m.Body, req.Transfer.MaxBytes+1)); err != nil {
+		return nil, err
+	}
+	return &contract.ConnectorReceived{Name: contract.SafeFileName(m.Name), MIME: m.MIME}, nil
+}
+
+type optionsKey struct{}
+
+// OptionsFrom returns the options in effect that the host sent with the op
+// poll (contract.ConnectorRequest.Options), for a Platform whose Poll reads
+// them. It is nil when there are none.
+func OptionsFrom(ctx context.Context) map[string]string {
+	o, _ := ctx.Value(optionsKey{}).(map[string]string)
+	return o
+}
+
 func poll(ctx context.Context, p Platform, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
+	ctx = context.WithValue(ctx, optionsKey{}, req.Options)
 	wait := min(max(req.TimeoutSeconds, 0), contract.MaxPollSeconds)
 	ups, err := p.Poll(ctx, req.Token, req.Offset, wait)
 	if err != nil {
@@ -190,11 +245,6 @@ func parts(p Platform, text string) []string {
 		return s.Split(text)
 	}
 	return Split(text, p.MaxRunes())
-}
-
-// validFile tells whether the op send_file may carry f.
-func validFile(f *contract.ConnectorFile) bool {
-	return f != nil && len(f.Data) > 0 && len(f.Data) <= contract.MaxConnectorFileBytes && f.Name == contract.SafeFileName(f.Name)
 }
 
 // send sends the parts of a text in order and returns the ID of the last one.

@@ -101,7 +101,7 @@ func fixture(data []byte, edits ...func(*catalog.Release, *catalog.Source)) (*In
 			return nil
 		})
 	})
-	return &Installer{Root: root, Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: r.OS, Arch: r.Arch}}, resolved
+	return &Installer{Root: root, Catalog: c, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: r.OS, Arch: r.Arch}}, resolved
 }
 
 var _ = Describe("immutable packages", func() {
@@ -163,7 +163,7 @@ var _ = Describe("immutable packages", func() {
 		Expect(string(b)).To(Equal("old"))
 	})
 	It("rejects platform data API SDK and missing asset mismatches", func() {
-		for _, change := range []func(*contract.Manifest){func(m *contract.Manifest) { m.OS = "darwin" }, func(m *contract.Manifest) { m.API.Min = 2; m.API.Max = 2 }, func(m *contract.Manifest) { m.DataFormat.Min = 2; m.DataFormat.Max = 2 }, func(m *contract.Manifest) {
+		for _, change := range []func(*contract.Manifest){func(m *contract.Manifest) { m.OS = "darwin" }, func(m *contract.Manifest) { m.API.Min = 3; m.API.Max = 3 }, func(m *contract.Manifest) { m.DataFormat.Min = 2; m.DataFormat.Max = 2 }, func(m *contract.Manifest) {
 			m.Capabilities.UI = &contract.UI{Entry: "ui.js", SDK: contract.VersionRange{Min: 2, Max: 2}}
 		}, func(m *contract.Manifest) { m.Executable = "missing" }} {
 			var manifest contract.Manifest

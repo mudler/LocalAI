@@ -190,3 +190,8 @@ test('chat MCP: the edit form starts with empty secrets, and only a real change 
   assert.notEqual(formFingerprint({ ...f, name: 'Other' }), start)
   assert.notEqual(formFingerprint({ ...f, token: 'x' }), start)
 })
+
+test('tools counts: an add-on that waits for a connection is not counted as on', () => {
+  const addons = [{ id: 'tracker', off: false, needs_connection: true }, { id: 'office', off: false }]
+  assert.deepEqual(toolsCounts({ addons }), { on: 1, total: 2, mcp: 0 })
+})

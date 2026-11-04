@@ -94,6 +94,7 @@ var _ = Describe("the connector route", func() {
 		f := newFakeBot()
 		f.reply["sendDocument"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"message_id":8}}` }
 		r := run(f)
+		r.Host = &memHost{src: []byte("hello")}
 		out, err := r.Connector(ctx, contract.ConnectorRequest{Op: "send", Kind: "telegram", Token: secretToken, Chat: "5", MessageID: "6", Text: "the answer"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Error).To(BeNil())
@@ -101,7 +102,7 @@ var _ = Describe("the connector route", func() {
 		Expect(f.called("editMessageText")).To(HaveLen(1))
 		Expect(f.called("sendMessage")).To(BeEmpty())
 		out, err = r.Connector(ctx, contract.ConnectorRequest{Op: "send_file", Kind: "telegram", Token: secretToken, Chat: "5", Thread: "77",
-			File: &contract.ConnectorFile{Name: "notes.txt", MIME: "text/plain", Data: []byte("hello")}})
+			Transfer: &contract.ConnectorTransfer{Handle: "h", Name: "notes.txt", MIME: "text/plain", Size: 5}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(out.Error).To(BeNil())
 		Expect(out.MessageID).To(Equal("8"))

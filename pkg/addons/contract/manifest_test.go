@@ -16,7 +16,7 @@ func fixture() []byte {
 	return b
 }
 func compatible() HostCompatibility {
-	return HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	return HostCompatibility{Host: 1, API: 2, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
 }
 
 var _ = Describe("Manifest", func() {
@@ -143,7 +143,7 @@ var _ = Describe("Manifest", func() {
 	It("rejects add-on IDs that the host serves as a route segment", func() {
 		// Every first path segment the host uses under /api/addons/ would
 		// otherwise capture the asset URL of an add-on with that ID.
-		Expect(ReservedAddonIDs()).To(ConsistOf("apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins"))
+		Expect(ReservedAddonIDs()).To(ConsistOf("apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins", "host-grants", "files"))
 		for _, id := range ReservedAddonIDs() {
 			m, _ := ParseManifest(fixture())
 			m.ID = id
@@ -351,5 +351,59 @@ var _ = Describe("Manifest", func() {
 		Expect(ReservedAddonID("builtin")).To(BeTrue())
 		Expect(ReservedAddonID("pins")).To(BeTrue())
 		Expect(ValidAddonID("pins")).To(BeFalse())
+	})
+})
+
+var _ = Describe("Resource list declaration", func() {
+	load := func() Manifest {
+		raw, e := os.ReadFile("../../../addons/tables/manifest.json")
+		Expect(e).NotTo(HaveOccurred())
+		m, e := ParseManifest(raw)
+		Expect(e).NotTo(HaveOccurred())
+		return m
+	}
+	It("accepts only the manifest API of the host, exactly", func() {
+		m := load()
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		for name, api := range map[string]VersionRange{
+			"absent":   {},
+			"api 1":    {Min: 1, Max: 1},
+			"1 to 2":   {Min: 1, Max: 2},
+			"2 to 3":   {Min: 2, Max: 3},
+			"api 3":    {Min: 3, Max: 3},
+			"inverted": {Min: 2, Max: 1},
+		} {
+			m.API = api
+			Expect(ValidateManifest(m, compatible())).To(MatchError(ContainSubstring(`"min": 2, "max": 2`)), name)
+		}
+	})
+	It("accepts a declared listing", func() {
+		m := load()
+		m.API = VersionRange{Min: 2, Max: 2}
+		m.Capabilities.Resources.List = &ResourceList{Tool: "things-list", Items: "things"}
+		Expect(ValidateManifest(m, compatible())).To(Succeed())
+		Expect(m.Capabilities.Resources.List.ItemsKey()).To(Equal("things"))
+		Expect((ResourceList{Tool: "x"}).ItemsKey()).To(Equal(DefaultResourceListItems))
+	})
+	It("refuses a listing with a bad name, or that names a declared tool", func() {
+		for name, mutate := range map[string]func(*Manifest){
+			"bad tool":     func(m *Manifest) { m.Capabilities.Resources.List.Tool = "Bad Name" },
+			"bad items":    func(m *Manifest) { m.Capabilities.Resources.List.Items = "no spaces" },
+			"declared":     func(m *Manifest) { m.Capabilities.Resources.List.Tool = m.Capabilities.Tools[0] },
+			"admin tool":   func(m *Manifest) { m.Capabilities.Resources.List.Tool = m.Capabilities.AdminTools[0] },
+			"empty record": func(m *Manifest) { m.Capabilities.Resources.List.Tool = "" },
+		} {
+			m := load()
+			m.API = VersionRange{Min: 2, Max: 2}
+			m.Capabilities.Resources.List = &ResourceList{Tool: "things-list"}
+			mutate(&m)
+			Expect(ValidateManifest(m, compatible())).NotTo(Succeed(), name)
+		}
+	})
+	It("rejects unknown keys in the declaration", func() {
+		var r ResourceTools
+		Expect(strictJSON([]byte(`{"list":{"tool":"a-list","items":"as"}}`), &r, 1024)).To(Succeed())
+		Expect(r.List).To(Equal(&ResourceList{Tool: "a-list", Items: "as"}))
+		Expect(strictJSON([]byte(`{"list":{"tool":"a-list","extra":1}}`), &r, 1024)).NotTo(Succeed())
 	})
 })

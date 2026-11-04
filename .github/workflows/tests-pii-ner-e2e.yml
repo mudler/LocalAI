@@ -1,4 +1,10 @@
 ---
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
 name: 'PII NER tier E2E (live GGUF, CPU)'
 
 # Runs the real privacy-filter GGUF NER tier end-to-end on CPU — the gap the
@@ -46,8 +52,8 @@ on:
       - '.github/workflows/tests-pii-ner-e2e.yml'
 
 concurrency:
-  group: ci-tests-pii-ner-e2e-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ci-tests-pii-ner-e2e-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
 
 jobs:
   tests-pii-ner-e2e:

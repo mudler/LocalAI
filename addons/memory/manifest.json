@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "id": "memory",
+  "version": "0.1.0",
+  "executable": "memory",
+  "os": "linux",
+  "arch": "amd64",
+  "host": { "min": 1, "max": 1 },
+  "api": {"min": 2, "max": 2},
+  "protocol": { "min": 1, "max": 1 },
+  "dataFormat": { "min": 1, "max": 1 },
+  "capabilities": {
+    "skillDefinitions": [
+      { "name": "memory" },
+      { "name": "memory-check-own-files" }
+    ],
+    "contextFiles": [
+      { "scope": "user", "path": "Memory/index.md" },
+      { "scope": "agent", "path": "Memory/agents/{agent}/index.md" },
+      { "scope": "channel", "path": "Memory/channels/{channel}/index.md" }
+    ],
+    "userSettings": [
+      { "key": "save-mode", "values": ["ask", "auto", "never"], "default": "ask", "role": "memory.save-mode" }
+    ],
+    "ui": {
+      "entry": "ui/memory.js",
+      "css": ["ui/memory.css"],
+      "sdk": { "min": 2, "max": 2 },
+      "pages": ["memory"],
+      "mainPage": "memory",
+      "icon": "ui/icon.png",
+      "title": {
+        "en": "Short memory",
+        "it": "Memoria breve",
+        "de": "Kurzzeitgedächtnis",
+        "es": "Memoria breve",
+        "fr": "Mémoire courte",
+        "pt-BR": "Memória curta",
+        "zh-CN": "简短记忆",
+        "ko": "짧은 기억",
+        "id": "Memori singkat"
+      },
+      "description": {
+        "en": "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never.",
+        "it": "Le tue chat conservano brevi note su di te e le leggono prima di rispondere. Di norma una nuova nota viene salvata solo dopo la tua conferma; puoi scegliere di salvarla subito con un Annulla, oppure mai.",
+        "de": "Ihre Chats führen kurze Notizen über Sie und lesen sie, bevor sie antworten. Standardmäßig wird eine neue Notiz erst nach Ihrer Bestätigung gespeichert; Sie können sie auch sofort mit Rückgängig-Option speichern lassen oder nie.",
+        "es": "Tus chats guardan notas breves sobre ti y las leen antes de responder. De forma predeterminada, una nota nueva se guarda solo después de que la confirmes; puedes elegir que se guarde al instante con la opción de deshacer, o que nunca se guarde.",
+        "fr": "Vos conversations gardent de courtes notes sur vous et les lisent avant de répondre. Par défaut, une nouvelle note n'est enregistrée qu'après votre confirmation ; vous pouvez choisir de l'enregistrer immédiatement avec une option Annuler, ou jamais.",
+        "pt-BR": "Seus chats guardam notas curtas sobre você e as leem antes de responder. Por padrão, uma nova nota só é salva depois que você a confirma; você pode escolher salvá-la na hora, com a opção de desfazer, ou nunca.",
+        "zh-CN": "你的聊天会记下关于你的简短笔记，并在回答前读取它们。默认情况下，新笔记须经你确认后才会保存；你也可以选择立即保存并提供撤销，或从不保存。",
+        "ko": "채팅이 나에 대한 짧은 메모를 보관하고, 답하기 전에 읽습니다. 기본적으로 새 메모는 확인한 후에만 저장되며, 실행 취소와 함께 바로 저장하거나 저장하지 않도록 선택할 수 있습니다.",
+        "id": "Obrolan Anda menyimpan catatan singkat tentang Anda dan membacanya sebelum menjawab. Secara bawaan, catatan baru disimpan hanya setelah Anda mengonfirmasinya; Anda dapat memilih agar langsung disimpan dengan opsi Urungkan, atau tidak pernah."
+      }
+    }
+  }
+}

@@ -32,7 +32,8 @@ function flushAll() {
 }
 if (typeof window !== 'undefined') window.addEventListener('pagehide', flushAll)
 
-export function deleteAgentWithUndo(agent, { addToast, t, onDeleted, onFailed }) {
+// memory says what the server does with the agent's own notes: keep or delete.
+export function deleteAgentWithUndo(agent, { addToast, t, onDeleted, onFailed, memory }) {
   if (!agent || pending.has(agent.id)) return
   const commit = async () => {
     const p = pending.get(agent.id)
@@ -40,7 +41,7 @@ export function deleteAgentWithUndo(agent, { addToast, t, onDeleted, onFailed })
     clearTimeout(p.timer)
     pending.delete(agent.id)
     try {
-      await chatAgentsApi.remove(agent.id)
+      await chatAgentsApi.remove(agent.id, memory)
       changed()
       onDeleted?.()
     } catch (err) {

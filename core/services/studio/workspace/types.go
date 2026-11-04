@@ -292,6 +292,10 @@ type Mount struct {
 type View struct {
 	Actor  Actor
 	Mounts []Mount
+	// NotMounted counts the shared folders a fenced view leaves out because
+	// the fence does not reach them (the budget of a fence layer is limited).
+	// It is for the prompt and the editor; it grants nothing.
+	NotMounted int
 }
 
 // HistoryQuery selects change sets for History.

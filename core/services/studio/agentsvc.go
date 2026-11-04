@@ -1,13 +1,17 @@
 package studio
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/files"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -22,24 +26,60 @@ func (s *Service) SaveAgent(ctx context.Context, user string, a agents.Agent) (a
 }
 
 // SaveAgentWithFolder is SaveAgent with a choice of the agent's folder. A nil
-// folder keeps the stored folder on a replace, so a caller that does not know
-// about folders cannot widen an agent, and takes a.FolderID and a.FolderMode
-// as they are on a create. A folder with an empty path clears it; any other
-// path must be a folder of the user's home (see FolderResolver.NodeOf).
+// folder keeps the stored folders on a replace, so a caller that does not know
+// about folders cannot widen an agent, and takes a.Folders (or the old
+// FolderID and FolderMode) as they are on a create. A folder with an empty
+// path clears the folders; any other path must be a folder of the user's home
+// (see FolderResolver.NodeOf). It sets exactly one folder: SaveAgentWithFolders
+// takes a list.
 func (s *Service) SaveAgentWithFolder(ctx context.Context, user string, a agents.Agent, folder *AgentFolderWrite) (agents.Agent, error) {
+	if folder == nil {
+		return s.SaveAgentWithFolders(ctx, user, a, nil)
+	}
+	list := []AgentFolderWrite{}
+	if folder.Path != "" {
+		list = append(list, *folder)
+	}
+	return s.SaveAgentWithFolders(ctx, user, a, &list)
+}
+
+// SaveAgentWithFolders is SaveAgent with a choice of the agent's folders. A
+// nil list keeps the stored folders on a replace and takes a.Folders as they
+// are on a create. An empty list clears them. Otherwise each row is a folder of
+// the user's home and its mode; at most agents.MaxFolders rows.
+func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agents.Agent, folders *[]AgentFolderWrite) (agents.Agent, error) {
 	if s.d.Agents == nil {
 		return agents.Agent{}, ErrAgentsOff
 	}
 	p := principal(user)
-	if folder != nil {
-		id, mode, err := s.resolveAgentFolder(ctx, p, *folder)
+	keepOff, keepOn, keepGrants := a.BuiltinsOff == nil, a.BuiltinsOn == nil, a.Builtins == nil
+	keepConnections := a.Connections == nil
+	// A write without the memory choice keeps the stored one: a client that
+	// does not know the field cannot widen what the agent reads or saves.
+	keepMemory := a.Memory == ""
+	grants, err := cleanGrants(a.Builtins, false)
+	if err != nil {
+		return agents.Agent{}, fmt.Errorf("%w: %w", agents.ErrInvalid, err)
+	}
+	a.Builtins = grants
+	if folders != nil {
+		list, err := s.resolveAgentFolders(ctx, p, *folders)
 		if err != nil {
 			return agents.Agent{}, err
 		}
-		a.FolderID, a.FolderMode = id, mode
+		a.Folders, a.FolderID, a.FolderMode = list, 0, ""
 	}
 	if err := agents.Validate(a); err != nil {
 		return agents.Agent{}, err
+	}
+	if err := s.checkConnections(ctx, p, a.Connections); err != nil {
+		return agents.Agent{}, err
+	}
+	a.BuiltinsOff, a.BuiltinsOn = s.agentGroups(a.BuiltinsOff, false), s.agentGroups(a.BuiltinsOn, true)
+	if folders == nil {
+		if err := s.checkSharedRead(ctx, p, a.FolderList()); err != nil {
+			return agents.Agent{}, err
+		}
 	}
 	a.Principal, a.Name = p, trimName(a.Name)
 	now := time.Now().UTC()
@@ -51,9 +91,38 @@ func (s *Service) SaveAgentWithFolder(ctx context.Context, user string, a agents
 		if err != nil {
 			return agents.Agent{}, err
 		}
-		if folder == nil {
-			a.FolderID, a.FolderMode = old.FolderID, old.FolderMode
+		if folders == nil {
+			a.Folders, a.FolderID, a.FolderMode = old.Folders, old.FolderID, old.FolderMode
 		}
+		// A write that does not mention the tool switches keeps them.
+		if keepOff {
+			a.BuiltinsOff = old.BuiltinsOff
+		}
+		if keepOn {
+			a.BuiltinsOn = old.BuiltinsOn
+		}
+		// Likewise for the grants: a client that does not know them cannot
+		// widen or narrow the agent.
+		if keepGrants {
+			a.Builtins = old.Builtins
+		}
+		// And for the connections: only the owner who sends the field changes
+		// which credential the agent's chats use.
+		if keepConnections {
+			a.Connections = old.Connections
+		}
+		if keepMemory {
+			a.Memory = old.Memory
+		}
+	}
+	// The grant saved_agents is the opt-in group of the same name: the chats of
+	// the agent start with it on.
+	if slices.Contains(a.Builtins, builtins.GrantSavedAgents) && s.builtins.IsGroup(builtins.GroupSavedAgents) && !slices.Contains(a.BuiltinsOn, builtins.GroupSavedAgents) {
+		a.BuiltinsOn = append(slices.Clone(a.BuiltinsOn), builtins.GroupSavedAgents)
+	}
+	// Likewise the grant history.read and the opt-in group history.
+	if slices.Contains(a.Builtins, builtins.GrantHistoryRead) && s.builtins.IsGroup(builtins.GroupHistory) && !slices.Contains(a.BuiltinsOn, builtins.GroupHistory) {
+		a.BuiltinsOn = append(slices.Clone(a.BuiltinsOn), builtins.GroupHistory)
 	}
 	if err := s.d.Agents.Put(ctx, a); err != nil {
 		return agents.Agent{}, err
@@ -86,6 +155,72 @@ func (s *Service) DeleteAgent(ctx context.Context, user, id string) error {
 	return s.d.Agents.Delete(ctx, principal(user), id)
 }
 
+// What happens to the notes of an agent that is deleted.
+const (
+	// AgentNotesKeep leaves the notes where they are. They show on the Memory
+	// page under Deleted agents until the person deletes them. The default.
+	AgentNotesKeep = "keep"
+	// AgentNotesExport returns the notes as a zip file and then moves them to
+	// the Trash.
+	AgentNotesExport = "export"
+	// AgentNotesDelete moves the notes to the Trash.
+	AgentNotesDelete = "delete"
+)
+
+// ValidAgentNotes reports whether v says what to do with the notes of a
+// deleted agent. Empty is keep.
+func ValidAgentNotes(v string) bool {
+	switch v {
+	case "", AgentNotesKeep, AgentNotesExport, AgentNotesDelete:
+		return true
+	}
+	return false
+}
+
+// DeleteAgentWithNotes removes a saved agent and does with its own notes
+// (Memory/agents/<id>/) what notes says: keep, export or delete. For export it
+// returns the zip of the notes, built before anything is removed, so a failure
+// leaves the agent and its notes as they were; the zip is nil when the agent
+// has no notes. The notes go to the Trash, as the Memory page does, so a
+// mistake can be undone from the Files page. The agent is deleted first; when
+// the notes then cannot be moved they stay, listed under Deleted agents, and
+// the error says so.
+func (s *Service) DeleteAgentWithNotes(ctx context.Context, user, id, notes string) ([]byte, error) {
+	if !ValidAgentNotes(notes) {
+		return nil, fmt.Errorf("%w: memory must be keep, export or delete", ErrInvalidSettings)
+	}
+	if s.d.Agents == nil {
+		return nil, ErrAgentsOff
+	}
+	if _, err := s.d.Agents.Get(ctx, principal(user), id); err != nil {
+		return nil, err
+	}
+	var zipped []byte
+	if notes == AgentNotesExport {
+		var buf bytes.Buffer
+		switch _, err := s.ExportMemory(ctx, user, &buf, string(contextfiles.ScopeAgent), id); {
+		case errors.Is(err, ErrNoNotes):
+		case err != nil:
+			return nil, err
+		default:
+			zipped = buf.Bytes()
+		}
+	}
+	if err := s.d.Agents.Delete(ctx, principal(user), id); err != nil {
+		return nil, err
+	}
+	if notes == AgentNotesExport || notes == AgentNotesDelete {
+		if err := s.d.Files.DeleteHome(ctx, principal(user), "Memory/agents/"+id); err != nil {
+			return zipped, fmt.Errorf("%w: %v", ErrAgentNotesKept, err)
+		}
+	}
+	return zipped, nil
+}
+
+// ErrAgentNotesKept means the agent was deleted but its notes could not be
+// moved to the Trash. They stay, under Deleted agents on the Memory page.
+var ErrAgentNotesKept = errors.New("studio: the agent was deleted, but its notes could not be removed")
+
 func trimName(n string) string { return strings.TrimSpace(n) }
 
 // ErrNoTemplate means no starter agent has this ID.
@@ -101,24 +236,60 @@ var ErrNoTemplate = errors.New("studio: no such agent template")
 // the unset state: it does not start until the user chooses one. It is never
 // saved as an agent without a folder.
 func (s *Service) ImportAgent(ctx context.Context, user string, a agents.Agent, folder *AgentFolderWrite) (agents.Agent, error) {
-	a.ID, a.FolderID, a.FolderMode = "", 0, ""
-	if folder != nil {
+	if folder == nil {
+		return s.ImportAgentFolders(ctx, user, a, nil)
+	}
+	return s.ImportAgentFolders(ctx, user, a, []AgentFolderWrite{*folder})
+}
+
+// ImportAgentFolders is ImportAgent for a file that lists several folders. A
+// folder that is not found in the importing user's files stays in the list as
+// a row that is not chosen, so the person can see which one to fix.
+func (s *Service) ImportAgentFolders(ctx context.Context, user string, a agents.Agent, folders []AgentFolderWrite) (agents.Agent, error) {
+	a.ID, a.FolderID, a.FolderMode, a.Folders = "", 0, "", nil
+	// A file from a server that has more grants still imports; the grants
+	// this server does not declare are dropped.
+	a.Builtins, _ = cleanGrants(a.Builtins, true)
+	if len(folders) > agents.MaxFolders {
+		return agents.Agent{}, folderRefused("an agent may have at most %d folders", agents.MaxFolders)
+	}
+	p := principal(user)
+	var list []agents.AgentFolder
+	for _, folder := range folders {
 		if folder.Mode != agents.FolderRead && folder.Mode != agents.FolderWrite {
 			return agents.Agent{}, folderRefused("the mode must be read or write")
 		}
-		a.FolderMode = folder.Mode
+		row := agents.AgentFolder{Mode: folder.Mode}
 		if folder.Path != "" {
-			id, _, err := s.resolveAgentFolder(ctx, principal(user), *folder)
+			id, _, err := s.resolveAgentFolder(ctx, p, folder)
 			switch {
 			case err == nil:
-				a.FolderID = id
+				row.Node = id
 			case errors.Is(err, ErrAgentFolder), errors.Is(err, files.ErrUnavailable):
 				// Unset: the user chooses the folder here.
 			default:
 				return agents.Agent{}, err
 			}
 		}
+		// The same folder twice, or a shared folder with write, is not
+		// carried over: the row is left unset.
+		for _, o := range list {
+			if row.Node != 0 && o.Node == row.Node {
+				row.Node = 0
+			}
+		}
+		list = append(list, row)
 	}
+	if err := s.checkSharedRead(ctx, p, list); err != nil {
+		for i := range list {
+			if list[i].Mode == agents.FolderWrite && list[i].Node > 0 {
+				if path, ok := s.FolderResolver().PathOf(ctx, p, list[i].Node); ok && isSharedPath(path) {
+					list[i].Mode = agents.FolderRead
+				}
+			}
+		}
+	}
+	a.Folders = list
 	name := trimName(a.Name)
 	for n := 1; n <= maxImportRenames; n++ {
 		a.Name = name
@@ -146,7 +317,9 @@ func (s *Service) CreateAgentFromTemplate(ctx context.Context, user, id, name st
 	if strings.TrimSpace(name) == "" {
 		name = t.Name
 	}
-	return s.SaveAgent(ctx, user, agents.Agent{Name: name, Description: t.Description, Instructions: t.Instructions})
+	// A new agent starts with the default choice of notes: it reads yours and
+	// its own, and saves to its own.
+	return s.SaveAgent(ctx, user, agents.Agent{Name: name, Description: t.Description, Instructions: t.Instructions, Memory: agents.MemoryMineAndOwn})
 }
 
 // AgentRun is a chat that ran with a saved agent: one the person had with it,
@@ -211,4 +384,21 @@ func (s *Service) AgentRuns(ctx context.Context, user, id string, limit int) (Ag
 		cursor = session.ChatCursor{Updated: last.Updated, ID: last.ID}
 	}
 	return h, nil
+}
+
+// agentGroups keeps the switch groups of an agent that this server has, with
+// the opt-in ones in on and the others in off. A group this server does not
+// offer is dropped, not refused: an agent file from a server with more tools
+// (files or collections on) must still import. A chat of the agent has the
+// groups the server offers.
+func (s *Service) agentGroups(groups []string, optIn bool) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(groups))
+	for _, g := range groups {
+		if !seen[g] && s.builtins.IsGroup(g) && s.builtins.IsOptIn(g) == optIn {
+			seen[g] = true
+			out = append(out, g)
+		}
+	}
+	return out
 }

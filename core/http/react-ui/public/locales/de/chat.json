@@ -102,7 +102,61 @@
     "untitled": "Neuer Chat",
     "origin": {
       "trigger": "Von einem Auslöser gestartet",
-      "connector": "Über einen Connector"
+      "connector": "Über einen Connector",
+      "job": "Von einem Job gestartet",
+      "page": "Von einer Seite gestartet",
+      "other": "Von etwas anderem gestartet"
+    },
+    "originBadge": {
+      "trigger": "Trigger",
+      "connector": "Connector",
+      "job": "Job",
+      "page": "Seite",
+      "other": "Automatisch"
+    },
+    "keys": {
+      "clear": "leeren"
+    },
+    "find": {
+      "searching": "Suche läuft…",
+      "count_one": "{{count}} Treffer",
+      "count_other": "{{count}} Treffer",
+      "more_one": "{{count}} weiterer Treffer in diesem Chat",
+      "more_other": "{{count}} weitere Treffer in diesem Chat",
+      "indexing": "Ältere Chats werden noch indexiert. Die Ergebnisse können unvollständig sein.",
+      "partial": "Die neuesten {{searched}} von {{total}} Chats wurden durchsucht.",
+      "failed": "Die Suche ist fehlgeschlagen.",
+      "retry": "Erneut versuchen",
+      "noMatchFor": "Kein Chat passt zu „{{query}}“.",
+      "noMatchFiltered": "Kein Chat passt mit diesen Filtern zu „{{query}}“.",
+      "inTitle": "Passt zum Titel",
+      "you": "Du",
+      "assistant": "Assistent",
+      "filters": "Suchfilter",
+      "agent": "Agent",
+      "anyAgent": "Jeder Agent",
+      "origin": "Quelle",
+      "anyOrigin": "Überall",
+      "originName": {
+        "person": "Meine Chats",
+        "automated": "Add-ons und Automatisierungen",
+        "trigger": "Trigger",
+        "connector": "Messaging-Apps",
+        "job": "Jobs",
+        "page": "Seiten"
+      },
+      "when": "Wann",
+      "anyTime": "Jederzeit",
+      "range": {
+        "day": "Letzte 24 Stunden",
+        "week": "Letzte 7 Tage",
+        "month": "Letzte 30 Tage",
+        "year": "Letztes Jahr",
+        "custom": "Datum wählen…"
+      },
+      "from": "Von",
+      "to": "Bis",
+      "reset": "Filter zurücksetzen"
     }
   },
   "message": {
@@ -128,7 +182,8 @@
     "failed": "Nicht gespeichert. Der Schalter steht wieder wie vorher.",
     "unavailable": "In diesem Chat nicht verfügbar",
     "toolCount_one": "{{count}} Werkzeug",
-    "toolCount_other": "{{count}} Werkzeuge"
+    "toolCount_other": "{{count}} Werkzeuge",
+    "optionsOf": "Optionen von {{name}}"
   },
   "skills": {
     "label": "Skills",
@@ -386,7 +441,38 @@
     "loadFailed": "Deine Chats konnten nicht geladen werden.",
     "emptyTitle": "Noch keine Chats",
     "emptyBody": "Ein Chat beginnt auf der Startseite: Nachricht eingeben und senden. Danach stehen deine Chats hier.",
-    "start": "Chat beginnen"
+    "start": "Chat beginnen",
+    "tabsLabel": "Chat-Listen",
+    "tab": {
+      "mine": "Meine Chats",
+      "automated": "Von Add-ons und Automatisierungen"
+    },
+    "automated": {
+      "intro": "Unterhaltungen, die nicht du gestartet hast, sondern etwa ein Connector, ein Trigger oder ein Job. Sie erscheinen nicht in deinen Chat-Listen.",
+      "empty": "Bisher hat nichts von selbst einen Chat gestartet.",
+      "kind": {
+        "trigger": "Trigger",
+        "connector": "Connectors",
+        "job": "Jobs",
+        "page": "Seiten",
+        "other": "Sonstige"
+      },
+      "badge": {
+        "trigger": "Trigger",
+        "connector": "Connector",
+        "job": "Job",
+        "page": "Seite",
+        "other": "Automatisch"
+      },
+      "chats": "Chats: {{count}}",
+      "lastActive": "Zuletzt aktiv {{when}}",
+      "running": "Läuft",
+      "waiting": "Wartet auf dich",
+      "waitingCount": "Chats, die auf dich warten: {{count}}",
+      "open": "{{title}} öffnen",
+      "showAll": "Alle {{count}} anzeigen",
+      "showLess": "Weniger anzeigen"
+    }
   },
   "foot": {
     "state": {
@@ -578,7 +664,7 @@
     "skillsOn_one": "{{count}} Skill",
     "skillsOn_other": "{{count}} Skills",
     "commands": "Befehle",
-    "isolated": "Laufen in einer isolierten Sandbox",
+    "isolated": "Isoliert ausgeführt",
     "host": "Laufen auf diesem Rechner",
     "noCommands": "Nicht möglich",
     "context": "Kontext",
@@ -599,6 +685,18 @@
     "chipMissing": "Ordner fehlt",
     "missing": "Der Ordner dieses Agenten existiert nicht mehr. Wähle im Agenten einen anderen Ordner.",
     "startError": "Der Ordner dieses Agenten fehlt, daher kann der Chat nicht starten. Wähle einen anderen Ordner für den Agenten.",
-    "editAgent": "Agent bearbeiten"
+    "editAgent": "Agent bearbeiten",
+    "toolsMany": "Dateien: nur {{n}} Ordner: {{list}}. Geteilte Ordner und Skills bleiben lesbar."
+  },
+  "origin": {
+    "banner": "Diese Unterhaltung wurde von {{title}} gestartet.",
+    "open": "{{title}} öffnen",
+    "kindFallback": {
+      "trigger": "einem Trigger",
+      "connector": "einem Connector",
+      "job": "einem Job",
+      "page": "einer Seite",
+      "other": "etwas anderem"
+    }
   }
 }

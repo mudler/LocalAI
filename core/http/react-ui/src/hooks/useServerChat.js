@@ -111,8 +111,19 @@ export function useServerChat({ seed = null } = {}) {
       // Sub-agent runs belong to their parent; the list shows chats only. The
       // server leaves the runs out before it applies the limit (200 is its
       // maximum); the filter stays for a server that does not know kind.
-      const data = await chatsApi.list(200, 'chat')
-      setChats((data.conversations || []).filter(c => c.kind !== 'subagent'))
+      //
+      // The chats a person started and the others are read apart, each with its
+      // own limit, so a burst of chats from a connector or a trigger cannot push
+      // the person's chats out of the page. A failed read of the others leaves
+      // them out: the list is a shortcut, the person's chats are the record.
+      const [data, others] = await Promise.all([
+        chatsApi.list(200, 'chat', 'person'),
+        chatsApi.list(200, 'chat', 'automated').catch(() => null),
+      ])
+      const seen = new Set()
+      const all = [...(data.conversations || []), ...(others?.conversations || [])]
+        .filter(c => c.kind !== 'subagent' && !seen.has(c.id) && seen.add(c.id))
+      setChats(all)
       setPersistent(data.persistent !== false)
       setFiles({ on: data.files !== false, reason: data.files_reason || '' })
       setImageModel(data.image_model || '')
@@ -228,7 +239,7 @@ export function useServerChat({ seed = null } = {}) {
       },
       trigger_proposed: () => setTicks(t => ({ ...t, proposals: t.proposals + 1 })),
       files: () => setTicks(t => ({ ...t, files: t.files + 1 })),
-      // The network of the chat's Sandbox commands changed: a card asked or
+      // The network of the chat's isolated commands changed: a card asked or
       // was answered, or the preset or a rule changed. The network panel and
       // the cards read the chat's network again.
       egress_consent: () => setTicks(t => ({ ...t, egress: t.egress + 1 })),

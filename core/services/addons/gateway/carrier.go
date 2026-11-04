@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons"
@@ -39,6 +40,9 @@ type CarrierConfig struct {
 	Pins                              map[string][32]byte
 	SigningKey                        ed25519.PrivateKey
 	VerificationKeys                  map[string]ed25519.PublicKey
+	// ReadTimeout bounds a quick read of the owner (the apps list, the host
+	// grants overview, the library list). Zero means DefaultReadTimeout.
+	ReadTimeout time.Duration
 }
 type Carrier struct {
 	config CarrierConfig
@@ -146,6 +150,23 @@ type wireRequest struct {
 	// Library marks a library call: a change of the library sources, or the
 	// owner's half of a backend install. Such a call is never a typed dispatch.
 	Library *LibraryCall `json:"library,omitempty"`
+	// HostGrants marks a host access call (grants, deny rules, blanket
+	// approval). Such a call is never a typed dispatch.
+	HostGrants *HostGrantsCall `json:"hostGrants,omitempty"`
+}
+
+// exclusive reports whether exactly one routing payload is set. Each branch of
+// OwnerHandler serves one payload and refuses a request that also carries
+// another, since the owner classifies by the call and not by what the peer
+// claims.
+func (w wireRequest) exclusive() bool {
+	set := 0
+	for _, present := range []bool{w.ExecutionBinding != nil, w.Observation != nil, w.Relay != nil, w.Proposal != nil, w.Artifact != nil, w.Apps != nil, w.Resource != nil, w.Library != nil, w.HostGrants != nil} {
+		if present {
+			set++
+		}
+	}
+	return set == 1
 }
 
 func decode(r io.Reader, dst any) error {
@@ -281,7 +302,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				http.Error(w, "invalid execution binding keys", 400)
 				return
 			}
-			if wire.Observation != nil || wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionBindingAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+			if !wire.exclusive() || wire.Request.Action != executionBindingAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
 				http.Error(w, "invalid execution binding", 400)
 				return
 			}
@@ -300,7 +321,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		if wire.Observation != nil {
-			if wire.Library != nil || wire.Resource != nil || wire.Apps != nil || wire.Artifact != nil || wire.Proposal != nil || wire.Relay != nil || wire.Request.Action != executionStatusAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
+			if !wire.exclusive() || wire.Request.Action != executionStatusAction || wire.Request.AddonID != "" || wire.Request.ResourceID != "" || wire.Request.Generation != 0 || (len(wire.Request.Arguments) != 0 && string(wire.Request.Arguments) != "null") {
 				http.Error(w, "invalid observation binding", 400)
 				return
 			}
@@ -313,10 +334,26 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			_ = json.NewEncoder(w).Encode(out)
 			return
 		}
+		if wire.HostGrants != nil {
+			call := *wire.HostGrants
+			// The owner classifies by the call, not by the action the peer wrote.
+			if !wire.exclusive() || !call.valid() || wire.Request.Action != call.wireAction() {
+				http.Error(w, "invalid binding", 400)
+				return
+			}
+			// The human mark is the signed field of this request, honored for
+			// a host access call only.
+			hctx := r.Context()
+			if m.HumanSurface {
+				hctx = WithHumanSurface(hctx)
+			}
+			g.hostGrantsLocalReply(hctx, w, actor, call)
+			return
+		}
 		if wire.Library != nil {
 			call := *wire.Library
 			// The owner classifies by the call, not by the action the peer wrote.
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Resource != nil || !call.valid() || call.System || wire.Request.Action != call.wireAction() {
+			if !wire.exclusive() || !call.valid() || call.System || wire.Request.Action != call.wireAction() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -325,7 +362,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 		}
 		if wire.Resource != nil {
 			call := *wire.Resource
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Apps != nil || wire.Library != nil || wire.Request.Action != call.wireAction() {
+			if !wire.exclusive() || wire.Request.Action != call.wireAction() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -339,7 +376,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		if wire.Apps != nil {
-			if wire.Relay != nil || wire.Proposal != nil || wire.Artifact != nil || wire.Request.Action != appsListAction {
+			if !wire.exclusive() || wire.Request.Action != appsListAction {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -349,12 +386,12 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(list)
+			_ = json.NewEncoder(w).Encode(newAppsWire(list))
 			return
 		}
 		if wire.Artifact != nil {
 			call := *wire.Artifact
-			if wire.Relay != nil || wire.Proposal != nil || call.Op != artifactStatus || call.ID == "" || wire.Request.OperationID != call.ID {
+			if !wire.exclusive() || call.Op != artifactStatus || call.ID == "" || wire.Request.OperationID != call.ID {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -369,7 +406,7 @@ func (c *Carrier) OwnerHandler(g *Gateway) (http.Handler, error) {
 			return
 		}
 		if wire.Proposal != nil {
-			if wire.Relay != nil {
+			if !wire.exclusive() {
 				http.Error(w, "invalid binding", 400)
 				return
 			}
@@ -469,6 +506,10 @@ func matches(e error, set []error) bool {
 // unavailable: an unknown failure is never reported as success or as a policy
 // decision.
 func StatusFor(e error) int {
+	var limited *contract.ErrRateLimited
+	if errors.As(e, &limited) {
+		return http.StatusTooManyRequests
+	}
 	if e != nil && !matches(e, unavailable) && matches(e, denials) {
 		return http.StatusForbidden
 	}
@@ -519,6 +560,23 @@ func typedError(w http.ResponseWriter, e error) {
 		_ = json.NewEncoder(w).Encode(resourceWire{Type: wireInvalid})
 		return
 	}
+	var limited *contract.ErrRateLimited
+	if errors.As(e, &limited) {
+		// The service behind the add-on asks the caller to wait. Nothing
+		// failed for good, so the status is not a denial.
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Retry-After", strconv.Itoa(limited.Seconds()))
+		w.WriteHeader(http.StatusTooManyRequests)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: wireRateLimited, RetryAfter: limited.Seconds()})
+		return
+	}
+	var refusal2 *CredentialRefusal
+	if errors.As(e, &refusal2) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		_ = json.NewEncoder(w).Encode(sdkWire{Type: refusal2.Code, Allowed: refusal2.Allowed})
+		return
+	}
 	var requirements *addons.HostRequirementsRefusal
 	if errors.As(e, &requirements) {
 		w.Header().Set("Content-Type", "application/json")
@@ -551,6 +609,7 @@ const (
 	wirePackage      = "package_unverified"
 	wireNotPermitted = "not_permitted"
 	wireUnreachable  = "resource_unreachable"
+	wireRateLimited  = "rate_limited"
 )
 
 // denialType is the wire type of a denial that callers tell apart, or "".
@@ -585,7 +644,8 @@ func operationCause(e error) string {
 // operation that cross the wire.
 func IsOperationCause(code string) bool {
 	switch code {
-	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+	case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
+		addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
 		return true
 	}
 	return false
@@ -600,6 +660,10 @@ type sdkWire struct {
 	Min            uint64                  `json:"min"`
 	Max            uint64                  `json:"max"`
 	Host           uint64                  `json:"host"`
+	// Allowed and RetryAfter belong to the types resource_not_allowed and
+	// rate_limited.
+	Allowed    []string `json:"allowed,omitempty"`
+	RetryAfter int      `json:"retryAfter,omitempty"`
 }
 
 // SDKRefusalError is the error of a failed operation whose cause is an SDK
@@ -696,6 +760,30 @@ func (c *Carrier) Reachable(ctx context.Context) error {
 }
 
 func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
+	if quickRead(wire.Request.Action) && wire.Relay == nil {
+		// A page waits for these reads, so they have a short deadline of their
+		// own: an owner that is busy answers "busy" in seconds, not after the
+		// 65 s of the client.
+		d := c.config.ReadTimeout
+		if d <= 0 {
+			d = DefaultReadTimeout
+		}
+		rctx, cancel := context.WithTimeout(ctx, d)
+		resp, e := c.sendCtx(rctx, a, wire)
+		if e != nil {
+			cancel()
+			if rctx.Err() == context.DeadlineExceeded && ctx.Err() == nil {
+				return nil, &OwnerTimeout{After: d}
+			}
+			return nil, e
+		}
+		resp.Body = &cancelBody{ReadCloser: resp.Body, cancel: cancel}
+		return resp, nil
+	}
+	return c.sendCtx(ctx, a, wire)
+}
+
+func (c *Carrier) sendCtx(ctx context.Context, a contract.Actor, wire wireRequest) (*http.Response, error) {
 	audience, e := c.audience(ctx)
 	if e != nil {
 		return nil, e
@@ -716,6 +804,8 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 	if b, ok := hostops.BindingOf(ctx); ok {
 		m.Chat = &b
 	}
+	// Only a host access call carries the mark, whatever the context holds.
+	m.HumanSurface = wire.HostGrants != nil && HumanSurfaceOf(ctx)
 	m.Sign(c.config.SigningKey)
 	b, _ := json.Marshal(m)
 	req, e := http.NewRequestWithContext(ctx, "POST", c.config.OwnerAddress+"/addons/forward", bytes.NewReader(b))
@@ -761,12 +851,15 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 					return nil, SDKRefusalError(&contract.SDKRefusal{Min: b.Min, Max: b.Max, Host: b.Host})
 				case wirePackage:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, packages.ErrPackage)
-				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage:
+				case addons.CauseLibraryUnavailable, addons.CauseLibraryConflict, addons.CauseReleaseNotFound, addons.CausePackageFetch, addons.CauseInstallStorage,
+					addons.CauseFileMissing, addons.CauseVersionNotNewer, addons.CauseDowngradeRefused, addons.CauseInstalledIncompatible:
 					return nil, fmt.Errorf("%w: %w", addons.ErrOperationFailed, &addons.FailureCause{Code: b.Type})
 				case wireNotPermitted:
 					return nil, ErrNotPermitted
 				case wireUnreachable:
 					return nil, ErrResourceUnreachable
+				case CodeResourceNotAllowed, CodeNoCredential, CodeWriteNotAllowed, CodeSelectConnection:
+					return nil, &CredentialRefusal{Code: b.Type, Allowed: b.Allowed}
 				}
 			}
 			return nil, ErrForbidden
@@ -778,6 +871,12 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		}
 		if wire.Resource != nil {
 			return nil, resourceReplyErrorFor(resp.Body, resp.StatusCode, wire.Request)
+		}
+		if resp.StatusCode == http.StatusTooManyRequests {
+			var b sdkWire
+			if decode(io.LimitReader(resp.Body, 32768), &b) == nil && b.Type == wireRateLimited {
+				return nil, &contract.ErrRateLimited{RetryAfter: b.RetryAfter}
+			}
 		}
 		if resp.StatusCode == http.StatusBadRequest {
 			// The owner's typed refusal is a decision, not an outage: nothing
@@ -795,6 +894,52 @@ func (c *Carrier) send(ctx context.Context, a contract.Actor, wire wireRequest) 
 		return nil, ErrUnavailable
 	}
 	return resp, nil
+}
+
+// DefaultReadTimeout is how long a frontend waits for a quick read of the
+// owner before it reports the owner as busy.
+const DefaultReadTimeout = 8 * time.Second
+
+// OwnerTimeout means the owner did not answer a read within the read
+// deadline. The owner is up but busy (an upgrade holds it, say); the page
+// shows the last list it has and asks again. It is an unavailable error.
+type OwnerTimeout struct{ After time.Duration }
+
+func (e *OwnerTimeout) Error() string {
+	return "the add-on owner is busy and did not answer in " + e.After.String()
+}
+func (e *OwnerTimeout) Unwrap() error { return ErrUnavailable }
+
+// cancelBody ends the read deadline when the body is closed, so a slow body
+// is bound too.
+type cancelBody struct {
+	io.ReadCloser
+	cancel context.CancelFunc
+}
+
+func (b *cancelBody) Close() error {
+	err := b.ReadCloser.Close()
+	b.cancel()
+	return err
+}
+
+// quickRead are the reads a page waits for. They answer from the owner's
+// snapshot and never wait for a lifecycle operation.
+func quickRead(action string) bool {
+	return quickReads[action]
+}
+
+// quickReads names them one by one. A read that fetches from a library or
+// stages a package (the host grants preview, the update check, a catalog
+// search) can take long by its nature and keeps the client's own deadline.
+var quickReads = map[string]bool{
+	appsListAction:                 true,
+	"hostgrants-" + HostGrantsRead: true,
+	"library-" + LibraryList:       true,
+	"addons-installed":             true,
+	"catalog-sources":              true,
+	ActionUpdateStatus:             true,
+	ActionRecoveryStatus:           true,
 }
 
 // mutationOutcome applies the rule every frontend shares: a mutation that fails
@@ -822,7 +967,7 @@ var resourceRead = map[string]bool{"resource-list": true, "resource-grants": tru
 // mutation fails closed: only the known read actions are exempt, so an action
 // added later is reported as an unknown outcome until it is classified.
 func mutation(action string) bool {
-	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action]
+	return action != ActionHostSettingsRead && action != executionBindingAction && action != executionStatusAction && action != "read" && action != "operation-status" && action != "proposal-get" && action != "proposal-reconcile" && action != "proposal-list" && action != "artifact-status" && action != appsListAction && !readManagement[action] && !resourceRead[action] && !libraryRead[action] && !hostGrantsRead[action]
 }
 
 // Act forwards an action call to the owner and waits for its answer, up to the

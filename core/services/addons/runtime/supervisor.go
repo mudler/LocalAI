@@ -72,8 +72,9 @@ type Config struct {
 	DataRoot                   string
 	Limits                     contract.Limits
 	ReadyTimeout, StableHealth time.Duration
-	// HostOps, when set, gives each add-on that its Allowed map names a
-	// host operation endpoint. Nil means no add-on gets one.
+	// HostOps, when set, gives each add-on that holds a host operation, or
+	// declares one in its manifest, a host operation endpoint. Nil means no
+	// add-on gets one.
 	HostOps *HostOps
 	// Output receives each line an add-on writes to its standard output
 	// (stream "stdout") or error ("stderr"). Nil sends the lines to the LocalAI
@@ -81,21 +82,28 @@ type Config struct {
 	Output func(addonID, stream, line string)
 }
 
-// HostOps wires the host operation channel into the supervisor. Allowed maps
-// an add-on ID to the operation prefixes it may call; an add-on that is not a
-// key gets no endpoint and no credential. InFlight records the envelope of
-// each request while the add-on serves it.
+// HostOps wires the host operation channel into the supervisor. Authority
+// decides, on every call, what an add-on may run; it is not copied at start, so
+// a grant or a revoke applies without a restart. An add-on gets an endpoint and
+// a credential when it holds an operation or its manifest declares one: a
+// declared operation that is not granted yet is refused by the endpoint, and a
+// later grant works at once. An add-on with neither gets none. InFlight records
+// the envelope of each request while the add-on serves it.
 type HostOps struct {
-	Broker   *hostops.Broker
-	InFlight *hostops.InFlight
-	Allowed  map[string][]string
+	Broker    *hostops.Broker
+	InFlight  *hostops.InFlight
+	Authority hostops.Authority
 }
 
-func (h *HostOps) prefixes(id string) []string {
-	if h == nil || h.Broker == nil || h.InFlight == nil {
-		return nil
+// wants reports whether the add-on gets a host operation endpoint.
+func (h *HostOps) wants(id string, declared *contract.HostOperations) bool {
+	if h == nil || h.Broker == nil || h.InFlight == nil || h.Authority == nil {
+		return false
 	}
-	return h.Allowed[id]
+	if declared != nil && len(declared.Required)+len(declared.Optional) > 0 {
+		return true
+	}
+	return h.Authority.Entitled(id)
 }
 
 type Registration struct {
@@ -284,7 +292,7 @@ func (s *Supervisor) start(ctx context.Context, pkg packages.PackageReceipt, gen
 func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, generation uint64) (*process, error) {
 	ctx, cancel := context.WithTimeout(ctx, s.config.ReadyTimeout)
 	defer cancel()
-	host := contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+	host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: contract.HostSDKVersion, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
 	if contract.ValidateManifest(pkg.Manifest, host) != nil || !filepath.IsAbs(pkg.Directory) {
 		return nil, ErrRuntime
 	}
@@ -321,9 +329,8 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 	// failed launch, and by serveHostOps when the process ends.
 	var hostListener net.Listener
 	var hostCredential string
-	hostPrefixes := s.config.HostOps.prefixes(pkg.Manifest.ID)
 	hostReady := false
-	if len(hostPrefixes) > 0 {
+	if s.config.HostOps.wants(pkg.Manifest.ID, pkg.Manifest.Capabilities.HostOperations) {
 		hostListener, e = net.ListenTCP("tcp4", &net.TCPAddr{IP: net.IPv4(127, 0, 0, 1)})
 		if e != nil {
 			return nil, ErrRuntime
@@ -432,7 +439,7 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 			return nil, ErrRuntime
 		}
 		c.inflight = s.config.HostOps.InFlight
-		s.serveHostOps(p, hostListener, pkg.Manifest.ID, hostCredential, hostPrefixes)
+		s.serveHostOps(p, hostListener, pkg.Manifest.ID, hostCredential)
 	}
 	ident, identityErr := identity(cmd.Process.Pid)
 	ident.Incarnation = r.Incarnation
@@ -494,8 +501,8 @@ func (s *Supervisor) launch(ctx context.Context, pkg packages.PackageReceipt, ge
 // serveHostOps serves the host operation channel of one incarnation and
 // stops admission when the process ends. Cleanup drains active requests before
 // releasing correlations; a handler ignoring cancellation cannot block terminate.
-func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential string, prefixes []string) {
-	endpoint := s.config.HostOps.Broker.EndpointForRuntime(id, credential, prefixes, p.registration.Generation, p.registration.Incarnation)
+func (s *Supervisor) serveHostOps(p *process, l net.Listener, id, credential string) {
+	endpoint := s.config.HostOps.Broker.EndpointForRuntime(id, credential, s.config.HostOps.Authority, p.registration.Generation, p.registration.Incarnation)
 	srv := &http.Server{Handler: endpoint, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 16 << 10}
 	go func() { _ = srv.Serve(l) }()
 	go func() {

@@ -50,6 +50,16 @@ Do not mix styles within a package. If you are extending tests in a package that
 
 This is enforced by `golangci-lint` via the `forbidigo` linter (see `.golangci.yml`); calls like `t.Errorf` / `t.Fatalf` / `t.Run` / `t.Skip` / `t.Logf` are flagged. Run `make lint` locally before submitting; the same check runs in CI (`.github/workflows/lint.yml`).
 
+## Sentences the host writes to a chat
+
+A sentence that the host (not the model) writes to a person in a messaging chat is a key in
+`core/services/studio/hostmsg/locales/*.json`, with a template for each of the six languages
+(`en`, `it`, `de`, `es`, `fr`, `pt-BR`), and is written with `msg` or a `hostmsg.Voice` in
+`core/services/studio`. Do not pass a fixed English string to `say`, `Post` or `Outgoing`:
+`hostmsg_guard_test.go` fails. The catalog test checks that every key has every language and
+the same `{placeholders}`. Text for the model (tool descriptions, notes of a turn) stays English
+and is not in the catalog.
+
 ## Outbound HTTP
 
 All outbound HTTP must go through `github.com/mudler/LocalAI/pkg/httpclient` rather than the standard library's default client. Use `httpclient.New(...)` (no body deadline — safe for streaming/SSE) or `httpclient.NewWithTimeout(d, ...)` (simple request/response). Both **refuse redirects by default** and set a TLS 1.2 floor.

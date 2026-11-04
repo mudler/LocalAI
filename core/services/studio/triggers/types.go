@@ -135,6 +135,158 @@ type Trigger struct {
 	// that a model asked for in a chat (see Change). Such a record is also
 	// Proposed and never enabled, so it never runs. The package only stores it.
 	Change Change
+	// Route says where a trigger that a connector chat proposed came from and
+	// where its runs report. The zero value is a trigger made in Studio, whose
+	// runs go to the Inbox. The package only stores it.
+	Route Route
+	// Acts are the action classes (act.files, act.addons, act.addons:<id>,
+	// act.send, act.spend) that the owner allowed for the runs of this
+	// trigger. A run with none only reads. The host checks them at each tool
+	// call; the package only stores them.
+	Acts []string
+}
+
+// Where the runs of a trigger report. Inbox is the default: the owner's Inbox
+// and the chat the owner chose for notices. Origin is the chat and thread
+// where the trigger was proposed.
+const (
+	TargetInbox  = "inbox"
+	TargetOrigin = "origin"
+	// TargetChannel reports in a channel that the owner listed for the
+	// binding, named by Route.Channel.
+	TargetChannel = "channel"
+)
+
+// When a run is reported. Always reports every run, OnChange a run whose
+// answer differs from the one before, and OnProblem only a run that failed.
+const (
+	ModeAlways    = "always"
+	ModeOnChange  = "on_change"
+	ModeOnProblem = "on_problem"
+)
+
+// Bounds of Trigger.Acts.
+const (
+	MaxActs     = 16
+	MaxActBytes = 80
+)
+
+// MaxRefBytes bounds the binding, chat and thread of a Route: the width of
+// the sender column of the connector stores.
+const MaxRefBytes = 64
+
+// Route is the connector side of a trigger: the place it was proposed from
+// and the delivery of its runs. Binding, Chat and Thread name the place in
+// the host's own words, with no platform in them; they are set only for a
+// trigger that a connector chat proposed. Code is what a person types in that
+// place to confirm or cancel the proposal while it waits. Expires is when a
+// waiting proposal lapses; zero means it never does.
+type Route struct {
+	Binding string `json:",omitempty"`
+	Chat    string `json:",omitempty"`
+	Thread  string `json:",omitempty"`
+	Code    string `json:",omitempty"`
+	// ProposedAt is when the proposal was made.
+	ProposedAt time.Time `json:",omitzero"`
+	Expires    time.Time `json:",omitzero"`
+	// Target and Mode are the delivery; empty means TargetInbox and
+	// ModeAlways.
+	Target string `json:",omitempty"`
+	Mode   string `json:",omitempty"`
+	// Channel is the channel of TargetChannel, as the owner listed it.
+	Channel string `json:",omitempty"`
+	// Auto says that the trigger was made without asking, under the approval
+	// mode of its binding; Until is when such a recurring trigger is removed
+	// (zero: never). ReadOnly says that the proposal declared that its runs
+	// only read and report. Code stays on an Auto trigger so that a person can
+	// cancel it from the chat.
+	Auto     bool      `json:",omitempty"`
+	ReadOnly bool      `json:",omitempty"`
+	Until    time.Time `json:",omitzero"`
+}
+
+// FromConnector says whether a connector chat proposed the trigger.
+func (r Route) FromConnector() bool { return r.Binding != "" }
+
+// TargetOrDefault gives Target, or TargetInbox when it is empty.
+func (r Route) TargetOrDefault() string {
+	if r.Target == "" {
+		return TargetInbox
+	}
+	return r.Target
+}
+
+// ModeOrDefault gives Mode, or ModeAlways when it is empty.
+func (r Route) ModeOrDefault() string {
+	if r.Mode == "" {
+		return ModeAlways
+	}
+	return r.Mode
+}
+
+// Validate checks the delivery and the place of a Route.
+func (r Route) Validate() error {
+	switch r.Target {
+	case "", TargetInbox:
+	case TargetOrigin:
+		if r.Binding == "" || r.Chat == "" {
+			return errors.New("a run can report to the chat of the proposal only when a connector chat proposed it")
+		}
+	case TargetChannel:
+		if r.Binding == "" || r.Channel == "" {
+			return errors.New("a run can report to a channel only when a connector chat proposed it and names the channel")
+		}
+	default:
+		return fmt.Errorf("delivery target must be %q, %q or %q", TargetInbox, TargetOrigin, TargetChannel)
+	}
+	switch r.Mode {
+	case "", ModeAlways, ModeOnChange, ModeOnProblem:
+	default:
+		return fmt.Errorf("delivery mode must be %q, %q or %q", ModeAlways, ModeOnChange, ModeOnProblem)
+	}
+	for _, v := range []string{r.Binding, r.Chat, r.Thread, r.Code, r.Channel} {
+		if len(v) > MaxRefBytes || hasControl(v, false) {
+			return errors.New("the connector place of a trigger is too long or has control characters")
+		}
+	}
+	return nil
+}
+
+// Expired says whether t is a proposal that waited past its time at now.
+// A one-off proposal whose time has passed has expired too: confirming it
+// could not start a run.
+func (t Trigger) Expired(now time.Time) bool {
+	if !t.Pending() {
+		return false
+	}
+	if !t.Route.Expires.IsZero() && !now.Before(t.Route.Expires) {
+		return true
+	}
+	at, ok := t.OnceAt()
+	return ok && !at.After(now)
+}
+
+// OnceAt gives the time a one-off trigger runs, and false for a trigger that
+// is not a schedule of the "once" form.
+func (t Trigger) OnceAt() (time.Time, bool) {
+	if t.Kind != KindSchedule {
+		return time.Time{}, false
+	}
+	sch, err := ParseSchedule(t.Schedule)
+	if err != nil {
+		return time.Time{}, false
+	}
+	loc, err := t.Location()
+	if err != nil {
+		return time.Time{}, false
+	}
+	return sch.OnceAt(loc)
+}
+
+// OneOff says whether the trigger runs once, at one time, and no more.
+func (t Trigger) OneOff() bool {
+	_, ok := t.OnceAt()
+	return ok
 }
 
 // Change says what a change record does to the trigger it names. While it
@@ -175,6 +327,8 @@ const (
 	OutcomeAccepted = "accepted"
 	OutcomeDeclined = "declined"
 	OutcomeUndone   = "undone"
+	// OutcomeExpired is a proposal that nobody answered in time.
+	OutcomeExpired = "expired"
 )
 
 // Pending says whether t is a proposal that waits for an answer.
@@ -261,6 +415,17 @@ func (t Trigger) Validate() error {
 		return errors.New("widget is the id of a Home widget: lowercase letters, digits and dashes")
 	case t.EstTokens < 0 || t.EstTokens > MaxEstTokens:
 		return fmt.Errorf("estimated tokens must be 0 to %d", MaxEstTokens)
+	}
+	if err := t.Route.Validate(); err != nil {
+		return err
+	}
+	if len(t.Acts) > MaxActs {
+		return fmt.Errorf("a trigger has at most %d acts", MaxActs)
+	}
+	for _, a := range t.Acts {
+		if a == "" || len(a) > MaxActBytes || hasControl(a, false) || strings.Contains(a, ",") {
+			return errors.New("an act is a short name such as act.files")
+		}
 	}
 	switch t.Kind {
 	case KindSchedule:

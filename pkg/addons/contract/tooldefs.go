@@ -32,6 +32,11 @@ const (
 	ToolKindAction = "action"
 )
 
+// ApprovalAlways is the value of ToolDefinition.Approval that makes the host
+// keep a proposal for a person to confirm, whatever the write mode of the
+// binding says.
+const ApprovalAlways = "always"
+
 // ResourceArgument is the tool argument that names the resource a tool works
 // on. The host takes it out of the arguments and binds it to the request, so
 // the add-on never reads it from the arguments.
@@ -62,6 +67,12 @@ type ToolDefinition struct {
 	// object schema with explicit properties, additionalProperties false at
 	// the top level and the keywords the host allows only.
 	InputSchema json.RawMessage `json:"inputSchema" swaggertype:"object"`
+	// Approval, when it is ApprovalAlways, is a ceiling the person cannot lift:
+	// the host stores a proposal for a write tool of this kind and applies it
+	// only when a person confirms it at a host surface. A chat or an agent
+	// never applies it, even when the person allowed writes without asking.
+	// Only a write tool may set it.
+	Approval string `json:"approval,omitempty"`
 	// UIOnly marks a tool that only the add-on's own page may call, such as a
 	// settings change that asks the host whether the caller is an
 	// administrator. It is never offered to a model, a chat or an agent. The
@@ -73,6 +84,9 @@ type ToolDefinition struct {
 	// Only a name in ReplaceableTools may be shadowed. A tool without it keeps
 	// its add-on name (addon__<id>__<tool>).
 	Shadows string `json:"shadows,omitempty"`
+	// Execution declares that this tool runs commands and what the host may
+	// say about the provider. Only a tool that shadows bash may declare it.
+	Execution *ExecutionDescriptor `json:"execution,omitempty"`
 }
 
 // ReplaceableTool says what a tool that shadows a built-in chat tool must look
@@ -183,6 +197,16 @@ var schemaTypes = map[string]bool{"object": true, "string": true, "integer": tru
 
 // validateToolDefinitions checks the definitions against the declared tools.
 func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
+	return validateToolDefinitionsFor(defs, tools, false)
+}
+
+// validateToolDefinitionsFor is validateToolDefinitions for an add-on that does
+// or does not declare a credential slot.
+//
+// credentialed says that the add-on declares a credential slot. A write tool
+// of such an add-on names its resource with the slot argument and not with
+// resourceId, so its schema is checked with ValidateCredentialedToolSchema.
+func validateToolDefinitionsFor(defs []ToolDefinition, tools []string, credentialed bool) error {
 	if len(defs) == 0 {
 		return nil
 	}
@@ -216,11 +240,21 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 		if total > MaxToolDefinitionBytes {
 			return fmt.Errorf("tool definitions are too large")
 		}
-		if err := ValidateToolSchema(d.InputSchema, d.Kind); err != nil {
+		if d.Approval != "" && (d.Approval != ApprovalAlways || d.Kind != ToolKindWrite) {
+			return fmt.Errorf("tool %s: approval is %q for a write tool only", d.Name, ApprovalAlways)
+		}
+		check := ValidateToolSchema
+		if credentialed {
+			check = ValidateCredentialedToolSchema
+		}
+		if err := check(d.InputSchema, d.Kind); err != nil {
 			return fmt.Errorf("tool %s: %w", d.Name, err)
 		}
 		if d.UIOnly && !IsResourceless(d) {
 			return fmt.Errorf("tool %s: a page-only tool must be a read tool without a resource", d.Name)
+		}
+		if err := d.Execution.validate(d); err != nil {
+			return err
 		}
 		if d.Shadows != "" {
 			if err := ValidateShadow(d); err != nil {
@@ -241,6 +275,31 @@ func validateToolDefinitions(defs []ToolDefinition, tools []string) error {
 // resourceId argument; a create tool does not, and a read tool may leave it
 // out (see IsResourceless).
 func ValidateToolSchema(raw json.RawMessage, kind string) error {
+	return validateToolSchema(raw, kind, false)
+}
+
+// ValidateCredentialedToolSchema is ValidateToolSchema for a tool of an add-on
+// that declares a credential slot. A write tool there needs no resourceId: it
+// names its resource with the argument of the slot, which the host checks
+// against the list of the person's binding (see validateCredentials).
+func ValidateCredentialedToolSchema(raw json.RawMessage, kind string) error {
+	return validateToolSchema(raw, kind, true)
+}
+
+// ValidateDefinitionSchema checks the schema of an installed tool definition
+// again at the point of use. A write tool is also accepted in the form of a
+// credentialed add-on, since the caller may not know the manifest. The host
+// refused a write tool without a resource argument when the add-on was
+// installed, and the broker refuses a write call that has no resource.
+func ValidateDefinitionSchema(d ToolDefinition) error {
+	err := ValidateToolSchema(d.InputSchema, d.Kind)
+	if err != nil && d.Kind == ToolKindWrite {
+		return ValidateCredentialedToolSchema(d.InputSchema, d.Kind)
+	}
+	return err
+}
+
+func validateToolSchema(raw json.RawMessage, kind string, credentialed bool) error {
 	if err := strictJSON(raw, new(map[string]json.RawMessage), MaxToolSchemaBytes); err != nil {
 		return err
 	}
@@ -268,6 +327,9 @@ func ValidateToolSchema(raw json.RawMessage, kind string) error {
 	switch {
 	case kind == ToolKindCreate && has:
 		return fmt.Errorf("%s is absent for a create tool", ResourceArgument)
+	case credentialed && kind == ToolKindWrite:
+		// The slot argument is the resource; validateCredentials holds the
+		// tool to it.
 	case kind != ToolKindCreate && kind != ToolKindRead && kind != ToolKindAction && !has:
 		return fmt.Errorf("%s is required for a tool of a resource", ResourceArgument)
 	}

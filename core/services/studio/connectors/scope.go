@@ -12,6 +12,16 @@ type ConnectorCallScope struct {
 	AgentID   string `json:"agentId,omitempty"`
 	AddonID   string `json:"addonId"`
 	Kind      string `json:"kind"`
+	// Content names the file an outbound transfer reads: a blob of the
+	// workspace store. The frontend that checked the chat's access sets it;
+	// it never reaches the add-on, which gets only the handle.
+	Content *TransferContent `json:"content,omitempty"`
+}
+
+// TransferContent is the stored content behind an outbound handle.
+type TransferContent struct {
+	SHA  string `json:"sha"`
+	Size int64  `json:"size"`
 }
 
 const (
@@ -23,4 +33,7 @@ const (
 type Kind struct {
 	AddonID string
 	contract.ConnectorKind
+	// Translations is the display text of the kind in other languages, from
+	// the manifest's i18n field, by language tag.
+	Translations map[string]contract.KindText `json:"translations,omitempty"`
 }

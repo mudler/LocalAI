@@ -150,6 +150,27 @@ under the text. Use it for something on this page that needs attention ("Tables
 1.0.0 is available"). Amber (`warn`) is only for something that needs a
 decision.
 
+## Notice
+
+`<Notice severity title reason who fix secondary icon>` children `</Notice>`
+
+The one notice for "this is off or not available, why, and the fix". It draws
+a Callout, always in the same order: what (`title`), why (`reason`), who can fix
+it (`who`), then one fix button. Do not write a new "off" banner; use this.
+
+| Prop | Notes |
+|---|---|
+| `severity` | `info` off by design, `warn` degraded or an action is recommended, `error` something the person asked for does not work. Sets colour, icon and live role: `error` is `role="alert"`, `warn` is `role="status"`, `info` is `role="note"`. |
+| `title` | What is off, short, no trailing period. |
+| `reason` | Why, one plain sentence. Show the server's own words, not a status code. |
+| `who` | Who can fix it. Admin and non-admin copy differ here. |
+| `fix` | The one primary action: `{ label, onClick or to or href, busy, disabled, testId, ariaLabel }`. The label is a verb that names the result. |
+| `secondary` | An optional second action of the same shape (a dismiss such as "Hide" goes here). |
+
+An action with no label or nothing to do is not drawn. The add-on UIs draw
+the same markup with `FixNotice` in `addons/internal/connector-ui/src/controls.jsx`;
+the rules for both are in `ui.css`.
+
 ## StatusChip
 
 `<StatusChip status tone label dot />`

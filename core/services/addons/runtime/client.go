@@ -14,6 +14,7 @@ import (
 	"net/http/httptrace"
 	"net/url"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -116,7 +117,14 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 	}
 	if resp.StatusCode != http.StatusOK {
 		reason := refusalReason(resp.Body)
+		wait := resp.Header.Get("Retry-After")
 		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusTooManyRequests && reason == "rate_limited" {
+			// The service behind the add-on asks the caller to wait. The call
+			// had no effect and the same call may succeed later.
+			n, _ := strconv.Atoi(wait)
+			return nil, &contract.ErrRateLimited{RetryAfter: min(max(n, 1), contract.MaxRetryAfter)}
+		}
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict
 		}
@@ -258,7 +266,7 @@ func (c *Client) Connector(ctx context.Context, v contract.ConnectorRequest) (co
 	if c.registration.Capabilities.Connector == nil {
 		return r, ErrNotSent
 	}
-	e := c.call(ctx, "/connector", nil, v, &r, contract.ConnectorTimeout)
+	e := c.call(ctx, "/connector", nil, v, &r, v.CallTimeout())
 	return r, e
 }
 func (c *Client) Preview(ctx context.Context, v contract.Envelope) (contract.Preview, error) {

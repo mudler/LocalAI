@@ -113,7 +113,7 @@ var _ = Describe("apps and stale lifecycle generations", func() {
 		v := contract.VersionRange{Min: 1, Max: 1}
 		ui := &contract.UI{Entry: "ui.js", SDK: v, Pages: []string{"home"}, MainPage: "home", Icon: "icon.png"}
 		receipt := func(id string, withIcon bool) packages.PackageReceipt {
-			r := packages.PackageReceipt{Directory: dir, Manifest: contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, UI: ui}}}
+			r := packages.PackageReceipt{Directory: dir, Manifest: contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, UI: ui}}}
 			if withIcon {
 				r.Icon = &packages.PackageIcon{Path: "icon.png", Digest: fmt.Sprintf("sha256:%x", sum), Size: int64(len(icon)), MediaType: "image/png"}
 			}
@@ -186,7 +186,7 @@ var _ = Describe("immutable app assets", Label("assets"), func() {
 		v := contract.VersionRange{Min: 1, Max: 1}
 		hex := func(c string) string { return strings.Repeat(c, 64) }
 		receipt := func(id, digest string, ui *contract.UI) packages.PackageReceipt {
-			return packages.PackageReceipt{Directory: dir, Digest: "sha256:" + digest, Manifest: contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, UI: ui}}}
+			return packages.PackageReceipt{Directory: dir, Digest: "sha256:" + digest, Manifest: contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, UI: ui}}}
 		}
 		ui := &contract.UI{Entry: "ui.js", SDK: v, Pages: []string{"home"}}
 		old := receipt("on", hex("1"), ui)

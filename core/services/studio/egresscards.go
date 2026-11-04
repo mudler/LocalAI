@@ -46,7 +46,7 @@ var (
 	// ErrEgressHostAboveCeiling means the administrator's limit does not admit
 	// the host of the card, so only an administrator can make it work, by
 	// raising the limit. The card is refused and stays so.
-	ErrEgressHostAboveCeiling = errors.New("studio: the limit an administrator set for the Sandbox network does not admit this host")
+	ErrEgressHostAboveCeiling = errors.New("studio: the limit an administrator set for the network of commands does not admit this host")
 )
 
 // EgressDecision is the answer of a card, sent on the chat bus to the check

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createActionBook, effectOutcome } from './actionBook'
 import { runLifecycle, settleOperation } from './lifecycleFlow'
 import { runInstallAndTurnOn } from './installAndTurnOn'
+import { hostGrantsApi } from '../../utils/addonsClient'
 
 // Runs user actions that change an add-on, one operation identity per action.
 //
@@ -173,7 +174,7 @@ export function useAddonActions(api, { onSettled, adapter } = {}) {
   const installAndTurnOn = useCallback((entry, options = {}) => {
     if (!current()) return Promise.resolve(null)
     const flow = `flow:${entry.key}`
-    return runInstallAndTurnOn({ run, api, adapter, mark: (value) => setFlows(f => ({ ...f, [flow]: value })) }, entry, options)
+    return runInstallAndTurnOn({ run, api, adapter, hostGrants: hostGrantsApi, mark: (value) => setFlows(f => ({ ...f, [flow]: value })) }, entry, options)
   }, [run, api, adapter, current, setFlows])
 
   const clearFlow = useCallback((entry) => {
