@@ -700,7 +700,7 @@ The three roles split the work of a LocalAI process as follows.
 | The carrier | Loopback, with keys made at each start | Served on the network | Client only |
 | Chat turns | Yes | No | Yes |
 | Model loading | In this process, or on workers in distributed mode | No models. In distributed mode it routes loads to workers. | In this process, or on workers in distributed mode |
-| Connector polling (Telegram, Slack) | Yes | No | Yes, on the one leader frontend |
+| Connector polling (Telegram, Slack, Discord) | Yes | No | Yes, on the one leader frontend |
 | Triggers, loops and agent jobs | Yes | No | Yes |
 | API and UI for users | Yes | No. Send users to a frontend. | Yes |
 
@@ -2451,7 +2451,7 @@ The owner process holds everything about host grants. A frontend stores nothing 
 ## Connector add-ons
 
 A connector add-on carries the messages of a messaging platform between the platform
-and the [chats](/features/chats-connectors/). The Telegram and Slack add-ons are
+and the [chats](/features/chats-connectors/). The Telegram, Slack and Discord add-ons are
 first-party connector add-ons. The host keeps what is the same for every platform (the
 bindings, the sealed bot token, the allowlist, the sender log, one chat for each sender
 or thread, the turn and its notifications), so an add-on holds only the transport and

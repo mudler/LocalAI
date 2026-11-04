@@ -100,6 +100,8 @@ var allowed = []entry{
 	{"docs/content/reference/cli-reference.md", "(Telegram, Slack)", "help text that gives chat platforms as examples"},
 	{"docs/content/getting-started/_index.en.md", "Telegram", "a chat platform as an example of where an agent can answer"},
 	{"docs/content/getting-started/first-agent.md", "Telegram", "a chat platform as an example of where an agent can answer"},
+	{"docs/content/reference/ai-coding-assistants.md", "Discord channel", "the project community server, not the add-on"},
+	{"docs/content/getting-started/troubleshooting.md", "LocalAI Discord", "the project community server, not the add-on"},
 
 	// Ordinary words that equal an id or a title.
 	{"core/schema/chats.go", `example:"Sandbox"`, "a sample value in the API documentation"},

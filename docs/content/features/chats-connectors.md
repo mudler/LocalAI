@@ -7,7 +7,7 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack) (the [GitHub add-on](#github) and the [Jellyfin add-on](#jellyfin) hold a token for your agents instead of carrying messages). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram), the [Slack add-on](#slack) or the [Discord add-on](#discord) (the [GitHub add-on](#github) and the [Jellyfin add-on](#jellyfin) hold a token for your agents instead of carrying messages). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -34,7 +34,7 @@ add-on"; nothing polls and nothing is lost.
 
 Each kind in the add-on manifest declares `delivery`:
 
-- **`pull`** (Slack and Telegram). The host polls the add-on. One process in the
+- **`pull`** (Slack, Discord and Telegram). The host polls the add-on. One process in the
   cluster, the leader, does the polling. It stores the offset with the binding. When
   the leader stops, a new leader continues from that offset.
 - **`push`**. The add-on calls the host operation `connector.inbound` for each
@@ -303,6 +303,120 @@ Slack counterpart).
 The Events API over HTTP is not supported: it needs a public address, and Socket Mode
 gives the same events without one.
 
+## Discord
+
+The Discord add-on binds a Discord bot to one of your [saved agents](/features/chats-agents/).
+People talk to the agent in a direct message with the bot, or by mentioning the bot in a
+channel or thread of a server. The add-on keeps a Gateway link (a websocket that the
+add-on opens to Discord), so LocalAI needs no public address.
+
+### Set up a binding
+
+1. Install the **Discord** add-on from the add-on gallery.
+2. At `discord.com/developers/applications` choose **New Application**. On the **Bot**
+   page choose **Reset Token** and copy the token once.
+3. On the same page, under **Privileged Gateway Intents**, turn on **Message Content
+   Intent**. Without it Discord sends no text from servers. The add-on needs no other
+   privileged intent. The page **Test** shows a warning when the intent is off.
+4. Add the bot to a server with the link that the add-on page builds under **How to make
+   the Discord bot**: type the Application ID and open the link. It uses the scope
+   `bot` and the permission number `274878008320`: View Channels, Send Messages,
+   Send Messages in Threads, Attach Files and Read Message History. Never give the bot
+   Administrator, Manage Messages or Mention Everyone.
+5. On the Discord add-on page make a binding: a name, the token, the agent, and who may use
+   it. When you save, LocalAI checks the token and shows which bot it belongs to.
+6. Mention the bot in a channel it can see, or write to it in a direct message.
+
+```
+curl -X POST .../api/chats/connectors -d '{"kind": "discord", "name": "Team bot", "token": "<bot token>", "agent_id": "<id>", "enabled": true, "allow": ["<user ID>", "<channel ID>"]}'
+```
+
+### How Discord messages map to chats
+
+- **A direct message** with the bot is a conversation with its sender. The host answers it
+  only for a listed person, or when the binding accepts anyone (a person can write to a bot
+  only when they share a server with it).
+- **A mention** of the bot in a server channel, or a reply to a message of the bot, addresses
+  the bot. The answer goes in the same channel. Any other channel message is not read.
+  `@everyone`, `@here` and role mentions never address the bot.
+- **A thread** (also a forum post) is a chat of its own, and its chat is the parent channel,
+  so listing a channel also covers its threads. The bot follows a thread once it was
+  mentioned in it: later messages of the thread need no new mention. The setting **Threads
+  the bot follows** (`followThreads`) is `mentioned` (the default) or `never`. A followed
+  thread stays followed for 24 hours after its last message; the add-on keeps the list in
+  its data directory (channel and thread IDs and times, never a token). The bot does not
+  start threads.
+- **Earlier messages of a thread** are read once when a thread chat starts (see
+  [Earlier messages of a thread](#earlier-messages-of-a-thread)): at most 30, through
+  `GET /channels/{thread}/messages`, which allows 100 per call. Messages of other bots and of
+  Discord itself (joins, pins) are left out. This needs Read Message History.
+- **Never answered**: every message that a bot or a webhook wrote, the messages of the bot
+  itself, and system messages. Two bots cannot answer each other.
+- **Answers** are plain Markdown (Discord reads it) and split at 2,000 characters, the limit
+  of Discord, with code blocks closed and opened again at each cut. Every message carries
+  `allowed_mentions: {"parse": []}`, and the add-on also breaks up `@everyone`, `@here` and
+  `<@...>` mentions in the text, so the answer can never ping anyone. The bot sets no typing
+  indicator (Discord discourages it for bots); a working message (see
+  [How the bot answers](#how-the-bot-answers)) shows that the agent works. Edits are limited
+  by Discord, so a live answer updates about once a second.
+- **Files.** A file attached to a message (at most 8, 10 MB each) is downloaded from the
+  Discord CDN, with a fresh link read at the moment of the download and without the token,
+  and attached to the chat. A file that the agent makes is uploaded (10 MB at most).
+- **Waits.** When Discord answers `429`, the add-on waits the time it asks for (the
+  `Retry-After` header, else `retry_after` of the body) once and tries again. An edit is
+  not repeated.
+- **Start a new chat** with `!new`. Discord clients may take a message that starts with a
+  slash for one of their own commands, so `!new` is the documented form (see
+  [Start a new chat with `/new`](#start-a-new-chat-with-new)). The add-on has no slash
+  commands.
+
+### Who may use the bot
+
+The binding has one list of Discord IDs (numbers; turn on Developer Mode in Discord, then
+right-click and choose Copy ID):
+
+- **A user ID**: the person may use the bot in a direct message and by mentioning it in any
+  channel the bot reads. The person is a listed sender, so they hold every capability of the
+  binding that is not sensitive.
+- **A channel ID**: everyone in the channel (and its threads) may mention the bot there.
+  They get no capability of their own (see
+  [Capabilities, roles and pairing](#capabilities-roles-and-pairing)).
+- **No names and no server IDs.** The page accepts IDs only: names are not unique and
+  change hands. A server (guild) ID matches nothing, because the chat of a message is a
+  channel; use the channel IDs. The page names every entry that is not an ID. The add-on
+  cannot see the allowlist, so a guild ID that is saved over the API is not refused: it is
+  only inert.
+
+**Anyone** (`accept_any`) is for public channels and read-only agents. Anyone who can message
+the bot, or mention it in a channel it can read, is let in. The host gives these senders
+**no capability** (only listed or paired senders hold one), so the agent cannot save memory,
+propose triggers or take their files for them. The agent's own tools still work for them:
+give the agent read-only tools for this connection. Text from a public channel is untrusted
+and can try to steer the agent (prompt injection). The host limits each sender to 20 messages
+a minute, and the add-on queues at most 30 messages a minute of one sender, so one person
+cannot fill the queue of the link. Roles of a server are not mapped: the add-on declares no
+role, because a server administrator is not a role ID and the permission check would need
+each member's roles and each channel's overwrites.
+
+### Notifications in Discord
+
+Set a channel ID as the notification chat to post them there, or `user:` followed by your
+user ID to receive them as direct messages from the bot.
+
+### The token of a bot
+
+The token is sealed like the token of a Telegram bot, and no API returns it. The add-on holds
+it in memory while it keeps the Gateway link of the binding open, writes it nowhere and calls
+only `discord.com`, the Gateway and the Discord CDN. The link is closed after two minutes
+without a poll (the binding was switched off or deleted).
+
+A binding is switched off, with a notification, when Discord refuses the token (HTTP 401, or
+Gateway close code 4004) or the intents (4013, 4014: the Message Content Intent is off). The
+link reconnects with a backoff after any other failure and resumes the session, so events
+are not lost across a short break. Discord allows 1,000 identifies a day for a bot, so the
+add-on never retries a refused token. Use one LocalAI instance for one bot: a second process
+that uses the same token would receive the same events and answer twice.
+
 ## What a message gets
 
 - **The agent's tools only.** A message gets exactly the tools the agent grants,
@@ -479,7 +593,7 @@ declares for its platform, the limit of the platform (the host ceiling that the
 administrator sets) and the limit that you set for the bot. The agent reads the same
 number in its instructions, so it does not promise a file that cannot go.
 
-An add-on that streams files (Slack and Telegram do) has no inline cap: a file moves in
+An add-on that streams files (Slack, Discord and Telegram do) has no inline cap: a file moves in
 chunks, by a short-lived handle, so a 6 MB PDF goes both ways. An add-on that does not
 stream keeps the inline cap of 1 MiB, whatever you set, and the sentence says "limit of
 this add-on version".
@@ -489,6 +603,7 @@ What the platforms allow, from their own documentation:
 | Platform | Bot reads a file | Bot sends a file |
 |---|---|---|
 | Slack | No separate bot limit is documented. The add-on declares the 1 GB per file that a member can add ([Add files to Slack](https://slack.com/help/articles/201330736-Add-files-to-Slack)); the [upload API](https://docs.slack.dev/reference/methods/files.getUploadURLExternal) states none either. | 1 GB per file, by the external upload flow. |
+| Discord | 10 MB: the add-on declares a limit that fits every server level; Discord states the limit per server and per person, and a bot may be allowed less. | 10 MB, as one attachment of a message. |
 | Telegram | 20 MB with `getFile` on the public Bot API ([Bots FAQ](https://core.telegram.org/bots/faq)). | 50 MB for a document, 10 MB for a photo; a larger picture goes as a document ([Bots FAQ](https://core.telegram.org/bots/faq)). |
 
 A local Bot API server lifts the Telegram limits (no download limit, 2000 MB upload,

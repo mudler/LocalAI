@@ -31,10 +31,11 @@ var officialRequests = map[string]contract.HostOperations{
 	// file operations are optional. Delivery is pull, so neither add-on calls
 	// connector.inbound.
 	"slack":    {Optional: strings.Fields("connector.file.get connector.file.put")},
+	"discord":  {Optional: strings.Fields("connector.file.get connector.file.put")},
 	"telegram": {Optional: strings.Fields("connector.file.get connector.file.put")},
 }
 
-// connectorRoot holds the file transfer code that slack and telegram share. It
+// connectorRoot holds the file transfer code that the connector add-ons share. It
 // names its operations by constant, so the audit reads those too.
 const connectorRoot = "addons/internal/connector"
 
@@ -61,7 +62,7 @@ var _ = Describe("official typed package contracts", func() {
 			// of support; compare independently with the real registered vocabulary.
 			var used []string
 			roots := []string{root}
-			if id == "slack" || id == "telegram" {
+			if id == "slack" || id == "telegram" || id == "discord" {
 				roots = append(roots, filepath.Join("../../..", connectorRoot))
 			}
 			for _, root := range roots {

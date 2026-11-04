@@ -10,6 +10,78 @@
 # backend. A tagged release does not read this file for its pins: the release
 # workflow renders pinned entries into the asset addons-index.yaml of the
 # release (see .agents/preparing-a-release.md).
+- id: "discord"
+  name: Discord
+  description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:discord-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Discord"
+    description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "discord"
+  name: Discord
+  description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:discord-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Discord"
+    description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "discord"
+  name: Discord
+  description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:discord-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Discord"
+    description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+    mainPage: "bots"
+    icon: "ui/icon.png"
+- id: "discord"
+  name: Discord
+  description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:discord-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Discord"
+    description: "Bind a Discord bot to one of your saved agents, so people can talk to it from Discord."
+    mainPage: "bots"
+    icon: "ui/icon.png"
 - id: "face"
   name: Face
   description: "Find out whose face is in a photo, or whether two photos show the same person."
