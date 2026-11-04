@@ -5059,5 +5059,40 @@
       "refuses an outbound handle whose content changed size and an offset past the end"
     ],
     "report": ".cache/addons/logs/host-admission.json"
+  },
+  "oauth": {
+    "kind": "ginkgo",
+    "commands": [
+      [
+        "go",
+        "test",
+        "-count=1",
+        "-p",
+        "2",
+        "-tags",
+        "auth",
+        "./tests/addons/oauth",
+        "-ginkgo.json-report=../../../.cache/addons/logs/oauth.json"
+      ]
+    ],
+    "cases": [
+      "login: provider-a (basic client authentication)",
+      "login: provider-b (post client authentication)",
+      "login: provider-c (none client authentication)",
+      "failures: provider-a (basic client authentication)",
+      "failures: provider-b (post client authentication)",
+      "failures: provider-c (none client authentication)",
+      "short token: provider-a (basic client authentication)",
+      "short token: provider-b (post client authentication)",
+      "short token: provider-c (none client authentication)",
+      "upgrade: provider-a (basic client authentication)",
+      "upgrade: provider-b (post client authentication)",
+      "upgrade: provider-c (none client authentication)",
+      "two frontends: provider-a (basic client authentication)",
+      "two frontends: provider-b (post client authentication)",
+      "two frontends: provider-c (none client authentication)",
+      "keeps the logins of the services apart"
+    ],
+    "report": ".cache/addons/logs/oauth.json"
   }
 }
