@@ -16332,6 +16332,14 @@
                     "description": "ManagementURL opens the management view of the addon.",
                     "type": "string",
                     "example": "/app/addons?manage=notes"
+                },
+                "official": {
+                    "type": "boolean"
+                },
+                "sourceId": {
+                    "description": "SourceID is the library the package came from, and Official is true\nwhen that is the official library and the signature was checked. An\nadministrator who approves something for the add-on, such as its OAuth\nlogin, is warned when it is not.",
+                    "type": "string",
+                    "example": "official"
                 }
             }
         },

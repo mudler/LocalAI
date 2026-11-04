@@ -615,7 +615,10 @@ descriptor no longer names are dropped.
 The apps list (`GET /api/addons/apps`) gives an add-on with an `oauth2` slot an
 `oauth` object with `requiredScopes` and `optionalScopes`, so the Connectors
 page can offer the optional scopes when a person connects, and the add-on's
-Settings tab shows the administrator the form that approves the login. The
+Settings tab shows the administrator the form that approves the login. For an
+administrator, its `admin` object also has `sourceId` and `official` (the
+official library, with the signature checked); the form shows the
+untrusted-source warning above the approval when `official` is not true. The
 addresses of the login are not in the list; an administrator reads them with
 the OAuth client (see [the login routes](#the-login-routes)).
 

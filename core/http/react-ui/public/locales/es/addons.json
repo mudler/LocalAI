@@ -953,7 +953,8 @@
       "baseUrlRequired": "Este servidor no conoce su dirección pública. Configura la URL base externa del servidor.",
       "approvalStale": "El inicio de sesión de este complemento cambió. Muestra el nuevo inicio de sesión.",
       "save": "No se pudo guardar el cliente."
-    }
+    },
+    "unknownLibrary": "una biblioteca desconocida"
   },
   "file": {
     "button": "Instalar desde un archivo",

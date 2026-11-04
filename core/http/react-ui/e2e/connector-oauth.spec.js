@@ -206,9 +206,9 @@ const CLIENT = (over = {}) => ({
   ...over,
 })
 
-async function openSettings(page, { client = CLIENT(), save } = {}) {
+async function openSettings(page, { client = CLIENT(), save, provider = PROVIDER } = {}) {
   await signIn(page, ADMIN)
-  await mockAddons(page, { apps: [PROVIDER] })
+  await mockAddons(page, { apps: [provider] })
   const state = { client: structuredClone(client), puts: [], gets: 0 }
   await page.route(/\/api\/chats\/admin\/oauth-clients\/providera$/, (r) => {
     if (r.request().method() === 'GET') { state.gets += 1; return r.fulfill({ json: state.client }) }
@@ -228,6 +228,24 @@ async function openSettings(page, { client = CLIENT(), save } = {}) {
 }
 
 test.describe('The approval of an OAuth login', () => {
+  test('warns above the form when the add-on does not come from the official library, and not when it does', async ({ page }) => {
+    await openSettings(page, { provider: { ...PROVIDER, admin: { canStart: false, canStop: true, managementUrl: '/app/addons?manage=providera', sourceId: 'community', official: false } } })
+    const form = page.getByTestId('oauth-client-settings')
+    const notice = form.getByTestId('oauth-client-untrusted')
+    await expect(notice).toContainText('This add-on comes from community, not the official library.')
+    await expect(notice).toContainText('Install it only if you trust its author.')
+    // The warning comes before the form that approves the login.
+    const before = await notice.evaluate((n) => !!(n.compareDocumentPosition(document.querySelector('[data-testid="oauth-client-form"]')) & Node.DOCUMENT_POSITION_FOLLOWING))
+    expect(before).toBe(true)
+    await shoot(page, 'admin-untrusted-source', { tall: true })
+  })
+
+  test('shows no warning for an add-on of the official library', async ({ page }) => {
+    await openSettings(page, { provider: { ...PROVIDER, admin: { canStart: false, canStop: true, managementUrl: '/app/addons?manage=providera', sourceId: 'official', official: true } } })
+    await expect(page.getByTestId('oauth-client-form')).toBeVisible()
+    await expect(page.getByTestId('oauth-client-untrusted')).toHaveCount(0)
+  })
+
   test('not configured: the login in plain words, the callback to copy, and Approve and save sends the digest shown', async ({ page }) => {
     const state = await openSettings(page)
     const form = page.getByTestId('oauth-client-settings')

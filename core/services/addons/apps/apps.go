@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -344,6 +345,12 @@ type AdminView struct {
 	CanStop        bool                    `json:"canStop"`
 	// ManagementURL opens the management view of the addon.
 	ManagementURL string `json:"managementUrl" example:"/app/addons?manage=notes"`
+	// SourceID is the library the package came from, and Official is true
+	// when that is the official library and the signature was checked. An
+	// administrator who approves something for the add-on, such as its OAuth
+	// login, is warned when it is not.
+	SourceID string `json:"sourceId,omitempty" example:"official"`
+	Official bool   `json:"official"`
 }
 
 // Build returns the apps a caller may see, sorted by identifier. An uninstalled
@@ -424,7 +431,8 @@ func build(s Snapshot, admin bool) App {
 		a.Operation = &op
 	}
 	if admin {
-		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}
+		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id),
+			SourceID: s.Receipt.SourceID, Official: catalog.IsOfficialPackage(s.Receipt.SourceID, s.Receipt.SourceURL, s.Receipt.Verification)}
 	}
 	return a
 }

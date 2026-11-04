@@ -957,7 +957,8 @@
       "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique. Définissez l'URL de base externe du serveur.",
       "approvalStale": "La connexion de ce module a changé. Affichez la nouvelle connexion.",
       "save": "Le client n'a pas pu être enregistré."
-    }
+    },
+    "unknownLibrary": "source inconnue"
   },
   "file": {
     "button": "Installer depuis un fichier",

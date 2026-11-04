@@ -953,7 +953,8 @@
       "baseUrlRequired": "Questo server non conosce il proprio indirizzo pubblico. Imposta l'URL di base esterno del server.",
       "approvalStale": "L'accesso di questo add-on è cambiato. Mostra il nuovo accesso.",
       "save": "Non è stato possibile salvare il client."
-    }
+    },
+    "unknownLibrary": "una libreria sconosciuta"
   },
   "file": {
     "button": "Installa da file",

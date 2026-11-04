@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -171,9 +172,11 @@ var _ = Describe("apps list", func() {
 		for _, a := range Build(snaps, true) {
 			byID[a.ID] = a
 		}
-		Expect(byID["on"].Admin).To(Equal(&AdminView{CanStart: false, CanStop: true, ManagementURL: "/app/addons?manage=on"}))
-		Expect(byID["off"].Admin).To(Equal(&AdminView{CanStart: true, CanStop: false, ManagementURL: "/app/addons?manage=off"}))
-		// Nothing of the package location, source or addon endpoint is emitted.
+		Expect(byID["on"].Admin).To(Equal(&AdminView{CanStart: false, CanStop: true, ManagementURL: "/app/addons?manage=on", SourceID: "main"}))
+		Expect(byID["off"].Admin).To(Equal(&AdminView{CanStart: true, CanStop: false, ManagementURL: "/app/addons?manage=off", SourceID: "main"}))
+		// Nothing of the package location, the address of its library or the
+		// addon endpoint is emitted; an administrator gets the ID of the
+		// library, as the list of installed add-ons gives it.
 		b, e := json.Marshal(Build(snaps, true))
 		Expect(e).NotTo(HaveOccurred())
 		for _, secret := range []string{secretDir, "catalog.example", "registry.example", "sha256:aaaa", "127.0.0.1", "endpoint"} {
@@ -232,6 +235,32 @@ var _ = Describe("apps list", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(b)).To(ContainSubstring(`"oauth":{"requiredScopes":[],"optionalScopes":[]}`))
 		Expect(string(b)).NotTo(ContainSubstring("example.test"), "the addresses of the login are for the administrator's client read")
+	})
+	It("tells an administrator whether an add-on comes from the official library, and nobody else", func() {
+		from := func(id, source, url, verification string) Snapshot {
+			s := snapshot(id, true, "running", nil, "q")
+			s.Receipt.SourceID, s.Receipt.SourceURL, s.Receipt.Verification = source, url, verification
+			return s
+		}
+		snaps := []Snapshot{
+			from("signed", catalog.OfficialLibraryID, catalog.OfficialLibraryURL, "sha256+sigstore"),
+			from("named", catalog.OfficialLibraryID, "https://mirror.example.test/index.yaml", "sha256+sigstore"),
+			from("unsigned", catalog.OfficialLibraryID, catalog.OfficialLibraryURL, "sha256"),
+			from("other", "community", "https://community.example.test/index.yaml", "sha256+sigstore"),
+		}
+		byID := map[string]App{}
+		for _, a := range Build(snaps, true) {
+			byID[a.ID] = a
+		}
+		Expect(byID["signed"].Admin.Official).To(BeTrue())
+		Expect(byID["signed"].Admin.SourceID).To(Equal(catalog.OfficialLibraryID))
+		for _, id := range []string{"named", "unsigned", "other"} {
+			Expect(byID[id].Admin.Official).To(BeFalse(), id)
+		}
+		Expect(byID["other"].Admin.SourceID).To(Equal("community"))
+		for _, a := range Build(snaps, false) {
+			Expect(a.Admin).To(BeNil())
+		}
 	})
 	It("draws the network policy for a declared capability, with the declared title, and for no other add-on", func() {
 		declared := func(id, title string, grants ...string) Snapshot {

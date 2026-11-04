@@ -953,7 +953,8 @@
       "baseUrlRequired": "Server ini tidak tahu alamat publiknya. Atur URL dasar eksternal server.",
       "approvalStale": "Login add-on ini berubah. Tampilkan login baru.",
       "save": "Klien tidak dapat disimpan."
-    }
+    },
+    "unknownLibrary": "pustaka yang tidak dikenal"
   },
   "file": {
     "button": "Pasang dari berkas",

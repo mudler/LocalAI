@@ -281,6 +281,16 @@ definitions:
         description: ManagementURL opens the management view of the addon.
         example: /app/addons?manage=notes
         type: string
+      official:
+        type: boolean
+      sourceId:
+        description: |-
+          SourceID is the library the package came from, and Official is true
+          when that is the official library and the signature was checked. An
+          administrator who approves something for the add-on, such as its OAuth
+          login, is warned when it is not.
+        example: official
+        type: string
     type: object
   apps.App:
     properties:

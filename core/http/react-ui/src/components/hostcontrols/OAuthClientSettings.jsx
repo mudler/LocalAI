@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { Button, Callout, LoadError, SkeletonRows } from '../ui'
 import { chatOAuthClientsApi } from '../../utils/api'
 import { canSaveClient, clientBody, clientStatus, formatWhen, needsSecret, oauthErrorKey, staleDigest } from '../../utils/connectorOAuth'
+import { UntrustedNotice } from '../addons/AddonBits'
+import { untrustedSource } from '../addons/addonState'
 
 // The OAuth client of an add-on whose credential slot logs people in with
 // OAuth, on the add-on's Settings tab (administrators only). It shows the
@@ -11,7 +13,9 @@ import { canSaveClient, clientBody, clientStatus, formatWhen, needsSecret, oauth
 // with the service, and a client ID and a write-only secret. Saving is the
 // approval of the login shown: the save carries the digest the form read, and
 // the server refuses it when the login changed since. Every label of the
-// login comes from the server; the form names no service.
+// login comes from the server; the form names no service. An add-on that does
+// not come from the official library gets the untrusted-source warning first:
+// the approval hands it the access tokens of everyone who connects.
 export default function OAuthClientSettings({ app, api = chatOAuthClientsApi }) {
   const { t, i18n } = useTranslation('addons')
   const ids = useId()
@@ -88,6 +92,9 @@ export default function OAuthClientSettings({ app, api = chatOAuthClientsApi }) 
         <p className="dk-hint">{t('oauthClient.intro')}</p>
       </div>
 
+      {untrustedSource({ official: app.admin?.official }) && (
+        <UntrustedNotice library={app.admin?.sourceId || t('oauthClient.unknownLibrary')} testId="oauth-client-untrusted" />
+      )}
       {status === 'unconfigured' && <Callout tone="info" testId="oauth-client-status" data-status={status}>{t('oauthClient.status.unconfigured')}</Callout>}
       {status === 'changed' && <Callout tone="warn" testId="oauth-client-status" data-status={status}>{t('oauthClient.status.changed')}</Callout>}
       {status === 'approved' && (

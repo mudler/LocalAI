@@ -953,7 +953,8 @@
       "baseUrlRequired": "此服务器不知道自己的公开地址。请设置服务器的外部基础 URL。",
       "approvalStale": "此插件的登录已更改。请显示新的登录。",
       "save": "无法保存客户端。"
-    }
+    },
+    "unknownLibrary": "未知的库"
   },
   "file": {
     "button": "从文件安装",

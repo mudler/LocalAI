@@ -953,7 +953,8 @@
       "baseUrlRequired": "Dieser Server kennt seine öffentliche Adresse nicht. Lege die externe Basis-URL des Servers fest.",
       "approvalStale": "Die Anmeldung dieses Add-ons hat sich geändert. Zeige die neue Anmeldung an.",
       "save": "Der Client konnte nicht gespeichert werden."
-    }
+    },
+    "unknownLibrary": "einer unbekannten Bibliothek"
   },
   "file": {
     "button": "Aus Datei installieren",

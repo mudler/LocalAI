@@ -1185,7 +1185,10 @@ does not answer.
 
 ### Approve the login of an add-on (administrators)
 
-Open the add-on on the **Add-ons** page and select the **Settings** tab. The
+Open the add-on on the **Add-ons** page and select the **Settings** tab. When
+the add-on does not come from the official library, the form starts with a
+warning: the approval lets it use the access tokens of everyone who connects,
+so approve it only if you trust its author. The
 **Account login** form shows, in plain words, where people sign in, the hosts
 the login may use, the access that is always requested and the access people
 may add. Before anyone can connect:

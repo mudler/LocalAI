@@ -953,7 +953,8 @@
       "baseUrlRequired": "Este servidor não conhece o próprio endereço público. Defina a URL base externa do servidor.",
       "approvalStale": "O login deste add-on mudou. Mostre o novo login.",
       "save": "Não foi possível salvar o cliente."
-    }
+    },
+    "unknownLibrary": "uma biblioteca desconhecida"
   },
   "file": {
     "button": "Instalar de um arquivo",
