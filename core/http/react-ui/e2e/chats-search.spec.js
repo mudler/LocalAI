@@ -208,3 +208,33 @@ test.describe('Chat search on a phone', () => {
     }
   })
 })
+
+test.describe('Past chats in the Tools menu', () => {
+  const groups = (on) => [
+    { group: 'web', tools: ['web_search', 'web_fetch'], off: false, usable: true, provider: 'builtin' },
+    { group: 'history', tools: ['search_chats', 'read_chat'], off: !on, opt_in: true, usable: true, provider: 'builtin',
+      title: 'Past chats', description: 'The model can search and read your earlier chats.', when_off: 'The model cannot see your earlier chats.' },
+  ]
+
+  test('is an opt-in switch that is off until the chat switches it on', async ({ page }) => {
+    await mockSearch(page, { answer: { hits: [] } })
+    const calls = []
+    await page.route('**/api/chats/c1/addons', route => route.fulfill({ json: { addons: [] } }))
+    await page.route('**/api/chats/c1/tools', route => route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: groups(false) } }))
+    await page.route('**/api/chats/c1/builtins', (route) => {
+      const body = route.request().postDataJSON()
+      calls.push(body)
+      return route.fulfill({ json: { addons: [], servers: [], connectors: [], off: [], builtins: groups((body.on || []).includes('history')) } })
+    })
+    await page.goto('/app/chats/c1')
+    await page.getByTestId('chat-tools-button').click()
+    const row = page.getByRole('switch', { name: 'Past chats' })
+    await expect(row).not.toBeChecked()
+    await expect(page.getByText('Lets the model search and read your earlier chats.')).toBeVisible()
+    await row.check()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: ['history'] })
+    await expect(row).toBeChecked()
+    await row.uncheck()
+    await expect.poll(() => calls.at(-1)).toEqual({ off: [], on: [] })
+  })
+})

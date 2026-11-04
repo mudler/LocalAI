@@ -112,6 +112,10 @@ func (s *Service) SaveAgentWithFolders(ctx context.Context, user string, a agent
 	if slices.Contains(a.Builtins, builtins.GrantSavedAgents) && s.builtins.IsGroup(builtins.GroupSavedAgents) && !slices.Contains(a.BuiltinsOn, builtins.GroupSavedAgents) {
 		a.BuiltinsOn = append(slices.Clone(a.BuiltinsOn), builtins.GroupSavedAgents)
 	}
+	// Likewise the grant history.read and the opt-in group history.
+	if slices.Contains(a.Builtins, builtins.GrantHistoryRead) && s.builtins.IsGroup(builtins.GroupHistory) && !slices.Contains(a.BuiltinsOn, builtins.GroupHistory) {
+		a.BuiltinsOn = append(slices.Clone(a.BuiltinsOn), builtins.GroupHistory)
+	}
 	if err := s.d.Agents.Put(ctx, a); err != nil {
 		return agents.Agent{}, err
 	}

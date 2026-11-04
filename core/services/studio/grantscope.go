@@ -58,6 +58,8 @@ func (s *Service) grantUsable(ctx context.Context, user, grant string) bool {
 		return s.d.Files.Available()
 	case builtins.GrantSavedAgents:
 		return s.d.Agents != nil
+	case builtins.GrantHistoryRead:
+		return s.historyAvailable()
 	}
 	return builtins.ValidGrant(grant)
 }

@@ -329,7 +329,8 @@
       "collections": "Pengetahuan",
       "subagents": "Sub-agen",
       "changes": "Perubahan yang disarankan",
-      "memory": "Memori"
+      "memory": "Memori",
+      "history": "Chat sebelumnya"
     },
     "builtinBy": "{{tools}} · bawaan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
@@ -352,7 +353,8 @@
       "saved_agents": "Model dapat memulai salah satu agen tersimpan Anda sebagai sub-agen.",
       "triggers": "Model dapat mengusulkan, mencantumkan, mengubah, dan menghapus pemicu. Anda mengonfirmasi setiap pemicu atau perubahan baru.",
       "changes": "Model dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, dan dasbor. Anda mengonfirmasi setiap perubahan.",
-      "memory": "Model dapat membaca catatan Anda sebelum menjawab dan menyimpan yang baru. Matikan untuk menjadikan ini obrolan pribadi: tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya. Obrolan Anda yang lain tidak terpengaruh."
+      "memory": "Model dapat membaca catatan Anda sebelum menjawab dan menyimpan yang baru. Matikan untuk menjadikan ini obrolan pribadi: tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya. Obrolan Anda yang lain tidak terpengaruh.",
+      "history": "Memungkinkan model mencari dan membaca chat Anda sebelumnya."
     },
     "whenOff": {
       "shell": "Model dapat menulis berkas tetapi tidak dapat menjalankan apa pun.",
@@ -364,7 +366,8 @@
       "saved_agents": "Model tidak dapat melihat atau memulai agen tersimpan Anda.",
       "triggers": "Model tidak dapat mengusulkan atau mengelola pemicu.",
       "changes": "Model tidak dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, atau dasbor.",
-      "memory": "Ini obrolan pribadi. Model tidak membaca maupun menyimpan catatan Anda."
+      "memory": "Ini obrolan pribadi. Model tidak membaca maupun menyimpan catatan Anda.",
+      "history": "Model tidak dapat melihat chat Anda sebelumnya."
     },
     "addonDescribe_one": "Memberi model {{count}} alat dari add-on ini.",
     "addonDescribe_other": "Memberi model {{count}} alat dari add-on ini.",
@@ -455,6 +458,10 @@
       "act_spend": {
         "title": "Memakai alat berbayar atau eksternal sendiri",
         "description": "Proses yang tidak diawasi dapat memakai alat berbayar atau eksternal dan jaringan."
+      },
+      "history_read": {
+        "title": "Baca chat Anda sebelumnya",
+        "description": "Memungkinkan model mencari dan membaca chat Anda sebelumnya. Agen yang bekerja di satu folder hanya membaca chat agennya sendiri."
       }
     }
   },

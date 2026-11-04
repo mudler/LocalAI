@@ -377,7 +377,8 @@
       "collections": "Knowledge",
       "subagents": "Sub-agents",
       "changes": "Suggested changes",
-      "memory": "Memory"
+      "memory": "Memory",
+      "history": "Past chats"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
@@ -454,7 +455,8 @@
       "saved_agents": "Lets the model start one of your saved agents as a sub-agent.",
       "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
       "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one.",
-      "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected."
+      "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
+      "history": "Lets the model search and read your earlier chats."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -466,7 +468,8 @@
       "saved_agents": "The model cannot see or start your saved agents.",
       "triggers": "The model cannot propose or manage triggers.",
       "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
-      "memory": "This is a private chat. The model neither reads nor saves your notes."
+      "memory": "This is a private chat. The model neither reads nor saves your notes.",
+      "history": "The model cannot see your earlier chats."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
@@ -555,6 +558,10 @@
       "act_spend": {
         "title": "Use paid or external tools on its own",
         "description": "Lets a run nobody is watching use paid or external tools and the network."
+      },
+      "history_read": {
+        "title": "Read your earlier chats",
+        "description": "Lets the model search and read your earlier chats. An agent that works in a folder reads only the chats of its own."
       }
     }
   },

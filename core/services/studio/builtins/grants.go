@@ -35,6 +35,10 @@ const (
 	GrantActSpend         = "act.spend"
 	// GrantSavedAgents is the opt-in group GroupSavedAgents.
 	GrantSavedAgents = GroupSavedAgents
+	// GrantHistoryRead lets a saved agent search and read the owner's earlier
+	// chats (the group GroupHistory). A run that starts by itself, a
+	// sub-agent and a messaging chat never hold it.
+	GrantHistoryRead = "history.read"
 )
 
 // Grant describes one grant for a person: a title and what the agent can do
@@ -66,6 +70,7 @@ var grants = []Grant{
 	{GrantActSend, "Send messages on its own", "A run that nobody watches may send messages beyond its delivery target.", true},
 	{GrantActSpend, "Use paid or external tools on its own", "A run that nobody watches may use paid or external tools and the network.", true},
 	{GrantSavedAgents, "Call your saved agents", "The agent can list your saved agents and start one as a sub-agent.", false},
+	{GrantHistoryRead, "Read your earlier chats", "The agent can search and read your earlier chats. An agent that works in a folder reads only the chats of its own. Private chats, messaging chats and sub-agent runs are never read.", true},
 }
 
 // Grants returns the declared grants in display order. The caller may change

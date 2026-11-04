@@ -329,7 +329,8 @@
       "collections": "Connaissances",
       "subagents": "Sous-agents",
       "changes": "Modifications suggérées",
-      "memory": "Mémoire"
+      "memory": "Mémoire",
+      "history": "Anciens chats"
     },
     "builtinBy": "{{tools}} · intégrés",
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
@@ -352,7 +353,8 @@
       "saved_agents": "Le modèle peut lancer l'un de vos agents enregistrés comme sous-agent.",
       "triggers": "Le modèle peut proposer, lister, modifier et supprimer des déclencheurs. Vous confirmez chaque nouveau déclencheur ou changement.",
       "changes": "Le modèle peut proposer des modifications de vos notes, de ses règles, des skills, des pages et du tableau de bord. Vous confirmez chacune.",
-      "memory": "Le modèle peut lire vos notes avant de répondre et en enregistrer de nouvelles. Désactivez-la pour rendre cette conversation privée : rien n'est lu dans vos notes ni enregistré dedans. Vos autres conversations ne changent pas."
+      "memory": "Le modèle peut lire vos notes avant de répondre et en enregistrer de nouvelles. Désactivez-la pour rendre cette conversation privée : rien n'est lu dans vos notes ni enregistré dedans. Vos autres conversations ne changent pas.",
+      "history": "Permet au modèle de rechercher et de lire tes anciens chats."
     },
     "whenOff": {
       "shell": "Le modèle peut écrire des fichiers mais ne peut rien exécuter.",
@@ -364,7 +366,8 @@
       "saved_agents": "Le modèle ne peut ni voir ni lancer vos agents enregistrés.",
       "triggers": "Le modèle ne peut ni proposer ni gérer de déclencheurs.",
       "changes": "Le modèle ne peut pas proposer de modifications de vos notes, de ses règles, des skills, des pages ou du tableau de bord.",
-      "memory": "C'est une conversation privée. Le modèle ne lit ni n'enregistre vos notes."
+      "memory": "C'est une conversation privée. Le modèle ne lit ni n'enregistre vos notes.",
+      "history": "Le modèle ne peut pas voir tes anciens chats."
     },
     "addonDescribe_one": "Donne au modèle {{count}} outil de cet add-on.",
     "addonDescribe_other": "Donne au modèle {{count}} outils de cet add-on.",
@@ -455,6 +458,10 @@
       "act_spend": {
         "title": "Utiliser seul des outils payants ou externes",
         "description": "Une exécution que personne ne surveille peut utiliser des outils payants ou externes et le réseau."
+      },
+      "history_read": {
+        "title": "Lire tes anciens chats",
+        "description": "Permet au modèle de rechercher et de lire tes anciens chats. Un agent qui travaille dans un dossier ne lit que les chats de son propre agent."
       }
     }
   },

@@ -53,6 +53,10 @@ const (
 	GroupMemory = "memory"
 	// GroupSubAgents holds spawn_agent.
 	GroupSubAgents = "subagents"
+	// GroupHistory holds search_chats and read_chat: the model can search and
+	// read the person's earlier chats. It is opt-in: off until the chat, or the
+	// saved agent that holds the grant history.read, switches it on.
+	GroupHistory = "history"
 )
 
 // The runtime settings of the built-in tools.

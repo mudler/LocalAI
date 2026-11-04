@@ -829,6 +829,29 @@ to keep them. An opt-in group in `off` is ignored. The group in `GET
 /api/chats/{id}/tools` has `opt_in: true`, and `usable` and `reason` say whether
 it can serve the chat now.
 
+### Past chats
+
+The group **Past chats** (`history`) lets the model recall what you said in earlier chats. It is off until you switch it on in the chat's Tools menu, like Saved agents. It has two read-only tools:
+
+- `search_chats` (`query`, `scope`, `limit`, `since`) finds messages in your earlier chats with the same search as the [web UI](#search-your-chats). `scope` is `this_chat` (this conversation, including parts that compaction took out of the model's context), `this_agent` (chats with the same saved agent) or `all`. It returns at most 10 hits; each has `chat_id`, title, date, message number (`seq`), who wrote it and a snippet of at most 300 characters.
+- `read_chat` (`chat_id`, `from_seq`, `limit`) reads the user and assistant messages of one chat that a search found, from a message number. It returns at most 20 messages and about 6 KiB, and says which message number to ask for next when more follow.
+
+The model is told to use them only to recall what you said, to say plainly when it finds nothing, and never to quote other people's messages back. Every result is wrapped as untrusted text, because an old message can contain anything: a line in it never changes a switch, a grant or a file.
+
+What the tools never reach:
+
+- Another user's chats. The search applies your account in the query itself.
+- Private chats (a chat with the notes of memory switched off), the runs of sub-agents, and every chat that no person started: triggers, jobs, pages and messaging apps. A messaging chat holds the words of other senders, so no chat of a messaging app is returned.
+- Deleted chats: a chat leaves the search index in the same step that deletes it, and text that regenerate or edit removed leaves it too.
+
+Who has the tools:
+
+- A chat of yours, when you switch **Past chats** on.
+- A saved agent, only when you grant it **Read your earlier chats** (`history.read`), which is off by default. Saving the agent with the grant turns the group on for its chats. An agent that works in a folder may search only its own chats (`this_agent`), never `all`, and `read_chat` refuses chats of other agents.
+- Never a run that starts by itself (trigger, job), a chat that a messaging app started, or a sub-agent, whatever its parent has.
+
+Each call writes one log line with the tool, the user, the chat, the scope, a hash of the query, the number of hits and the chat IDs returned. It never holds a query or a message.
+
 ## Running commands
 
 A chat runs commands and code with one tool, `bash`. Who serves it depends on
@@ -1342,6 +1365,7 @@ it off, so a chat that never touches the menu works as before:
 | **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
+| **Past chats** | `history` | `search_chats` and `read_chat` (opt-in; see [Past chats](#past-chats)) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
 | **Memory** | `memory` | Your notes: the model reads them before it answers and may save new ones (see [Memory](/features/short-memory/)). Switch it off to make the chat private: it neither reads nor saves memory |
 | **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory](/features/short-memory/#choose-how-a-note-is-saved)) |

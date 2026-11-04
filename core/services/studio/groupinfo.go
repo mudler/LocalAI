@@ -48,6 +48,11 @@ func (s *Service) describeGroups() {
 			Description: "The model can list your saved agents and start one as a sub-agent, with that agent's own instructions and model.",
 			WhenOff:     "The model cannot see or start your saved agents.",
 		},
+		builtins.GroupHistory: {
+			Title:       "Past chats",
+			Description: "The model can search and read your earlier chats, to recall what you said or decided before. It never reads private chats, chats of messaging apps or runs that nobody watched.",
+			WhenOff:     "The model cannot see your earlier chats.",
+		},
 		builtins.GroupTriggers: {
 			Title: "Triggers",
 			Description: "The model can propose, list, change and delete triggers: tasks that run by themselves at a set time or when a file arrives in a folder. " +

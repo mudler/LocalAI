@@ -329,7 +329,8 @@
       "collections": "Conocimiento",
       "subagents": "Subagentes",
       "changes": "Cambios sugeridos",
-      "memory": "Memoria"
+      "memory": "Memoria",
+      "history": "Chats anteriores"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -352,7 +353,8 @@
       "saved_agents": "El modelo puede iniciar uno de tus agentes guardados como subagente.",
       "triggers": "El modelo puede proponer, listar, cambiar y borrar disparadores. Tú confirmas cada disparador nuevo o cambio.",
       "changes": "El modelo puede proponer cambios en tus notas, sus reglas, skills, páginas y el panel. Tú confirmas cada uno.",
-      "memory": "El modelo puede leer tus notas antes de responder y guardar otras nuevas. Desactívala para hacer de este un chat privado: no se lee nada de tus notas ni se guarda nada en ellas. Tus otros chats no cambian."
+      "memory": "El modelo puede leer tus notas antes de responder y guardar otras nuevas. Desactívala para hacer de este un chat privado: no se lee nada de tus notas ni se guarda nada en ellas. Tus otros chats no cambian.",
+      "history": "Permite que el modelo busque y lea tus chats anteriores."
     },
     "whenOff": {
       "shell": "El modelo puede escribir archivos pero no puede ejecutar nada.",
@@ -364,7 +366,8 @@
       "saved_agents": "El modelo no puede ver ni iniciar tus agentes guardados.",
       "triggers": "El modelo no puede proponer ni gestionar disparadores.",
       "changes": "El modelo no puede proponer cambios en tus notas, sus reglas, skills, páginas ni el panel.",
-      "memory": "Es un chat privado. El modelo ni lee ni guarda tus notas."
+      "memory": "Es un chat privado. El modelo ni lee ni guarda tus notas.",
+      "history": "El modelo no puede ver tus chats anteriores."
     },
     "addonDescribe_one": "Da al modelo {{count}} herramienta de este add-on.",
     "addonDescribe_other": "Da al modelo {{count}} herramientas de este add-on.",
@@ -455,6 +458,10 @@
       "act_spend": {
         "title": "Usar herramientas de pago o externas por su cuenta",
         "description": "Una ejecución que nadie mira puede usar herramientas de pago o externas y la red."
+      },
+      "history_read": {
+        "title": "Leer tus chats anteriores",
+        "description": "Permite que el modelo busque y lea tus chats anteriores. Un agente que trabaja en una carpeta solo lee los chats de su propio agente."
       }
     }
   },

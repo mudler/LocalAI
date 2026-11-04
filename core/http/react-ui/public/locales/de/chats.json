@@ -329,7 +329,8 @@
       "collections": "Wissen",
       "subagents": "Sub-Agenten",
       "changes": "Vorgeschlagene Änderungen",
-      "memory": "Gedächtnis"
+      "memory": "Gedächtnis",
+      "history": "Frühere Chats"
     },
     "builtinBy": "{{tools}} · eingebaut",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
@@ -352,7 +353,8 @@
       "saved_agents": "Das Modell kann einen deiner gespeicherten Agenten als Sub-Agenten starten.",
       "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
       "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne.",
-      "memory": "Das Modell kann deine Notizen lesen, bevor es antwortet, und neue speichern. Schalte es aus, um den Chat privat zu machen: nichts wird aus deinen Notizen gelesen oder darin gespeichert. Deine anderen Chats bleiben unberührt."
+      "memory": "Das Modell kann deine Notizen lesen, bevor es antwortet, und neue speichern. Schalte es aus, um den Chat privat zu machen: nichts wird aus deinen Notizen gelesen oder darin gespeichert. Deine anderen Chats bleiben unberührt.",
+      "history": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen."
     },
     "whenOff": {
       "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
@@ -364,7 +366,8 @@
       "saved_agents": "Das Modell kann deine gespeicherten Agenten weder sehen noch starten.",
       "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
       "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen.",
-      "memory": "Das ist ein privater Chat. Das Modell liest und speichert deine Notizen nicht."
+      "memory": "Das ist ein privater Chat. Das Modell liest und speichert deine Notizen nicht.",
+      "history": "Das Modell kann deine früheren Chats nicht sehen."
     },
     "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
     "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",
@@ -455,6 +458,10 @@
       "act_spend": {
         "title": "Kostenpflichtige oder externe Werkzeuge selbstständig nutzen",
         "description": "Ein Lauf, den niemand beobachtet, kann kostenpflichtige oder externe Werkzeuge und das Netzwerk nutzen."
+      },
+      "history_read": {
+        "title": "Frühere Chats lesen",
+        "description": "Erlaubt dem Modell, deine früheren Chats zu durchsuchen und zu lesen. Ein Agent, der in einem Ordner arbeitet, liest nur die Chats seines eigenen Agenten."
       }
     }
   },

@@ -329,7 +329,8 @@
       "collections": "Conhecimento",
       "subagents": "Subagentes",
       "changes": "Alterações sugeridas",
-      "memory": "Memória"
+      "memory": "Memória",
+      "history": "Chats anteriores"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -352,7 +353,8 @@
       "saved_agents": "O modelo pode iniciar um dos seus agentes salvos como subagente.",
       "triggers": "O modelo pode propor, listar, alterar e excluir gatilhos. Você confirma cada novo gatilho ou alteração.",
       "changes": "O modelo pode propor alterações nas suas notas, nas regras dele, em skills, páginas e no painel. Você confirma cada uma.",
-      "memory": "O modelo pode ler suas notas antes de responder e salvar novas. Desative para tornar este um chat privado: nada é lido das suas notas nem salvo nelas. Seus outros chats não mudam."
+      "memory": "O modelo pode ler suas notas antes de responder e salvar novas. Desative para tornar este um chat privado: nada é lido das suas notas nem salvo nelas. Seus outros chats não mudam.",
+      "history": "Permite que o modelo pesquise e leia seus chats anteriores."
     },
     "whenOff": {
       "shell": "O modelo pode escrever arquivos, mas não pode executar nada.",
@@ -364,7 +366,8 @@
       "saved_agents": "O modelo não pode ver nem iniciar seus agentes salvos.",
       "triggers": "O modelo não pode propor nem gerenciar gatilhos.",
       "changes": "O modelo não pode propor alterações nas suas notas, nas regras dele, em skills, páginas ou no painel.",
-      "memory": "Este é um chat privado. O modelo não lê nem salva suas notas."
+      "memory": "Este é um chat privado. O modelo não lê nem salva suas notas.",
+      "history": "O modelo não pode ver seus chats anteriores."
     },
     "addonDescribe_one": "Dá ao modelo {{count}} ferramenta deste add-on.",
     "addonDescribe_other": "Dá ao modelo {{count}} ferramentas deste add-on.",
@@ -455,6 +458,10 @@
       "act_spend": {
         "title": "Usar ferramentas pagas ou externas por conta própria",
         "description": "Uma execução que ninguém acompanha pode usar ferramentas pagas ou externas e a rede."
+      },
+      "history_read": {
+        "title": "Ler seus chats anteriores",
+        "description": "Permite que o modelo pesquise e leia seus chats anteriores. Um agente que trabalha em uma pasta lê apenas os chats do próprio agente."
       }
     }
   },
