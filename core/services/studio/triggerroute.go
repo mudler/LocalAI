@@ -309,7 +309,7 @@ func (h *Triggers) answerProposal(ctx context.Context, from PhraseFrom, p trigge
 		return fmt.Sprintf(sentProposalFailed, toolErr(err)), true
 	}
 	h.audit(ctx, proposals.ActionConfirm, t, detail)
-	return fmt.Sprintf("Confirmed. %q is on: %s. Cost: %s. %s", t.Name, h.whenText(t), h.costText(t), actsText(t)), true
+	return fmt.Sprintf("Confirmed. %q is on: %s. Cost: %s. %s", t.Name, h.whenText(t), h.costText(t), actsText(t, false)), true
 }
 
 // cancelAuto removes a trigger that was made without asking.
@@ -332,7 +332,7 @@ func (h *Triggers) cancelAuto(ctx context.Context, from PhraseFrom, t triggers.T
 // proposalText is what the host writes in the chat where a proposal was made.
 // It shows what the run will do and costs, so a person can answer it from
 // there, and how to answer.
-func (h *Triggers) proposalText(t triggers.Trigger, note string) string {
+func (h *Triggers) proposalText(t triggers.Trigger, note string, dr DroppedActs, canAsk bool) string {
 	prompt := strings.Join(strings.Fields(t.Prompt), " ")
 	if utf8.RuneCountInString(prompt) > 280 {
 		prompt = string([]rune(prompt)[:280]) + "…"
@@ -356,25 +356,29 @@ func (h *Triggers) proposalText(t triggers.Trigger, note string) string {
 	if note != "" {
 		extra = "I did not start it by myself: " + note + ".\n"
 	}
+	perms := actsText(t, canAsk)
+	if d := dr.Text(); d != "" {
+		perms += " " + d
+	}
 	return fmt.Sprintf("Proposal %s: %q, %s. It will: %s\nCost: %s. Results go to %s%s.\n%s\n%sNothing runs until you approve. Reply \"yes\" to start it or \"cancel\" to drop it, here, within 24 hours, or open Studio. "+
 		"If more than one proposal waits, reply \"confirm %s\" or \"cancel %s\".",
-		t.Route.Code, t.Name, when, prompt, h.costText(t), where, mode, actsText(t), extra, t.Route.Code, t.Route.Code)
+		t.Route.Code, t.Name, when, prompt, h.costText(t), where, mode, perms, extra, t.Route.Code, t.Route.Code)
 }
 
 // Announce writes the proposal, with its code, in the chat where it was made.
 // It reports whether the text was sent or queued.
 func (h *Triggers) Announce(ctx context.Context, t triggers.Trigger) bool {
-	return h.announce(ctx, t, "")
+	return h.announce(ctx, t, "", DroppedActs{})
 }
 
 // announce is Announce with a note that says why the proposal was not made
 // without asking, when the approval of the binding would have allowed it.
-func (h *Triggers) announce(ctx context.Context, t triggers.Trigger, note string) bool {
+func (h *Triggers) announce(ctx context.Context, t triggers.Trigger, note string, dr DroppedActs) bool {
 	c := h.svc.connectors
 	if c == nil || !t.Route.FromConnector() || t.Route.Chat == "" {
 		return false
 	}
-	_, err := c.Post(ctx, Post{Binding: t.Route.Binding, Chat: t.Route.Chat, Thread: t.Route.Thread, Text: h.proposalText(t, note)})
+	_, err := c.Post(ctx, Post{Binding: t.Route.Binding, Chat: t.Route.Chat, Thread: t.Route.Thread, Text: h.proposalText(t, note, dr, h.canAskActs(ctx, t))})
 	if err != nil {
 		h.log.Warn("studio: could not write a proposal to its chat", "trigger", t.ID, "error", err)
 		return false

@@ -301,6 +301,30 @@ var _ = Describe("Chats connectors endpoints", func() {
 		}
 	})
 
+	It("keeps the acts that runs of chat triggers may hold: none by default, ordered, kept on an update that omits approval, refused when unknown", func() {
+		ag := agent("alice", "Acts", "test-model")
+		rec := create("alice", map[string]any{"name": "Acts bot", "token": specToken, "agent_id": ag})
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		b := decodeJSON(rec)
+		id := b["id"].(string)
+		Expect(b).To(HaveKeyWithValue("approval", HaveKeyWithValue("acts", BeEmpty())))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Acts bot", "agent_id": ag,
+			"approval": map[string]any{"mode": "auto", "acts": []string{"act.spend", "act.files", "act.spend"}}})
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["approval"]).To(HaveKeyWithValue("acts", Equal([]any{"act.files", "act.spend"})))
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Acts bot", "agent_id": ag})
+		Expect(decodeJSON(rec)["approval"]).To(HaveKeyWithValue("acts", Equal([]any{"act.files", "act.spend"})))
+		rec = s.do("alice", http.MethodGet, "/api/chats/connectors/"+id, nil)
+		Expect(rec.Code).To(Equal(http.StatusOK), rec.Body.String())
+		Expect(decodeJSON(rec)["approval"]).To(HaveKeyWithValue("acts", Equal([]any{"act.files", "act.spend"})))
+		for _, bad := range [][]string{{"act.root"}, {"memory.write"}, {""}, {"act.addons:x"}} {
+			rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Acts bot", "agent_id": ag, "approval": map[string]any{"acts": bad}})
+			Expect(rec.Code).To(Equal(http.StatusBadRequest), rec.Body.String())
+		}
+		rec = s.do("alice", http.MethodPut, "/api/chats/connectors/"+id, map[string]any{"name": "Acts bot", "agent_id": ag, "approval": map[string]any{"mode": "ask"}})
+		Expect(decodeJSON(rec)["approval"]).To(HaveKeyWithValue("acts", BeEmpty()), "a present approval replaces the whole object, acts included")
+	})
+
 	It("keeps the capabilities of a binding, refuses unknown ones and issues a pairing code to its owner only", func() {
 		ag := agent("alice", "Caps", "test-model")
 		rec := create("alice", map[string]any{"name": "Caps bot", "token": specToken, "agent_id": ag, "caps": []string{"memory.write", "profile.write"}})

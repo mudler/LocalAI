@@ -4664,6 +4664,10 @@ definitions:
     type: object
   schema.ChatsConnectorApproval:
     properties:
+      acts:
+        items:
+          type: string
+        type: array
       max_lifetime_days:
         type: integer
       max_pending:
@@ -4918,7 +4922,9 @@ definitions:
         description: |-
           Approval sets how triggers that the agent proposes from a chat of the
           binding are approved, and the limits of the automatic modes. Absent
-          means ask for a new binding and unchanged for an update.
+          means ask for a new binding and unchanged for an update. When it is
+          present it replaces the whole approval, acts included: send the acts
+          again to keep them. An act that is not in the closed list is refused.
       caps:
         description: |-
           Caps are the capabilities you enable for the binding (a closed list,

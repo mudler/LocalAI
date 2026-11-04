@@ -447,9 +447,12 @@ What a run holds:
   edits the same list. A model can ask for `acts` only when it proposes a trigger
   (`propose_trigger` takes an optional `acts` list), and only for what its own
   agent holds; no tool changes the `acts` of a trigger afterwards. The proposal
-  card lists them, and confirming it grants exactly those. A trigger that a
-  connection makes without asking never carries `acts`: a proposal with `acts` is
-  always left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
+  card lists them, and confirming it grants exactly those. A proposal from a
+  chat of a messaging app carries only the acts that the binding allows
+  (`approval.acts`, see [Runs may act](../chats-connectors/#runs-may-act)) and the
+  agent holds; the rest is dropped and named in the proposal. A connection starts
+  such a trigger without asking only in the `auto` mode, when every act is allowed
+  for the binding and the sender is paired; otherwise it is left for a yes. A trigger whose plan names a file it writes (`plan.writes`) also holds
   `act.files`, because you saw that file on the proposal card. Triggers that exist
   before this change keep running, but they now read only unless they set `acts`
   or `plan.writes`.
@@ -469,7 +472,8 @@ holds, `acts_held` the part of it that applies to a run (within the grants of th
 agent, plus `act.files` for a plan that writes a file), `read_only` whether a run
 can only read and `read_only_why` why: `no_acts` (it holds none), `agent` (its
 agent holds none of them), `declared` (the proposal said `read_only`) or `binding`
-(a connection in `auto_readonly` mode made it). The Triggers page shows the same:
+(a connection in `auto_readonly` mode made it). A trigger that a connection made
+without asking also holds only the acts that its binding allows now. The Triggers page shows the same:
 a "Read only" mark on each row, and the reason on the trigger.
 
 A refused tool stays in the tool list and answers with one plain sentence instead

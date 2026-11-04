@@ -1350,12 +1350,19 @@ type ChatsConnector struct {
 // proposal asks). The limits bound the modes that make a trigger without
 // asking; a zero limit means its default (5 live triggers, one hour between
 // runs of a recurring trigger, 10 runs a day, 30 days).
+//
+// acts is "runs may act": the act.* permissions that a trigger proposed from a
+// chat of this binding may carry (act.files, act.addons, act.send, act.spend).
+// An empty list, the default, means the runs only read and report. The list is
+// a ceiling: the agent must also hold an act, when the trigger is proposed and
+// at each run. Any other name is refused with 400.
 type ChatsConnectorApproval struct {
-	Mode            string `json:"mode"`
-	MaxPending      int    `json:"max_pending"`
-	MinGapMinutes   int    `json:"min_gap_minutes"`
-	MaxRunsPerDay   int    `json:"max_runs_per_day"`
-	MaxLifetimeDays int    `json:"max_lifetime_days"`
+	Mode            string   `json:"mode"`
+	MaxPending      int      `json:"max_pending"`
+	MinGapMinutes   int      `json:"min_gap_minutes"`
+	MaxRunsPerDay   int      `json:"max_runs_per_day"`
+	MaxLifetimeDays int      `json:"max_lifetime_days"`
+	Acts            []string `json:"acts"`
 }
 
 // ChatsConnectorRoleGrant gives the capabilities caps to the senders that the
@@ -1581,7 +1588,9 @@ type ChatsConnectorWrite struct {
 	WriteMode *string `json:"write_mode,omitempty" enums:"off,propose,auto"`
 	// Approval sets how triggers that the agent proposes from a chat of the
 	// binding are approved, and the limits of the automatic modes. Absent
-	// means ask for a new binding and unchanged for an update.
+	// means ask for a new binding and unchanged for an update. When it is
+	// present it replaces the whole approval, acts included: send the acts
+	// again to keep them. An act that is not in the closed list is refused.
 	Approval *ChatsConnectorApproval `json:"approval,omitempty"`
 }
 

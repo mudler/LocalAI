@@ -626,11 +626,12 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   a proposal. A code is used once, and a proposal lapses after 24 hours. Studio always
   works as well.
 - **Permissions are in the text.** The proposal says what a run may do with nobody
-  present, in plain words: "Permissions: read only", or the `act.*` classes the
-  agent asked for (`acts` of `propose_trigger`, limited to what the agent holds), with
-  the sensitive ones marked. A `yes` grants exactly the listed ones, and the
-  confirmation repeats them. A proposal that asks to act is never set up without a yes,
-  whatever the approval mode. The model cannot change them after the confirmation.
+  present, in plain words: "Permissions: read only", or the `act.*` classes it carries,
+  with the sensitive ones marked. A `yes` grants exactly the listed ones, and the
+  confirmation repeats them. The model cannot change them after the confirmation.
+  A read only proposal says what the person can do next: ask the agent to let the run
+  act (when the binding allows it, see [Runs may act](#runs-may-act)), or change it later
+  on the Triggers page.
 - **Limits.** A binding can make 3 proposals an hour, and an owner can have 10 waiting.
 - **One-off timers.** For "in 10 minutes" or "at 18:00", the agent proposes a trigger
   that runs once: `when` is `{"in": "10 minutes"}` or `{"at": "18:00"}` (this one needs a
@@ -673,8 +674,49 @@ refused but asked instead, and the proposal says why.
 | `max_runs_per_day` | 10 | Runs a day of all of them together; a recurring trigger also gets this as its daily limit. |
 | `max_lifetime_days` | 30 | How far ahead a timer may be, and how long a recurring trigger lives before it is removed. |
 
+A proposal whose runs act follows the rules in [Runs may act](#runs-may-act).
 A trigger on files, and one that reports to a channel, always asks. The read-only mode relies on what the proposal says and on
 the grants of the agent; it does not stop a run from using a tool the agent has.
+
+### Runs may act
+
+By default the runs of a trigger that a chat proposes only read and report. The owner can
+let them do more, per binding, with `approval.acts` in the settings of the connection
+(`PUT /api/chats/connectors/{id}`, the same `approval` object as above). It is a list of
+the `act.*` permissions that a trigger proposed from a chat of this binding may carry:
+`act.files` (write files in the agent's folders), `act.addons` (use the actions of the
+agent's add-ons, including running commands through an add-on), `act.send` (send
+messages beyond where the run reports) and `act.spend` (use paid or external tools and
+the network). The default is an empty list. Any other name is refused with `400`. A
+present `approval` object replaces the whole object, so send `acts` again when you change
+the mode or a limit.
+
+The list is a ceiling, not a grant. The acts of a proposal are what the model asks for in
+`acts`, limited to this list, limited to what the agent holds:
+
+- An act the model asked for that the binding does not allow, or that the agent does not
+  hold, is dropped. The proposal text names it ("I did not allow: send messages (this
+  connection does not allow it)"), so the person is not led to think the run can do it.
+  The proposal is still made, with the acts that are left.
+- The model sees, in the description of `propose_trigger` and in its result, which acts
+  it may ask for here. It is told to ask the person "only report, or also act?" when the
+  job clearly changes things.
+- The agent is checked again at each run. If it loses a grant after the person said yes,
+  the run holds the rest (see [Action policy of unattended runs](../chats-agents/#action-policy-of-unattended-runs)).
+  A trigger made without asking also keeps to the acts of the binding at that moment.
+
+What each approval mode does with a proposal that has acts (`act.files` also counts when
+the plan names a file to write). Every act is sensitive:
+
+| `mode` | Proposal with acts |
+|---|---|
+| `ask` | Asks, as always. |
+| `auto_readonly` | Asks. This mode never starts a run that acts. |
+| `auto` | Starts at once only when every act is in `approval.acts`, nothing was dropped, and every sender of the turn is paired with the binding (a role or the allowlist is not enough). Otherwise it asks and the proposal says why. |
+
+The limits (`max_pending`, `min_gap_minutes`, `max_runs_per_day`, `max_lifetime_days`)
+apply to these triggers as to any other. A proposal that does not ask for acts is not
+changed by any of this.
 
 ## Writing to a chat on its own (`send_message`)
 

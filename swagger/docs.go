@@ -21511,6 +21511,12 @@ const docTemplate = `{
         "schema.ChatsConnectorApproval": {
             "type": "object",
             "properties": {
+                "acts": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "max_lifetime_days": {
                     "type": "integer"
                 },
@@ -21858,7 +21864,7 @@ const docTemplate = `{
                     }
                 },
                 "approval": {
-                    "description": "Approval sets how triggers that the agent proposes from a chat of the\nbinding are approved, and the limits of the automatic modes. Absent\nmeans ask for a new binding and unchanged for an update.",
+                    "description": "Approval sets how triggers that the agent proposes from a chat of the\nbinding are approved, and the limits of the automatic modes. Absent\nmeans ask for a new binding and unchanged for an update. When it is\npresent it replaces the whole approval, acts included: send the acts\nagain to keep them. An act that is not in the closed list is refused.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/schema.ChatsConnectorApproval"

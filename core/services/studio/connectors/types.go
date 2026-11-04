@@ -345,7 +345,7 @@ func needsAgent(b Binding) string {
 		return "permissions"
 	case len(b.Paired) > 0:
 		return "pairing"
-	case b.Approval != (Approval{}):
+	case !b.Approval.IsZero():
 		return "trigger approval"
 	}
 	return ""

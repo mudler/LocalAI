@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -147,7 +148,7 @@ func (h *Triggers) runsPerDay(t triggers.Trigger, now time.Time) int {
 // autoVerdict says why a proposal may not be made without asking under the
 // approval of its binding; empty means it may. The checks are the owner's
 // limits and, for the read-only mode, what the proposal says about itself.
-func (h *Triggers) autoVerdict(ctx context.Context, ap connectors.Approval, t triggers.Trigger) string {
+func (h *Triggers) autoVerdict(ctx context.Context, a workspace.Actor, ap connectors.Approval, t triggers.Trigger, dr DroppedActs) string {
 	lim := ap.Limits()
 	now := h.o.Clock()
 	if ap.ModeOrDefault() == connectors.ApprovalAutoReadonly {
@@ -158,9 +159,13 @@ func (h *Triggers) autoVerdict(ctx context.Context, ap connectors.Approval, t tr
 			return "its runs write a file"
 		}
 	}
-	if len(t.Acts) > 0 {
-		// A run that may act is never set up without a yes.
-		return "its runs ask for permission to act on their own"
+	if !dr.Empty() {
+		// The model asked for more than is allowed here. The person must see
+		// what is left out before anything starts.
+		return "some acts it asked for are not allowed here"
+	}
+	if why := h.actsVerdict(ctx, a, ap, t); why != "" {
+		return why
 	}
 	if t.Route.TargetOrDefault() == triggers.TargetChannel {
 		return "it would write to another channel"
@@ -201,6 +206,63 @@ func (h *Triggers) autoVerdict(ctx context.Context, ap connectors.Approval, t tr
 	return ""
 }
 
+// actsVerdict says why a proposal with acts may not be made without asking;
+// empty means it may, also when there are no acts. The rules:
+//
+//   - auto_readonly never makes a trigger whose runs act: it asks.
+//   - auto makes it at once only when every act, act.files included when the
+//     plan writes a file, is one the owner allowed for the binding (Acts).
+//   - every act is sensitive (builtins grants), so the sender of the turn must
+//     also be paired: a role or the allowlist alone is not enough.
+//
+// The limits of the approval apply on top, as for any trigger.
+func (h *Triggers) actsVerdict(ctx context.Context, a workspace.Actor, ap connectors.Approval, t triggers.Trigger) string {
+	acts := effectiveActs(t)
+	if len(acts) == 0 {
+		return ""
+	}
+	if ap.ModeOrDefault() == connectors.ApprovalAutoReadonly {
+		return "its runs ask for permission to act on their own"
+	}
+	var sensitive bool
+	for _, n := range acts {
+		if !ap.AllowsAct(n) {
+			return "its runs would " + actLabel(n) + ", which the owner has not allowed to start without a yes"
+		}
+		sensitive = sensitive || actSensitive(n)
+	}
+	if sensitive && !h.senderPaired(ctx, a, t) {
+		return "its runs would act on their own, and that needs a sender paired with this connection"
+	}
+	return ""
+}
+
+// senderPaired says whether every sender of the turn that proposed t is paired
+// with the binding. It asks the capability gate with the Sensitive mark, which
+// ignores roles and counts a pairing only. Any doubt is false.
+func (h *Triggers) senderPaired(ctx context.Context, a workspace.Actor, t triggers.Trigger) bool {
+	g, ok := h.svc.access.get(a.ChatID)
+	if !ok || len(g.Senders) == 0 {
+		return false
+	}
+	for _, sender := range g.Senders {
+		if !h.svc.allowCap(ctx, CapabilityRequest{Capability: CapTriggersPropose, Binding: t.Route.Binding, Owner: t.Owner,
+			Agent: t.AgentID, Sender: sender, Kind: g.Kind, Sensitive: true}) {
+			return false
+		}
+	}
+	return true
+}
+
+// canAskActs says whether the binding of a proposal lets runs act within what
+// the agent holds, so a read only proposal can say that the person may ask.
+func (h *Triggers) canAskActs(ctx context.Context, t triggers.Trigger) bool {
+	if h.svc.connectors == nil || t.Route.Binding == "" {
+		return false
+	}
+	return len(requestableActs(h.svc.connectors.ApprovalOf(ctx, t.Route.Binding), h.svc.AgentGrants(ctx, t.Owner, t.AgentID))) > 0
+}
+
 // capped is t with the daily limit of the owner applied.
 func capped(t triggers.Trigger, lim connectors.Limits) triggers.Trigger {
 	if !t.OneOff() && t.CapOrDefault() > lim.MaxRunsPerDay {
@@ -212,7 +274,7 @@ func capped(t triggers.Trigger, lim connectors.Limits) triggers.Trigger {
 // autoCreate turns a fresh proposal into a trigger that is on, bounded by the
 // limits of the owner, and writes in the chat what was set up and how to
 // cancel it. It reports whether the chat got the text.
-func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p triggers.Trigger) (triggers.Trigger, bool, error) {
+func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p triggers.Trigger, dr DroppedActs) (triggers.Trigger, bool, error) {
 	lim := ap.Limits()
 	now := h.o.Clock().UTC()
 	t, err := h.confirm(ctx, p.Owner, p.ID, "", func(t *triggers.Trigger) {
@@ -226,7 +288,7 @@ func (h *Triggers) autoCreate(ctx context.Context, ap connectors.Approval, p tri
 		return triggers.Trigger{}, false, err
 	}
 	h.audit(ctx, proposals.ActionConfirm, t, "automatic, mode "+ap.ModeOrDefault())
-	return t, h.say(ctx, t, h.autoText(t)), nil
+	return t, h.say(ctx, t, h.autoText(t, dr)), nil
 }
 
 // say writes text in the chat and thread where a trigger was proposed.
@@ -253,7 +315,7 @@ func (h *Triggers) costText(t triggers.Trigger) string {
 
 // autoText is what the host writes in the chat when it made a trigger without
 // asking.
-func (h *Triggers) autoText(t triggers.Trigger) string {
+func (h *Triggers) autoText(t triggers.Trigger, dr DroppedActs) string {
 	where := "the Inbox in Studio"
 	switch t.Route.TargetOrDefault() {
 	case triggers.TargetOrigin:
@@ -264,6 +326,12 @@ func (h *Triggers) autoText(t triggers.Trigger) string {
 	end := ""
 	if !t.Route.Until.IsZero() {
 		end = fmt.Sprintf(" It stops by itself on %s.", t.Route.Until.UTC().Format("2006-01-02"))
+	}
+	if d := dr.Text(); d != "" {
+		end += " " + d
+	}
+	if acts := effectiveActs(t); len(acts) > 0 {
+		end += " " + actsText(t, false)
 	}
 	return fmt.Sprintf("Set up %q: %s. Cost: %s. Results go to %s.%s\nTo remove it, reply \"cancel\" here, or \"cancel %s\" at any time.",
 		t.Name, lowerFirst(h.whenText(t)), h.costText(t), where, end, t.Route.Code)
@@ -365,31 +433,35 @@ func (h *Triggers) hasActiveRun(ctx context.Context, id string) bool {
 // the approval of the binding it makes the trigger at once, within the owner's
 // limits; otherwise it writes the proposal in the chat and waits for an answer.
 // fresh is false for a proposal that already waited.
-func (h *Triggers) afterPropose(ctx context.Context, a workspace.Actor, t triggers.Trigger, fresh bool, here triggers.Route) (string, error) {
+func (h *Triggers) afterPropose(ctx context.Context, a workspace.Actor, t triggers.Trigger, fresh bool, here triggers.Route, dr DroppedActs, may []string) (string, error) {
 	note := ""
 	if c := h.svc.connectors; c != nil && fresh {
 		if ap := c.ApprovalOf(ctx, t.Route.Binding); ap.Auto() {
-			note = h.autoVerdict(ctx, ap, t)
+			note = h.autoVerdict(ctx, a, ap, t, dr)
 			if note == "" {
-				made, wrote, err := h.autoCreate(ctx, ap, t)
+				made, wrote, err := h.autoCreate(ctx, ap, t, dr)
 				if err == nil {
 					h.svc.bus.Publish(key(a.Principal, a.ChatID), session.Event{Kind: session.KindTriggerProposed, IDs: []string{made.ID}, Text: made.Name})
-					return h.autoResult(made, wrote), nil
+					return h.autoResult(made, wrote, dr), nil
 				}
 				note = toolErr(err).Error()
 			}
 		}
 	}
-	return h.announceProposal(ctx, a, t, here, note)
+	return h.announceProposal(ctx, a, t, here, note, dr, may)
 }
 
 // autoResult words, for the model, what happened when a trigger was made
 // without asking.
-func (h *Triggers) autoResult(t triggers.Trigger, wrote bool) string {
+func (h *Triggers) autoResult(t triggers.Trigger, wrote bool, dr DroppedActs) string {
+	tail := ""
+	if !dr.Empty() {
+		tail = " Acts that were asked for and dropped, as the host told the person: " + strings.Join(append(slices.Clone(dr.Binding), dr.Agent...), ", ") + "."
+	}
 	if wrote {
 		return fmt.Sprintf("Set up %q (%s) at once, under the owner's settings. The host told the person in this chat what it is and how to cancel it. "+
-			"Say in one short sentence that it is set up; do not repeat the details and do not offer a code.", t.Name, h.whenText(t))
+			"Say in one short sentence that it is set up; do not repeat the details and do not offer a code.%s", t.Name, h.whenText(t), tail)
 	}
 	return fmt.Sprintf("Set up %q (%s) at once, under the owner's settings. The host could not write to this chat. Tell the person it is set up, what it does, "+
-		"and that replying \"cancel\" removes it.", t.Name, h.whenText(t))
+		"and that replying \"cancel\" removes it.%s", t.Name, h.whenText(t), tail)
 }

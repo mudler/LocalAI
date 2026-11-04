@@ -140,10 +140,10 @@ func Run(newStore NewStore) {
 		Expect(bare.Paired).To(BeEmpty())
 	})
 
-	It("keeps the approval mode and limits", func() {
+	It("keeps the approval mode, limits and the acts that runs may hold", func() {
 		s := newStore()
 		b := binding("b1", "u1", "Bot")
-		b.Approval = connectors.Approval{Mode: connectors.ApprovalAuto, MaxPending: 3, MaxRunsPerDay: 7}
+		b.Approval = connectors.Approval{Mode: connectors.ApprovalAuto, MaxPending: 3, MaxRunsPerDay: 7, Acts: []string{"act.files", "act.send"}}
 		Expect(s.PutBinding(ctx, b)).To(Succeed())
 		got, err := s.GetBinding(ctx, "b1")
 		Expect(err).NotTo(HaveOccurred())
@@ -151,6 +151,7 @@ func Run(newStore NewStore) {
 		Expect(s.PutBinding(ctx, binding("b2", "u1", "Bare"))).To(Succeed())
 		bare, _ := s.GetBinding(ctx, "b2")
 		Expect(bare.Approval.ModeOrDefault()).To(Equal(connectors.ApprovalAsk))
+		Expect(bare.Approval.Acts).To(BeEmpty())
 	})
 
 	It("uses a pairing code once, before it expires, and only with the right hash", func() {

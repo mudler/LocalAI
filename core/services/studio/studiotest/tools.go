@@ -46,6 +46,7 @@ type ToolHarness struct {
 	raw     map[string][]string
 	tools   map[string][]string
 	schemas map[string]map[string]string
+	descs   map[string]string
 	prompts map[string]string
 	systems map[string]string
 	resumes map[string][]byte
@@ -123,6 +124,14 @@ func (h *ToolHarness) ToolSchema(chat, tool string) string {
 	return h.schemas[chat][tool]
 }
 
+// LastToolDescription returns the description a tool had when a session last
+// started with it, in any chat, or "".
+func (h *ToolHarness) LastToolDescription(tool string) string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.descs[tool]
+}
+
 // Start implements session.Harness.
 func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.HarnessSession, error) {
 	h.mu.Lock()
@@ -138,8 +147,12 @@ func (h *ToolHarness) Start(_ context.Context, env session.HarnessEnv) (session.
 		h.schemas = map[string]map[string]string{}
 	}
 	h.schemas[env.Actor.ChatID] = map[string]string{}
+	if h.descs == nil {
+		h.descs = map[string]string{}
+	}
 	for _, t := range env.Tools {
 		h.schemas[env.Actor.ChatID][t.Name] = string(t.Schema)
+		h.descs[t.Name] = t.Description
 	}
 	if h.prompts == nil {
 		h.prompts = map[string]string{}

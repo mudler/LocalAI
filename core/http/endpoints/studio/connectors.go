@@ -3,6 +3,7 @@ package studio
 import (
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/labstack/echo/v4"
 
@@ -30,7 +31,7 @@ func connectorOut(i studiosvc.ConnectorInfo) schema.ChatsConnector {
 
 func approvalOut(a connectors.Approval) schema.ChatsConnectorApproval {
 	return schema.ChatsConnectorApproval{Mode: a.ModeOrDefault(), MaxPending: a.MaxPending, MinGapMinutes: a.MinGapMinutes,
-		MaxRunsPerDay: a.MaxRunsPerDay, MaxLifetimeDays: a.MaxLifetimeDays}
+		MaxRunsPerDay: a.MaxRunsPerDay, MaxLifetimeDays: a.MaxLifetimeDays, Acts: capsOut(a.Cleaned().Acts)}
 }
 
 func approvalIn(a *schema.ChatsConnectorApproval) *connectors.Approval {
@@ -38,7 +39,7 @@ func approvalIn(a *schema.ChatsConnectorApproval) *connectors.Approval {
 		return nil
 	}
 	return &connectors.Approval{Mode: a.Mode, MaxPending: a.MaxPending, MinGapMinutes: a.MinGapMinutes,
-		MaxRunsPerDay: a.MaxRunsPerDay, MaxLifetimeDays: a.MaxLifetimeDays}
+		MaxRunsPerDay: a.MaxRunsPerDay, MaxLifetimeDays: a.MaxLifetimeDays, Acts: slices.Clone(a.Acts)}
 }
 
 func capsOut(in []string) []string {

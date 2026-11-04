@@ -102,7 +102,7 @@ func (in ConnectorInput) apply(b *connectors.Binding) {
 		b.WriteMode = *in.WriteMode
 	}
 	if in.Approval != nil {
-		b.Approval = *in.Approval
+		b.Approval = in.Approval.Cleaned()
 	}
 }
 
