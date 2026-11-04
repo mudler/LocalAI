@@ -22381,6 +22381,10 @@ const docTemplate = `{
                     "description": "AgentOptional is true when a binding of this kind may have no agent. It\nthen only holds credentials (token, resource list, write mode).",
                     "type": "boolean"
                 },
+                "auth_kind": {
+                    "description": "AuthKind is oauth2 when the add-on logs people in with OAuth: create\nits bindings with auth_kind oauth2 and no token. Absent for a kind\nwhose bindings hold a token.",
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },

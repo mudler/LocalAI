@@ -575,11 +575,11 @@ func (c *Connectors) AccessPreview(ctx context.Context, user, id string, d Acces
 		if d.Kind == "" {
 			return AccessView{}, connectorBad("a connection that is not saved needs a kind")
 		}
-		addon, err := c.resolveAddon(ctx, d.Kind)
+		k, err := c.resolveAddon(ctx, d.Kind)
 		if err != nil {
 			return AccessView{}, err
 		}
-		b = connectors.Binding{ID: NewConnectionID, Owner: principal(user), Kind: d.Kind, AddonID: addon}
+		b = connectors.Binding{ID: NewConnectionID, Owner: principal(user), Kind: d.Kind, AddonID: k.AddonID}
 	} else {
 		var err error
 		if b, err = c.owned(ctx, user, id); err != nil {

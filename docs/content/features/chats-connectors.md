@@ -1208,8 +1208,11 @@ may add. Before anyone can connect:
 
 ### With the API
 
-Create the binding with
-`"auth_kind": "oauth2"` and no token, then connect it:
+A kind whose add-on logs in with OAuth has `"auth_kind": "oauth2"` in
+`GET /api/chats/connectors/kinds`. Create its binding with
+`"auth_kind": "oauth2"` and no token, then connect it. The server refuses a
+token binding for such a kind, and an `oauth2` binding for a kind whose add-on
+takes a token, with a `400` that says which one the add-on needs:
 
 ```bash
 curl -X POST .../api/chats/connectors -d '{"kind": "<kind>", "name": "Work", "auth_kind": "oauth2"}'

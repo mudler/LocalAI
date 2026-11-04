@@ -54,7 +54,7 @@ const (
 type oauthAddonTransport struct{}
 
 func (oauthAddonTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
-	return []studio.ConnectorKind{{AddonID: oauthAddonID, ConnectorKind: contract.ConnectorKind{ID: oauthKindID, Title: "Provider A", AgentOptional: true}}}, nil
+	return []studio.ConnectorKind{{AddonID: oauthAddonID, AuthKind: contract.CredentialKindOAuth2, ConnectorKind: contract.ConnectorKind{ID: oauthKindID, Title: "Provider A", AgentOptional: true}}}, nil
 }
 
 func (oauthAddonTransport) Call(context.Context, studio.ConnectorCallScope, contract.ConnectorRequest) (contract.ConnectorResponse, error) {

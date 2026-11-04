@@ -189,7 +189,10 @@ var _ = Describe("the state of an OAuth connection in the lists", func() {
 	})
 
 	It("has no view for a token binding", func() {
-		i, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: oauthKind, Name: "Token", Token: "tok-1"})
+		// A token binding of an OAuth add-on cannot be created any more; one
+		// stored earlier still reads.
+		Expect(r.st.PutBinding(ctx, connectors.Binding{ID: "tok", Owner: alice, Kind: oauthKind, AddonID: oauthAddon, Name: "Token", Enabled: true, Token: []byte("sealed")})).To(Succeed())
+		i, err := r.conns.GetConnector(ctx, alice, "tok")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(i.OAuth).To(BeNil())
 		conns, err := r.conns.Connections(ctx, alice, oauthAddon)

@@ -32,6 +32,10 @@ const (
 // Kind describes a connector registered by an add-on runtime.
 type Kind struct {
 	AddonID string
+	// AuthKind is contract.CredentialKindOAuth2 when the add-on's credential
+	// slot is an OAuth login, so its bindings must use AuthOAuth2, and empty
+	// when its bindings hold a token.
+	AuthKind string `json:"authKind,omitempty"`
 	contract.ConnectorKind
 	// Translations is the display text of the kind in other languages, from
 	// the manifest's i18n field, by language tag.

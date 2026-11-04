@@ -28,8 +28,11 @@ import (
 )
 
 const (
-	oauthAddon       = "providerA"
-	oauthKind        = "providera"
+	oauthAddon = "providerA"
+	oauthKind  = "providera"
+	// tokenAddon serves tokenKind, whose bindings hold a token.
+	tokenAddon       = "tokenservice"
+	tokenKind        = "tokenservice"
 	oauthRedirect    = "https://localai.example.test/api/chats/connectors/oauth/callback"
 	oauthReturn      = "/app/providerA"
 	oauthCode        = "code-sentinel"
@@ -49,7 +52,10 @@ type meTransport struct {
 }
 
 func (t *meTransport) Kinds(context.Context) ([]studio.ConnectorKind, error) {
-	return []studio.ConnectorKind{{AddonID: oauthAddon, ConnectorKind: contract.ConnectorKind{ID: oauthKind, Title: "Provider A", AgentOptional: true}}}, nil
+	return []studio.ConnectorKind{
+		{AddonID: oauthAddon, AuthKind: contract.CredentialKindOAuth2, ConnectorKind: contract.ConnectorKind{ID: oauthKind, Title: "Provider A", AgentOptional: true}},
+		{AddonID: tokenAddon, ConnectorKind: contract.ConnectorKind{ID: tokenKind, Title: "Token service", AgentOptional: true}},
+	}, nil
 }
 
 func (t *meTransport) Call(ctx context.Context, scope studio.ConnectorCallScope, req contract.ConnectorRequest) (contract.ConnectorResponse, error) {
@@ -867,6 +873,17 @@ var _ = Describe("OAuth connections", func() {
 					Expect(err).To(MatchError(connectors.ErrInvalid))
 					list, _ := r.conns.Connections(ctx, alice, oauthAddon)
 					Expect(list).To(BeEmpty())
+				})
+
+				It("must match the credential of its add-on: a login for an OAuth add-on, a token for any other", func() {
+					_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: oauthKind, Name: "W", Token: "t"})
+					Expect(err).To(MatchError(connectors.ErrInvalid))
+					Expect(err.Error()).To(ContainSubstring(`auth_kind "oauth2"`))
+					_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: tokenKind, Name: "W", AuthKind: connectors.AuthOAuth2})
+					Expect(err).To(MatchError(connectors.ErrInvalid))
+					Expect(err.Error()).To(ContainSubstring("takes a token"))
+					_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: tokenKind, Name: "W", Token: "t"})
+					Expect(err).NotTo(HaveOccurred())
 				})
 			})
 

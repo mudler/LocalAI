@@ -639,7 +639,10 @@ page. The model is told not to repeat the call and not to report an outage.
 A binding has an auth kind. An empty kind or `token` is a binding whose token
 the person gave; it works as before. A binding of kind `oauth2` holds no token
 of its own: its tokens are in its **grant**, and the binding is a usable
-credential only while it has one.
+credential only while it has one. The auth kind must match the add-on: an
+add-on whose credential slot is `oauth2` takes `oauth2` bindings only, and any
+other connector add-on token bindings only. The connector kinds
+(`GET /api/chats/connectors/kinds`) say `auth_kind: "oauth2"` for the first.
 
 The host keeps three records, in the same store as the bindings (the
 `studio_connector*` tables of the database, or `connectors.json` in the data

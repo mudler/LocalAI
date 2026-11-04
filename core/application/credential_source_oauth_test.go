@@ -19,6 +19,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// oauthTransport is tokenTransport for an add-on whose credential is an OAuth
+// login.
+type oauthTransport struct{ tokenTransport }
+
+func (t oauthTransport) Kinds(ctx context.Context) ([]studio.ConnectorKind, error) {
+	kinds, err := t.tokenTransport.Kinds(ctx)
+	for i := range kinds {
+		kinds[i].AuthKind = contract.CredentialKindOAuth2
+	}
+	return kinds, err
+}
+
 // The credential source gives an OAuth connection's access token to a call,
 // renews it when the add-on rejects it, and reports an ended login with the
 // reconnect_needed refusal.
@@ -50,7 +62,7 @@ var _ = Describe("the credential source with an OAuth connection", func() {
 		bindings, err := connectors.NewJSON("")
 		Expect(err).NotTo(HaveOccurred())
 		desc := srv.Descriptor(contract.OAuthClientAuthPost)
-		conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: bindings, Transport: tokenTransport{}, TokenClient: srv.Client(),
+		conns, err := studio.NewConnectors(svc, studio.ConnectorOptions{Store: bindings, Transport: oauthTransport{}, TokenClient: srv.Client(),
 			OAuthDescriptor: func(context.Context, string) (contract.OAuthDescriptor, error) { return desc, nil }})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(conns.Close)

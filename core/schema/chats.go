@@ -1588,6 +1588,10 @@ type ChatsConnectorKind struct {
 	// AgentOptional is true when a binding of this kind may have no agent. It
 	// then only holds credentials (token, resource list, write mode).
 	AgentOptional bool `json:"agent_optional,omitempty"`
+	// AuthKind is oauth2 when the add-on logs people in with OAuth: create
+	// its bindings with auth_kind oauth2 and no token. Absent for a kind
+	// whose bindings hold a token.
+	AuthKind string `json:"auth_kind,omitempty"`
 	// ThreadHistory is true when the platform can give the earlier messages
 	// of a thread. The host then reads them whenever the bot is mentioned in a
 	// thread.

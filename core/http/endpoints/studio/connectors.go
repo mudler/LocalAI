@@ -206,7 +206,7 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
 	explicit, accept := c.QueryParam("lang"), c.Request().Header.Get("Accept-Language")
 	for _, k := range kinds {
-		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.AgentOptional, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
+		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.AgentOptional, AuthKind: k.AuthKind, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
 			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)}
 		translateKind(&view, k.Translations, explicit, accept)
 		out.Kinds = append(out.Kinds, view)

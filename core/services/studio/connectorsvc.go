@@ -216,17 +216,31 @@ func (c *Connectors) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error
 }
 
 // resolveAddon finds the add-on that serves a kind.
-func (c *Connectors) resolveAddon(ctx context.Context, kind string) (string, error) {
+func (c *Connectors) resolveAddon(ctx context.Context, kind string) (ConnectorKind, error) {
 	kinds, err := c.o.Transport.Kinds(ctx)
 	if err != nil {
-		return "", err
+		return ConnectorKind{}, err
 	}
 	for _, k := range kinds {
 		if k.ID == kind {
-			return k.AddonID, nil
+			return k, nil
 		}
 	}
-	return "", connectorBad("no installed add-on serves the kind %q", kind)
+	return ConnectorKind{}, connectorBad("no installed add-on serves the kind %q", kind)
+}
+
+// checkAuthKind refuses a binding whose auth kind does not fit the
+// credential of its add-on: an add-on whose slot is an OAuth login takes
+// oauth2 bindings only, and every other add-on token bindings.
+func checkAuthKind(b connectors.Binding, k ConnectorKind) error {
+	oauth := k.AuthKind == contract.CredentialKindOAuth2
+	switch {
+	case oauth && !b.UsesOAuth():
+		return connectorBad("the add-on of the kind %q logs in with OAuth: create the connection with auth_kind \"oauth2\" and no token, then connect it", k.ID)
+	case !oauth && b.UsesOAuth():
+		return connectorBad("the add-on of the kind %q takes a token, not an OAuth login: create the connection without auth_kind", k.ID)
+	}
+	return nil
 }
 
 // checkOptions refuses a choice that the kind of the binding does not offer.
@@ -365,13 +379,16 @@ func (c *Connectors) CreateConnector(ctx context.Context, user string, in Connec
 	if kind == "" {
 		return ConnectorInfo{}, connectorBad("a binding needs a kind")
 	}
-	addon, err := c.resolveAddon(ctx, kind)
+	k, err := c.resolveAddon(ctx, kind)
 	if err != nil {
 		return ConnectorInfo{}, err
 	}
-	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: addon, AuthKind: in.AuthKind}
+	b := connectors.Binding{ID: newID(), Owner: owner, Kind: kind, AddonID: k.AddonID, AuthKind: in.AuthKind}
 	in.apply(&b)
 	if err := connectors.ValidateKind(b, c.agentOptional(ctx, b)); err != nil {
+		return ConnectorInfo{}, err
+	}
+	if err := checkAuthKind(b, k); err != nil {
 		return ConnectorInfo{}, err
 	}
 	if err := c.checkOptions(ctx, b); err != nil {
