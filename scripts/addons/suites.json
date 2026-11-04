@@ -5097,7 +5097,9 @@
       "two frontends: provider-c (none client authentication)",
       "keeps the logins of the services apart",
       "connects, reads inside the folder, writes only with approval, renews, and revokes",
-      "tells the model how long to wait when Drive limits the calls"
+      "tells the model how long to wait when Drive limits the calls",
+      "connects, reads inside the label, writes only with approval, renews, and revokes",
+      "tells the model how long to wait when Gmail limits the calls"
     ],
     "report": ".cache/addons/logs/oauth.json"
   }

@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/mudler/LocalAI/addons/gdrive/gdrivetest"
+	"github.com/mudler/LocalAI/addons/gmail/gmailtest"
 	"github.com/mudler/xlog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -32,6 +33,13 @@ var fixtureExecutable []byte
 var (
 	drive           *gdrivetest.Server
 	driveExecutable []byte
+)
+
+// mailbox is the fake Gmail API and the shipped Gmail add-on built to talk
+// to it, set up in the same way.
+var (
+	mailbox         *gmailtest.Server
+	gmailExecutable []byte
 )
 
 func TestOAuthConformance(t *testing.T) {
@@ -57,5 +65,14 @@ var _ = BeforeSuite(func() {
 		"-o", driveBin, "../../../addons/gdrive/cmd/gdrive").CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(out))
 	driveExecutable, err = os.ReadFile(driveBin) // #nosec G304 -- the suite reads the file it just built
+	Expect(err).NotTo(HaveOccurred())
+
+	mailbox = gmailtest.New()
+	DeferCleanup(mailbox.Close)
+	gmailBin := filepath.Join(dir, "gmail")
+	out, err = exec.Command("go", "build", "-ldflags", "-X github.com/mudler/LocalAI/addons/gmail/internal/gmailapi.DefaultBase="+mailbox.URL,
+		"-o", gmailBin, "../../../addons/gmail/cmd/gmail").CombinedOutput()
+	Expect(err).NotTo(HaveOccurred(), string(out))
+	gmailExecutable, err = os.ReadFile(gmailBin) // #nosec G304 -- the suite reads the file it just built
 	Expect(err).NotTo(HaveOccurred())
 })
