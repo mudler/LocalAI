@@ -796,9 +796,6 @@ callback, which:
   `error_description` of the service is never copied into the address, a page
   or a log.
 
-The cookie holds one login: a second start in the same browser replaces it,
-and the first login then ends with `invalid_state`.
-
 **See the state.** The binding JSON (`GET /api/chats/connectors` and
 `GET /api/chats/connectors/{id}`) has `auth_kind: "oauth2"` and an `oauth`
 object: `state` (`connected`, `reconnect_needed`, `not_connected` or
