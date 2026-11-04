@@ -93,7 +93,7 @@ export function BulkActions({ onAll, onNone, allDisabled, noneDisabled, allLabel
 
 // A group of rows under a heading with its icon, its count and, when it has
 // more than one switch, its own actions.
-export function SwitchGroup({ title, icon, count, actions, testId, children }) {
+export function SwitchGroup({ title, icon, count, actions, intro, testId, children }) {
   const headId = useId()
   return (
     <section className="swl-group" aria-labelledby={headId} data-testid={testId}>
@@ -103,6 +103,7 @@ export function SwitchGroup({ title, icon, count, actions, testId, children }) {
         {count && <span className="swl-group__count">{count}</span>}
         {actions}
       </div>
+      {intro && <p className="swl-group__intro">{intro}</p>}
       {children}
     </section>
   )
@@ -127,7 +128,7 @@ export function SwitchGroup({ title, icon, count, actions, testId, children }) {
 //                 sits outside the label, so using it never toggles the switch
 export function SwitchRow({
   name, blurb, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
-  stacked = false, testId, descTestId, blurbTestId, data = {}, extra,
+  stacked = false, testId, descTestId, blurbTestId, data = {}, extra, extraId, nested = false,
 }) {
   const nameId = useId()
   const descId = useId()
@@ -137,7 +138,7 @@ export function SwitchRow({
   const attrs = Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v]))
   const row = (
     <div
-      className={`swl-row${stacked || blurb ? ' swl-row--stacked' : ''}${extra ? ' swl-row--extended' : ''}`}
+      className={`swl-row${nested ? ' swl-row--option' : ''}${stacked || blurb ? ' swl-row--stacked' : ''}${extra ? ' swl-row--extended' : ''}`}
       data-on={checked ? 'true' : 'false'}
       data-disabled={disabled ? 'true' : undefined}
       title={title}
@@ -164,7 +165,7 @@ export function SwitchRow({
         checked={checked}
         disabled={disabled}
         labelledBy={nameId}
-        describedBy={line ? descId : undefined}
+        describedBy={[line ? descId : '', extraId || ''].filter(Boolean).join(' ') || undefined}
         onChange={onChange}
       />
     </div>

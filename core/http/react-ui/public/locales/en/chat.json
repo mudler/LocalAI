@@ -409,7 +409,8 @@
     "failed": "Could not save. The switch is back as it was.",
     "unavailable": "Not available in this chat",
     "toolCount_one": "{{count}} tool",
-    "toolCount_other": "{{count}} tools"
+    "toolCount_other": "{{count}} tools",
+    "optionsOf": "Options of {{name}}"
   },
   "skills": {
     "label": "Skills",

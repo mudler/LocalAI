@@ -365,12 +365,12 @@
   "tools": {
     "summary": "Tools ({{on}} of {{total}} on)",
     "builtins": "Built-in tools",
-    "grants": "What the agent may change",
+    "grants": "Other permissions",
     "grantSensitive": "Sensitive: this changes what the agent may do or reach later.",
     "builtin": {
       "web": "Look things up online",
       "saved_agents": "Saved agents",
-      "triggers": "Triggers",
+      "triggers": "Create and manage triggers",
       "shell": "Run commands",
       "files": "Your files",
       "media": "Images and audio",
@@ -436,15 +436,15 @@
       "isolated": "Commands run isolated"
     },
     "describe": {
-      "shell": "The model can run shell commands and scripts. They run in an add-on that isolates them when one is installed, otherwise directly on this machine.",
-      "files": "The model can list, read, write, edit, move, delete and search your files, and read documents. A chat of an agent that works in one folder reaches only that folder.",
-      "web": "The model can search the web and read a public page by its address. Addresses inside your network are refused unless an administrator allows them.",
-      "media": "The model can describe an image or transcribe a recording from your files with a helper model.",
-      "collections": "The model can list your collections and search them for the passages that match a question.",
-      "subagents": "The model can start a sub-agent that works on one task with the same switches as this chat and reports back.",
-      "saved_agents": "The model can list your saved agents and start one as a sub-agent, with that agent's own instructions and model.",
-      "triggers": "The model can propose, list, change and delete triggers: tasks that run by themselves at a set time or when a file arrives in a folder. A new trigger or a change waits on a card in the chat until you confirm it; pausing or resuming a trigger applies at once and you can undo it.",
-      "changes": "The model can propose an edit to your memory notes or to an agent's standing rules, and undo an edit you confirmed. Nothing changes until you confirm the proposal on a card in the chat."
+      "shell": "Lets the model run shell commands and scripts.",
+      "files": "Lets the model list, read, write and search your files.",
+      "web": "Lets the model search the web and read public pages.",
+      "media": "Lets the model describe images and transcribe recordings from your files.",
+      "collections": "Lets the model search your collections.",
+      "subagents": "Lets the model start a sub-agent for one task and get its report.",
+      "saved_agents": "Lets the model start one of your saved agents as a sub-agent.",
+      "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
+      "changes": "Lets the model propose changes to your memory and to an agent's files. You confirm each one."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -454,7 +454,7 @@
       "collections": "The model cannot read your collections.",
       "subagents": "The model works alone.",
       "saved_agents": "The model cannot see or start your saved agents.",
-      "triggers": "The model cannot create or manage triggers. A run that a trigger or a connector started never has them.",
+      "triggers": "The model cannot propose or manage triggers.",
       "changes": "The model cannot propose edits to your memory or to an agent's rules."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
@@ -474,6 +474,77 @@
       "agentLabel": "Connections for chats of this agent",
       "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
       "perChatHelp": "None chosen: each chat chooses its own."
+    },
+    "optionNeeds": "Turn on “{{name}}” to use this.",
+    "connectionMissing": "{{name}} does not allow this yet.",
+    "connectionOpen": "Open its permissions",
+    "section": {
+      "messaging": {
+        "title": "Messaging apps",
+        "intro": "These apply to chats that start in a messaging app. The connection must allow the same thing on its own permissions page."
+      },
+      "unattended": {
+        "title": "When nobody is watching",
+        "intro": "These apply to runs that a trigger or a messaging app starts, where nobody can confirm a step."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Remember things",
+        "description": "Lets the model propose a note for your memory or the agent's own. You confirm each note."
+      },
+      "profile_write": {
+        "title": "Change its own rules",
+        "description": "Lets the model propose an edit to the agent's standing rules. You confirm each edit."
+      },
+      "skills_write": {
+        "title": "Write skills",
+        "description": "Lets the model propose a new or changed skill. You confirm each one."
+      },
+      "pages_write": {
+        "title": "Create pages",
+        "description": "Lets the model propose a small app that opens in a sandboxed frame. You confirm it."
+      },
+      "dashboard_write": {
+        "title": "Change the dashboard",
+        "description": "Lets the model propose a new layout for your Home dashboard. You confirm each change."
+      },
+      "triggers_propose": {
+        "title": "Also propose from messaging apps",
+        "description": "Lets the model propose a trigger when someone asks in a messaging app. You confirm it."
+      },
+      "triggers_run": {
+        "title": "Let triggers start from messaging apps",
+        "description": "Lets a trigger tied to a messaging connection start a run and deliver its result there."
+      },
+      "talkback_channels": {
+        "title": "Reply on known channels",
+        "description": "Lets the model send a message to a channel it already talks in."
+      },
+      "talkback_new_channel": {
+        "title": "Start new channels",
+        "description": "Lets the model start a conversation on a channel it has not used before."
+      },
+      "files_upload": {
+        "title": "Receive files from messaging apps",
+        "description": "Lets senders attach files for the model to read. It cannot send files out."
+      },
+      "act_files": {
+        "title": "Write files on its own",
+        "description": "Lets a run nobody is watching write files in the agent's folders."
+      },
+      "act_addons": {
+        "title": "Use add-on actions on its own",
+        "description": "Lets a run nobody is watching call the actions of the agent's add-ons."
+      },
+      "act_send": {
+        "title": "Send messages on its own",
+        "description": "Lets a run nobody is watching send messages beyond its delivery target."
+      },
+      "act_spend": {
+        "title": "Use paid or external tools on its own",
+        "description": "Lets a run nobody is watching use paid or external tools and the network."
+      }
     }
   },
   "mcpPage": {

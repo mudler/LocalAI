@@ -279,9 +279,19 @@ group on). A sensitive grant changes what the agent may do or reach later; the
 editor marks it. The five `*.write` grants let the agent propose a memory note,
 its profile, a skill, a page or a dashboard change with `propose_change`; you
 confirm every proposal, and you can undo it. The **Tools** list of the agent form
-and of a chat show the grants in one group, "What the agent may change": the form has a
-switch per grant, each with its description and a mark on the sensitive ones; a chat of
-the agent lists the grants it holds, read only. "Select all" never touches this group. A write to the agent without the
+and of a chat show each grant once, as an option under the switch it refines:
+"Create and manage triggers" holds "Also propose from messaging apps" (`triggers.propose`)
+and "Let triggers start from messaging apps" (`triggers.run`); "Memory and profile
+changes" holds the five `*.write` grants; "Your files" holds `files.upload` and
+`act.files`. An option is greyed, with the reason, while its switch is off, and keeps its
+stored value. `talkback.channels` and `talkback.new_channel` are in the section
+"Messaging apps", and `act.addons`, `act.send` and `act.spend` in "When nobody is
+watching". "Saved agents" is one switch: either the group `saved_agents` in
+`builtins_on` or the grant of that name turns it on, switching it off removes both, and
+switching it on adds only the group. Each switch and option has one line that says what it
+lets the model do, and the form names a messaging connection of the agent that does not
+allow an option the agent holds, with a link to the permissions of that connection. A chat
+of the agent lists the grants it holds, read only. "Select all" never touches a grant. A write to the agent without the
 `builtins` field keeps them, an empty list clears them and an unknown name is
 refused (an import drops it).
 
@@ -639,7 +649,10 @@ and a `trigger_proposed` event announces it to a client that is watching.
 A change does not count towards the 50 triggers or the 10 waiting proposals. At
 most 10 changes wait at a time. Like the other trigger tools, these tools are
 offered only in a chat a person started: a trigger run, a connector run and a
-sub-agent never get them.
+sub-agent never get them. A chat that a messaging app started gets `propose_trigger`
+and `list_triggers` when the connection holds `triggers.propose` and the agent holds
+the grant "Also propose from messaging apps"; `update_trigger` and `delete_trigger` stay in
+the app.
 
 ### Clusters
 

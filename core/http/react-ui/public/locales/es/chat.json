@@ -138,7 +138,8 @@
     "failed": "No se pudo guardar. El interruptor vuelve a como estaba.",
     "unavailable": "No disponible en este chat",
     "toolCount_one": "{{count}} herramienta",
-    "toolCount_other": "{{count}} herramientas"
+    "toolCount_other": "{{count}} herramientas",
+    "optionsOf": "Opciones de {{name}}"
   },
   "skills": {
     "label": "Habilidades",

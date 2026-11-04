@@ -81,8 +81,7 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "파일",
-      "Tools": "도구",
-      "Grants": "Permissions"
+      "Tools": "도구"
     },
     "name": "Name",
     "description": "Description",
@@ -137,17 +136,19 @@
       "all": "모든 공개 사이트"
     },
     "toolsSummary": "{{total}}개 중 {{on}}개 켜짐",
-    "toolsHelp": "이 에이전트와의 채팅이 사용할 수 있는 것을 고르세요. 채팅의 도구 메뉴와 같은 스위치입니다. 꺼진 도구는 모델에 제공되지 않으며, 이 에이전트와의 채팅에서 켤 수 없습니다.",
+    "toolsHelp": "이 에이전트와의 채팅이 쓸 수 있는 것을 고르세요. 채팅의 도구 메뉴와 같은 스위치이며, 각 스위치의 옵션이 그 아래에 있습니다. 꺼진 도구는 모델에 제공되지 않습니다. 체크한 옵션이 없으면 에이전트는 메신저 연결의 기본값을 유지하고, 하나라도 체크하면 체크한 것만 작동합니다.",
     "toolsHeading": "이 에이전트의 도구",
     "skillsLater": "이 에이전트와의 채팅은 켜진 스킬만 읽습니다.",
     "skillsHeading": "이 에이전트의 스킬",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "메신저 앱에서도 제안",
+      "triggers_run": "메신저 앱에서 트리거 시작 허용",
+      "talkback_channels": "알려진 채널에 답장",
+      "files_upload": "메신저 앱에서 파일 받기"
+    }
   },
   "run": {
     "workingLine": "Working"

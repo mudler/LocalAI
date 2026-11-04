@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { connectorRef } from '../utils/chatMCP'
 import { unknownTextKey } from '../utils/chatCommands'
+import { GRANT_SECTIONS, connectionsMissing, grantKey, placeGrants } from '../utils/toolOptions'
 
 // The groups of the Tools list, built from the lists of the switches
 // (useChatSwitches for a chat, useAgentTools for a saved agent). The Tools
@@ -80,23 +81,48 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
     ...(b.group === SHELL ? shellNote(b) : builtinNote(b)),
   })
+  // A built-in row with the options that refine it.
+  const withOptions = (row) => {
+    const own = placed.byGroup[row.id]
+    if (!own || own.length === 0) return row
+    const parent = { on: row.on && row.usable !== false, label: row.label }
+    return { ...row, options: own.map((x) => grantRow(x, parent)) }
+  }
 
-  // The builtin grants of a saved agent: what the agent may ask to change
-  // (memory, its profile, skills, pages...). Each row says in plain words what
-  // the right allows, and a sensitive one says so. No onSet: Select all must
-  // never grant a right. The agent form edits them; a chat shows what its
-  // agent holds, read only.
+  // The grants of a saved agent (what it may change, reach or do on its own).
+  // Each one is shown once. A grant that refines a built-in switch sits under
+  // that switch as an option; the rest go in a section of their own. A grant
+  // is greyed, with the reason, while the switch above it is off: its stored
+  // value stays as it is, so it comes back as it was. The agent form edits
+  // them; a chat shows what its agent holds, read only. No onSet anywhere:
+  // Select all must never grant a right.
   const g = switches.grants
-  const grantsGroup = {
-    key: 'grants', title: tc('tools.grants'), icon: 'shield', rows: (g?.list || []).map((x) => ({
+  const connections = switches.connections || []
+  const builtinList = switches.builtins || []
+  const placed = placeGrants(g?.list, builtinList.map((b) => b.group))
+  const grantRow = (x, parent) => {
+    const k = grantKey(x.name)
+    const blocked = !!parent && !parent.on
+    const missing = x.on && !x.gone && !blocked ? connectionsMissing(x.name, connections) : []
+    return {
       key: `g-${x.name}`, id: x.name,
-      label: tc(`tools.grant.${x.name.replace(/\./g, '_')}.title`, { defaultValue: x.title || x.name }),
-      description: x.gone ? '' : tc(`tools.grant.${x.name.replace(/\./g, '_')}.description`, { defaultValue: x.description || '' }),
+      label: x.gone ? x.name : tc(`tools.grant.${k}.title`, { defaultValue: x.title || x.name }),
+      description: x.gone ? '' : tc(`tools.grant.${k}.description`, { defaultValue: x.description || '' }),
       note: x.gone ? tc('tools.gone') : (x.sensitive ? tc('tools.grantSensitive') : ''),
       warn: !!x.sensitive && !x.gone,
+      blocked, reason: blocked ? tc('tools.optionNeeds', { name: parent.label }) : '',
+      notes: missing.map((c) => ({ key: c.id, text: tc('tools.connectionMissing', { name: c.name }), link: { to: c.to, label: tc('tools.connectionOpen') } })),
       on: x.on, readOnly: !g.editable, onToggle: (on) => g.onToggle?.(x.name, on),
-    })),
+    }
   }
+  const sectionGroup = (s) => ({
+    key: s.key, title: tc(`tools.section.${s.key}.title`), icon: s.icon, intro: tc(`tools.section.${s.key}.intro`),
+    rows: (placed.bySection[s.key] || []).map((x) => grantRow(x)),
+  })
+  const grantGroups = [
+    ...GRANT_SECTIONS.map(sectionGroup),
+    { key: 'grants', title: tc('tools.grants'), icon: 'shield', rows: placed.other.map((x) => grantRow(x)) },
+  ]
 
   // The connections an add-on that runs with a credential may use. The host
   // picks none for the person: with one it is enabled, with several the person
@@ -145,9 +171,8 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     {
       // The tools LocalAI serves itself, such as web search: one switch per group.
       key: 'builtins', title: tc('tools.builtins'), icon: 'globe', onSet: switches.setBuiltinsOn,
-      rows: [...switches.builtins].sort((a, b) => builtinRank(a.group) - builtinRank(b.group)).map(builtinRow),
+      rows: [...builtinList].sort((a, b) => builtinRank(a.group) - builtinRank(b.group)).map((b) => withOptions(builtinRow(b))),
     },
-    grantsGroup,
     {
       // An add-on shows the title and the description its manifest declares.
       key: 'addons', title: tc('tools.addons'), icon: 'puzzle', onSet: switches.setAddonsOn,
@@ -173,6 +198,7 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
         note: c.gone ? tc('tools.gone') : (c.hint || ''), on: !c.off, usable: c.usable, reason: c.reason, onToggle: (on) => switches.toggleMCP(connectorRef(c.id), on),
       })),
     },
+    ...grantGroups,
   ]
   return groups
 }

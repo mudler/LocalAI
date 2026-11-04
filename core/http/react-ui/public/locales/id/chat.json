@@ -188,7 +188,8 @@
     "failed": "Gagal menyimpan. Sakelar kembali seperti semula.",
     "unavailable": "Tidak tersedia di obrolan ini",
     "toolCount_one": "{{count}} alat",
-    "toolCount_other": "{{count}} alat"
+    "toolCount_other": "{{count}} alat",
+    "optionsOf": "Opsi {{name}}"
   },
   "skills": {
     "label": "Keahlian",

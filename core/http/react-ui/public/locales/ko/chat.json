@@ -138,7 +138,8 @@
     "failed": "저장하지 못했습니다. 스위치가 이전 상태로 돌아갔습니다.",
     "unavailable": "이 채팅에서 사용할 수 없음",
     "toolCount_one": "도구 {{count}}개",
-    "toolCount_other": "도구 {{count}}개"
+    "toolCount_other": "도구 {{count}}개",
+    "optionsOf": "{{name}} 옵션"
   },
   "skills": {
     "label": "스킬",

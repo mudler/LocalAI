@@ -141,7 +141,8 @@
     "failed": "Não foi possível salvar. O interruptor voltou ao que era.",
     "unavailable": "Indisponível neste chat",
     "toolCount_one": "{{count}} ferramenta",
-    "toolCount_other": "{{count}} ferramentas"
+    "toolCount_other": "{{count}} ferramentas",
+    "optionsOf": "Opções de {{name}}"
   },
   "skills": {
     "label": "Habilidades",

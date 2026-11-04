@@ -81,8 +81,7 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Arquivos",
-      "Tools": "Ferramentas",
-      "Grants": "Permissions"
+      "Tools": "Ferramentas"
     },
     "name": "Name",
     "description": "Description",
@@ -137,17 +136,19 @@
       "all": "Todos os sites públicos"
     },
     "toolsSummary": "{{on}} de {{total}} ligadas",
-    "toolsHelp": "Escolha o que um chat com este agente pode usar. São os mesmos interruptores do menu Ferramentas de um chat. Uma ferramenta desligada nunca é oferecida ao modelo, e um chat com este agente não pode ligá-la.",
+    "toolsHelp": "Escolha o que um chat com este agente pode usar. São as mesmas chaves do menu Ferramentas de um chat, com as opções de cada chave abaixo. Uma ferramenta desligada nunca é oferecida ao modelo. Sem nenhuma opção marcada, o agente mantém os padrões das suas conexões de mensagens; ao marcar alguma, só as marcadas funcionam.",
     "toolsHeading": "Ferramentas deste agente",
     "skillsLater": "Um chat com este agente lê apenas as skills ligadas.",
     "skillsHeading": "Skills deste agente",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Propor também de aplicativos de mensagens",
+      "triggers_run": "Deixar gatilhos começarem de aplicativos de mensagens",
+      "talkback_channels": "Responder em canais conhecidos",
+      "files_upload": "Receber arquivos de aplicativos de mensagens"
+    }
   },
   "run": {
     "workingLine": "Working"

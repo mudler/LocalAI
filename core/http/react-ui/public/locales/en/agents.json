@@ -190,13 +190,8 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Files",
-      "Tools": "Tools",
-      "Grants": "Permissions"
+      "Tools": "Tools"
     },
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
     "grantsAddMissing": "Add the missing permissions",
@@ -247,10 +242,16 @@
       "all": "All public sites"
     },
     "toolsSummary": "{{on}} of {{total}} on",
-    "toolsHelp": "Choose what a chat with this agent can use. These are the same switches as the Tools menu of a chat. A tool that is off is never offered to the model, and a chat with this agent cannot switch it on.",
+    "toolsHelp": "Choose what a chat with this agent can use. These are the same switches as the Tools menu of a chat, with the options of a switch under it. A tool that is off is never offered to the model. With no option ticked, the agent keeps the defaults it had on its messaging connections; once you tick any, only the ticked ones work.",
     "toolsHeading": "Tools of this agent",
     "skillsLater": "A chat with this agent reads only the skills that are on.",
-    "skillsHeading": "Skills of this agent"
+    "skillsHeading": "Skills of this agent",
+    "grantNames": {
+      "triggers_propose": "Also propose from messaging apps",
+      "triggers_run": "Let triggers start from messaging apps",
+      "talkback_channels": "Reply on known channels",
+      "files_upload": "Receive files from messaging apps"
+    }
   },
   "status": {
     "title": "Status",

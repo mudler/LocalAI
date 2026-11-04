@@ -81,8 +81,7 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "文件",
-      "Tools": "工具",
-      "Grants": "Permissions"
+      "Tools": "工具"
     },
     "name": "Name",
     "description": "Description",
@@ -137,17 +136,19 @@
       "all": "所有公共网站"
     },
     "toolsSummary": "{{total}} 项中开启 {{on}} 项",
-    "toolsHelp": "选择使用此智能体的聊天可以用什么。这些开关与聊天的工具菜单相同。关闭的工具不会提供给模型,使用此智能体的聊天也无法将其打开。",
+    "toolsHelp": "选择与此智能体的聊天可以使用什么。这些开关与聊天的工具菜单相同，每个开关的选项在其下方。关闭的工具不会提供给模型。未勾选任何选项时，智能体保留其消息连接的默认设置；一旦勾选任何一项，只有勾选的才生效。",
     "toolsHeading": "此智能体的工具",
     "skillsLater": "使用此智能体的聊天只会读取已开启的技能。",
     "skillsHeading": "此智能体的技能",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "也可从消息应用提议",
+      "triggers_run": "允许触发器从消息应用启动",
+      "talkback_channels": "在已知频道回复",
+      "files_upload": "从消息应用接收文件"
+    }
   },
   "run": {
     "workingLine": "Working"

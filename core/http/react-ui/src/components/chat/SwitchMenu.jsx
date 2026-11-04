@@ -2,6 +2,7 @@
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import Icon from '../Icon'
 import { BulkActions, SwitchGroup, SwitchHead, SwitchPopover, SwitchRow, SwitchStatus } from './SwitchList'
 import { bulkIds, bulkable, rowOn, switchCounts, switchRows } from '../../utils/chatSwitchRows'
 
@@ -101,6 +102,7 @@ export function SwitchPanel({ heading, note, noteId, notice, groups, error, foot
               key={g.key}
               title={g.title}
               icon={g.icon}
+              intro={g.intro}
               count={titled ? t('tools.groupCount', { on: c.on, total: c.total }) : null}
               actions={titled && g.onSet && bulkable(g.rows) > 1 ? actionsFor([g], true, g.title) : null}
               testId={`${testId}-group-${g.key}`}
@@ -115,10 +117,24 @@ export function SwitchPanel({ heading, note, noteId, notice, groups, error, foot
   )
 }
 
-function ToolRow({ row: r, testId }) {
+function ToolRow({ row: r, testId, nested = false }) {
   const { t } = useTranslation('chat')
+  const notesId = useId()
   const usable = r.usable !== false
-  const reason = !usable ? (r.reason || t('tools.unavailable')) : ''
+  // An option is greyed while the switch above it is off; its reason says so.
+  const reason = !usable ? (r.reason || t('tools.unavailable')) : (r.blocked ? r.reason : '')
+  const hasNotes = (r.notes || []).length > 0
+  const extra = (r.pick || hasNotes || (r.options || []).length > 0) ? (
+    <>
+      {r.pick && <RowPick pick={r.pick} testId={testId} />}
+      {hasNotes && <RowNotes notes={r.notes} id={notesId} testId={testId} />}
+      {(r.options || []).length > 0 && (
+        <div className="swl-options" role="group" aria-label={t('tools.optionsOf', { name: r.label })} data-testid={`${testId}-options`}>
+          {r.options.map((o) => <ToolRow key={o.key} row={o} testId={testId} nested />)}
+        </div>
+      )}
+    </>
+  ) : undefined
   const desc = r.note || (r.optIn && usable ? t('tools.optIn') : '')
   const on = rowOn(r)
   // What the switch does, and, once it is off, what the model loses.
@@ -136,14 +152,31 @@ function ToolRow({ row: r, testId }) {
       reason={reason}
       title={r.title}
       checked={rowOn(r)}
-      disabled={!usable || !!r.readOnly}
+      disabled={!usable || !!r.readOnly || !!r.blocked}
       onChange={(next) => r.onToggle(next)}
       stacked={!!(reason || desc)}
       testId={`${testId}-item`}
       descTestId={r.note ? `${testId}-note` : undefined}
       data={{ optin: r.optIn ? 'true' : undefined }}
-      extra={r.pick ? <RowPick pick={r.pick} testId={testId} /> : undefined}
+      extra={extra}
+      extraId={hasNotes ? notesId : undefined}
+      nested={nested}
     />
+  )
+}
+
+// What a messaging connection of the agent does not allow yet, under the
+// option that needs it, with a link to the page of that connection.
+function RowNotes({ notes, id, testId }) {
+  return (
+    <ul className="swl-notes" id={id} data-testid={`${testId}-conn-notes`}>
+      {notes.map((n) => (
+        <li key={n.key} className="swl-notes__item" data-testid={`${testId}-conn-note`}>
+          <Icon name="warning" className="swl-notes__icon" />
+          <span>{n.text} <Link className="swl-pick__link" to={n.link.to}>{n.link.label}</Link></span>
+        </li>
+      ))}
+    </ul>
   )
 }
 

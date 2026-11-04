@@ -136,7 +136,8 @@
     "failed": "Enregistrement impossible. L'interrupteur revient à son état précédent.",
     "unavailable": "Indisponible dans ce chat",
     "toolCount_one": "{{count}} outil",
-    "toolCount_other": "{{count}} outils"
+    "toolCount_other": "{{count}} outils",
+    "optionsOf": "Options de {{name}}"
   },
   "skills": {
     "label": "Compétences",

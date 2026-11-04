@@ -81,8 +81,7 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Dateien",
-      "Tools": "Werkzeuge",
-      "Grants": "Permissions"
+      "Tools": "Werkzeuge"
     },
     "name": "Name",
     "description": "Description",
@@ -137,17 +136,19 @@
       "all": "Alle öffentlichen Seiten"
     },
     "toolsSummary": "{{on}} von {{total}} an",
-    "toolsHelp": "Wähle, was ein Chat mit diesem Agenten nutzen kann. Das sind dieselben Schalter wie im Werkzeuge-Menü eines Chats. Ein ausgeschaltetes Werkzeug wird dem Modell nie angeboten, und ein Chat mit diesem Agenten kann es nicht einschalten.",
+    "toolsHelp": "Wähle, was ein Chat mit diesem Agenten nutzen kann. Das sind dieselben Schalter wie im Werkzeug-Menü eines Chats, mit den Optionen eines Schalters darunter. Ein ausgeschaltetes Werkzeug wird dem Modell nie angeboten. Ohne angekreuzte Option behält der Agent die Standardwerte seiner Messaging-Verbindungen; sobald du eine ankreuzt, wirken nur die angekreuzten.",
     "toolsHeading": "Werkzeuge dieses Agenten",
     "skillsLater": "Ein Chat mit diesem Agenten liest nur die eingeschalteten Skills.",
     "skillsHeading": "Skills dieses Agenten",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Auch aus Messaging-Apps vorschlagen",
+      "triggers_run": "Trigger aus Messaging-Apps starten lassen",
+      "talkback_channels": "Auf bekannten Kanälen antworten",
+      "files_upload": "Dateien aus Messaging-Apps empfangen"
+    }
   },
   "run": {
     "workingLine": "Working"

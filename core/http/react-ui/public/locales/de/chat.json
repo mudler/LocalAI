@@ -138,7 +138,8 @@
     "failed": "Nicht gespeichert. Der Schalter steht wieder wie vorher.",
     "unavailable": "In diesem Chat nicht verfügbar",
     "toolCount_one": "{{count}} Werkzeug",
-    "toolCount_other": "{{count}} Werkzeuge"
+    "toolCount_other": "{{count}} Werkzeuge",
+    "optionsOf": "Optionen von {{name}}"
   },
   "skills": {
     "label": "Skills",

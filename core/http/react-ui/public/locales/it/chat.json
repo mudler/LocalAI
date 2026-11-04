@@ -138,7 +138,8 @@
     "failed": "Salvataggio non riuscito. L'interruttore è tornato com'era.",
     "unavailable": "Non disponibile in questa chat",
     "toolCount_one": "{{count}} strumento",
-    "toolCount_other": "{{count}} strumenti"
+    "toolCount_other": "{{count}} strumenti",
+    "optionsOf": "Opzioni di {{name}}"
   },
   "skills": {
     "label": "Skill",

@@ -314,7 +314,7 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Agen tersimpan",
-      "triggers": "Pemicu",
+      "triggers": "Buat dan kelola pemicu",
       "shell": "Jalankan perintah",
       "files": "File Anda",
       "media": "Gambar dan audio",
@@ -334,15 +334,15 @@
       "isolated": "Perintah berjalan terisolasi"
     },
     "describe": {
-      "shell": "Model dapat menjalankan perintah shell dan skrip. Perintah berjalan di add-on yang mengisolasinya jika ada yang terpasang, jika tidak langsung di mesin ini.",
-      "files": "Model dapat membuat daftar, membaca, menulis, mengedit, memindahkan, menghapus, dan mencari berkas Anda, serta membaca dokumen. Chat agen yang bekerja di satu folder hanya menjangkau folder itu.",
-      "web": "Model dapat mencari di web dan membaca halaman publik dari alamatnya. Alamat di dalam jaringan Anda ditolak kecuali administrator mengizinkannya.",
-      "media": "Model dapat mendeskripsikan gambar atau menyalin rekaman dari berkas Anda menjadi teks dengan model pembantu.",
-      "collections": "Model dapat membuat daftar koleksi Anda dan mencari bagian yang cocok dengan sebuah pertanyaan.",
-      "subagents": "Model dapat memulai sub-agen yang mengerjakan satu tugas dengan sakelar yang sama seperti chat ini, lalu melapor.",
-      "saved_agents": "Model dapat membuat daftar agen tersimpan Anda dan memulai salah satunya sebagai sub-agen, dengan instruksi dan model agen itu.",
-      "triggers": "Model dapat mengusulkan, membuat daftar, mengubah, dan menghapus pemicu: tugas yang berjalan sendiri pada waktu tertentu atau saat berkas masuk ke folder. Pemicu baru atau perubahan menunggu di kartu dalam chat sampai Anda mengonfirmasi; menjeda atau melanjutkan pemicu berlaku langsung dan bisa dibatalkan.",
-      "changes": "Model dapat mengusulkan perubahan pada catatan memori Anda atau aturan tetap sebuah agen, dan membatalkan perubahan yang sudah Anda konfirmasi. Tidak ada yang berubah sampai Anda mengonfirmasi usulan di kartu dalam chat."
+      "shell": "Model dapat menjalankan perintah shell dan skrip.",
+      "files": "Model dapat mencantumkan, membaca, menulis, dan mencari file Anda.",
+      "web": "Model dapat mencari di web dan membaca halaman publik.",
+      "media": "Model dapat mendeskripsikan gambar dan mentranskripsi rekaman dari file Anda.",
+      "collections": "Model dapat mencari di koleksi Anda.",
+      "subagents": "Model dapat memulai sub-agen untuk satu tugas dan menerima laporannya.",
+      "saved_agents": "Model dapat memulai salah satu agen tersimpan Anda sebagai sub-agen.",
+      "triggers": "Model dapat mengusulkan, mencantumkan, mengubah, dan menghapus pemicu. Anda mengonfirmasi setiap pemicu atau perubahan baru.",
+      "changes": "Model dapat mengusulkan perubahan pada memori Anda dan file agen. Anda mengonfirmasi setiap perubahan."
     },
     "whenOff": {
       "shell": "Model dapat menulis berkas tetapi tidak dapat menjalankan apa pun.",
@@ -352,7 +352,7 @@
       "collections": "Model tidak dapat membaca koleksi Anda.",
       "subagents": "Model bekerja sendiri.",
       "saved_agents": "Model tidak dapat melihat atau memulai agen tersimpan Anda.",
-      "triggers": "Model tidak dapat membuat atau mengelola pemicu. Proses yang dimulai oleh pemicu atau konektor tidak pernah memilikinya.",
+      "triggers": "Model tidak dapat mengusulkan atau mengelola pemicu.",
       "changes": "Model tidak dapat mengusulkan perubahan pada memori Anda atau aturan agen."
     },
     "addonDescribe_one": "Memberi model {{count}} alat dari add-on ini.",
@@ -360,7 +360,7 @@
     "serverDescribe": "Server MCP milik model: alatnya ditawarkan kepada model.",
     "connectorDescribe": "Salah satu konektor MCP Anda: alatnya ditawarkan kepada model.",
     "gone": "Tidak tersedia lagi di sini. Matikan untuk menghapusnya.",
-    "grants": "Yang boleh diubah agen",
+    "grants": "Izin lainnya",
     "grantSensitive": "Sensitif: ini mengubah apa yang boleh dilakukan atau dijangkau agen nanti.",
     "connection": {
       "label": "Koneksi",
@@ -374,6 +374,77 @@
       "agentLabel": "Koneksi untuk chat agen ini",
       "agentHelp": "Chat agen ini hanya boleh memakai koneksi ini dan tidak bisa mengubahnya.",
       "perChatHelp": "Belum dipilih: setiap chat memilih sendiri."
+    },
+    "optionNeeds": "Aktifkan “{{name}}” untuk menggunakannya.",
+    "connectionMissing": "{{name}} belum mengizinkan ini.",
+    "connectionOpen": "Buka izinnya",
+    "section": {
+      "messaging": {
+        "title": "Aplikasi pesan",
+        "intro": "Berlaku untuk obrolan yang dimulai di aplikasi pesan. Koneksi harus mengizinkan hal yang sama di halaman izinnya sendiri."
+      },
+      "unattended": {
+        "title": "Saat tidak ada yang mengawasi",
+        "intro": "Berlaku untuk proses yang dimulai oleh pemicu atau aplikasi pesan, tempat tidak ada yang bisa mengonfirmasi satu langkah."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Mengingat hal",
+        "description": "Model dapat mengusulkan catatan untuk memori Anda atau memori agen. Anda mengonfirmasi setiap catatan."
+      },
+      "profile_write": {
+        "title": "Mengubah aturannya sendiri",
+        "description": "Model dapat mengusulkan perubahan pada aturan tetap agen. Anda mengonfirmasi setiap perubahan."
+      },
+      "skills_write": {
+        "title": "Menulis skill",
+        "description": "Model dapat mengusulkan skill baru atau yang diubah. Anda mengonfirmasi masing-masing."
+      },
+      "pages_write": {
+        "title": "Membuat halaman",
+        "description": "Model dapat mengusulkan aplikasi kecil yang terbuka dalam bingkai terisolasi. Anda mengonfirmasinya."
+      },
+      "dashboard_write": {
+        "title": "Mengubah dasbor",
+        "description": "Model dapat mengusulkan tata letak baru untuk dasbor Beranda Anda. Anda mengonfirmasi setiap perubahan."
+      },
+      "triggers_propose": {
+        "title": "Usulkan juga dari aplikasi pesan",
+        "description": "Model dapat mengusulkan pemicu saat seseorang memintanya di aplikasi pesan. Anda mengonfirmasinya."
+      },
+      "triggers_run": {
+        "title": "Biarkan pemicu dimulai dari aplikasi pesan",
+        "description": "Pemicu yang terikat pada koneksi pesan dapat memulai proses dan mengirim hasilnya ke sana."
+      },
+      "talkback_channels": {
+        "title": "Membalas di kanal yang dikenal",
+        "description": "Model dapat mengirim pesan ke kanal yang sudah dipakainya."
+      },
+      "talkback_new_channel": {
+        "title": "Memulai kanal baru",
+        "description": "Model dapat memulai percakapan di kanal yang belum pernah dipakainya."
+      },
+      "files_upload": {
+        "title": "Menerima file dari aplikasi pesan",
+        "description": "Pengirim dapat melampirkan file untuk dibaca model. Model tidak dapat mengirim file keluar."
+      },
+      "act_files": {
+        "title": "Menulis file sendiri",
+        "description": "Proses yang tidak diawasi dapat menulis file di folder agen."
+      },
+      "act_addons": {
+        "title": "Memakai aksi add-on sendiri",
+        "description": "Proses yang tidak diawasi dapat memanggil aksi add-on milik agen."
+      },
+      "act_send": {
+        "title": "Mengirim pesan sendiri",
+        "description": "Proses yang tidak diawasi dapat mengirim pesan di luar tujuan pengirimannya."
+      },
+      "act_spend": {
+        "title": "Memakai alat berbayar atau eksternal sendiri",
+        "description": "Proses yang tidak diawasi dapat memakai alat berbayar atau eksternal dan jaringan."
+      }
     }
   },
   "vision": {

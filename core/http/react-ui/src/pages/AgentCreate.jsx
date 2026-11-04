@@ -27,7 +27,7 @@ import { Button, Callout, LoadError, Page, PageHeader, Segmented, SkeletonRows }
 import AgentFolderDialog from '../components/agents/AgentFolderDialog'
 // eslint-disable-next-line no-unused-vars
 import { SwitchPanel } from '../components/chat/SwitchMenu'
-import { switchCounts } from '../utils/chatSwitchRows'
+import { switchCounts, switchRows } from '../utils/chatSwitchRows'
 // eslint-disable-next-line no-unused-vars
 import { SkillsPanel } from '../components/chat/SkillsMenu'
 
@@ -40,7 +40,6 @@ const SECTIONS = [
   { id: 'MemorySettings', icon: 'database' },
   { id: 'Skills', icon: 'sparkles' },
   { id: 'Tools', icon: 'plug' },
-  { id: 'Grants', icon: 'shield' },
   { id: 'MCP', icon: 'server' },
 ]
 
@@ -80,19 +79,11 @@ export default function AgentCreate() {
   const initialFormRef = useRef(null)
   const [collectionNames, setCollectionNames] = useState([])
   const [modelServers, setModelServers] = useState([])
-  const [grantList, setGrantList] = useState([])
 
   // Suggestions are best effort: a failure leaves the field free text.
   useEffect(() => {
     agentCollectionsApi.list(false)
       .then(data => setCollectionNames((Array.isArray(data?.collections) ? data.collections : []).map(c => (typeof c === 'string' ? c : c?.name)).filter(Boolean)))
-      .catch(() => {})
-  }, [])
-
-  // The grants the editor can list: best effort, an empty list hides the checklist.
-  useEffect(() => {
-    chatAgentsApi.builtinGrants()
-      .then(r => setGrantList(Array.isArray(r?.grants) ? r.grants : []))
       .catch(() => {})
   }, [])
 
@@ -218,16 +209,10 @@ export default function AgentCreate() {
     if (s.id === 'MemorySettings') { keys = ['collections']; summary = countOf(form.collections.length, 'create.countCollections'); state = form.collections.length ? 'ready' : 'empty' }
     else if (s.id === 'Skills') { keys = ['skills']; summary = countOf(form.skills.length, 'create.countSkills'); state = form.skills.length ? 'ready' : 'empty' }
     else if (s.id === 'Tools') {
-      keys = ['builtins_off', 'builtins_on', 'addons', 'mcp_servers', 'network', 'connections']
-      const { on, total } = switchCounts(toolGroups.flatMap(g => g.rows))
+      keys = ['builtins_off', 'builtins_on', 'builtins', 'addons', 'mcp_servers', 'network', 'connections']
+      const { on, total } = switchCounts(switchRows(toolGroups))
       summary = total ? t('create.toolsSummary', { on, total }) : t('create.noneYet')
       state = on ? 'ready' : 'empty'
-    }
-    else if (s.id === 'Grants') {
-      keys = ['builtins']
-      const n = (form.builtins || []).length
-      summary = n ? t('create.countGrants', { count: n }) : t('create.grantsDefault')
-      state = missingGrants.length ? 'needs' : 'ready'
     }
     else if (s.id === 'Files') { keys = ['folders']; ({ summary, state } = folderFold()) }
     else if (s.id === 'MCP') { keys = ['mcp_servers']; summary = countOf(form.mcp_servers.length, 'create.countServers'); state = form.mcp_servers.length ? 'ready' : 'empty' }
@@ -347,6 +332,15 @@ export default function AgentCreate() {
         return (
           <>
             <p className="ag-note">{t('create.toolsHelp')}</p>
+            {missingGrants.length > 0 && (
+              <Callout
+                tone="warn" testId="agent-grants-notice"
+                title={t('create.grantsNoticeTitle')}
+                actions={<Button size="sm" onClick={() => updateField('builtins', missingGrants.reduce((l, g) => setGrant(l, g, true), form.builtins || []))} data-testid="agent-grants-add-missing">{t('create.grantsAddMissing')}</Button>}
+              >
+                {t('create.grantsNotice', { grants: missingGrants.map(g => t(`create.grantNames.${g.replace(/\./g, '_')}`, { defaultValue: g })).join(', ') })}
+              </Callout>
+            )}
             <div className="ag-switches" data-testid="agent-tools-panel">
               <SwitchPanel
                 heading={t('create.toolsHeading')} groups={toolGroups} error={tools.error} testId="agent-tools"
@@ -359,32 +353,6 @@ export default function AgentCreate() {
                 {['off', 'registries', 'all'].map(p => <option key={p} value={p}>{t(`create.networkPresets.${p}`)}</option>)}
               </select>
               <p className="ag-note">{t('create.networkHelp')}</p>
-            </div>
-          </>
-        )
-      case 'Grants':
-        return (
-          <>
-            <p className="ag-note">{t('create.grantsHelp')}</p>
-            {missingGrants.length > 0 && (
-              <Callout
-                tone="warn" testId="agent-grants-notice"
-                title={t('create.grantsNoticeTitle')}
-                actions={<Button size="sm" onClick={() => updateField('builtins', missingGrants.reduce((l, g) => setGrant(l, g, true), form.builtins || []))} data-testid="agent-grants-add-missing">{t('create.grantsAddMissing')}</Button>}
-              >
-                {t('create.grantsNotice', { grants: missingGrants.join(', ') })}
-              </Callout>
-            )}
-            <div className="ag-grants" data-testid="agent-grants">
-              {grantList.map(g => (
-                <label key={g.name} className="ag-grants__row" data-testid="agent-grant">
-                  <input type="checkbox" checked={(form.builtins || []).includes(g.name)} onChange={(e) => updateField('builtins', setGrant(form.builtins, g.name, e.target.checked))} />
-                  <span className="ag-grants__text">
-                    <span className="ag-grants__title">{g.title}{g.sensitive && <span className="ag-grants__tag">{t('create.grantSensitive')}</span>}</span>
-                    <span className="ag-note">{g.description}</span>
-                  </span>
-                </label>
-              ))}
             </div>
           </>
         )

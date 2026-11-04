@@ -81,8 +81,7 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "File",
-      "Tools": "Alat",
-      "Grants": "Permissions"
+      "Tools": "Alat"
     },
     "name": "Name",
     "description": "Description",
@@ -137,17 +136,19 @@
       "all": "Semua situs publik"
     },
     "toolsSummary": "{{on}} dari {{total}} aktif",
-    "toolsHelp": "Pilih apa yang dapat dipakai chat dengan agen ini. Sakelarnya sama dengan menu Alat pada chat. Alat yang mati tidak pernah ditawarkan kepada model, dan chat dengan agen ini tidak dapat menyalakannya.",
+    "toolsHelp": "Pilih apa yang dapat dipakai obrolan dengan agen ini. Ini sakelar yang sama dengan menu Alat pada obrolan, dengan opsi tiap sakelar di bawahnya. Alat yang mati tidak pernah ditawarkan ke model. Tanpa opsi yang dicentang, agen memakai bawaan koneksi pesannya; setelah Anda mencentang satu, hanya yang dicentang yang berlaku.",
     "toolsHeading": "Alat agen ini",
     "skillsLater": "Chat dengan agen ini hanya membaca skill yang aktif.",
     "skillsHeading": "Skill agen ini",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Usulkan juga dari aplikasi pesan",
+      "triggers_run": "Biarkan pemicu dimulai dari aplikasi pesan",
+      "talkback_channels": "Membalas di kanal yang dikenal",
+      "files_upload": "Menerima file dari aplikasi pesan"
+    }
   },
   "run": {
     "workingLine": "Working"

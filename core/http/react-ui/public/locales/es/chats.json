@@ -314,7 +314,7 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Agentes guardados",
-      "triggers": "Disparadores",
+      "triggers": "Crear y gestionar disparadores",
       "shell": "Ejecutar comandos",
       "files": "Tus archivos",
       "media": "Imágenes y audio",
@@ -334,15 +334,15 @@
       "isolated": "Los comandos se ejecutan aislados"
     },
     "describe": {
-      "shell": "El modelo puede ejecutar comandos de shell y scripts. Se ejecutan en un add-on que los aísla, si hay uno instalado; si no, directamente en esta máquina.",
-      "files": "El modelo puede listar, leer, escribir, editar, mover, borrar y buscar tus archivos, y leer documentos. Un chat de un agente que trabaja en una sola carpeta solo llega a esa carpeta.",
-      "web": "El modelo puede buscar en la web y leer una página pública por su dirección. Las direcciones dentro de tu red se rechazan salvo que un administrador las permita.",
-      "media": "El modelo puede describir una imagen o transcribir una grabación de tus archivos con un modelo auxiliar.",
-      "collections": "El modelo puede listar tus colecciones y buscar en ellas los pasajes que responden a una pregunta.",
-      "subagents": "El modelo puede iniciar un subagente que trabaja en una tarea con los mismos interruptores que este chat y luego informa.",
-      "saved_agents": "El modelo puede listar tus agentes guardados e iniciar uno como subagente, con las instrucciones y el modelo de ese agente.",
-      "triggers": "El modelo puede proponer, listar, cambiar y borrar disparadores: tareas que se ejecutan solas a una hora fijada o cuando llega un archivo a una carpeta. Un disparador nuevo o un cambio espera en una tarjeta del chat hasta que lo confirmes; pausar o reanudar un disparador se aplica al instante y puedes deshacerlo.",
-      "changes": "El modelo puede proponer un cambio en tus notas de memoria o en las reglas fijas de un agente, y deshacer un cambio que confirmaste. Nada cambia hasta que confirmes la propuesta en una tarjeta del chat."
+      "shell": "El modelo puede ejecutar comandos de shell y scripts.",
+      "files": "El modelo puede listar, leer, escribir y buscar en tus archivos.",
+      "web": "El modelo puede buscar en la web y leer páginas públicas.",
+      "media": "El modelo puede describir imágenes y transcribir grabaciones de tus archivos.",
+      "collections": "El modelo puede buscar en tus colecciones.",
+      "subagents": "El modelo puede iniciar un subagente para una tarea y recibir su informe.",
+      "saved_agents": "El modelo puede iniciar uno de tus agentes guardados como subagente.",
+      "triggers": "El modelo puede proponer, listar, cambiar y borrar disparadores. Tú confirmas cada disparador nuevo o cambio.",
+      "changes": "El modelo puede proponer cambios en tu memoria y en los archivos de un agente. Tú confirmas cada uno."
     },
     "whenOff": {
       "shell": "El modelo puede escribir archivos pero no puede ejecutar nada.",
@@ -352,7 +352,7 @@
       "collections": "El modelo no puede leer tus colecciones.",
       "subagents": "El modelo trabaja solo.",
       "saved_agents": "El modelo no puede ver ni iniciar tus agentes guardados.",
-      "triggers": "El modelo no puede crear ni gestionar disparadores. Una ejecución iniciada por un disparador o un conector nunca los tiene.",
+      "triggers": "El modelo no puede proponer ni gestionar disparadores.",
       "changes": "El modelo no puede proponer cambios en tu memoria ni en las reglas de un agente."
     },
     "addonDescribe_one": "Da al modelo {{count}} herramienta de este add-on.",
@@ -360,7 +360,7 @@
     "serverDescribe": "Un servidor MCP del modelo: sus herramientas se ofrecen al modelo.",
     "connectorDescribe": "Uno de tus conectores MCP: sus herramientas se ofrecen al modelo.",
     "gone": "Ya no está disponible aquí. Apágalo para quitarlo.",
-    "grants": "Lo que el agente puede cambiar",
+    "grants": "Otros permisos",
     "grantSensitive": "Sensible: esto cambia lo que el agente podrá hacer o alcanzar más adelante.",
     "connection": {
       "label": "Conexiones",
@@ -374,6 +374,77 @@
       "agentLabel": "Conexiones para los chats de este agente",
       "agentHelp": "Los chats de este agente solo pueden usar estas conexiones y no pueden cambiarlas.",
       "perChatHelp": "Ninguna elegida: cada chat elige la suya."
+    },
+    "optionNeeds": "Activa «{{name}}» para usar esto.",
+    "connectionMissing": "{{name}} aún no lo permite.",
+    "connectionOpen": "Abrir sus permisos",
+    "section": {
+      "messaging": {
+        "title": "Aplicaciones de mensajería",
+        "intro": "Esto se aplica a los chats que empiezan en una aplicación de mensajería. La conexión debe permitir lo mismo en su propia página de permisos."
+      },
+      "unattended": {
+        "title": "Cuando nadie mira",
+        "intro": "Esto se aplica a las ejecuciones que inicia un disparador o una aplicación de mensajería, donde nadie puede confirmar un paso."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Recordar cosas",
+        "description": "El modelo puede proponer una nota para tu memoria o la del agente. Tú confirmas cada nota."
+      },
+      "profile_write": {
+        "title": "Cambiar sus propias reglas",
+        "description": "El modelo puede proponer una edición de las reglas permanentes del agente. Tú confirmas cada edición."
+      },
+      "skills_write": {
+        "title": "Escribir skills",
+        "description": "El modelo puede proponer una skill nueva o modificada. Tú confirmas cada una."
+      },
+      "pages_write": {
+        "title": "Crear páginas",
+        "description": "El modelo puede proponer una pequeña aplicación que se abre en un marco aislado. Tú la confirmas."
+      },
+      "dashboard_write": {
+        "title": "Cambiar el panel",
+        "description": "El modelo puede proponer un nuevo diseño de tu panel de Inicio. Tú confirmas cada cambio."
+      },
+      "triggers_propose": {
+        "title": "Proponer también desde aplicaciones de mensajería",
+        "description": "El modelo puede proponer un disparador cuando alguien lo pide en una aplicación de mensajería. Tú lo confirmas."
+      },
+      "triggers_run": {
+        "title": "Dejar que los disparadores empiecen desde aplicaciones de mensajería",
+        "description": "Un disparador ligado a una conexión de mensajería puede iniciar una ejecución y entregar allí su resultado."
+      },
+      "talkback_channels": {
+        "title": "Responder en canales conocidos",
+        "description": "El modelo puede enviar un mensaje a un canal en el que ya habla."
+      },
+      "talkback_new_channel": {
+        "title": "Iniciar canales nuevos",
+        "description": "El modelo puede iniciar una conversación en un canal que no ha usado antes."
+      },
+      "files_upload": {
+        "title": "Recibir archivos de aplicaciones de mensajería",
+        "description": "Quien escribe puede adjuntar archivos para que el modelo los lea. No puede enviar archivos."
+      },
+      "act_files": {
+        "title": "Escribir archivos por su cuenta",
+        "description": "Una ejecución que nadie mira puede escribir archivos en las carpetas del agente."
+      },
+      "act_addons": {
+        "title": "Usar acciones de complementos por su cuenta",
+        "description": "Una ejecución que nadie mira puede llamar a las acciones de los complementos del agente."
+      },
+      "act_send": {
+        "title": "Enviar mensajes por su cuenta",
+        "description": "Una ejecución que nadie mira puede enviar mensajes más allá de su destino de entrega."
+      },
+      "act_spend": {
+        "title": "Usar herramientas de pago o externas por su cuenta",
+        "description": "Una ejecución que nadie mira puede usar herramientas de pago o externas y la red."
+      }
     }
   },
   "vision": {

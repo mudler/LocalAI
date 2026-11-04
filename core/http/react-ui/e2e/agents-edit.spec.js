@@ -39,14 +39,14 @@ test.describe('Agent form', () => {
     })
   })
 
-  test('warns when the first permission turns off the messaging defaults, and adds the missing ones in one click', async ({ page }) => {
+  test('warns when the first option turns off the messaging defaults, and adds the missing ones in one click', async ({ page }) => {
     const s = await installAgents(page)
     await page.goto('/app/agents/a2/edit')
-    await fold(page, 'Grants').locator('.ag-fold__button').click()
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
     await expect(page.getByTestId('agent-grants-notice')).toHaveCount(0)
-    await page.getByTestId('agent-grant').filter({ hasText: 'Remember things' }).getByRole('checkbox').check()
+    await page.getByTestId('agent-tools-panel').getByRole('switch', { name: 'Remember things' }).click()
     const notice = page.getByTestId('agent-grants-notice')
-    await expect(notice).toContainText('triggers.propose, triggers.run, talkback.channels, files.upload')
+    await expect(notice).toContainText('Also propose from messaging apps, Let triggers start from messaging apps, Reply on known channels, Receive files from messaging apps')
     await page.getByTestId('agent-grants-add-missing').click()
     await expect(notice).toHaveCount(0)
     await page.getByRole('button', { name: 'Save changes' }).first().click()
@@ -58,9 +58,77 @@ test.describe('Agent form', () => {
   test('shows no warning for an agent that already had permissions', async ({ page }) => {
     await installAgents(page, { agents: [{ ...AGENTS[1], builtins: ['memory.write'] }] })
     await page.goto('/app/agents/a2/edit')
-    await fold(page, 'Grants').locator('.ag-fold__button').click()
-    await page.getByTestId('agent-grant').filter({ hasText: 'Propose triggers' }).getByRole('checkbox').check()
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-tools-panel').getByRole('switch', { name: 'Also propose from messaging apps' }).click()
     await expect(page.getByTestId('agent-grants-notice')).toHaveCount(0)
+  })
+
+  test('each capability is one switch with its options under it, greyed with a reason while the switch is off', async ({ page }) => {
+    const s = await installAgents(page, { agents: [{ ...AGENTS[1], builtins: ['triggers.propose', 'act.files'], builtins_off: ['triggers'] }] })
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    const panel = page.getByTestId('agent-tools-panel')
+    // The three trigger switches have names that cannot be mixed up.
+    const triggers = panel.getByRole('switch', { name: 'Create and manage triggers' })
+    await expect(triggers).not.toBeChecked()
+    const propose = panel.getByRole('switch', { name: 'Also propose from messaging apps' })
+    const run = panel.getByRole('switch', { name: 'Let triggers start from messaging apps' })
+    await expect(propose).toBeDisabled()
+    await expect(propose).toBeChecked()
+    await expect(propose).toHaveAccessibleDescription(/Turn on .Create and manage triggers. to use this/)
+    await expect(run).toBeDisabled()
+    await expect(panel.getByRole('group', { name: 'Options of Create and manage triggers' })).toBeVisible()
+    await triggers.click()
+    await expect(propose).toBeEnabled()
+    await run.click()
+    // A grant is listed once: files on its own is under Your files, not in a second place.
+    await expect(panel.getByRole('switch', { name: 'Write files on its own' })).toHaveCount(1)
+    await expect(panel.getByRole('switch', { name: 'Write files on its own' })).toBeChecked()
+    // The permissions that apply with nobody watching have a section of their own.
+    const quiet = panel.getByTestId('agent-tools-group-unattended')
+    await expect(quiet).toContainText('When nobody is watching')
+    await expect(quiet.getByRole('switch')).toHaveCount(3)
+    await expect(quiet.getByTestId('agent-tools-note').first()).toContainText('Sensitive')
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body).toMatchObject({ builtins_off: [], builtins: ['triggers.propose', 'act.files', 'triggers.run'] })
+  })
+
+  test('saved agents is one switch: turning it off takes the grant away too, turning it on adds only the group', async ({ page }) => {
+    const s = await installAgents(page, { agents: [{ ...AGENTS[1], builtins: ['memory.write', 'saved_agents'] }, { ...AGENTS[0], id: 'a9', name: 'plain' }] })
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    const sw = page.getByTestId('agent-tools-panel').getByRole('switch', { name: 'Saved agents' })
+    await expect(sw).toBeChecked()
+    await expect(page.getByTestId('agent-tools-panel').getByText('Call your saved agents')).toHaveCount(0)
+    await sw.click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body).toMatchObject({ builtins: ['memory.write'], builtins_on: [] })
+    await page.goto('/app/agents/a9/edit')
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    await page.getByTestId('agent-tools-panel').getByRole('switch', { name: 'Saved agents' }).click()
+    await page.getByRole('button', { name: 'Save changes' }).first().click()
+    await expect.poll(() => s.calls.filter(c => c.method === 'PUT').at(-1)?.body).toMatchObject({ builtins: [], builtins_on: ['saved_agents'] })
+  })
+
+  test('a messaging connection that does not allow what the agent holds is named under that option, with a link', async ({ page }) => {
+    const bindings = [
+      { id: 'b1', name: 'Bender', kind: 'slack', agent_id: 'a2', enabled: true, caps: [] },
+      { id: 'b2', name: 'Other', kind: 'slack', agent_id: 'a1', enabled: true, caps: [] },
+      { id: 'b3', name: 'Ready', kind: 'slack', agent_id: 'a2', enabled: true, caps: ['triggers.propose'] },
+    ]
+    await installAgents(page, { bindings, agents: [{ ...AGENTS[1], builtins: ['triggers.propose', 'memory.write'] }] })
+    await page.goto('/app/agents/a2/edit')
+    await fold(page, 'Tools').locator('.ag-fold__button').click()
+    const panel = page.getByTestId('agent-tools-panel')
+    const notes = panel.getByTestId('agent-tools-conn-note')
+    await expect(notes).toHaveCount(3)
+    const propose = panel.getByTestId('agent-tools-item-box').filter({ has: page.getByRole('switch', { name: 'Also propose from messaging apps' }) }).last()
+    await expect(propose.getByTestId('agent-tools-conn-note')).toHaveCount(1)
+    await expect(propose.getByTestId('agent-tools-conn-note')).toContainText('Slack Bender does not allow this yet.')
+    await expect(propose.getByRole('link', { name: 'Open its permissions' })).toHaveAttribute('href', /\/app\/addons\/slack\/apps\?binding=b1$/)
+    await expect(propose.getByRole('switch', { name: 'Also propose from messaging apps' })).toHaveAccessibleDescription(/does not allow this yet/)
+    await expect(panel).not.toContainText('Slack Other')
+    await expect(propose).not.toContainText('Slack Ready')
   })
 
   test('sets the network of the commands of unattended runs', async ({ page }) => {
@@ -137,18 +205,18 @@ test.describe('Agent form', () => {
     const panel = page.getByTestId('agent-tools-panel')
     // The same words as the Tools menu of a chat: a title, a description, and
     // the add-on's declared title instead of its id. Eight rows are the built-in
-    // groups and add-ons; the others are the six grants the agent may hold.
+    // groups and add-ons; the others are the options and permissions under them.
     const rows = panel.getByTestId('agent-tools-item')
-    await expect(rows).toHaveCount(14)
+    await expect(rows).toHaveCount(22)
     for (const row of await rows.all()) await expect(row.getByTestId('agent-tools-blurb')).not.toBeEmpty()
     await expect(panel.getByRole('switch', { name: 'Memory and profile changes' })).toBeChecked()
     await expect(panel.getByRole('switch', { name: 'Office' })).toBeChecked()
     await expect(panel).toContainText('Read and write documents and spreadsheets.')
     await expect(panel.getByRole('switch', { name: 'Saved agents' })).not.toBeChecked()
 
-    await panel.getByRole('switch', { name: 'Triggers', exact: true }).click()
+    await panel.getByRole('switch', { name: 'Create and manage triggers', exact: true }).click()
     // Once off, the row also says what the model loses.
-    await expect(panel.getByTestId('agent-tools-group-builtins').getByTestId('agent-tools-item').filter({ hasText: 'Triggers' })).toContainText('The model cannot create or manage triggers.')
+    await expect(panel.getByTestId('agent-tools-group-builtins').getByTestId('agent-tools-item').filter({ hasText: 'Create and manage triggers' }).first()).toContainText('The model cannot propose or manage triggers.')
     await panel.getByRole('switch', { name: 'Saved agents' }).click()
     await page.getByRole('button', { name: 'Save Changes' }).first().click()
     await expect.poll(() => s.calls.find(c => c.method === 'PUT')?.body).toMatchObject({ builtins_off: ['triggers'], builtins_on: ['saved_agents'], addons: ['office'] })

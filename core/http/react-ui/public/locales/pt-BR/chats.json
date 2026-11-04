@@ -314,7 +314,7 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Agentes salvos",
-      "triggers": "Gatilhos",
+      "triggers": "Criar e gerenciar gatilhos",
       "shell": "Executar comandos",
       "files": "Seus arquivos",
       "media": "Imagens e áudio",
@@ -334,15 +334,15 @@
       "isolated": "Os comandos rodam isolados"
     },
     "describe": {
-      "shell": "O modelo pode executar comandos de shell e scripts. Eles rodam em um add-on que os isola, se houver um instalado; senão, direto nesta máquina.",
-      "files": "O modelo pode listar, ler, escrever, editar, mover, apagar e buscar seus arquivos, e ler documentos. Um chat de um agente que trabalha em uma só pasta alcança apenas essa pasta.",
-      "web": "O modelo pode pesquisar na web e ler uma página pública pelo endereço. Endereços dentro da sua rede são recusados, a menos que um administrador permita.",
-      "media": "O modelo pode descrever uma imagem ou transcrever uma gravação dos seus arquivos com um modelo auxiliar.",
-      "collections": "O modelo pode listar suas coleções e buscar nelas os trechos que respondem a uma pergunta.",
-      "subagents": "O modelo pode iniciar um subagente que trabalha em uma tarefa com os mesmos interruptores deste chat e depois informa o resultado.",
-      "saved_agents": "O modelo pode listar seus agentes salvos e iniciar um como subagente, com as instruções e o modelo desse agente.",
-      "triggers": "O modelo pode propor, listar, alterar e apagar gatilhos: tarefas que rodam sozinhas em um horário definido ou quando um arquivo chega a uma pasta. Um gatilho novo ou uma alteração espera em um cartão no chat até você confirmar; pausar ou retomar um gatilho vale na hora e você pode desfazer.",
-      "changes": "O modelo pode propor uma alteração nas suas notas de memória ou nas regras fixas de um agente, e desfazer uma alteração que você confirmou. Nada muda até você confirmar a proposta em um cartão no chat."
+      "shell": "O modelo pode executar comandos de shell e scripts.",
+      "files": "O modelo pode listar, ler, escrever e pesquisar seus arquivos.",
+      "web": "O modelo pode pesquisar na web e ler páginas públicas.",
+      "media": "O modelo pode descrever imagens e transcrever gravações dos seus arquivos.",
+      "collections": "O modelo pode pesquisar suas coleções.",
+      "subagents": "O modelo pode iniciar um subagente para uma tarefa e receber o relatório dele.",
+      "saved_agents": "O modelo pode iniciar um dos seus agentes salvos como subagente.",
+      "triggers": "O modelo pode propor, listar, alterar e excluir gatilhos. Você confirma cada novo gatilho ou alteração.",
+      "changes": "O modelo pode propor alterações na sua memória e nos arquivos de um agente. Você confirma cada uma."
     },
     "whenOff": {
       "shell": "O modelo pode escrever arquivos, mas não pode executar nada.",
@@ -352,7 +352,7 @@
       "collections": "O modelo não pode ler suas coleções.",
       "subagents": "O modelo trabalha sozinho.",
       "saved_agents": "O modelo não pode ver nem iniciar seus agentes salvos.",
-      "triggers": "O modelo não pode criar nem gerenciar gatilhos. Uma execução iniciada por um gatilho ou um conector nunca os tem.",
+      "triggers": "O modelo não pode propor nem gerenciar gatilhos.",
       "changes": "O modelo não pode propor alterações na sua memória ou nas regras de um agente."
     },
     "addonDescribe_one": "Dá ao modelo {{count}} ferramenta deste add-on.",
@@ -360,7 +360,7 @@
     "serverDescribe": "Um servidor MCP do modelo: suas ferramentas são oferecidas ao modelo.",
     "connectorDescribe": "Um dos seus conectores MCP: suas ferramentas são oferecidas ao modelo.",
     "gone": "Não está mais disponível aqui. Desligue para removê-lo.",
-    "grants": "O que o agente pode alterar",
+    "grants": "Outras permissões",
     "grantSensitive": "Sensível: isso muda o que o agente poderá fazer ou acessar depois.",
     "connection": {
       "label": "Conexões",
@@ -374,6 +374,77 @@
       "agentLabel": "Conexões para os chats deste agente",
       "agentHelp": "Os chats deste agente só podem usar estas conexões e não podem alterá-las.",
       "perChatHelp": "Nenhuma escolhida: cada chat escolhe a sua."
+    },
+    "optionNeeds": "Ative “{{name}}” para usar isto.",
+    "connectionMissing": "{{name}} ainda não permite isto.",
+    "connectionOpen": "Abrir as permissões dela",
+    "section": {
+      "messaging": {
+        "title": "Aplicativos de mensagens",
+        "intro": "Vale para chats que começam em um aplicativo de mensagens. A conexão precisa permitir o mesmo na própria página de permissões."
+      },
+      "unattended": {
+        "title": "Quando ninguém está olhando",
+        "intro": "Vale para execuções iniciadas por um gatilho ou por um aplicativo de mensagens, em que ninguém pode confirmar uma etapa."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Lembrar de coisas",
+        "description": "O modelo pode propor uma nota para a sua memória ou a do agente. Você confirma cada nota."
+      },
+      "profile_write": {
+        "title": "Alterar as próprias regras",
+        "description": "O modelo pode propor uma edição nas regras permanentes do agente. Você confirma cada edição."
+      },
+      "skills_write": {
+        "title": "Escrever skills",
+        "description": "O modelo pode propor uma skill nova ou alterada. Você confirma cada uma."
+      },
+      "pages_write": {
+        "title": "Criar páginas",
+        "description": "O modelo pode propor um pequeno app que abre em um quadro isolado. Você o confirma."
+      },
+      "dashboard_write": {
+        "title": "Alterar o painel",
+        "description": "O modelo pode propor um novo layout do seu painel inicial. Você confirma cada alteração."
+      },
+      "triggers_propose": {
+        "title": "Propor também de aplicativos de mensagens",
+        "description": "O modelo pode propor um gatilho quando alguém pede em um aplicativo de mensagens. Você o confirma."
+      },
+      "triggers_run": {
+        "title": "Deixar gatilhos começarem de aplicativos de mensagens",
+        "description": "Um gatilho ligado a uma conexão de mensagens pode iniciar uma execução e entregar o resultado lá."
+      },
+      "talkback_channels": {
+        "title": "Responder em canais conhecidos",
+        "description": "O modelo pode enviar uma mensagem a um canal em que já atua."
+      },
+      "talkback_new_channel": {
+        "title": "Iniciar novos canais",
+        "description": "O modelo pode começar uma conversa em um canal que nunca usou."
+      },
+      "files_upload": {
+        "title": "Receber arquivos de aplicativos de mensagens",
+        "description": "Quem envia pode anexar arquivos para o modelo ler. Ele não pode enviar arquivos."
+      },
+      "act_files": {
+        "title": "Escrever arquivos por conta própria",
+        "description": "Uma execução que ninguém acompanha pode escrever arquivos nas pastas do agente."
+      },
+      "act_addons": {
+        "title": "Usar ações de add-ons por conta própria",
+        "description": "Uma execução que ninguém acompanha pode chamar as ações dos add-ons do agente."
+      },
+      "act_send": {
+        "title": "Enviar mensagens por conta própria",
+        "description": "Uma execução que ninguém acompanha pode enviar mensagens além do seu destino de entrega."
+      },
+      "act_spend": {
+        "title": "Usar ferramentas pagas ou externas por conta própria",
+        "description": "Uma execução que ninguém acompanha pode usar ferramentas pagas ou externas e a rede."
+      }
     }
   },
   "vision": {

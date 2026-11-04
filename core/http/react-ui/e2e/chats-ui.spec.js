@@ -765,7 +765,7 @@ test.describe('Chat tools menu: every group of built-in tools', () => {
     await stubGroups(page)
     await open(page)
     const names = await page.getByTestId('chat-tools-group-builtins').locator('.swl-row__name').allTextContents()
-    expect(names).toEqual(['Run commands', 'Your files', 'Look things up online', 'Images and audio', 'Collections', 'Sub-agents', 'Triggers'])
+    expect(names).toEqual(['Run commands', 'Your files', 'Look things up online', 'Images and audio', 'Collections', 'Sub-agents', 'Create and manage triggers'])
     await expect(row(page, 'Run commands').getByTestId('chat-tools-note')).toHaveText(['Served by add-on sandbox', 'Commands run isolated'])
     await expect(row(page, 'Your files')).toHaveAttribute('title', 'list_files, read_file, write_file · built-in')
     await expect(sw(page, 'Collections')).toBeDisabled()

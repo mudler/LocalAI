@@ -81,8 +81,7 @@
       "MCP": "MCP servers",
       "export": "Export",
       "Files": "Fichiers",
-      "Tools": "Outils",
-      "Grants": "Permissions"
+      "Tools": "Outils"
     },
     "name": "Name",
     "description": "Description",
@@ -137,17 +136,19 @@
       "all": "Tous les sites publics"
     },
     "toolsSummary": "{{on}} sur {{total}} activés",
-    "toolsHelp": "Choisissez ce qu'un chat avec cet agent peut utiliser. Ce sont les mêmes interrupteurs que le menu Outils d'un chat. Un outil désactivé n'est jamais proposé au modèle, et un chat avec cet agent ne peut pas l'activer.",
+    "toolsHelp": "Choisissez ce qu'une discussion avec cet agent peut utiliser. Ce sont les mêmes interrupteurs que le menu Outils d'une discussion, avec les options de chacun en dessous. Un outil désactivé n'est jamais proposé au modèle. Sans option cochée, l'agent garde les valeurs par défaut de ses connexions de messagerie ; dès que vous en cochez une, seules les cochées fonctionnent.",
     "toolsHeading": "Outils de cet agent",
     "skillsLater": "Un chat avec cet agent ne lit que les skills activées.",
     "skillsHeading": "Skills de cet agent",
-    "grantsHelp": "What the agent may do beyond its tools. With no permission ticked, the agent keeps the defaults it had before permissions existed. Once you tick any, only the ticked ones work.",
-    "grantsDefault": "Defaults",
-    "countGrants": "{{count}} granted",
-    "grantSensitive": "needs care",
     "grantsNoticeTitle": "Some messaging features will turn off.",
     "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
-    "grantsAddMissing": "Add the missing permissions"
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Proposer aussi depuis les applications de messagerie",
+      "triggers_run": "Laisser les déclencheurs démarrer depuis les applications de messagerie",
+      "talkback_channels": "Répondre sur les canaux connus",
+      "files_upload": "Recevoir des fichiers des applications de messagerie"
+    }
   },
   "run": {
     "workingLine": "Working"

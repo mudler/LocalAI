@@ -138,7 +138,8 @@
     "failed": "无法保存。开关已恢复原状。",
     "unavailable": "此对话中不可用",
     "toolCount_one": "{{count}} 个工具",
-    "toolCount_other": "{{count}} 个工具"
+    "toolCount_other": "{{count}} 个工具",
+    "optionsOf": "{{name}}的选项"
   },
   "skills": {
     "label": "技能",

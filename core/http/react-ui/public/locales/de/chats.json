@@ -314,7 +314,7 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Gespeicherte Agenten",
-      "triggers": "Trigger",
+      "triggers": "Trigger erstellen und verwalten",
       "shell": "Befehle ausführen",
       "files": "Deine Dateien",
       "media": "Bilder und Audio",
@@ -334,15 +334,15 @@
       "isolated": "Befehle laufen isoliert"
     },
     "describe": {
-      "shell": "Das Modell kann Shell-Befehle und Skripte ausführen. Sie laufen in einem Add-on, das sie isoliert, wenn eines installiert ist, sonst direkt auf diesem Rechner.",
-      "files": "Das Modell kann deine Dateien auflisten, lesen, schreiben, bearbeiten, verschieben, löschen und durchsuchen und Dokumente lesen. Ein Chat eines Agenten, der in einem Ordner arbeitet, erreicht nur diesen Ordner.",
-      "web": "Das Modell kann im Internet suchen und eine öffentliche Seite über ihre Adresse lesen. Adressen in deinem Netzwerk werden abgelehnt, außer ein Administrator erlaubt sie.",
-      "media": "Das Modell kann ein Bild beschreiben oder eine Aufnahme aus deinen Dateien mit einem Hilfsmodell transkribieren.",
-      "collections": "Das Modell kann deine Sammlungen auflisten und darin nach den Passagen suchen, die zu einer Frage passen.",
-      "subagents": "Das Modell kann einen Sub-Agenten starten, der mit denselben Schaltern wie dieser Chat an einer Aufgabe arbeitet und Bericht erstattet.",
-      "saved_agents": "Das Modell kann deine gespeicherten Agenten auflisten und einen als Sub-Agenten starten, mit dessen eigenen Anweisungen und Modell.",
-      "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen: Aufgaben, die von selbst zu einer festen Zeit oder beim Eintreffen einer Datei in einem Ordner laufen. Ein neuer Trigger oder eine Änderung wartet auf einer Karte im Chat, bis du sie bestätigst; Pausieren oder Fortsetzen gilt sofort und lässt sich rückgängig machen.",
-      "changes": "Das Modell kann eine Änderung an deinen Gedächtnisnotizen oder an den festen Regeln eines Agenten vorschlagen und eine bestätigte Änderung rückgängig machen. Nichts ändert sich, bis du den Vorschlag auf einer Karte im Chat bestätigst."
+      "shell": "Das Modell kann Shell-Befehle und Skripte ausführen.",
+      "files": "Das Modell kann deine Dateien auflisten, lesen, schreiben und durchsuchen.",
+      "web": "Das Modell kann im Internet suchen und öffentliche Seiten lesen.",
+      "media": "Das Modell kann Bilder beschreiben und Aufnahmen aus deinen Dateien transkribieren.",
+      "collections": "Das Modell kann deine Sammlungen durchsuchen.",
+      "subagents": "Das Modell kann für eine Aufgabe einen Sub-Agenten starten und dessen Bericht erhalten.",
+      "saved_agents": "Das Modell kann einen deiner gespeicherten Agenten als Sub-Agenten starten.",
+      "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
+      "changes": "Das Modell kann Änderungen an deinem Gedächtnis und an den Dateien eines Agenten vorschlagen. Du bestätigst jede einzelne."
     },
     "whenOff": {
       "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
@@ -352,7 +352,7 @@
       "collections": "Das Modell kann deine Sammlungen nicht lesen.",
       "subagents": "Das Modell arbeitet allein.",
       "saved_agents": "Das Modell kann deine gespeicherten Agenten weder sehen noch starten.",
-      "triggers": "Das Modell kann keine Trigger erstellen oder verwalten. Ein Lauf, den ein Trigger oder ein Connector gestartet hat, hat sie nie.",
+      "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
       "changes": "Das Modell kann keine Änderungen an deinem Gedächtnis oder an den Regeln eines Agenten vorschlagen."
     },
     "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
@@ -360,7 +360,7 @@
     "serverDescribe": "Ein MCP-Server des Modells: Seine Werkzeuge werden dem Modell angeboten.",
     "connectorDescribe": "Einer deiner MCP-Connectors: Seine Werkzeuge werden dem Modell angeboten.",
     "gone": "Hier nicht mehr verfügbar. Schalte es aus, um es zu entfernen.",
-    "grants": "Was der Agent ändern darf",
+    "grants": "Weitere Berechtigungen",
     "grantSensitive": "Sensibel: Das ändert, was der Agent später tun oder erreichen darf.",
     "connection": {
       "label": "Verbindungen",
@@ -374,6 +374,77 @@
       "agentLabel": "Verbindungen für Chats dieses Agenten",
       "agentHelp": "Chats dieses Agenten dürfen nur diese Verbindungen nutzen und können sie nicht ändern.",
       "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst."
+    },
+    "optionNeeds": "Schalte „{{name}}“ ein, um dies zu nutzen.",
+    "connectionMissing": "{{name}} erlaubt das noch nicht.",
+    "connectionOpen": "Berechtigungen öffnen",
+    "section": {
+      "messaging": {
+        "title": "Messaging-Apps",
+        "intro": "Das gilt für Chats, die in einer Messaging-App beginnen. Die Verbindung muss dasselbe auf ihrer eigenen Berechtigungsseite erlauben."
+      },
+      "unattended": {
+        "title": "Wenn niemand zusieht",
+        "intro": "Das gilt für Läufe, die ein Trigger oder eine Messaging-App startet und bei denen niemand einen Schritt bestätigen kann."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Dinge merken",
+        "description": "Das Modell kann eine Notiz für dein Gedächtnis oder das des Agenten vorschlagen. Du bestätigst jede Notiz."
+      },
+      "profile_write": {
+        "title": "Eigene Regeln ändern",
+        "description": "Das Modell kann eine Änderung der festen Regeln des Agenten vorschlagen. Du bestätigst jede Änderung."
+      },
+      "skills_write": {
+        "title": "Skills schreiben",
+        "description": "Das Modell kann einen neuen oder geänderten Skill vorschlagen. Du bestätigst jeden einzelnen."
+      },
+      "pages_write": {
+        "title": "Seiten erstellen",
+        "description": "Das Modell kann eine kleine App vorschlagen, die in einem isolierten Frame läuft. Du bestätigst sie."
+      },
+      "dashboard_write": {
+        "title": "Dashboard ändern",
+        "description": "Das Modell kann ein neues Layout für dein Home-Dashboard vorschlagen. Du bestätigst jede Änderung."
+      },
+      "triggers_propose": {
+        "title": "Auch aus Messaging-Apps vorschlagen",
+        "description": "Das Modell kann einen Trigger vorschlagen, wenn jemand in einer Messaging-App danach fragt. Du bestätigst ihn."
+      },
+      "triggers_run": {
+        "title": "Trigger aus Messaging-Apps starten lassen",
+        "description": "Ein Trigger, der an eine Messaging-Verbindung gebunden ist, kann einen Lauf starten und das Ergebnis dort zustellen."
+      },
+      "talkback_channels": {
+        "title": "Auf bekannten Kanälen antworten",
+        "description": "Das Modell kann eine Nachricht an einen Kanal senden, in dem es schon schreibt."
+      },
+      "talkback_new_channel": {
+        "title": "Neue Kanäle starten",
+        "description": "Das Modell kann ein Gespräch in einem Kanal beginnen, den es noch nicht genutzt hat."
+      },
+      "files_upload": {
+        "title": "Dateien aus Messaging-Apps empfangen",
+        "description": "Absender können Dateien anhängen, die das Modell liest. Es kann keine Dateien versenden."
+      },
+      "act_files": {
+        "title": "Selbstständig Dateien schreiben",
+        "description": "Ein Lauf, den niemand beobachtet, kann Dateien in den Ordnern des Agenten schreiben."
+      },
+      "act_addons": {
+        "title": "Add-on-Aktionen selbstständig nutzen",
+        "description": "Ein Lauf, den niemand beobachtet, kann die Aktionen der Add-ons des Agenten aufrufen."
+      },
+      "act_send": {
+        "title": "Selbstständig Nachrichten senden",
+        "description": "Ein Lauf, den niemand beobachtet, kann Nachrichten über sein Zustellziel hinaus senden."
+      },
+      "act_spend": {
+        "title": "Kostenpflichtige oder externe Werkzeuge selbstständig nutzen",
+        "description": "Ein Lauf, den niemand beobachtet, kann kostenpflichtige oder externe Werkzeuge und das Netzwerk nutzen."
+      }
     }
   },
   "vision": {
