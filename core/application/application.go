@@ -203,6 +203,7 @@ type Application struct {
 	studioFilesIndex      io.Closer          // closes the workspace index: ends pending blob removals, frees the JSON folder
 	studioFilesTemp       string             // blob cache folder of a cluster with no data path; removed at shutdown
 	studioTextIndex       *textindex.Indexer // the text of the documents in the files; nil when files are off
+	studioTextIndexStop   func()             // stops the indexer's loop and waits for it; nil when it does not run
 	authDB                *gorm.DB
 	metricsService        *monitoring.LocalAIMetricsService
 	statsRecorder         *billing.Recorder
@@ -726,6 +727,13 @@ func (a *Application) Shutdown() error {
 		}
 		if a.studioTempDir != "" {
 			_ = os.RemoveAll(a.studioTempDir)
+		}
+		// Before the folders go: a pass in flight would write into them.
+		if a.studioTextIndexStop != nil {
+			a.studioTextIndexStop()
+		}
+		if c, ok := a.studioStore.(io.Closer); ok {
+			_ = c.Close() // ends the background indexing of earlier chats
 		}
 		if a.studioFilesIndex != nil {
 			_ = a.studioFilesIndex.Close()

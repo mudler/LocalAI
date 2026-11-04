@@ -160,7 +160,13 @@ func (a *Application) initStudioTextIndex(f *files.Service, root string) {
 	if cfg.Distributed.ChatWorker {
 		return
 	}
-	go ix.Run(a.backgroundContext())
+	ctx, cancel := context.WithCancel(a.backgroundContext())
+	done := make(chan struct{})
+	a.studioTextIndexStop = func() { cancel(); <-done }
+	go func() {
+		defer close(done)
+		ix.Run(ctx)
+	}()
 }
 
 // syncAddonSkills lets the add-on owner keep the add-on skill layer in step

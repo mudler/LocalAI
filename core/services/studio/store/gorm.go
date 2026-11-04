@@ -139,6 +139,22 @@ func (pendingRow) TableName() string { return "studio_pending" }
 type gormStore struct {
 	db   *gorm.DB
 	text textIndex
+
+	// The backfill of the chat search index runs in the background: Close
+	// stops it and waits, so nothing writes once the owner of the database
+	// (or of its folder) is gone.
+	stopBackfill context.CancelFunc
+	backfillDone chan struct{}
+}
+
+// Close stops the background indexing of earlier chats and waits for it. It
+// does not close the database, which the caller owns.
+func (s *gormStore) Close() error {
+	if s.stopBackfill != nil {
+		s.stopBackfill()
+		<-s.backfillDone
+	}
+	return nil
 }
 
 // NewGORM returns a Store on db (SQLite or PostgreSQL) and creates its tables.
@@ -158,7 +174,13 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	// Indexing is true from here, so a search never reports the index as
 	// complete before the first look at the history.
 	s.text.indexing.Store(true)
-	go s.backfillTexts()
+	var ctx context.Context
+	ctx, s.stopBackfill = context.WithCancel(context.Background())
+	s.backfillDone = make(chan struct{})
+	go func() {
+		defer close(s.backfillDone)
+		s.backfillTexts(ctx)
+	}()
 	return s, nil
 }
 

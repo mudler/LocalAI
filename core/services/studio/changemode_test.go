@@ -476,6 +476,9 @@ var _ = Describe("how a memory note is saved", func() {
 				Expect(r.conns.Ingest(ctx, "telegram", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 					Chat: "11", Direct: true, SenderID: "11", SenderName: "S", Text: "remember"}})).To(Succeed())
 				waitFor("the answer", func() bool { return len(bot.answers()) >= 1 })
+				// The harness records a tool result after the turn's events went
+				// out, so the answer can reach the bot first: wait for the result.
+				waitFor("the tool result", func() bool { return len(r.h.ResultsFor("propose_change")) >= 1 })
 				res := r.h.ResultsFor("propose_change")
 				Expect(res).To(HaveLen(1))
 				Expect(res[0].Err).To(BeNil(), "%+v", res)
