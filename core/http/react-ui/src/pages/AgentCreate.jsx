@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { agentCollectionsApi, chatAgentsApi, modelMCPServersApi } from '../utils/api'
 import { useAgentTools } from '../hooks/useAgentTools'
 import { useToolGroups } from '../hooks/useToolGroups'
+import { useMemorySettings } from '../hooks/useMemorySettings'
 import { AGENT_TEMPLATES, diffConfig, displayValue, maskSecrets, summarise } from '../utils/agentConfigTools'
 import { agentPayload, effectiveModes, emptyAgent, folderRows, folderState, foldersUnchosen, MAX_FOLDERS, missingConnectorGrants, setGrant } from '../utils/chatAgents'
 import { downloadAgentFile } from '../utils/agentFiles'
@@ -131,6 +132,8 @@ export default function AgentCreate() {
   // The Tools and Skills lists are the ones the Tools menu of a chat draws
   // (SwitchPanel), with the agent's grants and switches applied to them.
   const tools = useAgentTools(form, updateField)
+  // The person's own memory switch, read only here: an agent cannot widen it.
+  const memoryUser = useMemorySettings()
   const toolGroups = useToolGroups(tools, { commandState: false, forAgent: true })
 
   // The definition exactly as it is saved. The preview shows this object and
@@ -332,6 +335,11 @@ export default function AgentCreate() {
         return (
           <>
             <p className="ag-note">{t('create.toolsHelp')}</p>
+            {memoryUser.settings && memoryUser.settings.enabled === false && (
+              <Callout tone="info" icon="eye-off" testId="agent-memory-off">
+                {t('create.memoryOffUser')}{' '}<Link className="cs-link" to="/app/account?tab=memory">{t('create.memoryOffFix')}</Link>
+              </Callout>
+            )}
             {missingGrants.length > 0 && (
               <Callout
                 tone="warn" testId="agent-grants-notice"

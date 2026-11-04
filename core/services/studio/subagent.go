@@ -152,6 +152,11 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		}
 		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
 		tools = append(tools, s.contextTools(rec, tools, extra)...)
+		if st := s.memoryState(ctx, rec, legacy); !st.On && st.Code != MemoryOffFiles {
+			// Off: the model hears it in one line, and has no note and no tool.
+			line := memoryOffLine(st)
+			notes, notesKey = joinBlocks(notes, line), notesKey+line
+		}
 	}
 	if lead := joinBlocks(persona, notes); lead != "" {
 		prompt = strings.TrimSpace(lead + "\n\n" + prompt)

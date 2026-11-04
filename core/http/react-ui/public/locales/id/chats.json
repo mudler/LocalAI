@@ -328,7 +328,8 @@
       "media": "Gambar dan audio",
       "collections": "Pengetahuan",
       "subagents": "Sub-agen",
-      "changes": "Perubahan yang disarankan"
+      "changes": "Perubahan yang disarankan",
+      "memory": "Memori"
     },
     "builtinBy": "{{tools}} · bawaan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
@@ -350,7 +351,8 @@
       "subagents": "Model dapat memulai sub-agen untuk satu tugas dan menerima laporannya.",
       "saved_agents": "Model dapat memulai salah satu agen tersimpan Anda sebagai sub-agen.",
       "triggers": "Model dapat mengusulkan, mencantumkan, mengubah, dan menghapus pemicu. Anda mengonfirmasi setiap pemicu atau perubahan baru.",
-      "changes": "Model dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, dan dasbor. Anda mengonfirmasi setiap perubahan."
+      "changes": "Model dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, dan dasbor. Anda mengonfirmasi setiap perubahan.",
+      "memory": "Model dapat membaca catatan Anda sebelum menjawab dan menyimpan yang baru. Matikan untuk menjadikan ini obrolan pribadi: tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya. Obrolan Anda yang lain tidak terpengaruh."
     },
     "whenOff": {
       "shell": "Model dapat menulis berkas tetapi tidak dapat menjalankan apa pun.",
@@ -361,7 +363,8 @@
       "subagents": "Model bekerja sendiri.",
       "saved_agents": "Model tidak dapat melihat atau memulai agen tersimpan Anda.",
       "triggers": "Model tidak dapat mengusulkan atau mengelola pemicu.",
-      "changes": "Model tidak dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, atau dasbor."
+      "changes": "Model tidak dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, atau dasbor.",
+      "memory": "Ini obrolan pribadi. Model tidak membaca maupun menyimpan catatan Anda."
     },
     "addonDescribe_one": "Memberi model {{count}} alat dari add-on ini.",
     "addonDescribe_other": "Memberi model {{count}} alat dari add-on ini.",
@@ -817,7 +820,7 @@
     "deleteYes": "Hapus",
     "confirmDelete": "Hapus {{name}}?",
     "deleted": "{{name}} dipindahkan ke Tempat Sampah.",
-    "clear": "Hapus semua catatan",
+    "clear": "Lupakan semuanya",
     "clearAsk_one": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
     "clearAsk_other": "Hapus {{count}} berkas? Berkas dipindahkan ke Tempat Sampah dan dapat dipulihkan dari Berkas.",
     "clearYes_one": "Hapus {{count}} berkas",
@@ -846,5 +849,50 @@
       "declared": "Ini dibuat untuk hanya membaca dan melapor. Centangan di sini tidak mengubahnya.",
       "binding": "Dibuat oleh koneksi dalam mode hanya baca. Centangan di sini tidak mengubahnya."
     }
+  },
+  "memorySettings": {
+    "titleOn": "Memori aktif",
+    "titleOff": "Memori nonaktif",
+    "ledeOn": "Obrolan Anda menyimpan catatan singkat tentang Anda dan membacanya sebelum menjawab. Matikan untuk berhenti membaca dan menyimpan di mana pun. Catatan Anda tetap di tempatnya.",
+    "ledeOff": "Tidak ada yang dibaca dari catatan Anda atau disimpan ke dalamnya, di obrolan atau agen mana pun. Asisten akan mengatakan bahwa memori nonaktif jika Anda memintanya mengingat sesuatu. Catatan Anda tetap ada, dan Anda masih bisa membaca, mengekspor, dan menghapusnya.",
+    "on": "Aktif",
+    "off": "Mati",
+    "unavailable": "Catatan adalah berkas, dan berkas dinonaktifkan di server ini, jadi memori tidak dapat bekerja di sini.",
+    "saveTitle": "Menyimpan catatan",
+    "saveLede": "Apa yang terjadi saat asisten ingin menyimpan sesuatu. Aturan yang paling ketat selalu menang.",
+    "save": {
+      "ask": {
+        "title": "Tanya saya dulu",
+        "body": "Sebuah kartu menunggu di obrolan. Anda mengonfirmasi, mengedit, atau menolaknya."
+      },
+      "auto": {
+        "title": "Simpan dan beri tahu saya",
+        "body": "Di obrolan Anda sendiri, catatan langsung disimpan. Obrolan menampilkan \"Disimpan ke memori\" dengan Urungkan. Hingga 5 catatan per balasan. Catatan yang panjang, atau yang tampak seperti rahasia, tetap menunggu Anda."
+      },
+      "never": {
+        "title": "Jangan pernah",
+        "body": "Asisten tidak dapat menyimpan catatan. Ia akan memberi tahu bahwa penyimpanan nonaktif."
+      }
+    },
+    "default": "Bawaan",
+    "saveNote": "Obrolan dari aplikasi pesan selalu bertanya dulu. Proses latar belakang dan pemicu tidak pernah menyimpan catatan. Agen tersimpan boleh bertanya lebih banyak, tidak pernah lebih sedikit, daripada pilihan Anda di sini.",
+    "saveFailed": "Pilihan Anda tidak dapat disimpan.",
+    "loadError": "Pengaturan memori Anda tidak dapat dimuat.",
+    "notesTitle": "Kelola catatan Anda",
+    "notesLede": "Baca, edit, ekspor, atau hapus. Ini berfungsi saat memori nonaktif.",
+    "export": "Ekspor"
+  },
+  "memoryOff": {
+    "title": "Memori nonaktif di sini.",
+    "line": {
+      "chat": "Ini obrolan pribadi: tidak ada yang dibaca atau disimpan. Catatan Anda tidak disentuh. Aktifkan di menu Alat.",
+      "user": "Tidak ada obrolan atau agen yang membaca atau menyimpan catatan, dan catatan Anda tidak disentuh.",
+      "agent": "Agen obrolan ini menonaktifkan memori.",
+      "files": "Catatan adalah berkas, dan berkas dinonaktifkan di server ini."
+    },
+    "chip": "Memori mati",
+    "chipPrivate": "Obrolan pribadi",
+    "fixUser": "Pengaturan, Memori",
+    "userRow": "Nonaktif di pengaturan Anda. Aktifkan di Pengaturan, Memori."
   }
 }

@@ -148,7 +148,9 @@
       "triggers_run": "Trigger aus Messaging-Apps starten lassen",
       "talkback_channels": "Auf bekannten Kanälen antworten",
       "files_upload": "Dateien aus Messaging-Apps empfangen"
-    }
+    },
+    "memoryOffUser": "Das Gedächtnis ist in deinen Einstellungen aus. Dieser Agent liest und speichert deshalb keine Notizen, egal was du hier einstellst.",
+    "memoryOffFix": "Einstellungen, Gedächtnis"
   },
   "run": {
     "workingLine": "Working"

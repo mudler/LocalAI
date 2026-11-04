@@ -63,6 +63,8 @@ const (
 )
 
 var allowed = []entry{
+	{ui + "hooks/useToolGroups.js", "memory", "the switch group of the built-in memory"},
+	{ui + "utils/memoryState.js", "memory", "the switch group of the built-in memory"},
 	// Memory is built into the host. The add-on of that name is the alias of
 	// the built-in: its index files and skills are the host's now, and the
 	// host ignores its copies.

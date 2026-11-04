@@ -148,7 +148,9 @@
       "triggers_run": "Lascia partire i trigger dalle app di messaggistica",
       "talkback_channels": "Rispondere sui canali noti",
       "files_upload": "Ricevere file dalle app di messaggistica"
-    }
+    },
+    "memoryOffUser": "La memoria è disattivata nelle tue impostazioni, quindi questo agente non legge né salva note, qualunque cosa imposti qui.",
+    "memoryOffFix": "Impostazioni, Memoria"
   },
   "run": {
     "workingLine": "Working"

@@ -54,6 +54,11 @@ func (s *Service) describeGroups() {
 				"A new trigger or a change waits on a card in the chat until you confirm it; pausing or resuming a trigger applies at once and you can undo it.",
 			WhenOff: "The model cannot create or manage triggers. A run that a trigger or a connector started never has them.",
 		},
+		builtins.GroupMemory: {
+			Title:       "Memory",
+			Description: "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
+			WhenOff:     "This is a private chat. The model neither reads nor saves your notes.",
+		},
 		builtins.GroupChanges: {
 			Title: "Suggested changes",
 			Description: "The model can propose an edit to your notes, its standing rules, skills, pages and dashboard, and undo an edit you confirmed. " +

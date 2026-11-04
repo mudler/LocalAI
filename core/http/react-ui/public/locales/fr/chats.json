@@ -328,7 +328,8 @@
       "media": "Images et audio",
       "collections": "Connaissances",
       "subagents": "Sous-agents",
-      "changes": "Modifications suggérées"
+      "changes": "Modifications suggérées",
+      "memory": "Mémoire"
     },
     "builtinBy": "{{tools}} · intégrés",
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
@@ -350,7 +351,8 @@
       "subagents": "Le modèle peut lancer un sous-agent pour une tâche et recevoir son rapport.",
       "saved_agents": "Le modèle peut lancer l'un de vos agents enregistrés comme sous-agent.",
       "triggers": "Le modèle peut proposer, lister, modifier et supprimer des déclencheurs. Vous confirmez chaque nouveau déclencheur ou changement.",
-      "changes": "Le modèle peut proposer des modifications de vos notes, de ses règles, des skills, des pages et du tableau de bord. Vous confirmez chacune."
+      "changes": "Le modèle peut proposer des modifications de vos notes, de ses règles, des skills, des pages et du tableau de bord. Vous confirmez chacune.",
+      "memory": "Le modèle peut lire vos notes avant de répondre et en enregistrer de nouvelles. Désactivez-la pour rendre cette conversation privée : rien n'est lu dans vos notes ni enregistré dedans. Vos autres conversations ne changent pas."
     },
     "whenOff": {
       "shell": "Le modèle peut écrire des fichiers mais ne peut rien exécuter.",
@@ -361,7 +363,8 @@
       "subagents": "Le modèle travaille seul.",
       "saved_agents": "Le modèle ne peut ni voir ni lancer vos agents enregistrés.",
       "triggers": "Le modèle ne peut ni proposer ni gérer de déclencheurs.",
-      "changes": "Le modèle ne peut pas proposer de modifications de vos notes, de ses règles, des skills, des pages ou du tableau de bord."
+      "changes": "Le modèle ne peut pas proposer de modifications de vos notes, de ses règles, des skills, des pages ou du tableau de bord.",
+      "memory": "C'est une conversation privée. Le modèle ne lit ni n'enregistre vos notes."
     },
     "addonDescribe_one": "Donne au modèle {{count}} outil de cet add-on.",
     "addonDescribe_other": "Donne au modèle {{count}} outils de cet add-on.",
@@ -817,7 +820,7 @@
     "deleteYes": "Supprimer",
     "confirmDelete": "Supprimer {{name}} ?",
     "deleted": "{{name}} déplacé dans la corbeille.",
-    "clear": "Effacer toutes les notes",
+    "clear": "Tout oublier",
     "clearAsk_one": "Supprimer {{count}} fichier ? Il va dans la corbeille et se restaure depuis Fichiers.",
     "clearAsk_other": "Supprimer {{count}} fichiers ? Ils vont dans la corbeille et se restaurent depuis Fichiers.",
     "clearYes_one": "Supprimer {{count}} fichier",
@@ -846,5 +849,50 @@
       "declared": "Il a été créé pour lire et rendre compte seulement. Rien de ce qui est coché ici ne change cela.",
       "binding": "Une connexion en lecture seule l'a créé. Rien de ce qui est coché ici ne change cela."
     }
+  },
+  "memorySettings": {
+    "titleOn": "La mémoire est activée",
+    "titleOff": "La mémoire est désactivée",
+    "ledeOn": "Vos conversations gardent de courtes notes sur vous et les lisent avant de répondre. Désactivez-la pour ne plus rien lire ni enregistrer nulle part. Vos notes restent où elles sont.",
+    "ledeOff": "Rien n'est lu dans vos notes ni enregistré dedans, dans aucune conversation ni aucun agent. L'assistant dit que la mémoire est désactivée si vous lui demandez de retenir quelque chose. Vos notes restent, et vous pouvez toujours les lire, les exporter et les supprimer.",
+    "on": "Oui",
+    "off": "Non",
+    "unavailable": "Les notes sont des fichiers, et les fichiers sont désactivés sur ce serveur : la mémoire ne peut pas fonctionner ici.",
+    "saveTitle": "Enregistrer une note",
+    "saveLede": "Ce qui se passe quand l'assistant veut retenir quelque chose. La règle la plus stricte l'emporte toujours.",
+    "save": {
+      "ask": {
+        "title": "Me demander d'abord",
+        "body": "Une carte attend dans la conversation. Vous la confirmez, la modifiez ou l'écartez."
+      },
+      "auto": {
+        "title": "Enregistrer et me prévenir",
+        "body": "Dans vos propres conversations, la note est enregistrée tout de suite. La conversation affiche « Enregistré dans la mémoire » avec Annuler. Jusqu'à 5 notes par réponse. Une note longue, ou qui ressemble à un secret, attend quand même votre accord."
+      },
+      "never": {
+        "title": "Jamais",
+        "body": "L'assistant ne peut pas enregistrer de notes. Il vous dit que l'enregistrement est désactivé."
+      }
+    },
+    "default": "Par défaut",
+    "saveNote": "Les conversations des applications de messagerie demandent toujours d'abord. Les exécutions en arrière-plan et les déclencheurs n'enregistrent jamais de note. Un agent enregistré peut demander plus, jamais moins, que ce que vous choisissez ici.",
+    "saveFailed": "Impossible d'enregistrer votre choix.",
+    "loadError": "Impossible de charger vos réglages de mémoire.",
+    "notesTitle": "Gérer vos notes",
+    "notesLede": "Lisez, modifiez, exportez ou supprimez-les. Cela marche même quand la mémoire est désactivée.",
+    "export": "Exporter"
+  },
+  "memoryOff": {
+    "title": "La mémoire est désactivée ici.",
+    "line": {
+      "chat": "C'est une conversation privée : rien n'est lu ni enregistré. Vos notes ne sont pas touchées. Activez-la dans le menu des outils.",
+      "user": "Aucune conversation ni aucun agent ne lit ou n'enregistre de notes, et vos notes ne sont pas touchées.",
+      "agent": "L'agent de cette conversation a désactivé la mémoire.",
+      "files": "Les notes sont des fichiers, et les fichiers sont désactivés sur ce serveur."
+    },
+    "chip": "Mémoire off",
+    "chipPrivate": "Conversation privée",
+    "fixUser": "Réglages, Mémoire",
+    "userRow": "Désactivée dans vos réglages. Activez-la dans Réglages, Mémoire."
   }
 }

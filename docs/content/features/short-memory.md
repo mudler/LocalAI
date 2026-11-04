@@ -33,6 +33,54 @@ There are three kinds of notes, each in the Memory folder of your files:
 An index has at most 40 lines and 2 KiB. All indexes of a turn together have at most 6 KiB.
 The details of a topic sit in a file next to the index.
 
+## Turn memory off
+
+Memory has one switch, **On** or **Off**, at the top of the **Memory** tab of your
+account settings (**Your settings**, then **Memory**). It is on until you turn it off.
+
+When memory is off:
+
+- Nothing from your notes is put in the prompt, in any chat, agent, trigger or run that
+  starts by itself.
+- The model has no memory tool or skill: it cannot read a note, propose one or save one.
+- The model is told in one line that memory is off. If you ask it to remember something,
+  it says that memory is off and that you can turn it on again.
+- Your notes stay where they are. You can still read, edit, export and delete them on the
+  **Memory** tab while memory is off.
+
+The narrowest level wins, and a wider level never overrides a narrower one:
+
+1. **This chat** is private (see below).
+2. **The agent** of the chat turns memory off in its **Tools** list.
+3. **Your switch** in the account settings is off.
+4. **The server** has files off, because notes are files.
+
+A saved agent cannot widen your choice: with your switch off, an agent that is allowed to
+save notes still reads and saves none. The agent form shows "Memory is off in your
+settings" as a read-only line.
+
+### Private chat
+
+In the **Tools** menu of a chat, the **Memory** row has a switch. Turn it off to make the
+chat private: it neither reads nor saves memory. The server remembers it for that chat,
+and a chip "Private chat" and a line in the Tools menu say so. Your other chats are not
+affected, and notes saved earlier are not removed. It is the same switch as the group
+`memory` of `PUT /api/chats/{id}/builtins`; `GET /api/chats/{id}/tools` has a `memory`
+object ({`on`, `code`, `blocked_by`, `fix`}) that names the level that is off.
+
+### Export and forget
+
+On the **Memory** tab, **Export** downloads your notes as a zip file
+(`GET /api/chats/memory/export`). **Forget everything** moves the notes to the Trash after
+you confirm; you can restore them from Files. Both work while memory is off.
+
+### The API
+
+`GET /api/chats/memory` reads `{enabled, enabled_set, save_mode, save_mode_set, provider,
+available}` and `PUT /api/chats/memory` with `{enabled, save_mode}` changes them. The server
+keeps them with your other settings, so every frontend of a cluster reads the same answer.
+Before you choose, memory is on, unless you had disabled the old Memory add-on to stop it.
+
 ## Saving and forgetting
 
 When you ask the model to remember something, it calls `propose_change`. By default

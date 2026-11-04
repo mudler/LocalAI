@@ -7024,6 +7024,104 @@
                 }
             }
         },
+        "/api/chats/memory": {
+            "get": {
+                "description": "Memory is the short notes the assistant reads before it answers and may save. enabled is the switch for all your chats and agents: a private chat (the memory group of a chat, see PUT /api/chats/{id}/builtins), an agent that turns memory off, or this switch off each make memory off in a chat, and the narrowest wins; a saved agent cannot widen your choice. enabled_set is false until you choose; before that memory is on, unless you had disabled the Memory add-on to stop it. save_mode is how a note is saved (ask, auto or never) and applies as the strictest rule with the rules of the host; a chat from a messaging app always asks. Your notes stay and can be listed, exported and deleted while memory is off.",
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Read your memory settings.",
+                "responses": {
+                    "200": {
+                        "description": "Your memory settings",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemorySettings"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "description": "Sets enabled (memory On or Off for every chat and agent) and save_mode (ask, auto or never). A field left out stays as it is. Off means nothing is put in the prompt, the model has no tool or skill for notes, nothing is proposed or saved (also by triggers and other runs that start by themselves) and the model is told in one line that memory is off. The settings are kept per person with the account, so every frontend of a cluster reads the same answer. 400 for a value that is not allowed.",
+                "consumes": [
+                    "application/json"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Change your memory settings.",
+                "parameters": [
+                    {
+                        "description": "the choices to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Your memory settings now in force",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ChatsMemorySettings"
+                        }
+                    },
+                    "400": {
+                        "description": "A value is not allowed",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "The settings cannot be stored on this server",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/chats/memory/export": {
+            "get": {
+                "description": "The Markdown files of your memory folders (yours, each agent's and each messaging conversation's) with their paths. scope (user, agent or channel) and key (the agent ID or the conversation folder name, as GET /api/chats/context-files lists them) narrow it to one group. It works while memory is off. 404 when there is nothing to export.",
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "chats"
+                ],
+                "summary": "Download your memory notes as a zip file.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "user, agent or channel",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "the agent ID or the conversation folder, with scope",
+                        "name": "key",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A zip file of the notes",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "No notes",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/chats/notifications": {
             "get": {
                 "description": "The inbox: one item for each run of a trigger that finished, failed or needs you. Newest first. It also returns the number unread and the total kept.",
@@ -9331,7 +9429,7 @@
         },
         "/api/chats/{id}/builtins": {
             "put": {
-                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger) and saved_agents. A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
+                "description": "off replaces the earlier list of groups that are off. The groups are shell (bash, whether the Sandbox add-on or the built-in bash on this machine serves it), web (web_search and web_fetch), files (list_files, read_file, write_file, edit_file, move_file, delete_file, search_files and read_document), media (describe_image and transcribe_audio), collections (list_collections and search_collection), subagents (spawn_agent), triggers (propose_trigger, list_triggers, update_trigger and delete_trigger), memory (your notes: off makes the chat a private chat that neither reads nor saves memory) and saved_agents. A sub-agent follows the switches of its parent chat. An opt-in group (opt_in in the list, such as saved_agents: list_agents and the agent argument of spawn_agent) is off until on names it; on replaces the earlier list of opt-in groups that are on, and an opt-in group in off is ignored. Omit on to keep it. A switch never adds what the administrator has off or the user may not use. The next turn of the chat gets the tools that are on.",
                 "tags": [
                     "chats"
                 ],
@@ -10887,7 +10985,7 @@
         },
         "/api/chats/{id}/tools": {
             "get": {
-                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers and saved_agents; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
+                "description": "The groups of built-in tools (shell, web, files, media, collections, subagents, triggers, memory and saved_agents; a group the server does not offer is absent, and shell is listed even when nothing can run commands, not usable with the reason), add-ons, the MCP servers of the chat's model and your MCP connectors, each with the chat's switch and whether it can be used now (with the reason when not). A chat with a saved agent lists only what the agent grants. memory says whether memory works in the chat and, when it does not, the level that turned it off (code, blocked_by) and where to turn it on (fix). fallbacks lists the built-in tools (bash, web_search, web_fetch) that an installed add-on replaces but that no add-on serves in this chat now, with the add-on and whether the built-in serves instead.",
                 "tags": [
                     "chats"
                 ],
@@ -23890,6 +23988,102 @@
                 }
             }
         },
+        "schema.ChatsMemoryFix": {
+            "type": "object",
+            "properties": {
+                "field": {
+                    "type": "string"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "open_memory_settings"
+                },
+                "target": {
+                    "type": "string",
+                    "example": "memory"
+                }
+            }
+        },
+        "schema.ChatsMemoryRequest": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "example": false
+                },
+                "save_mode": {
+                    "type": "string",
+                    "example": "ask"
+                }
+            }
+        },
+        "schema.ChatsMemorySettings": {
+            "type": "object",
+            "properties": {
+                "available": {
+                    "description": "Available is false when the server has no files, which notes need.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "enabled": {
+                    "description": "Enabled is memory On or Off for all your chats and agents.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "enabled_set": {
+                    "description": "EnabledSet is true once you chose. Before that memory is on, unless you\nhad disabled the Memory add-on to stop it.",
+                    "type": "boolean",
+                    "example": false
+                },
+                "provider": {
+                    "description": "Provider is what serves memory: builtin.",
+                    "type": "string",
+                    "example": "builtin"
+                },
+                "save_mode": {
+                    "description": "SaveMode is how a note is saved: ask, auto or never.",
+                    "type": "string",
+                    "example": "ask"
+                },
+                "save_mode_set": {
+                    "description": "SaveModeSet is true once you chose in this setting.",
+                    "type": "boolean",
+                    "example": false
+                }
+            }
+        },
+        "schema.ChatsMemoryState": {
+            "type": "object",
+            "properties": {
+                "blocked_by": {
+                    "description": "BlockedBy is who holds that switch: chat, agent, user or server.",
+                    "type": "string",
+                    "example": "chat"
+                },
+                "code": {
+                    "description": "Code names the level that is off: memory_off_chat, memory_off_agent,\nmemory_off_user or memory_off_files. Absent when on.",
+                    "type": "string",
+                    "example": "memory_off_chat"
+                },
+                "fix": {
+                    "description": "Fix says where to turn memory on again: kind open_tools_menu,\nopen_memory_settings, open_agent or open_server_setting.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsMemoryFix"
+                        }
+                    ]
+                },
+                "on": {
+                    "description": "On is true when the chat reads and may save notes.",
+                    "type": "boolean",
+                    "example": false
+                },
+                "reason": {
+                    "description": "Reason is an English sentence for logs; the interface words it by Code.",
+                    "type": "string"
+                }
+            }
+        },
         "schema.ChatsMessage": {
             "type": "object",
             "properties": {
@@ -24670,6 +24864,14 @@
                     "items": {
                         "$ref": "#/definitions/schema.ChatsToolFallback"
                     }
+                },
+                "memory": {
+                    "description": "Memory says whether memory works in this chat and, when it does not,\nwhich level turned it off and where to turn it on again.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.ChatsMemoryState"
+                        }
+                    ]
                 },
                 "off": {
                     "description": "Off is the list of MCP switches in force.",

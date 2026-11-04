@@ -251,7 +251,9 @@
       "triggers_run": "Let triggers start from messaging apps",
       "talkback_channels": "Reply on known channels",
       "files_upload": "Receive files from messaging apps"
-    }
+    },
+    "memoryOffUser": "Memory is off in your settings, so this agent reads and saves no notes, whatever you set here.",
+    "memoryOffFix": "Settings, Memory"
   },
   "status": {
     "title": "Status",

@@ -23,6 +23,7 @@ const scope = {
   HomeComposer: props => { captured = props; return React.createElement('textarea', { defaultValue: props.message }) },
   useToolGroups: () => [], useChatGrants: () => null, SAVED_AGENTS: 'saved_agents', SUBAGENTS: 'subagents',
   CommandsChip: leaf, CommandsNotice: leaf, ToolFallbacks: leaf, ChatToolsControls: leaf,
+  MemoryChip: leaf, MemoryLine: leaf, memoryOff: () => null, MEMORY_GROUP: 'memory',
 }
 const compiled = ts.transpileModule(source.replace(/^import .*\n/gm, '').replace('export default function', 'function'), {
   compilerOptions: { jsx: ts.JsxEmit.React, target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None }, fileName: 'ChatComposer.jsx',

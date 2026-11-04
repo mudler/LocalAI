@@ -148,7 +148,9 @@
       "triggers_run": "Laisser les déclencheurs démarrer depuis les applications de messagerie",
       "talkback_channels": "Répondre sur les canaux connus",
       "files_upload": "Recevoir des fichiers des applications de messagerie"
-    }
+    },
+    "memoryOffUser": "La mémoire est désactivée dans vos réglages : cet agent ne lit ni n'enregistre de notes, quoi que vous choisissiez ici.",
+    "memoryOffFix": "Réglages, Mémoire"
   },
   "run": {
     "workingLine": "Working"

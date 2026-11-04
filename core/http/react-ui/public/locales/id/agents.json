@@ -148,7 +148,9 @@
       "triggers_run": "Biarkan pemicu dimulai dari aplikasi pesan",
       "talkback_channels": "Membalas di kanal yang dikenal",
       "files_upload": "Menerima file dari aplikasi pesan"
-    }
+    },
+    "memoryOffUser": "Memori nonaktif di pengaturan Anda, jadi agen ini tidak membaca atau menyimpan catatan, apa pun yang Anda atur di sini.",
+    "memoryOffFix": "Pengaturan, Memori"
   },
   "run": {
     "workingLine": "Working"

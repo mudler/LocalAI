@@ -566,6 +566,14 @@ export const chatChangesApi = {
   contextFiles: () => fetchJSON('/api/chats/context-files'),
 }
 
+// Your memory choices: the On or Off switch for all chats, and how a note is
+// saved. exportUrl is the address that downloads the notes as a zip file.
+export const chatMemoryApi = {
+  get: () => fetchJSON('/api/chats/memory'),
+  set: (body) => fetchJSON('/api/chats/memory', { method: 'PUT', body: JSON.stringify(body) }),
+  exportUrl: (scope, key) => apiUrl(`/api/chats/memory/export${q({ scope, key })}`),
+}
+
 // The inbox: what ended while the user was elsewhere.
 export const chatNotificationsApi = {
   list: (unread, limit = 50) => fetchJSON(`/api/chats/notifications${q({ unread: unread ? 1 : undefined, limit })}`),

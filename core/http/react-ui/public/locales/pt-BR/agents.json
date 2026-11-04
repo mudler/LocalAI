@@ -148,7 +148,9 @@
       "triggers_run": "Deixar gatilhos começarem de aplicativos de mensagens",
       "talkback_channels": "Responder em canais conhecidos",
       "files_upload": "Receber arquivos de aplicativos de mensagens"
-    }
+    },
+    "memoryOffUser": "A memória está desativada nas suas configurações, então este agente não lê nem salva notas, não importa o que você defina aqui.",
+    "memoryOffFix": "Configurações, Memória"
   },
   "run": {
     "workingLine": "Working"

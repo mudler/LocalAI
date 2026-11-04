@@ -181,6 +181,9 @@ func RegisterStudioRoutes(e *echo.Echo, svc *studiosvc.Service, models studioend
 	// files are the chats' workspace.
 	e.GET("/api/workspace/events", h.WorkspaceEvents)
 	e.GET(base+"/context-files", h.ListContextFiles)
+	e.GET(base+"/memory", h.GetMemory)
+	e.PUT(base+"/memory", h.PutMemory)
+	e.GET(base+"/memory/export", h.ExportMemory)
 	e.GET(base+"/changes", h.ListChanges)
 	e.GET(base+"/changes/audit", h.ChangeAudit)
 	e.GET(base+"/changes/:id", h.GetChange)

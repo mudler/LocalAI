@@ -148,7 +148,9 @@
       "triggers_run": "允许触发器从消息应用启动",
       "talkback_channels": "在已知频道回复",
       "files_upload": "从消息应用接收文件"
-    }
+    },
+    "memoryOffUser": "你的设置中记忆已关闭，因此无论这里如何设置，此智能体都不会读取或保存笔记。",
+    "memoryOffFix": "设置，记忆"
   },
   "run": {
     "workingLine": "Working"

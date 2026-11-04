@@ -328,7 +328,8 @@
       "media": "Immagini e audio",
       "collections": "Conoscenza",
       "subagents": "Sotto-agenti",
-      "changes": "Modifiche suggerite"
+      "changes": "Modifiche suggerite",
+      "memory": "Memoria"
     },
     "builtinBy": "{{tools}} · integrati",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",
@@ -350,7 +351,8 @@
       "subagents": "Il modello può avviare un sotto-agente per un compito e ricevere il suo rapporto.",
       "saved_agents": "Il modello può avviare uno dei tuoi agenti salvati come sotto-agente.",
       "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger. Confermi tu ogni nuovo trigger o modifica.",
-      "changes": "Il modello può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine e alla dashboard. Confermi tu ognuna."
+      "changes": "Il modello può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine e alla dashboard. Confermi tu ognuna.",
+      "memory": "Il modello può leggere le tue note prima di rispondere e salvarne di nuove. Disattivala per rendere questa una chat privata: non si legge nulla dalle tue note e non si salva nulla in esse. Le altre chat non cambiano."
     },
     "whenOff": {
       "shell": "Il modello può scrivere file ma non può eseguire nulla.",
@@ -361,7 +363,8 @@
       "subagents": "Il modello lavora da solo.",
       "saved_agents": "Il modello non può vedere né avviare i tuoi agenti salvati.",
       "triggers": "Il modello non può proporre né gestire trigger.",
-      "changes": "Il modello non può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine o alla dashboard."
+      "changes": "Il modello non può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine o alla dashboard.",
+      "memory": "È una chat privata. Il modello non legge né salva le tue note."
     },
     "addonDescribe_one": "Dà al modello {{count}} strumento di questo add-on.",
     "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
@@ -817,7 +820,7 @@
     "deleteYes": "Elimina",
     "confirmDelete": "Eliminare {{name}}?",
     "deleted": "{{name}} spostato nel Cestino.",
-    "clear": "Cancella tutte le note",
+    "clear": "Dimentica tutto",
     "clearAsk_one": "Eliminare {{count}} file? Va nel Cestino e puoi ripristinarlo da File.",
     "clearAsk_other": "Eliminare {{count}} file? Vanno nel Cestino e puoi ripristinarli da File.",
     "clearYes_one": "Elimina {{count}} file",
@@ -846,5 +849,50 @@
       "declared": "È stato creato per leggere e riferire soltanto. Nulla di ciò che spunti qui lo cambia.",
       "binding": "L'ha creato una connessione in sola lettura. Nulla di ciò che spunti qui lo cambia."
     }
+  },
+  "memorySettings": {
+    "titleOn": "La memoria è attiva",
+    "titleOff": "La memoria è disattivata",
+    "ledeOn": "Le tue chat conservano brevi note su di te e le leggono prima di rispondere. Disattivala per smettere di leggere e salvare ovunque. Le tue note restano dove sono.",
+    "ledeOff": "Non si legge nulla dalle tue note e non si salva nulla in esse, in nessuna chat o agente. L'assistente dice che la memoria è disattivata se gli chiedi di ricordare qualcosa. Le tue note restano e puoi ancora leggerle, esportarle ed eliminarle.",
+    "on": "Sì",
+    "off": "No",
+    "unavailable": "Le note sono file, e i file sono disattivati su questo server, quindi la memoria qui non può funzionare.",
+    "saveTitle": "Salvare una nota",
+    "saveLede": "Cosa succede quando l'assistente vuole conservare qualcosa. Vince sempre la regola più severa.",
+    "save": {
+      "ask": {
+        "title": "Chiedimi prima",
+        "body": "Una scheda aspetta nella chat. Tu la confermi, la modifichi o la scarti."
+      },
+      "auto": {
+        "title": "Salva e avvisami",
+        "body": "Nelle tue chat la nota viene salvata subito. La chat mostra «Salvato in memoria» con Annulla. Fino a 5 note per risposta. Una nota lunga, o che sembra un segreto, aspetta comunque te."
+      },
+      "never": {
+        "title": "Mai",
+        "body": "L'assistente non può salvare note. Ti dice che il salvataggio è disattivato."
+      }
+    },
+    "default": "Predefinito",
+    "saveNote": "Le chat delle app di messaggistica chiedono sempre prima. Le esecuzioni in background e i trigger non salvano mai una nota. Un agente salvato può chiedere di più, mai di meno, di quanto scegli qui.",
+    "saveFailed": "Non è stato possibile salvare la tua scelta.",
+    "loadError": "Non è stato possibile caricare le impostazioni della memoria.",
+    "notesTitle": "Gestisci le tue note",
+    "notesLede": "Leggile, modificale, esportale o eliminale. Funziona anche con la memoria disattivata.",
+    "export": "Esporta"
+  },
+  "memoryOff": {
+    "title": "La memoria è disattivata qui.",
+    "line": {
+      "chat": "È una chat privata: non si legge né si salva nulla. Le tue note non vengono toccate. Attivala nel menu degli strumenti.",
+      "user": "Nessuna chat o agente legge o salva note, e le tue note non vengono toccate.",
+      "agent": "L'agente di questa chat ha disattivato la memoria.",
+      "files": "Le note sono file, e i file sono disattivati su questo server."
+    },
+    "chip": "Memoria off",
+    "chipPrivate": "Chat privata",
+    "fixUser": "Impostazioni, Memoria",
+    "userRow": "Disattivata nelle tue impostazioni. Attivala in Impostazioni, Memoria."
   }
 }

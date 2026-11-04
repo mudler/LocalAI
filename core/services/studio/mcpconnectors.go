@@ -110,6 +110,9 @@ type ToolsPanel struct {
 	// Fallbacks are the built-in tools an installed add-on replaces but no
 	// add-on serves in this chat now.
 	Fallbacks []ToolFallback
+	// Memory says whether memory works in this chat and, when it does not,
+	// which level turned it off and where to turn it on.
+	Memory MemoryReason
 }
 
 // Tools lists what a chat can use, with its switches.
@@ -135,7 +138,7 @@ func (s *Service) toolsFor(ctx context.Context, user string, rec session.ChatRec
 			return ToolsPanel{}, err
 		}
 	}
-	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(ctx, rec, shadowing)}
+	p := ToolsPanel{Off: append([]string{}, rec.McpOff...), Builtins: s.builtinGroups(ctx, rec, shadowing), Memory: s.ChatMemory(ctx, rec)}
 	if s.d.AddonTools != nil && (sc == nil || !sc.deleted) {
 		p.Fallbacks, err = s.toolFallbacks(ctx, rec, shadowing, s.shadowersFor(ctx, principal(user)))
 		if err != nil {

@@ -328,7 +328,8 @@
       "media": "Imagens e áudio",
       "collections": "Conhecimento",
       "subagents": "Subagentes",
-      "changes": "Alterações sugeridas"
+      "changes": "Alterações sugeridas",
+      "memory": "Memória"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -350,7 +351,8 @@
       "subagents": "O modelo pode iniciar um subagente para uma tarefa e receber o relatório dele.",
       "saved_agents": "O modelo pode iniciar um dos seus agentes salvos como subagente.",
       "triggers": "O modelo pode propor, listar, alterar e excluir gatilhos. Você confirma cada novo gatilho ou alteração.",
-      "changes": "O modelo pode propor alterações nas suas notas, nas regras dele, em skills, páginas e no painel. Você confirma cada uma."
+      "changes": "O modelo pode propor alterações nas suas notas, nas regras dele, em skills, páginas e no painel. Você confirma cada uma.",
+      "memory": "O modelo pode ler suas notas antes de responder e salvar novas. Desative para tornar este um chat privado: nada é lido das suas notas nem salvo nelas. Seus outros chats não mudam."
     },
     "whenOff": {
       "shell": "O modelo pode escrever arquivos, mas não pode executar nada.",
@@ -361,7 +363,8 @@
       "subagents": "O modelo trabalha sozinho.",
       "saved_agents": "O modelo não pode ver nem iniciar seus agentes salvos.",
       "triggers": "O modelo não pode propor nem gerenciar gatilhos.",
-      "changes": "O modelo não pode propor alterações nas suas notas, nas regras dele, em skills, páginas ou no painel."
+      "changes": "O modelo não pode propor alterações nas suas notas, nas regras dele, em skills, páginas ou no painel.",
+      "memory": "Este é um chat privado. O modelo não lê nem salva suas notas."
     },
     "addonDescribe_one": "Dá ao modelo {{count}} ferramenta deste add-on.",
     "addonDescribe_other": "Dá ao modelo {{count}} ferramentas deste add-on.",
@@ -817,7 +820,7 @@
     "deleteYes": "Excluir",
     "confirmDelete": "Excluir {{name}}?",
     "deleted": "{{name}} movido para a Lixeira.",
-    "clear": "Limpar todas as notas",
+    "clear": "Esquecer tudo",
     "clearAsk_one": "Excluir {{count}} arquivo? Ele vai para a Lixeira e você pode restaurá-lo em Arquivos.",
     "clearAsk_other": "Excluir {{count}} arquivos? Eles vão para a Lixeira e você pode restaurá-los em Arquivos.",
     "clearYes_one": "Excluir {{count}} arquivo",
@@ -846,5 +849,50 @@
       "declared": "Foi criado para apenas ler e relatar. Nada que você marque aqui muda isso.",
       "binding": "Foi criado por uma conexão em modo somente leitura. Nada que você marque aqui muda isso."
     }
+  },
+  "memorySettings": {
+    "titleOn": "A memória está ativada",
+    "titleOff": "A memória está desativada",
+    "ledeOn": "Seus chats guardam notas curtas sobre você e as leem antes de responder. Desative para parar de ler e salvar em qualquer lugar. Suas notas ficam onde estão.",
+    "ledeOff": "Nada é lido das suas notas nem salvo nelas, em nenhum chat ou agente. O assistente diz que a memória está desativada se você pedir para ele lembrar de algo. Suas notas ficam, e você ainda pode lê-las, exportá-las e excluí-las.",
+    "on": "Sim",
+    "off": "Não",
+    "unavailable": "As notas são arquivos, e os arquivos estão desativados neste servidor, então a memória não pode funcionar aqui.",
+    "saveTitle": "Salvar uma nota",
+    "saveLede": "O que acontece quando o assistente quer guardar algo. A regra mais rígida sempre vence.",
+    "save": {
+      "ask": {
+        "title": "Perguntar antes",
+        "body": "Um cartão espera no chat. Você confirma, edita ou descarta."
+      },
+      "auto": {
+        "title": "Salvar e me avisar",
+        "body": "Nos seus próprios chats a nota é salva na hora. O chat mostra \"Salvo na memória\" com Desfazer. Até 5 notas por resposta. Uma nota longa, ou que parece um segredo, ainda espera por você."
+      },
+      "never": {
+        "title": "Nunca",
+        "body": "O assistente não pode salvar notas. Ele diz que salvar está desativado."
+      }
+    },
+    "default": "Padrão",
+    "saveNote": "Chats de apps de mensagens sempre perguntam antes. Execuções em segundo plano e gatilhos nunca salvam uma nota. Um agente salvo pode perguntar mais, nunca menos, do que você escolheu aqui.",
+    "saveFailed": "Não foi possível salvar sua escolha.",
+    "loadError": "Não foi possível carregar suas configurações de memória.",
+    "notesTitle": "Gerenciar suas notas",
+    "notesLede": "Leia, edite, exporte ou exclua. Funciona com a memória desativada.",
+    "export": "Exportar"
+  },
+  "memoryOff": {
+    "title": "A memória está desativada aqui.",
+    "line": {
+      "chat": "Este é um chat privado: nada é lido nem salvo. Suas notas não são tocadas. Ative no menu de ferramentas.",
+      "user": "Nenhum chat ou agente lê ou salva notas, e suas notas não são tocadas.",
+      "agent": "O agente deste chat desativou a memória.",
+      "files": "As notas são arquivos, e os arquivos estão desativados neste servidor."
+    },
+    "chip": "Memória off",
+    "chipPrivate": "Chat privado",
+    "fixUser": "Configurações, Memória",
+    "userRow": "Desativada nas suas configurações. Ative em Configurações, Memória."
   }
 }

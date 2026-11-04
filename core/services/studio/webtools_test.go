@@ -238,7 +238,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 				if t.ID == "load_skill" || t.ID == "goal_done" || t.ID == "goal_blocked" || t.ID == studio.SendMessageName {
 					Expect(t.Group).To(BeEmpty(), t.ID)
 				} else if t.External {
-					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents), t.ID)
+					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents, builtins.GroupMemory), t.ID)
 				} else {
 					Expect(t.Group).To(BeElementOf(builtins.GroupTriggers, builtins.GroupChanges), t.ID)
 				}

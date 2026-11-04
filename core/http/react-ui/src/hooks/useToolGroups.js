@@ -25,7 +25,8 @@ import { GRANT_SECTIONS, connectionsMissing, grantKey, placeGrants } from '../ut
 export const SAVED_AGENTS = 'saved_agents'
 export const SHELL = 'shell'
 export const SUBAGENTS = 'subagents'
-const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', 'collections', SUBAGENTS, SAVED_AGENTS, 'triggers', 'changes']
+export const MEMORY = 'memory'
+const BUILTIN_ORDER = [SHELL, 'files', 'web', 'media', 'collections', MEMORY, SUBAGENTS, SAVED_AGENTS, 'triggers', 'changes']
 export const builtinRank = (g) => {
   const i = BUILTIN_ORDER.indexOf(g)
   return i < 0 ? BUILTIN_ORDER.length : i
@@ -72,6 +73,14 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     return { chip, note: tc(`tools.commands.${unknownTextKey(selected.code)}`) }
   }
 
+  // The memory row: while the person's own switch is off the row cannot be
+  // used and says where to turn it on; a chat that switched it off is a
+  // private chat.
+  const memoryNote = (b) => {
+    if (b.usable !== false) return b.off ? { chip: tc('memoryOff.chipPrivate') } : {}
+    return { reason: tc('memoryOff.userRow') }
+  }
+
   const builtinRow = (b) => ({
     key: `b-${b.group}`, id: b.group, optIn: !!b.opt_in,
     label: tc(`tools.builtin.${b.group}`, { defaultValue: b.title || b.group }),
@@ -79,7 +88,7 @@ export function useToolGroups(switches, { commandsInfo = null, commandState = tr
     whenOff: tc(`tools.whenOff.${b.group}`, { defaultValue: b.when_off || '' }),
     title: tc('tools.builtinBy', { tools: (b.tools || []).join(', ') }),
     on: !b.off, usable: b.usable, reason: b.reason, onToggle: (on) => switches.toggleBuiltin(b.group, on),
-    ...(b.group === SHELL ? shellNote(b) : builtinNote(b)),
+    ...(b.group === SHELL ? shellNote(b) : b.group === MEMORY ? memoryNote(b) : builtinNote(b)),
   })
   // A built-in row with the options that refine it.
   const withOptions = (row) => {

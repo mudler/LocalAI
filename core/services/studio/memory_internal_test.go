@@ -1,6 +1,8 @@
 package studio
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
 	"path/filepath"
@@ -141,6 +143,12 @@ var _ = Describe("memory served by the host", func() {
 		ag, _ := agents.NewJSON("")
 		br = &memBroker{}
 		svc, err = New(Deps{Store: st, Provider: provider.New(), StateDir: GinkgoT().TempDir(), Files: f, Agents: ag, AddonTools: br,
+			SetUserSetting: func(_ context.Context, _, addon, key, value string) error {
+				smu.Lock()
+				defer smu.Unlock()
+				stored[addon+"/"+key] = value
+				return nil
+			},
 			UserSetting: func(_ context.Context, _, addon, key string) (string, bool, error) {
 				smu.Lock()
 				defer smu.Unlock()
@@ -266,6 +274,175 @@ var _ = Describe("memory served by the host", func() {
 			Expect(mode()).To(Equal(SaveAuto))
 			setting(HostSettingsID, MemorySaveKey, "bogus")
 			Expect(mode()).To(Equal(SaveNever), "an unknown value is not a choice")
+		})
+	})
+
+	Describe("Off and private chats", func() {
+		hasTool := func(tt session.TurnTools, name string) bool {
+			for _, t := range tt.Tools {
+				if t.Name == name {
+					return true
+				}
+			}
+			return false
+		}
+		offLine := "Memory is off"
+		expectOff := func(tt session.TurnTools, why string) {
+			GinkgoHelper()
+			Expect(tt.Prompt).NotTo(ContainSubstring("lives in Rome"), why)
+			Expect(tt.Prompt).NotTo(ContainSubstring(contextfiles.Header), why)
+			Expect(tt.Prompt).To(ContainSubstring(offLine), why)
+			Expect(strings.Count(tt.Prompt, offLine)).To(Equal(1), why)
+			Expect(hasTool(tt, contextfiles.ToolName)).To(BeFalse(), why)
+			for _, t := range tt.Tools {
+				if t.Name == "propose_change" {
+					// The other kinds of change stay; the memory kind goes.
+					Expect(string(t.Schema)).NotTo(ContainSubstring(`"memory"`), why+": no note is proposed")
+				}
+			}
+		}
+
+		It("offers notes and the save tool while memory is on", func() {
+			tt := turn(CreateInput{Model: "m"})
+			Expect(tt.Prompt).To(ContainSubstring("lives in Rome"))
+			Expect(tt.Prompt).NotTo(ContainSubstring(offLine))
+			var schema string
+			for _, t := range tt.Tools {
+				if t.Name == "propose_change" {
+					schema = string(t.Schema)
+				}
+			}
+			Expect(schema).To(ContainSubstring(`"memory"`))
+		})
+
+		It("turns everything off for a private chat, and only that chat", func() {
+			expectOff(turn(CreateInput{Model: "m", Switches: Switches{BuiltinsOff: []string{"memory"}}}), "private chat")
+			Expect(turn(CreateInput{Model: "m"}).Prompt).To(ContainSubstring("lives in Rome"))
+		})
+
+		It("turns everything off for a person who switched memory off, whatever else says", func() {
+			setting(HostSettingsID, MemoryEnabledKey, MemoryOff)
+			expectOff(turn(CreateInput{Model: "m"}), "user off")
+			agent, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Granted", Model: "m", Addons: []string{"memory"},
+				Builtins: []string{contract.CapMemoryWrite}}, nil)
+			Expect(err).NotTo(HaveOccurred())
+			expectOff(turn(CreateInput{Model: "m", AgentID: agent.ID}), "a saved agent cannot widen the choice of the person")
+			// Nothing in the chat can widen it either.
+			expectOff(turn(CreateInput{Model: "m", Switches: Switches{AddonsOff: nil, BuiltinsOff: nil}}), "chat switches only narrow")
+		})
+
+		It("honours it in a run that started by itself", func() {
+			setting(HostSettingsID, MemoryEnabledKey, MemoryOff)
+			rec, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m"}, Origin{Kind: session.OriginTrigger, ID: "t1"})
+			Expect(err).NotTo(HaveOccurred())
+			x, err := svc.ChatAccess(ctx, "alice", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			tt, err := svc.chatTools(ctx, x)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(tt.Prompt).NotTo(ContainSubstring("lives in Rome"))
+			Expect(tt.Prompt).To(ContainSubstring(offLine))
+		})
+
+		It("honours the memory switch of the agent", func() {
+			agent, err := svc.SaveAgentWithFolder(ctx, "alice", agents.Agent{Name: "Quiet", Model: "m", Addons: []string{"memory"},
+				Builtins: []string{contract.CapMemoryWrite}, BuiltinsOff: []string{"memory"}}, nil)
+			Expect(err).NotTo(HaveOccurred())
+			tt := turn(CreateInput{Model: "m", AgentID: agent.ID})
+			Expect(tt.Prompt).NotTo(ContainSubstring("lives in Rome"))
+			Expect(tt.Prompt).To(ContainSubstring("for this agent"))
+		})
+
+		It("takes the two memory skills away while memory is off", func() {
+			rec, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m", Switches: Switches{BuiltinsOff: []string{"memory"}}}, Origin{})
+			Expect(err).NotTo(HaveOccurred())
+			list, _, err := svc.Skills(ctx, "alice", rec.ID)
+			Expect(err).NotTo(HaveOccurred())
+			seen := 0
+			for _, sk := range list {
+				if sk.Name == "memory" || sk.Name == "memory-check-own-files" {
+					seen++
+					Expect(sk.Off).To(BeTrue(), sk.Name)
+				}
+			}
+			Expect(seen).To(Equal(2))
+		})
+
+		It("says which level is off, and where to turn it on", func() {
+			rec, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m", Switches: Switches{BuiltinsOff: []string{"memory"}}}, Origin{})
+			Expect(err).NotTo(HaveOccurred())
+			r := svc.ChatMemory(ctx, rec)
+			Expect(r.On).To(BeFalse())
+			Expect(r.Code).To(Equal(MemoryOffChat))
+			Expect(r.By).To(Equal("chat"))
+			Expect(r.Fix).To(Equal(&Fix{Kind: FixOpenToolsMenu, Target: "memory"}))
+			setting(HostSettingsID, MemoryEnabledKey, MemoryOff)
+			plain, err := svc.CreateAs(ctx, "alice", CreateInput{Model: "m"}, Origin{})
+			Expect(err).NotTo(HaveOccurred())
+			r = svc.ChatMemory(ctx, plain)
+			Expect(r.Code).To(Equal(MemoryOffUser))
+			Expect(r.Fix.Kind).To(Equal(FixOpenMemorySettings))
+			Expect(svc.ChatMemory(ctx, rec).Code).To(Equal(MemoryOffChat), "the narrowest level is the one named")
+		})
+
+		It("lists the memory group in the Tools menu, off for a private chat and unusable when the person switched it off", func() {
+			panel, err := svc.DraftTools(ctx, "alice", "m", "")
+			Expect(err).NotTo(HaveOccurred())
+			var got *BuiltinGroup
+			for i := range panel.Builtins {
+				if panel.Builtins[i].Group == "memory" {
+					got = &panel.Builtins[i]
+				}
+			}
+			Expect(got).NotTo(BeNil())
+			Expect(got.Off).To(BeFalse())
+			Expect(got.Usable).To(BeTrue())
+			Expect(got.Title).To(Equal("Memory"))
+			setting(HostSettingsID, MemoryEnabledKey, MemoryOff)
+			panel, err = svc.DraftTools(ctx, "alice", "m", "")
+			Expect(err).NotTo(HaveOccurred())
+			for _, g := range panel.Builtins {
+				if g.Group == "memory" {
+					Expect(g.Usable).To(BeFalse())
+					Expect(g.Reason).To(ContainSubstring("off in your settings"))
+				}
+			}
+			Expect(panel.Memory.Code).To(Equal(MemoryOffUser))
+		})
+
+		It("keeps the notes viewable and exportable while memory is off", func() {
+			setting(HostSettingsID, MemoryEnabledKey, MemoryOff)
+			list, err := svc.ListContextFiles(ctx, "alice")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(list.Groups).NotTo(BeEmpty())
+			var buf bytes.Buffer
+			n, err := svc.ExportMemory(ctx, "alice", &buf, "", "")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(n).To(Equal(2))
+			zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+			Expect(err).NotTo(HaveOccurred())
+			var names []string
+			for _, f := range zr.File {
+				names = append(names, f.Name)
+			}
+			Expect(names).To(ConsistOf("Memory/index.md", "Memory/home.md"))
+			_, err = svc.ExportMemory(ctx, "alice", &bytes.Buffer{}, "agent", "nobody")
+			Expect(err).To(MatchError(ErrNoNotes))
+		})
+
+		It("stores the switch and the save level with the person's settings", func() {
+			m, err := svc.MemorySettings(ctx, "alice")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m).To(Equal(MemorySettings{Enabled: true, SaveMode: SaveAsk, Provider: "builtin", Available: true}))
+			off, auto := false, SaveAuto
+			m, err = svc.SetMemory(ctx, "alice", MemoryUpdate{Enabled: &off, SaveMode: &auto})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(m.Enabled).To(BeFalse())
+			Expect(m.EnabledSet).To(BeTrue())
+			Expect(m.SaveMode).To(Equal(SaveAuto))
+			Expect(m.SaveModeSet).To(BeTrue())
+			bad := "always"
+			_, err = svc.SetMemory(ctx, "alice", MemoryUpdate{SaveMode: &bad})
+			Expect(err).To(MatchError(ErrInvalidSettings))
 		})
 	})
 })

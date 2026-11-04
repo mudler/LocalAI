@@ -328,7 +328,8 @@
       "media": "Bilder und Audio",
       "collections": "Wissen",
       "subagents": "Sub-Agenten",
-      "changes": "Vorgeschlagene Änderungen"
+      "changes": "Vorgeschlagene Änderungen",
+      "memory": "Gedächtnis"
     },
     "builtinBy": "{{tools}} · eingebaut",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
@@ -350,7 +351,8 @@
       "subagents": "Das Modell kann für eine Aufgabe einen Sub-Agenten starten und dessen Bericht erhalten.",
       "saved_agents": "Das Modell kann einen deiner gespeicherten Agenten als Sub-Agenten starten.",
       "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
-      "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne."
+      "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne.",
+      "memory": "Das Modell kann deine Notizen lesen, bevor es antwortet, und neue speichern. Schalte es aus, um den Chat privat zu machen: nichts wird aus deinen Notizen gelesen oder darin gespeichert. Deine anderen Chats bleiben unberührt."
     },
     "whenOff": {
       "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
@@ -361,7 +363,8 @@
       "subagents": "Das Modell arbeitet allein.",
       "saved_agents": "Das Modell kann deine gespeicherten Agenten weder sehen noch starten.",
       "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
-      "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen."
+      "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen.",
+      "memory": "Das ist ein privater Chat. Das Modell liest und speichert deine Notizen nicht."
     },
     "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
     "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",
@@ -817,7 +820,7 @@
     "deleteYes": "Löschen",
     "confirmDelete": "{{name}} löschen?",
     "deleted": "{{name}} in den Papierkorb verschoben.",
-    "clear": "Alle Notizen löschen",
+    "clear": "Alles vergessen",
     "clearAsk_one": "{{count}} Datei löschen? Sie kommt in den Papierkorb und lässt sich unter Dateien wiederherstellen.",
     "clearAsk_other": "{{count}} Dateien löschen? Sie kommen in den Papierkorb und lassen sich unter Dateien wiederherstellen.",
     "clearYes_one": "{{count}} Datei löschen",
@@ -846,5 +849,50 @@
       "declared": "Er wurde so eingerichtet, dass er nur liest und berichtet. Nichts, was hier angehakt wird, ändert das.",
       "binding": "Eine Verbindung im Nur-Lesen-Modus hat ihn erstellt. Nichts, was hier angehakt wird, ändert das."
     }
+  },
+  "memorySettings": {
+    "titleOn": "Gedächtnis ist an",
+    "titleOff": "Gedächtnis ist aus",
+    "ledeOn": "Deine Chats führen kurze Notizen über dich und lesen sie, bevor sie antworten. Schalte es aus, damit nirgends mehr gelesen oder gespeichert wird. Deine Notizen bleiben, wo sie sind.",
+    "ledeOff": "Aus deinen Notizen wird nichts gelesen und nichts darin gespeichert, in keinem Chat und bei keinem Agenten. Der Assistent sagt, dass das Gedächtnis aus ist, wenn du ihn bittest, sich etwas zu merken. Deine Notizen bleiben, und du kannst sie weiter lesen, exportieren und löschen.",
+    "on": "An",
+    "off": "Aus",
+    "unavailable": "Notizen sind Dateien, und Dateien sind auf diesem Server aus. Das Gedächtnis kann hier nicht arbeiten.",
+    "saveTitle": "Eine Notiz speichern",
+    "saveLede": "Was passiert, wenn der Assistent etwas behalten will. Die strengste Regel gilt immer.",
+    "save": {
+      "ask": {
+        "title": "Erst fragen",
+        "body": "Eine Karte wartet im Chat. Du bestätigst, bearbeitest oder verwirfst sie."
+      },
+      "auto": {
+        "title": "Speichern und Bescheid geben",
+        "body": "In deinen eigenen Chats wird die Notiz sofort gespeichert. Der Chat zeigt „Im Gedächtnis gespeichert“ mit Rückgängig. Bis zu 5 Notizen pro Antwort. Eine lange Notiz oder eine, die wie ein Geheimnis aussieht, wartet trotzdem auf dich."
+      },
+      "never": {
+        "title": "Nie",
+        "body": "Der Assistent kann keine Notizen speichern. Er sagt dir, dass das Speichern aus ist."
+      }
+    },
+    "default": "Standard",
+    "saveNote": "Chats aus Messaging-Apps fragen immer zuerst. Hintergrundläufe und Trigger speichern nie eine Notiz. Ein gespeicherter Agent darf mehr fragen, aber nie weniger als du hier gewählt hast.",
+    "saveFailed": "Deine Auswahl konnte nicht gespeichert werden.",
+    "loadError": "Die Gedächtnis-Einstellungen konnten nicht geladen werden.",
+    "notesTitle": "Notizen verwalten",
+    "notesLede": "Lesen, bearbeiten, exportieren oder löschen. Das geht auch, wenn das Gedächtnis aus ist.",
+    "export": "Exportieren"
+  },
+  "memoryOff": {
+    "title": "Das Gedächtnis ist hier aus.",
+    "line": {
+      "chat": "Das ist ein privater Chat: nichts wird gelesen oder gespeichert. Deine Notizen bleiben unberührt. Schalte es im Werkzeugmenü an.",
+      "user": "Kein Chat und kein Agent liest oder speichert Notizen, und deine Notizen bleiben unberührt.",
+      "agent": "Beim Agenten dieses Chats ist das Gedächtnis ausgeschaltet.",
+      "files": "Notizen sind Dateien, und Dateien sind auf diesem Server aus."
+    },
+    "chip": "Gedächtnis aus",
+    "chipPrivate": "Privater Chat",
+    "fixUser": "Einstellungen, Gedächtnis",
+    "userRow": "In deinen Einstellungen aus. Schalte es unter Einstellungen, Gedächtnis an."
   }
 }

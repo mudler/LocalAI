@@ -121,14 +121,19 @@ func memoryOff(code, by string) MemoryState { return MemoryState{Code: code, By:
 // is the Memory add-on, for the person who never chose.
 func (s *Service) memoryState(ctx context.Context, rec session.ChatRecord, legacy legacyMemory) MemoryState {
 	switch {
-	case !s.d.Files.Available():
-		return memoryOff(MemoryOffFiles, "server")
+	case slices.Contains(rec.BuiltinsOff, builtins.GroupMemory):
+		// A private chat.
+		return memoryOff(MemoryOffChat, "chat")
 	case slices.Contains(rec.AddonsOff, MemoryAddonID):
 		// The chat switched the Memory add-on off: the same switch, in the
 		// words it had before memory was built in.
 		return memoryOff(MemoryOffChat, "chat")
+	case slices.Contains(s.agentOff(ctx, rec), builtins.GroupMemory):
+		return memoryOff(MemoryOffAgent, "agent")
 	case !s.memoryUserOn(ctx, rec.Principal, legacy):
 		return memoryOff(MemoryOffUser, "user")
+	case !s.d.Files.Available():
+		return memoryOff(MemoryOffFiles, "server")
 	}
 	return MemoryState{On: true}
 }
@@ -202,4 +207,91 @@ func (s *Service) memoryWritable(ctx context.Context, c builtins.Chat) bool {
 	}
 	legacy := legacyMemoryOf(s.addonContextSets(ctx, c.Actor.Principal))
 	return s.memoryState(ctx, rec, legacy).On && !slices.Contains(c.GroupsOff, builtins.GroupMemory)
+}
+
+// memoryOffLine is the one line the model reads while memory is off for a
+// chat: it hears that nothing is read or saved and what to say when asked.
+func memoryOffLine(st MemoryState) string {
+	where := "in the user's settings"
+	switch st.By {
+	case "chat":
+		where = "for this chat, which is private"
+	case "agent":
+		where = "for this agent"
+	}
+	return "Memory is off " + where + ", so notes are neither read nor saved. If asked to remember something, say that memory is off and that the user can turn it on again; do not try to save it any other way."
+}
+
+// MemoryReason is a memory state worded for a person, with where to fix it.
+type MemoryReason struct {
+	On bool `json:"on"`
+	// Code is a stable name of the level that is off: memory_off_chat,
+	// memory_off_agent, memory_off_user or memory_off_files. Empty when on.
+	Code string `json:"code,omitempty"`
+	// By is who holds that switch: chat, agent, user or server.
+	By string `json:"blocked_by,omitempty"`
+	// Reason is an English sentence for logs and tests.
+	Reason string `json:"reason,omitempty"`
+	// Fix says where to turn it on again.
+	Fix *Fix `json:"fix,omitempty"`
+}
+
+// The fixes of a memory switch that is off.
+const (
+	// FixOpenMemorySettings points at the Memory tab of the account settings.
+	FixOpenMemorySettings = "open_memory_settings"
+	// FixOpenToolsMenu points at the Tools menu of the chat.
+	FixOpenToolsMenu = "open_tools_menu"
+)
+
+// memoryReason words a state.
+func memoryReason(st MemoryState, rec session.ChatRecord) MemoryReason {
+	out := MemoryReason{On: st.On, Code: st.Code, By: st.By}
+	switch st.Code {
+	case MemoryOffChat:
+		out.Reason = "Memory is off in this chat: it is a private chat."
+		out.Fix = &Fix{Kind: FixOpenToolsMenu, Target: "memory"}
+	case MemoryOffAgent:
+		out.Reason = "Memory is off for the agent of this chat."
+		out.Fix = &Fix{Kind: FixOpenAgent, Target: rec.AgentID, Field: "tools:" + builtins.GroupMemory}
+	case MemoryOffUser:
+		out.Reason = "Memory is off in your settings."
+		out.Fix = &Fix{Kind: FixOpenMemorySettings, Target: "memory"}
+	case MemoryOffFiles:
+		out.Reason = "Memory needs files, and files are off on this server."
+		out.Fix = &Fix{Kind: FixOpenServerSetting, Target: "files"}
+	}
+	return out
+}
+
+// ChatMemory says whether memory works in a chat and, when it does not, which
+// level turned it off.
+func (s *Service) ChatMemory(ctx context.Context, rec session.ChatRecord) MemoryReason {
+	legacy := legacyMemoryOf(s.addonContextSets(ctx, rec.Principal))
+	return memoryReason(s.memoryState(ctx, rec, legacy), rec)
+}
+
+// registerMemoryGroup puts memory in the Tools menu as one switch group. The
+// group has no tool of its own to build: the host reads the switch when it
+// builds the prompt, so a private chat has no notes in it and no context_read.
+// Build only says whether the switch can work now, and why not.
+func (s *Service) registerMemoryGroup() error {
+	if !s.d.Files.Available() {
+		return nil // notes are files: without them there is no switch to show
+	}
+	return s.builtins.Register(builtins.Tool{
+		ID: contextfiles.ToolName, Group: builtins.GroupMemory, Label: "Memory", External: true, Unlisted: true,
+		Description: "Read the notes of the user's memory.",
+		Build: func(ctx context.Context, c builtins.Chat) (session.Tool, bool, string) {
+			switch {
+			case !s.d.Files.Available():
+				return session.Tool{}, false, "memory needs files, and files are off on this server"
+			case c.SubAgent:
+				return session.Tool{}, false, "a sub-agent follows the memory of its parent chat"
+			case !s.memoryUserOn(ctx, c.Actor.Principal, legacyMemoryOf(s.addonContextSets(ctx, c.Actor.Principal))):
+				return session.Tool{}, false, "memory is off in your settings"
+			}
+			return session.Tool{}, true, ""
+		},
+	})
 }

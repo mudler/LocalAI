@@ -1900,6 +1900,58 @@ type ChatsToolsPanel struct {
 	// that no add-on serves in this chat now: the add-on is stopped, off for
 	// the chat, not granted by its agent, or cannot run.
 	Fallbacks []ChatsToolFallback `json:"fallbacks,omitempty"`
+	// Memory says whether memory works in this chat and, when it does not,
+	// which level turned it off and where to turn it on again.
+	Memory ChatsMemoryState `json:"memory"`
+}
+
+// ChatsMemoryState is whether memory works in one chat. The narrowest level
+// that is off wins: this chat (a private chat), the agent of the chat, your
+// memory switch, then the server.
+type ChatsMemoryState struct {
+	// On is true when the chat reads and may save notes.
+	On bool `json:"on" example:"false"`
+	// Code names the level that is off: memory_off_chat, memory_off_agent,
+	// memory_off_user or memory_off_files. Absent when on.
+	Code string `json:"code,omitempty" example:"memory_off_chat"`
+	// BlockedBy is who holds that switch: chat, agent, user or server.
+	BlockedBy string `json:"blocked_by,omitempty" example:"chat"`
+	// Reason is an English sentence for logs; the interface words it by Code.
+	Reason string `json:"reason,omitempty"`
+	// Fix says where to turn memory on again: kind open_tools_menu,
+	// open_memory_settings, open_agent or open_server_setting.
+	Fix *ChatsMemoryFix `json:"fix,omitempty"`
+}
+
+// ChatsMemoryFix points at the one place that turns memory on again.
+type ChatsMemoryFix struct {
+	Kind   string `json:"kind" example:"open_memory_settings"`
+	Target string `json:"target" example:"memory"`
+	Field  string `json:"field,omitempty"`
+}
+
+// ChatsMemorySettings is your memory choices.
+type ChatsMemorySettings struct {
+	// Enabled is memory On or Off for all your chats and agents.
+	Enabled bool `json:"enabled" example:"true"`
+	// EnabledSet is true once you chose. Before that memory is on, unless you
+	// had disabled the Memory add-on to stop it.
+	EnabledSet bool `json:"enabled_set" example:"false"`
+	// SaveMode is how a note is saved: ask, auto or never.
+	SaveMode string `json:"save_mode" example:"ask"`
+	// SaveModeSet is true once you chose in this setting.
+	SaveModeSet bool `json:"save_mode_set" example:"false"`
+	// Provider is what serves memory: builtin.
+	Provider string `json:"provider" example:"builtin"`
+	// Available is false when the server has no files, which notes need.
+	Available bool `json:"available" example:"true"`
+}
+
+// ChatsMemoryRequest changes your memory choices. A field left out stays as
+// it is.
+type ChatsMemoryRequest struct {
+	Enabled  *bool   `json:"enabled,omitempty" example:"false"`
+	SaveMode *string `json:"save_mode,omitempty" example:"ask"`
 }
 
 // ChatsToolFallback is one built-in tool whose replacing add-on cannot serve

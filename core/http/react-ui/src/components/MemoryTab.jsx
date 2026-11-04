@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { chatChangesApi, filesApi } from '../utils/api'
+import { chatChangesApi, chatMemoryApi, filesApi } from '../utils/api'
+import { downloadFrom } from '../utils/chatThread'
 import { byteText } from '../utils/changeProposal'
 import { allFiles, groupId, groupKind, indexFits, indexUse } from '../utils/memoryFiles'
 import Icon from './Icon'
@@ -120,7 +121,7 @@ function groupTitle(g, t) {
 // every source the host knows (the user's, each agent's, each connector
 // conversation's) and the agent profiles. The owner can read, edit and delete
 // them here; a model changes them only through a confirmed proposal.
-export default function MemoryTab({ addToast }) {
+export default function MemoryTab({ addToast, embedded = false }) {
   const { t } = useTranslation('chats')
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
@@ -168,7 +169,7 @@ export default function MemoryTab({ addToast }) {
   const lim = data.limits || {}
   return (
     <div className="mt-tab" data-testid="memory-tab">
-      <p className="mt-lede">{t('memoryPage.lede')}</p>
+      {!embedded && <p className="mt-lede">{t('memoryPage.lede')}</p>}
       <p className="mt-limits" data-testid="memory-limits">
         {t('memoryPage.limits', { lines: lim.index_lines, index: byteText(lim.index_bytes), profile: byteText(lim.profile_bytes), turn: byteText(lim.turn_bytes) })}
       </p>
@@ -192,6 +193,7 @@ export default function MemoryTab({ addToast }) {
             </section>
           ))}
           <div className="mt-foot">
+            <Button variant="secondary" size="sm" icon="download" data-testid="memory-export" onClick={() => downloadFrom(chatMemoryApi.exportUrl())}>{t('memorySettings.export')}</Button>
             {clear ? (
               <Callout tone="warn" role="alertdialog" testId="memory-clear-confirm"
                 actions={(

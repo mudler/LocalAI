@@ -148,7 +148,9 @@
       "triggers_run": "메신저 앱에서 트리거 시작 허용",
       "talkback_channels": "알려진 채널에 답장",
       "files_upload": "메신저 앱에서 파일 받기"
-    }
+    },
+    "memoryOffUser": "설정에서 메모리가 꺼져 있어 여기서 어떻게 정하든 이 에이전트는 메모를 읽거나 저장하지 않습니다.",
+    "memoryOffFix": "설정, 메모리"
   },
   "run": {
     "workingLine": "Working"

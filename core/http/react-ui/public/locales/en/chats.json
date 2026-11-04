@@ -376,7 +376,8 @@
       "media": "Images and audio",
       "collections": "Knowledge",
       "subagents": "Sub-agents",
-      "changes": "Suggested changes"
+      "changes": "Suggested changes",
+      "memory": "Memory"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
@@ -452,7 +453,8 @@
       "subagents": "Lets the model start a sub-agent for one task and get its report.",
       "saved_agents": "Lets the model start one of your saved agents as a sub-agent.",
       "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
-      "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one."
+      "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one.",
+      "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -463,7 +465,8 @@
       "subagents": "The model works alone.",
       "saved_agents": "The model cannot see or start your saved agents.",
       "triggers": "The model cannot propose or manage triggers.",
-      "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard."
+      "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
+      "memory": "This is a private chat. The model neither reads nor saves your notes."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
@@ -1139,7 +1142,7 @@
     "deleteYes": "Delete",
     "confirmDelete": "Delete {{name}}?",
     "deleted": "Moved {{name}} to the Trash.",
-    "clear": "Clear all notes",
+    "clear": "Forget everything",
     "clearAsk_one": "Delete {{count}} file? It moves to the Trash and you can restore it from Files.",
     "clearAsk_other": "Delete {{count}} files? They move to the Trash and you can restore them from Files.",
     "clearYes_one": "Delete {{count}} file",
@@ -1168,5 +1171,50 @@
       "declared": "It was set up to read and report only. Nothing ticked here changes that.",
       "binding": "A connection in read only mode made it. Nothing ticked here changes that."
     }
+  },
+  "memorySettings": {
+    "titleOn": "Memory is on",
+    "titleOff": "Memory is off",
+    "ledeOn": "Your chats keep short notes about you and read them before they answer. Turn it off to stop reading and saving everywhere. Your notes stay where they are.",
+    "ledeOff": "Nothing is read from your notes or saved to them, in any chat or agent. The assistant says that memory is off if you ask it to remember something. Your notes stay, and you can still read, export and delete them.",
+    "on": "On",
+    "off": "Off",
+    "unavailable": "Notes are files, and files are off on this server, so memory cannot work here.",
+    "saveTitle": "Saving a note",
+    "saveLede": "What happens when the assistant wants to keep something. The strictest rule always wins.",
+    "save": {
+      "ask": {
+        "title": "Ask me first",
+        "body": "A card waits in the chat. You confirm, edit or dismiss it."
+      },
+      "auto": {
+        "title": "Save it and tell me",
+        "body": "In your own chats the note is saved at once. The chat shows \"Saved to memory\" with an Undo. Up to 5 notes a reply. A long note, or one that looks like a secret, still waits for you."
+      },
+      "never": {
+        "title": "Never",
+        "body": "The assistant cannot save notes. It tells you that saving is off."
+      }
+    },
+    "default": "Default",
+    "saveNote": "Chats from messaging apps always ask first. Background runs and triggers never save a note. A saved agent can ask more, never less, than you chose here.",
+    "saveFailed": "Could not store your choice.",
+    "loadError": "Could not load your memory settings.",
+    "notesTitle": "Manage your notes",
+    "notesLede": "Read, edit, export or delete them. This works while memory is off.",
+    "export": "Export"
+  },
+  "memoryOff": {
+    "title": "Memory is off here.",
+    "line": {
+      "chat": "This is a private chat: nothing is read or saved. Your notes are untouched. Turn it on in the Tools menu.",
+      "user": "No chat or agent reads or saves notes, and your notes are untouched.",
+      "agent": "The agent of this chat has memory switched off.",
+      "files": "Notes are files, and files are off on this server."
+    },
+    "chip": "Memory off",
+    "chipPrivate": "Private chat",
+    "fixUser": "Settings, Memory",
+    "userRow": "Off in your settings. Turn it on in Settings, Memory."
   }
 }

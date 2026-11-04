@@ -10,6 +10,7 @@ import { Button, Callout, EmptyState, LoadError, PageHeader, SkeletonRows, useLo
 import ApiKeysPanel from '../components/users/ApiKeysPanel'
 import { AboutYouTab, AppearanceTab } from '../components/wellknown/SettingsTabs'
 import MemoryTab from '../components/MemoryTab'
+import MemorySettings from '../components/MemorySettings'
 import './access.css'
 
 const TABS = [
@@ -300,7 +301,7 @@ export default function Account() {
         {tab === 'keys' && <ApiKeysPanel addToast={addToast} intro={t('keys.accountIntro')} />}
         {tab === 'usage' && <UsageTab />}
         {tab === 'about' && <AboutYouTab />}
-        {tab === 'memory' && <MemoryTab addToast={addToast} />}
+        {tab === 'memory' && <MemorySettings addToast={addToast}><MemoryTab addToast={addToast} embedded /></MemorySettings>}
         {tab === 'appearance' && <AppearanceTab />}
       </div>
     </div>

@@ -148,7 +148,9 @@
       "triggers_run": "Dejar que los disparadores empiecen desde aplicaciones de mensajería",
       "talkback_channels": "Responder en canales conocidos",
       "files_upload": "Recibir archivos de aplicaciones de mensajería"
-    }
+    },
+    "memoryOffUser": "La memoria está desactivada en tus ajustes, así que este agente no lee ni guarda notas, hagas lo que hagas aquí.",
+    "memoryOffFix": "Ajustes, Memoria"
   },
   "run": {
     "workingLine": "Working"

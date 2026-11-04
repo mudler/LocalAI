@@ -472,6 +472,9 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerToolGroups(); err != nil {
 		return nil, err
 	}
+	if err := s.registerMemoryGroup(); err != nil {
+		return nil, err
+	}
 	s.memory = builtinMemory{}
 	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
 	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
