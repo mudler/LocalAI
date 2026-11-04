@@ -366,6 +366,24 @@ var _ = Describe("OAuth connections", func() {
 					Expect(r.grant(b.ID).ExpiresAt).To(BeTemporally("==", r.sh.clock.Now().Add(time.Hour)))
 				})
 
+				It("uses a token shorter than the margin for the first half of its life", func() {
+					r.srv.Set(func(s *oauthtokentest.Server) { s.ExpiresIn = 60 })
+					b := r.connect()
+					first, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).NotTo(HaveOccurred())
+					r.sh.clock.Advance(29 * time.Second)
+					again, _ := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(again.Secret).To(Equal(first.Secret))
+					Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(1), "a one-minute token is not renewed on every call")
+					r.sh.clock.Advance(2 * time.Second)
+					fresh, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(fresh.Secret).NotTo(Equal(first.Secret))
+					Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(2))
+					_, _ = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(r.srv.Tokens.Load()).To(BeEquivalentTo(2), "the renewed token is fresh")
+				})
+
 				It("writes back a rotated refresh token before it returns the access token", func() {
 					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate = true })
 					b := r.connect()

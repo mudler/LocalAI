@@ -667,7 +667,8 @@ the add-on's connector op `me`, with the new token, who the person is. An
 Every credentialed call reads the grant:
 
 - The access token is refreshed when less than two minutes of its life are
-  left. A service that gives no `expires_in` is refreshed only after a
+  left, or less than half of it for a token that lives under four minutes. A
+  service that gives no `expires_in` is refreshed only after a
   rejection. The proposal broker reads the credential at preview and again at
   apply, so a confirmation hours later gets a fresh token.
 - When the add-on answers `credential_rejected` to a read, a preview or an

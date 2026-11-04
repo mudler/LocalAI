@@ -170,7 +170,20 @@ func (c *Connectors) accessTokenFor(ctx context.Context, b connectors.Binding) (
 // grantFresh reports whether the access token of g may be used now. A token
 // whose end the service did not give is used until the add-on rejects it.
 func (c *Connectors) grantFresh(g connectors.Grant) bool {
-	return g.ExpiresAt.IsZero() || c.o.Clock().Before(g.ExpiresAt.Add(-oauthRefreshMargin))
+	return g.ExpiresAt.IsZero() || c.o.Clock().Before(g.ExpiresAt.Add(-refreshMargin(g)))
+}
+
+// refreshMargin is how long before its end the token of g is renewed:
+// oauthRefreshMargin, or half the lifetime of a shorter token. A fixed margin
+// longer than the lifetime would renew the token on every call, and with a
+// rotating service rotate the refresh token each time. The token was issued
+// when the grant was last written.
+func refreshMargin(g connectors.Grant) time.Duration {
+	life := g.ExpiresAt.Sub(g.Updated)
+	if g.Updated.IsZero() || life <= 0 {
+		return oauthRefreshMargin
+	}
+	return min(oauthRefreshMargin, life/2)
 }
 
 // readGrant reads the grant of an OAuth binding and checks that it may be
