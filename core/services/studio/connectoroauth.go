@@ -392,6 +392,9 @@ func (c *Connectors) refresh(ctx context.Context, b connectors.Binding, seen int
 }
 
 func (c *Connectors) refreshShared(ctx context.Context, b connectors.Binding, seen int64, force bool) (oauthAccess, error) {
+	// The wait uses the wall clock and the lease uses c.o.Clock: the wait
+	// bounds how long this caller blocks in real time, and a test clock that
+	// does not move must not make it wait forever.
 	deadline := time.Now().Add(oauthLeaseWait)
 	for {
 		g, err := c.readGrant(ctx, b)
