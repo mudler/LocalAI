@@ -2106,6 +2106,10 @@ definitions:
         type: string
       installed:
         type: boolean
+      locked:
+        type: boolean
+      lockedReason:
+        type: string
       nonce:
         type: string
       nonceExpiresAt:
@@ -2146,6 +2150,9 @@ definitions:
         $ref: '#/definitions/gateway.HostGrantsFloor'
       locked:
         type: boolean
+      lockedReason:
+        description: LockedReason is LockedByDeployment or LockedNoAuth when Locked.
+        type: string
       revision:
         type: integer
     type: object
@@ -3509,6 +3516,12 @@ definitions:
           CommandsFallbackReason says why: off, or the add-on's reason.
         type: string
       commands_fallback_reason:
+        type: string
+      commands_host_exec:
+        description: |-
+          CommandsHostExec is the mode of the setting chats_host_exec as it applies
+          now (off, ask or on), so a client can say that the built-in bash is off
+          when no add-on runs commands. Every signed-in user may read it.
         type: string
       commands_isolation:
         description: |-
@@ -14463,8 +14476,10 @@ paths:
         and with its network, or the add-on''s ID) and commands_isolation says isolated
         or host; commands_consent is ask when each command waits for a yes in the
         chat, and commands_fallback names an add-on that would serve but does not
-        (commands_fallback_reason: off, or why it cannot run). Without the add-on
-        host the list is empty.'
+        (commands_fallback_reason: off, or why it cannot run). commands_host_exec
+        is the mode of chats_host_exec now (off, ask or on), so a client can say that
+        the built-in bash is off when commands is none. Without the add-on host the
+        list is empty.'
       parameters:
       - description: conversation id
         in: path
