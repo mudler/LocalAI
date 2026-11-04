@@ -4,7 +4,6 @@ package studio
 import (
 	"context"
 	"errors"
-	"fmt"
 	"slices"
 	"strconv"
 	"time"
@@ -570,8 +569,4 @@ func (c *Connectors) ConnectionState(ctx context.Context, user, bindingID string
 		return OAuthConnection{}, err
 	}
 	return OAuthConnection{State: g.State, Reason: g.Reason, AccountLabel: g.AccountLabel, Scopes: g.Scopes, ExpiresAt: g.ExpiresAt}, nil
-}
-
-func oauthBad(format string, a ...any) error {
-	return fmt.Errorf("%w: %s", connectors.ErrInvalid, fmt.Sprintf(format, a...))
 }

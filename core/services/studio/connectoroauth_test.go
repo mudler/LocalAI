@@ -1,7 +1,6 @@
 package studio_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
@@ -82,7 +81,7 @@ type oauthRig struct {
 	st    connectors.Store
 	srv   *oauthtokentest.Server
 	tr    *meTransport
-	logs  *bytes.Buffer
+	logs  *syncBuffer
 	conns *studio.Connectors
 
 	dmu  sync.Mutex
@@ -92,7 +91,7 @@ type oauthRig struct {
 func newOAuthRig(st connectors.Store) *oauthRig {
 	sh := newShared()
 	tr := sh.rig(connSay("x"), studio.TriggerOptions{})
-	r := &oauthRig{sh: sh, svc: tr.svc, st: st, srv: oauthtokentest.New(), logs: &bytes.Buffer{}}
+	r := &oauthRig{sh: sh, svc: tr.svc, st: st, srv: oauthtokentest.New(), logs: &syncBuffer{}}
 	DeferCleanup(r.srv.Close)
 	r.srv.Set(func(s *oauthtokentest.Server) { s.ExpiresIn = 3600 })
 	r.desc = r.srv.Descriptor(contract.OAuthClientAuthBasic)
@@ -112,7 +111,7 @@ func (r *oauthRig) instance(name string) *studio.Connectors {
 			defer r.dmu.Unlock()
 			return r.desc, nil
 		},
-		Logger: slog.New(slog.NewTextHandler(&lockedWriter{w: r.logs}, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		Logger: slog.New(slog.NewTextHandler(r.logs, &slog.HandlerOptions{Level: slog.LevelDebug})),
 	})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(c.Close)
@@ -167,18 +166,6 @@ func (r *oauthRig) grant(id string) connectors.Grant {
 	g, err := r.st.GetGrant(context.Background(), id)
 	Expect(err).NotTo(HaveOccurred())
 	return g
-}
-
-// lockedWriter lets several goroutines log into one buffer.
-type lockedWriter struct {
-	mu sync.Mutex
-	w  *bytes.Buffer
-}
-
-func (l *lockedWriter) Write(p []byte) (int, error) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	return l.w.Write(p)
 }
 
 func sqliteConnStore() connectors.Store {

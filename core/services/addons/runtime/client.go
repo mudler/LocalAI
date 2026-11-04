@@ -123,7 +123,7 @@ func (c *Client) send(ctx context.Context, path string, in any) (*http.Response,
 			// The service behind the add-on asks the caller to wait. The call
 			// had no effect and the same call may succeed later.
 			n, _ := strconv.Atoi(wait)
-			return nil, &contract.ErrRateLimited{RetryAfter: min(max(n, 1), contract.MaxRetryAfter)}
+			return nil, contract.RateLimitedAfter(n)
 		}
 		if resp.StatusCode == http.StatusConflict {
 			return nil, ErrConflict

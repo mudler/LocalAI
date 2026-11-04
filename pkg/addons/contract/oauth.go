@@ -158,10 +158,8 @@ func (d OAuthDescriptor) validURL(field, s string) error {
 	if s == "" || len(s) > maxOAuthURLBytes || strings.ContainsAny(s, "?#\\ ") {
 		return bad()
 	}
-	for _, r := range s {
-		if r < 0x21 || r > 0x7e {
-			return bad()
-		}
+	if !graphicASCII(s) {
+		return bad()
 	}
 	u, err := url.Parse(s)
 	if err != nil || u.Scheme != "https" || u.User != nil || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" || u.Opaque != "" {
@@ -257,8 +255,13 @@ func ValidScopeToken(s string) bool {
 	if s == "" || len(s) > MaxOAuthScopeBytes {
 		return false
 	}
+	return graphicASCII(s) && !strings.ContainsAny(s, `"\`)
+}
+
+// graphicASCII reports printable ASCII without space (0x21 to 0x7e).
+func graphicASCII(s string) bool {
 	for i := 0; i < len(s); i++ {
-		if c := s[i]; c < 0x21 || c > 0x7e || c == '"' || c == '\\' {
+		if c := s[i]; c < 0x21 || c > 0x7e {
 			return false
 		}
 	}

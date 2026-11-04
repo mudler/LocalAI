@@ -155,7 +155,7 @@ func (c *Connectors) oauthBinding(ctx context.Context, user, id string) (connect
 		return b, err
 	}
 	if !b.UsesOAuth() {
-		return b, oauthBad("this connection does not use a login")
+		return b, connectorBad("this connection does not use a login")
 	}
 	return b, nil
 }
@@ -178,10 +178,10 @@ func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, opt
 		return LoginStart{}, ErrTooManyLogins
 	}
 	if !validRedirectURI(redirectURI) {
-		return LoginStart{}, oauthBad("the redirect address is not valid")
+		return LoginStart{}, connectorBad("the redirect address is not valid")
 	}
 	if !validReturnTo(returnTo) {
-		return LoginStart{}, oauthBad("the return path must be a path on this host")
+		return LoginStart{}, connectorBad("the return path must be a path on this host")
 	}
 	d, err := c.oauthDescriptor(ctx, b.AddonID)
 	if err != nil {
@@ -197,7 +197,7 @@ func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, opt
 	scopes := slices.Clone(d.Scopes.Required)
 	for _, s := range optional {
 		if !slices.Contains(d.Scopes.Optional, s) {
-			return LoginStart{}, oauthBad("the scope %q is not an optional scope of this add-on", s)
+			return LoginStart{}, connectorBad("the scope %q is not an optional scope of this add-on", s)
 		}
 		if !slices.Contains(scopes, s) {
 			scopes = append(scopes, s)
@@ -513,11 +513,11 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 	}
 	id := strings.TrimSpace(in.ClientID)
 	if id == "" || len(id) > maxClientIDBytes || !visibleASCII(id) {
-		return OAuthClientStatus{}, oauthBad("the client ID must have 1 to %d visible ASCII characters or spaces", maxClientIDBytes)
+		return OAuthClientStatus{}, connectorBad("the client ID must have 1 to %d visible ASCII characters or spaces", maxClientIDBytes)
 	}
 	in.ApprovedBy = strings.TrimSpace(in.ApprovedBy)
 	if in.ApprovedBy == "" || len(in.ApprovedBy) > 255 {
-		return OAuthClientStatus{}, oauthBad("the approval must name the administrator")
+		return OAuthClientStatus{}, connectorBad("the approval must name the administrator")
 	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
@@ -529,14 +529,14 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 	switch {
 	case d.ClientAuth == contract.OAuthClientAuthNone:
 		if in.Secret != nil && *in.Secret != "" {
-			return OAuthClientStatus{}, oauthBad("a public client has no secret")
+			return OAuthClientStatus{}, connectorBad("a public client has no secret")
 		}
 	case in.Secret == nil:
 		next.Secret = old.Secret
 	default:
 		secret := *in.Secret
 		if secret == "" || len(secret) > maxSecretBytes || !visibleASCII(secret) {
-			return OAuthClientStatus{}, oauthBad("the client secret must have 1 to %d visible ASCII characters or spaces", maxSecretBytes)
+			return OAuthClientStatus{}, connectorBad("the client secret must have 1 to %d visible ASCII characters or spaces", maxSecretBytes)
 		}
 		s, err := c.sealerFor(ctx)
 		if err != nil {
@@ -547,7 +547,7 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 		}
 	}
 	if d.ClientAuth != contract.OAuthClientAuthNone && len(next.Secret) == 0 {
-		return OAuthClientStatus{}, oauthBad("this add-on needs a client secret")
+		return OAuthClientStatus{}, connectorBad("this add-on needs a client secret")
 	}
 	if err := c.o.Store.PutOAuthClient(ctx, next); err != nil {
 		return OAuthClientStatus{}, err

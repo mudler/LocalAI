@@ -195,4 +195,12 @@ func (e *ErrRateLimited) Error() string {
 }
 
 // Seconds is the wait, kept between 1 and MaxRetryAfter.
-func (e *ErrRateLimited) Seconds() int { return min(max(e.RetryAfter, 1), MaxRetryAfter) }
+func (e *ErrRateLimited) Seconds() int { return clampRetryAfter(e.RetryAfter) }
+
+// RateLimitedAfter is an ErrRateLimited for a wait of n seconds, kept between
+// 1 and MaxRetryAfter.
+func RateLimitedAfter(n int) *ErrRateLimited {
+	return &ErrRateLimited{RetryAfter: clampRetryAfter(n)}
+}
+
+func clampRetryAfter(n int) int { return min(max(n, 1), MaxRetryAfter) }
