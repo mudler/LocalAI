@@ -1513,9 +1513,8 @@
           "stages nothing while the deployment locks the UI host grants",
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
-          "answers with the last good list marked stale, and only for the same person",
-          "lets a cached list expire",
-          "does not hide a denial behind the cache"
+          "never answers with an older list of its own: every frontend gives the same typed error",
+          "does not hide a denial"
         ]
       },
       {
@@ -2688,9 +2687,8 @@
           "stages nothing while the deployment locks the UI host grants",
           "answers unavailable when the owner has no file service",
           "returns a typed timeout in the read deadline, not after the client timeout",
-          "answers with the last good list marked stale, and only for the same person",
-          "lets a cached list expire",
-          "does not hide a denial behind the cache"
+          "never answers with an older list of its own: every frontend gives the same typed error",
+          "does not hide a denial"
         ]
       },
       {
@@ -3399,7 +3397,7 @@
       "unit: addons: the install dialog names each built-in skill the entry replaces, and who already does",
       "unit: addons: the details list the skills of an add-on and which replace a built-in one",
       "hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature",
-      "unit: addons: a busy owner is its own kind of answer, and the list read carries the stale mark",
+      "unit: addons: a busy owner is its own kind of answer, and the list read never carries a stale mark",
       "unit: addons: an error is never an empty list, and the page names what the owner is upgrading",
       "unit: addons: the last list of a tab stands in for a page loaded while the owner is busy",
       "unit: translations: a library entry shows its title and description in the user language and falls back to English per field",
