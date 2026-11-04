@@ -136,6 +136,15 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(err).To(MatchError(ErrUnavailable))
 	})
 
+	It("denies a stale generation as a denial, never as an outage of the owner", func() {
+		g.Resolver = resolved{}
+		_, err := g.Dispatch(ctx, contract.Actor{UserID: "alice", CredentialID: "c", Mode: "named-user"},
+			contract.Request{AddonID: "sample", ResourceID: "r-0123456789", Generation: 7, OperationID: "op", Action: "read", Arguments: json.RawMessage(`{"q":"plain"}`)})
+		Expect(err).To(MatchError(ErrForbidden))
+		Expect(err).NotTo(MatchError(ErrUnavailable))
+		Expect(client.reads.Load()).To(Equal(int32(0)))
+	})
+
 	It("does not touch an add-on that declares no credentials", func() {
 		plain := capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"whoami"}}}, defs: defs[1:]}
 		g.Tools = plain

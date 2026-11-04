@@ -114,8 +114,9 @@ func (g *Gateway) credentialize(ctx context.Context, a contract.Actor, r *contra
 	caps, err := src.DeclaredCapabilities(ctx, r.AddonID, r.Generation)
 	if err != nil {
 		// Not knowing whether the add-on declares credentials is not a reason
-		// to run its tool without the check.
-		return ErrUnavailable
+		// to run its tool without the check. A stale generation is a denial,
+		// not an outage of the owner.
+		return toolSourceError(err)
 	}
 	if len(caps.Credentials) == 0 {
 		return nil
