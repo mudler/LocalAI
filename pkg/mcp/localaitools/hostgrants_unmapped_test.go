@@ -26,7 +26,8 @@ var _ = Describe("host access and the MCP tools", func() {
 		root := "."
 		var hits []string
 		Expect(filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-			if err != nil || info.IsDir() || strings.HasSuffix(path, "_test.go") {
+			// Only source files: a test binary built into the tree holds the names too.
+			if err != nil || info.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 				return err
 			}
 			b, rerr := os.ReadFile(path)

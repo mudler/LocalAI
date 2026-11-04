@@ -332,7 +332,7 @@
     - "review-comment-pr"
 - id: "memory"
   name: Short memory
-  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
@@ -345,12 +345,12 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "Short memory"
-    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
     mainPage: "memory"
     icon: "ui/icon.png"
 - id: "memory"
   name: Short memory
-  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
@@ -363,12 +363,12 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "Short memory"
-    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
     mainPage: "memory"
     icon: "ui/icon.png"
 - id: "memory"
   name: Short memory
-  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
@@ -381,12 +381,12 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "Short memory"
-    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
     mainPage: "memory"
     icon: "ui/icon.png"
 - id: "memory"
   name: Short memory
-  description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+  description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
   version: "0.0.0-development"
   channel: "development"
   artifact: "oci://quay.io/go-skynet/local-ai-addons:memory-development"
@@ -399,7 +399,7 @@
     identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
   ui:
     title: "Short memory"
-    description: "Your chats keep short notes about you, read them before they answer, and save a new one only after you confirm it."
+    description: "Your chats keep short notes about you and read them before they answer. By default a new note is saved only after you confirm it; you can choose to have it saved at once with an Undo, or never."
     mainPage: "memory"
     icon: "ui/icon.png"
 - id: "office"
