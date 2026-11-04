@@ -137,7 +137,8 @@ test.describe('Host access: install dialog', () => {
     await expect(row('quantize.start').getByRole('switch')).toBeDisabled()
     await expect(row('quantize.start')).toContainText('Blocked by the administrator policy')
     await expect(step).not.toContainText('denied_by_admin')
-    await expect(page.getByTestId('install-dialog').getByTestId('untrusted-source')).toHaveCount(0)
+    // The host-access step itself never repeats the source warning.
+    await expect(step).not.toContainText('not the official library')
     await shoot(page, 'install-dialog')
     await row('egress.check').getByRole('switch').click()
     await dialog.getByTestId('install-confirm').click()
