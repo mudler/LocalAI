@@ -12,7 +12,7 @@
   overflow-y: auto;
 }
 
-.cn-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); }
+.cn-head { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-3); flex-wrap: wrap; }
 
 .cn-title { margin: 0; font-size: var(--fs-title); line-height: var(--lh-title); font-weight: var(--font-weight-semibold); }
 
@@ -244,3 +244,7 @@ fieldset.cn-group {
   .cn-ready__fix, .cn-can__fix { justify-self: start; }
   .cn-fix__text { text-align: left; max-width: none; }
 }
+
+/* The host kit writes " (optional)" in English after a label marked data-optional.
+   The page puts the word of its language in the attribute, and this draws it. */
+.cn-page .dk-label[data-optional]::after { content: " (" attr(data-optional) ")"; }

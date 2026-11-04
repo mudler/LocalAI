@@ -5,9 +5,18 @@ import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import { Field, FieldError, Notice, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/discord.en.json'
+import it from './i18n/discord.it.json'
+import es from './i18n/discord.es.json'
+import de from './i18n/discord.de.json'
+import fr from './i18n/discord.fr.json'
+import zh from './i18n/discord.zh-CN.json'
+import id from './i18n/discord.id.json'
+import ko from './i18n/discord.ko.json'
+import pt from './i18n/discord.pt-BR.json'
 import { DISCORD_LISTS, PERMISSIONS, PERMISSION_INTEGER, badEntries, discordSecret, inviteUrl, tokenProblem } from './ids'
 
-registerLocales({ discord: { en } })
+// The words of the page, in every language of the web UI; a key a language lacks reads in English.
+registerLocales({ discord: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
 // The bot token. It is typed only to replace it.
 function DiscordToken({ form, setForm, t }) {

@@ -10,51 +10,6 @@ import { FixNotice, Select } from './controls'
 import { connectorsApi } from './api'
 import { fixAction, remainingChecks, sentenceCase, fixLabelKey, pickSubject, previewBody, previewId, previewKey, senderOptions } from './access'
 
-export const CAN_TEXT = {
-  'can.title': 'What this bot can do',
-  'can.help': 'The check the host runs for each message, run on this form as it is now. It changes nothing. A blocked row shows the first problem; more may follow it.',
-  'can.sender': 'If the sender is',
-  'can.sender.listed': 'A person on the allowed list',
-  'can.sender.channel_member': 'A member of an allowed channel',
-  'can.sender.anyone': 'Anyone who writes to the bot',
-  'can.sender.paired': 'A person you paired',
-  'can.sender.role': 'Role: {{title}}',
-  'can.fromForm': 'Computed from the form as it is now. Save to keep these settings.',
-  'can.fromFormNew': 'Not saved yet. Computed from the form as it is now.',
-  'can.loading': 'Checking what this bot can do',
-  'can.stale': 'Updating',
-  'can.errorTitle': 'Could not check what this bot can do',
-  'can.retry': 'Try again',
-  'can.allowed': 'Allowed',
-  'can.blocked': 'Blocked',
-  'can.summary': '{{allowed}} of {{total}} allowed for this sender.',
-  'can.via.paired': 'because this person is paired',
-  'can.via.allowlist': 'because this person is on the allowed list',
-  'can.via.role': 'through the role {{role}}',
-  'can.noPerson': 'No person is on the allowed list yet. This is what a listed person would get.',
-  'can.then': 'Not checked yet: {{list}}.',
-  'can.then.server': 'the server settings',
-  'can.then.tools': 'the Tools switch of the agent',
-  'can.then.agent': 'the permissions of the agent',
-  'can.then.connection': 'the permissions of this connection',
-  'can.then.sender': 'who is sending',
-  'can.then.approval': 'how proposals are approved',
-  'can.noMessage': 'Not allowed.',
-  'fix.open_connection': 'Show the setting',
-  'fix.open_agent': 'Open the agent',
-  'fix.open_server_setting': 'Open Settings',
-  'fix.pair_sender': 'Pair a sender',
-  'fix.add_person': 'Add a person',
-  'fix.save': 'Keep these changes',
-  'fix.token': 'Paste the token',
-  'fix.tokenNew': 'Paste a new token',
-  'fix.agent': 'Choose an agent',
-  'fix.usual': 'Choose permissions',
-  'fix.turnOn': 'Turn on',
-  'fix.newTab': '(opens in a new tab)',
-  'fix.askAdmin': 'Ask an administrator',
-}
-
 const FLASH_MS = 1600
 
 // Scrolls to the first of the selectors that exists on the page, focuses it

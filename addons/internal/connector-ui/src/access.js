@@ -304,7 +304,7 @@ export function readinessRows(ctx) {
       const first = dead[0]
       rows.push({
         id: 'permissions', state: 'attention', key: 'ready.perm.dead',
-        params: { count: dead.length, names: dead.map((d) => titleOf(d.capability)).join(', '), message: messageOf(first) },
+        params: { count: dead.length, names: dead.map((d) => titleOf(d.capability)).join(', '), message: messageOf(first), messageKey: messageKey(first) },
         fix: first.fix,
       })
     } else {
@@ -320,7 +320,7 @@ export function readinessRows(ctx) {
   } else {
     const d = unusable('triggers.propose', view, form, lists, paired, now)
     if (d) {
-      rows.push({ id: 'triggers', state: 'attention', key: 'ready.triggers.blocked', params: { message: messageOf(d) }, fix: d.fix })
+      rows.push({ id: 'triggers', state: 'attention', key: 'ready.triggers.blocked', params: { message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
     } else {
       const mode = form.approval?.mode || 'ask'
       rows.push(afterSave({ id: 'triggers', state: 'ok', key: `ready.triggers.ok.${mode}` }, 'caps', 'approval', 'allow', 'accept_any', 'agent_id'))
@@ -336,7 +336,7 @@ export function readinessRows(ctx) {
       rows.push({ id: 'files', state: pending, key: pending === 'checking' ? 'ready.checking' : 'ready.unchecked' })
     } else {
       const d = unusable('files.upload', view, form, lists, paired, now)
-      if (d) rows.push({ id: 'files', state: 'attention', key: 'ready.files.blocked', params: { message: messageOf(d) }, fix: d.fix })
+      if (d) rows.push({ id: 'files', state: 'attention', key: 'ready.files.blocked', params: { message: messageOf(d), messageKey: messageKey(d) }, fix: d.fix })
       else rows.push(afterSave({ id: 'files', state: 'ok', key: form.send_files === false ? 'ready.files.okReceive' : 'ready.files.ok' }, 'caps', 'send_files', 'allow', 'accept_any', 'agent_id'))
     }
   }
@@ -356,6 +356,15 @@ export function messageOf(d) {
   if (d.code === 'nobody_let_in') return 'Nobody is let in yet.'
   if (d.code === 'nobody_paired') return 'This needs a person you paired with the bot, and nobody is paired yet.'
   return d.reason || ''
+}
+
+// The key of the translated sentence for a blocker that only the form knows
+// (the host's own message is never replaced), or '' when there is none.
+export function messageKey(d) {
+  if (d.message) return ''
+  if (d.code === 'nobody_let_in') return 'ready.blocker.nobodyLetIn'
+  if (d.code === 'nobody_paired') return 'ready.blocker.nobodyPaired'
+  return ''
 }
 
 // The rows to show, and how many are hidden, in collapsed mode: only the

@@ -4,20 +4,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Notice } from './controls'
 import { connectorsApi } from './api'
-
-export const ACCESS_TEXT = {
-  'access.title': 'Latest decisions',
-  'access.needSave': 'Save this bot first to see its latest decisions.',
-  'access.refresh': 'Refresh',
-  'access.recentTitle': 'Latest decisions',
-  'access.recentHelp': 'The latest checks of this server, newest first. They hold IDs and names of permissions, never message text. They reset when the server restarts.',
-  'access.recentNone': 'No decision yet.',
-  'access.allowed': 'allowed',
-  'access.denied': 'denied',
-  'access.who': 'sender {{senders}}',
-  'access.roles': 'roles {{roles}}',
-  'access.via': 'via {{via}}',
-}
+import { pageLocale } from './connector'
 
 export default function AccessView({ binding, capabilities, s, version }) {
   const [view, setView] = useState(null)
@@ -47,7 +34,7 @@ export default function AccessView({ binding, capabilities, s, version }) {
                 <li key={i}>
                   <span className={`cn-status cn-status--${e.allowed ? 'done' : 'failed'}`}>{s(e.allowed ? 'access.allowed' : 'access.denied')}</span>
                   <span>{title(e.capability)}</span>
-                  <span className="cn-muted">{new Date(e.at).toLocaleString([], { dateStyle: 'short', timeStyle: 'medium' })}</span>
+                  <span className="cn-muted">{new Date(e.at).toLocaleString(pageLocale(), { dateStyle: 'short', timeStyle: 'medium' })}</span>
                   {(e.senders || []).length > 0 && <span className="cn-muted cn-mono">{s('access.who', { senders: e.senders.join(', ') })}</span>}
                   {(e.roles || []).length > 0 && <span className="cn-muted">{s('access.roles', { roles: e.roles.join(', ') })}</span>}
                   {e.via && <span className="cn-muted">{s('access.via', { via: e.via })}</span>}

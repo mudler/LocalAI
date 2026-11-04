@@ -7,45 +7,6 @@ import { useId, useState } from 'react'
 import { Field, RadioCards, Switch, TextInput } from './controls'
 import { APPROVAL_ACTS, APPROVAL_LIMITS, APPROVAL_MODES, agentHoldsAct, approvalProblem } from './connector'
 
-export const APPROVAL_TEXT = {
-  'approval.title': 'Timers and triggers from the chat',
-  'approval.help': 'When the agent sets up something that runs later ("in 10 minutes", "every day"), every run is one model run.',
-  'approval.mode.ask': 'Ask me: the bot proposes it in the chat and the person answers yes or no',
-  'approval.mode.auto': 'Set it up at once and tell the person how to cancel it',
-  'approval.mode.auto_readonly': 'At once when the runs only read and report; otherwise ask',
-  'approval.limitsHelp': 'These limits bound what is set up without asking. Leave a field empty for its default. Anything over a limit is asked instead.',
-  'approval.max_pending': 'Most timers and triggers at once',
-  'approval.min_gap_minutes': 'Fewest minutes between runs of a recurring trigger',
-  'approval.max_runs_per_day': 'Most runs a day, all together',
-  'approval.max_lifetime_days': 'Longest lifetime, in days',
-  'approval.invalid': 'Use a whole number from 1 to {{max}}, or leave it empty.',
-  'approval.default': 'Default: {{value}}.',
-  'approval.summary': 'Triggers: {{mode}}',
-  'approval.effect': 'Proposals: {{mode}}',
-  'approval.limits': 'Limits',
-  'approval.acts.title': 'Runs may act',
-  'approval.acts.help': 'Off: the runs of a trigger made from this chat only read and report. On: they may also do what you tick below, and only what the agent has.',
-  'approval.acts.modes': 'Ask me: you always decide. At once: only when you are paired as sender and every act is ticked here.',
-  'approval.acts.act.files': 'Write files in the agent\'s folders',
-  'approval.acts.act.files.effect': 'A run can create and change files the agent keeps.',
-  'approval.acts.act.addons': 'Use the actions of the agent\'s add-ons',
-  'approval.acts.act.addons.effect': 'A run can use what the add-ons of the agent do, including commands.',
-  'approval.acts.act.send': 'Send messages beyond where it reports',
-  'approval.acts.act.send.effect': 'A run can write to other chats and channels on its own.',
-  'approval.acts.act.spend': 'Use paid or external tools and the network',
-  'approval.acts.act.spend.effect': 'A run can call services outside LocalAI, which may cost money.',
-  'approval.acts.lacks': 'The agent does not have this.',
-  'approval.acts.sensitive': 'Sensitive',
-  'approval.effectActs': ', runs may: {{acts}}',
-  'approval.actShort.act.files': 'write files',
-  'approval.actShort.act.addons': 'use add-ons',
-  'approval.actShort.act.send': 'send messages',
-  'approval.actShort.act.spend': 'use paid or external tools',
-  'approval.short.ask': 'asks first',
-  'approval.short.auto': 'set up at once',
-  'approval.short.auto_readonly': 'at once if read-only',
-}
-
 /** The line under "Propose triggers": the mode, and the acts a run may do. */
 export function approvalEffect(a, s) {
   const base = s('approval.effect', { mode: s(`approval.short.${a.mode || 'ask'}`) })

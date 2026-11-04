@@ -15,12 +15,16 @@ import ReadinessList from './ReadinessList'
 import { useAuth } from '../../host-compat/src/context/AuthContext'
 import ApprovalOptions from './ApprovalFields'
 import FilesFields from './FilesFields'
-import { Check, Field, Notice, RadioCards, Select, Switch, TextInput } from './controls'
+import { Check, Field, HintLabels, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
 import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi } from './api'
 import { canSave, channelOnly, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
+import { registerConnectorLocales } from './i18n'
 import './connector.css'
+
+// The shared words, in every language of the web UI, under the namespace "connector".
+registerConnectorLocales()
 
 function Senders({ id, onAllowed, t }) {
   const [list, setList] = useState(null)
@@ -37,7 +41,7 @@ function Senders({ id, onAllowed, t }) {
       {list.map((s) => (
         <li key={s.id}>
           <span className={`cn-status cn-status--${s.allowed ? 'done' : 'skipped'}`}>{s.allowed ? t('accepted') : t('ignored')}</span>
-          <span>{senderLine(s)}</span>
+          <span>{senderLine(s, answerT(t))}</span>
           {!s.allowed && (
             <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm"
               onClick={async () => {
@@ -86,7 +90,7 @@ const ONE_LIST = [{ key: 'allow', label: 'allow', hint: 'allowHint', testId: 'co
  */
 export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleToken, tokenOf = (f) => f.token || '', lists = ONE_LIST, Help, notifyMode = 'text',
   messaging = true, ExtraFields, extraBody, extraForm, extraValid, testExtra, RowInfo }) {
-  const { t } = useTranslation(ns)
+  const { t } = useTranslation([ns, 'connector'])
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
   const [off, setOff] = useState('')
@@ -225,6 +229,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }
 
   return (
+    <HintLabels.Provider value={{ more: s('more'), less: s('less'), optional: s('optional') }}>
     <div className="cn-page" data-testid={testId}>
       <header className="cn-head">
         <h1 className="cn-title">{t('title')}</h1>
@@ -238,7 +243,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
       {error && (
         <Notice tone="error" role="alert">
           <span>{error}</span>
-          <button type="button" className="cn-link" aria-label={t('dismiss', { defaultValue: 'Dismiss' })} onClick={() => setError('')}>×</button>
+          <button type="button" className="cn-link" aria-label={answerT(t)('dismiss')} onClick={() => setError('')}>×</button>
         </Notice>
       )}
       {note && <Notice tone="ok" role="status">{note}</Notice>}
@@ -253,10 +258,10 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               {(p) => <TextInput {...p} value={form.name} required maxLength={80} onChange={(e) => setForm({ ...form, name: e.target.value })} />}
             </Field>
             <TokenFields form={form} setForm={setForm} t={t} />
-            <Field label={t('agent')} hint={agentOptional ? t('agentOptionalHint', { defaultValue: 'Optional. Without an agent this connection only holds the token, the repository list and the write mode for your chats. It answers no messages. Choose an agent to let it listen.' }) : undefined} optional={agentOptional}>
+            <Field label={t('agent')} hint={agentOptional ? answerT(t)('agentOptionalHint') : undefined} optional={agentOptional}>
               {(p) => (
                 <Select {...p} data-testid="connector-agent" aria-label={t('agent')} value={form.agent_id} required={!agentOptional} onChange={(e) => setForm({ ...form, agent_id: e.target.value })}>
-                  <option value="">{agentOptional ? t('agentCredentialsOnly', { defaultValue: 'No agent (credentials only)' }) : t('agentNone')}</option>
+                  <option value="">{agentOptional ? answerT(t)('agentCredentialsOnly') : t('agentNone')}</option>
                   {agents.map((a) => (
                     <option key={a.id} value={a.id} disabled={!a.model}>{a.model ? a.name : t('agentNoModel', { name: a.name })}</option>
                   ))}
@@ -318,13 +323,13 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
               <span className="cn-row__name">{c.name}</span>
               {messaging ? (<>
               <span className="cn-muted">
-                {c.credentials_only ? t('credentialsOnly', { defaultValue: 'Credentials only' }) : t('agentOf', { name: agentName(c.agent_id) })}
+                {c.credentials_only ? answerT(t)('credentialsOnly') : t('agentOf', { name: agentName(c.agent_id) })}
                 {' · '}
                 {t('accepts', { who: c.accept_any ? t('modes.anyone') : (c.allow || []).length === 0 ? t('modes.nobody') : t('modes.listed', { count: c.allow.length }) })}
               </span>
               <span className="cn-muted" data-testid="connector-answer-summary">{answerSummary(c, t)}</span>
               </>) : <span className="cn-muted" data-testid={c.credentials_only ? 'connector-credentials-only' : undefined}>
-                {c.credentials_only ? t('credentialsOnly', { defaultValue: 'Credentials only' }) : t('agentOf', { name: agentName(c.agent_id) })}
+                {c.credentials_only ? answerT(t)('credentialsOnly') : t('agentOf', { name: agentName(c.agent_id) })}
               </span>}
               {RowInfo && <RowInfo c={c} t={t} />}
               {messaging && capabilities.length > 0 && hasNoCaps(c) && (
@@ -361,5 +366,6 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
         onCancel={() => setToDelete(null)}
       />
     </div>
+    </HintLabels.Provider>
   )
 }

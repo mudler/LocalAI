@@ -5,16 +5,26 @@ import { getSdk } from '../../../internal/host-compat/src/runtime.js'
 import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
+import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
 import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/home-assistant.en.json'
+import it from './i18n/home-assistant.it.json'
+import es from './i18n/home-assistant.es.json'
+import de from './i18n/home-assistant.de.json'
+import fr from './i18n/home-assistant.fr.json'
+import zh from './i18n/home-assistant.zh-CN.json'
+import id from './i18n/home-assistant.id.json'
+import ko from './i18n/home-assistant.ko.json'
+import pt from './i18n/home-assistant.pt-BR.json'
 import PolicyEditor from './PolicyEditor'
 import ProposalCard from './ProposalCard'
 import { addressProblem, checkFailure, checkItem, extraBody, extraForm, extraValid, followName, haSecret, parseAddress, tokenProblem, WRITE_MODES, writeModeOf } from './ha'
 import { finishTest, resultOf, startTest, subscribe } from './results'
 import './home-assistant.css'
 
-registerLocales({ 'home-assistant': { en } })
+// The words of the page, in every language of the web UI; a key a language lacks reads in English.
+registerLocales({ 'home-assistant': { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
 // The long-lived access token. It is typed only to replace it.
 function HaToken({ form, setForm, t }) {
@@ -115,7 +125,7 @@ function Checks({ c, t }) {
           </li>
         ))}
       </ul>
-      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString() })}</p>}
+      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString(pageLocale()) })}</p>}
     </div>
   )
 }

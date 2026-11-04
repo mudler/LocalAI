@@ -1726,8 +1726,13 @@ test-ui-unit: test-i18n
 
 ## Every locale must have every namespace and key of English, except the gaps
 ## recorded in core/http/react-ui/i18n-baseline.json, which may only shrink.
+## The locale bundles of the add-on pages (addons/*/ui/src/i18n and the shared
+## connector pages) have no baseline: every language of the web UI must have
+## every key of English, with the same placeholders and no empty value.
 test-i18n:
 	cd core/http/react-ui && node scripts/i18n-check.mjs
+	node addons/internal/i18ncheck/check.mjs
+	node --test addons/internal/i18ncheck/test/check.test.mjs
 
 ## The PostgreSQL stores of the chats, agents, connectors, notifications,
 ## workspace and triggers. They skip without a database, which would let a

@@ -1,0 +1,149 @@
+{
+  "title": "Talk",
+  "subtitle": "voix en temps réel",
+  "stage": "Session vocale",
+  "picker": {
+    "title": "Pipeline vocal : écouter, réfléchir, parler",
+    "heading": "Modèles de pipeline",
+    "label": "Modèle de pipeline",
+    "none": "Aucun pipeline",
+    "defaultVoice": "voix par défaut",
+    "auto": "auto"
+  },
+  "view": {
+    "idle": {
+      "title": "Prêt",
+      "body": "Démarrez une session et parlez. Le microphone n’est utilisé que pendant qu’une session est ouverte.",
+      "note": "Votre microphone diffuse tant que la session dure. Le serveur détecte quand vous cessez de parler et répond seul.",
+      "noteManual": "Votre microphone diffuse tant que la session dure. Ce modèle n’a pas de détection vocale : appuyez sur Terminé quand vous finissez un tour de parole."
+    },
+    "connecting": {
+      "title": "Connexion",
+      "body": "Mise en place de l’appel. Le modèle n’écoute pas encore."
+    },
+    "listening": {
+      "title": "À l’écoute",
+      "body": "Dites ce qu’il vous faut. Je réponds quand vous vous arrêtez.",
+      "hearing": "Je vous entends parler.",
+      "manual": "Dites ce qu’il vous faut, puis appuyez sur Terminé."
+    },
+    "interrupted": {
+      "title": "Interrompu",
+      "body": "Je me suis arrêté. Allez-y, je vous écoute."
+    },
+    "thinking": {
+      "title": "Réflexion",
+      "body": "Élaboration d’une réponse."
+    },
+    "speaking": {
+      "title": "Je parle",
+      "body": "Parlez par-dessus ma voix à tout moment pour m’interrompre."
+    },
+    "blocked": {
+      "title": "Microphone bloqué",
+      "body": "Le navigateur n’a pas donné le microphone à cette page.",
+      "cardTitle": "Autoriser le microphone",
+      "card": "Cliquez sur l’icône de cadenas dans la barre d’adresse, réglez Microphone sur Autoriser, puis réessayez. Rien n’a été enregistré."
+    },
+    "lost": {
+      "title": "Connexion perdue",
+      "body": "Le lien avec le serveur s’est interrompu.",
+      "cardTitle": "La session est terminée",
+      "card": "Le lien WebRTC a échoué. La conversation jusque-là reste dans la transcription."
+    },
+    "error": {
+      "title": "Un problème est survenu",
+      "body": "L’appel n’a pas pu être établi ou le serveur a signalé une erreur."
+    },
+    "nopipe": {
+      "title": "Talk a besoin d’un modèle de pipeline",
+      "body": "Un modèle de pipeline réunit un modèle de reconnaissance vocale, un modèle de chat et un modèle de synthèse vocale en un seul assistant vocal. Aucun n’est encore configuré. Créez-en un, ou cherchez d’abord les modèles dans la galerie.",
+      "create": "Créer un modèle de pipeline",
+      "gallery": "Parcourir la galerie"
+    }
+  },
+  "detail": {
+    "tool": "Exécution de {{name}}.",
+    "processing": "Élaboration d’une réponse.",
+    "generating": "Rédaction de la réponse.",
+    "server": "Le serveur a signalé une erreur : {{message}}",
+    "insecure": "L’accès au microphone exige HTTPS ou localhost.",
+    "noMic": "Aucun microphone n’a été trouvé.",
+    "failed": "L’appel n’a pas pu être établi : {{message}}",
+    "unknown": "erreur inconnue"
+  },
+  "controls": {
+    "start": "Démarrer la session",
+    "end": "Terminer la session",
+    "testTone": "Tonalité de test",
+    "endTurn": "Terminé",
+    "diagnostics": "Diagnostic",
+    "viewTraces": "Voir les traces",
+    "retry": {
+      "blocked": "Réessayer",
+      "lost": "Se reconnecter",
+      "error": "Réessayer"
+    }
+  },
+  "transcript": {
+    "title": "Transcription",
+    "copy": "Copier",
+    "empty": "Ce que vous dites et ce que le modèle répond apparaît ici au fur et à mesure. Rien n’est enregistré.",
+    "emptyNoPipeline": "Rien à afficher pour le moment.",
+    "user": "Vous",
+    "assistant": "Réponse",
+    "tool_call": "Outil",
+    "tool_result": "Résultat",
+    "interrupted": "Réponse interrompue",
+    "toneRequested": "Tonalité de test demandée"
+  },
+  "settings": {
+    "title": "Paramètres de session",
+    "desc": "S’appliquent au démarrage de la session.",
+    "close": "Fermer",
+    "voiceLanguage": "Voix et langue",
+    "voice": "Voix",
+    "voicePlaceholder": "Nom de la voix (laisser vide pour celle du modèle)",
+    "language": "Langue de transcription",
+    "languagePlaceholder": "Code de langue, par exemple en (vide : détection automatique)",
+    "instructions": "Instructions",
+    "instructionsPlaceholder": "Instructions système pour le modèle",
+    "instructionsHelp": "Envoyées comme instructions de la session. Restez bref : les réponses sont prononcées.",
+    "tools": "Outils",
+    "manage": "Mode gestion",
+    "manageDesc": "Laisser le modèle interroger LocalAI : modèles, backends et infos système.",
+    "manageLocked": "Fixé tant qu’une session est ouverte. Terminez la session pour le modifier.",
+    "pipeline": "{{name}} en détail",
+    "anyToAny": "Modèle parole-à-parole : un seul modèle vous entend, répond et parle. Il n’a besoin d’aucun modèle séparé de transcription, de langue ou de synthèse vocale.",
+    "noVad": "Aucun modèle de détection vocale n’est défini. Appuyez sur Terminé après chaque tour.",
+    "editConfig": "Modifier la config du modèle",
+    "editPipeline": "Modifier le pipeline",
+    "slot": {
+      "vad": "Détection vocale",
+      "transcription": "Transcription",
+      "llm": "Modèle de langage",
+      "tts": "Synthèse vocale"
+    }
+  },
+  "diag": {
+    "title": "Diagnostic audio",
+    "waveform": "Forme d’onde",
+    "spectrum": "Spectre (FFT)",
+    "waiting": "En attente des statistiques...",
+    "peakFreq": "Fréquence de crête",
+    "thd": "THD",
+    "rms": "Niveau RMS",
+    "sampleRate": "Fréquence d’échantillonnage",
+    "packetsRecv": "Paquets reçus",
+    "packetsLost": "Paquets perdus",
+    "jitter": "Gigue",
+    "concealed": "Échantillons masqués"
+  },
+  "toasts": {
+    "selectModel": "Sélectionnez d’abord un modèle de pipeline.",
+    "modelsFailed": "Échec du chargement des modèles temps réel : {{message}}",
+    "viewTraces": "Voir les traces",
+    "copied": "Transcription copiée",
+    "copyFailed": "Impossible de copier dans le presse-papiers"
+  }
+}

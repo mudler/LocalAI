@@ -5,15 +5,25 @@ import { getSdk } from '../../../internal/host-compat/src/runtime.js'
 import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
+import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
 import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/jellyfin.en.json'
+import it from './i18n/jellyfin.it.json'
+import es from './i18n/jellyfin.es.json'
+import de from './i18n/jellyfin.de.json'
+import fr from './i18n/jellyfin.fr.json'
+import zh from './i18n/jellyfin.zh-CN.json'
+import id from './i18n/jellyfin.id.json'
+import ko from './i18n/jellyfin.ko.json'
+import pt from './i18n/jellyfin.pt-BR.json'
 import ProposalCard from './ProposalCard'
 import { checkFailure, checkItem, composeServerKey, extraBody, extraForm, extraValid, followName, isPlainHttp, jellyfinSecret, serverIssue, tokenProblem, WRITE_MODES, writeModeOf } from './server'
 import { finishTest, resultOf, startTest, subscribe } from './results'
 import './jellyfin.css'
 
-registerLocales({ jellyfin: { en } })
+// The words of the page, in every language of the web UI; a key a language lacks reads in English.
+registerLocales({ jellyfin: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
 // The API key. It is typed only to replace it.
 function JellyfinToken({ form, setForm, t }) {
@@ -123,7 +133,7 @@ function Checks({ c, t }) {
           </li>
         ))}
       </ul>
-      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString() })}</p>}
+      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString(pageLocale()) })}</p>}
     </div>
   )
 }

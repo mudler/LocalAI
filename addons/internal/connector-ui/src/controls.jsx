@@ -3,7 +3,7 @@
 // (dk-input, dk-select, dk-switch, dk-radio, dk-chip, dk-field), which the host
 // style sheet already loads, so a form of an add-on looks like a form of a core
 // page. The markup is plain: no browser default control is left.
-import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { createContext, useContext, useId, useLayoutEffect, useRef, useState } from 'react'
 import Icon from '../../host-compat/src/components/Icon'
 
 // Label, control, hint and error of one field. The control comes from a render
@@ -12,12 +12,13 @@ import Icon from '../../host-compat/src/components/Icon'
 //   <Field label="Name" hint="...">{(p) => <input className="dk-input" {...p} />}</Field>
 export function Field({ label, hint, error, optional, className = '', children }) {
   const id = useId()
+  const labels = useContext(HintLabels)
   const hintId = hint ? `${id}-hint` : undefined
   const errorId = error ? `${id}-error` : undefined
   const describedBy = [hintId, errorId].filter(Boolean).join(' ') || undefined
   return (
     <div className={`dk-field ${className}`.trim()}>
-      <label className="dk-label" htmlFor={id} data-optional={optional ? '' : undefined}>{label}</label>
+      <label className="dk-label" htmlFor={id} data-optional={optional ? labels.optional : undefined}>{label}</label>
       {children({ id, 'aria-describedby': describedBy, 'aria-invalid': error ? 'true' : undefined })}
       {hint && <Hint id={hintId}>{hint}</Hint>}
       {error && <FieldError id={errorId}>{error}</FieldError>}
@@ -36,7 +37,14 @@ export function FieldError({ id, children, ...rest }) {
 
 // Help text of at most two lines. When the text is longer, a "More" control
 // opens the rest, so a long paragraph never pushes the next field down.
-export function Hint({ id, children, more = 'More', less = 'Less' }) {
+// The labels of the "More" control: a page gives its own words through this
+// context, so a hint drawn by a shared field is in the language of the page.
+export const HintLabels = createContext({ more: 'More', less: 'Less', optional: 'optional' })
+
+export function Hint({ id, children, more, less }) {
+  const labels = useContext(HintLabels)
+  more = more ?? labels.more
+  less = less ?? labels.less
   const ref = useRef(null)
   const [open, setOpen] = useState(false)
   const [clipped, setClipped] = useState(false)

@@ -4215,8 +4215,8 @@ The Talk add-on (`talk`) is a packaged add-on, separate from Studio. Install it 
 users with the `addons` feature. The page opens a WebRTC session to a realtime pipeline
 through `/v1/realtime/calls` and reads the pipeline list from `/api/pipeline-models`, with
 the signed-in user's own session; the core keeps both routes. The page uses the MCP servers
-that the person added in the browser, the same list as Chat. The words are the English `talk` locale
-file of the web UI; other languages read the English text.
+that the person added in the browser, the same list as Chat. The words are the `talk` locale
+files of the add-on, in every language of the web UI.
 
 ### The Voice add-on
 
@@ -4830,6 +4830,21 @@ A chat action is `{id, label, icon, open(context)}`, where `id` must be one of
 history, message or send hook, and an add-on cannot intercept submission or override a
 route. An action that is undeclared, duplicated, without a label or without `open` is
 ignored; an error inside `open` never reaches the host.
+
+#### Translating an add-on page
+
+An add-on page reads its words from JSON bundles named `<namespace>.<language>.json` in
+`addons/<id>/ui/src/i18n/`, one for English and one for each language of the web UI
+(`core/http/react-ui/public/locales`). The page follows the language of the web UI, and a key that a bundle
+lacks reads in English. The connector pages (Telegram, Slack, Discord, GitHub, Jellyfin, Home Assistant)
+also share the bundles in `addons/internal/connector-ui/src/i18n/`, which hold the readiness list, the
+permissions, the approval, the pairing and the file limits. A bundle uses `{{name}}` placeholders and
+`_one` / `_other` plural keys. Do not translate product names, identifiers, capability keys or code.
+
+`node addons/internal/i18ncheck/check.mjs` (part of `make test-i18n` and of the UI unit tests in CI) fails
+when a language lacks a bundle, a bundle lacks a key of English or has an extra one, a placeholder differs
+from English, or a value is empty. There is no baseline: add a key to English and every language in the
+same change.
 
 Compile an add-on with classic JSX transformed to `React.createElement` over
 `sdk.React`, inside the `createAddon` factory. Do not import a JSX runtime. The fixture

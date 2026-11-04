@@ -5,15 +5,25 @@ import { getSdk, } from '../../../internal/host-compat/src/runtime.js'
 import { registerLocales } from '../../../internal/host-compat/src/i18n.js'
 import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
+import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
 import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
 import en from './i18n/github.en.json'
+import it from './i18n/github.it.json'
+import es from './i18n/github.es.json'
+import de from './i18n/github.de.json'
+import fr from './i18n/github.fr.json'
+import zh from './i18n/github.zh-CN.json'
+import id from './i18n/github.id.json'
+import ko from './i18n/github.ko.json'
+import pt from './i18n/github.pt-BR.json'
 import ProposalCard from './ProposalCard'
 import { checkFailure, checkItem, extraBody, extraForm, extraValid, followName, githubSecret, parseRepos, PERMISSIONS, reposIssue, tokenProblem, WRITE_MODES, writeModeOf } from './repos'
 import { finishTest, resultOf, startTest, subscribe } from './results'
 import './github.css'
 
-registerLocales({ github: { en } })
+// The words of the page, in every language of the web UI; a key a language lacks reads in English.
+registerLocales({ github: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
 const TOKEN_URL = 'https://github.com/settings/personal-access-tokens/new'
 
@@ -139,7 +149,7 @@ function Checks({ c, t }) {
           </li>
         ))}
       </ul>
-      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString() })}</p>}
+      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString(pageLocale()) })}</p>}
     </div>
   )
 }

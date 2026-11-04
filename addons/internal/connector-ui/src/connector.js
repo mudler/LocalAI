@@ -320,6 +320,13 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
   return { ...body, ...extra }
 }
 
+// The language of the page, for dates: the web UI keeps it on the document, so
+// a date reads in the language of the words around it. [] is the browser's.
+export function pageLocale() {
+  const lang = typeof document !== 'undefined' ? document.documentElement?.lang : ''
+  return lang || []
+}
+
 // Who the binding accepts, in a few words.
 export function modeText(c) {
   if (c.accept_any) return 'anyone'
@@ -328,8 +335,11 @@ export function modeText(c) {
 }
 
 // A sender of the log as a short line: name, how many messages, and the id.
-export function senderLine(s) {
-  return `${s.name || s.id} · ${s.count} message${s.count === 1 ? '' : 's'} · ${s.id}`
+// With a translator t, the words follow the language of the page.
+export function senderLine(s, t) {
+  const name = s.name || s.id
+  if (typeof t === 'function') return t('sender.line', { name, count: s.count, id: s.id })
+  return `${name} · ${s.count} message${s.count === 1 ? '' : 's'} · ${s.id}`
 }
 
 // "Accept any message" is only saved after the person confirms the warning.
