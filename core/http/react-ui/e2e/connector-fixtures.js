@@ -43,8 +43,44 @@ export const ROLES_KIND = {
   permissions: [{ name: 'memory.write', sensitive: false }, { name: 'files.upload', sensitive: false }, { name: 'talkback.channels', sensitive: false }, { name: 'talkback.new_channel', sensitive: true }],
 }
 
-export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER], files = ONE_MIB, { capabilities = CAPABILITIES, kindExtra = {}, access = null } = {}) {
-  const s = { items: structuredClone(initial), calls: [], senders: structuredClone(senders) }
+// The held-back capabilities of the grants an agent can hold (those that are
+// not grants of the agent are never held back by it).
+const AGENT_GRANTS = ['memory.write', 'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel']
+
+// A stand-in for the host's access preview: the same shape and the same order
+// of checks (agent permission, connection permission, sender trust), written
+// from the form values of the request.
+export function previewFor(body, roles = []) {
+  const agent = AGENTS.find(a => a.id === body.agent_id)
+  const decide = (c, who) => {
+    if (!body.agent_id) return { capability: c.name, allowed: false, code: 'no_agent', blocked_by: 'connection', message: 'This connection has no agent.', fix: { kind: 'open_connection', target: 'agent_id' }, then_check: ['sender'] }
+    if (agent && AGENT_GRANTS.includes(c.name) && !agent.builtins.includes(c.name)) {
+      return { capability: c.name, allowed: false, code: 'agent_permission_off', blocked_by: 'agent', message: `The agent ${agent.name} does not have permission for ${c.title.toLowerCase()}.`, fix: { kind: 'open_agent', target: agent.id, field: c.name }, then_check: ['connection', 'sender'] }
+    }
+    if (!(body.caps || []).includes(c.name)) {
+      return { capability: c.name, allowed: false, code: 'connection_permission_off', blocked_by: 'connection', message: `This connection does not allow ${c.title.toLowerCase()}.`, fix: { kind: 'open_connection', target: 'caps', field: c.name }, then_check: ['sender'] }
+    }
+    if (who === 'anyone') return { capability: c.name, allowed: false, code: 'channel_not_trusted', blocked_by: 'sender', message: 'A member of a channel is not trusted one by one. Add the person to the allowed people.', fix: { kind: 'add_person', target: 'allow' } }
+    if (who.startsWith('role:')) {
+      const id = who.slice(5)
+      return (body.grants || []).some(g => g.role === id && g.caps.includes(c.name)) && !c.sensitive
+        ? { capability: c.name, allowed: true, via: who }
+        : { capability: c.name, allowed: false, code: 'role_not_granted', blocked_by: 'sender', message: 'This role has not been given this permission.', fix: { kind: 'open_connection', target: 'grants' } }
+    }
+    if (c.sensitive && who !== 'paired') return { capability: c.name, allowed: false, code: 'sender_needs_pairing', blocked_by: 'sender', message: 'This needs a person you paired with the bot.', fix: { kind: 'pair_sender', target: 'pairing' } }
+    return { capability: c.name, allowed: true, via: who === 'paired' ? 'paired' : 'allowlist' }
+  }
+  const subjects = [
+    { id: 'listed', title: 'A sender on the allowlist' },
+    { id: 'anyone', title: 'A sender let in through a listed channel' },
+    { id: 'paired', title: 'A paired sender' },
+    ...roles.map(r => ({ id: `role:${r.id}`, title: r.title })),
+  ].map(sub => ({ ...sub, decisions: CAPABILITIES.map(c => decide(c, sub.id)) }))
+  return { binding: 'b1', preview: true, subjects, recent: [] }
+}
+
+export function connectorApi(page, initial = [], kind = 'telegram', senders = [NEWCOMER], files = ONE_MIB, { capabilities = CAPABILITIES, kindExtra = {}, access = null, preview = null, previewDelay = 0, previewStatus = 200 } = {}) {
+  const s = { items: structuredClone(initial), calls: [], senders: structuredClone(senders), previews: [] }
   const rec = (method, url, body) => s.calls.push({ method, url: new URL(url).pathname, body })
   return {
     s,
@@ -54,6 +90,13 @@ export function connectorApi(page, initial = [], kind = 'telegram', senders = [N
         rec('POST', r.request().url(), null)
         s.senders = s.senders.map(x => ({ ...x, allowed: true }))
         return r.fulfill({ json: s.items[0] })
+      })
+      await page.route(/\/api\/chats\/connectors\/[^/?]+\/access\/preview$/, async r => {
+        const body = r.request().postDataJSON()
+        s.previews.push({ id: decodeURIComponent(new URL(r.request().url()).pathname.split('/').at(-3)), body })
+        if (previewDelay) await new Promise(ok => setTimeout(ok, previewDelay))
+        if (previewStatus !== 200) return r.fulfill({ status: previewStatus, json: { error: { message: 'The check is not available right now.' } } })
+        return r.fulfill({ json: typeof preview === 'function' ? preview(body) : preview || previewFor(body, kindExtra.roles || []) })
       })
       await page.route(/\/api\/chats\/connectors\/[^/?]+\/access$/, r => r.fulfill({ json: access || { binding: 'b1', subjects: [], recent: [] } }))
       await page.route(/\/api\/chats\/connectors\/[^/?]+\/pairing$/, r => {

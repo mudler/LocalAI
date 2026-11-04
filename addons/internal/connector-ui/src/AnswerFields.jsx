@@ -9,6 +9,8 @@ import { FILES_TEXT } from './FilesFields'
 import { PERMISSION_TEXT } from './PermissionFields'
 import { PAIRING_TEXT } from './PairingFields'
 import { ACCESS_TEXT } from './AccessView'
+import { CAN_TEXT } from './CapabilitiesPanel'
+import { READY_TEXT } from './ReadinessList'
 import { CONVERSATIONS, MAX_WINDOW_MINUTES, REPLY_MODES } from './connector'
 
 export const ANSWER_TEXT = {
@@ -49,7 +51,7 @@ export const ANSWER_TEXT = {
 
 // text reads a string of the add-on's namespace, with the default above.
 export function answerT(t) {
-  return (key, opts = {}) => t(key, { defaultValue: ANSWER_TEXT[key] ?? FILES_TEXT[key] ?? APPROVAL_TEXT[key] ?? PERMISSION_TEXT[key] ?? PAIRING_TEXT[key] ?? ACCESS_TEXT[key], ...opts })
+  return (key, opts = {}) => t(key, { defaultValue: ANSWER_TEXT[key] ?? FILES_TEXT[key] ?? APPROVAL_TEXT[key] ?? PERMISSION_TEXT[key] ?? PAIRING_TEXT[key] ?? ACCESS_TEXT[key] ?? CAN_TEXT[key] ?? READY_TEXT[key], ...opts })
 }
 
 // answerSummary says in a few words how a binding answers, for its row.

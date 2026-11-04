@@ -1,7 +1,8 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
 import { installStudioAddons } from './studio-addon.js'
-import { connectorApi, CAPABILITIES, ROLES_KIND } from './connector-fixtures.js'
+import { connectorApi, previewFor, CAPABILITIES, ROLES_KIND } from './connector-fixtures.js'
+import { ADMIN, MEMBER, sessionFor } from './addons-fixtures.js'
 
 // The permissions of a binding on the shared connector page (drawn here by the
 // Slack add-on, whose kind declares roles): the notice of a binding that has no
@@ -24,7 +25,7 @@ const ACCESS = {
     { at: '2026-11-03T09:10:00Z', senders: ['U002'], roles: ['member'], capability: 'files.upload', allowed: false, reason: 'not enabled for this bot' },
   ],
 }
-const api = (page, initial) => connectorApi(page, initial, 'slack', [], undefined, { kindExtra: ROLES_KIND, access: ACCESS })
+const api = (page, initial, extra = {}) => connectorApi(page, initial, 'slack', [], undefined, { kindExtra: ROLES_KIND, access: ACCESS, ...extra })
 
 async function shot(page, name) {
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
@@ -301,22 +302,208 @@ test.describe('Connector permissions', () => {
     await expect(page.getByTestId('connector-nocaps')).toBeVisible()
   })
 
-  test('shows what each sender may do and the latest decisions, read only', async ({ page }) => {
+  test('the latest decisions are listed read only, newest first', async ({ page }) => {
     const a = api(page, [SET])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
     const box = page.getByTestId('connector-access')
-    await expect(box.getByTestId('connector-access-anyone')).toContainText('May: Save to memory')
-    await expect(box.getByTestId('connector-access-anyone')).toContainText('May not: Receive files')
-    await expect(box.getByTestId('connector-access-role:workspace_admin')).toContainText('Workspace admin')
     await expect(box.getByTestId('connector-audit')).toContainText('allowed')
     await expect(box.getByTestId('connector-audit')).toContainText('denied')
     await expect(box.getByTestId('connector-audit')).toContainText('Receive files')
-    await box.getByTestId('connector-access-anyone').getByText('May not:').click()
-    await expect(box.getByTestId('connector-access-anyone')).toContainText('not enabled for this bot')
     await expect(box.getByRole('checkbox')).toHaveCount(0)
     await shot(page, 'perm-5-access')
+  })
+
+  test('What this bot can do shows each permission for the chosen sender, the host reason and one fix', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a3', caps: ['memory.write', 'triggers.propose', 'talkback.new_channel'] }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const can = page.getByTestId('connector-can')
+    await expect(can.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
+    // The agent lacks the permission: the first blocker is the agent, and the fix opens the agent in a new tab.
+    const trig = can.getByTestId('connector-can-triggers.propose')
+    await expect(trig).toHaveAttribute('data-allowed', 'false')
+    await expect(trig.getByTestId('connector-can-why')).toContainText('does not have permission')
+    await expect(trig.getByTestId('connector-fix')).toHaveAttribute('href', '/app/agents/a3/edit')
+    await expect(trig.getByTestId('connector-fix')).toHaveAttribute('target', '_blank')
+    await expect(trig.getByTestId('connector-fix')).toHaveCount(1)
+    // Not ticked: the fix scrolls to the switch and focuses it.
+    const files = can.getByTestId('connector-can-files.upload')
+    await expect(files.getByTestId('connector-can-why')).toContainText('does not allow')
+    await expect(files).toContainText('Not checked yet')
+    await files.getByRole('button', { name: 'Show the setting' }).click()
+    await expect(page.getByTestId('connector-cap-switch-files.upload')).toBeFocused()
+    await shot(page, 'can-1-listed')
+    // A paired person: the same form, other trust.
+    await can.getByTestId('connector-can-sender').selectOption('paired')
+    await expect(can.getByTestId('connector-can-memory.write')).toContainText('because this person is paired')
+    // A role of the kind.
+    await can.getByTestId('connector-can-sender').selectOption('role:workspace_admin')
+    await expect(can.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'false')
+    await expect(can.getByTestId('connector-can-memory.write').getByRole('button', { name: 'Show the setting' })).toBeVisible()
+    await expect(can.getByTestId('connector-can-sender').locator('option')).toHaveText(['A person on the allowed list', 'A member of an allowed channel', 'A person you paired', 'Role: Workspace admin', 'Role: Channel member'])
+  })
+
+  test('a fix that needs a pairing jumps to the pairing button, and a person to the allowed people', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a1', allow: ['C001'], caps: ['memory.write', 'talkback.new_channel'] }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const can = page.getByTestId('connector-can')
+    await expect(can.getByTestId('connector-can-talkback.new_channel').getByTestId('connector-can-why')).toContainText('paired')
+    await can.getByTestId('connector-can-talkback.new_channel').getByRole('button', { name: 'Pair a sender' }).click()
+    await expect(page.getByTestId('connector-pair-start')).toBeFocused()
+    // A member of the listed channel is not trusted one by one: add the person.
+    await can.getByTestId('connector-can-sender').selectOption('channel_member')
+    await expect(can.getByTestId('connector-can-memory.write').getByTestId('connector-can-why')).toContainText('not trusted one by one')
+    await can.getByTestId('connector-can-memory.write').getByRole('button', { name: 'Add a person' }).click()
+    await expect(page.getByTestId('connector-allow').getByRole('textbox')).toBeFocused()
+  })
+
+  test('the preview is asked for the form as it is now, debounced, with no token, and says so', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a1', caps: [] }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await expect.poll(() => a.s.previews.length).toBe(1)
+    expect(a.s.previews[0].id).toBe('b1')
+    expect(a.s.previews[0].body).toMatchObject({ agent_id: 'a1', accept_any: false, allow: ['U001'], caps: [], grants: [] })
+    expect('kind' in a.s.previews[0].body).toBe(false)
+    await expect(page.getByTestId('connector-can-dirty')).toHaveCount(0)
+    await page.getByLabel('Bot token').fill('xoxb-secret')
+    for (const n of ['memory.write', 'files.upload', 'triggers.propose']) await page.getByTestId(`connector-cap-switch-${n}`).click()
+    await expect(page.getByTestId('connector-can-dirty')).toContainText('Computed from the form as it is now')
+    await expect.poll(() => a.s.previews.at(-1).body.caps.sort()).toEqual(['files.upload', 'memory.write', 'triggers.propose'])
+    expect(a.s.previews.length).toBeLessThanOrEqual(2)
+    expect(JSON.stringify(a.s.previews)).not.toContain('xoxb-secret')
+    await expect(page.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
+    // Nothing was saved by looking.
+    expect(a.s.calls.some(c => c.method === 'PUT')).toBe(false)
+  })
+
+  test('a connection that is not saved yet is previewed under the id new with its kind', async ({ page }) => {
+    const a = api(page, [])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'New Slack app' }).click()
+    await expect.poll(() => a.s.previews.at(-1)?.id).toBe('new')
+    expect(a.s.previews.at(-1).body.kind).toBe('slack')
+    await expect(page.getByTestId('connector-can-dirty')).toContainText('Not saved yet')
+    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await page.getByTestId('connector-cap-switch-memory.write').click()
+    await expect.poll(() => a.s.previews.at(-1).body).toMatchObject({ agent_id: 'a1', caps: ['memory.write'], kind: 'slack' })
+    await expect(page.getByTestId('connector-can-memory.write')).toHaveAttribute('data-allowed', 'true')
+    await shot(page, 'can-2-new')
+  })
+
+  test('the panel says it is checking, and shows the error of the host with a way to try again', async ({ page }) => {
+    const slow = api(page, [{ ...LEGACY, agent_id: 'a1', caps: ['memory.write'] }], { previewDelay: 1200 })
+    await slow.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await expect(page.getByTestId('connector-can-status')).toHaveText('Checking what this bot can do')
+    await expect(page.getByTestId('connector-can')).toHaveAttribute('aria-busy', 'true')
+    await shot(page, 'can-3-loading')
+    await expect(page.getByTestId('connector-can-memory.write')).toBeVisible()
+    await expect(page.getByTestId('connector-can-status')).toHaveText('')
+  })
+
+  test('a failed preview shows a notice with the host reason, keeps the page usable and retries', async ({ page }) => {
+    const a = connectorApi(page, [{ ...LEGACY, agent_id: 'a1' }], 'slack', [], undefined, { kindExtra: ROLES_KIND, access: ACCESS, previewStatus: 503 })
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const err = page.getByTestId('connector-can-error')
+    await expect(err).toContainText('Could not check what this bot can do')
+    await expect(err).toContainText('The check is not available right now.')
+    await shot(page, 'can-4-error')
+    const before = a.s.previews.length
+    await page.getByTestId('connector-can-retry').click()
+    await expect.poll(() => a.s.previews.length).toBeGreaterThan(before)
+    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+  })
+
+  test('a blocker held by the server settings links to Settings for an administrator and says to ask one otherwise', async ({ page }) => {
+    const blocked = body => {
+      const v = previewFor(body, [])
+      v.subjects = v.subjects.map(s => ({ ...s, decisions: s.decisions.map(d => d.capability === 'triggers.propose' ? { capability: d.capability, allowed: false, code: 'server_setting_off', blocked_by: 'server', message: 'An administrator turned reminders off for the whole server.', fix: { kind: 'open_server_setting', target: 'disable_triggers' } } : d) }))
+      return v
+    }
+    for (const [user, admin] of [[ADMIN, true], [MEMBER, false]]) {
+      const p = await page.context().newPage()
+      await mockChat(p)
+      await installStudioAddons(p, { ids: ['slack'] })
+      await p.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(user, { addons: true }) }))
+      await connectorApi(p, [{ ...LEGACY, agent_id: 'a1', caps: ['triggers.propose'] }], 'slack', [], undefined, { kindExtra: ROLES_KIND, preview: blocked }).install()
+      await p.goto(PAGE)
+      await p.getByRole('button', { name: 'Edit' }).click()
+      const row = p.getByTestId('connector-can').getByTestId('connector-can-triggers.propose')
+      await expect(row.getByTestId('connector-can-why')).toContainText('turned reminders off')
+      if (admin) await expect(row.getByRole('link', { name: 'Open Settings' })).toHaveAttribute('href', '/app/settings')
+      else {
+        await expect(row.getByTestId('connector-fix-text')).toHaveText('Ask an administrator')
+        await expect(row.getByRole('link')).toHaveCount(0)
+      }
+      await p.close()
+    }
+  })
+
+  test('readiness lists only what needs attention and opens to every row; the channel-only trap is named', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a1', allow: ['C001'], caps: ['memory.write'] }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const ready = page.getByTestId('connector-readiness')
+    const who = ready.getByTestId('connector-ready-who')
+    await expect(who).toHaveAttribute('data-state', 'attention')
+    await expect(who).toContainText('Only channels are on the list')
+    await expect(ready.getByTestId('connector-ready-token')).toHaveCount(0)
+    await expect(ready.getByTestId('connector-ready-toggle')).toHaveText(/Show all \d/)
+    await shot(page, 'ready-1-trap')
+    await who.getByRole('button', { name: 'Add a person' }).click()
+    await expect(page.getByTestId('connector-allow').getByRole('textbox')).toBeFocused()
+    await ready.getByTestId('connector-ready-toggle').click()
+    await expect(ready.getByRole('listitem')).toHaveCount(7)
+    await expect(ready.getByTestId('connector-ready-token')).toHaveAttribute('data-state', 'ok')
+    await expect(ready.getByTestId('connector-ready-triggers')).toHaveAttribute('data-state', 'off')
+    await expect(ready.getByTestId('connector-ready-notify')).toHaveAttribute('data-state', 'off')
+    await expect(ready.getByTestId('connector-ready-toggle')).toHaveAttribute('aria-expanded', 'true')
+    await shot(page, 'ready-2-all')
+  })
+
+  test('readiness follows the form: a ticked permission that nobody can use, then a fix, then a row that works after saving', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a3', caps: ['memory.write', 'triggers.propose'], approval: { mode: 'ask' } }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const ready = page.getByTestId('connector-readiness')
+    await ready.getByTestId('connector-ready-toggle').click()
+    // The agent lacks Propose triggers: the row shows the host sentence and a link to the agent.
+    const trig = ready.getByTestId('connector-ready-triggers')
+    await expect(trig).toHaveAttribute('data-state', 'attention')
+    await expect(trig).toContainText('does not have permission')
+    await expect(trig.getByTestId('connector-fix')).toHaveAttribute('href', '/app/agents/a3/edit')
+    // Choosing an agent that has it changes the row without a save; the row then works after a save.
+    await page.getByLabel('Agent', { exact: true }).selectOption('a1')
+    await expect(trig).toHaveAttribute('data-state', 'after_save')
+    await expect(trig).toContainText('You confirm each one')
+    await trig.getByRole('button', { name: 'Keep these changes' }).click()
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.agent_id).toBe('a1')
+  })
+
+  test('readiness says when the agent has no model, and when no permission is on', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a2', caps: [] }])
+    await a.install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const ready = page.getByTestId('connector-readiness')
+    await expect(ready.getByTestId('connector-ready-agent')).toHaveAttribute('data-state', 'broken')
+    await expect(ready.getByTestId('connector-ready-agent')).toContainText('has no model')
+    await expect(ready.getByTestId('connector-ready-permissions')).toHaveAttribute('data-state', 'attention')
+    await ready.getByTestId('connector-ready-permissions').getByRole('button', { name: 'Choose permissions' }).click()
+    await expect(page.getByTestId('connector-presets').getByTestId('connector-usual')).toBeFocused()
   })
 
   test('the approval of proposed triggers sits under Propose triggers, shows its choice in the row and is greyed while the permission is off', async ({ page }) => {
