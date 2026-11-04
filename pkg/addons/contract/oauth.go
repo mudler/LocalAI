@@ -55,8 +55,10 @@ type OAuthDescriptor struct {
 	// RevokeURL, when set, is where the host revokes a token on disconnect.
 	RevokeURL string `json:"revokeUrl,omitempty"`
 	// Hosts are the only host names the three URLs may use: one to four
-	// patterns, each an exact lower-case DNS name or "*." followed by a name of
-	// two or more labels. A wildcard matches exactly one label.
+	// patterns, each an exact lower-case DNS name of two or more labels or
+	// "*." followed by such a name. A wildcard matches exactly one label. No
+	// label may be a number, the top-level label is letters or punycode, and
+	// localhost is refused (see validDNSName).
 	Hosts  []string    `json:"hosts"`
 	Scopes OAuthScopes `json:"scopes"`
 	// PKCE must be "S256".
@@ -104,6 +106,7 @@ var OAuthAuthorizeParams = []OAuthParamSpec{
 var (
 	oauthParamValue = regexp.MustCompile(`^[A-Za-z0-9._:/-]{1,128}$`)
 	oauthLabel      = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
+	oauthTopLabel   = regexp.MustCompile(`^([a-z]{2,63}|xn--[a-z0-9-]{1,59})$`)
 )
 
 // oauthProtocolParam reports a parameter the host sets itself. A descriptor
@@ -168,7 +171,7 @@ func (d OAuthDescriptor) validURL(field, s string) error {
 		return bad()
 	}
 	host := u.Hostname()
-	if host == "" || host != strings.ToLower(host) || !validDNSName(host, 1) {
+	if host == "" || host != strings.ToLower(host) || !validDNSName(host, 2) {
 		return bad()
 	}
 	if !slices.ContainsFunc(d.Hosts, func(p string) bool { return oauthHostMatches(p, host) }) {
@@ -177,8 +180,13 @@ func (d OAuthDescriptor) validURL(field, s string) error {
 	return nil
 }
 
-// validDNSName reports a lower-case DNS name of at least minLabels labels that
-// is not an IP literal and whose last label is not numeric.
+// validDNSName reports a plain lower-case DNS name of at least minLabels
+// labels (two at the least) that a browser cannot read as an address or as
+// this machine. The WHATWG URL parser reads a host such as 0x7f000001,
+// 2130706433 or 127.1 as an IPv4 address, and any name under localhost as the
+// loopback host, so a label that is a decimal, octal or hex number is refused
+// wherever it is, the top-level label must be letters (or punycode), and
+// localhost is no top-level label.
 func validDNSName(h string, minLabels int) bool {
 	if h == "" || len(h) > maxOAuthHostBytes {
 		return false
@@ -187,23 +195,32 @@ func validDNSName(h string, minLabels int) bool {
 		return false
 	}
 	labels := strings.Split(h, ".")
-	if len(labels) < minLabels {
+	if len(labels) < max(minLabels, 2) {
 		return false
 	}
 	for _, l := range labels {
-		if len(l) > maxOAuthLabelBytes || !oauthLabel.MatchString(l) {
+		if len(l) > maxOAuthLabelBytes || !oauthLabel.MatchString(l) || numericLabel(l) {
 			return false
 		}
 	}
 	last := labels[len(labels)-1]
-	return strings.Trim(last, "0123456789") != ""
+	return last != "localhost" && oauthTopLabel.MatchString(last)
+}
+
+// numericLabel reports a label that an IPv4 parser takes as a number: all
+// decimal (or octal) digits, or 0x and hex digits.
+func numericLabel(l string) bool {
+	if hex, ok := strings.CutPrefix(l, "0x"); ok {
+		return strings.Trim(hex, "0123456789abcdef") == ""
+	}
+	return strings.Trim(l, "0123456789") == ""
 }
 
 func validOAuthHostPattern(p string) bool {
 	if rest, ok := strings.CutPrefix(p, "*."); ok {
 		return validDNSName(rest, 2)
 	}
-	return validDNSName(p, 1)
+	return validDNSName(p, 2)
 }
 
 func oauthHostMatches(pattern, host string) bool {

@@ -144,10 +144,18 @@ var _ = Describe("the token client", func() {
 	})
 
 	It("refuses a non-public address with the default client", func() {
+		// The fake service answers on a loopback address that only the test
+		// client dials; the default client reaches public addresses only.
+		_, err := oauthtoken.New().Refresh(ctx, srv.Descriptor(contract.OAuthClientAuthBasic), creds, "r")
+		Expect(err).To(MatchError(oauthtoken.ErrUnavailable))
+		Expect(srv.Tokens.Load()).To(BeZero())
+	})
+
+	It("sends nothing for a descriptor that names localhost", func() {
 		d := srv.Descriptor(contract.OAuthClientAuthBasic)
 		d.Hosts, d.AuthorizeURL, d.TokenURL, d.RevokeURL = []string{"localhost"}, "https://localhost/a", "https://localhost/token", ""
-		_, err := oauthtoken.New().Refresh(ctx, d, creds, "r")
-		Expect(err).To(MatchError(oauthtoken.ErrUnavailable))
+		_, err := c.Refresh(ctx, d, creds, "r")
+		Expect(err).To(MatchError(oauthtoken.ErrDescriptor))
 		Expect(srv.Tokens.Load()).To(BeZero())
 	})
 

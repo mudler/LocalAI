@@ -573,9 +573,13 @@ credential.
 - `authorizeUrl` and `tokenUrl` are required; `revokeUrl` is optional. Each URL
   uses `https`, has no user info, query or fragment, uses no IP address and
   uses port 443 or none.
-- `hosts` has one to four patterns. A pattern is an exact lower-case DNS name,
-  or `*.` followed by a name of two or more labels; a wildcard matches exactly
-  one label. Every URL must match one pattern.
+- `hosts` has one to four patterns. A pattern is an exact lower-case DNS name
+  of two or more labels, or `*.` followed by such a name; a wildcard matches
+  exactly one label. Every URL must match one pattern. A browser reads some
+  names as an address of this machine, so the host refuses them: a label that
+  is a number (`2130706433`, `127.1`, `0177.0.0.01`) or a hex number
+  (`0x7f000001`, `0x7f.0x0.0x0.0x1`), a top-level label that is not letters or
+  punycode (`xn--...`), `localhost` and any name under it, and a trailing dot.
 - `scopes.required` and `scopes.optional` have at most 16 scopes each, no scope
   in both, and no repeat. A scope is an RFC 6749 scope token of at most 128
   bytes.

@@ -121,6 +121,41 @@ var _ = Describe("The OAuth descriptor of a credential slot", func() {
 			Entry("leading hyphen", []string{"-a.example.test"}),
 			Entry("repeat", []string{"auth.example.test", "auth.example.test"}),
 		)
+		// A browser parses these as IPv4 addresses or as the loopback host, so
+		// an approved descriptor could send the person to this machine.
+		DescribeTable("refuses a host that a browser reads as an address or a local name",
+			func(host string) {
+				d := valid()
+				d.Hosts = []string{host}
+				d.AuthorizeURL, d.TokenURL, d.RevokeURL = "https://"+host+"/authorize", "https://"+host+"/token", ""
+				Expect(d.Validate()).NotTo(Succeed())
+				d = valid()
+				d.Hosts = []string{"*." + host}
+				Expect(d.Validate()).NotTo(Succeed(), "as a wildcard suffix")
+			},
+			Entry("hex number", "0x7f000001"),
+			Entry("dotted hex", "0x7f.0x0.0x0.0x1"),
+			Entry("decimal number", "2130706433"),
+			Entry("short dotted form", "127.1"),
+			Entry("dotted octal", "0177.0.0.01"),
+			Entry("localhost", "localhost"),
+			Entry("localhost with a trailing dot", "localhost."),
+			Entry("a name under localhost", "auth.localhost"),
+			Entry("a trailing dot", "auth.example.test."),
+			Entry("one label", "intranet"),
+			Entry("a numeric label", "10.example.test"),
+			Entry("a hex label", "0x10.example.test"),
+			Entry("a numeric top-level label", "auth.example.123"),
+			Entry("a top-level label with digits", "auth.example.t3st"),
+		)
+		It("accepts registrable names, punycode top-level labels and labels that only start with digits", func() {
+			for _, host := range []string{"auth.example.test", "a1.example.test", "1a.example.test", "auth.example.xn--p1ai", "login.example.co"} {
+				d := valid()
+				d.Hosts = []string{host}
+				d.AuthorizeURL, d.TokenURL, d.RevokeURL = "https://"+host+"/authorize", "https://"+host+"/token", ""
+				Expect(d.Validate()).To(Succeed(), host)
+			}
+		})
 		It("matches a wildcard against exactly one label before the suffix", func() {
 			d := valid()
 			d.Hosts = []string{"*.example.test"}
