@@ -809,7 +809,7 @@ a page can turn into a sentence and a link, in the first place the check failed:
   "reason": "the owner has not enabled triggers.propose for this bot",
   "code": "connection_permission_off",
   "blocked_by": "connection",
-  "message": "This connection does not allow reminders and scheduled tasks.",
+  "message": "This connection does not allow the bot to set reminders and scheduled tasks. Tick the matching permission on the connection.",
   "fix": {"kind": "open_connection", "target": "caps", "field": "triggers.propose"},
   "then_check": ["sender", "approval"]
 }
@@ -851,9 +851,15 @@ The server sends no URL. A page maps `fix.kind` and `fix.target` to its own link
 set of codes is closed, and the recent decisions carry `code` too.
 
 The same codes feed the words a sender and the model get when a tool is held back. The
-note for the model and the tool error use one plain sentence per code ("the owner has
-not allowed reminders and scheduled tasks for this bot"), with no setting names, host
-names or error codes. The host never posts it to a channel on its own.
+note for the model and the tool error use one whole sentence per code ("The owner has
+not allowed this bot to set reminders and scheduled tasks."), with no setting names, host
+names or error codes. The note tells the model to relay the reason plainly. The host
+never posts it to a channel on its own.
+
+Each capability has a verb phrase ("set reminders and scheduled tasks") that fills the
+sentence of every code, so `message` always reads as a whole sentence, for example
+"People in a channel are not trusted one by one, so the bot cannot save notes to memory
+for them. Add the person to the allowed people."
 
 ### Preview before saving
 

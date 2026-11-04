@@ -116,7 +116,7 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		ask("11", []string{"admin"}, "profile")
 		res = r.h.ResultsFor("propose_change")
 		Expect(res).To(HaveLen(2))
-		Expect(res[1].Err).To(MatchError(ContainSubstring("not permitted: changing the agent's rules needs you to be paired with this bot by the owner")))
+		Expect(res[1].Err).To(MatchError(ContainSubstring("not permitted: You need to be paired with this bot by the owner before it can change the agent's rules for you.")))
 		list, _ := r.svc.Changes().List(ctx, alice)
 		Expect(list).To(HaveLen(1), "the refused change made no proposal")
 	})

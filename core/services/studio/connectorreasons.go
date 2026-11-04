@@ -1,8 +1,8 @@
 package studio
 
 import (
-	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
@@ -110,10 +110,13 @@ type Block struct {
 func (b Block) Off() bool { return b.Code != "" || b.Reason != "" }
 
 // blockInfo is a row of the table: who holds the link, what the owner reads,
-// and what the person who asked (and the model) is told.
+// and what the person who asked (and the model) is told. Both texts are whole
+// sentences. {action} stands for the verb phrase of the capability ("set
+// reminders"), so a template reads "the bot cannot {action}" and never needs a
+// noun where a verb belongs.
 type blockInfo struct {
 	By string
-	// Message is for the owner. %s is the capability in words.
+	// Message is for the owner, on the connection page.
 	Message string
 	// Say is for the sender and the model. It names no setting, host or
 	// error code, and goes to the person who asked, never to a channel.
@@ -121,44 +124,76 @@ type blockInfo struct {
 }
 
 var blockTable = map[string]blockInfo{
-	CodeNoAgent:                 {ByConnection, "This connection has no agent.", "this bot has no agent"},
-	CodeUnknownCapability:       {ByServer, "That is not a permission this server knows.", "that is not something this bot can be allowed to do"},
-	CodeServerSettingOff:        {ByServer, "An administrator turned %s off for this whole server.", "%s is turned off on this server; an administrator can change that"},
-	CodeToolsSwitchOff:          {ByTools, "The tools for %s are switched off for the agent.", "the owner has switched off the tools for %s"},
-	CodeAgentPermissionOff:      {ByAgent, "The agent has not been given permission for %s.", "the owner has not given the agent permission for %s"},
-	CodeAgentUnavailable:        {ByAgent, "The agent of this connection cannot be read.", "the agent of this bot cannot be read"},
-	CodeConnectionPermissionOff: {ByConnection, "This connection does not allow %s.", "the owner has not allowed %s for this bot"},
-	CodeSenderNotListed:         {BySender, "This person is not on the list of people the bot answers.", "you are not on the list of people this bot answers"},
-	CodeSenderNeedsPairing:      {BySender, "This person has to be paired with the bot by the owner before %s.", "%s needs you to be paired with this bot by the owner"},
-	CodeChannelNotTrusted:       {BySender, "This person is let in through a channel, or because the bot accepts anyone, so they are not trusted for %s. Add them by name or pair them.", "%s is only for people the owner added by name or paired"},
-	CodeRoleNotGranted:          {BySender, "The role of this person was not given %s.", "the owner has not allowed %s for your role"},
-	CodeKindNotRunning:          {BySender, "The app for this connection is not running, so roles cannot be checked.", "the app for this bot is not running"},
-	CodeContextRule:             {ByConnection, "%s is not allowed in this place.", "%s is not allowed in this place"},
+	CodeNoAgent: {ByConnection,
+		"This connection has no agent, so the bot cannot answer or act yet.",
+		"This bot has no agent set up yet."},
+	CodeUnknownCapability: {ByServer,
+		"This server does not know that permission.",
+		"That is not something this bot can be allowed to do."},
+	CodeServerSettingOff: {ByServer,
+		"An administrator turned this off for the whole server, so the bot cannot {action}.",
+		"An administrator turned this off on the server, so the bot cannot {action}."},
+	CodeToolsSwitchOff: {ByTools,
+		"The tools the bot needs to {action} are switched off for the agent. Switch them on in the agent.",
+		"The owner switched off the tools the bot needs to {action}."},
+	CodeAgentPermissionOff: {ByAgent,
+		"The agent is not allowed to {action}. Turn on the matching permission in the agent.",
+		"The owner has not allowed the agent to {action}."},
+	CodeAgentUnavailable: {ByAgent,
+		"The agent of this connection cannot be read right now. Check that it still exists.",
+		"The agent of this bot cannot be read right now."},
+	CodeConnectionPermissionOff: {ByConnection,
+		"This connection does not allow the bot to {action}. Tick the matching permission on the connection.",
+		"The owner has not allowed this bot to {action}."},
+	CodeSenderNotListed: {BySender,
+		"This person is not on the list of people the bot answers. Add them to the allowed people.",
+		"You are not on the list of people this bot answers."},
+	CodeSenderNeedsPairing: {BySender,
+		"This person needs to be paired with this bot before the bot can {action} for them.",
+		"You need to be paired with this bot by the owner before it can {action} for you."},
+	CodeChannelNotTrusted: {BySender,
+		"People in a channel are not trusted one by one, so the bot cannot {action} for them. Add the person to the allowed people.",
+		"This bot can {action} only for people the owner added by name or paired, and you are not one of them."},
+	CodeRoleNotGranted: {BySender,
+		"The role of this person does not let the bot {action}. Allow it for that role on the connection.",
+		"The owner has not allowed this bot to {action} for your role."},
+	CodeKindNotRunning: {BySender,
+		"The app for this connection is not running, so roles cannot be checked. Start the app.",
+		"The app for this bot is not running, so it cannot check what you may do."},
+	CodeContextRule: {ByConnection,
+		"The bot cannot {action} in this place.",
+		"This bot cannot {action} in this place."},
 }
 
-// capabilityWords says a capability in the words a person uses. The reasons of
-// Authorize name the capability; the model and the owner's page should not
-// repeat a key that the person never saw.
-var capabilityWords = map[string]string{
-	contract.CapProposalsConfirm: "confirming proposals",
-	contract.CapMemoryWrite:      "saving to memory",
-	contract.CapFilesUpload:      "receiving files",
-	contract.CapTriggersPropose:  "reminders and scheduled tasks",
-	contract.CapTriggersRun:      "running scheduled tasks",
-	contract.CapTalkbackChannels: "writing to other channels",
-	contract.CapTalkbackNewChan:  "starting conversations in new channels",
-	contract.CapProfileWrite:     "changing the agent's rules",
-	contract.CapSkillsWrite:      "saving skills",
-	contract.CapPagesWrite:       "publishing pages",
-	contract.CapDashboardWrite:   "changing the dashboard",
-	contract.CapToolsWrite:       "changes made by add-on tools",
+// capabilityPhrase says a capability in the words a person uses. Action is a
+// verb phrase in the infinitive and fills "the bot cannot ...". Noun names the
+// same thing as a noun phrase, for the places that cannot rewrite a sentence
+// (see deniedToolsNote). The reasons of Authorize name the capability; the
+// model and the owner's page should not repeat a key that the person never saw.
+type capabilityPhrase struct{ Action, Noun string }
+
+var capabilityWords = map[string]capabilityPhrase{
+	contract.CapProposalsConfirm: {"confirm proposals", "confirming proposals"},
+	contract.CapMemoryWrite:      {"save notes to memory", "saving to memory"},
+	contract.CapFilesUpload:      {"receive files", "receiving files"},
+	contract.CapTriggersPropose:  {"set reminders and scheduled tasks", "reminders and scheduled tasks"},
+	contract.CapTriggersRun:      {"run scheduled tasks", "running scheduled tasks"},
+	contract.CapTalkbackChannels: {"write to other channels", "writing to other channels"},
+	contract.CapTalkbackNewChan:  {"start conversations in new channels", "starting conversations in new channels"},
+	contract.CapProfileWrite:     {"change the agent's rules", "changing the agent's rules"},
+	contract.CapSkillsWrite:      {"save skills", "saving skills"},
+	contract.CapPagesWrite:       {"publish pages", "publishing pages"},
+	contract.CapDashboardWrite:   {"change the dashboard", "changing the dashboard"},
+	contract.CapToolsWrite:       {"change things in other services with add-on tools", "changes made by add-on tools"},
 }
 
-func wordsOf(capability string) string {
+// actionOf is the verb phrase of a capability, "do this" for a name that is
+// not on the list.
+func actionOf(capability string) string {
 	if w, ok := capabilityWords[capability]; ok {
-		return w
+		return w.Action
 	}
-	return "this"
+	return "do this"
 }
 
 // blockMessage is what the owner reads for a code.
@@ -167,7 +202,7 @@ func blockMessage(code, capability string) string {
 	if !ok {
 		return ""
 	}
-	return sprintfOnce(row.Message, wordsOf(capability))
+	return strings.ReplaceAll(row.Message, "{action}", actionOf(capability))
 }
 
 // BlockSay is what the person who asked, and the model, is told for a code:
@@ -177,16 +212,7 @@ func BlockSay(code, capability string) string {
 	if !ok {
 		return ""
 	}
-	return sprintfOnce(row.Say, wordsOf(capability))
-}
-
-func sprintfOnce(format, arg string) string {
-	for i := 0; i+1 < len(format); i++ {
-		if format[i] == '%' && format[i+1] == 's' {
-			return fmt.Sprintf(format, arg)
-		}
-	}
-	return format
+	return strings.ReplaceAll(row.Say, "{action}", actionOf(capability))
 }
 
 // Say is the sentence for the person who asked and for the model. A refusal

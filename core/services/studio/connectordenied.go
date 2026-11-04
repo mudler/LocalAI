@@ -3,6 +3,8 @@ package studio
 import (
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/session"
@@ -12,7 +14,7 @@ import (
 // and not every tool, stays short, and goes first in the note of the turn.
 const (
 	deniedNoteStart  = "Held back from this sender: "
-	deniedNoteEnd    = " If asked for one of these, say why; never say it does not exist."
+	deniedNoteEnd    = " If asked for one of these, relay the reason plainly; never say it does not exist."
 	deniedNoteBudget = 400 - len(deniedNoteStart) - len(deniedNoteEnd) - 1
 )
 
@@ -28,7 +30,7 @@ func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
 	prefix := builtins.ReasonNotPermitted + ": "
 	var words []string
 	for name, w := range capabilityWords {
-		words = append(words, name, w)
+		words = append(words, name, w.Noun)
 	}
 	say := strings.NewReplacer(words...)
 	var reasons []string
@@ -37,7 +39,7 @@ func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
 		if b.OK || !ok || why == "" {
 			continue
 		}
-		if why = say.Replace(why); !slices.Contains(reasons, why) {
+		if why = sentence(say.Replace(why)); !slices.Contains(reasons, why) {
 			reasons = append(reasons, why)
 		}
 	}
@@ -45,14 +47,31 @@ func deniedToolsNote(rec session.ChatRecord, built []builtins.Built) string {
 	var kept []string
 	used := 0
 	for _, why := range reasons {
-		if used+len(why)+2 > deniedNoteBudget {
+		if used+len(why)+1 > deniedNoteBudget {
 			break
 		}
 		kept = append(kept, why)
-		used += len(why) + 2
+		used += len(why) + 1
 	}
 	if len(kept) == 0 {
 		return ""
 	}
-	return deniedNoteStart + strings.Join(kept, "; ") + "." + deniedNoteEnd
+	return deniedNoteStart + strings.Join(kept, " ") + deniedNoteEnd
+}
+
+// sentence makes a reason a whole sentence: it starts with a capital and ends
+// with a full stop. The reasons of the table already are; a reason that a tool
+// wrote on its own may not be.
+func sentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return s
+	}
+	if r, n := utf8.DecodeRuneInString(s); unicode.IsLower(r) {
+		s = string(unicode.ToUpper(r)) + s[n:]
+	}
+	if !strings.HasSuffix(s, ".") {
+		s += "."
+	}
+	return s
 }

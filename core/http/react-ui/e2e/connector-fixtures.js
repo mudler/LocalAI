@@ -50,32 +50,33 @@ const AGENT_GRANTS = ['memory.write', 'files.upload', 'triggers.propose', 'trigg
 // A stand-in for the host's access preview: the same shape and the same order
 // of checks (agent permission, connection permission, sender trust), written
 // from the form values of the request.
-// The words the host uses for each capability in its sentences.
+// The verb phrases the host uses for each capability in its sentences.
 const WORDS = {
-  'proposals.confirm': 'confirming proposals', 'memory.write': 'saving to memory', 'files.upload': 'receiving files',
-  'triggers.propose': 'reminders and scheduled tasks', 'triggers.run': 'running scheduled tasks',
-  'talkback.channels': 'writing to other channels', 'talkback.new_channel': 'starting conversations in new channels',
-  'tools.write': 'changes made by add-on tools',
+  'proposals.confirm': 'confirm proposals', 'memory.write': 'save notes to memory', 'files.upload': 'receive files',
+  'triggers.propose': 'set reminders and scheduled tasks', 'triggers.run': 'run scheduled tasks',
+  'talkback.channels': 'write to other channels', 'talkback.new_channel': 'start conversations in new channels',
+  'profile.write': "change the agent's rules", 'skills.write': 'save skills', 'pages.write': 'publish pages',
+  'dashboard.write': 'change the dashboard', 'tools.write': 'change things in other services with add-on tools',
 }
 
 export function previewFor(body, roles = []) {
   const agent = AGENTS.find(a => a.id === body.agent_id)
   const decide = (c, who) => {
-    if (!body.agent_id) return { capability: c.name, allowed: false, code: 'no_agent', blocked_by: 'connection', message: 'This connection has no agent.', fix: { kind: 'open_connection', target: 'agent_id' }, then_check: ['sender'] }
+    if (!body.agent_id) return { capability: c.name, allowed: false, code: 'no_agent', blocked_by: 'connection', message: 'This connection has no agent, so the bot cannot answer or act yet.', fix: { kind: 'open_connection', target: 'agent_id' }, then_check: ['sender'] }
     if (agent && AGENT_GRANTS.includes(c.name) && !agent.builtins.includes(c.name)) {
-      return { capability: c.name, allowed: false, code: 'agent_permission_off', blocked_by: 'agent', message: `The agent has not been given permission for ${WORDS[c.name]}.`, fix: { kind: 'open_agent', target: agent.id, field: c.name }, then_check: ['connection', 'sender'] }
+      return { capability: c.name, allowed: false, code: 'agent_permission_off', blocked_by: 'agent', message: `The agent is not allowed to ${WORDS[c.name]}. Turn on the matching permission in the agent.`, fix: { kind: 'open_agent', target: agent.id, field: c.name }, then_check: ['connection', 'sender'] }
     }
     if (!(body.caps || []).includes(c.name)) {
-      return { capability: c.name, allowed: false, code: 'connection_permission_off', blocked_by: 'connection', message: `This connection does not allow ${WORDS[c.name]}.`, fix: { kind: 'open_connection', target: 'caps', field: c.name }, then_check: ['sender'] }
+      return { capability: c.name, allowed: false, code: 'connection_permission_off', blocked_by: 'connection', message: `This connection does not allow the bot to ${WORDS[c.name]}. Tick the matching permission on the connection.`, fix: { kind: 'open_connection', target: 'caps', field: c.name }, then_check: ['sender'] }
     }
-    if (who === 'anyone') return { capability: c.name, allowed: false, code: 'channel_not_trusted', blocked_by: 'sender', message: `This person is let in through a channel, or because the bot accepts anyone, so they are not trusted for ${WORDS[c.name]}. Add them by name or pair them.`, fix: { kind: 'add_person', target: 'allow' } }
+    if (who === 'anyone') return { capability: c.name, allowed: false, code: 'channel_not_trusted', blocked_by: 'sender', message: `People in a channel are not trusted one by one, so the bot cannot ${WORDS[c.name]} for them. Add the person to the allowed people.`, fix: { kind: 'add_person', target: 'allow' } }
     if (who.startsWith('role:')) {
       const id = who.slice(5)
       return (body.grants || []).some(g => g.role === id && g.caps.includes(c.name)) && !c.sensitive
         ? { capability: c.name, allowed: true, via: who }
-        : { capability: c.name, allowed: false, code: 'role_not_granted', blocked_by: 'sender', message: `The role of this person was not given ${WORDS[c.name]}.`, fix: { kind: 'open_connection', target: 'grants' } }
+        : { capability: c.name, allowed: false, code: 'role_not_granted', blocked_by: 'sender', message: `The role of this person does not let the bot ${WORDS[c.name]}. Allow it for that role on the connection.`, fix: { kind: 'open_connection', target: 'grants' } }
     }
-    if (c.sensitive && who !== 'paired') return { capability: c.name, allowed: false, code: 'sender_needs_pairing', blocked_by: 'sender', message: `This person has to be paired with the bot by the owner before ${WORDS[c.name]}.`, fix: { kind: 'pair_sender', target: 'pairing' } }
+    if (c.sensitive && who !== 'paired') return { capability: c.name, allowed: false, code: 'sender_needs_pairing', blocked_by: 'sender', message: `This person needs to be paired with this bot before the bot can ${WORDS[c.name]} for them.`, fix: { kind: 'pair_sender', target: 'pairing' } }
     return { capability: c.name, allowed: true, via: who === 'paired' ? 'paired' : 'allowlist' }
   }
   const subjects = [

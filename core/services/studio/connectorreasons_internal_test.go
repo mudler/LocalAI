@@ -131,7 +131,7 @@ var _ = Describe("the codes of a refusal", func() {
 
 	It("says a refusal for the person who asked from the code, and keeps the reason of a rule", func() {
 		d := Authorize(binding, &kind, listed, contract.CapProfileWrite, now, Block{})
-		Expect(d.Say()).To(Equal("the owner has not allowed changing the agent's rules for this bot"))
+		Expect(d.Say()).To(Equal("The owner has not allowed this bot to change the agent's rules."))
 		Expect(Decision{Reason: "not in this thread"}.Say()).To(Equal("not in this thread"))
 	})
 })

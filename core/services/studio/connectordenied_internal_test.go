@@ -25,9 +25,9 @@ var _ = Describe("the note about tools held back from a sender", func() {
 			{ID: "bash", Reason: builtins.ReasonOff},
 		})
 		Expect(note).To(HavePrefix("Held back from this sender: "))
-		Expect(note).To(ContainSubstring("the owner has not enabled reminders and scheduled tasks for this bot"), "said once for both tools")
+		Expect(note).To(ContainSubstring("The owner has not enabled reminders and scheduled tasks for this bot."), "said once for both tools")
 		Expect(strings.Count(note, "reminders")).To(Equal(1))
-		Expect(note).To(ContainSubstring("starting conversations in new channels needs a sender that the owner paired with this bot"))
+		Expect(note).To(ContainSubstring("Starting conversations in new channels needs a sender that the owner paired with this bot."))
 		Expect(note).To(ContainSubstring("never say it does not exist"))
 		Expect(note).NotTo(ContainSubstring("triggers.propose"))
 		Expect(note).NotTo(ContainSubstring("bash"))

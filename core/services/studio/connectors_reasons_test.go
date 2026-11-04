@@ -69,7 +69,7 @@ var _ = Describe("why a capability is blocked on a connection", func() {
 		Expect(d.BlockedBy).To(Equal(studio.ByConnection))
 		Expect(d.Fix).To(Equal(&studio.Fix{Kind: studio.FixOpenConnection, Target: "caps", Field: propose}))
 		Expect(d.ThenCheck).To(Equal([]string{studio.BySender, studio.ByApproval}))
-		Expect(d.Message).To(Equal("This connection does not allow reminders and scheduled tasks."))
+		Expect(d.Message).To(Equal("This connection does not allow the bot to set reminders and scheduled tasks. Tick the matching permission on the connection."))
 		Expect(d.Reason).NotTo(BeEmpty())
 		Expect(decision(saved(), "listed", contract.CapMemoryWrite).Allowed).To(BeTrue())
 	})
