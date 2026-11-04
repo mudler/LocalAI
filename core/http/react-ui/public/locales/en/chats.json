@@ -374,9 +374,9 @@
       "shell": "Run commands",
       "files": "Your files",
       "media": "Images and audio",
-      "collections": "Collections",
+      "collections": "Knowledge",
       "subagents": "Sub-agents",
-      "changes": "Memory and profile changes"
+      "changes": "Suggested changes"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
@@ -452,7 +452,7 @@
       "subagents": "Lets the model start a sub-agent for one task and get its report.",
       "saved_agents": "Lets the model start one of your saved agents as a sub-agent.",
       "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
-      "changes": "Lets the model propose changes to your memory and to an agent's files. You confirm each one."
+      "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one."
     },
     "whenOff": {
       "shell": "The model can write files but cannot run anything.",
@@ -463,7 +463,7 @@
       "subagents": "The model works alone.",
       "saved_agents": "The model cannot see or start your saved agents.",
       "triggers": "The model cannot propose or manage triggers.",
-      "changes": "The model cannot propose edits to your memory or to an agent's rules."
+      "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard."
     },
     "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
     "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
@@ -1105,7 +1105,7 @@
     "title": "Proposals",
     "supporting": "Changes that models asked for and that wait for your answer.",
     "emptyTitle": "Nothing is waiting",
-    "emptyBody": "When a model proposes a change to your memory or an agent profile, it shows here until you answer.",
+    "emptyBody": "When a model proposes a change to your notes, an agent profile, a skill, a page or the dashboard, it shows here until you answer.",
     "loadError": "Could not load the proposals."
   },
   "memoryPage": {

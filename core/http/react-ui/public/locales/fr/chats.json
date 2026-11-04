@@ -326,9 +326,9 @@
       "shell": "Exécuter des commandes",
       "files": "Vos fichiers",
       "media": "Images et audio",
-      "collections": "Collections",
+      "collections": "Connaissances",
       "subagents": "Sous-agents",
-      "changes": "Modifications de la mémoire et du profil"
+      "changes": "Modifications suggérées"
     },
     "builtinBy": "{{tools}} · intégrés",
     "builtinByAddon": "{{tools}} · fournis par {{provider}}",
@@ -350,7 +350,7 @@
       "subagents": "Le modèle peut lancer un sous-agent pour une tâche et recevoir son rapport.",
       "saved_agents": "Le modèle peut lancer l'un de vos agents enregistrés comme sous-agent.",
       "triggers": "Le modèle peut proposer, lister, modifier et supprimer des déclencheurs. Vous confirmez chaque nouveau déclencheur ou changement.",
-      "changes": "Le modèle peut proposer des changements à votre mémoire et aux fichiers d'un agent. Vous confirmez chacun."
+      "changes": "Le modèle peut proposer des modifications de vos notes, de ses règles, des skills, des pages et du tableau de bord. Vous confirmez chacune."
     },
     "whenOff": {
       "shell": "Le modèle peut écrire des fichiers mais ne peut rien exécuter.",
@@ -361,7 +361,7 @@
       "subagents": "Le modèle travaille seul.",
       "saved_agents": "Le modèle ne peut ni voir ni lancer vos agents enregistrés.",
       "triggers": "Le modèle ne peut ni proposer ni gérer de déclencheurs.",
-      "changes": "Le modèle ne peut pas proposer de modifications de votre mémoire ou des règles d'un agent."
+      "changes": "Le modèle ne peut pas proposer de modifications de vos notes, de ses règles, des skills, des pages ou du tableau de bord."
     },
     "addonDescribe_one": "Donne au modèle {{count}} outil de cet add-on.",
     "addonDescribe_other": "Donne au modèle {{count}} outils de cet add-on.",
@@ -783,7 +783,7 @@
     "title": "Propositions",
     "supporting": "Modifications demandées par les modèles et en attente de votre réponse.",
     "emptyTitle": "Rien en attente",
-    "emptyBody": "Quand un modèle propose une modification de votre mémoire ou du profil d'un agent, elle apparaît ici jusqu'à votre réponse.",
+    "emptyBody": "Quand un modèle propose une modification de vos notes, du profil d'un agent, d'un skill, d'une page ou du tableau de bord, elle apparaît ici jusqu'à votre réponse.",
     "loadError": "Impossible de charger les propositions."
   },
   "memoryPage": {

@@ -34,7 +34,7 @@ func (s *Service) describeGroups() {
 			WhenOff:     "The model cannot read images or recordings itself.",
 		},
 		builtins.GroupCollections: {
-			Title:       "Collections",
+			Title:       "Knowledge",
 			Description: "The model can list your collections and search them for the passages that match a question.",
 			WhenOff:     "The model cannot read your collections.",
 		},
@@ -55,10 +55,10 @@ func (s *Service) describeGroups() {
 			WhenOff: "The model cannot create or manage triggers. A run that a trigger or a connector started never has them.",
 		},
 		builtins.GroupChanges: {
-			Title: "Memory and profile changes",
-			Description: "The model can propose an edit to your memory notes or to an agent's standing rules, and undo an edit you confirmed. " +
+			Title: "Suggested changes",
+			Description: "The model can propose an edit to your notes, its standing rules, skills, pages and dashboard, and undo an edit you confirmed. " +
 				"Nothing changes until you confirm the proposal on a card in the chat.",
-			WhenOff: "The model cannot propose edits to your memory or to an agent's rules.",
+			WhenOff: "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
 		},
 	} {
 		s.builtins.DescribeGroup(group, info)

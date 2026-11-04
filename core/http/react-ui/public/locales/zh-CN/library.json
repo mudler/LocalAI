@@ -77,7 +77,7 @@
     "budgetNote": "估算：字符数除以四。此处不知道模型的窗口大小，因此不显示占上限的比例。",
     "instructions": "指令",
     "skills": "技能",
-    "memory": "记忆库",
+    "memory": "知识库",
     "skillsTitle": "此上下文加载的技能",
     "skillsNone": "此智能体未开启任何技能。",
     "skillsPrompt": "在每条消息的提示词中。",
@@ -87,7 +87,7 @@
     "skillMissing": "{{name}} 在列表中，但没有该名称的技能。",
     "skillTokens": "{{count}} 个令牌",
     "skillTokensTools": "开始时为 0",
-    "memoryTitle": "将发送的记忆内容",
+    "memoryTitle": "将发送的知识库内容",
     "memoryNone": "此智能体的列表中没有集合。请将一个集合添加到智能体以使用它。",
     "memoryNoCollection": "此智能体的知识库已开启，但尚不存在名为 {{name}} 的集合。",
     "memoryTools": "此智能体仅在模型请求时搜索。开始时不会向消息添加任何内容。",
@@ -108,7 +108,7 @@
   "agentBudget": "所选技能会为每条消息增加约 {{count}} 个令牌（估算：字符数除以四）。",
   "agentKb": {
     "reads": "此智能体读取名为 {{name}} 的集合。",
-    "exists": "此智能体读取名为 {{name}} 的集合。您可以在记忆库中填充并搜索它。",
+    "exists": "此智能体读取名为 {{name}} 的集合。您可以在知识库中填充并搜索它。",
     "created": "此智能体读取名为 {{name}} 的集合。保存时会创建该集合。"
   }
 }

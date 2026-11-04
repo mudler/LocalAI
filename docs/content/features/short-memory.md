@@ -10,7 +10,7 @@ memory**.
 
 It is for the facts that change what a good answer is: where you live, what you eat, the
 language and units you use, how you want answers. It is not a store for large documents.
-Use [Collections](/features/collections/) to search many files.
+Use [Knowledge](/features/collections/) to search many files.
 
 ## How it works
 

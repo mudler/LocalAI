@@ -130,8 +130,8 @@
       "desc": "MCP-Server, die deine Chats nutzen können"
     },
     "memory": {
-      "label": "Gedächtnis",
-      "desc": "Sammlungen, in denen deine Chats suchen können"
+      "label": "Wissen",
+      "desc": "Wissen, das deine Chats durchsuchen können"
     },
     "complete": "ergänzen"
   },

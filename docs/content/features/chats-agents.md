@@ -281,7 +281,7 @@ its profile, a skill, a page or a dashboard change with `propose_change`; you
 confirm every proposal, and you can undo it. The **Tools** list of the agent form
 and of a chat show each grant once, as an option under the switch it refines:
 "Create and manage triggers" holds "Also propose from messaging apps" (`triggers.propose`)
-and "Let triggers start from messaging apps" (`triggers.run`); "Memory and profile
+and "Let triggers start from messaging apps" (`triggers.run`); "Suggested
 changes" holds the five `*.write` grants; "Your files" holds `files.upload` and
 `act.files`. An option is greyed, with the reason, while its switch is off, and keeps its
 stored value. `talkback.channels` and `talkback.new_channel` are in the section

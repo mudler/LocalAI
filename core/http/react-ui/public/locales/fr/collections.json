@@ -1,6 +1,6 @@
 {
-  "title": "Base de connaissances",
-  "subtitle": "Gérez des collections de documents pour le RAG des agents",
+  "title": "Connaissances",
+  "subtitle": "Collections de documents que les agents peuvent consulter. Cherchez dans chacune ici, ou ajoutez-en une à un agent pour qu'il l'utilise.",
   "newPlaceholder": "Nom de la nouvelle collection...",
   "actions": {
     "create": "Créer",
@@ -20,7 +20,7 @@
     "title": "Aucune collection pour l'instant",
     "text": "Les collections permettent d'organiser des documents en bases de connaissances que les agents peuvent interroger via RAG (génération augmentée par recherche). Créez une collection ci-dessus pour commencer.",
     "noPersonal": "Vous n'avez encore aucune collection.",
-    "learn": "Fonctionnement de la mémoire"
+    "learn": "Fonctionnement des connaissances"
   },
   "deleteDialog": {
     "title": "Supprimer la collection",
@@ -48,8 +48,8 @@
     "loadFailed": "Impossible de charger les fichiers."
   },
   "starting": {
-    "title": "La mémoire démarre.",
-    "text": "Le serveur prépare encore le service de mémoire. Cette page réessaie toute seule."
+    "title": "Les connaissances démarrent.",
+    "text": "Le serveur prépare encore le service de connaissances. Cette page réessaie toute seule."
   },
   "embedding": {
     "missingTitle": "Aucun modèle d'embedding installé.",

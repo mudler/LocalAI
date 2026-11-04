@@ -209,7 +209,7 @@ test.describe('Agent form', () => {
     const rows = panel.getByTestId('agent-tools-item')
     await expect(rows).toHaveCount(22)
     for (const row of await rows.all()) await expect(row.getByTestId('agent-tools-blurb')).not.toBeEmpty()
-    await expect(panel.getByRole('switch', { name: 'Memory and profile changes' })).toBeChecked()
+    await expect(panel.getByRole('switch', { name: 'Suggested changes' })).toBeChecked()
     await expect(panel.getByRole('switch', { name: 'Office' })).toBeChecked()
     await expect(panel).toContainText('Read and write documents and spreadsheets.')
     await expect(panel.getByRole('switch', { name: 'Saved agents' })).not.toBeChecked()

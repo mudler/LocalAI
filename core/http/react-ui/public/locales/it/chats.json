@@ -326,9 +326,9 @@
       "shell": "Esegui comandi",
       "files": "I tuoi file",
       "media": "Immagini e audio",
-      "collections": "Raccolte",
+      "collections": "Conoscenza",
       "subagents": "Sotto-agenti",
-      "changes": "Modifiche a memoria e profilo"
+      "changes": "Modifiche suggerite"
     },
     "builtinBy": "{{tools}} · integrati",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",
@@ -350,7 +350,7 @@
       "subagents": "Il modello può avviare un sotto-agente per un compito e ricevere il suo rapporto.",
       "saved_agents": "Il modello può avviare uno dei tuoi agenti salvati come sotto-agente.",
       "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger. Confermi tu ogni nuovo trigger o modifica.",
-      "changes": "Il modello può proporre modifiche alla tua memoria e ai file di un agente. Confermi tu ognuna."
+      "changes": "Il modello può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine e alla dashboard. Confermi tu ognuna."
     },
     "whenOff": {
       "shell": "Il modello può scrivere file ma non può eseguire nulla.",
@@ -361,7 +361,7 @@
       "subagents": "Il modello lavora da solo.",
       "saved_agents": "Il modello non può vedere né avviare i tuoi agenti salvati.",
       "triggers": "Il modello non può proporre né gestire trigger.",
-      "changes": "Il modello non può proporre modifiche alla tua memoria o alle regole di un agente."
+      "changes": "Il modello non può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine o alla dashboard."
     },
     "addonDescribe_one": "Dà al modello {{count}} strumento di questo add-on.",
     "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
@@ -783,7 +783,7 @@
     "title": "Proposte",
     "supporting": "Modifiche richieste dai modelli che attendono la tua risposta.",
     "emptyTitle": "Niente in attesa",
-    "emptyBody": "Quando un modello propone una modifica alla tua memoria o al profilo di un agente, appare qui finché non rispondi.",
+    "emptyBody": "Quando un modello propone una modifica alle tue note, al profilo di un agente, a una skill, a una pagina o alla dashboard, appare qui finché non rispondi.",
     "loadError": "Impossibile caricare le proposte."
   },
   "memoryPage": {

@@ -326,9 +326,9 @@
       "shell": "Befehle ausführen",
       "files": "Deine Dateien",
       "media": "Bilder und Audio",
-      "collections": "Sammlungen",
+      "collections": "Wissen",
       "subagents": "Sub-Agenten",
-      "changes": "Änderungen an Gedächtnis und Profil"
+      "changes": "Vorgeschlagene Änderungen"
     },
     "builtinBy": "{{tools}} · eingebaut",
     "builtinByAddon": "{{tools}} · bedient von {{provider}}",
@@ -350,7 +350,7 @@
       "subagents": "Das Modell kann für eine Aufgabe einen Sub-Agenten starten und dessen Bericht erhalten.",
       "saved_agents": "Das Modell kann einen deiner gespeicherten Agenten als Sub-Agenten starten.",
       "triggers": "Das Modell kann Trigger vorschlagen, auflisten, ändern und löschen. Du bestätigst jeden neuen Trigger und jede Änderung.",
-      "changes": "Das Modell kann Änderungen an deinem Gedächtnis und an den Dateien eines Agenten vorschlagen. Du bestätigst jede einzelne."
+      "changes": "Das Modell kann Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten und am Dashboard vorschlagen. Du bestätigst jede einzelne."
     },
     "whenOff": {
       "shell": "Das Modell kann Dateien schreiben, aber nichts ausführen.",
@@ -361,7 +361,7 @@
       "subagents": "Das Modell arbeitet allein.",
       "saved_agents": "Das Modell kann deine gespeicherten Agenten weder sehen noch starten.",
       "triggers": "Das Modell kann keine Trigger vorschlagen oder verwalten.",
-      "changes": "Das Modell kann keine Änderungen an deinem Gedächtnis oder an den Regeln eines Agenten vorschlagen."
+      "changes": "Das Modell kann keine Änderungen an deinen Notizen, seinen Regeln, Skills, Seiten oder am Dashboard vorschlagen."
     },
     "addonDescribe_one": "Gibt dem Modell {{count}} Werkzeug dieses Add-ons.",
     "addonDescribe_other": "Gibt dem Modell {{count}} Werkzeuge dieses Add-ons.",
@@ -783,7 +783,7 @@
     "title": "Vorschläge",
     "supporting": "Änderungen, die Modelle vorgeschlagen haben und die auf deine Antwort warten.",
     "emptyTitle": "Nichts wartet",
-    "emptyBody": "Wenn ein Modell eine Änderung an deinem Gedächtnis oder einem Agentenprofil vorschlägt, erscheint sie hier, bis du antwortest.",
+    "emptyBody": "Wenn ein Modell eine Änderung an deinen Notizen, einem Agentenprofil, einem Skill, einer Seite oder am Dashboard vorschlägt, erscheint sie hier, bis du antwortest.",
     "loadError": "Die Vorschläge konnten nicht geladen werden."
   },
   "memoryPage": {

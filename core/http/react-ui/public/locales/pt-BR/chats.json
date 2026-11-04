@@ -326,9 +326,9 @@
       "shell": "Executar comandos",
       "files": "Seus arquivos",
       "media": "Imagens e áudio",
-      "collections": "Coleções",
+      "collections": "Conhecimento",
       "subagents": "Subagentes",
-      "changes": "Alterações de memória e perfil"
+      "changes": "Alterações sugeridas"
     },
     "builtinBy": "{{tools}} · integradas",
     "builtinByAddon": "{{tools}} · servidas por {{provider}}",
@@ -350,7 +350,7 @@
       "subagents": "O modelo pode iniciar um subagente para uma tarefa e receber o relatório dele.",
       "saved_agents": "O modelo pode iniciar um dos seus agentes salvos como subagente.",
       "triggers": "O modelo pode propor, listar, alterar e excluir gatilhos. Você confirma cada novo gatilho ou alteração.",
-      "changes": "O modelo pode propor alterações na sua memória e nos arquivos de um agente. Você confirma cada uma."
+      "changes": "O modelo pode propor alterações nas suas notas, nas regras dele, em skills, páginas e no painel. Você confirma cada uma."
     },
     "whenOff": {
       "shell": "O modelo pode escrever arquivos, mas não pode executar nada.",
@@ -361,7 +361,7 @@
       "subagents": "O modelo trabalha sozinho.",
       "saved_agents": "O modelo não pode ver nem iniciar seus agentes salvos.",
       "triggers": "O modelo não pode propor nem gerenciar gatilhos.",
-      "changes": "O modelo não pode propor alterações na sua memória ou nas regras de um agente."
+      "changes": "O modelo não pode propor alterações nas suas notas, nas regras dele, em skills, páginas ou no painel."
     },
     "addonDescribe_one": "Dá ao modelo {{count}} ferramenta deste add-on.",
     "addonDescribe_other": "Dá ao modelo {{count}} ferramentas deste add-on.",
@@ -783,7 +783,7 @@
     "title": "Propostas",
     "supporting": "Alterações que os modelos pediram e que aguardam sua resposta.",
     "emptyTitle": "Nada aguardando",
-    "emptyBody": "Quando um modelo propõe uma alteração na sua memória ou no perfil de um agente, ela aparece aqui até você responder.",
+    "emptyBody": "Quando um modelo propõe uma alteração nas suas notas, no perfil de um agente, em uma skill, em uma página ou no painel, ela aparece aqui até você responder.",
     "loadError": "Não foi possível carregar as propostas."
   },
   "memoryPage": {

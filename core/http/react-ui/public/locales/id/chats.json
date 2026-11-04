@@ -326,9 +326,9 @@
       "shell": "Jalankan perintah",
       "files": "File Anda",
       "media": "Gambar dan audio",
-      "collections": "Koleksi",
+      "collections": "Pengetahuan",
       "subagents": "Sub-agen",
-      "changes": "Perubahan memori dan profil"
+      "changes": "Perubahan yang disarankan"
     },
     "builtinBy": "{{tools}} · bawaan",
     "builtinByAddon": "{{tools}} · dilayani oleh {{provider}}",
@@ -350,7 +350,7 @@
       "subagents": "Model dapat memulai sub-agen untuk satu tugas dan menerima laporannya.",
       "saved_agents": "Model dapat memulai salah satu agen tersimpan Anda sebagai sub-agen.",
       "triggers": "Model dapat mengusulkan, mencantumkan, mengubah, dan menghapus pemicu. Anda mengonfirmasi setiap pemicu atau perubahan baru.",
-      "changes": "Model dapat mengusulkan perubahan pada memori Anda dan file agen. Anda mengonfirmasi setiap perubahan."
+      "changes": "Model dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, dan dasbor. Anda mengonfirmasi setiap perubahan."
     },
     "whenOff": {
       "shell": "Model dapat menulis berkas tetapi tidak dapat menjalankan apa pun.",
@@ -361,7 +361,7 @@
       "subagents": "Model bekerja sendiri.",
       "saved_agents": "Model tidak dapat melihat atau memulai agen tersimpan Anda.",
       "triggers": "Model tidak dapat mengusulkan atau mengelola pemicu.",
-      "changes": "Model tidak dapat mengusulkan perubahan pada memori Anda atau aturan agen."
+      "changes": "Model tidak dapat mengusulkan perubahan pada catatan Anda, aturannya, skill, halaman, atau dasbor."
     },
     "addonDescribe_one": "Memberi model {{count}} alat dari add-on ini.",
     "addonDescribe_other": "Memberi model {{count}} alat dari add-on ini.",
@@ -783,7 +783,7 @@
     "title": "Usulan",
     "supporting": "Perubahan yang diminta model dan menunggu jawaban Anda.",
     "emptyTitle": "Tidak ada yang menunggu",
-    "emptyBody": "Saat model mengusulkan perubahan pada memori Anda atau profil agen, usulan itu tampil di sini sampai Anda menjawab.",
+    "emptyBody": "Saat model mengusulkan perubahan pada catatan Anda, profil agen, skill, halaman, atau dasbor, usulan itu tampil di sini sampai Anda menjawab.",
     "loadError": "Usulan tidak dapat dimuat."
   },
   "memoryPage": {

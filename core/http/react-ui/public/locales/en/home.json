@@ -242,8 +242,8 @@
       "desc": "MCP servers your chats can use"
     },
     "memory": {
-      "label": "Memory",
-      "desc": "Collections your chats can search"
+      "label": "Knowledge",
+      "desc": "Knowledge your chats can search"
     },
     "complete": "complete"
   },

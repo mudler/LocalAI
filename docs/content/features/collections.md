@@ -1,11 +1,13 @@
 +++
 disableToc = false
-title = "Collections (knowledge base)"
+title = "Knowledge (collections)"
 weight = 21
 url = "/features/collections/"
 +++
 
-A collection is a named set of documents that LocalAI splits into chunks and
+Knowledge is the part of LocalAI that holds collections of documents that agents
+can search. In the web UI it is the **Knowledge** item in the sidebar. Each item
+in it is a collection: a named set of documents that LocalAI splits into chunks and
 stores as embeddings. You can search a collection by meaning. A
 [saved agent](/features/chats-agents/) can list the collections it may search,
 and a [chat](/features/chats/) with that agent gets the tools `list_collections`
@@ -21,11 +23,15 @@ The name of this variable is old: it now turns off the collections only.
 3. It calls the embedding model to turn each chunk into a vector, and stores the vectors in the vector engine.
 4. A search embeds the query and returns the closest chunks.
 
+With the default `chromem` engine a search is semantic only: it finds chunks by
+meaning and does not match exact words or codes. The `postgres` engine adds a
+keyword search (BM25) and mixes the two results (hybrid search).
+
 The embedding calls go to the LocalAI API of the same server, inside the
 process, so they need no API key and work with user accounts. The embedding
 model must be installed. The default is `granite-embedding-107m-multilingual`.
 When it is not, the embeddings endpoint answers 404 and every upload and
-search fails. The Collections page then says *No embedding model installed*
+search fails. The Knowledge page then says *No embedding model installed*
 and names the model; an administrator gets a button that opens the Models
 page with a search for it. `GET /api/collections` reports the same in
 `embedding_model` and `embedding_model_installed`.

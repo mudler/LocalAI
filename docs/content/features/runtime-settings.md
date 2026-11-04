@@ -17,7 +17,7 @@ The groups reorganise the fields the page used to show under fifteen sections. T
 
 | Group | Settings it holds | Used to be under |
 |---|---|---|
-| Memory and models | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget | Watchdog, Memory Reclaimer, Backend Management, Performance |
+| Models in memory | Watchdog (idle and busy checks, timeouts, interval), eviction (force when busy, largest first, retries, retry interval), free memory automatically and its threshold, models kept loaded, GPU memory budget | Watchdog, Memory Reclaimer, Backend Management, Performance |
 | Speed and defaults | Default threads, default context size, artifact download concurrency, F16 | Performance |
 | Backends and galleries | Automatic backend upgrades, development backends, gallery loading on boot, the persistent VRAM cache, the model and backend gallery lists | Backend Management, Galleries |
 | Access and security | CORS and allowed origins, CSRF protection, shared API keys | API & CORS, API Keys |
@@ -127,7 +127,7 @@ Manage model and backend galleries:
 
 Configure the collections (the knowledge base) and the models the [chats]({{%relref "features/chats" %}}) use for media:
 
-- **Collections**: Enable or disable the collections service
+- **Collections**: Enable or disable the collections service (the Knowledge page)
 - **Default model for collections**: Default LLM model of the collections service
 - **Chat image model** (`chats_vision_model`, default empty, applies at once): the model the chats use to describe an image (`describe_image`). Empty, or a model that is not installed: the chat's own model when it can look at images, else the first installed model, by name, that can.
 - **Chat transcription model** (`chats_transcription_model`, default empty, applies at once): the model the chats use to transcribe audio. Empty, or a model that is not installed: the first installed model, by name, that can transcribe.

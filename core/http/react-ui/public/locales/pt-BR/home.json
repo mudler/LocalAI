@@ -145,8 +145,8 @@
       "desc": "Servidores MCP que seus chats podem usar"
     },
     "memory": {
-      "label": "Memória",
-      "desc": "Coleções em que seus chats podem pesquisar"
+      "label": "Conhecimento",
+      "desc": "Conhecimento que seus chats podem pesquisar"
     },
     "complete": "completar"
   },

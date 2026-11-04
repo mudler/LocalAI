@@ -1327,11 +1327,11 @@ it off, so a chat that never touches the menu works as before:
 | **Your files** | `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `move_file`, `delete_file`, `search_files` and `read_document` |
 | **Web** | `web` | `web_search` and `web_fetch` |
 | **Images and audio** | `media` | `describe_image` and `transcribe_audio` |
-| **Collections** | `collections` | `list_collections` and `search_collection` |
+| **Knowledge** | `collections` | `list_collections` and `search_collection` |
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
-| **Proposed changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your memory or an agent profile, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose on the Short memory page to have them saved at once with an Undo, or never (see [Short memory](/features/short-memory/#choose-how-a-note-is-saved)) |
+| **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose on the Short memory page to have them saved at once with an Undo, or never (see [Short memory](/features/short-memory/#choose-how-a-note-is-saved)) |
 
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
@@ -1340,8 +1340,8 @@ curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}
 `off` replaces the earlier list, and a name that is not a group is refused
 (400). A group the server does not offer is not listed: **Your files** and
 **Images and audio** need the files, **Images and audio** the helper models,
-**Collections** the collections. A group that this chat cannot use now is
-listed as not usable with the reason, for example **Collections** for a user
+**Knowledge** the collections. A group that this chat cannot use now is
+listed as not usable with the reason, for example **Knowledge** for a user
 without the `collections` feature.
 
 **Run commands** governs `bash` from both providers: switched off, the chat
@@ -1458,7 +1458,7 @@ it. When the page cannot be loaded, the chat shows the result as text.
 
 ## Skills
 
-In the web UI, the **Skills** item in the sidebar, right after Memory, opens the page where you write, change and delete skills. Every chat can use them, and agents use the ones you add to them. You can also open the page from the **Manage skills** link at the bottom of the Skills menu in the composer, or by typing `/skills` in the message box.
+In the web UI, the **Skills** item in the sidebar, right after Knowledge, opens the page where you write, change and delete skills. Every chat can use them, and agents use the ones you add to them. You can also open the page from the **Manage skills** link at the bottom of the Skills menu in the composer, or by typing `/skills` in the message box.
 
 A skill is a folder with a `SKILL.md`: a `name`, a one-line `description` and a procedure the model reads when a task matches. An optional `requires` key lists what the procedure needs; today the only value is `exec`, a way to run commands (`requires: [exec]`). A chat that cannot run commands lists such a skill as unavailable (see [Running commands](#running-commands)). At each turn the chat's prompt lists the skills it has, by name and description only, and tells the model to call the `load_skill` tool with a skill's name before a task that matches it. `load_skill` returns the instructions of the skill, the text after its frontmatter. It offers exactly the skills of that list: for each name the nearest skill, not switched off, and the skills of the add-ons the chat can use now. Any other name is refused with the names of the chat's skills and the near ones first (for example `Did you mean pdf?` for `PDF`).
 
@@ -1553,7 +1553,7 @@ Search, Tavily or Google with a key and to read PDF files. See
 
 ## Collections
 
-When you may use collections, a chat has two more tools: `list_collections` and `search_collection` (`collection`, `query`, `limit`). They search your own collections, the ones of the Collections page, and nobody else's: a name that is not yours is answered "collection not found". An answer holds at most 20 passages and about 16 KiB. A sub-agent gets these tools only when its parent names them.
+When you may use collections, a chat has two more tools: `list_collections` and `search_collection` (`collection`, `query`, `limit`). They search your own collections, the ones of the Knowledge page, and nobody else's: a name that is not yours is answered "collection not found". An answer holds at most 20 passages and about 16 KiB. A sub-agent gets these tools only when its parent names them.
 
 ## Add-on tools
 
