@@ -230,6 +230,10 @@ type Deps struct {
 	// means the add-on's default; a rule that reads a setting never treats a
 	// failure as a looser choice.
 	UserSetting func(ctx context.Context, user, addonID, key string) (string, bool, error)
+	// SetUserSetting stores one per-person setting in the same store, for the
+	// host's own settings (the memory switch and save level, under
+	// HostSettingsID). Nil: the settings cannot be changed.
+	SetUserSetting func(ctx context.Context, user, addonID, key, value string) error
 	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
 	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.
@@ -346,6 +350,7 @@ type Service struct {
 	connectors *Connectors    // set once by SetConnectors
 	capGate    CapabilityGate // set once by SetCapabilityGate; nil denies
 	ctxfiles   *contextfiles.Loader
+	memory     MemoryProvider   // the notes of the chats; see memory.go
 	conversion ConversionSource // set once by SetConversion
 
 	videos   map[string][]string                // videos for the next model request of a turn, by conversation
@@ -467,6 +472,7 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerToolGroups(); err != nil {
 		return nil, err
 	}
+	s.memory = builtinMemory{}
 	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
 	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.

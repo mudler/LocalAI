@@ -69,10 +69,17 @@ func contextSubject(rec session.ChatRecord, saveTool string) contextfiles.Subjec
 // at each turn until a file changes, so the transcript does not grow and the
 // harness is restarted only for a real change.
 func (s *Service) contextTurn(ctx context.Context, rec session.ChatRecord, tools []session.Tool, extra []contextfiles.Source) (text, key string) {
+	return s.contextTurnFor(ctx, rec, tools, extra, false)
+}
+
+// contextTurnFor is contextTurn; omitEmpty leaves the header out while no
+// index has text.
+func (s *Service) contextTurnFor(ctx context.Context, rec session.ChatRecord, tools []session.Tool, extra []contextfiles.Source, omitEmpty bool) (text, key string) {
 	if !s.d.Files.Available() {
 		return "", ""
 	}
 	sub := contextSubject(rec, saveToolOf(tools))
+	sub.OmitEmpty = omitEmpty
 	profile, index := s.ctxfiles.Profile(ctx, sub), s.ctxfiles.Block(ctx, sub, extra...)
 	return joinBlocks(profile.Text, index.Text), profile.Key + index.Key
 }

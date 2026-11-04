@@ -2763,9 +2763,11 @@ source, after the grant check.
 ### How a memory note is saved
 
 By default every memory note is a proposal that the person confirms. The person
-can change this for memory notes only, on the page of an add-on that declares a
-[user setting](#user-settings) with the role `memory.save-mode` (the Short memory
-add-on declares one, with the key `save-mode`). The host finds the setting by its
+can change this for memory notes only, in the Memory tab of the account settings,
+where the server keeps the choice as its own setting. A person who chose on the page of an
+add-on that declares a [user setting](#user-settings) with the role `memory.save-mode` (the
+old Short memory add-on declared one, with the key `save-mode`) keeps that choice until they
+choose in the account settings. The host finds the setting by its
 role, so core code names no add-on:
 
 | Value | What happens |
@@ -2858,8 +2860,8 @@ A source has four fields:
 | `path` | The index file, relative to the user's home, ending in `.md`. An `agent` path holds `{agent}` once and a `channel` path holds `{channel}` once. The host fills them from the chat; the model never names them. |
 | `cap` | The most bytes of the index that the prompt carries. Default and maximum: 2 KiB. |
 
-For example, a memory add-on declares three sources: `Memory/index.md` for the user,
-`Memory/agents/{agent}/index.md` for the agent and `Memory/channels/{channel}/index.md`
+For example, an add-on that keeps its own notes declares three sources: `Notes/index.md` for the user,
+`Notes/agents/{agent}/index.md` for the agent and `Notes/channels/{channel}/index.md`
 for the channel. A path with a parent segment, an absolute path, an unknown placeholder
 or a file that does not end in `.md` is refused. A host holds at most 8 sources.
 

@@ -76,12 +76,21 @@ func (s *Service) addonContextSets(ctx context.Context, user string) []AddonCont
 // of the add-ons that run, that the chat did not switch off and, for a chat
 // with an agent, that the agent grants.
 func (s *Service) addonContextSources(ctx context.Context, user string, addonsOff []string, sc *scope) []contextfiles.Source {
+	return s.addonContextSourcesOf(ctx, user, s.addonContextSets(ctx, user), addonsOff, sc)
+}
+
+// addonContextSourcesOf is addonContextSources over sets already listed. The
+// Memory add-on brings nothing: the host serves its notes (memory.go).
+func (s *Service) addonContextSourcesOf(ctx context.Context, user string, sets []AddonContextSet, addonsOff []string, sc *scope) []contextfiles.Source {
 	if !s.d.Files.Available() {
 		return nil
 	}
 	var out []contextfiles.Source
 	gate, _ := s.d.AddonTools.(AddonGate)
-	for _, set := range s.addonContextSets(ctx, user) {
+	for _, set := range sets {
+		if set.AddonID == MemoryAddonID {
+			continue
+		}
 		if !set.Running || slices.Contains(addonsOff, set.AddonID) || (sc != nil && !sc.addons[set.AddonID]) {
 			continue
 		}
@@ -97,9 +106,11 @@ func (s *Service) addonContextSources(ctx context.Context, user string, addonsOf
 // running or not: the files are the user's, and the Memory page lists them
 // whether or not the add-on runs now.
 func (s *Service) allAddonContextSources(ctx context.Context, user string) []contextfiles.Source {
-	var out []contextfiles.Source
+	out := s.memory.Sources()
 	for _, set := range s.addonContextSets(ctx, user) {
-		out = append(out, set.sources()...)
+		if set.AddonID != MemoryAddonID {
+			out = append(out, set.sources()...)
+		}
 	}
 	return out
 }

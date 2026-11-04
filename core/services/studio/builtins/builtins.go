@@ -48,6 +48,9 @@ const (
 	// GroupChanges holds propose_change and revert_change: a chat can ask to
 	// change the person's memory or an agent profile, and the person confirms.
 	GroupChanges = "changes"
+	// GroupMemory is the switch of the notes of the chat: off makes it a
+	// private chat, which neither reads nor saves memory.
+	GroupMemory = "memory"
 	// GroupSubAgents holds spawn_agent.
 	GroupSubAgents = "subagents"
 )

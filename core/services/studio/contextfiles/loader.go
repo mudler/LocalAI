@@ -74,6 +74,9 @@ type Subject struct {
 	// the Writer, which knows the host but not the chat: a chat whose agent
 	// cannot propose changes must not be told to.
 	SaveTool string
+	// OmitEmpty leaves the block out when no index has text, instead of
+	// sending the header alone.
+	OmitEmpty bool
 }
 
 // Block is text for the prompt of a turn and a key that changes with it.
@@ -231,6 +234,7 @@ func (l *Loader) Block(ctx context.Context, sub Subject, extra ...Source) Block 
 		sb.WriteString(" Save new facts with " + tool + ".")
 	}
 	budget := MaxTotalBytes
+	found := false
 	for _, src := range sources {
 		rel, ok := src.resolve(sub)
 		if !ok || budget < minIndexBytes {
@@ -241,7 +245,11 @@ func (l *Loader) Block(ctx context.Context, sub Subject, extra ...Source) Block 
 			continue
 		}
 		budget -= len(text)
+		found = true
 		fmt.Fprintf(&sb, "\n\n[%s notes: %s]\n%s", src.Scope, src.ID, text)
+	}
+	if sub.OmitEmpty && !found {
+		return Block{}
 	}
 	return blockOf(sb.String())
 }

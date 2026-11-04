@@ -124,6 +124,11 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 	}
 	gate, _ := s.d.AddonTools.(AddonGate)
 	for _, set := range sets {
+		if set.AddonID == MemoryAddonID {
+			// The host ships these skills itself (memory.go).
+			set.Skills = slices.DeleteFunc(slices.Clone(set.Skills), func(n string) bool { return contract.LegacyMemorySkill(set.AddonID, n) })
+			set.Shadows = slices.DeleteFunc(slices.Clone(set.Shadows), func(n string) bool { return contract.LegacyMemorySkill(set.AddonID, n) })
+		}
 		if len(set.Skills) == 0 {
 			continue
 		}

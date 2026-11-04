@@ -120,7 +120,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
 	if err != nil {
 		return session.TurnTools{}, err
 	}
@@ -140,8 +140,17 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// the model at context_read.
 	var notes, notesKey string
 	if !sub {
-		extra := s.addonContextSources(ctx, a.Principal, rec.AddonsOff, sc)
-		notes, notesKey = s.contextTurn(ctx, rec, tools, extra)
+		sets := s.addonContextSets(ctx, a.Principal)
+		legacy := legacyMemoryOf(sets)
+		extra := s.addonContextSourcesOf(ctx, a.Principal, sets, rec.AddonsOff, sc)
+		// The notes: the host's own, for the chats that read them. A person
+		// who has the Memory add-on running keeps the header when no note
+		// exists yet, as before; everyone else gets no block until a note
+		// exists.
+		if s.memoryReads(ctx, rec, sc, legacy) {
+			extra = append(s.memory.Sources(), extra...)
+		}
+		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
 		tools = append(tools, s.contextTools(rec, tools, extra)...)
 	}
 	if lead := joinBlocks(persona, notes); lead != "" {

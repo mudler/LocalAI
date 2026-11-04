@@ -103,23 +103,51 @@ func strictness(mode string) int {
 	return 0
 }
 
+// ValidSaveMode reports whether v is a value of the save level.
+func ValidSaveMode(v string) bool { return v == SaveAsk || v == SaveAuto || v == SaveNever }
+
+// legacySaveKey is the setting of the Memory add-on, read when the person has
+// not chosen a level in the host's own setting.
+const legacySaveKey = "save-mode"
+
 // storedSaveMode reads the choice of the person. Anything that goes wrong
-// reads as ask, the default: a failure never loosens the rule. Without an
-// add-on that declares the role there is no choice to read, whatever an old
-// stored value says.
+// reads as ask, the default: a failure never loosens the rule. The level is
+// the host's own setting (HostSettingsID, MemorySaveKey). A person who never
+// set it keeps the value they gave on the page of the Memory add-on; there auto
+// counts only while the add-on runs, as it always did. Another add-on that
+// declares the role can only make the answer stricter.
 func (c *Changes) storedSaveMode(ctx context.Context, user string) string {
 	read := c.s.d.UserSetting
-	lister, ok := c.s.d.AddonTools.(AddonUserSettingsLister)
-	if read == nil || !ok {
+	if read == nil {
 		return SaveAsk
 	}
-	sets, err := lister.AddonUserSettings(ctx, user)
-	if err != nil {
-		c.s.log.Warn("studio: the add-on settings could not be listed, asking for confirmation", "error", err)
-		return SaveAsk
+	lister, _ := c.s.d.AddonTools.(AddonUserSettingsLister)
+	var sets []AddonUserSettingSet
+	if lister != nil {
+		var err error
+		if sets, err = lister.AddonUserSettings(ctx, user); err != nil {
+			c.s.log.Warn("studio: the add-on settings could not be listed, asking for confirmation", "error", err)
+			return SaveAsk
+		}
 	}
+	hostMode, hostSet := "", false
+	v, ok, err := read(ctx, principal(user), HostSettingsID, MemorySaveKey)
+	switch {
+	case err != nil:
+		c.s.log.Warn("studio: the memory save setting could not be read, asking for confirmation", "error", err)
+		return SaveAsk
+	case ok && ValidSaveMode(v):
+		hostMode, hostSet = v, true
+	}
+	// The add-ons that declare the role: the strictest answer wins (never,
+	// then ask, then auto), an add-on that does not run does not count as
+	// auto. Once the person chose in the host's own setting, the Memory
+	// add-on no longer counts: its page is the old place to choose.
 	mode, found := SaveAuto, false
 	for _, set := range sets {
+		if hostSet && set.AddonID == MemoryAddonID {
+			continue
+		}
 		for _, d := range set.Settings {
 			if d.Role != contract.UserSettingRoleMemorySave {
 				continue
@@ -141,11 +169,33 @@ func (c *Changes) storedSaveMode(ctx context.Context, user string) string {
 		}
 	}
 	if !found {
-		return SaveAsk
+		mode = SaveAsk
+		if !hostSet {
+			// The Memory add-on was removed: what the person chose on its
+			// page still holds as far as it narrows. A looser value never
+			// comes back unasked.
+			lv, ok, err := read(ctx, principal(user), MemoryAddonID, legacySaveKey)
+			switch {
+			case err != nil:
+				c.s.log.Warn("studio: the memory save setting could not be read, asking for confirmation", "error", err)
+			case ok && lv == SaveNever:
+				mode = SaveNever
+			}
+		}
 	}
-	switch mode {
+	if hostSet {
+		if strictness(mode) > strictness(hostMode) && found {
+			return normalSaveMode(mode)
+		}
+		return hostMode
+	}
+	return normalSaveMode(mode)
+}
+
+func normalSaveMode(m string) string {
+	switch m {
 	case SaveAuto, SaveNever:
-		return mode
+		return m
 	}
 	return SaveAsk
 }

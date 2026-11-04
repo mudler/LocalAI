@@ -61,3 +61,17 @@ func (a *Application) studioUserSetting(ctx context.Context, user, addonID, key 
 	v, ok := m[key]
 	return v, ok, nil
 }
+
+// studioSetUserSetting stores one answer for a chat owner, in the store that
+// studioUserSetting reads. The host's own settings (the memory switch and the
+// save level) go through it.
+func (a *Application) studioSetUserSetting(ctx context.Context, user, addonID, key, value string) error {
+	store, err := a.AddonUserSettingsStore()
+	if err != nil {
+		return err
+	}
+	if a.authDB == nil {
+		user = auth.AddonLocalOwnerID
+	}
+	return store.Set(ctx, user, addonID, key, value)
+}

@@ -87,6 +87,9 @@ func (s *Service) registerChangeTools() error {
 				// The tool exists when the chat holds a grant of some kind; it
 				// offers the kinds it holds and no others.
 				kinds := s.changes.kindsHeld(c)
+				if !s.memoryWritable(ctx, c) {
+					kinds = withoutMemory(kinds)
+				}
 				if len(kinds) == 0 {
 					return session.Tool{}, false, "this agent was not given the right to change anything"
 				}
@@ -159,6 +162,9 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	}
 	if err := c.Require(changeCapability(args.Kind)); err != nil {
 		return "", err
+	}
+	if memoryKindOf(args.Kind) && !h.s.memoryWritable(ctx, c) {
+		return "", errors.New("memory is off here, so nothing was proposed or saved. Do not try again; say so in plain words if they ask.")
 	}
 	if args.Files != nil {
 		if args.Kind != string(contract.ChangePage) || args.Content != "" {

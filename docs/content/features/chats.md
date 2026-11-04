@@ -1331,7 +1331,7 @@ it off, so a chat that never touches the menu works as before:
 | **Sub-agents** | `subagents` | `spawn_agent` |
 | **Saved agents** | `saved_agents` | `list_agents` and the `agent` argument of `spawn_agent` (opt-in) |
 | **Triggers** | `triggers` | `propose_trigger`, `list_triggers`, `update_trigger` and `delete_trigger` |
-| **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose on the Short memory page to have them saved at once with an Undo, or never (see [Short memory](/features/short-memory/#choose-how-a-note-is-saved)) |
+| **Suggested changes** | `changes` | `propose_change` and `revert_change`: a model asks to change your notes, an agent profile, a skill, a page or the dashboard, and you confirm (see [change proposals](/features/addons/#change-proposals-from-chats)); for memory notes only, you can choose in your account settings to have them saved at once with an Undo, or never (see [Memory](/features/short-memory/#choose-how-a-note-is-saved)) |
 
 ```bash
 curl -s -X PUT localhost:8080/api/chats/$ID/builtins -d '{"off":["web","files"]}'
@@ -1594,8 +1594,7 @@ With authentication off, chats belong to one anonymous owner.
 ## Memory settings
 
 Your settings page (Account) has a **Memory** tab. It lists the notes that the host
-puts in the prompt of your chats when the [Short memory add-on](/features/short-memory/)
-(or another add-on that declares context files) is installed: your own index and its topic files, the notes of
+puts in the prompt of your chats ([Memory](/features/short-memory/) is built in, and another add-on can declare context files): your own index and its topic files, the notes of
 each saved agent and of each connector conversation, and the agent profiles. Each
 index shows its size against the caps (at most 40 lines and 2 KiB for an index,
 4 KiB for a profile, 6 KiB of notes in one turn). You can open a file, edit it,

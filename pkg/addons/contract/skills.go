@@ -40,7 +40,19 @@ type SkillDefinition struct {
 // ship under their name: they describe LocalAI itself. A test derives the
 // built-in names from the embedded tree and fails when one is neither here
 // nor a reserved document slot.
-var protectedSkills = []string{"localai-workspace", "localai-apps", "writing-skills"}
+var protectedSkills = []string{"localai-workspace", "localai-apps", "writing-skills", "memory", "memory-check-own-files"}
+
+// LegacyMemoryAddonID is the add-on that used to ship the two memory skills.
+// They are built into the host now; the package keeps declaring them so an
+// installed copy stays valid, and the host does not load its copies (the
+// built-in skills win).
+const LegacyMemoryAddonID = "memory"
+
+// LegacyMemorySkill reports whether name is one of the memory skills that the
+// add-on id declared before they became built-in.
+func LegacyMemorySkill(addonID, name string) bool {
+	return addonID == LegacyMemoryAddonID && (name == "memory" || name == "memory-check-own-files")
+}
 
 // ProtectedSkill reports whether name is a built-in skill that an add-on may
 // not replace.
@@ -117,7 +129,7 @@ func validateSkillDefinitions(id string, defs []SkillDefinition) error {
 		if DocumentSkill(d.Name) {
 			return fmt.Errorf("skill %s: reserved document name requires same-name shadows", d.Name)
 		}
-		if BuiltinSkillName(d.Name) {
+		if BuiltinSkillName(d.Name) && !LegacyMemorySkill(id, d.Name) {
 			return fmt.Errorf("skill %s: the name is a built-in skill", d.Name)
 		}
 		if !PlainSkillName(id, d.Name) {
