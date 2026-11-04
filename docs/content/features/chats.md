@@ -498,7 +498,7 @@ curl -X POST .../api/chats/3f1c.../regenerate
 curl -X POST .../api/chats/3f1c.../messages/12/edit -d '{"text":"A better question"}'
 # Copy the chat up to and including line 14 into a new chat.
 curl -X POST .../api/chats/3f1c.../fork -d '{"from_seq":14,"title":"Other idea"}'
-# Find chats by title or by what was said (newest 500 chats).
+# Find chats by title or by what was said, in all your chats.
 curl '.../api/chats/search?q=invoice'
 # Take a chat out as Markdown (default) or JSON, and bring a JSON file back in.
 curl '.../api/chats/3f1c.../export?format=json' > chat.json
@@ -518,6 +518,17 @@ curl -X POST .../api/chats/import -d "{\"chat\": $(cat chat.json)}"
   name the files of a message, not their paths. An import
   makes a new chat of yours with the model of the file, or the one named in
   `model`, which you must be allowed to use.
+
+### Search your chats
+
+`GET /api/chats/search?q=...` searches the titles and the messages (yours and the model's) of all your chats. It does not search the runs of sub-agents, and it never returns a chat of another user.
+
+- **Words and phrases.** A message matches when it holds every word of `q`, in any order, as part of a word or whole. A phrase in double quotes counts as one word: `q="port of qdrant"`. The search ignores case.
+- **Ranking.** The best match comes first: a message with the whole phrase or with whole words ranks above one with word parts, and newer messages rank above older ones. A search ranks the newest 600 matching messages.
+- **One hit for each chat.** A hit carries `chat` (with the agent and the origin), `seq` (the line of the message), `role`, `at`, a `snippet` and `highlights`: the parts of the snippet that match, as `start` and `end` offsets in UTF-16 units, so a client can mark them without parsing HTML. Add `group=message` to get every matching line.
+- **Filters.** `agent` (a saved agent), `origin` (`person`, `automated`, `trigger`, `connector`, `job` or `page`), `role` (`user` or `assistant`), `since` and `until` (a date `YYYY-MM-DD` or an RFC 3339 time; a date in `until` includes that whole day) and `limit` (default 50, at most 200).
+- **After an upgrade.** The server keeps a search index. When it starts with chats from before the index, it adds them in the background and logs the progress; the answer says `indexing: true` until that ends, and older chats can be missing meanwhile. The index uses SQLite FTS5 (trigram), or `pg_trgm` on PostgreSQL; without them the server scans. Deleting a chat, or regenerating or editing from a message, removes the old text from the index in the same step.
+- **Chats in files.** A server that keeps chats in files (no database) has no index. It scans the newest chats first for up to two seconds and sets `partial: true` with `searched_chats` and `total_chats` when it stopped early.
 
 ## Images, video and documents
 

@@ -7535,7 +7535,7 @@ const docTemplate = `{
         },
         "/api/chats/search": {
             "get": {
-                "description": "Finds chats whose title or messages contain the text, ignoring case. The newest chats come first. It reads the newest 500 chats.",
+                "description": "Finds the messages and titles of your chats that hold every word of the text (a phrase in double quotes counts as one word), ignoring case. It searches all your chats, not only the newest, except the runs of sub-agents. The best match comes first: whole words, the whole phrase and newer messages rank higher. By default each chat appears once, with its best line; group=message returns every matching line. A hit has the line (seq), who wrote it, when, a snippet and the parts of the snippet that match (highlights, UTF-16 offsets). Messages written before the search index existed are added in the background after an upgrade (indexing is true meanwhile). A server that keeps chats in files has no index: it scans for a few seconds and says when it stopped early (partial).",
                 "tags": [
                     "chats"
                 ],
@@ -7543,15 +7543,51 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "text to find",
+                        "description": "text to find: words that must all be in the message",
                         "name": "q",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "most chats to return (default 50, at most 200)",
+                        "description": "most hits to return (default 50, at most 200)",
                         "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only chats of this saved agent",
+                        "name": "agent",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only chats of one origin: person, automated, trigger, connector, job or page",
+                        "name": "origin",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only lines written by user or assistant",
+                        "name": "role",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only lines at or after this date (YYYY-MM-DD) or time (RFC 3339)",
+                        "name": "since",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "only lines before this time, or on or before this date (YYYY-MM-DD)",
+                        "name": "until",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "chat (default): one hit per chat; message: every matching line",
+                        "name": "group",
                         "in": "query"
                     }
                 ],
@@ -7560,6 +7596,12 @@ const docTemplate = `{
                         "description": "The matching chats",
                         "schema": {
                             "$ref": "#/definitions/schema.ChatsChatSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "The request is not valid",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     }
                 }
@@ -21327,15 +21369,34 @@ const docTemplate = `{
         "schema.ChatsChatHit": {
             "type": "object",
             "properties": {
+                "at": {
+                    "description": "At is when the matching line was written.",
+                    "type": "string"
+                },
                 "chat": {
                     "$ref": "#/definitions/schema.ChatsConversation"
+                },
+                "highlights": {
+                    "description": "Highlights are the parts of Snippet that match, in order.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ChatsSearchRange"
+                    }
                 },
                 "in_title": {
                     "description": "InTitle is true when the title matches.",
                     "type": "boolean"
                 },
+                "matches": {
+                    "description": "Matches is how many lines of the chat match, among the newest matches.",
+                    "type": "integer"
+                },
+                "role": {
+                    "description": "Role is user or assistant: who wrote the matching line.",
+                    "type": "string"
+                },
                 "seq": {
-                    "description": "Seq is the first matching transcript line, or 0 when only the title matches.",
+                    "description": "Seq is the matching transcript line, or 0 when only the title matches.",
                     "type": "integer"
                 },
                 "snippet": {
@@ -21347,11 +21408,29 @@ const docTemplate = `{
         "schema.ChatsChatSearchResponse": {
             "type": "object",
             "properties": {
+                "engine": {
+                    "description": "Engine is how the server searched: fts5, pg_trgm, scan or memory.",
+                    "type": "string"
+                },
                 "hits": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/schema.ChatsChatHit"
                     }
+                },
+                "indexing": {
+                    "description": "Indexing is true while the server still adds earlier chats to its\nsearch index, so older chats may be missing from the hits.",
+                    "type": "boolean"
+                },
+                "partial": {
+                    "description": "Partial is true when a server without an index stopped before it had\nread every chat; SearchedChats of TotalChats were read.",
+                    "type": "boolean"
+                },
+                "searched_chats": {
+                    "type": "integer"
+                },
+                "total_chats": {
+                    "type": "integer"
                 }
             }
         },
@@ -24044,6 +24123,17 @@ const docTemplate = `{
                 },
                 "snippet": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.ChatsSearchRange": {
+            "type": "object",
+            "properties": {
+                "end": {
+                    "type": "integer"
+                },
+                "start": {
+                    "type": "integer"
                 }
             }
         },

@@ -50,6 +50,7 @@ func texts(ps []store.Pending) []string {
 func Run(newStore New) {
 	// The loop's own transcript contract.
 	sessiontest.RunStoreSuite(func() session.Store { return newStore() })
+	runSearch(newStore)
 
 	It("skill switches round-trip, survive a chat update and belong to the owner", func() {
 		s := newStore()
