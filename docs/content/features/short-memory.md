@@ -59,6 +59,12 @@ whatever you choose:
 - Chats that come from a messaging app always ask first. The person who wrote the
   message is not always you, so a message from outside can never save to your memory
   without your confirmation. Scheduled and background runs cannot save notes at all.
+  The bot writes the question in the chat ("I can save a note ... Reply yes to save it or
+  no to drop it"), and a sender whom you trust with the permission **Confirm changes from
+  the chat** answers there with `yes` or `no`, within 24 hours. `undo` takes a saved note
+  back for 30 minutes. Another sender, or one without that permission, cannot answer: the
+  note waits in Studio for you. See
+  [Confirming a change in the chat](/features/chats-connectors/#confirming-a-change-in-the-chat).
 - A saved agent cannot widen your choice. If you choose to be asked, it asks, even when
   you let it write to memory.
 - A reply saves at most 5 notes at once. A long note, or one that looks like it holds a

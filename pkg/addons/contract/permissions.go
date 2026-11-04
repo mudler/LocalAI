@@ -83,7 +83,7 @@ type CapabilityInfo struct {
 // capabilityText is the title and description of each capability. Titles are
 // short verbs; descriptions say what changes and who can cause it.
 var capabilityText = map[string][2]string{
-	CapProposalsConfirm: {"Confirm changes from the chat", "A sender can confirm a change that the agent proposed, such as a memory or a trigger, by answering in the same chat."},
+	CapProposalsConfirm: {"Confirm changes from the chat", "A sender can confirm a trigger or a change that the agent proposed (a memory note, the agent rules, a skill, a page or the dashboard) by answering yes or no in the same chat. Changes to the rules, skills, pages and dashboard need a paired sender."},
 	CapMemoryWrite:      {"Save to memory", "The agent may remember what a sender asks it to remember."},
 	CapFilesUpload:      {"Receive files", "The agent may read files that senders attach to a message."},
 	CapTriggersPropose:  {"Propose triggers", "The agent may propose a timer or an event trigger when a sender asks for one."},

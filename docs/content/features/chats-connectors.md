@@ -625,7 +625,7 @@ owner paired with this bot"). The model is told to relay it and not to say that 
 no such tool. Today this gates the
 agent's change proposals (`memory.write` for a memory note, `profile.write` for a
 profile), files sent to the bot (`files.upload`), the trigger tools
-(`triggers.propose`), and the confirm phrase (`proposals.confirm`). Messages from a
+(`triggers.propose`), and the confirm phrase (`proposals.confirm`), which answers trigger proposals and change proposals alike. Messages from a
 sender who may not send files get a short refusal and no turn.
 
 A binding that was stored before this check has no capabilities. Enable what you want
@@ -735,6 +735,42 @@ The preview writes nothing and records no decision. It does not take a token and
 reply never has one. It uses the same sign-in, Connectors feature and routing as the
 other connector routes, and the connection of another user is a 404.
 
+## Confirming a change in the chat
+
+When the agent proposes a change that lasts (a memory note, a change of its rules, a
+skill, a page or the Home dashboard, with `propose_change`) in a chat from a messaging
+app, LocalAI writes the question in that chat. The model does not write it, and it does
+not send the person to Studio. Messaging chats always ask first; this only gives the
+answer a place.
+
+- **The question.** For example: `I can save a note in the memory (every chat of the
+  owner): Standup time`, then the lines that will be added (at most 8 lines or 500
+  characters), then `Reply "yes" to save it or "no" to drop it, here, within 24 hours. If
+  more than one waits, reply "confirm CODE" or "cancel CODE".` The code has four
+  characters and is the same on every frontend. Mentions that notify everyone are broken.
+- **The answer.** A short word as the whole message, with the same words and languages as
+  for triggers: `yes`, `ok`, `confirm` to save, `no`, `cancel` to drop. LocalAI reads it
+  before any model turn and the model never sees it. The reply says what happened, for
+  example `Saved: Standup time. Reply "undo" within 30 minutes to take it back.`
+- **Undo.** The word `undo`, alone, within 30 minutes of a save that was made from the
+  chat, restores the earlier text (`Removed: ...`). Any other word does not undo.
+- **Several waiting.** A bare word answers only when exactly one proposal (a change or a
+  trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
+  person writes `confirm CODE` or `cancel CODE`.
+- **Who may answer.** A sender who holds `proposals.confirm` on the binding (a sender on
+  the allowlist by ID or name, a paired sender, or a role with the grant). A change of
+  the rules of the agent, a skill, a page or the dashboard needs a paired sender. In a
+  shared chat only the sender whose message made the proposal can answer; in a private
+  chat any trusted sender of that chat can. Another sender gets one sentence, `Only the
+  owner can confirm this.` or `Only the person who asked can confirm this.`, and the
+  proposal keeps waiting. When the sender who asked cannot confirm, the bot writes no
+  question and the proposal waits in Studio for the owner; the model is told so.
+- **Time.** A proposal lapses after 24 hours. For 15 minutes after that, a bare word is
+  answered with `That proposal expired. Ask again if you still want it.`; later it is
+  an ordinary message.
+- **Studio.** The same proposal shows as a card in Studio; whichever answer comes first
+  wins and the other finds it closed. Every answer is in the audit of changes.
+
 ## Triggers from a connector chat
 
 When the binding holds the capability `triggers.propose`, the agent can propose a
@@ -753,7 +789,8 @@ trigger stays in Studio. Nothing runs before the owner confirms.
   `confirm CODE` or `cancel CODE`. Any longer message goes to the agent as usual. It
   needs the capability `proposals.confirm` for that sender (a sender on the allowlist by ID
   or name, a paired sender, or a role with the grant); a message from any other sender, or text the agent read, never answers
-  a proposal. A code is used once, and a proposal lapses after 24 hours. Studio always
+  a proposal. The same words confirm a change of the agent (see
+  [Confirming a change in the chat](#confirming-a-change-in-the-chat)). A code is used once, and a proposal lapses after 24 hours. Studio always
   works as well.
 - **Permissions are in the text.** The proposal says what a run may do with nobody
   present, in plain words: "Permissions: read only", or the `act.*` classes it carries,

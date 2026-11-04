@@ -86,6 +86,10 @@ type ChangeSource struct {
 	ID     string `json:"id,omitempty"`
 	Chat   string `json:"chat,omitempty"`
 	Thread string `json:"thread,omitempty"`
+	// Sender is the platform ID of the sender whose message made a connector
+	// chat propose this change. The host keeps it so that, in a shared chat,
+	// only that sender can answer the proposal there.
+	Sender string `json:"sender,omitempty"`
 }
 
 // ChangeProposal is one proposed change. Content is the full new text of the

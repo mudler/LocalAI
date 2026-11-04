@@ -95,6 +95,15 @@ func expectProposeConfirmRevert(r *trigRig, send func(string), wantKind, wantID 
 	res := r.h.ResultsFor("propose_change")
 	Expect(res[0].Err).To(BeNil(), "result = %+v", res)
 	Expect(res[0].Out).To(ContainSubstring("Nothing is saved yet"))
+	if wantKind == "" {
+		// A chat the person watches in Studio keeps the Studio wording; a
+		// connector chat is told the host asked in the chat (connectorchange_test.go).
+		Expect(res[0].Out).To(ContainSubstring("confirm it in Studio"))
+		Expect(res[0].Out).NotTo(ContainSubstring("yes or no"))
+	} else {
+		Expect(res[0].Out).To(ContainSubstring("the person answers there with yes or no"))
+		Expect(res[0].Out).NotTo(ContainSubstring("Studio"))
+	}
 	p := onlyProposal(r)
 	Expect(p.Status).To(Equal(contract.ProposalPending))
 	wantSource := p.Source
@@ -380,11 +389,15 @@ var _ = Describe("change proposals", func() {
 			r := newConnRig(sh, connStore(), bot, changeScript("channel", "- home: Rome\n"), nil)
 			r.grantMemory()
 			b := r.bind(studio.ConnectorInput{Allow: []string{"11"}})
-			n := 0
+			n, want := 0, 0
 			send := func(text string) {
 				n++
+				want++
+				if text == "remember" {
+					want++ // the host also writes the proposal in the chat
+				}
 				bot.say(n, 11, "Ada", "ada", text)
-				waitFor("the answer", func() bool { return len(bot.answers()) == n })
+				waitFor("the answer", func() bool { return len(bot.answers()) == want })
 			}
 			expectProposeConfirmRevert(r.trigRig, send, session.OriginConnector, b.ID, channelFile)
 		})
@@ -407,6 +420,9 @@ var _ = Describe("change proposals", func() {
 			n := 0
 			send := func(text string) {
 				n++
+				if text == "remember" {
+					n++ // the host also writes the proposal in the chat
+				}
 				f.Push(slackApp, slacktest.Mention("C1", "U1", "UBOT", text, ""))
 				waitFor("the answer", func() bool { return posted() == n })
 			}

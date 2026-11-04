@@ -16695,6 +16695,10 @@ const docTemplate = `{
                 "kind": {
                     "type": "string"
                 },
+                "sender": {
+                    "description": "Sender is the platform ID of the sender whose message made a connector\nchat propose this change. The host keeps it so that, in a shared chat,\nonly that sender can answer the proposal there.",
+                    "type": "string"
+                },
                 "thread": {
                     "type": "string"
                 }

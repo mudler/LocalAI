@@ -24,7 +24,7 @@ const (
 
 const proposeChangeDescription = "Ask to change something that lasts: a note in the user's memory, the profile of this agent, a skill, a page or the Home dashboard. " +
 	"Use it when the user asks you to remember, change or forget something, gives a rule you must keep, or asks for a skill, a page or a dashboard change. " +
-	"Unless the result says the note was saved, it changes nothing by itself: the owner must confirm in Studio, and the proposal expires after a day. " +
+	"Unless the result says the note was saved, it changes nothing by itself: the person must confirm it (the result says how), and the proposal expires after a day. " +
 	"Never say that something is saved until the result says so. " +
 	"content is the full new text of the file, not a patch: read the current file first and keep what stays. " +
 	"kind is memory (a Markdown file under Memory/), profile (the agent's standing rules, at most 4 KiB, scope agent), " +
@@ -171,7 +171,7 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 		}
 		args.Content = string(b)
 	}
-	in := ProposeInput{User: c.Actor.Principal, Agent: c.AgentID, Source: sourceOf(c),
+	in := ProposeInput{User: c.Actor.Principal, Agent: c.AgentID, Source: h.sourceOf(c),
 		Kind: args.Kind, Scope: args.Scope, Target: args.Target, Content: args.Content, Summary: args.Summary}
 	// How a memory note is saved is the person's choice (see changemode.go).
 	// Every other kind always asks.
@@ -197,6 +197,11 @@ func (h *Changes) proposeTool(ctx context.Context, c builtins.Chat, raw json.Raw
 	// The card lets the interface show Confirm and Dismiss on this tool line,
 	// also after a reload.
 	session.SetToolCard(ctx, session.ToolCard{Kind: ChangeProposalCardKind, ID: p.ID})
+	if c.Origin == session.OriginConnector {
+		// The person reads the chat of the messaging app, not Studio: the host
+		// writes the question there and the person answers it there.
+		return h.connectorProposed(ctx, c, p, autoNote), nil
+	}
 	return fmt.Sprintf("Proposal %s stored: %s (%s, %s). Nothing is saved yet: the owner must confirm it in Studio, and it expires in 24 hours. Do not say it is saved.%s",
 		p.ID, p.Summary, p.Kind, p.Scope, autoNote), nil
 }
