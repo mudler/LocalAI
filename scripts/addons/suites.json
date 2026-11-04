@@ -4586,7 +4586,7 @@
       "go: lists every release platform with its runner",
       "go: enables a platform exactly when its native check is recorded",
       "go: has a catalog template",
-      "go: has consistent package files for github"
+      "go: has consistent package files for github",
       "go: has consistent package files for jellyfin"
     ]
   },
