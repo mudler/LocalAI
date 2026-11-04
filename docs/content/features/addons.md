@@ -679,8 +679,9 @@ the add-on's connector op `me`, with the new token, who the person is. An
 characters (such as bidirectional overrides) from the account name, folds white
 space and keeps at most 128 characters, so "Connected as" cannot show another
 account than the one linked. The outcome is one of `ok`, `denied`,
-`invalid_state`, `provider_error`, `exchange_failed`, `scopes_missing` and
-`unavailable`; nothing the service wrote is copied into it.
+`invalid_state`, `provider_error`, `exchange_failed`, `scopes_missing`,
+`token_too_large` (the access token is larger than the 4096 bytes a request
+carries) and `unavailable`; nothing the service wrote is copied into it.
 
 Every credentialed call reads the grant:
 
@@ -704,6 +705,7 @@ Every credentialed call reads the grant:
 | Network error, timeout or 5xx | the call fails as an outage and may be repeated | unchanged |
 | 429 | `rate_limited` with the `Retry-After` of the service | unchanged |
 | `invalid_grant`, `invalid_client`, another refusal | `reconnect_needed` | secrets wiped, state `reconnect_needed` |
+| an access token over 4096 bytes | `reconnect_needed`, reason `token_too_large` | secrets wiped |
 | a `scope` without a required scope | `reconnect_needed`, reason `scopes_missing` | secrets wiped |
 | a `scope` with other scopes | the token is used | the granted scopes become those of the login that the service still grants; a scope the login never had is not added |
 | (descriptor changed, not approved yet) | `reconnect_needed` to the call; the connection shows `needs_approval`, and no token is used or sent | secrets kept, state `needs_approval` |
@@ -814,7 +816,8 @@ callback, which:
 - always answers `303` to the return page, with `oauth=ok`, `oauth=denied`
   (the person declined; a connection that worked keeps working) or
   `oauth=error&class=<class>`, where the class is `invalid_state`,
-  `provider_error`, `exchange_failed`, `scopes_missing` or `unavailable`. The
+  `provider_error`, `exchange_failed`, `scopes_missing`, `token_too_large` or
+  `unavailable`. The
   `error_description` of the service is never copied into the address, a page
   or a log.
 

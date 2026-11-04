@@ -5169,7 +5169,7 @@ definitions:
         description: |-
           Reason is a fixed code: revoked, client_rejected, refused,
           needs_approval, credential_rejected, expired, write_failed, unreadable,
-          scopes_missing or endpoint_changed.
+          scopes_missing, endpoint_changed or token_too_large.
         type: string
       scopes:
         description: Scopes are the scopes the service granted.
@@ -17841,8 +17841,8 @@ paths:
         binds the login to the browser). It always answers 303 to the page the login
         started from, with oauth=ok, oauth=denied (you declined; the connection stays
         as it was) or oauth=error and class=invalid_state, provider_error, exchange_failed,
-        scopes_missing or unavailable. The state works once and for ten minutes. Nothing
-        the service says is shown or logged.
+        scopes_missing, token_too_large or unavailable. The state works once and for
+        ten minutes. Nothing the service says is shown or logged.
       parameters:
       - description: the state of the login
         in: query

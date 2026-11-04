@@ -294,7 +294,8 @@
         "unreadable": "La connexion enregistrée n'a pas pu être lue.",
         "unknown": "La connexion ne fonctionne plus.",
         "scopes_missing": "Le service n'accorde plus tout l'accès dont ce module a besoin. Reconnectez-vous et autorisez-le.",
-        "endpoint_changed": "Le module envoie maintenant les connexions à une autre adresse du service, donc cette connexion ne peut pas le suivre. Reconnectez-vous."
+        "endpoint_changed": "Le module envoie maintenant les connexions à une autre adresse du service, donc cette connexion ne peut pas le suivre. Reconnectez-vous.",
+        "token_too_large": "Le service a renouvelé la connexion avec un jeton d'accès plus grand que ce que LocalAI peut utiliser (4096 octets)."
       },
       "approvalUser": "Un administrateur doit d'abord approuver ce module.",
       "approvalUserChanged": "La connexion de ce module a changé. Un administrateur doit l'approuver à nouveau.",
@@ -310,7 +311,8 @@
           "exchange_failed": "Le service n'a pas terminé la connexion. Reconnectez-vous.",
           "scopes_missing": "Le service n'a pas accordé tout l'accès dont ce module a besoin. Reconnectez-vous et autorisez-le.",
           "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
-          "unknown": "La connexion n'a pas pu aboutir. Reconnectez-vous."
+          "unknown": "La connexion n'a pas pu aboutir. Reconnectez-vous.",
+          "token_too_large": "Le service a émis un jeton d'accès plus grand que ce que LocalAI peut utiliser (4096 octets), donc la connexion n'a pas été enregistrée. Un administrateur devra peut-être changer la façon dont le service émet les jetons pour ce client."
         }
       },
       "errors": {

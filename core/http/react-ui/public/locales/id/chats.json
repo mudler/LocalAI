@@ -294,7 +294,8 @@
         "unreadable": "Login yang tersimpan tidak dapat dibaca.",
         "unknown": "Login tidak berfungsi lagi.",
         "scopes_missing": "Layanan tidak lagi memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
-        "endpoint_changed": "Add-on ini sekarang mengirim login ke alamat lain dari layanan, jadi login ini tidak bisa ikut pindah. Hubungkan lagi."
+        "endpoint_changed": "Add-on ini sekarang mengirim login ke alamat lain dari layanan, jadi login ini tidak bisa ikut pindah. Hubungkan lagi.",
+        "token_too_large": "Layanan memperbarui login dengan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte)."
       },
       "approvalUser": "Administrator harus menyetujui add-on ini terlebih dahulu.",
       "approvalUserChanged": "Login add-on ini berubah. Administrator harus menyetujuinya lagi.",
@@ -310,7 +311,8 @@
           "exchange_failed": "Layanan tidak menyelesaikan login. Hubungkan lagi.",
           "scopes_missing": "Layanan tidak memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan.",
           "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
-          "unknown": "Login tidak dapat diselesaikan. Hubungkan lagi."
+          "unknown": "Login tidak dapat diselesaikan. Hubungkan lagi.",
+          "token_too_large": "Layanan menerbitkan token akses yang lebih besar dari yang bisa dipakai LocalAI (4096 byte), jadi login tidak disimpan. Administrator mungkin perlu mengubah cara layanan menerbitkan token untuk klien ini."
         }
       },
       "errors": {

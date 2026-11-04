@@ -420,6 +420,10 @@ var _ = Describe("OAuth routes of the connections", func() {
 		Expect(class(url.Values{"code": {"c"}})).To(Equal("unavailable"))
 		env.srv.Set(func(s *oauthtokentest.Server) { s.Fail, s.FailStatus, s.Scope = "", 0, "write" })
 		Expect(class(url.Values{"code": {"c"}})).To(Equal("scopes_missing"))
+		env.srv.Set(func(s *oauthtokentest.Server) {
+			s.Scope, s.Body = "", `{"access_token":"`+strings.Repeat("a", 4097)+`","token_type":"bearer"}`
+		})
+		Expect(class(url.Values{"code": {"c"}})).To(Equal("token_too_large"))
 		Expect(env.logs.String()).NotTo(ContainSubstring("description-sentinel"))
 	})
 

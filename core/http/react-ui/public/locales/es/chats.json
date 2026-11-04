@@ -294,7 +294,8 @@
         "unreadable": "No se pudo leer el inicio de sesión guardado.",
         "unknown": "El inicio de sesión ya no funciona.",
         "scopes_missing": "El servicio ya no concede todo el acceso que necesita este complemento. Vuelve a conectarte y permítelo.",
-        "endpoint_changed": "El complemento ahora envía los inicios de sesión a otra dirección del servicio, así que este inicio de sesión no puede pasar a ella. Vuelve a conectarte."
+        "endpoint_changed": "El complemento ahora envía los inicios de sesión a otra dirección del servicio, así que este inicio de sesión no puede pasar a ella. Vuelve a conectarte.",
+        "token_too_large": "El servicio renovó el inicio de sesión con un token de acceso más grande del que LocalAI puede usar (4096 bytes)."
       },
       "approvalUser": "Un administrador debe aprobar primero este complemento.",
       "approvalUserChanged": "El inicio de sesión de este complemento cambió. Un administrador debe aprobarlo de nuevo.",
@@ -310,7 +311,8 @@
           "exchange_failed": "El servicio no completó el inicio de sesión. Vuelve a conectarte.",
           "scopes_missing": "El servicio no concedió todo el acceso que necesita este complemento. Vuelve a conectarte y permítelo.",
           "unavailable": "No se pudo contactar con el complemento. Inténtalo más tarde.",
-          "unknown": "No se pudo terminar el inicio de sesión. Vuelve a conectarte."
+          "unknown": "No se pudo terminar el inicio de sesión. Vuelve a conectarte.",
+          "token_too_large": "El servicio emitió un token de acceso más grande del que LocalAI puede usar (4096 bytes), así que el inicio de sesión no se guardó. Puede que un administrador tenga que cambiar cómo el servicio emite tokens para este cliente."
         }
       },
       "errors": {

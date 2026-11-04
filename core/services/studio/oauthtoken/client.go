@@ -15,6 +15,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -62,6 +63,10 @@ var (
 	// no access token, a token that is not a bearer token or does not fit a
 	// request.
 	ErrBadResponse = errors.New("oauth: the token response is not usable")
+	// ErrTokenTooLarge is a bad response whose access token does not fit a
+	// request (contract.MaxCredentialBytes). errors.Is reports it as
+	// ErrBadResponse too.
+	ErrTokenTooLarge = fmt.Errorf("%w: the access token is larger than %d bytes", ErrBadResponse, contract.MaxCredentialBytes)
 	// ErrDescriptor is a descriptor that is not valid. Nothing was sent.
 	ErrDescriptor = errors.New("oauth: the descriptor is not valid")
 	// ErrNoRevocation is a descriptor without a revocation endpoint.
@@ -223,7 +228,10 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 	if json.Unmarshal(bytes.TrimSpace(body), &a) != nil {
 		return Tokens{}, ErrBadResponse
 	}
-	if a.AccessToken == "" || len(a.AccessToken) > contract.MaxCredentialBytes || !headerSafe(a.AccessToken) ||
+	if len(a.AccessToken) > contract.MaxCredentialBytes {
+		return Tokens{}, ErrTokenTooLarge
+	}
+	if a.AccessToken == "" || !headerSafe(a.AccessToken) ||
 		!strings.EqualFold(a.TokenType, "bearer") || len(a.RefreshToken) > MaxRefreshBytes {
 		return Tokens{}, ErrBadResponse
 	}

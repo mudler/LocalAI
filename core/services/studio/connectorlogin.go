@@ -43,6 +43,9 @@ const (
 	// LoginUnavailable: the service or the add-on did not answer. The person
 	// may try again.
 	LoginUnavailable = "unavailable"
+	// LoginTokenTooLarge: the service issued an access token larger than a
+	// request carries (contract.MaxCredentialBytes).
+	LoginTokenTooLarge = "token_too_large"
 )
 
 // MaxLoginStartsPerMinute bounds the login starts of one person. The store
@@ -306,6 +309,8 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 	case err == nil:
 	case errors.Is(err, oauthtoken.ErrUnavailable), errors.As(err, &limited):
 		return fail(LoginUnavailable)
+	case errors.Is(err, oauthtoken.ErrTokenTooLarge):
+		return fail(LoginTokenTooLarge)
 	default:
 		return fail(LoginExchangeFailed)
 	}

@@ -367,7 +367,13 @@ var _ = Describe("OAuth connections", func() {
 					ls, state = r.start(b)
 					res, _ = r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
 					Expect(res.Outcome).To(Equal(studio.LoginScopesMissing))
-					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope, s.Fail, s.FailStatus = "", "server_error", 503 })
+					r.srv.Set(func(s *oauthtokentest.Server) {
+						s.Scope, s.Body = "", `{"access_token":"`+strings.Repeat("a", contract.MaxCredentialBytes+1)+`","token_type":"bearer"}`
+					})
+					ls, state = r.start(b)
+					res, _ = r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
+					Expect(res.Outcome).To(Equal(studio.LoginTokenTooLarge))
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Body, s.Fail, s.FailStatus = "", "server_error", 503 })
 					ls, state = r.start(b)
 					res, _ = r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
 					Expect(res.Outcome).To(Equal(studio.LoginUnavailable))
@@ -591,6 +597,9 @@ var _ = Describe("OAuth connections", func() {
 					Entry("invalid_grant", func(s *oauthtokentest.Server) { s.Fail = "invalid_grant" }, studio.ReasonRevoked),
 					Entry("invalid_client", func(s *oauthtokentest.Server) { s.Fail, s.FailStatus = "invalid_client", 401 }, studio.ReasonClientRejected),
 					Entry("another refusal", func(s *oauthtokentest.Server) { s.Fail = "invalid_scope" }, studio.ReasonRefused),
+					Entry("an access token too large for a request", func(s *oauthtokentest.Server) {
+						s.Body = `{"access_token":"` + strings.Repeat("a", contract.MaxCredentialBytes+1) + `","token_type":"bearer"}`
+					}, studio.ReasonTokenTooLarge),
 				)
 
 				It("keeps the grant as it was when the service is unavailable or rate limits", func() {

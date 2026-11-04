@@ -294,7 +294,8 @@
         "unreadable": "Não foi possível ler o login salvo.",
         "unknown": "O login não funciona mais.",
         "scopes_missing": "O serviço não concede mais todo o acesso de que este add-on precisa. Conecte de novo e permita.",
-        "endpoint_changed": "O add-on agora envia os logins para outro endereço do serviço, então este login não pode ser levado junto. Conecte de novo."
+        "endpoint_changed": "O add-on agora envia os logins para outro endereço do serviço, então este login não pode ser levado junto. Conecte de novo.",
+        "token_too_large": "O serviço renovou o login com um token de acesso maior do que o LocalAI consegue usar (4096 bytes)."
       },
       "approvalUser": "Um administrador precisa aprovar este add-on primeiro.",
       "approvalUserChanged": "O login deste add-on mudou. Um administrador precisa aprová-lo de novo.",
@@ -310,7 +311,8 @@
           "exchange_failed": "O serviço não concluiu o login. Conecte de novo.",
           "scopes_missing": "O serviço não concedeu todo o acesso de que este add-on precisa. Conecte de novo e permita.",
           "unavailable": "Não foi possível acessar o add-on. Tente mais tarde.",
-          "unknown": "Não foi possível concluir o login. Conecte de novo."
+          "unknown": "Não foi possível concluir o login. Conecte de novo.",
+          "token_too_large": "O serviço emitiu um token de acesso maior do que o LocalAI consegue usar (4096 bytes), então o login não foi salvo. Talvez um administrador precise mudar como o serviço emite tokens para este cliente."
         }
       },
       "errors": {

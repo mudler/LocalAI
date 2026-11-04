@@ -82,6 +82,7 @@ var oauthErrorClasses = map[string]bool{
 	studiosvc.LoginExchangeFailed: true,
 	studiosvc.LoginScopesMissing:  true,
 	studiosvc.LoginUnavailable:    true,
+	studiosvc.LoginTokenTooLarge:  true,
 }
 
 // appPath and appQuery are the shape of an address of the web app that the
@@ -246,7 +247,7 @@ func (h *Handlers) StartConnectorOAuth(c echo.Context) error {
 
 // ConnectorOAuthCallback finishes a login.
 // @Summary Finish the login of a connection that uses OAuth.
-// @Description The service sends the browser here after the login; register this address with the service as the redirect URI. It needs the session of the person who started the login (with authentication off, the nonce cookie alone binds the login to the browser). It always answers 303 to the page the login started from, with oauth=ok, oauth=denied (you declined; the connection stays as it was) or oauth=error and class=invalid_state, provider_error, exchange_failed, scopes_missing or unavailable. The state works once and for ten minutes. Nothing the service says is shown or logged.
+// @Description The service sends the browser here after the login; register this address with the service as the redirect URI. It needs the session of the person who started the login (with authentication off, the nonce cookie alone binds the login to the browser). It always answers 303 to the page the login started from, with oauth=ok, oauth=denied (you declined; the connection stays as it was) or oauth=error and class=invalid_state, provider_error, exchange_failed, scopes_missing, token_too_large or unavailable. The state works once and for ten minutes. Nothing the service says is shown or logged.
 // @Tags chats
 // @Param state query string false "the state of the login"
 // @Param code query string false "the code the service gave"

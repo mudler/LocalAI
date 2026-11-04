@@ -37,7 +37,7 @@ test('oauth: the row shows one state for each login state', () => {
 })
 
 test('oauth: every reconnect reason has its own text, an unknown one the generic text', () => {
-  for (const r of ['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing', 'endpoint_changed']) assert.equal(reasonKey(r), r)
+  for (const r of ['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing', 'endpoint_changed', 'token_too_large']) assert.equal(reasonKey(r), r)
   assert.equal(reasonKey('something_new'), 'unknown')
   assert.equal(reasonKey(undefined), 'unknown')
 })
@@ -62,7 +62,7 @@ test('oauth: the page reads the result of a login once and strips it from the qu
   assert.equal(readOAuthReturn('?tab=x'), null)
   assert.deepEqual(readOAuthReturn('?oauth=ok'), { outcome: 'ok', classKey: '', search: '' })
   assert.deepEqual(readOAuthReturn('?oauth=denied&tab=x'), { outcome: 'denied', classKey: '', search: 'tab=x' })
-  for (const c of ['invalid_state', 'provider_error', 'exchange_failed', 'scopes_missing', 'unavailable']) {
+  for (const c of ['invalid_state', 'provider_error', 'exchange_failed', 'scopes_missing', 'unavailable', 'token_too_large']) {
     assert.deepEqual(readOAuthReturn(`?oauth=error&class=${c}`), { outcome: 'error', classKey: c, search: '' })
   }
   // Text the service may have put in the address is never shown: an unknown

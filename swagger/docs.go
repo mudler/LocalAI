@@ -5892,7 +5892,7 @@ const docTemplate = `{
         },
         "/api/chats/connectors/oauth/callback": {
             "get": {
-                "description": "The service sends the browser here after the login; register this address with the service as the redirect URI. It needs the session of the person who started the login (with authentication off, the nonce cookie alone binds the login to the browser). It always answers 303 to the page the login started from, with oauth=ok, oauth=denied (you declined; the connection stays as it was) or oauth=error and class=invalid_state, provider_error, exchange_failed, scopes_missing or unavailable. The state works once and for ten minutes. Nothing the service says is shown or logged.",
+                "description": "The service sends the browser here after the login; register this address with the service as the redirect URI. It needs the session of the person who started the login (with authentication off, the nonce cookie alone binds the login to the browser). It always answers 303 to the page the login started from, with oauth=ok, oauth=denied (you declined; the connection stays as it was) or oauth=error and class=invalid_state, provider_error, exchange_failed, scopes_missing, token_too_large or unavailable. The state works once and for ten minutes. Nothing the service says is shown or logged.",
                 "tags": [
                     "chats"
                 ],
@@ -22499,7 +22499,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "reason": {
-                    "description": "Reason is a fixed code: revoked, client_rejected, refused,\nneeds_approval, credential_rejected, expired, write_failed, unreadable,\nscopes_missing or endpoint_changed.",
+                    "description": "Reason is a fixed code: revoked, client_rejected, refused,\nneeds_approval, credential_rejected, expired, write_failed, unreadable,\nscopes_missing, endpoint_changed or token_too_large.",
                     "type": "string"
                 },
                 "scopes": {

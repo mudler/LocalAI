@@ -67,6 +67,9 @@ const (
 	// ReasonScopesMissing: a refresh granted fewer than the required scopes,
 	// or a newly approved descriptor requires a scope the login lacks.
 	ReasonScopesMissing = "scopes_missing"
+	// ReasonTokenTooLarge: a refresh gave an access token larger than a
+	// request carries.
+	ReasonTokenTooLarge = "token_too_large"
 	// ReasonEndpointChanged: the approved descriptor of the add-on sends the
 	// refresh token to another token or revocation endpoint than the one the
 	// login used. The token is never sent there.
@@ -445,6 +448,8 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonRevoked)
 	case errors.Is(err, oauthtoken.ErrInvalidClient):
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonClientRejected)
+	case errors.Is(err, oauthtoken.ErrTokenTooLarge):
+		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonTokenTooLarge)
 	case errors.Is(err, oauthtoken.ErrRefused), errors.Is(err, oauthtoken.ErrBadResponse):
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonRefused)
 	default:

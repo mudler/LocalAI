@@ -1718,7 +1718,7 @@ type ChatsConnectorOAuth struct {
 	State string `json:"state" enums:"connected,reconnect_needed,not_connected,needs_approval"`
 	// Reason is a fixed code: revoked, client_rejected, refused,
 	// needs_approval, credential_rejected, expired, write_failed, unreadable,
-	// scopes_missing or endpoint_changed.
+	// scopes_missing, endpoint_changed or token_too_large.
 	Reason string `json:"reason,omitempty"`
 	// AccountLabel is who the login is at the service, as the add-on says.
 	AccountLabel string `json:"account_label,omitempty"`

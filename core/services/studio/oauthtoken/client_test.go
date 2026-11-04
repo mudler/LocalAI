@@ -104,7 +104,7 @@ var _ = Describe("the token client", func() {
 		Entry("a token that is not a bearer token", func(s *oauthtokentest.Server) { s.TokenType = "mac" }, oauthtoken.ErrBadResponse),
 		Entry("a token larger than a credential", func(s *oauthtokentest.Server) {
 			s.Body = `{"access_token":"` + strings.Repeat("a", contract.MaxCredentialBytes+1) + `","token_type":"bearer"}`
-		}, oauthtoken.ErrBadResponse),
+		}, oauthtoken.ErrTokenTooLarge),
 		Entry("a body over 64 KiB", func(s *oauthtokentest.Server) {
 			s.Body = `{"access_token":"a","token_type":"bearer","x":"` + strings.Repeat("a", 64<<10) + `"}`
 		}, oauthtoken.ErrBadResponse),
@@ -118,6 +118,20 @@ var _ = Describe("the token client", func() {
 			s.Scope = "read " + strings.Repeat("a", contract.MaxOAuthScopeBytes+1)
 		}, oauthtoken.ErrBadResponse),
 	)
+
+	It("reports a token too large for a request as its own class of a bad response", func() {
+		srv.Set(func(s *oauthtokentest.Server) {
+			s.Body = `{"access_token":"` + strings.Repeat("a", contract.MaxCredentialBytes+1) + `","token_type":"bearer"}`
+		})
+		_, err := c.Refresh(ctx, srv.Descriptor(contract.OAuthClientAuthBasic), creds, srv.Issue())
+		Expect(errors.Is(err, oauthtoken.ErrTokenTooLarge)).To(BeTrue())
+		Expect(errors.Is(err, oauthtoken.ErrBadResponse)).To(BeTrue())
+		srv.Set(func(s *oauthtokentest.Server) {
+			s.Body = `{"access_token":"` + strings.Repeat("a", contract.MaxCredentialBytes) + `","token_type":"bearer"}`
+		})
+		_, err = c.Refresh(ctx, srv.Descriptor(contract.OAuthClientAuthBasic), creds, srv.Issue())
+		Expect(err).NotTo(HaveOccurred(), "4096 bytes fit")
+	})
 
 	It("keeps only granted scopes that a request accepts", func() {
 		srv.Set(func(s *oauthtokentest.Server) { s.Scope = "read write read https://scope.example.test/x" })
