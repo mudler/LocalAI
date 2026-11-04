@@ -266,7 +266,58 @@
   "connectorsPage": {
     "loadFailed": "Ihre Konnektoren konnten nicht geladen werden.",
     "waitingTitle": "Warten auf ihr Add-on",
-    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist."
+    "waitingText": "Diese Verknüpfungen bleiben erhalten, laufen aber erst, wenn ihr Add-on installiert und eingeschaltet ist.",
+    "oauth": {
+      "connected": "Verbunden",
+      "connectedAs": "Verbunden als {{account}}",
+      "access": "Zugriff: {{scopes}}",
+      "expires": "Läuft ab {{time}}",
+      "disconnect": "Trennen",
+      "disconnecting": "Wird getrennt…",
+      "disconnectTitle": "{{name}} trennen?",
+      "disconnectText": "LocalAI bittet den Dienst, diese Anmeldung zu widerrufen, und vergisst sie dann. Werkzeuge, die diese Verbindung nutzen, funktionieren erst wieder, wenn du dich erneut verbindest.",
+      "disconnected": "{{name}} ist getrennt. Der Dienst hat die Anmeldung widerrufen.",
+      "disconnectedNotTold": "{{name}} ist hier getrennt, aber der Dienst hat den Widerruf der Anmeldung nicht bestätigt. Entferne den Zugriff auch in deinem Konto beim Dienst.",
+      "notConnected": "Noch nicht verbunden.",
+      "connect": "Verbinden",
+      "alsoAllow": "Außerdem erlauben:",
+      "reconnectTitle": "Erneut verbinden.",
+      "reconnect": "Neu verbinden",
+      "reason": {
+        "revoked": "Der Dienst hat die Anmeldung beendet, oder der Zugriff wurde widerrufen.",
+        "client_rejected": "Der Dienst akzeptiert den Client dieses Servers nicht mehr. Ein Administrator muss ihn eventuell aktualisieren.",
+        "refused": "Der Dienst hat die Erneuerung der Anmeldung abgelehnt.",
+        "needs_approval": "Die Anmeldung dieses Add-ons hat sich geändert und muss erneut genehmigt werden.",
+        "credential_rejected": "Der Dienst hat den Zugriff abgelehnt, auch nach einer Erneuerung.",
+        "expired": "Die Anmeldung ist abgelaufen und kann nicht erneuert werden.",
+        "write_failed": "Die erneuerte Anmeldung konnte nicht gespeichert werden.",
+        "unreadable": "Die gespeicherte Anmeldung konnte nicht gelesen werden.",
+        "unknown": "Die Anmeldung funktioniert nicht mehr."
+      },
+      "approvalUser": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
+      "approvalUserChanged": "Die Anmeldung dieses Add-ons hat sich geändert. Ein Administrator muss sie erneut genehmigen.",
+      "approvalAdmin": "Niemand kann sich verbinden, bis du die Anmeldung dieses Add-ons genehmigst.",
+      "approvalAdminChanged": "Die Anmeldung dieses Add-ons hat sich seit der Genehmigung geändert. Prüfe sie und genehmige sie erneut.",
+      "review": "Prüfen und genehmigen",
+      "returned": {
+        "ok": "Verbunden. Die Verbindung funktioniert jetzt.",
+        "denied": "Du hast beim Dienst abgelehnt. Nichts hat sich geändert.",
+        "error": {
+          "invalid_state": "Die Anmeldung konnte nicht abgeschlossen werden: Sie ist abgelaufen, oder in diesem Browser wurde eine andere Anmeldung gestartet. Verbinde dich erneut.",
+          "provider_error": "Der Dienst hat einen Fehler gemeldet. Versuche es später erneut.",
+          "exchange_failed": "Der Dienst hat die Anmeldung nicht abgeschlossen. Verbinde dich erneut.",
+          "scopes_missing": "Der Dienst hat nicht den ganzen Zugriff gewährt, den dieses Add-on braucht. Verbinde dich erneut und erlaube ihn.",
+          "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
+          "unknown": "Die Anmeldung konnte nicht abgeschlossen werden. Verbinde dich erneut."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "Dieser Server kennt seine öffentliche Adresse nicht und kann dich daher nicht zum Dienst schicken. Bitte einen Administrator, die externe Basis-URL des Servers festzulegen.",
+        "needsApproval": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
+        "approvalStale": "Die Anmeldung dieses Add-ons hat sich geändert. Lade die Seite neu.",
+        "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut."
+      }
+    }
   },
   "tools": {
     "commands": {
@@ -387,7 +438,9 @@
       "byAgent": "Der Agent dieses Chats legt die Verbindungen fest. Ändere sie beim Agenten.",
       "agentLabel": "Verbindungen für Chats dieses Agenten",
       "agentHelp": "Chats dieses Agenten dürfen nur diese Verbindungen nutzen und können sie nicht ändern.",
-      "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst."
+      "perChatHelp": "Keine gewählt: Jeder Chat wählt selbst.",
+      "reconnectNeeded": "Erneut verbinden: {{names}}",
+      "reconnect": "Neu verbinden"
     },
     "optionNeeds": "Schalte „{{name}}“ ein, um dies zu nutzen.",
     "connectionMissing": "{{name}} erlaubt das noch nicht.",

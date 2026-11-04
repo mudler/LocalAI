@@ -1,20 +1,37 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
+import ConfirmDialog from '../components/ConfirmDialog'
+import OAuthConnection from '../components/connectors/OAuthConnection'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
+import { useAuth } from '../context/AuthContext'
+import { useListedAddons } from '../addons/useAddonRegistry'
 import { chatAgentsApi, chatConnectorsApi } from '../utils/api'
 import { acceptsOf, groupConnectors } from '../utils/chatConnectors'
+import { isOAuthBinding, oauthErrorKey, readOAuthReturn, returnPath, startBody } from '../utils/connectorOAuth'
 import './connectors.css'
 
 // The messaging connectors of the user. A platform comes from a connector
 // add-on, which has its own page to add and edit bindings; this page lists the
 // bindings by add-on, switches them on and off, and says when an add-on is
-// missing.
+// missing. A binding that logs in with OAuth also shows its login, and the
+// page reads the result of a login it comes back to (?oauth=) once.
 export default function ChatConnectors() {
   const { t } = useTranslation('chats')
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
+  const location = useLocation()
+  const { isAdmin } = useAuth()
+  const apps = useListedAddons()
+  const logins = useMemo(() => Object.fromEntries(apps.filter((a) => a.oauth).map((a) => [a.id, a.oauth])), [apps])
+  // The result of a login the service sent the browser back with, read once:
+  // the query is stripped right away, so a reload does not say it again.
+  const [returned, setReturned] = useState(() => readOAuthReturn(location.search))
+  const [starting, setStarting] = useState('')
+  const [leaving, setLeaving] = useState(null)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [notice, setNotice] = useState(null)
   const [kinds, setKinds] = useState(null)
   const [items, setItems] = useState([])
   const [agents, setAgents] = useState([])
@@ -44,6 +61,9 @@ export default function ChatConnectors() {
   }, [fail])
 
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (returned) setParams(new URLSearchParams(returned.search), { replace: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- once, on the page the login came back to
   useEffect(() => { chatAgentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
   // The MCP connectors used to be a tab of this page.
@@ -57,17 +77,56 @@ export default function ChatConnectors() {
   const { groups, waiting } = groupConnectors(kinds, items)
   const loading = kinds === null && !off && !loadError
 
+  const oauthFail = (e) => {
+    const key = oauthErrorKey(e)
+    if (key) setError(t(`connectorsPage.oauth.errors.${key}`))
+    else fail(e)
+  }
+  // The browser leaves for the service; the button keeps spinning until it does.
+  const connect = async (c, scopes) => {
+    setError('')
+    setNotice(null)
+    setReturned(null)
+    setStarting(c.id)
+    try {
+      const r = await chatConnectorsApi.oauthStart(c.id, startBody(scopes, returnPath(location.pathname, location.search)))
+      window.location.assign(r.authorize_url)
+    } catch (e) {
+      setStarting('')
+      oauthFail(e)
+    }
+  }
+  const disconnect = async () => {
+    const c = leaving
+    setDisconnecting(true)
+    setError('')
+    setReturned(null)
+    try {
+      const r = await chatConnectorsApi.oauthDisconnect(c.id)
+      setNotice({ tone: r?.revoked ? 'ok' : 'warn', text: t(r?.revoked ? 'connectorsPage.oauth.disconnected' : 'connectorsPage.oauth.disconnectedNotTold', { name: c.name }) })
+      await load()
+    } catch (e) {
+      oauthFail(e)
+    } finally {
+      setDisconnecting(false)
+      setLeaving(null)
+    }
+  }
+
   const row = (c) => {
     const a = acceptsOf(c)
+    const oauth = isOAuthBinding(c)
     return (
-      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'}>
-        <span className="cn-row__lead" aria-hidden="true"><Icon name="chat" /></span>
+      <li key={c.id} className="cn-row" data-testid="connector-row" data-on={c.enabled ? 'true' : 'false'} data-auth={oauth ? 'oauth2' : undefined}>
+        <span className="cn-row__lead" aria-hidden="true"><Icon name={oauth ? 'plug' : 'chat'} /></span>
         <div className="cn-row__main">
           <span className="cn-row__name">{c.name}</span>
-          <span className="cn-row__meta">
-            <span>{t('connectorsPage.agentOf', { name: agentName(c.agent_id) })}</span>
-            <span>{t('connectorsPage.accepts', { who: a.key === 'listed' ? t('connectorsPage.modes.listed', { count: a.count }) : t(`connectorsPage.modes.${a.key}`) })}</span>
-          </span>
+          {!c.credentials_only && (
+            <span className="cn-row__meta">
+              <span>{t('connectorsPage.agentOf', { name: agentName(c.agent_id) })}</span>
+              <span>{t('connectorsPage.accepts', { who: a.key === 'listed' ? t('connectorsPage.modes.listed', { count: a.count }) : t(`connectorsPage.modes.${a.key}`) })}</span>
+            </span>
+          )}
           {c.active === false && (
             <span className="cn-result cn-result--warn">
               <Icon name="warning" />
@@ -86,6 +145,11 @@ export default function ChatConnectors() {
             <span>{t('connectorsPage.on')}</span>
           </label>
         </span>
+        {oauth && (
+          <OAuthConnection binding={c} login={logins[c.addon] || null} isAdmin={isAdmin}
+            starting={starting === c.id} disabled={!!starting && starting !== c.id}
+            onConnect={connect} onDisconnect={setLeaving} />
+        )}
       </li>
     )
   }
@@ -98,6 +162,20 @@ export default function ChatConnectors() {
         <Callout tone="error" role="alert" className="cn-gap"
           actions={<Button variant="ghost" size="sm" onClick={() => setError('')}>{t('errors.dismiss')}</Button>}>
           {error}
+        </Callout>
+      )}
+
+      {returned && (
+        <Callout tone={returned.outcome === 'ok' ? 'ok' : (returned.outcome === 'denied' ? 'info' : 'error')} role={returned.outcome === 'error' ? 'alert' : 'status'}
+          className="cn-gap" testId="oauth-returned" data-outcome={returned.outcome}
+          actions={<Button variant="ghost" size="sm" onClick={() => setReturned(null)}>{t('errors.dismiss')}</Button>}>
+          {returned.outcome === 'error' ? t(`connectorsPage.oauth.returned.error.${returned.classKey}`) : t(`connectorsPage.oauth.returned.${returned.outcome}`)}
+        </Callout>
+      )}
+      {notice && (
+        <Callout tone={notice.tone} role="status" className="cn-gap" testId="oauth-notice" data-tone={notice.tone}
+          actions={<Button variant="ghost" size="sm" onClick={() => setNotice(null)}>{t('errors.dismiss')}</Button>}>
+          {notice.text}
         </Callout>
       )}
 
@@ -141,6 +219,18 @@ export default function ChatConnectors() {
           <ul className="cn-list">{waiting.map(row)}</ul>
         </section>
       )}
+
+      <ConfirmDialog
+        open={!!leaving}
+        title={leaving ? t('connectorsPage.oauth.disconnectTitle', { name: leaving.name }) : ''}
+        message={t('connectorsPage.oauth.disconnectText')}
+        confirmLabel={t('connectorsPage.oauth.disconnect')}
+        pendingLabel={t('connectorsPage.oauth.disconnecting')}
+        danger
+        pending={disconnecting}
+        onConfirm={disconnect}
+        onCancel={() => { if (!disconnecting) setLeaving(null) }}
+      />
 
       <nav className="cn-related" aria-label={t('mcpPage.related')}>
         <span className="cn-eyebrow">{t('mcpPage.related')}</span>

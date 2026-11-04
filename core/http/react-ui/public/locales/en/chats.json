@@ -332,7 +332,58 @@
     "bindingsOf": "Bindings of {{name}}",
     "loadFailed": "Could not load your connectors.",
     "waitingTitle": "Waiting for their add-on",
-    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on."
+    "waitingText": "These bindings are kept, but they do not run until their add-on is installed and turned on.",
+    "oauth": {
+      "connected": "Connected",
+      "connectedAs": "Connected as {{account}}",
+      "access": "Access: {{scopes}}",
+      "expires": "Expires {{time}}",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting…",
+      "disconnectTitle": "Disconnect {{name}}?",
+      "disconnectText": "LocalAI asks the service to revoke this login and then forgets it. Tools that use this connection stop working until you connect again.",
+      "disconnected": "{{name}} is disconnected. The service revoked the login.",
+      "disconnectedNotTold": "{{name}} is disconnected here, but the service did not confirm that it revoked the login. Remove the access in your account at the service too.",
+      "notConnected": "Not connected yet.",
+      "connect": "Connect",
+      "alsoAllow": "Also allow:",
+      "reconnectTitle": "Connect again.",
+      "reconnect": "Reconnect",
+      "reason": {
+        "revoked": "The service ended the login, or the access was revoked.",
+        "client_rejected": "The service no longer accepts the client of this server. An administrator may need to update it.",
+        "refused": "The service refused to renew the login.",
+        "needs_approval": "The login of this add-on changed and must be approved again.",
+        "credential_rejected": "The service refused the access, even after a renewal.",
+        "expired": "The login expired and cannot be renewed.",
+        "write_failed": "The renewed login could not be saved.",
+        "unreadable": "The saved login could not be read.",
+        "unknown": "The login no longer works."
+      },
+      "approvalUser": "An administrator must approve this add-on first.",
+      "approvalUserChanged": "The login of this add-on changed. An administrator must approve it again.",
+      "approvalAdmin": "Nobody can connect until you approve the login of this add-on.",
+      "approvalAdminChanged": "The login of this add-on changed since it was approved. Review it and approve it again.",
+      "review": "Review and approve",
+      "returned": {
+        "ok": "Connected. The connection works now.",
+        "denied": "You declined at the service. Nothing changed.",
+        "error": {
+          "invalid_state": "The login could not be finished: it expired, or another login started in this browser. Connect again.",
+          "provider_error": "The service reported an error. Try again later.",
+          "exchange_failed": "The service did not complete the login. Connect again.",
+          "scopes_missing": "The service did not grant all the access this add-on needs. Connect again and allow it.",
+          "unavailable": "The add-on could not be reached. Try again later.",
+          "unknown": "The login could not be finished. Connect again."
+        }
+      },
+      "errors": {
+        "baseUrlRequired": "This server does not know its public address, so it cannot send you to the service. Ask an administrator to set the external base URL of the server.",
+        "needsApproval": "An administrator must approve this add-on first.",
+        "approvalStale": "The login of this add-on changed. Reload the page.",
+        "unavailable": "The add-on could not be reached. Try again later."
+      }
+    }
   },
   "conversionPage": {
     "title": "Converted from the old chat",
@@ -487,7 +538,9 @@
       "byAgent": "The agent of this chat sets the connections. Change them on the agent.",
       "agentLabel": "Connections for chats of this agent",
       "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
-      "perChatHelp": "None chosen: each chat chooses its own."
+      "perChatHelp": "None chosen: each chat chooses its own.",
+      "reconnectNeeded": "Connect again: {{names}}",
+      "reconnect": "Reconnect"
     },
     "optionNeeds": "Turn on “{{name}}” to use this.",
     "connectionMissing": "{{name}} does not allow this yet.",

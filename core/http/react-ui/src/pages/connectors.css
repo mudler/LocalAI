@@ -88,6 +88,34 @@
 .cn-result--error { color: var(--dk-error-text); }
 .cn-result--warn { color: var(--dk-warn-text); }
 
+/* ---- The login of a binding that uses OAuth ---------------------------------- */
+/* Under the name and the switch, across both columns: one state, with its
+   action on the right (under the text on a phone). */
+.cn-oauth {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  min-width: 0;
+}
+.cn-oauth--callout { flex-direction: column; align-items: stretch; }
+.cn-oauth__text { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; flex: 1 1 28ch; }
+.cn-oauth__status { margin-top: 0; }
+.cn-oauth__muted { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+.cn-oauth__scopes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.cn-oauth__legend { float: left; margin-right: var(--sp-1); padding: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--dk-muted); }
+
 /* ---- Groups of the messaging connectors -------------------------------------- */
 .cn-group { display: flex; flex-direction: column; gap: var(--sp-3); }
 .cn-group + .cn-group { margin-top: var(--sp-10); }
@@ -116,4 +144,5 @@
 
 @media (max-width: 639px) {
   .cn-row { padding: var(--sp-3); }
+  .cn-oauth { grid-column: 1 / -1; }
 }
