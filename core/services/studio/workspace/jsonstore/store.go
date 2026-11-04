@@ -32,6 +32,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sync"
 	"time"
@@ -455,7 +456,15 @@ func (s *Store) writeSnapshot(snap snapshot) error {
 		return err
 	}
 	if err := s.log.Truncate(0); err != nil {
-		return err
+		// On Windows, truncating a log file that is open by another handle
+		// fails with "Access is denied". The snapshot has already been
+		// written and the directory synced, so truncation is non-critical:
+		// the log will be replayed on next open (the snapshot covers it).
+		if runtime.GOOS == "windows" {
+			xlog.Warn("workspace: could not truncate log", "error", err)
+		} else {
+			return err
+		}
 	}
 	s.logSize = 0
 	return nil

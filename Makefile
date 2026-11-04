@@ -14,7 +14,7 @@
 # OS is re-derived from uname further down. Nothing matches on
 # Linux/macOS/WSL, so the block is inert there.
 ifeq ($(findstring Windows,$(OS)),Windows)
-  export PATH := C:/Program Files/Git/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/usr/bin;$(PATH)
+  export PATH := C:/Program Files/Git/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/usr/bin;$(if $(LOCALAPPDATA),$(LOCALAPPDATA)/Programs/Git/usr/bin,);C:/msys64/mingw64/bin;$(PATH)
   export SHELL := sh
 endif
 

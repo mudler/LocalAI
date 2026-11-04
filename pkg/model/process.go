@@ -297,12 +297,18 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return nil, err
 	}
 
+	// Include --addr in processArgs so the launcher passes it to the backend
+	// process. On Linux proc.Run() uses the stored args from
+	// grpcControlProcess; on Windows startProcessWindows uses processArgs
+	// directly and also converts --addr <addr> to --addr=<addr>.
+	processArgs := append(args, []string{"--addr", serverAddress}...)
+
 	// The gallery contract names a run.sh stub as the backend entrypoint. On a
 	// Windows host that stub cannot run (no POSIX shell), so resolveLauncher
 	// substitutes the bundled run.ps1 through the system PowerShell; elsewhere
 	// it returns the stub and its arguments unchanged. See
 	// process_launcher_windows.go / process_launcher_other.go.
-	processName, processArgs, err := resolveLauncher(grpcProcess, workDir, args)
+	processName, processArgs, err := resolveLauncher(grpcProcess, workDir, processArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -337,12 +343,6 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	env = vulkanICDEnv(workDir, env)
-
-	// Include --addr in processArgs so the launcher passes it to the backend
-	// process. On Linux proc.Run() uses the stored args from
-	// grpcControlProcess; on Windows startProcessWindows uses processArgs
-	// directly and also converts --addr <addr> to --addr=<addr>.
-	processArgs = append(processArgs, []string{"--addr", serverAddress}...)
 
 	grpcControlProcess := process.New(
 		process.WithStateDir(stateDir),
