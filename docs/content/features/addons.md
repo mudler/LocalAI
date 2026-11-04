@@ -424,6 +424,7 @@ The generic binary selects no policy automatically.
 | Sandbox | `workspace.changes`, `workspace.commit`, `workspace.materialize` | `egress.audit`, `egress.check`, `workspace.admin` |
 | Web | None | `workspace.admin` |
 | Home Assistant | None | `workspace.admin` |
+| PiKVM | None | `workspace.admin` |
 | Face, Slack, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
 
 Fine-tuning and Quantization include operation names passed through mutation and undo wrappers.
@@ -437,7 +438,7 @@ Telegram's historical `connector.` deployment grant does not imply a hostclient 
 
 Sandbox's proxy uses the optional egress operations when configured connections need policy decisions.
 Missing grants do not authorize connections; the proxy cannot obtain an allow verdict.
-Sandbox's settings, Web's provider settings and the limits of the Home Assistant add-on use `workspace.admin` to check administrators.
+Sandbox's settings, Web's provider settings, the limits of the Home Assistant add-on and the per-device switches of the PiKVM add-on use `workspace.admin` to check administrators.
 Without that optional operation, these settings refuse changes; ordinary tools can remain available.
 The shipped deployment policy covers every official required operation.
 The package tests compare all twelve manifests with this source audit and the host's registered vocabulary.

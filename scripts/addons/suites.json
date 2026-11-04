@@ -662,10 +662,12 @@
           "has consistent package files for github",
           "has consistent package files for home-assistant",
           "has consistent package files for jellyfin",
+          "has consistent package files for pikvm",
           "writes the zip of a verified layout with a digest manifest and a sha256 file",
           "audits actual host calls and strict package contract for github",
           "audits actual host calls and strict package contract for home-assistant",
           "audits actual host calls and strict package contract for jellyfin",
+          "audits actual host calls and strict package contract for pikvm",
           "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
           "has a catalog template"
@@ -4576,6 +4578,7 @@
       "go: audits actual host calls and strict package contract for jellyfin",
       "go: audits actual host calls and strict package contract for memory",
       "go: audits actual host calls and strict package contract for office",
+      "go: audits actual host calls and strict package contract for pikvm",
       "go: audits actual host calls and strict package contract for quantization",
       "go: audits actual host calls and strict package contract for sandbox",
       "go: audits actual host calls and strict package contract for slack",
@@ -4593,7 +4596,8 @@
       "go: has a catalog template",
       "go: has consistent package files for github",
       "go: has consistent package files for home-assistant",
-      "go: has consistent package files for jellyfin"
+      "go: has consistent package files for jellyfin",
+      "go: has consistent package files for pikvm"
     ]
   },
   "updates": {

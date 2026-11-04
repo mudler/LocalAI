@@ -886,6 +886,118 @@
     - "docx"
     - "pptx"
     - "pdf"
+- id: "pikvm"
+  name: PiKVM
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "PiKVM"
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "get-info"
+    - "get-power-state"
+    - "get-keyboard-state"
+    - "power-action"
+    - "type-text"
+    - "send-key"
+    - "get-settings"
+    - "set-settings"
+- id: "pikvm"
+  name: PiKVM
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "PiKVM"
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "get-info"
+    - "get-power-state"
+    - "get-keyboard-state"
+    - "power-action"
+    - "type-text"
+    - "send-key"
+    - "get-settings"
+    - "set-settings"
+- id: "pikvm"
+  name: PiKVM
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "PiKVM"
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "get-info"
+    - "get-power-state"
+    - "get-keyboard-state"
+    - "power-action"
+    - "type-text"
+    - "send-key"
+    - "get-settings"
+    - "set-settings"
+- id: "pikvm"
+  name: PiKVM
+  description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:pikvm-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "PiKVM"
+    description: "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 8
+  tools:
+    - "get-info"
+    - "get-power-state"
+    - "get-keyboard-state"
+    - "power-action"
+    - "type-text"
+    - "send-key"
+    - "get-settings"
+    - "set-settings"
 - id: "quantization"
   name: Quantization
   description: "Shrink a model to a smaller quantized file, then import it so you can chat with it."
