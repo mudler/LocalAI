@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -408,6 +409,8 @@ func convertORReasoningItemToMessage(itemMap map[string]any) (schema.Message, er
 func convertORFunctionCallItemToMessage(itemMap map[string]any) (schema.Message, error) {
 	callID, _ := itemMap["call_id"].(string)
 	name, _ := itemMap["name"].(string)
+	namespace, _ := itemMap["namespace"].(string)
+	name = responsesToolName(namespace, name)
 	arguments, _ := itemMap["arguments"].(string)
 	if callID == "" {
 		callID = fmt.Sprintf("call_%s", name)
@@ -481,7 +484,7 @@ func convertORItemToMessage(item *schema.ORItemField, responseID string) (schema
 				Index:        0,
 				ID:           callID,
 				Type:         "function",
-				FunctionCall: schema.FunctionCall{Name: item.Name, Arguments: item.Arguments},
+				FunctionCall: schema.FunctionCall{Name: responsesToolName(item.Namespace, item.Name), Arguments: item.Arguments},
 			}},
 		}, nil
 	default:
@@ -634,7 +637,7 @@ func convertOROutputItemsToMessages(outputItems []schema.ORItemField) ([]schema.
 					Index:        0,
 					ID:           item.CallID,
 					Type:         "function",
-					FunctionCall: schema.FunctionCall{Name: item.Name, Arguments: item.Arguments},
+					FunctionCall: schema.FunctionCall{Name: responsesToolName(item.Namespace, item.Name), Arguments: item.Arguments},
 				}},
 			}
 			if msg.ToolCalls[0].ID == "" {
@@ -846,7 +849,7 @@ func convertORToolsToFunctions(input *schema.OpenResponsesRequest, cfg *config.M
 	}
 
 	var funcs functions.Functions
-	for _, tool := range input.Tools {
+	for _, tool := range flattenNamespaceTools(input.Tools) {
 		if tool.Type == "function" {
 			// Skip if not in allowed list (when allowed_tools is specified)
 			if len(allowedSet) > 0 && !allowedSet[tool.Name] {
@@ -2792,11 +2795,13 @@ func sendSSEEvent(c echo.Context, event *schema.ORStreamEvent) {
 	fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.Type, string(data))
 }
 
-// normalizeORStreamEvent ensures required fields like Summary are never null.
+// normalizeORStreamEvent ensures required fields like Summary are never null
+// and gives a call to a namespace tool its namespace back.
 func normalizeORStreamEvent(event *schema.ORStreamEvent) {
 	if event.Item != nil && event.Item.Summary == nil {
 		event.Item.Summary = []schema.ORContentPart{}
 	}
+	restoreToolNamespace(event.Item)
 }
 
 // getTopLogprobs returns the top_logprobs value, defaulting to 0 if nil
@@ -2884,6 +2889,7 @@ func buildORResponse(responseID string, createdAt int64, completedAt *int64, sta
 		if outputItems[i].Summary == nil {
 			outputItems[i].Summary = []schema.ORContentPart{}
 		}
+		restoreToolNamespace(&outputItems[i])
 	}
 
 	// Ensure tools is never null - always an array
@@ -3043,12 +3049,75 @@ func sendOpenResponsesError(c echo.Context, statusCode int, errorType, message, 
 	return c.JSON(statusCode, errorResp)
 }
 
+// Clients such as Codex group tools in "namespace" entries (one per MCP
+// server) and route a returned call by its (namespace, name) pair. The model
+// only sees functions, so namespace members are flattened to
+// "ns_{namespace}___{name}", the form llama.cpp's server uses, and split back
+// on the calls returned. A namespace must not contain "___".
+const (
+	responsesNamespacePrefix    = "ns_"
+	responsesNamespaceSeparator = "___"
+)
+
+// responsesToolName flattens a namespaced tool name. It returns name unchanged
+// when namespace is empty.
+func responsesToolName(namespace, name string) string {
+	if namespace == "" {
+		return name
+	}
+	return responsesNamespacePrefix + namespace + responsesNamespaceSeparator + name
+}
+
+// splitResponsesToolName splits a flattened tool name into (namespace, name).
+// Any other name comes back with an empty namespace.
+func splitResponsesToolName(name string) (string, string) {
+	rest, ok := strings.CutPrefix(name, responsesNamespacePrefix)
+	if !ok {
+		return "", name
+	}
+	namespace, tool, ok := strings.Cut(rest, responsesNamespaceSeparator)
+	if !ok || namespace == "" || tool == "" {
+		return "", name
+	}
+	return namespace, tool
+}
+
+// flattenNamespaceTools replaces each namespace entry with its function
+// members under their flattened names.
+func flattenNamespaceTools(tools []schema.ORFunctionTool) []schema.ORFunctionTool {
+	result := make([]schema.ORFunctionTool, 0, len(tools))
+	for _, t := range tools {
+		if t.Type != "namespace" {
+			result = append(result, t)
+			continue
+		}
+		for _, member := range t.Tools {
+			if t.Name == "" || member.Type != "function" || member.Name == "" {
+				continue
+			}
+			member.Name = responsesToolName(t.Name, member.Name)
+			result = append(result, member)
+		}
+	}
+	return result
+}
+
+// restoreToolNamespace splits a flattened name on a function_call item back
+// into its namespace and name.
+func restoreToolNamespace(item *schema.ORItemField) {
+	if item == nil || item.Type != "function_call" || item.Namespace != "" {
+		return
+	}
+	item.Namespace, item.Name = splitResponsesToolName(item.Name)
+}
+
 // convertORToolsToOpenAIFormat converts only tools that have an equivalent in
 // the OpenAI-compatible function-tool representation. Native Responses tools
-// such as web_search and namespace must not be rewritten as functions.
+// such as web_search must not be rewritten as functions; namespace entries
+// contribute their function members under flattened names.
 func convertORToolsToOpenAIFormat(orTools []schema.ORFunctionTool) []functions.Tool {
 	result := make([]functions.Tool, 0, len(orTools))
-	for _, t := range orTools {
+	for _, t := range flattenNamespaceTools(orTools) {
 		if t.Type != "function" {
 			continue
 		}

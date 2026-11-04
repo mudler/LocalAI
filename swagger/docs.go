@@ -32898,6 +32898,13 @@ const docTemplate = `{
                     "description": "Always include in response",
                     "type": "boolean"
                 },
+                "tools": {
+                    "description": "Tools holds the member tools of a type \"namespace\" entry (Codex sends\neach MCP server's tools this way).",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.ORFunctionTool"
+                    }
+                },
                 "type": {
                     "type": "string"
                 }
@@ -32942,6 +32949,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "namespace": {
+                    "description": "set when Name belongs to a namespace tool",
                     "type": "string"
                 },
                 "output": {
