@@ -86,6 +86,44 @@ export function localizedText(app, field, language) {
   return fallback || ''
 }
 
+// An installed record with its title and description in the user's language,
+// for the dialogs and cards that name an add-on. The English text stays in
+// englishTitle and englishDescription, which the search reads too.
+export function localizeRecord(rec, language) {
+  if (!rec) return rec
+  return {
+    ...rec,
+    title: localizedText(rec, 'title', language) || rec.title,
+    description: localizedText(rec, 'description', language),
+    englishTitle: rec.title,
+    englishDescription: rec.description || '',
+  }
+}
+
+// A library entry with its title and description in the user's language. The
+// entry carries the other languages in titles and descriptions (from the
+// library); a language without text, and English, keep the entry's own text.
+export function localizeEntry(entry, language) {
+  if (!entry) return entry
+  return {
+    ...entry,
+    title: localizedText({ id: entry.id, name: entry.title, title: entry.title, titles: entry.titles }, 'title', language) || entry.title,
+    description: localizedText({ description: entry.description, descriptions: entry.descriptions }, 'description', language),
+    englishTitle: entry.title,
+    englishDescription: entry.description || '',
+  }
+}
+
+// One page of library entries in the alphabetical order of the user's language,
+// by the title that the person reads. The id breaks a tie, so the order is
+// stable. It orders the page as drawn; the library still pages by its own key.
+export function sortEntriesByTitle(entries, language) {
+  let collator
+  try { collator = new Intl.Collator(language || undefined, { sensitivity: 'base', numeric: true }) } catch { collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true }) }
+  const title = (e) => localizeEntry(e, language).title || e.id
+  return [...(entries || [])].sort((a, b) => collator.compare(title(a), title(b)) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+}
+
 // The name to show for an add-on the list does not carry (not installed, or
 // not usable by this viewer): its identifier with a capital first letter, so
 // the page says "Voice" and not "voice".

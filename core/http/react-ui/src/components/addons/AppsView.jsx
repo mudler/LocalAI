@@ -27,11 +27,13 @@ import { useBulkUpgrade } from '../../hooks/useBulkUpgrade'
 import { updateView, upgradeAvailability } from './updateState'
 import { upgradeFailureWords } from './updateReview'
 import FirstRun from './FirstRun'
-import { addedByAddon, attentionOf, filterByState, listState, loadLastKnown, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
+import { addedByAddon, attentionOf, filterByState, listState, loadLastKnown, localizedText, localizeRecord, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
 import { pendingApprovals } from './hostGrantsState'
 import { useAddonActions } from './useAddonActions'
+
+const NO_RECORDS = {}
 
 // The apps every caller with the add-ons feature may use. The owner decides
 // what is listed; this view only draws it. The list is refreshed on a bounded
@@ -118,7 +120,9 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
   // The installed record of an add-on, for the administrator's Details in the
   // pane. A change reads it again.
   const [installedRecords, setInstalledInfo] = useState({})
-  const installedInfo = installedRecords.actor === actor ? installedRecords.value : {}
+  const installedRaw = installedRecords.actor === actor ? installedRecords.value : NO_RECORDS
+  // The records name an add-on in dialogs and cards: in the user's language.
+  const installedInfo = useMemo(() => (installedRaw === NO_RECORDS ? NO_RECORDS : Object.fromEntries(Object.entries(installedRaw).map(([id, rec]) => [id, localizeRecord(rec, i18n.language)]))), [installedRaw, i18n.language])
   const [installedReload, setInstalledReload] = useState(0)
   const actions = useAddonActions(api, {
     onSettled: () => {
@@ -249,9 +253,9 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
     return state.apps.filter(a => a.update === 'update-pending' || updateView(installedInfo[a.id]?.update).state === 'update-available').map(a => {
       const rec = installedInfo[a.id]
       const av = upgradeAvailability(rec, { isAdmin, pending: true })
-      return { id: a.id, name: a.title || a.id, from: rec ? rec.version : a.version, to: rec ? updateView(rec.update).version : '', startable: av.startable, reason: reasonText(av, t), addon: rec }
+      return { id: a.id, name: localizedText(a, 'title', i18n.language) || a.id, from: rec ? rec.version : a.version, to: rec ? updateView(rec.update).version : '', startable: av.startable, reason: reasonText(av, t), addon: rec }
     })
-  }, [state.apps, installedInfo, isAdmin, t])
+  }, [state.apps, installedInfo, isAdmin, t, i18n.language])
   const bulk = useBulkUpgrade({
     items: upgradeItems,
     runOne: async (item) => {

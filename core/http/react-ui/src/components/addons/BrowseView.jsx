@@ -9,7 +9,7 @@ import { AppIcon, UnknownNotice, VersionText } from './AddonBits'
 import { Button, Notice, StatusChip } from '../ui'
 import FlowStatus from './InstallFlow'
 import InstallDialog from './InstallDialog'
-import { addedByEntry } from './addonState'
+import { addedByEntry, localizeEntry, localizeRecord, sortEntriesByTitle } from './addonState'
 import { updateView, entryUpdateNote, updateNoticeSeverity, upgradeAvailability } from './updateState'
 import { describeError, describeOutcome } from './errors'
 import { useAddonActions } from './useAddonActions'
@@ -22,7 +22,7 @@ import { UpdateBadge } from '../upgrade/UpgradeBits'
 // the other. An add-on that is installed but off offers Turn on. Backends are
 // not listed here: they belong to the Backends page.
 export default function BrowseView({ api, adapter }) {
-  const { t } = useTranslation('addons')
+  const { t, i18n } = useTranslation('addons')
   const [params, setParams] = useSearchParams()
   const [installed, setInstalled] = useState({})
   const [reload, setReload] = useState(0)
@@ -53,8 +53,9 @@ export default function BrowseView({ api, adapter }) {
 
   const openInstall = (entry) => setDialog(entry)
 
-  const renderEntry = (entry) => {
-    const have = installed[entry.id]
+  const renderEntry = (raw) => {
+    const entry = localizeEntry(raw, i18n.language)
+    const have = installed[entry.id] ? localizeRecord(installed[entry.id], i18n.language) : undefined
     const flow = actions.flows[`flow:${entry.key}`]
     const pending = Boolean(actions.unknown[entry.id])
     const working = ['install', 'turn-on'].includes(flow?.step)
@@ -127,6 +128,7 @@ export default function BrowseView({ api, adapter }) {
         query={query}
         onQueryChange={onQueryChange}
         renderEntry={renderEntry}
+        orderEntries={entries => sortEntriesByTitle(entries, i18n.language)}
         reloadToken={reload}
         describeError={e => describeError(e, t)}
         searchLabel={t('browse.search')}

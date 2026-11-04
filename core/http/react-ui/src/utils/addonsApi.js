@@ -280,6 +280,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     id: release.id ?? release.addonId,
     title: release.name || (release.id ?? release.addonId),
     description: release.description || release.ui?.description || '',
+    // The other languages of the title and description, from the library.
+    titles: release.ui?.titles || {},
+    descriptions: release.ui?.descriptions || {},
     version: release.version,
     sourceId: release.sourceId,
     // The kind of the entry: addon when the library does not say.

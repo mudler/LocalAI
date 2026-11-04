@@ -12,9 +12,10 @@ import {
 import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
   shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
-  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf,
+  attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf, localizeEntry, localizeRecord, sortEntriesByTitle,
   operationOf, upgradingTitles, staleKind, saveLastKnown, loadLastKnown,
 } from '../../src/components/addons/addonState.js'
+import { buildTiles, filterTiles } from '../../src/utils/addonTiles.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation, unavailableWait } from '../../src/components/addons/lifecycleFlow.js'
 import { createActionBook, effectOutcome } from '../../src/components/addons/actionBook.js'
@@ -660,4 +661,72 @@ test('addons: the last list of a tab stands in for a page loaded while the owner
   const broken = { getItem() { throw new Error('blocked') }, setItem() { throw new Error('full') } }
   saveLastKnown(broken, 'a', [])
   assert.equal(loadLastKnown(broken, 'a'), null)
+})
+
+test('translations: a library entry shows its title and description in the user language and falls back to English per field', () => {
+  const entry = { id: 'tables', key: 's/tables/1', title: 'Tables', description: 'Databases.', titles: { it: 'Tabelle', 'pt-BR': 'Tabelas' }, descriptions: { it: 'Database.' } }
+  const it = localizeEntry(entry, 'it')
+  assert.equal(it.title, 'Tabelle')
+  assert.equal(it.description, 'Database.')
+  assert.equal(it.englishTitle, 'Tables')
+  assert.equal(it.key, 's/tables/1')
+  assert.equal(localizeEntry(entry, 'it-IT').title, 'Tabelle')
+  const pt = localizeEntry(entry, 'pt-BR')
+  assert.equal(pt.title, 'Tabelas')
+  assert.equal(pt.description, 'Databases.')
+  assert.equal(localizeEntry(entry, 'pt').title, 'Tabelas')
+  assert.equal(localizeEntry(entry, 'en').title, 'Tables')
+  assert.equal(localizeEntry(entry, 'de').title, 'Tables')
+  assert.equal(localizeEntry({ id: 'x', title: 'X', description: '' }, 'it').title, 'X')
+  assert.equal(localizeEntry(null, 'it'), null)
+})
+
+test('translations: an installed record is named in the user language in dialogs and keeps the English text', () => {
+  const rec = { id: 'tables', title: 'Tables', titles: { en: 'Tables', it: 'Tabelle' }, description: 'Databases.', descriptions: { en: 'Databases.', it: 'Database.' } }
+  const it = localizeRecord(rec, 'it')
+  assert.equal(it.title, 'Tabelle')
+  assert.equal(it.englishTitle, 'Tables')
+  assert.equal(it.description, 'Database.')
+  assert.equal(localizeRecord(rec, 'en').title, 'Tables')
+  assert.equal(localizeRecord({ id: 'x' }, 'it').title, 'x', 'the identifier is the title of last resort')
+})
+
+test('translations: the library adapter carries the languages of the entry', async () => {
+  const release = { id: 'tables', name: 'Tables', description: 'Databases.', version: '1.0.0', sourceId: 'main', ui: { title: 'Tables', description: 'Databases.', titles: { it: 'Tabelle' }, descriptions: { it: 'Database.' } } }
+  const api = { dispatch: async () => ({ releases: [release], total: 1 }) }
+  const adapter = createAddonsCatalogAdapter(api)
+  const { entries } = await adapter.search({ text: '', page: 1 })
+  assert.deepEqual(entries[0].titles, { it: 'Tabelle' })
+  assert.deepEqual(entries[0].descriptions, { it: 'Database.' })
+  const plain = createAddonsCatalogAdapter({ dispatch: async () => ({ releases: [{ id: 'x', name: 'X', version: '1', sourceId: 'main' }], total: 1 }) })
+  const out = await plain.search({ text: '', page: 1 })
+  assert.deepEqual(out.entries[0].titles, {})
+})
+
+test('translations: the installed list is searched by the translated and by the English name', () => {
+  const apps = [
+    { id: 'tables', title: 'Tables', titles: { en: 'Tables', it: 'Tabelle' }, description: 'Databases.', descriptions: { it: 'Database di tabelle.' }, enabled: true, state: 'running' },
+    { id: 'voice', title: 'Voice', titles: { it: 'Voce' }, description: 'Speak.', enabled: true, state: 'running' },
+  ]
+  const tiles = buildTiles(apps, [], { language: 'it' })
+  assert.deepEqual(tiles.map(t => t.title), ['Tabelle', 'Voce'])
+  const ids = (q) => filterTiles(tiles, q).map(t => t.id)
+  assert.deepEqual(ids('tabelle'), ['tables'])
+  assert.deepEqual(ids('TABLES'), ['tables'])
+  assert.deepEqual(ids('voce'), ['voice'])
+  assert.deepEqual(ids('voice'), ['voice'])
+  assert.deepEqual(ids('database di'), ['tables'])
+  assert.deepEqual(ids('zzz'), [])
+  assert.equal(filterTiles(tiles, '').length, 2)
+})
+
+test('translations: the lists are in the alphabetical order of the user language', () => {
+  const entries = [{ id: 'face', title: 'Face', titles: { it: 'Volto' } }, { id: 'fine-tuning', title: 'Fine-tuning' }, { id: 'discord', title: 'Discord' }, { id: 'tables', title: 'Tables', titles: { it: 'Tabelle' } }]
+  assert.deepEqual(sortEntriesByTitle(entries, 'it').map(e => e.id), ['discord', 'fine-tuning', 'tables', 'face'])
+  assert.deepEqual(sortEntriesByTitle(entries, 'en').map(e => e.id), ['discord', 'face', 'fine-tuning', 'tables'])
+  assert.deepEqual(sortEntriesByTitle(entries, 'xx-not-a-tag').map(e => e.id), ['discord', 'face', 'fine-tuning', 'tables'])
+  assert.deepEqual(sortEntriesByTitle(null, 'it'), [])
+  const apps = entries.map(e => ({ ...e, enabled: true, state: 'running' }))
+  assert.deepEqual(buildTiles(apps, [], { language: 'it' }).map(t => t.id), ['discord', 'fine-tuning', 'tables', 'face'])
+  assert.deepEqual(buildTiles(apps, [], { language: 'en' }).map(t => t.id), ['discord', 'face', 'fine-tuning', 'tables'])
 })
