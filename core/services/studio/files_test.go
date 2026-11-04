@@ -24,12 +24,19 @@ import (
 )
 
 func newFiles() *files.Service {
+	f, _ := newFilesWithBlobs()
+	return f
+}
+
+// newFilesWithBlobs is newFiles that also returns the blob store, for the
+// table of file handles that connector specs share with the service.
+func newFilesWithBlobs() (*files.Service, blob.Store) {
 	blobs, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
 	Expect(err).NotTo(HaveOccurred())
 	ws, err := jsonstore.New(filepath.Join(GinkgoT().TempDir(), "workspace"), blobs, jsonstore.Options{Admin: files.AdminPrincipal})
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = ws.Close() })
-	return files.New(ws)
+	return files.New(ws, files.WithBlobs(blobs)), blobs
 }
 
 func newServiceWithFiles(h *studiotest.GateHarness, f *files.Service) *studio.Service {

@@ -197,6 +197,9 @@ func (g *Gateway) capabilities() Capabilities {
 	if g.ModelsProbe != nil {
 		c.Calls = append(c.Calls, "models-probe")
 	}
+	if g.HostGrantsOwner != nil {
+		c.Calls = append(c.Calls, CallHostGrants)
+	}
 	return c
 }
 

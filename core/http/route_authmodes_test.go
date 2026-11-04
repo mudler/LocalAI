@@ -117,7 +117,7 @@ func newAuthModesServer(ownership string, opts ...config.AppOption) (*applicatio
 			InstanceID: "local", OwnerID: "local", OwnerAddress: transport.OwnerAddress,
 			StorageID: "local", Root: root, ListenAddress: address, Transport: transport,
 			OwnershipMode: ownership,
-			Host:          contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
+			Host:          contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
 		}),
 	}, opts...)
 	app, err := application.New(all...)

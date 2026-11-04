@@ -116,7 +116,7 @@ test.describe('Hub tabs: gating', () => {
     await expect(page.locator('.sidebar-nav a.nav-item[href="/app/agents"]')).toBeVisible()
   })
 
-  test('a user without admin sees Memory with the collections permission and no Import', async ({ page }) => {
+  test('a user without admin sees Knowledge with the collections permission and no Import', async ({ page }) => {
     await mockFeatures(page, { collections: true, mcp: true, fine_tuning: true, quantization: true })
     await mockAuth(page, { id: 'u1', name: 'Sam', role: 'user', permissions: { collections: true } })
     await page.goto('/app')

@@ -115,7 +115,7 @@ var _ = Describe("built-in web tools", func() {
 
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(builtinGroup(p.Builtins, "web")).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Usable: true, Provider: "builtin",
+		Expect(bare(builtinGroup(p.Builtins, "web"))).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search", "web_fetch"}, Off: true, Usable: true, Provider: "builtin",
 			Providers: map[string]string{"web_search": "builtin", "web_fetch": "builtin"}}))
 	})
 
@@ -131,7 +131,7 @@ var _ = Describe("built-in web tools", func() {
 		id := create(svc, alice)
 		p, err := svc.Tools(context.Background(), alice, id)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(builtinGroup(p.Builtins, "web")).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search"}, Usable: true, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}))
+		Expect(bare(builtinGroup(p.Builtins, "web"))).To(Equal(studio.BuiltinGroup{Group: "web", Tools: []string{"web_search"}, Usable: true, Provider: "builtin", Providers: map[string]string{"web_search": "builtin"}}))
 
 		svc2, _ := newToolService(func(workspace.Actor, string) []studiotest.ToolStep { return nil }, withWeb(&fakeWeb{}))
 		id2 := create(svc2, alice)
@@ -234,13 +234,13 @@ var _ = Describe("the one registry of built-in tools", func() {
 		names := runtimeSettingNames()
 		for _, t := range tools {
 			ids = append(ids, t.ID)
-			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch; load_skill: every chat with skills gets it; the goal tools: by the goal; the tool groups: by the chat's switch
-				if t.ID == "load_skill" || t.ID == "goal_done" || t.ID == "goal_blocked" {
+			if t.Unlisted { // the trigger tools: governed by the operator's start-up switch;  send_message: by the capability of the binding and the operator switch; load_skill: every chat with skills gets it; the goal tools: by the goal; the tool groups: by the chat's switch
+				if t.ID == "load_skill" || t.ID == "goal_done" || t.ID == "goal_blocked" || t.ID == studio.SendMessageName {
 					Expect(t.Group).To(BeEmpty(), t.ID)
 				} else if t.External {
-					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents), t.ID)
+					Expect(t.Group).To(BeElementOf(builtins.GroupFiles, builtins.GroupMedia, builtins.GroupCollections, builtins.GroupSubAgents, builtins.GroupMemory), t.ID)
 				} else {
-					Expect(t.Group).To(Equal(builtins.GroupTriggers), t.ID)
+					Expect(t.Group).To(BeElementOf(builtins.GroupTriggers, builtins.GroupChanges, builtins.GroupHistory), t.ID)
 				}
 				Expect(t.Setting).To(BeEmpty(), t.ID)
 				continue
@@ -251,7 +251,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 			}
 			Expect(t.Replaceable).To(BeTrue(), t.ID)
 		}
-		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "load_skill", "goal_done", "goal_blocked", "spawn_agent"}),
+		Expect(ids).To(Equal([]string{"bash", "web_search", "web_fetch", "search_chats", "read_chat", "propose_trigger", "list_triggers", "update_trigger", "delete_trigger", "send_message", "propose_change", "revert_change", "load_skill", "goal_done", "goal_blocked", "spawn_agent"}),
 			"a service without files has no file or media group")
 		for _, id := range []string{"web_search", "web_fetch"} {
 			t, ok := svc.Builtins().Lookup(id)
@@ -259,7 +259,7 @@ var _ = Describe("the one registry of built-in tools", func() {
 			Expect(t.Group).To(Equal(builtins.GroupWeb))
 			Expect(t.ReadOnly).To(BeTrue())
 		}
-		Expect(svc.Builtins().Groups()).To(Equal([]string{"shell", "web", "triggers", "subagents"}))
+		Expect(svc.Builtins().Groups()).To(Equal([]string{"shell", "web", "history", "triggers", "changes", "subagents"}))
 	})
 
 	It("lists the web tools in Settings > Tools with their settings", func() {
@@ -339,3 +339,10 @@ var _ = Describe("an add-on tool that shadows web_search", func() {
 		Expect(h.ToolNames(id)).NotTo(ContainElement("addon__searcher__search"))
 	})
 })
+
+// bare is a group without the words a person reads, which the specs of the
+// switches do not compare (toolgroupinfo_test.go does).
+func bare(g studio.BuiltinGroup) studio.BuiltinGroup {
+	g.Title, g.Description, g.WhenOff = "", "", ""
+	return g
+}

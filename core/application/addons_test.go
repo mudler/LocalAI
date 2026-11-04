@@ -59,7 +59,7 @@ var _ = Describe("addon bootstrap", func() {
 				return nil
 			})
 		})
-		c.Host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+		c.Host = contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
 		manifest, e := os.ReadFile("../../tests/addons/fixtures/packages/manifest.json")
 		Expect(e).NotTo(HaveOccurred())
 		var b bytes.Buffer

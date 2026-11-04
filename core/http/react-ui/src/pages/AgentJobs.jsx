@@ -14,6 +14,7 @@ import { JobMark, JobStrip } from '../components/agents/JobBits'
 import { jobSentence } from '../utils/agentJobText'
 import { AgentViews, StatusMark } from '../components/agents/AgentBits'
 import { ClockTime, OutputBlock, RelTime, RunItem } from '../components/agents/RunBits'
+import { ReadOnlyTag } from '../components/TriggerActs'
 import Icon from '../components/Icon'
 import { Button, EmptyState, LoadError, Page, PageHeader, Segmented, SkeletonRows, Switch } from '../components/ui'
 import './agents.css'
@@ -361,6 +362,7 @@ function TriggerRow({ task, jobs, agent, onToggle, onRun, onOpen, onEdit, onDele
             : <span className="ag-mono"><Icon name="cube" />{task.model || t('jobs.tasks.noAgent')}</span>}
           {!off && Date.parse(task.next_run || '') > Date.now() && <span><Icon name="calendar" />{t('jobs.tasks.next')} <RelTime iso={task.next_run} /></span>}
           {off && <span>{t('jobs.task.disabled')}</span>}
+          <ReadOnlyTag trigger={task} />
         </span>
       </div>
       <div className="ag-row__record">

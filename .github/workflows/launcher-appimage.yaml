@@ -60,7 +60,7 @@ jobs:
       contents: write
     steps:
       # Download only: never execute repository code with the write token.
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: launcher-appimage-x86_64
           path: dist

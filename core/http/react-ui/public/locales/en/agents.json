@@ -93,7 +93,7 @@
     "model": "Model",
     "noModel": "No model set",
     "tools": "Tools",
-    "memory": "Memory",
+    "memory": "Knowledge",
     "skills": "Skills",
     "instructions": "Instructions",
     "record": "Record",
@@ -184,13 +184,18 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "Knowledge",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Files"
+      "Files": "Files",
+      "Tools": "Tools",
+      "Notes": "Memory"
     },
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions",
     "name": "Name",
     "description": "Description",
     "descriptionHelp": "One line that says what the agent is for. It shows in the list.",
@@ -202,7 +207,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "The collections a chat with this agent may search. The list is exact: an empty list grants none.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -231,12 +236,25 @@
     "importDropped": "Not imported: {{keys}}.",
     "default": "Default",
     "network": "Network of commands in unattended runs",
-    "networkHelp": "When a trigger or a connector runs this agent, its Sandbox commands reach this much of the network, up to the limit an administrator set. A run never asks: a host outside it is blocked. A chat you start with this agent starts with it too.",
+    "networkHelp": "When a trigger or a connector runs this agent, its commands reach this much of the network, up to the limit an administrator set. A run never asks: a host outside it is blocked. A chat you start with this agent starts with it too.",
     "networkPresets": {
       "off": "Off",
       "registries": "Package registries",
       "all": "All public sites"
-    }
+    },
+    "toolsSummary": "{{on}} of {{total}} on",
+    "toolsHelp": "Choose what a chat with this agent can use. These are the same switches as the Tools menu of a chat, with the options of a switch under it. A tool that is off is never offered to the model. With no option ticked, the agent keeps the defaults it had on its messaging connections; once you tick any, only the ticked ones work.",
+    "toolsHeading": "Tools of this agent",
+    "skillsLater": "A chat with this agent reads only the skills that are on.",
+    "skillsHeading": "Skills of this agent",
+    "grantNames": {
+      "triggers_propose": "Also propose from messaging apps",
+      "triggers_run": "Let triggers start from messaging apps",
+      "talkback_channels": "Reply on known channels",
+      "files_upload": "Receive files from messaging apps"
+    },
+    "memoryOffUser": "Memory is off in your settings, so this agent reads and saves no notes, whatever you set here.",
+    "memoryOffFix": "Settings, Memory"
   },
   "status": {
     "title": "Status",
@@ -405,7 +423,8 @@
       "runMeta": "took {{time}}",
       "agent": "Agent",
       "cap": "Most runs a day",
-      "watches": "Watches the folder {{folder}}"
+      "watches": "Watches the folder {{folder}}",
+      "acts": "Permissions"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -430,7 +449,8 @@
         "schedule": "When",
         "media": "Media sources",
         "webhooks": "Webhooks",
-        "limits": "Limits"
+        "limits": "Limits",
+        "acts": "Permissions"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -439,7 +459,9 @@
         "promptEmpty": "Nothing to do yet",
         "folderEmpty": "Needs a folder",
         "cap": "Up to {{count}} runs a day",
-        "capDefault": "Default limit"
+        "capDefault": "Default limit",
+        "acts_one": "May use {{count}} kind of action",
+        "acts_other": "May use {{count}} kinds of action"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -689,7 +711,7 @@
   },
   "folder": {
     "all": "All my files",
-    "one": "One folder",
+    "one": "Chosen folders",
     "scopeLabel": "Files this agent can reach",
     "allHelp": "Chats with this agent can reach all your files, as a chat without an agent can.",
     "choose": "Choose folder",
@@ -702,7 +724,7 @@
     "readShort": "read only",
     "writeShort": "read and change",
     "help": "Chats with this agent see only this folder and their own chat folder. Shared folders and skills stay readable. MCP servers and web tools you grant are not limited to this folder.",
-    "commands": "Commands of this agent run only in the Sandbox add-on, never directly on this machine.",
+    "commands": "Commands of this agent run only in an add-on that isolates them, never directly on this machine.",
     "nextMessage": "A change applies from the next message of each chat.",
     "missing": "This folder is gone. Choose another folder to use this agent.",
     "unset": "No folder is chosen yet. Choose a folder to use this agent.",
@@ -721,6 +743,15 @@
     "exportNote": "The file names the folder {{path}}. Where you import it, the agent gets the folder with that path, if there is one, or asks you to choose one.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Folder missing",
-    "chipUnset": "No folder chosen"
+    "chipUnset": "No folder chosen",
+    "add": "Add folder",
+    "remove": "Remove {{path}}",
+    "removeRow": "Remove",
+    "count": "{{n}} of {{max}} folders",
+    "summaryMany": "{{n}} folders",
+    "effectiveRead": "Inside a folder that can only be read, so this one can only be read.",
+    "effectiveWrite": "Inside a folder that can be changed, so this one can be changed too.",
+    "notMounted": "{{n}} shared folders do not fit the access limit of a chat and are not mounted.",
+    "exportNoteMany": "The file names {{n}} folders. Where you import it, the agent gets the folders with those paths that exist, and asks you to choose the others."
   }
 }

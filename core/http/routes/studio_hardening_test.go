@@ -23,6 +23,7 @@ var _ = Describe("Chats connectors: accepting any sender needs a server-checked 
 		}))
 		DeferCleanup(bot.Close)
 		studioTelegram = studiobot.NewBotTransport(&transport.API{BaseURL: bot.URL, Client: bot.Client()})
+		studioTelegram.DeclareFiles()
 		DeferCleanup(func() { studioTelegram = nil })
 		s = newStudioServer()
 	})
@@ -32,7 +33,7 @@ var _ = Describe("Chats connectors: accepting any sender needs a server-checked 
 		Expect(rec.Code).To(Equal(http.StatusCreated))
 		ag := decodeJSON(rec)["id"].(string)
 		body := func(extra map[string]any) map[string]any {
-			m := map[string]any{"name": "Bot", "token": specToken, "agent_id": ag, "enabled": true, "accept_any": true}
+			m := map[string]any{"kind": "telegram", "name": "Bot", "token": specToken, "agent_id": ag, "enabled": true, "accept_any": true}
 			for k, v := range extra {
 				m[k] = v
 			}

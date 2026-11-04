@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -20,6 +21,8 @@ import (
 	mcpendpoint "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
+	"github.com/mudler/LocalAI/core/services/studio/contextfiles"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
 	"github.com/mudler/LocalAI/core/services/studio/egress/audit"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -28,6 +31,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/nibharness"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/pages"
+	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/sharedfolders"
@@ -214,6 +218,22 @@ type Deps struct {
 	// requests the goal's turns make, before the goal pauses. Read when a turn
 	// ends. Nil or a value below 1: DefaultGoalMaxTurns, DefaultGoalMaxSteps.
 	GoalLimits func() (turns, steps int)
+	// Proposals keeps the change proposals (propose_change) and their audit.
+	// Nil: a store in memory, for a single process and tests.
+	Proposals proposals.Store
+	// ProposalGate decides whether a chat may propose or revert a change. Nil:
+	// proposals.DefaultGate, which refuses a chat that runs a saved agent.
+	ProposalGate proposals.Gate
+	// UserSetting reads one per-person add-on setting that the host keeps
+	// (the answer a person gave on the page of the add-on). It returns the
+	// stored value and whether there is one. Nil, a missing value or an error
+	// means the add-on's default; a rule that reads a setting never treats a
+	// failure as a looser choice.
+	UserSetting func(ctx context.Context, user, addonID, key string) (string, bool, error)
+	// SetUserSetting stores one per-person setting in the same store, for the
+	// host's own settings (the memory switch and save level, under
+	// HostSettingsID). Nil: the settings cannot be changed.
+	SetUserSetting func(ctx context.Context, user, addonID, key, value string) error
 	// Clock is the time the offer limits use. Nil: time.Now. It is for tests.
 	Clock func() time.Time
 	// Harness replaces the nib harness. It is for tests.
@@ -246,6 +266,9 @@ type CreateInput struct {
 // opt-in groups of built-in tools that are on.
 type Switches struct {
 	AddonsOff, McpOff, BuiltinsOff, BuiltinsOn, SkillsOff []string
+	// Connections is the set of connections (connector binding IDs) the chat
+	// may use for each add-on whose tools run with a credential, by add-on ID.
+	Connections connsets.Sets
 }
 
 // cleanSwitches checks every list of sw and returns them cleaned.
@@ -267,7 +290,16 @@ func (s *Service) cleanSwitches(sw Switches) (Switches, error) {
 	if out.SkillsOff, err = cleanSkillSwitches(sw.SkillsOff); err != nil {
 		return out, err
 	}
+	out.Connections = connsets.Clone(sw.Connections)
 	return out, nil
+}
+
+// nilIfEmpty keeps an empty map nil, as a chat that chose nothing has it.
+func nilIfEmpty(m connsets.Sets) connsets.Sets {
+	if len(m) == 0 {
+		return nil
+	}
+	return maps.Clone(m)
 }
 
 // orNil keeps an empty list nil, as a chat that never switched anything has it.
@@ -295,8 +327,11 @@ type Service struct {
 	mgr *session.Manager
 	// builtins holds the built-in chat tools an add-on may replace.
 	builtins *builtins.Registry
-	bus      Bus
-	log      *slog.Logger
+	// access holds the grants of the running connector turns and the recent
+	// permission decisions (see connectoraccess.go).
+	access accessState
+	bus    Bus
+	log    *slog.Logger
 
 	mu    sync.Mutex
 	runs  map[string]*run                 // the turn this process runs, by conversation
@@ -308,10 +343,14 @@ type Service struct {
 	admit sync.Mutex
 
 	// Sub-agents; see subagent.go.
-	triggers   *Triggers        // set once by SetTriggers
-	loops      *Loops           // set once by SetLoops
-	jobs       *Jobs            // set once by SetJobs
-	connectors *Connectors      // set once by SetConnectors
+	changes    *Changes       // the change proposals
+	triggers   *Triggers      // set once by SetTriggers
+	loops      *Loops         // set once by SetLoops
+	jobs       *Jobs          // set once by SetJobs
+	connectors *Connectors    // set once by SetConnectors
+	capGate    CapabilityGate // set once by SetCapabilityGate; nil denies
+	ctxfiles   *contextfiles.Loader
+	memory     MemoryProvider   // the notes of the chats; see memory.go
 	conversion ConversionSource // set once by SetConversion
 
 	videos   map[string][]string                // videos for the next model request of a turn, by conversation
@@ -388,6 +427,7 @@ func New(d Deps) (*Service, error) {
 	if s.builtins == nil {
 		s.builtins = builtins.NewRegistry()
 	}
+	s.describeGroups()
 	if err := s.registerHostBash(); err != nil {
 		return nil, err
 	}
@@ -397,7 +437,21 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerSavedAgents(); err != nil {
 		return nil, err
 	}
+	if err := s.registerHistoryTools(); err != nil {
+		return nil, err
+	}
 	if err := s.registerTriggerTools(); err != nil {
+		return nil, err
+	}
+	if err := s.registerTalkbackTool(); err != nil {
+		return nil, err
+	}
+	changes, err := newChanges(s)
+	if err != nil {
+		return nil, err
+	}
+	s.changes = changes
+	if err := s.registerChangeTools(); err != nil {
 		return nil, err
 	}
 	if err := s.registerLoadSkill(); err != nil {
@@ -421,6 +475,11 @@ func New(d Deps) (*Service, error) {
 	if err := s.registerToolGroups(); err != nil {
 		return nil, err
 	}
+	if err := s.registerMemoryGroup(); err != nil {
+		return nil, err
+	}
+	s.memory = builtinMemory{}
+	s.ctxfiles = contextfiles.NewLoader(contextfiles.NewRegistry(), homeReader{f: d.Files}, log)
 	s.shared = sharedfolders.New(sharedfolders.Options{Files: d.Files, Consents: d.PageConsents, Audit: d.SharedFolderAudit, Users: s.folderUsers()})
 	// A chat mounts the shared folders of its owner at /workspace/shared-<name>.
 	mgr, err := session.New(session.Options{Store: d.Store, Workspace: d.Files.Store(), Harness: h, StateDir: d.StateDir, Inputs: s.inputs, ChatTools: s.chatTools,
@@ -501,6 +560,14 @@ func (s *Service) List(ctx context.Context, user string, limit int) ([]session.C
 // limit applies to chats, so a burst of newer runs cannot push older chats out
 // of the page: the store is read page by page until enough chats are found.
 func (s *Service) ListChats(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+	return s.ListChatsWhere(ctx, user, limit, nil)
+}
+
+// ListChatsWhere is ListChats for the chats that keep returns true for (nil
+// keeps all). The limit counts the chats kept, so a flood of chats that a
+// connector or a trigger started cannot push a person's chats out of a page of
+// person-started chats, and the other way round.
+func (s *Service) ListChatsWhere(ctx context.Context, user string, limit int, keep func(session.ChatRecord) bool) ([]session.ChatRecord, error) {
 	var out []session.ChatRecord
 	var cur session.ChatCursor
 	for {
@@ -509,7 +576,7 @@ func (s *Service) ListChats(ctx context.Context, user string, limit int) ([]sess
 			return nil, err
 		}
 		for _, r := range page {
-			if r.Kind == session.KindSubAgent {
+			if r.Kind == session.KindSubAgent || (keep != nil && !keep(r)) {
 				continue
 			}
 			out = append(out, r)
@@ -571,6 +638,7 @@ func (s *Service) Create(ctx context.Context, user string, in CreateInput) (sess
 func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, origin Origin) (session.ChatRecord, error) {
 	model := in.Model
 	scoped := false
+	var agentOn []string
 	if in.Assistant {
 		if in.AgentID != "" {
 			return session.ChatRecord{}, ErrAssistantAgent
@@ -593,6 +661,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 		if ag.Model != "" {
 			model = ag.Model
 		}
+		agentOn = ag.BuiltinsOn
 		if ag.HasFolder() {
 			// A chat never starts on the whole home in place of a folder
 			// that is missing or not chosen.
@@ -600,7 +669,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 			if err != nil {
 				return session.ChatRecord{}, err
 			}
-			if _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []folderScope{*sc}); err != nil {
+			if _, _, err := s.scopedRoots(ctx, userChatActor(principal(user), ""), []*folderScope{sc}); err != nil {
 				return session.ChatRecord{}, err
 			}
 			scoped = true
@@ -613,6 +682,12 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	if err != nil {
 		return session.ChatRecord{}, err
 	}
+	if err := s.checkConnections(ctx, user, sw.Connections); err != nil {
+		return session.ChatRecord{}, err
+	}
+	// The opt-in groups the agent starts with (saved agents) are on in its
+	// chats from the first turn; the chat may still switch them off.
+	sw.BuiltinsOn = mergeGroups(sw.BuiltinsOn, agentOn)
 	title := in.Title
 	if title == "" {
 		title = session.DefaultTitle
@@ -621,7 +696,7 @@ func (s *Service) CreateAs(ctx context.Context, user string, in CreateInput, ori
 	rec := session.ChatRecord{ID: newID(), Principal: principal(user), Title: title, Created: now, Updated: now, Kind: session.KindChat, Model: model,
 		AgentID: in.AgentID, ScopedAgent: scoped, Origin: origin.Kind, OriginID: origin.ID, Assistant: in.Assistant,
 		AddonsOff: orNil(sw.AddonsOff), McpOff: orNil(sw.McpOff), BuiltinsOff: orNil(sw.BuiltinsOff),
-		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff)}
+		BuiltinsOn: orNil(sw.BuiltinsOn), SkillsOff: orNil(sw.SkillsOff), Connections: nilIfEmpty(sw.Connections)}
 	if origin.Kind == "" {
 		// A chat a person starts gets the instance default, or the network
 		// of its saved agent when the agent sets one, under the ceiling. An
@@ -1455,3 +1530,13 @@ func (s *Service) Delete(ctx context.Context, user, conv string) error {
 // MCPConnectors returns the service that keeps the users' MCP connectors, or
 // nil when the chats have none.
 func (s *Service) MCPConnectors() *mcpconns.Service { return s.d.MCPConnectors }
+
+// mergeGroups returns a with the entries of b it lacks, in order.
+func mergeGroups(a, b []string) []string {
+	for _, g := range b {
+		if !slices.Contains(a, g) {
+			a = append(a, g)
+		}
+	}
+	return a
+}

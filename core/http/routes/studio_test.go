@@ -27,6 +27,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/loops"
 	"github.com/mudler/LocalAI/core/services/studio/notify"
 	"github.com/mudler/LocalAI/core/services/studio/provider"
+	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
@@ -45,6 +46,8 @@ type studioServer struct {
 	notify   *notify.Service
 	host     *studio.Triggers
 	svc      *studio.Service
+	// store is the chat store behind svc, for specs that seed chats a person did not start.
+	store session.Store
 }
 
 // studioTriggerOptions lets a spec set the clock or the limits of the trigger
@@ -133,7 +136,7 @@ func newStudioServerWith(f *files.Service, mod func(*studio.Deps)) *studioServer
 	DeferCleanup(conns.Close)
 	DeferCleanup(host.Close)
 
-	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc}
+	s := &studioServer{e: echo.New(), harness: h, sessions: map[string]string{}, notify: nsvc, host: host, svc: svc, store: st}
 	for _, id := range []string{"alice", "bob", "carol", "dave", "root"} {
 		role := auth.RoleUser
 		if id == "root" {

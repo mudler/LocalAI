@@ -1,0 +1,178 @@
+import { test, expect } from './coverage-fixtures.js'
+import { mockChat } from './chat-fixtures.js'
+import { installAgents, AGENTS, SKILLS } from './agents-fixtures.js'
+import { mockHome, seedChats, sampleChats } from './home-fixtures.js'
+import { mockSettings } from './settings-fixtures.js'
+import { mockLibrary } from './library-fixtures.js'
+import { mockAddons, app, installedAddon, release, sessionFor, ADMIN } from './addons-fixtures.js'
+import { mockLedger, GALLERY } from './ledger-fixtures.js'
+
+// No page may scroll sideways. Every page below is drawn with content that
+// does not break by itself (an id, a path, a URL, a name joined by
+// underscores) and with far more rows than a demo has, at a phone and a
+// tablet width, and the document must not be wider than the window. A block
+// that is meant to scroll (code, a table) does so inside its own box; the
+// allowlist names those.
+
+const WIDTHS = [390, 768]
+// Boxes that scroll on their own, by selector.
+// The strips are one row of tabs or chips that scroll on a phone by design.
+const SCROLLS_INSIDE = ['pre', 'code', 'table', '.ag-pre', '.wk-shortcuts__chips', '.st-groups']
+
+const join = (n, s) => Array.from({ length: n }, (_, i) => `${s}${i}`).join('_')
+const WORD = join(9, 'unbroken_name_segment')
+const URL = `https://example.com/${'a'.repeat(180)}`
+
+async function overflow(page) {
+  return page.evaluate((allow) => {
+    const root = document.scrollingElement
+    const vw = document.documentElement.clientWidth
+    const bad = []
+    const clipped = (el) => {
+      for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+        const cs = getComputedStyle(p)
+        if (cs.position === 'fixed' || cs.overflowX !== 'visible') return true
+      }
+      return getComputedStyle(el).position === 'fixed'
+    }
+    for (const el of document.body.querySelectorAll('*')) {
+      const r = el.getBoundingClientRect()
+      // Text that runs out of its own box counts too: the box fits, its content does not.
+      const textOut = r.left + el.scrollWidth > vw + 1 && el.scrollWidth > el.clientWidth + 1 && !clipped(el) && getComputedStyle(el).overflowX === 'visible'
+      if (r.width === 0 || (r.right <= vw + 1 && !textOut) || clipped(el)) continue
+      const cs = getComputedStyle(el)
+      if (cs.visibility === 'hidden' || cs.display === 'none') continue
+      // The deepest boxes that pass the edge are the cause; their parents only follow.
+      if ([...el.children].some(c => c.getBoundingClientRect().right > vw + 1 || c.getBoundingClientRect().left + c.scrollWidth > vw + 1)) continue
+      const d = `${el.tagName.toLowerCase()}.${String(el.className).split(/\s+/).slice(0, 3).join('.')}`
+      if (!bad.some(b => b.startsWith(d + ' '))) bad.push(`${d} w=${Math.round(r.width)} right=${Math.round(r.right)}`)
+    }
+    // A box that scrolls sideways inside the page must be one of the allowed.
+    const scrollers = []
+    for (const el of document.body.querySelectorAll('*')) {
+      const cs = getComputedStyle(el)
+      if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 1 && !allow.some(s => el.matches(s))) {
+        scrollers.push(`${el.tagName.toLowerCase()}.${String(el.className).split(/\s+/).slice(0, 3).join('.')}`)
+      }
+    }
+    return { scrollWidth: root.scrollWidth, clientWidth: root.clientWidth, bad, scrollers }
+  }, SCROLLS_INSIDE)
+}
+
+const longAgents = Array.from({ length: 6 }, (_, i) => ({
+  ...AGENTS[0], id: `a${i + 1}`, name: `research_${WORD}_${i}`, description: `Searches ${URL} and writes briefs`,
+  instructions: `${URL}\n${'x'.repeat(300)}`, model: `model_${WORD}`,
+  mcp_servers: [`crm_${WORD}`, ...Array.from({ length: 6 }, (_, k) => `connector:m${k}`)], addons: ['office'],
+  collections: Array.from({ length: 24 }, (_, k) => `collection_${WORD}_${k}`),
+  skills: ['citations', `skill_${WORD}`], network: 'off',
+  builtins: ['triggers.propose', 'memory.write', 'skills.write', 'files.upload', 'talkback.channels', 'act.send'], builtins_on: ['saved_agents'],
+  folders: [{ path: `/Projects/${WORD}`, mode: 'write', state: 'ok' }, { path: `/Other/${'q'.repeat(160)}`, mode: 'read', state: 'ok' }],
+  folder: { path: `/Projects/${WORD}`, mode: 'write', state: 'ok' },
+}))
+const longBindings = Array.from({ length: 4 }, (_, i) => ({ id: `b${i}`, name: `Support_channel_${WORD}_${i}`, kind: 'slack', agent_id: 'a1', enabled: true, caps: i % 2 ? ['triggers.propose'] : [] }))
+const longConnectors = Array.from({ length: 6 }, (_, i) => ({ id: `m${i}`, name: `Docs_connector_${WORD}_${i}`, enabled: true }))
+
+async function agentsSetup(page, extra = {}) {
+  await installAgents(page, { agents: longAgents, bindings: longBindings, connectors: longConnectors, collections: longAgents[0].collections, ...extra })
+}
+
+async function chatSetup(page) {
+  await mockChat(page)
+  const detail = { id: 'c1', title: `Quotes ${WORD}`, model: 'qwen3-8b', kind: 'chat', created: '2026-10-25T10:00:00Z', updated: '2026-10-25T10:00:00Z', running: false, pending: [] }
+  const table = '| name | value | note |\n|---|---|---|\n' + Array.from({ length: 6 }, (_, i) => `| ${WORD}_${i} | ${'9'.repeat(40)} | ${URL} |`).join('\n')
+  const code = '```js\n' + `const x = "${'long_string_'.repeat(30)}"\n` + '```'
+  const messages = [
+    { seq: 1, turn: 1, role: 'user', text: `compare ${URL} and ${WORD}`, at: '2026-10-25T10:00:00Z' },
+    { seq: 2, turn: 1, role: 'tool', text: `web_fetch: {"url":"${URL}"}\n${'result_without_spaces_'.repeat(40)}`, at: '2026-10-25T10:00:01Z' },
+    { seq: 3, turn: 1, role: 'assistant', text: `Here is ${URL}\n\n${table}\n\n${code}\n\n${'word_'.repeat(80)}\n\n- ${WORD}\n- [${URL}](${URL})`, at: '2026-10-25T10:00:02Z' },
+  ]
+  await page.route('**/api/chats/c1/events', route => route.abort())
+  await page.route(/\/api\/chats\/c1\/messages(\?.*)?$/, route => route.fulfill({ json: { messages } }))
+  await page.route(/\/api\/chats\/c1$/, route => route.fulfill({ json: detail }))
+  await page.route(/\/api\/chats(\?.*)?$/, route => route.fulfill({ json: { conversations: [detail], persistent: true, files: true } }))
+  await page.route('**/api/chats/agents*', route => route.fulfill({ json: { agents: longAgents } }))
+  await page.route('**/api/chats/push/**', route => route.fulfill({ status: 409, json: { error: { message: 'off' } } }))
+  await page.route(/\/api\/chats\/notifications(\?.*)?$/, route => route.fulfill({ json: { notifications: [], unread: 0 } }))
+}
+
+const PAGES = [
+  { name: 'agent editor', url: '/app/agents/a1/edit', ready: '[data-testid=agent-edit]', setup: agentsSetup, open: '.ag-fold__button' },
+  { name: 'new agent', url: '/app/agents/new', ready: '[data-testid=agent-edit]', setup: agentsSetup },
+  { name: 'agents list', url: '/app/agents', ready: '.ag-home, .page', setup: agentsSetup },
+  { name: 'agent page', url: '/app/agents/a1', ready: '.page', setup: agentsSetup },
+  { name: 'skills', url: '/app/skills', ready: '.page', setup: (page) => agentsSetup(page, { skills: Array.from({ length: 8 }, (_, i) => ({ ...SKILLS[0], name: `skill_${WORD}_${i}`, description: `${URL} ${'d'.repeat(120)}` })) }) },
+  {
+    name: 'home', url: '/app', ready: '.page, main',
+    setup: async (page) => { await mockHome(page); await seedChats(page, sampleChats().map((c, i) => ({ ...c, name: `Chat ${WORD}_${i}` }))) },
+  },
+  { name: 'chat', url: '/app/chats/c1', ready: 'main', setup: chatSetup },
+  {
+    name: 'messaging connections', url: '/app/chats/connectors', ready: '.page',
+    setup: async (page) => {
+      await mockChat(page)
+      await page.route('**/api/chats/agents*', r => r.fulfill({ json: { agents: longAgents } }))
+      await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds: [{ addon: 'slack', kind: 'slack', title: `Slack_${WORD}`, description: URL, page: 'bots' }] } }))
+      await page.route(/\/api\/chats\/connectors(\?.*)?$/, r => r.fulfill({ json: { connectors: longBindings.map(b => ({ ...b, addon: 'slack', active: true, accept_any: false, allow: [WORD, URL], has_token: true })) } }))
+      await page.route(/\/api\/chats(\?.*)?$/, r => r.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+      await page.route('**/api/chats/notifications*', r => r.fulfill({ json: { notifications: [], unread: 0 } }))
+    },
+  },
+  { name: 'MCP connectors', url: '/app/mcp-connectors', ready: '.page', setup: (page) => agentsSetup(page, { connectors: longConnectors.map(c => ({ ...c, url: URL, description: URL })) }) },
+  ...['apps', 'browse', 'installed', 'access'].map(tab => ({
+    name: `add-ons ${tab}`, url: tab === 'apps' ? '/app/addons' : `/app/addons?tab=${tab}`, ready: '[data-testid=addons]',
+    setup: async (page) => {
+      await page.route('**/api/auth/status', route => route.fulfill({ json: sessionFor(ADMIN, { addons: true }) }))
+      await page.route('**/api/features', route => route.fulfill({ json: { addons: true, addon_navigation: true, chats: true, agents: true } }))
+      await page.route('**/api/addons/builtin', route => route.fulfill({ json: { builtin: [] } }))
+      await mockAddons(page, {
+        apps: Array.from({ length: 6 }, (_, i) => app({ id: `app${i}`, name: `app${i}`, title: `Addon_${WORD}_${i}`, description: `${URL} ${'d'.repeat(100)}` })),
+        installed: Array.from({ length: 6 }, (_, i) => installedAddon({ id: `app${i}`, title: `Addon_${WORD}_${i}`, description: URL })),
+        releases: Array.from({ length: 6 }, (_, i) => release(`rel${i}_${WORD}`, { description: URL, name: `Release_${WORD}_${i}` })),
+      })
+    },
+  })),
+  { name: 'settings', url: '/app/settings', ready: '.page', setup: (page) => mockSettings(page, { cors_allow_origins: URL, instance_name: WORD, instance_tagline: URL, galleries: [{ url: URL, name: WORD }], api_keys: [`sk-${'k'.repeat(120)}`], collections_db_path: `/data/${WORD}` }) },
+  {
+    name: 'files', url: '/app/files', ready: '.page, main',
+    setup: async (page) => {
+      await mockChat(page)
+      await page.route(/\/api\/chats\/files\/trash(\?.*)?$/, route => route.fulfill({ json: { entries: [] } }))
+      await page.route(/\/api\/chats\/files(\?.*)?$/, route => route.fulfill({
+        json: { path: '/', entries: Array.from({ length: 12 }, (_, i) => ({ path: `/file_${WORD}_${i}.txt`, name: `file_${WORD}_${i}.txt`, kind: i % 3 ? 'file' : 'dir', size: 1234, version: 1, rev: 3 })) },
+      }))
+      await page.route('**/api/workspace/events*', route => route.fulfill({ status: 200, headers: { 'Content-Type': 'text/event-stream' }, body: ': ping\n\n' }))
+    },
+  },
+  {
+    name: 'memory collections', url: '/app/collections', ready: '.page',
+    setup: (page) => mockLibrary(page, { collections: Array.from({ length: 20 }, (_, i) => `collection_${WORD}_${i}`), entries: { [`collection_${WORD}_0`]: [`${WORD}.pdf`, `${URL}.md`] } }),
+  },
+  {
+    name: 'models', url: '/app/models', ready: 'body',
+    setup: (page) => mockLedger(page, { gallery: GALLERY.map((e, i) => (i % 2 ? { ...e, name: `${e.name}_${WORD}`, description: `${URL} ${e.description}` } : e)) }),
+  },
+]
+
+for (const width of WIDTHS) {
+  test.describe(`no horizontal overflow at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } })
+    for (const p of PAGES) {
+      for (const theme of ['light', 'dark']) {
+        test(`${p.name} (${theme})`, async ({ page }) => {
+          await page.addInitScript((t) => localStorage.setItem('localai-theme', t), theme)
+          await p.setup(page)
+          await page.goto(p.url)
+          await page.locator(p.ready).first().waitFor()
+          if (p.open) for (const b of await page.locator(p.open).all()) await b.click()
+          await page.waitForFunction(() => !document.querySelector('.skeleton, [aria-busy=true]'), null, { timeout: 5000 }).catch(() => {})
+          await page.waitForTimeout(300)
+          if (process.env.OVERFLOW_SHOTS) await page.screenshot({ path: `${process.env.OVERFLOW_SHOTS}/${p.name.replace(/ /g, '-')}-${theme}-${width}.png`, fullPage: true })
+          const r = await overflow(page)
+          expect(r.bad, `elements past the right edge (document ${r.scrollWidth} in ${r.clientWidth})`).toEqual([])
+          expect(r.scrollWidth, 'document width').toBeLessThanOrEqual(r.clientWidth + 1)
+          expect(r.scrollers, 'boxes that scroll sideways and are not allowed').toEqual([])
+        })
+      }
+    }
+  })
+}

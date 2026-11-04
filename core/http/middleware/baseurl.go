@@ -4,7 +4,32 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/pkg/clientip"
 )
+
+// TrustedProxiesKey is the echo context key under which the trusted-proxy
+// *clientip.Resolver is stored. BaseURL and BasePathPrefix read it to decide
+// whether the forwarding headers of a request can be believed.
+const TrustedProxiesKey = "_trusted_proxies"
+
+// TrustedProxies stamps the resolver into every request context. Register it
+// with Pre so it runs before routing and handlers.
+func TrustedProxies(r *clientip.Resolver) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			c.Set(TrustedProxiesKey, r)
+			return next(c)
+		}
+	}
+}
+
+// ForwardedHeadersTrusted reports whether the TCP peer is a trusted proxy.
+// Without a resolver in the context nobody is trusted, so the request's own
+// scheme, host and path are used.
+func ForwardedHeadersTrusted(c echo.Context) bool {
+	r, _ := c.Get(TrustedProxiesKey).(*clientip.Resolver)
+	return r.TrustsPeer(c.Request())
+}
 
 // BasePathPrefix returns the URL path prefix that the request was reached
 // under (e.g. "/myprefix/"). It always returns a value that starts and ends
@@ -40,6 +65,10 @@ func BasePathPrefix(c echo.Context) string {
 		}
 	}
 
+	if !ForwardedHeadersTrusted(c) {
+		return "/"
+	}
+
 	if validated, ok := SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
 		if !strings.HasSuffix(validated, "/") {
 			validated += "/"
@@ -63,21 +92,29 @@ func BaseURL(c echo.Context) string {
 		return strings.TrimRight(ext, "/") + BasePathPrefix(c)
 	}
 
-	fwdProto, fwdHost := parseForwarded(c.Request().Header.Get("Forwarded"))
+	// The forwarding headers are believed only when the TCP peer is a trusted
+	// proxy (--trusted-proxies). Otherwise anyone could pick the scheme and
+	// host that end up in links, redirects and the SPA <base href>.
+	var fwdProto, fwdHost, xfProto, xfHost string
+	if ForwardedHeadersTrusted(c) {
+		fwdProto, fwdHost = parseForwarded(c.Request().Header.Get("Forwarded"))
+		xfProto = firstToken(c.Request().Header.Get("X-Forwarded-Proto"))
+		xfHost = c.Request().Header.Get("X-Forwarded-Host")
+	}
 
 	scheme := "http"
 	switch {
 	case c.Request().TLS != nil:
 		scheme = "https"
-	case strings.EqualFold(firstToken(c.Request().Header.Get("X-Forwarded-Proto")), "https"):
+	case strings.EqualFold(xfProto, "https"):
 		scheme = "https"
 	case strings.EqualFold(fwdProto, "https"):
 		scheme = "https"
 	}
 
 	host := c.Request().Host
-	if forwardedHost := c.Request().Header.Get("X-Forwarded-Host"); forwardedHost != "" {
-		host = forwardedHost
+	if xfHost != "" {
+		host = xfHost
 	} else if fwdHost != "" {
 		host = fwdHost
 	}

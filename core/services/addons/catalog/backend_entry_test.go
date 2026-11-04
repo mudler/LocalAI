@@ -104,7 +104,7 @@ var _ = Describe("the backend body of a library entry", func() {
 			"  license: mit\n", "  urls: [https://example.com]\n", "  tags: [a]\n", "  icon: https://example.com/i.png\n",
 			"  mirrors: [oci://hub.example/x:y]\n", "  capabilities: {default: x}\n", "  schemaVersion: 1\n",
 		} {
-			_, _, err := read(oldShapeIndex + extra)
+			_, _, err := read(addonEntry + extra)
 			Expect(err).To(HaveOccurred(), extra)
 		}
 	})
@@ -273,7 +273,7 @@ var _ = Describe("the backend body of a library entry", func() {
 			Expect(err).To(HaveOccurred())
 		})
 		It("is accepted on an add-on without a digest, as on a backend", func() {
-			entry := strings.Replace(oldShapeIndex, "  digest: "+yamlDigest+"\n", "  mutable: true\n", 1)
+			entry := strings.Replace(addonEntry, "  digest: "+yamlDigest+"\n", "  mutable: true\n", 1)
 			_, s, err := read(entry)
 			Expect(err).NotTo(HaveOccurred())
 			r, err := Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}.Resolve(ctx, "lib", "tables", "1.0.0")
@@ -282,11 +282,11 @@ var _ = Describe("the backend body of a library entry", func() {
 			Expect(r.Digest).To(BeEmpty())
 		})
 		It("is refused on an add-on with a digest, without a digest unless mutable, or on an archive", func() {
-			_, _, err := read(oldShapeIndex + "  mutable: true\n")
+			_, _, err := read(addonEntry + "  mutable: true\n")
 			Expect(err).To(HaveOccurred())
-			_, _, err = read(strings.Replace(oldShapeIndex, "  digest: "+yamlDigest+"\n", "", 1))
+			_, _, err = read(strings.Replace(addonEntry, "  digest: "+yamlDigest+"\n", "", 1))
 			Expect(err).To(HaveOccurred())
-			_, _, err = read(strings.Replace(strings.Replace(oldShapeIndex, "  digest: "+yamlDigest+"\n", "  mutable: true\n", 1), "oci://registry.example/tables", "https://registry.example/tables.tar", 1))
+			_, _, err = read(strings.Replace(strings.Replace(addonEntry, "  digest: "+yamlDigest+"\n", "  mutable: true\n", 1), "oci://registry.example/tables", "https://registry.example/tables.tar", 1))
 			Expect(err).To(HaveOccurred())
 		})
 	})

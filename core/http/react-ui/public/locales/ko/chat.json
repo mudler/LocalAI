@@ -102,7 +102,61 @@
     "untitled": "새 채팅",
     "origin": {
       "trigger": "트리거로 시작됨",
-      "connector": "커넥터에서"
+      "connector": "커넥터에서",
+      "job": "작업이 시작함",
+      "page": "페이지가 시작함",
+      "other": "다른 것이 시작함"
+    },
+    "originBadge": {
+      "trigger": "트리거",
+      "connector": "커넥터",
+      "job": "작업",
+      "page": "페이지",
+      "other": "자동"
+    },
+    "keys": {
+      "clear": "지우기"
+    },
+    "find": {
+      "searching": "검색 중…",
+      "count_one": "결과 {{count}}개",
+      "count_other": "결과 {{count}}개",
+      "more_one": "이 대화에 일치 항목 {{count}}개 더 있음",
+      "more_other": "이 대화에 일치 항목 {{count}}개 더 있음",
+      "indexing": "이전 대화를 아직 색인하는 중입니다. 결과가 완전하지 않을 수 있습니다.",
+      "partial": "전체 {{total}}개 대화 중 최신 {{searched}}개를 검색했습니다.",
+      "failed": "검색에 실패했습니다.",
+      "retry": "다시 시도",
+      "noMatchFor": "“{{query}}”와(과) 일치하는 대화가 없습니다.",
+      "noMatchFiltered": "이 필터로 “{{query}}”와(과) 일치하는 대화가 없습니다.",
+      "inTitle": "제목과 일치",
+      "you": "나",
+      "assistant": "어시스턴트",
+      "filters": "검색 필터",
+      "agent": "에이전트",
+      "anyAgent": "모든 에이전트",
+      "origin": "출처",
+      "anyOrigin": "모든 곳",
+      "originName": {
+        "person": "내 대화",
+        "automated": "애드온 및 자동화",
+        "trigger": "트리거",
+        "connector": "메신저 앱",
+        "job": "작업",
+        "page": "페이지"
+      },
+      "when": "시기",
+      "anyTime": "전체 기간",
+      "range": {
+        "day": "최근 24시간",
+        "week": "최근 7일",
+        "month": "최근 30일",
+        "year": "최근 1년",
+        "custom": "날짜 선택…"
+      },
+      "from": "시작",
+      "to": "종료",
+      "reset": "필터 초기화"
     }
   },
   "message": {
@@ -128,7 +182,8 @@
     "failed": "저장하지 못했습니다. 스위치가 이전 상태로 돌아갔습니다.",
     "unavailable": "이 채팅에서 사용할 수 없음",
     "toolCount_one": "도구 {{count}}개",
-    "toolCount_other": "도구 {{count}}개"
+    "toolCount_other": "도구 {{count}}개",
+    "optionsOf": "{{name}} 옵션"
   },
   "skills": {
     "label": "스킬",
@@ -386,7 +441,38 @@
     "loadFailed": "채팅을 불러오지 못했습니다.",
     "emptyTitle": "아직 채팅이 없습니다",
     "emptyBody": "채팅은 홈에서 시작합니다. 메시지를 입력하고 보내세요. 그 후 채팅이 여기에 표시됩니다.",
-    "start": "채팅 시작"
+    "start": "채팅 시작",
+    "tabsLabel": "채팅 목록",
+    "tab": {
+      "mine": "내 채팅",
+      "automated": "애드온 및 자동화"
+    },
+    "automated": {
+      "intro": "커넥터, 트리거, 작업처럼 사용자가 아닌 것이 시작한 대화입니다. 내 채팅 목록에는 표시되지 않습니다.",
+      "empty": "아직 스스로 채팅을 시작한 것이 없습니다.",
+      "kind": {
+        "trigger": "트리거",
+        "connector": "커넥터",
+        "job": "작업",
+        "page": "페이지",
+        "other": "기타"
+      },
+      "badge": {
+        "trigger": "트리거",
+        "connector": "커넥터",
+        "job": "작업",
+        "page": "페이지",
+        "other": "자동"
+      },
+      "chats": "채팅: {{count}}",
+      "lastActive": "마지막 활동 {{when}}",
+      "running": "실행 중",
+      "waiting": "확인 대기 중",
+      "waitingCount": "확인을 기다리는 채팅: {{count}}",
+      "open": "{{title}} 열기",
+      "showAll": "{{count}}개 모두 보기",
+      "showLess": "간단히 보기"
+    }
   },
   "foot": {
     "state": {
@@ -578,7 +664,7 @@
     "skillsOn_one": "스킬 {{count}}개",
     "skillsOn_other": "스킬 {{count}}개",
     "commands": "명령 실행",
-    "isolated": "격리된 샌드박스에서 실행",
+    "isolated": "격리되어 실행",
     "host": "이 컴퓨터에서 실행",
     "noCommands": "실행 불가",
     "context": "컨텍스트",
@@ -599,6 +685,18 @@
     "chipMissing": "폴더 없음",
     "missing": "이 에이전트의 폴더가 더 이상 없습니다. 에이전트에서 다른 폴더를 선택하세요.",
     "startError": "이 에이전트의 폴더가 없어 채팅을 시작할 수 없습니다. 에이전트에 다른 폴더를 선택하세요.",
-    "editAgent": "에이전트 편집"
+    "editAgent": "에이전트 편집",
+    "toolsMany": "파일: 폴더 {{n}}개만: {{list}}. 공유 폴더와 스킬은 계속 읽을 수 있습니다."
+  },
+  "origin": {
+    "banner": "이 대화는 {{title}}에서 시작되었습니다.",
+    "open": "{{title}} 열기",
+    "kindFallback": {
+      "trigger": "트리거",
+      "connector": "커넥터",
+      "job": "작업",
+      "page": "페이지",
+      "other": "다른 요소"
+    }
   }
 }

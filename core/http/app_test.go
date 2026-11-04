@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"time"
@@ -376,6 +377,9 @@ var _ = Describe("API test", func() {
 					config.WithSystemState(systemState),
 					config.WithGalleries(galleries),
 					config.WithApiKeys([]string{apiKey}),
+					// The specs reach the server from loopback and act as the
+					// reverse proxy that sets the forwarded headers.
+					config.WithTrustedProxies("127.0.0.0/8"),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -470,6 +474,34 @@ var _ = Describe("API test", func() {
 				Expect(string(body)).ToNot(ContainSubstring(`="/assets/`), "asset URLs must include the prefix")
 				Expect(string(body)).ToNot(ContainSubstring(`="/favicon.svg"`), "favicon URL must include the prefix")
 				Expect(string(body)).ToNot(ContainSubstring(`="/apple-touch-icon.png"`), "touch icon URL must include the prefix")
+			})
+
+			// The forwarding headers count only from a trusted proxy. The
+			// same request from a peer outside --trusted-proxies gets the
+			// request's own scheme and host and no prefix.
+			It("Should ignore the forwarding headers of a peer that is not a trusted proxy", func() {
+				req := httptest.NewRequest(http.MethodGet, "/app", nil)
+				req.RemoteAddr = "203.0.113.9:4000"
+				req.Header.Set("X-Forwarded-Proto", "https")
+				req.Header.Set("X-Forwarded-Host", "evil.example")
+				req.Header.Set("X-Forwarded-Prefix", "/forged")
+				rec := httptest.NewRecorder()
+				app.ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(200))
+				body := rec.Body.String()
+				Expect(body).To(ContainSubstring(`<base href="http://example.com/" />`))
+				Expect(body).ToNot(ContainSubstring("evil.example"))
+				Expect(body).ToNot(ContainSubstring("forged"))
+			})
+
+			It("Should not add a forged prefix to the redirect of an untrusted peer", func() {
+				req := httptest.NewRequest(http.MethodGet, "/", nil)
+				req.RemoteAddr = "203.0.113.9:4000"
+				req.Header.Set("X-Forwarded-Prefix", "/forged")
+				rec := httptest.NewRecorder()
+				app.ServeHTTP(rec, req)
+				Expect(rec.Code).To(Equal(http.StatusMovedPermanently))
+				Expect(rec.Header().Get("Location")).To(Equal("/app"))
 			})
 
 			// X-Forwarded-Prefix is attacker controllable on misconfigured

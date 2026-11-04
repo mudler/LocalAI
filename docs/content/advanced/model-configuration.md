@@ -689,6 +689,18 @@ This is the load-time reasoning configuration. The orthogonal per-request `enabl
 - `reasoning_effort: "minimal" | "low" | "medium" | "high" | "xhigh" | "max"` enables thinking, unless the model config explicitly set `reasoning.disable: true` (an operator's explicit disable wins and is never re-enabled by a request).
 {{% /notice %}}
 
+The `/v1/responses` endpoint accepts the same effort levels through `reasoning.effort`.
+It also forwards request `metadata` to the backend, including `enable_thinking` overrides.
+
+```json
+{
+  "model": "qwen3",
+  "input": "Say hello",
+  "reasoning": { "effort": "none" },
+  "metadata": { "enable_thinking": "false" }
+}
+```
+
 #### `reasoning_effort` as a chat-template kwarg
 
 `reasoning_effort` is also forwarded to the backend as a `chat_template_kwarg`, so models whose **jinja chat template** keys on it - e.g. gpt-oss (Harmony) or LFM2.5 - honor the **level**, not just the on/off `enable_thinking` flag. This matters for models that ignore `enable_thinking` entirely (LFM2.5 keeps emitting `<think>` for `enable_thinking=false`, but respects `reasoning_effort`).
@@ -738,6 +750,19 @@ Per-request `metadata` overrides the model config defaults and the reasoning-con
 and (for `enable_thinking` / `reasoning_effort`) takes effect across every backend that
 reads them, not just llama.cpp. Typed (non-boolean) values are only supported through the
 model YAML `chat_template_kwargs`, where YAML preserves the type.
+
+Clients written for llama.cpp's `llama-server`, vLLM or SGLang send the same switches as a
+top-level `chat_template_kwargs` object. LocalAI accepts that too and folds its scalar values
+into `metadata` (booleans become `"true"` / `"false"`, numbers become strings; nested objects
+and arrays are ignored). If a key appears in both, `metadata` wins:
+
+```json
+{
+  "model": "qwen3",
+  "messages": [{"role": "user", "content": "hi"}],
+  "chat_template_kwargs": { "enable_thinking": false }
+}
+```
 
 ### Multimodal Backend Options
 
@@ -1122,8 +1147,9 @@ curl http://localhost:8080/v1/chat/completions \
 
 **Priority order:**
 1. Request-level `metadata.enable_thinking` (highest priority)
-2. Model config `reasoning.disable` (fallback)
-3. Auto-detected from model template (default)
+2. Request-level `chat_template_kwargs.enable_thinking` (the llama-server / vLLM form)
+3. Model config `reasoning.disable` (fallback)
+4. Auto-detected from model template (default)
 
 ## Pipeline Configuration
 

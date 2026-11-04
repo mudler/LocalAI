@@ -33,6 +33,11 @@ Make sure all referenced models (`silero-vad-ggml`, `whisper-large-turbo`, `qwen
 
 A pipeline stage can name a [failover chain]({{%relref "features/model-failover" %}}); the stage then switches targets without closing the session.
 
+Transcription backends can include end-of-utterance language tags, such as `<en-US>` or `<de-DE>`.
+LocalAI removes these tags from the user transcript sent to the LLM.
+The transcription events sent to the client retain the original tags.
+This prevents a tag from overriding the intended conversation language in the LLM context.
+
 ### Install the Qwen streaming assistant preset
 
 The gallery entry `qwen3-streaming-assistant` configures an English voice
@@ -583,6 +588,8 @@ ws://localhost:8080/v1/realtime?model=gpt-realtime
 ```
 
 Audio is sent and received as raw PCM in the WebSocket messages, following the OpenAI Realtime API protocol.
+
+In the chained pipeline, committed user audio reaches the transcription backend as 16 kHz mono WAV, whichever way the turn was committed: server-side VAD and client `input_audio_buffer.commit` both resample from the session input sample rate (for example 24 kHz) first.
 
 ### WebRTC
 

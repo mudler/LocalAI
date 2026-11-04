@@ -249,8 +249,8 @@ export function workerCommand({ flavor, nodeType, option, dev, frontend, natsUrl
 export function p2pCommand({ method, option, dev, token, flavor }) {
   const suffix = method === 'peer' ? 'run --federated --p2p'
     : method === 'server' ? 'federated'
-      : method === 'mlx' ? 'worker p2p-mlx'
-        : 'worker p2p-llama-cpp-rpc'
+      : method === 'mlx' ? 'p2p-worker p2p-mlx'
+        : 'p2p-worker p2p-llama-cpp-rpc'
   const name = method === 'peer' ? 'local-ai' : method === 'server' ? 'local-ai-federated' : method === 'mlx' ? 'local-ai-mlx-worker' : 'local-ai-worker'
   const tokenValue = token || 'your-token-here'
   if (flavor === 'cli') return `TOKEN="${tokenValue}" local-ai ${suffix}`

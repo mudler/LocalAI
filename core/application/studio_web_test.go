@@ -115,7 +115,7 @@ var _ = Describe("the chats' built-in web tools", func() {
 			cfg.ChatsWebSearchProviders = "duckduckgo,bing_html"
 			_, err := w.Search(context.Background(), "alice", json.RawMessage(`{"query":"localai"}`))
 			Expect(err).To(MatchError("no search provider works. Tried duckduckgo: challenged by a bot check; bing_html: blocked this server (429 Too Many Requests). " +
-				"An administrator can set a SearXNG instance in Settings > Tools, or install the Web add-on for search providers with a key from Add-ons."))
+				"An administrator can set a SearXNG instance in Settings > Tools, or install an add-on that provides search providers with a key from Add-ons."))
 			_, _, _, attempts, err := w.TestSearch(context.Background(), "root", "localai")
 			Expect(err).To(MatchError(ContainSubstring("no search provider works. Tried duckduckgo: challenged")))
 			Expect(attempts).To(HaveLen(2))

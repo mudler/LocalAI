@@ -123,6 +123,26 @@ var _ = Describe("product request scopes", func() {
 		Expect(got).To(Equal([]model.ObservationID{"1", "2", "2", "2", "3", "3", "3"}))
 	})
 
+	It("gives a tool the product scope of the turn when the harness calls it with its own context", func() {
+		seen := make(chan bool, 1)
+		o := session.Options{Harness: &sessiontest.FakeHarness{OwnToolContext: true, Turns: [][]sessiontest.Step{{{Tool: "status", Args: "{}"}}}}}
+		o.ProductScope = func(ctx context.Context, _ session.Access) (context.Context, func()) {
+			return context.WithValue(ctx, productScopeKey{}, &productScope{}), func() {}
+		}
+		o.ChatTools = func(context.Context, session.Access) (session.TurnTools, error) {
+			return session.TurnTools{Tools: []session.Tool{{Name: "status", Description: "status", Schema: json.RawMessage(`{"type":"object"}`),
+				Run: func(ctx context.Context, _ json.RawMessage) (string, error) {
+					_, ok := ctx.Value(productScopeKey{}).(*productScope)
+					seen <- ok
+					return "ok", nil
+				}}}}, nil
+		}
+		chat := newChat(o)
+		Expect(chat.Send(context.Background(), session.Message{Text: "hello"})).To(Succeed())
+		waitTurn(chat)
+		Expect(<-seen).To(BeTrue(), "the tool sees the scope of its turn")
+	})
+
 	for _, stop := range []bool{false, true} {
 		It(fmt.Sprintf("closes pending observations at the real turn boundary (stop=%t)", stop), func() {
 			errors := make(chan error, 8)

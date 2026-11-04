@@ -77,7 +77,7 @@
     "budgetNote": "Stime: caratteri divisi per quattro. La finestra di contesto del modello non è nota qui, quindi non c'è una quota di un limite.",
     "instructions": "Istruzioni",
     "skills": "Competenze",
-    "memory": "Memoria",
+    "memory": "Conoscenza",
     "skillsTitle": "Competenze caricate da questo contesto",
     "skillsNone": "Nessuna competenza è attiva per questo agente.",
     "skillsPrompt": "Nel prompt di ogni messaggio.",
@@ -87,7 +87,7 @@
     "skillMissing": "{{name}} è nell'elenco, ma nessuna competenza ha quel nome.",
     "skillTokens": "{{count}} token",
     "skillTokensTools": "0 all'inizio",
-    "memoryTitle": "Memoria che verrebbe inviata",
+    "memoryTitle": "Conoscenza che verrebbe inviata",
     "memoryNone": "Nessuna collezione è nell'elenco di questo agente. Aggiungine una per usarla.",
     "memoryNoCollection": "La base di conoscenza di questo agente è attiva, ma non esiste ancora una collezione chiamata {{name}}.",
     "memoryTools": "Questo agente cerca solo quando il modello lo richiede. Nulla viene aggiunto al messaggio all'inizio.",
@@ -108,7 +108,7 @@
   "agentBudget": "Le competenze selezionate aggiungono circa {{count}} token a ogni messaggio (stima: caratteri divisi per quattro).",
   "agentKb": {
     "reads": "Questo agente legge la collezione chiamata {{name}}.",
-    "exists": "Questo agente legge la collezione chiamata {{name}}. Puoi riempirla e cercarla in Memoria.",
+    "exists": "Questo agente legge la collezione chiamata {{name}}. Puoi riempirla e cercarla in Conoscenza.",
     "created": "Questo agente legge la collezione chiamata {{name}}. Viene creata al salvataggio."
   }
 }

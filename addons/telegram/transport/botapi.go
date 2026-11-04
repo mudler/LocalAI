@@ -128,14 +128,20 @@ func (t *API) post(ctx context.Context, token, method, contentType string, body 
 }
 
 func (t *API) do(ctx context.Context, token, method, contentType string, body []byte, wait time.Duration, out any) error {
+	return t.doReader(ctx, token, method, contentType, bytes.NewReader(body), int64(len(body)), wait, out)
+}
+
+// doReader is do for a body that is read as it is sent: size bytes long.
+func (t *API) doReader(ctx context.Context, token, method, contentType string, body io.Reader, size int64, wait time.Duration, out any) error {
 	base := t.BaseURL
 	if base == "" {
 		base = DefaultBase
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(base, "/")+"/bot"+url.PathEscape(token)+"/"+method, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimSuffix(base, "/")+"/bot"+url.PathEscape(token)+"/"+method, io.NopCloser(body))
 	if err != nil {
 		return errors.New("telegram: could not build a Telegram request")
 	}
+	req.ContentLength = size
 	req.Header.Set("Content-Type", contentType)
 	resp, err := t.client(wait).Do(req)
 	if err != nil {
@@ -352,10 +358,21 @@ func (t *API) addressed(ctx context.Context, token string, m tgMessage) (bool, s
 	// Entity offsets count UTF-16 units.
 	units := utf16.Encode([]rune(m.Text))
 	for _, e := range m.Entities {
-		if e.Type != "mention" || e.Offset < 0 || e.Length < 1 || e.Offset+e.Length > len(units) {
+		if e.Offset < 0 || e.Length < 1 || e.Offset+e.Length > len(units) {
 			continue
 		}
 		at := string(utf16.Decode(units[e.Offset : e.Offset+e.Length]))
+		// A command with the name of the bot ("/new@Bot") is a message to it.
+		// The text stays as it is: the host reads the command.
+		if e.Type == "bot_command" {
+			if _, to, ok := strings.Cut(at, "@"); ok && strings.EqualFold(to, name) {
+				return true, m.Text
+			}
+			continue
+		}
+		if e.Type != "mention" {
+			continue
+		}
 		if strings.EqualFold(at, "@"+name) {
 			rest := append(append([]uint16{}, units[:e.Offset]...), units[e.Offset+e.Length:]...)
 			return true, strings.Join(strings.Fields(string(utf16.Decode(rest))), " ")
@@ -459,16 +476,23 @@ func messageID(raw json.RawMessage) int64 {
 // and a GIF (which Telegram would turn into a video), goes as a document.
 var photoTypes = map[string]bool{"image/jpeg": true, "image/png": true, "image/webp": true}
 
-// SendFile uploads a file to a chat and returns the ID of its message. A
-// picture goes with sendPhoto, anything else with sendDocument. A thread
-// other than 0 is the topic of a forum.
-func (t *API) SendFile(ctx context.Context, token string, chatID, thread int64, name, mimeType string, data []byte) (int64, error) {
+// photoMaxBytes is the largest photo that sendPhoto takes. A larger picture
+// goes as a document, which Telegram does not recompress.
+const photoMaxBytes = 10 << 20
+
+// SendFileStream uploads a file to a chat and returns the ID of its message. A
+// picture goes with sendPhoto, anything else with sendDocument. A thread other
+// than 0 is the topic of a forum. The file is read as it is sent: body holds
+// size bytes. The multipart head and tail are small and built here, so the
+// request has a length and the file is never held in memory. Telegram answers
+// 413 for a file over the limit of the Bot API server, which is ErrTooLarge.
+func (t *API) SendFileStream(ctx context.Context, token string, chatID, thread int64, name, mimeType string, size int64, body io.Reader) (int64, error) {
 	method, field := "sendDocument", "document"
-	if photoTypes[mimeType] {
+	if photoTypes[mimeType] && size <= photoMaxBytes {
 		method, field = "sendPhoto", "photo"
 	}
-	var body bytes.Buffer
-	w := multipart.NewWriter(&body)
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
 	_ = w.WriteField("chat_id", strconv.FormatInt(chatID, 10))
 	if thread != 0 {
 		_ = w.WriteField("message_thread_id", strconv.FormatInt(thread, 10))
@@ -479,19 +503,25 @@ func (t *API) SendFile(ctx context.Context, token string, chatID, thread int64, 
 		mimeType = "application/octet-stream"
 	}
 	h.Set("Content-Type", mimeType)
-	part, err := w.CreatePart(h)
-	if err != nil {
+	if _, err := w.CreatePart(h); err != nil {
 		return 0, errors.New("telegram: could not build the upload")
 	}
-	_, _ = part.Write(data)
+	head := buf.Len()
 	if err := w.Close(); err != nil {
 		return 0, errors.New("telegram: could not build the upload")
 	}
-	var raw json.RawMessage
-	if err := t.post(ctx, token, method, w.FormDataContentType(), body.Bytes(), 30*time.Second, &raw); err != nil {
+	raw := buf.Bytes()
+	var out json.RawMessage
+	r := io.MultiReader(bytes.NewReader(raw[:head]), io.LimitReader(body, size), bytes.NewReader(raw[head:]))
+	err := redact(t.doReader(ctx, token, method, w.FormDataContentType(), r, int64(len(raw))+size, contract.ConnectorTransferTimeout, &out), token)
+	var ce *callError
+	if errors.As(err, &ce) && ce.Code == http.StatusRequestEntityTooLarge {
+		return 0, fmt.Errorf("telegram: the file has %d bytes: %w", size, ErrTooLarge)
+	}
+	if err != nil {
 		return 0, err
 	}
-	return messageID(raw), nil
+	return messageID(out), nil
 }
 
 // Edit replaces the text of a message the bot sent with plain text.

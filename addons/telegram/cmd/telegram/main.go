@@ -8,11 +8,18 @@ package main
 import (
 	"os"
 
+	"github.com/mudler/LocalAI/addons/internal/hostclient"
 	"github.com/mudler/LocalAI/addons/internal/protocol"
 	"github.com/mudler/LocalAI/addons/telegram/transport"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 func main() {
-	os.Exit(protocol.Run(os.Args, func(protocol.Startup) contract.Runtime { return transport.Runtime{API: &transport.API{}} }))
+	os.Exit(protocol.Run(os.Args, func(s protocol.Startup) contract.Runtime {
+		rt := transport.Runtime{API: &transport.API{}}
+		if h := hostclient.New(s); h != nil {
+			rt.Host = h
+		}
+		return rt
+	}))
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-// Package egresspolicy parses Sandbox network policy without application dependencies.
+// Package egresspolicy parses the network policy of commands without application dependencies.
 package egresspolicy
 
 import (
@@ -14,8 +14,8 @@ import (
 	"golang.org/x/net/idna"
 )
 
-// EgressPrivatePhrase is what an administrator types to let the Sandbox
-// commands reach private addresses (chats_egress_allow_private). It is checked
+// EgressPrivatePhrase is what an administrator types to let the commands of an add-on
+// reach private addresses (chats_egress_allow_private). It is checked
 // by the settings endpoint and never stored.
 const EgressPrivatePhrase = "I understand that commands can reach my private network"
 
@@ -25,7 +25,7 @@ const MaxEgressExtraRegistries = 64
 // MaxEgressAllowedHosts bounds chats_egress_allowed_hosts.
 const MaxEgressAllowedHosts = 64
 
-// ValidEgressPreset says whether v is a preset of the Sandbox network: off,
+// ValidEgressPreset says whether v is a preset of the network of commands: off,
 // registries, all, or empty for the default (off).
 func ValidEgressPreset(v string) bool {
 	switch strings.TrimSpace(v) {
@@ -45,7 +45,7 @@ func ParseEgressPorts(s string) ([]int, error) {
 	}
 	for _, p := range ports {
 		if p == 22 || p == 25 {
-			return nil, fmt.Errorf("port %d is not allowed for the Sandbox network", p)
+			return nil, fmt.Errorf("port %d is not allowed for the network of commands", p)
 		}
 	}
 	return ports, nil
@@ -126,7 +126,7 @@ func splitAllowedHost(f string) (host string, port int, err error) {
 		return "", 0, fmt.Errorf("%q is not a port", p)
 	}
 	if n == 22 || n == 25 {
-		return "", 0, fmt.Errorf("port %d is not allowed for the Sandbox network", n)
+		return "", 0, fmt.Errorf("port %d is not allowed for the network of commands", n)
 	}
 	return h, n, nil
 }

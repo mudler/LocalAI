@@ -70,6 +70,11 @@ export default function ApprovalFrame({ addonId, proposalId, onClose }) {
   return (
     <div className="ad-approval" data-testid="approval-frame" data-state={state.state || phase}>
       <p className="ad-approval__from">{t('approval.from', { addon: title })}</p>
+      {proposal && proposal.connectionName && (
+        // Which connection the change will be made with, taken from the stored
+        // proposal and shown before the person confirms.
+        <p className="ad-approval__connection" data-testid="approval-connection">{t('approval.connection', { name: proposal.connectionName })}</p>
+      )}
       {phase === 'loading' && <p role="status">{t('approval.loading')}</p>}
       {phase === 'failed' && <p role="alert">{t('approval.failed')}</p>}
       {phase === 'rejected' && <p role="alert">{t('approval.rejected')}</p>}

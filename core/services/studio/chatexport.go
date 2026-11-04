@@ -2,12 +2,14 @@ package studio
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/core/services/studio/chatsearch"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -199,91 +201,60 @@ func checkImportAttachments(atts []session.Attachment) error {
 	return nil
 }
 
-// SearchHit is a chat that matches a search.
-type SearchHit struct {
-	Chat session.ChatRecord
-	// InTitle is true when the title matches.
-	InTitle bool
-	// Seq is the first matching transcript line, or 0 when only the title matches.
-	Seq int64
-	// Snippet is the matching text with a little around it.
-	Snippet string
+// SearchHit is a message (or a chat title) that matches a search. Chat, InTitle,
+// Seq and Snippet are what the first version of the search gave.
+type SearchHit = chatsearch.Hit
+
+// SearchOptions is a search of the chats of one user.
+type SearchOptions struct {
+	// Query is the text to find: words that must all be in a message, or a
+	// phrase in double quotes.
+	Query string
+	// Limit is the most hits; 0 is 50.
+	Limit int
+	// AgentID, Origin, Role, Since and Until narrow the search; see
+	// chatsearch.Query.
+	AgentID, Origin, Role string
+	Since, Until          time.Time
+	// ChatID limits the search to one chat.
+	ChatID string
+	// PerChat returns the best message of each chat.
+	PerChat bool
+	// Titles also matches chat titles.
+	Titles bool
+	// SnippetRunes is the width of a snippet; 0 is the default.
+	SnippetRunes int
+	// Exclude drops the chats it returns true for.
+	Exclude func(session.ChatRecord) bool
 }
 
-// Limits of a search.
-const (
-	maxSearchChats = 500
-	maxSearchBytes = 64 << 20
-)
+// ErrSearchUnavailable means the chat store cannot search text.
+var ErrSearchUnavailable = errors.New("studio: this chat store cannot search text")
+
+// SearchChats finds the user's chats by their messages (and titles) as the
+// store's index allows, newest and best match first. It looks at every chat of
+// the user except sub-agent chats; the owner is applied by the store in the
+// query itself.
+func (s *Service) SearchChats(ctx context.Context, user string, o SearchOptions) (chatsearch.Result, error) {
+	if len(chatsearch.Terms(o.Query)) == 0 {
+		return chatsearch.Result{}, fmt.Errorf("%w: empty query", session.ErrInvalid)
+	}
+	idx, ok := s.d.Store.(chatsearch.Index)
+	if !ok {
+		return chatsearch.Result{}, ErrSearchUnavailable
+	}
+	return idx.SearchText(ctx, chatsearch.Query{
+		Principal: principal(user), Text: o.Query, Limit: o.Limit, AgentID: o.AgentID, Origin: o.Origin,
+		Role: o.Role, Since: o.Since, Until: o.Until, ChatID: o.ChatID, PerChat: o.PerChat, Titles: o.Titles,
+		SnippetRunes: o.SnippetRunes, Exclude: o.Exclude,
+	})
+}
 
 // Search finds the user's chats whose title or user and assistant messages
-// contain query, ignoring case. The newest chats come first. It reads at most
-// the newest maxSearchChats chats and maxSearchBytes of text.
+// contain every word of query, ignoring case: one hit per chat.
 func (s *Service) Search(ctx context.Context, user, query string, limit int) ([]SearchHit, error) {
-	q := strings.ToLower(strings.TrimSpace(query))
-	if q == "" {
-		return nil, fmt.Errorf("%w: empty query", session.ErrInvalid)
-	}
-	chats, err := s.ListChats(ctx, user, maxSearchChats)
-	if err != nil {
-		return nil, err
-	}
-	var (
-		hits  []SearchHit
-		spent int
-	)
-	for _, rec := range chats {
-		if limit > 0 && len(hits) >= limit {
-			break
-		}
-		hit := SearchHit{Chat: rec}
-		if strings.Contains(strings.ToLower(rec.Title), q) {
-			hit.InTitle = true
-		}
-		if spent < maxSearchBytes {
-			entries, err := s.d.Store.Entries(ctx, rec.ID, 0, 0)
-			if err != nil {
-				return nil, err
-			}
-			for _, e := range entries {
-				spent += len(e.Text)
-				if e.Role != session.RoleUser && e.Role != session.RoleAssistant {
-					continue
-				}
-				// The words the person reads, not the list of files the model gets.
-				text := session.DisplayEntry(e).Text
-				if i := strings.Index(strings.ToLower(text), q); i >= 0 {
-					hit.Seq, hit.Snippet = e.Seq, snippet(text, i, len(q))
-					break
-				}
-			}
-		}
-		if hit.InTitle || hit.Seq != 0 {
-			hits = append(hits, hit)
-		}
-	}
-	return hits, nil
-}
-
-// snippet returns the text around a match, about 120 bytes wide, on rune
-// boundaries.
-func snippet(text string, at, n int) string {
-	at = min(at, len(text))
-	from, to := max(0, at-50), min(len(text), at+n+70)
-	for from > 0 && !utf8.RuneStart(text[from]) {
-		from--
-	}
-	for to < len(text) && !utf8.RuneStart(text[to]) {
-		to++
-	}
-	out := strings.Join(strings.Fields(text[from:to]), " ")
-	if from > 0 {
-		out = "…" + out
-	}
-	if to < len(text) {
-		out += "…"
-	}
-	return out
+	res, err := s.SearchChats(ctx, user, SearchOptions{Query: query, Limit: limit, PerChat: true, Titles: true})
+	return res.Hits, err
 }
 
 // cleanInvocation keeps the invocation of an imported message only when it is

@@ -143,7 +143,7 @@ func installed(version, selection, channel, digest string) updates.Installation 
 	}}
 }
 
-var host = contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: osName, Arch: archName}
+var host = contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: osName, Arch: archName}
 
 type rig struct {
 	lib     *library
@@ -227,6 +227,21 @@ var _ = Describe("Update detection", func() {
 				}}, r.lib, r.inst)
 		}
 
+		It("offers the moved build to an install that recorded the channel name, not the label, and never calls a failed lookup current", func() {
+			r := newRig(installed("0.0.0-dev.9301fcf8b8ee", "development", "development", digestA), devRel())
+			withTag(r, digestB, nil)
+			st := check(r, true)
+			Expect(st.State).To(Equal(updates.UpdateAvailable))
+			Expect(st.CandidateDigest).To(Equal(digestB))
+			Expect(st.CandidateVersion).To(Equal(label + ".bbbbbbbbbbbb"))
+			// The registry cannot be reached: the answer is a failure, never up to date.
+			r = newRig(installed("0.0.0-dev.9301fcf8b8ee", "development", "development", digestA), devRel())
+			r.checker = updates.New(updates.Config{Host: host, TTL: time.Hour, MaxEntries: 3, MinRefresh: time.Minute, Now: func() time.Time { return *r.clock },
+				Lookup: func(context.Context, string, string) (string, error) { return "", errors.New("registry down") }}, r.lib, r.inst)
+			st = check(r, true)
+			Expect(st.State).To(Equal(updates.CheckFailed))
+			Expect(st.Available).To(BeFalse())
+		})
 		It("never reports an update it cannot pin to a digest", func() {
 			r := newRig(devInstall(digestA), devRel())
 			for _, refresh := range []bool{false, true} {
@@ -337,7 +352,7 @@ var _ = Describe("Update detection", func() {
 		It("names the host, SDK and data format ranges a candidate does not fit", func() {
 			for reason, requires := range map[string]catalog.Requirements{
 				updates.ReasonHost:       {Host: contract.VersionRange{Min: 2, Max: 3}},
-				updates.ReasonAPI:        {API: contract.VersionRange{Min: 2, Max: 2}},
+				updates.ReasonAPI:        {API: contract.VersionRange{Min: 3, Max: 3}},
 				updates.ReasonProtocol:   {Protocol: contract.VersionRange{Min: 2, Max: 2}},
 				updates.ReasonSDK:        {SDK: contract.VersionRange{Min: 2, Max: 2}},
 				updates.ReasonDataFormat: {DataFormat: contract.VersionRange{Min: 2, Max: 3}},
@@ -507,6 +522,43 @@ var _ = Describe("Update detection", func() {
 			st = check(r, true)
 			Expect(r.lib.refreshes.Load()).To(Equal(int32(2)))
 			Expect(st.Throttled).To(BeFalse())
+		})
+		It("reports every add-on of one library that has an update when they are checked in a row", func() {
+			// Several development add-ons share one library. The first check
+			// fetches the library; the others must still resolve their own
+			// tag, or only the first one would ever report an update.
+			ids := []string{"alpha", "beta", "gamma"}
+			dev := func(id string) catalog.Release {
+				r := rel("0.0.0-development", "development", "")
+				r.ID, r.Name, r.Mutable = id, id, true
+				r.Artifact = "oci://registry.example/addons:" + id + "-development"
+				return r
+			}
+			now := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
+			lib := &library{now: func() time.Time { return now }, state: catalog.RefreshState{CheckedAt: now, LastSuccess: now}, hasState: true}
+			inst := &installs{in: map[string]updates.Installation{}}
+			for _, id := range ids {
+				lib.cached = append(lib.cached, dev(id))
+				in := installed("0.0.0-dev.2cadf319a0e1", "0.0.0-development", "development", digestA)
+				in.AddonID = id
+				inst.in[id] = in
+			}
+			lib.remote = lib.cached
+			checker := updates.New(updates.Config{Host: host, TTL: time.Hour, MaxEntries: 8, MinRefresh: time.Minute, Now: func() time.Time { return now },
+				Lookup: func(context.Context, string, string) (string, error) { return digestB, nil }}, lib, inst)
+			for _, id := range ids {
+				st, e := checker.Check(context.Background(), id, true)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(st.State).To(Equal(updates.UpdateAvailable), id)
+				Expect(st.CandidateDigest).To(Equal(digestB), id)
+			}
+			Expect(lib.refreshes.Load()).To(Equal(int32(1)), "the library is still fetched once")
+			// A status read afterwards answers the same for all of them.
+			for _, id := range ids {
+				st, e := checker.Check(context.Background(), id, false)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(st.State).To(Equal(updates.UpdateAvailable), id)
+			}
 		})
 		It("shares one check among concurrent callers", func() {
 			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))

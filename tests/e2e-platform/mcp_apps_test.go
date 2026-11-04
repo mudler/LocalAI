@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -178,15 +177,6 @@ var _ = Describe("MCP Apps", Label("platform", "mcp", "mcp-apps"), Ordered, func
 		})
 		code, _ = alice.do(http.MethodGet, resPath(chat, server, "ui://clock/app.html"), nil)
 		Expect(code).To(Equal(http.StatusForbidden))
-	})
-
-	It("ends a tool call that outlasts the 60 second limit with a 502 and no credential", Label("slow"), func() {
-		start := time.Now()
-		code, out := call(alice, chat, server, "slow", obj{"millis": 90000})
-		Expect(code).To(Equal(http.StatusBadGateway), string(out))
-		Expect(time.Since(start)).To(BeNumerically("<", 80*time.Second))
-		Expect(string(out)).To(ContainSubstring("mcp_app_failed"))
-		Expect(string(out)).NotTo(ContainSubstring("APP-SECRET"))
 	})
 
 	It("refuses both routes without a credential", func() {

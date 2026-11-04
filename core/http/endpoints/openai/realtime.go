@@ -12,6 +12,7 @@ import (
 	"maps"
 	"math"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -2113,8 +2114,33 @@ func vadScanWindowSec(sv *types.RealtimeSessionSemanticVad, silenceThreshold flo
 	return window
 }
 
+// commitUtterance commits a client-issued turn (input_audio_buffer.commit).
+// The client buffer holds audio at the session input sample rate (e.g.
+// 24 kHz for OpenAI Realtime clients), while every commit path writes the
+// transcription WAV at localSampleRate: the VAD path stores audio that is
+// already resampled (vadCommit). Resample here so a 24 kHz buffer is not
+// decoded at 16 kHz (1.5x speed/pitch, garbage or empty transcript, then
+// input_not_committed on the follow-up response).
 func commitUtterance(ctx context.Context, utt []byte, session *Session, conv *Conversation, t Transport, slot *commitSlot) {
+	// Speech-to-speech sessions keep the audio at the session rate and label
+	// the transcription WAV with that rate (see s2sCommitTurn).
+	if rate := session.InputSampleRate; session.s2s == nil && rate > 0 && rate != localSampleRate && len(utt) > 0 {
+		utt = sound.Int16toBytesLE(sound.ResampleInt16(sound.BytesToInt16sLE(utt), rate, localSampleRate))
+	}
 	commitUtteranceWithTranscript(ctx, utt, nil, nil, "", session, conv, t, slot)
+}
+
+// eouLangTagRe matches the end-of-utterance language tags that Nemotron-3.5
+// ASR appends to transcripts (BCP-47 style: "<de-DE>", "<en-US>", ...).
+var eouLangTagRe = regexp.MustCompile(`\s*<[a-z]{2,3}(?:-[A-Za-z]{2,3})?>\s*`)
+
+// stripEOULanguageTags removes the STT EOU language tags from a transcript
+// (see the call site in commitUtteranceWithTranscript).
+func stripEOULanguageTags(s string) string {
+	if !strings.Contains(s, "<") {
+		return s
+	}
+	return strings.Join(strings.Fields(eouLangTagRe.ReplaceAllString(s, " ")), " ")
 }
 
 // commitUtteranceWithTranscript commits one user turn. live carries the
@@ -2332,6 +2358,13 @@ func commitUtteranceWithTranscript(ctx context.Context, utt []byte, live *liveUt
 		sendNotImplemented(t, "any-to-any models")
 		return
 	}
+
+	// EOU language tags (e.g. "<de-DE>") are STT metadata: they stay in the
+	// transcription event emitted above (debugging, client display), but are
+	// stripped from the LLM context — the per-utterance tag is unreliable for
+	// short/ambiguous utterances (a German "Hallo." tagged <en-US>), and the
+	// LLM treats it as a language signal and may switch the reply language.
+	transcript = stripEOULanguageTags(transcript)
 
 	// Sound-event detection is additive to transcription: classify the same
 	// committed window and emit its scored AudioSet tags as a separate event.

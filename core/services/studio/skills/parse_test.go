@@ -76,3 +76,16 @@ var _ = Describe("Requires", func() {
 		Entry("no frontmatter", "Body only.\n", nil),
 	)
 })
+
+var _ = Describe("Locked", func() {
+	DescribeTable("reads the owner's mark from the frontmatter",
+		func(text string, want bool) { Expect(Locked([]byte(text))).To(Equal(want)) },
+		Entry("true", "---\nname: a\ndescription: d\nlocked: true\n---\nb\n", true),
+		Entry("quoted and upper case", "---\nname: a\ndescription: d\nlocked: \"True\"\n---\nb\n", true),
+		Entry("false", "---\nname: a\ndescription: d\nlocked: false\n---\nb\n", false),
+		Entry("absent", "---\nname: a\ndescription: d\n---\nb\n", false),
+		Entry("in the body only", "---\nname: a\ndescription: d\n---\nlocked: true\n", false),
+		Entry("no frontmatter", "locked: true\n", false),
+		Entry("yes is not true", "---\nname: a\ndescription: d\nlocked: yes\n---\nb\n", false),
+	)
+})

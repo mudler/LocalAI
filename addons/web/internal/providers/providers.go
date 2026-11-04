@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 // Package providers holds the search providers of the Web add-on that need a
-// key: Brave Search, Tavily and Google Programmable Search. Each implements
+// key: Brave Search, Tavily and Google Programmable Search, and Keenable,
+// whose key is optional (without one it uses Keenable's keyless endpoint,
+// limited per IP). Each implements
 // search.Provider of pkg/web/search, next to the keyless DuckDuckGo and
 // SearXNG providers that the built-in web_search uses.
 //
@@ -31,10 +33,12 @@ import (
 
 // The provider names. They are the values of the add-on's order setting.
 const (
-	Brave   = "brave"
-	Tavily  = "tavily"
-	Google  = "google"
-	SearXNG = "searxng"
+	Brave  = "brave"
+	Tavily = "tavily"
+	Google = "google"
+	// Keenable takes a key but does not need one.
+	Keenable = "keenable"
+	SearXNG  = "searxng"
 	// DuckDuckGo is the keyless entry. Its name stays for the saved
 	// settings; it stands for the whole keyless chain of the built-in
 	// search (DuckDuckGo, then the Brave Search and Bing pages).
@@ -43,10 +47,13 @@ const (
 
 // Names lists every provider, in the default order: the keyed ones first,
 // then SearXNG, then the keyless chain, which needs nothing.
-var Names = []string{Brave, Tavily, Google, SearXNG, DuckDuckGo}
+var Names = []string{Brave, Tavily, Google, Keenable, SearXNG, DuckDuckGo}
 
-// Keyed reports whether the provider needs a key.
-func Keyed(name string) bool { return name == Brave || name == Tavily || name == Google }
+// Keyed reports whether the provider takes a key. Keenable takes one but
+// also works without it.
+func Keyed(name string) bool {
+	return name == Brave || name == Tavily || name == Google || name == Keenable
+}
 
 // maxBody bounds the answer of a provider.
 const maxBody = 1 << 20

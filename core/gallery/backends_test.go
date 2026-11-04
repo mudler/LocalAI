@@ -1663,3 +1663,29 @@ var _ = Describe("installed development backend preference root guards", func() 
 		Expect(found).To(HaveKey("cpu-example-engine-development"))
 	})
 })
+
+var _ = Describe("the shipped backend index", func() {
+	// An add-on job that names no backend gets the first backend of its tag in
+	// gallery order, so the order of these entries is the default.
+	It("lists the default engine of each family first", func() {
+		raw, err := os.ReadFile("../../backend/index.yaml")
+		Expect(err).ToNot(HaveOccurred())
+		var all []GalleryBackend
+		Expect(yaml.Unmarshal(raw, &all)).To(Succeed())
+		first := func(tag string) string {
+			for _, b := range all {
+				for _, t := range b.Tags {
+					if t == tag {
+						if b.Alias != "" {
+							return b.Alias
+						}
+						return b.Name
+					}
+				}
+			}
+			return ""
+		}
+		Expect(first("fine-tuning")).To(Equal("trl"))
+		Expect(first("quantization")).To(Equal("llama-cpp-quantization"))
+	})
+})

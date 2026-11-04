@@ -26,7 +26,8 @@
     "replacedBy": "Sostituita da {{name}}",
     "notActive": "Non attiva: si usa la skill integrata",
     "notActiveBy": "Non attiva: la fornisce {{name}}",
-    "fallback": "In uso perché la skill del componente {{name}} è disattivata o non in esecuzione"
+    "fallback": "In uso perché la skill del componente {{name}} è disattivata o non in esecuzione",
+    "proposedBy": "Proposto da {{name}} e confermato da te. Lo usa solo quell'agente."
   },
   "empty": {
     "title": "Nessuna competenza trovata",
@@ -46,7 +47,8 @@
     "shared": "Shared",
     "builtin": "Built-in",
     "folder": "Workspace",
-    "addon": "Componente"
+    "addon": "Componente",
+    "agent": "Agente"
   },
   "pane": {
     "loading": "Loading...",

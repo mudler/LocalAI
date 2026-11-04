@@ -25,7 +25,7 @@ test('render: the manifest declares one page, the main page, SDK 2 and no naviga
   assert.deepEqual(m.capabilities.ui.pages, ['jobs'])
   assert.equal(m.capabilities.ui.mainPage, 'jobs')
   assert.deepEqual(m.capabilities.ui.sdk, { min: 2, max: 2 })
-  assert.equal(m.capabilities.ui.title, 'Quantization')
+  assert.equal(m.capabilities.ui.title.en, 'Quantization')
   assert.equal(m.capabilities.ui.hub, undefined)
 })
 

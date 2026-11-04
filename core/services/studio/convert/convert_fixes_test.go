@@ -173,7 +173,6 @@ var _ = Describe("conversion fixes", func() {
 		Expect(tg.agents[alice]).To(HaveLen(1), "agents %+v", tg.agents[alice])
 		Expect(tg.agents[alice][0].Name).To(Equal("Null"))
 		Expect(tg.triggers[alice]).To(BeEmpty())
-		Expect(tg.bindings[alice]).To(BeEmpty())
 	})
 
 	It("makes a malformed source a failed item and still runs the other steps", func() {

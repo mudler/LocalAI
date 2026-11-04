@@ -9,7 +9,12 @@
   box-shadow: inset 0 0 0 1px var(--dk-control-edge);
   transition: box-shadow var(--dur-fast) var(--ease-out);
 }
-.home-cmd:focus-within { box-shadow: inset 0 0 0 1px var(--dk-accent-text), 0 0 0 3px color-mix(in srgb, var(--dk-accent) 16%, transparent); }
+/* The one focus indicator of the composer, on the card: a 1px accent edge
+   (inside the box, so nothing moves) and a faint 2px ring. The message box
+   draws nothing of its own (see .home-textarea); the chips and buttons keep
+   their own keyboard rings. */
+.home-cmd:focus-within { box-shadow: inset 0 0 0 1px var(--dk-accent-text), 0 0 0 2px color-mix(in srgb, var(--dk-accent) 14%, transparent); }
+@media (prefers-reduced-motion: reduce) { .home-cmd { transition: none; } }
 .home-cmd__top {
   display: flex;
   align-items: center;
@@ -166,6 +171,8 @@
   font-size: var(--fs-body);
   line-height: var(--lh-body);
 }
+.home-textarea:focus,
+.home-textarea:focus-visible { outline: none; box-shadow: none; }
 .home-textarea::placeholder { color: var(--dk-muted); }
 .home-file-tags { display: flex; flex-wrap: wrap; gap: 6px; padding-top: var(--sp-3); }
 .home-cmd__foot { display: flex; align-items: center; gap: var(--sp-1); }

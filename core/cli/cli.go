@@ -15,6 +15,7 @@ var CLI struct {
 	Federated       FederatedCLI       `cmd:"" help:"Run LocalAI in federated mode"`
 	Models          ModelsCMD          `cmd:"" help:"Manage LocalAI models and definitions"`
 	Backends        BackendsCMD        `cmd:"" help:"Manage LocalAI backends and definitions"`
+	Addons          AddonsCMD          `cmd:"" help:"Check an add-on zip file and upload it to a running server to install it"`
 	Library         LibraryCMD         `cmd:"" help:"Manage the library sources LocalAI reads add-ons, backends and models from"`
 	TTS             TTSCMD             `cmd:"" help:"Convert text to speech"`
 	SoundGeneration SoundGenerationCMD `cmd:"" help:"Generates audio files from text or audio"`

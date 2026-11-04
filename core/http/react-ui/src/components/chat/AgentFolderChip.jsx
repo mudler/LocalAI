@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 // eslint-disable-next-line no-unused-vars
 import { Link } from 'react-router-dom'
 import Icon from '../Icon'
-import { folderName, folderState } from '../../utils/chatAgents'
+import { folderName, folderRows, folderState } from '../../utils/chatAgents'
 
 // The folder that a chat with this agent works in, as a chip of the composer
 // next to the agent: its name, with a lock when the chat can only read it. A
@@ -19,10 +19,12 @@ export default function AgentFolderChip({ agent }) {
       </Link>
     )
   }
-  const read = agent.folder.mode !== 'write'
-  const name = folderName(agent.folder.path) || t('agentFolder.home')
+  const rows = folderRows(agent)
+  const read = rows.every(f => (f.effective || f.mode) !== 'write')
+  const name = (folderName(rows[0].path) || t('agentFolder.home')) + (rows.length > 1 ? ` +${rows.length - 1}` : '')
+  const paths = rows.map(f => (f.path === '/' ? t('agentFolder.home') : f.path)).join(', ')
   return (
-    <span className="home-chip" data-testid="chat-agent-folder" data-state="ok" title={t(read ? 'agentFolder.titleRead' : 'agentFolder.titleWrite', { path: agent.folder.path === '/' ? t('agentFolder.home') : agent.folder.path })}>
+    <span className="home-chip" data-testid="chat-agent-folder" data-state="ok" title={t(read ? 'agentFolder.titleRead' : 'agentFolder.titleWrite', { path: paths })}>
       <Icon name={read ? 'lock' : 'folder'} /> <span className="home-chip__text">{t('agentFolder.chip', { name, mode: t(read ? 'agentFolder.read' : 'agentFolder.write') })}</span>
     </span>
   )

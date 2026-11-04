@@ -249,7 +249,8 @@ export function toolsCounts(panel) {
   const addons = [...(panel.builtins || []), ...(panel.addons || [])]
   const mcp = [...(panel.servers || []), ...(panel.connectors || [])]
   const all = [...addons, ...mcp]
-  return { on: all.filter(x => !x.off && x.usable !== false).length, total: all.length, mcp: mcp.length }
+  // An add-on that waits for a connection to be chosen offers no tools yet.
+  return { on: all.filter(x => !x.off && x.usable !== false && !x.needs_connection).length, total: all.length, mcp: mcp.length }
 }
 
 // --- the servers the old chat page kept in this browser ---

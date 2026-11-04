@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import {
-  Button, Callout, EmptyState, LoadError, Page, PageHeader, PaneLayout, SidePane,
+  Button, Callout, EmptyState, Notice, LoadError, Page, PageHeader, PaneLayout, SidePane,
   Skeleton, SkeletonRows, LoadingSpinner, ShellFallback, StatusChip, STATUS, Switch,
 } from '../components/ui'
 import { useToastAnchor } from '../components/Toast'
@@ -122,8 +122,20 @@ function Callouts() {
       <div className="ui-cat__stack">
         <Callout tone="info" title="Chats use the connectors that are on.">A saved agent uses only the ones you pick for it.</Callout>
         <Callout tone="ok" title="qwen3-8b is ready." actions={<Button size="sm" variant="primary">Start a chat</Button>}>It loaded in 2.1 s.</Callout>
-        <Callout tone="warn" title="Tables 1.0.0 is available." actions={<><Button size="sm" variant="ghost">What changed</Button><Button size="sm">Update</Button></>}>You have 0.9.1. It asks for one more permission.</Callout>
+        <Callout tone="warn" title="Notes 1.0.0 is available." actions={<><Button size="sm" variant="ghost">What changed</Button><Button size="sm">Update</Button></>}>You have 0.9.1. It asks for one more permission.</Callout>
         <Callout tone="error" title="research-assistant failed" actions={<Button size="sm">Open the run</Button>}>in “Digest of the week”, 12 minutes ago. The model stopped before it answered.</Callout>
+      </div>
+    </Section>
+  )
+}
+
+function Notices() {
+  return (
+    <Section id="notices" title="Notice" note="Off or not available: what, why, who can fix it, the fix. Error is alert, warn is status, info is note.">
+      <div className="ui-cat__stack" data-testid="notices">
+        <Notice severity="info" title="Thread history is off" reason="This add-on was not allowed to read earlier messages." who="An administrator can allow it in the add-on's permissions." />
+        <Notice severity="warn" title="Commands can't run here" reason="The server's built-in bash is off." who="Ask an administrator of this server." fix={{ label: 'Open the setting', to: '/app/settings' }} secondary={{ label: 'Hide', onClick: () => {} }} />
+        <Notice severity="error" title="Cannot be turned on" reason="This version is not compatible with this server." who="Upgrade it to a newer version." fix={{ label: 'Upgrade', onClick: () => {} }} />
       </div>
     </Section>
   )
@@ -241,10 +253,10 @@ function Pane() {
       <PaneLayout>
         <div className="ui-cat__stack">
           <div className="ui-cat__list">
-            {['Tables', 'Office', 'Voice'].map(name => (
+            {['Notes', 'Reports', 'Alerts'].map(name => (
               <div className="ui-cat__item" key={name}>
                 <strong>{name}</strong>
-                <StatusChip status={name === 'Office' ? 'failed' : 'running'} />
+                <StatusChip status={name === 'Reports' ? 'failed' : 'running'} />
                 <Button size="sm" onClick={() => setOpen(true)} data-testid={`open-pane-${name}`}>Details</Button>
               </div>
             ))}
@@ -253,9 +265,9 @@ function Pane() {
         <SidePane
           open={open}
           onClose={() => setOpen(false)}
-          title="Tables"
+          title="Notes"
           meta={<><StatusChip status="running" /><span>1.0.0 · Main library</span></>}
-          footer={<><Button variant="danger-ghost">Remove Tables…</Button><Button variant="primary">Open Tables</Button></>}
+          footer={<><Button variant="danger-ghost">Remove Notes…</Button><Button variant="primary">Open Notes</Button></>}
           testId="cat-pane"
         >
           <div className="ui-cat__stack">
@@ -278,6 +290,7 @@ export default function UiCatalog() {
       <Chips />
       <Switches />
       <Callouts />
+      <Notices />
       <LoadErrors />
       <Empties />
       <Loading />

@@ -2,6 +2,8 @@
 package transport_test
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -10,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/mudler/LocalAI/addons/telegram/transport"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
 )
 
@@ -95,4 +98,30 @@ func (f *fakeBot) called(method string) []call {
 		}
 	}
 	return out
+}
+
+// memHost is the host side of a file handle in memory: it keeps the chunks
+// that the add-on puts, refuses a file over max (when set), and serves the
+// bytes of src to its gets.
+type memHost struct {
+	got bytes.Buffer
+	src []byte
+	max int
+}
+
+func (h *memHost) Do(_ context.Context, _, _ string, args, out any) error {
+	switch a := args.(type) {
+	case contract.ConnectorFilePut:
+		if h.max > 0 && h.got.Len()+len(a.Data) > h.max {
+			return &contract.HostError{Code: contract.HostTooLarge, Message: "too large"}
+		}
+		if a.Offset == int64(h.got.Len()) {
+			h.got.Write(a.Data)
+		}
+		*(out.(*contract.ConnectorFilePutResult)) = contract.ConnectorFilePutResult{Received: int64(h.got.Len())}
+	case contract.ConnectorFileGet:
+		end := min(a.Offset+a.Length, int64(len(h.src)))
+		*(out.(*contract.ConnectorFileGetResult)) = contract.ConnectorFileGetResult{Data: h.src[a.Offset:end], EOF: end == int64(len(h.src))}
+	}
+	return nil
 }

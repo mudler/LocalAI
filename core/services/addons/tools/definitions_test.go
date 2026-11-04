@@ -17,7 +17,7 @@ import (
 )
 
 func host() contract.HostCompatibility {
-	return contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
+	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH}
 }
 
 // manifestWith validates the Tables manifest after a change to its tool
@@ -187,6 +187,38 @@ var _ = Describe("A tool that shadows a built-in chat tool", func() {
 	})
 })
 
+var _ = Describe("The execution descriptor of a commands tool", func() {
+	ctx := context.Background()
+	schema := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
+	bashTool := func(e *contract.ExecutionDescriptor) contract.ToolDefinition {
+		return contract.ToolDefinition{Name: "bash", Kind: contract.ToolKindAction, Description: "Run.", InputSchema: schema, Shadows: "bash", Execution: e}
+	}
+	discover := func(app apps.App) tools.ToolDefinition {
+		defs, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(defs).To(HaveLen(1))
+		return defs[0]
+	}
+	It("reaches the chat as the add-on declared it", func() {
+		e := &contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Runbox", Note: "It has jq."}
+		d := discover(apps.App{ID: "runbox", Title: "Run box", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, ToolDefinitions: []contract.ToolDefinition{bashTool(e)}})
+		Expect(d.Execution).To(Equal(e))
+	})
+	It("falls back to the add-on's title for a manifest that declares none", func() {
+		d := discover(apps.App{ID: "runbox", Title: "Run box", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, ToolDefinitions: []contract.ToolDefinition{bashTool(nil)}})
+		Expect(d.Execution).To(Equal(&contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands, Title: "Run box"}))
+	})
+	It("lists the skills that need isolation for the add-on that owns the commands tool", func() {
+		skills := []contract.SkillDefinition{{Name: "docx", Shadows: "docx"}, {Name: "runbox-tips"}}
+		app := apps.App{ID: "runbox", Title: "Run box", Generation: 1, Enabled: true, State: "running", Tools: []string{"bash"}, Skills: skills,
+			ToolDefinitions: []contract.ToolDefinition{bashTool(nil)}}
+		list, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Skills(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].Isolated).To(Equal([]string{"docx"}))
+	})
+})
+
 var _ = Describe("The add-ons that replace a built-in chat tool", func() {
 	ctx := context.Background()
 	bash := json.RawMessage(`{"type":"object","properties":{"command":{"type":"string"}},"required":["command"],"additionalProperties":false}`)
@@ -211,6 +243,22 @@ var _ = Describe("The add-ons that replace a built-in chat tool", func() {
 	})
 })
 
+var _ = Describe("The add-ons that declare context files", func() {
+	ctx := context.Background()
+	It("are listed in any state, with their files and whether they run", func() {
+		files := []contract.ContextFile{{Scope: contract.ScopeUser, Path: "Memory/index.md"}}
+		running := apps.App{ID: "memory", Generation: 1, Enabled: true, State: "running", ContextFiles: files}
+		stopped := apps.App{ID: "aaa-notes", Generation: 1, Enabled: true, State: "stopped", ContextFiles: files}
+		plain := apps.App{ID: "plain", Generation: 1, Enabled: true, State: "running"}
+		list, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{running, stopped, plain}}}).ContextFiles(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(Equal([]tools.AddonContextFiles{
+			{AddonID: "aaa-notes", Files: files, Running: false},
+			{AddonID: "memory", Files: files, Running: true},
+		}))
+	})
+})
+
 var _ = Describe("typed execution status model exclusion", func() {
 	It("keeps declared uiOnly execution status tools out of generic adapters", func() {
 		app := apps.App{ID: "renamed", Generation: 1, Enabled: true, State: "running", Tools: []string{"health"}, ToolDefinitions: []contract.ToolDefinition{{Name: "health", Kind: "read", UIOnly: true, Description: "Observe execution.", InputSchema: json.RawMessage(`{"type":"object","additionalProperties":false}`)}}}
@@ -223,5 +271,31 @@ var _ = Describe("typed execution status model exclusion", func() {
 			Expect(e).To(MatchError(tools.ErrUnknownTool))
 		}
 		Expect(f.calls()).To(BeZero())
+	})
+})
+
+var _ = Describe("The permission a tool declares to the chat", func() {
+	ctx := context.Background()
+	discover := func(credentialed bool) map[string]string {
+		app := tablesApp(tablesManifest())
+		app.Credentialed = credentialed
+		defs, err := tools.NewChatToolAdapter(&fake{list: apps.List{Apps: []apps.App{app}}}).Discover(ctx, member)
+		Expect(err).NotTo(HaveOccurred())
+		out := map[string]string{}
+		for _, d := range defs {
+			out[d.Tool] = d.Permission
+		}
+		return out
+	}
+	It("is tools.write for the tools that change things, in an add-on that holds a credential", func() {
+		got := discover(true)
+		Expect(got["databases-inspect"]).To(BeEmpty(), "a read needs nothing")
+		Expect(got["tables-create"]).To(Equal(contract.CapToolsWrite))
+		Expect(got["databases-create"]).To(Equal(contract.CapToolsWrite))
+	})
+	It("is empty for every tool of an add-on without a credential", func() {
+		for name, p := range discover(false) {
+			Expect(p).To(BeEmpty(), name)
+		}
 	})
 })

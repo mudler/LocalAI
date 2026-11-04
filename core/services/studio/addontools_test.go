@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
@@ -21,7 +22,20 @@ type fakeAddons struct {
 	mu    sync.Mutex
 	tools map[string][]studio.AddonTool
 	calls []string
-	err   error
+	// bindings holds, for each call, the binding the host named in the
+	// context of the call ("" when it named none).
+	bindings []string
+	err      error
+	// userSettings are the per-person settings the add-ons declare.
+	userSettings []studio.AddonUserSettingSet
+	settingsErr  error
+}
+
+// AddonUserSettings makes the fake a studio.AddonUserSettingsLister.
+func (f *fakeAddons) AddonUserSettings(context.Context, string) ([]studio.AddonUserSettingSet, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.userSettings, f.settingsErr
 }
 
 func (f *fakeAddons) Tools(_ context.Context, user string) ([]studio.AddonTool, error) {
@@ -30,10 +44,11 @@ func (f *fakeAddons) Tools(_ context.Context, user string) ([]studio.AddonTool, 
 	return f.tools[user], f.err
 }
 
-func (f *fakeAddons) Call(_ context.Context, user, conv, name string, args json.RawMessage) (string, error) {
+func (f *fakeAddons) Call(ctx context.Context, user, conv, name string, args json.RawMessage) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, fmt.Sprintf("%s|%s|%s|%s", user, conv, name, args))
+	f.bindings = append(f.bindings, gateway.ConnectionOverride(ctx))
 	return "result of " + name, nil
 }
 

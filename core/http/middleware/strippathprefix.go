@@ -8,10 +8,15 @@ import (
 
 // StripPathPrefix returns middleware that strips a path prefix from the request path.
 // The path prefix is obtained from the X-Forwarded-Prefix HTTP request header.
+// The header is believed only when the TCP peer is a trusted proxy (see
+// TrustedProxies); otherwise the path is left alone.
 // This must be registered as Pre middleware (using e.Pre()) to modify the path before routing.
 func StripPathPrefix() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			if !ForwardedHeadersTrusted(c) {
+				return next(c)
+			}
 			prefixes := c.Request().Header.Values("X-Forwarded-Prefix")
 			originalPath := c.Request().URL.Path
 

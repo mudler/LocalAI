@@ -54,7 +54,12 @@ func same(a, b triggers.Trigger) bool {
 		a.Enabled == b.Enabled && a.Kind == b.Kind && a.Schedule == b.Schedule && a.TZ == b.TZ &&
 		a.Folder == b.Folder && a.Quiet == b.Quiet && a.DailyCap == b.DailyCap && a.Since.Equal(b.Since) &&
 		a.AgentID == b.AgentID && a.SourceChatID == b.SourceChatID && a.Model == b.Model && a.Proposed == b.Proposed &&
-		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Change == b.Change
+		a.Outcome == b.Outcome && a.OutcomeAt.Equal(b.OutcomeAt) && a.Touched == b.Touched && a.Change == b.Change && sameRoute(a.Route, b.Route)
+}
+
+func sameRoute(a, b triggers.Route) bool {
+	return a.Binding == b.Binding && a.Chat == b.Chat && a.Thread == b.Thread && a.Code == b.Code &&
+		a.ProposedAt.Equal(b.ProposedAt) && a.Expires.Equal(b.Expires) && a.Target == b.Target && a.Mode == b.Mode
 }
 
 func sameRun(a, b triggers.Run) bool {
@@ -82,6 +87,22 @@ func RunStoreSuite(newStore NewStore, opts ...Option) {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(same(got, tr)).To(BeTrue(), "GetTrigger(%s) = %+v; want %+v", tr.ID, got, tr)
 		}
+	})
+	It("stores the connector place and the delivery of a trigger", func() {
+		s := newStore()
+		tr := sample("r1", "1", "Morning")
+		tr.Enabled, tr.Proposed = false, true
+		tr.Route = triggers.Route{Binding: "b1", Chat: "C1", Thread: "T1", Code: "7K2Q", ProposedAt: base, Expires: base.Add(24 * time.Hour),
+			Target: triggers.TargetOrigin, Mode: triggers.ModeOnChange}
+		Expect(s.PutTrigger(ctx, tr)).To(Succeed())
+		got, err := s.GetTrigger(ctx, tr.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(same(got, tr)).To(BeTrue(), "GetTrigger = %+v; want %+v", got.Route, tr.Route)
+		plain := sample("r2", "1", "Plain")
+		Expect(s.PutTrigger(ctx, plain)).To(Succeed())
+		got, err = s.GetTrigger(ctx, plain.ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Route).To(Equal(triggers.Route{}), "a trigger made in Studio has no place")
 	})
 	It("stores a change record with its change", func() {
 		s := newStore()

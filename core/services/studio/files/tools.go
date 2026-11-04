@@ -469,9 +469,20 @@ func (s *Service) readText(ctx context.Context, a workspace.Actor, abs string, m
 		return "", n, err
 	}
 	if !isText(data) || !utf8.Valid(data) {
-		return "", n, fmt.Errorf("%s is not a text file (%d bytes)", n.Name, n.Size)
+		return "", n, &NotTextError{Name: n.Name, Size: n.Size}
 	}
 	return string(data), n, nil
+}
+
+// NotTextError means a text tool met a binary file. The host adds a hint about
+// the tools the chat has, so the model knows what to do instead.
+type NotTextError struct {
+	Name string
+	Size int64
+}
+
+func (e *NotTextError) Error() string {
+	return fmt.Sprintf("%s is not a text file (%d bytes)", e.Name, e.Size)
 }
 
 // put writes content as one change set of the chat.

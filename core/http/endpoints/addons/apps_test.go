@@ -24,6 +24,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/core/services/addons/catalog"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"github.com/mudler/LocalAI/core/services/addons/packages"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	. "github.com/onsi/ginkgo/v2"
@@ -64,14 +65,14 @@ func newAppsStack() *appsStack {
 	archives := map[string][]byte{}
 	for id, files := range map[string]map[string][]byte{
 		"notes": {
-			"manifest.json": []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add","list"],"ui":{"entry":"ui.js","css":["ui/style.css"],"sdk":{"min":1,"max":1},"pages":["home"],"navigation":["home"],"chatActions":["summarize"],"mainPage":"home","icon":"ui/icon.png","title":{"en":"Notes","it":"Appunti"},"description":"Keep notes."}}}`),
+			"manifest.json": []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add","list"],"ui":{"entry":"ui.js","css":["ui/style.css"],"sdk":{"min":1,"max":1},"pages":["home"],"navigation":["home"],"chatActions":["summarize"],"mainPage":"home","icon":"ui/icon.png","title":{"en":"Notes","it":"Appunti"},"description":"Keep notes."}}}`),
 			"ui.js":         []byte("export default {};"),
 			"ui/style.css":  []byte(".notes{color:red}"),
 			"ui/icon.png":   s.icon,
 			"secret.txt":    []byte("owner only"),
 		},
 		"headless": {
-			"manifest.json": []byte(`{"schemaVersion":1,"id":"headless","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"tools":["query"]}}`),
+			"manifest.json": []byte(`{"schemaVersion":1,"id":"headless","version":"1.0.0","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"capabilities":{"service":true,"tools":["query"]}}`),
 		},
 	} {
 		var b bytes.Buffer
@@ -105,7 +106,7 @@ func newAppsStack() *appsStack {
 	Expect(err).NotTo(HaveOccurred())
 	c := catalog.Catalog{Sources: sources, TargetOS: "linux", TargetArch: "amd64"}
 	cfg := managerpkg.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: filepath.Join(root, "owner")}
-	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 	DeferCleanup(func() {
 		_ = filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
 			if e == nil && info.IsDir() {
@@ -204,6 +205,35 @@ var _ = Describe("apps routes", Label("apps"), func() {
 		})
 	})
 
+	It("adds the text in the negotiated language beside the English fields and changes none of them", func() {
+		s.each(func(name string, e http.Handler) {
+			ask := func(path string, header string) map[string]any {
+				r := send(e, "GET", path, "", func(req *http.Request) {
+					bearerOf(s.tokens["carol"])(req)
+					if header != "" {
+						req.Header.Set("Accept-Language", header)
+					}
+				})
+				Expect(r.code).To(Equal(200), name)
+				return appsOf(r)["notes"]
+			}
+			plain := ask("/api/addons/apps", "")
+			Expect(plain).NotTo(HaveKey("language"), name+": no language asked, nothing added")
+			Expect(plain).NotTo(HaveKey("localizedTitle"))
+			for _, c := range [][2]string{{"/api/addons/apps?lang=it", ""}, {"/api/addons/apps", "it-IT,it;q=0.9,en;q=0.5"}, {"/api/addons/apps?lang=it", "de"}} {
+				path, header := c[0], c[1]
+				notes := ask(path, header)
+				Expect(notes).To(HaveKeyWithValue("title", "Notes"), name+" "+path+" "+header)
+				Expect(notes).To(HaveKeyWithValue("description", "Keep notes."))
+				Expect(notes).To(HaveKeyWithValue("language", "it"))
+				Expect(notes).To(HaveKeyWithValue("localizedTitle", "Appunti"))
+				Expect(notes).To(HaveKeyWithValue("localizedDescription", "Keep notes."), "the description has no Italian text: English per field")
+			}
+			for path, header := range map[string]string{"/api/addons/apps?lang=de": "", "/api/addons/apps?lang=en": "it", "/api/addons/apps?lang=%3Cx%3E": "it", "/api/addons/apps": "de, fr;q=0.5"} {
+				Expect(ask(path, header)).NotTo(HaveKey("language"), name+" "+path+" "+header)
+			}
+		})
+	})
 	It("lets only administrators start and stop, through the lifecycle manager, and denies a stale generation", func() {
 		ctx := context.Background()
 		desired := func(id string) bool {
@@ -388,8 +418,8 @@ var _ = Describe("apps routes outcomes and documentation", Label("apps"), func()
 			Expect(json.Unmarshal(b, &m)).To(Succeed())
 			return m
 		}
-		full := apps.App{ID: "a", Name: "a", Title: "t", Titles: map[string]string{"en": "t"}, Description: "d", Descriptions: map[string]string{"en": "d"}, Icon: "i", Version: "1", InstalledAt: "2026-10-30T09:15:00Z", Generation: 1, Enabled: true, State: "running", Update: "update-pending", MainPage: "/m", HasUI: true, LaunchMode: "always", Tools: []string{"x"}, ToolCount: 1, Shadows: []string{"bash"}, ToolDefinitions: []contract.ToolDefinition{{Name: "x", Description: "d", Kind: "read", InputSchema: json.RawMessage(`{"type":"object"}`), UIOnly: true, Shadows: "bash"}}, Skills: []contract.SkillDefinition{{Name: "xlsx", Shadows: "xlsx"}}, SkillShadows: []string{"xlsx"}, UI: &apps.UIView{Entry: "/e", CSS: []string{"/c"}, SDK: contract.VersionRange{Min: 1, Max: 1}, Actions: []apps.ChatActionView{{ID: "a", Label: "A", Labels: map[string]string{"en": "A"}, Icon: "star", PackagedIcon: true, Placement: "composer", Tool: "t", Component: "C"}}, Slots: []apps.SlotView{{ID: "s", Slot: "files.preview", Component: "C", Extensions: []string{"docx"}}}, Renderers: []contract.Renderer{{Kind: "approval-card", Tool: "t", Component: "C"}}, Pages: []string{"p"}, Navigation: []string{"p"}, ChatActions: []string{"a"}, Controls: []string{"network-policy"}}, Admin: &apps.AdminView{CanStart: true, CanStop: true, ManagementURL: "/x"}}
-		for name, v := range map[string]any{"apps.App": full, "apps.AdminView": *full.Admin, "apps.UIView": *full.UI, "apps.ChatActionView": full.UI.Actions[0], "apps.SlotView": full.UI.Slots[0], "contract.Renderer": full.UI.Renderers[0], "contract.VersionRange": full.UI.SDK, "contract.ToolDefinition": full.ToolDefinitions[0], "contract.SkillDefinition": full.Skills[0], "apps.List": apps.List{Apps: []apps.App{full}}} {
+		full := apps.App{ID: "a", Name: "a", Credentialed: true, ContextFiles: []contract.ContextFile{{Scope: "user", Path: "Memory/index.md"}}, UserSettings: []contract.UserSetting{{Key: "save-mode", Values: []string{"ask", "never"}, Default: "ask", Role: "memory.save-mode"}}, Network: &apps.NetworkView{Kind: contract.NetworkKindEgressCheck, Title: "N", Presets: []contract.NetworkPreset{{ID: "off", Title: "Closed"}}}, Title: "t", Titles: map[string]string{"en": "t"}, Description: "d", Descriptions: map[string]string{"en": "d"}, Language: "it", LocalizedTitle: "t", LocalizedDescription: "d", Icon: "i", Version: "1", InstalledAt: "2026-10-30T09:15:00Z", Generation: 1, Enabled: true, State: "running", Update: "update-pending", Operation: &apps.Operation{Kind: "upgrade", Phase: "downloading", Since: "2026-11-04T17:18:00Z"}, MainPage: "/m", HasUI: true, LaunchMode: "always", Tools: []string{"x"}, ToolCount: 1, Shadows: []string{"bash"}, ToolDefinitions: []contract.ToolDefinition{{Name: "x", Description: "d", Kind: "read", InputSchema: json.RawMessage(`{"type":"object"}`), UIOnly: true, Approval: contract.ApprovalAlways, Shadows: "bash", Execution: &contract.ExecutionDescriptor{Class: "commands", Title: "T", Note: "n", Skills: &contract.ExecutionSkills{ProvidesRuntimeFor: []string{"documents"}}}}}, Skills: []contract.SkillDefinition{{Name: "xlsx", Shadows: "xlsx", Slot: &contract.SlotDefinition{Kind: contract.SlotKindDocuments}}}, SkillShadows: []string{"xlsx"}, UI: &apps.UIView{Entry: "/e", CSS: []string{"/c"}, SDK: contract.VersionRange{Min: 1, Max: 1}, Actions: []apps.ChatActionView{{ID: "a", Label: "A", Labels: map[string]string{"en": "A"}, Icon: "star", PackagedIcon: true, Placement: "composer", Tool: "t", Component: "C"}}, Slots: []apps.SlotView{{ID: "s", Slot: "files.preview", Component: "C", Extensions: []string{"docx"}}}, Renderers: []contract.Renderer{{Kind: "approval-card", Tool: "t", Component: "C"}}, Pages: []string{"p"}, Navigation: []string{"p"}, HomeCommands: []apps.HomeCommandView{{ID: "h", Page: "p", Label: "H", Icon: "star"}}, ModelActions: []contract.ModelAction{{Capability: "FLAG_IMAGE", Page: "p"}}, ChatActions: []string{"a"}, Controls: []string{"network-policy"}}, Admin: &apps.AdminView{CanStart: true, CanStop: true, ManagementURL: "/x", HostOperations: &hostops.RequestSummary{Required: []string{"r"}}}}
+		for name, v := range map[string]any{"apps.App": full, "apps.AdminView": *full.Admin, "apps.UIView": *full.UI, "apps.ChatActionView": full.UI.Actions[0], "apps.SlotView": full.UI.Slots[0], "contract.Renderer": full.UI.Renderers[0], "contract.VersionRange": full.UI.SDK, "contract.ToolDefinition": full.ToolDefinitions[0], "contract.ExecutionDescriptor": *full.ToolDefinitions[0].Execution, "contract.ExecutionSkills": *full.ToolDefinitions[0].Execution.Skills, "contract.SkillDefinition": full.Skills[0], "apps.List": apps.List{Apps: []apps.App{full}, Stale: true, StaleReason: "owner_busy", StaleSince: "2026-11-04T17:18:30Z"}, "apps.Operation": *full.Operation} {
 			def, ok := doc.Definitions[name]
 			Expect(ok).To(BeTrue(), name)
 			shape := emitted(v)

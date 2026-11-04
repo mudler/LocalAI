@@ -2,6 +2,7 @@
 package contract
 
 import (
+	"encoding/json"
 	"os"
 	"strings"
 	"unicode/utf8"
@@ -17,7 +18,7 @@ var _ = Describe("the connector capability", func() {
 		Expect(err).NotTo(HaveOccurred())
 		m, err = ParseManifest(b)
 		Expect(err).NotTo(HaveOccurred())
-		m.Capabilities.UI.SDK = VersionRange{Min: 1, Max: 2}
+		m.Capabilities.UI.SDK = VersionRange{Min: 2, Max: 2}
 		m.Capabilities.UI.Pages = []string{"bot"}
 		m.Capabilities.UI.Navigation = nil
 		m.Capabilities.UI.MainPage = ""
@@ -37,10 +38,88 @@ var _ = Describe("the connector capability", func() {
 		m.Capabilities.Connector.Kinds[0].PreviewMs = MinPreviewMs
 		Expect(ValidateManifest(m, host())).To(Succeed())
 	})
+	It("accepts agentOptional and keeps it through a JSON round trip", func() {
+		m.Capabilities.Connector.Kinds[0].AgentOptional = true
+		Expect(ValidateManifest(m, host())).To(Succeed())
+		raw, err := json.Marshal(m.Capabilities.Connector)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(raw)).To(ContainSubstring(`"agentOptional":true`))
+		m.Capabilities.Connector.Kinds[0].AgentOptional = false
+		raw, _ = json.Marshal(m.Capabilities.Connector)
+		Expect(string(raw)).NotTo(ContainSubstring("agentOptional"))
+	})
 	It("lets an add-on declare nothing but the connector", func() {
 		m.Capabilities.UI = nil
 		m.Capabilities.Connector.Kinds[0].Page = ""
 		Expect(ValidateManifest(m, host())).To(Succeed())
+	})
+	Describe("the history ability", func() {
+		kind := func() *ConnectorKind { return &m.Capabilities.Connector.Kinds[0] }
+		BeforeEach(func() { m.API = VersionRange{Min: 2, Max: 2} })
+
+		It("accepts a thread history", func() {
+			kind().History = &ConnectorHistory{Thread: true, MaxMessages: 50}
+			Expect(ValidateManifest(m, host())).To(Succeed())
+			Expect(kind().ServesThreadHistory()).To(BeTrue())
+		})
+		It("refuses an ability that says nothing and a limit out of bounds", func() {
+			kind().History = &ConnectorHistory{}
+			Expect(ValidateManifest(m, host())).NotTo(Succeed())
+			kind().History = &ConnectorHistory{Thread: true, MaxMessages: MaxHistoryMessages + 1}
+			Expect(ValidateManifest(m, host())).NotTo(Succeed())
+			kind().History = &ConnectorHistory{Thread: true, MaxMessages: -1}
+			Expect(ValidateManifest(m, host())).NotTo(Succeed())
+		})
+		It("serves nothing for a kind that declares nothing", func() {
+			Expect(kind().ServesThreadHistory()).To(BeFalse())
+		})
+		It("cuts the limit to what the kind declares", func() {
+			k := ConnectorKind{History: &ConnectorHistory{Thread: true, MaxMessages: 10}}
+			Expect(k.HistoryLimit(0)).To(Equal(10))
+			Expect(k.HistoryLimit(5)).To(Equal(5))
+			Expect(k.HistoryLimit(500)).To(Equal(10))
+			Expect(ConnectorKind{History: &ConnectorHistory{Thread: true}}.HistoryLimit(0)).To(Equal(DefaultHistoryMessages))
+		})
+	})
+	Describe("the options of a kind", func() {
+		kind := func() *ConnectorKind { return &m.Capabilities.Connector.Kinds[0] }
+		follow := func() ConnectorOption {
+			return ConnectorOption{ID: "followThreads", Title: "Follow threads", Default: "own",
+				Values: []ConnectorOptionValue{{ID: "own", Title: "Own"}, {ID: "any", Title: "Any"}, {ID: "never", Title: "Never"}}}
+		}
+		BeforeEach(func() { m.API = VersionRange{Min: 2, Max: 2} })
+
+		It("accepts an option with a default among its values", func() {
+			kind().Options = []ConnectorOption{follow()}
+			Expect(ValidateManifest(m, host())).To(Succeed())
+		})
+		It("refuses a bad default, one value, a repeated id and too many", func() {
+			kind().Options = []ConnectorOption{follow()}
+			for _, edit := range []func(*ConnectorOption){
+				func(o *ConnectorOption) { o.Default = "sometimes" },
+				func(o *ConnectorOption) { o.Values = o.Values[:1] },
+				func(o *ConnectorOption) { o.ID = "Follow-Threads" },
+				func(o *ConnectorOption) { o.Values[1].ID = "own" },
+				func(o *ConnectorOption) { o.Title = "<b>x</b>" },
+			} {
+				o := follow()
+				edit(&o)
+				kind().Options = []ConnectorOption{o}
+				Expect(ValidateManifest(m, host())).NotTo(Succeed())
+			}
+			kind().Options = []ConnectorOption{follow(), follow()}
+			Expect(ValidateManifest(m, host())).NotTo(Succeed())
+		})
+		It("resolves the choices of a binding against the declaration", func() {
+			k := ConnectorKind{Options: []ConnectorOption{follow()}}
+			Expect(k.ResolveOptions(nil)).To(Equal(map[string]string{"followThreads": "own"}))
+			Expect(k.ResolveOptions(map[string]string{"followThreads": "never"})).To(Equal(map[string]string{"followThreads": "never"}))
+			_, err := k.ResolveOptions(map[string]string{"followThreads": "sometimes"})
+			Expect(err).To(HaveOccurred())
+			_, err = k.ResolveOptions(map[string]string{"other": "x"})
+			Expect(err).To(HaveOccurred())
+			Expect(ConnectorKind{}.ResolveOptions(nil)).To(BeNil())
+		})
 	})
 	DescribeTable("refuses",
 		func(edit func(*ConnectorCapability)) {
@@ -75,4 +154,22 @@ var _ = It("cuts a long name on a character boundary", func() {
 	Expect(len(got)).To(BeNumerically("<=", MaxConnectorFileName))
 	Expect(utf8.ValidString(got)).To(BeTrue())
 	Expect(got).To(HaveSuffix(".csv"))
+})
+
+var _ = Describe("the permission of a tool", func() {
+	It("is tools.write for a tool that is not a read, in an add-on that holds a credential", func() {
+		for _, kind := range []string{ToolKindWrite, ToolKindSchema, ToolKindCreate, ToolKindAction} {
+			Expect(ToolPermission(true, ToolDefinition{Kind: kind})).To(Equal(CapToolsWrite), kind)
+		}
+	})
+	It("is empty for a read, and for any tool of an add-on without a credential", func() {
+		Expect(ToolPermission(true, ToolDefinition{Kind: ToolKindRead})).To(BeEmpty())
+		for _, kind := range []string{ToolKindRead, ToolKindWrite, ToolKindSchema, ToolKindCreate, ToolKindAction} {
+			Expect(ToolPermission(false, ToolDefinition{Kind: kind})).To(BeEmpty(), kind)
+		}
+	})
+	It("names a capability in the closed list", func() {
+		Expect(KnownCapability(CapToolsWrite)).To(BeTrue())
+		Expect(SensitiveCapability(CapToolsWrite)).To(BeFalse())
+	})
 })

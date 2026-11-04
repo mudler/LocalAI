@@ -1,3 +1,8 @@
+# Concurrency policy: this job pushes one fixed tag, so only the newest build
+# matters. A running build is never cancelled (cancel-in-progress is false);
+# GitHub keeps at most one pending run per group and replaces an older pending
+# run with a newer one. Push and workflow_dispatch use separate groups, so a
+# manual run is never replaced by a push.
 name: 'generate and publish intel docker caches'
 
 on:
@@ -7,8 +12,8 @@ on:
       - master
 
 concurrency:
-  group: intel-cache-${{ github.event.pull_request.number || github.sha }}-${{ github.repository }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: intel-cache-${{ github.event_name }}-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   generate_caches:

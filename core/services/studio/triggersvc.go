@@ -86,6 +86,15 @@ type Triggers struct {
 
 	wmu sync.Mutex // serialises writes of triggers
 
+	// Guarded by mu: when the proposals past their time were last swept, the
+	// triggers whose capability to run is off now, and when a trigger last
+	// raised its failure alert.
+	swept time.Time
+	// timersSwept is when sweepTimers last ran.
+	timersSwept time.Time
+	paused      map[string]bool
+	alerted     map[string]time.Time
+
 	wake chan struct{}
 	done chan struct{}
 	once sync.Once
@@ -224,6 +233,8 @@ func (h *Triggers) Pass(ctx context.Context) error {
 	}
 	err = r.Sync(ctx)
 	h.reconcile(ctx)
+	h.expireProposals(ctx)
+	h.sweepTimers(ctx)
 	return err
 }
 
@@ -269,7 +280,7 @@ func (h *Triggers) start(ctx context.Context, t triggers.Trigger, run triggers.R
 	if err != nil && ctx.Err() != nil && !errors.As(err, &skip) {
 		return "", ctx.Err() // the host stops: the Runner puts the run back
 	}
-	if err != nil {
+	if err != nil && !(errors.As(err, &skip) && skip.Reason == reasonCapOff) {
 		h.tell(context.WithoutCancel(ctx), t, "", notify.KindRunFailed, notify.StatusFailed, t.Name+" did not run", err.Error())
 	}
 	return id, err
@@ -279,6 +290,12 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 	owner := t.Owner
 	if err := h.checkOwner(ctx, t); err != nil {
 		return "", err
+	}
+	// A trigger that a connector chat proposed runs only while its capability
+	// is on. The record stays and so does Enabled; a run that falls due while
+	// the capability is off is skipped and is not made up for later.
+	if h.capOff(ctx, t) {
+		return "", &triggers.SkipError{Reason: reasonCapOff}
 	}
 	// The folder of a scoped agent is checked before anything is read for
 	// the run: a run never falls back to the whole home.
@@ -340,6 +357,13 @@ func (h *Triggers) startRun(ctx context.Context, t triggers.Trigger, run trigger
 		}
 		if err := h.svc.d.Store.SetMcpOff(ctx, owner, rec.ID, srcMCP); err != nil {
 			return "", err
+		}
+		// The run acts with the connection that the chat which proposed it
+		// had selected, as it does for the other switches.
+		if src, gerr := h.svc.d.Store.GetChat(ctx, owner, t.SourceChatID); gerr == nil && len(src.Connections) > 0 {
+			if err := h.svc.d.Store.SetConnections(ctx, owner, rec.ID, src.Connections); err != nil {
+				return "", err
+			}
 		}
 	}
 	events, cancel, err := h.svc.Events(ctx, owner, rec.ID) // before Send: the end must not be missed
@@ -474,7 +498,7 @@ func runRulesFolder(t triggers.Trigger, scope *folderScope) string {
 	case t.Kind == triggers.KindFile:
 		return t.Folder
 	case scope != nil:
-		return scope.path
+		return scope.primary().path
 	}
 	return session.HomePath(t.Owner)
 }
@@ -639,13 +663,18 @@ func (h *Triggers) finishRun(run triggers.Run, t triggers.Trigger, chatID string
 	}
 	if status == triggers.StatusFailed {
 		h.tell(ctx, t, chatID, notify.KindRunFailed, notify.StatusFailed, t.Name+" failed", reason)
+		h.reportFailure(ctx, t, reason)
+		h.retire(ctx, t)
 		return
 	}
 	body := reason
 	if body == "" {
 		body = h.svc.finalText(ctx, chatID)
 	}
-	h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
+	if !h.report(ctx, t, cur, body) {
+		h.tell(ctx, t, chatID, notify.KindRunEnded, notify.StatusOK, t.Name+" finished", body)
+	}
+	h.retire(ctx, t)
 }
 
 // tellInterrupted tells the owner of a run that a restart cut short. The Runner

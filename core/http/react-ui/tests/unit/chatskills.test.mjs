@@ -119,3 +119,11 @@ test('install document notices use flow provider keys and retain built-in replac
   assert.equal(skillInstallNoticeKey({ skill: 'writing' }), 'flow.skillShadow')
   assert.equal(skillInstallNoticeKey({ skill: 'writing', name: 'Other' }), 'flow.skillShadowWarning')
 })
+
+test('skillRef names the owner of an add-on skill or an agent skill, and nothing for the other layers', async () => {
+  const { skillRef, skillSource } = await import('../../src/utils/chatSkills.js')
+  assert.deepEqual(skillRef({ layer: 'addon', addon: 'office' }), { addon: 'office' })
+  assert.deepEqual(skillRef({ layer: 'agent', agent: 'a1', agent_name: 'Sales' }), { agent: 'a1' })
+  assert.deepEqual(skillRef({ layer: 'personal' }), {})
+  assert.deepEqual(skillSource({ layer: 'agent', agent: 'a1', agent_name: 'Sales' }), { kind: 'agent', name: 'Sales' })
+})

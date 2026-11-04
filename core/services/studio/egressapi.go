@@ -12,7 +12,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
-// The routes of the network of a chat's Sandbox commands: the chat's own
+// The routes of the network of a chat's commands: the chat's own
 // view and preset for its owner, and the administrator's view.
 
 var (
@@ -28,7 +28,7 @@ var (
 // The reasons the network settings do not apply to a chat.
 const (
 	EgressAppliesHost = "host" // commands run on this machine, with its network
-	EgressAppliesNone = "none" // no Sandbox serves bash, or it does not report that it enforces the policy
+	EgressAppliesNone = "none" // no add-on serves bash, or it does not report that it enforces the policy
 )
 
 // EgressView is the network of one chat, as its network panel shows it.
@@ -36,7 +36,7 @@ type EgressView struct {
 	Preset, Ceiling, Effective egress.Preset
 	// Applies is true when the provider that runs the commands reports that it
 	// enforces the network policy. It is false when commands run on this
-	// machine, no Sandbox serves bash, or the provider does not report
+	// machine, no add-on serves bash, or the provider does not report
 	// enforcement; AppliesReason then says which.
 	Applies       bool
 	AppliesReason string
@@ -44,7 +44,10 @@ type EgressView struct {
 	// network-policy host control, which draws the network row of the chat:
 	// set only for a provider that carries it. Without it no add-on draws the controls, and
 	// the policy still holds.
-	Addon      string
+	Addon string
+	// Network names the network of Addon in text and gives the titles it
+	// declares for the presets. Set with Addon.
+	Network    *AddonNetwork
 	Registries []egress.Registry
 	// AllowedHosts is the administrator's always-allowed list, canonical.
 	AllowedHosts []string
@@ -129,6 +132,8 @@ func (s *Service) Egress(ctx context.Context, user, conv string) (EgressView, er
 		}
 		if c, ok := s.d.AddonTools.(AddonControls); ok && slices.Contains(c.Controls(ctx, p, cmds.Provider), contract.ControlNetworkPolicy) {
 			v.Addon = cmds.Provider
+			n := s.networkOf(ctx, p, cmds)
+			v.Network = &n
 		}
 	default:
 		v.AppliesReason = EgressAppliesNone
@@ -194,20 +199,37 @@ func (s *Service) publishEgress(p, conv, card string) {
 	s.bus.Publish(key(p, conv), ev)
 }
 
-// EgressAdmin is the administrator's view of the Sandbox network.
+// networkOf is the network of the add-on that runs the commands in cmds: what
+// the add-on declares, else the title of its commands tool.
+func (s *Service) networkOf(ctx context.Context, user string, cmds Commands) AddonNetwork {
+	n := AddonNetwork{Title: cmds.Title}
+	if b, ok := s.d.AddonTools.(AddonNetworks); ok {
+		if d, ok := b.Network(ctx, user, cmds.Provider); ok {
+			n.Presets = d.Presets
+			if d.Title != "" {
+				n.Title = d.Title
+			}
+		}
+	}
+	return n
+}
+
+// EgressAdmin is the administrator's view of the network of commands.
 type EgressAdmin struct {
 	Settings   egress.Settings
 	AuditDays  int
 	Registries []egress.Registry
-	// Sandbox is the add-on that runs commands for the administrator, and
-	// Isolation how ("isolated", "host" or "" when unknown). Empty Sandbox:
+	// Runner is the add-on that runs commands for the administrator, and
+	// Isolation how ("isolated", "host" or "" when unknown). Empty Runner:
 	// none serves, and the settings apply to nothing yet.
-	Sandbox, Isolation string
-	Last24h            audit.Counts
+	Runner, Isolation string
+	// Network names the network of Runner in text, when one serves.
+	Network *AddonNetwork
+	Last24h audit.Counts
 }
 
 // AdminEgress returns the settings in force, the registries list with the
-// extra hosts, whether a Sandbox serves and the counts of the last 24 hours.
+// extra hosts, whether an add-on serves and the counts of the last 24 hours.
 func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, error) {
 	set, err := s.egressSettings(ctx)
 	if err != nil {
@@ -224,14 +246,16 @@ func (s *Service) AdminEgress(ctx context.Context, user string) (EgressAdmin, er
 			out.AuditDays = d
 		}
 	}
-	out.Sandbox, err = s.servingRunner(ctx, principal(user))
+	out.Runner, err = s.servingRunner(ctx, principal(user))
 	if err != nil {
 		return EgressAdmin{}, err
 	}
-	if out.Sandbox != "" {
+	if out.Runner != "" {
 		if iso, ok := s.d.AddonTools.(CommandIsolation); ok {
-			out.Isolation = iso.Isolation(ctx, principal(user), out.Sandbox)
+			out.Isolation = iso.Isolation(ctx, principal(user), out.Runner)
 		}
+		n := s.networkOf(ctx, principal(user), Commands{Provider: out.Runner, Title: s.commandTitle(ctx, principal(user), out.Runner)})
+		out.Network = &n
 	}
 	c, err := s.egressAudit().Count(ctx, s.now().Add(-24*time.Hour))
 	if err != nil {

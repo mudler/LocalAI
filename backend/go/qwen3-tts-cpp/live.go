@@ -81,6 +81,11 @@ func (q *Qwen3TtsCpp) TTSLive(ctx context.Context, recv func() (*pb.TTSRequest, 
 	if CppTTSLive == nil {
 		return fmt.Errorf("qwen3-tts: incremental synthesis unavailable in native library")
 	}
+	if q.maxBatch.Load() > 1 {
+		// qt's incremental mode requires a max_batch=1 context: a producer
+		// blocked on text owns the compute worker (qwentts docs/INCREMENTAL.md).
+		return fmt.Errorf("qwen3-tts: incremental synthesis (TTSLive) requires max_batch=1; this model is loaded with max_batch=%d", q.maxBatch.Load())
+	}
 	if err := send(wavHeader24k()); err != nil {
 		return err
 	}

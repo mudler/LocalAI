@@ -281,7 +281,15 @@ func (b *Broker) Resolve(ctx context.Context, actor contract.Actor, id, digest, 
 	}
 	key := ResourceKey{AddonID: r.AddonID, ResourceID: r.ResourceID}
 	var out Proposal
-	err = p.Admit(ctx, actor, key, ActionResolve, func(rctx context.Context) error {
+	admit := func(run func(context.Context) error) error { return p.Admit(ctx, actor, key, ActionResolve, run) }
+	if r.Credentialed {
+		// The binding is the proposer's own: nobody else resolves it.
+		if r.Actor.UserID != actor.UserID {
+			return Proposal{}, ErrForbidden
+		}
+		admit = func(run func(context.Context) error) error { return p.AdmitAddon(ctx, actor, r.AddonID, run) }
+	}
+	err = admit(func(rctx context.Context) error {
 		cur, ok := b.store.get(id)
 		if !ok {
 			return ErrForbidden

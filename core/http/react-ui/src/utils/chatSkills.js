@@ -52,10 +52,20 @@ export function pickerSkills(list) {
   }
 }
 
+// What names the owner of a skill besides its layer and name: the add-on of an
+// add-on skill, the saved agent of an agent skill. It is the last argument of
+// chatSkillsApi.get and remove.
+export function skillRef(s) {
+  if (s.layer === 'addon' && s.addon) return { addon: s.addon }
+  if (s.layer === 'agent' && s.agent) return { agent: s.agent }
+  return {}
+}
+
 // Where a skill comes from, for the label of its row: the add-on's title for
 // an add-on skill, else its layer.
 export function skillSource(s) {
   if (s.layer === 'addon') return { kind: 'addon', name: s.addon_title || s.addon || '' }
+  if (s.layer === 'agent') return { kind: 'agent', name: s.agent_name || s.agent || '' }
   return { kind: s.layer || '' }
 }
 

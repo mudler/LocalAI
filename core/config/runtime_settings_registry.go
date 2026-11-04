@@ -636,13 +636,13 @@ var runtimeSettingsFields = []fieldSpec{
 	withApply(field("chats_egress_audit_days",
 		func(s *RuntimeSettings) **int { return &s.ChatsEgressAuditDays },
 		func(o *ApplicationConfig) int { return o.EffectiveChatsEgressAuditDays() },
-		func(o *ApplicationConfig, v int) { o.ChatsEgressAuditDays = v }),
+		func(o *ApplicationConfig, v int) { o.setChatsEgressAuditDays(v) }),
 		func(o *ApplicationConfig, s *RuntimeSettings) bool {
 			if v := *s.ChatsEgressAuditDays; v < 1 || v > 365 {
 				xlog.Warn("invalid chats_egress_audit_days in runtime settings", "value", v)
 				return false
 			}
-			o.ChatsEgressAuditDays = *s.ChatsEgressAuditDays
+			o.setChatsEgressAuditDays(*s.ChatsEgressAuditDays)
 			return true
 		}),
 
@@ -695,7 +695,9 @@ var runtimeSettingsFields = []fieldSpec{
 		func(o *ApplicationConfig) string { return o.EffectiveChatsLoopMinInterval().String() },
 		func(o *ApplicationConfig, v string) {
 			if d, err := time.ParseDuration(v); err == nil {
+				o.chatsLimitsMu.Lock()
 				o.ChatsLoopMinInterval = d
+				o.chatsLimitsMu.Unlock()
 			}
 		},
 		func(a, b string) bool { return a == b }),
@@ -705,25 +707,43 @@ var runtimeSettingsFields = []fieldSpec{
 				xlog.Warn("invalid chats_loop_min_interval in runtime settings", "value", *s.ChatsLoopMinInterval)
 				return false
 			}
+			o.chatsLimitsMu.Lock()
 			o.ChatsLoopMinInterval = d
+			o.chatsLimitsMu.Unlock()
 			return true
 		}),
 	loopIntField("chats_loop_max_runs", MaxChatsLoopMaxRuns,
 		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxRuns },
 		(*ApplicationConfig).EffectiveChatsLoopMaxRuns,
-		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxRuns = v }),
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsLoopMaxRuns = v
+			o.chatsLimitsMu.Unlock()
+		}),
 	loopIntField("chats_loop_max_per_chat", MaxChatsLoopMaxPerChat,
 		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxPerChat },
 		(*ApplicationConfig).EffectiveChatsLoopMaxPerChat,
-		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxPerChat = v }),
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsLoopMaxPerChat = v
+			o.chatsLimitsMu.Unlock()
+		}),
 	loopIntField("chats_loop_max_per_user", MaxChatsLoopMaxPerUser,
 		func(s *RuntimeSettings) **int { return &s.ChatsLoopMaxPerUser },
 		(*ApplicationConfig).EffectiveChatsLoopMaxPerUser,
-		func(o *ApplicationConfig, v int) { o.ChatsLoopMaxPerUser = v }),
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsLoopMaxPerUser = v
+			o.chatsLimitsMu.Unlock()
+		}),
 	loopIntField("chats_loop_daily_runs", MaxChatsLoopDailyRuns,
 		func(s *RuntimeSettings) **int { return &s.ChatsLoopDailyRuns },
 		(*ApplicationConfig).EffectiveChatsLoopDailyRuns,
-		func(o *ApplicationConfig, v int) { o.ChatsLoopDailyRuns = v }),
+		func(o *ApplicationConfig, v int) {
+			o.chatsLimitsMu.Lock()
+			o.ChatsLoopDailyRuns = v
+			o.chatsLimitsMu.Unlock()
+		}),
 
 	// Offers from the assistant: stored as the negation for UI clarity. Read
 	// at each turn, so no restart.

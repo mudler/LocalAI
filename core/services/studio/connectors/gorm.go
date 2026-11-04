@@ -28,9 +28,33 @@ type bindingRow struct {
 	Conversation  string `gorm:"size:16"`
 	WindowMinutes int
 	FilesOff      bool
-	Token         []byte
-	Created       time.Time
-	Updated       time.Time
+	// ReplyLanguage is added by AutoMigrate; a row stored before it reads as auto.
+	ReplyLanguage string `gorm:"size:8"`
+	// A thread_context_off column that an earlier build added stays in the
+	// table, unread and unwritten: AutoMigrate never drops a column, and the
+	// column accepts NULL, so an insert without it works.
+	// Options is JSON, added by AutoMigrate.
+	Options string
+	// Resources is JSON, added by AutoMigrate; a row stored before it lists none.
+	Resources string
+	// Channels is JSON, added by AutoMigrate; a row stored before it lists none.
+	Channels string
+	// WriteMode is added by AutoMigrate; a row stored before it reads as off.
+	WriteMode string `gorm:"size:16"`
+	// Approval is JSON, added by AutoMigrate; a row stored before it asks.
+	Approval string
+	// The columns of the file limits are added by AutoMigrate; a row stored
+	// before them has no limit of the owner.
+	FileReceiveMax int64
+	FileSendMax    int64
+	// Caps, Grants and Paired are JSON, added by AutoMigrate; a row stored
+	// before them has none.
+	Caps    string
+	Grants  string
+	Paired  string
+	Token   []byte
+	Created time.Time
+	Updated time.Time
 }
 
 func (bindingRow) TableName() string { return "studio_connectors" }
@@ -62,12 +86,31 @@ type chatRow struct {
 
 func (chatRow) TableName() string { return "studio_connector_chats" }
 
+type pairingRow struct {
+	Binding string `gorm:"primaryKey;size:64"`
+	Hash    string `gorm:"size:64"`
+	Expires time.Time
+}
+
+func (pairingRow) TableName() string { return "studio_connector_pairings" }
+
 type keyRow struct {
 	Name  string `gorm:"primaryKey;size:32"`
 	Value []byte
 }
 
 func (keyRow) TableName() string { return "studio_connector_keys" }
+
+// migrationRow records a one-time migration. Done is set when it finished;
+// until then Started is the lease of the process that runs it.
+type migrationRow struct {
+	Name     string `gorm:"primaryKey;size:64"`
+	Started  time.Time
+	Finished time.Time
+	Done     bool
+}
+
+func (migrationRow) TableName() string { return "studio_connector_migrations" }
 
 type gormStore struct{ db *gorm.DB }
 
@@ -76,7 +119,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 	if db == nil {
 		return nil, errors.New("connectors: nil *gorm.DB")
 	}
-	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}); err != nil {
+	if err := db.AutoMigrate(&bindingRow{}, &stateRow{}, &senderRow{}, &chatRow{}, &keyRow{}, &pairingRow{}, &migrationRow{}); err != nil {
 		return nil, fmt.Errorf("connectors: migrate: %w", err)
 	}
 	return &gormStore{db: db}, nil
@@ -84,14 +127,31 @@ func NewGORM(db *gorm.DB) (Store, error) {
 
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
-		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff,
+		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ReplyLanguage: r.ReplyLanguage, WriteMode: r.WriteMode,
+		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
 		if err := json.Unmarshal([]byte(r.Allow), &b.Allow); err != nil {
 			return b, err
 		}
 	}
-	return Normalize(b), nil
+	if r.Options != "" {
+		if err := json.Unmarshal([]byte(r.Options), &b.Options); err != nil {
+			return b, err
+		}
+	}
+	for _, f := range []struct {
+		raw string
+		dst any
+	}{{r.Caps, &b.Caps}, {r.Grants, &b.Grants}, {r.Paired, &b.Paired}, {r.Resources, &b.Resources}, {r.Channels, &b.Channels}, {r.Approval, &b.Approval}} {
+		if f.raw == "" {
+			continue
+		}
+		if err := json.Unmarshal([]byte(f.raw), f.dst); err != nil {
+			return b, err
+		}
+	}
+	return b, nil
 }
 
 func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
@@ -100,9 +160,22 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 		raw, _ := json.Marshal(b.Allow)
 		allow = string(raw)
 	}
-	return s.db.WithContext(ctx).Save(&bindingRow{ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
+	options := ""
+	if len(b.Options) > 0 {
+		raw, _ := json.Marshal(b.Options)
+		options = string(raw)
+	}
+	enc := func(v any, empty bool) string {
+		if empty {
+			return ""
+		}
+		raw, _ := json.Marshal(v)
+		return string(raw)
+	}
+	return s.db.WithContext(ctx).Save(&bindingRow{Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
-		FilesOff: b.FilesOff, Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
+		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
+		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
 func (s *gormStore) GetBinding(ctx context.Context, id string) (Binding, error) {
@@ -147,7 +220,7 @@ func (s *gormStore) EnabledBindings(ctx context.Context) ([]Binding, error) {
 
 func (s *gormStore) DeleteBinding(ctx context.Context, id string) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}} {
+		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}} {
 			if err := tx.Where("binding = ?", id).Delete(m).Error; err != nil {
 				return err
 			}
@@ -225,6 +298,10 @@ func (s *gormStore) SetChat(ctx context.Context, binding, senderID, chatID strin
 	return s.db.WithContext(ctx).Save(&chatRow{Binding: binding, Sender: senderID, ChatID: chatID}).Error
 }
 
+func (s *gormStore) ClearChat(ctx context.Context, binding, senderID string) error {
+	return s.db.WithContext(ctx).Where("binding = ? AND sender = ?", binding, senderID).Delete(&chatRow{}).Error
+}
+
 func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, error)) ([]byte, error) {
 	read := func() ([]byte, bool, error) {
 		var r keyRow
@@ -252,4 +329,54 @@ func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, erro
 		return nil, errors.New("connectors: the sealing key was not stored")
 	}
 	return got, nil
+}
+
+func (s *gormStore) PutPairing(ctx context.Context, binding string, p Pairing) error {
+	return s.db.WithContext(ctx).Save(&pairingRow{Binding: binding, Hash: p.Hash, Expires: p.Expires.UTC()}).Error
+}
+
+func (s *gormStore) ConsumePairing(ctx context.Context, binding, hash string, now time.Time) (bool, error) {
+	// An expired code stays until it is replaced or the binding goes; it
+	// cannot match.
+	res := s.db.WithContext(ctx).Where("binding = ? AND hash = ? AND expires > ?", binding, hash, now.UTC()).Delete(&pairingRow{})
+	return res.RowsAffected == 1, res.Error
+}
+
+func (s *gormStore) SetCapsIfEmpty(ctx context.Context, id string, caps []string) (bool, error) {
+	if len(caps) == 0 {
+		return false, nil
+	}
+	raw, _ := json.Marshal(caps)
+	// Caps is "" when a row has none (PutBinding writes it so), NULL for a row
+	// from before the column existed, and "[]" is never written but is
+	// accepted for safety.
+	res := s.db.WithContext(ctx).Model(&bindingRow{}).
+		Where("id = ? AND (caps IS NULL OR caps = '' OR caps = '[]' OR caps = 'null')", id).
+		Update("caps", string(raw))
+	return res.RowsAffected == 1, res.Error
+}
+
+func (s *gormStore) ClaimMigration(ctx context.Context, name string, now time.Time, lease time.Duration) (bool, error) {
+	db := s.db.WithContext(ctx)
+	res := db.Clauses(clause.OnConflict{DoNothing: true}).Create(&migrationRow{Name: name, Started: now.UTC()})
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected == 1 {
+		return true, nil
+	}
+	// A claim that was never finished and has outlived its lease is taken
+	// over with a conditional update, so two takers cannot both win.
+	res = db.Model(&migrationRow{}).Where("name = ? AND done = ? AND started <= ?", name, false, now.Add(-lease).UTC()).
+		Update("started", now.UTC())
+	return res.RowsAffected == 1, res.Error
+}
+
+func (s *gormStore) FinishMigration(ctx context.Context, name string, now time.Time) error {
+	return s.db.WithContext(ctx).Model(&migrationRow{}).Where("name = ?", name).
+		Updates(map[string]any{"done": true, "finished": now.UTC()}).Error
+}
+
+func (s *gormStore) ReleaseMigration(ctx context.Context, name string) error {
+	return s.db.WithContext(ctx).Where("name = ? AND done = ?", name, false).Delete(&migrationRow{}).Error
 }

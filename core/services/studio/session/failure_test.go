@@ -54,6 +54,27 @@ var _ = ginkgo.Describe("the cause of a failed turn", func() {
 		ginkgo.Entry("unknown", errors.New("connection reset"), CodeAgent, "", 0, "stopped because of an error"),
 	)
 
+	ginkgo.It("tells the size of the window when the tools do not fit", func() {
+		f := Classify(errors.New(`tool schemas use 4k of the 4k context window — session-tools 3k (18 tools): disable MCP servers or filter their tools, or increase the backend's context size.`))
+		Expect(f.Code).To(Equal(CodeContext))
+		Expect(f.Reason).To(HavePrefix(reasonContextPrefix))
+		Expect(f.Reason).To(ContainSubstring("4k tokens of a 4k-token window"))
+		Expect(fixedReason(f.Reason)).To(Equal(f.Reason))
+	})
+
+	ginkgo.It("tells the size of the window when the conversation does not fit", func() {
+		f := Classify(errors.New("context window full: the prompt is about 3746 tokens of a 4096-token window, leaving less than 1024 for the reply"))
+		Expect(f.Code).To(Equal(CodeContext))
+		Expect(f.Reason).To(ContainSubstring("3746 tokens of a 4096-token window"))
+	})
+
+	ginkgo.It("names a refused tool definition", func() {
+		f := Classify(errors.New("invalid tool schema for http://10.0.0.1/x"))
+		Expect(f.Code).To(Equal(CodeToolSchema))
+		Expect(f.Reason).NotTo(ContainSubstring("10.0.0.1"))
+		Expect(fixedReason(f.Reason)).To(Equal(f.Reason))
+	})
+
 	ginkgo.It("does not tell the user to check the backend of a provider that failed", func() {
 		f := Classify(errors.New("the model failed 4 times in a row (last: HTTP 502 bad gateway)"))
 		Expect(f.Reason).NotTo(ContainSubstring("backend"))

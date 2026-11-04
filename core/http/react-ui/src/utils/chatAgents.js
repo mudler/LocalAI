@@ -1,9 +1,67 @@
 // Helpers of the saved agents page. No React, so a node test drives them.
 
-export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills']
+// builtins_off and builtins_on are the switches of the built-in tool groups
+// (see utils/agentTools.js); they are lists like the grants.
+export const LIST_KEYS = ['mcp_servers', 'addons', 'collections', 'skills', 'builtins_off', 'builtins_on', 'builtins']
+
+// The grants that an agent without a grant list holds for its messaging
+// connections (not sensitive, so implied). As soon as the list names any
+// grant, only the named ones work: these four are then off until added. The
+// server rule is core/services/studio/connectorgrants.go (grantGated).
+export const CONNECTOR_GRANTS = ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload']
+
+// The notice for the grants list: set when the saved agent had no list, the
+// form now has one, and some connector grants are missing from it. Returns
+// the missing names, or an empty array when nothing would turn off.
+export function missingConnectorGrants(saved, current) {
+  const had = (saved || []).length > 0
+  const now = current || []
+  if (had || now.length === 0) return []
+  return CONNECTOR_GRANTS.filter(g => !now.includes(g))
+}
+
+// The grants list with a name switched on or off.
+export function setGrant(list, name, on) {
+  const rest = (list || []).filter(x => x !== name)
+  return on ? [...rest, name] : rest
+}
+
+
+// The choices of notes of an agent, in the order the form shows them. An
+// agent saved before the choice has none ("as before"): it is a note in the
+// form, not a card, so it cannot be picked again.
+export const MEMORY_CHOICES = ['mine_and_own', 'own', 'mine', 'none']
+export const DEFAULT_MEMORY = 'mine_and_own'
+export const MEMORY_GRANT = 'memory.write'
+
+// The choice as the form holds it: one of MEMORY_CHOICES, or '' for as before.
+export function memoryChoiceOf(agent) {
+  return MEMORY_CHOICES.includes(agent?.memory) ? agent.memory : ''
+}
+
+// Whether a choice saves notes somewhere (None does not).
+export const memorySaves = (choice) => choice === 'own' || choice === 'mine_and_own' || choice === 'mine'
+
+// A brand new agent: it reads your notes and its own and saves to its own. It
+// is given the grant that lets it save, and, because a list of grants is the
+// whole answer once it exists, the four connector grants an agent without a
+// list has by default, so a new agent loses nothing on its messaging
+// connections.
+export function newAgent() {
+  return { ...emptyAgent(), memory: DEFAULT_MEMORY, builtins: [...CONNECTOR_GRANTS, MEMORY_GRANT] }
+}
+
+// The form with another choice of notes. A choice that saves notes also
+// switches the grant on, because the choice says where and the grant says
+// whether; None leaves the grants alone.
+export function withMemoryChoice(form, choice) {
+  const next = { ...form, memory: choice }
+  if (memorySaves(choice) && !(form.builtins || []).includes(MEMORY_GRANT)) next.builtins = setGrant(form.builtins, MEMORY_GRANT, true)
+  return next
+}
 
 export function emptyAgent() {
-  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], network: 'off', folder: null }
+  return { id: '', name: '', description: '', instructions: '', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins_off: [], builtins_on: [], builtins: [], network: 'off', folders: [] }
 }
 
 // Adds a name to a list: trimmed, not empty, once.
@@ -19,21 +77,33 @@ export function removeEntry(list, name) {
 
 // The body of a create or replace request. The server refuses a bad one with the
 // reason, so this only trims and drops what cannot be meant. With
-// { initialFolder } (the folder as read, or null) the body carries `folder`
-// when the form changed it; without, it never does.
+// { initialFolders } (the folder rows as read) the body carries `folders`
+// when the form changed them; without, it never does.
 export function agentPayload(form, opts) {
   const body = {
     name: (form.name || '').trim(),
     description: (form.description || '').trim(),
     instructions: form.instructions || '',
     model: (form.model || '').trim(),
-    // The network of the Sandbox commands of the agent's unattended runs.
+    // The network of the isolated commands of the agent's unattended runs.
     network: ['off', 'registries', 'all'].includes(form.network) ? form.network : 'off',
   }
+  // The choice of notes. An agent saved before it has none, and a write
+  // without it keeps the stored one.
+  if (MEMORY_CHOICES.includes(form.memory)) body.memory = form.memory
   for (const k of LIST_KEYS) body[k] = (form[k] || []).map(x => x.trim()).filter((x, i, a) => x && a.indexOf(x) === i)
-  if (opts && 'initialFolder' in opts) {
-    const folder = folderPayload(opts.initialFolder, form.folder)
-    if (folder) body.folder = folder
+  // The connections the agent's chats may use for each add-on with a
+  // credential (add-on ID to a list of binding IDs). The server keeps the
+  // stored choices when a write leaves the field out, so the form sends it
+  // once the agent has one or the person changed it ({} clears).
+  if (form.connections && typeof form.connections === 'object') {
+    body.connections = Object.fromEntries(Object.entries(form.connections)
+      .map(([k, ids]) => [k, [].concat(ids || []).filter((id) => typeof id === 'string' && id.trim()).map((id) => id.trim()).filter((id, i, a) => a.indexOf(id) === i)])
+      .filter(([, ids]) => ids.length))
+  }
+  if (opts && 'initialFolders' in opts) {
+    const folders = foldersPayload(opts.initialFolders, form.folders)
+    if (folders) body.folders = folders
   }
   return body
 }
@@ -59,11 +129,28 @@ export function grantSummary(agent) {
 
 export const FOLDER_MODES = ['read', 'write']
 
-// The folder state of an agent: 'none', 'ok', 'missing' or 'unset'.
-export function folderState(agent) {
+// An agent has up to MAX_FOLDERS folders. The server sends them as `folders`
+// (the first is also `folder`). Where a folder is inside another one, it works
+// at the mode of the outer one (`effective`).
+export const MAX_FOLDERS = 8
+
+// The folder rows of an agent as the server sent them.
+export function folderRows(agent) {
+  if (Array.isArray(agent?.folders) && agent.folders.length) return agent.folders
   const f = agent?.folder
-  if (!f || typeof f !== 'object') return 'none'
-  return ['ok', 'missing', 'unset'].includes(f.state) ? f.state : 'ok'
+  return f && typeof f === 'object' ? [f] : []
+}
+
+const stateOf = (f) => (['ok', 'missing', 'unset'].includes(f?.state) ? f.state : 'ok')
+
+// The folder state of an agent: 'none', 'ok', 'missing' or 'unset'. With
+// several folders the worst one counts: the agent does not start before all
+// are fixed.
+export function folderState(agent) {
+  const rows = folderRows(agent)
+  if (!rows.length) return 'none'
+  const states = rows.map(stateOf)
+  return states.includes('missing') ? 'missing' : states.includes('unset') ? 'unset' : 'ok'
 }
 
 // The last name of a folder path; '' for "/" (all the files).
@@ -72,20 +159,39 @@ export function folderName(path) {
   return parts.length ? parts[parts.length - 1] : ''
 }
 
-// The folder field of a create or replace request, or undefined when the
-// folder did not change, so a save keeps the stored folder. `initial` is the
-// folder as read from the server (or null), `current` what the form holds now
-// (null = all my files). Clearing sends an empty path.
-export function folderPayload(initial, current) {
-  const a = initial && typeof initial === 'object' ? initial : null
-  const b = current && typeof current === 'object' ? current : null
-  if (!b) return a ? { path: '' } : undefined
-  // Nothing chosen yet: a missing or unset folder the person did not replace
-  // is kept as it is.
-  if (!b.path) return undefined
-  const mode = FOLDER_MODES.includes(b.mode) ? b.mode : 'read'
-  if (a && a.state !== 'missing' && a.state !== 'unset' && a.path === b.path && a.mode === mode) return undefined
-  return { path: b.path, mode }
+const holds = (outer, inner) => outer === '/' || inner === outer || inner.startsWith(outer + '/')
+
+// The mode each row works at, by the server's rule: a folder inside another
+// folder of the list takes the mode of the outermost one; a row without a
+// path keeps its own. Returns a list of 'read' | 'write' in row order.
+export function effectiveModes(rows) {
+  const modeOf = (r) => (r?.mode === 'write' ? 'write' : 'read')
+  return (rows || []).map((r, i) => {
+    if (!r?.path) return modeOf(r)
+    let outer = -1
+    rows.forEach((o, j) => {
+      if (j === i || !o?.path || o.path === r.path || !holds(o.path, r.path)) return
+      if (outer < 0 || o.path.length < rows[outer].path.length) outer = j
+    })
+    return modeOf(outer >= 0 ? rows[outer] : r)
+  })
+}
+
+// The folders field of a create or replace request, or undefined when the
+// rows did not change, so a save keeps the stored folders. `initial` is the
+// rows as read from the server, `current` what the form holds now. No rows
+// where there were some sends [] (all my files). A row without a path cannot
+// be sent: the editor stops the save first (see foldersUnchosen).
+export function foldersPayload(initial, current) {
+  const key = (rows) => JSON.stringify((rows || []).map(r => [r.path || '', r.mode === 'write' ? 'write' : 'read']))
+  if (key(initial) === key(current)) return undefined
+  const rows = (current || []).filter(r => r.path)
+  return rows.map(r => ({ path: r.path, mode: FOLDER_MODES.includes(r.mode) ? r.mode : 'read' }))
+}
+
+// Whether the rows were changed and one has no folder chosen.
+export function foldersUnchosen(initial, current) {
+  return foldersPayload(initial, current) !== undefined && (current || []).some(r => !r.path)
 }
 
 // Whether a folder of a listing can be the folder of an agent: a folder of
@@ -103,10 +209,13 @@ export function folderPickable(entry) {
 export function agentFolderMarks(agents) {
   const marks = new Map()
   for (const a of agents || []) {
-    if (folderState(a) !== 'ok' || !a.folder.path) continue
-    const list = marks.get(a.folder.path) || []
-    list.push({ id: a.id, name: a.name, mode: a.folder.mode === 'write' ? 'write' : 'read' })
-    marks.set(a.folder.path, list)
+    if (folderState(a) !== 'ok') continue
+    for (const f of folderRows(a)) {
+      if (!f.path) continue
+      const list = marks.get(f.path) || []
+      list.push({ id: a.id, name: a.name, mode: (f.effective || f.mode) === 'write' ? 'write' : 'read' })
+      marks.set(f.path, list)
+    }
   }
   for (const list of marks.values()) list.sort((x, y) => x.name.localeCompare(y.name))
   return marks
@@ -121,6 +230,11 @@ export function isFolderMissingError(err) {
 // The line of the Tools menu of a scoped chat: which files its tools reach.
 export function agentFolderLine(agent, t) {
   if (folderState(agent) !== 'ok') return ''
-  const path = agent.folder.path === '/' ? t('agentFolder.home') : agent.folder.path
-  return t(agent.folder.mode === 'write' ? 'agentFolder.toolsWrite' : 'agentFolder.toolsRead', { path })
+  const rows = folderRows(agent)
+  const line = (f) => {
+    const path = f.path === '/' ? t('agentFolder.home') : f.path
+    return t((f.effective || f.mode) === 'write' ? 'agentFolder.toolsWrite' : 'agentFolder.toolsRead', { path })
+  }
+  if (rows.length === 1) return line(rows[0])
+  return t('agentFolder.toolsMany', { n: rows.length, list: rows.map(f => `${f.path === '/' ? t('agentFolder.home') : f.path} (${t((f.effective || f.mode) === 'write' ? 'agentFolder.write' : 'agentFolder.read')})`).join(', ') })
 }

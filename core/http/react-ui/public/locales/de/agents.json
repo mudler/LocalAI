@@ -75,12 +75,14 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "Wissen",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "Dateien"
+      "Files": "Dateien",
+      "Tools": "Werkzeuge",
+      "Notes": "Gedächtnis"
     },
     "name": "Name",
     "description": "Description",
@@ -93,7 +95,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "Die Sammlungen, in denen ein Chat mit diesem Agenten suchen darf. Die Liste ist genau: Eine leere Liste erlaubt keine.",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -128,12 +130,28 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "Netzwerk der Befehle in unbeaufsichtigten Läufen",
-    "networkHelp": "Wenn ein Trigger oder ein Connector diesen Agenten ausführt, erreichen seine Sandbox-Befehle so viel vom Netzwerk, bis zum Limit eines Administrators. Ein Lauf fragt nie: Ein Host außerhalb wird blockiert. Ein Chat, den Sie mit diesem Agenten starten, beginnt ebenfalls damit.",
+    "networkHelp": "Wenn ein Trigger oder ein Connector diesen Agenten ausführt, erreichen seine Befehle so viel vom Netzwerk, bis zum Limit eines Administrators. Ein Lauf fragt nie: Ein Host außerhalb wird blockiert. Ein Chat, den Sie mit diesem Agenten starten, beginnt ebenfalls damit.",
     "networkPresets": {
       "off": "Aus",
       "registries": "Paket-Registries",
       "all": "Alle öffentlichen Seiten"
-    }
+    },
+    "toolsSummary": "{{on}} von {{total}} an",
+    "toolsHelp": "Wähle, was ein Chat mit diesem Agenten nutzen kann. Das sind dieselben Schalter wie im Werkzeug-Menü eines Chats, mit den Optionen eines Schalters darunter. Ein ausgeschaltetes Werkzeug wird dem Modell nie angeboten. Ohne angekreuzte Option behält der Agent die Standardwerte seiner Messaging-Verbindungen; sobald du eine ankreuzt, wirken nur die angekreuzten.",
+    "toolsHeading": "Werkzeuge dieses Agenten",
+    "skillsLater": "Ein Chat mit diesem Agenten liest nur die eingeschalteten Skills.",
+    "skillsHeading": "Skills dieses Agenten",
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "Auch aus Messaging-Apps vorschlagen",
+      "triggers_run": "Trigger aus Messaging-Apps starten lassen",
+      "talkback_channels": "Auf bekannten Kanälen antworten",
+      "files_upload": "Dateien aus Messaging-Apps empfangen"
+    },
+    "memoryOffUser": "Das Gedächtnis ist in deinen Einstellungen aus. Dieser Agent liest und speichert deshalb keine Notizen, egal was du hier einstellst.",
+    "memoryOffFix": "Einstellungen, Gedächtnis"
   },
   "run": {
     "workingLine": "Working"
@@ -204,7 +222,8 @@
       "watches": "Watches the folder {{folder}}",
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
-      "prompt": "What to do"
+      "prompt": "What to do",
+      "acts": "Berechtigungen"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -220,7 +239,8 @@
         "basics": "Basics",
         "prompt": "What to do",
         "schedule": "When",
-        "limits": "Limits"
+        "limits": "Limits",
+        "acts": "Berechtigungen"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -228,7 +248,9 @@
         "promptEmpty": "Nothing to do yet",
         "folderEmpty": "Needs a folder",
         "cap": "Up to {{count}} runs a day",
-        "capDefault": "Default limit"
+        "capDefault": "Default limit",
+        "acts_one": "Darf {{count}} Art von Aktion nutzen",
+        "acts_other": "Darf {{count}} Arten von Aktionen nutzen"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -450,7 +472,7 @@
   },
   "folder": {
     "all": "Alle meine Dateien",
-    "one": "Ein Ordner",
+    "one": "Gewählte Ordner",
     "scopeLabel": "Dateien, die dieser Agent erreicht",
     "allHelp": "Chats mit diesem Agenten erreichen alle deine Dateien, wie ein Chat ohne Agent.",
     "choose": "Ordner wählen",
@@ -463,7 +485,7 @@
     "readShort": "nur lesen",
     "writeShort": "lesen und ändern",
     "help": "Chats mit diesem Agenten sehen nur diesen Ordner und ihren eigenen Chat-Ordner. Geteilte Ordner und Skills bleiben lesbar. MCP-Server und Web-Tools, die du freigibst, sind nicht auf diesen Ordner beschränkt.",
-    "commands": "Befehle dieses Agenten laufen nur im Sandbox-Add-on, nie direkt auf diesem Rechner.",
+    "commands": "Befehle dieses Agenten laufen nur in einem Add-on, das sie isoliert, nie direkt auf diesem Rechner.",
     "nextMessage": "Eine Änderung gilt ab der nächsten Nachricht jedes Chats.",
     "missing": "Dieser Ordner existiert nicht mehr. Wähle einen anderen Ordner, um diesen Agenten zu nutzen.",
     "unset": "Noch kein Ordner gewählt. Wähle einen Ordner, um diesen Agenten zu nutzen.",
@@ -482,6 +504,15 @@
     "exportNote": "Die Datei nennt den Ordner {{path}}. Wo du sie importierst, erhält der Agent den Ordner mit diesem Pfad, falls es ihn gibt, oder fragt dich nach einem.",
     "chip": "{{name}}, {{mode}}",
     "chipMissing": "Ordner fehlt",
-    "chipUnset": "Kein Ordner gewählt"
+    "chipUnset": "Kein Ordner gewählt",
+    "add": "Ordner hinzufügen",
+    "remove": "{{path}} entfernen",
+    "removeRow": "Entfernen",
+    "count": "{{n}} von {{max}} Ordnern",
+    "summaryMany": "{{n}} Ordner",
+    "effectiveRead": "Liegt in einem Ordner, der nur gelesen werden kann, daher kann dieser nur gelesen werden.",
+    "effectiveWrite": "Liegt in einem Ordner, der geändert werden kann, daher kann auch dieser geändert werden.",
+    "notMounted": "{{n}} geteilte Ordner passen nicht in das Zugriffslimit eines Chats und sind nicht eingebunden.",
+    "exportNoteMany": "Die Datei nennt {{n}} Ordner. Beim Import erhält der Agent die Ordner mit diesen Pfaden, die es gibt, und bittet dich, die anderen zu wählen."
   }
 }

@@ -58,6 +58,15 @@ func (r VersionRange) accepts(v uint64) bool {
 	return r.Min > 0 && r.Max >= r.Min && v >= r.Min && v <= r.Max
 }
 
+// HostAPIVersion is the manifest API version of this host. It is the only
+// one: a manifest declares the range {"min": 2, "max": 2}.
+const HostAPIVersion uint64 = 2
+
+// isHostAPI reports whether the range is exactly the manifest API of the host.
+func (r VersionRange) isHostAPI() bool {
+	return r.Min == HostAPIVersion && r.Max == HostAPIVersion
+}
+
 type HostCompatibility struct {
 	Host       uint64 `json:"host"`
 	API        uint64 `json:"api"`
@@ -82,6 +91,13 @@ type Manifest struct {
 	// enabled. "on-demand" is reserved and rejected until it is implemented.
 	LaunchMode   string       `json:"launchMode,omitempty"`
 	Capabilities Capabilities `json:"capabilities"`
+	// I18n translates the text that the host shows for the manifest, by
+	// language tag (see i18n.go). It is optional under api 2. A host that
+	// does not know the field refuses the manifest as it refuses any unknown
+	// field. The English fields remain the source and the fallback. The title
+	// and description of the add-on are translated by the language maps of
+	// ui.title and ui.description.
+	I18n map[string]Translation `json:"i18n,omitempty"`
 }
 type Capabilities struct {
 	Service bool     `json:"service,omitempty"`
@@ -115,6 +131,20 @@ type Capabilities struct {
 	UI                *UI                `json:"ui,omitempty"`
 	ExecutionProvider *ExecutionProvider `json:"executionProvider,omitempty"`
 	HostOperations    *HostOperations    `json:"hostOperations,omitempty"`
+	// Network declares the network policy of the commands the add-on runs
+	// (see network.go). It attaches the network-policy host control.
+	Network *NetworkCapability `json:"network,omitempty"`
+	// ContextFiles name small index files of the user's home that the host
+	// loads into the prompt of a chat (see contextfiles.go).
+	ContextFiles []ContextFile `json:"contextFiles,omitempty"`
+	// UserSettings declare the choices that each person makes for the add-on
+	// (see usersettings.go). The host keeps the answers and validates them.
+	UserSettings []UserSetting `json:"userSettings,omitempty"`
+
+	// Credentials declare the secret that the host keeps for the person and
+	// hands to each call (see credentials.go). It needs a connector
+	// kind that holds the binding.
+	Credentials []CredentialSlot `json:"credentials,omitempty"`
 }
 
 // ResourceTools maps the host's UI-only resource management operations to
@@ -135,6 +165,9 @@ type ResourceTools struct {
 	// Delete is a tool of AdminTools that removes the resource and its
 	// backing data. It is reachable only from the UI-only delete endpoint.
 	Delete string `json:"delete,omitempty"`
+	// List asks the host for a read tool that lists the resources the caller
+	// may use (see ResourceList).
+	List *ResourceList `json:"list,omitempty"`
 }
 
 // MaxAdminTools bounds capabilities.adminTools.
@@ -170,7 +203,7 @@ func validateResourceTools(c Capabilities) error {
 		}
 		return nil
 	}
-	if r.Create == "" && r.Rename == "" && r.Inspect == "" && r.Delete == "" {
+	if r.Create == "" && r.Rename == "" && r.Inspect == "" && r.Delete == "" && r.List == nil {
 		return fmt.Errorf("empty resources mapping")
 	}
 	if r.Noun != "" && !plainText(r.Noun, 40) {
@@ -276,7 +309,7 @@ var assetPath = regexp.MustCompile(`^[a-zA-Z0-9_./-]+$`)
 // so an add-on with one of these IDs would have its asset URLs captured by the
 // host route of the same name. A test derives the registered segments from the
 // real routes and requires each to be listed here.
-var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins"}
+var reservedAddonIDs = []string{"apps", "proposals", "artifacts", "resources", "conversations", "dispatch", "relay", "catalog", "icon", "assets", "installed", "sources", "builtin", "pins", "host-grants", "files"}
 
 // ReservedAddonIDs returns a copy of the reserved add-on IDs.
 func ReservedAddonIDs() []string { return append([]string(nil), reservedAddonIDs...) }
@@ -347,6 +380,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 	if !namespace.MatchString(m.OS) || !namespace.MatchString(m.Arch) || m.OS != h.OS || m.Arch != h.Arch {
 		return fmt.Errorf("incompatible platform")
 	}
+	if !m.API.isHostAPI() {
+		return fmt.Errorf("the manifest must declare api {\"min\": %d, \"max\": %d}", HostAPIVersion, HostAPIVersion)
+	}
 	if !m.Host.accepts(h.Host) || !m.API.accepts(h.API) || !m.Protocol.accepts(h.Protocol) || !m.DataFormat.accepts(h.DataFormat) {
 		return fmt.Errorf("incompatible host, API, protocol or data format")
 	}
@@ -359,19 +395,37 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 			return fmt.Errorf("tool %s is an action tool but the add-on does not declare actions", d.Name)
 		}
 	}
-	if e := validateToolDefinitions(c.ToolDefinitions, c.Tools); e != nil {
+	if e := validateToolDefinitionsFor(c.ToolDefinitions, c.Tools, len(c.Credentials) > 0); e != nil {
 		return e
 	}
 	if e := validateExtensions(c); e != nil {
 		return e
 	}
+	if e := c.Network.validate(m); e != nil {
+		return e
+	}
+	if e := validateContextFiles(m); e != nil {
+		return e
+	}
+	if e := validateUserSettings(c.UserSettings); e != nil {
+		return e
+	}
 	if e := validateResourceTools(c); e != nil {
+		return e
+	}
+	if e := validateCredentials(c); e != nil {
+		return e
+	}
+	if e := validateResourceList(c); e != nil {
 		return e
 	}
 	if e := validateConnector(c.Connector, c.UI); e != nil {
 		return e
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
+		return e
+	}
+	if e := validateI18n(m); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {

@@ -36,7 +36,7 @@ var _ = Describe("sealing and validating bindings", func() {
 	})
 
 	It("validates a binding", func() {
-		ok := connectors.Binding{Name: "Bot", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"12", "-100123", "@alice_b"}, NotifyChat: "55"}
+		ok := connectors.Binding{Name: "Bot", Kind: "telegram", AgentID: "a", Allow: []string{"12", "-100123", "@alice_b"}, NotifyChat: "55"}
 		Expect(connectors.Validate(ok)).To(Succeed())
 		// Slack names people and channels with upper-case IDs, and its names may have dots.
 		slack := connectors.Binding{Name: "App", Kind: "slack", AgentID: "a", Allow: []string{"U012AB3CD", "C0123456", "@ada.l-ovelace"}, NotifyChat: "U012AB3CD"}
@@ -46,16 +46,18 @@ var _ = Describe("sealing and validating bindings", func() {
 			many[i] = "1"
 		}
 		for name, b := range map[string]connectors.Binding{
-			"no name":    {Kind: connectors.KindTelegram, AgentID: "a"},
-			"long name":  {Name: strings.Repeat("n", 81), Kind: connectors.KindTelegram, AgentID: "a"},
-			"bad kind":   {Name: "b", Kind: "Not A Kind", AgentID: "a"},
-			"no agent":   {Name: "b", Kind: connectors.KindTelegram},
-			"bad allow":  {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"alice"}},
-			"short name": {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: []string{"@ab"}},
-			"many":       {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", Allow: many},
-			"bad notify": {Name: "b", Kind: connectors.KindTelegram, AgentID: "a", NotifyChat: "me"},
-			"lower id":   {Name: "b", Kind: "slack", AgentID: "a", Allow: []string{"u012ab"}},
-			"id notify":  {Name: "b", Kind: "slack", AgentID: "a", NotifyChat: "@ada"},
+			"no name":                {Kind: "telegram", AgentID: "a"},
+			"long name":              {Name: strings.Repeat("n", 81), Kind: "telegram", AgentID: "a"},
+			"bad kind":               {Name: "b", Kind: "Not A Kind", AgentID: "a"},
+			"no agent":               {Name: "b", Kind: "telegram"},
+			"bad allow":              {Name: "b", Kind: "telegram", AgentID: "a", Allow: []string{"alice"}},
+			"short name":             {Name: "b", Kind: "telegram", AgentID: "a", Allow: []string{"@ab"}},
+			"many":                   {Name: "b", Kind: "telegram", AgentID: "a", Allow: many},
+			"bad notify":             {Name: "b", Kind: "telegram", AgentID: "a", NotifyChat: "me"},
+			"lower id":               {Name: "b", Kind: "slack", AgentID: "a", Allow: []string{"u012ab"}},
+			"id notify":              {Name: "b", Kind: "slack", AgentID: "a", NotifyChat: "@ada"},
+			"negative receive limit": {Name: "b", Kind: "slack", AgentID: "a", FileReceiveMax: -1},
+			"huge send limit":        {Name: "b", Kind: "slack", AgentID: "a", FileSendMax: connectors.MaxFileLimit + 1},
 		} {
 			Expect(connectors.Validate(b)).To(MatchError(connectors.ErrInvalid), name)
 		}
@@ -71,7 +73,7 @@ var _ = Describe("sealing and validating bindings", func() {
 	})
 
 	It("checks the reply and conversation modes", func() {
-		base := connectors.Binding{Name: "Bot", Kind: connectors.KindTelegram, AgentID: "a"}
+		base := connectors.Binding{Name: "Bot", Kind: "telegram", AgentID: "a"}
 		for _, ok := range []connectors.Binding{
 			base,
 			{Name: "Bot", Kind: "telegram", AgentID: "a", Reply: connectors.ReplyOff, Conversation: connectors.ConversationChat},

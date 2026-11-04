@@ -26,7 +26,8 @@
     "replacedBy": "Remplacée par {{name}}",
     "notActive": "Inactive : la compétence intégrée est utilisée",
     "notActiveBy": "Inactive : {{name}} la fournit",
-    "fallback": "Utilisée car la compétence du module {{name}} est désactivée ou ne tourne pas"
+    "fallback": "Utilisée car la compétence du module {{name}} est désactivée ou ne tourne pas",
+    "proposedBy": "Proposé par {{name}} et confirmé par vous. Seul cet agent l'utilise."
   },
   "empty": {
     "title": "Aucune compétence trouvée",
@@ -46,7 +47,8 @@
     "shared": "Shared",
     "builtin": "Built-in",
     "folder": "Workspace",
-    "addon": "Module"
+    "addon": "Module",
+    "agent": "Agent"
   },
   "pane": {
     "loading": "Loading...",

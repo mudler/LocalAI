@@ -51,10 +51,12 @@ type catalogRelease struct {
 	// the manifest's skill definitions replace.
 	SkillShadows []string `json:"skillShadows,omitempty"`
 	UI           struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		MainPage    string `json:"mainPage"`
-		Icon        string `json:"icon"`
+		Title        string            `json:"title"`
+		Description  string            `json:"description"`
+		Titles       map[string]string `json:"titles,omitempty"`
+		Descriptions map[string]string `json:"descriptions,omitempty"`
+		MainPage     string            `json:"mainPage"`
+		Icon         string            `json:"icon"`
 	} `json:"ui"`
 }
 
@@ -106,6 +108,34 @@ func skillFieldsYAML(shadows []string, indent string) string {
 	b.WriteString(indent + "skillShadows:\n")
 	for _, t := range shadows {
 		b.WriteString(indent + "  - \"" + jsonString(t) + "\"\n")
+	}
+	return b.String()
+}
+
+// translationFieldsYAML renders the titles and descriptions fields of the ui
+// block of a catalog entry: the languages of the manifest's ui.title and
+// ui.description other than English, sorted, so the file is stable. English is
+// the title and description of the entry itself.
+func translationFieldsYAML(ui *contract.UI, indent string) string {
+	if ui == nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, f := range []struct {
+		key  string
+		text *contract.Localized
+	}{{"titles", ui.Title}, {"descriptions", ui.Description}} {
+		if f.text == nil {
+			continue
+		}
+		tags := f.text.Languages()
+		if len(tags) == 0 {
+			continue
+		}
+		b.WriteString(indent + f.key + ":\n")
+		for _, tag := range tags {
+			b.WriteString(indent + "  \"" + jsonString(tag) + "\": \"" + jsonString(f.text.ByLanguage[tag]) + "\"\n")
+		}
 	}
 	return b.String()
 }
@@ -263,7 +293,9 @@ func cmdCatalog(args []string) error {
 			"title": title, "description": description, "main_page": mainPage, "icon": icon,
 		}
 		text := string(tmpl)
-		text = strings.TrimRight(text, "\n") + "\n" + toolFieldsYAML(manifest.Capabilities.Tools, "", contract.ShadowedTools(manifest.Capabilities.ToolDefinitions)...) +
+		// The ui block is the last block of every template, so the translated
+		// text lands inside it.
+		text = strings.TrimRight(text, "\n") + "\n" + translationFieldsYAML(ui, "  ") + toolFieldsYAML(manifest.Capabilities.Tools, "", contract.ShadowedTools(manifest.Capabilities.ToolDefinitions)...) +
 			skillFieldsYAML(contract.ShadowedSkills(manifest.Capabilities.SkillDefinitions), "")
 		if mutable {
 			text = strings.Replace(text, "digest: \"{{digest}}\"", "mutable: true", 1)

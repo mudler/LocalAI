@@ -1,3 +1,9 @@
+# Concurrency policy: a newer push to master cancels the in-flight run of this
+# workflow on master, because the newer commit contains the older one and the
+# result that matters is the newest. PR runs group by PR number (as before),
+# tag pushes group by their own tag ref, and schedule/dispatch runs group by
+# commit SHA, so none of those is ever cancelled by a master push.
+# See .agents/ci-caching.md, section "Concurrency".
 ---
 # The packages under .github/ci/ are invisible to `go list ./...`, so neither
 # `make lint` nor the repository test run ever touches them. Their specs are
@@ -13,6 +19,10 @@ on:
       - master
     paths:
       - '.github/ci/**'
+concurrency:
+  group: ci-tools-tests-${{ github.event.pull_request.number || (github.event_name == 'push' && github.ref) || github.sha }}-${{ github.repository }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/master') }}
+
 jobs:
   ci-tools:
     name: 'Test the .github/ci generators'

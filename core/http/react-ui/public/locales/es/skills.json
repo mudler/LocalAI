@@ -26,7 +26,8 @@
     "replacedBy": "Reemplazada por {{name}}",
     "notActive": "No activa: se usa la habilidad integrada",
     "notActiveBy": "No activa: la proporciona {{name}}",
-    "fallback": "En uso porque la habilidad del complemento {{name}} está desactivada o no se ejecuta"
+    "fallback": "En uso porque la habilidad del complemento {{name}} está desactivada o no se ejecuta",
+    "proposedBy": "Propuesto por {{name}} y confirmado por ti. Solo ese agente lo usa."
   },
   "empty": {
     "title": "No se encontraron habilidades",
@@ -46,7 +47,8 @@
     "shared": "Shared",
     "builtin": "Built-in",
     "folder": "Workspace",
-    "addon": "Complemento"
+    "addon": "Complemento",
+    "agent": "Agente"
   },
   "pane": {
     "loading": "Loading...",

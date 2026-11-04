@@ -35,7 +35,7 @@ var _ = Describe("Observation callback boundary", func() {
 				return json.RawMessage(`{}`), nil
 			}})).To(Succeed())
 		}
-		f.h = f.b.HandlerForRuntime("fine-tuning", "secret", []string{"workspace.", "finetune.", "connector."}, 1, "inc")
+		f.h = f.b.HandlerForRuntime("fine-tuning", "secret", NewStaticAuthority(map[string][]string{"fine-tuning": []string{"workspace.", "finetune.", "connector."}}), 1, "inc")
 		e := env("fine-tuning", "status", "read", time.Now().Add(time.Minute))
 		end, denied, err := f.inflight.BeginObservation(e, Binding{}, "inc", "request")
 		Expect(err).NotTo(HaveOccurred())
@@ -88,7 +88,7 @@ var _ = Describe("Observation identity checks", func() {
 		end, denied, err := f.inflight.BeginObservation(e, Binding{}, "inc", "q")
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(end)
-		f.h = f.b.HandlerForRuntime("fine-tuning", "secret", []string{"finetune."}, 2, "replacement")
+		f.h = f.b.HandlerForRuntime("fine-tuning", "secret", NewStaticAuthority(map[string][]string{"fine-tuning": []string{"finetune."}}), 2, "replacement")
 		code, _ := f.call("secret", "status", "finetune.get", `{}`)
 		Expect(code).To(Equal(403))
 		Expect(denied()).To(BeTrue())
@@ -167,7 +167,7 @@ var _ = Describe("Callback endpoint retirement", func() {
 		end, _, err := f.BeginObservation(env("fine-tuning", "status", "read", time.Now().Add(time.Minute)), Binding{}, "inc", "q")
 		Expect(err).NotTo(HaveOccurred())
 		end()
-		h := b.EndpointForRuntime("fine-tuning", "secret", []string{"connector."}, 1, "inc")
+		h := b.EndpointForRuntime("fine-tuning", "secret", NewStaticAuthority(map[string][]string{"fine-tuning": []string{"connector."}}), 1, "inc")
 		body := &callbackBodyBarrier{Reader: strings.NewReader(`{"operationId":"status","op":"connector.inbound","arguments":{}}`), read: make(chan struct{}), resume: make(chan struct{})}
 		req := httptest.NewRequest(http.MethodPost, "/host", body)
 		req.Header.Set(contract.HostCredentialHeader, "secret")
@@ -184,7 +184,7 @@ var _ = Describe("Callback endpoint retirement", func() {
 		default:
 		}
 		Expect(f.callbackDenied("fine-tuning", "status", 1, "inc")).To(BeTrue())
-		other := &fixture{b: b, inflight: f, h: b.HandlerForRuntime("other", "other-secret", []string{"workspace."}, 1, "other-inc")}
+		other := &fixture{b: b, inflight: f, h: b.HandlerForRuntime("other", "other-secret", NewStaticAuthority(map[string][]string{"other": []string{"workspace."}}), 1, "other-inc")}
 		defer f.BeginRuntime(env("other", "ordinary", "read", time.Now().Add(time.Minute)), Binding{}, false, "other-inc")()
 		code, _ := other.call("other-secret", "ordinary", "workspace.export", `{}`)
 		Expect(code).To(Equal(http.StatusOK))
@@ -213,7 +213,7 @@ var _ = Describe("Decoded callback dispatch retirement", func() {
 			calls.Add(1)
 			return json.RawMessage(`{}`), nil
 		}})).To(Succeed())
-		h := b.EndpointForRuntime("fine-tuning", "secret", []string{"workspace."}, 1, "inc")
+		h := b.EndpointForRuntime("fine-tuning", "secret", NewStaticAuthority(map[string][]string{"fine-tuning": []string{"workspace."}}), 1, "inc")
 		defer f.BeginRuntime(env("fine-tuning", "ordinary", "read", time.Now().Add(time.Minute)), Binding{}, false, "inc")()
 		fixture := &fixture{h: h}
 		result := make(chan int, 1)
@@ -243,7 +243,7 @@ var _ = Describe("Decoded callback dispatch retirement", func() {
 			h.Stop()  // No lifecycle lock may be held across the handler or Drain.
 			return json.RawMessage(`{}`), nil
 		}})).To(Succeed())
-		h = b.EndpointForRuntime("fine-tuning", "secret", []string{"connector."}, 1, "inc")
+		h = b.EndpointForRuntime("fine-tuning", "secret", NewStaticAuthority(map[string][]string{"fine-tuning": []string{"connector."}}), 1, "inc")
 		fixture := &fixture{h: h}
 		done := make(chan struct{})
 		go func() { fixture.call("secret", "ordinary", "connector.inbound", `{}`); close(done) }()

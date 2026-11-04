@@ -140,5 +140,6 @@ test('builds join commands that carry no secret', () => {
   assert.match(p2pCommand({ method: 'peer', option, dev: false, token: 'abc', flavor: 'docker' }), /run --federated --p2p$/)
   assert.match(p2pCommand({ method: 'mlx', option, dev: true, token: '', flavor: 'docker' }), /your-token-here/)
   assert.match(p2pCommand({ method: 'server', option, dev: false, token: 't', flavor: 'docker' }), /--name local-ai-federated[\s\S]*federated$/)
-  assert.match(p2pCommand({ method: 'shard', option, dev: false, token: 't', flavor: 'cli' }), /^TOKEN="t" local-ai worker p2p-llama-cpp-rpc$/)
+  assert.match(p2pCommand({ method: 'shard', option, dev: false, token: 't', flavor: 'cli' }), /^TOKEN="t" local-ai p2p-worker p2p-llama-cpp-rpc$/)
+  assert.match(p2pCommand({ method: 'mlx', option, dev: false, token: 't', flavor: 'cli' }), /^TOKEN="t" local-ai p2p-worker p2p-mlx$/)
 })

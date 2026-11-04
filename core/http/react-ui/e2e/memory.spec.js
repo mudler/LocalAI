@@ -1,10 +1,10 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockLibrary } from './library-fixtures.js'
 
-// Memory library: collections, who uses each one, a question box that works
+// Knowledge library: collections, who uses each one, a question box that works
 // on the collection alone, and what the API reports about sources and files.
 
-test.describe('Memory library', () => {
+test.describe('Knowledge library', () => {
   test('a collection is used by the agents that list it, and otherwise by nobody', async ({ page }) => {
     await mockLibrary(page)
     await page.goto('/app/collections')
@@ -212,11 +212,11 @@ test.describe('Memory library', () => {
     await expect(page).toHaveURL(/\/app\/collections\/field-notes$/)
   })
 
-  test('an empty library teaches what memory is', async ({ page }) => {
+  test('an empty library teaches what knowledge is', async ({ page }) => {
     await mockLibrary(page, { collections: [] })
     await page.goto('/app/collections')
     const empty = page.getByTestId('memory-empty')
-    await expect(empty.getByRole('heading', { name: 'Memory holds documents an agent can search' })).toBeVisible()
+    await expect(empty.getByRole('heading', { name: 'Knowledge holds documents an agent can search' })).toBeVisible()
     await empty.getByRole('button', { name: 'New collection' }).click()
     await expect(page.getByLabel('New collection name')).toBeVisible()
   })

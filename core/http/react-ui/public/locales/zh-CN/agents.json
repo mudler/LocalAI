@@ -75,12 +75,14 @@
       "BasicInfo": "Basic info",
       "ModelSettings": "Model",
       "PromptsGoals": "Instructions",
-      "MemorySettings": "Memory",
+      "MemorySettings": "知识库",
       "Skills": "Skills",
       "Addons": "Add-ons",
       "MCP": "MCP servers",
       "export": "Export",
-      "Files": "文件"
+      "Files": "文件",
+      "Tools": "工具",
+      "Notes": "记忆"
     },
     "name": "Name",
     "description": "Description",
@@ -93,7 +95,7 @@
     "instructionsHelp": "What the agent always follows. Every chat with it starts from this text.",
     "collections": "Collections",
     "collectionsHint": "Collection name",
-    "collectionsHelp": "The memory collections a chat with this agent may search. The list is exact: an empty list grants none.",
+    "collectionsHelp": "与此智能体的聊天可以搜索的集合。列表即全部权限：列表为空则不授予任何集合。",
     "skillsHelp": "The skills a chat with this agent may read. The list is exact: an empty list grants none.",
     "noSkills": "No skills yet.",
     "manageSkills": "Write or manage skills",
@@ -128,12 +130,28 @@
     "previewEdit": "The agent this form will save, and how it differs from the saved one.",
     "default": "Default",
     "network": "无人值守运行中命令的网络",
-    "networkHelp": "当触发器或连接器运行此代理时，其沙盒命令可访问的网络范围，不超过管理员设置的限制。运行时从不询问：范围外的主机会被阻止。用此代理开始的聊天也以此开始。",
+    "networkHelp": "当触发器或连接器运行此代理时，其命令可访问的网络范围，不超过管理员设置的限制。运行时从不询问：范围外的主机会被阻止。用此代理开始的聊天也以此开始。",
     "networkPresets": {
       "off": "关闭",
       "registries": "软件包仓库",
       "all": "所有公共网站"
-    }
+    },
+    "toolsSummary": "{{total}} 项中开启 {{on}} 项",
+    "toolsHelp": "选择与此智能体的聊天可以使用什么。这些开关与聊天的工具菜单相同，每个开关的选项在其下方。关闭的工具不会提供给模型。未勾选任何选项时，智能体保留其消息连接的默认设置；一旦勾选任何一项，只有勾选的才生效。",
+    "toolsHeading": "此智能体的工具",
+    "skillsLater": "使用此智能体的聊天只会读取已开启的技能。",
+    "skillsHeading": "此智能体的技能",
+    "grantsNoticeTitle": "Some messaging features will turn off.",
+    "grantsNotice": "This agent had no permission list, so it kept these on its messaging connections: {{grants}}. They stop working until you tick them here.",
+    "grantsAddMissing": "Add the missing permissions",
+    "grantNames": {
+      "triggers_propose": "也可从消息应用提议",
+      "triggers_run": "允许触发器从消息应用启动",
+      "talkback_channels": "在已知频道回复",
+      "files_upload": "从消息应用接收文件"
+    },
+    "memoryOffUser": "你的设置中记忆已关闭，因此无论这里如何设置，此智能体都不会读取或保存笔记。",
+    "memoryOffFix": "设置，记忆"
   },
   "run": {
     "workingLine": "Working"
@@ -204,7 +222,8 @@
       "watches": "Watches the folder {{folder}}",
       "noRuns": "This trigger has not run yet.",
       "runMeta": "took {{time}}",
-      "prompt": "What to do"
+      "prompt": "What to do",
+      "acts": "权限"
     },
     "edit": {
       "titleNew": "New trigger",
@@ -220,7 +239,8 @@
         "basics": "Basics",
         "prompt": "What to do",
         "schedule": "When",
-        "limits": "Limits"
+        "limits": "Limits",
+        "acts": "权限"
       },
       "summary": {
         "basics": "{{name}}, {{model}}",
@@ -228,7 +248,9 @@
         "promptEmpty": "Nothing to do yet",
         "folderEmpty": "Needs a folder",
         "cap": "Up to {{count}} runs a day",
-        "capDefault": "Default limit"
+        "capDefault": "Default limit",
+        "acts_one": "可使用 {{count}} 类操作",
+        "acts_other": "可使用 {{count}} 类操作"
       },
       "name": "Name",
       "namePlaceholder": "daily-digest",
@@ -450,7 +472,7 @@
   },
   "folder": {
     "all": "我的所有文件",
-    "one": "一个文件夹",
+    "one": "选定的文件夹",
     "scopeLabel": "此智能体可访问的文件",
     "allHelp": "与此智能体的对话可以访问你的所有文件，就像没有智能体的对话一样。",
     "choose": "选择文件夹",
@@ -463,7 +485,7 @@
     "readShort": "只读",
     "writeShort": "读取和修改",
     "help": "与此智能体的对话只能看到这个文件夹和对话自己的文件夹。共享文件夹和技能仍可读取。你授予的 MCP 服务器和网络工具不受此文件夹限制。",
-    "commands": "此智能体的命令只在 Sandbox 插件中运行，绝不会直接在本机上运行。",
+    "commands": "此智能体的命令只在可隔离命令的插件中运行，绝不会直接在本机上运行。",
     "nextMessage": "更改从每个对话的下一条消息开始生效。",
     "missing": "此文件夹已不存在。请选择其他文件夹以使用此智能体。",
     "unset": "尚未选择文件夹。请选择一个文件夹以使用此智能体。",
@@ -482,6 +504,15 @@
     "exportNote": "文件中记录了文件夹 {{path}}。在导入的地方，如果存在相同路径的文件夹，智能体就会使用它，否则会请你选择一个。",
     "chip": "{{name}}，{{mode}}",
     "chipMissing": "文件夹缺失",
-    "chipUnset": "未选择文件夹"
+    "chipUnset": "未选择文件夹",
+    "add": "添加文件夹",
+    "remove": "移除 {{path}}",
+    "removeRow": "移除",
+    "count": "{{n}} / {{max}} 个文件夹",
+    "summaryMany": "{{n}} 个文件夹",
+    "effectiveRead": "位于只读文件夹内，因此这个文件夹也只能读取。",
+    "effectiveWrite": "位于可修改的文件夹内，因此这个文件夹也可以修改。",
+    "notMounted": "有 {{n}} 个共享文件夹超出了聊天的访问上限，未挂载。",
+    "exportNoteMany": "文件列出了 {{n}} 个文件夹。导入时，智能体会使用这些路径中存在的文件夹，并请你为其余的重新选择。"
   }
 }

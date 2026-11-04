@@ -1,6 +1,6 @@
 {
-  "title": "Basis Pengetahuan",
-  "subtitle": "Kelola koleksi dokumen untuk agen RAG",
+  "title": "Pengetahuan",
+  "subtitle": "Koleksi dokumen yang bisa dicari agen. Cari di koleksi mana pun di sini, atau tambahkan ke agen saat Anda ingin koleksi itu dipakai.",
   "newPlaceholder": "Nama koleksi baru...",
   "actions": {
     "create": "Buat",
@@ -20,7 +20,7 @@
     "title": "Belum ada koleksi",
     "text": "Koleksi memungkinkan Anda mengatur dokumen ke dalam basis pengetahuan yang dapat dicari oleh agen menggunakan RAG (Retrieval-Augmented Generation). Buat koleksi di atas untuk memulai.",
     "noPersonal": "Anda belum memiliki koleksi.",
-    "learn": "Cara kerja memori"
+    "learn": "Cara kerja pengetahuan"
   },
   "deleteDialog": {
     "title": "Hapus koleksi",
@@ -48,8 +48,8 @@
     "loadFailed": "File tidak dapat dimuat."
   },
   "starting": {
-    "title": "Memori sedang dimulai.",
-    "text": "Server masih menyiapkan layanan memori. Halaman ini akan mencoba lagi dengan sendirinya."
+    "title": "Pengetahuan sedang dimulai.",
+    "text": "Server masih menyiapkan layanan pengetahuan. Halaman ini akan mencoba lagi dengan sendirinya."
   },
   "embedding": {
     "missingTitle": "Tidak ada model embedding yang terpasang.",

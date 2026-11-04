@@ -40,6 +40,7 @@ var _ = Describe("the JSON agent store", func() {
 		Expect(got.Name).To(Equal("Old"))
 		Expect(got.FolderID).To(BeZero())
 		Expect(got.FolderMode).To(BeEmpty())
+		Expect(got.Memory).To(BeEmpty(), "an agent stored before the memory choice reads as before")
 	})
 
 	It("survives a reopen", func() {

@@ -38,8 +38,13 @@ type ForwardedRequest struct {
 	// with the chat's access. It is never put in the envelope the add-on
 	// receives. Nil (omitted) for a call that no chat made, so such a
 	// request signs as before.
-	Chat      *hostops.Binding `json:"chat,omitempty"`
-	Signature []byte           `json:"signature"`
+	Chat *hostops.Binding `json:"chat,omitempty"`
+	// HumanSurface says the receiving frontend found the request to come from
+	// the administrator's own browser tab (see WithHumanSurface). It is
+	// covered by the signature and the owner honors it only for a host access
+	// call. Omitted when false, so other requests sign as before.
+	HumanSurface bool   `json:"humanSurface,omitempty"`
+	Signature    []byte `json:"signature"`
 }
 
 // Binding returns the chat binding of the request. Call it only on a request

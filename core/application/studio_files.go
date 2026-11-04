@@ -108,6 +108,7 @@ func (a *Application) initStudioFilesWithS3(newS3 func(context.Context, storage.
 	if err != nil {
 		return stop("workspace blob store", err, "Files are off: their storage could not be opened.")
 	}
+	a.transfers().UseBlobs(blobs)
 	ws, closer, err := a.openWorkspaceIndex(root, blobs)
 	if err != nil {
 		return stop("workspace index", err, "Files are off: the workspace could not be started.")
@@ -159,7 +160,13 @@ func (a *Application) initStudioTextIndex(f *files.Service, root string) {
 	if cfg.Distributed.ChatWorker {
 		return
 	}
-	go ix.Run(a.backgroundContext())
+	ctx, cancel := context.WithCancel(a.backgroundContext())
+	done := make(chan struct{})
+	a.studioTextIndexStop = func() { cancel(); <-done }
+	go func() {
+		defer close(done)
+		ix.Run(ctx)
+	}()
 }
 
 // syncAddonSkills lets the add-on owner keep the add-on skill layer in step

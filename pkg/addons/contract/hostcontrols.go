@@ -34,14 +34,31 @@ type HostControl struct {
 	// Grant is a host operation the add-on must be granted (the host setting
 	// of addon-id=op-prefix pairs), or "" for none.
 	Grant string
+	// Capability is the capabilities block that attaches the control (see
+	// CapabilityNetwork), or "" when none does. An add-on that declares the
+	// block needs no shadowed tool.
+	Capability string
 	// Shadows is a built-in tool the add-on must replace with a valid tool,
-	// AnyShadow for any, or "" for none.
+	// AnyShadow for any, or "" for none. A control with a Capability is not
+	// attached by a shadowed tool: the add-on must declare the block.
 	Shadows string
+}
+
+// CapabilityNetwork is Capabilities.Network.
+const CapabilityNetwork = "network"
+
+// declares reports whether the capabilities carry the named block.
+func declares(c Capabilities, name string) bool {
+	switch name {
+	case CapabilityNetwork:
+		return c.Network != nil
+	}
+	return false
 }
 
 // HostControls is the closed registry of host controls.
 var HostControls = []HostControl{
-	{ID: ControlNetworkPolicy, Grant: "egress.check", Shadows: "bash"},
+	{ID: ControlNetworkPolicy, Grant: "egress.check", Capability: CapabilityNetwork},
 	{ID: ControlToolProviders, Shadows: AnyShadow},
 }
 
@@ -96,8 +113,10 @@ func grantCovers(grants []string, op string) bool {
 
 // EntitledControls returns the controls of the manifest that the host draws
 // for it: those declared in ui.controls whose grant is among grants (the
-// operation prefixes the host setting gives this add-on) and whose built-in
-// tool the add-on replaces with a valid tool. The order of the manifest is
+// operation prefixes the host setting gives this add-on) and that the add-on
+// attaches: it declares the control's capability block, or, for a control
+// without one, it replaces the built-in tool the control names with a valid
+// tool. The order of the manifest is
 // kept. A control the add-on is not entitled to is dropped, never an error:
 // an administrator can remove a grant at any time.
 func EntitledControls(m Manifest, grants []string) []string {
@@ -115,9 +134,13 @@ func EntitledControls(m Manifest, grants []string) []string {
 		if c.Grant != "" && !grantCovers(grants, c.Grant) {
 			continue
 		}
-		switch c.Shadows {
-		case "":
-		case AnyShadow:
+		switch {
+		case c.Capability != "":
+			if !declares(m.Capabilities, c.Capability) {
+				continue
+			}
+		case c.Shadows == "":
+		case c.Shadows == AnyShadow:
 			if len(shadows) == 0 {
 				continue
 			}

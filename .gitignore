@@ -147,3 +147,6 @@ addons/internal/uibuild/test/*/dist
 /tests/e2e-chats/cache/
 /tests/e2e-chats/models/
 /tests/e2e-chats/backends/
+# Add-on zip files and the scratch of scripts/addons/zip.sh
+dist/addons/
+.cache/addons/zip/

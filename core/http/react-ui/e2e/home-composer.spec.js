@@ -59,6 +59,23 @@ test.describe('Home composer', () => {
     await mockHome(page)
   })
 
+  test('focus draws one indicator, on the card, and the message box draws none', async ({ page }) => {
+    await server(page)
+    await ready(page)
+    const card = page.getByTestId('home-composer')
+    const box = page.getByTestId('home-input')
+    const before = (await card.boundingBox()).height
+    await box.click()
+    await expect(card).toHaveCSS('box-shadow', /inset/)
+    await expect(box).toHaveCSS('outline-style', 'none')
+    await expect(box).toHaveCSS('box-shadow', 'none')
+    // Layout rounds to 1/64 px, so compare with a sub-pixel tolerance.
+    expect(Math.abs((await card.boundingBox()).height - before)).toBeLessThan(0.5)
+    // the control that takes keyboard focus next keeps its own ring
+    await page.keyboard.press('Shift+Tab')
+    await expect(card.locator(':focus-visible')).toHaveCSS('outline-style', 'solid')
+  })
+
   test('a file attached on Home arrives with the first message of the new chat', async ({ page }) => {
     const seen = await server(page)
     await ready(page)
@@ -112,6 +129,52 @@ test.describe('Home composer', () => {
     expect(seen.created[0].switches).toEqual({ addons_off: ['office'], skills_off: ['builtin:pdf'] })
   })
 
+  test('toggling the Sandbox add-on in a draft keeps the commands notice away and reads the skills again', async ({ page }) => {
+    const seen = await server(page)
+    const skillReads = []
+    await page.route(/\/api\/chats\/draft\/addons(\?.*)?$/, route => route.fulfill({ json: {
+      addons: [{ id: 'sandbox', tools: 7, off: false }], commands: 'available', commands_provider: 'sandbox',
+      execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' },
+    } }))
+    await page.route(/\/api\/chats\/skills(\?.*)?$/, route => { skillReads.push(route.request().url()); return route.fulfill({ json: { skills: [
+      { id: 'addon:docx', name: 'docx', description: 'Word files', layer: 'addon', enabled: true },
+    ] } }) })
+    await ready(page)
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+    const reads = skillReads.length
+    await page.getByRole('switch', { name: 'sandbox' }).uncheck()
+    await page.getByRole('switch', { name: 'sandbox' }).check()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+    await expect(page.getByTestId('chat-commands-chip')).toHaveCount(0)
+    await expect.poll(() => skillReads.length).toBeGreaterThan(reads)
+    expect(seen.created).toHaveLength(0)
+  })
+
+  test('a draft with the shell group switched off asks the server and shows the switched off notice', async ({ page }) => {
+    await server(page)
+    const asked = []
+    await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {
+      builtins: [{ group: 'shell', tools: ['bash'], off: false, usable: true, provider: 'sandbox', providers: { bash: 'sandbox' } }],
+      addons: [{ id: 'sandbox', tools: 7, off: false }], servers: [], connectors: [], off: [],
+    } }))
+    await page.route(/\/api\/chats\/draft\/addons(\?.*)?$/, route => {
+      const url = new URL(route.request().url())
+      asked.push(url.searchParams.get('builtins_off') || '')
+      const off = url.searchParams.get('builtins_off') === 'shell'
+      return route.fulfill({ json: { addons: [{ id: 'sandbox', tools: 7, off: false }], commands: off ? 'switched_off' : 'available', commands_provider: 'sandbox',
+        execution_status: { readiness: 'unknown', isolation: 'unknown', unknown_reason: 'draft' } } })
+    })
+    await ready(page)
+    await page.getByTestId('chat-tools-button').click()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+    await page.getByTestId('chat-tools-menu').getByRole('switch', { name: 'Run commands', exact: true }).click()
+    await expect(page.getByTestId('chat-commands-notice')).toContainText('Running commands is switched off for this chat.')
+    expect(asked).toContain('shell')
+    await page.getByTestId('chat-tools-menu').getByRole('switch', { name: 'Run commands', exact: true }).click()
+    await expect(page.getByTestId('chat-commands-notice')).toHaveCount(0)
+  })
+
   test('the draft lists the groups of built-in tools, and one switched off goes with the new chat', async ({ page }) => {
     const seen = await server(page)
     await page.route(/\/api\/chats\/draft\/tools(\?.*)?$/, route => route.fulfill({ json: {
@@ -126,7 +189,7 @@ test.describe('Home composer', () => {
     await ready(page)
     await page.getByTestId('chat-tools-button').click()
     const tools = page.getByTestId('chat-tools-menu')
-    for (const name of ['Your files', 'Web', 'Images and audio', 'Sub-agents']) {
+    for (const name of ['Your files', 'Look things up online', 'Images and audio', 'Sub-agents']) {
       await expect(tools.getByRole('switch', { name, exact: true })).toHaveAttribute('aria-checked', 'true')
     }
     await tools.getByRole('switch', { name: 'Your files', exact: true }).click()

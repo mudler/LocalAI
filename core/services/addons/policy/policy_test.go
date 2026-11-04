@@ -1074,7 +1074,7 @@ var _ = Describe("real manager lifecycle", func() {
 		Expect(err).NotTo(HaveOccurred())
 		cat := catalog.Catalog{Sources: sources, TargetOS: "linux", TargetArch: "amd64"}
 		cfg := addons.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: filepath.Join(root, "owner")}
-		inst := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: cat, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+		inst := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: cat, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 		m, err := addons.NewManager(ctx, cfg, cat, inst, check)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() { _ = m.Close() })

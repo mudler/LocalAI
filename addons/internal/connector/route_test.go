@@ -25,17 +25,6 @@ type script struct {
 	editErr error
 }
 
-// filing also sends files.
-type filing struct {
-	script
-	files []contract.ConnectorFile
-}
-
-func (f *filing) SendFile(_ context.Context, req contract.ConnectorRequest) (string, error) {
-	f.files = append(f.files, *req.File)
-	return "f1", f.err
-}
-
 func (*script) Kind() string  { return "chat" }
 func (*script) MaxRunes() int { return 10 }
 func (s *script) Poll(_ context.Context, _ string, _ int64, wait int) ([]contract.ConnectorMessage, error) {
@@ -67,13 +56,10 @@ func (s *script) Me(context.Context, string) (connector.Bot, error) {
 	return connector.Bot{ID: "1", Username: "bot"}, s.err
 }
 
-// shouting formats and reads media.
+// shouting formats.
 type shouting struct{ script }
 
 func (*shouting) Format(md string) string { return strings.ToUpper(md) }
-func (*shouting) Media(_ context.Context, _, ref string) (contract.ConnectorFile, error) {
-	return contract.ConnectorFile{Name: ref, Data: []byte("x")}, nil
-}
 
 // rich sends answers in its markup and shows drafts.
 type rich struct {
@@ -92,6 +78,19 @@ func (r *rich) EditRich(_ context.Context, req contract.ConnectorRequest) error 
 func (r *rich) Draft(_ context.Context, req contract.ConnectorRequest) error {
 	r.drafts = append(r.drafts, req)
 	return r.err
+}
+
+// reading also reads the history of a thread.
+type reading struct {
+	script
+	msgs []contract.ConnectorHistoryMessage
+	more bool
+	got  []contract.ConnectorRequest
+}
+
+func (r *reading) History(_ context.Context, req contract.ConnectorRequest) ([]contract.ConnectorHistoryMessage, bool, error) {
+	r.got = append(r.got, req)
+	return r.msgs, r.more, r.err
 }
 
 var _ = Describe("Serve", func() {
@@ -129,18 +128,20 @@ var _ = Describe("Serve", func() {
 		Expect(err).To(MatchError(contract.ErrRefused))
 	})
 
-	It("formats before it cuts, and reads media only on a platform that can", func() {
+	It("formats before it cuts", func() {
 		s := &shouting{}
 		_, err := connector.Serve(ctx, s, req("send"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(s.sent[0].Text).To(Equal("ALPHA"))
-		r := req("media")
-		r.Media = "F1"
-		out, err := connector.Serve(ctx, s, r)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(out.File.Name).To(Equal("F1"))
-		_, err = connector.Serve(ctx, &script{}, r)
-		Expect(err).To(MatchError(contract.ErrRefused))
+	})
+
+	It("refuses the ops media and send_file without a handle", func() {
+		for _, op := range []string{"media", "send_file"} {
+			r := req(op)
+			r.Media = "F1"
+			_, err := connector.Serve(ctx, &streaming{}, r)
+			Expect(err).To(MatchError(contract.ErrRefused), op)
+		}
 	})
 
 	It("answers who the bot is and types", func() {
@@ -264,27 +265,43 @@ var _ = Describe("Serve", func() {
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 	})
 
-	It("sends a file only on a platform that can, with a safe name and a size in bounds", func() {
-		f := &filing{}
-		r := req("send_file")
-		r.File = &contract.ConnectorFile{Name: "chart.png", MIME: "image/png", Data: []byte("png")}
-		out, err := connector.Serve(ctx, f, r)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(out.MessageID).To(Equal("f1"))
-		Expect(f.files).To(HaveLen(1))
-		Expect(f.files[0].Name).To(Equal("chart.png"))
-		_, err = connector.Serve(ctx, &script{}, r)
-		Expect(err).To(MatchError(contract.ErrRefused))
-		for _, bad := range []*contract.ConnectorFile{
-			nil,
-			{Name: "a.txt"},
-			{Name: "../a.txt", Data: []byte("x")},
-			{Name: "a.txt", Data: make([]byte, contract.MaxConnectorFileBytes+1)},
-		} {
-			r.File = bad
-			_, err = connector.Serve(ctx, f, r)
-			Expect(err).To(MatchError(contract.ErrRefused))
+	Describe("the op history", func() {
+		hist := func() contract.ConnectorRequest {
+			r := req("history")
+			r.Thread, r.Limit, r.Before = "t1", 2, "9"
+			return r
 		}
-		Expect(f.files).To(HaveLen(1))
+		It("is refused on a platform that cannot read a thread, and without a thread", func() {
+			_, err := connector.Serve(ctx, &script{}, hist())
+			Expect(err).To(MatchError(contract.ErrRefused))
+			r := hist()
+			r.Thread = ""
+			_, err = connector.Serve(ctx, &reading{}, r)
+			Expect(err).To(MatchError(contract.ErrRefused))
+		})
+		It("returns the newest messages within the limit and says that older ones exist", func() {
+			s := &reading{msgs: []contract.ConnectorHistoryMessage{{Text: "a"}, {Text: "b"}, {Text: "c"}}}
+			out, err := connector.Serve(ctx, s, hist())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out.Messages).To(HaveLen(2))
+			Expect(out.Messages[0].Text).To(Equal("b"))
+			Expect(out.Truncated).To(BeTrue())
+			Expect(s.got[0].Before).To(Equal("9"))
+		})
+		It("uses the default limit when the host asks for none or too many", func() {
+			s := &reading{}
+			r := hist()
+			r.Limit = contract.MaxHistoryMessages + 1
+			_, err := connector.Serve(ctx, s, r)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(s.got[0].Limit).To(Equal(contract.DefaultHistoryMessages))
+		})
+		It("types the error of the platform and does not wait for a rate limit", func() {
+			s := &reading{script: script{err: &connector.RetryAfter{Seconds: 30}}}
+			out, err := connector.Serve(ctx, s, hist())
+			Expect(err).NotTo(HaveOccurred())
+			Expect(out.Error.Code).To(Equal(contract.ConnectorRateLimited))
+			Expect(s.got).To(HaveLen(1))
+		})
 	})
 })

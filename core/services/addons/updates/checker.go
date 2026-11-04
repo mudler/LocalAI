@@ -308,23 +308,29 @@ func (c *Checker) evaluateAndStore(ctx context.Context, in Installation, refresh
 		c.mu.Lock()
 		recentAddon := now.Sub(c.lastAddr[in.AddonID]) < c.cfg.MinRefresh && !c.lastAddr[in.AddonID].IsZero()
 		recentLib := now.Sub(c.lastLib[src]) < c.cfg.MinRefresh && !c.lastLib[src].IsZero()
-		if recentAddon || recentLib {
-			throttled = true
-		} else {
+		// The interval of the library only spares its fetch. Add-ons that
+		// share a library are checked in a row, and each of them still has
+		// its own check to run (the tag of a development build is resolved
+		// per add-on): only the add-on's own interval throttles its answer.
+		throttled = recentAddon
+		if !recentAddon {
 			c.lastAddr[in.AddonID] = now
-			c.lastLib[src] = now
 			c.prune(c.lastAddr)
+		}
+		fetch := !recentAddon && !recentLib
+		if fetch {
+			c.lastLib[src] = now
 			c.prune(c.lastLib)
 		}
 		c.mu.Unlock()
-		if !throttled && src != "" {
+		if fetch && src != "" {
 			// A failed fetch is not fatal: the evaluation below reads the
 			// catalog's own state and reports the failure as a status.
 			_ = c.cat.Refresh(ctx, src)
 		}
 	}
 	// The tag of a development build is resolved by an explicit check that
-	// reached the library; a throttled one reuses the last resolution.
+	// reached the library or was the add-on's own turn; a throttled one reuses the last resolution.
 	res := c.evaluate(ctx, in, refresh && !throttled)
 	st := res.Status
 	st.Throttled = throttled

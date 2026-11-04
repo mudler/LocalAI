@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -91,7 +92,8 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	cmds := s.commandsOf(ctx, a.Principal, tools, rec.AddonsOff, sc)
 	// The built-in tools no add-on serves: bash on this machine when the
 	// Sandbox does not serve it and the setting allows it.
-	tools = s.applyBuiltins(tools, s.builtinsFor(ctx, a, rec, sub))
+	built := s.builtinsFor(ctx, a, rec, sub)
+	tools = s.applyBuiltins(tools, built)
 	cmds = shellSwitched(s.withHostBash(cmds, tools), hidden)
 	// The file tools are the one file toolset of the chat. A sub-agent gets
 	// them from subset, built for the parent chat; one from a saved agent gets
@@ -107,7 +109,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	}
 	fa := fx.Actor()
 	nudge := s.newRulesNudge(ctx, x, rec)
-	tools = append(tools, nudge.wrap(s.fileNudgeTools(fx, s.announceFileChanges(fa, s.skillHintTools(fa, dropHidden(s.d.Files.Tools(fx), hidden)))))...)
+	tools = append(tools, nudge.wrap(s.fileNudgeTools(fx, s.announceFileChanges(fa, s.skillHintTools(fa, s.binaryHintTools(fa, cmds.State == CommandsAvailable, dropHidden(s.d.Files.Tools(fx), hidden))))))...)
+	if !sub {
+		tools = append(tools, s.attachTools(ctx, fx, rec)...)
+	}
 	if s.d.Media != nil {
 		tools = append(tools, s.skillHintTools(fa, dropHidden(s.d.Media.Tools(s.d.Files, x, rec.Model), hidden))...)
 	}
@@ -115,7 +120,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// tools it has now: a chat with the file tools switched off hears of none.
 	canRead, canWrite := canReadFiles(tools, cmds), canWriteFiles(tools, cmds)
 	skillsOff := 0
-	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, rec.SkillsOff, rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
+	prompt, note, key, fallback, err := s.skillTurn(ctx, a.Principal, s.memorySkillsOff(ctx, rec, sc, rec.SkillsOff), rec.AddonsOff, sc, cmds, execGate(cmds, &skillsOff))
 	if err != nil {
 		return session.TurnTools{}, err
 	}
@@ -130,8 +135,35 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if !sub {
 		persona, personaKey = s.WellKnown().TurnPrompt(ctx, a.Principal)
 	}
-	if persona != "" {
-		prompt = strings.TrimSpace(persona + "\n\n" + prompt)
+	// The agent's profile and the index of the user's notes follow the persona.
+	// The first is the user's standing rules for this agent; the second points
+	// the model at context_read.
+	var notes, notesKey string
+	if !sub {
+		sets := s.addonContextSets(ctx, a.Principal)
+		legacy := legacyMemoryOf(sets)
+		extra := s.addonContextSourcesOf(ctx, a.Principal, sets, rec.AddonsOff, sc)
+		// The notes: the host's own, for the chats that read them. A person
+		// who has the Memory add-on running keeps the header when no note
+		// exists yet, as before; everyone else gets no block until a note
+		// exists.
+		if s.memoryReads(ctx, rec, sc, legacy) {
+			choice := ""
+			if sc != nil {
+				choice = sc.memory
+			}
+			extra = append(memorySourcesFor(s.memory.Sources(), choice), extra...)
+		}
+		notes, notesKey = s.contextTurnFor(ctx, rec, tools, extra, !(legacy.Installed && legacy.Running))
+		tools = append(tools, s.contextTools(rec, tools, extra)...)
+		if st := s.memoryState(ctx, rec, legacy); !st.On && st.Code != MemoryOffFiles {
+			// Off: the model hears it in one line, and has no note and no tool.
+			line := memoryOffLine(st)
+			notes, notesKey = joinBlocks(notes, line), notesKey+line
+		}
+	}
+	if lead := joinBlocks(persona, notes); lead != "" {
+		prompt = strings.TrimSpace(lead + "\n\n" + prompt)
 	}
 	if sc != nil {
 		// Granted skills the user lacks come back from skillTurn as a note of
@@ -166,6 +198,12 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if aNote != "" {
 		note = strings.TrimSpace(note + " " + aNote)
 	}
+	// A tool the sender of a connector message may not use is not offered. The
+	// model hears why, so it tells the person what the owner can change
+	// instead of saying that it has no such tool.
+	if line := deniedToolsNote(rec, built); line != "" {
+		note = strings.TrimSpace(line + " " + note)
+	}
 	// What the user did with the triggers this chat proposed: the tool result
 	// said they were waiting, so a later turn must hear how they ended.
 	if s.triggers != nil {
@@ -178,10 +216,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	if line := s.hintLine(ctx, a, rec); line != "" {
 		note = strings.TrimSpace(line + " " + note)
 	}
-	// The network of the Sandbox commands, in one line: it follows the
+	// The network of the commands an add-on runs, in one line: it follows the
 	// chat's preset at each turn and needs no restart of the harness.
 	if cmds.State == CommandsAvailable && cmds.Isolation == "isolated" && cmds.Provider != BuiltinProvider {
-		line, err := s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName))
+		line, err := s.egressLine(ctx, rec, hasTool(tools, webSearchName) || hasTool(tools, webFetchName), s.networkOf(ctx, a.Principal, cmds).Title)
 		if err != nil {
 			return session.TurnTools{}, err
 		}
@@ -210,7 +248,7 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 		// at its end, and the model must not lose the goal.
 		goal = goalBlock(rec.Goal)
 	}
-	prompt = joinBlocks(head, goal, webBlock(tools), prompt)
+	prompt = joinBlocks(head, goal, s.connectorBlock(ctx, rec, canWrite), webBlock(tools), prompt)
 	if sp := strings.TrimSpace(rec.Settings.SystemPrompt); sp != "" {
 		// The chat's own instructions come first: the prompt is cut at its end.
 		prompt = strings.TrimSpace(sp + "\n\n" + prompt)
@@ -233,7 +271,10 @@ func (s *Service) chatTools(ctx context.Context, x session.Access) (session.Turn
 	// load_skill learns from the final list whether the chat can read a
 	// skill's files and run what a skill needs.
 	tools = s.fitLoadSkill(a, tools)
-	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey}, nil
+	// The action policy of a run that nobody watches: the tools that change
+	// files or run commands on this machine are checked at each call.
+	tools = s.gateBuiltinActs(ctx, rec, tools)
+	return session.TurnTools{Tools: tools, Prompt: prompt, Note: note, WorkFolder: work, RefreshKey: key + "\x00" + rec.Settings.SystemPrompt + "\x00" + personaKey + "\x00" + notesKey}, nil
 }
 
 // spawnTool is spawn_agent for the chat of x: a generic sub-agent gets
@@ -300,6 +341,11 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 		if err := s.savedAgentsAllowed(ctx, parent); err != nil {
 			return "", err
 		}
+		if unattended(parent.Origin) {
+			// The chat of a saved agent has no origin, so it would not carry the
+			// rights of this run.
+			return "", ErrSavedAgentUnattended
+		}
 		if agent, err = s.resolveAgent(ctx, a.Principal, ref); err != nil {
 			return "", err
 		}
@@ -339,6 +385,9 @@ func (s *Service) spawn(ctx context.Context, x session.Access, raw json.RawMessa
 	now := parent.Updated
 	rec := session.ChatRecord{ID: childID, Principal: a.Principal, Title: title, Created: now, Updated: now,
 		Kind: session.KindSubAgent, ParentID: a.ChatID, Model: model, AgentID: agent.ID,
+		// The connections the parent chose are the child's: its tools run with
+		// the same credentials, and it chooses none of its own.
+		Connections: connsets.Clone(parent.Connections),
 		// The child is refused, never given the whole home, when the folder
 		// it works in can no longer be found (chatScopes).
 		ScopedAgent: parent.ScopedAgent || agent.HasFolder()}
@@ -403,7 +452,17 @@ func (s *Service) agentFitsScope(ctx context.Context, p string, outer *folderSco
 		return true
 	}
 	inner, err := s.liveFolder(ctx, p, ag)
-	return err == nil && workspace.Within(inner.path, outer.path)
+	if err != nil {
+		return false
+	}
+	// Every folder of the sub-agent is the same as, or inside, one folder of
+	// the chat's agent.
+	for _, f := range inner.folders {
+		if !outer.contains(f.path) {
+			return false
+		}
+	}
+	return true
 }
 
 // subset picks the tools a sub-agent gets from the parent's host tools and
@@ -429,6 +488,8 @@ func (s *Service) subset(ctx context.Context, x session.Access, names *[]string)
 		// Built for a sub-agent: bash on this machine only when no card is
 		// needed, since nobody watches the sub-agent's chat.
 		have = s.applyBuiltins(have, s.builtinsFor(ctx, a, parent, true))
+		// A sub-agent of a run that nobody watches has the rights of that run.
+		have = s.gateBuiltinActs(ctx, parent, have)
 	}
 	if names == nil {
 		kept := have[:0:0]

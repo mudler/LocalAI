@@ -42,11 +42,32 @@ type Quantizer interface {
 	List(userID string) []*schema.QuantizationJob
 }
 
-// BackendLister names the backends of each engine feature that the gallery
-// offers. A start operation accepts only these.
+// Gallery tags that name an engine family. A backend carries the tag in its
+// gallery entry; the host reads the engines of a family from there, so a new
+// engine needs a gallery entry and no code.
+const (
+	TagFineTuning   = "fine-tuning"
+	TagQuantization = "quantization"
+)
+
+// BackendLister names the installed backends that carry a gallery tag, in
+// gallery order. A start operation accepts only these.
 type BackendLister interface {
-	FineTune() []string
-	Quantization() []string
+	Backends(tag string) []string
+}
+
+// pickEngine answers the engine for a start call. A named engine is kept for
+// requireEngine to check. Without a name the default is the first installed
+// engine of the tag in gallery order, so the gallery picks the default by the
+// order of its entries; "" means none is installed.
+func pickEngine(l BackendLister, tag, named string) string {
+	if named != "" {
+		return named
+	}
+	if all := l.Backends(tag); len(all) > 0 {
+		return all[0]
+	}
+	return ""
 }
 
 // Checkpoint is what the operations need of a saved checkpoint. The path is
@@ -115,11 +136,8 @@ func fineTuneSpecs(b *Broker, ft FineTuner, backends BackendLister) []Spec {
 			if a.LearningRate < 0 || a.NumEpochs < 0 || a.BatchSize < 0 || a.MaxSteps < 0 || a.AdapterRank < 0 || a.AdapterAlpha < 0 {
 				return nil, fmt.Errorf("%w: numeric arguments must not be negative", ErrBadRequest)
 			}
-			backend := a.Backend
-			if backend == "" {
-				backend = "trl"
-			}
-			if err := requireEngine("fine-tuning", backend, backends.FineTune()); err != nil {
+			backend := pickEngine(backends, TagFineTuning, a.Backend)
+			if err := requireEngine("fine-tuning", backend, backends.Backends(TagFineTuning)); err != nil {
 				return nil, err
 			}
 			resp, err := ft.Start(ctx, userKey(c), schema.FineTuneJobRequest{
@@ -198,11 +216,8 @@ func quantizeSpecs(q Quantizer, backends BackendLister) []Spec {
 			if a.QuantizationType != "" && !quantType.MatchString(a.QuantizationType) {
 				return nil, fmt.Errorf("%w: quantizationType is not a quantization name", ErrBadRequest)
 			}
-			backend := a.Backend
-			if backend == "" {
-				backend = "llama-cpp-quantization"
-			}
-			if err := requireEngine("quantization", backend, backends.Quantization()); err != nil {
+			backend := pickEngine(backends, TagQuantization, a.Backend)
+			if err := requireEngine("quantization", backend, backends.Backends(TagQuantization)); err != nil {
 				return nil, err
 			}
 			resp, err := q.Start(ctx, userKey(c), schema.QuantizationJobRequest{
@@ -319,6 +334,9 @@ var engineName = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 // the engine, in a short fixed sentence that the add-on can pass on to the
 // person, so a missing engine is not mistaken for a bad argument.
 func requireEngine(kind, backend string, installed []string) error {
+	if backend == "" {
+		return fmt.Errorf("%w: no %s engine is installed", ErrBadRequest, kind)
+	}
 	if !engineName.MatchString(backend) {
 		return refusedField("backend")
 	}

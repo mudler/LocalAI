@@ -111,10 +111,10 @@
     "loadFailedTitle": "No se pudieron cargar los ajustes.",
     "egress": {
       "title": "Red de los comandos",
-      "intro": "Los comandos del Sandbox llegan a la red solo a través de un proxy que consulta a LocalAI cada conexión. Abajo se fijan el límite, el valor de un chat nuevo, los puertos, los registros adicionales y la retención del registro; cada persona elige el valor de cada chat en su menú Herramientas, hasta el límite, y permite un host bloqueado en una tarjeta.",
+      "intro": "Los comandos que se ejecutan aislados llegan a la red solo a través de un proxy que consulta a LocalAI cada conexión. Abajo se fijan el límite, el valor de un chat nuevo, los puertos, los registros adicionales y la retención del registro; cada persona elige el valor de cada chat en su menú Herramientas, hasta el límite, y permite un host bloqueado en una tarjeta.",
       "serves": "Los comandos se ejecutan aislados en el complemento {{name}}",
       "servesHost": "Los comandos se ejecutan en esta máquina con {{name}}",
-      "servesNone": "Ningún Sandbox ejecuta comandos todavía",
+      "servesNone": "Ningún complemento ejecuta comandos todavía",
       "hostNote": "El backend del host ejecuta comandos en esta máquina con su red: estos ajustes no se les aplican.",
       "counts": "Últimas 24 horas: {{allowed}} permitidas, {{blocked}} bloqueadas.",
       "private": "Permitir que la regla de un administrador llegue a redes privadas",
@@ -123,7 +123,7 @@
       "registries": "Registros de paquetes ({{count}})",
       "showAudit": "Ver el registro",
       "hideAudit": "Ocultar el registro",
-      "loadFailed": "No se pudieron leer los ajustes de red del Sandbox",
+      "loadFailed": "No se pudieron leer los ajustes de red de los comandos",
       "audit": {
         "verdict": "Resultado",
         "host": "Host",
@@ -157,7 +157,7 @@
       "listLabel": "Hosts siempre permitidos",
       "remove": "Quitar {{host}}",
       "empty": "Aún no hay hosts. Escribe un nombre de host, o host:puerto para fijar el puerto.",
-      "hint": "Solo nombres exactos. Añade :puerto para permitir un único puerto; si no, se aplican los puertos de red del Sandbox.",
+      "hint": "Solo nombres exactos. Añade :puerto para permitir un único puerto; si no, se aplican los puertos de red de los comandos.",
       "count": "{{n}}/{{max}}",
       "errors": {
         "empty": "Escribe un nombre de host.",
@@ -329,7 +329,6 @@
     "byAddon": "Complemento: {{name}}",
     "byNone": "Desactivada",
     "unavailable": "Este servidor no puede ejecutarla: {{reason}}.",
-    "installSandbox": "Instala el Sandbox para ejecutar comandos aislados",
     "replaceExplain": "Estos complementos reemplazan {{tool}}: el elegido lo sirve en cada chat donde está activado y en marcha, y el integrado se oculta. Solo uno puede estar activo. Hasta que elijas, lo sirve el que se instaló primero.",
     "defaultInstalledFirst": "Predeterminado: instalado primero",
     "installedOn": "Instalado {{when}}",
@@ -342,7 +341,7 @@
       "list_agents": "Agentes guardados"
     },
     "descriptions": {
-      "bash": "Ejecuta comandos y código para los chats directamente en esta máquina cuando ningún Sandbox sirve bash. El complemento Sandbox lo reemplaza con comandos aislados.",
+      "bash": "Ejecuta comandos y código para los chats directamente en esta máquina cuando ningún complemento sirve bash. Un complemento que ejecuta comandos aislados lo reemplaza.",
       "web_search": "Busca en la web para los chats sin clave (DuckDuckGo, luego Brave Search, luego Bing), o con tu instancia de SearXNG si hay una configurada.",
       "web_fetch": "Lee para los chats una página o un archivo web público por su dirección. Las direcciones de tu red se rechazan salvo que las permitas.",
       "list_agents": "Permite a un chat listar los agentes guardados del usuario e iniciar uno como subagente. Cada chat lo activa en su menú Herramientas."
@@ -355,7 +354,7 @@
       "on": "Permitir para todos.",
       "onHint": "Los chats de todos los usuarios ejecutan comandos aquí sin preguntar, también las ejecuciones programadas y los subagentes.",
       "default": "Sin definir: se aplica el valor por defecto ({{mode}}).",
-      "warning": "Los comandos se ejecutan como el usuario de LocalAI, sin aislamiento y con la red de esta máquina: pueden leer lo que LocalAI puede leer y llegar a internet, a tu red y a la API de LocalAI. Cada comando queda registrado. Instala el Sandbox para aislarlos."
+      "warning": "Los comandos se ejecutan como el usuario de LocalAI, sin aislamiento y con la red de esta máquina: pueden leer lo que LocalAI puede leer y llegar a internet, a tu red y a la API de LocalAI. Cada comando queda registrado. Instala un complemento que aísle los comandos."
     },
     "modes": {
       "off": "desactivado",

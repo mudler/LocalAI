@@ -224,7 +224,7 @@ func (s *Service) EgressAudit(ctx context.Context, user, rid string, evs []Egres
 
 func (s *Service) auditEgress(ctx context.Context, e audit.Event) {
 	if err := s.egressAudit().Add(context.WithoutCancel(ctx), e); err != nil {
-		s.log.Warn("Chats: could not audit a Sandbox network request", "error", err)
+		s.log.Warn("Chats: could not audit a command network request", "error", err)
 	}
 }
 

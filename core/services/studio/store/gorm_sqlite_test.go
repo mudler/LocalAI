@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/mudler/LocalAI/core/http/auth"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/store"
 	"github.com/mudler/LocalAI/core/services/studio/store/storetest"
@@ -46,6 +47,22 @@ var _ = Describe("the GORM store on SQLite", func() {
 		got, err := second.GetChat(context.Background(), "alice", "old")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.ScopedAgent).To(BeFalse())
+	})
+
+	It("reads the single connection stored before sets as a set of one, and writes the list", func() {
+		db := openSQLite(filepath.Join(GinkgoT().TempDir(), "studio.db"))
+		s, err := store.NewGORM(db)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.CreateChat(context.Background(), session.ChatRecord{ID: "old", Principal: "alice", Title: "Old", Created: time.Now(), Updated: time.Now()})).To(Succeed())
+		// The column as the earlier version wrote it: one binding ID per add-on.
+		Expect(db.Exec(`UPDATE studio_chats SET connections = ? WHERE id = ?`, `{"tracker":"b1"}`, "old").Error).To(Succeed())
+		got, err := s.GetChat(context.Background(), "alice", "old")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Connections).To(Equal(connsets.Sets{"tracker": {"b1"}}))
+		Expect(s.SetConnections(context.Background(), "alice", "old", got.Connections)).To(Succeed())
+		var raw string
+		Expect(db.Raw(`SELECT connections FROM studio_chats WHERE id = ?`, "old").Scan(&raw).Error).To(Succeed())
+		Expect(raw).To(Equal(`{"tracker":["b1"]}`))
 	})
 
 	// A second handle on the same database sees what the first wrote.

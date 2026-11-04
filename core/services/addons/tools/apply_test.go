@@ -81,6 +81,27 @@ var _ = Describe("changes made at once for a chat", func() {
 		Expect(f.cancelled).To(BeEmpty())
 	})
 
+	It("leaves a proposal that awaits a person for the person, even for the chat adapter", func() {
+		f, _, chats := build()
+		f.proposal.AwaitsPerson = true
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Kind).To(Equal(tools.ResultProposal))
+		Expect(res.Applied).To(BeNil())
+		Expect(f.confirmed).To(BeEmpty())
+	})
+
+	It("tells the model that writes are off when the host refuses the call for that reason", func() {
+		f, _, chats := build()
+		f.proposeErr = &gateway.CredentialRefusal{Code: gateway.CodeWriteNotAllowed}
+		res, err := chats.ExecuteChat(ctx, member, tools.NewChatCall("bob", "conv1"), insert, rows)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(res.Kind).To(Equal(tools.ResultError))
+		Expect(res.Code).To(Equal(tools.CodeWriteNotAllowed))
+		Expect(res.Note).To(Equal(tools.WriteNotAllowedNote))
+		Expect(f.confirmed).To(BeEmpty())
+	})
+
 	It("says a change can be undone when the add-on kept a change set, with the change ID and what undo does", func() {
 		f, _, chats := build()
 		f.payload = args(`{"inserted":2,"undo":{"id":"t-op-1","available":true,"summary":"Delete the 2 rows added to Entries"}}`)

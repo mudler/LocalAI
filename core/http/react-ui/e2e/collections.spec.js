@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// Memory page (src/pages/Collections.jsx) on the real test server. The memory
+// Knowledge page (src/pages/Collections.jsx) on the real test server. The collections
 // service of the test server never finishes starting, so the list answers 503;
 // the empty-state cases stub an empty list, and one case checks that a 503 is
 // shown as "starting", not as an empty library.
@@ -12,18 +12,18 @@ test.describe('Collections page', () => {
     await page.goto('/app/collections')
   })
 
-  test('a memory service that is still starting is not shown as an empty library', async ({ page }) => {
+  test('a knowledge service that is still starting is not shown as an empty library', async ({ page }) => {
     await page.route(/\/api\/collections(\?.*)?$/, route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'collections are starting, please retry shortly' }) }))
     await page.goto('/app/collections')
-    await expect(page.getByTestId('memory-starting')).toContainText('Memory is starting.')
+    await expect(page.getByTestId('memory-starting')).toContainText('Knowledge is starting.')
     await expect(page.getByTestId('memory-empty')).toHaveCount(0)
     await expect(page.getByTestId('memory-starting').getByRole('button', { name: 'Try again' })).toBeVisible()
   })
 
-  test('renders memory with an empty state and create control', async ({ page }) => {
+  test('renders knowledge with an empty state and create control', async ({ page }) => {
     await expect(page).toHaveURL(/\/app\/collections$/)
-    await expect(page.getByRole('heading', { name: 'Memory', exact: true })).toBeVisible()
-    await expect(page.getByText(/Memory holds documents an agent can search/i)).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Knowledge', exact: true })).toBeVisible()
+    await expect(page.getByText(/Knowledge holds documents an agent can search/i)).toBeVisible()
     await expect(page.getByRole('button', { name: 'New collection' }).first()).toBeVisible()
   })
 

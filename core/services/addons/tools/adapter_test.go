@@ -83,7 +83,7 @@ func tablesManifest() contract.Manifest {
 
 func tablesApp(m contract.Manifest) apps.App {
 	return apps.App{ID: "tables", Name: "tables", Generation: 3, Enabled: true, State: "running", Tools: m.Capabilities.Tools,
-		ToolDefinitions: m.Capabilities.ToolDefinitions}
+		ToolDefinitions: m.Capabilities.ToolDefinitions, Resources: m.Capabilities.Resources}
 }
 
 var member = contract.Actor{UserID: "bob", CredentialID: "session:s1", Mode: "named-user"}
@@ -267,6 +267,28 @@ var _ = Describe("Addon tool adapter", func() {
 				Expect(e).NotTo(HaveOccurred())
 				Expect(res.Code).To(Equal(code))
 			}
+		})
+		It("tells the model to wait when the service rate limits, and not to retry before then", func() {
+			f.readErr = fmt.Errorf("call: %w", &contract.ErrRateLimited{RetryAfter: 90})
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Kind).To(Equal(tools.ResultError))
+			Expect(res.Code).To(Equal(tools.CodeRateLimited))
+			Expect(res.RetryAfter).To(Equal(90))
+			Expect(res.Note).To(ContainSubstring("retryAfter"))
+			Expect(res.JSON()).To(ContainSubstring(`"retryAfter":90`))
+		})
+		It("tells the model a resource is not on the list, with the allowed ones, and when no credential exists", func() {
+			f.readErr = &gateway.CredentialRefusal{Code: gateway.CodeResourceNotAllowed, Allowed: []string{"acme/widgets"}}
+			res, e := a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeResourceNotAllowed))
+			Expect(res.Allowed).To(Equal([]string{"acme/widgets"}))
+			Expect(res.Note).To(ContainSubstring("allowed"))
+			f.readErr = &gateway.CredentialRefusal{Code: gateway.CodeNoCredential}
+			res, e = a.Execute(context.Background(), member, "addon__tables__databases-inspect", args(`{"resourceId":"db-one"}`))
+			Expect(e).NotTo(HaveOccurred())
+			Expect(res.Code).To(Equal(tools.CodeNoCredential))
 		})
 		It("keeps an outage an error, never the refused result", func() {
 			f.readErr = gateway.ErrUnavailable

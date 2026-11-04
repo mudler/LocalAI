@@ -12,9 +12,7 @@ const SchemaVersion = 1
 // entries needs one reader for the header and no knowledge of the body.
 //
 // The add-on and backend index files use Release, which names the same
-// identifier id (catalog.Release.ID). An index written before that still holds
-// addonId; ReadIndex reads it as id for one release (LegacyIDField) and every
-// writer emits id. Release has no license, urls, tags, icon or schemaVersion
+// identifier id (catalog.Release.ID). Release has no license, urls, tags, icon or schemaVersion
 // yet; moving it to this whole header is a later step.
 type Envelope struct {
 	Kind        Kind     `json:"kind" yaml:"kind"`

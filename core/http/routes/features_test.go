@@ -51,6 +51,7 @@ var _ = Describe("GET /api/features and the addons gate", func() {
 	It("reports addons, fine_tuning and quantization as false with add-ons off", func() {
 		got := features()
 		Expect(got).To(HaveKeyWithValue("addons", false))
+		Expect(got).To(HaveKeyWithValue("addons_enabled", false))
 		Expect(got).To(HaveKeyWithValue("fine_tuning", false))
 		Expect(got).To(HaveKeyWithValue("quantization", false))
 	})
@@ -73,9 +74,10 @@ var _ = Describe("GET /api/features and the addons gate", func() {
 			InstanceID: "local", OwnerID: "local", OwnerAddress: transport.OwnerAddress,
 			StorageID: "local", Root: root, ListenAddress: address, Transport: transport,
 			OwnershipMode: "local-owner",
-			Host:          contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"},
+			Host:          contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"},
 		}))
 		Expect(got).To(HaveKeyWithValue("addons", true))
+		Expect(got).To(HaveKeyWithValue("addons_enabled", true))
 		Expect(got).To(HaveKeyWithValue("fine_tuning", true))
 		Expect(got).To(HaveKeyWithValue("quantization", true))
 	})

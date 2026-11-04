@@ -28,6 +28,7 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/studiotest"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/tests/studiobot"
 )
 
@@ -258,6 +259,26 @@ type connRig struct {
 	conns *studio.Connectors
 	logs  *bytes.Buffer
 	agent agents.Agent
+	store connectors.Store
+	// untrusted keeps bind from enabling every capability and pairing the
+	// senders of the specs: the specs of the permission model set their own.
+	untrusted bool
+}
+
+// specSenders are the sender IDs that the specs write as.
+var specSenders = []string{"11", "U1", "U2"}
+
+// trust enables every capability on a binding and pairs the senders of the
+// specs, so a spec that is not about permissions gets the full access that
+// every binding had before the permission model.
+func (c *connRig) trust(id string) {
+	b, err := c.store.GetBinding(context.Background(), id)
+	Expect(err).NotTo(HaveOccurred())
+	b.Caps = contract.ConnectorCapabilityNames()
+	for _, s := range specSenders {
+		b.Paired = append(b.Paired, connectors.PairedSender{SenderID: s, At: c.sh.clock.Now()})
+	}
+	Expect(c.store.PutBinding(context.Background(), b)).To(Succeed())
 }
 
 // newConnRig builds a frontend with a connector manager on the shared stores of sh.
@@ -289,13 +310,16 @@ func newConnRigOpts(sh *shared, store connectors.Store, tr *studiobot.BotTranspo
 	if opt != nil {
 		opt(&o)
 	}
+	DeferCleanup(tr.EnableTransfers(sh.transfers))
 	c, err := studio.NewConnectors(r.svc, o)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(c.Close)
+	tr.UseAuthority(c) // as the application does: every call is authorized by the stored binding
+	r.svc.SetConnectors(c) // as the application does: the chats see their bindings
 	ctx, cancel := context.WithCancel(context.Background())
 	DeferCleanup(cancel)
 	go c.Run(ctx)
-	return &connRig{trigRig: r, tr: tr, conns: c, logs: logs}
+	return &connRig{trigRig: r, tr: tr, conns: c, logs: logs, store: store}
 }
 
 func connStore() connectors.Store {
@@ -304,12 +328,18 @@ func connStore() connectors.Store {
 	return s
 }
 
-func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
+// agentID is the saved agent that the bindings of the rig use.
+func (c *connRig) agentID() string {
 	if c.agent.ID == "" {
 		ag, err := c.svc.SaveAgent(context.Background(), alice, agents.Agent{Name: "Support", Model: "m", Addons: []string{"office"}})
 		Expect(err).NotTo(HaveOccurred())
 		c.agent = ag
 	}
+	return c.agent.ID
+}
+
+func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
+	c.agentID()
 	if in.Name == "" {
 		in.Name = "Support bot"
 	}
@@ -325,8 +355,14 @@ func (c *connRig) bind(in studio.ConnectorInput) connectors.Binding {
 		// one message the bot sends; the live modes have their own specs.
 		in.Reply = connectors.ReplyOff
 	}
+	if in.Kind == "" {
+		in.Kind = "telegram"
+	}
 	b, err := c.conns.CreateConnector(context.Background(), alice, in)
 	Expect(err).NotTo(HaveOccurred())
+	if !c.untrusted {
+		c.trust(b.ID)
+	}
 	return b.Binding
 }
 
@@ -366,6 +402,29 @@ var _ = Describe("connectors", func() {
 		waitFor("the second answer", func() bool { return len(bot.answers()) == 2 })
 		again, _ := r.svc.List(context.Background(), alice, 10)
 		Expect(again).To(HaveLen(1), "a second chat was made: %d", len(again))
+	})
+})
+
+var _ = Describe("connectors", func() {
+	It("a kept chat follows a change of the model of its agent", func() {
+		sh, bot := newShared(), newScriptedBot()
+		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}})
+		bot.say(1, 11, "Ada", "ada", "one")
+		waitFor("the first answer", func() bool { return len(bot.answers()) == 1 })
+		chats, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(chats).To(HaveLen(1))
+		ag := r.agent
+		ag.Model = "other-model"
+		_, err := r.svc.SaveAgent(context.Background(), alice, ag)
+		Expect(err).NotTo(HaveOccurred())
+		bot.say(2, 11, "Ada", "ada", "two")
+		waitFor("the second answer", func() bool { return len(bot.answers()) == 2 })
+		again, _ := r.svc.List(context.Background(), alice, 10)
+		Expect(again).To(HaveLen(1))
+		rec, err := r.svc.Get(context.Background(), alice, again[0].ID)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(rec.Model).To(Equal("other-model"))
 	})
 })
 
@@ -639,20 +698,20 @@ var _ = Describe("connectors", func() {
 		sh, bot := newShared(), newScriptedBot()
 		r := newConnRig(sh, connStore(), bot, connSay("ok"), nil)
 		ctx := context.Background()
-		_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken})
+		_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken})
 		Expect(err).To(MatchError(connectors.ErrInvalid), "no agent: %v", err)
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: "missing"})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken, AgentID: "missing"})
 		Expect(err).To(MatchError(agents.ErrNotFound), "unknown agent: %v", err)
 		bare, _ := r.svc.SaveAgent(ctx, alice, agents.Agent{Name: "No model"})
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bare.ID})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken, AgentID: bare.ID})
 		Expect(err).To(MatchError(connectors.ErrInvalid), "agent with no model: %v", err)
 		bobs, _ := r.svc.SaveAgent(ctx, "bob", agents.Agent{Name: "Bobs", Model: "m"})
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "x", Token: botToken, AgentID: bobs.ID})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "x", Token: botToken, AgentID: bobs.ID})
 		Expect(err).To(MatchError(agents.ErrNotFound), "another user's agent: %v", err)
 		r.bind(studio.ConnectorInput{})
 		_, err = r.conns.GetConnector(ctx, "bob", "nope")
 		Expect(err).To(MatchError(connectors.ErrNotFound), "bob: %v", err)
-		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Name: "y", AgentID: r.agent.ID})
+		_, err = r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: "telegram", Name: "y", AgentID: r.agent.ID})
 		Expect(err).To(MatchError(connectors.ErrInvalid), "a connector with no token")
 	})
 

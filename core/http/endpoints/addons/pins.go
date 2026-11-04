@@ -28,34 +28,36 @@ func pinUser(c echo.Context, db *gorm.DB) (string, bool) {
 // entries that pass their gates, plus the apps the owner lists for the caller
 // when the caller holds the addons feature. complete is false when the owner
 // could not answer; the caller then must not treat the set as complete.
-func visibleIDs(c echo.Context, gw *gateway.Gateway, db *gorm.DB, s settings) (set map[string]bool, complete bool) {
+func visibleIDs(c echo.Context, gw *gateway.Gateway, db *gorm.DB, s settings) (set map[string]bool, complete bool, cause error) {
 	set = map[string]bool{}
 	v, ok := builtinViewer(c, db)
 	if !ok {
-		return set, false
+		return set, false, errNoViewer
 	}
 	for _, e := range builtin.Visible(v) {
 		set[e.ID] = true
 	}
 	if !v.Admin && (v.Has == nil || !v.Has(auth.FeatureAddons)) {
-		return set, true
+		return set, true, nil
 	}
 	if gw == nil {
-		return set, true
+		return set, true, nil
 	}
 	a, err := actor(c, db, s)
 	if err != nil {
-		return set, false
+		return set, false, err
 	}
 	list, err := gw.Apps(c.Request().Context(), a)
 	if err != nil {
-		return set, false
+		return set, false, err
 	}
 	for _, app := range list.Apps {
 		set[app.ID] = true
 	}
-	return set, true
+	return set, true, nil
 }
+
+var errNoViewer = errors.New("no viewer")
 
 // GetPins returns the caller's pinned add-on IDs.
 // @Summary List the add-ons the caller pinned
@@ -74,7 +76,14 @@ func GetPins(gw *gateway.Gateway, db *gorm.DB, svc *pins.Service, opts ...Option
 		if !ok {
 			return failure(c, 401, "Authentication required")
 		}
-		visible, _ := visibleIDs(c, gw, db, s)
+		visible, complete, cause := visibleIDs(c, gw, db, s)
+		if !complete {
+			// Without the owner's answer the visible set is only the built-in
+			// entries. Listing against it would drop the pins of the add-ons
+			// and the page would show them as gone. Say the owner did not
+			// answer and let the page keep the pins it has.
+			return ownerNotAnswering(c, cause)
+		}
 		list, err := svc.List(c.Request().Context(), user, visible)
 		if err != nil {
 			return failure(c, 503, "Pins unavailable")
@@ -107,10 +116,10 @@ func PutPins(gw *gateway.Gateway, db *gorm.DB, svc *pins.Service, opts ...Option
 		if err := decode(c, &ids); err != nil || ids == nil {
 			return failure(c, 400, "A list of add-on IDs is required")
 		}
-		visible, complete := visibleIDs(c, gw, db, s)
+		visible, complete, cause := visibleIDs(c, gw, db, s)
 		if !complete {
 			// Dropping IDs because the owner did not answer would lose pins.
-			return failure(c, 503, "Add-ons unavailable")
+			return ownerNotAnswering(c, cause)
 		}
 		saved, err := svc.Put(c.Request().Context(), user, ids, visible)
 		if errors.Is(err, pins.ErrTooMany) {

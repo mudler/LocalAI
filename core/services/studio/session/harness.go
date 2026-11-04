@@ -3,7 +3,9 @@ package session
 import (
 	"context"
 	"encoding/json"
+
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // Harness starts agent sessions.
@@ -78,6 +80,9 @@ type Tool struct {
 	// say): "builtin" or the add-on's ID. It is empty for every other tool.
 	// The harness does not read it.
 	Provider string
+	// Execution is what the add-on that serves a command tool declares about
+	// itself, or nil. The harness does not read it.
+	Execution *contract.ExecutionDescriptor
 	// StandInFor is set on the stand-in tool of an add-on that cannot work
 	// now: the built-in tools that add-on replaces (bash, say), so the chat
 	// can tell that the built-in serves in its place. The harness does not

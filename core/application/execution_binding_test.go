@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/mudler/LocalAI/core/services/addons/hostops"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -132,7 +133,7 @@ var _ = Describe("execution binding owner resolver", func() {
 		Expect(sources.Save(ctx, actor, catalog.Source{ID: "test", Name: "Test", URL: url, Enabled: true, AllowLoopbackHTTP: true})).To(Succeed())
 		runCtx, cancel := context.WithCancel(ctx)
 		DeferCleanup(cancel)
-		a = &Application{applicationConfig: &config.ApplicationConfig{Context: runCtx, Addons: config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: ownerRoot, AdminCheck: admin, OwnershipMode: auth.AddonModeLocalOwner, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}}}
+		a = &Application{applicationConfig: &config.ApplicationConfig{Context: runCtx, Addons: config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local", Root: ownerRoot, AdminCheck: admin, OwnershipMode: auth.AddonModeLocalOwner, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}}}
 
 		keys := filepath.Join(root, "keys")
 		Expect(gateway.GenerateCarrierKeys(keys, []string{"127.0.0.1"})).To(Succeed())
@@ -204,6 +205,23 @@ var _ = Describe("execution binding owner resolver", func() {
 		_, err = a.addonGateway.BindingForActor(ctx, actor, claim)
 		Expect(err).To(HaveOccurred())
 		Expect(a.addonGateway.AuthorizeExecutionStatus(ctx, actor, second)).NotTo(Succeed())
+	})
+
+	It("reads the host ceiling of connector files from the owner policy", func() {
+		got, err := a.studioConnectorFilesCeiling(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(contract.DefaultFileCeilingBytes))
+		snap, err := a.addonHostSettings.Snapshot(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		ceiling := int64(8 << 20)
+		_, err = a.addonHostSettings.Update(ctx, hostsettings.Patch{ConnectorFilesCeiling: &ceiling}, snap.Revision, "files-ceiling")
+		Expect(err).NotTo(HaveOccurred())
+		got, err = a.studioConnectorFilesCeiling(ctx)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got).To(Equal(ceiling))
+		Expect(a.addonHostSettings.Close()).To(Succeed())
+		_, err = a.studioConnectorFilesCeiling(ctx)
+		Expect(err).To(HaveOccurred(), "an owner that is down does not read as the default")
 	})
 
 	It("resolves local-owner SQLite using current chat and agent reads", func() {
@@ -429,7 +447,7 @@ type ordinaryBindingStore struct{ store.Store }
 var _ = Describe("workspace operation declarations", func() {
 	DescribeTable("retains the workspace dot prefix semantics", func(operations []string, want bool) {
 		Expect(hasWorkspaceOperation(operations)).To(Equal(want))
-		adapter := &studioAddons{hostOps: map[string][]string{"sample": operations}}
+		adapter := &studioAddons{hostOps: hostops.NewStaticAuthority(map[string][]string{"sample": operations})}
 		Expect(adapter.needsWorkspace("sample")).To(Equal(want))
 		Expect(adapter.needsWorkspace("other")).To(BeFalse())
 	},

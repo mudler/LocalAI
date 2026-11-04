@@ -4,6 +4,8 @@ package studio
 import (
 	"cmp"
 	"context"
+	"log/slog"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -39,6 +41,8 @@ const (
 	UnknownNoAnswer UnknownReason = "no_answer"
 	// UnknownReportedUnknown: the add-on answered that it cannot tell.
 	UnknownReportedUnknown UnknownReason = "reported_unknown"
+	// UnknownDraft: the chat does not exist yet, so no add-on is bound to it.
+	UnknownDraft UnknownReason = "draft"
 )
 
 // ExecutionDetail is what the provider said beside the typed value, plus why
@@ -101,13 +105,32 @@ func ExecutionObservation(ctx context.Context, user, addon string) (model.Value,
 	return value, detail.Explanation
 }
 
+var scopelessOnce sync.Once
+
+// onScopeless is called when a status is read from a context that has no
+// execution scope. That is a programming error: the read cannot succeed and
+// the caller would report "not selected" for an add-on that is fine. It logs
+// once; the tests replace it to fail.
+var onScopeless = func() {
+	scopelessOnce.Do(func() {
+		slog.Error("studio: the execution status was read outside an execution scope; the status is reported as not selected", "stack", string(debug.Stack()))
+	})
+}
+
 // ObserveExecution is ExecutionObservation with the whole detail. Failure says
 // why the value is unknown; Explanation and NetworkPolicyEnforced are set only
 // when the provider answered.
 func ObserveExecution(ctx context.Context, user, addon string) (model.Value, ExecutionDetail) {
 	scope, ok := ctx.Value(executionObservationKey{}).(*executionObservation)
-	if !ok || user != scope.user {
+	if !ok {
+		onScopeless()
 		return model.Unknown(), ExecutionDetail{Failure: UnknownNotSelected}
+	}
+	if user != scope.user {
+		return model.Unknown(), ExecutionDetail{Failure: UnknownNotSelected}
+	}
+	if scope.conversation == "" {
+		return model.Unknown(), ExecutionDetail{Failure: UnknownDraft}
 	}
 	scope.mu.Lock()
 	if !scope.closed && scope.provider != nil && (!scope.started || (scope.retriable && time.Since(scope.attempted) >= observationRetryAfter)) {
@@ -183,6 +206,8 @@ func (r UnknownReason) Text() string {
 		return "the add-on did not answer in time"
 	case UnknownReportedUnknown:
 		return "the add-on reported that it cannot tell"
+	case UnknownDraft:
+		return "the chat has not been created yet"
 	}
 	return "the reason is not known"
 }
@@ -205,6 +230,9 @@ type ExecutionStatusView struct {
 
 func executionStatusView(ctx context.Context, user, addon string) *ExecutionStatusView {
 	v, d := model.Unknown(), ExecutionDetail{Failure: UnknownNotSelected}
+	if scope, ok := ctx.Value(executionObservationKey{}).(*executionObservation); ok && scope.user == user && scope.conversation == "" {
+		addon, d.Failure = "", UnknownDraft // a draft has no add-on bound yet
+	}
 	if addon != "" {
 		v, d = ObserveExecution(ctx, user, addon)
 	}

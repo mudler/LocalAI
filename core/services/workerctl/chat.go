@@ -9,6 +9,24 @@ type ChatStartRequest struct {
 	Principal string `json:"principal"`
 	ChatID    string `json:"chat_id"`
 	Text      string `json:"text"`
+	// Grant is set for a connector message: what the sender of the turn may
+	// do. The worker keeps it for the turn, so a tool it builds is offered
+	// only for the capabilities in it. A start without a grant for a connector
+	// chat gets none of the gated tools.
+	Grant *ChatGrant `json:"grant,omitempty"`
+}
+
+// ChatGrant is the outcome of the permission check for the senders of one
+// connector turn (see studio.Authorize). It holds IDs, never message text.
+type ChatGrant struct {
+	Binding string   `json:"binding"`
+	Kind    string   `json:"kind,omitempty"`
+	Senders []string `json:"senders,omitempty"`
+	Roles   []string `json:"roles,omitempty"`
+	// Caps are the capabilities every sender of the turn holds.
+	Caps []string `json:"caps,omitempty"`
+	// Denied says why a capability in the ceiling is not held, by name.
+	Denied map[string]string `json:"denied,omitempty"`
 }
 
 // ChatStartReply is the worker's answer to a ChatStartRequest. With Error

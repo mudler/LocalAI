@@ -123,7 +123,7 @@ var _ = Describe("commands of a scoped chat", func() {
 		g := shellGroup(r.svc, alice, rec.ID)
 		Expect(g.Usable).To(BeFalse())
 		Expect(g.Reason).To(ContainSubstring("works in one folder"))
-		Expect(g.Reason).To(ContainSubstring("Sandbox"))
+		Expect(g.Reason).To(ContainSubstring("only in an add-on that isolates them"))
 		cmds, err := r.svc.CommandRunner(r.ctx, alice, rec.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(cmds.State).NotTo(Equal(studio.CommandsAvailable))

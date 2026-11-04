@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -100,6 +101,23 @@ type ApplicationConfig struct {
 	// call. It is startup-only. Nil or empty means no add-on gets a host
 	// operation endpoint.
 	AddonHostOps map[string][]string `json:"-" yaml:"-"`
+	// AddonHostOpsSource names where the startup grants came from: flag,
+	// environment, policy or empty. It never holds a path.
+	AddonHostOpsSource string `json:"-" yaml:"-"`
+	// AddonHostDeny maps an add-on ID, or "*" for all, to host operation
+	// prefixes, exact names or "*" that no grant may enable. Startup-only;
+	// deny set in the UI is stored separately and applies live.
+	AddonHostDeny map[string][]string `json:"-" yaml:"-"`
+	// AddonHostBlanket is the blanket approval mode set by the deployment
+	// ("off", "official", "any"). Empty leaves the choice to the UI.
+	AddonHostBlanket string `json:"-" yaml:"-"`
+	// AddonHostUIGrantsLocked makes the UI grant store read-only, so the
+	// policy file and flags are the only source of grants.
+	AddonHostUIGrantsLocked bool `json:"-" yaml:"-"`
+	// AddonHostUIGrantsWithoutAuth turns UI host grants on although
+	// authentication is off. Without it they are locked in that mode, since
+	// anyone who can reach the port could change them.
+	AddonHostUIGrantsWithoutAuth bool `json:"-" yaml:"-"`
 
 	// DiagnosticsRecorder is startup-only and local to this frontend process.
 	DiagnosticsRecorder *diagnostics.Recorder `json:"-" yaml:"-"`
@@ -142,6 +160,8 @@ type ApplicationConfig struct {
 
 	F16                          bool
 	Debug                        bool
+	LogClient                    bool
+	TrustedProxies               string // comma-separated IPs/CIDRs whose forwarding headers are believed
 	EnableTracing                bool
 	MaxConcurrentBackendRequests int
 	TracingMaxItems              int
@@ -167,6 +187,7 @@ type ApplicationConfig struct {
 	PreloadModelsFromPath    string
 	CORSAllowOrigins         string
 	ApiKeys                  []string
+	P2PEnableLimits          bool
 	P2PToken                 string
 	P2PNetworkID             string
 	Federated                bool
@@ -346,6 +367,13 @@ type ApplicationConfig struct {
 	// 404.
 	DisableTriggers   bool
 	DisableConnectors bool
+	// DisableConnectorTalkback hides the tool with which an agent writes to a
+	// chat of its connection and stops the reports of triggers to a channel.
+	// Owner notices keep working.
+	DisableConnectorTalkback bool
+	// SkipBindingCapsMigration keeps the one-time grant of the usual
+	// permissions to old connector bindings from running.
+	SkipBindingCapsMigration bool
 	// AgentJobRetentionDays is how long finished agent jobs are kept. Zero
 	// means DefaultAgentJobRetentionDays.
 	AgentJobRetentionDays int
@@ -404,6 +432,12 @@ type ApplicationConfig struct {
 	ChatsEgressExtraRegistries string
 	ChatsEgressAllowedHosts    string
 	ChatsEgressAuditDays       int
+
+	// chatsLimitsMu guards ChatsEgressAuditDays and the chats_loop_* limits.
+	// Background goroutines (the audit prune, the loop runner) read them
+	// while a settings POST rewrites them; use the Effective getters and the
+	// registry setters, which hold it.
+	chatsLimitsMu sync.RWMutex
 
 	// ChatsMaxIterations is the step limit of the tool loop of one chat turn:
 	// how many rounds of tool calls the model may make before it must answer.
@@ -1070,6 +1104,20 @@ func WithDebug(debug bool) AppOption {
 	}
 }
 
+// WithTrustedProxies sets the proxies whose X-Forwarded-For is believed.
+func WithTrustedProxies(list string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TrustedProxies = list
+	}
+}
+
+// WithLogClient adds the peer address and user agent to the HTTP access log.
+func WithLogClient(on bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.LogClient = on
+	}
+}
+
 func WithTracingMaxItems(items int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.TracingMaxItems = items
@@ -1384,6 +1432,10 @@ var (
 	DisableChats      = func(o *ApplicationConfig) { o.DisableChats = true }
 	DisableTriggers   = func(o *ApplicationConfig) { o.DisableTriggers = true }
 	DisableConnectors = func(o *ApplicationConfig) { o.DisableConnectors = true }
+	// DisableConnectorTalkback is the option of LOCALAI_DISABLE_CONNECTOR_TALKBACK.
+	DisableConnectorTalkback = func(o *ApplicationConfig) { o.DisableConnectorTalkback = true }
+	// SkipBindingCapsMigration is the option of LOCALAI_SKIP_BINDING_CAPS_MIGRATION.
+	SkipBindingCapsMigration = func(o *ApplicationConfig) { o.SkipBindingCapsMigration = true }
 )
 
 // WithAgentJobRetentionDays sets how long finished agent jobs are kept.
@@ -1564,6 +1616,8 @@ const (
 
 // EffectiveChatsLoopMinInterval is chats_loop_min_interval as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMinInterval() time.Duration {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	if d := o.ChatsLoopMinInterval; d >= MinChatsLoopInterval && d <= MaxChatsLoopInterval {
 		return d
 	}
@@ -1580,21 +1634,29 @@ func inRange(n, hi, def int) int {
 
 // EffectiveChatsLoopMaxRuns is chats_loop_max_runs as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMaxRuns() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopMaxRuns, MaxChatsLoopMaxRuns, DefaultChatsLoopMaxRuns)
 }
 
 // EffectiveChatsLoopMaxPerChat is chats_loop_max_per_chat as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMaxPerChat() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopMaxPerChat, MaxChatsLoopMaxPerChat, DefaultChatsLoopMaxPerChat)
 }
 
 // EffectiveChatsLoopMaxPerUser is chats_loop_max_per_user as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopMaxPerUser() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopMaxPerUser, MaxChatsLoopMaxPerUser, DefaultChatsLoopMaxPerUser)
 }
 
 // EffectiveChatsLoopDailyRuns is chats_loop_daily_runs as it applies now.
 func (o *ApplicationConfig) EffectiveChatsLoopDailyRuns() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	return inRange(o.ChatsLoopDailyRuns, MaxChatsLoopDailyRuns, DefaultChatsLoopDailyRuns)
 }
 
@@ -1618,8 +1680,18 @@ func (o *ApplicationConfig) EffectiveChatsIndexMaxTextBytes() int {
 // line while chats_egress_audit_days is unset.
 const DefaultChatsEgressAuditDays = 30
 
+// setChatsEgressAuditDays stores chats_egress_audit_days under the lock that
+// the prune goroutine's reads take.
+func (o *ApplicationConfig) setChatsEgressAuditDays(v int) {
+	o.chatsLimitsMu.Lock()
+	o.ChatsEgressAuditDays = v
+	o.chatsLimitsMu.Unlock()
+}
+
 // EffectiveChatsEgressAuditDays is chats_egress_audit_days as it applies now.
 func (o *ApplicationConfig) EffectiveChatsEgressAuditDays() int {
+	o.chatsLimitsMu.RLock()
+	defer o.chatsLimitsMu.RUnlock()
 	if o.ChatsEgressAuditDays < 1 || o.ChatsEgressAuditDays > 365 {
 		return DefaultChatsEgressAuditDays
 	}
@@ -1656,4 +1728,8 @@ func (o *ApplicationConfig) EffectiveChatsMaxIterations() int {
 		return DefaultChatsMaxIterations
 	}
 	return o.ChatsMaxIterations
+}
+
+func WithP2PEnableLimits(enabled bool) AppOption {
+	return func(o *ApplicationConfig) { o.P2PEnableLimits = enabled }
 }

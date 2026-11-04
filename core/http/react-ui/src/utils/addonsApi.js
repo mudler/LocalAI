@@ -18,6 +18,9 @@ export class AddonsError extends Error {
     this.type = info.type || ''
     // The step of a backend install that failed, when the host named one.
     this.phase = info.phase || ''
+    // The rest of a typed refusal (for example the true operation list of a
+    // stale approval), kept as the owner sent it.
+    this.details = info.details || null
   }
 }
 
@@ -56,11 +59,13 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
   async function call(path, { method = 'GET', body, signal, headers: extra, classify = classifyResponse } = {}) {
     let response
     try {
+      // A form goes as it is: the browser writes the multipart boundary.
+      const form = typeof FormData !== 'undefined' && body instanceof FormData
       response = await doFetch(base(path), {
         method,
         signal,
-        headers: { ...(body === undefined ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' }), ...(extra || {}) },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: { ...(body === undefined || form ? { Accept: 'application/json' } : { Accept: 'application/json', 'Content-Type': 'application/json' }), ...(extra || {}) },
+        body: body === undefined ? undefined : form ? body : JSON.stringify(body),
         credentials: 'same-origin',
       })
     } catch (e) {
@@ -110,8 +115,19 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
     dispatchFile,
     apps: {
       async list(signal) {
+        return (await api.apps.read(signal)).apps
+      },
+      // The list with the marks the server puts on it: stale is true when the
+      // server answers with the last list it got from the owner (the owner is
+      // busy or not reachable), so a page can say so and keep showing it.
+      async read(signal) {
         const out = await call('/api/addons/apps', { signal })
-        return Array.isArray(out?.apps) ? out.apps : []
+        return {
+          apps: Array.isArray(out?.apps) ? out.apps : [],
+          stale: out?.stale === true,
+          staleReason: typeof out?.staleReason === 'string' ? out.staleReason : '',
+          staleSince: typeof out?.staleSince === 'string' ? out.staleSince : '',
+        }
       },
       async start(id, { operationId, generation }, signal) {
         const out = await call(`/api/addons/apps/${encodeURIComponent(id)}/start`, { method: 'POST', body: { operationId, generation }, signal })
@@ -264,6 +280,9 @@ export function createAddonsCatalogAdapter(api, { pageSize = 24 } = {}) {
     id: release.id ?? release.addonId,
     title: release.name || (release.id ?? release.addonId),
     description: release.description || release.ui?.description || '',
+    // The other languages of the title and description, from the library.
+    titles: release.ui?.titles || {},
+    descriptions: release.ui?.descriptions || {},
     version: release.version,
     sourceId: release.sourceId,
     // The kind of the entry: addon when the library does not say.

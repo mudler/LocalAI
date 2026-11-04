@@ -1,12 +1,12 @@
 import { test, expect } from './coverage-fixtures.js'
 
-// The Skills page has an item of its own in the sidebar, right after Memory.
+// The Skills page has an item of its own in the sidebar, right after Knowledge.
 // Skills work in every chat, so Agents does not light up on the page.
 
 const item = (page, href) => page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)
 
 test.describe('Skills in the sidebar', () => {
-  test('the item follows Memory, opens the page and is the only one lit up', async ({ page }) => {
+  test('the item follows Knowledge, opens the page and is the only one lit up', async ({ page }) => {
     await page.goto('/app')
     await expect(item(page, '/app/skills')).toBeVisible()
     const hrefs = await page.locator('.sidebar-nav a.nav-item').evaluateAll(els => els.map(e => e.getAttribute('href')))
@@ -46,7 +46,7 @@ test.describe('Skills in the sidebar', () => {
 test.describe('Skills in the sidebar on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
-  test('the menu lists Skills after Memory and opens the page', async ({ page }) => {
+  test('the menu lists Skills after Knowledge and opens the page', async ({ page }) => {
     await page.goto('/app')
     await page.getByRole('button', { name: 'Open menu' }).click()
     await expect(item(page, '/app/skills')).toBeVisible()

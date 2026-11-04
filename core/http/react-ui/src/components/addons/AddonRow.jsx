@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next'
 import Icon from '../Icon'
 import Button from '../ui/Button'
 import { apiUrl } from '../../utils/basePath'
-import { AppIcon, BuiltinIcon, StateChip, UpdateChip, VersionText } from './AddonBits'
+import { AppIcon, ApprovalChip, BuiltinIcon, OperationChip, StateChip, UpdateChip, VersionText } from './AddonBits'
 import AddonMenu from './AddonMenu'
+import { isLocalFile } from './fileInstall'
 import { addedByAddon, stateChip } from './addonState'
 
 // One installed add-on as a row: identity tile, name and state, one line of
@@ -12,7 +13,7 @@ import { addedByAddon, stateChip } from './addonState'
 // The row body selects the add-on (its details open beside the list). On the
 // right: the actions that fit its state (Upgrade, Open), Pin, and the overflow
 // menu with reordering, Details and Remove.
-export default function AddonRow({ tile, pinned, selected = false, attention = '', source, updateVersion = '', onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
+export default function AddonRow({ tile, pinned, selected = false, attention = '', source, updateVersion = '', waitingApproval = false, onPin, onMove, onOpenDetail, onRemove, upgrade, upgradeInline = false }) {
   const { t } = useTranslation('addons')
   const { t: tn } = useTranslation('nav')
   const title = tile.titleKey ? tn(tile.titleKey) : tile.title
@@ -36,7 +37,9 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
           <span className="ad-tile__head">
             <span className="ad-tile__title">{title}</span>
             {app && <StateChip app={app} className="ad-tile__state" />}
-            {app && (app.update === 'update-pending' || updateVersion) && <UpdateChip version={updateVersion} />}
+            {app && <OperationChip app={app} className="ad-tile__state" />}
+            {app && !app.operation && !waitingApproval && (app.update === 'update-pending' || updateVersion) && <UpdateChip version={updateVersion} />}
+            {app && waitingApproval && <ApprovalChip />}
           </span>
           {tile.description && <span className="ad-tile__desc">{tile.description}</span>}
           <span className="ad-meta">
@@ -48,7 +51,7 @@ export default function AddonRow({ tile, pinned, selected = false, attention = '
             )}
             {!app && <span className="ad-meta__item">{t('meta.builtinLong')}</span>}
             {source && source.sourceId && (
-              <span className="ad-meta__item"><Icon name="shield" aria-hidden="true" /> {t(signed ? 'meta.signed' : 'meta.checked', { library: source.sourceId })}</span>
+              <span className="ad-meta__item" data-source={source.sourceId}><Icon name="shield" aria-hidden="true" /> {isLocalFile(source.sourceId) ? t('file.badge') : t(signed ? 'meta.signed' : 'meta.checked', { library: source.sourceId })}</span>
             )}
             {app && <span className="ad-meta__item"><VersionText version={app.version} /></span>}
           </span>

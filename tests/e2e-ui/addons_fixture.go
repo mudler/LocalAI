@@ -255,7 +255,7 @@ func newAddonsFixture(dir, executable, dataDir string, localOwner bool) (*addons
 	f.owner = config.AddonConfig{
 		Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://" + address, StorageID: "disk",
 		Root: filepath.Join(dataDir, "addons"), ListenAddress: address, Transport: transport,
-		Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
+		Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
 		// A spec checks again within seconds: the interval of the refresh
 		// limit is short here and the limit itself stays on.
 		UpdateRefreshInterval: time.Second,
@@ -277,7 +277,7 @@ func localOwnerAddons(dataDir string) (config.AddonConfig, error) {
 	return config.AddonConfig{
 		Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://" + address, StorageID: "disk",
 		Root: filepath.Join(dataDir, "addons"), ListenAddress: address, Transport: transport,
-		Host:          contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
+		Host:          contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: runtime.GOOS, Arch: runtime.GOARCH},
 		OwnershipMode: auth.AddonModeLocalOwner,
 	}, nil
 }

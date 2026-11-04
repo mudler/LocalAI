@@ -113,9 +113,25 @@ type ToolDefinition struct {
 	// contract.ToolDefinition.Shadows), or empty. Only the chat consumer acts
 	// on it; every other consumer keeps the namespaced Name.
 	Shadows string `json:"shadows,omitempty"`
+	// Execution is what the add-on declares about a tool that shadows bash. It
+	// is never nil on such a tool: a manifest without a descriptor gets one
+	// with the add-on's title.
+	Execution *contract.ExecutionDescriptor `json:"execution,omitempty"`
 	// InstalledAt is when the add-on was first installed (RFC 3339, UTC), or
 	// empty. The chat consumer ranks the add-ons that shadow one name by it.
 	InstalledAt string `json:"installedAt,omitempty"`
+	// Permission is the capability (see contract.ToolPermission) that a
+	// sender needs to use the tool in a connector chat, or empty. The chat
+	// consumer holds the tool to it; another consumer has no sender.
+	Permission string `json:"permission,omitempty"`
+	// Credentialed is true when the add-on declares a credential: its tools
+	// run with the token of a connection that the person selects. A chat
+	// offers them only after a connection is selected.
+	Credentialed bool `json:"credentialed,omitempty"`
+	// ResourceArgument and ResourceLabel come from the credential slot of the
+	// add-on. They only shape the line that says which connection acted.
+	ResourceArgument string `json:"-"`
+	ResourceLabel    string `json:"-"`
 }
 
 // ResultKind says what a ToolResult carries.
@@ -165,6 +181,51 @@ const CodeNotPermitted = "not_permitted"
 // NotPermittedNote is what the model is told when the person lacks a permission.
 const NotPermittedNote = "The person does not have the permission this tool needs. Nothing was changed. Tell them an administrator must grant it; do not repeat the call and do not report an outage."
 
+// CodeRateLimited is the Code of a ResultError for a call that the service
+// behind the add-on turned away because it was called too often. RetryAfter says
+// how long to wait.
+const CodeRateLimited = "rate_limited"
+
+// RateLimitedNote is what the model is told when the service asks it to wait.
+const RateLimitedNote = "The service is limiting how often it is called. Nothing was changed. Do not repeat this call, or any call to the same add-on, before retryAfter seconds have passed; tell the person if the wait is long."
+
+// CodeResourceNotAllowed is the Code of a ResultError for a call that names a
+// resource the person did not allow for the add-on. The add-on was not called.
+const CodeResourceNotAllowed = gateway.CodeResourceNotAllowed
+
+// ResourceNotAllowedNote is what the model is told for a resource that is not on the list.
+const ResourceNotAllowedNote = "That resource is not on the list the person allowed for this add-on, so nothing was sent to it. Use one of the resources in allowed, or tell the person to add it to the list on the add-on page. Do not repeat the call and do not report an outage."
+
+// CodeNoCredential is the Code of a ResultError for an add-on that needs a
+// credential the person has not given.
+const CodeNoCredential = gateway.CodeNoCredential
+
+// CodeSelectConnection is the Code of a ResultError for a call of an add-on
+// that runs with a credential when the person has not selected which
+// connection to use.
+const CodeSelectConnection = gateway.CodeSelectConnection
+
+// SelectConnectionNote is what the model is told when no connection is enabled.
+const SelectConnectionNote = "No connection is enabled for this add-on in this chat, so nothing was sent. Tell the person to enable one for it in the Tools menu of this chat. Do not repeat the call, do not pick one yourself and do not report an outage."
+
+// WithConnection returns a context that names the binding a credentialed call
+// of a chat must use. The chats service sets it after it checked the name the
+// model gave against the connections the person enabled for the chat. The
+// owner refuses a binding that is not in that set.
+func WithConnection(ctx context.Context, bindingID string) context.Context {
+	return gateway.WithConnection(ctx, bindingID)
+}
+
+// NoCredentialNote is what the model is told when the person has no credential for the add-on.
+const NoCredentialNote = "The person has not connected this add-on yet, so nothing was sent. Tell them to add a connection on the add-on page. Do not repeat the call and do not report an outage."
+
+// CodeWriteNotAllowed is the Code of a ResultError for a write tool of an add-on
+// whose binding has its write mode off. The add-on was not called.
+const CodeWriteNotAllowed = gateway.CodeWriteNotAllowed
+
+// WriteNotAllowedNote is what the model is told when writes are off.
+const WriteNotAllowedNote = "The person has not allowed this add-on to change anything, so nothing was sent. Tell them they can turn on writes on the add-on page, choosing to confirm each change or to allow them. Do not repeat the call and do not report an outage."
+
 // CodeResourceUnreachable is the Code of a ResultError for a resource the person cannot reach.
 const CodeResourceUnreachable = "resource_unreachable"
 
@@ -187,6 +248,9 @@ type ProposalRef struct {
 	Count      uint64          `json:"count"`
 	Summary    json.RawMessage `json:"summary,omitempty"`
 	ExpiresAt  time.Time       `json:"expiresAt"`
+	// Connection names the connection the change will be made with, as
+	// "as Work, repository acme/widgets"; empty for an add-on with no credential.
+	Connection string `json:"connection,omitempty"`
 }
 
 // AppliedRef is what a chat learns of a change it made. The person enabled the
@@ -240,6 +304,17 @@ type ToolResult struct {
 	Message string `json:"message,omitempty"`
 	// Note is host text for the model: a proposal is not applied.
 	Note string `json:"note,omitempty"`
+	// Allowed lists the resources the person's bindings allow, for the code
+	// resource_not_allowed.
+	Allowed []string `json:"allowed,omitempty"`
+	// Connection says which connection the call used, as "as Work, repository
+	// acme/widgets", for a tool of an add-on that runs with a credential. The
+	// host writes it; ConnectionID is the binding. Tell the person which
+	// connection acted.
+	Connection   string `json:"connection,omitempty"`
+	ConnectionID string `json:"connectionId,omitempty"`
+	// RetryAfter is how many seconds to wait, for the code rate_limited.
+	RetryAfter int `json:"retryAfter,omitempty"`
 }
 
 // ProposalNote is what the model is told after a proposal.
@@ -272,6 +347,9 @@ var _ Applier = (*gateway.Gateway)(nil)
 
 // ToolAdapter exposes add-on tools to model consumers.
 type ToolAdapter struct {
+	// connection names the connection a call used, or "". The chat consumer
+	// sets it; another consumer has no chat.
+	connection ConnectionNamer
 	// actions says that this adapter serves action tools. Only the adapter of
 	// the chats consumer is built with it; every other consumer neither lists
 	// nor runs an action tool.
@@ -279,6 +357,28 @@ type ToolAdapter struct {
 	apply   Applier
 	backend Backend
 	newID   func() (string, error)
+}
+
+// ConnectionNamer returns the display name of the binding that a call of the
+// chat conversation uses, or "" when the binding is not known.
+type ConnectionNamer func(ctx context.Context, conversationID, bindingID string) string
+
+// WithConnectionNames makes the adapter state, in the result of a tool of an
+// add-on that runs with a credential, which connection acted. It returns t.
+func (t *ToolAdapter) WithConnectionNames(f ConnectionNamer) *ToolAdapter {
+	t.connection = f
+	return t
+}
+
+// connectionLine is the sentence that says which connection acted.
+func connectionLine(name, label, key string) string {
+	if key == "" {
+		return "as " + name
+	}
+	if label == "" {
+		label = "resource"
+	}
+	return "as " + name + ", " + label + " " + key
 }
 
 // NewToolAdapter returns an adapter over the owner.
@@ -365,8 +465,8 @@ func (t *ToolAdapter) visible(ctx context.Context, actor contract.Actor) ([]apps
 	}
 	var out []apps.App
 	for _, a := range list.Apps {
-		if a.Enabled && a.State == "running" && a.Generation > 0 && (len(a.ToolDefinitions) > 0 || (a.ID == "tables" && t.hasResourceLister())) {
-			if err := validateTablesListing(a); err != nil {
+		if a.Enabled && a.State == "running" && a.Generation > 0 && (len(a.ToolDefinitions) > 0 || t.hasListing(a)) {
+			if err := validateListing(a); err != nil {
 				return nil, err
 			}
 			out = append(out, a)
@@ -394,12 +494,35 @@ func (t *ToolAdapter) Controls(ctx context.Context, actor contract.Actor, addonI
 	return nil, nil
 }
 
+// Network returns the network an add-on declares, when the actor can see the
+// add-on and the apps list draws its network-policy control.
+func (t *ToolAdapter) Network(ctx context.Context, actor contract.Actor, addonID string) (apps.NetworkView, bool, error) {
+	if err := checkActor(actor); err != nil {
+		return apps.NetworkView{}, false, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return apps.NetworkView{}, false, gateway.ClassifyCheck(err)
+	}
+	for _, a := range list.Apps {
+		if a.ID == addonID && a.Network != nil {
+			return *a.Network, true, nil
+		}
+	}
+	return apps.NetworkView{}, false, nil
+}
+
 // AddonSkills is the skills of one add-on the actor can see.
 type AddonSkills struct {
 	AddonID, Title string
 	// InstalledAt is when the add-on was first installed, or empty.
 	InstalledAt string
 	Skills      []contract.SkillDefinition
+	// Isolated are the skills that need the add-on's own commands tool to
+	// report isolated execution (see contract.IsolatedSkills).
+	Isolated []string
+	// Slots are the slots the add-on's skills serve (see contract.SlotsOf).
+	Slots []contract.Slot
 	// Running is true when the add-on may serve now: enabled and running, as
 	// Discover requires for tools.
 	Running bool
@@ -423,9 +546,95 @@ func (t *ToolAdapter) Skills(ctx context.Context, actor contract.Actor) ([]Addon
 			continue
 		}
 		running := a.Enabled && a.State == "running" && a.Generation > 0
-		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: slices.Clone(a.Skills), Running: running})
+		out = append(out, AddonSkills{AddonID: a.ID, Title: a.Title, InstalledAt: a.InstalledAt, Skills: slices.Clone(a.Skills),
+			Isolated: contract.IsolatedSkills(a.ToolDefinitions, a.Skills), Slots: contract.SlotsOf(a.Skills), Running: running})
 	}
 	slices.SortFunc(out, func(x, y AddonSkills) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
+// AddonContextFiles is the context files one add-on declares.
+type AddonContextFiles struct {
+	AddonID string
+	Files   []contract.ContextFile
+	// Running is true when the add-on may serve now: enabled and running, as
+	// Discover requires for tools.
+	Running bool
+}
+
+// ContextFiles lists the installed add-ons that declare context files and that
+// the actor can see, running or not. The host reads the files itself; a chat
+// loads those of a running add-on, and the Memory page lists them for any.
+func (t *ToolAdapter) ContextFiles(ctx context.Context, actor contract.Actor) ([]AddonContextFiles, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonContextFiles
+	for _, a := range list.Apps {
+		if len(a.ContextFiles) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonContextFiles{AddonID: a.ID, Files: slices.Clone(a.ContextFiles), Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonContextFiles) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
+// AddonUserSettings is the per-person settings one add-on declares.
+type AddonUserSettings struct {
+	AddonID  string
+	Settings []contract.UserSetting
+	// Running is true when the add-on may serve now: enabled and running.
+	Running bool
+}
+
+// UserSettings lists the installed add-ons that declare per-person settings and
+// that the actor can see, running or not. The host reads the answers itself;
+// the add-on is not called.
+func (t *ToolAdapter) UserSettings(ctx context.Context, actor contract.Actor) ([]AddonUserSettings, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	var out []AddonUserSettings
+	for _, a := range list.Apps {
+		if len(a.UserSettings) == 0 {
+			continue
+		}
+		running := a.Enabled && a.State == "running" && a.Generation > 0
+		out = append(out, AddonUserSettings{AddonID: a.ID, Settings: slices.Clone(a.UserSettings), Running: running})
+	}
+	slices.SortFunc(out, func(x, y AddonUserSettings) int { return strings.Compare(x.AddonID, y.AddonID) })
+	return out, nil
+}
+
+// AddonListing is the title and description an add-on declares for people.
+type AddonListing struct {
+	AddonID, Title, Description string
+}
+
+// Listings returns the title and description of every add-on the actor can
+// see. An add-on that declares neither has its ID as title.
+func (t *ToolAdapter) Listings(ctx context.Context, actor contract.Actor) ([]AddonListing, error) {
+	if err := checkActor(actor); err != nil {
+		return nil, err
+	}
+	list, err := t.backend.Apps(ctx, actor)
+	if err != nil {
+		return nil, gateway.ClassifyCheck(err)
+	}
+	out := make([]AddonListing, 0, len(list.Apps))
+	for _, a := range list.Apps {
+		out = append(out, AddonListing{AddonID: a.ID, Title: a.Title, Description: a.Description})
+	}
 	return out, nil
 }
 
@@ -483,21 +692,39 @@ func definition(a apps.App, d contract.ToolDefinition) (ToolDefinition, bool) {
 	}
 	// The owner validated the manifest at install; it is checked again here
 	// because a schema is what a model is told to obey.
-	if contract.ValidateToolSchema(d.InputSchema, d.Kind) != nil {
+	if contract.ValidateDefinitionSchema(d) != nil {
 		return ToolDefinition{}, false
 	}
 	var params map[string]any
 	if json.Unmarshal(d.InputSchema, &params) != nil {
 		return ToolDefinition{}, false
 	}
-	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt}
+	def := ToolDefinition{Name: name, AddonID: a.ID, Tool: d.Name, Kind: d.Kind, Description: d.Description, Parameters: params, InstalledAt: a.InstalledAt, Permission: contract.ToolPermission(a.Credentialed, d), Credentialed: a.Credentialed,
+		ResourceArgument: a.ResourceArgument, ResourceLabel: a.ResourceLabel}
 	// Checked again for the same reason as the schema: a manifest that names a
 	// tool outside the list, or a shadow of the wrong kind or schema, never
 	// shadows it.
 	if d.Shadows != "" && contract.ValidateShadow(d) == nil {
 		def.Shadows = d.Shadows
+		if d.Shadows == "bash" {
+			def.Execution = executionOf(a, d)
+		}
 	}
 	return def, true
+}
+
+// executionOf is the descriptor of a commands tool as the chat consumer sees
+// it. A manifest that declares none behaves as a provider of commands under the
+// add-on's title.
+func executionOf(a apps.App, d contract.ToolDefinition) *contract.ExecutionDescriptor {
+	e := contract.ExecutionDescriptor{Class: contract.ExecutionClassCommands}
+	if d.Execution != nil {
+		e = *d.Execution
+	}
+	if e.Title == "" {
+		e.Title = a.Title
+	}
+	return &e
 }
 
 // Discover returns the tools the actor may offer a model now, in a stable
@@ -509,8 +736,8 @@ func (t *ToolAdapter) Discover(ctx context.Context, actor contract.Actor) ([]Too
 	}
 	var out []ToolDefinition
 	for _, a := range list {
-		if a.ID == "tables" && t.hasResourceLister() && len(out) < MaxTools {
-			out = append(out, databaseListingDefinition())
+		if l, ok := t.listingOf(a); ok && len(out) < MaxTools {
+			out = append(out, resourceListingDefinition(a, l))
 		}
 		for _, d := range a.ToolDefinitions {
 			if d.Kind == contract.ToolKindAction && !t.actions {
@@ -571,6 +798,21 @@ func (t *ToolAdapter) ExecuteIn(ctx context.Context, actor contract.Actor, conve
 }
 
 func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage) (ToolResult, error) {
+	var acted connectionUse
+	res, err := t.executeTool(ctx, actor, conversationID, name, arguments, &acted)
+	if err == nil && acted.line != "" && res.Connection == "" {
+		res.Connection, res.ConnectionID = acted.line, acted.id
+		if res.Proposal != nil {
+			res.Proposal.Connection = acted.line
+		}
+	}
+	return res, err
+}
+
+// connectionUse is the connection that a credentialed call of a chat names.
+type connectionUse struct{ id, line string }
+
+func (t *ToolAdapter) executeTool(ctx context.Context, actor contract.Actor, conversationID, name string, arguments json.RawMessage, acted *connectionUse) (ToolResult, error) {
 	if conversationID != "" && !ValidConversationID(conversationID) {
 		return ToolResult{}, ErrInvalidArguments
 	}
@@ -589,8 +831,8 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 		if a.ID != addonID {
 			continue
 		}
-		if addonID == "tables" && tool == "databases-list" && t.hasResourceLister() {
-			return t.listDatabases(ctx, actor, name, arguments)
+		if l, ok := t.listingOf(a); ok && l.Tool == tool {
+			return t.listResources(ctx, actor, a, l, name, arguments)
 		}
 		for _, d := range a.ToolDefinitions {
 			if d.Name != tool {
@@ -609,12 +851,20 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	}
 	resource, body, err := toolargs.Bind(def.Tool, def.Parameters, arguments, conversationID != "")
 	if err != nil {
-		if errors.Is(err, ErrInvalidArguments) {
-			if message := officeCreationDiagnostic(addonID, tool, arguments); message != "" {
-				return ToolResult{Kind: ResultError, Tool: name, Code: CodeInvalidRequest, Message: message}, nil
-			}
-		}
 		return ToolResult{}, err
+	}
+	if def.Credentialed && conversationID != "" && t.connection != nil {
+		if id := gateway.ConnectionOverride(ctx); id != "" {
+			cname := t.connection(ctx, conversationID, id)
+			key := ""
+			if def.ResourceArgument != "" {
+				var in map[string]json.RawMessage
+				if json.Unmarshal(body, &in) == nil {
+					_ = json.Unmarshal(in[def.ResourceArgument], &key)
+				}
+			}
+			*acted = connectionUse{id: id, line: connectionLine(cname, def.ResourceLabel, key)}
+		}
 	}
 	if resource == "" && conversationID != "" && requiresResource(def) {
 		sel, ok := t.backend.(Selector)
@@ -674,11 +924,15 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 	if err != nil {
 		return refusedResult(name, err)
 	}
-	if t.apply != nil {
+	if t.apply != nil && !p.AwaitsPerson {
 		return t.applyNow(ctx, actor, name, p)
 	}
 	ref := ProposalRef{ID: p.ID, AddonID: p.AddonID, ResourceID: p.ResourceID, Action: p.Action, Digest: p.Digest,
 		State: string(p.State), Count: p.Effects.Count, ExpiresAt: p.ExpiresAt}
+	if p.ConnectionName != "" {
+		// What the owner stored, so the card says it on every frontend.
+		ref.Connection = "as " + p.ConnectionName
+	}
 	if len(p.Effects.Sample) <= MaxSummaryBytes {
 		ref.Summary = p.Effects.Sample
 	}
@@ -689,7 +943,9 @@ func (t *ToolAdapter) execute(ctx context.Context, actor contract.Actor, convers
 // failure that is certain withdraws the proposal, so nothing waits for a
 // browser; an unknown outcome is left alone and reported, never repeated.
 func (t *ToolAdapter) applyNow(ctx context.Context, actor contract.Actor, name string, p gateway.Proposal) (ToolResult, error) {
-	done, err := t.apply.ConfirmProposal(ctx, actor, p.ID, p.Digest)
+	// The mark keeps the owner from treating this confirmation as a person's
+	// when the chat and the browser share one credential (local-owner mode).
+	done, err := t.apply.ConfirmProposal(gateway.WithChatTurn(ctx), actor, p.ID, p.Digest)
 	if err != nil {
 		var unknown *gateway.OutcomeUnknown
 		var unavailable *gateway.ProposalUnavailable
@@ -737,7 +993,19 @@ func receiptPayload(p gateway.Proposal) json.RawMessage {
 // on. Every other error, an outage and an unknown outcome included, passes
 // through unchanged.
 func refusedResult(name string, err error) (ToolResult, error) {
+	var limited *contract.ErrRateLimited
+	var refusal *gateway.CredentialRefusal
 	switch {
+	case errors.As(err, &limited):
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeRateLimited, Note: RateLimitedNote, RetryAfter: limited.Seconds()}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeResourceNotAllowed:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeResourceNotAllowed, Note: ResourceNotAllowedNote, Allowed: refusal.Allowed}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeWriteNotAllowed:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeWriteNotAllowed, Note: WriteNotAllowedNote}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeSelectConnection:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeSelectConnection, Note: SelectConnectionNote}, nil
+	case errors.As(err, &refusal) && refusal.Code == gateway.CodeNoCredential:
+		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNoCredential, Note: NoCredentialNote}, nil
 	case errors.Is(err, gateway.ErrNotPermitted):
 		return ToolResult{Kind: ResultError, Tool: name, Code: CodeNotPermitted, Note: NotPermittedNote}, nil
 	case errors.Is(err, gateway.ErrNotSent):

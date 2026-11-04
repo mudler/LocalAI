@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
@@ -63,10 +63,17 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
   // The opaque auth epoch also changes on same-user refresh. Invalidate reads
   // and pending Home dispatch synchronously, before effect cleanup can run.
   const actor = `${user?.id || ''}:${allowed}:${isAdmin}:${sessionEpoch}`
-  requests.setScope(actor)
   const authority = useRef({ actor, allowed, list: EMPTY })
-  if (authority.current.actor !== actor) authority.current = { actor, allowed, list: EMPTY }
-  authority.current.allowed = allowed
+  // Render only reads the ref: a render that React discards (concurrent or
+  // StrictMode) must not change the scope of live requests. A render for a new
+  // actor shows an empty list at once, and the layout effect below commits
+  // the new scope before the browser paints and before any passive effect.
+  const viewed = authority.current.actor === actor ? authority.current.list : EMPTY
+  useLayoutEffect(() => {
+    requests.setScope(actor)
+    if (authority.current.actor !== actor) authority.current = { actor, allowed, list: EMPTY }
+    authority.current.allowed = allowed
+  }, [requests, actor, allowed])
   const [consumers, setConsumers] = useState(0)
   const [layers, setLayers] = useState([])
   const navigateRef = useRef(navigate)
@@ -261,9 +268,9 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     // only because the answer is not in yet.
     actor,
     known: serverOn !== null,
-    status: authority.current.list.status,
-    apps: authority.current.list.apps,
-    error: authority.current.list.error,
+    status: viewed.status,
+    apps: viewed.apps,
+    error: viewed.error,
     instances,
     allowed,
     refresh,
@@ -283,7 +290,7 @@ export function AddonRegistryProvider({ children, api = addonsApi }) {
     // them leaves the host with no entries, never with a broken render.
     navigationItems: guarded(() => buildNavigation(list.apps, { language: i18n.language })),
     chatActions: guarded(() => availableChatActions(instances, list.apps, { hasFeature: () => allowed })),
-  }), [actor, serverOn, list, instances, allowed, refresh, navigateHomeCommand, navigateModelAction, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
+  }), [actor, serverOn, list, viewed, instances, allowed, refresh, navigateHomeCommand, navigateModelAction, ingest, acquire, manager, i18n.language, runAction, pushLayer, presentApproval])
 
   const boundaryLabels = { title: t('shell.error.title'), text: t('shell.error.text'), retryLabel: t('shell.error.retry') }
   return (

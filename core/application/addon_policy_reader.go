@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	"github.com/mudler/LocalAI/core/services/studio/egress"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // studioEgressSettings reads a fresh bounded owner policy on every request.
@@ -61,6 +62,33 @@ func (a *Application) studioToolPins(ctx context.Context) (map[string]string, er
 		return nil, err
 	}
 	return maps.Clone(snapshot.Policy.ToolProviders), nil
+}
+
+// studioConnectorFilesCeiling is the host ceiling of a connector file, from
+// the owner policy. Without add-ons there is no owner policy and no connector
+// to move a file, so the default stands.
+func (a *Application) studioConnectorFilesCeiling(ctx context.Context) (int64, error) {
+	n, err := a.policyFilesCeiling(ctx)
+	if err != nil {
+		return 0, err
+	}
+	// A file that a sender shares becomes a file of the chat, so the ceiling
+	// never passes what one file of a workspace may be.
+	return min(n, a.studioUploadLimit()), nil
+}
+
+func (a *Application) policyFilesCeiling(ctx context.Context) (int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if !a.applicationConfig.Addons.Enabled {
+		return contract.DefaultFileCeilingBytes, nil
+	}
+	snapshot, err := a.readAddonHostPolicy(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return snapshot.Policy.FilesCeiling(), nil
 }
 
 // readAddonHostPolicy is shared by host consumers; the DTO keeps revision

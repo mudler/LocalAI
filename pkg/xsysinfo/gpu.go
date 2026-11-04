@@ -614,10 +614,20 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 	return gpus
 }
 
-// getAMDGPUMemory queries AMD GPUs using rocm-smi.
-// Prefers --showmeminfo all so APU GTT pools are visible (#12058); falls
-// back to vram-only on older rocm-smi builds that reject "all".
+// getAMDGPUMemory queries AMD GPUs using rocm-smi, falling back to the
+// amdgpu sysfs attributes when rocm-smi is absent (ROCm 7+ images ship
+// only amd-smi) or reports nothing.
 func getAMDGPUMemory() []GPUMemoryInfo {
+	if gpus := getAMDRocmSMIMemory(); len(gpus) > 0 {
+		return gpus
+	}
+	return readAMDSysfsGPUMemory(defaultSysfsDRMPath)
+}
+
+// getAMDRocmSMIMemory prefers --showmeminfo all so APU GTT pools are
+// visible (#12058); falls back to vram-only on older rocm-smi builds that
+// reject "all".
+func getAMDRocmSMIMemory() []GPUMemoryInfo {
 	if _, err := exec.LookPath("rocm-smi"); err != nil {
 		return nil
 	}
@@ -758,36 +768,43 @@ func parseRocmSMIMemInfoCSV(output string) []GPUMemoryInfo {
 			gttTotal, gttUsed = scaleRocmMemIfMB(gttTotal, gttUsed)
 		}
 
-		totalBytes, usedBytes := vramTotal, vramUsed
-		if amdSharedMemoryAPU(vramTotal, gttTotal) {
-			totalBytes = vramTotal + gttTotal
-			usedBytes = vramUsed + gttUsed
-			xlog.Debug("AMD shared-memory APU detected; folding GTT into VRAM totals",
-				"vram_total", vramTotal, "gtt_total", gttTotal, "combined_total", totalBytes)
-		}
-
-		freeBytes := uint64(0)
-		if totalBytes > usedBytes {
-			freeBytes = totalBytes - usedBytes
-		}
-
-		usagePercent := 0.0
-		if totalBytes > 0 {
-			usagePercent = float64(usedBytes) / float64(totalBytes) * 100
-		}
-
-		gpus = append(gpus, GPUMemoryInfo{
-			Index:        parseAMDDeviceIndex(parts[0]),
-			Name:         "AMD GPU",
-			Vendor:       VendorAMD,
-			TotalVRAM:    totalBytes,
-			UsedVRAM:     usedBytes,
-			FreeVRAM:     freeBytes,
-			UsagePercent: usagePercent,
-		})
+		gpus = append(gpus, amdGPUMemoryInfo(parseAMDDeviceIndex(parts[0]),
+			vramTotal, vramUsed, gttTotal, gttUsed))
 	}
 
 	return gpus
+}
+
+// amdGPUMemoryInfo builds the report for one AMD GPU, folding GTT into
+// the totals when the sizes match a shared-memory APU (#12058).
+func amdGPUMemoryInfo(index int, vramTotal, vramUsed, gttTotal, gttUsed uint64) GPUMemoryInfo {
+	totalBytes, usedBytes := vramTotal, vramUsed
+	if amdSharedMemoryAPU(vramTotal, gttTotal) {
+		totalBytes = vramTotal + gttTotal
+		usedBytes = vramUsed + gttUsed
+		xlog.Debug("AMD shared-memory APU detected; folding GTT into VRAM totals",
+			"vram_total", vramTotal, "gtt_total", gttTotal, "combined_total", totalBytes)
+	}
+
+	freeBytes := uint64(0)
+	if totalBytes > usedBytes {
+		freeBytes = totalBytes - usedBytes
+	}
+
+	usagePercent := 0.0
+	if totalBytes > 0 {
+		usagePercent = float64(usedBytes) / float64(totalBytes) * 100
+	}
+
+	return GPUMemoryInfo{
+		Index:        index,
+		Name:         "AMD GPU",
+		Vendor:       VendorAMD,
+		TotalVRAM:    totalBytes,
+		UsedVRAM:     usedBytes,
+		FreeVRAM:     freeBytes,
+		UsagePercent: usagePercent,
+	}
 }
 
 func looksLikeRocmMemInfoHeader(line string) bool {

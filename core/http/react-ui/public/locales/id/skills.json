@@ -26,7 +26,8 @@
     "replacedBy": "Digantikan oleh {{name}}",
     "notActive": "Tidak aktif: skill bawaan yang dipakai",
     "notActiveBy": "Tidak aktif: disediakan oleh {{name}}",
-    "fallback": "Dipakai karena skill add-on {{name}} mati atau tidak berjalan"
+    "fallback": "Dipakai karena skill add-on {{name}} mati atau tidak berjalan",
+    "proposedBy": "Diusulkan oleh {{name}} dan dikonfirmasi oleh Anda. Hanya agen itu yang memakainya."
   },
   "empty": {
     "title": "Tidak ada skill yang ditemukan",
@@ -46,7 +47,8 @@
     "shared": "Shared",
     "builtin": "Built-in",
     "folder": "Workspace",
-    "addon": "Add-on"
+    "addon": "Add-on",
+    "agent": "Agen"
   },
   "pane": {
     "loading": "Loading...",

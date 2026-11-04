@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  classifyUpdate, updateView, upgradeBody, updateErrorKey, formatWhen, UPDATE_TYPES, UPDATE_STATES,
+  classifyUpdate, entryUpdateNote, updateView, upgradeBody, updateErrorKey, formatWhen, UPDATE_TYPES, UPDATE_STATES,
 } from '../../src/components/addons/updateState.js'
 import { updateStatus, stateChip } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, AddonsError } from '../../src/utils/addonsApi.js'
@@ -25,6 +25,16 @@ test('updates: a failed, unknown or unreadable check is never current', () => {
   assert.deepEqual(updateView({ state: 'incompatible', reasons: ['host-version', 'made-up'] }).reasons, ['host-version'])
   assert.equal(updateStatus({ update: { state: 'check-failed' } }).kind, 'failed')
   assert.equal(updateStatus({ update: { state: 'integrity-error' } }).kind, 'integrity')
+})
+
+test('updates: a library card says when the update status of an installed add-on is not known, and never reads it as current', () => {
+  // The development card of an installed add-on that no check answered for.
+  assert.equal(entryUpdateNote(undefined).state, 'unknown')
+  assert.equal(entryUpdateNote({ state: 'check-failed', error: 'refresh-failed' }).state, 'check-failed')
+  assert.equal(entryUpdateNote({ state: 'check-failed' }).tone, 'error')
+  assert.equal(entryUpdateNote({ state: 'up-to-date' }).state, 'up-to-date')
+  // An update has its own badge and action: no note beside them.
+  assert.equal(entryUpdateNote({ state: 'update-available', available: true, version: '0.0.0-dev.39b3e9bb7d38', digest: 'sha256:' + 'b'.repeat(64) }), null)
 })
 
 test('updates: an upgrade is offered only for a candidate the owner confirmed, with a digest to pin', () => {

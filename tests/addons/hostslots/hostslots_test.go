@@ -16,13 +16,13 @@ import (
 )
 
 func host() contract.HostCompatibility {
-	return contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
+	return contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}
 }
 
 // manifest builds a manifest with the given ui object. Tools are ping and list.
 func manifest(ui string) []byte {
 	return []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0","executable":"bin/x","os":"linux","arch":"amd64",` +
-		`"host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},` +
+		`"host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},` +
 		`"capabilities":{"tools":["ping","list"],"ui":` + ui + `}}`)
 }
 

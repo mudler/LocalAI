@@ -56,7 +56,7 @@ func (s *Service) shadowTool(a workspace.Actor, d AddonTool, schema json.RawMess
 		// What the command saved in the user's files goes on its card.
 		run = s.withCommandFiles(a, run)
 	}
-	return session.Tool{Name: d.Shadows, Description: d.Description, Schema: schema, Provider: addon, Run: run}, true
+	return session.Tool{Name: d.Shadows, Description: d.Description, Schema: schema, Provider: addon, Execution: d.Execution, Run: run}, true
 }
 
 // withBuiltins adds the built-in tools that no add-on shadows. A built-in whose

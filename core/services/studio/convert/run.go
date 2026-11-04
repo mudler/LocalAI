@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -266,7 +265,7 @@ func (r *run) userDirs() []string {
 	return out
 }
 
-// --- agents, periodic triggers and Telegram bindings ---
+// --- agents, periodic triggers and connectors ---
 
 type oldAgent struct {
 	user, name string
@@ -529,8 +528,9 @@ func (r *run) periodicTrigger(ctx context.Context, owner string, a oldAgent) {
 	r.add(KindTrigger, a.user, name, StatusConverted, "switched off; every "+interval+r.zoneReason())
 }
 
-var usernameShape = regexp.MustCompile(`^[A-Za-z0-9_]{3,63}$`)
-
+// connectors reports every connector of an old agent as dropped. A connector of
+// a messaging platform is made again on the Connectors page, where the add-on
+// that serves the platform asks for the token.
 func (r *run) connectors(ctx context.Context, owner string, a oldAgent) {
 	list, _ := a.cfg["connectors"].([]any)
 	for i, c := range list {
@@ -541,34 +541,6 @@ func (r *run) connectors(ctx context.Context, owner string, a oldAgent) {
 		if r.handled(ctx, key, KindConnector, a.user, name) {
 			continue
 		}
-		if typ != "telegram" {
-			r.drop(ctx, key, KindConnector, a.user, name, "the "+typ+" connector is not rebuilt")
-			continue
-		}
-		ref, ok := r.agents[a.user+"|"+a.name]
-		if !ok || ref.model == "" {
-			r.drop(ctx, key, KindConnector, a.user, name, "the agent has no model, so it cannot be bound")
-			continue
-		}
-		conf := map[string]any{}
-		_ = json.Unmarshal([]byte(str(cm, "config")), &conf)
-		token := str(conf, "token")
-		if token == "" {
-			r.drop(ctx, key, KindConnector, a.user, name, "the connector has no token")
-			continue
-		}
-		var allow []string
-		for u := range strings.SplitSeq(str(conf, "admins"), ",") {
-			u = strings.TrimPrefix(strings.TrimSpace(u), "@")
-			if usernameShape.MatchString(u) {
-				allow = append(allow, "@"+u)
-			}
-		}
-		if err := r.tg.CreateBinding(ctx, owner, BindingIn{Name: a.name + " Telegram", Token: token, AgentID: ref.id, Allow: allow}); err != nil {
-			r.refused(ctx, key, KindConnector, a.user, name, err)
-			continue
-		}
-		r.mark(ctx, key, "binding")
-		r.add(KindConnector, a.user, name, StatusConverted, fmt.Sprintf("switched off; %d allowed senders", len(allow)))
+		r.drop(ctx, key, KindConnector, a.user, name, "the "+typ+" connector is not rebuilt: add the bot again in the Connectors page")
 	}
 }

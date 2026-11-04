@@ -65,6 +65,15 @@ local-ai federated
 
 To see all the available options, run `local-ai federated --help`.
 
+By default, the federated server assigns each incoming TCP connection to the online node with the fewest active connections.
+It selects randomly among nodes with equal counts.
+It reserves capacity before forwarding and releases it when forwarding ends, including on connection errors.
+An HTTP keep-alive connection stays assigned to the same node until it closes.
+
+These counts are per-instance: each federated server tracks only the connections it forwards.
+Multiple federated servers make independent routing decisions; their counts do not represent total cluster load or GPU utilization.
+Completed connections do not affect routing, so a new node does not need to catch up with lifetime request totals.
+
 The instructions are on the **P2P** page of the Swarm hub and in **Add a node**, guiding you through the process of connecting multiple instances.
 
 ### Workers mode
@@ -119,7 +128,7 @@ To reuse the same token later, restart the server with `--p2ptoken` or `P2P_TOKE
 2. Start the workers. Copy the `local-ai` binary to other hosts and run as many workers as needed using the token:
 
 ```bash
-TOKEN=XXX ./local-ai worker p2p-llama-cpp-rpc --llama-cpp-args="-m <memory>" 
+TOKEN=XXX ./local-ai p2p-worker p2p-llama-cpp-rpc --llama-cpp-args="-m <memory>"
 ```
 
 (Note: You can also supply the token via command-line arguments)
@@ -141,7 +150,7 @@ There are options that can be tweaked or parameters that can be set using enviro
 | **LOCALAI_FEDERATED** | Set to "true" to enable federated mode |
 | **FEDERATED_SERVER** | Set to "true" to enable federated server |
 | **LOCALAI_P2P_DISABLE_DHT** | Set to "true" to disable DHT and enable p2p layer to be local only (mDNS) |
-| **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
+| **LOCALAI_P2P_ENABLE_LIMITS** | Set to "true" (or pass `--p2p-enable-limits=true` to `run`, a `p2p-worker` command, or `explorer`) to enable connection limits and resources management (useful when running with poor connectivity or want to limit resources consumption) |
 | **LOCALAI_P2P_LISTEN_MADDRS** | Set to comma separated list of multiaddresses to override default libp2p 0.0.0.0 multiaddresses |
 | **LOCALAI_P2P_DHT_ANNOUNCE_MADDRS** | Set to comma separated list of multiaddresses to override announcing of listen multiaddresses (useful when external address:port is remapped) |
 | **LOCALAI_P2P_BOOTSTRAP_PEERS_MADDRS** | Set to comma separated list of multiaddresses to specify custom DHT bootstrap nodes |

@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -192,6 +193,7 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 			return true
 		}
 		reply := func(v any, err error) {
+			var rateLimited *contract.ErrRateLimited
 			switch {
 			case err == nil:
 				w.Header().Set("Content-Type", "application/json")
@@ -200,6 +202,11 @@ func Handler(startup Startup, rt contract.Runtime) http.Handler {
 				http.Error(w, badRequestText(err), http.StatusBadRequest)
 			case errors.Is(err, contract.ErrRefused):
 				http.Error(w, ErrBadRequest.Error(), http.StatusBadRequest)
+			case errors.As(err, &rateLimited):
+				// The service behind the add-on asks the caller to wait. The
+				// host reads the wait from Retry-After.
+				w.Header().Set("Retry-After", strconv.Itoa(rateLimited.Seconds()))
+				http.Error(w, "rate_limited", http.StatusTooManyRequests)
 			case errors.Is(err, ErrNotFound):
 				http.Error(w, "not found", http.StatusNotFound)
 			case errors.Is(err, ErrForbidden):

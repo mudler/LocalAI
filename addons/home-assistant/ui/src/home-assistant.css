@@ -1,0 +1,51 @@
+/* Styles of the Home Assistant add-on page and its approval card. Tokens only. */
+.ha-help { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.ha-help .cn-help { max-width: 640px; }
+.ha-help details[open] { padding: var(--dk-space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); }
+.ha-help details > p { margin: var(--dk-space-2) 0; }
+
+.ha-mode-block { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.ha-modecard { display: flex; flex-direction: column; gap: 2px; }
+.ha-modecard__title { font-weight: var(--font-weight-semibold); }
+.ha-modecard__line { color: var(--color-text-muted); font-size: var(--fs-small); }
+.ha-note { margin-top: var(--dk-space-1); }
+.ha-mode-block .cn-cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+.ha-chip { display: inline-block; font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.ha-chip--off { color: var(--dk-ok-text, var(--color-text-secondary)); background: var(--dk-ok-wash, var(--color-bg-secondary)); }
+.ha-chip--propose { color: var(--dk-warn-text, var(--color-text-secondary)); background: var(--dk-warn-wash, var(--color-bg-secondary)); }
+.ha-chip--auto { color: var(--dk-error-text, var(--color-text-secondary)); background: var(--dk-error-wash, var(--color-bg-secondary)); }
+
+.ha-checks { list-style: none; margin: var(--dk-space-1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.ha-check { display: flex; align-items: flex-start; gap: var(--dk-space-2); font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
+.ha-check--ok { color: var(--dk-ok-text, var(--color-text-secondary)); }
+.ha-check--warn { color: var(--dk-warn-text, var(--color-text-secondary)); }
+
+/* The policy editor, under the connections. */
+.ha-policy { display: flex; flex-direction: column; gap: var(--dk-space-3); margin-top: var(--dk-space-6, 2rem); padding-top: var(--dk-space-4); border-top: 1px solid var(--color-border-subtle); max-width: 720px; }
+.ha-policy__title { margin: 0; font-size: var(--fs-h3, 1.125rem); font-weight: var(--font-weight-semibold); }
+.ha-policy__form { display: flex; flex-direction: column; gap: var(--dk-space-4); }
+.ha-fieldset { display: flex; flex-direction: column; gap: var(--dk-space-3); margin: 0; padding: var(--dk-space-3); min-width: 0; border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); }
+.ha-legend { padding: 0 var(--dk-space-2); font-weight: var(--font-weight-semibold); }
+.ha-entries { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-1); max-height: 220px; overflow: auto; }
+.ha-entries code { overflow-wrap: anywhere; }
+.ha-entries li { display: flex; align-items: center; justify-content: space-between; gap: var(--dk-space-2); font-size: var(--fs-small); overflow-wrap: anywhere; }
+.ha-tag { flex: none; font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.ha-tag--confirm { color: var(--dk-warn-text, var(--color-text-secondary)); background: var(--dk-warn-wash, var(--color-bg-secondary)); }
+.ha-actions { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+.ha-hard { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.ha-hard__title { margin: 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.ha-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
+.ha-chips li { padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); font-size: var(--fs-small); overflow-wrap: anywhere; }
+
+.ha-prop { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.ha-prop__title { margin: 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.ha-prop__facts { margin: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.ha-prop__row { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--dk-space-2); }
+.ha-prop__row dt { color: var(--color-text-muted); font-size: var(--fs-small); }
+.ha-prop__row dd { margin: 0; overflow-wrap: anywhere; }
+.ha-prop__targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.ha-prop__id, .ha-prop__state { display: block; color: var(--color-text-muted); font-size: var(--fs-small); }
+.ha-prop__name { font-weight: var(--font-weight-semibold); }
+.ha-prop__code { display: block; padding: var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); white-space: pre-wrap; max-height: 160px; overflow: auto; }
+@media (max-width: 480px) { .ha-prop__row { grid-template-columns: minmax(0, 1fr); gap: 0; } }

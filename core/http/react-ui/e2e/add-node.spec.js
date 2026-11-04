@@ -111,9 +111,9 @@ test.describe('Add a node', () => {
     test('a memory shard offers llama.cpp RPC and MLX', async ({ page }) => {
       await mockSwarm(page, { p2p })
       await page.goto('/app/nodes/add?join=shard')
-      await expect(command(page)).toContainText('worker p2p-llama-cpp-rpc', { timeout: 15_000 })
+      await expect(command(page)).toContainText('p2p-worker p2p-llama-cpp-rpc', { timeout: 15_000 })
       await page.getByRole('radio', { name: 'MLX (Apple Silicon)' }).click()
-      await expect(command(page)).toContainText('worker p2p-mlx')
+      await expect(command(page)).toContainText('p2p-worker p2p-mlx')
       await expect(command(page)).toContainText('latest-metal-darwin-arm64')
       // MLX runs on a Mac: GPU build targets do not apply.
       await expect(page.getByRole('radio', { name: 'CUDA 12', exact: true })).toHaveCount(0)

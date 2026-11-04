@@ -66,6 +66,7 @@ test('trigger proposals: the card says proposed, created (same id) or gone, and 
   const ran = proposalView({ state: 'accepted', trigger: p, can_undo: false, undo_blocked: 'ran' })
   assert.deepEqual([ran.canUndo, ran.blocked], [false, 'ran'])
   assert.equal(proposalView({ state: 'undone', trigger: p }).kind, 'undone')
+  assert.equal(proposalView({ state: 'expired', trigger: p }).kind, 'expired')
   assert.equal(proposalView({ state: 'declined', trigger: p }).kind, 'declined')
   assert.equal(proposalView(null, Object.assign(new Error('nope'), { status: 404 })).kind, 'removed')
   const failed = proposalView(null, Object.assign(new Error('boom'), { status: 500 }))

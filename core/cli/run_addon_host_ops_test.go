@@ -36,7 +36,7 @@ var _ = Describe("addon host policy CLI precedence", Serial, func() {
 		return &command.Run
 	}
 	BeforeEach(func() {
-		for _, key := range []string{"LOCALAI_ADDON_HOST_OPS", "LOCALAI_ADDON_HOST_POLICY"} {
+		for _, key := range []string{"LOCALAI_ADDON_HOST_OPS", "LOCALAI_ADDON_HOST_POLICY", "LOCALAI_ADDON_HOST_DENY"} {
 			old, ok := os.LookupEnv(key)
 			DeferCleanup(func() {
 				if ok {
@@ -57,30 +57,65 @@ var _ = Describe("addon host policy CLI precedence", Serial, func() {
 		Expect(got.Source).To(Equal("policy:" + p))
 		Expect(got.Grants).To(Equal(map[string][]string{"custom": {"workspace."}}))
 	})
-	It("uses flag presence even when empty and ignores an invalid policy", func() {
+	writePolicy := func(body string) string {
+		p := filepath.Join(GinkgoT().TempDir(), "policy.json")
+		Expect(os.WriteFile(p, []byte(body), 0600)).To(Succeed())
+		return p
+	}
+	It("uses flag presence even when empty, ignores the file grants and still applies its deny", func() {
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_OPS", "env=x.")
-		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", "/missing/policy")
+		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", writePolicy(`{"schemaVersion":2,"grants":{"file":["z."]},"deny":{"*":["egress."]}}`))
 		got, err := parse("--addon-host-ops=").resolveAddonHostOps()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Grants).To(BeEmpty())
 		Expect(got.Source).To(Equal("flag"))
-		Expect(got.PolicyIgnored).To(BeTrue())
+		Expect(got.GrantsIgnored).To(BeTrue())
+		Expect(got.Deny).To(Equal(map[string][]string{"*": {"egress."}}))
 	})
-	It("uses explicit empty environment instead of policy", func() {
+	It("uses explicit empty environment instead of file grants and still applies its deny", func() {
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_OPS", "")
-		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", "/missing/policy")
+		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", writePolicy(`{"schemaVersion":2,"deny":{"a":["*"]}}`))
 		got, err := parse().resolveAddonHostOps()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Grants).To(BeEmpty())
 		Expect(got.Source).To(Equal("environment"))
-		Expect(got.PolicyIgnored).To(BeTrue())
+		Expect(got.GrantsIgnored).To(BeTrue())
+		Expect(got.Deny).To(Equal(map[string][]string{"a": {"*"}}))
 	})
-	It("does not union a nonempty flag with environment or policy", func() {
-		GinkgoT().Setenv("LOCALAI_ADDON_HOST_OPS", "env=x.")
+	It("stops startup on an invalid selected file even when a flat list replaces its grants", func() {
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", "/missing/policy")
+		_, err := parse("--addon-host-ops=flag=y.").resolveAddonHostOps()
+		Expect(err).To(HaveOccurred())
+	})
+	It("does not union a nonempty flag with the file grants", func() {
+		GinkgoT().Setenv("LOCALAI_ADDON_HOST_OPS", "env=x.")
+		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", writePolicy(`{"schemaVersion":1,"grants":{"file":["z."]}}`))
 		got, err := parse("--addon-host-ops=flag=y.").resolveAddonHostOps()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(got.Grants).To(Equal(map[string][]string{"flag": {"y."}}))
+	})
+	It("unions the deny flag with the file deny", func() {
+		got, err := parse("--addon-host-policy="+writePolicy(`{"schemaVersion":2,"deny":{"web":["workspace.admin"]}}`), "--addon-host-deny=web=egress.").resolveAddonHostOps()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Deny).To(Equal(map[string][]string{"web": {"workspace.admin", "egress."}}))
+	})
+	It("reads the deny environment variable", func() {
+		GinkgoT().Setenv("LOCALAI_ADDON_HOST_DENY", "*=connector.")
+		got, err := parse("--addon-host-policy=" + writePolicy(`{"schemaVersion":2,"deny":{"web":["workspace.admin"]}}`)).resolveAddonHostOps()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Deny).To(Equal(map[string][]string{"web": {"workspace.admin"}, "*": {"connector."}}))
+	})
+	It("rejects an invalid deny flag and blanket mode", func() {
+		_, err := parse("--addon-host-deny=nonsense").resolveAddonHostOps()
+		Expect(err).To(HaveOccurred())
+		_, err = config.ParseAddonHostBlanket("sometimes")
+		Expect(err).To(HaveOccurred())
+	})
+	It("leaves UI grants on and the blanket unset by default", func() {
+		r := parse()
+		Expect(r.AddonHostUIGrants).To(BeTrue())
+		Expect(r.AddonHostBlanket).To(BeEmpty())
+		Expect(parse("--addon-host-ui-grants=false").AddonHostUIGrants).To(BeFalse())
 	})
 	It("lets an empty policy flag disable environment policy without restoring defaults", func() {
 		GinkgoT().Setenv("LOCALAI_ADDON_HOST_POLICY", "/missing/policy")

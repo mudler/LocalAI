@@ -68,7 +68,7 @@ var _ = Describe("Host-only observation read", func() {
 			calls.Add(1)
 			return json.RawMessage(`{}`), nil
 		}})).To(Succeed())
-		callback = b.HandlerForRuntime("sample", "secret", []string{"connector."}, 1, "inc")
+		callback = b.HandlerForRuntime("sample", "secret", hostops.NewStaticAuthority(map[string][]string{"sample": []string{"connector."}}), 1, "inc")
 		_, err := c.ReadObservation(context.Background(), env(), "q")
 		Expect(err).To(HaveOccurred())
 		Expect(code.Load()).To(Equal(int32(403)))
@@ -115,7 +115,7 @@ var _ = Describe("Host-only observation read", func() {
 			Expect(err).NotTo(HaveOccurred())
 		})
 		Expect(b.Register(hostops.Spec{Op: "workspace.export", Scope: "read", Feature: "chats", Handler: func(context.Context, hostops.Call) (json.RawMessage, error) { return json.RawMessage(`{}`), nil }})).To(Succeed())
-		callback = b.HandlerForRuntime("sample", "secret", []string{"workspace."}, 1, "inc")
+		callback = b.HandlerForRuntime("sample", "secret", hostops.NewStaticAuthority(map[string][]string{"sample": []string{"workspace."}}), 1, "inc")
 		done := make(chan error, 1)
 		go func() { _, err := c.ReadObservation(context.Background(), env(), "q"); done <- err }()
 		<-entered

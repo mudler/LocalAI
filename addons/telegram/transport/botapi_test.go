@@ -100,6 +100,26 @@ var _ = Describe("the Bot API client", func() {
 		Expect(strings.Count(p, "/")).To(Equal(2))
 	})
 
+	It("reads a command that names the bot as addressed to it, and keeps the text", func() {
+		f := newFakeBot()
+		f.reply["getMe"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":{"id":123456,"username":"helper_bot"}}`
+		}
+		f.reply["getUpdates"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":[
+ {"update_id":30,"message":{"message_id":601,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new@Helper_Bot","entities":[{"type":"bot_command","offset":0,"length":15}]}},
+ {"update_id":31,"message":{"message_id":602,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new@other_bot","entities":[{"type":"bot_command","offset":0,"length":14}]}},
+ {"update_id":32,"message":{"message_id":603,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new","entities":[{"type":"bot_command","offset":0,"length":4}]}}]}`
+		}
+		ups, err := f.client().Updates(ctx, secretToken, 30, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ups).To(HaveLen(3))
+		Expect(ups[0].Mention).To(BeTrue())
+		Expect(ups[0].Text).To(Equal("/new@Helper_Bot"))
+		Expect(ups[1].Mention).To(BeFalse(), "another bot is named")
+		Expect(ups[2].Mention).To(BeFalse(), "a bare command in a group is not addressed")
+	})
+
 	It("reads the ID of a message, its reply, its topic and a mention of the bot in a group", func() {
 		f := newFakeBot()
 		f.reply["getMe"] = func(map[string]any) (int, string) {
@@ -149,12 +169,12 @@ var _ = Describe("the Bot API client", func() {
 		f.reply["sendPhoto"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"message_id":61}}` }
 		f.reply["sendDocument"] = func(map[string]any) (int, string) { return 200, `{"ok":true,"result":{"message_id":62}}` }
 		c := f.client()
-		id, err := c.SendFile(ctx, secretToken, 5, 77, "chart.png", "image/png", []byte("png-bytes"))
+		id, err := c.SendFileStream(ctx, secretToken, 5, 77, "chart.png", "image/png", 9, strings.NewReader("png-bytes"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal(int64(61)))
 		p := f.called("sendPhoto")[0].Body
 		Expect(p).To(And(HaveKeyWithValue("chat_id", "5"), HaveKeyWithValue("message_thread_id", "77"), HaveKeyWithValue("_file_field", "photo"), HaveKeyWithValue("_file_name", "chart.png"), HaveKeyWithValue("_file_size", int64(9))))
-		id, err = c.SendFile(ctx, secretToken, 5, 0, "report.pdf", "application/pdf", []byte("%PDF"))
+		id, err = c.SendFileStream(ctx, secretToken, 5, 0, "report.pdf", "application/pdf", 4, strings.NewReader("%PDF"))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(id).To(Equal(int64(62)))
 		d := f.called("sendDocument")[0].Body
@@ -167,7 +187,7 @@ var _ = Describe("the Bot API client", func() {
 		f.reply["sendDocument"] = func(map[string]any) (int, string) {
 			return 400, `{"ok":false,"error_code":400,"description":"Bad Request: file must be non-empty"}`
 		}
-		_, err := f.client().SendFile(ctx, secretToken, 5, 0, "a.txt", "text/plain", []byte("x"))
+		_, err := f.client().SendFileStream(ctx, secretToken, 5, 0, "a.txt", "text/plain", 1, strings.NewReader("x"))
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).NotTo(ContainSubstring("SECRET"))
 	})

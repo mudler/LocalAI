@@ -13,7 +13,7 @@ import ActionMenu from '../components/ActionMenu'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
-import { deleteAgentWithUndo } from '../components/agents/agentUndo'
+import { useAgentDelete } from '../components/agents/useAgentDelete'
 import { firstLine } from '../utils/agentRuns'
 import { folderState } from '../utils/chatAgents'
 import './agents.css'
@@ -72,10 +72,8 @@ export default function AgentPage() {
   const state = runs.some(r => recordStatus(r) === 'running') ? 'running' : 'ready'
 
   // Delete waits out its Undo window; the list it returns to hides the agent.
-  const remove = (a) => {
-    deleteAgentWithUndo(a, { addToast, t })
-    navigate('/app/agents')
-  }
+  const agentDelete = useAgentDelete({ addToast, t })
+  const remove = (a) => agentDelete.ask(a, () => navigate('/app/agents'))
 
   const back = <Link className="ag-back" to="/app/agents"><Icon name="arrow-left" /> {t('agent.back')}</Link>
 
@@ -231,6 +229,7 @@ export default function AgentPage() {
         </section>
       </div>
 
+      {agentDelete.dialog}
     </Page>
   )
 }

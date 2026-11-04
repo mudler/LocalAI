@@ -401,7 +401,7 @@ test.describe('Home resume list', () => {
 
   test('it shows the newest chat the server keeps and opens it', async ({ page }) => {
     let asked = ''
-    await page.route('**/api/chats?limit=1&kind=chat', route => { asked = route.request().url(); return route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }) })
+    await page.route('**/api/chats?limit=1&kind=chat&origin=person', route => { asked = route.request().url(); return route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }) })
     await page.route('**/api/chats/c1', route => route.fulfill({ json: { conversation: chat } }))
     await ready(page)
     const row = page.getByTestId('home-conversation')
@@ -409,19 +409,20 @@ test.describe('Home resume list', () => {
     await expect(row).toContainText('Rewrite the release notes')
     await expect(row).toContainText('qwen3-8b-instruct')
     expect(asked).toContain('limit=1')
+    expect(asked).toContain('origin=person')
     await row.getByRole('button').first().click()
     await expect(page).toHaveURL(/\/app\/chats\/c1$/)
   })
 
   test('a row has no delete button: chats are deleted on the chats page', async ({ page }) => {
-    await page.route('**/api/chats?limit=1&kind=chat', route => route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }))
+    await page.route('**/api/chats?limit=1&kind=chat&origin=person', route => route.fulfill({ json: { conversations: [chat], persistent: true, files: true } }))
     await ready(page)
     await expect(page.getByTestId('home-conversation')).toHaveCount(1)
     await expect(page.locator('.home-row__delete')).toHaveCount(0)
   })
 
   test('with no chats it says where they will appear', async ({ page }) => {
-    await page.route('**/api/chats?limit=1&kind=chat', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+    await page.route('**/api/chats?limit=1&kind=chat&origin=person', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
     await ready(page)
     await expect(page.locator('.home-empty')).toContainText('Your conversations will wait here')
   })
@@ -626,7 +627,7 @@ test.describe('Home send hand-off', () => {
   })
 
   test('the old chat address opens Home and keeps the model as a hint', async ({ page }) => {
-    await page.route('**/api/chats?limit=1&kind=chat', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
+    await page.route('**/api/chats?limit=1&kind=chat&origin=person', route => route.fulfill({ json: { conversations: [], persistent: true, files: true } }))
     await page.goto('/app/chat/qwen3-8b-instruct')
     await expect(page).toHaveURL(/\/app\?model=qwen3-8b-instruct$/)
     await expect(page.getByTestId('home-model-chip')).toContainText('qwen3-8b-instruct')

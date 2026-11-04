@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mudler/LocalAI/core/services/addons/modelsprobe"
+	"github.com/mudler/xlog"
 	"io"
 	"net/http"
 	"strings"
@@ -157,8 +158,10 @@ func refuse(w http.ResponseWriter, status int, code, msg string) {
 // Handler serves the channel of one add-on incarnation. credential is the
 // secret that incarnation holds; allowed lists the operation prefixes the
 // host setting gives the add-on. Whatever the check, the default is refuse.
+// It is a fixed list: use HandlerForRuntime with an Authority for grants that
+// change while the add-on runs.
 func (b *Broker) Handler(addonID, credential string, allowed []string) http.Handler {
-	return b.HandlerForRuntime(addonID, credential, allowed, 0, "")
+	return b.HandlerForRuntime(addonID, credential, NewStaticAuthority(map[string][]string{addonID: allowed}), 0, "")
 }
 
 // RuntimeEndpoint owns callback admission and draining for one runtime. Stop
@@ -174,8 +177,10 @@ type RuntimeEndpoint struct {
 
 type endpointKey struct{}
 
-func (b *Broker) EndpointForRuntime(addonID, credential string, allowed []string, generation uint64, incarnation string) *RuntimeEndpoint {
-	return &RuntimeEndpoint{handler: b.HandlerForRuntime(addonID, credential, allowed, generation, incarnation)}
+// EndpointForRuntime serves one runtime. auth is asked on every call, so a
+// revoke or a deny applies to the next call; a nil auth refuses every call.
+func (b *Broker) EndpointForRuntime(addonID, credential string, auth Authority, generation uint64, incarnation string) *RuntimeEndpoint {
+	return &RuntimeEndpoint{handler: b.HandlerForRuntime(addonID, credential, auth, generation, incarnation)}
 }
 
 func (e *RuntimeEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -204,8 +209,11 @@ func (e *RuntimeEndpoint) admit() bool {
 	return !e.closed
 }
 
-// HandlerForRuntime authenticates callbacks for exactly one runtime.
-func (b *Broker) HandlerForRuntime(addonID, credential string, allowed []string, generation uint64, incarnation string) http.Handler {
+// HandlerForRuntime authenticates callbacks for exactly one runtime. The
+// authority is asked for every call, after the credential check and before
+// anything else of the operation runs. A call that already runs is not
+// interrupted by a later revoke.
+func (b *Broker) HandlerForRuntime(addonID, credential string, auth Authority, generation uint64, incarnation string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			refuse(w, http.StatusMethodNotAllowed, contract.HostBadRequest, "POST only")
@@ -234,7 +242,16 @@ func (b *Broker) HandlerForRuntime(addonID, credential string, allowed []string,
 			refuse(w, http.StatusForbidden, contract.HostScope, "observation callbacks denied")
 			return
 		}
-		if !hasPrefix(allowed, req.Op) {
+		// The add-on must not learn whether an operation is denied or only not
+		// granted, so the body is the same. The reason stays on the host.
+		if auth == nil {
+			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
+			return
+		}
+		if ok, why := auth.Allows(addonID, req.Op); !ok {
+			if why.Denied() || why == ReasonIdentityMismatch {
+				xlog.Info("add-on host operation refused", "addon", addonID, "op", req.Op, "reason", string(why))
+			}
 			refuse(w, http.StatusForbidden, contract.HostUnknownOp, "operation not allowed")
 			return
 		}
@@ -327,6 +344,10 @@ func (b *Broker) serveInbound(w http.ResponseWriter, r *http.Request, spec Spec,
 			status, code, msg = http.StatusForbidden, contract.HostScope, "not allowed"
 		case errors.Is(err, ErrNotFound):
 			status, code, msg = http.StatusNotFound, contract.HostNotFound, "not found"
+		case errors.Is(err, ErrTransferTooLarge):
+			status, code, msg = http.StatusRequestEntityTooLarge, contract.HostTooLarge, "the file is larger than the limit"
+		case errors.Is(err, ErrConflict):
+			status, code, msg = http.StatusConflict, contract.HostConflict, "conflict"
 		case errors.Is(err, ErrBadRequest):
 			status, code, msg = http.StatusBadRequest, contract.HostBadRequest, err.Error()
 		}

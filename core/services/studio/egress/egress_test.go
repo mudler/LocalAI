@@ -257,33 +257,35 @@ var _ = Describe("the registries list", func() {
 	})
 
 	It("describes the presets to the model", func() {
-		Expect(egress.Describe(egress.PresetRegistries, reg, true)).To(ContainSubstring("Python (PyPI)"))
-		Expect(egress.Describe(egress.PresetOff, reg, true)).To(HavePrefix("Network for commands: off."))
-		Expect(egress.Describe(egress.PresetOff, reg, true)).To(ContainSubstring("A blocked host asks the user"))
-		Expect(egress.Describe(egress.PresetOff, reg, false)).NotTo(ContainSubstring("A blocked host asks the user"))
-		Expect(egress.Describe(egress.PresetOff, reg, false)).To(ContainSubstring("nothing asks the user"))
+		Expect(egress.Describe(egress.PresetRegistries, reg, true, "Runbox")).To(ContainSubstring("Python (PyPI)"))
+		Expect(egress.Describe(egress.PresetOff, reg, true, "Runbox")).To(HavePrefix("Network for commands: off."))
+		Expect(egress.Describe(egress.PresetOff, reg, true, "Runbox")).To(ContainSubstring("A blocked host asks the user"))
+		Expect(egress.Describe(egress.PresetOff, reg, false, "Runbox")).NotTo(ContainSubstring("A blocked host asks the user"))
+		Expect(egress.Describe(egress.PresetOff, reg, false, "Runbox")).To(ContainSubstring("nothing asks the user"))
+		Expect(egress.Describe(egress.PresetAll, reg, true, "Runbox")).To(ContainSubstring("through the proxy that Runbox sets"))
 	})
 
 	Describe("the hint on tools", func() {
 		It("names the web tools only when the chat has them", func() {
-			on := egress.Hint(egress.PresetAll, true)
+			on := egress.Hint(egress.PresetAll, true, "Runbox")
 			Expect(on).To(ContainSubstring("curl"))
 			Expect(on).To(ContainSubstring("web_fetch or web_search"))
 			Expect(on).To(ContainSubstring("APIs, downloads and installs"))
+			Expect(on).To(ContainSubstring("work in Runbox through the proxy"))
 		})
 
 		It("does not name the web tools when they are off", func() {
-			off := egress.Hint(egress.PresetRegistries, false)
+			off := egress.Hint(egress.PresetRegistries, false, "Runbox")
 			Expect(off).To(ContainSubstring("curl, pip and git work"))
 			Expect(off).NotTo(ContainSubstring("web_"))
 		})
 
 		It("tells the model that nothing is reachable when the network is off", func() {
 			for _, web := range []bool{true, false} {
-				h := egress.Hint(egress.PresetOff, web)
+				h := egress.Hint(egress.PresetOff, web, "Runbox")
 				Expect(h).To(ContainSubstring("cannot reach anything"))
 				Expect(h).NotTo(ContainSubstring("web_"))
-				Expect(h).NotTo(ContainSubstring("work in the sandbox"))
+				Expect(h).NotTo(ContainSubstring("work in Runbox"))
 			}
 		})
 	})

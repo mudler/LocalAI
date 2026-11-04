@@ -21,15 +21,19 @@ type PackageIcon struct {
 }
 
 type PackageReceipt struct {
-	Digest       string            `json:"digest"`
-	SourceID     string            `json:"sourceId"`
-	SourceURL    string            `json:"sourceUrl"`
-	Channel      string            `json:"channel,omitempty"`
-	Selection    string            `json:"selection"`
-	Reference    string            `json:"reference"`
-	Verification string            `json:"verification"`
-	Manifest     contract.Manifest `json:"manifest"`
-	Directory    string            `json:"directory"`
+	Digest       string `json:"digest"`
+	SourceID     string `json:"sourceId"`
+	SourceURL    string `json:"sourceUrl"`
+	Channel      string `json:"channel,omitempty"`
+	Selection    string `json:"selection"`
+	Reference    string `json:"reference"`
+	Verification string `json:"verification"`
+	// Origin says in words where an unlisted package came from. It is set
+	// for a package installed from a local file ("local file, unsigned") and
+	// empty for a library package, whose source and verification say it all.
+	Origin    string            `json:"origin,omitempty"`
+	Manifest  contract.Manifest `json:"manifest"`
+	Directory string            `json:"directory"`
 	// Icon is set only when the manifest declares one and the package holds a
 	// valid immutable file of the declared type.
 	Icon *PackageIcon `json:"icon,omitempty"`

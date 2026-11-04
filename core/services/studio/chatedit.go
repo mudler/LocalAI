@@ -266,6 +266,11 @@ func (s *Service) Fork(ctx context.Context, user, conv string, upTo int64, title
 			return fail(err)
 		}
 	}
+	if len(src.Connections) > 0 {
+		if err := s.d.Store.SetConnections(ctx, p, rec.ID, src.Connections); err != nil {
+			return fail(err)
+		}
+	}
 	rec.HarnessState = s.rebuildState(ctx, rec, kept)
 	if err := s.d.Store.UpdateChat(ctx, rec); err != nil {
 		return fail(err)

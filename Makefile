@@ -1726,8 +1726,13 @@ test-ui-unit: test-i18n
 
 ## Every locale must have every namespace and key of English, except the gaps
 ## recorded in core/http/react-ui/i18n-baseline.json, which may only shrink.
+## The locale bundles of the add-on pages (addons/*/ui/src/i18n and the shared
+## connector pages) have no baseline: every language of the web UI must have
+## every key of English, with the same placeholders and no empty value.
 test-i18n:
 	cd core/http/react-ui && node scripts/i18n-check.mjs
+	node addons/internal/i18ncheck/check.mjs
+	node --test addons/internal/i18ncheck/test/check.test.mjs
 
 ## The PostgreSQL stores of the chats, agents, connectors, notifications,
 ## workspace and triggers. They skip without a database, which would let a
@@ -1767,6 +1772,29 @@ test-addons-suites:
 		echo "== $$suite"; \
 		sh scripts/addons/verify.sh $$suite; \
 	done
+
+## Zip files of the add-ons, for "Install from a file" (Add-ons page, or
+## `local-ai addons install <file>`). Each zip holds the files of the OCI package
+## of one add-on and platform: it is made from the package that package.sh builds.
+##   make addons-zip                         every add-on, this host's platform
+##   make addons-zip ADDON=memory            one add-on
+##   make addons-zip PLATFORMS=linux/amd64,darwin/arm64 ADDON_EXECUTABLES=<dir>
+## A platform other than this host needs the native executables at
+## <dir>/<os>-<arch>/<executable name>. ADDON_VERSION overrides the manifest
+## version, ADDON_LOCAL_CHECK=1 builds a platform the matrix has not enabled.
+## The files and their .sha256 files go to ADDONS_ZIP_DIR (dist/addons).
+ADDON?=
+PLATFORMS?=
+ADDON_VERSION?=
+ADDON_EXECUTABLES?=
+ADDON_LOCAL_CHECK?=
+ADDONS_ZIP_DIR?=dist/addons
+.PHONY: addons-zip
+addons-zip:
+	sh scripts/addons/zip.sh --out "$(ADDONS_ZIP_DIR)" \
+		$(if $(ADDON),--addon "$(ADDON)") $(if $(PLATFORMS),--platforms "$(PLATFORMS)") \
+		$(if $(ADDON_VERSION),--version "$(ADDON_VERSION)") $(if $(ADDON_EXECUTABLES),--executables "$(ADDON_EXECUTABLES)") \
+		$(if $(ADDON_LOCAL_CHECK),--local-check)
 
 test-ui-e2e-docker:
 	docker build -t localai-ui-e2e -f tests/e2e-ui/Dockerfile .

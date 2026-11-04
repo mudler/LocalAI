@@ -37,9 +37,13 @@ type AgentFolderState struct {
 	// locations; an unnamed readable folder still has state ok.
 	Path string
 	// Name is the folder's own name; empty for the whole home.
-	Name  string
-	Mode  string
-	State string
+	Name string
+	// Mode is the mode the person chose. Effective is the mode the folder has
+	// in a chat: lower when the folder is shared (always read) or inside
+	// another folder of the agent with a lower mode.
+	Mode      string
+	Effective string
+	State     string
 }
 
 // AgentFolderWrite chooses the folder of an agent. Path is a folder of the
@@ -155,46 +159,141 @@ func (s *Service) resolveAgentFolder(ctx context.Context, p string, w AgentFolde
 	return id, w.Mode, nil
 }
 
-// AgentFolder returns the folder of an agent as it is now, and false for an
-// agent that works on the whole home.
-func (s *Service) AgentFolder(ctx context.Context, user string, a agents.Agent) (AgentFolderState, bool) {
-	st, ok := s.AgentFolders(ctx, user, []agents.Agent{a})[a.ID]
-	return st, ok
+// resolveAgentFolders turns the choices of a person into the list an agent
+// keeps. Every row needs a path and a mode. The list may have at most
+// agents.MaxFolders rows, no folder twice, and a shared folder only at read.
+func (s *Service) resolveAgentFolders(ctx context.Context, p string, ws []AgentFolderWrite) ([]agents.AgentFolder, error) {
+	if len(ws) > agents.MaxFolders {
+		return nil, folderRefused("an agent may have at most %d folders", agents.MaxFolders)
+	}
+	out := make([]agents.AgentFolder, 0, len(ws))
+	for i, w := range ws {
+		if w.Path == "" {
+			return nil, folderRefused("folder %d has no path", i+1)
+		}
+		id, mode, err := s.resolveAgentFolder(ctx, p, w)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, agents.AgentFolder{Node: id, Mode: mode})
+	}
+	if err := agents.ValidateFolders(out); err != nil {
+		return nil, folderRefused("%s", strings.TrimPrefix(err.Error(), agents.ErrInvalid.Error()+": "))
+	}
+	return out, s.checkSharedRead(ctx, p, out)
 }
 
-// AgentFolders returns the folders of the agents, by agent ID. An agent
+// checkSharedRead refuses write on a folder that is in the shared folders.
+func (s *Service) checkSharedRead(ctx context.Context, p string, list []agents.AgentFolder) error {
+	for i, f := range list {
+		if f.Mode != agents.FolderWrite || f.Node <= 0 {
+			continue
+		}
+		if path, ok := s.FolderResolver().PathOf(ctx, p, f.Node); ok && isSharedPath(path) {
+			return folderRefused("folder %d is a shared folder; it can only be read", i+1)
+		}
+	}
+	return nil
+}
+
+// AgentFolder returns the first folder of an agent as it is now, and false
+// for an agent that works on the whole home.
+func (s *Service) AgentFolder(ctx context.Context, user string, a agents.Agent) (AgentFolderState, bool) {
+	rows := s.AgentFolderRows(ctx, user, []agents.Agent{a})[a.ID]
+	if len(rows) == 0 {
+		return AgentFolderState{}, false
+	}
+	return rows[0], true
+}
+
+// AgentFolders returns the first folder of each agent, by agent ID. An agent
 // without a folder is not in the result.
 func (s *Service) AgentFolders(ctx context.Context, user string, list []agents.Agent) map[string]AgentFolderState {
-	p := principal(user)
 	out := map[string]AgentFolderState{}
+	for id, rows := range s.AgentFolderRows(ctx, user, list) {
+		out[id] = rows[0]
+	}
+	return out
+}
+
+// AgentFolderRows returns every folder of the agents as it is now, by agent
+// ID, in the order of the agent's list. An agent without a folder is not in
+// the result.
+func (s *Service) AgentFolderRows(ctx context.Context, user string, list []agents.Agent) map[string][]AgentFolderState {
+	p := principal(user)
+	out := map[string][]AgentFolderState{}
 	var nodes []int64
 	for _, a := range list {
-		if a.HasFolder() && a.FolderID > 0 {
-			nodes = append(nodes, a.FolderID)
+		for _, f := range a.FolderList() {
+			if f.Node > 0 {
+				nodes = append(nodes, f.Node)
+			}
 		}
 	}
 	paths := folderResolver{f: s.d.Files}.pathsOf(ctx, p, nodes)
 	for _, a := range list {
-		if !a.HasFolder() {
+		fl := a.FolderList()
+		if len(fl) == 0 {
 			continue
 		}
-		st := AgentFolderState{Mode: a.FolderMode, State: AgentFolderUnset}
-		if a.FolderID > 0 {
-			st.State = AgentFolderMissing
-			if abs, ok := paths[a.FolderID]; ok {
-				st.State = AgentFolderOK
-				st.Path = s.d.Files.Rel(p, abs)
-				// Shared paths are already public Files paths. Never expose an
-				// internal workspace path for any other readable location.
-				if st.Path == "" && strings.HasPrefix(abs, "/shared/") {
-					st.Path = abs
+		// The effective modes follow the same rule as a chat's access.
+		var live []scopedFolder
+		for _, f := range fl {
+			if abs, ok := paths[f.Node]; ok {
+				mode := workspace.ModeRead
+				if f.Mode == agents.FolderWrite && !isSharedPath(abs) {
+					mode = workspace.ModeWrite
 				}
-				if st.Path != "/" {
-					st.Name = path.Base(abs)
-				}
+				live = append(live, scopedFolder{node: f.Node, mode: mode, path: abs})
 			}
 		}
-		out[a.ID] = st
+		capModes(live)
+		effective := map[int64]workspace.Mode{}
+		for _, l := range live {
+			effective[l.node] = l.mode
+		}
+		for _, f := range fl {
+			st := AgentFolderState{Mode: f.Mode, State: AgentFolderUnset}
+			if f.Node > 0 {
+				st.State = AgentFolderMissing
+				if abs, ok := paths[f.Node]; ok {
+					st.State = AgentFolderOK
+					st.Path = s.d.Files.Rel(p, abs)
+					// Shared paths are already public Files paths. Never expose an
+					// internal workspace path for any other readable location.
+					if st.Path == "" && strings.HasPrefix(abs, "/shared/") {
+						st.Path = abs
+					}
+					if st.Path != "/" {
+						st.Name = path.Base(abs)
+					}
+					st.Effective = agents.FolderRead
+					if effective[f.Node] >= workspace.ModeWrite {
+						st.Effective = agents.FolderWrite
+					}
+				}
+			}
+			out[a.ID] = append(out[a.ID], st)
+		}
 	}
 	return out
+}
+
+// SharedNotMounted counts the shared folders that a chat of the agent leaves
+// out because they do not fit the access limit. It is 0 for an agent without
+// folders or whose folders cannot be found.
+func (s *Service) SharedNotMounted(ctx context.Context, user string, a agents.Agent) int {
+	if !a.HasFolder() {
+		return 0
+	}
+	p := principal(user)
+	sc, err := s.liveFolder(ctx, p, a)
+	if err != nil {
+		return 0
+	}
+	_, dropped, err := s.scopedRoots(ctx, userChatActor(p, ""), []*folderScope{sc})
+	if err != nil {
+		return 0
+	}
+	return dropped
 }

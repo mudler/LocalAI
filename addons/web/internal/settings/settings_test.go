@@ -27,14 +27,26 @@ var _ = Describe("Store", func() {
 	var dir string
 	BeforeEach(func() { dir = GinkgoT().TempDir() })
 
-	It("starts with every provider in order and only DuckDuckGo ready", func() {
+	It("starts with every provider but Keenable in order and only the keyless ones ready", func() {
 		s, err := settings.Open(dir)
 		Expect(err).NotTo(HaveOccurred())
 		v := s.View()
 		Expect(v.Order).To(Equal([]string{"brave", "tavily", "google", "searxng", "duckduckgo"}))
 		for _, p := range v.Providers {
-			Expect(p.Ready).To(Equal(p.Name == "duckduckgo"), p.Name)
+			Expect(p.Ready).To(Equal(p.Name == "duckduckgo" || p.Name == "keenable"), p.Name)
 		}
+	})
+
+	It("lets Keenable serve without a key, and takes and clears an optional key", func() {
+		s, _ := settings.Open(dir)
+		Expect(s.Apply(settings.Change{Order: []string{"keenable", "duckduckgo"}})).To(Succeed())
+		Expect(s.View().Providers[3]).To(Equal(settings.ProviderView{Name: "keenable", Keyed: true, Ready: true}))
+		Expect(s.Apply(settings.Change{Keys: map[string]string{"keenable": key}})).To(Succeed())
+		Expect(s.View().Providers[3]).To(Equal(settings.ProviderView{Name: "keenable", Keyed: true, KeySet: true, Ready: true}))
+		Expect(s.Apply(settings.Change{Clear: []string{"keenable"}})).To(Succeed())
+		got, _ := s.Get()
+		Expect(got.Keys).To(BeEmpty())
+		Expect(got.Order).To(Equal([]string{"keenable", "duckduckgo"}))
 	})
 
 	It("saves a key in a private file and never shows it", func() {
@@ -72,7 +84,7 @@ var _ = Describe("Store", func() {
 		Expect(s.Apply(settings.Change{GoogleEngine: ptr("abc:123"), SearXNGURL: ptr("https://searx.example.org")})).To(Succeed())
 		v := s.View()
 		Expect(v.Providers[2].Ready).To(BeTrue())
-		Expect(v.Providers[3].Ready).To(BeTrue())
+		Expect(v.Providers[4].Ready).To(BeTrue())
 	})
 
 	It("counts the revisions", func() {

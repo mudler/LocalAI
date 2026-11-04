@@ -94,6 +94,15 @@ type Proposal struct {
 	// operation itself belongs to its proposer and is shown only to the
 	// resource's owner role, in the unresolved listing and in the denial.
 	Blocked bool `json:"blocked,omitempty"`
+	// AwaitsPerson reports a proposal that only a person may apply, from a
+	// host surface such as the browser: a chat or an agent never applies it.
+	// The write mode of the binding or the approval of the tool asks for it.
+	AwaitsPerson bool `json:"awaitsPerson,omitempty"`
+	// ConnectionID and ConnectionName say which connection of the person the
+	// change will be made with. They are present for a write of an add-on that
+	// runs with a credential, and the apply uses that very connection.
+	ConnectionID   string `json:"connectionId,omitempty"`
+	ConnectionName string `json:"connectionName,omitempty"`
 	// Resolution is present once the resource owner stopped waiting for an
 	// unresolved outcome. It stays after a late receipt is recorded.
 	Resolution *ProposalResolution `json:"resolution,omitempty"`
@@ -304,6 +313,7 @@ func (g *Gateway) proposalLocal(ctx context.Context, a contract.Actor, request c
 
 // Propose stores a proposal for a data or schema mutation. It never executes.
 func (g *Gateway) Propose(ctx context.Context, a contract.Actor, request contract.Request) (Proposal, error) {
+	scrub(&request)
 	return g.proposal(ctx, a, request, ProposalCall{Op: proposalPropose, ID: request.OperationID})
 }
 

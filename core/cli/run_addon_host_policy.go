@@ -41,7 +41,13 @@ func (r *RunCMD) resolveAddonHostOps() (config.AddonHostOpsResolution, error) {
 	} else if value, present := os.LookupEnv("LOCALAI_ADDON_HOST_POLICY"); present {
 		policy = &value
 	}
-	resolved, err := config.ResolveAddonHostOps(flag, environment, policy)
+	var deny *string
+	if r.AddonHostDeny != "" {
+		deny = &r.AddonHostDeny
+	}
+	// Kong has already merged the deny environment variable into the field,
+	// so there is no separate environment value to union.
+	resolved, err := config.ResolveAddonHostOps(flag, environment, policy, deny, nil)
 	if err == nil && resolved.Source == "policy" {
 		resolved.Source = "policy:" + *policy
 	}
@@ -50,15 +56,19 @@ func (r *RunCMD) resolveAddonHostOps() (config.AddonHostOpsResolution, error) {
 
 func logAddonHostOpsResolution(resolved config.AddonHostOpsResolution) {
 	if resolved.Source == "empty" {
-		xlog.Warn("Addons receive no host operations: select --addon-host-policy or explicitly configure --addon-host-ops")
+		xlog.Warn("Addons receive no host operations from the policy file or flags: an administrator can grant them in the UI at install, or select --addon-host-policy or --addon-host-ops")
 	}
 	prefixes := 0
 	for _, grants := range resolved.Grants {
 		prefixes += len(grants)
 	}
-	xlog.Info("Addon host operation policy resolved", "source", resolved.Source, "addons", len(resolved.Grants), "prefixes", prefixes)
-	if resolved.PolicyIgnored {
-		xlog.Warn("Addon host policy ignored: explicit host operations override takes precedence")
+	denied := 0
+	for _, entries := range resolved.Deny {
+		denied += len(entries)
 	}
-	xlog.Info("Addon manifests and libraries cannot grant host operations; policy changes require restart")
+	xlog.Info("Addon host operation policy resolved", "source", resolved.Source, "addons", len(resolved.Grants), "prefixes", prefixes, "denyRules", denied)
+	if resolved.GrantsIgnored {
+		xlog.Warn("Addon host policy grants ignored, deny applied: an explicit host operations list replaces the file grants")
+	}
+	xlog.Info("Addon manifests and libraries cannot grant host operations; file and flag policy changes require restart")
 }

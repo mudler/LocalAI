@@ -130,7 +130,7 @@ var _ = Describe("Chats agents endpoints", func() {
 			rec := saveIn("alice", "Scoped", map[string]string{"path": "/Projects/Acme", "mode": "read"})
 			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
 			a := decodeJSON(rec)
-			Expect(a["folder"]).To(Equal(map[string]any{"path": "/Projects/Acme", "name": "Acme", "mode": "read", "state": "ok"}))
+			Expect(a["folder"]).To(Equal(map[string]any{"path": "/Projects/Acme", "name": "Acme", "mode": "read", "effective": "read", "state": "ok"}))
 			Expect(rec.Body.String()).NotTo(ContainSubstring("folder_id"), "the node never leaves the server")
 
 			Expect(s.do("alice", http.MethodPost, "/api/chats/files/move", map[string]string{"from": "/Projects/Acme", "to": "/Projects/Acme Corp"}).Code).To(Equal(http.StatusOK))
@@ -150,7 +150,7 @@ var _ = Describe("Chats agents endpoints", func() {
 			id := decodeJSON(saveIn("alice", "Scoped", map[string]string{"path": "/Notes", "mode": "write"}))["id"].(string)
 			put := s.do("alice", http.MethodPut, "/api/chats/agents/"+id, map[string]any{"name": "Scoped 2"})
 			Expect(put.Code).To(Equal(http.StatusOK), put.Body.String())
-			Expect(decodeJSON(put)["folder"]).To(Equal(map[string]any{"path": "/Notes", "name": "Notes", "mode": "write", "state": "ok"}))
+			Expect(decodeJSON(put)["folder"]).To(Equal(map[string]any{"path": "/Notes", "name": "Notes", "mode": "write", "effective": "write", "state": "ok"}))
 		})
 
 		It("clears the folder with an empty path", func() {
@@ -164,7 +164,7 @@ var _ = Describe("Chats agents endpoints", func() {
 		It("takes the whole home as the folder", func() {
 			rec := saveIn("alice", "Reader", map[string]string{"path": "/", "mode": "read"})
 			Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
-			Expect(decodeJSON(rec)["folder"]).To(Equal(map[string]any{"path": "/", "mode": "read", "state": "ok"}))
+			Expect(decodeJSON(rec)["folder"]).To(Equal(map[string]any{"path": "/", "mode": "read", "effective": "read", "state": "ok"}))
 		})
 
 		It("refuses a file, a missing path, Chats, LocalAI, another home and a bad mode as the folder", func() {

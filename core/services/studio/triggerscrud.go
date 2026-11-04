@@ -9,7 +9,10 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/files"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
+	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/wellknown"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -54,6 +57,14 @@ type TriggerInput struct {
 	// file, and about how many tokens one run uses. All optional.
 	Reads, Writes, Widget string
 	EstTokens             int
+	// Route is the connector place a proposal came from and where its runs
+	// report. A person's form leaves it empty and an edit keeps the old one.
+	Route triggers.Route
+	// Acts are the action classes an unattended run of the trigger may use
+	// (act.files, act.addons, act.addons:<id>, act.send, act.spend). Nil keeps
+	// what the trigger has; an empty list takes everything away. Only a
+	// person sets them: a model's proposal never carries acts.
+	Acts []string
 }
 
 // keepPlan fills the fields of the plan and the gap that in leaves empty from
@@ -74,6 +85,9 @@ func keepPlan(old triggers.Trigger, in TriggerInput) TriggerInput {
 	}
 	if in.MinGap == 0 {
 		in.MinGap = old.MinGap
+	}
+	if in.Acts == nil {
+		in.Acts = old.Acts
 	}
 	return in
 }
@@ -117,6 +131,10 @@ func (h *Triggers) pendingProposal(ctx context.Context, user, id string) (trigge
 	if err != nil {
 		return t, err
 	}
+	if t.Expired(h.o.Clock()) {
+		h.lapse(ctx, t)
+		return triggers.Trigger{}, ErrProposalExpired
+	}
 	if !t.Pending() {
 		return triggers.Trigger{}, ErrProposalAnswered
 	}
@@ -140,7 +158,12 @@ func countLive(ts []triggers.Trigger) int {
 func (h *Triggers) build(ctx context.Context, owner string, in TriggerInput) (triggers.Trigger, error) {
 	t := triggers.Trigger{Owner: owner, Name: strings.TrimSpace(in.Name), Prompt: in.Prompt, Enabled: in.Enabled, Kind: in.Kind,
 		TZ: in.TZ, Quiet: in.Quiet, DailyCap: in.DailyCap, AgentID: in.AgentID, Model: in.Model, SourceChatID: in.SourceChatID,
-		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens}
+		MinGap: in.MinGap, Reads: strings.TrimSpace(in.Reads), Widget: in.Widget, EstTokens: in.EstTokens, Route: in.Route}
+	acts, err := cleanActs(in.Acts)
+	if err != nil {
+		return t, err
+	}
+	t.Acts = acts
 	if w := strings.TrimSpace(in.Writes); w != "" {
 		// A path of the home as the person writes it, stored as they see it:
 		// the widget footer and the proposal card show it back.
@@ -269,7 +292,7 @@ func (h *Triggers) UpdateTrigger(ctx context.Context, user, id string, in Trigge
 	if err != nil {
 		return triggers.Trigger{}, err
 	}
-	t.ID = old.ID
+	t.ID, t.Route = old.ID, old.Route
 	// The answer to the proposal stays, and the edit is the reason the card
 	// can no longer undo it.
 	t.Outcome, t.OutcomeAt, t.Touched = old.Outcome, old.OutcomeAt, old.Touched || old.Outcome != ""
@@ -323,7 +346,7 @@ func (h *Triggers) HasProposal(ctx context.Context, user, chatID string) bool {
 		return true
 	}
 	return slices.ContainsFunc(all, func(t triggers.Trigger) bool {
-		return (t.Pending() && t.SourceChatID == chatID) || (t.IsChange() && t.Outcome == "" && t.Change.Chat == chatID)
+		return (t.Pending() && !t.Expired(h.o.Clock()) && t.SourceChatID == chatID) || (t.IsChange() && t.Outcome == "" && t.Change.Chat == chatID)
 	})
 }
 
@@ -340,51 +363,80 @@ func (h *Triggers) Proposals(ctx context.Context, user string) ([]triggers.Trigg
 	if err != nil {
 		return nil, err
 	}
-	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return !t.Pending() }), nil
+	now := h.o.Clock()
+	return slices.DeleteFunc(all, func(t triggers.Trigger) bool { return !t.Pending() || t.Expired(now) }), nil
 }
 
 // ProposeTrigger stores a trigger that a model proposed. It is never enabled.
-// Nothing runs until the owner confirms it.
+// Nothing runs until the owner confirms it. A proposal that a connector chat
+// made (in.Route names the place) also gets a code to confirm it by text and a
+// time after which it lapses, and counts against the hourly limit of its
+// binding.
 func (h *Triggers) ProposeTrigger(ctx context.Context, user string, in TriggerInput) (triggers.Trigger, error) {
+	t, _, err := h.propose(ctx, user, in)
+	return t, err
+}
+
+// propose is ProposeTrigger that also says whether the proposal is new: false
+// when it returns the equal proposal that already waits.
+func (h *Triggers) propose(ctx context.Context, user string, in TriggerInput) (triggers.Trigger, bool, error) {
 	owner := principal(user)
 	in.Enabled = false
+	now := h.o.Clock()
+	if in.Route.FromConnector() {
+		in.Route.ProposedAt, in.Route.Expires = now.UTC(), now.UTC().Add(ProposalTTL)
+		in.Route.Code = ""
+	}
 	t, err := h.build(ctx, owner, in)
 	if err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
 	}
 	if err := h.checkCadence(t); err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
+	}
+	if err := h.checkOneOff(t); err != nil {
+		return triggers.Trigger{}, false, err
 	}
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	mine, err := h.o.Store.ListTriggers(ctx, owner)
 	if err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
 	}
 	pending := 0
 	for _, m := range mine {
-		if !m.Pending() {
+		if !m.Pending() || m.Expired(now) {
 			continue
 		}
 		// A model that proposes the same thing again, in this chat or the next,
 		// gets the proposal that waits.
 		if m.Name == t.Name && m.Prompt == t.Prompt && m.Kind == t.Kind && m.Schedule == t.Schedule &&
-			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model {
-			return m, nil
+			m.TZ == t.TZ && m.Folder == t.Folder && m.AgentID == t.AgentID && m.Model == t.Model && sameActs(m.Acts, t.Acts) {
+			return m, false, nil
 		}
 		pending++
 	}
 	switch {
 	case pending >= maxProposals:
-		return triggers.Trigger{}, ErrTooManyProposals
+		return triggers.Trigger{}, false, ErrTooManyProposals
 	case countLive(mine) >= maxTriggersPerUser:
-		return triggers.Trigger{}, ErrTooManyTriggers
+		return triggers.Trigger{}, false, ErrTooManyTriggers
+	}
+	if t.Route.FromConnector() {
+		if proposalsInHour(mine, t.Route.Binding, now) >= MaxProposalsPerHour {
+			h.audit(ctx, proposals.ActionRefuse, t, "too many proposals from this binding in the last hour")
+			return triggers.Trigger{}, false, ErrProposalRate
+		}
+		t.Route.Code = freshCode(mine, t.Route.Binding)
 	}
 	t.ID, t.Proposed = newID(), true
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
-		return triggers.Trigger{}, err
+		return triggers.Trigger{}, false, err
 	}
-	return t, nil
+	if t.Route.FromConnector() {
+		h.audit(ctx, proposals.ActionPropose, t, "")
+	}
+	return t, true, nil
 }
 
 // checkCadence refuses a schedule that runs more often than MinChatCadence.
@@ -410,15 +462,43 @@ func (h *Triggers) checkCadence(t triggers.Trigger) error {
 	return nil
 }
 
-func gapText(d time.Duration) string {
+// checkOneOff refuses a one-off trigger whose time is too close, is past, or
+// is too far ahead. A timer that a chat sets is at least a minute away, so it
+// cannot become a tight loop, and at most MaxOneOffAhead away.
+func (h *Triggers) checkOneOff(t triggers.Trigger) error {
+	at, ok := t.OnceAt()
+	if !ok {
+		return nil
+	}
+	d := at.Sub(h.o.Clock())
+	switch {
+	case d < MinOneOff-30*time.Second:
+		return bad("a one-off trigger must run at least a minute from now; %q is %s", t.Schedule, gapAgo(d))
+	case d > MaxOneOffAhead:
+		return bad("a one-off trigger can be at most %d days ahead", int(MaxOneOffAhead/(24*time.Hour)))
+	}
+	return nil
+}
+
+func gapAgo(d time.Duration) string {
+	if d <= 0 {
+		return "in the past"
+	}
+	return "only " + gapText(d) + " away"
+}
+
+func gapText(d time.Duration) string { return gapTextIn(hostmsg.Voice{}, d) }
+
+// gapTextIn is gapText in the language of the voice.
+func gapTextIn(v hostmsg.Voice, d time.Duration) string {
 	if d < time.Minute {
 		return d.Round(time.Second).String()
 	}
 	if m := int(d / time.Minute); m < 60 {
 		if m == 1 {
-			return "minute"
+			return v.T("gap.minute")
 		}
-		return fmt.Sprintf("%d minutes", m)
+		return v.T("gap.minutes", "n", m)
 	}
 	return d.Round(time.Minute).String()
 }
@@ -427,6 +507,13 @@ func gapText(d time.Duration) string {
 // proposal that names no time zone takes tz (the zone of the person who
 // confirms); without one it runs in UTC.
 func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (triggers.Trigger, error) {
+	return h.confirm(ctx, user, id, tz, nil)
+}
+
+// confirm is ConfirmProposal that lets the caller change the trigger first, as
+// the approval modes do to bound it. mod runs on the proposal before it is
+// checked and stored.
+func (h *Triggers) confirm(ctx context.Context, user, id, tz string, mod func(*triggers.Trigger)) (triggers.Trigger, error) {
 	h.wmu.Lock()
 	defer h.wmu.Unlock()
 	old, err := h.pendingProposal(ctx, user, id)
@@ -439,6 +526,9 @@ func (h *Triggers) ConfirmProposal(ctx context.Context, user, id, tz string) (tr
 	}
 	t.Proposed, t.Enabled = false, true
 	t.Outcome, t.OutcomeAt, t.Touched = triggers.OutcomeAccepted, h.o.Clock().UTC(), false
+	if mod != nil {
+		mod(&t)
+	}
 	if err := t.Validate(); err != nil {
 		return triggers.Trigger{}, bad("%v", err)
 	}
@@ -497,7 +587,7 @@ func (h *Triggers) EditProposal(ctx context.Context, user, id string, in Trigger
 	if err := h.checkCadence(t); err != nil {
 		return triggers.Trigger{}, err
 	}
-	t.ID, t.Proposed = old.ID, true
+	t.ID, t.Proposed, t.Route = old.ID, true, old.Route
 	if t.SourceChatID == "" {
 		t.SourceChatID = old.SourceChatID
 	}
@@ -688,4 +778,19 @@ func (h *Triggers) RelFolder(t triggers.Trigger) string {
 		return rel
 	}
 	return t.Folder
+}
+
+// cleanActs checks the act names of a trigger and removes repeats.
+func cleanActs(names []string) ([]string, error) {
+	var out []string
+	for _, n := range names {
+		n = strings.TrimSpace(n)
+		switch {
+		case !builtins.ValidActGrant(n):
+			return nil, bad("%q is not an act; use act.files, act.addons, act.addons:<id>, act.send or act.spend", n)
+		case !slices.Contains(out, n):
+			out = append(out, n)
+		}
+	}
+	return out, nil
 }

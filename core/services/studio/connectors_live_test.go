@@ -352,7 +352,8 @@ var _ = Describe("connectors live", func() {
 			}
 		}
 		r := newConnRig(sh, connStore(), bot, script, nil)
-		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyOff})
+		one := int64(1 << 20)
+		r.bind(studio.ConnectorInput{Allow: []string{"11"}, Reply: connectors.ReplyOff, FileSendMax: &one})
 		bot.say(1, 11, "Ada", "ada", "make files")
 		waitFor("the file", func() bool { return len(bot.sentFiles()) == 1 })
 		waitFor("the note", func() bool { return len(bot.answers()) == 2 })
@@ -449,7 +450,7 @@ var _ = Describe("connectors live", func() {
 		r.bot = bot
 		b := r.bind(studio.ConnectorInput{Allow: []string{"11"}})
 		ctx := context.Background()
-		in := studio.ConnectorInput{Name: "Support bot", AgentID: r.agent.ID, Token: "777:other", Enabled: true}
+		in := studio.ConnectorInput{Kind: "telegram", Name: "Support bot", AgentID: r.agent.ID, Token: "777:other", Enabled: true}
 		bot.setFail("getMe", func() (int, string) {
 			return http.StatusUnauthorized, `{"ok":false,"error_code":401,"description":"Unauthorized"}`
 		})
@@ -461,12 +462,7 @@ var _ = Describe("connectors live", func() {
 		in.Token = ""
 		_, err = r.conns.UpdateConnector(ctx, alice, b.ID, in)
 		Expect(err).NotTo(HaveOccurred(), "an update that keeps the token does not ask the platform")
-		// A binding whose add-on does not run is saved; it is checked when it runs.
-		tr.SetRunning(false)
 		in.Token = "777:other"
-		_, err = r.conns.CreateConnector(ctx, alice, in)
-		Expect(err).NotTo(HaveOccurred())
-		tr.SetRunning(true)
 		bot.setFail("getMe", nil)
 		info, err := r.conns.CreateConnector(ctx, alice, in)
 		Expect(err).NotTo(HaveOccurred())

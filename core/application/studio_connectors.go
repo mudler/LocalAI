@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/mudler/xlog"
 
@@ -19,14 +20,19 @@ import (
 // UseConnectorTransportForTests.
 var connectorTransportForTests studio.ConnectorTransport
 
+// connectorTransportWired is true once an application gave its transfer table
+// to the test transport. A later application of the same process, such as an
+// isolated one a spec starts, must not take the transport over.
+var connectorTransportWired bool
+
 // UseConnectorTransportForTests makes the connectors of applications built after
 // the call talk through t instead of the add-on manager, and returns a function
 // that restores the real one. It exists so an end-to-end test can serve a
 // connector without an installed add-on.
 func UseConnectorTransportForTests(t studio.ConnectorTransport) (restore func()) {
 	prev := connectorTransportForTests
-	connectorTransportForTests = t
-	return func() { connectorTransportForTests = prev }
+	connectorTransportForTests, connectorTransportWired = t, false
+	return func() { connectorTransportForTests, connectorTransportWired = prev, false }
 }
 
 // connectorTransport reaches the connector add-ons through the add-on manager.
@@ -63,7 +69,16 @@ func (t connectorTransport) Call(ctx context.Context, scope studio.ConnectorCall
 // function as a message the manager pulls itself. A dedicated add-on owner
 // refuses it instead.
 func (a *Application) RegisterAddonConnector() error {
-	if a.addonHostOps == nil || a.studioConnectors == nil {
+	if a.addonHostOps == nil {
+		return nil
+	}
+	// The two file operations serve every connector add-on that declares
+	// files.transfer; the handles come with the connector calls. They are
+	// registered wherever add-ons run, also on a dedicated owner.
+	if err := hostops.RegisterConnectorTransfer(a.addonHostOps.Broker, a.transfers()); err != nil {
+		return err
+	}
+	if a.studioConnectors == nil {
 		return nil
 	}
 	if a.ownsAddonsOnly() {
@@ -98,10 +113,22 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	var tr studio.ConnectorTransport = connectorTransport{a}
 	if connectorTransportForTests != nil {
 		tr = connectorTransportForTests
+		// A test transport that can move files by handle gets the table of
+		// the first application that uses it, so its add-ons declare the
+		// files ability. Taking it again would point the transport at a table
+		// with no blob store, and the files of the first application would
+		// stop moving.
+		if x, ok := tr.(interface {
+			EnableTransfers(*hostops.Transfers) func()
+		}); ok && !connectorTransportWired {
+			connectorTransportWired = true
+			// The servers it starts live as long as the test process.
+			_ = x.EnableTransfers(a.transfers())
+		}
 	}
 	// A token is checked with the platform when it is saved, so a typo is
 	// refused at once instead of switching the binding off later.
-	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds, VerifyToken: studio.VerifyTokenWithMe(tr)}
+	opts := studio.ConnectorOptions{Store: a.studioConnStore, Transport: tr, Poll: contract.MaxPollSeconds, VerifyToken: studio.VerifyTokenWithMe(tr), FileCeiling: a.studioConnectorFilesCeiling}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsConnectors, "Connectors")
 	}
@@ -111,7 +138,21 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 		return
 	}
 	svc.SetConnectors(c)
+	// Connector chats may use a capability only as the permission model allows.
+	svc.SetCapabilityGate(c.CapabilityGate())
+	if a.applicationConfig.DisableConnectorTalkback {
+		xlog.Info("Connector talk-back is turned off (LOCALAI_DISABLE_CONNECTOR_TALKBACK)")
+		c.AddCapabilitySwitch(studio.TalkbackSwitch("turned off on this server (LOCALAI_DISABLE_CONNECTOR_TALKBACK)"))
+	}
+	if a.applicationConfig.DisableTriggers {
+		c.AddCapabilitySwitch(studio.TriggersSwitch("triggers are turned off on this server (LOCALAI_DISABLE_TRIGGERS)"))
+	}
 	a.studioConnectorsHook.Store(c)
+	if a.applicationConfig.SkipBindingCapsMigration {
+		xlog.Info("Connectors: the grant of the usual permissions to old bindings is skipped (LOCALAI_SKIP_BINDING_CAPS_MIGRATION)")
+	} else {
+		go a.migrateBindingCaps(a.backgroundContext(), tr)
+	}
 	if a.ownsAddonsOnly() {
 		// The manager stays: frontends get the stored bot credentials from it
 		// and add-ons push messages to it. Only the polling is left to the
@@ -123,4 +164,59 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 	ctx, cancel := context.WithCancel(ctx)
 	a.studioConnectors, a.studioConnectorsStop = c, cancel
 	go c.Run(ctx)
+}
+
+// transfers is the table of live connector file handles of this process. The
+// gateway checks and ends them; the broker serves the bytes. Its blob store is
+// the one of the workspace, set when the files start.
+func (a *Application) transfers() *hostops.Transfers {
+	a.addonTransfersOnce.Do(func() {
+		t := hostops.NewTransfers(nil)
+		t.Audit = func(o hostops.TransferOutcome) {
+			xlog.Info("Connector file transfer", "direction", o.Direction, "binding", o.BindingID, "bytes", o.Bytes, "result", o.Result, "duration", o.Duration.Round(time.Millisecond))
+		}
+		a.addonTransfers = t
+	})
+	return a.addonTransfers
+}
+
+// bindingCapsRetry bounds how long a start waits for the connector kinds, which
+// come from add-ons that may still be starting.
+const (
+	bindingCapsRetryEvery = 5 * time.Second
+	bindingCapsRetryFor   = 10 * time.Minute
+)
+
+// migrateBindingCaps gives the usual permissions, once, to the connector
+// bindings saved before permissions were enforced. The store decides who runs
+// it, so any number of processes on one store may call this at start. It needs
+// the kinds that add-ons serve, to leave out a binding whose kind declares no
+// permissions, so it waits for them. With none (add-ons off, or none installed)
+// it does nothing and tries again at the next start.
+func (a *Application) migrateBindingCaps(ctx context.Context, tr studio.ConnectorTransport) {
+	deadline := time.Now().Add(bindingCapsRetryFor)
+	for {
+		kinds, err := tr.Kinds(ctx)
+		if err == nil && len(kinds) > 0 {
+			rep, err := studio.MigrateBindingCaps(ctx, a.studioConnStore, kinds, time.Now(), nil)
+			if err == nil {
+				if !rep.Ran {
+					xlog.Debug("Connectors: the permissions migration already ran")
+				}
+				return
+			}
+			xlog.Warn("Connectors: could not give the usual permissions to old bindings; it is tried again at the next start", "error", err)
+			return
+		}
+		// No kinds yet, or the add-on gateway is not up: wait, as an add-on that
+		// serves a kind may be about to start.
+		if time.Now().After(deadline) {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(bindingCapsRetryEvery):
+		}
+	}
 }

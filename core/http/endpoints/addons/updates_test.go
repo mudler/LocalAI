@@ -49,7 +49,7 @@ type updatesStack struct {
 
 func (s *updatesStack) publish(content string, requires catalog.Requirements) catalog.Release {
 	GinkgoHelper()
-	manifest := []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0-dev","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min":1,"max":1},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add"]}}`)
+	manifest := []byte(`{"schemaVersion":1,"id":"notes","version":"1.0.0-dev","executable":"bin/sample","os":"linux","arch":"amd64","host":{"min":1,"max":2},"api":{"min": 2, "max": 2},"protocol":{"min":1,"max":1},"dataFormat":{"min":1,"max":2},"launchMode":"always","capabilities":{"service":true,"tools":["add"]}}`)
 	var b bytes.Buffer
 	tw := tar.NewWriter(&b)
 	for _, f := range []struct {
@@ -114,7 +114,7 @@ func newUpdatesStack() *updatesStack {
 	Expect(err).NotTo(HaveOccurred())
 	c := catalog.Catalog{Sources: s.sources, TargetOS: "linux", TargetArch: "amd64"}
 	cfg := managerpkg.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: filepath.Join(root, "owner")}
-	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+	installer := &packages.Installer{Root: filepath.Join(cfg.Root, "packages"), Catalog: c, Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 	DeferCleanup(func() {
 		_ = filepath.Walk(root, func(p string, info os.FileInfo, e error) error {
 			if e == nil && info.IsDir() {

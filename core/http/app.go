@@ -17,6 +17,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 
+	"github.com/mudler/LocalAI/pkg/clientip"
 	"github.com/mudler/LocalAI/pkg/model"
 
 	corebackend "github.com/mudler/LocalAI/core/backend"
@@ -80,6 +81,10 @@ func bodyLimitSkipper(cfg *config.ApplicationConfig) func(echo.Context) bool {
 		r := c.Request()
 		switch {
 		case r.Method == http.MethodPut && c.Path() == "/api/chats/files/content":
+			return true
+		case r.Method == http.MethodPost && c.Path() == "/api/addons/files":
+			// An add-on zip streams to the owner in chunks, which enforces
+			// the add-on size limit while it receives.
 			return true
 		case r.Method == http.MethodPost && c.Path() == "/api/chats/:id/messages":
 			// Only the multipart form carries files; a JSON message keeps the
@@ -227,6 +232,15 @@ func setModelLoadingRetryAfter(loadErr *nodes.ModelLoadingError, c echo.Context)
 func API(application *application.Application) (*echo.Echo, error) {
 	e := echo.New()
 
+	// One resolver decides the client address for every consumer (access log,
+	// login throttling, traces). Without an IPExtractor echo's RealIP trusts
+	// X-Forwarded-For and X-Real-Ip from anyone.
+	clientAddrs, err := clientip.Parse(application.ApplicationConfig().TrustedProxies)
+	if err != nil {
+		return nil, fmt.Errorf("invalid --trusted-proxies: %w", err)
+	}
+	e.IPExtractor = clientAddrs.Extractor()
+
 	// Set body limit
 	e.Use(middleware.BodyLimitWithConfig(middleware.BodyLimitConfig{
 		Limit:   fmt.Sprintf("%dM", application.ApplicationConfig().GeneralUploadLimitMB()),
@@ -299,6 +313,11 @@ func API(application *application.Application) (*echo.Echo, error) {
 	e.HideBanner = true
 	e.HidePort = true
 
+	// StripPathPrefix, BaseURL and the prefix redirects believe
+	// X-Forwarded-Proto/Host/Prefix only from a trusted peer, so the resolver
+	// must be in the context before them.
+	e.Pre(httpMiddleware.TrustedProxies(clientAddrs))
+
 	// Middleware - StripPathPrefix must be registered early as it uses Rewrite which runs before routing
 	e.Pre(httpMiddleware.StripPathPrefix())
 
@@ -338,45 +357,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Custom logger middleware using xlog
-	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
-			req := c.Request()
-			res := c.Response()
-			err := next(c)
-
-			// Echo's central HTTPErrorHandler runs *after* this middleware
-			// returns, so res.Status still reads the default 200 here when a
-			// handler returned an error without writing a response. Mirror
-			// echo.DefaultHTTPErrorHandler's status derivation so the access
-			// log reflects the status the client actually receives — without
-			// this, every silent handler error logs as 200.
-			status := res.Status
-			if err != nil && !res.Committed {
-				status = http.StatusInternalServerError
-				var he *echo.HTTPError
-				if errors.As(err, &he) {
-					status = he.Code
-				}
-			}
-
-			// Fix for #7989: Reduce log verbosity of Web UI polling, resources API, and health checks
-			// These paths are logged at DEBUG level (hidden by default) instead of INFO.
-			isQuietPath := false
-			for _, path := range quietPaths {
-				if req.URL.Path == path {
-					isQuietPath = true
-					break
-				}
-			}
-
-			if isQuietPath && status == 200 {
-				xlog.Debug("HTTP request", "method", req.Method, "path", req.URL.Path, "status", status)
-			} else {
-				xlog.Info("HTTP request", "method", req.Method, "path", req.URL.Path, "status", status)
-			}
-			return err
-		}
-	})
+	e.Use(accessLog(application.ApplicationConfig().LogClient, clientAddrs))
 
 	// Recover middleware
 	if !application.ApplicationConfig().Debug {
@@ -525,6 +506,9 @@ func API(application *application.Application) (*echo.Echo, error) {
 		routes.RegisterAddonRoutes(e, application, gate)
 		if err := routes.RegisterAddonNavigationRoutes(e, application, gate); err != nil {
 			return nil, fmt.Errorf("register the add-on navigation routes: %w", err)
+		}
+		if err := routes.RegisterAddonUserSettingsRoutesFor(e, application, gate); err != nil {
+			return nil, fmt.Errorf("register the add-on user settings routes: %w", err)
 		}
 	} else {
 		routes.RegisterAddonsUnavailable(e, "/api/addons")
@@ -719,11 +703,14 @@ func API(application *application.Application) (*echo.Echo, error) {
 			e.GET("/app/*", serveIndex)
 
 			// prefixRedirect performs a redirect that preserves X-Forwarded-Prefix
-			// for reverse-proxy support. The prefix is forgeable on misconfigured
-			// proxy chains, so reject anything that isn't a same-origin path.
+			// for reverse-proxy support. The header counts only from a trusted
+			// proxy, and the prefix is still forgeable on misconfigured proxy
+			// chains, so reject anything that isn't a same-origin path.
 			prefixRedirect := func(c echo.Context, target string) error {
-				if prefix, ok := httpMiddleware.SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
-					target = strings.TrimSuffix(prefix, "/") + target
+				if httpMiddleware.ForwardedHeadersTrusted(c) {
+					if prefix, ok := httpMiddleware.SafeForwardedPrefix(c.Request().Header.Get("X-Forwarded-Prefix")); ok {
+						target = strings.TrimSuffix(prefix, "/") + target
+					}
 				}
 				return c.Redirect(http.StatusMovedPermanently, target)
 			}

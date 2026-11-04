@@ -94,7 +94,7 @@ var _ = Describe("Routes behind the addons gate", func() {
 			InstanceID: "local", OwnerID: "local", OwnerAddress: transport.OwnerAddress,
 			StorageID: "local", Root: root, ListenAddress: address, Transport: transport,
 			OwnershipMode: "local-owner",
-			Host:          contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"},
+			Host:          contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"},
 		}))
 		e := echo.New()
 		gate := httpMiddleware.RequireAddonsFeature(app)

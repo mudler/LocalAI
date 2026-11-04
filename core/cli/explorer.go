@@ -12,6 +12,7 @@ import (
 )
 
 type ExplorerCMD struct {
+	P2PEnableLimits          string `name:"p2p-enable-limits" env:"LOCALAI_P2P_ENABLE_LIMITS" help:"Set to true to enable P2P resource limits" group:"p2p"`
 	Address                  string `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
 	PoolDatabase             string `env:"LOCALAI_POOL_DATABASE,POOL_DATABASE" default:"explorer.json" help:"Path to the pool database" group:"api"`
 	ConnectionTimeout        string `env:"LOCALAI_CONNECTION_TIMEOUT,CONNECTION_TIMEOUT" default:"2m" help:"Connection timeout for the explorer" group:"api"`
@@ -34,12 +35,12 @@ func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	if e.WithSync {
-		ds := explorer.NewDiscoveryServer(db, dur, e.ConnectionErrorThreshold)
+		ds := explorer.NewDiscoveryServer(db, dur, e.ConnectionErrorThreshold, e.P2PEnableLimits == "true")
 		go ds.Start(context.Background(), true)
 	}
 
 	if e.OnlySync {
-		ds := explorer.NewDiscoveryServer(db, dur, e.ConnectionErrorThreshold)
+		ds := explorer.NewDiscoveryServer(db, dur, e.ConnectionErrorThreshold, e.P2PEnableLimits == "true")
 		ctx := context.Background()
 
 		return ds.Start(ctx, false)

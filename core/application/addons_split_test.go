@@ -107,7 +107,7 @@ var _ = Describe("split owner and frontends", func() {
 			Enabled:    true,
 			InstanceID: transport.InstanceID, OwnerID: gateway.OwnerIdentity, OwnerAddress: ownerAddress,
 			StorageID: "local", Root: filepath.Join(dataPath, "addons"), Transport: transport, OwnershipMode: auth.AddonModeLocalOwner,
-			Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"},
+			Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"},
 		}
 		if role == "frontend" {
 			c.Root = ""

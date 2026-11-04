@@ -4,6 +4,7 @@ import Icon from '../components/Icon'
 import i18n from '../i18n'
 import { addonsApi } from '../utils/addonsClient'
 import { resourceRequest, dispatchArgs } from './resourceCalls'
+import { userSettingsRequest } from './userSettingsCalls'
 import {
   Button, Spinner, EmptyState, Badge, Stack, Text,
   Section, Field, Select, TextInput, Switch, Choice, Callout, StatusChip, List, ListRow, Code, Actions, Table, ExternalLink,
@@ -60,6 +61,11 @@ const gatewayApi = {
   // confirmation header come from resourceRequest, never from the add-on.
   async resource(call, signal) {
     const r = resourceRequest(call)
+    return addonsApi.call(r.path, { method: r.method, body: r.body, headers: r.headers, signal })
+  },
+  // The per-person settings of one add-on, over the same shaping rule.
+  async userSettings(call, signal) {
+    const r = userSettingsRequest(call)
     return addonsApi.call(r.path, { method: r.method, body: r.body, headers: r.headers, signal })
   },
 }

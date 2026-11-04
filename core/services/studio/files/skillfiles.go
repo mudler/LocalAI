@@ -89,6 +89,44 @@ func (s *Service) ReadSkill(ctx context.Context, principal string, layer skills.
 	return s.readSkillAt(ctx, actor, dir)
 }
 
+// agentSkillDir returns the workspace folder of a skill of the agent layer.
+func (s *Service) agentSkillDir(principal, agent, name string) (string, error) {
+	switch {
+	case !skills.ValidName(name):
+		return "", fmt.Errorf("%w: %q is not a skill name", ErrBadSkill, name)
+	case !validPrincipal(principal), !ValidAgentID(agent):
+		return "", workspace.ErrBadName
+	}
+	return session.HomePath(principal) + "/" + AgentSkillsDir(agent) + "/" + name, nil
+}
+
+// ReadAgentSkill reads a skill of the agent layer of one saved agent, like
+// ReadSkill.
+func (s *Service) ReadAgentSkill(ctx context.Context, principal, agent, name string) (description, body string, err error) {
+	if !s.Available() {
+		return "", "", ErrUnavailable
+	}
+	dir, err := s.agentSkillDir(principal, agent, name)
+	if err != nil {
+		return "", "", err
+	}
+	return s.readSkillAt(ctx, s.Actor(principal), dir)
+}
+
+// DeleteAgentSkill moves a skill of an agent to the Trash. Writing one is a
+// confirmed proposal (kind skill), never a direct call, so there is no writer
+// here.
+func (s *Service) DeleteAgentSkill(ctx context.Context, principal, agent, name string) error {
+	if !s.Available() {
+		return ErrUnavailable
+	}
+	dir, err := s.agentSkillDir(principal, agent, name)
+	if err != nil {
+		return err
+	}
+	return s.ws.Delete(ctx, s.Actor(principal), dir)
+}
+
 // ReadAddonSkill reads a skill of the add-on layer, like ReadSkill: the skill
 // name of the add-on addonID. The layer is read-only for everyone.
 func (s *Service) ReadAddonSkill(ctx context.Context, principal, addonID, name string) (description, body string, err error) {

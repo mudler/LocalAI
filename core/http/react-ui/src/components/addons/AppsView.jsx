@@ -2,7 +2,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Callout, EmptyState, LoadError, SearchField, Segmented, SkeletonRows } from '../ui'
+import { Button, Callout, EmptyState, LoadError, Notice, SearchField, Segmented, SkeletonRows } from '../ui'
 import { newOperationId, pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
@@ -27,18 +27,27 @@ import { useBulkUpgrade } from '../../hooks/useBulkUpgrade'
 import { updateView, upgradeAvailability } from './updateState'
 import { upgradeFailureWords } from './updateReview'
 import FirstRun from './FirstRun'
-import { addedByAddon, attentionOf, filterByState, listState, sortByAttention, STATE_FILTERS } from './addonState'
+import { addedByAddon, attentionOf, filterByState, listState, loadLastKnown, localizedText, localizeRecord, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
 import { describeError, describeOutcome } from './errors'
+import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
+import { pendingApprovals } from './hostGrantsState'
 import { useAddonActions } from './useAddonActions'
+
+const NO_RECORDS = {}
 
 // The apps every caller with the add-ons feature may use. The owner decides
 // what is listed; this view only draws it. The list is refreshed on a bounded
 // cadence, slower in a hidden tab and backing off while the owner is
 // unreachable. Start and stop are offered to administrators and the server
 // refuses everyone else whatever this view shows.
-export default function AppsView({ api, adapter, onSummary }) {
+// The tab keeps the last list it got for this person. A page loaded while the
+// owner is busy has nothing in memory, and an empty page would read as "no
+// add-ons"; the stored copy stands in for the list, marked stale.
+const browserStore = () => { try { return globalThis.sessionStorage || null } catch { return null } }
+
+export default function AppsView({ api, adapter, onSummary, grants }) {
   const { t, i18n } = useTranslation('addons')
-  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
+  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false, staleReason: '' })
   const [reload, setReload] = useState(0)
   const reloadRef = useRef(() => {})
   const { hasFeature, isAdmin, user, sessionEpoch } = useAuth()
@@ -50,7 +59,7 @@ export default function AppsView({ api, adapter, onSummary }) {
   const actor = JSON.stringify([user?.id, sessionEpoch, isAdmin, canList])
   const scope = useRef(actor)
   scope.current = actor
-  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false }
+  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false, staleReason: '' }
   const ingest = registry?.ingest
 
   // Poll with a timer chain: one request at a time, aborted on unmount. A
@@ -69,17 +78,31 @@ export default function AppsView({ api, adapter, onSummary }) {
       if (inflight) { queued = true; return }
       inflight = true
       try {
-        const apps = await api.apps.list(ctl.signal)
-        failures = 0
+        const read = await api.apps.read(ctl.signal)
+        const apps = read.apps
+        // The server answered with its last copy: the owner did not. Ask
+        // again with the same backoff as for a failed read.
+        failures = read.stale ? failures + 1 : 0
         if (alive && current()) {
-          setState({ actor, status: 'ready', apps, error: null, stale: false })
-          ingest?.(apps)
+          setState({ actor, status: 'ready', apps, error: null, stale: read.stale, staleReason: read.staleReason })
+          if (!read.stale) {
+            ingest?.(apps)
+            const store = browserStore()
+            if (store) saveLastKnown(store, actor, apps)
+          }
         }
       } catch (error) {
         if (!alive || !current() || (error && error.name === 'AbortError')) return
         failures += 1
-        // Keep what was on screen and say it may be out of date.
-        setState(s => ({ actor, status: s.actor === actor && s.status === 'ready' ? 'ready' : 'error', apps: s.actor === actor ? s.apps : [], error, stale: true }))
+        // Keep what was on screen and say it may be out of date. A page that
+        // has nothing yet takes the copy this tab stored, so a refresh during
+        // an upgrade does not show an empty page.
+        const store = browserStore()
+        const remembered = store ? loadLastKnown(store, actor) : null
+        setState(s => {
+          const kept = s.actor === actor && s.status === 'ready' ? s.apps : remembered
+          return { actor, status: kept ? 'ready' : 'error', apps: kept || [], error, stale: true, staleReason: '' }
+        })
       } finally {
         inflight = false
       }
@@ -97,7 +120,9 @@ export default function AppsView({ api, adapter, onSummary }) {
   // The installed record of an add-on, for the administrator's Details in the
   // pane. A change reads it again.
   const [installedRecords, setInstalledInfo] = useState({})
-  const installedInfo = installedRecords.actor === actor ? installedRecords.value : {}
+  const installedRaw = installedRecords.actor === actor ? installedRecords.value : NO_RECORDS
+  // The records name an add-on in dialogs and cards: in the user's language.
+  const installedInfo = useMemo(() => (installedRaw === NO_RECORDS ? NO_RECORDS : Object.fromEntries(Object.entries(installedRaw).map(([id, rec]) => [id, localizeRecord(rec, i18n.language)]))), [installedRaw, i18n.language])
   const [installedReload, setInstalledReload] = useState(0)
   const actions = useAddonActions(api, {
     onSettled: () => {
@@ -122,6 +147,7 @@ export default function AppsView({ api, adapter, onSummary }) {
   // Remove is the typed uninstall action: the data is kept, so installing the
   // add-on again picks it up. The owner refuses anyone but an administrator.
   const [removing, setRemoving] = useState(null)
+  const [approving, setApproving] = useState(null)
   const remove = useCallback((tile) => {
     actions.run(`uninstall:${tile.id}:${tile.app.generation}`, {
       addonId: tile.id,
@@ -227,9 +253,9 @@ export default function AppsView({ api, adapter, onSummary }) {
     return state.apps.filter(a => a.update === 'update-pending' || updateView(installedInfo[a.id]?.update).state === 'update-available').map(a => {
       const rec = installedInfo[a.id]
       const av = upgradeAvailability(rec, { isAdmin, pending: true })
-      return { id: a.id, name: a.title || a.id, from: rec ? rec.version : a.version, to: rec ? updateView(rec.update).version : '', startable: av.startable, reason: reasonText(av, t), addon: rec }
+      return { id: a.id, name: localizedText(a, 'title', i18n.language) || a.id, from: rec ? rec.version : a.version, to: rec ? updateView(rec.update).version : '', startable: av.startable, reason: reasonText(av, t), addon: rec }
     })
-  }, [state.apps, installedInfo, isAdmin, t])
+  }, [state.apps, installedInfo, isAdmin, t, i18n.language])
   const bulk = useBulkUpgrade({
     items: upgradeItems,
     runOne: async (item) => {
@@ -239,7 +265,7 @@ export default function AppsView({ api, adapter, onSummary }) {
     },
   })
 
-  const firstRunNow = state.status === 'ready' && listState({ apps: state.apps, shownCount: tiles.length, query: '', isAdmin, canList }) === 'first-run'
+  const firstRunNow = state.status === 'ready' && !state.stale && listState({ apps: state.apps, shownCount: tiles.length, query: '', isAdmin, canList }) === 'first-run'
   useEffect(() => {
     if (!onSummary) return
     onSummary(state.status === 'ready' ? { count: tiles.length, firstRun: firstRunNow } : null)
@@ -284,17 +310,20 @@ export default function AppsView({ api, adapter, onSummary }) {
   if (state.status === 'loading') {
     return <SkeletonRows count={3} label={t('apps.loading')} className="ad-skeleton" />
   }
-  if (state.status === 'error') {
-    const kind = state.error && state.error.kind
+  // An error, or a stale copy of an empty list, is never the empty state: the
+  // page only says "no add-ons" when the owner answered with an empty list.
+  if (state.status === 'error' || (state.stale && state.apps.length === 0)) {
+    const loadError = state.error || { kind: 'busy' }
+    const kind = loadError.kind
     return (
       <LoadError
         title={t('apps.loadError.title')}
         testId="addons-load-error"
         nothingChanged={false}
-        onRetry={() => { setState({ status: 'loading', apps: [], error: null, stale: false }); setReload(n => n + 1) }}
+        onRetry={() => { setState({ status: 'loading', apps: [], error: null, stale: false, staleReason: '' }); setReload(n => n + 1) }}
       >
         {[
-          describeError(state.error, t),
+          describeError(loadError, t),
           kind !== 'auth' && kind !== 'denied' && kind !== 'invalid' ? t('apps.loadError.paused') : '',
           t('common:ui.loadError.nothingChanged'),
         ].filter(Boolean).join(' ')}
@@ -304,12 +333,15 @@ export default function AppsView({ api, adapter, onSummary }) {
 
   const view = listState({ apps: state.apps, shownCount: shown.length, query, isAdmin, canList })
   const firstRun = view === 'first-run'
-  const showAttention = !firstRun && (attention.failed.length > 0 || attention.updates.length > 0)
+  // Upgrades held for host access: the old version runs on, and the
+  // administrator approves what the new one asks for. The plain Upgrade of
+  // such an add-on would be refused, so only the banner offers it.
+  const approvals = isAdmin && grants && grants.data ? pendingApprovals(grants.data) : []
+  const waitingIds = new Set(approvals.map(a => a.id))
+  const showAttention = !firstRun && (attention.failed.length > 0 || attention.updates.length > 0 || approvals.length > 0)
   return (
     <div className="ad-apps">
-      {state.stale && (
-        <Callout tone="info" role="status" className="ad-callout">{t('apps.stale')}</Callout>
-      )}
+      {state.stale && <StaleNotice state={state} onRetry={() => reloadRef.current()} />}
       {Object.entries(actions.state).filter(([key, r]) => key.startsWith('uninstall:') && r.outcome && r.outcome !== 'completed' && !actions.unknown[key.split(':')[1]]).map(([key, r]) => (
         <Callout key={key} tone="error" role="alert" className="ad-callout" testId="remove-error">{describeOutcome(r.outcome, t, r.error)}</Callout>
       ))}
@@ -337,7 +369,8 @@ export default function AppsView({ api, adapter, onSummary }) {
                   </Callout>
                 )
               })}
-              {attention.updates.map(({ tile, rec, version }) => {
+              {approvals.map(a => <WaitingBanner key={a.id} addon={a} busy={Boolean(actions.unknown[a.id])} onReview={() => setApproving(a)} />)}
+              {attention.updates.filter(({ tile }) => !waitingIds.has(tile.id)).map(({ tile, rec, version }) => {
                 const working = Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id)
                 return (
                   <Callout
@@ -408,6 +441,7 @@ export default function AppsView({ api, adapter, onSummary }) {
                     attention={tile.app ? attentionOf(tile.app, rec) : ''}
                     source={isAdmin ? rec : undefined}
                     updateVersion={uv && uv.state === 'update-available' ? uv.version : ''}
+                    waitingApproval={waitingIds.has(tile.id)}
                     onPin={onPin}
                     onMove={nav.move}
                     onOpenDetail={openDetail}
@@ -420,7 +454,7 @@ export default function AppsView({ api, adapter, onSummary }) {
                         isAdmin={isAdmin}
                         upgrade={upgrade}
                         variant="secondary"
-                        working={Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id)}
+                        working={Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id) || Boolean(tile.app.operation)}
                       />
                     ) : null}
                   />
@@ -481,6 +515,16 @@ export default function AppsView({ api, adapter, onSummary }) {
         <Callout tone="info" role="status" className="ad-callout">{t('installed.missing', { id: manageId })}</Callout>
       )}
       <UpgradeConfirm upgrade={upgrade} />
+      {approving && (
+        <ApproveUpgradeDialog
+          addon={approving}
+          sourceId={installedInfo[approving.id]?.sourceId}
+          api={api}
+          actions={actions}
+          onClose={() => setApproving(null)}
+          onDone={() => { setApproving(null); grants?.reload(); reloadRef.current() }}
+        />
+      )}
       <BulkUpgradeDialog bulk={bulk} />
       {limit && (
         <SideSheet title={t('drawer.limitTitle')} onClose={() => setLimit(false)} closeLabel={t('drawer.close')} testId="pin-limit">
@@ -488,5 +532,28 @@ export default function AppsView({ api, adapter, onSummary }) {
         </SideSheet>
       )}
     </div>
+  )
+}
+
+// The banner over a list that may be out of date. It says why, names the
+// add-ons the owner is upgrading when the last list knew of it, and offers a
+// retry now; the page also asks again by itself, slower after each failure.
+function StaleNotice({ state, onRetry }) {
+  const { t } = useTranslation('addons')
+  const kind = staleKind(state)
+  const names = upgradingTitles(state.apps)
+  const title = kind === 'unreachable'
+    ? t('apps.busy.unreachable')
+    : names.length > 0 ? t('apps.busy.upgrading', { names: names.join(', ') }) : t('apps.busy.generic')
+  return (
+    <Notice
+      severity="warn"
+      title={title}
+      reason={t('apps.busy.reason')}
+      fix={{ label: t('apps.busy.retry'), onClick: onRetry, testId: 'addons-stale-retry' }}
+      className="ad-callout"
+      testId="addons-stale"
+      data-kind={kind}
+    />
   )
 }

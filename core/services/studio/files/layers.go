@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"path"
+	"regexp"
 
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/skills"
@@ -48,21 +49,44 @@ func AddonSkillsRoot(addonID, title string) skills.Root {
 		Path: AddonSkillsPath + "/" + addonID, Guest: addonGuest + "/" + addonID}
 }
 
+// AgentSkillsDir is the folder of an agent's skills, relative to the home of
+// its owner. The proposal kind skill writes there.
+func AgentSkillsDir(agent string) string {
+	return "LocalAI/agents/" + agent + "/" + skills.SkillsLayerDir
+}
+
+// AgentSkillsRoot returns the root of the agent layer for one saved agent of
+// principal, for skills.Resolve. The agent must be a safe ID (see
+// ValidAgentID): the ID becomes a folder name.
+func AgentSkillsRoot(principal, agent, name string) skills.Root {
+	return skills.Root{Layer: skills.LayerAgent, Agent: agent, AgentName: name,
+		Path:  session.HomePath(principal) + "/" + AgentSkillsDir(agent),
+		Guest: session.GuestRoot + "/" + session.GuestHome + "/" + AgentSkillsDir(agent)}
+}
+
+// ValidAgentID reports whether an agent ID can name a folder of the agent
+// layer.
+func ValidAgentID(id string) bool { return agentIDRE.MatchString(id) }
+
+var agentIDRE = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
 // SkillRoots returns the places where the user's skills are looked for, from
 // the nearest layer to the farthest: any .skills folder of the user's home, the
 // personal skills, the shared skills and the built-in ones. The Chats folder is
 // not walked: it holds uploads, not skills.
 //
-// addons are the roots of the add-on layer the chat may use now (see
-// AddonSkillsRoot); the caller decides which add-ons are usable.
-func (s *Service) SkillRoots(principal string, addons ...skills.Root) []skills.Root {
+// extra are the roots of the add-on layer the chat may use now (see
+// AddonSkillsRoot) and of the agent layer of the chat's saved agent (see
+// AgentSkillsRoot); the caller decides which are usable. Any other root is
+// dropped.
+func (s *Service) SkillRoots(principal string, extra ...skills.Root) []skills.Root {
 	home := session.HomePath(principal)
 	guestHome := session.GuestRoot + "/" + session.GuestHome
 	roots := []skills.Root{
 		{Layer: skills.LayerBuiltin, Path: BuiltinSkillsPath, Guest: builtinGuest},
 	}
-	for _, r := range addons {
-		if r.Layer == skills.LayerAddon {
+	for _, r := range extra {
+		if r.Layer == skills.LayerAddon || (r.Layer == skills.LayerAgent && ValidAgentID(r.Agent)) {
 			roots = append(roots, r)
 		}
 	}

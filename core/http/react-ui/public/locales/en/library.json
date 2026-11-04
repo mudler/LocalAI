@@ -77,7 +77,7 @@
     "budgetNote": "Estimates: characters divided by four. The window of the model is not known here, so there is no share of a limit.",
     "instructions": "Instructions",
     "skills": "Skills",
-    "memory": "Memory",
+    "memory": "Knowledge",
     "skillsTitle": "Skills this context loads",
     "skillsNone": "No skills are on for this agent.",
     "skillsPrompt": "In the prompt of every message.",
@@ -87,7 +87,7 @@
     "skillMissing": "{{name}} is listed but no skill has that name.",
     "skillTokens": "{{count}} tokens",
     "skillTokensTools": "0 up front",
-    "memoryTitle": "Memory that would be sent",
+    "memoryTitle": "Knowledge that would be sent",
     "memoryNone": "No collection is on this agent's list. Add one to the agent to use it.",
     "memoryNoCollection": "This agent's knowledge base is on, but no collection named {{name}} exists yet.",
     "memoryTools": "This agent searches only when the model asks. Nothing is added to the message up front.",
@@ -108,7 +108,7 @@
   "agentBudget": "Selected skills add about {{count}} tokens to every message (estimate: characters divided by four).",
   "agentKb": {
     "reads": "This agent reads the collection named {{name}}.",
-    "exists": "This agent reads the collection named {{name}}. You can fill and search it in Memory.",
+    "exists": "This agent reads the collection named {{name}}. You can fill and search it in Knowledge.",
     "created": "This agent reads the collection named {{name}}. It is created when you save."
   }
 }

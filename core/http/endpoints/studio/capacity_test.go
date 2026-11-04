@@ -2,7 +2,6 @@ package studio
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/http/auth"
-	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/agents"
 	"github.com/mudler/LocalAI/core/services/studio/files"
@@ -28,7 +26,7 @@ import (
 )
 
 var _ = Describe("folder capacity", func() {
-	It("refuses create and send with a fixed capacity response", func() {
+	It("starts create and send although more shared folders exist than fit", func() {
 		ctx := context.Background()
 		b, err := blob.NewFS(filepath.Join(GinkgoT().TempDir(), "blobs"))
 		Expect(err).NotTo(HaveOccurred())
@@ -79,14 +77,7 @@ var _ = Describe("folder capacity", func() {
 				err = h.Create(c)
 			}
 			Expect(err).NotTo(HaveOccurred())
-			var response schema.ErrorResponse
-			Expect(json.Unmarshal(out.Body.Bytes(), &response)).To(Succeed())
-			Expect(out.Code).To(Equal(http.StatusConflict), "send=%v: %s", send, out.Body.String())
-			Expect(response.Error).NotTo(BeNil())
-			Expect(response.Error.Type).To(Equal("agent_folder_limit"))
-			Expect(response.Error.Code).To(BeEquivalentTo(http.StatusConflict))
-			Expect(response.Error.Message).To(Equal("This agent cannot start because its file access exceeds the folder limit. Ask an administrator to reduce the shared folders available to you, then try again."))
+			Expect(out.Code).To(BeNumerically("<", 300), "send=%v: %s", send, out.Body.String())
 		}
-		Expect(harness.Starts()).To(BeZero(), "refused request started a harness")
 	})
 })

@@ -36,7 +36,7 @@ var _ = Describe("qwen3-tts-cpp e2e", Label("e2e"), func() {
 			purego.RegisterLibFunc(&CppTTSStream, h, "qt3_tts_stream")
 			purego.RegisterLibFunc(&CppPCMFree, h, "qt3_pcm_free")
 			purego.RegisterLibFunc(&CppUnload, h, "qt3_unload")
-			Expect(CppLoad(modelPath, codecPath, 1, 0)).To(Equal(0))
+			Expect(CppLoad(modelPath, codecPath, 1, 0, 1)).To(Equal(0))
 			loaded = true
 		}
 	})

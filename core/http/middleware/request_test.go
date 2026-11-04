@@ -426,6 +426,21 @@ var _ = Describe("MergeOpenResponsesConfig tool_choice parsing", func() {
 	})
 })
 
+var _ = Describe("MergeOpenResponsesConfig reasoning", func() {
+	It("applies reasoning.effort and forwards request metadata", func() {
+		cfg := &config.ModelConfig{}
+		req := &schema.OpenResponsesRequest{
+			Reasoning: &schema.ORReasoningParam{Effort: "none"},
+			Metadata:  map[string]string{"enable_thinking": "false"},
+		}
+		Expect(MergeOpenResponsesConfig(cfg, req)).To(Succeed())
+
+		Expect(cfg.ReasoningEffort).To(Equal("none"))
+		Expect(cfg.ReasoningConfig.DisableReasoning).To(HaveValue(BeTrue()))
+		Expect(cfg.RequestMetadata).To(Equal(req.Metadata))
+	})
+})
+
 // ---------------------------------------------------------------------------
 // SetModelAndConfig + SetOpenAIRequest - /v1/chat/completions tool_choice parsing
 // ---------------------------------------------------------------------------
@@ -900,6 +915,41 @@ var _ = Describe("SetModelAndConfig metadata passthrough (chat completions)", fu
 
 		Expect(rec.Code).To(Equal(http.StatusOK))
 		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("preserve_thinking", "true"))
+	})
+
+	It("folds llama-server style chat_template_kwargs into the request metadata", func() {
+		app, captured := buildApp()
+		body := `{"model":"test-model","messages":[{"role":"user","content":"hi"}],` +
+			`"chat_template_kwargs":{"enable_thinking":false,"reasoning_effort":"low","budget":512,` +
+			`"nested":{"a":1},"list":[1],"chat_template_kwargs":"x"}}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).RequestMetadata).To(Equal(map[string]string{
+			"enable_thinking":  "false",
+			"reasoning_effort": "low",
+			"budget":           "512",
+		}))
+	})
+
+	It("lets an explicit metadata key win over chat_template_kwargs", func() {
+		app, captured := buildApp()
+		body := `{"model":"test-model","messages":[{"role":"user","content":"hi"}],` +
+			`"chat_template_kwargs":{"enable_thinking":false,"preserve_thinking":true},` +
+			`"metadata":{"enable_thinking":"true"}}`
+		req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		app.ServeHTTP(rec, req)
+
+		Expect(rec.Code).To(Equal(http.StatusOK))
+		Expect(*captured).ToNot(BeNil())
+		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("enable_thinking", "true"))
 		Expect((*captured).RequestMetadata).To(HaveKeyWithValue("preserve_thinking", "true"))
 	})
 })

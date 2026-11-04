@@ -1,6 +1,6 @@
 {
-  "title": "Base di conoscenza",
-  "subtitle": "Gestisci raccolte di documenti per il RAG degli agenti",
+  "title": "Conoscenza",
+  "subtitle": "Raccolte di documenti in cui gli agenti possono cercare. Cerca in una qualsiasi da qui, oppure aggiungine una a un agente quando vuoi che la usi.",
   "newPlaceholder": "Nome della nuova raccolta...",
   "actions": {
     "create": "Crea",
@@ -20,7 +20,7 @@
     "title": "Nessuna raccolta ancora",
     "text": "Le raccolte ti permettono di organizzare i documenti in basi di conoscenza che gli agenti possono consultare con RAG (Retrieval-Augmented Generation). Crea una raccolta sopra per iniziare.",
     "noPersonal": "Non hai ancora raccolte.",
-    "learn": "Come funziona la memoria"
+    "learn": "Come funziona la conoscenza"
   },
   "deleteDialog": {
     "title": "Elimina raccolta",
@@ -48,8 +48,8 @@
     "loadFailed": "Impossibile caricare i file."
   },
   "starting": {
-    "title": "La memoria si sta avviando.",
-    "text": "Il server sta ancora preparando il servizio di memoria. Questa pagina riprova da sola."
+    "title": "La conoscenza si sta avviando.",
+    "text": "Il server sta ancora preparando il servizio di conoscenza. Questa pagina riprova da sola."
   },
   "embedding": {
     "missingTitle": "Nessun modello di embedding installato.",

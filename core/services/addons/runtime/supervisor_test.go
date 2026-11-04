@@ -83,7 +83,7 @@ func fixture(mode string, capabilities contract.Capabilities) packages.PackageRe
 	Expect(os.WriteFile(filepath.Join(dir, "fixture"), b, 0500)).To(Succeed())
 	Expect(os.WriteFile(filepath.Join(dir, "fixture.json"), []byte(`{"mode":"`+mode+`"}`), 0600)).To(Succeed())
 	v := contract.VersionRange{Min: 1, Max: 1}
-	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: goruntime.GOOS, Arch: goruntime.GOARCH, Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: capabilities}
+	m := contract.Manifest{SchemaVersion: 1, ID: "sample", Version: "1.0.0", Executable: "fixture", OS: goruntime.GOOS, Arch: goruntime.GOARCH, Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: capabilities}
 	p := packages.PackageReceipt{Manifest: m, Directory: dir, Digest: "sha256:fixture"}
 	b, e = json.Marshal(p)
 	Expect(e).NotTo(HaveOccurred())
@@ -681,6 +681,7 @@ var _ = Describe("Addon data directory", func() {
 		entries, _ := os.ReadDir(root)
 		Expect(entries).To(BeEmpty())
 	})
+	var hostOpsSupervisorWith func(hostops.Authority) (*Supervisor, *hostops.InFlight)
 	hostOpsSeen := func(p packages.PackageReceipt) (endpoint, credential string) {
 		var b []byte
 		Eventually(func() error {
@@ -692,6 +693,9 @@ var _ = Describe("Addon data directory", func() {
 		return parts[0], parts[1]
 	}
 	hostOpsSupervisor := func(allowed map[string][]string) (*Supervisor, *hostops.InFlight) {
+		return hostOpsSupervisorWith(hostops.NewStaticAuthority(allowed))
+	}
+	hostOpsSupervisorWith = func(auth hostops.Authority) (*Supervisor, *hostops.InFlight) {
 		l := contract.DefaultLimits()
 		l.ReadTimeout = 300 * time.Millisecond
 		l.ShutdownTimeout = 100 * time.Millisecond
@@ -700,7 +704,7 @@ var _ = Describe("Addon data directory", func() {
 		Expect(b.Register(hostops.Spec{Op: "finetune.get", Scope: "read", Feature: "fine_tuning", Handler: func(context.Context, hostops.Call) (json.RawMessage, error) {
 			return json.RawMessage(`{"ok":true}`), nil
 		}})).To(Succeed())
-		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Allowed: allowed}})
+		s, e := NewSupervisor(Config{StateRoot: GinkgoT().TempDir(), Limits: l, ReadyTimeout: 2 * time.Second, StableHealth: time.Second, HostOps: &HostOps{Broker: b, InFlight: in, Authority: auth}})
 		Expect(e).NotTo(HaveOccurred())
 		DeferCleanup(func() { Expect(s.Close(context.Background())).To(Succeed()) })
 		return s, in
@@ -733,6 +737,37 @@ var _ = Describe("Addon data directory", func() {
 		Expect(call(credential)).To(Equal(http.StatusOK))
 		end()
 		Expect(call(credential)).To(Equal(http.StatusForbidden))
+	})
+
+	It("opens an endpoint for a declared operation that is not granted, and a later grant works with no restart", func() {
+		auth := &switchAuthority{}
+		s, in := hostOpsSupervisorWith(auth)
+		p := withID("sample")
+		p.Manifest.Capabilities.HostOperations = &contract.HostOperations{Optional: []string{"finetune.get"}}
+		raw, e := json.Marshal(p)
+		Expect(e).NotTo(HaveOccurred())
+		Expect(os.Chmod(filepath.Join(p.Directory, "receipt.json"), 0600)).To(Succeed())
+		Expect(os.WriteFile(filepath.Join(p.Directory, "receipt.json"), raw, 0400)).To(Succeed())
+		inst, e := s.Start(context.Background(), p, 1)
+		Expect(e).NotTo(HaveOccurred())
+		endpoint, credential := hostOpsSeen(p)
+		Expect(endpoint).To(HavePrefix("http://127.0.0.1:"))
+		call := func() int {
+			body := strings.NewReader(`{"operationId":"op1","op":"finetune.get","arguments":{}}`)
+			req, _ := http.NewRequest("POST", endpoint+"/host", body)
+			req.Header.Set(contract.HostCredentialHeader, credential)
+			resp, e := http.DefaultClient.Do(req)
+			Expect(e).NotTo(HaveOccurred())
+			_ = resp.Body.Close()
+			return resp.StatusCode
+		}
+		end := in.BeginRuntime(contract.Envelope{Request: contract.Request{AddonID: "sample", OperationID: "op1", Generation: 1, Action: "a", Arguments: json.RawMessage(`{}`)}, Authority: contract.Authority{Actor: contract.Actor{UserID: "u", CredentialID: "c", Mode: "named-user"}, Scope: "read", ExpiresAt: time.Now().Add(time.Minute)}}, hostops.Binding{}, false, inst.Incarnation)
+		defer end()
+		Expect(call()).To(Equal(http.StatusForbidden))
+		auth.grant.Store(true)
+		Expect(call()).To(Equal(http.StatusOK))
+		auth.grant.Store(false)
+		Expect(call()).To(Equal(http.StatusForbidden))
 	})
 
 	It("gives an add-on that the host setting does not name no host endpoint", func() {
@@ -768,3 +803,15 @@ var _ = Describe("Addon data directory", func() {
 		}, 2*time.Second).Should(HaveOccurred())
 	})
 })
+
+// switchAuthority grants finetune.get to every add-on while grant is set.
+type switchAuthority struct{ grant atomic.Bool }
+
+func (a *switchAuthority) Allows(_, op string) (bool, hostops.Reason) {
+	if a.grant.Load() && op == "finetune.get" {
+		return true, hostops.ReasonNone
+	}
+	return false, hostops.ReasonNotGranted
+}
+func (a *switchAuthority) Snapshot(string) hostops.EffectiveSet { return hostops.EffectiveSet{} }
+func (a *switchAuthority) Entitled(string) bool                 { return a.grant.Load() }

@@ -7,6 +7,7 @@ import { describeError } from './errors'
 import { updateView, formatWhen, upgradeAvailability } from './updateState'
 import { upgradeFailureWords } from './updateReview'
 import RecoveryPanel from './RecoveryPanel'
+import { isLocalFile } from './fileInstall'
 import { addonUpgrades } from '../../utils/addonUpgrades'
 import { reasonText } from './UpgradeControls'
 import { UpgradeReason } from '../upgrade/UpgradeBits'
@@ -25,7 +26,7 @@ export function OperatorFacts({ addon, api, language, actions, check, upgraded, 
         <h3 id="manage-trust" className="ad-section__title">{t('manage.trust')}</h3>
         <dl className="dk-kv ad-kv">
           <dt>{t('trust.verification')}</dt><dd>{t(`trust.mode.${addon.verification === 'sha256+sigstore' ? 'signed' : 'digest'}`)}</dd>
-          <dt>{t('trust.library')}</dt><dd>{addon.sourceId || '—'}</dd>
+          <dt>{t('trust.library')}</dt><dd data-testid="trust-library">{isLocalFile(addon.sourceId) ? t('file.sourceValue') : (addon.sourceId || '—')}</dd>
           {addon.channel && (<><dt>{t('trust.channel')}</dt><dd>{addon.channel}</dd></>)}
           {addon.selection && (<><dt>{t('trust.selection')}</dt><dd>{addon.selection}</dd></>)}
           <dt>{t('trust.digest')}</dt><dd className="dk-mono ad-wrap" title={addon.digest}>{shortDigest(addon.digest)}</dd>

@@ -20,6 +20,8 @@ const (
 	ProposalAccepted ProposalState = "accepted"
 	ProposalDeclined ProposalState = "declined"
 	ProposalUndone   ProposalState = "undone"
+	// ProposalExpired is a proposal that nobody answered in time.
+	ProposalExpired ProposalState = "expired"
 )
 
 // Why an accepted trigger cannot be undone. The codes are for the interface,
@@ -57,6 +59,8 @@ func stateOf(t triggers.Trigger) ProposalState {
 		return ProposalDeclined
 	case t.Outcome == triggers.OutcomeUndone:
 		return ProposalUndone
+	case t.Outcome == triggers.OutcomeExpired:
+		return ProposalExpired
 	}
 	return ProposalAccepted
 }
@@ -98,6 +102,7 @@ func (h *Triggers) ProposalStatus(ctx context.Context, user, id string) (Proposa
 	if !t.Proposed && t.Outcome != triggers.OutcomeAccepted {
 		return ProposalView{}, triggers.ErrNotFound // a trigger nobody proposed
 	}
+	t = h.lapse(ctx, t)
 	v := ProposalView{State: stateOf(t), Trigger: t, At: t.OutcomeAt}
 	if v.State == ProposalAccepted {
 		block, err := h.undoBlock(ctx, t)
@@ -173,8 +178,9 @@ func (h *Triggers) ReopenProposal(ctx context.Context, user, id string) (trigger
 		return triggers.Trigger{}, err
 	}
 	pending := 0
+	now := h.o.Clock()
 	for _, m := range mine {
-		if m.Pending() {
+		if m.Pending() && !m.Expired(now) {
 			pending++
 		}
 	}
@@ -182,6 +188,10 @@ func (h *Triggers) ReopenProposal(ctx context.Context, user, id string) (trigger
 		return triggers.Trigger{}, ErrTooManyProposals
 	}
 	t.Outcome, t.OutcomeAt, t.Touched = "", time.Time{}, false
+	if !t.Route.Expires.IsZero() {
+		// The owner asked for it again: it waits a full time once more.
+		t.Route.Expires = h.o.Clock().UTC().Add(ProposalTTL)
+	}
 	if err := h.o.Store.PutTrigger(ctx, t); err != nil {
 		return triggers.Trigger{}, err
 	}
@@ -238,6 +248,8 @@ func (h *Triggers) ProposalNote(ctx context.Context, user, chatID string) string
 		case triggers.OutcomeUndone:
 			parts = append(parts, fmt.Sprintf("%q undone by the user after they scheduled it, so it is not active", name))
 			again = true
+		case triggers.OutcomeExpired:
+			parts = append(parts, fmt.Sprintf("%q expired: nobody confirmed it in time, so it is not active", name))
 		}
 	}
 	line := "Trigger proposals and changes in this chat: " + strings.Join(parts, "; ") + "."

@@ -2,8 +2,8 @@
 // status tool answers the settings only to an administrator, and never the
 // keys: a provider says whether its key is set.
 
-export const PROVIDERS = ['brave', 'tavily', 'google', 'searxng', 'duckduckgo']
-export const KEYED = ['brave', 'tavily', 'google']
+export const PROVIDERS = ['brave', 'tavily', 'google', 'keenable', 'searxng', 'duckduckgo']
+export const KEYED = ['brave', 'tavily', 'google', 'keenable']
 // The keyless entry of the order ('duckduckgo', its saved name) is the chain
 // of the built-in search: these result pages, tried in turn.
 export const KEYLESS_ENTRY = 'duckduckgo'

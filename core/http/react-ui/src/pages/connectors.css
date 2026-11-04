@@ -98,8 +98,9 @@
   font-size: var(--fs-section);
   line-height: var(--lh-section);
   font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
 }
-.cn-group__desc { margin: var(--sp-1) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); max-width: 64ch; }
+.cn-group__desc { overflow-wrap: anywhere; margin: var(--sp-1) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); max-width: 64ch; }
 
 /* ---- Related links ------------------------------------------------------------ */
 .cn-related {

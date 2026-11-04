@@ -22,19 +22,19 @@ import (
 // "(none)" is a deliberate sentinel for tools whose data is not exposed
 // over a single REST endpoint (e.g. system_info aggregates data the
 // inproc client picks up directly from services). The httpapi.Client may
-// approximate via the welcome JSON; the test still requires an entry so
+// compose it from several routes; the test still requires an entry so
 // the contributor explicitly acknowledges the asymmetry.
 var toolToHTTPRoute = map[string]string{
 	// Read-only tools.
 	ToolGallerySearch:             "GET /models/available",
-	ToolListInstalledModels:       "GET / (welcome JSON, ModelsConfig field)",
+	ToolListInstalledModels:       "GET /api/models/capabilities",
 	ToolListGalleries:             "GET /models/galleries",
 	ToolGetJobStatus:              "GET /models/jobs/:uuid",
 	ToolGetModelConfig:            "(none) — no JSON-only REST yet; httpapi.Client returns a documented stub",
 	ToolListBackends:              "GET /backends",
 	ToolListKnownBackends:         "GET /backends/known",
 	ToolListBackendLibraryUpdates: "GET /backends/library/updates",
-	ToolSystemInfo:                "GET / (welcome JSON)",
+	ToolSystemInfo:                "GET /version + GET /system (composed)",
 	ToolListNodes:                 "GET /api/nodes",
 	ToolListScheduling:            "GET /api/nodes/scheduling",
 	ToolGetScheduling:             "GET /api/nodes/scheduling/:model",

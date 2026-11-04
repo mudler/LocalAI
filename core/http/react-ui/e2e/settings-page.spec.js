@@ -18,11 +18,11 @@ test.describe('Settings: groups and search', () => {
   test('shows nine groups by intent and opens on memory and models', async ({ page }) => {
     const names = await page.locator('.st-group .st-group__label').allTextContents()
     expect(names).toEqual([
-      'Memory and models', 'Speed and defaults', 'Backends and galleries', 'Access and security',
+      'Models in memory', 'Speed and defaults', 'Backends and galleries', 'Access and security',
       'Debugging and traces', 'Chats and collections', 'Tools', 'Swarm and sharing', 'Look and feel',
     ])
-    await expect(page.locator('.st-group[aria-current="true"]')).toHaveText(/Memory and models/)
-    await expect(page.getByRole('heading', { level: 2, name: /Memory and models/ })).toBeVisible()
+    await expect(page.locator('.st-group[aria-current="true"]')).toHaveText(/Models in memory/)
+    await expect(page.getByRole('heading', { level: 2, name: /Models in memory/ })).toBeVisible()
     await expect(row(page, 'watchdog_idle_timeout')).toBeVisible()
     await expect(row(page, 'debug')).toHaveCount(0)
   })

@@ -44,7 +44,7 @@
     "voiceRecognition": "Riconoscimento vocale",
     "agents": "Agenti",
     "skills": "Competenze",
-    "memory": "Memoria",
+    "memory": "Conoscenza",
     "mcpJobs": "Job MCP CI",
     "usage": "Utilizzo",
     "users": "Utenti",
@@ -117,5 +117,7 @@
   "recentChats": "Chat recenti",
   "newChat": "Nuova chat",
   "untitledChat": "Chat senza titolo",
-  "chatRunning": "In corso"
+  "chatRunning": "In corso",
+  "automatedWaiting": "Chat automatiche che ti aspettano: {{count}}",
+  "automatedRunning": "Chat automatiche in corso: {{count}}"
 }

@@ -34,6 +34,9 @@ const (
 	// GuestSharedPrefix starts the mount name of a shared folder:
 	// /workspace/shared-<name>. A mount name is one path segment.
 	GuestSharedPrefix = "shared-"
+	// GuestFolderPrefix starts the mount name of an agent's folder after the
+	// first: /workspace/folder-<name>. The first folder is "home".
+	GuestFolderPrefix = "folder-"
 	// DefaultTitle is the title of a new chat.
 	DefaultTitle = "New chat"
 	// MaxTitleRunes is the longest title of a chat, in characters.
@@ -188,6 +191,43 @@ type SharedRoot struct {
 // folder that cannot be mounted is an error too, since the resolver makes it
 // before it fences.
 func BuildView(ctx context.Context, st workspace.Store, a workspace.Actor, primary string, chat string, shared []SharedRoot, log *slog.Logger) (workspace.View, error) {
+	return BuildViewFolders(ctx, st, a, primary, nil, chat, shared, log)
+}
+
+// reservedMountNames are the names no folder may take: the home, the chat
+// folder and the skill layers.
+func reservedMountNames() map[string]bool {
+	used := map[string]bool{workspace.FoldName(GuestHome): true, workspace.FoldName(GuestChat): true}
+	for _, l := range SkillLayers {
+		used[workspace.FoldName(l.At)] = true
+	}
+	return used
+}
+
+// FolderMountNames returns the mount name of each further folder of an agent,
+// in order: "folder-<name>", with " 2", " 3" and so on when two folders have
+// the same name. The same call gives the same names, so the code that builds
+// the view and the code that tells the model about it agree.
+func FolderMountNames(paths []string) []string {
+	used := reservedMountNames()
+	out := make([]string, 0, len(paths))
+	for _, p := range paths {
+		base := strings.TrimRight(fitBytes(GuestFolderPrefix+path.Base(p), maxNameBytes-len(" 999")), " ")
+		at, err := uniqueName(base, func(n string) (bool, error) { return used[workspace.FoldName(n)], nil })
+		if err != nil {
+			at = fmt.Sprintf("%s%d", GuestFolderPrefix, len(out)+1)
+		}
+		used[workspace.FoldName(at)] = true
+		out = append(out, at)
+	}
+	return out
+}
+
+// BuildViewFolders is BuildView for an agent with several folders: primary is
+// the first and extra are the others, mounted at "folder-<name>". The store
+// caps each mount at the fence's mode. An extra folder the store refuses is
+// skipped and logged.
+func BuildViewFolders(ctx context.Context, st workspace.Store, a workspace.Actor, primary string, extra []string, chat string, shared []SharedRoot, log *slog.Logger) (workspace.View, error) {
 	home := HomePath(a.Principal)
 	reqs := []workspace.MountRequest{{Path: primary, At: GuestHome, Mode: workspace.ModeWrite}}
 	v, err := st.View(ctx, a, reqs)
@@ -208,9 +248,18 @@ func BuildView(ctx context.Context, st workspace.Store, a workspace.Actor, prima
 	// The names of the skill layers and of the chat folder are reserved: the
 	// file tools read them there, so a shared folder named skills gets
 	// "shared-skills 2".
-	used := map[string]bool{workspace.FoldName(GuestHome): true, workspace.FoldName(GuestChat): true}
-	for _, l := range SkillLayers {
-		used[workspace.FoldName(l.At)] = true
+	used := reservedMountNames()
+	for i, at := range FolderMountNames(extra) {
+		ev, err := st.View(ctx, a, []workspace.MountRequest{{Path: extra[i], At: at, Mode: workspace.ModeWrite}})
+		if err != nil {
+			if missingFolder(err) {
+				log.Warn("session: skipping a folder of the agent", "path", extra[i], "error", err)
+				continue
+			}
+			return workspace.View{}, err
+		}
+		used[workspace.FoldName(at)] = true
+		v.Mounts = append(v.Mounts, ev.Mounts...)
 	}
 	for _, s := range shared {
 		p := path.Clean("/" + strings.Trim(s.Path, "/"))
@@ -236,6 +285,9 @@ func BuildView(ctx context.Context, st workspace.Store, a workspace.Actor, prima
 		sv, err := st.View(ctx, a, []workspace.MountRequest{{Path: p, At: at, Mode: mode}})
 		if err != nil {
 			if missingFolder(err) {
+				if fenced {
+					v.NotMounted++
+				}
 				log.Warn("session: skipping a shared folder", "path", p, "error", err)
 				continue
 			}
@@ -312,11 +364,16 @@ func scopedLayoutPrompt(v workspace.View) string {
 			fmt.Fprintf(&b, "- %s/%s: the user's home folder (%s).\n", GuestRoot, m.At, access)
 		case m.At == GuestHome:
 			fmt.Fprintf(&b, "- %s/%s: the folder %q of the user (%s). You cannot see the user's other files.\n", GuestRoot, m.At, path.Base(m.Path), access)
+		case strings.HasPrefix(m.At, GuestFolderPrefix):
+			fmt.Fprintf(&b, "- %s/%s: the folder %q of the user (%s). You cannot see the user's other files.\n", GuestRoot, m.At, path.Base(m.Path), access)
 		case m.At == GuestChat:
 			fmt.Fprintf(&b, "- %s/%s: this chat's own folder (%s). Files the user attaches are here; save working files in %s/%s/%s/.\n", GuestRoot, m.At, access, GuestRoot, m.At, workfiles.Dir)
 		default:
 			fmt.Fprintf(&b, "- %s/%s: a folder shared with the user (%s).\n", GuestRoot, m.At, access)
 		}
+	}
+	if v.NotMounted > 0 {
+		fmt.Fprintf(&b, "%d shared folders are not mounted: they did not fit the access limit of this chat.\n", v.NotMounted)
 	}
 	b.WriteString("There is nothing else under " + GuestRoot + ". Every change is saved, and the user can undo it.")
 	return b.String()

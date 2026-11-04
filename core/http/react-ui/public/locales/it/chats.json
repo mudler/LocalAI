@@ -22,6 +22,7 @@
       "undone": "Annullato:",
       "again": "Pianificalo di nuovo",
       "declined": "Rifiutato:",
+      "expired": "Scaduta:",
       "restore": "Ripristina",
       "blocked": {
         "ran": "È già stato eseguito una volta; rimuovilo dalla pagina Trigger.",
@@ -55,7 +56,8 @@
       "costUnknown_other": "I token di un'esecuzione si conoscono dopo la prima. Al massimo {{count}} esecuzioni al giorno.",
       "remoteNote": "{{model}} è un servizio remoto: quello che un'esecuzione legge esce da questo server.",
       "stopWidget": "Mettilo in pausa dal widget, o eliminalo in Trigger",
-      "stop": "Spegnilo o eliminalo in Trigger"
+      "stop": "Spegnilo o eliminalo in Trigger",
+      "actsLabel": "Permessi"
     }
   },
   "mcpPage": {
@@ -270,26 +272,33 @@
     "commands": {
       "title": "Qui non si possono eseguire comandi",
       "none": "Non è installato nessun componente aggiuntivo che esegue codice: l'assistente può scrivere file, ma non eseguire script o comandi.",
-      "off": "Il componente aggiuntivo Sandbox è spento per questa chat. Attivalo nel menu Strumenti per far eseguire codice all'assistente.",
-      "unavailable": "Il componente aggiuntivo Sandbox è installato, ma non può eseguire comandi su questo server.",
-      "unavailableWhy": "Il componente aggiuntivo Sandbox non può eseguire comandi su questo server: {{reason}}",
-      "install": "Installa Sandbox",
-      "openSandbox": "Apri il componente Sandbox",
-      "askInstall": "Chiedi a un amministratore di installare il componente aggiuntivo Sandbox.",
       "askFix": "Chiedi a un amministratore di risolvere il problema.",
       "hide": "Nascondi",
       "hideLabel": "Nascondi questo avviso",
       "chipTitle": "Questa chat non può eseguire codice o comandi. Seleziona per i dettagli.",
       "hostTitle": "I comandi vengono eseguiti su questa macchina",
-      "host": "I comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento. Installa il Sandbox per isolarli.",
-      "hostOff": "Il Sandbox è spento per questa chat, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento. Accendi il Sandbox in questo menu per isolarli.",
-      "hostUnavailable": "Il Sandbox non può funzionare qui, quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
-      "hostUnavailableWhy": "Il Sandbox non può funzionare qui ({{reason}}), quindi i comandi vengono eseguiti su questa macchina, con i suoi file e la sua rete, senza isolamento.",
       "hostChipTitle": "I comandi di questa chat vengono eseguiti su questa macchina, senza isolamento. Seleziona per i dettagli.",
       "providerHost": "I comandi vengono eseguiti sul server senza isolamento.",
       "unknown": "La disponibilità o l’isolamento dell’esecuzione non sono noti.",
+      "unknownBy": {
+        "owner_unreachable": "La disponibilità o l’isolamento dell’esecuzione non sono noti: il proprietario dell’add-on non è raggiungibile.",
+        "not_reported": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on non ha segnalato il suo stato di esecuzione.",
+        "stale": "La disponibilità o l’isolamento dell’esecuzione non sono noti: lo stato non corrispondeva alla versione attuale dell’add-on.",
+        "invalid_status": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on ha inviato uno stato che l’host non ha potuto accettare.",
+        "not_selected": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on non è quello che esegue i comandi di questa chat.",
+        "no_answer": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on non ha risposto in tempo.",
+        "reported_unknown": "La disponibilità o l’isolamento dell’esecuzione non sono noti: l’add-on ha segnalato di non poterlo dire."
+      },
       "providerUnavailable": "Il provider di esecuzione selezionato non è disponibile.",
-      "disabled": "L’esecuzione dei comandi è disattivata per questa chat."
+      "disabled": "L’esecuzione dei comandi è disattivata per questa chat.",
+      "hostOff": {
+        "reason": "Il bash integrato del server è disattivato, quindi l'assistente può scrivere file ma non può eseguire script o comandi.",
+        "whoAdmin": "Sei un amministratore. In Impostazioni, Strumenti, attiva la riga Comandi (bash). Chiedere ogni volta è la scelta più sicura. I comandi vengono poi eseguiti sul server senza isolamento e possono leggere ciò che il server può leggere.",
+        "whoMember": "Chiedi a un amministratore di questo server di attivarlo.",
+        "fix": "Apri l'impostazione",
+        "sandboxText": "Per comandi isolati, installa invece un componente aggiuntivo che esegue i comandi in isolamento.",
+        "sandbox": "Apri Componenti aggiuntivi"
+      }
     },
     "consent": {
       "title": "Eseguire questo comando su questa macchina?",
@@ -302,7 +311,6 @@
       "expired": "Nessuna risposta: il turno che l'ha chiesto è terminato, quindi il comando non è stato eseguito."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Componente {{name}}",
       "host": "Questa macchina, non isolata",
       "hostOnce": "Questa macchina, consentito una volta",
@@ -314,26 +322,147 @@
     "builtin": {
       "web": "Web",
       "saved_agents": "Agenti salvati",
-      "triggers": "Trigger",
+      "triggers": "Crea e gestisci i trigger",
       "shell": "Esegui comandi",
       "files": "I tuoi file",
       "media": "Immagini e audio",
-      "collections": "Raccolte",
-      "subagents": "Sotto-agenti"
+      "collections": "Conoscenza",
+      "subagents": "Sotto-agenti",
+      "changes": "Modifiche suggerite",
+      "memory": "Memoria",
+      "history": "Chat precedenti"
     },
     "builtinBy": "{{tools}} · integrati",
     "builtinByAddon": "{{tools}} · servito da {{provider}}",
     "servedBy": "Servito dal componente aggiuntivo {{provider}}",
     "servedByTool": "{{tool}}: {{provider}}",
     "servedByBuiltin": "integrato",
-    "sandbox": {
-      "starting": "Il Sandbox si sta avviando. LocalAI ricontrolla tra {{seconds}} s."
-    },
     "fallbackBuiltin": "{{addon}} sostituisce {{tool}} ma ora non può servire questa chat (fermo, disattivato qui o non concesso): si usa {{tool}} integrato.",
     "fallbackNone": "{{addon}} sostituisce {{tool}} ma ora non può servire questa chat, e {{tool}} integrato è disattivato: questa chat non ha {{tool}}.",
     "shell": {
       "machine": "Questa macchina",
       "isolated": "I comandi girano isolati"
+    },
+    "describe": {
+      "shell": "Il modello può eseguire comandi shell e script.",
+      "files": "Il modello può elencare, leggere, scrivere e cercare nei tuoi file.",
+      "web": "Il modello può cercare sul web e leggere pagine pubbliche.",
+      "media": "Il modello può descrivere immagini e trascrivere registrazioni dai tuoi file.",
+      "collections": "Il modello può cercare nelle tue raccolte.",
+      "subagents": "Il modello può avviare un sotto-agente per un compito e ricevere il suo rapporto.",
+      "saved_agents": "Il modello può avviare uno dei tuoi agenti salvati come sotto-agente.",
+      "triggers": "Il modello può proporre, elencare, modificare ed eliminare trigger. Confermi tu ogni nuovo trigger o modifica.",
+      "changes": "Il modello può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine e alla dashboard. Confermi tu ognuna.",
+      "memory": "Il modello può leggere le tue note prima di rispondere e salvarne di nuove. Disattivala per rendere questa una chat privata: non si legge nulla dalle tue note e non si salva nulla in esse. Le altre chat non cambiano.",
+      "history": "Permette al modello di cercare e leggere le tue chat precedenti."
+    },
+    "whenOff": {
+      "shell": "Il modello può scrivere file ma non può eseguire nulla.",
+      "files": "Il modello non può vedere né cambiare i tuoi file.",
+      "web": "Il modello non può cercare nulla online.",
+      "media": "Il modello non può leggere da solo immagini o registrazioni.",
+      "collections": "Il modello non può leggere le tue raccolte.",
+      "subagents": "Il modello lavora da solo.",
+      "saved_agents": "Il modello non può vedere né avviare i tuoi agenti salvati.",
+      "triggers": "Il modello non può proporre né gestire trigger.",
+      "changes": "Il modello non può proporre modifiche alle tue note, alle sue regole, alle skill, alle pagine o alla dashboard.",
+      "memory": "È una chat privata. Il modello non legge né salva le tue note.",
+      "history": "Il modello non può vedere le tue chat precedenti."
+    },
+    "addonDescribe_one": "Dà al modello {{count}} strumento di questo add-on.",
+    "addonDescribe_other": "Dà al modello {{count}} strumenti di questo add-on.",
+    "serverDescribe": "Un server MCP del modello: i suoi strumenti sono offerti al modello.",
+    "connectorDescribe": "Uno dei tuoi connettori MCP: i suoi strumenti sono offerti al modello.",
+    "gone": "Non più disponibile qui. Spegnilo per rimuoverlo.",
+    "grants": "Altri permessi",
+    "grantSensitive": "Sensibile: cambia ciò che l'agente potrà fare o raggiungere in seguito.",
+    "connection": {
+      "label": "Connessioni",
+      "help": "Scegli le connessioni che questa chat può usare. L'assistente può usare solo quelle selezionate.",
+      "helpMany": "L'assistente indica la connessione in ogni azione e può indicare solo una selezionata.",
+      "sole": "È la tua unica connessione, quindi viene usata.",
+      "choose": "Scegli almeno una connessione per usare questi strumenti",
+      "none": "Nessuna connessione per ora",
+      "create": "Aggiungi una connessione",
+      "byAgent": "L'agente di questa chat imposta le connessioni. Cambiale sull'agente.",
+      "agentLabel": "Connessioni per le chat di questo agente",
+      "agentHelp": "Le chat di questo agente possono usare solo queste connessioni e non possono cambiarle.",
+      "perChatHelp": "Nessuna scelta: ogni chat sceglie la sua."
+    },
+    "optionNeeds": "Attiva «{{name}}» per usarlo.",
+    "connectionMissing": "{{name}} non lo consente ancora.",
+    "connectionOpen": "Apri i suoi permessi",
+    "section": {
+      "messaging": {
+        "title": "App di messaggistica",
+        "intro": "Vale per le chat che iniziano in un'app di messaggistica. La connessione deve consentire la stessa cosa nella sua pagina dei permessi."
+      },
+      "unattended": {
+        "title": "Quando nessuno guarda",
+        "intro": "Vale per le esecuzioni avviate da un trigger o da un'app di messaggistica, dove nessuno può confermare un passaggio."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Ricordare le cose",
+        "description": "Il modello può proporre una nota per la tua memoria o per quella dell'agente. Confermi tu ogni nota."
+      },
+      "profile_write": {
+        "title": "Cambiare le proprie regole",
+        "description": "Il modello può proporre una modifica alle regole permanenti dell'agente. Confermi tu ogni modifica."
+      },
+      "skills_write": {
+        "title": "Scrivere skill",
+        "description": "Il modello può proporre una skill nuova o modificata. Confermi tu ognuna."
+      },
+      "pages_write": {
+        "title": "Creare pagine",
+        "description": "Il modello può proporre una piccola app che si apre in un frame isolato. La confermi tu."
+      },
+      "dashboard_write": {
+        "title": "Cambiare la dashboard",
+        "description": "Il modello può proporre un nuovo layout della tua dashboard Home. Confermi tu ogni modifica."
+      },
+      "triggers_propose": {
+        "title": "Proponi anche dalle app di messaggistica",
+        "description": "Il modello può proporre un trigger quando qualcuno lo chiede in un'app di messaggistica. Lo confermi tu."
+      },
+      "triggers_run": {
+        "title": "Lascia partire i trigger dalle app di messaggistica",
+        "description": "Un trigger legato a una connessione di messaggistica può avviare un'esecuzione e consegnare lì il risultato."
+      },
+      "talkback_channels": {
+        "title": "Rispondere sui canali noti",
+        "description": "Il modello può inviare un messaggio a un canale in cui già interviene."
+      },
+      "talkback_new_channel": {
+        "title": "Aprire nuovi canali",
+        "description": "Il modello può iniziare una conversazione su un canale che non ha mai usato."
+      },
+      "files_upload": {
+        "title": "Ricevere file dalle app di messaggistica",
+        "description": "Chi scrive può allegare file che il modello legge. Non può inviare file."
+      },
+      "act_files": {
+        "title": "Scrivere file da solo",
+        "description": "Un'esecuzione che nessuno guarda può scrivere file nelle cartelle dell'agente."
+      },
+      "act_addons": {
+        "title": "Usare da solo le azioni dei componenti aggiuntivi",
+        "description": "Un'esecuzione che nessuno guarda può chiamare le azioni dei componenti aggiuntivi dell'agente."
+      },
+      "act_send": {
+        "title": "Inviare messaggi da solo",
+        "description": "Un'esecuzione che nessuno guarda può inviare messaggi oltre la sua destinazione di consegna."
+      },
+      "act_spend": {
+        "title": "Usare da solo strumenti a pagamento o esterni",
+        "description": "Un'esecuzione che nessuno guarda può usare strumenti a pagamento o esterni e la rete."
+      },
+      "history_read": {
+        "title": "Leggere le tue chat precedenti",
+        "description": "Permette al modello di cercare e leggere le tue chat precedenti. Un agente che lavora in una cartella legge solo le chat del proprio agente."
+      }
     }
   },
   "vision": {
@@ -348,13 +477,13 @@
       "all": "Tutti i siti pubblici"
     },
     "presetHint": {
-      "off": "I comandi nel Sandbox non raggiungono nessuna rete.",
+      "off": "I comandi non raggiungono nessuna rete.",
       "registries": "I comandi raggiungono solo i registri di pacchetti (PyPI, npm, Go, crates.io, RubyGems, Maven Central, release di GitHub).",
       "all": "I comandi raggiungono ogni sito pubblico."
     },
     "limited": "Limitato dal tuo amministratore",
     "limitedBy": "Il tuo amministratore consente al massimo: {{limit}}.",
-    "hostNetwork": "I comandi vengono eseguiti su questa macchina e usano la sua rete. I limiti di rete richiedono il componente Sandbox.",
+    "hostNetwork": "I comandi vengono eseguiti su questa macchina e usano la sua rete. I limiti di rete richiedono un componente che isoli i comandi.",
     "panel": "Regole e richieste ({{count}})",
     "rules": "Regole di questa chat",
     "cards": "Richieste di questa chat",
@@ -386,8 +515,8 @@
     "blocked": {
       "titleOff": "L’accesso alla rete è disattivato",
       "titleCapped": "L’accesso alla rete è limitato",
-      "bodyOff": "L’accesso alla rete del Sandbox è disattivato su questo server. Un comando ha chiesto di raggiungere",
-      "bodyCapped": "Questo server consente solo {{limit}} per la rete del Sandbox. Un comando ha chiesto di raggiungere",
+      "bodyOff": "L’accesso alla rete dei comandi è disattivato su questo server. Un comando ha chiesto di raggiungere",
+      "bodyCapped": "Questo server consente solo {{limit}} per la rete dei comandi. Un comando ha chiesto di raggiungere",
       "adminOff": "Un amministratore può attivarlo nelle impostazioni di {{name}}.",
       "adminCapped": "Un amministratore può alzare il limite nelle impostazioni di {{name}}.",
       "adminLink": "Apri le impostazioni di {{name}}",
@@ -454,7 +583,10 @@
     "itemUnread": "{{title}}, da leggere",
     "arrived": "Nuova notifica: {{title}}",
     "arrivedMany_one": "{{count}} nuova notifica",
-    "arrivedMany_other": "{{count}} nuove notifiche"
+    "arrivedMany_other": "{{count}} nuove notifiche",
+    "proposalsWaiting_one": "{{count}} modifica attende te",
+    "proposalsWaiting_other": "{{count}} modifiche attendono te",
+    "proposalsBody": "Un modello ha proposto una modifica. Non viene salvato nulla finché non rispondi."
   },
   "change": {
     "loading": "Lettura della modifica del trigger...",
@@ -582,6 +714,262 @@
       "noChat": "Invia un primo messaggio, poi avvia un ciclo in questa chat.",
       "stopped_one": "Fermato {{count}} ciclo.",
       "stopped_other": "Fermati {{count}} cicli."
+    }
+  },
+  "changes": {
+    "loading": "Lettura della modifica proposta...",
+    "unread": "Impossibile leggere la modifica proposta: {{message}}",
+    "removed": "Questa proposta non esiste più.",
+    "kind": {
+      "memory": "Memoria",
+      "profile": "Profilo",
+      "skill": "Skill",
+      "page": "Pagina",
+      "dashboard": "Dashboard"
+    },
+    "scope": {
+      "user": "Tutte le tue chat",
+      "agent": "Agente {{agent}}",
+      "agentAny": "Un agente",
+      "channel": "Questa conversazione"
+    },
+    "help": "Non viene salvato nulla finché non confermi.",
+    "row": {
+      "kind": "Tipo",
+      "target": "File",
+      "source": "Da",
+      "expires": "Scade tra"
+    },
+    "source": {
+      "chat": "Una chat",
+      "connector": "Connettore {{name}}",
+      "connectorFrom": "Connettore {{name}}, da {{sender}}"
+    },
+    "expiresHours": "{{hours}} h {{minutes}} min",
+    "expiresMinutes": "{{minutes}} min",
+    "diff": {
+      "label": "Modifiche a {{target}}",
+      "newFile": "Nuovo file",
+      "added_one": "{{count}} riga aggiunta",
+      "added_other": "{{count}} righe aggiunte",
+      "removed_one": "{{count}} riga rimossa",
+      "removed_other": "{{count}} righe rimosse",
+      "same": "Nessuna differenza dal testo attuale.",
+      "gap_one": "{{count}} riga invariata",
+      "gap_other": "{{count}} righe invariate",
+      "more_one": "Altra {{count}} riga non mostrata",
+      "more_other": "Altre {{count}} righe non mostrate",
+      "srAdded": "Aggiunta:",
+      "srRemoved": "Rimossa:"
+    },
+    "unreadFile": "Non è stato possibile leggere il file attuale, quindi tutto il testo conta come nuovo.",
+    "confirm": "Conferma",
+    "edit": "Modifica e conferma",
+    "confirmEdited": "Conferma con il mio testo",
+    "editLabel": "Testo da salvare in {{target}}",
+    "failed": "Impossibile salvare la modifica: {{message}}. È ancora in attesa di te.",
+    "receipt": {
+      "applied": "Applicata:",
+      "savedAuto": "Salvato in memoria:",
+      "reverted": "Annullata:",
+      "dismissed": "Rifiutata:",
+      "expired": "Scaduta:",
+      "stale": "Non applicata:"
+    },
+    "why": {
+      "expired": "Ha atteso più di un giorno. Non è stato salvato nulla.",
+      "stale": "Il file è cambiato dopo la proposta, quindi non è stato salvato nulla."
+    },
+    "askAgain": "Chiedi di nuovo",
+    "askAgainText": "Per favore proponi di nuovo questa modifica, il file è cambiato nel frattempo: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Modifica applicata.",
+      "dismissed": "Modifica rifiutata.",
+      "undone": "Modifica annullata.",
+      "asked": "Ho chiesto all'assistente di riproporla."
+    }
+  },
+  "proposalsPage": {
+    "title": "Proposte",
+    "supporting": "Modifiche richieste dai modelli che attendono la tua risposta.",
+    "emptyTitle": "Niente in attesa",
+    "emptyBody": "Quando un modello propone una modifica alle tue note, al profilo di un agente, a una skill, a una pagina o alla dashboard, appare qui finché non rispondi.",
+    "loadError": "Impossibile caricare le proposte."
+  },
+  "memoryPage": {
+    "lede": "Le note che LocalAI inserisce nel prompt delle tue chat. Un modello le modifica solo dopo che confermi una proposta. Qui puoi leggerle, modificarle ed eliminarle.",
+    "limits": "Limiti: un indice ha al massimo {{lines}} righe e {{index}}, un profilo {{profile}}, e un turno porta al massimo {{turn}} di note.",
+    "proposalsLink": "Vedi le modifiche in attesa",
+    "emptyTitle": "Ancora nessuna nota",
+    "emptyBody": "Quando chiedi a un assistente di ricordare qualcosa e confermi, le note appaiono qui.",
+    "loadError": "Impossibile caricare le tue note.",
+    "use": "{{size}} di {{max}} · {{lines}} di {{maxLines}} righe",
+    "useBytes": "{{size}} di {{max}}",
+    "useLabel": "Dimensione dell'indice rispetto al limite",
+    "over": "Oltre il limite: la parte finale non viene inviata al modello.",
+    "index": "Indice",
+    "group": {
+      "user": "Le tue note",
+      "agent": "Note dell'agente {{key}}",
+      "channel": "Note della conversazione {{key}}",
+      "profile": "Profilo dell'agente {{key}}",
+      "agentNamed": "Note dell'agente {{name}}",
+      "profileNamed": "Profilo dell'agente {{name}}"
+    },
+    "edit": "Modifica",
+    "save": "Salva",
+    "editLabel": "Testo di {{name}}",
+    "editSizeIndex": "{{size}} di {{max}} · {{lines}} di {{maxLines}} righe",
+    "editSize": "{{size}} di {{max}}",
+    "tooBig": "Troppo lungo: accorcialo per salvare.",
+    "saveFailed": "Impossibile salvare: {{message}}",
+    "saved": "{{name}} salvato.",
+    "emptyFile": "(vuoto)",
+    "delete": "Elimina {{name}}",
+    "deleteYes": "Elimina",
+    "confirmDelete": "Eliminare {{name}}?",
+    "deleted": "{{name}} spostato nel Cestino.",
+    "clear": "Dimentica tutto",
+    "clearAsk_one": "Eliminare {{count}} file? Va nel Cestino e puoi ripristinarlo da File.",
+    "clearAsk_other": "Eliminare {{count}} file? Vanno nel Cestino e puoi ripristinarli da File.",
+    "clearYes_one": "Elimina {{count}} file",
+    "clearYes_other": "Elimina {{count}} file",
+    "cleared_one": "{{count}} file spostato nel Cestino.",
+    "cleared_other": "{{count}} file spostati nel Cestino.",
+    "tabs": {
+      "label": "Note di",
+      "mine": "Mie",
+      "deleted": "Agenti eliminati",
+      "channels": "Conversazioni",
+      "export": "Esporta queste note",
+      "clearAgent": "Elimina le note di questo agente",
+      "clearDeleted": "Elimina queste note"
+    },
+    "deletedNote": "Questi agenti sono stati eliminati. Le loro note restano finché non le elimini qui.",
+    "tabEmpty": "Nessuna nota qui."
+  },
+  "triggerActs": {
+    "help": "Un'esecuzione parte da sola, quindi nessuno approva un passo. Può leggere e riferire. Spunta ciò che può fare in più. Non ottiene mai più di quanto ha il suo agente.",
+    "noAgent": "Nessun agente scelto, quindi la limita solo ciò che spunti.",
+    "readOnly": "Sola lettura",
+    "canAct": "Può agire da sola",
+    "canActText_one": "Un'esecuzione può usare {{count}} tipo di azione senza chiedere.",
+    "canActText_other": "Un'esecuzione può usare {{count}} tipi di azione senza chiedere.",
+    "sensitive": "da usare con cura",
+    "addonRow": "Un'esecuzione può usare le azioni del componente {{id}}.",
+    "blocked": "Il tuo agente non ha questo permesso, quindi non si può spuntare. Aggiungilo prima all'agente.",
+    "unused": "Il tuo agente non ha questo permesso, quindi un'esecuzione non lo usa.",
+    "unusedList": "In elenco, ma non usato perché l'agente non lo ha: {{names}}.",
+    "writesNote": "Il suo piano nomina il file {{file}}, quindi un'esecuzione può anche scrivere file.",
+    "listCan_one": "Può agire ({{count}})",
+    "listCan_other": "Può agire ({{count}})",
+    "why": {
+      "no_acts": "Nessun permesso di agire, quindi le sue esecuzioni leggono e riferiscono soltanto.",
+      "agent": "Il suo agente non ha i permessi richiesti, quindi le sue esecuzioni leggono e riferiscono soltanto.",
+      "declared": "È stato creato per leggere e riferire soltanto. Nulla di ciò che spunti qui lo cambia.",
+      "binding": "L'ha creato una connessione in sola lettura. Nulla di ciò che spunti qui lo cambia."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "La memoria è attiva",
+    "titleOff": "La memoria è disattivata",
+    "ledeOn": "Le tue chat conservano brevi note su di te e le leggono prima di rispondere. Disattivala per smettere di leggere e salvare ovunque. Le tue note restano dove sono.",
+    "ledeOff": "Non si legge nulla dalle tue note e non si salva nulla in esse, in nessuna chat o agente. L'assistente dice che la memoria è disattivata se gli chiedi di ricordare qualcosa. Le tue note restano e puoi ancora leggerle, esportarle ed eliminarle.",
+    "on": "Sì",
+    "off": "No",
+    "unavailable": "Le note sono file, e i file sono disattivati su questo server, quindi la memoria qui non può funzionare.",
+    "saveTitle": "Salvare una nota",
+    "saveLede": "Cosa succede quando l'assistente vuole conservare qualcosa. Vince sempre la regola più severa.",
+    "save": {
+      "ask": {
+        "title": "Chiedimi prima",
+        "body": "Una scheda aspetta nella chat. Tu la confermi, la modifichi o la scarti."
+      },
+      "auto": {
+        "title": "Salva e avvisami",
+        "body": "Nelle tue chat la nota viene salvata subito. La chat mostra «Salvato in memoria» con Annulla. Fino a 5 note per risposta. Una nota lunga, o che sembra un segreto, aspetta comunque te."
+      },
+      "never": {
+        "title": "Mai",
+        "body": "L'assistente non può salvare note. Ti dice che il salvataggio è disattivato."
+      }
+    },
+    "default": "Predefinito",
+    "saveNote": "Le chat delle app di messaggistica chiedono sempre prima. Le esecuzioni in background e i trigger non salvano mai una nota. Un agente salvato può chiedere di più, mai di meno, di quanto scegli qui.",
+    "saveFailed": "Non è stato possibile salvare la tua scelta.",
+    "loadError": "Non è stato possibile caricare le impostazioni della memoria.",
+    "notesTitle": "Gestisci le tue note",
+    "notesLede": "Leggile, modificale, esportale o eliminale. Funziona anche con la memoria disattivata.",
+    "export": "Esporta"
+  },
+  "memoryOff": {
+    "title": "La memoria è disattivata qui.",
+    "line": {
+      "chat": "È una chat privata: non si legge né si salva nulla. Le tue note non vengono toccate. Attivala nel menu degli strumenti.",
+      "user": "Nessuna chat o agente legge o salva note, e le tue note non vengono toccate.",
+      "agent": "L'agente di questa chat ha disattivato la memoria.",
+      "files": "Le note sono file, e i file sono disattivati su questo server."
+    },
+    "chip": "Memoria off",
+    "chipPrivate": "Chat privata",
+    "fixUser": "Impostazioni, Memoria",
+    "userRow": "Disattivata nelle tue impostazioni. Attivala in Impostazioni, Memoria."
+  },
+  "agentMemory": {
+    "title": "Memoria",
+    "lede": "Scegli quali note legge questo agente e dove salva quelle nuove.",
+    "offUser": "La memoria è disattivata nelle tue impostazioni, quindi questa scelta non ha effetto finché non la riattivi.",
+    "offUserFix": "Impostazioni, Memoria",
+    "recommended": "Consigliato",
+    "mine_and_own": {
+      "title": "Mie e sue",
+      "body": "Legge le tue note e le sue. Salva solo nelle sue."
+    },
+    "own": {
+      "title": "Solo sue",
+      "body": "Legge e salva solo le sue note. Le tue note restano fuori portata."
+    },
+    "mine": {
+      "title": "Mie",
+      "body": "Legge e salva le tue note."
+    },
+    "none": {
+      "title": "Nessuna",
+      "body": "Non legge e non salva nulla."
+    },
+    "mineWarn": "Questo agente può aggiungere note alla tua memoria, per ogni chat. Confermi ogni nota.",
+    "asBefore": {
+      "title": "Come prima",
+      "body": "Questo agente è stato salvato prima che esistesse questa scelta. Legge le tue note se il suo elenco di componenti aggiuntivi nomina Memory, e il modello sceglie dove salvare una nota. Scegli una delle opzioni qui sotto per cambiarlo."
+    },
+    "saveGrant": "Lascia che salvi note",
+    "saveGrantHelp": "Attiva il permesso Ricordare cose. Senza di esso l'agente legge le note ma non può salvarne.",
+    "copyNote": "Esportare un agente, o importarlo come nuovo, mantiene questa scelta e non copia mai le sue note.",
+    "summary": {
+      "mine_and_own": "Mie e sue",
+      "own": "Solo sue",
+      "mine": "Mie",
+      "none": "Nessuna",
+      "asBefore": "Come prima"
+    },
+    "delete": {
+      "title": "Eliminare {{name}}?",
+      "ask": "Questo agente ha note proprie ({{count}}). Cosa farne?",
+      "legend": "Cosa fare delle note",
+      "default": "predefinito",
+      "confirm": "Elimina agente",
+      "keep": {
+        "title": "Tieni le note",
+        "body": "Restano nella pagina Memoria sotto Agenti eliminati finché non le elimini."
+      },
+      "export": {
+        "title": "Esporta, poi elimina",
+        "body": "Scarica le note come file zip, poi le sposta nel Cestino."
+      },
+      "delete": {
+        "title": "Elimina anche le note",
+        "body": "Vanno nel Cestino e puoi ripristinarle da File."
+      }
     }
   }
 }

@@ -48,7 +48,7 @@ func (l *lastGood[T]) get(raw string) T {
 	}
 	if l.logged != raw {
 		l.logged = raw
-		xlog.Warn("Chats: a Sandbox network setting is not valid; the last valid value stays in force", "setting", l.name, "kept_last_valid", l.ok, "error", err)
+		xlog.Warn("Chats: a command network setting is not valid; the last valid value stays in force", "setting", l.name, "kept_last_valid", l.ok, "error", err)
 	}
 	return keep
 }

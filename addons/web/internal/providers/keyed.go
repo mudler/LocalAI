@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/mudler/LocalAI/pkg/web/search"
 )
@@ -18,6 +19,9 @@ const (
 	BraveEndpoint  = "https://api.search.brave.com/res/v1/web/search"
 	TavilyEndpoint = "https://api.tavily.com/search"
 	GoogleEndpoint = "https://www.googleapis.com/customsearch/v1"
+	// KeenableEndpoint is the search with a key; the keyless search is the
+	// same address with /public appended.
+	KeenableEndpoint = "https://api.keenable.ai/v1/search"
 )
 
 // ErrNoKey is returned by a constructor given an empty or malformed key.
@@ -210,4 +214,72 @@ func (g *google) Search(ctx context.Context, q search.Query) ([]search.Result, e
 	}
 	r := doc.Items
 	return results(len(r), func(i int) (string, string, string) { return r[i].Title, r[i].Link, r[i].Snippet }), nil
+}
+
+// --- Keenable -------------------------------------------------------------
+
+type keenable struct {
+	keyed
+	key string
+}
+
+// KeenableTitle names LocalAI to Keenable's keyless endpoint, which refuses a
+// request without an application name.
+const KeenableTitle = "LocalAI"
+
+// NewKeenable returns the Keenable search provider. With a key, the key is
+// sent in the X-API-Key header. Without one, the provider calls the keyless
+// endpoint (endpoint + "/public"), limited per IP, with the X-Keenable-Title
+// header. A key that is set must have the shape of a key.
+func NewKeenable(endpoint, key string) (search.Provider, error) {
+	if key != "" && !ValidKey(key) {
+		return nil, ErrNoKey
+	}
+	if key == "" {
+		endpoint = strings.TrimSuffix(endpoint, "/") + "/public"
+	}
+	k, err := newKeyed(Keenable, "Keenable", endpoint)
+	if err != nil {
+		return nil, err
+	}
+	return &keenable{keyed: k, key: key}, nil
+}
+
+// Keenable reads a relative delta as "published at most this long ago".
+var keenableFreshness = map[string]string{"day": "1d", "week": "7d", "month": "1mo", "year": "1y"}
+
+func (k *keenable) Search(ctx context.Context, q search.Query) ([]search.Result, error) {
+	in := map[string]any{"query": q.Text, "max_results": q.MaxResults}
+	if f := keenableFreshness[q.Freshness]; f != "" {
+		in["published_after"] = f
+	}
+	if q.Site != "" {
+		in["site"] = q.Site
+	}
+	raw, _ := json.Marshal(in)
+	req, err := newRequest(ctx, http.MethodPost, k.endpoint, raw)
+	if err != nil {
+		return nil, err
+	}
+	if k.key != "" {
+		req.Header.Set("X-API-Key", k.key)
+	} else {
+		req.Header.Set("X-Keenable-Title", KeenableTitle)
+	}
+	body, err := k.do(req)
+	if err != nil {
+		return nil, err
+	}
+	var doc struct {
+		Results []struct {
+			Title   string `json:"title"`
+			URL     string `json:"url"`
+			Snippet string `json:"snippet"`
+		} `json:"results"`
+	}
+	if json.Unmarshal(body, &doc) != nil {
+		return nil, k.badJSON()
+	}
+	r := doc.Results
+	return results(len(r), func(i int) (string, string, string) { return r[i].Title, r[i].URL, r[i].Snippet }), nil
 }

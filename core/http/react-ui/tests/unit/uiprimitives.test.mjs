@@ -101,3 +101,24 @@ test('load state: the error text is the server message', () => {
   assert.equal(errorMessage('timeout'), 'timeout')
   assert.equal(errorMessage(null), '')
 })
+
+test('notice: severity sets the live role, unknown severity reads as info', async () => {
+  const { noticeRole, noticeSeverity, NOTICE_ICONS } = await import('../../src/components/ui/noticeModel.js')
+  assert.equal(noticeRole('error'), 'alert')
+  assert.equal(noticeRole('warn'), 'status')
+  assert.equal(noticeRole('info'), 'note')
+  assert.equal(noticeSeverity('loud'), 'info')
+  assert.equal(noticeRole(undefined), 'note')
+  for (const level of ['info', 'warn', 'error']) assert.ok(NOTICE_ICONS[level], level)
+})
+
+test('notice: an action needs a label and something to do', async () => {
+  const { noticeAction } = await import('../../src/components/ui/noticeModel.js')
+  const go = () => {}
+  assert.equal(noticeAction(null), null)
+  assert.equal(noticeAction({ label: 'Open', onClick: undefined }), null)
+  assert.equal(noticeAction({ onClick: go }), null)
+  assert.deepEqual(noticeAction({ label: 'Open', to: '/app/settings' }), { label: 'Open', to: '/app/settings' })
+  assert.equal(noticeAction({ label: 'Go', href: '/x' }).href, '/x')
+  assert.equal(noticeAction({ label: 'Do', onClick: go }).onClick, go)
+})

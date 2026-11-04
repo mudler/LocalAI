@@ -34,7 +34,7 @@ func Definitions() []contract.ToolDefinition {
 	for i, n := range providers.Names {
 		names[i] = n
 	}
-	keyed := []any{providers.Brave, providers.Tavily, providers.Google}
+	keyed := []any{providers.Brave, providers.Tavily, providers.Google, providers.Keenable}
 	return []contract.ToolDefinition{
 		{
 			Name: ToolSearch, Kind: contract.ToolKindRead, Shadows: ShadowsSearch,
@@ -75,11 +75,12 @@ func Definitions() []contract.ToolDefinition {
 					"order": obj{"type": "array", "maxItems": len(providers.Names), "items": obj{"type": "string", "enum": names}, "description": "The providers to try, first to last."},
 					"keys": obj{"type": "object", "additionalProperties": false, "description": "A new key for each named provider. An empty value keeps the saved key.",
 						"properties": obj{
-							providers.Brave:  obj{"type": "string", "maxLength": 256},
-							providers.Tavily: obj{"type": "string", "maxLength": 256},
-							providers.Google: obj{"type": "string", "maxLength": 256},
+							providers.Brave:    obj{"type": "string", "maxLength": 256},
+							providers.Tavily:   obj{"type": "string", "maxLength": 256},
+							providers.Google:   obj{"type": "string", "maxLength": 256},
+							providers.Keenable: obj{"type": "string", "maxLength": 256},
 						}},
-					"clear":        obj{"type": "array", "maxItems": 3, "items": obj{"type": "string", "enum": keyed}, "description": "Remove the saved key of these providers."},
+					"clear":        obj{"type": "array", "maxItems": len(keyed), "items": obj{"type": "string", "enum": keyed}, "description": "Remove the saved key of these providers."},
 					"googleEngine": obj{"type": "string", "maxLength": 128, "description": "The Programmable Search Engine ID (cx)."},
 					"searxngUrl":   obj{"type": "string", "maxLength": 2048, "description": "The address of a SearXNG instance."},
 				},

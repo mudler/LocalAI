@@ -109,6 +109,9 @@ func main() {
 	modelConfig := map[string]any{
 		"name":    "mock-model",
 		"backend": "mock-backend",
+		// A chat reports the window of the model, and the tool schemas of a
+		// chat no longer fit in the default one.
+		"context_size": 32768,
 		"parameters": map[string]any{
 			"model": "mock-model.bin",
 		},
@@ -170,6 +173,10 @@ func main() {
 		// built-in bash: with the default "ask" (no accounts) every turn would
 		// wait for a card nobody answers. The UI specs stub the host commands.
 		config.WithChatsHostExec("off"),
+		// The specs that test a reverse proxy mount send X-Forwarded-Prefix
+		// from the browser, which reaches the server over loopback. The host
+		// believes the header only from a trusted proxy.
+		config.WithTrustedProxies("127.0.0.1/32,::1/128"),
 		config.EnableTracing,
 		config.EnableBackendLogging,
 	}

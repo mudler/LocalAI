@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import React, { act } from 'react'
 import { createServer } from 'vite'
+import { MemoryRouter } from 'react-router-dom'
 import { createHostSettingsClient } from '../../src/utils/hostSettingsClient.js'
 import { createAddonsApi } from '../../src/utils/addonsApi.js'
 import { useHostSettings } from '../../src/hooks/useHostSettings.js'
@@ -16,8 +17,8 @@ globalThis.document = dom.window.document
 globalThis.IS_REACT_ACT_ENVIRONMENT = true
 // React DOM detects input event support at import time, after JSDOM exists.
 const { createRoot } = await import('react-dom/client')
-// All eight fields are emitted by Go Policy.MarshalJSON (no omitempty).
-const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false }
+// All nine fields are emitted by Go Policy.MarshalJSON.
+const defaults = { chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false, chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '', chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0 }
 const dto = (revision = 1, policy = {}) => ({ schema_version: 1, revision, policy: { ...defaults, ...policy } })
 const reply = data => new Response(JSON.stringify({ payload: { data } }), { status: 200 })
 
@@ -95,6 +96,7 @@ test('owner client rejects partial, mistyped, unknown and oversized owner polici
     ...Object.keys(defaults).map(key => { const value = dto(); delete value.policy[key]; return value }),
     ...Object.keys(defaults).map(key => dto(1, { [key]: null })),
     dto(1, { chats_egress_allow_private: 'false' }), dto(1, { auto_upgrade_addons: 0 }),
+    dto(1, { connector_files_ceiling_bytes: '5' }), dto(1, { connector_files_ceiling_bytes: -1 }), dto(1, { connector_files_ceiling_bytes: 1.5 }), dto(1, { connector_files_ceiling_bytes: 2 ** 40 + 1 }),
     dto(1, { chats_egress_ports: 443 }), dto(1, { chats_egress_ceiling: 'future' }),
     dto(1, { chats_egress_allowed_hosts: 'é'.repeat(4097) }),
     dto(1, { chats_tool_providers: new Date() }), dto(1, { future_owner_guard: false }),
@@ -168,7 +170,7 @@ test('malformed reload never publishes a partial snapshot and successful read re
 // Load the real JSX form and network-policy block. Only routing, translation
 // and the unrelated egress telemetry read are stubbed; owner reads/writes use
 // the real client and dispatch serializer against a strict fetch boundary.
-test('mounted HostControlsForm confirms private access locally and sends only the owner policy patch', async () => {
+test('mounted HostControlsForm asks for the private access phrase and sends it to the owner with the policy patch', async () => {
   const server = await createServer({
     configFile: false,
     ssr: { noExternal: ['react-i18next'] },
@@ -205,7 +207,7 @@ test('mounted HostControlsForm confirms private access locally and sends only th
       }
       if (body.action === 'host-settings-read') return reply(dto(revision, { chats_egress_allow_private: allowPrivate }))
       assert.equal(body.action, 'host-settings-update')
-      const unknown = Object.keys(body.arguments.patch).filter(key => key !== 'chats_egress_allow_private')
+      const unknown = Object.keys(body.arguments.patch).filter(key => !['chats_egress_allow_private', 'chats_egress_private_confirm'].includes(key))
       if (unknown.length) {
         rejected.push(...unknown)
         return new Response(JSON.stringify({ payload: { error: 'unknown_policy_field' } }))
@@ -233,7 +235,8 @@ test('mounted HostControlsForm confirms private access locally and sends only th
     await act(async () => apply().click())
     assert.deepEqual(rejected, [], 'strict owner rejected unknown policy fields')
     assert.deepEqual(calls.map(c => c.body.action), ['host-settings-read', 'host-settings-update', 'host-settings-read'])
-    assert.deepEqual(calls[1].body.arguments, { expectedRevision: 7, patch: { chats_egress_allow_private: true } })
+    // The owner checks the phrase too, so a direct call cannot skip it.
+    assert.deepEqual(calls[1].body.arguments, { expectedRevision: 7, patch: { chats_egress_allow_private: true, chats_egress_private_confirm: EGRESS_PRIVATE_PHRASE } })
     assert.ok(calls.every(c => c.url !== '/api/settings'))
     assert.match(document.body.textContent, /revision 8/)
     assert.equal(document.querySelector('[data-testid="settings-pending"]'), null)
@@ -261,15 +264,16 @@ async function providerRender() {
       if (!id.startsWith('\0provider-stub:')) return
       if (id.endsWith('/UnsavedChangesGuard')) return 'export default function Guard() { return null }'
       if (id.endsWith('react-i18next')) return 'export const useTranslation = () => ({ t: key => key, i18n: { language: "en" } })'
-      return 'export const chatBuiltinToolsApi = { list: () => globalThis.providerCatalog() }; export const settingsApi = { get: () => fetch("/api/settings"), save: () => fetch("/api/settings") }'
+      return 'export const chatBuiltinToolsApi = { list: () => globalThis.providerCatalog() }; export const chatConnectorsApi = { kinds: () => globalThis.connectorKinds() }; export const settingsApi = { get: () => fetch("/api/settings"), save: () => fetch("/api/settings") }'
     },
   }] })
   const { default: Form } = await server.ssrLoadModule('/src/components/hostcontrols/HostControlsForm.jsx')
   await server.ssrLoadModule('/src/components/hostcontrols/ToolProvidersSettings.jsx')
   const { default: Skills } = await server.ssrLoadModule('/src/components/addons/AddonSkills.jsx')
   const { default: Upgrades } = await server.ssrLoadModule('/src/components/settings/AddonUpgradeSettings.jsx')
+  const { default: ConnectorFiles } = await server.ssrLoadModule('/src/components/settings/ConnectorFilesSettings.jsx')
   const root = createRoot(document.getElementById('root'))
-  return { Form, Skills, Upgrades, async render(Component, props) { await act(async () => root.render(React.createElement(Component, props))) }, async close() { await act(async () => root.unmount()); await server.close() } }
+  return { Form, Skills, Upgrades, ConnectorFiles, async render(Component, props) { await act(async () => root.render(React.createElement(MemoryRouter, null, React.createElement(Component, props)))) }, async close() { await act(async () => root.unmount()); await server.close() } }
 }
 const buttonNamed = text => [...document.querySelectorAll('button')].find(b => b.textContent === text)
 const skillSwitch = name => document.querySelector(`[data-testid="app-skill-${name}-switch"]`)
@@ -381,3 +385,37 @@ test('mounted skills retain conflict edits, require visible rebase and retry unc
     assert.equal(calls.filter(c => c.action === 'host-settings-update').length, 2)
   } finally { await h.close(); globalThis.fetch = previous }
  })
+
+test('mounted connector file ceiling states the size in effect, validates, and writes only its own owner key', async () => {
+  const previous = globalThis.fetch, calls = []
+  let revision = 3, ceiling = 0
+  globalThis.fetch = async (url, opts) => {
+    assert.equal(url, '/api/addons/dispatch')
+    const body = JSON.parse(opts.body); calls.push(body)
+    if (body.action === 'host-settings-update') {
+      assert.deepEqual(body.arguments, { expectedRevision: 3, patch: { connector_files_ceiling_bytes: 5 * 1024 * 1024 } })
+      ceiling = body.arguments.patch.connector_files_ceiling_bytes; revision++
+    }
+    return reply(dto(revision, { connector_files_ceiling_bytes: ceiling }))
+  }
+  globalThis.connectorKinds = async () => ({ kinds: [{ kind: 'x', files: { host_ceiling_bytes: ceiling || 100 * 1024 * 1024 } }] })
+  const h = await providerRender()
+  try {
+    await h.render(h.ConnectorFiles, {})
+    const input = () => document.querySelector('[data-testid="connector-files-ceiling"]')
+    const setValue = async value => {
+      const setter = Object.getOwnPropertyDescriptor(globalThis.window.HTMLInputElement.prototype, 'value').set
+      await act(async () => { setter.call(input(), value); input().dispatchEvent(new globalThis.window.Event('input', { bubbles: true })) })
+    }
+    assert.match(document.body.textContent, /Now: 100 MiB\./)
+    assert.equal(buttonNamed('Apply file ceiling').disabled, true, 'nothing changed')
+    await setValue('0.0001')
+    assert.match(document.body.textContent, /Use a size from 1 KiB to 1 TiB/)
+    assert.equal(buttonNamed('Apply file ceiling').disabled, true)
+    await setValue('5')
+    await act(async () => buttonNamed('Apply file ceiling').click())
+    assert.equal(ceiling, 5 * 1024 * 1024)
+    assert.match(document.body.textContent, /Now: 5 MiB\./)
+    assert.equal(input().value, '5')
+  } finally { await h.close(); globalThis.fetch = previous; delete globalThis.connectorKinds }
+})

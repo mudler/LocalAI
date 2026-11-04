@@ -40,7 +40,11 @@ func (s *Service) SendBackground(ctx context.Context, user, conv, text string, u
 	if s.d.Workers == nil || len(up) > 0 {
 		return s.SendWithFiles(ctx, user, conv, text, up)
 	}
-	reply, err := s.d.Workers.StartChat(ctx, workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text})
+	req := workerctl.ChatStartRequest{Principal: principal(user), ChatID: conv, Text: text}
+	if g, ok := turnGrantFrom(ctx); ok {
+		req.Grant = g.wire()
+	}
+	reply, err := s.d.Workers.StartChat(ctx, req)
 	switch {
 	case errors.Is(err, nodes.ErrNoRoute):
 		s.log.Info("studio: no chat worker took the start, running it here", "chat", conv)
@@ -68,6 +72,10 @@ func (s *Service) ServeStart(ctx context.Context, req workerctl.ChatStartRequest
 		if err := s.checkWorkerRoom(ctx, req.Principal, req.ChatID); err != nil {
 			return workerctl.ChatStartReply{Error: err.Error()}
 		}
+	}
+	if req.Grant != nil {
+		// The frontend already narrowed the grant to the senders of the turn.
+		s.access.set(req.ChatID, grantOf(req.Grant))
 	}
 	res, err := s.SendWithFiles(ctx, req.Principal, req.ChatID, req.Text, nil)
 	if err != nil {

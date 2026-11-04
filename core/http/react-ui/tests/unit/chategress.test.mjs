@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { aboveCeiling, askedAboveLimit, ceilingKind, cardAnswers, cardStateKey, cardsByTool, networkMode, presetChoices, sortedCards } from '../../src/utils/chatEgress.js'
+import { aboveCeiling, askedAboveLimit, ceilingKind, cardAnswers, cardStateKey, cardsByTool, declaredPresetTitle, networkMode, presetChoices, presetLabel, sortedCards } from '../../src/utils/chatEgress.js'
 import { payloadFor, runChecks, EGRESS_CONFIRM_KEY, EGRESS_PRIVATE_PHRASE } from '../../src/utils/settingsPending.js'
 import { FIELD_BY_KEY } from '../../src/utils/settingsSchema.js'
 
@@ -10,13 +10,24 @@ test('chat egress: the presets above the limit are not offered', () => {
   assert.equal(aboveCeiling('registries', 'off'), true)
   assert.equal(aboveCeiling('off', undefined), false)
   assert.deepEqual(presetChoices({ preset: 'off', ceiling: 'registries' }), [
-    { id: 'off', chosen: true, limited: false },
-    { id: 'registries', chosen: false, limited: false },
-    { id: 'all', chosen: false, limited: true },
+    { id: 'off', chosen: true, limited: false, title: '' },
+    { id: 'registries', chosen: false, limited: false, title: '' },
+    { id: 'all', chosen: false, limited: true, title: '' },
   ])
 })
 
-test('chat egress: the Tools menu shows the row only where the Sandbox serves, and says so on this machine', () => {
+test('chat egress: the add-on that runs the commands gives titles to its presets', () => {
+  const egress = { preset: 'off', ceiling: 'all', network: { title: 'Runbox', presets: [{ id: 'off', title: 'Closed' }] } }
+  assert.equal(declaredPresetTitle(egress, 'off'), 'Closed')
+  assert.equal(declaredPresetTitle(egress, 'all'), '')
+  assert.deepEqual(presetChoices(egress).map(c => c.title), ['Closed', '', ''])
+  const t = (key) => `host:${key}`
+  assert.equal(presetLabel(egress, 'off', t), 'Closed')
+  assert.equal(presetLabel(egress, 'all', t), 'host:egress.preset.all')
+  assert.equal(presetLabel(undefined, 'off', t), 'host:egress.preset.off')
+})
+
+test('chat egress: the Tools menu shows the row only where an add-on with the control serves, and says so on this machine', () => {
   assert.equal(networkMode({ loaded: false, applies: true }), 'hidden')
   assert.equal(networkMode({ loaded: true, applies: true, addon: 'devbox' }), 'row')
   // The policy applies, but no add-on draws the network row for it.

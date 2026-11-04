@@ -30,7 +30,7 @@ export function createSettings(sdk, t) {
           </span>
         )}
         status={<StatusChip tone={p.ready ? 'ok' : 'idle'}>{p.ready ? t('web.settings.ready') : t('web.settings.notReady')}</StatusChip>}
-        meta={!p.ready && p.missing ? p.missing : (p.name === KEYLESS_ENTRY ? t('web.settings.keylessChain') : null)}
+        meta={!p.ready && p.missing ? p.missing : (p.name === KEYLESS_ENTRY ? t('web.settings.keylessChain') : (p.name === 'keenable' && !p.keySet ? t('web.settings.keenableKeyless') : null))}
       >
         {p.on && (
           <Actions>

@@ -199,6 +199,41 @@ var _ = Describe("Denials of the add-on", func() {
 	})
 })
 
+var _ = Describe("Rate limits of the service behind the add-on", func() {
+	limited := func(status int, body, wait string) *Client {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if wait != "" {
+				w.Header().Set("Retry-After", wait)
+			}
+			http.Error(w, body, status)
+		}))
+		DeferCleanup(srv.Close)
+		c, e := newClient(Registration{AddonID: "sample", Generation: 1, Endpoint: srv.URL}, strings.Repeat("a", 64), contract.DefaultLimits())
+		Expect(e).NotTo(HaveOccurred())
+		c.accept = true
+		return c
+	}
+	It("types the add-on's own 429 answer with its wait, never as an outage", func() {
+		_, e := limited(http.StatusTooManyRequests, "rate_limited", "75").Read(context.Background(), envelope("read"))
+		var rl *contract.ErrRateLimited
+		Expect(errors.As(e, &rl)).To(BeTrue())
+		Expect(rl.RetryAfter).To(Equal(75))
+		Expect(errors.Is(e, ErrRuntime)).To(BeFalse())
+	})
+	It("keeps the wait between one second and the bound", func() {
+		for wait, want := range map[string]int{"": 1, "0": 1, "abc": 1, "999999": contract.MaxRetryAfter} {
+			_, e := limited(http.StatusTooManyRequests, "rate_limited", wait).Read(context.Background(), envelope("read"))
+			var rl *contract.ErrRateLimited
+			Expect(errors.As(e, &rl)).To(BeTrue(), wait)
+			Expect(rl.RetryAfter).To(Equal(want), wait)
+		}
+	})
+	It("leaves a 429 with another body an outage: only the add-on's own word counts", func() {
+		_, e := limited(http.StatusTooManyRequests, "slow down", "5").Read(context.Background(), envelope("read"))
+		Expect(e).To(MatchError(ErrRuntime))
+	})
+})
+
 var _ = Describe("Transport limits", func() {
 	It("rejects nonloopback endpoints and bounds oversized streams and concurrency", func() {
 		s := supervisor()

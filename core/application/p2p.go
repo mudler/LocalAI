@@ -70,7 +70,7 @@ func (a *Application) StartP2P() error {
 
 		// Here a new node is created and started
 		// and a service is exposed by the node
-		node, err := p2p.ExposeService(ctx, "localhost", port, a.applicationConfig.P2PToken, p2p.NetworkID(networkID, p2p.FederatedID))
+		node, err := p2p.ExposeService(ctx, "localhost", port, a.applicationConfig.P2PToken, p2p.NetworkID(networkID, p2p.FederatedID), p2p.NodeConfig{EnableLimits: a.applicationConfig.P2PEnableLimits})
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func (a *Application) StartP2P() error {
 
 	// If a node wasn't created previously, create it
 	if n == nil {
-		node, err := p2p.NewNode(a.applicationConfig.P2PToken)
+		node, err := p2p.NewNode(a.applicationConfig.P2PToken, p2p.NodeConfig{EnableLimits: a.applicationConfig.P2PEnableLimits})
 		if err != nil {
 			return err
 		}

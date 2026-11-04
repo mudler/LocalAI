@@ -23,7 +23,7 @@ export function installedAddon(over = {}) {
     id: 'notes', title: 'Notes', description: 'Keep notes.', icon: '/api/addons/apps/notes/icon?generation=3',
     version: '1.2.0', generation: 3, enabled: true, state: 'running', sourceId: 'main', selection: '1.2.0',
     verification: 'sha256+sigstore', digest: 'sha256:0123456789abcdef0123456789abcdef', platform: { os: 'linux', arch: 'amd64' },
-    compatibility: { host: { min: 1, max: 2 }, api: { min: 1, max: 1 }, protocol: { min: 1, max: 1 }, dataFormat: { min: 1, max: 2 } },
+    compatibility: { host: { min: 1, max: 2 }, api: { min: 2, max: 2 }, protocol: { min: 1, max: 1 }, dataFormat: { min: 1, max: 2 } },
     tools: ['add', 'list'], toolCount: 2, hasUI: true, mainPage: '/app/addons/notes/home', launchMode: 'always',
     generations: 3, restarts: 0, storage: { bytes: 12288, truncated: false }, ...over,
   }
@@ -73,7 +73,7 @@ export async function stubAddonRoutes(page) {
 const HOST_POLICY_DEFAULTS = {
   chats_egress_ceiling: '', chats_egress_default: '', chats_egress_allow_private: false,
   chats_egress_ports: '', chats_egress_extra_registries: '', chats_egress_allowed_hosts: '',
-  chats_tool_providers: {}, auto_upgrade_addons: false,
+  chats_tool_providers: {}, auto_upgrade_addons: false, connector_files_ceiling_bytes: 0,
 }
 export function hostPolicy(over = {}) {
   const policy = structuredClone(HOST_POLICY_DEFAULTS)
@@ -86,6 +86,7 @@ export function hostPolicy(over = {}) {
 function applyHostPatch(policy, patch) {
   const next = structuredClone(policy)
   for (const [key, value] of Object.entries(patch || {})) {
+    if (key === 'chats_egress_private_confirm') continue // checked by the owner, never stored
     if (key !== 'chats_tool_providers') { next[key] = value; continue }
     for (const [name, provider] of Object.entries(value || {})) {
       if (provider === null) delete next.chats_tool_providers[name]
@@ -258,6 +259,11 @@ export async function mockAddons(page, options = {}) {
         return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))
       case 'host-settings-update': {
         if (args.expectedRevision !== state.hostSettings.revision) return route.fulfill(ok({ error: 'revision_conflict' }))
+        // Like hostsettings.apply: turning the private switch on needs the phrase.
+        const turnsPrivateOn = args.patch?.chats_egress_allow_private === true && !state.hostSettings.policy.chats_egress_allow_private
+        if (turnsPrivateOn && String(args.patch.chats_egress_private_confirm || '').trim() !== 'I understand that commands can reach my private network') {
+          return route.fulfill(ok({ error: 'invalid' }))
+        }
         state.log.hostSettings.push(args.patch)
         state.hostSettings = { revision: state.hostSettings.revision + 1, policy: applyHostPatch(state.hostSettings.policy, args.patch) }
         return route.fulfill(ok({ data: { schema_version: 1, revision: state.hostSettings.revision, policy: state.hostSettings.policy } }))

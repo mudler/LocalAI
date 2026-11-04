@@ -93,7 +93,7 @@ export function BulkActions({ onAll, onNone, allDisabled, noneDisabled, allLabel
 
 // A group of rows under a heading with its icon, its count and, when it has
 // more than one switch, its own actions.
-export function SwitchGroup({ title, icon, count, actions, testId, children }) {
+export function SwitchGroup({ title, icon, count, actions, intro, testId, children }) {
   const headId = useId()
   return (
     <section className="swl-group" aria-labelledby={headId} data-testid={testId}>
@@ -103,6 +103,7 @@ export function SwitchGroup({ title, icon, count, actions, testId, children }) {
         {count && <span className="swl-group__count">{count}</span>}
         {actions}
       </div>
+      {intro && <p className="swl-group__intro">{intro}</p>}
       {children}
     </section>
   )
@@ -113,16 +114,21 @@ export function SwitchGroup({ title, icon, count, actions, testId, children }) {
 // has a disabled switch and says why; the reason describes the switch.
 //
 //   name          the visible name; it names the switch
-//   desc          a line of text; on the name's line unless `stacked`
+//   blurb         what the switch does, in a sentence, under the name; every
+//                 switch of the Tools list has one
+//   desc          a line of text (the state: who serves it, why it is off);
+//                 on the name's line unless `stacked`
 //   tone          warn draws the line as a warning
 //   chip          a short label next to the name ("Served by add-on searx")
 //   meta          a muted text before the switch ("4 tools")
 //   reason        why the switch is disabled (drawn under the name)
 //   title         the tooltip of the row; else the name and the text
 //   data          data-* attributes of the row
+//   extra         a control under the row (the connection of an add-on); it
+//                 sits outside the label, so using it never toggles the switch
 export function SwitchRow({
-  name, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
-  stacked = false, testId, descTestId, data = {},
+  name, blurb, desc, tone, chip, chipTestId, meta, metaTestId, metaKind, reason, title, checked, disabled = false, onChange,
+  stacked = false, testId, descTestId, blurbTestId, data = {}, extra, extraId, nested = false,
 }) {
   const nameId = useId()
   const descId = useId()
@@ -130,9 +136,9 @@ export function SwitchRow({
   const line = reason || desc
   const tip = title || (desc ? `${name}: ${desc}` : name)
   const attrs = Object.fromEntries(Object.entries(data).map(([k, v]) => [`data-${k}`, v]))
-  return (
+  const row = (
     <div
-      className={`swl-row${stacked ? ' swl-row--stacked' : ''}`}
+      className={`swl-row${nested ? ' swl-row--option' : ''}${stacked || blurb ? ' swl-row--stacked' : ''}${extra ? ' swl-row--extended' : ''}`}
       data-on={checked ? 'true' : 'false'}
       data-disabled={disabled ? 'true' : undefined}
       title={title}
@@ -144,6 +150,7 @@ export function SwitchRow({
           <span className="swl-row__name" id={nameId} title={title ? name : undefined}>{name}</span>
           {chip && <StatusChip tone="idle" icon="puzzle" className="swl-row__chip" testId={chipTestId}>{chip}</StatusChip>}
         </span>
+        {blurb && <span className="swl-row__blurb" data-testid={blurbTestId}>{blurb}</span>}
         {line && (
           <span className={`swl-row__desc${reason ? ' swl-row__desc--reason' : ''}${tone === 'warn' ? ' swl-row__desc--warn' : ''}`} id={descId} data-testid={reason ? undefined : descTestId}>
             {reason && <Icon name="info" className="swl-row__why" />}
@@ -158,11 +165,13 @@ export function SwitchRow({
         checked={checked}
         disabled={disabled}
         labelledBy={nameId}
-        describedBy={line ? descId : undefined}
+        describedBy={[line ? descId : '', extraId || ''].filter(Boolean).join(' ') || undefined}
         onChange={onChange}
       />
     </div>
   )
+  if (!extra) return row
+  return <div className="swl-rowbox" data-testid={testId ? `${testId}-box` : undefined}>{row}<div className="swl-row__extra">{extra}</div></div>
 }
 
 // A row with no switch: a built-in skill that an add-on replaces.

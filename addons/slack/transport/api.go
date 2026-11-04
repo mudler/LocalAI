@@ -7,6 +7,7 @@
 package transport
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/addons/internal/connector"
+	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/httpclient"
 )
 
@@ -205,6 +207,43 @@ func (a *API) UserInfo(ctx context.Context, bot, id string) (User, error) {
 	return r.User, err
 }
 
+// Reply is a message of a thread as conversations.replies returns it.
+type Reply struct {
+	User     string `json:"user"`
+	BotID    string `json:"bot_id"`
+	Username string `json:"username"`
+	Subtype  string `json:"subtype"`
+	Text     string `json:"text"`
+	TS       string `json:"ts"`
+	Files    []struct {
+		Name string `json:"name"`
+		ID   string `json:"id"`
+	} `json:"files"`
+}
+
+// Replies returns one page of the messages of a thread, oldest first, the
+// parent message included. Only messages before latest are returned, when it
+// is set. It needs the scopes channels:history, groups:history, im:history and
+// mpim:history, by the kind of the conversation. The cursor is empty for the
+// first page; the next one is empty on the last.
+func (a *API) Replies(ctx context.Context, bot, channel, thread, latest, cursor string, limit int) ([]Reply, string, error) {
+	form := url.Values{"channel": {channel}, "ts": {thread}, "limit": {strconv.Itoa(limit)}}
+	if latest != "" {
+		form.Set("latest", latest)
+	}
+	if cursor != "" {
+		form.Set("cursor", cursor)
+	}
+	var r struct {
+		Messages []Reply `json:"messages"`
+		Meta     struct {
+			Next string `json:"next_cursor"`
+		} `json:"response_metadata"`
+	}
+	err := a.call(ctx, bot, "conversations.replies", form, &r)
+	return r.Messages, r.Meta.Next, err
+}
+
 // File is a file that a message carries.
 type File struct {
 	ID       string `json:"id"`
@@ -246,16 +285,18 @@ func (a *API) onFilesHost(address string) (*url.URL, error) {
 	return u, nil
 }
 
-// Upload shares a file in a channel, in a thread when thread is set, and
+// UploadStream shares a file in a channel, in a thread when thread is set, and
 // returns the ID of the file. It takes the three steps of Slack's external
 // upload: an upload address, the bytes, and the completion that posts the
-// file. It needs the scope files:write.
-func (a *API) Upload(ctx context.Context, bot, channel, thread, name string, data []byte) (string, error) {
+// file. It needs the scope files:write. The file is read as it is sent: body
+// holds size bytes, which Slack is told first (the length of the upload). The
+// body is read once; a failed upload starts again with a new body.
+func (a *API) UploadStream(ctx context.Context, bot, channel, thread, name string, size int64, body io.Reader) (string, error) {
 	var r struct {
 		URL string `json:"upload_url"`
 		ID  string `json:"file_id"`
 	}
-	if err := a.call(ctx, bot, "files.getUploadURLExternal", url.Values{"filename": {name}, "length": {strconv.Itoa(len(data))}}, &r); err != nil {
+	if err := a.call(ctx, bot, "files.getUploadURLExternal", url.Values{"filename": {name}, "length": {strconv.FormatInt(size, 10)}}, &r); err != nil {
 		return "", err
 	}
 	// The address is signed for this one upload, so the bot token does not
@@ -264,12 +305,13 @@ func (a *API) Upload(ctx context.Context, bot, channel, thread, name string, dat
 	if err != nil || r.ID == "" {
 		return "", errors.New("slack: the upload address is not on the files host of Slack")
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), io.NopCloser(body))
 	if err != nil {
 		return "", errors.New("slack: could not build an upload request")
 	}
+	req.ContentLength = size
 	req.Header.Set("Content-Type", "application/octet-stream")
-	resp, err := a.client().Do(req)
+	resp, err := a.streamClient().Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			return "", ctx.Err()
@@ -295,10 +337,19 @@ func (a *API) Upload(ctx context.Context, bot, channel, thread, name string, dat
 	return r.ID, nil
 }
 
-// Download reads a file of Slack, at most limit bytes. The bot token goes
-// with the request, so the address must be on the files host (see
-// onFilesHost).
-func (a *API) Download(ctx context.Context, bot, address string, limit int64) ([]byte, error) {
+// streamClient is the client of a file that is streamed. It has no overall
+// timeout, because a large file takes minutes; the context carries the bound.
+func (a *API) streamClient() *http.Client {
+	if a.Client != nil {
+		return a.Client
+	}
+	return httpclient.NewWithTimeout(contract.ConnectorTransferTimeout)
+}
+
+// DownloadStream opens a file of Slack for reading. The caller closes it and
+// holds no more than it reads. The bot token goes with the request, so the
+// address must be on the files host (see onFilesHost).
+func (a *API) DownloadStream(ctx context.Context, bot, address string) (io.ReadCloser, error) {
 	u, err := a.onFilesHost(address)
 	if err != nil {
 		return nil, err
@@ -308,31 +359,30 @@ func (a *API) Download(ctx context.Context, bot, address string, limit int64) ([
 		return nil, errors.New("slack: could not build a download request")
 	}
 	req.Header.Set("Authorization", "Bearer "+bot)
-	resp, err := a.client().Do(req)
+	resp, err := a.streamClient().Do(req)
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
 		}
 		return nil, errors.New("slack: the file could not be downloaded")
 	}
-	defer func() { _ = resp.Body.Close() }()
 	switch {
 	case resp.StatusCode == http.StatusTooManyRequests:
+		_ = resp.Body.Close()
 		return nil, &connector.RetryAfter{Seconds: retryAfter(resp.Header.Get("Retry-After"))}
 	case resp.StatusCode != http.StatusOK:
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("slack: the download answered %d", resp.StatusCode)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
-	if err != nil {
-		return nil, errors.New("slack: the file could not be read")
-	}
-	if int64(len(data)) > limit {
-		return nil, ErrTooLarge
-	}
-	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("<!DOCTYPE html")) {
+	br := bufio.NewReader(resp.Body)
+	if head, _ := br.Peek(64); bytes.HasPrefix(bytes.TrimSpace(head), []byte("<!DOCTYPE html")) {
 		// Slack answers a download without the scope files:read with its
 		// sign-in page, not with an error.
+		_ = resp.Body.Close()
 		return nil, errors.New("slack: the download needs the scope files:read")
 	}
-	return data, nil
+	return struct {
+		io.Reader
+		io.Closer
+	}{br, resp.Body}, nil
 }

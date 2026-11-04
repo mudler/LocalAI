@@ -2,6 +2,7 @@
 package studio
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -24,10 +25,12 @@ type observationProvider struct {
 	started  chan struct{}
 	release  chan struct{}
 	fail     bool
+	// addon is the add-on the observation is bound to; empty is renamed-provider.
+	addon string
 }
 
 func (p *observationProvider) NewExecutionObservation(ctx context.Context, user, conv string) (*executionrequest.Request, string, func() ExecutionDetail) {
-	b := model.Binding{Actor: user, Addon: "renamed-provider", Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "inspect"}
+	b := model.Binding{Actor: user, Addon: cmp.Or(p.addon, "renamed-provider"), Generation: "1", Incarnation: "one", ExecutionTool: "run", StatusTool: "inspect"}
 	r := executionrequest.New(ctx, b, "host-q", model.Eligible, executionrequest.IO{
 		Validate: func(context.Context, model.Binding) error { return nil },
 		Read: func(ctx context.Context, _ model.Binding, _ model.ObservationID, _ time.Time) (model.Payload, error) {

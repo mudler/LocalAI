@@ -198,7 +198,7 @@ func installer(p published, policy catalog.VerificationPolicy) (*packages.Instal
 	})
 	return &packages.Installer{
 		Root: root, Catalog: c,
-		Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
+		Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
 	}, release
 }
 

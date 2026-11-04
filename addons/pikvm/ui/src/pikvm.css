@@ -1,0 +1,46 @@
+/* Styles of the PiKVM add-on page and its approval card. Tokens only. */
+.pk-help { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.pk-help .cn-help { max-width: 640px; }
+.pk-help details[open] { padding: var(--dk-space-3); border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); }
+.pk-help details > p { margin: var(--dk-space-2) 0; }
+
+.pk-mode-block { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.pk-modecard { display: flex; flex-direction: column; gap: 2px; }
+.pk-modecard__title { font-weight: var(--font-weight-semibold); }
+.pk-modecard__line { color: var(--color-text-muted); font-size: var(--fs-small); }
+.pk-note { margin-top: var(--dk-space-1); }
+.pk-mode-block .cn-cards { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+
+.pk-chip { display: inline-block; font-size: var(--fs-meta); padding: 0 var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); color: var(--color-text-secondary); }
+.pk-chip--off { color: var(--dk-ok-text, var(--color-text-secondary)); background: var(--dk-ok-wash, var(--color-bg-secondary)); }
+.pk-chip--propose { color: var(--dk-warn-text, var(--color-text-secondary)); background: var(--dk-warn-wash, var(--color-bg-secondary)); }
+.pk-chip--auto { color: var(--dk-error-text, var(--color-text-secondary)); background: var(--dk-error-wash, var(--color-bg-secondary)); }
+
+.pk-checks { list-style: none; margin: var(--dk-space-1) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.pk-check { display: flex; align-items: flex-start; gap: var(--dk-space-2); font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
+.pk-check--ok { color: var(--dk-ok-text, var(--color-text-secondary)); }
+.pk-check--warn { color: var(--dk-warn-text, var(--color-text-secondary)); }
+
+.pk-fieldset { display: flex; flex-direction: column; gap: var(--dk-space-3); margin: 0; padding: var(--dk-space-3); min-width: 0; border: 1px solid var(--color-border-subtle); border-radius: var(--r-md); }
+.pk-actions { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+
+.pk-prop { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.pk-prop__title { margin: 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.pk-prop__facts { margin: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.pk-prop__row { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: var(--dk-space-2); }
+.pk-prop__row dt { color: var(--color-text-muted); font-size: var(--fs-small); }
+.pk-prop__row dd { margin: 0; overflow-wrap: anywhere; }
+.pk-prop__targets { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--dk-space-1); }
+.pk-prop__id, .pk-prop__state { display: block; color: var(--color-text-muted); font-size: var(--fs-small); }
+.pk-prop__name { font-weight: var(--font-weight-semibold); }
+.pk-prop__code { display: block; padding: var(--dk-space-2); border-radius: var(--r-sm); background: var(--color-bg-secondary); white-space: pre-wrap; max-height: 160px; overflow: auto; }
+@media (max-width: 480px) { .pk-prop__row { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+/* The settings editor, under the connections. */
+.pk-settings { display: flex; flex-direction: column; gap: var(--dk-space-3); margin-top: var(--dk-space-6, 2rem); padding-top: var(--dk-space-4); border-top: 1px solid var(--color-border-subtle); max-width: 720px; }
+.pk-settings__title { margin: 0; font-size: var(--fs-h3, 1.125rem); font-weight: var(--font-weight-semibold); }
+.pk-device { display: flex; flex-direction: column; gap: var(--dk-space-3); }
+.pk-device__title { margin: 0; font-size: var(--fs-body); overflow-wrap: anywhere; }
+.pk-never__title { margin: 0; font-size: var(--fs-body); font-weight: var(--font-weight-semibold); }
+.pk-prop__keys { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--dk-space-1); }
+.pk-prop__keys kbd { padding: 0 var(--dk-space-2); border: 1px solid var(--color-border-subtle); border-radius: var(--r-sm); background: var(--color-bg-secondary); font-family: inherit; }

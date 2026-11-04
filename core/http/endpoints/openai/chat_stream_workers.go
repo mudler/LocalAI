@@ -112,6 +112,26 @@ func chooseDeferredReasoning(
 	return extractor.Reasoning()
 }
 
+// thinkingStartTokenFor returns the thinking-start token to use for this
+// request, or "" when the request disables thinking.
+//
+// The detectors scan the raw prompt/template without evaluating jinja
+// conditionals, so qwen3's <think> is found even when the surrounding
+// {% if enable_thinking %} guard will not render it. Prefilling it in that case
+// makes the extractor classify the whole answer as reasoning (issue #12939),
+// so detection is skipped when the request asks for no thinking. Real
+// <think>…</think> blocks that a model emits anyway are still extracted from
+// the content itself.
+func thinkingStartTokenFor(cfg *config.ModelConfig, template string) string {
+	if cfg.ReasoningDisabled() {
+		return ""
+	}
+	if cfg.TemplateConfig.UseTokenizerTemplate {
+		return reason.DetectThinkingStartTokenInTemplate(template, &cfg.ReasoningConfig)
+	}
+	return reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
+}
+
 // processStream is the streaming worker for chat completions with no
 // tool/function calling involved. It pushes SSE-shaped chunks onto
 // `responses` and returns the authoritative cumulative TokenUsage from
@@ -149,10 +169,7 @@ func processStream(
 	} else {
 		template = s
 	}
-	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
-	if cfg.TemplateConfig.UseTokenizerTemplate {
-		thinkingStartToken = reason.DetectThinkingStartTokenInTemplate(template, &cfg.ReasoningConfig)
-	}
+	thinkingStartToken := thinkingStartTokenFor(cfg, template)
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
 
 	// preferAutoparser is sticky: once the C++ autoparser has ever classified
@@ -250,10 +267,7 @@ func processStreamWithTools(
 	} else {
 		template = prompt
 	}
-	thinkingStartToken := reason.DetectThinkingStartToken(template, &cfg.ReasoningConfig)
-	if cfg.TemplateConfig.UseTokenizerTemplate {
-		thinkingStartToken = reason.DetectThinkingStartTokenInTemplate(template, &cfg.ReasoningConfig)
-	}
+	thinkingStartToken := thinkingStartTokenFor(cfg, template)
 	extractor := reason.NewReasoningExtractor(thinkingStartToken, cfg.ReasoningConfig)
 
 	result := ""

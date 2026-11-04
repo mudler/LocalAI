@@ -4,6 +4,42 @@
 # the cutover keep working. CI fails when it differs from the generated copy:
 #   go run ./scripts/models/cmd/modelcatalog --library gallery/models/index.yaml --out gallery/index.yaml
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-4b-3d-coder-q8
+  description: |
+    CCORE's early preview fine-tune of Qwen3.5-4B for coding and Three.js
+    scene generation. This text-only Q8_0 build pins a preview
+    checkpoint and uses the embedded chat template. MTP is not enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/ccore/Qwen3.5-4B-3D-Coder
+  tags:
+    - llm
+    - gguf
+    - coding
+    - preview
+    - cpu
+    - gpu
+  files:
+    - filename: Qwen3.5-4B-3D-Coder-Q8_0.gguf
+      sha256: 666ebe87dcbe4138888f07c4eb1bcb9be82e7a057a5c154c0104f4173690038c
+      uri: https://huggingface.co/ccore/Qwen3.5-4B-3D-Coder/resolve/c8b9b5e565967b81647b9e4c77feaa11782466cc/Qwen3.5-4B-3D-Coder-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: Qwen3.5-4B-3D-Coder-Q8_0.gguf
+      repeat_penalty: 1.0
+      temperature: 0.7
+      top_k: 20
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: sage-a1.5-q4
   description: |
     Sage-A1.5 is a 35B mixture-of-experts model based on Qwen3.6 for
@@ -1395,6 +1431,335 @@
     parameters:
       model: bge-small-en-v1.5-q4_k_m.gguf
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-e2b-it-artemis-q3-k-l
+  description: |
+    TurinTech Artemis Q3_K_L quantization of Gemma 4 E2B from Google's QAT
+    checkpoint, for local chat and tool calls. Accepts image input through
+    the bundled F16 vision projector. Uses the embedded chat template and
+    an 8192-token context. Thinking is on by default.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-unquantized
+    - https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF
+  icon: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
+      sha256: 1e207a449e37ea902de237aba1158f960a91bd344bee6edc5b0aa0dbce015621
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_L.gguf
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: gemma-4-e2b-it-artemis-q3-k-m
+    - model: gemma-4-e2b-it-artemis-iq3-xxs
+    - model: gemma-4-e2b-it-artemis-iq2-m
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-e2b-it-artemis-q3-k-m
+  description: |
+    TurinTech Artemis Q3_K_M quantization of Gemma 4 E2B from Google's QAT
+    checkpoint, for local chat and tool calls. Accepts image input through
+    the bundled F16 vision projector. Uses the embedded chat template and
+    an 8192-token context. Thinking is on by default.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-unquantized
+    - https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF
+  icon: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
+      sha256: 6bdb901ce3c468c626c5481076b9c56bc69a35fc3ad08c78b2b6cbede5cbd9da
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-Q3_K_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-e2b-it-artemis-iq3-xxs
+  description: |
+    TurinTech Artemis IQ3_XXS quantization of Gemma 4 E2B from Google's QAT
+    checkpoint, for local chat and tool calls. Accepts image input through
+    the bundled F16 vision projector. Uses the embedded chat template and
+    an 8192-token context. Thinking is on by default.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-unquantized
+    - https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF
+  icon: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
+      sha256: 66b7eebe3316775b6e0194b3b4da2888c32830d3c7e3c749b1e861d121e97aa9
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ3_XXS.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-e2b-it-artemis-iq2-m
+  description: |
+    TurinTech Artemis IQ2_M quantization of Gemma 4 E2B from Google's QAT
+    checkpoint, for local chat and tool calls. Accepts image input through
+    the bundled F16 vision projector. Uses the embedded chat template and
+    an 8192-token context. Thinking is on by default.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-unquantized
+    - https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF
+  icon: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/13a1c266e43df6e184779f8bc446ca6c66dca152/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ2_M.gguf
+      sha256: 61ecb5b0d2854afbc1436db7598465f77ccf63ec62210e75cc761e09ecb6d729
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/gemma-4-E2B-it-Artemis-IQ2_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 35be86a206b3573bd149e59b0ea8d8c371dab6f407e1b3f4f73d6408ff6ce6bf
+      uri: https://huggingface.co/turintech/gemma-4-E2B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-E2B-it-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-E2B-it-Artemis-GGUF/gemma-4-E2B-it-Artemis-IQ2_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-e4b-it-artemis-q4-0
+  description: |
+    TurinTech Artemis Q4_0 quantization of Gemma 4 E4B from Google's QAT
+    checkpoint, for local chat, reasoning, and tool use. Accepts image
+    input through the bundled F16 vision projector. Uses the embedded chat
+    template and an 8192-token context. Thinking is on by default.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-unquantized
+    - https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF
+  icon: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q4_0.gguf
+      sha256: 1d23b7340a5828d12c50ee60a9fd0662c6cf23117d4cd4f6a7e3ec1bfb503260
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-Q4_0.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
+      sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q4_0.gguf
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: gemma-4-e4b-it-artemis-iq3-m
+    - model: gemma-4-e4b-it-artemis-q3-k-m
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-e4b-it-artemis-iq3-m
+  description: |
+    TurinTech Artemis IQ3_M quantization of Gemma 4 E4B from Google's QAT
+    checkpoint, for local chat, reasoning, and tool use. Accepts image
+    input through the bundled F16 vision projector. Uses the embedded chat
+    template and an 8192-token context. Thinking is on by default.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-unquantized
+    - https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF
+  icon: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-IQ3_M.gguf
+      sha256: 7d19112172d02bfe3edd711627bb988330e3fea8714c77362e2b77ae1634ac39
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-IQ3_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
+      sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-IQ3_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: gemma-4-e4b-it-artemis-q3-k-m
+  description: |
+    TurinTech Artemis Q3_K_M quantization of Gemma 4 E4B from Google's QAT
+    checkpoint, for local chat, reasoning, and tool use. Accepts image
+    input through the bundled F16 vision projector. Uses the embedded chat
+    template and an 8192-token context. Thinking is on by default.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-unquantized
+    - https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF
+  icon: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/31d9aa277c62a7036cde4e9aaa3c2d330e7775cf/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - gemma
+    - gemma4
+    - gemma-4
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
+      sha256: 182f4a4f29461620f7404b9eb25a03bd7fe9f91de49718662c9146c01c9d3547
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
+    - filename: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
+      sha256: b2abc3148c97f6d0ad820cef6b37db8cd1477eccb949f5722a8976c2f942c135
+      uri: https://huggingface.co/turintech/gemma-4-E4B-it-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/gemma-4-E4B-it-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/gemma-4-E4B-it-Artemis-GGUF/gemma-4-E4B-it-Artemis-Q3_K_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
   name: qwen3.5-0.8b-artemis-q5
   description: |
     TurinTech Artemis Q5_K_M quantization of Qwen3.5 0.8B for text chat,
@@ -1462,6 +1827,352 @@
       - use_jinja:true
     parameters:
       model: Qwen3.5-0.8B-Artemis-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-2b-artemis-q5-k-m
+  description: |
+    TurinTech Artemis Q5_K_M quantization of Qwen3.5 2B for local tool calls,
+    maths, and instruction following. Accepts image input through the
+    bundled F16 vision projector. Uses the embedded chat template and an
+    8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-2B
+    - https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF/resolve/ef505832b8853db0c7b019f8ac6078d3a7289682/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-2B-Artemis-GGUF/Qwen3.5-2B-Artemis-Q5_K_M.gguf
+      sha256: 00643c030243fd097ea7e3b3877f06c740562b4ed066964b2cd6d13c23c9820d
+      uri: https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF/resolve/main/Qwen3.5-2B-Artemis-Q5_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-2B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: ecbea1bda7d4bedb3851cf47f440ba5f8207a5943c6336aa482994825cf0d16f
+      uri: https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-2B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-2B-Artemis-GGUF/Qwen3.5-2B-Artemis-Q5_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: qwen3.5-2b-artemis-q4-k-m
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-2b-artemis-q4-k-m
+  description: |
+    TurinTech Artemis Q4_K_M quantization of Qwen3.5 2B for local tool calls,
+    maths, and instruction following. Accepts image input through the
+    bundled F16 vision projector. Uses the embedded chat template and an
+    8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-2B
+    - https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF/resolve/ef505832b8853db0c7b019f8ac6078d3a7289682/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-2B-Artemis-GGUF/Qwen3.5-2B-Artemis-Q4_K_M.gguf
+      sha256: 86134884b896fdf3072c75a1028aa68361463e133be34b59453bcf4841205636
+      uri: https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF/resolve/main/Qwen3.5-2B-Artemis-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-2B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: ecbea1bda7d4bedb3851cf47f440ba5f8207a5943c6336aa482994825cf0d16f
+      uri: https://huggingface.co/turintech/Qwen3.5-2B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-2B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-2B-Artemis-GGUF/Qwen3.5-2B-Artemis-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-4b-artemis-q4-k-m
+  description: |
+    TurinTech Artemis Q4_K_M quantization of Qwen3.5 4B for local chat and
+    tool calls. Accepts image input through the bundled F16 vision
+    projector. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/ae130c914b6d3eea3653b16d14dea5f0a4508518/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q4_K_M.gguf
+      sha256: 9cc4043170052b9f99e56974ec0c5c63fbae36e562da031baea3658ad6348b05
+      uri: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/main/Qwen3.5-4B-Artemis-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 0583309597e4c5b7fd206f050d3e208322ba7216ee7a57186692a10653a139f7
+      uri: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: qwen3.5-4b-artemis-q5-k-m
+    - model: qwen3.5-4b-artemis-q5-k-s
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-4b-artemis-q5-k-m
+  description: |
+    TurinTech Artemis Q5_K_M quantization of Qwen3.5 4B for local chat and
+    tool calls. Accepts image input through the bundled F16 vision
+    projector. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/ae130c914b6d3eea3653b16d14dea5f0a4508518/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q5_K_M.gguf
+      sha256: 930f7c1df65b2ee37a9af74698e695eea99c60429ed322d374f889988f9edd6d
+      uri: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/main/Qwen3.5-4B-Artemis-Q5_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 0583309597e4c5b7fd206f050d3e208322ba7216ee7a57186692a10653a139f7
+      uri: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q5_K_M.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-4b-artemis-q5-k-s
+  description: |
+    TurinTech Artemis Q5_K_S quantization of Qwen3.5 4B for local chat and
+    tool calls. Accepts image input through the bundled F16 vision
+    projector. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-4B
+    - https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/ae130c914b6d3eea3653b16d14dea5f0a4508518/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q5_K_S.gguf
+      sha256: a3ad5db0ad10c3e41f36d8fd8803dff7727f7ca575acb1421cbdc5558bf705f1
+      uri: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/main/Qwen3.5-4B-Artemis-Q5_K_S.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-4B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 0583309597e4c5b7fd206f050d3e208322ba7216ee7a57186692a10653a139f7
+      uri: https://huggingface.co/turintech/Qwen3.5-4B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-4B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-4B-Artemis-GGUF/Qwen3.5-4B-Artemis-Q5_K_S.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-9b-artemis-q4-k-m
+  description: |
+    TurinTech Artemis Q4_K_M quantization of Qwen3.5 9B for local chat and
+    tool calls. Accepts image input through the bundled F16 vision
+    projector. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-9B
+    - https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/258b5d4e90972c74423a22f380906a3a939a758a/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-Q4_K_M.gguf
+      sha256: afa19e164e16f3496d4bbf85b2129e6d98102f6c41e8dc1e8bcda1f6b2234665
+      uri: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/main/Qwen3.5-9B-Artemis-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 67716b06c20a75f68f8d0057ed3718cd967bdd1f594df7ee057f4001299c6eae
+      uri: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-Q4_K_M.gguf
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: qwen3.5-9b-artemis-q5-k-s
+    - model: qwen3.5-9b-artemis-iq4-xs
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-9b-artemis-q5-k-s
+  description: |
+    TurinTech Artemis Q5_K_S quantization of Qwen3.5 9B for local chat and
+    tool calls. Accepts image input through the bundled F16 vision
+    projector. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-9B
+    - https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/258b5d4e90972c74423a22f380906a3a939a758a/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-Q5_K_S.gguf
+      sha256: c223fbf19c51805832e7bbb92537d17cfa70a26cdb4b816743ff311957264a06
+      uri: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/main/Qwen3.5-9B-Artemis-Q5_K_S.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 67716b06c20a75f68f8d0057ed3718cd967bdd1f594df7ee057f4001299c6eae
+      uri: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-Q5_K_S.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: qwen3.5-9b-artemis-iq4-xs
+  description: |
+    TurinTech Artemis IQ4_XS quantization of Qwen3.5 9B for local chat and
+    tool calls. Accepts image input through the bundled F16 vision
+    projector. Uses the embedded chat template and an 8192-token context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Qwen/Qwen3.5-9B
+    - https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF
+  icon: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/258b5d4e90972c74423a22f380906a3a939a758a/assets/turintech-logo.png
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - qwen
+    - multimodal
+    - vision
+  files:
+    - filename: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-IQ4_XS.gguf
+      sha256: ccf73846d6c4fcfc0b947d25365dd6c5c8c9d9b436b5ad97903b9cceb3d6a242
+      uri: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/main/Qwen3.5-9B-Artemis-IQ4_XS.gguf
+    - filename: llama-cpp/mmproj/Qwen3.5-9B-Artemis-GGUF/mmproj-F16.gguf
+      sha256: 67716b06c20a75f68f8d0057ed3718cd967bdd1f594df7ee057f4001299c6eae
+      uri: https://huggingface.co/turintech/Qwen3.5-9B-Artemis-GGUF/resolve/main/mmproj-F16.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    function:
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/mmproj/Qwen3.5-9B-Artemis-GGUF/mmproj-F16.gguf
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/Qwen3.5-9B-Artemis-GGUF/Qwen3.5-9B-Artemis-IQ4_XS.gguf
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/virtual.yaml@master
@@ -23663,6 +24374,72 @@
       model: llama-cpp/models/Qwen_Qwen3-Next-80B-A3B-Thinking-Q4_K_M.gguf
     template:
       use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: nanbeige4.3-33b-ad-q4
+  description: |
+    Nanbeige4.3-33B is a 33B dense model for reasoning, coding, and
+    agent tasks in English and Chinese. This AD-Q4_K_M GGUF build
+    uses llama.cpp with the embedded chat template and thinking enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.3-33B
+    - https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - coding
+    - cpu
+    - gpu
+  files:
+    - filename: Nanbeige4.3-33B-AD-Q4_K_M.gguf
+      sha256: 409c92c4355c81928f0f2de5d49481fe7e4d0fa4d381aa28eddee0dc4b358c49
+      uri: https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF/resolve/b39515bab760dc8d6f7da7b4073847997971e2b7/Nanbeige4.3-33B-AD-Q4_K_M.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    options:
+      - use_jinja:true
+    parameters:
+      model: Nanbeige4.3-33B-AD-Q4_K_M.gguf
+      temperature: 0.6
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: nanbeige4.3-33b-q8
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: nanbeige4.3-33b-q8
+  description: |
+    Nanbeige4.3-33B is a 33B dense model for reasoning, coding, and
+    agent tasks in English and Chinese. This Q8_0 GGUF build
+    uses llama.cpp with the embedded chat template and thinking enabled.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/Nanbeige/Nanbeige4.3-33B
+    - https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - coding
+    - cpu
+    - gpu
+  files:
+    - filename: Nanbeige4.3-33B-Q8_0.gguf
+      sha256: 4106cbb9ba85da731f88b7493a90343e0d8cd6c77974ed1af00a97c5262c22bc
+      uri: https://huggingface.co/AtomicChat/Nanbeige4.3-33B-GGUF/resolve/b39515bab760dc8d6f7da7b4073847997971e2b7/Nanbeige4.3-33B-Q8_0.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 32768
+    options:
+      - use_jinja:true
+    parameters:
+      model: Nanbeige4.3-33B-Q8_0.gguf
+      temperature: 0.6
+      top_p: 0.95
+    template:
+      use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/nanbeige4.1.yaml@master
   name: nanbeige4.1-3b-q8
   description: |
@@ -31221,6 +31998,168 @@
       - use_jinja:true
     parameters:
       model: OvisOCR2-Q8_0.gguf
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: minicpm-ocr-1.0-q8
+  description: |
+    MiniCPM-OCR 1.0 is OpenBMB's 1.3B document-parsing model for Chinese and
+    English text, tables, formulas, charts, and seals. This entry uses the
+    official Q8_0 GGUF weights and the required F16 4x vision projector
+    through llama.cpp, with an 8,192-token default context. Prompt the model
+    with "Text Recognition:" for text, "Table Recognition:" for tables, or
+    "Formula Recognition:" for formulas. Table output is the model's OTSL
+    markup, which clients can convert to HTML.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - vision
+    - minicpm
+  files:
+    - filename: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+      sha256: 791486a476bdacb48acb3f31aa3a18dbb5be87e723a4074bcd13a37d61c852e2
+      uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/MiniCPM-OCR-1_0-Q8_0.gguf
+    - filename: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+      sha256: ceed82261b3b1380c3165f8b37c10117a50093be1362cbfeeb692fa036444682
+      uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/mmproj-model-f16-4x.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+    options:
+      - use_jinja:true
+      - enable_reasoning:0
+      - parallel:1
+    parameters:
+      model: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+      temperature: 0.01
+      top_k: 1
+      top_p: 0.001
+    template:
+      use_tokenizer_template: true
+  variants:
+    - model: minicpm-ocr-1.0-q4km
+    - model: minicpm-ocr-1.0-dspark
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: minicpm-ocr-1.0-q4km
+  description: |
+    MiniCPM-OCR 1.0 in the smaller Q4_K_M GGUF build, with the required F16
+    4x vision projector and an 8,192-token default context. Tables stay
+    lossless at this size; dense text may degrade slightly. Prompt the model
+    with "Text Recognition:" for text, "Table Recognition:" for tables, or
+    "Formula Recognition:" for formulas. Table output is the model's OTSL
+    markup, which clients can convert to HTML.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - vision
+    - minicpm
+  files:
+    - filename: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q4_K_M.gguf
+      sha256: c80a703400633f298cc2fddf6d493a541be36918c0801c0b1bf3f14c5703ce49
+      uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/MiniCPM-OCR-1_0-Q4_K_M.gguf
+    - filename: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+      sha256: ceed82261b3b1380c3165f8b37c10117a50093be1362cbfeeb692fa036444682
+      uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/mmproj-model-f16-4x.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+    options:
+      - use_jinja:true
+      - enable_reasoning:0
+      - parallel:1
+    parameters:
+      model: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q4_K_M.gguf
+      temperature: 0.01
+      top_k: 1
+      top_p: 0.001
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: minicpm-ocr-1.0-dspark
+  description: |
+    MiniCPM-OCR 1.0 with OpenBMB's DSpark speculative drafter. DSpark
+    proposes blocks of tokens that the target verifies, which speeds up
+    generation without changing the target model's output. This entry pairs
+    the Q8_0 target with the matching Q8_0 draft and the required F16 4x
+    vision projector, with an 8,192-token default context.
+  license: apache-2.0
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-DSpark
+    - https://huggingface.co/openbmb/MiniCPM-OCR-1.0-DSpark-gguf
+  icon: https://avatars.githubusercontent.com/u/89920203
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - image-to-text
+    - ocr
+    - document-parsing
+    - multimodal
+    - vision
+    - minicpm
+    - dspark
+  files:
+    - filename: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+      sha256: 791486a476bdacb48acb3f31aa3a18dbb5be87e723a4074bcd13a37d61c852e2
+      uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/MiniCPM-OCR-1_0-Q8_0.gguf
+    - filename: llama-cpp/models/minicpm-ocr-1.0/dspark-MiniCPM-OCR-1_0-Q8_0.gguf
+      sha256: fd8f64bb62cf5a5c6b4c0999bfa58f64453690c9f75f1124ab613dfb44a822da
+      uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-DSpark-gguf/resolve/265c4dc398c8d5c0ac56a4dd155a5a97b2037226/dspark-MiniCPM-OCR-1_0-Q8_0.gguf
+    - filename: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+      sha256: ceed82261b3b1380c3165f8b37c10117a50093be1362cbfeeb692fa036444682
+      uri: https://huggingface.co/openbmb/MiniCPM-OCR-1.0-gguf/resolve/9ba8c0db38ec333bdd83d44a88d25c6f1d748ba4/mmproj-model-f16-4x.gguf
+  overrides:
+    backend: llama-cpp
+    context_size: 8192
+    draft_model: llama-cpp/models/minicpm-ocr-1.0/dspark-MiniCPM-OCR-1_0-Q8_0.gguf
+    known_usecases:
+      - chat
+      - vision
+    mmproj: llama-cpp/models/minicpm-ocr-1.0/mmproj-model-f16-4x.gguf
+    options:
+      - use_jinja:true
+      - enable_reasoning:0
+      - parallel:1
+      - spec_type:draft-dspark
+      - spec_n_max:15
+    parameters:
+      model: llama-cpp/models/minicpm-ocr-1.0/MiniCPM-OCR-1_0-Q8_0.gguf
+      temperature: 0.01
+      top_k: 1
+      top_p: 0.001
     template:
       use_tokenizer_template: true
 - url: github:mudler/LocalAI/gallery/jamba.yaml@master
@@ -74080,7 +75019,7 @@
   files:
     - filename: audio-cpp/stable-audio-3-small-sfx-q8_0.gguf
       sha256: 5bb1ec653134e63dac46264e336ae198a2590195fc996fcd0605021215e9b26f
-      uri: huggingface://audio-cpp/audio.cpp-gguf/Stable-Audio-3-Small-SFX-GGUF/stable-audio-3-small-sfx-q8_0.gguf
+      uri: https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/199a4a17b9e16d6b8c3cad4a982327b031e5cf8d/Stable-Audio-3-Small-SFX-GGUF/stable-audio-3-small-sfx-q8_0.gguf
   overrides:
     backend: audio-cpp
     known_usecases:
@@ -80783,5 +81722,77 @@
       temperature: 0.7
       top_k: 0
       top_p: 1.0
+    template:
+      use_tokenizer_template: true
+- url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  name: lfm3-1.7b-uncensored
+  description: |
+    API
+    Try
+    Docs
+    Blog
+
+    # LFM3-1.7B
+
+    LFM3-1.7B is a **text model for local agents and specialized applications**, based on our new tri-hybrid architecture.
+
+      - **Agentic training:** post-trained for agentic harnesses such as Hermes Agent, Pi, and OpenClaw, with a 256K-token context window.
+      - **Designed for the edge:** at 4-bit precision, it takes about 1 GB of memory, so it fits on any phone or laptop.
+      - **Made to be specialized:** adapt the model to your domains, formats, and tools via quick single-GPU fine-tuning.
+
+    Find more information about the LFM3 family in our release blog post.
+
+    ## Model details
+
+    The LFM3 family includes base, text, vision, audio, omni, and decision models.
+
+    Property
+    Specification
+
+    Checkpoint
+    Post-trained, text-only language model
+
+    Parameters
+    1.73B
+
+    Architecture
+    24 layers: 13 gated short convolutions, 5 sliding-window attention, 6 global attention
+
+    Context length
+    256K tokens (input + output)
+
+    Vocabulary
+    128,000 tokens
+
+    Languages
+    English, Arabic, Chinese, French, German, Italian, Japanese, Korean, Portuguese, Spanish, Vietnamese, Thai, Indonesian, Hindi, Russian, Polish
+
+    License
+    LFM Open License v1.0
+
+    ...
+  license: other
+  urls:
+    - https://huggingface.co/AtomicChat/LFM3-1.7B-Uncensored-GGUF
+  icon: https://huggingface.co/LiquidAI/LFM3-1.7B/resolve/main/assets/liquid-ai-banner.webp
+  tags:
+    - llm
+    - gguf
+  files:
+    - filename: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
+      sha256: b22df65673b54ed326f18f74826d76f3b65dadc237ffd6306cd52be04544827d
+      uri: https://huggingface.co/AtomicChat/LFM3-1.7B-Uncensored-GGUF/resolve/main/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
+  overrides:
+    backend: llama-cpp
+    function:
+      automatic_tool_parsing_fallback: true
+      grammar:
+        disable: true
+    known_usecases:
+      - chat
+    options:
+      - use_jinja:true
+    parameters:
+      model: llama-cpp/models/LFM3-1.7B-Uncensored-AD-Q4_K_M/LFM3-1.7B-Uncensored-AD-Q4_K_M.gguf
     template:
       use_tokenizer_template: true

@@ -200,3 +200,44 @@ func ghwHasVendor(cards []*gpu.GraphicsCard, vendor string) bool {
 	}
 	return false
 }
+
+// readAMDSysfsGPUMemory reports AMD GPU memory from the amdgpu driver's
+// mem_info_* attributes under the DRM sysfs tree.
+//
+// It is the fallback for images without rocm-smi: ROCm 7+ images ship
+// only amd-smi, so a working Strix Halo reported "No GPU found" and
+// gpu_count 0 while inference ran on the GPU. The kernel exposes the
+// same VRAM and GTT figures rocm-smi reads, so the shared-memory APU
+// rule (#12058) applies unchanged.
+func readAMDSysfsGPUMemory(root string) []GPUMemoryInfo {
+	var gpus []GPUMemoryInfo
+	for _, card := range scanSysfsGPUs(root) {
+		if card.Vendor != VendorAMD {
+			continue
+		}
+		deviceDir := filepath.Join(root, card.Card, "device")
+		vramTotal, ok := readSysfsDecUint(filepath.Join(deviceDir, "mem_info_vram_total"))
+		if !ok {
+			continue
+		}
+		vramUsed, _ := readSysfsDecUint(filepath.Join(deviceDir, "mem_info_vram_used"))
+		gttTotal, _ := readSysfsDecUint(filepath.Join(deviceDir, "mem_info_gtt_total"))
+		gttUsed, _ := readSysfsDecUint(filepath.Join(deviceDir, "mem_info_gtt_used"))
+		gpus = append(gpus, amdGPUMemoryInfo(parseAMDDeviceIndex(card.Card),
+			vramTotal, vramUsed, gttTotal, gttUsed))
+	}
+	return gpus
+}
+
+func readSysfsDecUint(path string) (uint64, bool) {
+	// #nosec G304 -- same provenance as readSysfsHexUint.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false
+	}
+	value, err := strconv.ParseUint(strings.TrimSpace(string(raw)), 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return value, true
+}

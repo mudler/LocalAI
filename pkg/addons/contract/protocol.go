@@ -35,6 +35,15 @@ type Request struct {
 	Generation  uint64          `json:"generation"`
 	Action      string          `json:"action"`
 	Arguments   json.RawMessage `json:"arguments" swaggertype:"object"`
+	// ResourceKey and Credential are set by the host alone, for an add-on that
+	// declares credentials (see CredentialSlot). ResourceKey is the external
+	// name of the resource the call works on, after the host checked it against
+	// the person's list, and ResourceID is then the host ID of that entry.
+	// Credential is the secret of the person's binding. An add-on never stores
+	// or logs it, and the host drops both fields from every request that a
+	// caller sends.
+	ResourceKey string `json:"resourceKey,omitempty"`
+	Credential  string `json:"credential,omitempty" swaggerignore:"true"`
 }
 type Authority struct {
 	Actor     Actor     `json:"actor"`
@@ -118,6 +127,9 @@ func (v Envelope) Validate(now time.Time, l Limits) error {
 	r, a := v.Request, v.Authority
 	if !namespace.MatchString(r.AddonID) || !namespace.MatchString(r.OperationID) || !namespace.MatchString(r.Action) || (r.ResourceID != "" && !namespace.MatchString(r.ResourceID)) || r.Generation == 0 {
 		return fmt.Errorf("invalid request binding")
+	}
+	if (r.ResourceKey != "" && !validResourceKey(r.ResourceKey)) || len(r.Credential) > MaxCredentialBytes {
+		return fmt.Errorf("invalid request resource key or credential")
 	}
 	// Principal identifiers are opaque authentication-system IDs, not filesystem paths.
 	if strings.TrimSpace(a.Actor.UserID) == "" || strings.TrimSpace(a.Actor.CredentialID) == "" || len(a.Actor.UserID) > 256 || len(a.Actor.CredentialID) > 256 || (a.Actor.Mode != "named-user" && a.Actor.Mode != "local-owner") || !a.ExpiresAt.After(now) {

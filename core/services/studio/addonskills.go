@@ -19,7 +19,8 @@ import (
 // chat switched off and one the chat's agent does not grant contribute none.
 //
 // A skill of an add-on may replace a built-in skill of the same name, when the
-// name is in contract.ReplaceableSkills and the manifest says so (shadows), as
+// name is a slot the add-on declares or a default one (contract.DefaultSlots)
+// and the manifest says so (shadows), as
 // a tool replaces a built-in tool. Only one add-on serves such a name: the one
 // an administrator pinned in the same map as the tools (chats_tool_providers,
 // Settings > Tools), else the first by add-on ID. A pin to an add-on that
@@ -38,8 +39,15 @@ type AddonSkillSet struct {
 	// InstalledAt is when the add-on was first installed, or empty.
 	InstalledAt string
 	Skills      []string
+	// Isolated are the skills that run only when the add-on's own commands tool
+	// reports isolated execution (a subset of Skills).
+	Isolated []string
 	// Shadows are the built-in skills it replaces (a subset of Skills).
 	Shadows []string
+	// Slots are the slots its skills serve, as the add-on declares them. The
+	// host reads which names are replaceable and which files they cover from
+	// here, so a new format needs no change in the host.
+	Slots []contract.Slot
 	// Running is true when the add-on can serve now: installed, enabled and
 	// running.
 	Running bool
@@ -61,23 +69,31 @@ type addonSkills struct {
 	known []AddonSkillSet
 	// pins are the administrator's choices, by name.
 	pins map[string]string
-	// hiddenDocuments are the document skills of the Sandbox left out because
-	// it runs the chat's commands without isolation.
+	// hiddenDocuments are the document skills left out because the add-on
+	// that ships them runs the chat's commands without isolation.
 	hiddenDocuments []string
-	// documentsWhy is why the Sandbox is not known to be isolated.
-	documentsWhy string
+	// documentsWhy is why that add-on is not known to be isolated, and
+	// documentsBy its title.
+	documentsWhy, documentsBy string
 }
 
-// withNotes adds to notes the line that says why the Sandbox document skills
+// withNotes adds to notes the line that says why the document skills
 // are missing, so the person is not left to guess.
 // documentNotePrefix starts the note that explains the missing document skills.
 const documentNotePrefix = "the document skills "
+
+// hiddenDocumentNote reports whether note is the document note (withNotes)
+// and lists the skill name among the hidden ones.
+func hiddenDocumentNote(note, name string) bool {
+	list, _, ok := strings.Cut(strings.TrimPrefix(note, documentNotePrefix), " need isolated")
+	return strings.HasPrefix(note, documentNotePrefix) && ok && slices.Contains(strings.Split(list, ", "), name)
+}
 
 func (a addonSkills) withNotes(notes []string) []string {
 	if len(a.hiddenDocuments) == 0 {
 		return notes
 	}
-	return append(notes, documentNotePrefix+strings.Join(a.hiddenDocuments, ", ")+" need an isolated Sandbox; "+a.documentsWhy)
+	return append(notes, documentNotePrefix+strings.Join(a.hiddenDocuments, ", ")+" need isolated command execution by "+a.documentsBy+"; "+a.documentsWhy)
 }
 
 // addonSkillsFor lists the add-ons of the user that ship skills and decides
@@ -108,6 +124,11 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 	}
 	gate, _ := s.d.AddonTools.(AddonGate)
 	for _, set := range sets {
+		if set.AddonID == MemoryAddonID {
+			// The host ships these skills itself (memory.go).
+			set.Skills = slices.DeleteFunc(slices.Clone(set.Skills), func(n string) bool { return contract.LegacyMemorySkill(set.AddonID, n) })
+			set.Shadows = slices.DeleteFunc(slices.Clone(set.Shadows), func(n string) bool { return contract.LegacyMemorySkill(set.AddonID, n) })
+		}
 		if len(set.Skills) == 0 {
 			continue
 		}
@@ -118,13 +139,19 @@ func (s *Service) addonSkillsFor(ctx context.Context, p string, addonsOff []stri
 		if gate != nil && gate.Unavailable(ctx, p, set.AddonID, s.d.Files.Available()) != "" {
 			continue
 		}
-		if set.AddonID == "sandbox" && !sandboxDocumentEligible(command) {
-			if command.State == CommandsAvailable && command.Provider == "sandbox" {
+		// A chat that does not exist yet has no status to read, so its list
+		// offers what the selected provider ships; the turn of the real chat
+		// still gates these skills on the status it reads then.
+		draftProvider := command.Draft && command.State == CommandsAvailable && command.Provider == set.AddonID
+		if len(set.Isolated) > 0 && !isolatedProvider(command, set.AddonID) && !draftProvider {
+			needs := func(n string) bool { return slices.Contains(set.Isolated, n) }
+			if command.State == CommandsAvailable && command.Provider == set.AddonID {
 				out.documentsWhy = s.documentsWhy(ctx, p, command)
-				out.hiddenDocuments = append(out.hiddenDocuments, slices.DeleteFunc(slices.Clone(set.Skills), func(n string) bool { return !contract.DocumentSkill(n) })...)
+				out.documentsBy = command.Title
+				out.hiddenDocuments = append(out.hiddenDocuments, slices.DeleteFunc(slices.Clone(set.Skills), func(n string) bool { return !needs(n) })...)
 			}
-			set.Skills = slices.DeleteFunc(slices.Clone(set.Skills), contract.DocumentSkill)
-			set.Shadows = slices.DeleteFunc(slices.Clone(set.Shadows), contract.DocumentSkill)
+			set.Skills = slices.DeleteFunc(slices.Clone(set.Skills), needs)
+			set.Shadows = slices.DeleteFunc(slices.Clone(set.Shadows), needs)
 		}
 		out.usable = append(out.usable, set)
 	}
@@ -144,10 +171,12 @@ func (a addonSkills) roots() []skills.Root {
 // AddonProvider): the pinned add-on when it ships the name, or none when that
 // add-on cannot serve now; with no pin, the default one (ChooseProvider: the oldest install).
 func (a addonSkills) provider(name string) (string, bool) {
-	if !contract.ReplaceableSkill(name) {
+	slot, ok := a.slot(name)
+	if !ok {
 		return "", false
 	}
-	if pin := a.pins[name]; pin != "" && (contract.DocumentSkill(name) || shipsReplacement(a.known, pin, name)) {
+	documents := slot.Kind == contract.SlotKindDocuments
+	if pin := a.pins[name]; pin != "" && (documents || shipsReplacement(a.known, pin, name)) {
 		if shipsReplacement(a.usable, pin, name) {
 			return pin, true
 		}
@@ -156,7 +185,45 @@ func (a addonSkills) provider(name string) (string, bool) {
 	if id := ChooseProvider(a.shippers(a.usable, name), a.installTimes(), ""); id != "" {
 		return id, true
 	}
-	return "", contract.DocumentSkill(name)
+	return "", documents
+}
+
+// slot returns the slot called name: one that a known add-on serves, else a
+// default one. The default entries come from data (contract.DefaultSlots).
+func (a addonSkills) slot(name string) (contract.Slot, bool) {
+	for _, set := range a.known {
+		for _, sl := range set.Slots {
+			if sl.Name == name {
+				return sl, true
+			}
+		}
+	}
+	return contract.DefaultSlot(name)
+}
+
+// slotNames lists the names of all the slots: the default ones in data order,
+// then those that known add-ons serve, sorted.
+func (a addonSkills) slotNames() []string {
+	return slotNamesOf(a.known)
+}
+
+func slotNamesOf(sets []AddonSkillSet) []string {
+	seen := map[string]bool{}
+	var out, extra []string
+	for _, sl := range contract.DefaultSlots() {
+		seen[sl.Name] = true
+		out = append(out, sl.Name)
+	}
+	for _, set := range sets {
+		for _, sl := range set.Slots {
+			if !seen[sl.Name] {
+				seen[sl.Name] = true
+				extra = append(extra, sl.Name)
+			}
+		}
+	}
+	sort.Strings(extra)
+	return append(out, extra...)
 }
 
 // shippers lists the add-ons of the sets that ship a replacement for name.
@@ -182,7 +249,7 @@ func (a addonSkills) installTimes() map[string]string {
 // options are the add-on parts of skills.Options.
 func (a addonSkills) options(o skills.Options) skills.Options {
 	o.AddonProvider = a.provider
-	o.Replaceable = contract.ReplaceableSkill
+	o.Replaceable = func(name string) bool { _, ok := a.slot(name); return ok }
 	return o
 }
 
@@ -197,6 +264,8 @@ func shipsReplacement(sets []AddonSkillSet, addon, name string) bool {
 	}
 	return false
 }
+
+func (a addonSkills) replaceable(name string) bool { _, ok := a.slot(name); return ok }
 
 // title returns the title of a known add-on, or its ID.
 func (a addonSkills) title(id string) string {
@@ -216,7 +285,7 @@ func (a addonSkills) markFallbacks(list []skills.Skill) string {
 	var parts []string
 	for i := range list {
 		sk := &list[i]
-		if sk.Layer != skills.LayerBuiltin || sk.Invalid != "" || sk.Shadowed != "" || !contract.ReplaceableSkill(sk.Name) {
+		if sk.Layer != skills.LayerBuiltin || sk.Invalid != "" || sk.Shadowed != "" || !a.replaceable(sk.Name) {
 			continue
 		}
 		var by string
@@ -239,7 +308,7 @@ func (a addonSkills) markFallbacks(list []skills.Skill) string {
 	return "The built-in skills " + strings.Join(parts, ", ") + " serve because the add-on's own skill is off or not running in this chat."
 }
 
-// documentsWhy says why the Sandbox that runs the chat's commands is not known
+// documentsWhy says why the add-on that runs the chat's commands is not known
 // to be isolated: it runs them on the host, or its status could not be read.
 func (s *Service) documentsWhy(ctx context.Context, p string, command Commands) string {
 	if command.Isolation == "host" {
@@ -247,7 +316,7 @@ func (s *Service) documentsWhy(ctx context.Context, p string, command Commands) 
 	}
 	value, d := ObserveExecution(ctx, p, command.Addon)
 	if value.Readiness == "unavailable" {
-		return "the Sandbox reports that it cannot run commands"
+		return commandsTitle(command) + " reports that it cannot run commands"
 	}
 	why := d.Failure.Text()
 	if d.Failure == "" {

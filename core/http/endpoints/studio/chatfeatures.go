@@ -3,6 +3,7 @@ package studio
 import (
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/schema"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
+	"github.com/mudler/LocalAI/core/services/studio/chatsearch"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 )
 
@@ -154,31 +156,95 @@ func (h *Handlers) Fork(c echo.Context) error {
 	return c.JSON(http.StatusCreated, out)
 }
 
+// searchRoles and searchOrigins are what the search filters accept.
+var (
+	searchRoles   = []string{session.RoleUser, session.RoleAssistant}
+	searchOrigins = []string{chatsearch.OriginPerson, chatsearch.OriginAutomated, session.OriginTrigger, session.OriginConnector, session.OriginJob, session.OriginPage}
+)
+
+// searchTime reads a date (YYYY-MM-DD, UTC) or a time (RFC 3339). A date given
+// as the end of a range includes that whole day.
+func searchTime(v string, endOfDay bool) (time.Time, error) {
+	if t, err := time.Parse(time.DateOnly, v); err == nil {
+		if endOfDay {
+			t = t.AddDate(0, 0, 1)
+		}
+		return t, nil
+	}
+	return time.Parse(time.RFC3339, v)
+}
+
 // Search finds chats.
 // @Summary Search your chats.
-// @Description Finds chats whose title or messages contain the text, ignoring case. The newest chats come first. It reads the newest 500 chats.
+// @Description Finds the messages and titles of your chats that hold every word of the text (a phrase in double quotes counts as one word), ignoring case. It searches all your chats, not only the newest, except the runs of sub-agents. The best match comes first: whole words, the whole phrase and newer messages rank higher. By default each chat appears once, with its best line; group=message returns every matching line. A hit has the line (seq), who wrote it, when, a snippet and the parts of the snippet that match (highlights, UTF-16 offsets). Messages written before the search index existed are added in the background after an upgrade (indexing is true meanwhile). A server that keeps chats in files has no index: it scans for a few seconds and says when it stopped early (partial).
 // @Tags chats
-// @Param q query string true "text to find"
-// @Param limit query int false "most chats to return (default 50, at most 200)"
+// @Param q query string true "text to find: words that must all be in the message"
+// @Param limit query int false "most hits to return (default 50, at most 200)"
+// @Param agent query string false "only chats of this saved agent"
+// @Param origin query string false "only chats of one origin: person, automated, trigger, connector, job or page"
+// @Param role query string false "only lines written by user or assistant"
+// @Param since query string false "only lines at or after this date (YYYY-MM-DD) or time (RFC 3339)"
+// @Param until query string false "only lines before this time, or on or before this date (YYYY-MM-DD)"
+// @Param group query string false "chat (default): one hit per chat; message: every matching line"
 // @Success 200 {object} schema.ChatsChatSearchResponse "The matching chats"
+// @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Router /api/chats/search [get]
 func (h *Handlers) Search(c echo.Context) error {
 	q := strings.TrimSpace(c.QueryParam("q"))
 	if q == "" {
 		return fail(c, http.StatusBadRequest, "invalid_request_error", "q is required")
 	}
+	o := studiosvc.SearchOptions{Query: q, Limit: intParam(c, "limit", defaultListLimit, maxListLimit), Titles: true,
+		AgentID: c.QueryParam("agent"), Origin: c.QueryParam("origin"), Role: c.QueryParam("role"), PerChat: true}
+	if o.Role != "" && !slices.Contains(searchRoles, o.Role) {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "role must be user or assistant")
+	}
+	if o.Origin != "" && !slices.Contains(searchOrigins, o.Origin) {
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "origin must be person, automated, trigger, connector, job or page")
+	}
+	switch c.QueryParam("group") {
+	case "", "chat":
+	case "message":
+		o.PerChat = false
+	default:
+		return fail(c, http.StatusBadRequest, "invalid_request_error", "group must be chat or message")
+	}
+	var err error
+	if v := c.QueryParam("since"); v != "" {
+		if o.Since, err = searchTime(v, false); err != nil {
+			return fail(c, http.StatusBadRequest, "invalid_request_error", "since must be YYYY-MM-DD or an RFC 3339 time")
+		}
+	}
+	if v := c.QueryParam("until"); v != "" {
+		if o.Until, err = searchTime(v, true); err != nil {
+			return fail(c, http.StatusBadRequest, "invalid_request_error", "until must be YYYY-MM-DD or an RFC 3339 time")
+		}
+	}
 	user := userID(c)
-	hits, err := h.svc.Search(c.Request().Context(), user, q, intParam(c, "limit", defaultListLimit, maxListLimit))
+	res, err := h.svc.SearchChats(c.Request().Context(), user, o)
 	if err != nil {
 		return failFor(c, err)
 	}
-	out := schema.ChatsChatSearchResponse{Hits: make([]schema.ChatsChatHit, 0, len(hits))}
-	for _, hit := range hits {
-		conv, err := h.describe(c, user, hit.Chat)
-		if err != nil {
-			return failFor(c, err)
+	out := schema.ChatsChatSearchResponse{Hits: make([]schema.ChatsChatHit, 0, len(res.Hits)), Engine: res.Engine,
+		Indexing: res.Progress.Indexing, Partial: res.Partial, SearchedChats: res.Searched, TotalChats: res.Total}
+	described := map[string]schema.ChatsConversation{}
+	for _, hit := range res.Hits {
+		conv, ok := described[hit.Chat.ID]
+		if !ok {
+			if conv, err = h.describe(c, user, hit.Chat); err != nil {
+				return failFor(c, err)
+			}
+			described[hit.Chat.ID] = conv
 		}
-		out.Hits = append(out.Hits, schema.ChatsChatHit{Chat: conv, InTitle: hit.InTitle, Seq: hit.Seq, Snippet: hit.Snippet})
+		item := schema.ChatsChatHit{Chat: conv, InTitle: hit.InTitle, Seq: hit.Seq, Snippet: hit.Snippet, Role: hit.Role, Matches: hit.Matches}
+		if !hit.At.IsZero() {
+			at := hit.At
+			item.At = &at
+		}
+		for _, r := range hit.Highlights {
+			item.Highlights = append(item.Highlights, schema.ChatsSearchRange{Start: r.Start, End: r.End})
+		}
+		out.Hits = append(out.Hits, item)
 	}
 	return c.JSON(http.StatusOK, out)
 }

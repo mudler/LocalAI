@@ -7,7 +7,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 // newest first. A sub-agent run belongs to its parent and is left out.
 export function resumeItems(conversations) {
   return (conversations || [])
-    .filter(c => c && c.id && c.kind !== 'subagent')
+    .filter(c => c && c.id && c.kind !== 'subagent' && !c.origin)
     .map(c => ({
       id: c.id,
       title: (c.title || '').trim() || 'New chat',

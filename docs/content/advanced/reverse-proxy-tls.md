@@ -12,7 +12,7 @@ When running LocalAI behind a TLS termination reverse proxy, the Web UI may fail
 
 ## How It Works
 
-LocalAI uses the `X-Forwarded-Proto` HTTP header to determine the protocol used by clients. When this header is set to `https`, LocalAI will generate HTTPS URLs for static assets in the Web UI.
+LocalAI uses the `X-Forwarded-Proto` HTTP header to determine the protocol used by clients. When this header is set to `https`, LocalAI will generate HTTPS URLs for static assets in the Web UI. LocalAI believes this header, and the other forwarding headers, only when the request comes from a proxy listed in `--trusted-proxies` (see below).
 
 ## Running behind a reverse proxy (HTTPS / subpath)
 
@@ -29,14 +29,49 @@ LocalAI determines these in this order:
    the wrong scheme or host.
 2. Otherwise, the `X-Forwarded-Proto` and `X-Forwarded-Host` headers (or the
    RFC 7239 `Forwarded` header) sent by the proxy. Ensure your proxy forwards
-   `X-Forwarded-Proto: https`.
+   `X-Forwarded-Proto: https`. These headers are believed only when the TCP
+   peer of the request is in `--trusted-proxies` (`LOCALAI_TRUSTED_PROXIES`).
+   The list is empty by default and trusts nobody: then LocalAI uses the
+   scheme and host of the request itself and ignores the headers.
+   **If you run behind a proxy and do not set `LOCALAI_BASE_URL`, set
+   `--trusted-proxies` to the address of the proxy.**
 
 A reverse-proxy subpath mount is supported via `X-Forwarded-Prefix`; it is
-appended to `LOCALAI_BASE_URL` when both are present.
+appended to `LOCALAI_BASE_URL` when both are present. The header is read for
+the page base URL, for the path stripping and for the `/` to `/app` redirect
+only from a trusted proxy, as for the other forwarding headers. A request from
+any other peer is served under its own path.
+
+## Finding the client address
+
+Behind a proxy, the TCP peer of every request is the proxy. LocalAI needs the
+real client address for the access log (`--log-client`), the login rate
+limits and the API traces. `X-Forwarded-For` can be set by anyone, so LocalAI
+reads it only when the TCP peer is a proxy you list:
+
+```bash
+local-ai run --trusted-proxies 10.0.0.0/8,192.168.1.5
+# or: LOCALAI_TRUSTED_PROXIES=10.0.0.0/8,192.168.1.5
+```
+
+The value is a comma-separated list of IP addresses and CIDR ranges (IPv4 or
+IPv6). When the peer is in the list, LocalAI walks `X-Forwarded-For` from the
+right, skips every entry that is also in the list, and takes the first other
+entry as the client. If there is no `X-Forwarded-For`, it uses `X-Real-Ip`.
+If an entry is not a valid address, LocalAI stops there and uses the last
+trusted hop. When the peer is not in the list, or the list is empty (the
+default), the headers are ignored and the client is the peer.
+
+List every proxy that can reach LocalAI directly, and no more: a listed
+address can claim any client address. Make your proxy append to
+`X-Forwarded-For` (nginx: `proxy_set_header X-Forwarded-For
+$proxy_add_x_forwarded_for;`) and not replace it. Without this setting, all
+clients behind the proxy share one rate-limit bucket, because they all appear
+to come from the proxy.
 
 ## Required Headers
 
-Your reverse proxy must forward these headers to LocalAI:
+Your reverse proxy must forward these headers to LocalAI, and its address must be in `--trusted-proxies`, or LocalAI ignores them:
 
 | Header | Purpose |
 |--------|---------|

@@ -9,14 +9,13 @@ import (
 	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
 // What a sender sees while a turn runs.
 const (
-	// workingText is the working message before anything else is known.
-	workingText = "Working…"
 	// cursorMark ends a live preview: the answer is still being written.
 	cursorMark = " ▉"
 	// typingEvery is how often typing is shown again: a platform shows it
@@ -39,6 +38,8 @@ const (
 // conversation a draft. One reply goroutine owns it, so it needs no lock.
 type liveReply struct {
 	mode string
+	// v speaks the fixed words of the preview in the sender's language.
+	v hostmsg.Voice
 	// id is the working message. It is "" when the mode is off, while
 	// drafts show the preview, when the message could not be sent, or after
 	// an edit failed: the answer then goes as a new message.
@@ -96,7 +97,7 @@ func (l *liveReply) observe(ev session.Event) {
 		}
 		// The text before a tool call is a preamble; the answer comes after.
 		l.answer.Reset()
-		l.status, l.reasoning = "Using "+ev.Tool.Name+"…", false
+		l.status, l.reasoning = l.v.T("live.using", "tool", ev.Tool.Name), false
 	case session.KindText:
 		l.answer.WriteString(ev.Text)
 	case session.KindReasoning:
@@ -118,15 +119,15 @@ func (l *liveReply) view() string {
 			t = strings.TrimSpace(l.status)
 		}
 		if t == "" {
-			t = workingText
+			t = l.v.T("live.working")
 		}
 		return tailRunes(t, maxPreviewRunes-utf8.RuneCountInString(cursorMark)) + cursorMark
 	case connectors.ReplyProgress:
 		if len(l.tools) > 0 {
-			return workingText + "\n• " + strings.Join(l.tools, "\n• ")
+			return l.v.T("live.working") + "\n• " + strings.Join(l.tools, "\n• ")
 		}
 	}
-	return workingText
+	return l.v.T("live.working")
 }
 
 // tailRunes keeps the last n runes of s.
@@ -162,7 +163,7 @@ func (c *Connectors) livePaceOf(b connectors.Binding) livePace {
 // conversation on a platform with drafts it is a draft, else a working
 // message.
 func (c *Connectors) startLive(b connectors.Binding, token string, m contract.ConnectorMessage, pace livePace) *liveReply {
-	l := &liveReply{mode: b.ReplyMode()}
+	l := &liveReply{mode: b.ReplyMode(), v: c.voice(context.Background(), b, m.SenderID, m.Chat)}
 	// Typing goes after the working message, which it names: a platform
 	// without typing would otherwise post a working message of its own.
 	defer func() { c.typing(b, token, m, l.id) }()

@@ -157,6 +157,41 @@ type ReplicaReconciler struct {
 	// pinnedResolver exempts pinned models from idle scale-down (see
 	// ReplicaReconcilerOptions.PinnedResolver). nil disables the exemption.
 	pinnedResolver PinnedModelResolver
+	// scaleUpFailures tracks CONSECUTIVE failed scale-up attempts per model so a
+	// model whose replicas keep failing to load is retried with exponential
+	// backoff instead of on every busy or pressure tick. In memory only: a
+	// restart or a leader change starts from a clean slate, which is safe.
+	scaleUpMu       sync.Mutex
+	scaleUpFailures map[string]scaleUpFailure
+	// now is the clock used for backoff windows. Tests replace it.
+	now func() time.Time
+}
+
+// scaleUpFailure is the backoff state of one model.
+type scaleUpFailure struct {
+	count int
+	until time.Time
+}
+
+const (
+	// scaleUpBackoffBase is the wait after the first failed scale-up of a model.
+	scaleUpBackoffBase = 30 * time.Second
+	// scaleUpBackoffMax caps the wait, so a repaired node is picked up within
+	// minutes without operator action.
+	scaleUpBackoffMax = 10 * time.Minute
+)
+
+// scaleUpBackoffDelay returns the wait after the given number of consecutive
+// failures: the base delay, doubled for each further failure, up to the cap.
+func scaleUpBackoffDelay(failures int) time.Duration {
+	if failures < 1 {
+		return 0
+	}
+	// 30s << 5 already exceeds the cap; stop shifting before it can overflow.
+	if failures > 6 {
+		return scaleUpBackoffMax
+	}
+	return min(scaleUpBackoffBase<<(failures-1), scaleUpBackoffMax)
 }
 
 // ModelScheduler abstracts the scheduling logic needed by the reconciler.
@@ -244,6 +279,8 @@ func NewReplicaReconciler(opts ReplicaReconcilerOptions) *ReplicaReconciler {
 		pressure:          opts.Pressure,
 		pressureThreshold: pressureThreshold,
 		pinnedResolver:    opts.PinnedResolver,
+		scaleUpFailures:   map[string]scaleUpFailure{},
+		now:               time.Now,
 	}
 }
 
@@ -1100,16 +1137,44 @@ func (rc *ReplicaReconciler) scaleUp(ctx context.Context, cfg ModelSchedulingCon
 		return false
 	}
 
+	model := cfg.Target()
+	now := rc.now()
+	rc.scaleUpMu.Lock()
+	state := rc.scaleUpFailures[model]
+	rc.scaleUpMu.Unlock()
+	if now.Before(state.until) {
+		xlog.Debug("Reconciler: scale-up backing off after a failure", "model", model,
+			"failures", state.count, "retry_after", state.until.Format(time.RFC3339))
+		return false
+	}
+
 	scheduled := 0
 	for i := 0; i < count; i++ {
-		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, cfg.Target(), candidateNodeIDs)
+		node, err := rc.scheduler.ScheduleAndLoadModel(ctx, model, candidateNodeIDs)
 		if err != nil {
-			xlog.Warn("Reconciler: failed to scale up replica", "model", cfg.Target(),
-				"attempt", i+1, "error", err)
+			state.count++
+			delay := scaleUpBackoffDelay(state.count)
+			state.until = now.Add(delay)
+			rc.scaleUpMu.Lock()
+			rc.scaleUpFailures[model] = state
+			rc.scaleUpMu.Unlock()
+			// A model nobody has served yet is not a fault of any node: it
+			// repeats until the first request, so it stays at debug level.
+			level := xlog.Warn
+			if errors.Is(err, ErrNoLoadInfo) {
+				level = xlog.Debug
+			}
+			level("Reconciler: failed to scale up replica", "model", model,
+				"consecutive_failures", state.count, "retry_in", delay, "error", err)
 			break // stop trying on first failure
 		}
 		scheduled++
-		xlog.Info("Reconciler: scaled up replica", "model", cfg.Target(), "node", node.Name)
+		xlog.Info("Reconciler: scaled up replica", "model", model, "node", node.Name)
+	}
+	if scheduled > 0 {
+		rc.scaleUpMu.Lock()
+		delete(rc.scaleUpFailures, model)
+		rc.scaleUpMu.Unlock()
 	}
 	return scheduled > 0
 }

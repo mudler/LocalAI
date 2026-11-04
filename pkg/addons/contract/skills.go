@@ -25,18 +25,34 @@ type SkillDefinition struct {
 	// for a reserved document slot has the slot's name (see Shadows).
 	Name string `json:"name"`
 	// Shadows names the document-provider slot this skill supplies. It must equal Name
-	// and be one of ReplaceableSkills. It repeats the name on purpose: the
+	// and name a slot: one the skill declares (Slot) or a default one
+	// (DefaultSlots). It repeats the name on purpose: the
 	// replacement is an explicit act, which the install warning and the check
 	// read from the manifest without opening the package. Empty: a plain
 	// add-on skill.
 	Shadows string `json:"shadows,omitempty"`
+	// Slot describes the slot this skill serves: the files it covers and the
+	// words to say about them (see SlotDefinition). It needs Shadows. A skill that shadows a default slot may leave it out.
+	Slot *SlotDefinition `json:"slot,omitempty"`
 }
 
 // protectedSkills are the built-in skills that no add-on may replace or
 // ship under their name: they describe LocalAI itself. A test derives the
 // built-in names from the embedded tree and fails when one is neither here
 // nor a reserved document slot.
-var protectedSkills = []string{"localai-workspace", "localai-apps", "writing-skills"}
+var protectedSkills = []string{"localai-workspace", "localai-apps", "writing-skills", "memory", "memory-check-own-files"}
+
+// LegacyMemoryAddonID is the add-on that used to ship the two memory skills.
+// They are built into the host now; the package keeps declaring them so an
+// installed copy stays valid, and the host does not load its copies (the
+// built-in skills win).
+const LegacyMemoryAddonID = "memory"
+
+// LegacyMemorySkill reports whether name is one of the memory skills that the
+// add-on id declared before they became built-in.
+func LegacyMemorySkill(addonID, name string) bool {
+	return addonID == LegacyMemoryAddonID && (name == "memory" || name == "memory-check-own-files")
+}
 
 // ProtectedSkill reports whether name is a built-in skill that an add-on may
 // not replace.
@@ -44,14 +60,22 @@ func ProtectedSkill(name string) bool {
 	return slices.Contains(protectedSkills, name)
 }
 
-// reservedDocumentSkills are provider slots, independent of embedded core skills.
-var reservedDocumentSkills = []string{"xlsx", "docx", "pptx", "pdf"}
+// DocumentSkill reports whether name is a default document slot (slots.json).
+// An add-on can declare more slots of its own; the host learns them from the
+// skills it lists, not from here.
+func DocumentSkill(name string) bool {
+	s, ok := DefaultSlot(name)
+	return ok && s.Kind == SlotKindDocuments
+}
 
-// DocumentSkill reports whether name is a supported document-provider slot.
-func DocumentSkill(name string) bool { return slices.Contains(reservedDocumentSkills, name) }
-
-// ReplaceableSkills retains the existing slot inventory for compatibility.
-var ReplaceableSkills = slices.Clone(reservedDocumentSkills)
+// ReplaceableSkills lists the default slots.
+var ReplaceableSkills = func() []string {
+	var out []string
+	for _, s := range defaultSlots() {
+		out = append(out, s.Name)
+	}
+	return out
+}()
 
 // ReplaceableSkill is the compatibility name for DocumentSkill.
 func ReplaceableSkill(name string) bool { return DocumentSkill(name) }
@@ -87,15 +111,25 @@ func validateSkillDefinitions(id string, defs []SkillDefinition) error {
 			switch {
 			case d.Shadows != d.Name:
 				return fmt.Errorf("skill %s: shadows must repeat the skill's name", d.Name)
-			case !ReplaceableSkill(d.Shadows):
-				return fmt.Errorf("skill %s: %q is not a document-provider slot an add-on may replace", d.Name, d.Shadows)
+			case ProtectedSkill(d.Shadows):
+				return fmt.Errorf("skill %s: %q is a built-in skill that an add-on may replace in no way", d.Name, d.Shadows)
+			case d.Slot == nil && !ReplaceableSkill(d.Shadows):
+				return fmt.Errorf("skill %s: %q is not a slot an add-on may replace; declare its slot", d.Name, d.Shadows)
+			}
+			if d.Slot != nil {
+				if err := d.Slot.validate(d.Name); err != nil {
+					return err
+				}
 			}
 			continue
+		}
+		if d.Slot != nil {
+			return fmt.Errorf("skill %s: a slot needs shadows", d.Name)
 		}
 		if DocumentSkill(d.Name) {
 			return fmt.Errorf("skill %s: reserved document name requires same-name shadows", d.Name)
 		}
-		if BuiltinSkillName(d.Name) {
+		if BuiltinSkillName(d.Name) && !LegacyMemorySkill(id, d.Name) {
 			return fmt.Errorf("skill %s: the name is a built-in skill", d.Name)
 		}
 		if !PlainSkillName(id, d.Name) {
@@ -110,7 +144,7 @@ func validateSkillDefinitions(id string, defs []SkillDefinition) error {
 func ShadowedSkills(defs []SkillDefinition) []string {
 	var out []string
 	for _, d := range defs {
-		if d.Shadows != "" && d.Shadows == d.Name && ReplaceableSkill(d.Shadows) {
+		if _, ok := d.slot(); ok {
 			out = append(out, d.Shadows)
 		}
 	}

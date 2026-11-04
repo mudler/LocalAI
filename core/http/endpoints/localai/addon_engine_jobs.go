@@ -71,11 +71,17 @@ type EngineBackends struct {
 
 var _ hostops.BackendLister = EngineBackends{}
 
-func (e EngineBackends) FineTune() []string { return e.names("fine-tuning") }
+// Backends lists the installed backends that carry tag, in gallery order.
+func (e EngineBackends) Backends(tag string) []string {
+	infos := e.lookup(tag)
+	out := make([]string, 0, len(infos))
+	for _, i := range infos {
+		out = append(out, i.Name)
+	}
+	return out
+}
 
-func (e EngineBackends) Quantization() []string { return e.names("quantization") }
-
-func (e EngineBackends) names(tag string) []string {
+func (e EngineBackends) lookup(tag string) []engineBackendInfo {
 	// The interface has no request context, so the lookup gets its own bound.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -83,11 +89,7 @@ func (e EngineBackends) names(tag string) []string {
 	if err != nil {
 		return nil
 	}
-	out := make([]string, 0, len(infos))
-	for _, i := range infos {
-		out = append(out, i.Name)
-	}
-	return out
+	return infos
 }
 
 // FineTuneJobs adapts the fine-tuning service to the add-on host operations.

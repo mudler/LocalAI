@@ -32,7 +32,7 @@ var _ = Describe("add-on automatic upgrade setting", func() {
 		requireAddonRuntime()
 		c := config.AddonConfig{Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local",
 			Root: filepath.Join(realTempDir(), "addons"), AdminCheck: func(context.Context, contract.Actor) error { return nil },
-			Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
+			Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: "linux", Arch: "amd64"}}
 		DeferCleanup(func() {
 			_ = filepath.Walk(c.Root, func(p string, i os.FileInfo, e error) error {
 				if e == nil && i.IsDir() {

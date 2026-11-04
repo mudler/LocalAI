@@ -37,6 +37,7 @@ func registeredBuiltinOperations() []string {
 	})).To(Succeed())
 	Expect(RegisterEgress(b, &fakeEgress{})).To(Succeed())
 	Expect(RegisterConnector(b, admissionInbox{})).To(Succeed())
+	Expect(RegisterConnectorTransfer(b, NewTransfers(nil))).To(Succeed())
 	// Each registration error is checked above, so a duplicate cannot be hidden
 	// by the broker's map. Ops includes dynamic progress/stop and inbound specs.
 	return b.Ops()

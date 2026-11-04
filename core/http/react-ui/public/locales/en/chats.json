@@ -305,7 +305,10 @@
     "itemUnread": "{{title}}, unread",
     "arrived": "New notification: {{title}}",
     "arrivedMany_one": "{{count}} new notification",
-    "arrivedMany_other": "{{count}} new notifications"
+    "arrivedMany_other": "{{count}} new notifications",
+    "proposalsWaiting_one": "{{count}} change waits for you",
+    "proposalsWaiting_other": "{{count}} changes wait for you",
+    "proposalsBody": "A model proposed a change. Nothing is saved until you answer."
   },
   "connectorsPage": {
     "title": "Connectors",
@@ -333,7 +336,7 @@
   },
   "conversionPage": {
     "title": "Converted from the old chat",
-    "intro": "The old chat, agents, tasks, skills and Telegram connectors were converted when this server started. Triggers and connectors are switched off until you turn them on. A chat keeps what was said, not what the model remembered.",
+    "intro": "The old chat, agents, tasks and skills were converted when this server started. Triggers are switched off until you turn them on. Connectors are not converted: add the bot again in the Connectors page. A chat keeps what was said, not what the model remembered.",
     "notRun": "No conversion has run on this server.",
     "nothing": "Nothing of yours needed converting.",
     "allUsers": "All users:",
@@ -362,15 +365,20 @@
   "tools": {
     "summary": "Tools ({{on}} of {{total}} on)",
     "builtins": "Built-in tools",
+    "grants": "Other permissions",
+    "grantSensitive": "Sensitive: this changes what the agent may do or reach later.",
     "builtin": {
-      "web": "Web",
+      "web": "Look things up online",
       "saved_agents": "Saved agents",
-      "triggers": "Triggers",
+      "triggers": "Create and manage triggers",
       "shell": "Run commands",
       "files": "Your files",
       "media": "Images and audio",
-      "collections": "Collections",
-      "subagents": "Sub-agents"
+      "collections": "Knowledge",
+      "subagents": "Sub-agents",
+      "changes": "Suggested changes",
+      "memory": "Memory",
+      "history": "Past chats"
     },
     "builtinBy": "{{tools}} · built-in",
     "builtinByAddon": "{{tools}} · served by {{provider}}",
@@ -384,31 +392,14 @@
     "connectors": "Your connectors",
     "manage": "Manage connectors",
     "tools": "{{count}} tools",
-    "sandbox": {
-      "isolated": "Runs commands isolated ({{backend}})",
-      "host": "Commands run directly on this machine, with no isolation",
-      "cannot": "Sandbox unavailable: this host cannot run commands",
-      "cannotWhy": "Sandbox unavailable: {{reason}}",
-      "starting": "The Sandbox is starting. LocalAI checks again in {{seconds}} s."
-    },
     "commands": {
       "title": "Commands can't run here",
       "none": "No add-on that runs code is installed, so the assistant can write files but cannot run scripts or commands.",
-      "off": "The Sandbox add-on is off for this chat. Switch it on in the Tools menu to let the assistant run code.",
-      "unavailable": "The Sandbox add-on is installed but cannot run commands on this server.",
-      "unavailableWhy": "The Sandbox add-on cannot run commands on this server: {{reason}}",
-      "install": "Install the Sandbox",
-      "openSandbox": "Open the Sandbox add-on",
-      "askInstall": "Ask an administrator to install the Sandbox add-on.",
       "askFix": "Ask an administrator to fix it.",
       "hide": "Hide",
       "hideLabel": "Hide this notice",
       "chipTitle": "This chat cannot run code or commands. Select for details.",
       "hostTitle": "Commands run on this machine",
-      "host": "Commands run on this machine, with its files and network, not isolated. Install the Sandbox for isolation.",
-      "hostOff": "The Sandbox is off for this chat, so commands run on this machine, with its files and network, not isolated. Switch the Sandbox on in this menu to isolate them.",
-      "hostUnavailable": "The Sandbox cannot run here, so commands run on this machine, with its files and network, not isolated.",
-      "hostUnavailableWhy": "The Sandbox cannot run here ({{reason}}), so commands run on this machine, with its files and network, not isolated.",
       "hostChipTitle": "Commands in this chat run on this machine, not isolated. Select for details.",
       "providerHost": "Commands run on the server without isolation.",
       "unknown": "Execution readiness or isolation is unknown.",
@@ -422,7 +413,15 @@
         "reported_unknown": "Execution readiness or isolation is unknown: the add-on reported that it cannot tell."
       },
       "providerUnavailable": "The selected execution provider is unavailable.",
-      "disabled": "Running commands is switched off for this chat."
+      "disabled": "Running commands is switched off for this chat.",
+      "hostOff": {
+        "reason": "The server's built-in bash is off, so the assistant can write files but cannot run scripts or commands.",
+        "whoAdmin": "You are an administrator. In Settings, Tools, turn on the Commands (bash) row. Ask each time is the safer choice. Commands then run on the server without isolation and can read what the server can read.",
+        "whoMember": "Ask an administrator of this server to turn it on.",
+        "fix": "Open the setting",
+        "sandboxText": "For isolated commands, install an add-on that runs commands in isolation instead.",
+        "sandbox": "Open Add-ons"
+      }
     },
     "consent": {
       "title": "Run this command on this machine?",
@@ -435,7 +434,6 @@
       "expired": "Not answered: the turn that asked has ended, so the command did not run."
     },
     "provider": {
-      "sandbox": "Sandbox",
       "addon": "Add-on {{name}}",
       "host": "This machine, not isolated",
       "hostOnce": "This machine, allowed once",
@@ -446,6 +444,125 @@
     "shell": {
       "machine": "This machine",
       "isolated": "Commands run isolated"
+    },
+    "describe": {
+      "shell": "Lets the model run shell commands and scripts.",
+      "files": "Lets the model list, read, write and search your files.",
+      "web": "Lets the model search the web and read public pages.",
+      "media": "Lets the model describe images and transcribe recordings from your files.",
+      "collections": "Lets the model search your collections.",
+      "subagents": "Lets the model start a sub-agent for one task and get its report.",
+      "saved_agents": "Lets the model start one of your saved agents as a sub-agent.",
+      "triggers": "Lets the model propose, list, change and delete triggers. You confirm each new trigger or change.",
+      "changes": "Lets the model propose edits to your notes, its rules, skills, pages and dashboard. You confirm each one.",
+      "memory": "The model can read your notes before it answers and save new ones. Turn it off to make this a private chat: nothing is read from your notes or saved to them. Your other chats are not affected.",
+      "history": "Lets the model search and read your earlier chats."
+    },
+    "whenOff": {
+      "shell": "The model can write files but cannot run anything.",
+      "files": "The model cannot see or change your files.",
+      "web": "The model cannot look anything up online.",
+      "media": "The model cannot read images or recordings itself.",
+      "collections": "The model cannot read your collections.",
+      "subagents": "The model works alone.",
+      "saved_agents": "The model cannot see or start your saved agents.",
+      "triggers": "The model cannot propose or manage triggers.",
+      "changes": "The model cannot propose edits to your notes, its rules, skills, pages or dashboard.",
+      "memory": "This is a private chat. The model neither reads nor saves your notes.",
+      "history": "The model cannot see your earlier chats."
+    },
+    "addonDescribe_one": "Gives the model {{count}} tool from this add-on.",
+    "addonDescribe_other": "Gives the model {{count}} tools from this add-on.",
+    "serverDescribe": "An MCP server of the model: its tools are offered to the model.",
+    "connectorDescribe": "One of your MCP connectors: its tools are offered to the model.",
+    "gone": "Not available here any more. Switch it off to remove it.",
+    "connection": {
+      "label": "Connections",
+      "help": "Choose the connections this chat may use. The assistant can only use the ones you tick.",
+      "helpMany": "The assistant names the connection in each action, and can only name a ticked one.",
+      "sole": "This is your only connection, so it is used.",
+      "choose": "Choose at least one connection to use these tools",
+      "none": "No connection yet",
+      "create": "Add a connection",
+      "byAgent": "The agent of this chat sets the connections. Change them on the agent.",
+      "agentLabel": "Connections for chats of this agent",
+      "agentHelp": "Chats of this agent may use only these connections and cannot change them.",
+      "perChatHelp": "None chosen: each chat chooses its own."
+    },
+    "optionNeeds": "Turn on “{{name}}” to use this.",
+    "connectionMissing": "{{name}} does not allow this yet.",
+    "connectionOpen": "Open its permissions",
+    "section": {
+      "messaging": {
+        "title": "Messaging apps",
+        "intro": "These apply to chats that start in a messaging app. The connection must allow the same thing on its own permissions page."
+      },
+      "unattended": {
+        "title": "When nobody is watching",
+        "intro": "These apply to runs that a trigger or a messaging app starts, where nobody can confirm a step."
+      }
+    },
+    "grant": {
+      "memory_write": {
+        "title": "Remember things",
+        "description": "Lets the model propose a note for your memory or the agent's own. You confirm each note."
+      },
+      "profile_write": {
+        "title": "Change its own rules",
+        "description": "Lets the model propose an edit to the agent's standing rules. You confirm each edit."
+      },
+      "skills_write": {
+        "title": "Write skills",
+        "description": "Lets the model propose a new or changed skill. You confirm each one."
+      },
+      "pages_write": {
+        "title": "Create pages",
+        "description": "Lets the model propose a small app that opens in a sandboxed frame. You confirm it."
+      },
+      "dashboard_write": {
+        "title": "Change the dashboard",
+        "description": "Lets the model propose a new layout for your Home dashboard. You confirm each change."
+      },
+      "triggers_propose": {
+        "title": "Also propose from messaging apps",
+        "description": "Lets the model propose a trigger when someone asks in a messaging app. You confirm it."
+      },
+      "triggers_run": {
+        "title": "Let triggers start from messaging apps",
+        "description": "Lets a trigger tied to a messaging connection start a run and deliver its result there."
+      },
+      "talkback_channels": {
+        "title": "Reply on known channels",
+        "description": "Lets the model send a message to a channel it already talks in."
+      },
+      "talkback_new_channel": {
+        "title": "Start new channels",
+        "description": "Lets the model start a conversation on a channel it has not used before."
+      },
+      "files_upload": {
+        "title": "Receive files from messaging apps",
+        "description": "Lets senders attach files for the model to read. It cannot send files out."
+      },
+      "act_files": {
+        "title": "Write files on its own",
+        "description": "Lets a run nobody is watching write files in the agent's folders."
+      },
+      "act_addons": {
+        "title": "Use add-on actions on its own",
+        "description": "Lets a run nobody is watching call the actions of the agent's add-ons."
+      },
+      "act_send": {
+        "title": "Send messages on its own",
+        "description": "Lets a run nobody is watching send messages beyond its delivery target."
+      },
+      "act_spend": {
+        "title": "Use paid or external tools on its own",
+        "description": "Lets a run nobody is watching use paid or external tools and the network."
+      },
+      "history_read": {
+        "title": "Read your earlier chats",
+        "description": "Lets the model search and read your earlier chats. An agent that works in a folder reads only the chats of its own."
+      }
     }
   },
   "mcpPage": {
@@ -674,6 +791,7 @@
       "undone": "Undone:",
       "again": "Schedule it again",
       "declined": "Declined:",
+      "expired": "Expired:",
       "restore": "Restore",
       "blocked": {
         "ran": "It already ran once; remove it from the Triggers page.",
@@ -707,7 +825,8 @@
       "costUnknown_other": "The tokens of a run are known after the first run. At most {{count}} runs a day.",
       "remoteNote": "{{model}} is a remote service: what a run reads leaves this server.",
       "stopWidget": "Pause it from the widget, or delete it in Triggers",
-      "stop": "Switch it off or delete it in Triggers"
+      "stop": "Switch it off or delete it in Triggers",
+      "actsLabel": "Permissions"
     }
   },
   "subAgents": {
@@ -736,13 +855,13 @@
       "all": "All public sites"
     },
     "presetHint": {
-      "off": "Commands in the Sandbox reach no network.",
+      "off": "Commands reach no network.",
       "registries": "Commands reach the package registries only (PyPI, npm, Go, crates.io, RubyGems, Maven Central, GitHub releases).",
       "all": "Commands reach every public site."
     },
     "limited": "Limited by your administrator",
     "limitedBy": "Your administrator allows at most: {{limit}}.",
-    "hostNetwork": "Commands run on this machine and use its network. Network limits need the Sandbox add-on.",
+    "hostNetwork": "Commands run on this machine and use its network. Network limits need an add-on that isolates commands.",
     "panel": "Rules and requests ({{count}})",
     "rules": "Rules of this chat",
     "cards": "Requests of this chat",
@@ -774,8 +893,8 @@
     "blocked": {
       "titleOff": "Network access is off",
       "titleCapped": "Network access is limited",
-      "bodyOff": "Network access is off for the Sandbox on this server. A command asked for",
-      "bodyCapped": "This server only allows {{limit}} for the Sandbox network. A command asked for",
+      "bodyOff": "Network access is off for commands on this server. A command asked for",
+      "bodyCapped": "This server only allows {{limit}} for the network of commands. A command asked for",
       "adminOff": "An administrator can turn it on in the settings of {{name}}.",
       "adminCapped": "An administrator can raise the limit in the settings of {{name}}.",
       "adminLink": "Open the settings of {{name}}",
@@ -917,6 +1036,262 @@
       "noChat": "Send a first message, then start a loop in this chat.",
       "stopped_one": "Stopped {{count}} loop.",
       "stopped_other": "Stopped {{count}} loops."
+    }
+  },
+  "changes": {
+    "loading": "Reading the proposed change...",
+    "unread": "The proposed change could not be read: {{message}}",
+    "removed": "This proposal is gone.",
+    "kind": {
+      "memory": "Memory",
+      "profile": "Profile",
+      "skill": "Skill",
+      "page": "Page",
+      "dashboard": "Dashboard"
+    },
+    "scope": {
+      "user": "All your chats",
+      "agent": "Agent {{agent}}",
+      "agentAny": "One agent",
+      "channel": "This conversation"
+    },
+    "help": "Nothing is saved until you confirm.",
+    "row": {
+      "kind": "Kind",
+      "target": "File",
+      "source": "From",
+      "expires": "Expires in"
+    },
+    "source": {
+      "chat": "A chat",
+      "connector": "Connector {{name}}",
+      "connectorFrom": "Connector {{name}}, from {{sender}}"
+    },
+    "expiresHours": "{{hours}} h {{minutes}} min",
+    "expiresMinutes": "{{minutes}} min",
+    "diff": {
+      "label": "Changes to {{target}}",
+      "newFile": "New file",
+      "added_one": "{{count}} line added",
+      "added_other": "{{count}} lines added",
+      "removed_one": "{{count}} line removed",
+      "removed_other": "{{count}} lines removed",
+      "same": "No difference from the current text.",
+      "gap_one": "{{count}} unchanged line",
+      "gap_other": "{{count}} unchanged lines",
+      "more_one": "{{count}} more line not shown",
+      "more_other": "{{count}} more lines not shown",
+      "srAdded": "Added:",
+      "srRemoved": "Removed:"
+    },
+    "unreadFile": "The current file could not be read, so all of the text counts as new.",
+    "confirm": "Confirm",
+    "edit": "Edit then confirm",
+    "confirmEdited": "Confirm with my text",
+    "editLabel": "Text to save in {{target}}",
+    "failed": "Could not save the change: {{message}}. It is still waiting for you.",
+    "receipt": {
+      "applied": "Applied:",
+      "savedAuto": "Saved to memory:",
+      "reverted": "Undone:",
+      "dismissed": "Dismissed:",
+      "expired": "Expired:",
+      "stale": "Not applied:"
+    },
+    "why": {
+      "expired": "It waited more than a day. Nothing was saved.",
+      "stale": "The file changed after this was proposed, so nothing was saved."
+    },
+    "askAgain": "Ask again",
+    "askAgainText": "Please propose this change again, the file has changed since: {{summary}} ({{target}})",
+    "announce": {
+      "applied": "Change applied.",
+      "dismissed": "Change dismissed.",
+      "undone": "Change undone.",
+      "asked": "Asked the assistant to propose it again."
+    }
+  },
+  "proposalsPage": {
+    "title": "Proposals",
+    "supporting": "Changes that models asked for and that wait for your answer.",
+    "emptyTitle": "Nothing is waiting",
+    "emptyBody": "When a model proposes a change to your notes, an agent profile, a skill, a page or the dashboard, it shows here until you answer.",
+    "loadError": "Could not load the proposals."
+  },
+  "memoryPage": {
+    "lede": "The notes that LocalAI puts in the prompt of your chats. A model changes them only after you confirm a proposal. Here you can read, edit and delete them.",
+    "limits": "Caps: an index has at most {{lines}} lines and {{index}}, a profile {{profile}}, and one turn carries at most {{turn}} of notes.",
+    "proposalsLink": "See the changes waiting for you",
+    "emptyTitle": "No notes yet",
+    "emptyBody": "When you ask an assistant to remember something and you confirm it, the notes appear here.",
+    "loadError": "Could not load your notes.",
+    "use": "{{size}} of {{max}} · {{lines}} of {{maxLines}} lines",
+    "useBytes": "{{size}} of {{max}}",
+    "useLabel": "Size of the index against its cap",
+    "over": "Over the cap: the end is not sent to the model.",
+    "index": "Index",
+    "group": {
+      "user": "Your notes",
+      "agent": "Notes of agent {{key}}",
+      "channel": "Notes of conversation {{key}}",
+      "profile": "Profile of agent {{key}}",
+      "agentNamed": "Notes of agent {{name}}",
+      "profileNamed": "Profile of agent {{name}}"
+    },
+    "edit": "Edit",
+    "save": "Save",
+    "editLabel": "Text of {{name}}",
+    "editSizeIndex": "{{size}} of {{max}} · {{lines}} of {{maxLines}} lines",
+    "editSize": "{{size}} of {{max}}",
+    "tooBig": "Too long: shorten it to save.",
+    "saveFailed": "Could not save: {{message}}",
+    "saved": "Saved {{name}}.",
+    "emptyFile": "(empty)",
+    "delete": "Delete {{name}}",
+    "deleteYes": "Delete",
+    "confirmDelete": "Delete {{name}}?",
+    "deleted": "Moved {{name}} to the Trash.",
+    "clear": "Forget everything",
+    "clearAsk_one": "Delete {{count}} file? It moves to the Trash and you can restore it from Files.",
+    "clearAsk_other": "Delete {{count}} files? They move to the Trash and you can restore them from Files.",
+    "clearYes_one": "Delete {{count}} file",
+    "clearYes_other": "Delete {{count}} files",
+    "cleared_one": "Moved {{count}} file to the Trash.",
+    "cleared_other": "Moved {{count}} files to the Trash.",
+    "tabs": {
+      "label": "Notes of",
+      "mine": "Mine",
+      "deleted": "Deleted agents",
+      "channels": "Conversations",
+      "export": "Export these notes",
+      "clearAgent": "Delete the notes of this agent",
+      "clearDeleted": "Delete these notes"
+    },
+    "deletedNote": "These agents were deleted. Their notes stay until you delete them here.",
+    "tabEmpty": "No notes here."
+  },
+  "triggerActs": {
+    "help": "A run starts by itself, so nobody is there to approve a step. It can read and report. Tick what it may also do. It never gets more than its agent holds.",
+    "noAgent": "No agent is chosen, so only what you tick limits it.",
+    "readOnly": "Read only",
+    "canAct": "May act on its own",
+    "canActText_one": "A run may use {{count}} kind of action without asking.",
+    "canActText_other": "A run may use {{count}} kinds of action without asking.",
+    "sensitive": "needs care",
+    "addonRow": "A run may use the actions of the add-on {{id}}.",
+    "blocked": "Your agent does not hold this, so it cannot be ticked. Add it to the agent first.",
+    "unused": "Your agent does not hold this, so a run does not use it.",
+    "unusedList": "Listed, but not used because the agent does not hold it: {{names}}.",
+    "writesNote": "Its plan names the file {{file}}, so a run may also write files.",
+    "listCan_one": "Can act ({{count}})",
+    "listCan_other": "Can act ({{count}})",
+    "why": {
+      "no_acts": "No permission to act is set, so its runs only read and report.",
+      "agent": "Its agent does not hold the permissions it asks for, so its runs only read and report.",
+      "declared": "It was set up to read and report only. Nothing ticked here changes that.",
+      "binding": "A connection in read only mode made it. Nothing ticked here changes that."
+    }
+  },
+  "memorySettings": {
+    "titleOn": "Memory is on",
+    "titleOff": "Memory is off",
+    "ledeOn": "Your chats keep short notes about you and read them before they answer. Turn it off to stop reading and saving everywhere. Your notes stay where they are.",
+    "ledeOff": "Nothing is read from your notes or saved to them, in any chat or agent. The assistant says that memory is off if you ask it to remember something. Your notes stay, and you can still read, export and delete them.",
+    "on": "On",
+    "off": "Off",
+    "unavailable": "Notes are files, and files are off on this server, so memory cannot work here.",
+    "saveTitle": "Saving a note",
+    "saveLede": "What happens when the assistant wants to keep something. The strictest rule always wins.",
+    "save": {
+      "ask": {
+        "title": "Ask me first",
+        "body": "A card waits in the chat. You confirm, edit or dismiss it."
+      },
+      "auto": {
+        "title": "Save it and tell me",
+        "body": "In your own chats the note is saved at once. The chat shows \"Saved to memory\" with an Undo. Up to 5 notes a reply. A long note, or one that looks like a secret, still waits for you."
+      },
+      "never": {
+        "title": "Never",
+        "body": "The assistant cannot save notes. It tells you that saving is off."
+      }
+    },
+    "default": "Default",
+    "saveNote": "Chats from messaging apps always ask first. Background runs and triggers never save a note. A saved agent can ask more, never less, than you chose here.",
+    "saveFailed": "Could not store your choice.",
+    "loadError": "Could not load your memory settings.",
+    "notesTitle": "Manage your notes",
+    "notesLede": "Read, edit, export or delete them. This works while memory is off.",
+    "export": "Export"
+  },
+  "memoryOff": {
+    "title": "Memory is off here.",
+    "line": {
+      "chat": "This is a private chat: nothing is read or saved. Your notes are untouched. Turn it on in the Tools menu.",
+      "user": "No chat or agent reads or saves notes, and your notes are untouched.",
+      "agent": "The agent of this chat has memory switched off.",
+      "files": "Notes are files, and files are off on this server."
+    },
+    "chip": "Memory off",
+    "chipPrivate": "Private chat",
+    "fixUser": "Settings, Memory",
+    "userRow": "Off in your settings. Turn it on in Settings, Memory."
+  },
+  "agentMemory": {
+    "title": "Memory",
+    "lede": "Choose which notes this agent reads and where it saves new ones.",
+    "offUser": "Memory is off in your settings, so this choice has no effect until you turn it on.",
+    "offUserFix": "Settings, Memory",
+    "recommended": "Recommended",
+    "mine_and_own": {
+      "title": "Mine and its own",
+      "body": "Reads your notes and its own. Saves only to its own."
+    },
+    "own": {
+      "title": "Its own only",
+      "body": "Reads and saves only its own notes. Your notes stay out of reach."
+    },
+    "mine": {
+      "title": "Mine",
+      "body": "Reads and saves your notes."
+    },
+    "none": {
+      "title": "None",
+      "body": "Reads and saves nothing."
+    },
+    "mineWarn": "This agent can add notes to your memory, for every chat. You confirm each one.",
+    "asBefore": {
+      "title": "As before",
+      "body": "This agent was saved before this choice existed. It reads your notes when its add-ons list names Memory, and the model picks where a note is saved. Pick one of the choices below to change that."
+    },
+    "saveGrant": "Let it save notes",
+    "saveGrantHelp": "Turns on the permission Remember things. Without it the agent reads notes but cannot save any.",
+    "copyNote": "Exporting an agent, or importing it as a new one, keeps this choice and never copies its notes.",
+    "summary": {
+      "mine_and_own": "Mine and its own",
+      "own": "Its own only",
+      "mine": "Mine",
+      "none": "None",
+      "asBefore": "As before"
+    },
+    "delete": {
+      "title": "Delete {{name}}?",
+      "ask": "This agent has notes of its own ({{count}}). What should happen to them?",
+      "legend": "What to do with the notes",
+      "default": "default",
+      "confirm": "Delete agent",
+      "keep": {
+        "title": "Keep the notes",
+        "body": "They stay on the Memory page under Deleted agents until you delete them."
+      },
+      "export": {
+        "title": "Export, then delete",
+        "body": "Download the notes as a zip file, then move them to the Trash."
+      },
+      "delete": {
+        "title": "Delete the notes too",
+        "body": "They move to the Trash and you can restore them from Files."
+      }
     }
   }
 }

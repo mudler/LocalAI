@@ -16,6 +16,10 @@
   background: var(--color-bg-secondary);
   color: var(--color-text-primary);
   font-size: var(--fs-small);
+  /* A long name wraps inside the chip instead of widening the row. */
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .ca-chip__x {

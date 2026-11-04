@@ -50,7 +50,7 @@ func openOwner(root string, lib *cluster.Library, ready time.Duration) (*owner, 
 		return nil, err
 	}
 	cat := catalog.Catalog{Sources: sources, TargetOS: goruntime.GOOS, TargetArch: goruntime.GOARCH}
-	host := contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
+	host := contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH}
 	installer := &packages.Installer{Root: filepath.Join(root, "packages"), Catalog: cat, Host: host}
 	m, err := addons.NewManager(ctx, addons.OwnerConfig{InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "disk", Root: root}, cat, installer, admin)
 	if err != nil {

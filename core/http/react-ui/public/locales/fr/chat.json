@@ -100,7 +100,61 @@
     "untitled": "Nouveau chat",
     "origin": {
       "trigger": "Lancé par un déclencheur",
-      "connector": "Depuis un connecteur"
+      "connector": "Depuis un connecteur",
+      "job": "Démarré par une tâche",
+      "page": "Démarré par une page",
+      "other": "Démarré par autre chose"
+    },
+    "originBadge": {
+      "trigger": "Déclencheur",
+      "connector": "Connecteur",
+      "job": "Tâche",
+      "page": "Page",
+      "other": "Automatique"
+    },
+    "keys": {
+      "clear": "effacer"
+    },
+    "find": {
+      "searching": "Recherche en cours…",
+      "count_one": "{{count}} résultat",
+      "count_other": "{{count}} résultats",
+      "more_one": "{{count}} autre correspondance dans ce chat",
+      "more_other": "{{count}} autres correspondances dans ce chat",
+      "indexing": "Les anciens chats sont encore en cours d’indexation. Les résultats peuvent être incomplets.",
+      "partial": "Recherche dans les {{searched}} chats les plus récents sur {{total}}.",
+      "failed": "La recherche a échoué.",
+      "retry": "Réessayer",
+      "noMatchFor": "Aucun chat ne correspond à « {{query}} ».",
+      "noMatchFiltered": "Aucun chat ne correspond à « {{query}} » avec ces filtres.",
+      "inTitle": "Correspond au titre",
+      "you": "Vous",
+      "assistant": "Assistant",
+      "filters": "Filtres de recherche",
+      "agent": "Agent",
+      "anyAgent": "Tous les agents",
+      "origin": "Source",
+      "anyOrigin": "Partout",
+      "originName": {
+        "person": "Mes chats",
+        "automated": "Modules et automatisations",
+        "trigger": "Déclencheurs",
+        "connector": "Applis de messagerie",
+        "job": "Tâches",
+        "page": "Pages"
+      },
+      "when": "Quand",
+      "anyTime": "À tout moment",
+      "range": {
+        "day": "Dernières 24 heures",
+        "week": "7 derniers jours",
+        "month": "30 derniers jours",
+        "year": "Dernière année",
+        "custom": "Choisir des dates…"
+      },
+      "from": "Du",
+      "to": "Au",
+      "reset": "Réinitialiser les filtres"
     }
   },
   "message": {
@@ -126,7 +180,8 @@
     "failed": "Enregistrement impossible. L'interrupteur revient à son état précédent.",
     "unavailable": "Indisponible dans ce chat",
     "toolCount_one": "{{count}} outil",
-    "toolCount_other": "{{count}} outils"
+    "toolCount_other": "{{count}} outils",
+    "optionsOf": "Options de {{name}}"
   },
   "skills": {
     "label": "Compétences",
@@ -384,7 +439,38 @@
     "loadFailed": "Impossible de charger vos conversations.",
     "emptyTitle": "Aucune conversation",
     "emptyBody": "Une conversation commence sur l'accueil : écrivez un message et envoyez-le. Vos conversations s'affichent ensuite ici.",
-    "start": "Commencer une conversation"
+    "start": "Commencer une conversation",
+    "tabsLabel": "Listes de chats",
+    "tab": {
+      "mine": "Mes chats",
+      "automated": "Des modules et automatisations"
+    },
+    "automated": {
+      "intro": "Des conversations démarrées par autre chose que vous, comme un connecteur, un déclencheur ou une tâche. Elles restent hors de vos listes de chats.",
+      "empty": "Rien n’a encore démarré de chat tout seul.",
+      "kind": {
+        "trigger": "Déclencheurs",
+        "connector": "Connecteurs",
+        "job": "Tâches",
+        "page": "Pages",
+        "other": "Autres"
+      },
+      "badge": {
+        "trigger": "Déclencheur",
+        "connector": "Connecteur",
+        "job": "Tâche",
+        "page": "Page",
+        "other": "Automatique"
+      },
+      "chats": "Chats : {{count}}",
+      "lastActive": "Dernière activité {{when}}",
+      "running": "En cours",
+      "waiting": "Vous attend",
+      "waitingCount": "Chats qui vous attendent : {{count}}",
+      "open": "Ouvrir {{title}}",
+      "showAll": "Tout afficher ({{count}})",
+      "showLess": "Afficher moins"
+    }
   },
   "foot": {
     "state": {
@@ -576,7 +662,7 @@
     "skillsOn_one": "{{count}} skill",
     "skillsOn_other": "{{count}} skills",
     "commands": "Commandes",
-    "isolated": "Exécutées dans un bac à sable isolé",
+    "isolated": "Exécutées en isolation",
     "host": "Exécutées sur cette machine",
     "noCommands": "Impossible",
     "context": "Contexte",
@@ -597,6 +683,18 @@
     "chipMissing": "Dossier manquant",
     "missing": "Le dossier de cet agent n'existe plus. Choisissez un autre dossier dans l'agent.",
     "startError": "Le dossier de cet agent est manquant, le chat ne peut donc pas démarrer. Choisissez un autre dossier pour l'agent.",
-    "editAgent": "Modifier l'agent"
+    "editAgent": "Modifier l'agent",
+    "toolsMany": "Fichiers : seulement {{n}} dossiers : {{list}}. Les dossiers partagés et les skills restent lisibles."
+  },
+  "origin": {
+    "banner": "Cette conversation a été démarrée par {{title}}.",
+    "open": "Ouvrir {{title}}",
+    "kindFallback": {
+      "trigger": "un déclencheur",
+      "connector": "un connecteur",
+      "job": "une tâche",
+      "page": "une page",
+      "other": "autre chose"
+    }
   }
 }

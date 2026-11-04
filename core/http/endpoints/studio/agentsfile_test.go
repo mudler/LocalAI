@@ -35,7 +35,7 @@ var _ = Describe("agent files", func() {
 
 	It("refuses a version it does not know", func() {
 		for _, raw := range []string{
-			`{"version":3,"kind":"localai-agent","agent":{"name":"x"}}`,
+			`{"version":5,"kind":"localai-agent","agent":{"name":"x"}}`,
 			`{"version":0,"kind":"localai-agent","agent":{"name":"x"}}`,
 		} {
 			_, err := readAgentFile([]byte(raw))
@@ -43,8 +43,31 @@ var _ = Describe("agent files", func() {
 		}
 	})
 
-	It("exports version 2 only for an agent with a folder", func() {
-		Expect(agentFileVersion(false)).To(Equal(1))
-		Expect(agentFileVersion(true)).To(Equal(2))
+	It("exports version 2 for one folder and version 3 for several", func() {
+		Expect(agentFileVersion(0, false)).To(Equal(1))
+		Expect(agentFileVersion(1, false)).To(Equal(2))
+		Expect(agentFileVersion(2, false)).To(Equal(3))
+		Expect(agentFileVersion(0, true)).To(Equal(4))
+		Expect(agentFileVersion(2, true)).To(Equal(4))
+	})
+
+	It("reads the tool switches of a version 4 file, which an older importer refuses", func() {
+		raw := []byte(`{"version":4,"kind":"localai-agent","agent":{"name":"Careful","builtins_off":["triggers","web"],"builtins_on":["saved_agents"]}}`)
+		_, err := readAgentFileUpTo(raw, 3)
+		Expect(err).To(MatchError(ContainSubstring("version")))
+		def, err := readAgentFile(raw)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(def.BuiltinsOff).To(Equal([]string{"triggers", "web"}))
+		Expect(def.BuiltinsOn).To(Equal([]string{"saved_agents"}))
+	})
+
+	It("reads the folders of a version 3 file, and a version 2 reader refuses it", func() {
+		multi := []byte(`{"version":3,"kind":"localai-agent","agent":{"name":"M","folders":[{"path":"/A","mode":"write"},{"path":"/B","mode":"read"}]}}`)
+		def, err := readAgentFile(multi)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(def.Folders).To(HaveLen(2))
+		Expect(def.Folders[1].Path).To(Equal("/B"))
+		_, err = readAgentFileUpTo(multi, 2)
+		Expect(err).To(MatchError(ContainSubstring("version")))
 	})
 })

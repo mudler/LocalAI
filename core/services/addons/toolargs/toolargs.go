@@ -199,7 +199,7 @@ func number(v any) (int64, bool) {
 // returns the resource ID taken out of the arguments and the argument object
 // with the tool name set by the host.
 func BindDefinition(d contract.ToolDefinition, raw json.RawMessage) (string, json.RawMessage, error) {
-	if contract.ValidateToolSchema(d.InputSchema, d.Kind) != nil {
+	if contract.ValidateDefinitionSchema(d) != nil {
 		return "", nil, ErrInvalid
 	}
 	var params map[string]any

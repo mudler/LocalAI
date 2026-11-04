@@ -56,6 +56,11 @@ top of the target's config for requests to the alias:
 | `profile.client_tools: drop` | Discards tools and `tool_choice` sent by the client. |
 | `profile.evidence_check.numbers` | Marks answers that contain numbers without evidence in the request. See [Evidence check](#evidence-check). |
 | `profile.evidence_check.note` | Text appended by the evidence check. Defaults to an English note. |
+| `profile.evidence_check.sources` | Appends the URLs the request's MCP tools returned to an answer that names no URL. See [Source line](#source-line). |
+| `profile.evidence_check.sources_label` | Label of the source line. Defaults to `Sources`. |
+| `profile.evidence_check.urls` | Marks answers that name links neither the request nor a tool returned. See [Links not retrieved](#links-not-retrieved). |
+| `profile.evidence_check.urls_note` | Text appended by the link check; `{urls}` is replaced by the links. Defaults to an English note. |
+| `profile.require_tool` | Makes the first model call of a request call one of the profile's MCP tools. See [Requiring a tool call](#requiring-a-tool-call). |
 
 ```yaml
 name: researcher
@@ -125,6 +130,143 @@ Answers that hand tool calls to the client are not checked. The check is off
 unless `numbers: true` is set, and `note` without `numbers: true` is rejected.
 It flags, it does not prove: a number the client happened to mention is
 accepted even if the answer uses it wrongly.
+
+### Source line
+
+A research profile usually asks the model in its system prompt to cite its
+sources. A model can still answer from a search result without naming a single
+link, and the client never sees the tool results that held them. With
+`sources: true` LocalAI adds the links at the output:
+
+```yaml
+name: researcher
+alias: my-llama-3
+profile:
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"search": {"url": "http://search.internal/mcp"}}}
+  evidence_check:
+    sources: true
+    # optional, defaults to "Sources"
+    sources_label: Quellen
+```
+
+Like the number check it acts on `/v1/chat/completions`. The rule is
+deterministic and applies to each request on its own:
+
+1. Only the results of MCP tool calls that succeeded on the server during this
+   request are read. The client's messages and failed calls are not a source.
+2. If the final answer already contains an `http://` or `https://` URL, it is
+   left unchanged.
+3. Otherwise the distinct URLs of those tool results are collected in the order
+   they first appear, at most five, and appended after a blank line as one line:
+   `Quellen: https://a.example/test, https://b.example/oil`. Punctuation that
+   ends a sentence is not taken as part of a URL. Parentheses inside URL paths
+   and query parameters in JSON-encoded MCP text results are preserved.
+4. If no tool result contains a URL, nothing is appended. No URL is ever made
+   up: every link on the line was returned by a tool.
+
+In a streamed response the line arrives as one additional content chunk before
+the final chunk, like the number note. Both checks can be enabled together; the
+number note follows the source line. `sources_label` without `sources: true` is
+rejected.
+
+### Links not retrieved
+
+A model can also name a link it never opened: a plausible deep link on a known
+site, written from memory. The client cannot tell such a link from one a search
+tool returned, because it never sees the tool results. With `urls: true` LocalAI
+marks it at the output:
+
+```yaml
+name: researcher
+alias: my-llama-3
+profile:
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"search": {"url": "http://search.internal/mcp"}}}
+  evidence_check:
+    urls: true
+    # optional; {urls} is replaced by the links, defaults to the note below
+    urls_note: "_Note: this answer names links that no tool returned in this turn — not retrieved: {urls}_"
+```
+
+Like the other checks it acts on `/v1/chat/completions`, streamed or not. The
+rule is deterministic and applies to each request on its own:
+
+1. Every `http://` or `https://` URL in the final answer is collected, bare or
+   inside a Markdown link. Punctuation that ends a sentence is not part of it.
+2. Evidence is every URL in the request as received — the profile's system
+   prompt and the content of every system, user and tool message — and in the
+   results of the MCP tool calls that succeeded on the server during this
+   request. Assistant messages are not evidence, so a link the model invented on
+   an earlier turn is marked again when the client sends it back. Failed tool
+   calls deliver no evidence.
+3. Links are compared without scheme, fragment, a leading `www.` and a trailing
+   slash; the host is compared case-insensitively, path and query exactly. A
+   link counts as retrieved when it equals an evidence URL or is a shorter form
+   of one at a `/` or `?` boundary: `https://a.example` is backed by a retrieved
+   `https://a.example/report.pdf`, but `https://a.example/other.pdf` is not.
+4. If at least one link is not backed, the note is appended after a blank line
+   with up to five such links. In a streamed response it arrives as one
+   additional content chunk before the final chunk. If `urls_note` contains no
+   `{urls}`, the links follow the note after a space.
+
+The source line, this note and the number note can be enabled together and are
+appended in that order. `urls_note` without `urls: true` is rejected. The check
+flags, it does not prove: a link that was retrieved can still be cited for a
+claim the page does not make.
+
+### Requiring a tool call
+
+A system prompt that says "always search first" does not stop a model from
+answering a question from its own knowledge, for example when the question comes
+with a picture. `require_tool: true` enforces the first step in the request
+instead:
+
+```yaml
+name: researcher
+alias: my-llama-3
+profile:
+  require_tool: true
+  mcp:
+    auto: true
+    remote: |
+      {"mcpServers": {"search": {"url": "http://search.internal/mcp"}}}
+```
+
+When the switch is set and a `/v1/chat/completions` request offers the
+profile's server-side MCP tools, the **first** model call of the request is made with
+`tool_choice: "required"`. Every follow-up call of the server-side tool loop is
+made with the `tool_choice` the client sent (or none), so after the tool results
+the model is free to answer. A `required` that stayed in place would make the
+model call a tool again after every result and never answer until the loop's
+iteration limit.
+
+How `required` is enforced depends on the model:
+
+- With `template.use_tokenizer_template` (llama.cpp with the model's own chat
+  template), LocalAI passes `tool_choice: "required"` to the backend, which
+  constrains the output to a tool call with a grammar built from the chat
+  template's tool-call format.
+- When LocalAI builds the tool-call grammar itself, the first call's grammar
+  leaves out the no-action function (`answer`) the model would otherwise reply
+  with directly.
+
+The first call is not forced when:
+
+- no server-side MCP tool was offered (MCP disabled, the caller lacks the `mcp`
+  permission, or the profile has no servers),
+- the client set `tool_choice` (other than `auto`) or `function_call` itself,
+  which keeps precedence,
+- the request does not end with a user message. A request that ends with a
+  `tool` message returns the result of a tool the client ran itself; forcing
+  another call there could bounce tool calls between client and server.
+
+The switch applies per request, so every new user turn starts with a tool call.
+It enforces that a tool is called, not which one or with which arguments.
 
 ## Managing aliases
 

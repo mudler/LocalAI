@@ -20,6 +20,7 @@ The files need the chats and files of the server (see [Chats](/features/chats/))
 | What | Say, for example | File |
 |---|---|---|
 | The assistant's name and how it answers | "Call yourself Ada and keep answers short" | `LocalAI/persona.json` |
+| Standing rules of one saved agent | "Always answer this agent's users in French" | `LocalAI/agents/<agent>/profile.md` |
 | What the assistant knows about you | "Call me Marta. I am a designer in Milan" | `LocalAI/user.json` |
 | Shortcuts in the message box | "Make this a shortcut" | `LocalAI/shortcuts.json` |
 | The widgets on Home | "Show my open tasks on Home" | `LocalAI/home.json` and a data file |
@@ -90,6 +91,14 @@ The persona is added to the prompt of every chat at the start of each turn,
 after the chat's own system prompt and the instructions of its agent, which
 take precedence, and before the server's default prompt text. A change applies
 from the next message.
+
+### LocalAI/agents/\<agent\>/profile.md
+
+A plain Markdown file of at most 4 KiB with the persona and the standing rules of one
+saved agent. The host adds it to the prompt of every chat of that agent, right after the
+agent's instructions and the persona; longer text is cut. You can edit it in the Files
+page. Add-ons can also register index files that the host loads in the same way (see
+[Context files](/features/addons/#context-files)).
 
 ### LocalAI/user.json
 

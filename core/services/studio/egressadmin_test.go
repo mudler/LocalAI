@@ -29,7 +29,7 @@ var _ = Describe("the add-on that the network settings apply to", func() {
 	sandboxOf := func(svc *studio.Service) string {
 		v, err := svc.AdminEgress(context.Background(), alice)
 		Expect(err).NotTo(HaveOccurred())
-		return v.Sandbox
+		return v.Runner
 	}
 
 	It("is the running add-on that replaces bash, before any chat ran", func() {

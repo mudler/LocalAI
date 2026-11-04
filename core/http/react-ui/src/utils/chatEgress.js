@@ -1,4 +1,4 @@
-// The network of a chat's Sandbox commands, as the chat page shows it. Pure
+// The network of a chat's isolated commands, as the chat page shows it. Pure
 // functions over GET /api/chats/{id}/egress, so the node unit tests cover them.
 
 export const PRESETS = ['off', 'registries', 'all']
@@ -23,12 +23,25 @@ export function askedAboveLimit(egress) {
   return aboveCeiling(preset, egress?.ceiling || 'off') ? preset : ''
 }
 
-// The three choices of the Network row: each with whether it is what applies
-// and whether the limit blocks it.
+// The title the add-on that runs the commands declares for a preset, or ''
+// when it declares none (the page then uses its own text).
+export function declaredPresetTitle(egress, id) {
+  const list = egress?.network?.presets
+  return (Array.isArray(list) && list.find(p => p.id === id)?.title) || ''
+}
+
+// The three choices of the Network row: each with whether it is what applies,
+// whether the limit blocks it and the title the add-on declares for it ('' for
+// the page's own text).
 export function presetChoices(egress) {
   const ceiling = egress?.ceiling || 'off'
   const chosen = appliedPreset(egress)
-  return PRESETS.map(p => ({ id: p, chosen: p === chosen, limited: aboveCeiling(p, ceiling) }))
+  return PRESETS.map(p => ({ id: p, chosen: p === chosen, limited: aboveCeiling(p, ceiling), title: declaredPresetTitle(egress, p) }))
+}
+
+// The text of a preset: the add-on's title for it, else the page's own.
+export function presetLabel(egress, id, t) {
+  return declaredPresetTitle(egress, id) || t(`egress.preset.${id}`)
 }
 
 // What the Tools menu shows: the row, a line saying the settings do not

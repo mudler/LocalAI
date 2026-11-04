@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 )
 
 var _ = Describe("agent validation", func() {
@@ -15,6 +16,9 @@ var _ = Describe("agent validation", func() {
 		Expect(agents.Validate(ok)).To(Succeed())
 		for _, n := range []string{"", "off", "registries", "all"} {
 			Expect(agents.Validate(agents.Agent{Name: "a", Network: n})).To(Succeed(), n)
+		}
+		for _, m := range []string{"", "own", "mine_and_own", "mine", "none"} {
+			Expect(agents.Validate(agents.Agent{Name: "a", Memory: m})).To(Succeed(), m)
 		}
 		for _, f := range []agents.Agent{
 			{Name: "a"},
@@ -39,10 +43,51 @@ var _ = Describe("agent validation", func() {
 			"empty collection": {Name: "a", Collections: []string{" "}},
 			"long entry":       {Name: "a", MCPServers: []string{strings.Repeat("s", agents.MaxEntryRunes+1)}},
 			"bad network":      {Name: "a", Network: "everything"},
+			"bad memory":       {Name: "a", Memory: "everything"},
 			"folder, no mode":  {Name: "a", FolderID: 7},
 			"bad folder mode":  {Name: "a", FolderID: 7, FolderMode: "admin"},
 		} {
 			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid), name)
 		}
 	})
+
+	It("limits the folder list", func() {
+		list := func(n int) []agents.AgentFolder {
+			var l []agents.AgentFolder
+			for i := 1; i <= n; i++ {
+				l = append(l, agents.AgentFolder{Node: int64(i), Mode: agents.FolderRead})
+			}
+			return l
+		}
+		Expect(agents.Validate(agents.Agent{Name: "a", Folders: list(agents.MaxFolders)})).To(Succeed())
+		Expect(agents.Validate(agents.Agent{Name: "a", Folders: list(agents.MaxFolders + 1)})).To(MatchError(agents.ErrInvalid), "nine folders")
+		dup := []agents.AgentFolder{{Node: 3, Mode: agents.FolderRead}, {Node: 3, Mode: agents.FolderWrite}}
+		Expect(agents.Validate(agents.Agent{Name: "a", Folders: dup})).To(MatchError(agents.ErrInvalid), "same node twice")
+		Expect(agents.Validate(agents.Agent{Name: "a", Folders: []agents.AgentFolder{{Node: 3}}})).To(MatchError(agents.ErrInvalid), "no mode")
+		Expect(agents.Validate(agents.Agent{Name: "a", Folders: []agents.AgentFolder{{Node: 3, Mode: "all"}}})).To(MatchError(agents.ErrInvalid), "bad mode")
+		unset := []agents.AgentFolder{{Mode: agents.FolderRead}, {Mode: agents.FolderRead}}
+		Expect(agents.Validate(agents.Agent{Name: "a", Folders: unset})).To(Succeed(), "several unchosen rows")
+	})
+})
+
+var _ = Describe("the connections of an agent", func() {
+	base := func() agents.Agent { return agents.Agent{Name: "A", Model: "m"} }
+	It("accepts an add-on ID with one or several binding IDs, and none", func() {
+		a := base()
+		Expect(agents.Validate(a)).To(Succeed())
+		a.Connections = connsets.Sets{"tracker": {"b1"}}
+		Expect(agents.Validate(a)).To(Succeed())
+		a.Connections = connsets.Sets{"tracker": {"b1", "b2"}}
+		Expect(agents.Validate(a)).To(Succeed())
+	})
+	DescribeTable("refuses",
+		func(m connsets.Sets) {
+			a := base()
+			a.Connections = m
+			Expect(agents.Validate(a)).To(MatchError(agents.ErrInvalid))
+		},
+		Entry("an add-on ID that is not one", connsets.Sets{"Not An Id": {"b1"}}),
+		Entry("an empty binding ID", connsets.Sets{"tracker": {" "}}),
+		Entry("an add-on with no binding", connsets.Sets{"tracker": {}}),
+	)
 })

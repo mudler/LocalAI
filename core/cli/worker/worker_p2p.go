@@ -17,6 +17,7 @@ import (
 )
 
 type P2P struct {
+	P2PEnableLimits    string `name:"p2p-enable-limits" env:"LOCALAI_P2P_ENABLE_LIMITS" help:"Set to true to enable P2P resource limits" group:"p2p"`
 	WorkerFlags        `embed:""`
 	Token              string `env:"LOCALAI_TOKEN,LOCALAI_P2P_TOKEN,TOKEN" help:"P2P token to use"`
 	NoRunner           bool   `env:"LOCALAI_NO_RUNNER,NO_RUNNER" help:"Do not start the llama-cpp-rpc-server"`
@@ -63,7 +64,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			p = r.RunnerPort
 		}
 
-		_, err = p2p.ExposeService(c, address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.LlamaCPPWorkerID))
+		_, err = p2p.ExposeService(c, address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.LlamaCPPWorkerID), p2p.NodeConfig{EnableLimits: r.P2PEnableLimits == "true"})
 		if err != nil {
 			return err
 		}
@@ -105,7 +106,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			}
 		}()
 
-		_, err = p2p.ExposeService(c, address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.LlamaCPPWorkerID))
+		_, err = p2p.ExposeService(c, address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.LlamaCPPWorkerID), p2p.NodeConfig{EnableLimits: r.P2PEnableLimits == "true"})
 		if err != nil {
 			return err
 		}

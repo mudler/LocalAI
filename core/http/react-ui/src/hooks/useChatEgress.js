@@ -3,7 +3,7 @@ import { chatEgressApi } from '../utils/api'
 
 const empty = { preset: 'off', ceiling: 'off', effective: 'off', applies: false, applies_reason: '', registries: [], allowed_hosts: [], rules: [], cards: [] }
 
-// The network of a chat's Sandbox commands (GET /api/chats/{id}/egress), read
+// The network of a chat's isolated commands (GET /api/chats/{id}/egress), read
 // again when tick changes (an egress_consent or egress_card event). setPreset,
 // removeRule and answer change it on the server and keep the answer.
 export function useChatEgress(chatId, tick) {

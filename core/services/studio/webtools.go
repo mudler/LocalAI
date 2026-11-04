@@ -151,7 +151,14 @@ type BuiltinGroup struct {
 	Provider string
 	// Providers says who serves each tool of the group, by tool name.
 	Providers map[string]string
+	// Title, Description and WhenOff are what a person reads next to the
+	// switch (see builtins.GroupInfo).
+	Title, Description, WhenOff string
 }
+
+// ReasonOffForAgent is why a group of built-in tools cannot be switched on in
+// a chat: the saved agent of the chat turns it off.
+const ReasonOffForAgent = "the agent of this chat does not use it"
 
 // MixedProvider is the Provider of a group whose tools are served by
 // different providers.
@@ -169,7 +176,7 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 	off, on := set(offList), set(onList)
 	a := s.chatActorFor(ctx, rec)
 	c := builtins.Chat{Actor: a, Origin: rec.Origin, Agent: rec.AgentID != "", AgentID: rec.AgentID, Model: rec.Model, SubAgent: rec.Kind == session.KindSubAgent,
-		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, GoalActive: goalActive(rec)}
+		Admin: s.isAdmin(ctx, rec.Principal), GroupsOff: offList, GroupsOn: onList, Grants: s.chatGrants(ctx, rec), GoalActive: goalActive(rec)}
 	var out []BuiltinGroup
 	byGroup := map[string]int{}
 	for _, t := range s.builtins.Tools() {
@@ -181,7 +188,9 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 			i = len(out)
 			byGroup[t.Group] = i
 			isOff := off[t.Group] || (t.OptIn && !on[t.Group])
-			out = append(out, BuiltinGroup{Group: t.Group, Off: isOff, OptIn: t.OptIn, Providers: map[string]string{}})
+			info := s.builtins.GroupInfo(t.Group)
+			out = append(out, BuiltinGroup{Group: t.Group, Off: isOff, OptIn: t.OptIn, Providers: map[string]string{},
+				Title: info.Title, Description: info.Description, WhenOff: info.WhenOff})
 		}
 		out[i].Tools = append(out[i].Tools, t.ID)
 		provider := BuiltinProvider
@@ -216,7 +225,13 @@ func (s *Service) builtinGroups(ctx context.Context, rec session.ChatRecord, too
 			out[i].Reason = reason
 		}
 	}
+	byAgent := set(s.agentOff(ctx, rec))
 	for i := range out {
+		if byAgent[out[i].Group] {
+			// The agent's ceiling: the chat cannot switch the group on.
+			out[i].Usable, out[i].Reason = false, ReasonOffForAgent
+			continue
+		}
 		if out[i].Group == builtins.GroupShell && !out[i].Usable {
 			out[i].Reason = shellReason(s.commandsOf(ctx, rec.Principal, tools, rec.AddonsOff, s.scopeOf(ctx, rec)), out[i].Reason)
 		}

@@ -101,7 +101,7 @@ func newHost() *host {
 	h.owner = config.AddonConfig{
 		Enabled: true, InstanceID: "owner", OwnerID: "owner", OwnerAddress: "https://owner.example", StorageID: "local",
 		Root: root, ListenAddress: "127.0.0.1:0", Transport: ownerCarrier(),
-		Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
+		Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
 	}
 	return h
 }

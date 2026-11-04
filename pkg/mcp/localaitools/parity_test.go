@@ -50,11 +50,13 @@ func fakeBackend() *httptest.Server {
 			},
 		})
 	})
-	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/version", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"version": "v0.0.0-parity"})
+	})
+	mux.HandleFunc("/system", func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"Version":           "v0.0.0-parity",
-			"InstalledBackends": map[string]bool{"llama-cpp": true},
-			"ModelsConfig":      []map[string]any{{"name": "qwen2.5-7b-instruct", "backend": "llama-cpp"}},
+			"backends":      []string{"llama-cpp"},
+			"loaded_models": []map[string]any{{"id": "qwen2.5-7b-instruct"}},
 		})
 	})
 	mux.HandleFunc("/backends", func(w http.ResponseWriter, _ *http.Request) {

@@ -40,8 +40,12 @@ type Settings struct {
 }
 
 // Defaults are the settings before any choice: every provider in the default
-// order, so only the keyless entry is ready.
-func Defaults() Settings { return Settings{Order: slices.Clone(providers.Names)} }
+// order, so only the keyless entry is ready. Keenable, which is ready without
+// a key, stays out of the default order until an administrator adds it, so
+// the default search does not change.
+func Defaults() Settings {
+	return Settings{Order: slices.DeleteFunc(slices.Clone(providers.Names), func(n string) bool { return n == providers.Keenable })}
+}
 
 func (s Settings) clone() Settings {
 	out := Settings{Order: slices.Clone(s.Order), GoogleEngine: s.GoogleEngine, SearXNGURL: s.SearXNGURL}
@@ -69,6 +73,8 @@ func (s Settings) Ready(name string) (bool, string) {
 		case s.GoogleEngine == "":
 			return false, "no search engine ID"
 		}
+	case providers.Keenable:
+		// Without a key it uses the keyless endpoint.
 	case providers.SearXNG:
 		if s.SearXNGURL == "" {
 			return false, "no address"

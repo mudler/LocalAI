@@ -44,6 +44,10 @@ type FakeHarness struct {
 	// FailNextStarts makes that many of the next Starts fail. Set it while no
 	// Start runs.
 	FailNextStarts int
+	// OwnToolContext makes the harness call a tool with a context of its own,
+	// derived from nothing of the turn, as a harness that receives tool calls
+	// from another process does.
+	OwnToolContext bool
 
 	mu         sync.Mutex
 	envs       []session.HarnessEnv
@@ -172,7 +176,11 @@ func (s *fakeSession) Send(ctx context.Context, text string) error {
 			args := json.RawMessage(st.Args)
 			ev := &session.ToolEvent{Name: st.Tool, Summary: session.Summarize(args)}
 			s.env.Emit(session.Event{Kind: session.KindToolStart, Tool: ev})
-			out, err := tl.Run(ctx, args)
+			toolCtx := ctx
+			if s.h.OwnToolContext {
+				toolCtx = context.Background()
+			}
+			out, err := tl.Run(toolCtx, args)
 			end := *ev
 			end.OK, end.Output = err == nil, session.CapText(out, 2048)
 			if err != nil {

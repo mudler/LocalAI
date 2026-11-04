@@ -4,11 +4,11 @@ import { useTranslation } from 'react-i18next'
 import Button from '../ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { AdminHint, CardAnswerButtons } from './NetworkConsentCard'
-import { askedAboveLimit, cardAnswers, ceilingKind, cardStateKey, hostPort, networkMode, presetChoices, sortedCards } from '../../utils/chatEgress'
+import { askedAboveLimit, cardAnswers, ceilingKind, cardStateKey, hostPort, networkMode, presetChoices, presetLabel, sortedCards } from '../../utils/chatEgress'
 import './network.css'
 
 // The Network row of the chat's Tools menu: how much of the network the
-// chat's Sandbox commands may reach (off, the package registries, all public
+// chat's isolated commands may reach (off, the package registries, all public
 // sites), up to the administrator's limit, and the panel with the chat's
 // rules and the cards that asked. Commands that run on this machine have the
 // server's network: the row is a line that says so.
@@ -22,7 +22,7 @@ export default function NetworkRow({ egress }) {
   if (mode === 'host' || mode === 'unverified') return (
     <div className="cmd-notice__line" data-testid="chat-network-unenforced">
       <p>{t(mode === 'host' ? 'egress.hostNetwork' : 'egress.unverified')}</p>
-      <p>{t('egress.configuredPolicy', { preset: t(`egress.preset.${egress.preset || 'off'}`) })}</p>
+      <p>{t('egress.configuredPolicy', { preset: presetLabel(egress, egress.preset || 'off', t) })}</p>
     </div>
   )
   const choices = presetChoices(egress)
@@ -41,7 +41,7 @@ export default function NetworkRow({ egress }) {
               disabled={c.limited} title={c.limited ? t('egress.limited') : t(`egress.presetHint.${c.id}`)}
               onClick={() => { if (c.id !== egress.preset) egress.setPreset(c.id) }} data-testid={`chat-network-${c.id}`}
             >
-              {t(`egress.preset.${c.id}`)}
+              {c.title || t(`egress.preset.${c.id}`)}
             </button>
           ))}
         </div>
@@ -51,12 +51,12 @@ export default function NetworkRow({ egress }) {
           ? t('egress.blocked.rowOff')
           : <>
             {t(`egress.presetHint.${egress.effective || 'off'}`)}
-            {kind === 'capped' && <> {t('egress.limitedBy', { limit: t(`egress.preset.${egress.ceiling}`) })}</>}
+            {kind === 'capped' && <> {t('egress.limitedBy', { limit: presetLabel(egress, egress.ceiling, t) })}</>}
           </>}
       </p>
       {asked && (
         <p className="chat-network__note" data-testid="chat-network-asks">
-          {t('egress.asksAbove', { choice: t(`egress.preset.${asked}`), limit: t(`egress.preset.${egress.ceiling || 'off'}`) })}
+          {t('egress.asksAbove', { choice: presetLabel(egress, asked, t), limit: presetLabel(egress, egress.ceiling || 'off', t) })}
         </p>
       )}
       <p className="chat-network__note" data-testid="chat-network-limit-note">{t('egress.limitNote')}</p>

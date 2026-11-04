@@ -21,6 +21,8 @@ export function commandsState(res) {
     return { state: 'host', reason: '' }
   }
   const observation = res?.execution_status
+  // A chat that is not created yet has no status to read: nothing to warn of.
+  if (observation?.unknown_reason === 'draft' && (state === 'available' || state === 'none')) return { state: state === 'none' ? 'none' : 'draft', reason: '' }
   if (state === 'available') {
     const isolation = observation?.isolation || res?.commands_isolation
     if (observation && observation.readiness !== 'available') return { state: 'unknown', reason: plainExplanation(observation.explanation), code: reasonCode(observation) }
@@ -32,10 +34,15 @@ export function commandsState(res) {
   return { state, reason }
 }
 
+// The bash row of Settings > Tools, and the Add-ons page, as an administrator's
+// notice links to them.
+export const HOST_EXEC_SETTING = '/app/settings?group=tools#settings-tools-row-bash'
+export const ADDONS_PAGE = '/app/addons'
+
 // The notice for a state, or null when commands run (or the state is unknown).
 // keys are under chats:tools.commands. link is for administrators only; a
 // person who is not one is told to ask one, unless the fix is theirs.
-export function commandsNotice(commands, { isAdmin = false, reason = '', code = '' } = {}) {
+export function commandsNotice(commands, { isAdmin = false, reason = '', code = '', hostExec = '' } = {}) {
   switch (commands) {
     case 'provider-host':
     case 'unknown':
@@ -55,6 +62,23 @@ export function commandsNotice(commands, { isAdmin = false, reason = '', code = 
         askKey: isAdmin ? null : 'askFix',
       }
     case 'none':
+      // No add-on runs commands and the server says that its built-in bash is
+      // off: say so, and give an administrator the way to turn it on. Anyone
+      // else is told to ask one. A server that does not say keeps the plain
+      // notice.
+      if (hostExec === 'off') {
+        return {
+          state: 'none',
+          hostOff: true,
+          severity: 'warn',
+          textKey: 'hostOff.reason',
+          whoKey: isAdmin ? 'hostOff.whoAdmin' : 'hostOff.whoMember',
+          link: isAdmin ? { to: HOST_EXEC_SETTING, labelKey: 'hostOff.fix' } : null,
+          sandboxLink: isAdmin ? { to: ADDONS_PAGE, labelKey: 'hostOff.sandbox' } : null,
+          askKey: null,
+          reason: '',
+        }
+      }
       return {
         state: 'none',
         textKey: 'none',

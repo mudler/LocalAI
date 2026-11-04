@@ -21,7 +21,7 @@ test.describe('Navigation', () => {
     await expect(models.locator('.nav-label')).toHaveText('Models')
   })
 
-  test('the sidebar has Files, Agents, MCP connectors, Memory, Skills, Models and Add-ons, then the recent chats; no Chats entry, no Settings and no Create tier', async ({ page }) => {
+  test('the sidebar has Files, Agents, MCP connectors, Knowledge, Skills, Models and Add-ons, then the recent chats; no Chats entry, no Settings and no Create tier', async ({ page }) => {
     await stubAddonRoutes(page)
     await page.goto('/app')
     await expect(page.locator('.sidebar-section-title', { hasText: 'Create' })).toHaveCount(0)
@@ -73,7 +73,7 @@ test.describe('Navigation', () => {
     await expect(page).toHaveURL(/\/app\/import-model$/)
   })
 
-  test('Agents, MCP connectors and Memory are sidebar items, and their pages light them up', async ({ page }) => {
+  test('Agents, MCP connectors and Knowledge are sidebar items, and their pages light them up', async ({ page }) => {
     await page.goto('/app')
     const item = (href) => page.locator(`.sidebar-nav a.nav-item[href="${href}"]`)
     await item('/app/agents').click()
@@ -91,7 +91,7 @@ test.describe('Navigation', () => {
     await item('/app/collections').click()
     await expect(page).toHaveURL(/\/app\/collections$/)
     await expect(item('/app/collections')).toHaveClass(/active/)
-    // Memory is a page of its own now, not a tab of a hub.
+    // Knowledge is a page of its own now, not a tab of a hub.
     await expect(page.locator('.dk-hubtabs')).toHaveCount(0)
   })
 

@@ -22,7 +22,7 @@ func (m *Manager) PersonAccess(ctx context.Context, a workspace.Actor) (Access, 
 	case workspace.HasFence(a):
 		return Access{}, fmt.Errorf("%w: a fenced actor has no view of the home", ErrInvalid)
 	}
-	v, err := m.buildView(ctx, a, HomePath(a.Principal), "")
+	v, err := m.buildView(ctx, a, HomePath(a.Principal), nil, "")
 	if err != nil {
 		return Access{}, err
 	}

@@ -4,6 +4,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/pkg/clientip"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -17,6 +18,11 @@ var _ = Describe("StripPathPrefix", func() {
 		actualPath = ""
 		if !appInitialized {
 			app = echo.New()
+			// The specs act as the trusted reverse proxy (httptest peers
+			// connect from 192.0.2.1).
+			trusted, err := clientip.Parse("192.0.2.0/24")
+			Expect(err).ToNot(HaveOccurred())
+			app.Pre(TrustedProxies(trusted))
 			app.Pre(StripPathPrefix())
 
 			app.GET("/hello/world", func(c echo.Context) error {
@@ -59,6 +65,18 @@ var _ = Describe("StripPathPrefix", func() {
 
 			Expect(rec.Code).To(Equal(200), "response status code")
 			Expect(actualPath).To(Equal("/hello/world"), "rewritten path")
+		})
+	})
+
+	Context("from a peer that is not a trusted proxy", func() {
+		It("should ignore X-Forwarded-Prefix", func() {
+			req := httptest.NewRequest("GET", "/myprefix/hello/world", nil)
+			req.RemoteAddr = "203.0.113.9:4000"
+			req.Header["X-Forwarded-Prefix"] = []string{"/myprefix/"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(404), "the path must not be rewritten")
 		})
 	})
 

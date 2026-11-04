@@ -111,10 +111,10 @@
     "loadFailedTitle": "Pengaturan tidak dapat dimuat.",
     "egress": {
       "title": "Jaringan perintah",
-      "intro": "Perintah di Sandbox menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di bawah; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
+      "intro": "Perintah yang berjalan terisolasi menjangkau jaringan hanya melalui proxy yang menanyakan LocalAI untuk setiap koneksi. Atur batas, preset chat baru, port, registri tambahan, dan masa simpan audit di bawah; setiap orang memilih preset tiap chat di menu Alat-nya, sampai batas, dan mengizinkan host yang diblokir lewat kartu.",
       "serves": "Perintah berjalan terisolasi di add-on {{name}}",
       "servesHost": "Perintah berjalan di mesin ini melalui {{name}}",
-      "servesNone": "Belum ada Sandbox yang menjalankan perintah",
+      "servesNone": "Belum ada add-on yang menjalankan perintah",
       "hostNote": "Backend host menjalankan perintah di mesin ini dengan jaringannya: pengaturan ini tidak berlaku untuknya.",
       "counts": "24 jam terakhir: {{allowed}} diizinkan, {{blocked}} diblokir.",
       "private": "Izinkan aturan administrator menjangkau jaringan privat",
@@ -123,7 +123,7 @@
       "registries": "Registri paket ({{count}})",
       "showAudit": "Tampilkan audit",
       "hideAudit": "Sembunyikan audit",
-      "loadFailed": "Pengaturan jaringan Sandbox tidak dapat dibaca",
+      "loadFailed": "Pengaturan jaringan untuk perintah tidak dapat dibaca",
       "audit": {
         "verdict": "Keputusan",
         "host": "Host",
@@ -157,7 +157,7 @@
       "listLabel": "Host yang selalu diizinkan",
       "remove": "Hapus {{host}}",
       "empty": "Belum ada host. Tulis nama host, atau host:port untuk mengunci port.",
-      "hint": "Hanya nama yang tepat. Tambahkan :port untuk mengizinkan satu port; jika tidak, port jaringan Sandbox yang berlaku.",
+      "hint": "Hanya nama yang tepat. Tambahkan :port untuk mengizinkan satu port; jika tidak, port jaringan perintah yang berlaku.",
       "count": "{{n}}/{{max}}",
       "errors": {
         "empty": "Tulis nama host.",
@@ -352,7 +352,6 @@
     "byAddon": "Add-on: {{name}}",
     "byNone": "Mati",
     "unavailable": "Server ini tidak dapat menjalankannya: {{reason}}.",
-    "installSandbox": "Pasang Sandbox untuk menjalankan perintah secara terisolasi",
     "replaceExplain": "Add-on ini menggantikan {{tool}}: yang dipilih melayaninya di setiap chat tempat ia aktif dan berjalan, dan yang bawaan disembunyikan. Hanya satu yang bisa aktif. Sebelum Anda memilih, yang dipasang lebih dulu yang melayaninya.",
     "defaultInstalledFirst": "Bawaan: dipasang lebih dulu",
     "installedOn": "Dipasang {{when}}",
@@ -365,7 +364,7 @@
       "list_agents": "Agen tersimpan"
     },
     "descriptions": {
-      "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada Sandbox yang melayani bash. Add-on Sandbox menggantinya dengan perintah terisolasi.",
+      "bash": "Menjalankan perintah dan kode untuk chat langsung di mesin ini saat tidak ada add-on yang melayani bash. Add-on yang menjalankan perintah terisolasi menggantinya.",
       "web_search": "Mencari di web untuk chat tanpa kunci (DuckDuckGo, lalu Brave Search, lalu Bing), atau dengan instans SearXNG Anda jika sudah diatur.",
       "web_fetch": "Membaca halaman atau file web publik berdasarkan alamatnya untuk chat. Alamat di dalam jaringan Anda ditolak kecuali Anda mengizinkannya.",
       "list_agents": "Memungkinkan chat menampilkan agen tersimpan milik pengguna dan memulai salah satunya sebagai sub-agen. Setiap chat mengaktifkannya di menu Alat."
@@ -378,7 +377,7 @@
       "on": "Izinkan untuk semua.",
       "onHint": "Chat semua pengguna menjalankan perintah di sini tanpa bertanya, termasuk jalankan terjadwal dan sub-agen.",
       "default": "Belum diatur: bawaan berlaku ({{mode}}).",
-      "warning": "Perintah berjalan sebagai pengguna LocalAI, tanpa isolasi dan dengan jaringan mesin ini: dapat membaca apa yang bisa dibaca LocalAI dan menjangkau internet, jaringan Anda, dan API LocalAI. Setiap perintah dicatat. Pasang Sandbox untuk mengisolasinya."
+      "warning": "Perintah berjalan sebagai pengguna LocalAI, tanpa isolasi dan dengan jaringan mesin ini: dapat membaca apa yang bisa dibaca LocalAI dan menjangkau internet, jaringan Anda, dan API LocalAI. Setiap perintah dicatat. Pasang add-on yang mengisolasi perintah."
     },
     "modes": {
       "off": "mati",

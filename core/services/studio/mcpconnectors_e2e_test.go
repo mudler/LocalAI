@@ -39,14 +39,18 @@ func e2eServer() (*httptest.Server, *atomic.Int32) {
 	return ts, &reached
 }
 
-func realConnectors(allowPrivate bool) (*mcpconns.Service, mcpconns.Store) {
+func realConnectors(allowPrivate bool, tune ...func(*mcpconns.Options)) (*mcpconns.Service, mcpconns.Store) {
 	ms, err := mcpconns.NewJSON("")
 	Expect(err).NotTo(HaveOccurred())
 	cs, _ := connectors.NewJSON("")
-	svc, err := mcpconns.New(mcpconns.Options{
+	o := mcpconns.Options{
 		Store: ms, Key: func(ctx context.Context) ([]byte, error) { return cs.EnsureKey(ctx, connectors.NewKey) },
 		AllowPrivate: func() bool { return allowPrivate },
-	})
+	}
+	for _, t := range tune {
+		t(&o)
+	}
+	svc, err := mcpconns.New(o)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(svc.Close)
 	return svc, ms

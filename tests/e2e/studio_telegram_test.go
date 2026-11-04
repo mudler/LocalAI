@@ -40,7 +40,7 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 	bind := func(token string, agent string, extra obj) string {
 		// The specs written before the reply modes count the answers as the
 		// messages the bot sends; the live modes have their own specs.
-		body := obj{"name": fmt.Sprintf("Bot %d", time.Now().UnixNano()), "token": token, "agent_id": agent, "enabled": true, "reply_mode": "off"}
+		body := obj{"kind": "telegram", "name": fmt.Sprintf("Bot %d", time.Now().UnixNano()), "token": token, "agent_id": agent, "enabled": true, "reply_mode": "off"}
 		for k, v := range extra {
 			body[k] = v
 		}
@@ -260,9 +260,9 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 		Expect(code).To(Equal(http.StatusCreated), string(out))
 		agent := decode(out)["id"].(string)
 		DeferCleanup(func() { chatsDo(http.MethodDelete, chatsBase()+"/agents/"+agent, nil) })
-		code, out = chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{"name": "x", "token": "7010:x", "agent_id": agent})
+		code, out = chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{"kind": "telegram", "name": "x", "token": "7010:x", "agent_id": agent})
 		Expect(code).To(Equal(http.StatusBadRequest), string(out))
-		code, out = chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{"name": "x", "token": "7010:x"})
+		code, out = chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{"kind": "telegram", "name": "x", "token": "7010:x"})
 		Expect(code).To(Equal(http.StatusBadRequest), "a binding without an agent: "+string(out))
 	})
 
@@ -323,7 +323,7 @@ var _ = Describe("Chats Telegram connector", Label("Chats", "Telegram"), func() 
 		token := "7014:typo"
 		telegram.refuseToken(token, 401)
 		DeferCleanup(func() { telegram.refuseToken(token, 0) })
-		code, out := chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{"name": "Typo", "token": token, "agent_id": newAgent()})
+		code, out := chatsDo(http.MethodPost, chatsBase()+"/connectors", obj{"kind": "telegram", "name": "Typo", "token": token, "agent_id": newAgent()})
 		Expect(code).To(Equal(http.StatusBadRequest), string(out))
 		Expect(string(out)).To(ContainSubstring("refused the bot token"))
 	})

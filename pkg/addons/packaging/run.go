@@ -23,6 +23,7 @@ var commands = map[string]func(args []string) error{
 	"build":         cmdBuild,
 	"verify":        cmdVerify,
 	"extract":       cmdExtract,
+	"zip":           cmdZip,
 	"native-check":  cmdNativeCheck,
 	"merge":         cmdMerge,
 	"publish":       cmdPublish,

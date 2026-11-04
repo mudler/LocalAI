@@ -35,7 +35,6 @@ type fakeTargets struct {
 	triggers map[string][]convert.TriggerIn
 	skills   map[string]convert.SkillRec
 	chats    map[string][]convert.ChatIn
-	bindings map[string][]convert.BindingIn
 	failSave map[string]bool // agent names whose save fails
 	colErr   error           // what Collections returns
 	// invalidSave names the agents whose save is refused for good; trigErr is
@@ -56,7 +55,7 @@ type fakeTargets struct {
 func newTargets() *fakeTargets {
 	return &fakeTargets{users: map[string]bool{alice: true, bob: true, "": true}, cols: map[string][]string{},
 		agents: map[string][]convert.AgentIn{}, triggers: map[string][]convert.TriggerIn{}, skills: map[string]convert.SkillRec{},
-		chats: map[string][]convert.ChatIn{}, bindings: map[string][]convert.BindingIn{}, failSave: map[string]bool{},
+		chats: map[string][]convert.ChatIn{}, failSave: map[string]bool{},
 		invalidSave: map[string]bool{},
 		admins:      map[string]bool{}, mcp: map[string][]convert.MCPIn{}, mcpErr: map[string]error{}}
 }
@@ -147,12 +146,6 @@ func (f *fakeTargets) DiscardChat(_ context.Context, u, title string, created ti
 		}
 	}
 	f.chats[u] = keep
-	return nil
-}
-func (f *fakeTargets) CreateBinding(_ context.Context, u string, in convert.BindingIn) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.bindings[u] = append(f.bindings[u], in)
 	return nil
 }
 
@@ -279,17 +272,15 @@ var _ = Describe("converting the old agents", func() {
 		Expect(without.agents[""][0].Name).To(Equal("Legacy"))
 	})
 
-	It("converts only the Telegram connector and keeps its token out of the report", func() {
+	It("drops every connector and keeps its token out of the report", func() {
 		dir := GinkgoT().TempDir()
 		poolFixture(dir)
 		tg := newTargets()
 		r := run(convert.Sources{StateDir: dir, AuthEnabled: true}, tg, memMarks())
-		bs := tg.bindings[alice]
-		Expect(bs).To(HaveLen(1), "bindings = %+v", bs)
-		Expect(bs[0].Token).To(Equal(token))
-		Expect(bs[0].AgentID).To(Equal("agent-1"))
-		Expect(bs[0].Allow).To(Equal([]string{"@ada_l", "@bo_b"}), "want the admins that are valid usernames")
-		it, ok := find(r, convert.KindConnector, "Support: slack")
+		it, ok := find(r, convert.KindConnector, "Support: telegram")
+		Expect(ok).To(BeTrue(), "telegram = %+v", it)
+		Expect(it.Status).To(Equal(convert.StatusDropped))
+		it, ok = find(r, convert.KindConnector, "Support: slack")
 		Expect(ok).To(BeTrue(), "slack = %+v", it)
 		Expect(it.Status).To(Equal(convert.StatusDropped))
 		raw, _ := json.Marshal(r)
@@ -427,12 +418,11 @@ var _ = Describe("converting the old agents", func() {
 		it, _ := find(first, convert.KindAgent, "Plain")
 		Expect(it.Status).To(Equal(convert.StatusFailed), "failed item = %+v", it)
 		Expect(it.Reason).To(ContainSubstring("disk full"), "failed item = %+v", it)
-		nAgents, nTriggers, nBindings := len(tg.agents[alice]), len(tg.triggers[alice]), len(tg.bindings[alice])
+		nAgents, nTriggers := len(tg.agents[alice]), len(tg.triggers[alice])
 		delete(tg.failSave, "Plain")
 		second := run(src, tg, marks)
 		Expect(tg.agents[alice]).To(HaveLen(nAgents), "a second run converted an item again")
 		Expect(tg.triggers[alice]).To(HaveLen(nTriggers), "a second run converted an item again")
-		Expect(tg.bindings[alice]).To(HaveLen(nBindings), "a second run converted an item again")
 		Expect(tg.agents[bob]).To(HaveLen(1), "the failed agent was not tried again: %+v", tg.agents[bob])
 		it, _ = find(second, convert.KindAgent, "Support")
 		Expect(it.Status).To(Equal(convert.StatusSkipped), "an item already converted is %+v", it)

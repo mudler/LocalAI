@@ -71,7 +71,7 @@ export function ErrorCard({ failure, isAdmin, kept, onRetry, canRetry }) {
 // replaces your message and runs the chat again from it, Regenerate answers the
 // last message again, and Branch copies the chat up to the message into a new one.
 function ChatMessage({
-  msg, isLast, model, warm, busy, activityItems, actions, conversationId, canRegenerate, proposalTick,
+  msg, isLast, model, warm, busy, activityItems, proposalItems, actions, conversationId, canRegenerate, proposalTick,
 }) {
   const { t } = useTranslation('chat')
   const isUser = msg.role === 'user'
@@ -172,7 +172,7 @@ function ChatMessage({
         text && <Prose html={html} />
       )}
 
-      {activityItems && <ActivityProposals items={activityItems} proposalTick={proposalTick} />}
+      {(proposalItems ?? activityItems) && <ActivityProposals items={proposalItems ?? activityItems} proposalTick={proposalTick} />}
 
       <div className="cx-acts" data-testid="message-actions">
         <button type="button" className="cx-icobtn" onClick={() => actions.copy(text)} title={t('actions.copy')} aria-label={t('actions.copy')}>
@@ -201,10 +201,21 @@ function ChatMessage({
 
 // Tool-less rows that sit between messages: a run of reasoning and tool entries
 // that no assistant message follows yet.
-export function ActivityRow({ items, id, proposalTick }) {
+export function ActivityRow({ items, id, proposalTick, withProposals = true }) {
   return (
     <div className="cx-row">
-      <ActivityGroup items={items} id={id} proposalTick={proposalTick} />
+      <ActivityGroup items={items} id={id} proposalTick={proposalTick} withProposals={withProposals} />
+    </div>
+  )
+}
+
+// The cards of the proposals of a turn that has no message to hold them (the
+// turn is still streaming, or the model has not said anything yet). The page
+// draws it after the streaming turn, so the card stays below the text.
+export function ProposalsRow({ items, proposalTick }) {
+  return (
+    <div className="cx-row" data-testid="chat-proposals">
+      <ActivityProposals items={items} proposalTick={proposalTick} />
     </div>
   )
 }

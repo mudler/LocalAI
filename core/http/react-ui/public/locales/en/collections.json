@@ -1,6 +1,6 @@
 {
-  "title": "Memory",
-  "subtitle": "Your library of collections. Search any of them here, or add one to an agent when you want it used.",
+  "title": "Knowledge",
+  "subtitle": "Collections of documents that agents can search. Search any of them here, or add one to an agent when you want it used.",
   "newPlaceholder": "New collection name...",
   "actions": {
     "create": "Create",
@@ -18,13 +18,13 @@
     "otherUsersCollections": "Other users' collections"
   },
   "empty": {
-    "title": "Memory holds documents an agent can search",
+    "title": "Knowledge holds documents an agent can search",
     "text": "A collection is a set of files and web pages, indexed so that a question finds the passages that answer it. You can search it here without any agent.",
     "stepCreate": "Create a collection.",
     "stepFill": "Add files or a web page to it.",
     "stepAsk": "Ask it a question to see what comes back, then give it to an agent.",
     "noPersonal": "You have no collections yet.",
-    "learn": "How memory works"
+    "learn": "How knowledge works"
   },
   "deleteDialog": {
     "title": "Delete Collection",
@@ -137,8 +137,8 @@
   },
   "loadFailed": "Could not load your collections.",
   "starting": {
-    "title": "Memory is starting.",
-    "text": "The server is still getting the memory service ready. This page asks again by itself."
+    "title": "Knowledge is starting.",
+    "text": "The server is still getting the knowledge service ready. This page asks again by itself."
   },
   "embedding": {
     "missingTitle": "No embedding model installed.",

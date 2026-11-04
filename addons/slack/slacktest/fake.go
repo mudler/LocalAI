@@ -58,6 +58,8 @@ type Server struct {
 	refuse   map[string]string
 	limit    map[string]int
 	calls    map[string]int
+	thread   map[string][]map[string]any // by channel and thread: the messages conversations.replies returns
+	failing  map[string]string           // method -> error code, once
 	seq      int
 	links    int
 	upgrader websocket.Upgrader
@@ -93,7 +95,7 @@ func (c *conn) send(v any) error {
 // New starts a fake Slack. Close it when the test ends.
 func New() *Server {
 	s := &Server{apps: map[string]*App{}, tickets: map[string]string{}, conns: map[string][]*conn{}, pending: map[string][]any{},
-		users: map[string]map[string]any{}, files: map[string]file{}, uploads: map[string]*Upload{}, refuse: map[string]string{}, limit: map[string]int{}, calls: map[string]int{}}
+		users: map[string]map[string]any{}, files: map[string]file{}, uploads: map[string]*Upload{}, refuse: map[string]string{}, limit: map[string]int{}, calls: map[string]int{}, thread: map[string][]map[string]any{}, failing: map[string]string{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/", s.api)
 	mux.HandleFunc("/link", s.link)
@@ -143,6 +145,27 @@ func (s *Server) AddUser(id, name, real string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.users[id] = map[string]any{"id": id, "name": name, "profile": map[string]any{"real_name": real, "display_name": ""}}
+}
+
+// AddThreadMessage appends a message to a thread, as conversations.replies
+// returns it. The first message of a thread is its parent: ts equals thread.
+// fields are the keys of a Slack message, such as user, text, files or bot_id;
+// ts and thread_ts are set here.
+func (s *Server) AddThreadMessage(channel, thread, ts string, fields map[string]any) {
+	m := map[string]any{"type": "message", "ts": ts, "thread_ts": thread}
+	for k, v := range fields {
+		m[k] = v
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.thread[channel+"\x00"+thread] = append(s.thread[channel+"\x00"+thread], m)
+}
+
+// FailOnce makes the next call of a method answer ok:false with code.
+func (s *Server) FailOnce(method, code string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failing[method] = code
 }
 
 // AddFile registers a file that a message can carry.
@@ -313,6 +336,10 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := s.refuse[token]
+	if once, ok := s.failing[method]; ok {
+		delete(s.failing, method)
+		code = once
+	}
 	app := s.apps[token]
 	s.mu.Unlock()
 	switch {
@@ -365,6 +392,8 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		s.posts = append(s.posts, Post{Token: token, Channel: channel, Thread: thread, Text: text, TS: ts, Edited: method == "chat.update"})
 		s.mu.Unlock()
 		s.reply(w, map[string]any{"ok": true, "channel": channel, "ts": ts})
+	case "conversations.replies":
+		s.replies(w, r)
 	case "users.info":
 		s.mu.Lock()
 		u, ok := s.users[r.Form.Get("user")]
@@ -418,6 +447,41 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 	default:
 		s.reply(w, map[string]any{"ok": false, "error": "unknown_method"})
 	}
+}
+
+// replies answers conversations.replies: the messages of a thread, oldest
+// first, those before latest when it is given, a page of limit messages from
+// the cursor on.
+func (s *Server) replies(w http.ResponseWriter, r *http.Request) {
+	channel, thread := r.Form.Get("channel"), r.Form.Get("ts")
+	s.mu.Lock()
+	all := append([]map[string]any(nil), s.thread[channel+"\x00"+thread]...)
+	s.mu.Unlock()
+	if len(all) == 0 {
+		s.reply(w, map[string]any{"ok": false, "error": "thread_not_found"})
+		return
+	}
+	if latest, err := strconv.ParseFloat(r.Form.Get("latest"), 64); err == nil {
+		kept := all[:0:0]
+		for _, m := range all {
+			if t, _ := strconv.ParseFloat(m["ts"].(string), 64); t < latest {
+				kept = append(kept, m)
+			}
+		}
+		all = kept
+	}
+	limit, _ := strconv.Atoi(r.Form.Get("limit"))
+	if limit < 1 || limit > 1000 {
+		limit = 100
+	}
+	from, _ := strconv.Atoi(r.Form.Get("cursor"))
+	from = min(max(from, 0), len(all))
+	to := min(from+limit, len(all))
+	out := map[string]any{"ok": true, "messages": all[from:to], "has_more": to < len(all)}
+	if to < len(all) {
+		out["response_metadata"] = map[string]any{"next_cursor": strconv.Itoa(to)}
+	}
+	s.reply(w, out)
 }
 
 func (s *Server) download(w http.ResponseWriter, r *http.Request) {

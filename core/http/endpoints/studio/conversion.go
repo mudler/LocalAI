@@ -17,7 +17,7 @@ func totalsOf(r convert.Report) schema.ChatsConversionTotals {
 
 // Conversion returns what the conversion of the old data did for the caller.
 // @Summary Report the conversion of your old agents, skills and chats.
-// @Description At start the server converts the old chat page, agents, tasks, skills and Telegram connectors into chats, saved agents, triggers, skills and connector bindings. Triggers and connectors are made switched off. This lists the items that belong to you, with what was dropped and why; an administrator also gets the totals of all users. It never holds a token or the text of a prompt.
+// @Description At start the server converts the old chat page, agents, tasks, skills and connectors into chats, saved agents, triggers and skills. Triggers are made switched off; connectors are listed as dropped and are made again in the Connectors page. This lists the items that belong to you, with what was dropped and why; an administrator also gets the totals of all users. It never holds a token or the text of a prompt.
 // @Tags chats
 // @Success 200 {object} schema.ChatsConversion "The report"
 // @Router /api/chats/conversion [get]

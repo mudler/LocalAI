@@ -67,14 +67,14 @@ type Admin interface {
 
 // Endpoints are the addresses of the providers. Tests point them at fakes.
 type Endpoints struct {
-	Brave, Tavily, Google string
+	Brave, Tavily, Google, Keenable string
 	// Keyless are the result pages of the keyless chain.
 	Keyless search.KeylessEndpoints
 }
 
 // DefaultEndpoints are the documented addresses.
 func DefaultEndpoints() Endpoints {
-	return Endpoints{Brave: providers.BraveEndpoint, Tavily: providers.TavilyEndpoint, Google: providers.GoogleEndpoint, Keyless: search.DefaultKeylessEndpoints()}
+	return Endpoints{Brave: providers.BraveEndpoint, Tavily: providers.TavilyEndpoint, Google: providers.GoogleEndpoint, Keenable: providers.KeenableEndpoint, Keyless: search.DefaultKeylessEndpoints()}
 }
 
 // Options configure the runtime.
@@ -144,6 +144,8 @@ func (r *runtime) build(s settings.Settings) []search.Provider {
 			p, err = providers.NewTavily(r.o.Endpoints.Tavily, s.Keys[n])
 		case providers.Google:
 			p, err = providers.NewGoogle(r.o.Endpoints.Google, s.Keys[n], s.GoogleEngine)
+		case providers.Keenable:
+			p, err = providers.NewKeenable(r.o.Endpoints.Keenable, s.Keys[n])
 		case providers.SearXNG:
 			p, err = search.NewSearXNG(s.SearXNGURL)
 		case providers.DuckDuckGo:

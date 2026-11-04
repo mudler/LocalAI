@@ -328,3 +328,79 @@ var _ = Describe("catalog display metadata", func() {
 		Expect(e).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("catalog translations", func() {
+	translated := func(mutate func(*Release)) []Release {
+		app := release()
+		app.ID, app.Name = "notes", "Notes"
+		app.UI = EntryUI{
+			Title: "Notes", Description: "Keep notes.", MainPage: "home",
+			Titles:       map[string]string{"it": "Appunti", "pt-BR": "Anotações"},
+			Descriptions: map[string]string{"it": "Tieni degli appunti.", "pt-BR": "Guarde anotações."},
+		}
+		if mutate != nil {
+			mutate(&app)
+		}
+		return []Release{app}
+	}
+	refresh := func(releases []Release) (Catalog, error) {
+		server := library(func(w http.ResponseWriter, r *http.Request) { _ = WriteIndex(w, releases) })
+		s := setup()
+		save(s, "main", server.URL)
+		_, e := s.Refresh(ctx, "main")
+		return Catalog{Sources: s, TargetOS: "linux", TargetArch: "amd64"}, e
+	}
+	It("carries the translated title and description of an entry through the library", func() {
+		c, e := refresh(translated(nil))
+		Expect(e).NotTo(HaveOccurred())
+		page, e := c.Search(ctx, Query{})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases[0].UI.Titles).To(Equal(map[string]string{"it": "Appunti", "pt-BR": "Anotações"}))
+		Expect(page.Releases[0].UI.Descriptions["it"]).To(Equal("Tieni degli appunti."))
+		r, e := c.Resolve(ctx, "main", "notes", "1.0.0")
+		Expect(e).NotTo(HaveOccurred())
+		Expect(r.UI.Titles).To(Equal(page.Releases[0].UI.Titles))
+	})
+	It("finds an entry by its translated text as well as by the English text", func() {
+		c, e := refresh(translated(nil))
+		Expect(e).NotTo(HaveOccurred())
+		for _, text := range []string{"notes", "appunti", "ANOTAÇÕES", "tieni degli"} {
+			page, e := c.Search(ctx, Query{Text: text})
+			Expect(e).NotTo(HaveOccurred())
+			Expect(page.Releases).To(HaveLen(1), text)
+		}
+		page, e := c.Search(ctx, Query{Text: "tabelle"})
+		Expect(e).NotTo(HaveOccurred())
+		Expect(page.Releases).To(BeEmpty())
+	})
+	It("keeps a plain entry free of translation fields on the wire", func() {
+		c, e := refresh(translated(func(r *Release) { r.UI.Titles, r.UI.Descriptions = nil, nil }))
+		Expect(e).NotTo(HaveOccurred())
+		page, _ := c.Search(ctx, Query{})
+		b, _ := json.Marshal(page.Releases[0])
+		Expect(string(b)).NotTo(ContainSubstring("titles"))
+		Expect(string(b)).NotTo(ContainSubstring("descriptions"))
+	})
+	It("rejects translations that the manifest would refuse", func() {
+		many := map[string]string{}
+		for i := 0; i < contract.MaxLanguages+1; i++ {
+			many[string(rune('a'+i%26))+string(rune('b'+i/26))+"-US"] = "x"
+		}
+		for name, mutate := range map[string]func(*Release){
+			"English entry":    func(r *Release) { r.UI.Titles["en"] = "Notes" },
+			"bad tag":          func(r *Release) { r.UI.Titles["not a tag"] = "x" },
+			"underscore tag":   func(r *Release) { r.UI.Titles["pt_BR"] = "x" },
+			"tag case clash":   func(r *Release) { r.UI.Titles["PT-br"] = "x" },
+			"markup":           func(r *Release) { r.UI.Titles["it"] = "<b>Appunti</b>" },
+			"control":          func(r *Release) { r.UI.Descriptions["it"] = "a\nb" },
+			"empty":            func(r *Release) { r.UI.Titles["it"] = "" },
+			"long title":       func(r *Release) { r.UI.Titles["it"] = strings.Repeat("t", 81) },
+			"long description": func(r *Release) { r.UI.Descriptions["it"] = strings.Repeat("d", 281) },
+			"too many":         func(r *Release) { r.UI.Titles = many },
+			"bidi override":    func(r *Release) { r.UI.Titles["it"] = "A\u202eB" },
+		} {
+			_, e := refresh(translated(mutate))
+			Expect(e).To(MatchError(ErrRefresh), name)
+		}
+	})
+})

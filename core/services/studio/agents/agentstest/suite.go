@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/mudler/LocalAI/core/services/studio/agents"
+	"github.com/mudler/LocalAI/core/services/studio/connsets"
 )
 
 // NewStore returns an empty store. Each spec calls it once; clean up with
@@ -23,7 +24,8 @@ func sample(id, principal, name string) agents.Agent {
 	return agents.Agent{
 		ID: id, Principal: principal, Name: name, Description: "d", Instructions: "Be brief.", Model: "m1",
 		MCPServers: []string{"github"}, Addons: []string{"office", "sandbox"}, Collections: []string{"docs"}, Skills: []string{"review"},
-		Network: "registries", Created: now, Updated: now,
+		Network: "registries", Memory: agents.MemoryMineAndOwn, BuiltinsOff: []string{"triggers", "web"}, BuiltinsOn: []string{"saved_agents"}, Builtins: []string{"memory.write", "skills.write"},
+		Connections: connsets.Sets{"tracker": {"b-work", "b-home"}}, Created: now, Updated: now,
 	}
 }
 
@@ -44,6 +46,14 @@ func Run(newStore NewStore) {
 		Expect(strings.Join(got.Collections, ",")).To(Equal("docs"))
 		Expect(strings.Join(got.Skills, ",")).To(Equal("review"))
 		Expect(got.Network).To(Equal("registries"))
+		Expect(got.Memory).To(Equal("mine_and_own"))
+		Expect(got.BuiltinsOff).To(Equal([]string{"triggers", "web"}))
+		Expect(got.BuiltinsOn).To(Equal([]string{"saved_agents"}))
+		Expect(got.Builtins).To(Equal([]string{"memory.write", "skills.write"}))
+		Expect(got.Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}))
+		got.Connections["tracker"][0] = "changed"
+		again, _ := s.Get(ctx, "u1", "a1")
+		Expect(again.Connections).To(Equal(connsets.Sets{"tracker": {"b-work", "b-home"}}), "a caller cannot change a stored agent")
 		Expect(got.Created.Equal(a.Created)).To(BeTrue(), "got %+v", got)
 		a.Name, a.Addons, a.Updated = "Reviewer 2", nil, a.Updated.Add(time.Hour)
 		a.Created = time.Time{}
@@ -137,6 +147,45 @@ func Run(newStore NewStore) {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(all[0].FolderID).To(BeZero())
 		Expect(all[0].FolderMode).To(BeEmpty(), "after clearing")
+	})
+	It("round-trips a list of folders in order and mirrors the first into the old pair", func() {
+		s := newStore()
+		a := sample("a1", "u1", "Multi")
+		a.Folders = []agents.AgentFolder{{Node: 9, Mode: agents.FolderWrite}, {Node: 3, Mode: agents.FolderRead}, {Node: 5, Mode: agents.FolderRead}}
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, err := s.Get(ctx, "u1", "a1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Folders).To(Equal(a.Folders))
+		Expect(got.FolderID).To(Equal(int64(9)))
+		Expect(got.FolderMode).To(Equal(agents.FolderWrite))
+
+		// A shorter list replaces the longer one.
+		a.Folders = a.Folders[1:2]
+		Expect(s.Put(ctx, a)).To(Succeed())
+		l, _ := s.List(ctx, "u1")
+		Expect(l[0].Folders).To(Equal([]agents.AgentFolder{{Node: 3, Mode: agents.FolderRead}}))
+
+		// An agent that has only the old pair reads as a one-entry list.
+		old := sample("a2", "u1", "Old")
+		old.FolderID, old.FolderMode = 4, agents.FolderRead
+		Expect(s.Put(ctx, old)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "a2")
+		Expect(got.Folders).To(Equal([]agents.AgentFolder{{Node: 4, Mode: agents.FolderRead}}))
+
+		// No folders at all clears the list.
+		a.Folders, a.FolderID, a.FolderMode = nil, 0, ""
+		Expect(s.Put(ctx, a)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "a1")
+		Expect(got.Folders).To(BeEmpty())
+		Expect(got.HasFolder()).To(BeFalse())
+		all, _ := s.ListAll(ctx)
+		Expect(all).To(HaveLen(2))
+
+		Expect(s.Delete(ctx, "u1", "a2")).To(Succeed())
+		again := sample("a2", "u1", "Old")
+		Expect(s.Put(ctx, again)).To(Succeed())
+		got, _ = s.Get(ctx, "u1", "a2")
+		Expect(got.Folders).To(BeEmpty(), "the folders of a deleted agent do not come back")
 	})
 	It("ReturnedListsAreCopies", func() {
 		s := newStore()

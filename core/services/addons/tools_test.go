@@ -18,7 +18,7 @@ var _ = Describe("declared tools of the installed generation", Label("tools"), f
 		m := open(cfg, c, i)
 		v := contract.VersionRange{Min: 1, Max: 1}
 		receipt := func(id string, tools ...string) packages.PackageReceipt {
-			return packages.PackageReceipt{Manifest: contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, Tools: tools}}}
+			return packages.PackageReceipt{Manifest: contract.Manifest{SchemaVersion: 1, ID: id, Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: contract.Capabilities{Service: true, Tools: tools}}}
 		}
 		m.journal.Addons["notes"] = Status{AddonID: "notes", Installed: true, DesiredEnabled: true, Generation: 2, Generations: []Generation{
 			{Number: 1, Receipt: receipt("notes", "old-tool")}, {Number: 2, Receipt: receipt("notes", "summarize")}}}
@@ -76,6 +76,7 @@ var _ = Describe("declared tools of the installed generation", Label("tools"), f
 var capabilitiesNotDeclared = map[string]string{
 	"UI":        "the page entry and assets are served from the package receipt, not through the gateway",
 	"Connector": "the connector kinds are read from the manifest by ConnectorKinds, and no gateway call depends on them",
+	"Network":   "the apps list reads the declared network from the receipt's manifest, and no gateway call depends on it",
 }
 
 // fillNonZero sets every field of v, recursively, to a value that differs from
@@ -122,7 +123,7 @@ var _ = Describe("declared capabilities of the installed generation", Label("too
 		m.SetHostOps(map[string][]string{"notes": {"workspace."}})
 		v := contract.VersionRange{Min: 1, Max: 1}
 		m.journal.Addons["notes"] = Status{AddonID: "notes", Installed: true, DesiredEnabled: true, Generation: 1, Generations: []Generation{{Number: 1, Receipt: packages.PackageReceipt{
-			Manifest: contract.Manifest{SchemaVersion: 1, ID: "notes", Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: v, Protocol: v, DataFormat: v, Capabilities: caps}}}}}
+			Manifest: contract.Manifest{SchemaVersion: 1, ID: "notes", Version: "1.0.0", Executable: "bin/x", OS: "linux", Arch: "amd64", Host: v, API: contract.VersionRange{Min: 2, Max: 2}, Protocol: v, DataFormat: v, Capabilities: caps}}}}}
 		got, e := m.DeclaredCapabilities(ctx, "notes", 1)
 		Expect(e).NotTo(HaveOccurred())
 		typ := reflect.TypeOf(caps)

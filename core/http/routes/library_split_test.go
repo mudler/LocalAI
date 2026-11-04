@@ -51,7 +51,7 @@ var _ = Describe("library routes through a split owner", func() {
 			InstanceID: transport.InstanceID, OwnerID: gateway.OwnerIdentity, OwnerAddress: address,
 			OfficialLibrary: true, OfficialBackendLibrary: true,
 			StorageID: "local", Transport: transport, OwnershipMode: auth.AddonModeLocalOwner,
-			Host: contract.HostCompatibility{Host: 1, API: 1, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
+			Host: contract.HostCompatibility{Host: 1, API: contract.HostAPIVersion, Protocol: 1, SDK: 1, DataFormat: 1, OS: goruntime.GOOS, Arch: goruntime.GOARCH},
 		}
 		if role == "frontend" {
 			cfg.Frontend = true

@@ -740,6 +740,21 @@ tts:
   audio_path: voices/default-reference.wav  # optional fallback
 ```
 
+##### Concurrent requests
+
+By default `qwen3-tts-cpp` synthesizes one request at a time. Set `max_batch` to let qwentts.cpp batch up to N concurrent `/v1/audio/speech` requests (streaming or not) into shared decode steps; further requests queue inside the engine:
+
+```yaml
+options:
+  - max_batch:4
+```
+
+The contributor measured four concurrent streaming requests through LocalAI on an RTX 5060 Ti (1.7B Base Q4_K_M): the first audio arrived after 0.31–0.33 seconds for all four with `max_batch:4`, compared with 0.30, 0.94, 1.48 and 2.02 seconds with `max_batch:1`. VRAM grows with `max_batch` (roughly 2.6 GB at 1, 6 GB at 4, 10.5 GB at 8 for that talker).
+
+At load the backend attempts concurrent warmup to reduce graph initialization delays; this does not guarantee that every batch width is warmed. CustomVoice and VoiceDesign models reject these generic warmup requests because they require a speaker or instruction, so the backend logs a warning and continues loading. `max_batch_warmup:false` skips warmup.
+
+Incremental synthesis (`TTSLive`, used by a realtime pipeline with `streaming.tts: true`) requires `max_batch:1`. On ROCm before 10.1 with RDNA4 (gfx1201), batched requests can hang the GPU in hipBLASLt (fixed in ROCm 10.1 by ROCm/rocm-libraries#8909); on those stacks add `env: {ROCBLAS_USE_HIPBLASLT: "0"}` to the model configuration.
+
 #### llama.cpp gallery variants
 
 llama.cpp gained native Qwen3-TTS support in [ggml-org/llama.cpp#26254](https://github.com/ggml-org/llama.cpp/pull/26254), so the `llama-cpp` backend can serve it on the same accelerator matrix it already uses for text generation: CUDA, ROCm, SYCL, Vulkan and Metal.

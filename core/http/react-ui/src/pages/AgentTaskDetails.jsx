@@ -21,10 +21,12 @@ import { jobOfRun, STRIP } from '../utils/agentJobs'
 import { jobSentence } from '../utils/agentJobText'
 import { formatDuration, firstLine } from '../utils/agentRuns'
 import { jobDurationMs } from '../utils/agentJobs'
+import { actsStatus } from '../utils/triggerActs'
 import {
   EVERY_HOURS, EVERY_MINUTES, HOURLY_MINUTES, dayCodes, emptyTrigger, formatNext, joinTimes, presetOrder,
   scheduleText, triggerForm, triggerPayload,
 } from '../utils/chatTrigger'
+import { ActsEditor, ActsSummary } from '../components/TriggerActs'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import { Button, LoadError, Page, PageHeader, SkeletonRows, Switch } from '../components/ui'
@@ -178,6 +180,8 @@ function TaskView({ id }) {
             {task.kind === 'file' ? t('jobs.task.watches', { folder: task.folder }) : task.summary}
             {task.next_run && !off ? <span className="ag-muted"> · {t('chats:triggersPage.next', { time: formatNext(task.next_run, task.time_zone) })}</span> : null}
           </dd>
+          <dt>{t('jobs.task.acts')}</dt>
+          <dd data-testid="task-acts"><ActsSummary trigger={task} /></dd>
           <dt>{t('jobs.task.cap')}</dt>
           <dd className="ag-facts__model">{task.daily_cap || '-'}</dd>
           <dt>{t('jobs.task.enabledSwitch')}</dt>
@@ -243,6 +247,7 @@ const SECTIONS = [
   { id: 'basics', keys: ['name', 'agent_id', 'model', 'enabled'] },
   { id: 'prompt', keys: ['prompt'] },
   { id: 'schedule', keys: ['kind', 'schedule', 'time_zone', 'folder', 'quiet_seconds'] },
+  { id: 'acts', keys: ['acts'] },
   { id: 'limits', keys: ['daily_cap'] },
 ]
 
@@ -440,6 +445,9 @@ function TaskForm({ id, isNew }) {
   })
 
   const picked = agents.find(a => a.id === task.agentId)
+  // The grants of the chosen agent cap what the trigger can hold; with no agent only the list does.
+  const agentGrants = picked ? (picked.builtins || []) : null
+  const status = actsStatus({ acts: task.acts, agentGrants, writes: task.writes, lock: task.lock })
   const summary = (sid) => {
     if (sid === 'basics') {
       if (!task.name.trim()) return { state: 'needs', text: t('jobs.edit.summary.basicsEmpty') }
@@ -451,6 +459,10 @@ function TaskForm({ id, isNew }) {
       if (next.error) return { state: 'needs', text: next.error }
       if (task.schedule.preset === 'file') return { state: task.folder.trim() ? 'ready' : 'needs', text: task.folder.trim() ? t('jobs.task.watches', { folder: task.folder }) : t('jobs.edit.summary.folderEmpty') }
       return { state: 'ready', text: scheduleText(task.schedule) }
+    }
+    if (sid === 'acts') {
+      if (status.readOnly) return { state: 'ready', text: t('chats:triggerActs.readOnly') }
+      return { state: 'ready', text: t('jobs.edit.summary.acts', { count: status.held.length }) }
     }
     return { state: 'ready', text: task.dailyCap ? t('jobs.edit.summary.cap', { count: Number(task.dailyCap) }) : t('jobs.edit.summary.capDefault') }
   }
@@ -561,6 +573,13 @@ function TaskForm({ id, isNew }) {
           <ScheduleFields form={task} setForm={setTask} folders={folders} t={t} />
           {next.text && <p className="aj-words" data-testid="trigger-preview">{next.text}</p>}
           {next.error && <p className="dk-field-error" role="alert">{next.error}</p>}
+        </div>
+      )
+    }
+    if (sid === 'acts') {
+      return (
+        <div className="aj-form">
+          <ActsEditor value={task.acts} onChange={(acts) => set('acts', acts)} agentGrants={agentGrants} writes={task.writes} lock={task.lock} />
         </div>
       )
     }

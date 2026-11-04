@@ -73,6 +73,10 @@ func isOfficialAddonURL(url string) bool {
 	return ok && asset == OfficialReleaseAsset && releaseVersionRE.MatchString(version)
 }
 
+// IsOfficialAddonURL reports whether url is the index of the official add-on
+// library that LocalAI itself ships: the master index or the index of a release.
+func IsOfficialAddonURL(url string) bool { return isOfficialAddonURL(url) }
+
 const (
 	// OfficialBackendLibraryID is the source ID of the backend library.
 	OfficialBackendLibraryID = "official-backends"

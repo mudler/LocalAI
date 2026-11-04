@@ -117,7 +117,7 @@ var chatRules = []errRule{
 	fixed(http.StatusConflict, "agent_folder_missing", "The folder of this agent is missing. Choose a folder in the agent's settings.", studiosvc.ErrAgentFolderMissing),
 	verbatim(http.StatusBadRequest, typeInvalid, "studio: ", studiosvc.ErrNothingToRegenerate, studiosvc.ErrNotUserMessage,
 		studiosvc.ErrInvalidSettings, studiosvc.ErrBadImport, session.ErrInvalid),
-	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadMCPSwitch, studiosvc.ErrBadBuiltinGroup),
+	verbatim(http.StatusBadRequest, typeInvalid, "", studiosvc.ErrBadSkillName, studiosvc.ErrBadAddonID, studiosvc.ErrBadConnection, studiosvc.ErrBadMCPSwitch, studiosvc.ErrBadBuiltinGroup),
 	verbatim(http.StatusConflict, typeFilesOff, "", files.ErrUnavailable),
 	fixed(http.StatusRequestEntityTooLarge, typeInvalid, "an attachment is too large", workspace.ErrTooLarge),
 	fixed(http.StatusConflict, typeConflict, "a sub-agent conversation takes no messages from you", studiosvc.ErrSubAgentReadOnly),
@@ -134,6 +134,7 @@ var chatRules = []errRule{
 	fixed(http.StatusServiceUnavailable, "assistant_off", "the LocalAI assistant is switched off on this server", studiosvc.ErrAssistantOff),
 	fixed(http.StatusBadRequest, typeInvalid, "an assistant chat cannot name a saved agent", studiosvc.ErrAssistantAgent),
 	verbatim(http.StatusConflict, typeAgentsOff, "", studiosvc.ErrAgentsOff),
+	verbatim(http.StatusInternalServerError, "server_error", "studio: ", studiosvc.ErrAgentNotesKept),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow commands on this machine; anyone can refuse them", studiosvc.ErrHostExecDecision),
 	fixed(http.StatusBadRequest, typeInvalid, "the body must be {id, decision} with decision once or deny", studiosvc.ErrHostExecBadDecision),
 	fixed(http.StatusGone, "consent_expired", "the card expired: the turn that asked has ended, so the command did not run", studiosvc.ErrHostExecExpired),
@@ -144,7 +145,7 @@ var chatRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "no such network card", studiosvc.ErrEgressNoCard),
 	fixed(http.StatusBadRequest, typeInvalid, "the answer must be once, chat or deny", studiosvc.ErrEgressBadDecision),
 	fixed(http.StatusConflict, "already_answered", "the network card was answered already with another answer", studiosvc.ErrEgressAnswered),
-	fixed(http.StatusBadRequest, "egress_above_ceiling", "the limit an administrator set for the Sandbox network does not admit this host; an administrator can raise it on the Settings tab of the add-on that runs the commands", studiosvc.ErrEgressHostAboveCeiling),
+	fixed(http.StatusBadRequest, "egress_above_ceiling", "the limit an administrator set for the network of commands does not admit this host; an administrator can raise it on the Settings tab of the add-on that runs the commands", studiosvc.ErrEgressHostAboveCeiling),
 	fixed(http.StatusForbidden, typeAuthz, "only an administrator can allow a host inside your network; anyone can deny it", studiosvc.ErrEgressDecision),
 	verbatim(http.StatusConflict, typeConflict, "", studiosvc.ErrGoalNotAllowed, studiosvc.ErrGoalReached),
 	verbatim(http.StatusNotFound, typeNotFound, "", studiosvc.ErrNoGoal),
@@ -157,6 +158,23 @@ func failFor(c echo.Context, err error) error {
 		xlog.Error("studio: request failed", "path", c.Request().URL.Path, "error", err)
 		return fail(c, http.StatusInternalServerError, typeServerError, "the request failed")
 	})
+}
+
+// originFilter turns the origin parameter of the chat list into a test on a
+// chat. person keeps the chats a person started (no origin), automated keeps
+// every other chat, and any other word keeps the chats of that origin kind. An
+// empty value is no filter (nil), so a client that does not send it gets all.
+func originFilter(origin string) func(session.ChatRecord) bool {
+	switch origin {
+	case "":
+		return nil
+	case "person":
+		return func(r session.ChatRecord) bool { return r.Origin == "" }
+	case "automated":
+		return func(r session.ChatRecord) bool { return r.Origin != "" }
+	default:
+		return func(r session.ChatRecord) bool { return r.Origin == origin }
+	}
 }
 
 func conversation(rec session.ChatRecord, info store.TurnInfo) schema.ChatsConversation {
@@ -229,7 +247,7 @@ func (h *Handlers) Create(c echo.Context) error {
 	user := userID(c)
 	in := studiosvc.CreateInput{Title: req.Title, Model: req.Model, AgentID: req.AgentID, Assistant: req.Assistant}
 	if sw := req.Switches; sw != nil {
-		in.Switches = studiosvc.Switches{AddonsOff: sw.AddonsOff, McpOff: sw.McpOff, BuiltinsOff: sw.BuiltinsOff, BuiltinsOn: sw.BuiltinsOn, SkillsOff: sw.SkillsOff}
+		in.Switches = studiosvc.Switches{AddonsOff: sw.AddonsOff, McpOff: sw.McpOff, BuiltinsOff: sw.BuiltinsOff, BuiltinsOn: sw.BuiltinsOn, SkillsOff: sw.SkillsOff, Connections: sw.Connections}
 	}
 	rec, err := h.svc.Create(c.Request().Context(), user, in)
 	if err != nil {
@@ -247,6 +265,7 @@ func (h *Handlers) Create(c echo.Context) error {
 // @Tags chats
 // @Param limit query int false "most conversations to return (default 50, at most 200)"
 // @Param kind query string false "with chat, sub-agent runs are left out and the limit counts chats"
+// @Param origin query string false "only chats of one origin, with sub-agent runs left out and the limit counting the chats kept: person (a person started it), automated (anything else) or one origin kind (trigger, connector, job, page). Without it, all chats"
 // @Success 200 {object} schema.ChatsConversationList "Conversations, including sub-agent runs unless kind=chat"
 // @Router /api/chats [get]
 func (h *Handlers) List(c echo.Context) error {
@@ -255,6 +274,12 @@ func (h *Handlers) List(c echo.Context) error {
 	list := h.svc.List
 	if c.QueryParam("kind") == "chat" {
 		list = h.svc.ListChats
+	}
+	// An origin filter reads chats only: a sub-agent run has no origin of its own.
+	if keep := originFilter(c.QueryParam("origin")); keep != nil {
+		list = func(ctx context.Context, user string, limit int) ([]session.ChatRecord, error) {
+			return h.svc.ListChatsWhere(ctx, user, limit, keep)
+		}
 	}
 	recs, err := list(c.Request().Context(), user, limit)
 	if err != nil {
