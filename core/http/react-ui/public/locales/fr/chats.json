@@ -321,6 +321,18 @@
         "approvalStale": "La connexion de ce module a changé. Rechargez la page.",
         "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
         "tooManyLogins": "Trop de connexions ont été lancées. Terminez celle de l'autre onglet, ou attendez quelques minutes et réessayez."
+      },
+      "add": {
+        "open": "Ajouter une connexion",
+        "title": "Nouvelle connexion {{name}}",
+        "name": "Nom",
+        "hint": "Un nom que vous reconnaissez, comme Travail ou Personnel. Après l'ajout, sélectionnez Connecter pour vous connecter à votre compte.",
+        "cancel": "Annuler",
+        "submit": "Ajouter",
+        "failed": "La connexion n'a pas pu être ajoutée. Réessayez.",
+        "added": "{{name}} est ajoutée. Sélectionnez Connecter pour vous connecter à votre compte.",
+        "empty": "Aucune connexion pour l'instant. Ajoutez-en une, puis connectez votre compte.",
+        "manage": "Modifier les connexions"
       }
     }
   },

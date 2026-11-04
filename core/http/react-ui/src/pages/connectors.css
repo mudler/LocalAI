@@ -130,6 +130,25 @@
 }
 .cn-group__desc { overflow-wrap: anywhere; margin: var(--sp-1) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); max-width: 64ch; }
 
+.cn-group__actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* Adding a connection that logs in: a button, then a small form in a card. */
+.cn-group > .dk-btn { align-self: flex-start; }
+.cn-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  border: 1px solid var(--dk-edge);
+  border-radius: var(--r-lg);
+  background: var(--dk-card);
+  max-width: 56ch;
+}
+@starting-style { .cn-add { opacity: 0; transform: translateY(-2px); } }
+.cn-add { transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.cn-add__title { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--font-weight-semibold); }
+.cn-add__actions { display: flex; justify-content: flex-end; gap: var(--sp-2); flex-wrap: wrap; }
+
 /* ---- Related links ------------------------------------------------------------ */
 .cn-related {
   display: flex;

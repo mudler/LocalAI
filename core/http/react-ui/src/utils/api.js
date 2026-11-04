@@ -525,6 +525,7 @@ export const agentJobsApi = {
 export const chatConnectorsApi = {
   list: () => fetchJSON('/api/chats/connectors'),
   kinds: () => fetchJSON('/api/chats/connectors/kinds'),
+  create: (body) => postJSON('/api/chats/connectors', body),
   enable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/enable`, {}),
   disable: (id) => postJSON(`/api/chats/connectors/${enc2(id)}/disable`, {}),
   // The login of a binding that uses OAuth: start gives { authorize_url,

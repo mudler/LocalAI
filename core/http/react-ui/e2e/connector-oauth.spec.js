@@ -36,7 +36,7 @@ const PROVIDER = app({
   id: 'providera', name: 'providera', title: 'Provider A', description: 'Read items and propose changes.', icon: undefined,
   mainPage: undefined, hasUI: false, tools: ['list', 'change'], toolCount: 2, credentialed: true, oauth: LOGIN,
 })
-const KIND = { addon: 'providera', kind: 'providera', title: 'Provider A', description: 'Read items and propose changes in your Provider A account.', agent_optional: true, files: {} }
+const KIND = { addon: 'providera', kind: 'providera', title: 'Provider A', description: 'Read items and propose changes in your Provider A account.', agent_optional: true, auth_kind: 'oauth2', files: {} }
 const binding = (oauth, over = {}) => ({
   id: 'b1', name: 'Work account', kind: 'providera', addon: 'providera', agent_id: '', credentials_only: true, enabled: true, accept_any: false,
   allow: [], has_token: false, auth_kind: 'oauth2', oauth: { scopes: [], has_client: true, ...oauth }, ...over,
@@ -49,11 +49,19 @@ async function signIn(page, user) {
 
 // The connectors API, with the login routes. `state.calls` records what the
 // page sent.
-async function connectors(page, { items = [binding({ state: 'not_connected' })], start, disconnect } = {}) {
+async function connectors(page, { items = [binding({ state: 'not_connected' })], start, disconnect, create, kinds = [KIND] } = {}) {
   const state = { items: structuredClone(items), calls: [] }
   await page.route('**/api/chats/agents*', (r) => r.fulfill({ json: { agents: [] } }))
-  await page.route(/\/api\/chats\/connectors\/kinds$/, (r) => r.fulfill({ json: { kinds: [KIND] } }))
-  await page.route(/\/api\/chats\/connectors(\?.*)?$/, (r) => r.fulfill({ json: { connectors: state.items } }))
+  await page.route(/\/api\/chats\/connectors\/kinds$/, (r) => r.fulfill({ json: { kinds } }))
+  await page.route(/\/api\/chats\/connectors(\?.*)?$/, (r) => {
+    if (r.request().method() !== 'POST') return r.fulfill({ json: { connectors: state.items } })
+    const body = r.request().postDataJSON()
+    state.calls.push({ op: 'create', body })
+    if (create) return r.fulfill(create)
+    const made = binding({ state: 'not_connected' }, { id: `b${state.items.length + 1}`, name: body.name })
+    state.items = [...state.items, made]
+    return r.fulfill({ status: 201, json: made })
+  })
   await page.route(/\/api\/chats\/connectors\/[^/]+\/oauth\/start$/, (r) => {
     state.calls.push({ op: 'start', body: r.request().postDataJSON() })
     if (start) return r.fulfill(start)
@@ -78,6 +86,65 @@ async function openConnectors(page, { user = ADMIN, path = '/app/chats/connector
   await expect(page.getByTestId('oauth-connection')).toBeVisible()
   return state
 }
+
+test.describe('Adding a connection that logs in with OAuth', () => {
+  async function open(page, rest = {}) {
+    await mockChat(page)
+    await signIn(page, MEMBER)
+    await mockAddons(page, { apps: [PROVIDER] })
+    const state = await connectors(page, { items: [], ...rest })
+    await page.goto('/app/chats/connectors')
+    await expect(page.getByTestId('connector-group').first()).toBeVisible()
+    return state
+  }
+
+  test('adds a connection with a name only, then offers Connect on its row', async ({ page }) => {
+    const state = await open(page)
+    const group = page.getByTestId('connector-group')
+    await expect(group).toContainText('No connections yet. Add one, then connect your account.')
+    await expect(group.getByRole('link', { name: 'Edit connections' })).toBeVisible()
+    await shoot(page, 'add-empty')
+    await group.getByTestId('oauth-add-open').click()
+    const form = group.getByTestId('oauth-add-form')
+    await expect(form.getByRole('heading')).toHaveText('New Provider A connection')
+    const name = form.getByLabel('Name')
+    await expect(name).toBeFocused()
+    await expect(form.getByTestId('oauth-add-submit')).toBeDisabled()
+    await name.fill('  Work account  ')
+    await shoot(page, 'add-form')
+    await form.getByTestId('oauth-add-submit').click()
+    await expect(page.getByTestId('oauth-notice')).toHaveText(/Work account is added\. Select Connect to log in to your account\./)
+    await expect(form).toBeHidden()
+    const row = page.getByTestId('connector-row')
+    await expect(row).toHaveAttribute('data-auth', 'oauth2')
+    await expect(row.getByTestId('oauth-connection')).toHaveAttribute('data-state', 'not_connected')
+    await expect(row.getByTestId('oauth-connect')).toBeVisible()
+    await shoot(page, 'add-done')
+    expect(state.calls).toEqual([{ op: 'create', body: { kind: 'providera', name: 'Work account', auth_kind: 'oauth2' } }])
+  })
+
+  test('shows why the server refused the name, and Cancel closes the form', async ({ page }) => {
+    const message = 'you already have a connection named "Work" for this add-on; choose another name'
+    const state = await open(page, { create: { status: 400, json: { error: { message, type: 'invalid_request_error', code: 400 } } } })
+    const group = page.getByTestId('connector-group')
+    await group.getByTestId('oauth-add-open').click()
+    await group.getByLabel('Name').fill('Work')
+    await group.getByTestId('oauth-add-submit').click()
+    await expect(group.getByTestId('oauth-add-error')).toHaveText(message)
+    await shoot(page, 'add-refused', { widths: ['desktop', 'phone'] })
+    await group.getByTestId('oauth-add-cancel').click()
+    await expect(group.getByTestId('oauth-add-form')).toBeHidden()
+    await expect(group.getByTestId('oauth-add-open')).toBeVisible()
+    expect(state.calls).toHaveLength(1)
+  })
+
+  test('a kind whose add-on takes a token, or needs an agent, offers no form here', async ({ page }) => {
+    await open(page, { kinds: [{ ...KIND, auth_kind: undefined }, { ...KIND, addon: 'agentful', kind: 'agentful', title: 'Agentful', agent_optional: false }] })
+    await expect(page.getByTestId('connector-group')).toHaveCount(2)
+    await expect(page.getByTestId('oauth-add-open')).toHaveCount(0)
+    await expect(page.getByTestId('connector-group').first()).toContainText('No connectors yet.')
+  })
+})
 
 test.describe('Connections that log in with OAuth', () => {
   test('not connected: Connect starts the login with the ticked scopes and sends the browser to the service', async ({ page }) => {

@@ -45,6 +45,22 @@ export function reasonKey(reason) {
   return REASONS.has(reason) ? reason : 'unknown'
 }
 
+// The longest name of a connection the server takes, in characters.
+export const MAX_CONNECTION_NAME = 80
+
+// Whether the name of a new connection can be sent: one to
+// MAX_CONNECTION_NAME characters once trimmed.
+export function canAddConnection(name) {
+  const n = [...(name || '').trim()].length
+  return n > 0 && n <= MAX_CONNECTION_NAME
+}
+
+// The body that adds a connection of a kind whose add-on logs in with OAuth:
+// no token and no agent; the person connects it on the page afterwards.
+export function newConnectionBody(kind, name) {
+  return { kind: kind.kind, name: (name || '').trim(), auth_kind: 'oauth2' }
+}
+
 // The optional scopes a person can tick when they connect, from the add-on's
 // login in the apps list, each ticked when the current login already has it.
 export function scopeChoices(login, granted = []) {

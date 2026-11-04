@@ -34,3 +34,12 @@ test('chat connectors: who a binding accepts', () => {
   assert.deepEqual(acceptsOf({ allow: [] }), { key: 'nobody' })
   assert.deepEqual(acceptsOf({ allow: ['1', '2'] }), { key: 'listed', count: 2 })
 })
+
+test('chat connectors: a kind whose add-on logs in with OAuth, and needs no agent, offers to add a connection here', () => {
+  const { groups } = groupConnectors([
+    { addon: 'providera', kind: 'providera', title: 'Provider A', auth_kind: 'oauth2', agent_optional: true },
+    { addon: 'agentful', kind: 'agentful', title: 'Agentful', auth_kind: 'oauth2' },
+    { addon: 'telegram', kind: 'telegram', title: 'Telegram', agent_optional: true },
+  ], [])
+  assert.deepEqual(groups.map((g) => g.addsLogin), [true, false, false])
+})

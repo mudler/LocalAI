@@ -1158,8 +1158,14 @@ own account at the service, and LocalAI keeps the login and renews it.
 
 ### Connect an account
 
-On the **Connectors** page, a binding that logs in shows one state under its
-name:
+On the **Connectors** page, the group of an add-on that logs in has **Add a
+connection**. Give the connection a name you recognize, such as Work or
+Personal, and select **Add**. The new connection appears with **Connect**. A
+person can have several connections of one add-on, each with its own name
+and account. **Edit connections** opens the add-on's own page, where you
+choose the resources and the write mode of each connection.
+
+A binding that logs in shows one state under its name:
 
 - **Not connected yet.** Tick any extra access the add-on offers under **Also
   allow**, then select **Connect**. Your browser goes to the service, where you

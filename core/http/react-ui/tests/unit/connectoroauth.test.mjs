@@ -10,7 +10,7 @@ import React, { useState } from 'react'
 import { renderToString } from 'react-dom/server'
 import {
   canSaveClient, clientBody, clientStatus, formatWhen, hostOf, isOAuthBinding, needsSecret, oauthErrorKey, oauthRowState,
-  readOAuthReturn, reasonKey, reconnectConnections, returnPath, scopeChoices, staleDigest, startBody,
+  readOAuthReturn, reasonKey, reconnectConnections, returnPath, scopeChoices, staleDigest, startBody, newConnectionBody, canAddConnection,
 } from '../../src/utils/connectorOAuth.js'
 import { hasAddonSettings, hasOAuthLogin } from '../../src/addons/hostControls.js'
 
@@ -190,4 +190,12 @@ test('oauth: the row draws one state with its action', () => {
   const admin = draw({ binding: binding({ state: 'needs_approval', reason: 'needs_approval' }), login, isAdmin: true })
   assert.match(admin, /connectorsPage\.oauth\.approvalAdminChanged/)
   assert.match(admin, /href="\/app\/addons\?detail=providera&amp;view=settings"/)
+})
+
+test('oauth: the body that adds a connection that logs in, and when it can be sent', () => {
+  assert.deepEqual(newConnectionBody({ kind: 'providera' }, '  Work  '), { kind: 'providera', name: 'Work', auth_kind: 'oauth2' })
+  assert.equal(canAddConnection('  '), false)
+  assert.equal(canAddConnection('Work'), true)
+  assert.equal(canAddConnection('é'.repeat(80)), true)
+  assert.equal(canAddConnection('x'.repeat(81)), false, 'the server takes 80 characters')
 })

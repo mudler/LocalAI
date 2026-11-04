@@ -321,6 +321,18 @@
         "approvalStale": "O login deste add-on mudou. Recarregue a página.",
         "unavailable": "Não foi possível acessar o add-on. Tente mais tarde.",
         "tooManyLogins": "Foram iniciados logins demais. Termine o da outra aba ou aguarde alguns minutos e tente de novo."
+      },
+      "add": {
+        "open": "Adicionar uma conexão",
+        "title": "Nova conexão com {{name}}",
+        "name": "Nome",
+        "hint": "Um nome que você reconheça, como Trabalho ou Pessoal. Depois de adicionar a conexão, selecione Conectar para entrar na sua conta.",
+        "cancel": "Cancelar",
+        "submit": "Adicionar",
+        "failed": "Não foi possível adicionar a conexão. Tente de novo.",
+        "added": "{{name}} foi adicionada. Selecione Conectar para entrar na sua conta.",
+        "empty": "Nenhuma conexão ainda. Adicione uma e depois conecte sua conta.",
+        "manage": "Editar conexões"
       }
     }
   },

@@ -9,6 +9,9 @@ import { addonPageAddress } from '../addons/addresses.js'
 export function groupConnectors(kinds, items) {
   const groups = (kinds || []).map((k) => ({
     key: `${k.addon}/${k.kind}`, addon: k.addon, kind: k.kind, title: k.title, description: k.description || '',
+    // A kind whose add-on logs in with OAuth and needs no agent: the page
+    // itself adds its connections, which the person then connects.
+    addsLogin: k.auth_kind === 'oauth2' && !!k.agent_optional,
     href: k.page ? addonPageAddress({ addon: k.addon, page: k.page }) : `/app/addons?detail=${encodeURIComponent(k.addon)}`,
     items: [],
   }))

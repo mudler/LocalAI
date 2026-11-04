@@ -321,6 +321,18 @@
         "approvalStale": "Die Anmeldung dieses Add-ons hat sich geändert. Lade die Seite neu.",
         "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
         "tooManyLogins": "Es wurden zu viele Anmeldungen gestartet. Schließe die im anderen Tab ab oder warte ein paar Minuten und versuche es erneut."
+      },
+      "add": {
+        "open": "Verbindung hinzufügen",
+        "title": "Neue Verbindung zu {{name}}",
+        "name": "Name",
+        "hint": "Ein Name, den du wiedererkennst, etwa Arbeit oder Privat. Wähle nach dem Hinzufügen Verbinden, um dich bei deinem Konto anzumelden.",
+        "cancel": "Abbrechen",
+        "submit": "Hinzufügen",
+        "failed": "Die Verbindung konnte nicht hinzugefügt werden. Versuche es erneut.",
+        "added": "{{name}} wurde hinzugefügt. Wähle Verbinden, um dich bei deinem Konto anzumelden.",
+        "empty": "Noch keine Verbindungen. Füge eine hinzu und verbinde dann dein Konto.",
+        "manage": "Verbindungen bearbeiten"
       }
     }
   },

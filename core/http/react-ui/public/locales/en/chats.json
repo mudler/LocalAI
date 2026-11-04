@@ -387,6 +387,18 @@
         "approvalStale": "The login of this add-on changed. Reload the page.",
         "unavailable": "The add-on could not be reached. Try again later.",
         "tooManyLogins": "Too many logins were started. Finish the one in the other tab, or wait a few minutes and try again."
+      },
+      "add": {
+        "open": "Add a connection",
+        "title": "New {{name}} connection",
+        "name": "Name",
+        "hint": "A name you recognize, such as Work or Personal. After you add the connection, select Connect to log in to your account.",
+        "cancel": "Cancel",
+        "submit": "Add",
+        "failed": "The connection could not be added. Try again.",
+        "added": "{{name}} is added. Select Connect to log in to your account.",
+        "empty": "No connections yet. Add one, then connect your account.",
+        "manage": "Edit connections"
       }
     }
   },

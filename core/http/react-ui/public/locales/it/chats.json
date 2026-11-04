@@ -321,6 +321,18 @@
         "approvalStale": "L'accesso di questo add-on è cambiato. Ricarica la pagina.",
         "unavailable": "Non è stato possibile raggiungere l'add-on. Riprova più tardi.",
         "tooManyLogins": "Sono stati avviati troppi accessi. Completa quello nell'altra scheda, oppure attendi qualche minuto e riprova."
+      },
+      "add": {
+        "open": "Aggiungi una connessione",
+        "title": "Nuova connessione a {{name}}",
+        "name": "Nome",
+        "hint": "Un nome che riconosci, ad esempio Lavoro o Personale. Dopo averla aggiunta, seleziona Connetti per accedere al tuo account.",
+        "cancel": "Annulla",
+        "submit": "Aggiungi",
+        "failed": "Non è stato possibile aggiungere la connessione. Riprova.",
+        "added": "{{name}} è stata aggiunta. Seleziona Connetti per accedere al tuo account.",
+        "empty": "Nessuna connessione per ora. Aggiungine una, poi connetti il tuo account.",
+        "manage": "Modifica connessioni"
       }
     }
   },

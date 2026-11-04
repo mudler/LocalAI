@@ -321,6 +321,18 @@
         "approvalStale": "El inicio de sesión de este complemento cambió. Recarga la página.",
         "unavailable": "No se pudo contactar con el complemento. Inténtalo más tarde.",
         "tooManyLogins": "Se iniciaron demasiados inicios de sesión. Termina el de la otra pestaña o espera unos minutos y vuelve a intentarlo."
+      },
+      "add": {
+        "open": "Añadir una conexión",
+        "title": "Nueva conexión de {{name}}",
+        "name": "Nombre",
+        "hint": "Un nombre que reconozcas, como Trabajo o Personal. Después de añadir la conexión, selecciona Conectar para iniciar sesión en tu cuenta.",
+        "cancel": "Cancelar",
+        "submit": "Añadir",
+        "failed": "No se pudo añadir la conexión. Inténtalo de nuevo.",
+        "added": "Se añadió {{name}}. Selecciona Conectar para iniciar sesión en tu cuenta.",
+        "empty": "Aún no hay conexiones. Añade una y luego conecta tu cuenta.",
+        "manage": "Editar conexiones"
       }
     }
   },

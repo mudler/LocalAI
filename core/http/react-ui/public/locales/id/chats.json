@@ -321,6 +321,18 @@
         "approvalStale": "Login add-on ini berubah. Muat ulang halaman.",
         "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
         "tooManyLogins": "Terlalu banyak login yang dimulai. Selesaikan login di tab lain, atau tunggu beberapa menit lalu coba lagi."
+      },
+      "add": {
+        "open": "Tambah koneksi",
+        "title": "Koneksi {{name}} baru",
+        "name": "Nama",
+        "hint": "Nama yang mudah Anda kenali, misalnya Kerja atau Pribadi. Setelah koneksi ditambahkan, pilih Hubungkan untuk masuk ke akun Anda.",
+        "cancel": "Batal",
+        "submit": "Tambah",
+        "failed": "Koneksi tidak dapat ditambahkan. Coba lagi.",
+        "added": "{{name}} ditambahkan. Pilih Hubungkan untuk masuk ke akun Anda.",
+        "empty": "Belum ada koneksi. Tambahkan satu, lalu hubungkan akun Anda.",
+        "manage": "Ubah koneksi"
       }
     }
   },

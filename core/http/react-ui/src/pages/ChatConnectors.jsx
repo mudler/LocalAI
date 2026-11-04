@@ -5,6 +5,7 @@ import { Link, Navigate, useLocation, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import ConfirmDialog from '../components/ConfirmDialog'
 import OAuthConnection from '../components/connectors/OAuthConnection'
+import AddOAuthConnection from '../components/connectors/AddOAuthConnection'
 import { Button, Callout, EmptyState, LoadError, Page, PageHeader, SkeletonRows } from '../components/ui'
 import { useAuth } from '../context/AuthContext'
 import { useListedAddons } from '../addons/useAddonRegistry'
@@ -17,7 +18,9 @@ import './connectors.css'
 // add-on, which has its own page to add and edit bindings; this page lists the
 // bindings by add-on, switches them on and off, and says when an add-on is
 // missing. A binding that logs in with OAuth also shows its login, and the
-// page reads the result of a login it comes back to (?oauth=) once.
+// page reads the result of a login it comes back to (?oauth=) once. For a kind
+// whose add-on logs in with OAuth and needs no agent, the page adds the
+// connection itself, which the person then connects.
 export default function ChatConnectors() {
   const { t } = useTranslation('chats')
   const [params, setParams] = useSearchParams()
@@ -199,10 +202,21 @@ export default function ChatConnectors() {
               <h2 className="cn-group__title">{g.title}</h2>
               {g.description && <p className="cn-group__desc">{g.description}</p>}
             </div>
-            <Button size="sm" iconEnd="arrow-right" to={g.href}>{t('connectorsPage.manage')}</Button>
+            <span className="cn-group__actions">
+              <Button size="sm" iconEnd="arrow-right" to={g.href}>{t(g.addsLogin ? 'connectorsPage.oauth.add.manage' : 'connectorsPage.manage')}</Button>
+            </span>
           </header>
+          {g.addsLogin && (
+            <AddOAuthConnection key={g.key} kind={g} create={chatConnectorsApi.create}
+              onAdded={async (b) => {
+                setError('')
+                setReturned(null)
+                setNotice({ tone: 'ok', text: t('connectorsPage.oauth.add.added', { name: b?.name || '' }) })
+                await load()
+              }} />
+          )}
           {g.items.length === 0
-            ? <p className="cn-none">{t('connectorsPage.empty')}</p>
+            ? <p className="cn-none">{t(g.addsLogin ? 'connectorsPage.oauth.add.empty' : 'connectorsPage.empty')}</p>
             : <ul className="cn-list">{g.items.map(row)}</ul>}
         </section>
       ))}
