@@ -541,6 +541,15 @@ a call may reach. The model never sees or sets either.
   declare read tools only: a change under a credential needs a write mode, which
   this version does not have. Tools of such an add-on name no `resourceId`.
 - A tool with `uiOnly: true` (see the `uiOnly` field of a tool definition) gets no credential and no resource, even in an add-on that declares a slot. It is for the add-on's own page, which has no chat to name a connection, so it works with no connection or with several. The Home Assistant add-on keeps the limits for all its connections this way.
+
+- The secret is an opaque string of at most 4096 bytes, and the host never reads
+  it. An add-on whose service needs more than a token (servers, a login and a
+  password) can seal a small versioned JSON record as the secret and keep only
+  the resource name in the list, as the Mail add-on does (see
+  [Mail](/features/chats-connectors/#mail-imap-and-smtp)). The host cannot show a
+  sealed record back, so the add-on's page asks for all of it again when a person
+  changes any part. A service that is not HTTP and is not reached through the
+  sandbox network check must apply the address guard of `pkg/web/safehttp` itself.
 - An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
   The runtime answers HTTP 429 with `Retry-After`; the model gets the code
   `rate_limited`, `retryAfter` in seconds and a note not to retry before then.
