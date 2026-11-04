@@ -176,6 +176,27 @@ var _ = Describe("streaming usage spec compliance", func() {
 			Expect(u.TimingPromptProcessing).To(Equal(0.5))
 			Expect(u.TimingTokenGeneration).To(Equal(1.5))
 		})
+
+		It("forwards cached prompt tokens into prompt_tokens_details (issue #13006)", func() {
+			tu := backend.TokenUsage{Prompt: 2837, Completion: 4, CachedTokens: 2816}
+			u := streamUsageFromTokenUsage(tu, false)
+			raw, err := json.Marshal(u)
+			Expect(err).ToNot(HaveOccurred())
+
+			var decoded map[string]any
+			Expect(json.Unmarshal(raw, &decoded)).To(Succeed())
+			details, ok := decoded["prompt_tokens_details"].(map[string]any)
+			Expect(ok).To(BeTrue(), "usage JSON should include prompt_tokens_details when the backend reports a cache hit")
+			Expect(details["cached_tokens"]).To(BeNumerically("==", 2816))
+		})
+
+		It("omits prompt_tokens_details when the backend reports no cache hit", func() {
+			tu := backend.TokenUsage{Prompt: 10, Completion: 2}
+			u := streamUsageFromTokenUsage(tu, false)
+			raw, err := json.Marshal(u)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(raw)).ToNot(ContainSubstring("prompt_tokens_details"))
+		})
 	})
 
 	Describe("OpenAIRequest.StreamOptions", func() {
@@ -296,6 +317,22 @@ var _ = Describe("streaming workers surface final TokenUsage (issue #9927)", fun
 				"prompt tokens must round-trip from backend through processStream")
 			Expect(actual.Completion).To(Equal(213),
 				"completion tokens must round-trip from backend through processStream")
+		})
+
+		It("round-trips cached prompt tokens from the backend (issue #13006)", func() {
+			mockBackendUsage(backend.TokenUsage{Prompt: 2837, Completion: 4, CachedTokens: 2816}, "Hello")
+
+			req := makeReq()
+			cfg := &config.ModelConfig{}
+			responses := make(chan schema.OpenAIResponse)
+			done := drainResponses(responses)
+
+			actual, err := processStream("prompt", req, cfg, nil, appCfg, nil, responses, "req-1", 0)
+			<-done
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(actual.CachedTokens).To(Equal(2816),
+				"cached prompt tokens must round-trip from backend through processStream")
 		})
 
 		It("returns zero TokenUsage when the backend reports zero (negative control)", func() {

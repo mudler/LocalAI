@@ -68,21 +68,14 @@ func EditEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			totalTokenUsage.Prompt += tokenUsage.Prompt
 			totalTokenUsage.Completion += tokenUsage.Completion
+			totalTokenUsage.CachedTokens += tokenUsage.CachedTokens
 
 			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
 			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
 
 			result = append(result, r...)
 		}
-		usage := schema.OpenAIUsage{
-			PromptTokens:     totalTokenUsage.Prompt,
-			CompletionTokens: totalTokenUsage.Completion,
-			TotalTokens:      totalTokenUsage.Prompt + totalTokenUsage.Completion,
-		}
-		if extraUsage {
-			usage.TimingTokenGeneration = totalTokenUsage.TimingTokenGeneration
-			usage.TimingPromptProcessing = totalTokenUsage.TimingPromptProcessing
-		}
+		usage := streamUsageFromTokenUsage(totalTokenUsage, extraUsage)
 
 		id := uuid.New().String()
 		created := int(time.Now().Unix())

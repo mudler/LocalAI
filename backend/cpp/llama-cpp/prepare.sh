@@ -58,6 +58,10 @@ cp -r message_content_test.cpp llama.cpp/tools/grpc-server/
 # Generic passthrough parser staging and its standalone regression test.
 cp -r passthrough_options.h llama.cpp/tools/grpc-server/
 cp -r passthrough_options_test.cpp llama.cpp/tools/grpc-server/
+# Prompt-cache hit count extraction (included by grpc-server.cpp) and its
+# standalone regression test (issue #13006).
+cp -r cached_tokens.h llama.cpp/tools/grpc-server/
+cp -r cached_tokens_test.cpp llama.cpp/tools/grpc-server/
 # TTS request validation (included by grpc-server.cpp) and its standalone
 # regression test.
 cp -r tts_request_options.h llama.cpp/tools/grpc-server/

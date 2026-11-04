@@ -216,3 +216,36 @@ var _ = Describe("TokenUsage ChatDelta helpers", func() {
 		})
 	})
 })
+
+var _ = Describe("TokenUsage.ApplyReply", func() {
+	It("copies cached prompt tokens from the backend Reply (issue #13006)", func() {
+		usage := TokenUsage{}
+		usage.ApplyReply(&pb.Reply{
+			PromptTokens:           2837,
+			Tokens:                 4,
+			CachedTokens:           2816,
+			TimingPromptProcessing: 1.25,
+			TimingTokenGeneration:  0.5,
+		}, true)
+		Expect(usage.Prompt).To(Equal(2837))
+		Expect(usage.Completion).To(Equal(4))
+		Expect(usage.CachedTokens).To(Equal(2816))
+		Expect(usage.TimingPromptProcessing).To(Equal(1.25))
+		Expect(usage.TimingTokenGeneration).To(Equal(0.5))
+	})
+
+	It("keeps existing prompt/completion counts when overwriteCounts is false", func() {
+		usage := TokenUsage{Prompt: 10, Completion: 2}
+		usage.ApplyReply(&pb.Reply{PromptTokens: 99, Tokens: 7, CachedTokens: 8}, false)
+		Expect(usage.Prompt).To(Equal(10))
+		Expect(usage.Completion).To(Equal(2))
+		Expect(usage.CachedTokens).To(Equal(8))
+	})
+
+	It("is a no-op when reply is nil", func() {
+		usage := TokenUsage{Prompt: 3}
+		usage.ApplyReply(nil, true)
+		Expect(usage.Prompt).To(Equal(3))
+		Expect(usage.CachedTokens).To(BeZero())
+	})
+})

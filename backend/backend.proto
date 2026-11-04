@@ -426,6 +426,7 @@ message Reply {
   bytes audio = 6;
   bytes logprobs = 7;  // JSON-encoded logprobs data matching OpenAI format
   repeated ChatDelta chat_deltas = 8;       // Parsed chat deltas from C++ autoparser (streaming + non-streaming)
+  int32 cached_tokens = 9;                  // Prompt tokens served from the backend KV/prompt cache
 }
 
 message GrammarTrigger {

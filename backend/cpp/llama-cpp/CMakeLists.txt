@@ -123,6 +123,12 @@ if(LLAMA_GRPC_BUILD_TESTS)
     target_compile_features(passthrough_options_test PRIVATE cxx_std_17)
     add_test(NAME passthrough_options_test COMMAND passthrough_options_test)
 
+    add_executable(cached_tokens_test cached_tokens_test.cpp cached_tokens.h)
+    target_include_directories(cached_tokens_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_link_libraries(cached_tokens_test PRIVATE ${_LLAMA_COMMON_TARGET}) # vendored nlohmann/json
+    target_compile_features(cached_tokens_test PRIVATE cxx_std_17)
+    add_test(NAME cached_tokens_test COMMAND cached_tokens_test)
+
     add_executable(tts_request_options_test tts_request_options_test.cpp tts_request_options.h)
     target_include_directories(tts_request_options_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_compile_features(tts_request_options_test PRIVATE cxx_std_17)

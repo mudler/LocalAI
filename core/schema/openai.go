@@ -24,10 +24,20 @@ type InputTokensDetails struct {
 	ImageTokens int `json:"image_tokens"`
 }
 
+// PromptTokensDetails is the OpenAI chat/completions usage breakdown for
+// prompt tokens. cached_tokens is the number of prompt tokens served from
+// the backend KV/prompt cache (llama.cpp timings.cache_n).
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
 type OpenAIUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	// PromptTokensDetails is omitted when the backend reports no cache hit
+	// so uncached responses keep the historical usage shape.
+	PromptTokensDetails *PromptTokensDetails `json:"prompt_tokens_details,omitempty"`
 	// Fields for image generation API compatibility
 	InputTokens        int                 `json:"input_tokens,omitempty"`
 	OutputTokens       int                 `json:"output_tokens,omitempty"`
