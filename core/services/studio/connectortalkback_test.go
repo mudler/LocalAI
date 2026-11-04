@@ -351,14 +351,19 @@ var _ = Describe("talk-back from a connector chat", func() {
 			waitFor("the report", func() bool { return len(fake.texts(general, "")) == 1 })
 			Expect(fake.texts(general, "")[0]).To(Equal("Digest\n\nresult is 42"))
 			Expect(r.notes()).To(BeEmpty())
-			var row bool
-			for _, e := range recent() {
-				if e.Action == studio.SendDelivery {
-					row = true
-					Expect(e.Hash).NotTo(BeEmpty())
+			// The text reaches the fake before the access row is written, so
+			// wait for the row instead of reading it once.
+			var row studio.AccessEvent
+			waitFor("the delivery row", func() bool {
+				for _, e := range recent() {
+					if e.Action == studio.SendDelivery {
+						row = e
+						return true
+					}
 				}
-			}
-			Expect(row).To(BeTrue())
+				return false
+			})
+			Expect(row.Hash).NotTo(BeEmpty())
 		})
 
 		It("is refused at proposal time for a channel that is not listed or not approved", func() {
