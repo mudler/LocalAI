@@ -35,6 +35,21 @@ func UseConnectorTransportForTests(t studio.ConnectorTransport) (restore func())
 	return func() { connectorTransportForTests, connectorTransportWired = prev, false }
 }
 
+// connectorOptionsForTests changes the options of the connector manager of
+// applications built after UseConnectorOptionsForTests.
+var connectorOptionsForTests func(*studio.ConnectorOptions)
+
+// UseConnectorOptionsForTests lets f change the options of the connector
+// manager of applications built after the call, and returns a function that
+// restores the real ones. It exists so a conformance test can give the OAuth
+// logins a token client that reaches a fake service on loopback, which the
+// guarded client of production refuses, and a clock it moves.
+func UseConnectorOptionsForTests(f func(*studio.ConnectorOptions)) (restore func()) {
+	prev := connectorOptionsForTests
+	connectorOptionsForTests = f
+	return func() { connectorOptionsForTests = prev }
+}
+
 // connectorTransport reaches the connector add-ons through the add-on manager.
 // The manager looks them up on every call, so an add-on that is installed or
 // removed later is seen at once.
@@ -157,6 +172,9 @@ func (a *Application) startStudioConnectors(svc *studio.Service) {
 		OAuthDescriptor: a.addonOAuthDescriptor}
 	if a.Distributed() != nil && a.authDB != nil {
 		opts.Lead = a.studioLeader(advisorylock.KeyChatsConnectors, "Connectors")
+	}
+	if connectorOptionsForTests != nil {
+		connectorOptionsForTests(&opts)
 	}
 	c, err := studio.NewConnectors(svc, opts)
 	if err != nil {
