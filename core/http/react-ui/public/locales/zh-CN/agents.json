@@ -22,12 +22,12 @@
     "eventsTooltip": "{{count}} 个事件 - 点击查看"
   },
   "search": {
-    "placeholder": "搜索智能体",
+    "placeholder": "搜索智能体...",
     "summary_one": "{{total}} 个智能体中的 {{shown}} 个",
     "summary_other": "{{total}} 个智能体中的 {{shown}} 个"
   },
   "empty": {
-    "noConfigured": "尚无智能体",
+    "noConfigured": "未配置智能体",
     "noConfiguredText": "智能体包含保存的指令、模型，以及与其聊天时可使用的内容。你可以自行创建，或从以下示例开始。",
     "noMatching": "没有匹配的智能体",
     "noMatchingText": "没有智能体匹配 \"{{query}}\"",

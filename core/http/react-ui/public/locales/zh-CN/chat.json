@@ -196,7 +196,7 @@
   },
   "error": {
     "title": "回复失败",
-    "kept": "已生成的内容保留在上方。",
+    "kept": "到目前为止写下的内容保留在上方。",
     "retry": "重试",
     "detail": "技术详情",
     "reason": {
@@ -353,7 +353,7 @@
     "actions": "操作",
     "send": "发送",
     "newline": "换行",
-    "editLast": "编辑你的上一条消息",
+    "editLast": "编辑你的最后一条消息",
     "inEmptyBox": "在空输入框中",
     "stop": "停止回复",
     "moveMessages": "在消息之间移动",

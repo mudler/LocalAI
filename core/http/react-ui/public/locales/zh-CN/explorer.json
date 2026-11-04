@@ -1,57 +1,57 @@
 {
-  "brand": "{{name}} 探索器",
+  "brand": "{{name}} 探索",
   "openApp": "打开 LocalAI",
   "close": "关闭",
   "copy": "复制",
   "copied": "已复制",
-  "loading": "正在加载集群",
-  "title": "公开集群",
-  "lede": "集群是一组通过点对点网络共享模型推理的机器。此列表显示所有者选择公开的集群。任何持有集群令牌的人都可以加入。",
-  "count_one": "{{count}} 个集群在线",
-  "count_other": "{{count}} 个集群在线",
-  "sorted": "按工作节点数降序排列",
+  "loading": "正在加载 swarm",
+  "title": "公开的 swarm",
+  "lede": "swarm 是通过点对点网络共享模型推理的一组机器。此列表显示其所有者选择公开的 swarm。持有 swarm 令牌的任何人都可以加入。",
+  "count_one": "{{count}} 个 swarm 在线",
+  "count_other": "{{count}} 个 swarm 在线",
+  "sorted": "工作节点最多的优先",
   "workers_one": "工作节点",
   "workers_other": "工作节点",
-  "tokenTitle": "令牌的开头和结尾。请在「如何加入」中复制完整令牌。",
-  "warning": "探索器是社区共享的集群令牌列表。任何人都可使用令牌向集群发送任务或共享资源。使用时请自行评估风险。",
-  "listed": "集群已公开列出。",
+  "tokenTitle": "令牌的开头和结尾。请从“如何加入”处复制。",
+  "warning": "Explorer 是社区维护的 swarm 令牌列表。任何人都可以使用令牌向 swarm 发送任务，或与之共享资源。请自行承担风险。",
+  "listed": "该 swarm 已列出。",
   "empty": {
-    "title": "没有工作节点在线的集群",
-    "text": "仅列出至少有一个在线工作节点的集群。提交你的集群以将其公开。"
+    "title": "没有 swarm 的工作节点在线",
+    "text": "只列出至少有一个在线工作节点的 swarm。列出您的 swarm 即可将其公开。"
   },
   "off": {
-    "title": "此服务器不是探索器",
-    "text": "探索器页面需要以探索器模式启动的 LocalAI 服务器。此服务器没有可显示的集群列表。"
+    "title": "此服务器不是 explorer",
+    "text": "Explorer 页面需要以 explorer 模式启动的 LocalAI 服务器。此服务器没有可显示的 swarm 列表。"
   },
   "error": {
-    "title": "无法加载集群",
-    "text": "探索器服务器未响应。请检查服务是否运行，然后重试。",
+    "title": "无法加载 swarm",
+    "text": "explorer 服务器没有响应。请检查它是否正在运行，然后重试。",
     "retry": "重试"
   },
   "join": {
     "open": "如何加入",
     "title": "加入 {{name}}",
-    "text": "使用此集群的令牌启动 LocalAI 工作节点。",
+    "text": "使用此 swarm 的令牌启动一个 LocalAI 工作节点。",
     "token": "令牌",
-    "federated": "联合集群 {{id}}。可使用任一命令在其中启动节点。",
+    "federated": "联邦集群 {{id}}。使用以下任一命令在其上启动节点。",
     "docker": "使用 Docker",
     "cli": "使用命令行",
-    "noCommands": "此集群的工作节点通过令牌共享算力。节点加入时需要使用上方令牌。",
-    "docs": "了解集群的工作原理"
+    "noCommands": "此 swarm 的工作节点通过其令牌共享算力。节点加入所需的就是上方的令牌。",
+    "docs": "了解 swarm 的工作原理"
   },
   "list": {
-    "open": "公开集群",
-    "title": "公开集群",
-    "text": "将集群添加到公开列表。有工作节点在线后就会显示。",
+    "open": "列出 swarm",
+    "title": "列出 swarm",
+    "text": "将 swarm 添加到公开列表。它有在线工作节点后才会显示。",
     "name": "名称",
     "description": "描述",
     "token": "令牌",
-    "tokenHint": "服务器输出的集群网络令牌。",
-    "public": "公开列出集群会公开令牌。任何看到此列表的人都可以使用集群的工作节点。",
-    "understood": "我理解令牌将被公开。",
+    "tokenHint": "swarm 的网络令牌，即服务器打印的内容。",
+    "public": "列出即会公开令牌。任何查看列表的人都可以使用您 swarm 的工作节点。",
+    "understood": "我了解令牌将会公开。",
     "cancel": "取消",
-    "add": "公开此集群",
-    "adding": "正在公开…",
-    "failed": "无法公开此集群。"
+    "add": "列出此 swarm",
+    "adding": "正在列出...",
+    "failed": "无法列出该 swarm。"
   }
 }
