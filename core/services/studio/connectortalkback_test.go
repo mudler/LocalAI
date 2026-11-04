@@ -73,11 +73,23 @@ var _ = Describe("talk-back from a connector chat", func() {
 		Expect(r.conns.Ingest(ctx, "chat-addon", contract.ConnectorInbound{BindingID: b.ID, ConnectorMessage: contract.ConnectorMessage{
 			Chat: chatID, Thread: thread, Mention: true, MessageID: "m" + string(rune('a'+seq)), SenderID: "11", SenderName: "Cy", Text: text}})).To(Succeed())
 	}
+	// answers counts the replies of the chat. The working message goes out
+	// when a turn starts, so it is not an answer: counting it would end a
+	// wait before the tools of the turn have run.
+	answers := func() int {
+		n := 0
+		for _, t := range fake.texts(chatID, thread) {
+			if t != "Working…" {
+				n++
+			}
+		}
+		return n
+	}
 	// turn runs a turn and waits for its answer.
 	turn := func(text string) {
-		before := len(fake.texts(chatID, thread))
+		before := answers()
 		say(text)
-		waitFor("the answer", func() bool { return len(fake.texts(chatID, thread)) > before })
+		waitFor("the answer", func() bool { return answers() > before })
 	}
 	chatTools := func() []string {
 		l, err := r.svc.List(ctx, alice, 10)
