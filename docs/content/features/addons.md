@@ -793,10 +793,14 @@ process keeps a copy. Two things keep one refresh at a time:
 - In one process, one refresh per grant and version runs, and the other callers
   wait for its result.
 - Across processes, a refresher takes a lease in the grant row (a conditional
-  update on the version, 30 s). The other callers look at the row every 200 ms
-  for up to 10 s and use the token the winner wrote. A service that rotates its
-  refresh tokens can revoke the whole login when one refresh token is used
-  twice, so this matters.
+  update on the version, 90 s: three times the 30 s limit of the token request,
+  so a slow service cannot outlive it). The other callers look at the row every
+  200 ms for up to 10 s and use the token the winner wrote. A service that
+  rotates its refresh tokens can revoke the whole login when one refresh token
+  is used twice, so this matters.
+- Each process compares the lease with its own clock. Keep the clocks of the
+  hosts in sync (NTP): a host whose clock is ahead sees the lease end early by
+  as much.
 
 In a split deployment the refresh runs on the add-on owner: the frontends
 forward credentialed tool calls to it, the owner adds the credential and calls

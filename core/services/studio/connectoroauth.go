@@ -20,8 +20,17 @@ const (
 	// during it.
 	oauthRefreshMargin = 120 * time.Second
 	// oauthLeaseTTL is how long a refresher holds the grant. A refresher that
-	// dies frees it after this.
-	oauthLeaseTTL = 30 * time.Second
+	// dies frees it after this. It must be well over the whole refresh: the
+	// reads and the unsealing before the token request, the request itself
+	// (oauthtoken.Timeout) and the write-back. Otherwise a slow service can
+	// still be answering the first refresher when a second one takes the
+	// lease and sends the same refresh token, and a rotating service then
+	// revokes the whole token family.
+	//
+	// Each process compares the lease with its own clock, so the hosts of a
+	// cluster must keep their clocks in sync (NTP); a skew shortens the lease
+	// on the host whose clock is ahead by as much.
+	oauthLeaseTTL = 3 * oauthtoken.Timeout
 	// oauthLeasePoll and oauthLeaseWait are how often, and how long, a caller
 	// that lost the lease looks for the token the winner writes.
 	oauthLeasePoll = 200 * time.Millisecond

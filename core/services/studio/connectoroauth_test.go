@@ -447,6 +447,35 @@ var _ = Describe("OAuth connections", func() {
 					Expect(r.grant(b.ID).LeaseOwner).To(BeEmpty())
 				})
 
+				It("never sends a refresh token twice while a slow token request outlives the request timeout", func() {
+					b := r.connect()
+					other := r.instance("front-b")
+					r.sh.clock.Advance(time.Hour)
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate, s.Delay = true, time.Second })
+					first := make(chan error, 1)
+					go func() {
+						_, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+						first <- err
+					}()
+					Eventually(r.srv.Tokens.Load).Should(BeEquivalentTo(2), "the refresh of front-a is at the service")
+					// Longer than the timeout of the token request: the lease of
+					// front-a must still hold, or front-b, renewing after a
+					// rejection, would send the same refresh token again.
+					r.sh.clock.Advance(45 * time.Second)
+					renewed, err := other.RenewCredential(ctx, alice, oauthAddon, b.ID, "", 1, false)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(<-first).NotTo(HaveOccurred())
+					Expect(renewed.Version).To(BeEquivalentTo(2), "front-b uses the token front-a wrote")
+					refreshes := 0
+					for _, f := range r.srv.Forms() {
+						if f.Get("grant_type") == "refresh_token" {
+							refreshes++
+						}
+					}
+					Expect(refreshes).To(Equal(1))
+					Expect(r.grant(b.ID).State).To(Equal(connectors.GrantConnected))
+				})
+
 				DescribeTable("ends the grant when the service refuses it for good, and wipes its secrets",
 					func(set func(s *oauthtokentest.Server), reason string) {
 						b := r.connect()
