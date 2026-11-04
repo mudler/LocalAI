@@ -109,6 +109,9 @@ func main() {
 	modelConfig := map[string]any{
 		"name":    "mock-model",
 		"backend": "mock-backend",
+		// A chat reports the window of the model, and the tool schemas of a
+		// chat no longer fit in the default one.
+		"context_size": 32768,
 		"parameters": map[string]any{
 			"model": "mock-model.bin",
 		},
