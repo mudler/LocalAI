@@ -608,6 +608,23 @@ var _ = Describe("OAuth connections", func() {
 				})
 			})
 
+			It("keeps a client ID and secret of any visible ASCII, spaces included, as RFC 6749 allows", func() {
+				id, secret := "client 1@example.test", "a secret/with+marks and spaces"
+				st, err := r.conns.SetClient(ctx, oauthAddon, studio.OAuthClientInput{Digest: r.digest(), ClientID: id, Secret: &secret, ApprovedBy: "admin"})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(st.ClientID).To(Equal(id))
+				b := r.binding()
+				ls, state := r.start(b)
+				res, err := r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(res.Outcome).To(Equal(studio.LoginOK))
+				Expect(r.srv.Auths()).To(ContainElement(oauthtokentest.BasicAuth(id, secret)))
+				for _, bad := range []string{"tab\tin", "new\nline", "é"} {
+					_, err := r.conns.SetClient(ctx, oauthAddon, studio.OAuthClientInput{Digest: r.digest(), ClientID: "c", Secret: &bad, ApprovedBy: "admin"})
+					Expect(err).To(MatchError(connectors.ErrInvalid), bad)
+				}
+			})
+
 			Describe("an OAuth binding", func() {
 				It("takes no token, does not listen and is not a credential before its login", func() {
 					_, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: oauthKind, Name: "W", AuthKind: connectors.AuthOAuth2, Token: "t"})

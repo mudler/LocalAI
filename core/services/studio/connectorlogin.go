@@ -412,8 +412,8 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 		return OAuthClientStatus{}, ErrApprovalStale
 	}
 	id := strings.TrimSpace(in.ClientID)
-	if id == "" || len(id) > maxClientIDBytes || !printableASCII(id) {
-		return OAuthClientStatus{}, oauthBad("the client ID must have 1 to %d printable characters", maxClientIDBytes)
+	if id == "" || len(id) > maxClientIDBytes || !visibleASCII(id) {
+		return OAuthClientStatus{}, oauthBad("the client ID must have 1 to %d visible ASCII characters or spaces", maxClientIDBytes)
 	}
 	in.ApprovedBy = strings.TrimSpace(in.ApprovedBy)
 	if in.ApprovedBy == "" || len(in.ApprovedBy) > 255 {
@@ -435,8 +435,8 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 		next.Secret = old.Secret
 	default:
 		secret := *in.Secret
-		if secret == "" || len(secret) > maxSecretBytes || !printableASCII(secret) {
-			return OAuthClientStatus{}, oauthBad("the client secret must have 1 to %d printable characters", maxSecretBytes)
+		if secret == "" || len(secret) > maxSecretBytes || !visibleASCII(secret) {
+			return OAuthClientStatus{}, oauthBad("the client secret must have 1 to %d visible ASCII characters or spaces", maxSecretBytes)
 		}
 		s, err := c.sealerFor(ctx)
 		if err != nil {
@@ -476,9 +476,12 @@ func clientStatus(cl connectors.OAuthClient, d contract.OAuthDescriptor, configu
 		ApprovedDigest: cl.DescriptorDigest, CurrentDigest: d.Digest(), ApprovedBy: cl.ApprovedBy, ApprovedAt: cl.ApprovedAt, Descriptor: d}
 }
 
-func printableASCII(s string) bool {
+// visibleASCII is the VSCHAR of RFC 6749 (appendix A): visible ASCII and the
+// space. A client ID and a client secret are made of it, and a service may
+// issue a secret with spaces.
+func visibleASCII(s string) bool {
 	for i := 0; i < len(s); i++ {
-		if c := s[i]; c < 0x21 || c > 0x7e {
+		if c := s[i]; c < 0x20 || c > 0x7e {
 			return false
 		}
 	}
