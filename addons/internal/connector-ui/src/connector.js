@@ -133,17 +133,24 @@ export function withAddedCaps(form, caps) {
   return { ...form, caps: [...new Set([...(form.caps || []), ...caps])] }
 }
 
-// The ticked caps that no sender can use yet. The host lets a sender use a cap
-// only when the sender is paired, or has a role the owner granted the cap to
-// (a sensitive cap needs a pairing always; see Authorize in
-// core/services/studio/connectoraccess.go). So with nobody paired, a ticked
-// cap that no role holds is dead, however it is ticked.
-export function unusableCaps(form, paired, now = Date.now()) {
-  const caps = form?.caps || []
+// The ticked sensitive caps that nobody can use yet. A sender on the allowlist
+// may use the other ticked caps; a sensitive cap also needs a sender the owner
+// paired with the bot (see Authorize in core/services/studio/connectoraccess.go).
+// So with no live pairing, every ticked sensitive cap is dead. Returns names.
+export function unpairedSensitive(form, paired, capabilities, now = Date.now()) {
   const active = (paired || []).some((p) => !p.expires_at || new Date(p.expires_at).getTime() > now)
-  if (caps.length === 0 || active) return []
-  const granted = new Set((form.grants || []).flatMap((g) => g.caps || []))
-  return caps.filter((c) => !granted.has(c))
+  if (active) return []
+  const sensitive = new Set((capabilities || []).filter((c) => c.sensitive).map((c) => c.name))
+  return (form?.caps || []).filter((c) => sensitive.has(c))
+}
+
+// Whether the allowlist holds channel entries only: members of a channel are not
+// trusted one by one, so no person can use a ticked permission through it. Only
+// a page with a list of people before its other lists can tell (Slack).
+export function channelOnly(form, lists) {
+  if (!Array.isArray(lists) || lists.length < 2 || form?.accept_any) return false
+  const allow = form?.allow || []
+  return allow.length > 0 && listEntries(allow, lists, 0).length === 0
 }
 
 // The form after cap name was turned on or off. Turning one off also takes it

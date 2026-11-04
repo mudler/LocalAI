@@ -8,7 +8,7 @@
 import { useCallback, useState } from 'react'
 import { Field, Hint, Notice, Switch, TextInput } from './controls'
 import Icon from '../../host-compat/src/components/Icon'
-import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, agentHas, agentHeld, channelsProblem, copyFromAgent, grantableFor, hasNoCaps, presetBlock, roleHas, setCap, setGrant, unusableCaps, usualFor, withAddedCaps, withCopiedCaps } from './connector'
+import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, agentHas, agentHeld, channelsProblem, copyFromAgent, grantableFor, hasNoCaps, presetBlock, roleHas, setCap, setGrant, unpairedSensitive, usualFor, withAddedCaps, withCopiedCaps } from './connector'
 import PairingFields from './PairingFields'
 
 export const PERMISSION_TEXT = {
@@ -36,8 +36,11 @@ export const PERMISSION_TEXT = {
   'perm.confirmText': 'The agent has these sensitive permissions. Once they are on, a sender you paired could use them through this bot:',
   'perm.confirmYes': 'Copy them too',
   'perm.confirmNo': 'Cancel',
-  'perm.stuckTitle': 'You ticked these, but no sender can use them yet',
-  'perm.stuckText': 'A sender can use a permission only when you paired them with this bot, or when a role that you gave the permission to applies. Nobody is paired yet and no role has these: {{names}}.',
+  'perm.rule': 'People on the allowlist can use the ticked permissions. Sensitive ones also need the person to be paired.',
+  'perm.stuckTitle': 'Sensitive permissions are ticked, but nobody is paired',
+  'perm.stuckText': 'A sensitive permission works only for a person you paired with this bot. Until you pair someone, no sender can use: {{names}}.',
+  'perm.channelOnlyTitle': 'The allowlist has only channels',
+  'perm.channelOnlyText': 'Members of a channel are not trusted one by one, so they cannot use the ticked permissions. Add their user to the allowed people.',
   'perm.stuckPair': 'Pair your account',
   'perm.sensitive': 'Paired senders only',
   'perm.sensitiveHelp': 'Sensitive. Never given to a role. Only a sender you paired can use it, and every use is recorded.',
@@ -262,7 +265,7 @@ function Presets({ form, setForm, capabilities, agent, s }) {
  * @param {Function} props.s        the translation function with the defaults
  * @param {Function} props.onPaired called when pairing changed the binding
  */
-export default function PermissionFields({ form, setForm, kind, capabilities, s, onPaired, agent }) {
+export default function PermissionFields({ form, setForm, kind, capabilities, s, onPaired, agent, channelsOnly = false }) {
   const caps = capabilities || []
   if (caps.length === 0) return null
   const on = (name) => (form.caps || []).includes(name)
@@ -270,7 +273,7 @@ export default function PermissionFields({ form, setForm, kind, capabilities, s,
   // What the pairing list is now: the saved one, and what pairing here changes.
   const [paired, setPaired] = useState(form.paired || [])
   const pairedHere = useCallback((list) => { if (Array.isArray(list)) setPaired(list); onPaired?.() }, [onPaired])
-  const stuck = unusableCaps(form, paired)
+  const stuck = unpairedSensitive(form, paired, caps)
   const title = (name) => caps.find((c) => c.name === name)?.title || name
   const toPairing = () => {
     const el = document.querySelector('[data-testid="connector-pair-start"]') || document.querySelector('[data-testid="connector-pairing"]')
@@ -281,6 +284,13 @@ export default function PermissionFields({ form, setForm, kind, capabilities, s,
     <fieldset className="cn-group" data-testid="connector-permissions">
       <legend>{s('perm.title')}</legend>
       <p className="dk-hint">{s('perm.help')}</p>
+      <p className="dk-hint" data-testid="connector-rule">{s('perm.rule')}</p>
+      {channelsOnly && (form.caps || []).length > 0 && (
+        <Notice tone="warn" role="note" testId="connector-channel-only">
+          <p className="cn-notice__title">{s('perm.channelOnlyTitle')}</p>
+          <p className="cn-notice__text">{s('perm.channelOnlyText')}</p>
+        </Notice>
+      )}
       {hasNoCaps(form) && (
         <NoCapsNotice capabilities={caps} s={s} />
       )}

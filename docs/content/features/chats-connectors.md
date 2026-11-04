@@ -602,9 +602,10 @@ confirmation that lists them; it does not follow later changes to the agent. A
 capability the agent does not hold cannot be switched on. Both buttons only fill the form
 and are off, with the reason, when the binding has no agent or the permissions of the
 agent cannot be read. A link with `?binding=<id>` opens that binding at its permissions.
-When capabilities are ticked but nobody is paired and no role holds them, the form says that
-no sender can use them yet and points to pairing: the host lets a sender use a capability only
-with a pairing or a role that holds it. A new binding still starts with no capability. The
+The form states the rule: people on the allowlist can use the ticked capabilities, and a
+sensitive one also needs the person to be paired. It shows a notice when a sensitive
+capability is ticked and nobody is paired, with a way to pair, and when the allowlist holds
+only channels, whose members are not trusted one by one. A new binding still starts with no capability. The
 kind list also returns `capabilities`, the closed list with a title, a description
 and the `sensitive` and `usual` flags of each, so a page needs no list of its own.
 

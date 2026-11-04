@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   MAX_CHANNELS, canSave, channelsProblem, connectorForm, connectorPayload, emptyConnector, grantableFor, hasNoCaps, roleHas, setCap, setGrant, usualCaps,
-  AGENT_GRANT_CAPS, unusableCaps, DEFAULT_CONNECTOR_GRANTS, agentHas, agentHeld, copyFromAgent, presetBlock, usualFor, withAddedCaps, withCopiedCaps,
+  AGENT_GRANT_CAPS, unpairedSensitive, channelOnly, DEFAULT_CONNECTOR_GRANTS, agentHas, agentHeld, copyFromAgent, presetBlock, usualFor, withAddedCaps, withCopiedCaps,
 } from '../../../internal/connector-ui/src/connector.js'
 
 const CAPS = [
@@ -127,14 +127,23 @@ test('presets: copying the agent takes every cap it holds, names the sensitive o
   assert.deepEqual(form.caps, ['proposals.confirm', 'files.upload', 'tools.write'], 'the form is not changed')
 })
 
-test('stuck caps: a ticked cap is dead while nobody is paired and no role holds it', () => {
+test('pairing notice: only a ticked sensitive cap needs a pairing, and only while nobody has a live one', () => {
   const now = Date.parse('2026-11-04T10:00:00Z')
   const live = [{ sender_id: 'U1', expires_at: '2026-12-01T00:00:00Z' }]
   const ended = [{ sender_id: 'U1', expires_at: '2026-11-01T00:00:00Z' }]
-  const form = { caps: ['memory.write', 'triggers.propose'], grants: [{ role: 'admin', caps: ['memory.write'] }] }
-  assert.deepEqual(unusableCaps(form, [], now), ['triggers.propose'], 'a role that holds the cap makes it usable')
-  assert.deepEqual(unusableCaps(form, live, now), [], 'a live pairing makes every cap usable')
-  assert.deepEqual(unusableCaps(form, ended, now), ['triggers.propose'], 'an ended pairing counts for nothing')
-  assert.deepEqual(unusableCaps({ caps: [], grants: [] }, [], now), [])
-  assert.deepEqual(unusableCaps({ caps: ['memory.write'] }, undefined, now), ['memory.write'])
+  const form = { caps: ['memory.write', 'triggers.propose', 'profile.write', 'talkback.new_channel'] }
+  assert.deepEqual(unpairedSensitive(form, [], CAPS, now), ['profile.write'], 'a non-sensitive cap needs no pairing')
+  assert.deepEqual(unpairedSensitive(form, live, CAPS, now), [])
+  assert.deepEqual(unpairedSensitive(form, ended, CAPS, now), ['profile.write'], 'an ended pairing counts for nothing')
+  assert.deepEqual(unpairedSensitive({ caps: ['memory.write'] }, undefined, CAPS, now), [])
+  assert.deepEqual(unpairedSensitive({ caps: [] }, [], CAPS, now), [])
+})
+
+test('channel-only allowlist: shown when the page has a people list and every entry is a channel', () => {
+  const lists = [{ match: (x) => !x.startsWith('C') }, { match: (x) => x.startsWith('C') }]
+  assert.equal(channelOnly({ allow: ['C1', 'C2'] }, lists), true)
+  assert.equal(channelOnly({ allow: ['C1', 'U1'] }, lists), false)
+  assert.equal(channelOnly({ allow: [] }, lists), false)
+  assert.equal(channelOnly({ allow: ['C1'], accept_any: true }, lists), false)
+  assert.equal(channelOnly({ allow: ['C1'] }, [{}]), false, 'one list: nothing to tell apart')
 })

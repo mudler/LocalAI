@@ -157,31 +157,56 @@ test.describe('Connector permissions', () => {
     await expect(page.getByRole('form', { name: /Edit/ })).toBeVisible()
   })
 
-  test('ticked permissions that no sender can use yet are said on the page, with a way to pair, until someone is paired or a role holds them', async ({ page }) => {
-    const a = api(page, [{ ...LEGACY, agent_id: 'a1', caps: ['triggers.propose', 'memory.write'] }])
+  test('the page says the rule: the allowlist can use the ticked permissions, sensitive ones also need a pairing', async ({ page }) => {
+    await api(page, [{ ...LEGACY, agent_id: 'a1', caps: ['triggers.propose', 'memory.write'] }]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const box = page.getByTestId('connector-permissions')
+    await expect(box.getByTestId('connector-rule')).toHaveText('People on the allowlist can use the ticked permissions. Sensitive ones also need the person to be paired.')
+    // Nothing sensitive is ticked, so there is no pairing notice.
+    await expect(box.getByTestId('connector-stuck')).toHaveCount(0)
+    await expect(box.getByTestId('connector-channel-only')).toHaveCount(0)
+  })
+
+  test('a ticked sensitive permission with nobody paired is said on the page, with a way to pair, and goes away once someone is paired', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, agent_id: 'a1', caps: ['talkback.new_channel', 'memory.write'] }])
     await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
     const box = page.getByTestId('connector-permissions')
     const notice = box.getByTestId('connector-stuck')
-    await expect(notice).toContainText('You ticked these, but no sender can use them yet')
-    await expect(notice).toContainText('Propose triggers, Save to memory')
-    await shot(page, 'perm-7-nobody-paired')
+    await expect(notice).toContainText('Sensitive permissions are ticked, but nobody is paired')
+    await expect(notice).toContainText('Post to a new channel')
+    await expect(notice).not.toContainText('Save to memory')
+    await shot(page, 'perm-7-sensitive-nobody-paired')
     await notice.getByRole('button', { name: 'Pair your account' }).click()
     await expect(box.getByTestId('connector-pair-start')).toBeFocused()
   })
 
-  test('the notice goes away when the binding has a live pairing, and stays when the pairing ended', async ({ page }) => {
-    await api(page, [SET]).install()
+  test('the notice stays off with a live pairing and comes back when the pairing ended', async ({ page }) => {
+    const sens = { ...SET, caps: ['talkback.new_channel'], grants: [] }
+    await api(page, [sens]).install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
     await expect(page.getByTestId('connector-permissions').getByTestId('connector-stuck')).toHaveCount(0)
     await page.getByRole('button', { name: 'Cancel' }).click()
-    const ended = { ...SET, paired: [{ sender_id: 'U001', paired_at: '2026-01-01T10:00:00Z', expires_at: '2026-02-01T10:00:00Z' }], grants: [] }
-    await api(page, [ended]).install()
+    await api(page, [{ ...sens, paired: [{ sender_id: 'U001', paired_at: '2026-01-01T10:00:00Z', expires_at: '2026-02-01T10:00:00Z' }] }]).install()
     await page.reload()
     await page.getByRole('button', { name: 'Edit' }).click()
-    await expect(page.getByTestId('connector-permissions').getByTestId('connector-stuck')).toContainText('Save to memory')
+    await expect(page.getByTestId('connector-permissions').getByTestId('connector-stuck')).toContainText('Post to a new channel')
+  })
+
+  test('an allowlist with only channels says that members are not trusted one by one', async ({ page }) => {
+    await api(page, [{ ...LEGACY, agent_id: 'a1', allow: ['C0123'], caps: ['memory.write'] }]).install()
+    await page.goto(PAGE)
+    await page.getByRole('button', { name: 'Edit' }).click()
+    const box = page.getByTestId('connector-permissions')
+    await expect(box.getByTestId('connector-channel-only')).toContainText('The allowlist has only channels')
+    await expect(box.getByTestId('connector-channel-only')).toContainText('Add their user')
+    await shot(page, 'perm-8-channel-only')
+    await page.getByRole('textbox', { name: 'Allowed people +' }).fill('U001')
+    await page.getByRole('textbox', { name: 'Allowed people +' }).press('Enter')
+    await expect(box.getByTestId('connector-channel-only')).toHaveCount(0)
   })
 
   test('roles get only non-sensitive permissions that are switched on, and the request carries the grants', async ({ page }) => {

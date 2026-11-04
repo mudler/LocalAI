@@ -16,7 +16,7 @@ import { Check, Field, Notice, RadioCards, Select, Switch, TextInput } from './c
 import NameList from './NameList'
 import PermissionFields, { NoCapsNotice } from './PermissionFields'
 import { agentsApi, connectorsApi } from './api'
-import { canSave, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
+import { canSave, channelOnly, connectorForm, hasNoCaps, connectorPayload, emptyConnector, listEntries, replaceList, senderLine, usualCaps } from './connector'
 import './connector.css'
 
 function Senders({ id, onAllowed, t }) {
@@ -258,7 +258,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </Field>
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
-            <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} agent={agents.find((a) => a.id === form.agent_id)} />
+            <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} agent={agents.find((a) => a.id === form.agent_id)} channelsOnly={channelOnly(form, lists)} />
             <ApprovalFields form={form} setForm={setForm} s={s} triggersOff={capabilities.length > 0 && !(form.caps || []).includes('triggers.propose')} />
             {capabilities.length > 0 && <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />}
             </>)}
