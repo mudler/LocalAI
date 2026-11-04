@@ -123,6 +123,9 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByText('Send /new (or !new) in the app to start a new chat.')).toBeVisible()
     await expect(page.getByTestId('connector-files')).toBeChecked()
     await expect(page.getByTestId('connector-window')).toHaveCount(0)
+    // The notes the bot writes itself follow the sender unless a language is chosen.
+    await expect(page.getByTestId('connector-reply-language')).toHaveValue('auto')
+    await expect(page.getByText('The notes the bot writes itself, like confirmations and refusals.')).toBeVisible()
     await page.getByLabel('Name', { exact: true }).fill('Live bot')
     await page.getByLabel('Bot token').fill('555:secret-token')
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')
@@ -130,11 +133,12 @@ test.describe('Telegram add-on', () => {
     await page.getByTestId('connector-conversation').selectOption('window')
     await page.getByTestId('connector-window').fill('45')
     await page.getByTestId('connector-files').uncheck()
+    await page.getByTestId('connector-reply-language').selectOption('it')
     await page.getByRole('button', { name: 'Save' }).click()
 
     await expect(page.getByTestId('connector-answer-summary')).toHaveText('Answers: live answer · new chat after 45 min')
     const post = a.s.calls.find(c => c.method === 'POST' && c.url === '/api/chats/connectors').body
-    expect(post).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false })
+    expect(post).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false, reply_language: 'it' })
     expect(a.s.items[0]).toMatchObject({ reply_mode: 'stream', conversation: 'window', window_minutes: 45, send_files: false })
 
     // Edit: the form shows what the API holds; the thread mode drops the window.
@@ -143,13 +147,15 @@ test.describe('Telegram add-on', () => {
     await expect(page.getByTestId('connector-conversation')).toHaveValue('window')
     await expect(page.getByTestId('connector-window')).toHaveValue('45')
     await expect(page.getByTestId('connector-files')).not.toBeChecked()
+    await expect(page.getByTestId('connector-reply-language')).toHaveValue('it')
+    await page.getByTestId('connector-reply-language').selectOption('pt-BR')
     await page.getByTestId('connector-reply').selectOption('off')
     await page.getByTestId('connector-conversation').selectOption('thread')
     await page.getByTestId('connector-files').check()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByTestId('connector-answer-summary')).toHaveText('Answers: typing · a chat per message')
     const put = a.s.calls.filter(c => c.method === 'PUT').at(-1).body
-    expect(put).toMatchObject({ reply_mode: 'off', conversation: 'thread', send_files: true })
+    expect(put).toMatchObject({ reply_mode: 'off', conversation: 'thread', send_files: true, reply_language: 'pt-BR' })
     expect(put).not.toHaveProperty('window_minutes')
     expect(a.s.items[0]).toMatchObject({ reply_mode: 'off', conversation: 'thread', send_files: true })
   })

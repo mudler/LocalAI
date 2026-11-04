@@ -4,6 +4,8 @@
 // The modes a binding answers with. The server has the same defaults.
 export const REPLY_MODES = ['off', 'progress', 'stream']
 export const CONVERSATIONS = ['sender', 'chat', 'window', 'thread']
+// The language of the sentences the bot writes itself (auto follows the sender).
+export const REPLY_LANGUAGES = ['auto', 'en', 'it', 'de', 'es', 'fr', 'pt-BR']
 export const MAX_WINDOW_MINUTES = 7 * 24 * 60
 
 // How the triggers that the agent proposes in a chat are approved, and the
@@ -215,7 +217,7 @@ export function channelsProblem(list) {
 export function emptyConnector() {
   return {
     id: '', name: '', token: '', agent_id: '', enabled: true, accept_any: false, allow: [], notify_chat: '',
-    reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true,
+    reply_mode: 'progress', conversation: 'sender', window_minutes: 60, send_files: true, reply_language: 'auto',
     options: {},
     file_receive_mib: '', file_send_mib: '',
     approval: emptyApproval(),
@@ -303,6 +305,7 @@ export function connectorPayload(form, kind, token = form.token, extra = {}) {
     reply_mode: form.reply_mode || 'progress',
     conversation: form.conversation || 'sender',
     send_files: form.send_files !== false,
+    reply_language: REPLY_LANGUAGES.includes(form.reply_language) ? form.reply_language : 'auto',
     // The choices for the options of the kind; a missing one has its default.
     options: Object.fromEntries(Object.entries(form.options || {}).filter(([, v]) => v)),
     file_receive_max_bytes: mibToBytes(form.file_receive_mib),

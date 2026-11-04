@@ -5,7 +5,7 @@
 // live here as defaults; an add-on can still change one in its namespace.
 import { Field, Hint, Select, Switch, TextInput } from './controls'
 import EN from './i18n/connector.en.json'
-import { CONVERSATIONS, MAX_WINDOW_MINUTES, REPLY_MODES } from './connector'
+import { CONVERSATIONS, MAX_WINDOW_MINUTES, REPLY_LANGUAGES, REPLY_MODES } from './connector'
 
 // text reads a string of the add-on's namespace, with the English default of
 // the shared bundle (i18n/connector.en.json). The translations of that bundle
@@ -56,6 +56,14 @@ export default function AnswerFields({ form, setForm, t, kindInfo }) {
           )}
         </Field>
       )}
+      <Field label={s('answer.languageLabel')} hint={s('answer.languageHelp')}>
+        {(p) => (
+          <Select {...p} data-testid="connector-reply-language" value={form.reply_language || 'auto'}
+            onChange={(e) => setForm({ ...form, reply_language: e.target.value })}>
+            {REPLY_LANGUAGES.map((x) => <option key={x} value={x}>{s(`answer.language.${x}`)}</option>)}
+          </Select>
+        )}
+      </Field>
       <div className="cn-switchfield">
         <Switch testId="connector-files" checked={form.send_files !== false} onChange={(on) => setForm({ ...form, send_files: on })}>
           {s('answer.files')}

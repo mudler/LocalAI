@@ -1,6 +1,7 @@
+import { readFileSync } from 'node:fs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
+import { approvalForm, approvalPayload, approvalProblem, bytesToMib, canSave, connectorForm, connectorPayload, emptyConnector, REPLY_LANGUAGES, fileDirection, fileLimitProblem, formatBytes, mibToBytes, modeText, previewLimit, senderLine } from '../../../internal/connector-ui/src/connector.js'
 
 test('chat connectors: the token goes only when it was typed', () => {
   const create = connectorPayload({ ...emptyConnector(), name: ' Bot ', token: ' 1:abc ', agent_id: 'a1', allow: ['11', ' 11', '@ada_l', ''] }, 'telegram')
@@ -183,4 +184,31 @@ test('chat connectors: approval acts replace the whole object, so a mode change 
   assert.deepEqual(approvalPayload({ mode: 'ask', acts: ['act.files', 'act.bogus'] }).acts, ['act.files'])
   assert.equal(approvalProblem({ mode: 'ask', acts: ['act.send'] }), '')
   assert.equal(approvalProblem({ mode: 'ask', acts: ['act.bogus'] }), 'acts')
+})
+
+test('chat connectors: a new binding follows the language of the sender', () => {
+  assert.equal(emptyConnector().reply_language, 'auto')
+  assert.deepEqual(REPLY_LANGUAGES, ['auto', 'en', 'it', 'de', 'es', 'fr', 'pt-BR'])
+})
+
+test('chat connectors: the request carries the reply language, and an unknown one becomes auto', () => {
+  const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
+  assert.equal(connectorPayload(base, 'telegram').reply_language, 'auto')
+  for (const l of REPLY_LANGUAGES) assert.equal(connectorPayload({ ...base, reply_language: l }, 'telegram').reply_language, l)
+  assert.equal(connectorPayload({ ...base, reply_language: 'klingon' }, 'telegram').reply_language, 'auto')
+  assert.equal(connectorPayload({ ...base, reply_language: undefined }, 'telegram').reply_language, 'auto')
+})
+
+test('chat connectors: the form of a saved binding keeps its reply language, and an older one reads as auto', () => {
+  assert.equal(connectorForm({ id: 'b1', name: 'B', agent_id: 'a', reply_language: 'de' }).reply_language, 'de')
+  assert.equal(connectorForm({ id: 'b1', name: 'B', agent_id: 'a' }).reply_language, 'auto')
+})
+
+test('chat connectors: the shared words label every reply language and say what the setting changes', () => {
+  const en = JSON.parse(readFileSync(new URL('../../../internal/connector-ui/src/i18n/connector.en.json', import.meta.url), 'utf8'))
+  for (const l of REPLY_LANGUAGES) assert.ok(en[`answer.language.${l}`], `no label for ${l}`)
+  assert.equal(en['answer.languageLabel'], 'Reply language')
+  assert.equal(en['answer.languageHelp'], 'The notes the bot writes itself, like confirmations and refusals. The answers of the model follow the language of the conversation.')
+  const src = readFileSync(new URL('../../../internal/connector-ui/src/AnswerFields.jsx', import.meta.url), 'utf8')
+  assert.ok(src.includes('data-testid="connector-reply-language"'))
 })

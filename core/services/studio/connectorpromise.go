@@ -5,10 +5,6 @@ import (
 	"unicode"
 )
 
-// noteNoFile is what the sender reads when the answer showed a file and none
-// went with it.
-const noteNoFile = "I could not attach the file. Ask me again and I will send it."
-
 // paperclip is the marker a model writes in place of a file it did not send.
 const paperclip = "📎"
 

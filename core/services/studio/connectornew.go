@@ -16,13 +16,6 @@ import (
 // memory, files and triggers stay as they are. Add-ons only deliver messages,
 // so this works for every connector.
 
-const (
-	sentNewDone   = "Started a new chat. I will not see our earlier messages."
-	sentNewEach   = "Every message here already starts a new chat."
-	sentNewShared = "Only a paired account can start a new chat here, because everyone in this conversation shares it."
-	sentNewBusy   = "I am still answering. Send the command again when I am done."
-)
-
 // newCommand is the whole text of the command. The slash form is the one of
 // Telegram, with the name of the bot after an at sign in a group. Slack takes
 // a message that begins with a slash for its own commands, so the bang form
@@ -38,11 +31,11 @@ func isNewCommand(m contract.ConnectorMessage) bool {
 
 // newChat handles the command. The caller has checked that the sender may
 // talk to the bot. It never logs the text of the message.
-func (c *Connectors) newChat(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, say func(string)) {
+func (c *Connectors) newChat(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, tell func(string, ...any)) {
 	mode := b.ConversationMode()
 	if mode == connectors.ConversationThread {
 		c.audit(b, m.SenderID, "chat.new", "thread mode")
-		say(sentNewEach)
+		tell("new.each")
 		return
 	}
 	key := c.conversationOf(ctx, b, m)
@@ -51,7 +44,7 @@ func (c *Connectors) newChat(ctx context.Context, b connectors.Binding, m contra
 	// may reset it. A direct conversation has the sender only.
 	if !m.Direct && (mode == connectors.ConversationChat || m.Thread != "") && !b.IsPaired(m.SenderID, c.o.Clock()) {
 		c.audit(b, m.SenderID, "chat.new", "not paired")
-		say(sentNewShared)
+		tell("new.shared")
 		return
 	}
 	// A turn that runs keeps its chat: the reset waits for the sender to ask
@@ -62,14 +55,14 @@ func (c *Connectors) newChat(ctx context.Context, b connectors.Binding, m contra
 	c.smu.Unlock()
 	if busy {
 		c.audit(b, m.SenderID, "chat.new", "busy")
-		say(sentNewBusy)
+		tell("new.busy")
 		return
 	}
 	if err := c.o.Store.ClearChat(ctx, b.ID, key); err != nil {
 		c.log.Warn("studio: could not start a new connector chat", "binding", b.ID, "error", err)
-		say(sentUnavailable)
+		tell("unavailable")
 		return
 	}
 	c.audit(b, m.SenderID, "chat.new", "reset")
-	say(sentNewDone)
+	tell("new.done")
 }

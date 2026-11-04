@@ -489,3 +489,45 @@ func (s Schedule) MinGap(from time.Time, loc *time.Location) time.Duration {
 	}
 	return gap
 }
+
+// SchedulePart names the shape of a schedule, so a caller can word it in a
+// language of its own (String gives the English words).
+type SchedulePart struct {
+	// Kind is "daily", "weekdays", "weekly", "monthly", "once", "cron", or ""
+	// for a schedule that never fires.
+	Kind string
+	// Hour and Minute are the time of day of the kinds that have one.
+	Hour, Minute int
+	// Weekdays lists the days of a weekly schedule, Monday first, with 0 for
+	// Sunday.
+	Weekdays []int
+	// Day is the day of the month of a monthly schedule.
+	Day int
+	// Year, Month and DayOfMonth are the date of a once schedule.
+	Year, Month, DayOfMonth int
+	// Text is the canonical text of the schedule, for a cron expression.
+	Text string
+}
+
+// Part describes the shape of the schedule.
+func (s Schedule) Part() SchedulePart {
+	p := SchedulePart{Kind: s.kind, Text: s.text}
+	if s.kind == "" {
+		return p
+	}
+	if len(s.hours) > 0 && len(s.mins) > 0 {
+		p.Hour, p.Minute = s.hours[0], s.mins[0]
+	}
+	switch s.kind {
+	case "weekly":
+		p.Weekdays = s.weekdays()
+	case "monthly":
+		p.Day = firstBit(uint64(s.dom))
+	case "once":
+		p.Year, p.Month, p.DayOfMonth = s.onceY, s.onceM, s.onceD
+	case "daily", "weekdays":
+	default:
+		p.Kind = "cron"
+	}
+	return p
+}

@@ -504,8 +504,9 @@ reads nothing.
 
 ## How the bot answers
 
-Each binding has three settings, under **How it answers** on the add-on page and in
-the API as `reply_mode`, `conversation` (with `window_minutes`) and `send_files`.
+Each binding has four settings, under **How it answers** on the add-on page and in
+the API as `reply_mode`, `conversation` (with `window_minutes`), `send_files` and
+`reply_language`.
 
 ### While the agent works (`reply_mode`)
 
@@ -658,6 +659,43 @@ the sender attached.
   type if the chat has one, or a script run with the commands tool.
 
 An update without `send_files` keeps the stored value.
+
+### Reply language (`reply_language`)
+
+The bot writes some sentences itself, without the model: the confirmation of a new chat,
+the questions and answers about proposals and changes, the refusals (a file that is too
+large, a message that is too long, too many messages, a sender who may not do this), the
+notes about files, the pairing replies, and the "Working…" message of the progress mode.
+These come in the language of the person. The answers of the model are not affected: the
+model answers in the language of the conversation, as it does without this setting.
+
+| Value | Language |
+|---|---|
+| `auto` (default) | The language of the sender, see below. |
+| `en` | English |
+| `it` | Italian |
+| `de` | German |
+| `es` | Spanish |
+| `fr` | French |
+| `pt-BR` | Portuguese (Brazil) |
+
+With `auto`, LocalAI reads each message of the sender and scores it against the common
+words of the six languages. It needs no model and sends the text nowhere. A message that
+does not show a language clearly (`ok`, `yes`, `thanks`, a number, an emoji) does not
+change anything. The last clear language of a sender is kept in memory for 24 hours, and
+a later short reply keeps it; a full sentence in another language moves it. A trigger
+that writes to a chat on its own uses the language last seen in that chat. When nothing
+is known, the host uses English. A fixed language ignores what the sender writes.
+
+The words that answer a proposal are read in all six languages whatever the setting:
+`yes`, `sì`, `ja`, `sí`, `oui`, `sim` confirm; `no`, `annulla`, `nein`, `cancelar`,
+`annuler`, `não` drop; and each language has a phrase for undo (`undo`, `annulla
+modifica`, `rückgängig`, `deshacer`, `annuler la modification`, `desfazer`). A reply is
+always read by the host before any model turn, so it never reaches the model.
+
+The value is stored with the binding. An update without `reply_language` keeps the stored
+value; an unknown value is a 400. Instructions to the model (tool descriptions, the note
+about held back tools, the thread block) stay in English.
 
 ## Who may use the bot
 
@@ -897,6 +935,9 @@ app, LocalAI writes the question in that chat. The model does not write it, and 
 not send the person to Studio. Messaging chats always ask first; this only gives the
 answer a place.
 
+- **The language.** The question and the replies come in the reply language of the
+  binding ([Reply language](#reply-language-reply_language)); the examples here are in
+  English.
 - **The question.** For example: `I can save a note in the memory (every chat of the
   owner): Standup time`, then the lines that will be added (at most 8 lines or 500
   characters), then `Reply "yes" to save it or "no" to drop it, here, within 24 hours. If
@@ -906,8 +947,10 @@ answer a place.
   for triggers: `yes`, `ok`, `confirm` to save, `no`, `cancel` to drop. LocalAI reads it
   before any model turn and the model never sees it. The reply says what happened, for
   example `Saved: Standup time. Reply "undo" within 30 minutes to take it back.`
-- **Undo.** The word `undo`, alone, within 30 minutes of a save that was made from the
-  chat, restores the earlier text (`Removed: ...`). Any other word does not undo.
+- **Undo.** The word `undo` (or the phrase of the language, see
+  [Reply language](#reply-language-reply_language)), alone, within 30 minutes of a save
+  that was made from the chat, restores the earlier text (`Removed: ...`). Any other
+  word does not undo.
 - **Several waiting.** A bare word answers only when exactly one proposal (a change or a
   trigger) waits in that chat and thread. Otherwise the bot lists the codes and the
   person writes `confirm CODE` or `cancel CODE`.
@@ -1124,6 +1167,7 @@ restart). The JSON store is for one process.
 | Draft IDs | Per instance | A counter in the process that sends the replies gives each turn a new draft ID. Two frontends could give the same ID, but a draft only lives in one chat for one turn. |
 | The chats of the answers (thread mode) | Shared | Each answer's message IDs are stored with the chat of each sender, so a reply finds its chat on any frontend. |
 | Slack Socket Mode links and their queues | Per instance | The Slack add-on process keeps one link per polled binding, acknowledges each event at once and queues it until the next poll. An event that is queued when the process stops is lost. The followed threads and the "Working…" messages are kept there too. |
+| The language of each sender | Per instance | With `reply_language` set to `auto`, the frontend that takes a message keeps the last clear language of the sender and of the chat in memory for 24 hours. A trigger that runs on another frontend does not know it and uses the interface language of the owner when the server has it, else English. A fixed language is stored with the binding and works everywhere. |
 | Files marked by `attach_file` | Per instance | The marks live in the process that runs the turn and are sent by the process that sends the replies. A turn that ends on another frontend than the one that sends the answer loses its marks; the agent then sees no error, and the person asks again. |
 
 ### For add-on authors: sending files

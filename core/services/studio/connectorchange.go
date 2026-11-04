@@ -11,6 +11,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/proposals"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
@@ -22,18 +23,7 @@ import (
 // answers it there with a short word, exactly as for a trigger. The host reads
 // the answer before any model turn, so the text never reaches the model.
 
-// Sentences the bot says about a change proposal.
 const (
-	sentChangeNoRight = "Only the owner can confirm this."
-	sentChangeNotYou  = "Only the person who asked can confirm this."
-	sentChangeNothing = "There is nothing here to undo."
-	sentChangeCannot  = "I could not undo it: %s"
-
-	// undoWord is the one word that takes back a change that was just applied
-	// from the chat. A bare "no" or "cancel" after a save does not: it may
-	// mean anything.
-	undoWord = "undo"
-
 	// changeExcerptRunes bounds the text of a proposal that is written to a chat.
 	changeExcerptRunes = 500
 	// changeExcerptLines bounds the lines of it.
@@ -52,31 +42,31 @@ func ChangeCode(id string) string {
 }
 
 // kindWords says what a kind of change is, for a person who reads it in a chat.
-func kindWords(k contract.ChangeKind) string {
+func kindWords(v hostmsg.Voice, k contract.ChangeKind) string {
 	switch k {
 	case contract.ChangeMemory:
-		return "a note in the memory"
+		return v.T("change.kind.memory")
 	case contract.ChangeProfile:
-		return "a change of the rules of this agent"
+		return v.T("change.kind.profile")
 	case contract.ChangeSkill:
-		return "a skill"
+		return v.T("change.kind.skill")
 	case contract.ChangePage:
-		return "a page"
+		return v.T("change.kind.page")
 	case contract.ChangeDashboard:
-		return "a change of the Home dashboard"
+		return v.T("change.kind.dashboard")
 	}
-	return "a change"
+	return v.T("change.kind.other")
 }
 
 // scopeWords says where a change applies.
-func scopeWords(s contract.ChangeScope) string {
+func scopeWords(v hostmsg.Voice, s contract.ChangeScope) string {
 	switch s {
 	case contract.ScopeAgent:
-		return "this agent only"
+		return v.T("change.scope.agent")
 	case contract.ScopeChannel:
-		return "this conversation only"
+		return v.T("change.scope.channel")
 	}
-	return "every chat of the owner"
+	return v.T("change.scope.all")
 }
 
 // addedLines returns the non-empty lines of next that cur does not have, in
@@ -114,30 +104,29 @@ func excerptOf(lines []string) string {
 // proposalChatText is what the host writes in the chat where a change was
 // proposed: what will be saved, and how to answer. The model's words are
 // quoted, never trusted: mentions that notify everyone are broken.
-func (h *Changes) proposalChatText(ctx context.Context, p contract.ChangeProposal) string {
+func (h *Changes) proposalChatText(ctx context.Context, v hostmsg.Voice, p contract.ChangeProposal) string {
 	var shown string
 	if kind, ok := h.kinds.Lookup(string(p.Kind)); ok {
 		switch p.Kind {
 		case contract.ChangePage:
-			shown = "a page with its files"
+			shown = v.T("change.page_files")
 		default:
 			if st, err := h.snapshot(ctx, p.Owner, kind, p.Target, p.Content); err == nil {
 				if add := addedLines(st.current, p.Content); len(add) > 0 {
 					shown = excerptOf(add)
 				} else {
-					shown = "(it only removes lines)"
+					shown = v.T("change.only_removes")
 				}
 			}
 		}
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "I can save %s (%s): %s", kindWords(p.Kind), scopeWords(p.Scope), p.Summary)
+	b.WriteString(v.T("change.propose", "kind", kindWords(v, p.Kind), "scope", scopeWords(v, p.Scope), "summary", p.Summary))
 	if shown != "" {
 		b.WriteString("\n" + shown)
 	}
 	code := ChangeCode(p.ID)
-	fmt.Fprintf(&b, "\nNothing is saved until you answer. Reply \"yes\" to save it or \"no\" to drop it, here, within 24 hours. "+
-		"If more than one waits, reply \"confirm %s\" or \"cancel %s\".", code, code)
+	b.WriteString("\n" + v.T("change.ask", "code", code))
 	return neutralMentions.ReplaceAllString(b.String(), "${1}​${2}")
 }
 
@@ -189,7 +178,8 @@ func (h *Changes) connectorProposed(ctx context.Context, c builtins.Chat, p cont
 		chat, thread, ok = conns.PlaceOf(ctx, c.OriginID, c.Actor.ChatID)
 	}
 	if ok {
-		if _, err := conns.Post(ctx, Post{Binding: c.OriginID, Chat: chat, Thread: thread, Text: h.proposalChatText(ctx, p)}); err == nil {
+		v := conns.voiceOf(ctx, c.OriginID, p.Source.Sender, chat)
+		if _, err := conns.Post(ctx, Post{Binding: c.OriginID, Chat: chat, Thread: thread, Text: h.proposalChatText(ctx, v, p)}); err == nil {
 			return head + " The host wrote the proposal in this chat, with what will be saved; the person answers there with yes or no, and it expires in 24 hours. " +
 				"Say in one short sentence that you asked; do not repeat the text and do not say it is saved." + autoNote
 		} else {
@@ -235,9 +225,9 @@ func (c *Connectors) mayAnswerChange(ctx context.Context, b connectors.Binding, 
 
 // answerChange confirms or drops the waiting proposal p for the sender of m. A
 // sender who may not gets one short sentence; the proposal keeps waiting.
-func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, p contract.ChangeProposal, verb string, bare bool) (string, bool) {
+func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, p contract.ChangeProposal, verb string, bare bool, v hostmsg.Voice) (string, bool) {
 	ch := c.svc.changes
-	detail := "by text from sender " + m.SenderID
+	detail := byTextFrom(m.SenderID)
 	if !c.mayAnswerChange(ctx, b, m, p) {
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "not allowed; "+detail)
 		if bare && p.Source.Sender == m.SenderID {
@@ -245,38 +235,35 @@ func (c *Connectors) answerChange(ctx context.Context, b connectors.Binding, m c
 			// to answer: an ordinary "ok" is just a message.
 			return "", false
 		}
-		return sentChangeNoRight, true
+		return v.T("change.no_right"), true
 	}
 	// In a chat of two the other listed sender may answer; in a shared chat
 	// only the sender whose message made the proposal.
 	if !m.Direct && p.Source.Sender != "" && p.Source.Sender != m.SenderID {
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "not the sender who asked; "+detail)
-		return sentChangeNotYou, true
+		return v.T("change.not_you"), true
 	}
 	if verb == "cancel" {
 		if _, err := ch.Dismiss(ctx, b.Owner, p.ID); err != nil {
-			return fmt.Sprintf(sentProposalFailed, changeErr(err)), true
+			return v.T("proposal.failed", "error", changeErr(err)), true
 		}
-		return sentProposalCancel, true
+		return v.T("proposal.cancelled"), true
 	}
 	done, err := ch.Confirm(ctx, b.Owner, p.ID)
 	if err != nil {
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "confirm failed; "+detail)
-		return fmt.Sprintf(sentProposalFailed, changeErr(err)), true
+		return v.T("proposal.failed", "error", changeErr(err)), true
 	}
-	return fmt.Sprintf("%s: %s. Reply \"undo\" within %d minutes to take it back.", savedWord(done.Kind), done.Summary, int(cancelWindow/time.Minute)), true
-}
-
-func savedWord(k contract.ChangeKind) string {
-	if k == contract.ChangeMemory {
-		return "Saved"
+	key := "change.done"
+	if done.Kind == contract.ChangeMemory {
+		key = "change.saved"
 	}
-	return "Done"
+	return v.T(key, "summary", done.Summary, "minutes", int(cancelWindow/time.Minute)), true
 }
 
 // undoChange takes back the change that was applied last in this place, by the
 // word "undo", when the sender may answer proposals here.
-func (c *Connectors) undoChange(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, here []contract.ChangeProposal) (string, bool) {
+func (c *Connectors) undoChange(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, here []contract.ChangeProposal, v hostmsg.Voice) (string, bool) {
 	ch := c.svc.changes
 	now := c.o.Clock()
 	var last *contract.ChangeProposal
@@ -292,21 +279,21 @@ func (c *Connectors) undoChange(ctx context.Context, b connectors.Binding, m con
 	p := *last
 	if !c.mayAnswerChange(ctx, b, m, p) {
 		ch.audit(ctx, proposals.ActionRefuse, p, 0, "undo not allowed; by text from sender "+m.SenderID)
-		return sentChangeNoRight, true
+		return v.T("change.no_right"), true
 	}
 	if !m.Direct && p.Source.Sender != "" && p.Source.Sender != m.SenderID {
-		return sentChangeNotYou, true
+		return v.T("change.not_you"), true
 	}
 	if _, err := ch.Revert(ctx, b.Owner, p.ID); err != nil {
-		return fmt.Sprintf(sentChangeCannot, changeErr(err)), true
+		return v.T("change.cannot", "error", changeErr(err)), true
 	}
-	return fmt.Sprintf("Removed: %s.", p.Summary), true
+	return v.T("change.removed", "summary", p.Summary), true
 }
 
 // answerChanges handles a short answer when change proposals wait in this
 // place or one was just applied. handled false leaves the message to the
 // trigger path and then to the agent.
-func (c *Connectors) answerChanges(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, verb, code string, isUndo bool) (string, bool) {
+func (c *Connectors) answerChanges(ctx context.Context, b connectors.Binding, m contract.ConnectorMessage, verb, code string, isUndo bool, v hostmsg.Voice) (string, bool) {
 	here := c.hereChanges(ctx, b, m)
 	if len(here) == 0 {
 		return "", false
@@ -332,18 +319,18 @@ func (c *Connectors) answerChanges(ctx context.Context, b connectors.Binding, m 
 				if !c.mayAnswerChange(ctx, b, m, p) {
 					return "", false
 				}
-				return sentProposalGone, true
+				return v.T("proposal.gone"), true
 			}
-			return c.answerChange(ctx, b, m, p, verb, false)
+			return c.answerChange(ctx, b, m, p, verb, false, v)
 		}
 		return "", false
 	}
 	if len(waiting) == 0 {
 		if isUndo {
-			return c.undoChange(ctx, b, m, here)
+			return c.undoChange(ctx, b, m, here, v)
 		}
 		if len(lapsed) > 0 && c.mayAnswerChange(ctx, b, m, lapsed[0]) {
-			return sentProposalGone, true
+			return v.T("proposal.gone"), true
 		}
 		return "", false
 	}
@@ -351,13 +338,13 @@ func (c *Connectors) answerChanges(ctx context.Context, b connectors.Binding, m 
 	// exactly one does.
 	others := c.svc.triggers.waitingHere(ctx, PhraseFrom{Binding: b.ID, Owner: b.Owner, Chat: m.Chat, Thread: m.Thread})
 	if len(waiting) == 1 && len(others) == 0 {
-		return c.answerChange(ctx, b, m, waiting[0], verb, true)
+		return c.answerChange(ctx, b, m, waiting[0], verb, true, v)
 	}
 	if !c.mayAnswerChange(ctx, b, m, waiting[0]) {
 		return "", false
 	}
 	var sb strings.Builder
-	sb.WriteString("More than one is waiting here. Say which, for example \"confirm CODE\" or \"cancel CODE\":")
+	sb.WriteString(v.T("proposal.multi"))
 	for _, p := range waiting {
 		fmt.Fprintf(&sb, "\n%s: %q", ChangeCode(p.ID), p.Summary)
 	}

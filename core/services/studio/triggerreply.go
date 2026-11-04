@@ -3,6 +3,7 @@ package studio
 import (
 	"errors"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -13,11 +14,43 @@ import (
 // optional code), so a longer message always goes to the agent. Words of other
 // languages are optional; these cover the common ones.
 var (
-	yesWords = wordSet("yes", "y", "yep", "yeah", "ok", "okay", "sure", "confirm", "approve", "approved", "go ahead", "do it",
-		"👍", "✅", "si", "sì", "ja", "oui", "vale", "ok grazie")
-	noWords = wordSet("no", "n", "nope", "cancel", "stop", "drop it", "no thanks", "no thank you", "never mind", "nevermind", "undo",
-		"👎", "❌", "nein", "non", "annulla")
+	yesWords = wordSet(slices.Concat(
+		[]string{"yes", "y", "yep", "yeah", "ok", "okay", "sure", "confirm", "approve", "approved", "go ahead", "do it", "👍", "✅"},
+		// Italian
+		[]string{"si", "sì", "certo", "certamente", "conferma", "confermo", "confermato", "va bene", "d'accordo", "daccordo", "perfetto", "procedi", "salva", "avvia", "ok grazie", "ok va bene"},
+		// German
+		[]string{"ja", "jawohl", "klar", "natürlich", "bestätigen", "bestätige", "bestätigt", "einverstanden", "passt", "mach das", "speichern", "starten", "ok danke"},
+		// Spanish
+		[]string{"sí", "claro", "vale", "confirmar", "confirmo", "confirma", "de acuerdo", "adelante", "hazlo", "guardar", "guárdalo", "ok gracias"},
+		// French
+		[]string{"oui", "ouais", "d'accord", "daccord", "bien sûr", "confirmer", "confirme", "je confirme", "vas-y", "enregistre", "enregistrer", "ok merci"},
+		// Portuguese (Brazil)
+		[]string{"sim", "pode", "pode salvar", "beleza", "certo", "confirmar", "confirma", "de acordo", "bora", "salvar", "ok obrigado", "ok obrigada"},
+	)...)
+	noWords = wordSet(slices.Concat(
+		[]string{"no", "n", "nope", "cancel", "stop", "drop it", "no thanks", "no thank you", "never mind", "nevermind", "undo", "👎", "❌"},
+		// Italian
+		[]string{"annulla", "annullare", "annullato", "lascia stare", "no grazie", "scarta", "ferma"},
+		// German
+		[]string{"nein", "nö", "abbrechen", "abbruch", "stopp", "lass es", "lass gut sein", "nein danke", "verwerfen"},
+		// Spanish
+		[]string{"cancelar", "cancela", "déjalo", "olvídalo", "no gracias", "descartar"},
+		// French
+		[]string{"non", "annuler", "annule", "laisse tomber", "non merci", "oublie", "abandonner"},
+		// Portuguese (Brazil)
+		[]string{"não", "nao", "cancelar", "cancela", "deixa pra lá", "não obrigado", "nao obrigado", "descartar", "esquece"},
+	)...)
+
+	// undoWords take back a change that was just applied from the chat. A
+	// bare "no" or "cancel" after a save does not: it may mean anything. Each
+	// language has its own phrase, the one its confirmation text asks for.
+	undoWords = wordSet("undo", "annulla modifica", "annulla la modifica", "rückgängig", "rückgängig machen", "deshacer",
+		"annuler la modification", "défaire", "desfazer")
 )
+
+// isUndoReply says whether the whole message is the word that takes back the
+// change that was just applied.
+func isUndoReply(text string) bool { return undoWords[normalizeReply(text)] }
 
 func wordSet(w ...string) map[string]bool {
 	m := make(map[string]bool, len(w))
@@ -61,7 +94,7 @@ func replyVerb(t string) (string, bool) {
 	switch {
 	case yesWords[t]:
 		return "confirm", true
-	case noWords[t]:
+	case noWords[t], undoWords[t]:
 		return "cancel", true
 	}
 	return "", false

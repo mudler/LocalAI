@@ -3,7 +3,6 @@ package studio
 import (
 	"context"
 	"errors"
-	"fmt"
 	"path"
 	"strings"
 	"time"
@@ -118,30 +117,31 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 		return
 	}
 	files := c.outgoing(ctx, b, x, chatID, turn, since)
+	v := c.voice(ctx, b, m.SenderID, m.Chat)
 	var notes []string
 	var sent int64
 	for i, f := range files {
 		if i == maxFilesPerTurn {
-			notes = append(notes, fmt.Sprintf("%d more files are in the chat's files.", len(files)-i))
+			notes = append(notes, v.T("file.more", "n", len(files)-i))
 			break
 		}
 		mimeType, ok := outboundType(f.name)
 		if !ok {
 			if f.made {
-				notes = append(notes, fmt.Sprintf("I made %s, but files of this type are not sent here.", f.name))
+				notes = append(notes, v.T("file.made_not_sent", "name", f.name))
 			} else {
-				notes = append(notes, fmt.Sprintf("%s was not sent: files of this type are not sent here.", f.name))
+				notes = append(notes, v.T("file.type_not_sent", "name", f.name))
 			}
 			continue
 		}
-		if note := c.sendHandled(ctx, b, token, m, x, f, mimeType, limits, &sent); note != "" {
+		if note := c.sendHandled(ctx, v, b, token, m, x, f, mimeType, limits, &sent); note != "" {
 			notes = append(notes, note)
 		}
 	}
 	if sent == 0 && len(notes) == 0 && promisesFile(answer) {
 		// The answer showed a file and none went: the sender must not wait
 		// for it. The answer itself is not changed.
-		notes = append(notes, noteNoFile)
+		notes = append(notes, v.T("file.promise"))
 	}
 	if len(notes) > 0 {
 		c.say(b, token, m.Chat, m.Thread, strings.Join(notes, "\n"))

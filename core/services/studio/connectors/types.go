@@ -20,6 +20,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 )
 
@@ -152,6 +153,10 @@ type Binding struct {
 	Conversation string
 	// WindowMinutes is the time window of ConversationWindow.
 	WindowMinutes int
+	// ReplyLanguage is the language of the sentences that the host writes to
+	// people in the chat: hostmsg.Auto (or empty) follows the language of the
+	// sender's message, any other value is a language of the catalog.
+	ReplyLanguage string
 	// FilesOff keeps the files a turn makes from going to the sender. The
 	// zero value sends them, so a binding stored before the option sends
 	// them too.
@@ -400,6 +405,9 @@ func ValidateKind(b Binding, agentOptional bool) error {
 	default:
 		return bad("the reply mode must be %s, %s or %s", ReplyOff, ReplyProgress, ReplyStream)
 	}
+	if !hostmsg.ValidSetting(b.ReplyLanguage) {
+		return bad("the reply language must be auto, %s", strings.Join(hostmsg.Languages, ", "))
+	}
 	switch b.Conversation {
 	case "", ConversationSender, ConversationChat, ConversationThread:
 	case ConversationWindow:
@@ -488,6 +496,15 @@ func (b Binding) ConversationMode() string {
 		return ConversationSender
 	}
 	return b.Conversation
+}
+
+// ReplyLang is the reply language setting of a binding, with the default
+// filled in: hostmsg.Auto or a language code.
+func (b Binding) ReplyLang() string {
+	if b.ReplyLanguage == "" {
+		return hostmsg.Auto
+	}
+	return b.ReplyLanguage
 }
 
 // SendsFiles tells whether the files a turn makes go to the sender.

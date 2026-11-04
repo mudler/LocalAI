@@ -5,13 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -130,7 +130,7 @@ func (c *Connectors) auditFile(b connectors.Binding, dir string, size int64, res
 // It returns the sentence for the sender when the file cannot go, and ""
 // when it went or is not named (gone, empty). sent counts the bytes of the
 // turn so far.
-func (c *Connectors) sendHandled(ctx context.Context, b connectors.Binding, token string, m contract.ConnectorMessage, x session.Access, f outFile, mimeType string, l FileLimits, sent *int64) string {
+func (c *Connectors) sendHandled(ctx context.Context, v hostmsg.Voice, b connectors.Binding, token string, m contract.ConnectorMessage, x session.Access, f outFile, mimeType string, l FileLimits, sent *int64) string {
 	start := time.Now()
 	n, err := c.svc.d.Files.Store().Stat(ctx, x.Actor(), f.path)
 	switch {
@@ -138,16 +138,16 @@ func (c *Connectors) sendHandled(ctx context.Context, b connectors.Binding, toke
 		return "" // gone since, or outside the chat's access: not named
 	case err != nil:
 		c.log.Warn("studio: could not read a file for a connector", "binding", b.ID, "error", err)
-		return fmt.Sprintf("I could not read %s.", f.name)
+		return v.T("file.read_fail", "name", f.name)
 	case n.Kind == workspace.KindDir || n.Blob == "" || n.Size == 0:
 		return "" // an empty file says nothing, and platforms refuse it
 	case n.Size > l.Send.Bytes:
 		c.auditFile(b, "out", n.Size, "too_large", l.Send, time.Since(start))
-		return noteSendTooBig(f.name, l)
+		return noteSendTooBig(v, f.name, l)
 	case !typeAllowed(l.SendTypes, mimeType):
-		return fmt.Sprintf("%s was not sent: files of this type are not sent here.", f.name)
+		return v.T("file.type_not_sent", "name", f.name)
 	case *sent+n.Size > l.Send.Bytes*fileTurnFactor:
-		return fmt.Sprintf("%s stays in the chat's files: the files of this answer are too large together.", f.name)
+		return v.T("file.stays", "name", f.name)
 	}
 	if head, err := c.svc.d.Files.OpenBlob(ctx, n.Blob); err == nil {
 		buf := make([]byte, sniffBytes)
@@ -155,7 +155,7 @@ func (c *Connectors) sendHandled(ctx context.Context, b connectors.Binding, toke
 		_ = head.Close()
 		// A page that a client could run goes under no name.
 		if strings.HasPrefix(http.DetectContentType(buf[:k]), "text/html") {
-			return fmt.Sprintf("%s was not sent: files of this type are not sent here.", f.name)
+			return v.T("file.type_not_sent", "name", f.name)
 		}
 	}
 	scope := BindingConnectorScope(b)
@@ -171,7 +171,7 @@ func (c *Connectors) sendHandled(ctx context.Context, b connectors.Binding, toke
 	if err != nil {
 		c.auditFile(b, "out", n.Size, "failed", l.Send, time.Since(start))
 		c.log.Warn("studio: could not send a file to a connector", "binding", b.ID, "kind", b.Kind, "error", err)
-		return fmt.Sprintf("I could not send %s%s.", f.name, sendReason(err))
+		return v.T("file.send_fail", "name", f.name, "reason", sendReason(err))
 	}
 	*sent += n.Size
 	c.auditFile(b, "out", n.Size, "done", l.Send, time.Since(start))

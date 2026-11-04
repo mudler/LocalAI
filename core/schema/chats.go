@@ -1307,6 +1307,11 @@ type ChatsConnector struct {
 	// SendFiles sends the files that a turn makes to the sender, after the
 	// answer.
 	SendFiles bool `json:"send_files"`
+	// ReplyLanguage is the language of the sentences the bot writes itself in
+	// the chat (confirmations, refusals, notes about files): auto (the
+	// language of the sender's message), en, it, de, es, fr or pt-BR. The
+	// answers of the model follow the conversation, not this setting.
+	ReplyLanguage string `json:"reply_language"`
 	// Options are the choices made for the options of the kind, by option id.
 	// An option that is absent has its default (see ChatsConnectorKind).
 	Options map[string]string `json:"options,omitempty"`
@@ -1619,6 +1624,9 @@ type ChatsConnectorWrite struct {
 	Conversation string `json:"conversation,omitempty"`
 	// WindowMinutes is the time window of the window mode, 1 to 10080.
 	WindowMinutes int `json:"window_minutes,omitempty"`
+	// ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto
+	// for a new binding and unchanged for an update.
+	ReplyLanguage *string `json:"reply_language,omitempty" enums:"auto,en,it,de,es,fr,pt-BR"`
 	// SendFiles turns the sending of a turn's files on or off. Absent means
 	// on for a new binding and unchanged for an update.
 	SendFiles *bool `json:"send_files,omitempty"`

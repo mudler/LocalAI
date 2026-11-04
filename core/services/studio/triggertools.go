@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/http/auth"
 	"github.com/mudler/LocalAI/core/services/studio/builtins"
+	"github.com/mudler/LocalAI/core/services/studio/hostmsg"
 	"github.com/mudler/LocalAI/core/services/studio/session"
 	"github.com/mudler/LocalAI/core/services/studio/triggers"
 	"github.com/mudler/LocalAI/core/services/studio/workspace"
@@ -606,19 +608,48 @@ func (h *Triggers) changeCard(ctx context.Context, a workspace.Actor, rec trigge
 // "New files in /Contracts".
 func (h *Triggers) Summary(t triggers.Trigger) string { return h.summary(t) }
 
-func (h *Triggers) summary(t triggers.Trigger) string {
+func (h *Triggers) summary(t triggers.Trigger) string { return h.summaryIn(hostmsg.Voice{}, t) }
+
+// summaryIn is summary in the language of the voice.
+func (h *Triggers) summaryIn(v hostmsg.Voice, t triggers.Trigger) string {
 	if t.Kind == triggers.KindFile {
-		return "new files in " + h.RelFolder(t)
+		return v.T("when.files", "folder", h.RelFolder(t))
 	}
 	sch, err := triggers.ParseSchedule(t.Schedule)
 	if err != nil {
 		return t.Schedule
 	}
-	s := sch.String()
+	s := scheduleWords(v, sch)
 	if t.TZ != "" {
 		s += " (" + t.TZ + ")"
 	}
 	return s
+}
+
+// scheduleWords words a schedule in the language of the voice. For English it
+// is the same text as Schedule.String.
+func scheduleWords(v hostmsg.Voice, s triggers.Schedule) string {
+	p := s.Part()
+	hm := fmt.Sprintf("%02d:%02d", p.Hour, p.Minute)
+	switch p.Kind {
+	case "":
+		return v.T("when.never")
+	case "daily":
+		return v.T("when.daily", "time", hm)
+	case "weekdays":
+		return v.T("when.weekdays", "time", hm)
+	case "weekly":
+		days := make([]string, len(p.Weekdays))
+		for i, d := range p.Weekdays {
+			days[i] = v.T("day." + strconv.Itoa(d))
+		}
+		return v.T("when.weekly", "days", v.Join(days), "time", hm)
+	case "monthly":
+		return v.T("when.monthly", "day", p.Day, "time", hm)
+	case "once":
+		return v.T("when.once", "date", fmt.Sprintf("%04d-%02d-%02d", p.Year, p.Month, p.DayOfMonth), "time", hm)
+	}
+	return v.T("when.cron", "text", p.Text)
 }
 
 // connectorRoute is the place a trigger proposed in the connector chat c comes

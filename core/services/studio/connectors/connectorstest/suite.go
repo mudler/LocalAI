@@ -71,6 +71,38 @@ func Run(newStore NewStore) {
 		Expect(got.ReplyMode()).To(Equal(connectors.ReplyProgress))
 		Expect(got.SendsFiles()).To(BeTrue())
 	})
+	It("keeps the reply language, and reads a binding stored without one as auto", func() {
+		s := newStore()
+		b := binding("lang", "u1", "Language")
+		b.ReplyLanguage = "pt-BR"
+		Expect(s.PutBinding(ctx, b)).To(Succeed())
+		got, err := s.GetBinding(ctx, "lang")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.ReplyLanguage).To(Equal("pt-BR"))
+		Expect(got.ReplyLang()).To(Equal("pt-BR"))
+		list, err := s.ListBindings(ctx, "u1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].ReplyLanguage).To(Equal("pt-BR"))
+		got.ReplyLanguage = ""
+		Expect(s.PutBinding(ctx, got)).To(Succeed())
+		again, _ := s.GetBinding(ctx, "lang")
+		Expect(again.ReplyLanguage).To(BeEmpty())
+		Expect(again.ReplyLang()).To(Equal("auto"))
+	})
+	It("accepts auto and the languages of the catalog, and refuses any other reply language", func() {
+		base := connectors.Binding{Name: "n", Kind: "k", AgentID: "a"}
+		for _, l := range []string{"", "auto", "en", "it", "de", "es", "fr", "pt-BR"} {
+			b := base
+			b.ReplyLanguage = l
+			Expect(connectors.Validate(b)).To(Succeed(), l)
+		}
+		for _, l := range []string{"pt", "IT", "ja", "it-IT", "xx"} {
+			b := base
+			b.ReplyLanguage = l
+			Expect(connectors.Validate(b)).NotTo(Succeed(), l)
+		}
+	})
 	It("keeps the options of the kind", func() {
 		s := newStore()
 		b := binding("opt", "u1", "Options")

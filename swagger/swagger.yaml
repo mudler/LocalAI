@@ -3761,6 +3761,13 @@ definitions:
       reason:
         description: Reason says in plain words why the binding is not active.
         type: string
+      reply_language:
+        description: |-
+          ReplyLanguage is the language of the sentences the bot writes itself in
+          the chat (confirmations, refusals, notes about files): auto (the
+          language of the sender's message), en, it, de, es, fr or pt-BR. The
+          answers of the model follow the conversation, not this setting.
+        type: string
       reply_mode:
         description: |-
           ReplyMode is what a sender sees while a turn runs: off (typing, then
@@ -4690,6 +4697,13 @@ definitions:
       reason:
         description: Reason says in plain words why the binding is not active.
         type: string
+      reply_language:
+        description: |-
+          ReplyLanguage is the language of the sentences the bot writes itself in
+          the chat (confirmations, refusals, notes about files): auto (the
+          language of the sender's message), en, it, de, es, fr or pt-BR. The
+          answers of the model follow the conversation, not this setting.
+        type: string
       reply_mode:
         description: |-
           ReplyMode is what a sender sees while a turn runs: off (typing, then
@@ -5213,6 +5227,19 @@ definitions:
           Options are the choices for the options of the kind, by option id. Absent
           means the defaults for a new binding and unchanged for an update.
         type: object
+      reply_language:
+        description: |-
+          ReplyLanguage is auto, en, it, de, es, fr or pt-BR. Absent means auto
+          for a new binding and unchanged for an update.
+        enum:
+        - auto
+        - en
+        - it
+        - de
+        - es
+        - fr
+        - pt-BR
+        type: string
       reply_mode:
         description: ReplyMode is off, progress or stream; empty means progress.
         type: string
@@ -17050,12 +17077,13 @@ paths:
         returned) and an agent of yours that names a model. The token is checked with
         the platform when its add-on runs: a token that the platform refuses is a
         400. reply_mode (off, progress, stream; default progress), conversation (sender,
-        chat, window with window_minutes, thread; default sender) and send_files (default
-        true) say how the bot answers. The allowlist is empty at first, so nobody
-        is accepted: add chat IDs, user IDs or @usernames, or set accept_any (anyone
-        who can message the bot then uses the agent''s tools; the request that turns
-        it on must also carry confirm_accept_any set to "accept any message", or it
-        is a 400). At most 10 bindings.'
+        chat, window with window_minutes, thread; default sender), send_files (default
+        true) and reply_language (auto, en, it, de, es, fr, pt-BR; default auto, the
+        language of the sentences the bot writes itself) say how the bot answers.
+        The allowlist is empty at first, so nobody is accepted: add chat IDs, user
+        IDs or @usernames, or set accept_any (anyone who can message the bot then
+        uses the agent''s tools; the request that turns it on must also carry confirm_accept_any
+        set to "accept any message", or it is a 400). At most 10 bindings.'
       parameters:
       - description: the binding
         in: body
@@ -17108,9 +17136,9 @@ paths:
       - chats
     put:
       description: 'The body replaces every field except the token, which is kept
-        unless the request has a new one, and send_files, which is kept when it is
-        absent. A new token is checked with the platform: a token that the platform
-        refuses is a 400 and nothing is saved.'
+        unless the request has a new one, and send_files and reply_language, which
+        are kept when absent. A new token is checked with the platform: a token that
+        the platform refuses is a 400 and nothing is saved.'
       parameters:
       - description: the binding's id
         in: path

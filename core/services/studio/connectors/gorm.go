@@ -28,6 +28,8 @@ type bindingRow struct {
 	Conversation  string `gorm:"size:16"`
 	WindowMinutes int
 	FilesOff      bool
+	// ReplyLanguage is added by AutoMigrate; a row stored before it reads as auto.
+	ReplyLanguage string `gorm:"size:8"`
 	// A thread_context_off column that an earlier build added stays in the
 	// table, unread and unwritten: AutoMigrate never drops a column, and the
 	// column accepts NULL, so an insert without it works.
@@ -125,7 +127,7 @@ func NewGORM(db *gorm.DB) (Store, error) {
 
 func (r bindingRow) binding() (Binding, error) {
 	b := Binding{ID: r.ID, Owner: r.Owner, Kind: r.Kind, AddonID: r.AddonID, Name: r.Name, AgentID: r.AgentID, Enabled: r.Enabled, AcceptAny: r.AcceptAny,
-		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, WriteMode: r.WriteMode,
+		NotifyChat: r.NotifyChat, Reply: r.Reply, Conversation: r.Conversation, WindowMinutes: r.WindowMinutes, FilesOff: r.FilesOff, ReplyLanguage: r.ReplyLanguage, WriteMode: r.WriteMode,
 		FileReceiveMax: r.FileReceiveMax, FileSendMax: r.FileSendMax,
 		Token: append([]byte(nil), r.Token...), Created: r.Created.UTC(), Updated: r.Updated.UTC()}
 	if r.Allow != "" {
@@ -172,7 +174,7 @@ func (s *gormStore) PutBinding(ctx context.Context, b Binding) error {
 	}
 	return s.db.WithContext(ctx).Save(&bindingRow{Approval: enc(b.Approval, b.Approval.IsZero()), WriteMode: b.WriteMode, Resources: enc(b.Resources, len(b.Resources) == 0), Channels: enc(b.Channels, len(b.Channels) == 0), Caps: enc(b.Caps, len(b.Caps) == 0), Grants: enc(b.Grants, len(b.Grants) == 0), Paired: enc(b.Paired, len(b.Paired) == 0), ID: b.ID, Owner: b.Owner, Kind: b.Kind, AddonID: b.AddonID, Name: b.Name, AgentID: b.AgentID, Enabled: b.Enabled,
 		AcceptAny: b.AcceptAny, Allow: allow, NotifyChat: b.NotifyChat, Reply: b.Reply, Conversation: b.Conversation, WindowMinutes: b.WindowMinutes,
-		FilesOff: b.FilesOff, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
+		FilesOff: b.FilesOff, ReplyLanguage: b.ReplyLanguage, Options: options, FileReceiveMax: b.FileReceiveMax, FileSendMax: b.FileSendMax,
 		Token: b.Token, Created: b.Created, Updated: b.Updated}).Error
 }
 
