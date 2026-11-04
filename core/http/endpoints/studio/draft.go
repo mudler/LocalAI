@@ -82,7 +82,7 @@ func (h *Handlers) DraftAddons(c echo.Context) error {
 	if err != nil {
 		return failFor(c, err)
 	}
-	return writeAddonList(c, list, cmds)
+	return writeAddonList(c, h, list, cmds)
 }
 
 // draftSwitches reads the switches of a draft from the query: comma-separated

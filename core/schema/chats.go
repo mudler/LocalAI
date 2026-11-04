@@ -934,6 +934,10 @@ type ChatsAddonList struct {
 	// CommandsFallbackReason says why: off, or the add-on's reason.
 	CommandsFallback       string `json:"commands_fallback,omitempty"`
 	CommandsFallbackReason string `json:"commands_fallback_reason,omitempty"`
+	// CommandsHostExec is the mode of the setting chats_host_exec as it applies
+	// now (off, ask or on), so a client can say that the built-in bash is off
+	// when no add-on runs commands. Every signed-in user may read it.
+	CommandsHostExec string `json:"commands_host_exec,omitempty"`
 }
 
 // ChatsHostExecConsent answers the card that asks to run one command on this

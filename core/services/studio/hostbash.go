@@ -86,6 +86,10 @@ func (s *Service) hostExecMode() string {
 	return hostexec.ModeOff
 }
 
+// HostExecMode is the mode of chats_host_exec as it applies now: off, ask or
+// on. A server with no such setting reads as off.
+func (s *Service) HostExecMode() string { return s.hostExecMode() }
+
 func (s *Service) isAdmin(ctx context.Context, user string) bool {
 	if s.d.IsAdmin == nil {
 		return true // no accounts: the one person is the administrator
