@@ -18,6 +18,9 @@ require (
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/ebitengine/purego v0.10.0
+	github.com/emersion/go-imap/v2 v2.0.0-beta.8
+	github.com/emersion/go-sasl v0.0.0-20241020182733-b788ff22d5a6
+	github.com/emersion/go-smtp v0.24.0
 	github.com/emirpasic/gods/v2 v2.0.0-alpha
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-audio/wav v1.1.0
@@ -133,6 +136,7 @@ require (
 	github.com/digitorus/pkcs7 v0.0.0-20230818184609-3a137a874352 // indirect
 	github.com/digitorus/timestamp v0.0.0-20231217203849-220c5c2851b7 // indirect
 	github.com/dunglas/httpsfv v1.1.0 // indirect
+	github.com/emersion/go-message v0.18.2 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/filecoin-project/go-clock v0.1.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
