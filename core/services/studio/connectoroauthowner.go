@@ -115,6 +115,8 @@ func oauthFailure(err error) error {
 		return fail(503, gateway.OAuthUnavailable, "the login of this add-on is not available now; check that the add-on runs")
 	case errors.Is(err, ErrConnectorsOff):
 		return fail(409, gateway.OAuthConnectorsOff, "connectors are not available")
+	case errors.Is(err, ErrTooManyLogins):
+		return fail(429, gateway.OAuthTooManyLogins, "too many logins were started; finish one, or wait a few minutes and try again")
 	}
 	return gateway.ErrUnavailable
 }

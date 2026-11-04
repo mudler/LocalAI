@@ -142,6 +142,10 @@ type Connectors struct {
 	instance     string
 	defaultToken *oauthtoken.Client
 	wmu          sync.Mutex // serialises writes of bindings
+	// logins counts the login starts of each person in this process (see
+	// allowLoginStart).
+	loginMu sync.Mutex
+	logins  map[string]loginWindow
 
 	mu    sync.Mutex // guards loops and shut, and orders wg.Add before Close's Wait
 	loops map[string]context.CancelFunc
@@ -215,7 +219,7 @@ func NewConnectors(svc *Service, o ConnectorOptions) (*Connectors, error) {
 	if o.InstanceID == "" {
 		o.InstanceID = newID()
 	}
-	return &Connectors{svc: svc, o: o, log: o.Logger, instance: o.InstanceID, defaultToken: oauthtoken.New(), loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
+	return &Connectors{svc: svc, o: o, log: o.Logger, instance: o.InstanceID, defaultToken: oauthtoken.New(), logins: map[string]loginWindow{}, loops: map[string]context.CancelFunc{}, senders: map[string]*senderState{}, nextEdit: map[string]time.Time{},
 		wake: make(chan struct{}, 1), done: make(chan struct{}), gates: []CapabilitySwitch{agentGrantSwitch(svc), toolsSwitch(svc)}}, nil
 }
 

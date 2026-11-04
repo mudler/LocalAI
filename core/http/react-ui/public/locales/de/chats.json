@@ -316,7 +316,8 @@
         "baseUrlRequired": "Dieser Server kennt seine öffentliche Adresse nicht und kann dich daher nicht zum Dienst schicken. Bitte einen Administrator, die externe Basis-URL des Servers festzulegen.",
         "needsApproval": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
         "approvalStale": "Die Anmeldung dieses Add-ons hat sich geändert. Lade die Seite neu.",
-        "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut."
+        "unavailable": "Das Add-on war nicht erreichbar. Versuche es später erneut.",
+        "tooManyLogins": "Es wurden zu viele Anmeldungen gestartet. Schließe die im anderen Tab ab oder warte ein paar Minuten und versuche es erneut."
       }
     }
   },

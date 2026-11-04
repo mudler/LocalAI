@@ -3,6 +3,7 @@ package connectorstest
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -234,6 +235,39 @@ func runOAuth(newStore NewStore) {
 		}
 		wg.Wait()
 		Expect(wins).To(Equal(1))
+	})
+
+	It("caps the logins that wait for their callback, per binding and per owner, and an expired one frees its place", func() {
+		s := newStore()
+		state := func(hash, bindingID, owner string, expires time.Time) connectors.LoginState {
+			return connectors.LoginState{Hash: hash, Binding: bindingID, Owner: owner, AddonID: "providerA", Expires: expires}
+		}
+		live := t0.Add(connectors.LoginStateTTL)
+		for i := range connectors.MaxLoginsPerBinding {
+			Expect(s.PutLoginState(ctx, state(fmt.Sprintf("b1-%d", i), "b1", "u1", live), t0)).To(Succeed())
+		}
+		err := s.PutLoginState(ctx, state("b1-over", "b1", "u1", live), t0)
+		Expect(errors.Is(err, connectors.ErrTooManyLogins)).To(BeTrue(), "%v", err)
+		_, ok, _ := s.ConsumeLoginState(ctx, "b1-over", t0)
+		Expect(ok).To(BeFalse(), "a refused login is not stored")
+		Expect(s.PutLoginState(ctx, state("other-owner", "b1x", "u2", live), t0)).To(Succeed(), "another owner has its own count")
+
+		// The owner's other bindings fill the owner's cap.
+		for i := connectors.MaxLoginsPerBinding; i < connectors.MaxLoginsPerOwner; i++ {
+			Expect(s.PutLoginState(ctx, state(fmt.Sprintf("o-%d", i), fmt.Sprintf("b%d", 100+i), "u1", live), t0)).To(Succeed())
+		}
+		err = s.PutLoginState(ctx, state("o-over", "b999", "u1", live), t0)
+		Expect(errors.Is(err, connectors.ErrTooManyLogins)).To(BeTrue(), "%v", err)
+
+		// A used login frees its place at once, and an expired one when the
+		// next login is stored.
+		_, ok, _ = s.ConsumeLoginState(ctx, "o-6", t0)
+		Expect(ok).To(BeTrue())
+		Expect(s.PutLoginState(ctx, state("o-again", "b999", "u1", live), t0)).To(Succeed())
+		later := t0.Add(connectors.LoginStateTTL + time.Second)
+		Expect(s.PutLoginState(ctx, state("b1-later", "b1", "u1", later.Add(connectors.LoginStateTTL)), later)).To(Succeed())
+		_, ok, _ = s.ConsumeLoginState(ctx, "b1-later", later)
+		Expect(ok).To(BeTrue())
 	})
 
 	It("drops expired login states when a new one is stored, and the states of a deleted binding", func() {

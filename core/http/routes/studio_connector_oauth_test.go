@@ -546,6 +546,18 @@ var _ = Describe("OAuth routes of the connections", func() {
 		Expect(env.logs.String()).To(ContainSubstring("an OAuth login did not finish"), "the spec saw the log")
 	})
 
+	It("answers 429 too_many_logins when a binding has too many logins waiting, and sets no cookie", func() {
+		approveClient(s)
+		id := createOAuthBinding(s, "alice")
+		for range 5 {
+			startLogin(s, "alice", id, nil)
+		}
+		rec := oauthDo(s, "alice", http.MethodPost, "/api/chats/connectors/"+id+"/oauth/start", nil, nil)
+		Expect(rec.Code).To(Equal(http.StatusTooManyRequests), rec.Body.String())
+		Expect(decodeJSON(rec)["error"].(map[string]any)["type"]).To(Equal("too_many_logins"))
+		Expect(nonceCookie(rec)).To(BeNil())
+	})
+
 	It("disconnects and says whether the service was told", func() {
 		approveClient(s)
 		id := createOAuthBinding(s, "alice")

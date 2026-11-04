@@ -76,6 +76,7 @@ test('oauth: the typed refusals have their own text', () => {
   assert.equal(oauthErrorKey(httpError(409, { error: { type: 'needs_approval' } })), 'needsApproval')
   assert.equal(oauthErrorKey(httpError(409, { error: { type: 'approval_stale' } })), 'approvalStale')
   assert.equal(oauthErrorKey(httpError(503, { error: { type: 'unavailable' } })), 'unavailable')
+  assert.equal(oauthErrorKey(httpError(429, { error: { type: 'too_many_logins' } })), 'tooManyLogins')
   assert.equal(oauthErrorKey(httpError(400, { error: { type: 'invalid_request' } })), '')
   assert.equal(oauthErrorKey(new Error('offline')), '')
   assert.equal(staleDigest(httpError(409, { error: { type: 'approval_stale' }, current_digest: 'sha256:new' })), 'sha256:new')

@@ -150,6 +150,7 @@ const (
 	OAuthForbidden     = "forbidden"
 	OAuthConnectorsOff = "connectors_off"
 	OAuthUnavailable   = "unavailable"
+	OAuthTooManyLogins = "too_many_logins"
 )
 
 // OAuthError is a refusal the owner decided. Every frontend gives the same

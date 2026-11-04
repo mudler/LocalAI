@@ -316,7 +316,8 @@
         "baseUrlRequired": "Questo server non conosce il proprio indirizzo pubblico, quindi non può mandarti al servizio. Chiedi a un amministratore di impostare l'URL di base esterno del server.",
         "needsApproval": "Prima un amministratore deve approvare questo add-on.",
         "approvalStale": "L'accesso di questo add-on è cambiato. Ricarica la pagina.",
-        "unavailable": "Non è stato possibile raggiungere l'add-on. Riprova più tardi."
+        "unavailable": "Non è stato possibile raggiungere l'add-on. Riprova più tardi.",
+        "tooManyLogins": "Sono stati avviati troppi accessi. Completa quello nell'altra scheda, oppure attendi qualche minuto e riprova."
       }
     }
   },

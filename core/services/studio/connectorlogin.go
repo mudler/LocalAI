@@ -45,6 +45,49 @@ const (
 	LoginUnavailable = "unavailable"
 )
 
+// MaxLoginStartsPerMinute bounds the login starts of one person. The store
+// bounds the logins that wait for their callback too
+// (connectors.MaxLoginsPerBinding, connectors.MaxLoginsPerOwner).
+const MaxLoginStartsPerMinute = 10
+
+// ErrTooManyLogins means the person started too many logins in the last
+// minute, or the binding or the person has too many logins that wait for
+// their callback. The person finishes one or waits.
+var ErrTooManyLogins = connectors.ErrTooManyLogins
+
+// loginWindow counts the starts of one person in the minute that began at
+// start.
+type loginWindow struct {
+	start time.Time
+	n     int
+}
+
+// allowLoginStart counts a start of the person and reports whether it is
+// within MaxLoginStartsPerMinute. The count lives in this process: the starts
+// are served by the add-on owner, which is one process.
+func (c *Connectors) allowLoginStart(owner string) bool {
+	now := c.o.Clock()
+	c.loginMu.Lock()
+	defer c.loginMu.Unlock()
+	w := c.logins[owner]
+	if now.Sub(w.start) >= time.Minute || now.Before(w.start) {
+		w = loginWindow{start: now}
+	}
+	if w.n >= MaxLoginStartsPerMinute {
+		return false
+	}
+	w.n++
+	c.logins[owner] = w
+	if len(c.logins) > 1024 {
+		for k, old := range c.logins {
+			if now.Sub(old.start) >= time.Minute {
+				delete(c.logins, k)
+			}
+		}
+	}
+	return true
+}
+
 const (
 	maxReturnToBytes = 2048
 	maxClientIDBytes = 512
@@ -115,11 +158,15 @@ func (c *Connectors) oauthBinding(ctx context.Context, user, id string) (connect
 // person comes back to. The add-on must be approved for its current
 // descriptor (ErrNeedsApproval). The state is stored by its hash for
 // connectors.LoginStateTTL, in the shared store, so any frontend can serve
-// the callback.
+// the callback. Too many starts, or too many logins that wait, are refused
+// with ErrTooManyLogins.
 func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, optional []string, redirectURI, returnTo string) (LoginStart, error) {
 	b, err := c.oauthBinding(ctx, user, bindingID)
 	if err != nil {
 		return LoginStart{}, err
+	}
+	if !c.allowLoginStart(b.Owner) {
+		return LoginStart{}, ErrTooManyLogins
 	}
 	if !validRedirectURI(redirectURI) {
 		return LoginStart{}, oauthBad("the redirect address is not valid")

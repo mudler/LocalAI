@@ -316,7 +316,8 @@
         "baseUrlRequired": "Ce serveur ne connaît pas son adresse publique et ne peut donc pas vous envoyer vers le service. Demandez à un administrateur de définir l'URL de base externe du serveur.",
         "needsApproval": "Un administrateur doit d'abord approuver ce module.",
         "approvalStale": "La connexion de ce module a changé. Rechargez la page.",
-        "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard."
+        "unavailable": "Le module n'a pas pu être joint. Réessayez plus tard.",
+        "tooManyLogins": "Trop de connexions ont été lancées. Terminez celle de l'autre onglet, ou attendez quelques minutes et réessayez."
       }
     }
   },

@@ -6201,6 +6201,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/schema.ErrorResponse"
                         }
                     },
+                    "429": {
+                        "description": "Too many logins wait for their callback, or were started in the last minute (too_many_logins)",
+                        "schema": {
+                            "$ref": "#/definitions/schema.ErrorResponse"
+                        }
+                    },
                     "503": {
                         "description": "The add-on owner or the add-on does not answer",
                         "schema": {

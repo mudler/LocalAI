@@ -212,6 +212,45 @@ var _ = Describe("OAuth connections", func() {
 					Expect(err).To(MatchError(studio.ErrNeedsApproval), "a changed descriptor voids the approval")
 				})
 
+				It("refuses a start while a binding has too many logins waiting, and limits how often a person starts one", func() {
+					r.approve()
+					b := r.binding()
+					for range connectors.MaxLoginsPerBinding {
+						_, err := r.conns.StartLogin(ctx, alice, b.ID, nil, oauthRedirect, oauthReturn)
+						Expect(err).NotTo(HaveOccurred())
+					}
+					_, err := r.conns.StartLogin(ctx, alice, b.ID, nil, oauthRedirect, oauthReturn)
+					Expect(err).To(MatchError(studio.ErrTooManyLogins))
+
+					// More bindings do not lift the limit of the person's starts.
+					more := []connectors.Binding{}
+					for i := range 2 {
+						got, err := r.conns.CreateConnector(ctx, alice, studio.ConnectorInput{Kind: oauthKind, Name: fmt.Sprintf("Other %d", i), AuthKind: connectors.AuthOAuth2})
+						Expect(err).NotTo(HaveOccurred())
+						more = append(more, got.Binding)
+					}
+					// The refused start counts too.
+					started := connectors.MaxLoginsPerBinding + 1
+					for started < studio.MaxLoginStartsPerMinute {
+						_, err := r.conns.StartLogin(ctx, alice, more[started%2].ID, nil, oauthRedirect, oauthReturn)
+						Expect(err).NotTo(HaveOccurred())
+						started++
+					}
+					_, err = r.conns.StartLogin(ctx, alice, more[0].ID, nil, oauthRedirect, oauthReturn)
+					Expect(err).To(MatchError(studio.ErrTooManyLogins), "the person started too many logins in a minute")
+					theirs, err := r.conns.CreateConnector(ctx, "bob", studio.ConnectorInput{Kind: oauthKind, Name: "Work", AuthKind: connectors.AuthOAuth2})
+					Expect(err).NotTo(HaveOccurred())
+					_, err = r.conns.StartLogin(ctx, "bob", theirs.ID, nil, oauthRedirect, oauthReturn)
+					Expect(err).NotTo(HaveOccurred(), "another person has a limit of their own")
+
+					r.sh.clock.Advance(time.Minute)
+					_, err = r.conns.StartLogin(ctx, alice, more[0].ID, nil, oauthRedirect, oauthReturn)
+					Expect(err).NotTo(HaveOccurred(), "the limit is per minute")
+					r.sh.clock.Advance(connectors.LoginStateTTL)
+					_, err = r.conns.StartLogin(ctx, alice, b.ID, nil, oauthRedirect, oauthReturn)
+					Expect(err).NotTo(HaveOccurred(), "ended logins free their place")
+				})
+
 				It("sends the person to the service with PKCE, the scopes and the stored redirect address", func() {
 					r.approve()
 					b := r.binding()

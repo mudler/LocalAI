@@ -49,6 +49,18 @@ const (
 // LoginStateTTL is how long a login may take, from start to callback.
 const LoginStateTTL = 10 * time.Minute
 
+// Bounds of the logins that wait for their callback. A person needs one or
+// two at a time; the bounds keep a loop of starts from filling the store.
+const (
+	MaxLoginsPerBinding = 5
+	MaxLoginsPerOwner   = 20
+)
+
+// ErrTooManyLogins means a binding or its owner already has the most logins
+// that may wait for their callback. One ends when its callback comes or
+// after LoginStateTTL.
+var ErrTooManyLogins = errors.New("connectors: too many logins are waiting for their callback")
+
 // Grant is the OAuth token set of one binding. The secrets are sealed in
 // Sealed (see GrantSecrets and GrantAAD); the other fields are not secret.
 //
@@ -164,8 +176,10 @@ type OAuthStore interface {
 	PutOAuthClient(ctx context.Context, c OAuthClient) error
 	DeleteOAuthClient(ctx context.Context, addonID string) error
 
-	// PutLoginState stores a started login and drops the logins that ended
-	// before now.
+	// PutLoginState drops the logins that ended before now and stores a
+	// started login. It refuses with ErrTooManyLogins, and stores nothing,
+	// when the binding already has MaxLoginsPerBinding live logins or the
+	// owner MaxLoginsPerOwner.
 	PutLoginState(ctx context.Context, s LoginState, now time.Time) error
 	// ConsumeLoginState removes the login with this hash and returns it when
 	// it had not expired at now. The removal and the read are one step, so a

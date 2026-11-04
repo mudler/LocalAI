@@ -82,6 +82,15 @@ var _ = Describe("the owner's OAuth service", func() {
 		_, err = owner.ServeOAuth(ctx, session(alice), call)
 		Expect(*oauthErr(err)).To(Equal(gateway.OAuthError{Status: 400, Type: gateway.OAuthInvalid, Message: `the scope "admin" is not an optional scope of this add-on`}))
 
+		call.Scopes = nil
+		for {
+			if _, err = owner.ServeOAuth(ctx, session(alice), call); err != nil {
+				break
+			}
+		}
+		Expect(*oauthErr(err)).To(Equal(gateway.OAuthError{Status: 429, Type: gateway.OAuthTooManyLogins,
+			Message: "too many logins were started; finish one, or wait a few minutes and try again"}))
+
 		broken := owner
 		broken.Connectors = func() *studio.Connectors { return nil }
 		_, err = broken.ServeOAuth(ctx, session(alice), call)

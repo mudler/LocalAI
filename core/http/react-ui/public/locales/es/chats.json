@@ -316,7 +316,8 @@
         "baseUrlRequired": "Este servidor no conoce su dirección pública, así que no puede enviarte al servicio. Pide a un administrador que configure la URL base externa del servidor.",
         "needsApproval": "Un administrador debe aprobar primero este complemento.",
         "approvalStale": "El inicio de sesión de este complemento cambió. Recarga la página.",
-        "unavailable": "No se pudo contactar con el complemento. Inténtalo más tarde."
+        "unavailable": "No se pudo contactar con el complemento. Inténtalo más tarde.",
+        "tooManyLogins": "Se iniciaron demasiados inicios de sesión. Termina el de la otra pestaña o espera unos minutos y vuelve a intentarlo."
       }
     }
   },

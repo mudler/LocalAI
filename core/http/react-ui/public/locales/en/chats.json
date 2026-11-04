@@ -382,7 +382,8 @@
         "baseUrlRequired": "This server does not know its public address, so it cannot send you to the service. Ask an administrator to set the external base URL of the server.",
         "needsApproval": "An administrator must approve this add-on first.",
         "approvalStale": "The login of this add-on changed. Reload the page.",
-        "unavailable": "The add-on could not be reached. Try again later."
+        "unavailable": "The add-on could not be reached. Try again later.",
+        "tooManyLogins": "Too many logins were started. Finish the one in the other tab, or wait a few minutes and try again."
       }
     }
   },

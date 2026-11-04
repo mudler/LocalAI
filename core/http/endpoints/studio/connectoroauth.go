@@ -188,6 +188,7 @@ func setNonceCookie(c echo.Context, value string) {
 // @Success 200 {object} schema.ChatsConnectorOAuthStarted "Where to send the browser"
 // @Failure 400 {object} schema.ErrorResponse "The request is not valid"
 // @Failure 409 {object} schema.ErrorResponse "No approved client, or no trusted base URL"
+// @Failure 429 {object} schema.ErrorResponse "Too many logins wait for their callback, or were started in the last minute (too_many_logins)"
 // @Failure 503 {object} schema.ErrorResponse "The add-on owner or the add-on does not answer"
 // @Router /api/chats/connectors/{id}/oauth/start [post]
 func (h *Handlers) StartConnectorOAuth(c echo.Context) error {

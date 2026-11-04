@@ -707,8 +707,9 @@ most 30 s and reads at most 64 KiB. It accepts bearer tokens only, an access
 token must fit in 4096 bytes, and `expires_in` is clamped to one minute through
 one day. A granted `scope` must be RFC 6749 scope tokens of at most 128 bytes,
 the rule `Request.GrantedScopes` is checked with, so an answer with any other
-scope fails the login or the refresh instead of every later call. Its errors are fixed classes: no token, code, verifier, state, client
-secret or answer of the service goes into a log, an error or a tool result.
+scope fails the login or the refresh instead of every later call. Its errors
+are fixed classes: no token, code, verifier, state, client secret or answer of
+the service goes into a log, an error or a tool result.
 
 Uninstalling an add-on does not touch its grants or its client yet: the
 add-on manager has no hook for it. The bindings stay, as they do for a token
@@ -728,6 +729,14 @@ The person's routes need the `connectors` feature and, because a login is an
 add-on call, the `addons` feature. The client routes need the administrator
 role. None of these routes has an MCP tool: a client secret must not pass
 through a chat, and a login is a person's act in their own browser.
+
+**Limits of the start.** A binding can have at most 5 logins that wait for
+their callback, and a person at most 20; a login stops waiting when its
+callback comes or after 10 minutes. A person can start at most 10 logins a
+minute. Past a limit the start answers `429` with the type `too_many_logins`
+and stores nothing. The count of starts per minute is kept by the add-on
+owner, which serves every start; the waiting logins are counted in the shared
+store.
 
 **Register the callback with the service.** Every add-on uses one redirect
 URI: the base URL of the server followed by

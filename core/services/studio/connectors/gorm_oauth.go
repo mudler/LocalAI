@@ -45,7 +45,7 @@ func (oauthClientRow) TableName() string { return "studio_oauth_clients" }
 type loginStateRow struct {
 	Hash             string `gorm:"primaryKey;size:64"`
 	Binding          string `gorm:"index;size:64"`
-	Owner            string `gorm:"size:255"`
+	Owner            string `gorm:"index;size:255"`
 	AddonID          string `gorm:"size:64"`
 	DescriptorDigest string `gorm:"size:64"`
 	Verifier         []byte
@@ -165,6 +165,19 @@ func (s *gormStore) PutLoginState(ctx context.Context, st LoginState, now time.T
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("expires < ?", now.UTC()).Delete(&loginStateRow{}).Error; err != nil {
 			return err
+		}
+		// Two starts in parallel can both count below the bound on a database
+		// that does not serialize the transactions; the bound is then passed
+		// by a few rows, which the rate limit of the starts keeps small.
+		var binding, owner int64
+		if err := tx.Model(&loginStateRow{}).Where("binding = ?", st.Binding).Count(&binding).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&loginStateRow{}).Where("owner = ?", st.Owner).Count(&owner).Error; err != nil {
+			return err
+		}
+		if binding >= MaxLoginsPerBinding || owner >= MaxLoginsPerOwner {
+			return ErrTooManyLogins
 		}
 		return tx.Create(&loginStateRow{Hash: st.Hash, Binding: st.Binding, Owner: st.Owner, AddonID: st.AddonID, DescriptorDigest: st.DescriptorDigest,
 			Verifier: st.Verifier, RedirectURI: st.RedirectURI, Scopes: encList(st.Scopes), ReturnTo: st.ReturnTo, NonceHash: st.NonceHash,

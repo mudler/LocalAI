@@ -316,7 +316,8 @@
         "baseUrlRequired": "Server ini tidak tahu alamat publiknya, jadi tidak dapat mengarahkan Anda ke layanan. Minta administrator mengatur URL dasar eksternal server.",
         "needsApproval": "Administrator harus menyetujui add-on ini terlebih dahulu.",
         "approvalStale": "Login add-on ini berubah. Muat ulang halaman.",
-        "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti."
+        "unavailable": "Add-on tidak dapat dijangkau. Coba lagi nanti.",
+        "tooManyLogins": "Terlalu banyak login yang dimulai. Selesaikan login di tab lain, atau tunggu beberapa menit lalu coba lagi."
       }
     }
   },

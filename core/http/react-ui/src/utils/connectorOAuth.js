@@ -97,6 +97,7 @@ export function oauthErrorKey(e) {
   if (e?.status === 409 && type === 'base_url_required') return 'baseUrlRequired'
   if (e?.status === 409 && type === 'needs_approval') return 'needsApproval'
   if (e?.status === 409 && type === 'approval_stale') return 'approvalStale'
+  if (e?.status === 429 && type === 'too_many_logins') return 'tooManyLogins'
   if (e?.status === 503) return 'unavailable'
   return ''
 }

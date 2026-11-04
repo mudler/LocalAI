@@ -120,14 +120,25 @@ func (s *jsonStore) DeleteOAuthClient(_ context.Context, addonID string) error {
 func (s *jsonStore) PutLoginState(_ context.Context, st LoginState, now time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.mutate(func() {
-		for h, old := range s.d.LoginStates {
-			if old.Expires.Before(now) {
-				delete(s.d.LoginStates, h)
-			}
+	// The ended logins are dropped in memory first; the next write saves
+	// that. A refused login does not rewrite the file.
+	binding, owner := 0, 0
+	for h, old := range s.d.LoginStates {
+		if old.Expires.Before(now) {
+			delete(s.d.LoginStates, h)
+			continue
 		}
-		s.d.LoginStates[st.Hash] = st.clone()
-	})
+		if old.Binding == st.Binding {
+			binding++
+		}
+		if old.Owner == st.Owner {
+			owner++
+		}
+	}
+	if binding >= MaxLoginsPerBinding || owner >= MaxLoginsPerOwner {
+		return ErrTooManyLogins
+	}
+	return s.mutate(func() { s.d.LoginStates[st.Hash] = st.clone() })
 }
 
 func (s *jsonStore) ConsumeLoginState(_ context.Context, hash string, now time.Time) (LoginState, bool, error) {
