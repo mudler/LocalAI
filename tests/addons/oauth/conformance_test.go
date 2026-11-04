@@ -85,7 +85,7 @@ func (u *person) start(n *node, optional []string) (*url.URL, *http.Cookie) {
 	ExpectWithOffset(1, err).NotTo(HaveOccurred())
 	var nonce *http.Cookie
 	for _, ck := range rec.Result().Cookies() {
-		if ck.Name == "localai_oauth_nonce" {
+		if strings.HasPrefix(ck.Name, "localai_oauth_nonce_") {
 			nonce = &http.Cookie{Name: ck.Name, Value: ck.Value}
 		}
 	}

@@ -61,9 +61,12 @@ const (
 	// OAuthCallbackPath is the one callback route of every add-on, under the
 	// base URL of the server. An administrator registers it with the service.
 	OAuthCallbackPath = "/api/chats/connectors/oauth/callback"
-	// oauthNonceCookie binds the callback to the browser that started the
-	// login. It is HttpOnly, SameSite=Lax and lives as long as the login.
-	oauthNonceCookie = "localai_oauth_nonce"
+	// oauthNonceCookie names the cookie that binds the callback to the
+	// browser that started the login, followed by the suffix of that login
+	// (studiosvc.LoginCookieSuffix), so two logins in one browser do not
+	// overwrite each other. It is HttpOnly, SameSite=Lax and lives as long as
+	// the login.
+	oauthNonceCookie = "localai_oauth_nonce_"
 	// defaultOAuthReturn is the page the callback goes back to when the login
 	// named none it can use.
 	defaultOAuthReturn = "/app/chats/connectors"
@@ -177,20 +180,21 @@ func failOAuth(c echo.Context, err error) error {
 	return fail(c, http.StatusServiceUnavailable, gateway.OAuthUnavailable, "the add-on owner is not reachable; try again")
 }
 
-// setNonceCookie sets the nonce cookie for as long as a login may take, or
-// clears it when value is empty. The age is fixed, not taken from the owner's
-// clock, so a clock skew between hosts cannot end it early.
-func setNonceCookie(c echo.Context, value string) {
+// setNonceCookie sets the nonce cookie of the login with this state for as
+// long as a login may take, or clears it when value is empty. The age is
+// fixed, not taken from the owner's clock, so a clock skew between hosts
+// cannot end it early.
+func setNonceCookie(c echo.Context, state, value string) {
 	maxAge := int(connectors.LoginStateTTL.Seconds())
 	if value == "" {
 		maxAge = -1
 	}
-	c.SetCookie(&http.Cookie{Name: oauthNonceCookie, Value: value, Path: "/", HttpOnly: true, Secure: c.Scheme() == "https", SameSite: http.SameSiteLaxMode, MaxAge: maxAge})
+	c.SetCookie(&http.Cookie{Name: oauthNonceCookie + studiosvc.LoginCookieSuffix(state), Value: value, Path: "/", HttpOnly: true, Secure: c.Scheme() == "https", SameSite: http.SameSiteLaxMode, MaxAge: maxAge})
 }
 
 // StartConnectorOAuth starts the login of an oauth2 binding.
 // @Summary Start the login of a connection that uses OAuth.
-// @Description Returns the address of the service's login page; open it in the same browser. The required scopes of the add-on are always asked for, plus the optional ones in scopes. The service sends the browser back to the callback route, which ends on return_to (a page of the web app; default the Connectors page). The response sets an HttpOnly cookie that binds the login to this browser for ten minutes. The callback address is built from LOCALAI_BASE_URL, or from the forwarding headers of a trusted proxy, or from a loopback host; without one of them, or when a trusted proxy forwards plain http for a host that is not loopback, the start is a 409 base_url_required. An administrator must have saved the add-on's client first (409 needs_approval).
+// @Description Returns the address of the service's login page; open it in the same browser. The required scopes of the add-on are always asked for, plus the optional ones in scopes. The service sends the browser back to the callback route, which ends on return_to (a page of the web app; default the Connectors page). The response sets an HttpOnly cookie that binds the login to this browser for ten minutes; each login has its own cookie, named localai_oauth_nonce_ and a suffix of eight hex digits of the hash of its state. The callback address is built from LOCALAI_BASE_URL, or from the forwarding headers of a trusted proxy, or from a loopback host; without one of them, or when a trusted proxy forwards plain http for a host that is not loopback, the start is a 409 base_url_required. An administrator must have saved the add-on's client first (409 needs_approval).
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Param request body schema.ChatsConnectorOAuthStart false "the optional scopes and the page to come back to"
@@ -227,7 +231,15 @@ func (h *Handlers) StartConnectorOAuth(c echo.Context) error {
 	if err != nil {
 		return failOAuth(c, err)
 	}
-	setNonceCookie(c, r.Nonce)
+	u, err := url.Parse(r.AuthorizeURL)
+	state := ""
+	if err == nil {
+		state = u.Query().Get("state")
+	}
+	if state == "" || r.Nonce == "" {
+		return failOAuth(c, gateway.ErrUnavailable)
+	}
+	setNonceCookie(c, state, r.Nonce)
 	c.Response().Header().Set("Cache-Control", "no-store")
 	return c.JSON(http.StatusOK, schema.ChatsConnectorOAuthStarted{AuthorizeURL: r.AuthorizeURL, Expires: r.Expires})
 }
@@ -244,12 +256,15 @@ func (h *Handlers) StartConnectorOAuth(c echo.Context) error {
 func (h *Handlers) ConnectorOAuthCallback(c echo.Context) error {
 	c.Response().Header().Set("Cache-Control", "no-store")
 	c.Response().Header().Set("Referrer-Policy", "no-referrer")
+	// The cookie of this login is found by the state in the query, and used
+	// once, whatever the outcome. The cookies of other logins stay.
 	nonce := ""
-	if ck, err := c.Cookie(oauthNonceCookie); err == nil {
-		nonce = ck.Value
+	if state := c.QueryParam("state"); state != "" {
+		if ck, err := c.Cookie(oauthNonceCookie + studiosvc.LoginCookieSuffix(state)); err == nil {
+			nonce = ck.Value
+			setNonceCookie(c, state, "")
+		}
 	}
-	// The cookie is used once, whatever the outcome.
-	setNonceCookie(c, "")
 	outcome, returnTo := h.completeOAuth(c, nonce)
 	return c.Redirect(http.StatusSeeOther, oauthReturnURL(c, returnTo, outcome))
 }

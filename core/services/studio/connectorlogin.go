@@ -127,6 +127,12 @@ func hashHex(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// LoginCookieSuffix names the nonce cookie of the login with this state, so
+// each login in a browser has its own cookie and the callback finds it by the
+// state in its query. It is the first eight hex digits of the hash of the
+// state, which is no secret: the state itself is in the callback address.
+func LoginCookieSuffix(state string) string { return hashHex(state)[:8] }
+
 // validReturnTo is an absolute path on this host: it starts with one slash and
 // names no other host.
 func validReturnTo(p string) bool {

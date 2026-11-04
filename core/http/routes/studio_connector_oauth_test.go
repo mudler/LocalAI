@@ -200,9 +200,11 @@ func oauthDo(s *studioServer, user, method, path string, body any, mod func(*htt
 	return rec
 }
 
+// nonceCookie is the nonce cookie a response sets or clears: one per login,
+// named after the hash of its state.
 func nonceCookie(rec *httptest.ResponseRecorder) *http.Cookie {
 	for _, c := range rec.Result().Cookies() {
-		if c.Name == "localai_oauth_nonce" {
+		if strings.HasPrefix(c.Name, "localai_oauth_nonce_") {
 			return c
 		}
 	}
@@ -342,6 +344,33 @@ var _ = Describe("OAuth routes of the connections", func() {
 		again := callback(s, "alice", url.Values{"state": {u.Query().Get("state")}, "code": {"code-1"}}, &http.Cookie{Name: ck.Name, Value: ck.Value})
 		Expect(location(again).Query()).To(Equal(url.Values{"oauth": {"error"}, "class": {"invalid_state"}}), "a replayed state")
 		Expect(location(again).Path).To(Equal("/app/chats/connectors"))
+	})
+
+	It("finishes two logins started in one browser, each with its own nonce cookie", func() {
+		approveClient(s)
+		first, second := createOAuthBinding(s, "alice"), ""
+		rec := oauthDo(s, "alice", http.MethodPost, "/api/chats/connectors", map[string]any{"kind": oauthKindID, "name": "Home", "auth_kind": "oauth2"}, nil)
+		Expect(rec.Code).To(Equal(http.StatusCreated), rec.Body.String())
+		second = decodeJSON(rec)["id"].(string)
+		a, b := startLogin(s, "alice", first, nil), startLogin(s, "alice", second, nil)
+		Expect(a.cookie.Name).NotTo(Equal(b.cookie.Name))
+		Expect(a.cookie.Name).To(MatchRegexp(`^localai_oauth_nonce_[0-9a-f]{8}$`))
+		Expect(a.cookie.Name).NotTo(ContainSubstring(a.state), "the name tells nothing of the state")
+
+		// The browser sends both cookies to both callbacks.
+		done := callback(s, "alice", url.Values{"state": {a.state}, "code": {"c"}}, a.cookie, b.cookie)
+		Expect(location(done).Query().Get("oauth")).To(Equal("ok"))
+		cleared := nonceCookie(done)
+		Expect(cleared.Name).To(Equal(a.cookie.Name), "only the cookie of this login is cleared")
+		Expect(cleared.MaxAge).To(BeNumerically("<", 0))
+		done = callback(s, "alice", url.Values{"state": {b.state}, "code": {"c"}}, b.cookie)
+		Expect(location(done).Query().Get("oauth")).To(Equal("ok"))
+		for _, id := range []string{first, second} {
+			Expect(binding(s, "alice", id)["oauth"].(map[string]any)["state"]).To(Equal("connected"))
+		}
+		// A callback without a state clears no cookie of a login in progress.
+		c := startLogin(s, "alice", first, nil)
+		Expect(nonceCookie(callback(s, "alice", url.Values{}, c.cookie))).To(BeNil())
 	})
 
 	It("refuses the callback of another person, another browser and an expired state", func() {

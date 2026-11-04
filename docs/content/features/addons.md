@@ -774,8 +774,10 @@ and a public client (`clientAuth` `none`) has none. The read says
 `has_secret`, `approved` and who approved when.
 
 **Log in.** The start checks the binding, the approval and the optional
-scopes, and sets the cookie `localai_oauth_nonce` (`HttpOnly`,
-`SameSite=Lax`, `Secure` over HTTPS, ten minutes). The return page must be a
+scopes, and sets a nonce cookie for this login (`HttpOnly`, `SameSite=Lax`,
+`Secure` over HTTPS, ten minutes). Each login has its own cookie, named
+`localai_oauth_nonce_` and the first eight hex digits of the SHA-256 of its
+state, so two logins started in one browser do not break each other. The return page must be a
 page of the web app: a path under `/app` with an optional query and no
 fragment, as the add-on SDK accepts; anything else is a `400`. Open
 `authorize_url` in the same browser. The service sends the browser back to the
@@ -785,7 +787,8 @@ callback, which:
   `SameSite=Lax`, so the browser sends it on that redirect. With
   authentication off there is no session, and the nonce cookie alone binds the
   login to the browser;
-- clears the nonce cookie, whatever the outcome;
+- finds the nonce cookie of its login by the state in the query and clears
+  that cookie, whatever the outcome; the cookies of other logins stay;
 - always answers `303` to the return page, with `oauth=ok`, `oauth=denied`
   (the person declined; a connection that worked keeps working) or
   `oauth=error&class=<class>`, where the class is `invalid_state`,
