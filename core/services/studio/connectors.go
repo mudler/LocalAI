@@ -1110,9 +1110,10 @@ func (c *Connectors) reply(b connectors.Binding, token string, m contract.Connec
 		if !ended {
 			continue
 		}
-		ids := c.finish(b, token, m, l, c.answerOf(b, chatID, errText))
+		answer := c.answerOf(b, chatID, errText)
+		ids := c.finish(b, token, m, l, answer)
 		c.remember(b, m, chatID, ids)
-		c.sendFiles(b, token, m, chatID, turn, since)
+		c.sendFiles(b, token, m, chatID, turn, since, answer)
 		errText = ""
 		c.smu.Lock()
 		tctx, tcancel := context.WithTimeout(context.Background(), 5*time.Second)

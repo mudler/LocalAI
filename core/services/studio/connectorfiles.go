@@ -98,8 +98,9 @@ func (c *Connectors) outgoing(ctx context.Context, b connectors.Binding, x sessi
 
 // sendFiles hands the files of a turn to the sender after the answer: those
 // the turn made and those the agent attached. A file that cannot go is named
-// in one plain message, with the reason.
-func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.ConnectorMessage, chatID string, turn int, since time.Time) {
+// in one plain message, with the reason. When the answer presents a file and
+// none went, the message says so.
+func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.ConnectorMessage, chatID string, turn int, since time.Time, answer string) {
 	if !b.SendsFiles() {
 		return
 	}
@@ -136,6 +137,11 @@ func (c *Connectors) sendFiles(b connectors.Binding, token string, m contract.Co
 		if note := c.sendHandled(ctx, b, token, m, x, f, mimeType, limits, &sent); note != "" {
 			notes = append(notes, note)
 		}
+	}
+	if sent == 0 && len(notes) == 0 && promisesFile(answer) {
+		// The answer showed a file and none went: the sender must not wait
+		// for it. The answer itself is not changed.
+		notes = append(notes, noteNoFile)
 	}
 	if len(notes) > 0 {
 		c.say(b, token, m.Chat, m.Thread, strings.Join(notes, "\n"))

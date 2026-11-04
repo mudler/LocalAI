@@ -743,6 +743,12 @@ host chooses the files in two ways:
   path against the chat's access when the tool is called and again when it sends, drops
   repeated paths, and counts both kinds in the limit of 5 files a turn.
 
+When an answer shows a file with a paperclip line (for example a paperclip and a file name
+such as `report.pdf`) and no file went with it, the host adds one note after the answer:
+"I could not attach the file. Ask me again and I will send it." The answer is not changed.
+No note is added when a file went, when the binding sends no files, or for a paperclip with
+no file name.
+
 An add-on that implements `send_file` gets both, with no code of its own. It must not read
 chat files or add tools for this. When the platform refuses a file, return a
 `ConnectorError` with a short, plain `message` (for example the name of a missing

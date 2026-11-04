@@ -18,7 +18,9 @@ const attachFileName = "attach_file"
 
 const attachFileDescription = "Give the person a file that already exists in your files: it is sent to them with your answer. " +
 	"Files you make or change in a turn are attached without this call; use it for a file from an earlier turn or from a folder you were given. " +
-	"path is the file's path as your file tools show it. A file that cannot be attached comes back with the reason: tell the person plainly."
+	"path is the exact path that your file tools or bash showed, such as /workspace/home/Docs/plan.pdf. " +
+	"Only this call sends a file: never write a file name or a paperclip line as if it were sent. " +
+	"A file that cannot be attached comes back with the reason: tell the person plainly."
 
 const attachFileSchema = `{"type":"object","properties":{"path":{"type":"string","description":"The path of the file, such as /workspace/chat/report.docx."}},"required":["path"]}`
 

@@ -46,7 +46,8 @@ func (s *Service) connectorBlock(ctx context.Context, rec session.ChatRecord, ca
 		sb.WriteString(" Files are NOT sent to them: paste short content in the answer, or say you cannot attach a file. Never tell them a file path.")
 	default:
 		fmt.Fprintf(&sb, " Files you make or change in a turn are attached to your answer automatically. To give them a file that already exists, call %s with its path."+
-			" Say the file is attached; never say you cannot send files, and never tell them a path."+
+			" Use the exact path your file tools or bash showed, for a file in a folder you were given too."+
+			" Say the file is attached only after the call worked; never write a file name or a paperclip line yourself, never say you cannot send files, and never tell them a path."+
 			" Up to %d files per turn, %s each; documents, data, images, audio, video and zip only, no scripts or HTML. If one cannot be attached, say so.",
 			attachFileName, maxFilesPerTurn, limits.Send.sentence(limits.KindTitle))
 	}
