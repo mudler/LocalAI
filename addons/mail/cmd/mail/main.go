@@ -30,7 +30,7 @@ func (r runtime) Connector(ctx context.Context, req contract.ConnectorRequest) (
 
 func main() {
 	os.Exit(protocol.Run(os.Args, func(st protocol.Startup) contract.Runtime {
-		d := dial.New(dial.Options{})
+		d := dial.New(dialOptions())
 		return runtime{Runtime: tools.New(d).WithDataDir(st.DataDir), platform: platform.Platform{Dialer: d}}
 	}))
 }

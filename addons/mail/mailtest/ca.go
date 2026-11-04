@@ -15,6 +15,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"math/big"
 	"net"
 	"net/netip"
@@ -91,4 +92,9 @@ func (c *CA) Config(names ...string) *tls.Config {
 // Wrap makes l accept TLS connections with a certificate for names.
 func (c *CA) Wrap(l net.Listener, names ...string) net.Listener {
 	return tls.NewListener(l, c.Config(names...))
+}
+
+// PEM is the certificate of the authority, for a process that cannot share the pool.
+func (c *CA) PEM() string {
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: c.cert.Raw}))
 }

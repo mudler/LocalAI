@@ -302,14 +302,3 @@ func (g *gate) Accept() (net.Conn, error) {
 		return c, nil
 	}
 }
-
-func itoa(n int) string {
-	var b [8]byte
-	i := len(b)
-	for n > 0 {
-		i--
-		b[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(b[i:])
-}
