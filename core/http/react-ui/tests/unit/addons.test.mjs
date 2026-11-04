@@ -13,6 +13,7 @@ import {
   resolveTab, visibleTabs, resolveManage, stateChip, appActions, localizedText, toolSummary,
   shortDigest, updateStatus, formatBytes, rangeText, parseEntryKey, addedByAddon, addedByEntry, screenshotsOf, listState, featuredEntries,
   attentionOf, sortByAttention, filterByState, hueOf, monogram, versionLabel, skillShadowNotes, skillsOf,
+  operationOf, upgradingTitles, staleKind, saveLastKnown, loadLastKnown,
 } from '../../src/components/addons/addonState.js'
 import { createAddonsApi, createAddonsCatalogAdapter, AddonsError } from '../../src/utils/addonsApi.js'
 import { runLifecycle, settleOperation, unavailableWait } from '../../src/components/addons/lifecycleFlow.js'
@@ -614,4 +615,49 @@ test('addons: the details list the skills of an add-on and which replace a built
   assert.deepEqual(skillsOf({ skills: [{ name: 'xlsx', shadows: 'xlsx' }, { name: 'office-tips' }, { bad: true }] }),
     [{ name: 'xlsx', replaces: true }, { name: 'office-tips', replaces: false }])
   assert.deepEqual(skillsOf({}), [])
+})
+
+test('addons: a busy owner is its own kind of answer, and the list read carries the stale mark', async () => {
+  assert.equal(classifyResponse(503, { error: { type: 'owner_busy', message: 'busy' } }).kind, 'busy')
+  assert.equal(classifyResponse(503, { error: { type: 'owner_unavailable' } }).kind, 'unavailable')
+  const busy = new AddonsError(classifyResponse(503, { error: { type: 'owner_busy' } }))
+  assert.match(describeError(busy, key => key), /errors\.busy/)
+  const api = createAddonsApi({ fetch: async () => json(200, { apps: [{ id: 'notes' }], stale: true, staleReason: 'owner_busy', staleSince: '2026-11-04T17:18:00Z' }) })
+  assert.deepEqual(await api.apps.read(), { apps: [{ id: 'notes' }], stale: true, staleReason: 'owner_busy', staleSince: '2026-11-04T17:18:00Z' })
+  assert.deepEqual((await api.apps.list()).map(a => a.id), ['notes'])
+  const plain = createAddonsApi({ fetch: async () => json(200, { apps: [] }) })
+  assert.equal((await plain.apps.read()).stale, false)
+})
+
+test('addons: an error is never an empty list, and the page names what the owner is upgrading', () => {
+  const apps = [
+    { id: 'notes', title: 'Notes', operation: { kind: 'upgrade', phase: 'downloading', since: '2026-11-04T17:18:00Z' } },
+    { id: 'sandbox', title: 'Sandbox', operation: { kind: 'upgrade', phase: 'starting' } },
+    { id: 'plain', title: 'Plain' },
+  ]
+  assert.deepEqual(upgradingTitles(apps), ['Notes', 'Sandbox'])
+  assert.deepEqual(upgradingTitles(null), [])
+  assert.deepEqual(operationOf(apps[0]), { kind: 'upgrade', phase: 'downloading', since: '2026-11-04T17:18:00Z' })
+  assert.equal(operationOf(apps[2]), null)
+  // A kind or phase this page does not know is still work in progress.
+  assert.deepEqual(operationOf({ operation: { kind: 'defrag', phase: 'later' } }), { kind: 'working', phase: 'working', since: '' })
+  assert.equal(staleKind({ stale: false, error: new Error('x') }), '')
+  assert.equal(staleKind({ stale: true, error: { kind: 'busy' } }), 'busy')
+  assert.equal(staleKind({ stale: true, staleReason: 'owner_busy' }), 'busy')
+  assert.equal(staleKind({ stale: true, error: { kind: 'network' } }), 'unreachable')
+  assert.equal(staleKind({ stale: true, staleReason: 'owner_unavailable' }), 'unreachable')
+})
+
+test('addons: the last list of a tab stands in for a page loaded while the owner is busy', () => {
+  const data = new Map()
+  const store = { getItem: k => (data.has(k) ? data.get(k) : null), setItem: (k, v) => { data.set(k, v) } }
+  assert.equal(loadLastKnown(store, 'a'), null)
+  saveLastKnown(store, 'a', [{ id: 'notes' }])
+  assert.deepEqual(loadLastKnown(store, 'a'), [{ id: 'notes' }])
+  assert.equal(loadLastKnown(store, 'someone-else'), null)
+  assert.equal(loadLastKnown(store, 'a', 1000, Date.now() + 5000), null)
+  // Storage that throws is the same as no storage.
+  const broken = { getItem() { throw new Error('blocked') }, setItem() { throw new Error('full') } }
+  saveLastKnown(broken, 'a', [])
+  assert.equal(loadLastKnown(broken, 'a'), null)
 })

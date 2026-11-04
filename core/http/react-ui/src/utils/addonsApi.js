@@ -115,8 +115,19 @@ export function createAddonsApi({ fetch: fetchImpl, base = p => p } = {}) {
     dispatchFile,
     apps: {
       async list(signal) {
+        return (await api.apps.read(signal)).apps
+      },
+      // The list with the marks the server puts on it: stale is true when the
+      // server answers with the last list it got from the owner (the owner is
+      // busy or not reachable), so a page can say so and keep showing it.
+      async read(signal) {
         const out = await call('/api/addons/apps', { signal })
-        return Array.isArray(out?.apps) ? out.apps : []
+        return {
+          apps: Array.isArray(out?.apps) ? out.apps : [],
+          stale: out?.stale === true,
+          staleReason: typeof out?.staleReason === 'string' ? out.staleReason : '',
+          staleSince: typeof out?.staleSince === 'string' ? out.staleSince : '',
+        }
       },
       async start(id, { operationId, generation }, signal) {
         const out = await call(`/api/addons/apps/${encodeURIComponent(id)}/start`, { method: 'POST', body: { operationId, generation }, signal })

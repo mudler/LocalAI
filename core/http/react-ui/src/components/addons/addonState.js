@@ -254,3 +254,62 @@ export function skillsOf(app) {
   const list = Array.isArray(app?.skills) ? app.skills : []
   return list.filter(s => s && typeof s.name === 'string').map(s => ({ name: s.name, replaces: s.shadows === s.name }))
 }
+
+// ---- Operations on the owner ----------------------------------------------
+
+const OPERATION_KINDS = new Set(['install', 'upgrade', 'uninstall', 'enable', 'disable'])
+const OPERATION_PHASES = new Set(['queued', 'downloading', 'backing-up', 'installing', 'migrating', 'starting', 'working'])
+
+// The operation the owner runs on an add-on now, as the list reports it. A kind
+// or phase this page does not know is shown as plain work, never dropped:
+// the add-on is still being changed.
+export function operationOf(app) {
+  const op = app && typeof app === 'object' ? app.operation : null
+  if (!op || typeof op !== 'object') return null
+  return {
+    kind: OPERATION_KINDS.has(op.kind) ? op.kind : 'working',
+    phase: OPERATION_PHASES.has(op.phase) ? op.phase : 'working',
+    since: typeof op.since === 'string' ? op.since : '',
+  }
+}
+
+// The titles of the add-ons the owner is upgrading, for the busy banner.
+export function upgradingTitles(apps) {
+  return (Array.isArray(apps) ? apps : [])
+    .filter(a => a && a.operation && a.operation.kind === 'upgrade')
+    .map(a => a.title || a.id)
+}
+
+// Why the list on screen may be out of date: 'busy' (the owner did not answer
+// in time or the server sent its last copy), 'unreachable' or '' when it is
+// current.
+export function staleKind({ error, stale, staleReason }) {
+  if (!stale) return ''
+  if (error && error.kind === 'busy') return 'busy'
+  if (staleReason === 'owner_busy') return 'busy'
+  if (error || staleReason === 'owner_unavailable') return 'unreachable'
+  return 'busy'
+}
+
+// ---- The last list a browser got -------------------------------------------
+
+const LAST_KEY = 'localai.addons.lastKnownApps.v1'
+
+// A page loaded while the owner is busy has no list in memory. The last list
+// this browser tab got for the same person stands in for it, marked stale.
+// Storage can be absent or full: every call is allowed to do nothing.
+export function saveLastKnown(storage, actor, apps) {
+  try {
+    storage.setItem(LAST_KEY, JSON.stringify({ actor, apps, at: Date.now() }))
+  } catch { /* the page works without it */ }
+}
+
+export function loadLastKnown(storage, actor, maxAgeMs = 24 * 3600 * 1000, now = Date.now()) {
+  try {
+    const raw = JSON.parse(storage.getItem(LAST_KEY) || 'null')
+    if (!raw || raw.actor !== actor || !Array.isArray(raw.apps) || !Number.isFinite(raw.at) || now - raw.at > maxAgeMs) return null
+    return raw.apps
+  } catch {
+    return null
+  }
+}

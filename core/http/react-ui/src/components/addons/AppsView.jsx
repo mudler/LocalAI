@@ -2,7 +2,7 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Button, Callout, EmptyState, LoadError, SearchField, Segmented, SkeletonRows } from '../ui'
+import { Button, Callout, EmptyState, LoadError, Notice, SearchField, Segmented, SkeletonRows } from '../ui'
 import { newOperationId, pollDelay } from '../catalog/catalogState'
 import { RegistryContext } from '../../addons/registryContext'
 import { navigationItems } from '../../addons/registryState'
@@ -27,7 +27,7 @@ import { useBulkUpgrade } from '../../hooks/useBulkUpgrade'
 import { updateView, upgradeAvailability } from './updateState'
 import { upgradeFailureWords } from './updateReview'
 import FirstRun from './FirstRun'
-import { addedByAddon, attentionOf, filterByState, listState, sortByAttention, STATE_FILTERS } from './addonState'
+import { addedByAddon, attentionOf, filterByState, listState, loadLastKnown, saveLastKnown, sortByAttention, staleKind, STATE_FILTERS, upgradingTitles } from './addonState'
 import { describeError, describeOutcome } from './errors'
 import ApproveUpgradeDialog, { WaitingBanner } from './ApproveUpgradeDialog'
 import { pendingApprovals } from './hostGrantsState'
@@ -38,9 +38,14 @@ import { useAddonActions } from './useAddonActions'
 // cadence, slower in a hidden tab and backing off while the owner is
 // unreachable. Start and stop are offered to administrators and the server
 // refuses everyone else whatever this view shows.
+// The tab keeps the last list it got for this person. A page loaded while the
+// owner is busy has nothing in memory, and an empty page would read as "no
+// add-ons"; the stored copy stands in for the list, marked stale.
+const browserStore = () => { try { return globalThis.sessionStorage || null } catch { return null } }
+
 export default function AppsView({ api, adapter, onSummary, grants }) {
   const { t, i18n } = useTranslation('addons')
-  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
+  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false, staleReason: '' })
   const [reload, setReload] = useState(0)
   const reloadRef = useRef(() => {})
   const { hasFeature, isAdmin, user, sessionEpoch } = useAuth()
@@ -52,7 +57,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
   const actor = JSON.stringify([user?.id, sessionEpoch, isAdmin, canList])
   const scope = useRef(actor)
   scope.current = actor
-  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false }
+  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false, staleReason: '' }
   const ingest = registry?.ingest
 
   // Poll with a timer chain: one request at a time, aborted on unmount. A
@@ -71,17 +76,31 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
       if (inflight) { queued = true; return }
       inflight = true
       try {
-        const apps = await api.apps.list(ctl.signal)
-        failures = 0
+        const read = await api.apps.read(ctl.signal)
+        const apps = read.apps
+        // The server answered with its last copy: the owner did not. Ask
+        // again with the same backoff as for a failed read.
+        failures = read.stale ? failures + 1 : 0
         if (alive && current()) {
-          setState({ actor, status: 'ready', apps, error: null, stale: false })
-          ingest?.(apps)
+          setState({ actor, status: 'ready', apps, error: null, stale: read.stale, staleReason: read.staleReason })
+          if (!read.stale) {
+            ingest?.(apps)
+            const store = browserStore()
+            if (store) saveLastKnown(store, actor, apps)
+          }
         }
       } catch (error) {
         if (!alive || !current() || (error && error.name === 'AbortError')) return
         failures += 1
-        // Keep what was on screen and say it may be out of date.
-        setState(s => ({ actor, status: s.actor === actor && s.status === 'ready' ? 'ready' : 'error', apps: s.actor === actor ? s.apps : [], error, stale: true }))
+        // Keep what was on screen and say it may be out of date. A page that
+        // has nothing yet takes the copy this tab stored, so a refresh during
+        // an upgrade does not show an empty page.
+        const store = browserStore()
+        const remembered = store ? loadLastKnown(store, actor) : null
+        setState(s => {
+          const kept = s.actor === actor && s.status === 'ready' ? s.apps : remembered
+          return { actor, status: kept ? 'ready' : 'error', apps: kept || [], error, stale: true, staleReason: '' }
+        })
       } finally {
         inflight = false
       }
@@ -242,7 +261,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
     },
   })
 
-  const firstRunNow = state.status === 'ready' && listState({ apps: state.apps, shownCount: tiles.length, query: '', isAdmin, canList }) === 'first-run'
+  const firstRunNow = state.status === 'ready' && !state.stale && listState({ apps: state.apps, shownCount: tiles.length, query: '', isAdmin, canList }) === 'first-run'
   useEffect(() => {
     if (!onSummary) return
     onSummary(state.status === 'ready' ? { count: tiles.length, firstRun: firstRunNow } : null)
@@ -287,17 +306,20 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
   if (state.status === 'loading') {
     return <SkeletonRows count={3} label={t('apps.loading')} className="ad-skeleton" />
   }
-  if (state.status === 'error') {
-    const kind = state.error && state.error.kind
+  // An error, or a stale copy of an empty list, is never the empty state: the
+  // page only says "no add-ons" when the owner answered with an empty list.
+  if (state.status === 'error' || (state.stale && state.apps.length === 0)) {
+    const loadError = state.error || { kind: 'busy' }
+    const kind = loadError.kind
     return (
       <LoadError
         title={t('apps.loadError.title')}
         testId="addons-load-error"
         nothingChanged={false}
-        onRetry={() => { setState({ status: 'loading', apps: [], error: null, stale: false }); setReload(n => n + 1) }}
+        onRetry={() => { setState({ status: 'loading', apps: [], error: null, stale: false, staleReason: '' }); setReload(n => n + 1) }}
       >
         {[
-          describeError(state.error, t),
+          describeError(loadError, t),
           kind !== 'auth' && kind !== 'denied' && kind !== 'invalid' ? t('apps.loadError.paused') : '',
           t('common:ui.loadError.nothingChanged'),
         ].filter(Boolean).join(' ')}
@@ -315,9 +337,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
   const showAttention = !firstRun && (attention.failed.length > 0 || attention.updates.length > 0 || approvals.length > 0)
   return (
     <div className="ad-apps">
-      {state.stale && (
-        <Callout tone="info" role="status" className="ad-callout">{t('apps.stale')}</Callout>
-      )}
+      {state.stale && <StaleNotice state={state} onRetry={() => reloadRef.current()} />}
       {Object.entries(actions.state).filter(([key, r]) => key.startsWith('uninstall:') && r.outcome && r.outcome !== 'completed' && !actions.unknown[key.split(':')[1]]).map(([key, r]) => (
         <Callout key={key} tone="error" role="alert" className="ad-callout" testId="remove-error">{describeOutcome(r.outcome, t, r.error)}</Callout>
       ))}
@@ -430,7 +450,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
                         isAdmin={isAdmin}
                         upgrade={upgrade}
                         variant="secondary"
-                        working={Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id)}
+                        working={Boolean(actions.unknown[tile.id]) || upgrade.working(tile.id) || Boolean(tile.app.operation)}
                       />
                     ) : null}
                   />
@@ -508,5 +528,28 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
         </SideSheet>
       )}
     </div>
+  )
+}
+
+// The banner over a list that may be out of date. It says why, names the
+// add-ons the owner is upgrading when the last list knew of it, and offers a
+// retry now; the page also asks again by itself, slower after each failure.
+function StaleNotice({ state, onRetry }) {
+  const { t } = useTranslation('addons')
+  const kind = staleKind(state)
+  const names = upgradingTitles(state.apps)
+  const title = kind === 'unreachable'
+    ? t('apps.busy.unreachable')
+    : names.length > 0 ? t('apps.busy.upgrading', { names: names.join(', ') }) : t('apps.busy.generic')
+  return (
+    <Notice
+      severity="warn"
+      title={title}
+      reason={t('apps.busy.reason')}
+      fix={{ label: t('apps.busy.retry'), onClick: onRetry, testId: 'addons-stale-retry' }}
+      className="ad-callout"
+      testId="addons-stale"
+      data-kind={kind}
+    />
   )
 }

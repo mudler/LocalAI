@@ -21,6 +21,7 @@ export function describeError(error, t) {
     case 'invalid': return serverReason(error) || t('errors.invalid')
     case 'unknown_outcome': return t('errors.unknownOutcome')
     case 'network': return t('errors.network')
+    case 'busy': return t('errors.busy')
     default: return t('errors.unavailable')
   }
 }
