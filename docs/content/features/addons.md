@@ -1598,6 +1598,67 @@ needs none of them.
 | `ui.icon` | A packaged image: `.png`, `.webp`, `.jpg` or `.jpeg`, a normalized package-relative path of at most 256 bytes, at most 256 KiB. A remote URL, a `data:` URL, an absolute path and a traversal are rejected. It cannot also be the module or a stylesheet. |
 | `ui.title`, `ui.description` | Plain text: one string, or a map of BCP 47 language tag to string (at most 16 tags). At most 80 and 280 characters. Markup characters (`<`, `>`), control characters and direction overrides are rejected. |
 
+### Translated text
+
+The English text of a manifest is the source and the fallback. An add-on can
+carry the text that LocalAI shows to people in other languages, so the library
+list and the add-on cards read in the language of the user. Two fields do this.
+
+**The title and the description of the add-on** use the language maps of
+`ui.title` and `ui.description` (see the table above). Write the English text
+under `en`, then one entry for each language:
+
+```json
+"title": { "en": "Tables", "it": "Tabelle", "de": "Tabellen", "pt-BR": "Tabelas" },
+"description": { "en": "Databases of tables.", "it": "Database di tabelle." }
+```
+
+**The kinds of a connector add-on** use the optional top-level field `i18n`.
+It is an optional addition to `api` 2. Its shape is closed on purpose:
+
+```json
+"i18n": {
+  "it": { "kinds": { "telegram": { "title": "Telegram", "description": "Parla con uno dei tuoi agenti salvati da un bot Telegram." } } },
+  "pt-BR": { "kinds": { "telegram": { "title": "Telegram", "description": "Converse com um dos seus agentes salvos por um bot do Telegram." } } }
+}
+```
+
+| Rule | Value |
+|---|---|
+| Language tags | A BCP 47 subset: two or three letters and up to three subtags, such as `it`, `pt-BR`, `zh-CN`. At most 16 languages. A tag is unique whatever its case. `en` is refused: the English fields are the manifest. |
+| Fields | `kinds.<id>.title` and `kinds.<id>.description`. The kind must be declared in `capabilities.connector.kinds`, and a description can be translated only when the English kind has one. An unknown field fails the strict parser, as does a duplicate key. |
+| Text | Plain text, as for `ui.title`: no `<` or `>`, no control characters, no direction overrides, no leading or trailing space. A title has at most 80 characters and a description at most 280. All the translated text of one manifest has at most 12 000 characters. The whole manifest keeps its size limit. |
+| Fallback | A field that a language leaves out, and every language that the manifest does not list, shows the English text. Each field falls back on its own. |
+| Not translatable | Tool descriptions, input schemas and skills are written for the model and stay English. User setting keys and values are identifiers. The text of the add-on's own pages is part of the UI bundle and has its own strings. |
+
+A host that does not know `i18n` refuses a manifest that has it, as it refuses
+any unknown field, so a package with `i18n` needs a host that reads it. The
+language maps of `ui.title` and `ui.description` are older and every host reads them.
+The field is part of the manifest, so the package digest and its signature cover
+it: a changed translation is a new package.
+
+**What the host does with it.** The library index carries the translated title and
+description of each entry (`ui.titles` and `ui.descriptions`, by language), so the library
+lists them before the add-on is installed. The generator of the index
+(`scripts/addons/catalog.sh`) copies them from the manifest, so they are never
+edited in the index. A search matches the English and the translated text.
+
+`GET /api/addons/apps` and `GET /api/chats/connectors/kinds` return the text of every
+language in `titles` and `descriptions`. When the request names a language, each item that
+translates it also has `language` and the resolved `localizedTitle` and
+`localizedDescription` (`localized_title` and `localized_description` for connector kinds). The
+language is the `lang` query parameter; without it, the `Accept-Language` header (quality values
+are honored); without both, English and no extra field. An unknown or malformed `lang` is
+English and the header is not read behind it. `title` and `description` never change, so an
+existing client sees the same answer as before. The UI reads the maps and picks the language of
+the user itself.
+
+**Authoring.** Translate by hand, in the tone of the main locale of the language. Keep product
+names (GitHub, Slack, Telegram, Discord, Jellyfin, Home Assistant, LocalAI) as they are. Keep the
+meaning of the English text; do not add claims to it. The packaging tests require every first-party
+add-on to have the title and the description in `en`, `it`, `de`, `es`, `fr`, `id`, `ko`, `pt-BR`
+and `zh-CN`, and every connector kind to have the same fields as its English kind in each of them.
+
 ### Skills
 
 An add-on can ship skills, the procedures a chat model reads before a task

@@ -688,8 +688,38 @@
         }
       ],
       "icon": "ui/icon.png",
-      "title": "Jellyfin",
-      "description": "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it."
+      "title": {
+        "en": "Jellyfin",
+        "it": "Jellyfin",
+        "de": "Jellyfin",
+        "es": "Jellyfin",
+        "fr": "Jellyfin",
+        "pt-BR": "Jellyfin",
+        "zh-CN": "Jellyfin",
+        "ko": "Jellyfin",
+        "id": "Jellyfin"
+      },
+      "description": {
+        "en": "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it.",
+        "it": "Lascia che i tuoi agenti cerchino nella tua libreria Jellyfin, vedano cosa è in riproduzione e controllino i player a distanza se lo permetti.",
+        "de": "Lassen Sie Ihre Agenten Ihre Jellyfin-Bibliothek durchsuchen, sehen, was gerade läuft, und, wenn Sie es erlauben, Wiedergabegeräte fernsteuern.",
+        "es": "Permite que tus agentes busquen en tu biblioteca de Jellyfin, vean qué se está reproduciendo y, si lo autorizas, controlen los reproductores de forma remota.",
+        "fr": "Laissez vos agents chercher dans votre bibliothèque Jellyfin, voir ce qui est en cours de lecture et, si vous l'autorisez, contrôler les lecteurs à distance.",
+        "pt-BR": "Deixe seus agentes pesquisarem na sua biblioteca do Jellyfin, verem o que está tocando e, se você permitir, controlarem os players remotamente.",
+        "zh-CN": "让你的智能体搜索你的 Jellyfin 媒体库，查看正在播放的内容，并在你允许时远程控制播放器。",
+        "ko": "에이전트가 Jellyfin 라이브러리를 검색하고 재생 중인 항목을 확인하며, 허용하면 플레이어를 원격으로 제어할 수 있게 합니다.",
+        "id": "Izinkan agen Anda mencari di pustaka Jellyfin Anda, melihat apa yang sedang diputar, dan mengendalikan pemutar dari jarak jauh jika Anda mengizinkan."
+      }
     }
+  },
+  "i18n": {
+    "it": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "Lascia che i tuoi agenti consultino la tua libreria multimediale, vedano cosa è in riproduzione e controllino i player a distanza se lo permetti, con una chiave API del tuo server Jellyfin."}}},
+    "de": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "Lassen Sie Ihre Agenten Ihre Medienbibliothek durchsuchen, sehen, was gerade läuft, und, wenn Sie es erlauben, Wiedergabegeräte fernsteuern, mit einem API-Schlüssel Ihres Jellyfin-Servers."}}},
+    "es": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "Permite que tus agentes consulten tu biblioteca multimedia, vean qué se reproduce y, si lo autorizas, controlen los reproductores de forma remota, con una clave de API de tu servidor Jellyfin."}}},
+    "fr": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "Laissez vos agents consulter votre médiathèque, voir ce qui est en cours de lecture et, si vous l'autorisez, contrôler les lecteurs à distance, avec une clé API de votre serveur Jellyfin."}}},
+    "pt-BR": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "Deixe seus agentes consultarem sua biblioteca de mídia, verem o que está tocando e, se você permitir, controlarem os players remotamente, com uma chave de API do seu servidor Jellyfin."}}},
+    "zh-CN": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "让你的智能体查询你的媒体库，查看正在播放的内容，并在你允许时远程控制播放器，使用来自你的 Jellyfin 服务器的 API 密钥。"}}},
+    "ko": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "에이전트가 미디어 라이브러리를 조회하고 재생 중인 항목을 확인하며, 허용하면 플레이어를 원격으로 제어할 수 있게 합니다. Jellyfin 서버의 API 키를 사용합니다."}}},
+    "id": {"kinds": {"jellyfin": {"title": "Jellyfin", "description": "Izinkan agen Anda mencari di pustaka media Anda, melihat apa yang sedang diputar, dan mengendalikan pemutar dari jarak jauh jika Anda mengizinkan, dengan kunci API dari server Jellyfin Anda."}}}
   }
 }

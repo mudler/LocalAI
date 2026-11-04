@@ -19,6 +19,21 @@ for JSON examples, bounds, collision rules, lifecycle behavior, and policy migra
 Typed owner observations currently support local-owner JSON selections only.
 Named-user and SQL selections remain unavailable and fail closed; they are not completed scope.
 
+## Optional translations
+
+The title and the description of an add-on are translated by the language maps of `ui.title` and `ui.description`.
+The top-level `i18n` field translates the text of connector kinds, by language tag:
+
+```json
+{"i18n":{"it":{"kinds":{"slack":{"title":"Slack","description":"Parla con uno dei tuoi agenti da Slack."}}}}}
+```
+
+The set of fields is closed: only the title and the description of a declared kind, and only where the English kind has them.
+Tool descriptions, schemas and skills are for the model and stay English. English is the manifest itself, so `en` is refused.
+Tags follow the same rule as the language maps, at most 16, and all translated text has at most `MaxI18nChars` characters.
+`NegotiateLanguage` picks the language of a request: the explicit one, else the `Accept-Language` header, else English.
+See [the addon guide](../../../docs/content/features/addons.md#translated-text).
+
 ## Optional model actions
 
 `capabilities.ui.modelActions` maps a model capability to a declared page:

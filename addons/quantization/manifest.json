@@ -163,8 +163,28 @@
       "navigation": [],
       "mainPage": "jobs",
       "icon": "ui/icon.png",
-      "title": "Quantization",
-      "description": "Shrink a model to a smaller quantized file, then import it so you can chat with it."
+      "title": {
+        "en": "Quantization",
+        "it": "Quantizzazione",
+        "de": "Quantisierung",
+        "es": "Cuantización",
+        "fr": "Quantification",
+        "pt-BR": "Quantização",
+        "zh-CN": "量化",
+        "ko": "양자화",
+        "id": "Kuantisasi"
+      },
+      "description": {
+        "en": "Shrink a model to a smaller quantized file, then import it so you can chat with it.",
+        "it": "Riduci un modello in un file quantizzato più piccolo, poi importalo per poterci chattare.",
+        "de": "Verkleinern Sie ein Modell zu einer kleineren quantisierten Datei und importieren Sie sie dann, um mit ihr zu chatten.",
+        "es": "Reduce un modelo a un archivo cuantizado más pequeño y luego impórtalo para poder chatear con él.",
+        "fr": "Réduisez un modèle à un fichier quantifié plus petit, puis importez-le pour pouvoir discuter avec lui.",
+        "pt-BR": "Reduza um modelo a um arquivo quantizado menor e depois importe-o para poder conversar com ele.",
+        "zh-CN": "把模型压缩为更小的量化文件，再导入它，即可与之聊天。",
+        "ko": "모델을 더 작은 양자화 파일로 줄인 다음 가져와서 채팅할 수 있습니다.",
+        "id": "Perkecil model menjadi berkas terkuantisasi yang lebih kecil, lalu impor agar Anda dapat mengobrol dengannya."
+      }
     }
   }
 }

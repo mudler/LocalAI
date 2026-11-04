@@ -176,8 +176,9 @@ func (h *Handlers) ListConnectors(c echo.Context) error {
 
 // ConnectorKinds lists the kinds of binding that installed add-ons serve.
 // @Summary List the connector kinds you can bind.
-// @Description The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed.
+// @Description The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title and localized_description with English as the fallback for each field; title and description stay English.
 // @Tags chats
+// @Param lang query string false "Language tag to resolve the kind text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text."
 // @Success 200 {object} schema.ChatsConnectorKindList "The kinds"
 // @Router /api/chats/connectors/kinds [get]
 func (h *Handlers) ConnectorKinds(c echo.Context) error {
@@ -190,9 +191,12 @@ func (h *Handlers) ConnectorKinds(c echo.Context) error {
 		return failConnector(c, err)
 	}
 	out := schema.ChatsConnectorKindList{Kinds: make([]schema.ChatsConnectorKind, 0, len(kinds))}
+	explicit, accept := c.QueryParam("lang"), c.Request().Header.Get("Accept-Language")
 	for _, k := range kinds {
-		out.Kinds = append(out.Kinds, schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.AgentOptional, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
-			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)})
+		view := schema.ChatsConnectorKind{Addon: k.AddonID, Kind: k.ID, Title: k.Title, Description: k.Description, SenderHint: k.SenderHint, Page: k.Page, AgentOptional: k.AgentOptional, ThreadHistory: k.ServesThreadHistory(), Options: optionsOut(k.Options),
+			Files: filesOut(host.KindFileLimits(c.Request().Context(), k)), Roles: rolesOut(k.ConnectorKind), Permissions: permissionsOut(k.ConnectorKind)}
+		translateKind(&view, k.Translations, explicit, accept)
+		out.Kinds = append(out.Kinds, view)
 	}
 	for _, ci := range contract.ConnectorCapabilities() {
 		out.Capabilities = append(out.Capabilities, schema.ChatsConnectorCapability(ci))

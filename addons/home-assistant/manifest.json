@@ -481,8 +481,38 @@
         }
       ],
       "icon": "ui/icon.png",
-      "title": "Home Assistant",
-      "description": "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+      "title": {
+        "en": "Home Assistant",
+        "it": "Home Assistant",
+        "de": "Home Assistant",
+        "es": "Home Assistant",
+        "fr": "Home Assistant",
+        "pt-BR": "Home Assistant",
+        "zh-CN": "Home Assistant",
+        "ko": "Home Assistant",
+        "id": "Home Assistant"
+      },
+      "description": {
+        "en": "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set.",
+        "it": "Lascia che le tue chat e i tuoi agenti leggano la tua casa intelligente e, se lo permetti, accendano le luci e altri dispositivi, entro i limiti che imposti.",
+        "de": "Lassen Sie Ihre Chats und Agenten Ihr Smart Home auslesen und, wenn Sie es erlauben, Lichter und andere Geräte schalten, innerhalb der von Ihnen gesetzten Grenzen.",
+        "es": "Permite que tus chats y agentes lean tu hogar inteligente y, si lo autorizas, enciendan luces y controlen otros dispositivos, dentro de los límites que establezcas.",
+        "fr": "Laissez vos conversations et vos agents lire votre maison connectée et, si vous l'autorisez, allumer les lumières et commander d'autres appareils, dans les limites que vous fixez.",
+        "pt-BR": "Deixe seus chats e agentes lerem sua casa inteligente e, se você permitir, ligarem luzes e controlarem outros dispositivos, dentro dos limites que você define.",
+        "zh-CN": "让你的聊天和智能体读取你的智能家居，并在你允许时开关灯光等设备，权限范围由你设定。",
+        "ko": "채팅과 에이전트가 스마트홈을 읽고, 허용하면 조명 등 기기를 켜고 끌 수 있게 합니다. 한도는 직접 정합니다.",
+        "id": "Izinkan obrolan dan agen Anda membaca rumah pintar Anda dan, jika Anda mengizinkan, menyalakan lampu serta perangkat lain, dengan batas yang Anda tentukan."
+      }
     }
+  },
+  "i18n": {
+    "it": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "Lascia che le tue chat e i tuoi agenti leggano la tua casa intelligente e comandino i dispositivi se lo permetti, con un token di accesso a lunga durata."}}},
+    "de": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "Lassen Sie Ihre Chats und Agenten Ihr Smart Home auslesen und, wenn Sie es erlauben, Geräte schalten, mit einem langlebigen Zugriffstoken."}}},
+    "es": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "Permite que tus chats y agentes lean tu hogar inteligente y controlen dispositivos si lo autorizas, con un token de acceso de larga duración."}}},
+    "fr": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "Laissez vos conversations et vos agents lire votre maison connectée et commander des appareils si vous l'autorisez, avec un jeton d'accès longue durée."}}},
+    "pt-BR": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "Deixe seus chats e agentes lerem sua casa inteligente e controlarem dispositivos se você permitir, com um token de acesso de longa duração."}}},
+    "zh-CN": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "让你的聊天和智能体读取你的智能家居，并在你允许时控制设备，使用长期访问令牌。"}}},
+    "ko": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "채팅과 에이전트가 스마트홈을 읽고, 허용하면 기기를 제어할 수 있게 합니다. 장기 액세스 토큰을 사용합니다."}}},
+    "id": {"kinds": {"home-assistant": {"title": "Home Assistant", "description": "Izinkan obrolan dan agen Anda membaca rumah pintar Anda dan mengendalikan perangkat jika Anda mengizinkan, dengan token akses berumur panjang."}}}
   }
 }

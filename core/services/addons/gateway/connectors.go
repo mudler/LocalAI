@@ -70,7 +70,7 @@ func (g *Gateway) localConnectorKinds(ctx context.Context) ([]connectors.Kind, e
 	}
 	out := make([]connectors.Kind, len(kinds))
 	for i, k := range kinds {
-		out[i] = connectors.Kind{AddonID: k.AddonID, ConnectorKind: k.ConnectorKind}
+		out[i] = connectors.Kind{AddonID: k.AddonID, ConnectorKind: k.ConnectorKind, Translations: k.Translations}
 	}
 	return out, nil
 }

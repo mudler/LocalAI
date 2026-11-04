@@ -1265,6 +1265,10 @@ func (m *Manager) Runtime(ctx context.Context, id string) (addonruntime.Instance
 type ConnectorKind struct {
 	AddonID string
 	contract.ConnectorKind
+	// Translations is the manifest's i18n text of this kind, by language tag.
+	// It is display text only and is never part of the kind that the add-on
+	// registers.
+	Translations map[string]contract.KindText `json:"translations,omitempty"`
 }
 
 // ConnectorKinds lists the connector kinds of the add-ons that run now. An
@@ -1288,8 +1292,14 @@ func (m *Manager) ConnectorKinds(ctx context.Context) ([]ConnectorKind, error) {
 		if r.Capabilities.Connector == nil {
 			continue
 		}
+		var manifest contract.Manifest
+		if st, ok := m.journal.Addons[r.AddonID]; ok {
+			if receipt, ok := currentReceipt(st); ok {
+				manifest = receipt.Manifest
+			}
+		}
 		for _, k := range r.Capabilities.Connector.Kinds {
-			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k})
+			out = append(out, ConnectorKind{AddonID: r.AddonID, ConnectorKind: k, Translations: manifest.KindTranslations(k.ID)})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].AddonID+"/"+out[i].ID < out[j].AddonID+"/"+out[j].ID })

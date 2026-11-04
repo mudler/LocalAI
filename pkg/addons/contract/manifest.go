@@ -91,6 +91,13 @@ type Manifest struct {
 	// enabled. "on-demand" is reserved and rejected until it is implemented.
 	LaunchMode   string       `json:"launchMode,omitempty"`
 	Capabilities Capabilities `json:"capabilities"`
+	// I18n translates the text that the host shows for the manifest, by
+	// language tag (see i18n.go). It is optional under api 2. A host that
+	// does not know the field refuses the manifest as it refuses any unknown
+	// field. The English fields remain the source and the fallback. The title
+	// and description of the add-on are translated by the language maps of
+	// ui.title and ui.description.
+	I18n map[string]Translation `json:"i18n,omitempty"`
 }
 type Capabilities struct {
 	Service bool     `json:"service,omitempty"`
@@ -416,6 +423,9 @@ func ValidateManifest(m Manifest, h HostCompatibility) error {
 		return e
 	}
 	if e := validateSkillDefinitions(m.ID, c.SkillDefinitions); e != nil {
+		return e
+	}
+	if e := validateI18n(m); e != nil {
 		return e
 	}
 	if u := c.UI; u != nil {

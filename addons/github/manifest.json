@@ -621,8 +621,38 @@
         {"kind": "approval-card", "tool": "review-comment-pr", "component": "ProposalCard"}
       ],
       "icon": "ui/icon.png",
-      "title": "GitHub",
-      "description": "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it."
+      "title": {
+        "en": "GitHub",
+        "it": "GitHub",
+        "de": "GitHub",
+        "es": "GitHub",
+        "fr": "GitHub",
+        "pt-BR": "GitHub",
+        "zh-CN": "GitHub",
+        "ko": "GitHub",
+        "id": "GitHub"
+      },
+      "description": {
+        "en": "Let your agents read the code, issues and pull requests of the repositories you choose, and write to them if you allow it.",
+        "it": "Lascia che i tuoi agenti leggano il codice, le issue e le pull request dei repository che scegli, e ci scrivano se lo permetti.",
+        "de": "Lassen Sie Ihre Agenten den Code, die Issues und die Pull Requests der von Ihnen gewählten Repositorys lesen und, wenn Sie es erlauben, darin schreiben.",
+        "es": "Permite que tus agentes lean el código, las issues y los pull requests de los repositorios que elijas y escriban en ellos si lo autorizas.",
+        "fr": "Laissez vos agents lire le code, les issues et les pull requests des dépôts que vous choisissez, et y écrire si vous l'autorisez.",
+        "pt-BR": "Deixe seus agentes lerem o código, as issues e os pull requests dos repositórios que você escolher, e escreverem neles se você permitir.",
+        "zh-CN": "让你的智能体读取你所选仓库的代码、Issue 和 Pull Request，并在你允许时向其中写入。",
+        "ko": "에이전트가 선택한 저장소의 코드, 이슈, 풀 리퀘스트를 읽고, 허용하면 그곳에 쓸 수 있게 합니다.",
+        "id": "Izinkan agen Anda membaca kode, isu, dan pull request dari repositori yang Anda pilih, dan menulis di sana jika Anda mengizinkan."
+      }
     }
+  },
+  "i18n": {
+    "it": {"kinds": {"github": {"title": "GitHub", "description": "Lascia che i tuoi agenti leggano i repository che scegli e commentino issue e pull request se lo permetti, con un token di accesso granulare."}}},
+    "de": {"kinds": {"github": {"title": "GitHub", "description": "Lassen Sie Ihre Agenten die von Ihnen gewählten Repositorys lesen und, wenn Sie es erlauben, Issues und Pull Requests kommentieren, mit einem fein abgestuften Zugriffstoken."}}},
+    "es": {"kinds": {"github": {"title": "GitHub", "description": "Permite que tus agentes lean los repositorios que elijas y comenten en issues y pull requests si lo autorizas, con un token de acceso de permisos específicos."}}},
+    "fr": {"kinds": {"github": {"title": "GitHub", "description": "Laissez vos agents lire les dépôts que vous choisissez et commenter les issues et les pull requests si vous l'autorisez, avec un jeton d'accès à granularité fine."}}},
+    "pt-BR": {"kinds": {"github": {"title": "GitHub", "description": "Deixe seus agentes lerem os repositórios que você escolher e comentarem em issues e pull requests se você permitir, com um token de acesso refinado."}}},
+    "zh-CN": {"kinds": {"github": {"title": "GitHub", "description": "让你的智能体读取你所选的仓库，并在你允许时评论 Issue 和 Pull Request，使用细粒度访问令牌。"}}},
+    "ko": {"kinds": {"github": {"title": "GitHub", "description": "에이전트가 선택한 저장소를 읽고, 허용하면 이슈와 풀 리퀘스트에 댓글을 달 수 있게 합니다. 세분화된 액세스 토큰을 사용합니다."}}},
+    "id": {"kinds": {"github": {"title": "GitHub", "description": "Izinkan agen Anda membaca repositori yang Anda pilih, dan mengomentari isu serta pull request jika Anda mengizinkan, dengan token akses terperinci."}}}
   }
 }

@@ -122,7 +122,7 @@ const docTemplate = `{
         },
         "/api/addons/apps": {
             "get": {
-                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library.",
+                "description": "Returns the installed addons that are enabled, for every authenticated caller who holds the addons feature. The owner decides what a caller sees; hiding an entry is never the control, because every call the entry leads to is authorized again. Each app has its title, description, icon URL, version and installed generation, a process state (running, starting, failed or stopped; the state is an observation, separate from the enabled flag), the path of its main page when its manifest declares a valid one, and a bounded tool summary. A headless addon is listed without a main page. Administrators additionally see installed addons that are disabled and, per app, the start and stop controls and the management link. An app carries update update-pending, separate from state, only when the owner's cached update check says an update is available for the installed package; the list never evaluates a check and never reaches a library. Text that the manifest translates (ui.title and ui.description language maps) is returned in all languages in titles and descriptions. When the request names a language, each app that translates it also carries language, localizedTitle and localizedDescription, resolved per field with English as the fallback; title and description never change.",
                 "produces": [
                     "application/json"
                 ],
@@ -130,6 +130,20 @@ const docTemplate = `{
                     "Addons"
                 ],
                 "summary": "List the addon apps the caller may use",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language tag to resolve the text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text.",
+                        "name": "lang",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Used when lang is absent. Quality values are honored; English or no match adds no localized field.",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "Apps visible to the caller",
@@ -5752,11 +5766,19 @@ const docTemplate = `{
         },
         "/api/chats/connectors/kinds": {
             "get": {
-                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed.",
+                "description": "The messaging platforms that a running connector add-on serves, with the add-on page that adds and edits their bindings. Empty when no connector add-on is installed. A kind whose manifest translates its text carries titles and descriptions by language and, when the request names a language it translates (lang, else Accept-Language), language, localized_title and localized_description with English as the fallback for each field; title and description stay English.",
                 "tags": [
                     "chats"
                 ],
                 "summary": "List the connector kinds you can bind.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language tag to resolve the kind text for, such as it or pt-BR. Wins over Accept-Language. An unknown language gives the English text.",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "The kinds",
@@ -16041,9 +16063,22 @@ const docTemplate = `{
                     "type": "string",
                     "example": "2026-10-30T09:15:00Z"
                 },
+                "language": {
+                    "description": "Language, LocalizedTitle and LocalizedDescription are present only when\nthe request named a language (the lang query parameter, else the\nAccept-Language header) that the manifest translates. Language is the\ntag that matched. Each localized field falls back to English on its own,\nso a title without a translation is the English title. No other field\nchanges: Title and Description stay the default-language text.",
+                    "type": "string",
+                    "example": "it"
+                },
                 "launchMode": {
                     "type": "string",
                     "example": "always"
+                },
+                "localizedDescription": {
+                    "type": "string",
+                    "example": "Tieni degli appunti."
+                },
+                "localizedTitle": {
+                    "type": "string",
+                    "example": "Appunti"
                 },
                 "mainPage": {
                     "description": "MainPage is the path the Open action navigates to. It is present only\nfor an enabled addon whose manifest declares a main page that is one of\nits pages.",
@@ -21908,6 +21943,12 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "descriptions": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "files": {
                     "description": "Files are the limits of a binding of this kind that has no limit of\nyour own.",
                     "allOf": [
@@ -21917,6 +21958,16 @@ const docTemplate = `{
                     ]
                 },
                 "kind": {
+                    "type": "string"
+                },
+                "language": {
+                    "description": "Language, LocalizedTitle and LocalizedDescription are present only when\nthe request names a language (the lang query parameter, else the\nAccept-Language header) that the kind translates. Each falls back to\nEnglish on its own.",
+                    "type": "string"
+                },
+                "localized_description": {
+                    "type": "string"
+                },
+                "localized_title": {
                     "type": "string"
                 },
                 "options": {
@@ -21952,6 +22003,13 @@ const docTemplate = `{
                 },
                 "title": {
                     "type": "string"
+                },
+                "titles": {
+                    "description": "Titles and Descriptions carry the translated text of the manifest by\nlanguage tag, when it has some. Title and Description stay English.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 }
             }
         },

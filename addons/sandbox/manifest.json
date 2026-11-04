@@ -137,7 +137,17 @@
       "css": [
         "ui/sandbox.css"
       ],
-      "description": "Let your chats run commands and code in an isolated sandbox, with your files mounted.",
+      "description": {
+        "en": "Let your chats run commands and code in an isolated sandbox, with your files mounted.",
+        "it": "Lascia che le tue chat eseguano comandi e codice in una sandbox isolata, con i tuoi file montati.",
+        "de": "Lassen Sie Ihre Chats Befehle und Code in einer isolierten Sandbox ausführen, mit eingebundenen Dateien.",
+        "es": "Permite que tus chats ejecuten comandos y código en un sandbox aislado, con tus archivos montados.",
+        "fr": "Laissez vos conversations exécuter des commandes et du code dans une sandbox isolée, avec vos fichiers montés.",
+        "pt-BR": "Deixe seus chats executarem comandos e código em um sandbox isolado, com seus arquivos montados.",
+        "zh-CN": "让你的聊天在隔离的沙箱中运行命令和代码，并挂载你的文件。",
+        "ko": "채팅이 격리된 샌드박스에서 명령과 코드를 실행할 수 있게 하며, 내 파일이 마운트됩니다.",
+        "id": "Izinkan obrolan Anda menjalankan perintah dan kode di sandbox terisolasi, dengan berkas Anda terpasang."
+      },
       "entry": "ui/sandbox.js",
       "icon": "ui/icon.png",
       "mainPage": "sandbox",
@@ -155,7 +165,17 @@
           "slot": "settings.sections"
         }
       ],
-      "title": "Sandbox"
+      "title": {
+        "en": "Sandbox",
+        "it": "Sandbox",
+        "de": "Sandbox",
+        "es": "Sandbox",
+        "fr": "Sandbox",
+        "pt-BR": "Sandbox",
+        "zh-CN": "沙箱",
+        "ko": "샌드박스",
+        "id": "Sandbox"
+      }
     },
     "skillDefinitions": [
       {

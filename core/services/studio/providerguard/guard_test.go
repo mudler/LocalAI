@@ -113,7 +113,6 @@ var allowed = []entry{
 	// Ordinary words that equal an id or a title.
 	{"core/schema/chats.go", `example:"Sandbox"`, "a sample value in the API documentation"},
 	{locales + "de/pages.json", "Sie öffnen sich hier in einer Sandbox", "German for the isolated frame of a page: the ordinary noun"},
-	{locales + "de/workspace.json", "types.sheet = Tabelle", "German for a sheet: the translated title and the noun coincide"},
 	{"core/application/studio_service.go", `memory`, "the in-memory kind of the store"},
 	{"core/application/studio_store.go", `memory`, "the in-memory kind of the store"},
 	{"core/services/studio/nibharness/tools.go", `memory`, "the built-in memory tool of the agent engine"},

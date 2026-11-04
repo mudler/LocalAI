@@ -4,8 +4,10 @@ package catalog
 import (
 	"context"
 	"errors"
+	"maps"
 	"reflect"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 
@@ -76,6 +78,12 @@ type EntryUI struct {
 	// part of the package manifest and reaches users from the installed addon.
 	Title       string `json:"title,omitempty"`
 	Description string `json:"description,omitempty"`
+	// Titles and Descriptions carry the other languages of the manifest's
+	// ui.title and ui.description, keyed by BCP 47 tag, so the library can
+	// show the text in the user's language before the add-on is installed.
+	// They never hold English: Title and Description are the English fallback.
+	Titles       map[string]string `json:"titles,omitempty"`
+	Descriptions map[string]string `json:"descriptions,omitempty"`
 	// MainPage is the route the addon opens as an app, if it has one.
 	MainPage string `json:"mainPage,omitempty"`
 	// Icon is a path inside the package. The host serves an icon only after
@@ -126,8 +134,8 @@ type Release struct {
 	OS     string             `json:"os,omitempty"`
 	Arch   string             `json:"arch,omitempty"`
 	Policy VerificationPolicy `json:"policy,omitzero"`
-	// UI is the optional display metadata of the entry. It is comparable on
-	// purpose: a release is compared with its trusted resolution at staging.
+	// UI is the optional display metadata of the entry. A release is compared
+	// with its trusted resolution at staging (see Equal).
 	UI EntryUI `json:"ui,omitzero"`
 	// Requires is the optional compatibility hint of the entry.
 	Requires Requirements `json:"requires,omitzero"`
@@ -173,6 +181,12 @@ type Release struct {
 	// image. It has no digest in the library; the install resolves the tag to a
 	// digest, verifies that image and records the digest it installed.
 	Mutable bool `json:"mutable,omitempty"`
+}
+
+// IsZero reports whether no display metadata is set. The translation maps make
+// EntryUI incomparable, so callers use this and not == with the zero value.
+func (u EntryUI) IsZero() bool {
+	return u.Title == "" && u.Description == "" && u.MainPage == "" && u.Icon == "" && u.LaunchMode == "" && len(u.Titles) == 0 && len(u.Descriptions) == 0
 }
 
 // Equal reports whether two releases are the same entry field by field. A
@@ -271,7 +285,7 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 				}
 				continue
 			}
-			if strings.Contains(strings.ToLower(r.Name+" "+r.ID+" "+r.Description), strings.ToLower(q.Text)) {
+			if strings.Contains(strings.ToLower(r.searchText()), strings.ToLower(q.Text)) {
 				all = append(all, r)
 			}
 		}
@@ -282,6 +296,21 @@ func (c Catalog) Search(ctx context.Context, q Query) (Page, error) {
 		p.Releases = all[q.Offset:min(len(all), q.Offset+q.Limit)]
 	}
 	return p, nil
+}
+
+// searchText is what a text query is matched against: the English name and
+// description, and the translated title and description of every language, so
+// a person finds an add-on by the name they see in their own language.
+func (r Release) searchText() string {
+	var b strings.Builder
+	b.WriteString(r.Name + " " + r.ID + " " + r.Description)
+	for _, tag := range slices.Sorted(maps.Keys(r.UI.Titles)) {
+		b.WriteString(" " + r.UI.Titles[tag])
+	}
+	for _, tag := range slices.Sorted(maps.Keys(r.UI.Descriptions)) {
+		b.WriteString(" " + r.UI.Descriptions[tag])
+	}
+	return b.String()
 }
 func releaseKey(r Release) string {
 	return r.SourceID + "/" + string(r.EntryKind()) + "/" + r.ID + "/" + r.Version + "/" + r.OS + "/" + r.Arch

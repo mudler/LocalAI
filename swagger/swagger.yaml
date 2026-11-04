@@ -343,8 +343,24 @@ definitions:
           several add-ons replace.
         example: "2026-10-30T09:15:00Z"
         type: string
+      language:
+        description: |-
+          Language, LocalizedTitle and LocalizedDescription are present only when
+          the request named a language (the lang query parameter, else the
+          Accept-Language header) that the manifest translates. Language is the
+          tag that matched. Each localized field falls back to English on its own,
+          so a title without a translation is the English title. No other field
+          changes: Title and Description stay the default-language text.
+        example: it
+        type: string
       launchMode:
         example: always
+        type: string
+      localizedDescription:
+        example: Tieni degli appunti.
+        type: string
+      localizedTitle:
+        example: Appunti
         type: string
       mainPage:
         description: |-
@@ -4938,6 +4954,10 @@ definitions:
         type: boolean
       description:
         type: string
+      descriptions:
+        additionalProperties:
+          type: string
+        type: object
       files:
         allOf:
         - $ref: '#/definitions/schema.ChatsConnectorFiles'
@@ -4945,6 +4965,17 @@ definitions:
           Files are the limits of a binding of this kind that has no limit of
           your own.
       kind:
+        type: string
+      language:
+        description: |-
+          Language, LocalizedTitle and LocalizedDescription are present only when
+          the request names a language (the lang query parameter, else the
+          Accept-Language header) that the kind translates. Each falls back to
+          English on its own.
+        type: string
+      localized_description:
+        type: string
+      localized_title:
         type: string
       options:
         description: Options are the choices the add-on lets each binding of this
@@ -4978,6 +5009,13 @@ definitions:
         type: boolean
       title:
         type: string
+      titles:
+        additionalProperties:
+          type: string
+        description: |-
+          Titles and Descriptions carry the translated text of the manifest by
+          language tag, when it has some. Title and Description stay English.
+        type: object
     type: object
   schema.ChatsConnectorKindList:
     properties:
@@ -11817,7 +11855,22 @@ paths:
         and the management link. An app carries update update-pending, separate from
         state, only when the owner's cached update check says an update is available
         for the installed package; the list never evaluates a check and never reaches
-        a library.
+        a library. Text that the manifest translates (ui.title and ui.description
+        language maps) is returned in all languages in titles and descriptions. When
+        the request names a language, each app that translates it also carries language,
+        localizedTitle and localizedDescription, resolved per field with English as
+        the fallback; title and description never change.
+      parameters:
+      - description: Language tag to resolve the text for, such as it or pt-BR. Wins
+          over Accept-Language. An unknown language gives the English text.
+        in: query
+        name: lang
+        type: string
+      - description: Used when lang is absent. Quality values are honored; English
+          or no match adds no localized field.
+        in: header
+        name: Accept-Language
+        type: string
       produces:
       - application/json
       responses:
@@ -17192,7 +17245,16 @@ paths:
     get:
       description: The messaging platforms that a running connector add-on serves,
         with the add-on page that adds and edits their bindings. Empty when no connector
-        add-on is installed.
+        add-on is installed. A kind whose manifest translates its text carries titles
+        and descriptions by language and, when the request names a language it translates
+        (lang, else Accept-Language), language, localized_title and localized_description
+        with English as the fallback for each field; title and description stay English.
+      parameters:
+      - description: Language tag to resolve the kind text for, such as it or pt-BR.
+          Wins over Accept-Language. An unknown language gives the English text.
+        in: query
+        name: lang
+        type: string
       responses:
         "200":
           description: The kinds

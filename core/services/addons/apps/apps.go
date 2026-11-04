@@ -84,6 +84,47 @@ type StartRequest struct {
 	Generation uint64 `json:"generation" example:"3"`
 }
 
+// Localize returns a copy of the app with the text in the language the
+// request negotiates: the explicit language, else the Accept-Language header,
+// else none. An app whose manifest translates nothing in that language is
+// returned as it is.
+func (a App) Localize(explicit, acceptLanguage string) App {
+	available := map[string]bool{}
+	for tag := range a.Titles {
+		available[tag] = true
+	}
+	for tag := range a.Descriptions {
+		available[tag] = true
+	}
+	tags := make([]string, 0, len(available))
+	for tag := range available {
+		tags = append(tags, tag)
+	}
+	tag := contract.NegotiateLanguage(explicit, acceptLanguage, tags)
+	if tag == "" {
+		return a
+	}
+	pick := func(m map[string]string, fallback string) string {
+		if got, ok := contract.MatchLanguage(tag, languagesOf(m)); ok && m[got] != "" {
+			return m[got]
+		}
+		return fallback
+	}
+	a.Titles, a.Descriptions = maps.Clone(a.Titles), maps.Clone(a.Descriptions)
+	a.Language = tag
+	a.LocalizedTitle = pick(a.Titles, a.Title)
+	a.LocalizedDescription = pick(a.Descriptions, a.Description)
+	return a
+}
+
+func languagesOf(m map[string]string) []string {
+	out := make([]string, 0, len(m))
+	for tag := range m {
+		out = append(out, tag)
+	}
+	return out
+}
+
 // MaxTools bounds the tool names of one app.
 const MaxTools = 32
 
@@ -103,6 +144,15 @@ type App struct {
 	Titles       map[string]string `json:"titles,omitempty"`
 	Description  string            `json:"description,omitempty" example:"Keep notes."`
 	Descriptions map[string]string `json:"descriptions,omitempty"`
+	// Language, LocalizedTitle and LocalizedDescription are present only when
+	// the request named a language (the lang query parameter, else the
+	// Accept-Language header) that the manifest translates. Language is the
+	// tag that matched. Each localized field falls back to English on its own,
+	// so a title without a translation is the English title. No other field
+	// changes: Title and Description stay the default-language text.
+	Language             string `json:"language,omitempty" example:"it"`
+	LocalizedTitle       string `json:"localizedTitle,omitempty" example:"Appunti"`
+	LocalizedDescription string `json:"localizedDescription,omitempty" example:"Tieni degli appunti."`
 	// Icon is a same-origin URL of the verified immutable icon of this
 	// generation. It is absent when the manifest declares none.
 	Icon    string `json:"icon,omitempty" example:"/api/addons/apps/notes/icon?generation=3"`

@@ -1539,7 +1539,18 @@ type ChatsConnectorKind struct {
 	Kind        string `json:"kind"`
 	Title       string `json:"title"`
 	Description string `json:"description,omitempty"`
-	SenderHint  string `json:"sender_hint,omitempty"`
+	// Titles and Descriptions carry the translated text of the manifest by
+	// language tag, when it has some. Title and Description stay English.
+	Titles       map[string]string `json:"titles,omitempty"`
+	Descriptions map[string]string `json:"descriptions,omitempty"`
+	// Language, LocalizedTitle and LocalizedDescription are present only when
+	// the request names a language (the lang query parameter, else the
+	// Accept-Language header) that the kind translates. Each falls back to
+	// English on its own.
+	Language             string `json:"language,omitempty"`
+	LocalizedTitle       string `json:"localized_title,omitempty"`
+	LocalizedDescription string `json:"localized_description,omitempty"`
+	SenderHint           string `json:"sender_hint,omitempty"`
 	// Page is the add-on page that adds and edits bindings of this kind.
 	Page string `json:"page,omitempty"`
 	// AgentOptional is true when a binding of this kind may have no agent. It
