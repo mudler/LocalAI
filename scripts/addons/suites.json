@@ -5095,7 +5095,9 @@
       "two frontends: provider-a (basic client authentication)",
       "two frontends: provider-b (post client authentication)",
       "two frontends: provider-c (none client authentication)",
-      "keeps the logins of the services apart"
+      "keeps the logins of the services apart",
+      "connects, reads inside the folder, writes only with approval, renews, and revokes",
+      "tells the model how long to wait when Drive limits the calls"
     ],
     "report": ".cache/addons/logs/oauth.json"
   }

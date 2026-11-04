@@ -61,6 +61,9 @@ type Config struct {
 	// require: contract.OAuthClientAuthBasic, Post or None. Any other form
 	// is refused with invalid_client.
 	ClientAuth string
+	// AuthorizePath is the path of the authorize endpoint. Empty means
+	// /authorize. A service whose descriptor puts it elsewhere sets it.
+	AuthorizePath string
 }
 
 // Call is one call of the token or the revocation endpoint.
@@ -118,7 +121,11 @@ type pending struct {
 func New(cfg Config) *Provider {
 	p := &Provider{cfg: cfg, codes: map[string]pending{}, live: map[string]bool{}}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/authorize", p.authorize)
+	authorizePath := cfg.AuthorizePath
+	if authorizePath == "" {
+		authorizePath = "/authorize"
+	}
+	mux.HandleFunc(authorizePath, p.authorize)
 	mux.HandleFunc("/token", p.token)
 	mux.HandleFunc("/revoke", p.revoke)
 	p.Server = httptest.NewTLSServer(mux)

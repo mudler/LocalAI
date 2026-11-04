@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mudler/LocalAI/addons/gdrive/gdrivetest"
 	"github.com/mudler/xlog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,6 +24,15 @@ import (
 
 // fixtureExecutable is the test-only add-on, built once for the suite.
 var fixtureExecutable []byte
+
+// drive is the fake Drive API and the shipped Google Drive add-on built to
+// talk to it. The address of the API is fixed in the executable when it is
+// linked, so the fake starts before the build and serves every spec of the
+// suite; a spec resets it.
+var (
+	drive           *gdrivetest.Server
+	driveExecutable []byte
+)
 
 func TestOAuthConformance(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -38,5 +48,14 @@ var _ = BeforeSuite(func() {
 	out, err := exec.Command("go", "build", "-o", bin, "../../../addons/internal/oauthfixture").CombinedOutput()
 	Expect(err).NotTo(HaveOccurred(), string(out))
 	fixtureExecutable, err = os.ReadFile(bin) // #nosec G304 -- the suite reads the file it just built
+	Expect(err).NotTo(HaveOccurred())
+
+	drive = gdrivetest.New()
+	DeferCleanup(drive.Close)
+	driveBin := filepath.Join(dir, "gdrive")
+	out, err = exec.Command("go", "build", "-ldflags", "-X github.com/mudler/LocalAI/addons/gdrive/internal/driveapi.DefaultBase="+drive.URL,
+		"-o", driveBin, "../../../addons/gdrive/cmd/gdrive").CombinedOutput()
+	Expect(err).NotTo(HaveOccurred(), string(out))
+	driveExecutable, err = os.ReadFile(driveBin) // #nosec G304 -- the suite reads the file it just built
 	Expect(err).NotTo(HaveOccurred())
 })

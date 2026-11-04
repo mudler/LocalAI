@@ -67,6 +67,14 @@ type service struct {
 	Required       []string
 	Optional       []string
 	Params         []contract.OAuthParam
+	// AuthorizePath is the path of the authorize endpoint; empty is
+	// /authorize.
+	AuthorizePath string
+	// Manifest, when set, makes the manifest of the add-on at a version in
+	// place of the generic one, and Executable names the file of the package
+	// that holds the executable and its content. A shipped add-on sets them.
+	Manifest   func(version string, moved bool) []byte
+	Executable func() (name string, data []byte)
 }
 
 // services are the services every spec runs against. They differ in every
@@ -116,6 +124,9 @@ func (s service) scopes() []string { return append(append([]string{}, s.Required
 
 // manifest is the manifest of the add-on of the service at a version.
 func (s service) manifest(version string, moved bool) []byte {
+	if s.Manifest != nil {
+		return s.Manifest(version, moved)
+	}
 	desc := s.descriptor(moved)
 	m := map[string]any{
 		"schemaVersion": 1, "id": s.AddonID, "version": version, "executable": "bin/oauthfixture",
@@ -138,14 +149,14 @@ func (s service) manifest(version string, moved bool) []byte {
 }
 
 // pkg is the package of the add-on: its manifest and the one executable.
-func pkg(manifest []byte) []byte {
+func pkg(manifest []byte, exeName string, exe []byte) []byte {
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
 	for _, f := range []struct {
 		name string
 		mode int64
 		data []byte
-	}{{"manifest.json", 0o644, manifest}, {"bin/oauthfixture", 0o755, fixtureExecutable}} {
+	}{{"manifest.json", 0o644, manifest}, {exeName, 0o755, exe}} {
 		Expect(tw.WriteHeader(&tar.Header{Name: f.name, Mode: f.mode, Size: int64(len(f.data))})).To(Succeed())
 		_, err := tw.Write(f.data)
 		Expect(err).NotTo(HaveOccurred())
@@ -177,8 +188,13 @@ func newLibrary() *library {
 	return l
 }
 
-func (l *library) publish(id, version string, manifest []byte) {
-	data := pkg(manifest)
+func (l *library) publish(s service, version string, manifest []byte) {
+	id := s.AddonID
+	exeName, exe := "bin/oauthfixture", fixtureExecutable
+	if s.Executable != nil {
+		exeName, exe = s.Executable()
+	}
+	data := pkg(manifest, exeName, exe)
 	name := id + "-" + version + ".tar"
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -284,20 +300,24 @@ func realTempDir() string {
 	return dir
 }
 
-// newCluster starts the fake services, publishes version 1.0.0 of every
+// newCluster is newClusterFor the services every spec of the generic suite
+// runs against.
+func newCluster() *cluster { return newClusterFor(services) }
+
+// newClusterFor starts the fake services, publishes version 1.0.0 of every
 // add-on and 1.0.1 (with the token endpoint moved) to the library, and starts
 // the owner with the 1.0.0 add-ons installed and enabled.
-func newCluster() *cluster {
+func newClusterFor(services []service) *cluster {
 	c := &cluster{dir: realTempDir(), clock: &clock{now: time.Date(2026, 3, 4, 5, 6, 7, 0, time.UTC)}, providers: map[string]*oauthtest.Provider{}, library: newLibrary()}
 	var ps []*oauthtest.Provider
 	for _, s := range services {
-		p := oauthtest.New(oauthtest.Config{Host: s.TokenHost, ClientID: s.ClientID, ClientSecret: s.ClientSecret, ClientAuth: s.ClientAuth})
+		p := oauthtest.New(oauthtest.Config{Host: s.TokenHost, ClientID: s.ClientID, ClientSecret: s.ClientSecret, ClientAuth: s.ClientAuth, AuthorizePath: s.AuthorizePath})
 		DeferCleanup(p.Close)
 		p.Set(func(p *oauthtest.Provider) { p.ExpiresIn = 3600 })
 		c.providers[s.AddonID] = p
 		ps = append(ps, p)
-		c.library.publish(s.AddonID, "1.0.0", s.manifest("1.0.0", false))
-		c.library.publish(s.AddonID, "1.0.1", s.manifest("1.0.1", true))
+		c.library.publish(s, "1.0.0", s.manifest("1.0.0", false))
+		c.library.publish(s, "1.0.1", s.manifest("1.0.1", true))
 	}
 	c.network = oauthtest.NewNetwork(ps...)
 	for _, s := range services {

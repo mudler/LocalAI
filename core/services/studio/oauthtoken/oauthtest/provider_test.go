@@ -38,6 +38,19 @@ var _ = Describe("the fake OAuth service", func() {
 		return back.Query().Get("code")
 	}
 
+	It("serves the authorize endpoint at the path the config names", func() {
+		p := oauthtest.New(oauthtest.Config{Host: host, ClientID: "client-a", ClientSecret: "secret", ClientAuth: contract.OAuthClientAuthPost, AuthorizePath: "/o/v2/auth"})
+		DeferCleanup(p.Close)
+		n := oauthtest.NewNetwork(p)
+		q := url.Values{"response_type": {"code"}, "client_id": {"client-a"}, "redirect_uri": {"https://localai.example.test/cb"}, "scope": {"read"},
+			"state": {"s"}, "code_challenge": {"x"}, "code_challenge_method": {"S256"}}
+		back, err := n.Authorize(ctx, "https://"+host+"/o/v2/auth?"+q.Encode())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(back.Query().Get("code")).NotTo(BeEmpty())
+		_, err = n.Authorize(ctx, "https://"+host+"/authorize?"+q.Encode())
+		Expect(err).To(HaveOccurred(), "the default path is not served when another is configured")
+	})
+
 	It("trades a code for the verifier it was issued for, with the client authentication it requires", func() {
 		p := oauthtest.New(oauthtest.Config{Host: host, ClientID: "client-a", ClientSecret: "secret", ClientAuth: contract.OAuthClientAuthBasic})
 		DeferCleanup(p.Close)
