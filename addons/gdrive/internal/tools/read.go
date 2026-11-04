@@ -429,10 +429,12 @@ func (c *call) readFile(raw map[string]json.RawMessage) (any, error) {
 	// Shrink the window until the whole result fits what the host takes.
 	limit := len(data)
 	for {
-		text, _ := cut(string(data), limit)
-		text = strings.ToValidUTF8(text, "�")
-		next := start + int64(len(text))
-		res := map[string]any{"file": m.item(), "content": text, "offset": start, "bytes": len(raw), "totalBytes": total}
+		window, _ := cut(string(data), limit)
+		// Offsets count the bytes of the file, so they come from the window
+		// as it is; the text the model reads may differ if the file is not UTF-8.
+		next := start + int64(len(window))
+		text := strings.ToValidUTF8(window, "\ufffd")
+		res := map[string]any{"file": m.item(), "content": text, "offset": start, "bytes": len(window), "totalBytes": total}
 		if s.export != "" {
 			res["exportedAs"] = s.export
 		}

@@ -283,6 +283,21 @@ var _ = Describe("read-file", func() {
 		Expect(err).To(MatchError(ContainSubstring("past the end")))
 	})
 
+	It("reports bytes as the length of the content it returns", func() {
+		r := w.mustRead("read-file", map[string]any{"folder": "proj", "fileId": "notes"})
+		Expect(r.Data["bytes"]).To(BeNumerically("==", len(content(r))))
+		Expect(r.Data["bytes"]).To(BeNumerically("==", len("hello world\nsecond line\n")))
+		r = w.mustRead("read-file", map[string]any{"folder": "proj", "fileId": "notes", "offset": 12})
+		Expect(r.Data["bytes"]).To(BeNumerically("==", len("second line\n")))
+		Expect(r.Data["bytes"]).To(BeNumerically("==", len(content(r))))
+
+		w.srv.AddFile(gdrivetest.File{ID: "wide", Name: "wide.txt", Parents: []string{"proj"}, Content: []byte(strings.Repeat("é", 70<<10))})
+		r = w.mustRead("read-file", map[string]any{"folder": "proj", "fileId": "wide"})
+		Expect(r.Data["truncated"]).To(BeTrue())
+		Expect(r.Data["bytes"]).To(BeNumerically("==", len(content(r))))
+		Expect(r.Data["nextOffset"]).To(BeNumerically("==", len(content(r))))
+	})
+
 	It("exports a Doc as markdown, a Sheet as CSV and Slides as plain text", func() {
 		r := w.mustRead("read-file", map[string]any{"folder": "proj", "fileId": "doc1"})
 		Expect(content(r)).To(Equal("# Plan\n\nBody text\n"))
