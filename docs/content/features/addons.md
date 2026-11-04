@@ -690,6 +690,8 @@ Every credentialed call reads the grant:
 | Network error, timeout or 5xx | the call fails as an outage and may be repeated | unchanged |
 | 429 | `rate_limited` with the `Retry-After` of the service | unchanged |
 | `invalid_grant`, `invalid_client`, another refusal | `reconnect_needed` | secrets wiped, state `reconnect_needed` |
+| a `scope` without a required scope | `reconnect_needed`, reason `scopes_missing` | secrets wiped |
+| a `scope` with other scopes | the token is used | the granted scopes become those of the login that the service still grants; a scope the login never had is not added |
 | (descriptor changed since the approval) | `reconnect_needed`, reason `needs_approval`; the refresh token is not sent | secrets wiped |
 
 Disconnect revokes the refresh token (or the access token when there is no

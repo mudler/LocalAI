@@ -292,7 +292,8 @@
         "expired": "Login kedaluwarsa dan tidak dapat diperbarui.",
         "write_failed": "Login yang diperbarui tidak dapat disimpan.",
         "unreadable": "Login yang tersimpan tidak dapat dibaca.",
-        "unknown": "Login tidak berfungsi lagi."
+        "unknown": "Login tidak berfungsi lagi.",
+        "scopes_missing": "Layanan tidak lagi memberikan semua akses yang diperlukan add-on ini. Hubungkan lagi dan izinkan."
       },
       "approvalUser": "Administrator harus menyetujui add-on ini terlebih dahulu.",
       "approvalUserChanged": "Login add-on ini berubah. Administrator harus menyetujuinya lagi.",

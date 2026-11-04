@@ -37,7 +37,7 @@ test('oauth: the row shows one state for each login state', () => {
 })
 
 test('oauth: every reconnect reason has its own text, an unknown one the generic text', () => {
-  for (const r of ['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable']) assert.equal(reasonKey(r), r)
+  for (const r of ['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing']) assert.equal(reasonKey(r), r)
   assert.equal(reasonKey('something_new'), 'unknown')
   assert.equal(reasonKey(undefined), 'unknown')
 })

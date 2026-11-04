@@ -292,7 +292,8 @@
         "expired": "Die Anmeldung ist abgelaufen und kann nicht erneuert werden.",
         "write_failed": "Die erneuerte Anmeldung konnte nicht gespeichert werden.",
         "unreadable": "Die gespeicherte Anmeldung konnte nicht gelesen werden.",
-        "unknown": "Die Anmeldung funktioniert nicht mehr."
+        "unknown": "Die Anmeldung funktioniert nicht mehr.",
+        "scopes_missing": "Der Dienst gewährt nicht mehr den ganzen Zugriff, den dieses Add-on braucht. Verbinde dich erneut und erlaube ihn."
       },
       "approvalUser": "Ein Administrator muss dieses Add-on zuerst genehmigen.",
       "approvalUserChanged": "Die Anmeldung dieses Add-ons hat sich geändert. Ein Administrator muss sie erneut genehmigen.",

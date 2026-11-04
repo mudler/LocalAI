@@ -292,7 +292,8 @@
         "expired": "L'accesso è scaduto e non si può rinnovare.",
         "write_failed": "Non è stato possibile salvare l'accesso rinnovato.",
         "unreadable": "Non è stato possibile leggere l'accesso salvato.",
-        "unknown": "L'accesso non funziona più."
+        "unknown": "L'accesso non funziona più.",
+        "scopes_missing": "Il servizio non concede più tutto l'accesso che serve a questo add-on. Connettiti di nuovo e consentilo."
       },
       "approvalUser": "Prima un amministratore deve approvare questo add-on.",
       "approvalUserChanged": "L'accesso di questo add-on è cambiato. Un amministratore deve approvarlo di nuovo.",

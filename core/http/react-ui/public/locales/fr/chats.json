@@ -292,7 +292,8 @@
         "expired": "La connexion a expiré et ne peut pas être renouvelée.",
         "write_failed": "La connexion renouvelée n'a pas pu être enregistrée.",
         "unreadable": "La connexion enregistrée n'a pas pu être lue.",
-        "unknown": "La connexion ne fonctionne plus."
+        "unknown": "La connexion ne fonctionne plus.",
+        "scopes_missing": "Le service n'accorde plus tout l'accès dont ce module a besoin. Reconnectez-vous et autorisez-le."
       },
       "approvalUser": "Un administrateur doit d'abord approuver ce module.",
       "approvalUserChanged": "La connexion de ce module a changé. Un administrateur doit l'approuver à nouveau.",

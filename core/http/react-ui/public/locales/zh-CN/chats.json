@@ -292,7 +292,8 @@
         "expired": "登录已过期，无法续期。",
         "write_failed": "无法保存续期后的登录。",
         "unreadable": "无法读取已保存的登录。",
-        "unknown": "登录已不再有效。"
+        "unknown": "登录已不再有效。",
+        "scopes_missing": "服务不再授予此插件所需的全部权限。请重新连接并允许。"
       },
       "approvalUser": "必须先由管理员批准此插件。",
       "approvalUserChanged": "此插件的登录已更改。必须由管理员重新批准。",

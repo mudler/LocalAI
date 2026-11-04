@@ -476,6 +476,40 @@ var _ = Describe("OAuth connections", func() {
 					Expect(r.grant(b.ID).State).To(Equal(connectors.GrantConnected))
 				})
 
+				It("ends the grant when a refresh drops a required scope, and never widens the granted scopes", func() {
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope = "read write" })
+					r.approve()
+					b := r.binding()
+					ls, state := r.start(b, "write")
+					res, err := r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(res.Outcome).To(Equal(studio.LoginOK))
+
+					r.sh.clock.Advance(time.Hour)
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope = "read admin" })
+					got, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(got.Scopes).To(Equal([]string{"read"}), "a scope the login never had is dropped; a dropped optional one stays dropped")
+					Expect(r.grant(b.ID).Scopes).To(Equal([]string{"read"}))
+
+					r.sh.clock.Advance(time.Hour)
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope = "write" })
+					_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+					g := r.grant(b.ID)
+					Expect(g.Reason).To(Equal(studio.ReasonScopesMissing))
+					Expect(g.Sealed).To(BeEmpty())
+				})
+
+				It("ends the grant, not every later call, when a refresh grants a scope a request refuses", func() {
+					b := r.connect()
+					r.sh.clock.Advance(time.Hour)
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Scope = `read "x` })
+					_, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+					Expect(r.grant(b.ID).Reason).To(Equal(studio.ReasonRefused))
+				})
+
 				DescribeTable("ends the grant when the service refuses it for good, and wipes its secrets",
 					func(set func(s *oauthtokentest.Server), reason string) {
 						b := r.connect()

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"time"
 
@@ -62,6 +63,8 @@ const (
 	ReasonWriteFailed = "write_failed"
 	// ReasonUnreadable: the sealed tokens do not open.
 	ReasonUnreadable = "unreadable"
+	// ReasonScopesMissing: a refresh granted fewer than the required scopes.
+	ReasonScopesMissing = "scopes_missing"
 )
 
 // Errors of the OAuth credentials.
@@ -367,7 +370,15 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 		next.ExpiresAt = next.Updated.Add(tok.ExpiresIn)
 	}
 	if tok.ScopeSet {
-		next.Scopes = tok.Scopes
+		// A refresh may narrow the login, never widen it: a scope the person
+		// did not grant at the login is not passed to the add-on. Without a
+		// required scope the add-on cannot work, so the person logs in again.
+		for _, req := range d.Scopes.Required {
+			if !slices.Contains(tok.Scopes, req) {
+				return oauthAccess{}, c.endGrant(ctx, b, g, ReasonScopesMissing)
+			}
+		}
+		next.Scopes = slices.DeleteFunc(slices.Clone(g.Scopes), func(s string) bool { return !slices.Contains(tok.Scopes, s) })
 	}
 	keep := connectors.GrantSecrets{Access: tok.Access, Refresh: sec.Refresh, TokenType: tok.TokenType}
 	if rotated {

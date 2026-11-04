@@ -358,7 +358,8 @@
         "expired": "The login expired and cannot be renewed.",
         "write_failed": "The renewed login could not be saved.",
         "unreadable": "The saved login could not be read.",
-        "unknown": "The login no longer works."
+        "unknown": "The login no longer works.",
+        "scopes_missing": "The service no longer grants all the access this add-on needs. Connect again and allow it."
       },
       "approvalUser": "An administrator must approve this add-on first.",
       "approvalUserChanged": "The login of this add-on changed. An administrator must approve it again.",
