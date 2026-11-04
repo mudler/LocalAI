@@ -639,6 +639,34 @@ var _ = Describe("OAuth routes of the connections", func() {
 		Expect(oauthDo(s, "alice", http.MethodGet, "/api/chats/connectors/"+id, nil, nil).Code).To(Equal(http.StatusNotFound))
 	})
 
+	It("answers a test of an OAuth connection with the classes of the login routes", func() {
+		test := func(srv *studioServer, id string) (int, string) {
+			rec := oauthDo(srv, "alice", http.MethodPost, "/api/chats/connectors/"+id+"/test", nil, nil)
+			if rec.Code == http.StatusOK {
+				return rec.Code, ""
+			}
+			return rec.Code, decodeJSON(rec)["error"].(map[string]any)["type"].(string)
+		}
+		id := createOAuthBinding(s, "alice")
+		code, typ := test(s, id)
+		Expect([]any{code, typ}).To(Equal([]any{http.StatusConflict, "not_connected"}))
+		approveClient(s)
+		l := startLogin(s, "alice", id, nil)
+		location(callback(s, "alice", url.Values{"state": {l.state}, "code": {"c"}}, l.cookie))
+		code, _ = test(s, id)
+		Expect(code).To(Equal(http.StatusOK))
+
+		env.srv.Set(func(s *oauthtokentest.Server) { s.Fail, s.FailStatus = "server_error", 503 })
+		env.clock.Advance(2 * time.Hour)
+		code, typ = test(s, id)
+		Expect([]any{code, typ}).To(Equal([]any{http.StatusServiceUnavailable, "unavailable"}), "the service did not answer the refresh")
+
+		env.srv.Set(func(s *oauthtokentest.Server) { s.Fail, s.FailStatus = "invalid_grant", 400 })
+		code, typ = test(s, id)
+		Expect([]any{code, typ}).To(Equal([]any{http.StatusConflict, "reconnect_needed"}))
+		Expect(env.logs.String()).NotTo(ContainSubstring("the request failed"))
+	})
+
 	It("answers unavailable when no add-on gateway runs", func() {
 		studioConnectorOptions = env.connectorOptions(true)
 		studioRouteOptions = func(*studioServer) []studioendpoint.Option {
@@ -809,7 +837,13 @@ var _ = Describe("OAuth routes on two frontends", func() {
 		Expect(location(callback(a, "alice", url.Values{"state": {l.state}, "code": {"c"}}, l.cookie)).Query().Get("oauth")).To(Equal("ok"))
 		Expect(location(callback(b, "alice", url.Values{"state": {l.state}, "code": {"c"}}, l.cookie)).Query().Get("class")).To(Equal("invalid_state"))
 
-		rec := oauthDo(b, "alice", http.MethodPost, "/api/chats/connectors/"+id+"/oauth/disconnect", nil, nil)
+		// The frontend cannot read the descriptor, so its test of the login
+		// is unavailable, not a failure of the server.
+		rec := oauthDo(b, "alice", http.MethodPost, "/api/chats/connectors/"+id+"/test", nil, nil)
+		Expect(rec.Code).To(Equal(http.StatusServiceUnavailable), rec.Body.String())
+		Expect(decodeJSON(rec)["error"].(map[string]any)["type"]).To(Equal("unavailable"))
+
+		rec = oauthDo(b, "alice", http.MethodPost, "/api/chats/connectors/"+id+"/oauth/disconnect", nil, nil)
 		Expect(decodeJSON(rec)).To(Equal(map[string]any{"revoked": true}))
 		Expect(binding(a, "alice", id)["oauth"].(map[string]any)["state"]).To(Equal("not_connected"))
 

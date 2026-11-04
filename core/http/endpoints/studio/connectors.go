@@ -4,10 +4,12 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services/addons/gateway"
 	addonruntime "github.com/mudler/LocalAI/core/services/addons/runtime"
 	studiosvc "github.com/mudler/LocalAI/core/services/studio"
 	"github.com/mudler/LocalAI/core/services/studio/connectors"
@@ -138,10 +140,20 @@ var connectorRules = []errRule{
 	fixed(http.StatusNotFound, typeNotFound, "connector not found", connectors.ErrNotFound),
 	verbatim(http.StatusBadRequest, typeInvalid, connectors.ErrInvalid.Error()+": ", connectors.ErrInvalid),
 	verbatim(http.StatusConflict, typeConnectorOff, "", studiosvc.ErrConnectorsOff),
+	// The login of an OAuth binding, with the types of the login routes.
+	fixed(http.StatusConflict, typeNotConnected, "this connection is not connected yet; connect it on the Connectors page", connectors.ErrNoCredential),
+	fixed(http.StatusConflict, typeReconnectNeeded, "the login of this connection ended; connect it again on the Connectors page", studiosvc.ErrReconnectNeeded),
+	fixed(http.StatusConflict, gateway.OAuthNeedsApproval, "an administrator must approve this add-on first", studiosvc.ErrNeedsApproval),
+	fixed(http.StatusServiceUnavailable, gateway.OAuthUnavailable, "the login of this connection cannot be checked now; try again later", studiosvc.ErrCredentialUnavailable, studiosvc.ErrOAuthUnavailable),
 }
 
 func failConnector(c echo.Context, err error) error {
 	return mapErr(c, err, connectorRules, func(c echo.Context, err error) error {
+		var limited *contract.ErrRateLimited
+		if errors.As(err, &limited) {
+			c.Response().Header().Set("Retry-After", strconv.Itoa(limited.RetryAfter))
+			return fail(c, http.StatusTooManyRequests, "rate_limited", "the service asked to wait before the login is renewed; try again later")
+		}
 		var ce *contract.ConnectorError
 		if errors.As(err, &ce) && ce.Code == contract.ConnectorUnauthorized {
 			return fail(c, http.StatusBadGateway, typeUpstream, "the platform refused the bot token")
@@ -334,10 +346,12 @@ func (h *Handlers) DisableConnector(c echo.Context) error { return h.setConnecto
 
 // TestConnector asks the platform who the bot is.
 // @Summary Test a connector binding.
-// @Description Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached.
+// @Description Asks the platform, through its add-on, for the bot of the stored token. 502 when the platform refuses the token, the add-on does not run or the platform cannot be reached. A connection that logs in with OAuth uses its access token, renewed first when it ends soon: 409 not_connected before its login, 409 reconnect_needed when the login ended, 409 needs_approval when an administrator must approve the add-on, 429 rate_limited when the service asked to wait, and 503 unavailable when the login cannot be checked now (also on a frontend, which does not read the add-on's login).
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Success 200 {object} schema.ChatsConnectorTest "The bot"
+// @Failure 409 {object} schema.ErrorResponse "An OAuth connection that is not connected, must reconnect or waits for an approval"
+// @Failure 503 {object} schema.ErrorResponse "The login of an OAuth connection cannot be checked now"
 // @Router /api/chats/connectors/{id}/test [post]
 func (h *Handlers) TestConnector(c echo.Context) error {
 	host, ok := h.connectorHost(c)

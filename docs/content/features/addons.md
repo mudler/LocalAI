@@ -748,6 +748,15 @@ add-on call, the `addons` feature. The client routes need the administrator
 role. None of these routes has an MCP tool: a client secret must not pass
 through a chat, and a login is a person's act in their own browser.
 
+**Test a connection.** `POST /api/chats/connectors/{id}/test` on an `oauth2`
+binding asks the add-on's `me` with the access token, renewed first when it
+ends soon. It answers with the types of the login routes: `409 not_connected`
+before the login, `409 reconnect_needed` when the login ended, `409
+needs_approval`, `429 rate_limited` with `Retry-After`, and `503 unavailable`
+when the login cannot be checked now. A frontend does not read the add-on's
+login, so a test there answers `503 unavailable`; test on the add-on owner, or
+in a combined process.
+
 **Limits of the start.** A binding can have at most 5 logins that wait for
 their callback, and a person at most 20; a login stops waiting when its
 callback comes or after 10 minutes. A person can start at most 10 logins a
