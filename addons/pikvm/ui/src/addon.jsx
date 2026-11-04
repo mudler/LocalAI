@@ -7,14 +7,24 @@ import Icon from '../../../internal/host-compat/src/components/Icon'
 import ConnectorPage from '../../../internal/connector-ui/src/ConnectorPage'
 import { connectorsApi } from '../../../internal/connector-ui/src/api'
 import { Field, Notice, RadioCards, TextInput } from '../../../internal/connector-ui/src/controls'
+import { pageLocale } from '../../../internal/connector-ui/src/connector'
 import en from './i18n/pikvm.en.json'
+import it from './i18n/pikvm.it.json'
+import es from './i18n/pikvm.es.json'
+import de from './i18n/pikvm.de.json'
+import fr from './i18n/pikvm.fr.json'
+import zh from './i18n/pikvm.zh-CN.json'
+import id from './i18n/pikvm.id.json'
+import ko from './i18n/pikvm.ko.json'
+import pt from './i18n/pikvm.pt-BR.json'
 import SettingsEditor from './SettingsEditor'
 import ProposalCard from './ProposalCard'
 import { addressProblem, checkFailure, checkItem, credentialProblem, extraBody, extraForm, extraValid, followName, needsPinHint, pikvmSecret, WRITE_MODES, writeModeOf } from './pikvm'
 import { finishTest, resultOf, startTest, subscribe } from './results'
 import './pikvm.css'
 
-registerLocales({ pikvm: { en } })
+// The words of the page, in every language of the web UI; a key a language lacks reads in English.
+registerLocales({ pikvm: { en, it, es, de, fr, 'zh-CN': zh, id, ko, 'pt-BR': pt } })
 
 // The user and the password of the device. They are typed only to replace the
 // saved pair, and the pair is sealed as one credential.
@@ -121,7 +131,7 @@ function Checks({ c, t }) {
           </li>
         ))}
       </ul>
-      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString() })}</p>}
+      {r.at > 0 && <p className="cn-muted">{t('check.at', { time: new Date(r.at).toLocaleTimeString(pageLocale()) })}</p>}
     </div>
   )
 }
