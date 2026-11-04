@@ -221,6 +221,18 @@ func operationCauseMessage(code string) string {
 	return "The operation failed"
 }
 
+// ownerNotAnswering is the typed answer of a read the owner did not serve.
+// owner_busy says the owner is up but did not answer in time (an upgrade is
+// running, say), so a page keeps what it shows and asks again; any other
+// cause is owner_unavailable. Both are 503 and neither is an empty list.
+func ownerNotAnswering(c echo.Context, e error) error {
+	var timeout *gateway.OwnerTimeout
+	if errors.As(e, &timeout) {
+		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "owner_busy", Code: 503, Message: "The add-on server is busy and did not answer in time. Try again in a moment"}})
+	}
+	return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "owner_unavailable", Code: 503, Message: "The add-on server cannot be reached right now"}})
+}
+
 func resultError(c echo.Context, e error) error {
 	// The add-on's own refusal of a request is a typed 400 from every path,
 	// never an outage banner.
@@ -238,6 +250,10 @@ func resultError(c echo.Context, e error) error {
 		return c.JSON(503, AddonErrorResponse{Error: AddonError{Type: "proposal_unavailable", Message: "Proposal call unavailable; read the proposal and repeat the same call with the same proposal ID", OperationID: unavailable.ProposalID}})
 	}
 	if gateway.StatusFor(e) == http.StatusServiceUnavailable {
+		var timeout *gateway.OwnerTimeout
+		if errors.As(e, &timeout) {
+			return ownerNotAnswering(c, e)
+		}
 		return failure(c, 503, "Addon owner unavailable")
 	}
 	// An add-on built for another SDK range is refused at install. The

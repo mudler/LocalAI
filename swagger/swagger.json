@@ -147,7 +147,7 @@
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable",
+                        "description": "Addons or the owner are unavailable, or the owner did not answer in time and this frontend has no earlier list to show (type owner_busy or owner_unavailable)",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -16017,6 +16017,14 @@
                         }
                     ]
                 },
+                "operation": {
+                    "description": "Operation is the lifecycle operation that runs on the add-on now (an\nupgrade, say). It is absent when none runs. The observation is\nseparate from State: the process can run on while the owner stages\nthe next generation.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/apps.Operation"
+                        }
+                    ]
+                },
                 "shadows": {
                     "description": "Shadows lists the built-in chat tools the add-on replaces (bash, say).",
                     "type": "array",
@@ -16188,6 +16196,22 @@
                     "items": {
                         "$ref": "#/definitions/apps.App"
                     }
+                },
+                "stale": {
+                    "description": "Stale is true when the receiving frontend could not reach the owner in\ntime and answers with the last list it received from it. The list may be\nout of date; Apps still carries the operations the owner reported then.",
+                    "type": "boolean"
+                },
+                "staleReason": {
+                    "description": "StaleReason is why the list is stale: owner_busy when the owner did not\nanswer within the read deadline, owner_unavailable when it could not be\nreached at all.",
+                    "type": "string",
+                    "enum": [
+                        "owner_busy",
+                        "owner_unavailable"
+                    ]
+                },
+                "staleSince": {
+                    "description": "StaleSince is when the owner last answered, RFC 3339 in UTC.",
+                    "type": "string"
                 }
             }
         },
@@ -16213,6 +16237,33 @@
                     "description": "Title names the network in text: the declared title, else the add-on's.",
                     "type": "string",
                     "example": "Example provider"
+                }
+            }
+        },
+        "apps.Operation": {
+            "type": "object",
+            "properties": {
+                "kind": {
+                    "description": "Kind is the action: install, upgrade, enable, disable or uninstall.",
+                    "type": "string",
+                    "enum": [
+                        "install",
+                        "upgrade",
+                        "enable",
+                        "disable",
+                        "uninstall"
+                    ],
+                    "example": "upgrade"
+                },
+                "phase": {
+                    "description": "Phase is the step the owner is in: queued, downloading (fetch and\nverify the package), backing-up, installing, migrating, starting or\nworking for a step without a name of its own.",
+                    "type": "string",
+                    "example": "downloading"
+                },
+                "since": {
+                    "description": "Since is when the operation was accepted, RFC 3339 in UTC. It is absent\nfor an operation recorded before the owner kept the time.",
+                    "type": "string",
+                    "example": "2026-11-04T17:18:00Z"
                 }
             }
         },

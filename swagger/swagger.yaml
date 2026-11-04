@@ -362,6 +362,14 @@ definitions:
         description: |-
           Network is the network policy the add-on declares, present only while
           the host draws its network-policy control (see contract.EntitledControls).
+      operation:
+        allOf:
+        - $ref: '#/definitions/apps.Operation'
+        description: |-
+          Operation is the lifecycle operation that runs on the add-on now (an
+          upgrade, say). It is absent when none runs. The observation is
+          separate from State: the process can run on while the owner stages
+          the next generation.
       shadows:
         description: Shadows lists the built-in chat tools the add-on replaces (bash,
           say).
@@ -512,6 +520,24 @@ definitions:
         items:
           $ref: '#/definitions/apps.App'
         type: array
+      stale:
+        description: |-
+          Stale is true when the receiving frontend could not reach the owner in
+          time and answers with the last list it received from it. The list may be
+          out of date; Apps still carries the operations the owner reported then.
+        type: boolean
+      staleReason:
+        description: |-
+          StaleReason is why the list is stale: owner_busy when the owner did not
+          answer within the read deadline, owner_unavailable when it could not be
+          reached at all.
+        enum:
+        - owner_busy
+        - owner_unavailable
+        type: string
+      staleSince:
+        description: StaleSince is when the owner last answered, RFC 3339 in UTC.
+        type: string
     type: object
   apps.NetworkView:
     properties:
@@ -530,6 +556,32 @@ definitions:
         description: 'Title names the network in text: the declared title, else the
           add-on''s.'
         example: Example provider
+        type: string
+    type: object
+  apps.Operation:
+    properties:
+      kind:
+        description: 'Kind is the action: install, upgrade, enable, disable or uninstall.'
+        enum:
+        - install
+        - upgrade
+        - enable
+        - disable
+        - uninstall
+        example: upgrade
+        type: string
+      phase:
+        description: |-
+          Phase is the step the owner is in: queued, downloading (fetch and
+          verify the package), backing-up, installing, migrating, starting or
+          working for a step without a name of its own.
+        example: downloading
+        type: string
+      since:
+        description: |-
+          Since is when the operation was accepted, RFC 3339 in UTC. It is absent
+          for an operation recorded before the owner kept the time.
+        example: "2026-11-04T17:18:00Z"
         type: string
     type: object
   apps.SlotView:
@@ -11743,7 +11795,9 @@ paths:
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
-          description: Addons or the owner are unavailable
+          description: Addons or the owner are unavailable, or the owner did not answer
+            in time and this frontend has no earlier list to show (type owner_busy
+            or owner_unavailable)
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: List the addon apps the caller may use

@@ -926,6 +926,46 @@ consequences:
   frontend keeps its own pins in a file in its own data path, so two frontends can
   show different pins. A frontend logs a warning at start when it has no account database.
 
+## Operations and reads during an upgrade
+
+An install, an upgrade or a removal runs on the owner and can take a minute or
+more: it fetches and checks the package, backs up the data, publishes the new
+generation and starts it. The owner runs one such operation per add-on at a
+time. A second upgrade of an add-on that is already changing is refused with a
+conflict; it is never queued or run in parallel.
+
+Reading never waits for an operation. The apps list, the host access overview
+and the installed list answer from a snapshot of the last journal write, so an
+upgrade in progress does not make the Add-ons page slow or empty. While an
+operation runs, each add-on that it touches carries an `operation` object in
+the apps list:
+
+```json
+{"id": "sandbox", "state": "running", "generation": 5,
+ "operation": {"kind": "upgrade", "phase": "downloading", "since": "2026-11-04T17:18:00Z"}}
+```
+
+`phase` is `queued`, `downloading` (fetch and check the package), `backing-up`,
+`installing`, `migrating`, `starting` or `working`. `state` and `generation` are
+still those of the running add-on until the new generation is published.
+
+A frontend that forwards a read to the owner waits at most eight seconds. When
+the owner does not answer in that time:
+
+- The apps list answers `200` with `"stale": true`, `"staleReason"` (`owner_busy`
+  or `owner_unavailable`) and `"staleSince"`, and carries the last list this
+  frontend received for the same person. The copy lives for ten minutes and is
+  never used for a refused request.
+- Without such a copy the route answers `503` with the error type `owner_busy`
+  (the owner did not answer in time) or `owner_unavailable`. `GET /api/addons/pins`
+  does the same instead of returning pins without the add-ons it could not check.
+
+The Add-ons page keeps showing the last list, shows a notice such as "The
+add-on server is busy (upgrading Sandbox). Showing the last known state.", marks
+each changing add-on as upgrading with its phase, and asks again with a growing
+delay. It only says that no add-ons are installed when the owner answered with
+an empty list.
+
 ## The official library
 
 On the first start, when the owner has no `sources.json` in the `addons` folder yet,

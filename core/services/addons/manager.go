@@ -194,6 +194,8 @@ type Manager struct {
 	// uploads holds the zip files waiting for an install. Nil means the owner
 	// does not install from a file.
 	uploads atomic.Pointer[uploads.Store]
+	// view is the copy of the journal that reads use; see readview.go.
+	view atomic.Pointer[readView]
 }
 
 // SetAuthority sets the Authority that admission and the apps list ask. The
@@ -552,7 +554,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			return op.Status, e
 		}
 	} else if !resumed {
-		op = journalOperation{Command: cmd, Actor: actor, Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleIntent)}}
+		op = journalOperation{Command: cmd, Actor: actor, StartedAt: time.Now().UTC().Format(time.RFC3339), Status: OperationStatus{OperationID: cmd.OperationID, AddonID: cmd.AddonID, Phase: string(lifecycleIntent)}}
 		m.journal.Operations[cmd.OperationID] = op
 		if e := m.persist(string(lifecycleIntent)); e != nil {
 			return op.Status, e
@@ -634,7 +636,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 			// available, and opMu keeps every other operation out.
 			var r catalog.Release
 			var resolveErr error
-			if e := m.upgradeStage(cmd.OperationID, "preparing-package"); e != nil {
+			if e := m.upgradeStage(cmd.OperationID, stagePreparing); e != nil {
 				return op.Status, e
 			}
 			m.mu.Unlock()
@@ -732,7 +734,7 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 					return m.upgradeWithRecovery(ctx, cmd, op, &next, staged, fail)
 				}
 			}
-			if e = m.upgradeStage(cmd.OperationID, "committing-package"); e != nil {
+			if e = m.upgradeStage(cmd.OperationID, stageCommitting); e != nil {
 				return op.Status, e
 			}
 			receipt, e = m.installer.Commit(ctx, staged)
@@ -758,6 +760,9 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// it replaces the last good one in the journal. When it cannot, the
 		// last good generation runs again and the operation fails.
 		if cmd.Action == "upgrade" {
+			if e := m.upgradeStage(cmd.OperationID, stageStarting); e != nil {
+				return op.Status, e
+			}
 			if e := m.startCandidate(ctx, cmd.AddonID, m.journal.Addons[cmd.AddonID], receipt, next.Generation); e != nil {
 				if ctx.Err() != nil {
 					// The caller went away, which says nothing about the
@@ -1366,17 +1371,14 @@ var ErrOperationNotFound = errors.New("addon lifecycle operation not found")
 // per-resource ACLs on every call. An administrator also sees installed addons
 // that are disabled, so a stopped addon can be started.
 func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e := m.check(ctx); e != nil {
+	// A read never waits for a lifecycle operation: see readView.
+	v, e := m.readStateLive(ctx)
+	if e != nil {
 		return nil, e
 	}
-	if m.uncertain || m.runtimeRecoveryRequired {
-		return nil, ErrRecoveryRequired
-	}
 	isAdmin := m.admin != nil && m.admin(ctx, actor) == nil
-	snaps := make([]apps.Snapshot, 0, len(m.journal.Addons))
-	for id, st := range m.journal.Addons {
+	snaps := make([]apps.Snapshot, 0, len(v.addons))
+	for id, st := range v.addons {
 		receipt, ok := currentReceipt(st)
 		if !ok {
 			continue
@@ -1398,6 +1400,7 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 				snap.UpdatePending = true
 			}
 		}
+		snap.Operation = v.operationFor(id)
 		snaps = append(snaps, snap)
 	}
 	return apps.Build(snaps, isAdmin), nil
@@ -1407,16 +1410,12 @@ func (m *Manager) Apps(ctx context.Context, actor contract.Actor) ([]apps.App, e
 // not, sorted. It is for the host's own housekeeping (the pin sweep); it takes
 // no actor and returns no detail.
 func (m *Manager) InstalledIDs(ctx context.Context) ([]string, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e := m.check(ctx); e != nil {
+	v, e := m.readStateLive(ctx)
+	if e != nil {
 		return nil, e
 	}
-	if m.uncertain || m.runtimeRecoveryRequired {
-		return nil, ErrRecoveryRequired
-	}
-	out := make([]string, 0, len(m.journal.Addons))
-	for id, st := range m.journal.Addons {
+	out := make([]string, 0, len(v.addons))
+	for id, st := range v.addons {
 		if st.Installed {
 			out = append(out, id)
 		}

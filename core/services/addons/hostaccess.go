@@ -61,16 +61,12 @@ func declared(r packages.PackageReceipt) (required, optional []string) {
 // their verified manifests ask for. It never reads a grant: the caller asks
 // the Authority.
 func (m *Manager) HostAccessInstalled(ctx context.Context) ([]HostAccessInstalled, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if e := m.check(ctx); e != nil {
+	v, e := m.readStateLive(ctx)
+	if e != nil {
 		return nil, e
 	}
-	if m.uncertain || m.runtimeRecoveryRequired {
-		return nil, ErrRecoveryRequired
-	}
 	var out []HostAccessInstalled
-	for id, st := range m.journal.Addons {
+	for id, st := range v.addons {
 		r, ok := currentReceipt(st)
 		if !ok || !st.Installed {
 			continue
@@ -99,7 +95,7 @@ func (m *Manager) HostAccessInstalled(ctx context.Context) ([]HostAccessInstalle
 				}
 			}
 		}
-		for oid, op := range m.journal.Operations {
+		for oid, op := range v.operations {
 			if op.Command.AddonID == id && op.Status.Phase == string(lifecycleCompleted) && op.Status.Generation == st.Generation &&
 				(op.Command.Action == "install" || op.Command.Action == "upgrade") && (in.OperationID == "" || oid < in.OperationID) {
 				in.OperationID = oid

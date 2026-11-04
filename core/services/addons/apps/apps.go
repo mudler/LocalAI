@@ -39,11 +39,38 @@ type Snapshot struct {
 	HostOps        []string
 	HostOperations *hostops.RequestSummary
 	Unavailable    bool
+	// Operation is the lifecycle operation that runs on the add-on now, or nil.
+	Operation *Operation
+}
+
+// Operation names the lifecycle operation that runs on an add-on. The apps
+// list reports it so a page can say "upgrading" while the owner works, and the
+// list stays readable meanwhile: reading never waits for the operation.
+type Operation struct {
+	// Kind is the action: install, upgrade, enable, disable or uninstall.
+	Kind string `json:"kind" enums:"install,upgrade,enable,disable,uninstall" example:"upgrade"`
+	// Phase is the step the owner is in: queued, downloading (fetch and
+	// verify the package), backing-up, installing, migrating, starting or
+	// working for a step without a name of its own.
+	Phase string `json:"phase" example:"downloading"`
+	// Since is when the operation was accepted, RFC 3339 in UTC. It is absent
+	// for an operation recorded before the owner kept the time.
+	Since string `json:"since,omitempty" example:"2026-11-04T17:18:00Z"`
 }
 
 // List is the response of the apps list.
 type List struct {
 	Apps []App `json:"apps"`
+	// Stale is true when the receiving frontend could not reach the owner in
+	// time and answers with the last list it received from it. The list may be
+	// out of date; Apps still carries the operations the owner reported then.
+	Stale bool `json:"stale,omitempty"`
+	// StaleReason is why the list is stale: owner_busy when the owner did not
+	// answer within the read deadline, owner_unavailable when it could not be
+	// reached at all.
+	StaleReason string `json:"staleReason,omitempty" enums:"owner_busy,owner_unavailable"`
+	// StaleSince is when the owner last answered, RFC 3339 in UTC.
+	StaleSince string `json:"staleSince,omitempty"`
 }
 
 // StartRequest is the body of the start and stop routes. The generation is
@@ -99,6 +126,11 @@ type App struct {
 	// observation from State and is absent otherwise: an unchecked, failed
 	// or up to date add-on has none. The list never reaches a library.
 	Update string `json:"update,omitempty" enums:"update-pending" example:"update-pending"`
+	// Operation is the lifecycle operation that runs on the add-on now (an
+	// upgrade, say). It is absent when none runs. The observation is
+	// separate from State: the process can run on while the owner stages
+	// the next generation.
+	Operation *Operation `json:"operation,omitempty"`
 	// MainPage is the path the Open action navigates to. It is present only
 	// for an enabled addon whose manifest declares a main page that is one of
 	// its pages.
@@ -318,6 +350,10 @@ func build(s Snapshot, admin bool) App {
 	}
 	if s.UpdatePending {
 		a.Update = "update-pending"
+	}
+	if s.Operation != nil {
+		op := *s.Operation
+		a.Operation = &op
 	}
 	if admin {
 		a.Admin = &AdminView{CanStart: !s.Enabled && !s.Unavailable, HostOperations: s.HostOperations, CanStop: s.Enabled, ManagementURL: "/app/addons?manage=" + url.QueryEscape(id)}

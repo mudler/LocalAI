@@ -1017,7 +1017,12 @@
       "tells the Apps listing which operations are held and which are denied",
       "keeps a deployment that grants the prefix in the policy file working as before",
       "is safe to read the grants while installs and changes run",
-      "stops a running add-on that loses a required operation and starts it again on a grant"
+      "stops a running add-on that loses a required operation and starts it again on a grant",
+      "answers the apps list at once, from the snapshot, with the operation state",
+      "serves every other read from the snapshot too",
+      "refuses a second upgrade with a conflict instead of racing or waiting",
+      "shows the new generation and no operation once the upgrade ended",
+      "still refuses a read after the owner closed"
     ],
     "report": ".cache/addons/logs/lifecycle.json"
   },
@@ -1430,7 +1435,11 @@
           "lets a second frontend read the file the first one uploaded",
           "needs no human mark to stage a file, and never changes the policy by it",
           "stages nothing while the deployment locks the UI host grants",
-          "answers unavailable when the owner has no file service"
+          "answers unavailable when the owner has no file service",
+          "returns a typed timeout in the read deadline, not after the client timeout",
+          "answers with the last good list marked stale, and only for the same person",
+          "lets a cached list expire",
+          "does not hide a denial behind the cache"
         ]
       },
       {
@@ -1597,7 +1606,10 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too"
         ]
       },
       {
@@ -2289,7 +2301,10 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too"
         ]
       }
     ]
@@ -2593,7 +2608,11 @@
           "lets a second frontend read the file the first one uploaded",
           "needs no human mark to stage a file, and never changes the policy by it",
           "stages nothing while the deployment locks the UI host grants",
-          "answers unavailable when the owner has no file service"
+          "answers unavailable when the owner has no file service",
+          "returns a typed timeout in the read deadline, not after the client timeout",
+          "answers with the last good list marked stale, and only for the same person",
+          "lets a cached list expire",
+          "does not hide a denial behind the cache"
         ]
       },
       {
@@ -2760,7 +2779,10 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too"
         ]
       }
     ]
@@ -2956,7 +2978,12 @@
           "tells the Apps listing which operations are held and which are denied",
           "keeps a deployment that grants the prefix in the policy file working as before",
           "is safe to read the grants while installs and changes run",
-          "stops a running add-on that loses a required operation and starts it again on a grant"
+          "stops a running add-on that loses a required operation and starts it again on a grant",
+          "answers the apps list at once, from the snapshot, with the operation state",
+          "serves every other read from the snapshot too",
+          "refuses a second upgrade with a conflict instead of racing or waiting",
+          "shows the new generation and no operation once the upgrade ended",
+          "still refuses a read after the owner closed"
         ]
       },
       {
@@ -3196,7 +3223,10 @@
           "refuses a request without a file part",
           "types a file over the limit and a file that broke a rule",
           "does not let a script install a staged file: the install keeps its human surface rule",
-          "lets administrators stage a file and keeps it from everyone else"
+          "lets administrators stage a file and keeps it from everyone else",
+          "is a typed owner_busy 503 when the owner timed out",
+          "keeps the plain unavailable answer for an owner that cannot be reached",
+          "tells the pins routes apart too"
         ]
       }
     ]
@@ -3283,7 +3313,10 @@
       "unit: the English wording is \"Adds 16 tools\" and \"Adds 1 tool\"",
       "unit: addons: the install dialog names each built-in skill the entry replaces, and who already does",
       "unit: addons: the details list the skills of an add-on and which replace a built-in one",
-      "hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature"
+      "hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature",
+      "unit: addons: a busy owner is its own kind of answer, and the list read carries the stale mark",
+      "unit: addons: an error is never an empty list, and the page names what the owner is upgrading",
+      "unit: addons: the last list of a tab stands in for a page loaded while the owner is busy"
     ]
   },
   "esm-ui": {
