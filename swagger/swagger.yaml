@@ -536,24 +536,6 @@ definitions:
         items:
           $ref: '#/definitions/apps.App'
         type: array
-      stale:
-        description: |-
-          Stale is true when the receiving frontend could not reach the owner in
-          time and answers with the last list it received from it. The list may be
-          out of date; Apps still carries the operations the owner reported then.
-        type: boolean
-      staleReason:
-        description: |-
-          StaleReason is why the list is stale: owner_busy when the owner did not
-          answer within the read deadline, owner_unavailable when it could not be
-          reached at all.
-        enum:
-        - owner_busy
-        - owner_unavailable
-        type: string
-      staleSince:
-        description: StaleSince is when the owner last answered, RFC 3339 in UTC.
-        type: string
     type: object
   apps.NetworkView:
     properties:
@@ -12091,8 +12073,7 @@ paths:
             $ref: '#/definitions/addons.AddonErrorResponse'
         "503":
           description: Addons or the owner are unavailable, or the owner did not answer
-            in time and this frontend has no earlier list to show (type owner_busy
-            or owner_unavailable)
+            in time (type owner_busy or owner_unavailable)
           schema:
             $ref: '#/definitions/addons.AddonErrorResponse'
       summary: List the addon apps the caller may use

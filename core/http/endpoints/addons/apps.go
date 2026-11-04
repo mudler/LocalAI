@@ -28,7 +28,7 @@ var appID = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 // @Success 200 {object} apps.List "Apps visible to the caller"
 // @Failure 401 {object} AddonErrorResponse "Named authentication required"
 // @Failure 403 {object} AddonErrorResponse "Feature or owner policy denied the request"
-// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the owner did not answer in time and this frontend has no earlier list to show (type owner_busy or owner_unavailable)"
+// @Failure 503 {object} AddonErrorResponse "Addons or the owner are unavailable, or the owner did not answer in time (type owner_busy or owner_unavailable)"
 // @Router /api/addons/apps [get]
 func ListApps(g *gateway.Gateway, db *gorm.DB, opts ...Option) echo.HandlerFunc {
 	s := resolve(opts)

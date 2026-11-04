@@ -950,21 +950,24 @@ the apps list:
 still those of the running add-on until the new generation is published.
 
 A frontend that forwards a read to the owner waits at most eight seconds. When
-the owner does not answer in that time:
+the owner does not answer in that time, the route fails closed with the same
+typed `503` from every frontend, and never with an older list of its own:
 
-- The apps list answers `200` with `"stale": true`, `"staleReason"` (`owner_busy`
-  or `owner_unavailable`) and `"staleSince"`, and carries the last list this
-  frontend received for the same person. The copy lives for ten minutes and is
-  never used for a refused request.
-- Without such a copy the route answers `503` with the error type `owner_busy`
-  (the owner did not answer in time) or `owner_unavailable`. `GET /api/addons/pins`
-  does the same instead of returning pins without the add-ons it could not check.
+- `owner_busy`: the owner is up but did not answer in time.
+- `owner_unavailable`: the owner could not be reached at all.
 
-The Add-ons page keeps showing the last list, shows a notice such as "The
-add-on server is busy (upgrading Sandbox). Showing the last known state.", marks
-each changing add-on as upgrading with its phase, and asks again with a growing
-delay. It only says that no add-ons are installed when the owner answered with
-an empty list.
+A frontend keeps no copy of the apps list, because two frontends with different
+copies would give different answers for the same request. `GET /api/addons/pins`
+answers the same way instead of returning pins without the add-ons it could not
+check. When the owner is reachable and busy, it still answers from its snapshot,
+so the apps list is a normal `200` with the `operation` fields above.
+
+The Add-ons page keeps the last list it received in the browser (in memory and,
+for a page loaded during an upgrade, in the session storage of the tab). On a
+`503` it keeps showing that list, shows a notice such as "The add-on server is
+busy. Showing the last known state.", and asks again with a growing delay. It
+only says that no add-ons are installed when the owner answered with an empty
+list.
 
 ## The official library
 

@@ -618,16 +618,16 @@ test('addons: the details list the skills of an add-on and which replace a built
   assert.deepEqual(skillsOf({}), [])
 })
 
-test('addons: a busy owner is its own kind of answer, and the list read carries the stale mark', async () => {
+test('addons: a busy owner is its own kind of answer, and the list read never carries a stale mark', async () => {
   assert.equal(classifyResponse(503, { error: { type: 'owner_busy', message: 'busy' } }).kind, 'busy')
   assert.equal(classifyResponse(503, { error: { type: 'owner_unavailable' } }).kind, 'unavailable')
   const busy = new AddonsError(classifyResponse(503, { error: { type: 'owner_busy' } }))
   assert.match(describeError(busy, key => key), /errors\.busy/)
-  const api = createAddonsApi({ fetch: async () => json(200, { apps: [{ id: 'notes' }], stale: true, staleReason: 'owner_busy', staleSince: '2026-11-04T17:18:00Z' }) })
-  assert.deepEqual(await api.apps.read(), { apps: [{ id: 'notes' }], stale: true, staleReason: 'owner_busy', staleSince: '2026-11-04T17:18:00Z' })
+  const api = createAddonsApi({ fetch: async () => json(200, { apps: [{ id: 'notes' }] }) })
+  assert.deepEqual(await api.apps.read(), { apps: [{ id: 'notes' }] })
   assert.deepEqual((await api.apps.list()).map(a => a.id), ['notes'])
   const plain = createAddonsApi({ fetch: async () => json(200, { apps: [] }) })
-  assert.equal((await plain.apps.read()).stale, false)
+  assert.deepEqual(await plain.apps.read(), { apps: [] })
 })
 
 test('addons: an error is never an empty list, and the page names what the owner is upgrading', () => {
@@ -644,9 +644,8 @@ test('addons: an error is never an empty list, and the page names what the owner
   assert.deepEqual(operationOf({ operation: { kind: 'defrag', phase: 'later' } }), { kind: 'working', phase: 'working', since: '' })
   assert.equal(staleKind({ stale: false, error: new Error('x') }), '')
   assert.equal(staleKind({ stale: true, error: { kind: 'busy' } }), 'busy')
-  assert.equal(staleKind({ stale: true, staleReason: 'owner_busy' }), 'busy')
+  assert.equal(staleKind({ stale: true }), 'busy')
   assert.equal(staleKind({ stale: true, error: { kind: 'network' } }), 'unreachable')
-  assert.equal(staleKind({ stale: true, staleReason: 'owner_unavailable' }), 'unreachable')
 })
 
 test('addons: the last list of a tab stands in for a page loaded while the owner is busy', () => {

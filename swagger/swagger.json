@@ -161,7 +161,7 @@
                         }
                     },
                     "503": {
-                        "description": "Addons or the owner are unavailable, or the owner did not answer in time and this frontend has no earlier list to show (type owner_busy or owner_unavailable)",
+                        "description": "Addons or the owner are unavailable, or the owner did not answer in time (type owner_busy or owner_unavailable)",
                         "schema": {
                             "$ref": "#/definitions/addons.AddonErrorResponse"
                         }
@@ -16395,22 +16395,6 @@
                     "items": {
                         "$ref": "#/definitions/apps.App"
                     }
-                },
-                "stale": {
-                    "description": "Stale is true when the receiving frontend could not reach the owner in\ntime and answers with the last list it received from it. The list may be\nout of date; Apps still carries the operations the owner reported then.",
-                    "type": "boolean"
-                },
-                "staleReason": {
-                    "description": "StaleReason is why the list is stale: owner_busy when the owner did not\nanswer within the read deadline, owner_unavailable when it could not be\nreached at all.",
-                    "type": "string",
-                    "enum": [
-                        "owner_busy",
-                        "owner_unavailable"
-                    ]
-                },
-                "staleSince": {
-                    "description": "StaleSince is when the owner last answered, RFC 3339 in UTC.",
-                    "type": "string"
                 }
             }
         },

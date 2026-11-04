@@ -61,16 +61,6 @@ type Operation struct {
 // List is the response of the apps list.
 type List struct {
 	Apps []App `json:"apps"`
-	// Stale is true when the receiving frontend could not reach the owner in
-	// time and answers with the last list it received from it. The list may be
-	// out of date; Apps still carries the operations the owner reported then.
-	Stale bool `json:"stale,omitempty"`
-	// StaleReason is why the list is stale: owner_busy when the owner did not
-	// answer within the read deadline, owner_unavailable when it could not be
-	// reached at all.
-	StaleReason string `json:"staleReason,omitempty" enums:"owner_busy,owner_unavailable"`
-	// StaleSince is when the owner last answered, RFC 3339 in UTC.
-	StaleSince string `json:"staleSince,omitempty"`
 }
 
 // StartRequest is the body of the start and stop routes. The generation is

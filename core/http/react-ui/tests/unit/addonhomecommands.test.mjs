@@ -257,7 +257,7 @@ for (const accountSwitch of [false, true]) test(`Apps registry: late list cannot
  let registry = r.render()
  let auth = { user:{id:'alice'}, sessionEpoch:1, isAdmin:true, hasFeature:() => true }
  const reads = []
- const api = { apps:{ read:() => { const d = deferred(); reads.push(d); return d.promise.then(apps => ({ apps, stale:false, staleReason:'' })) } } }
+ const api = { apps:{ read:() => { const d = deferred(); reads.push(d); return d.promise.then(apps => ({ apps })) } } }
  const h = hookHarness('../../src/components/addons/AppsView.jsx', 'AppsView', {
   useAuth:() => auth, useContext:() => registry, RegistryContext:{}, useTranslation:() => ({t:x=>x,i18n:{}}),
   FEATURE_ADDONS:'addons', pollDelay:() => 1000, setTimeout:()=>1, clearTimeout:()=>{},

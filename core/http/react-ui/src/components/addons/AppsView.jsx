@@ -47,7 +47,7 @@ const browserStore = () => { try { return globalThis.sessionStorage || null } ca
 
 export default function AppsView({ api, adapter, onSummary, grants }) {
   const { t, i18n } = useTranslation('addons')
-  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false, staleReason: '' })
+  const [storedState, setState] = useState({ status: 'loading', apps: [], error: null, stale: false })
   const [reload, setReload] = useState(0)
   const reloadRef = useRef(() => {})
   const { hasFeature, isAdmin, user, sessionEpoch } = useAuth()
@@ -59,7 +59,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
   const actor = JSON.stringify([user?.id, sessionEpoch, isAdmin, canList])
   const scope = useRef(actor)
   scope.current = actor
-  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false, staleReason: '' }
+  const state = storedState.actor === actor ? storedState : { status: 'loading', apps: [], error: null, stale: false }
   const ingest = registry?.ingest
 
   // Poll with a timer chain: one request at a time, aborted on unmount. A
@@ -80,16 +80,12 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
       try {
         const read = await api.apps.read(ctl.signal)
         const apps = read.apps
-        // The server answered with its last copy: the owner did not. Ask
-        // again with the same backoff as for a failed read.
-        failures = read.stale ? failures + 1 : 0
+        failures = 0
         if (alive && current()) {
-          setState({ actor, status: 'ready', apps, error: null, stale: read.stale, staleReason: read.staleReason })
-          if (!read.stale) {
-            ingest?.(apps)
-            const store = browserStore()
-            if (store) saveLastKnown(store, actor, apps)
-          }
+          setState({ actor, status: 'ready', apps, error: null, stale: false })
+          ingest?.(apps)
+          const store = browserStore()
+          if (store) saveLastKnown(store, actor, apps)
         }
       } catch (error) {
         if (!alive || !current() || (error && error.name === 'AbortError')) return
@@ -101,7 +97,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
         const remembered = store ? loadLastKnown(store, actor) : null
         setState(s => {
           const kept = s.actor === actor && s.status === 'ready' ? s.apps : remembered
-          return { actor, status: kept ? 'ready' : 'error', apps: kept || [], error, stale: true, staleReason: '' }
+          return { actor, status: kept ? 'ready' : 'error', apps: kept || [], error, stale: true }
         })
       } finally {
         inflight = false
@@ -320,7 +316,7 @@ export default function AppsView({ api, adapter, onSummary, grants }) {
         title={t('apps.loadError.title')}
         testId="addons-load-error"
         nothingChanged={false}
-        onRetry={() => { setState({ status: 'loading', apps: [], error: null, stale: false, staleReason: '' }); setReload(n => n + 1) }}
+        onRetry={() => { setState({ status: 'loading', apps: [], error: null, stale: false }); setReload(n => n + 1) }}
       >
         {[
           describeError(loadError, t),

@@ -6,15 +6,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"slices"
 	"strconv"
-	"sync"
-	"time"
 
 	"github.com/mudler/LocalAI/core/services/addons/apps"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
@@ -34,90 +30,15 @@ func (g *Gateway) Apps(ctx context.Context, a contract.Actor) (apps.List, error)
 		return apps.List{}, e
 	}
 	if g.Forward != nil {
-		list, e := g.Forward.apps(ctx, a)
-		if e == nil {
-			g.appsCache.put(a, list)
-			return list, nil
-		}
-		// The owner is busy or unreachable: a page is better served with the
-		// last list this frontend got for the same person, marked stale, than
-		// with an error it could mistake for "nothing is installed". A denial
-		// is never covered by the cache.
-		if StatusFor(e) == http.StatusServiceUnavailable && ctx.Err() == nil {
-			if old, ok := g.appsCache.get(a); ok {
-				var timeout *OwnerTimeout
-				old.list.Stale, old.list.StaleReason = true, "owner_unavailable"
-				if errors.As(e, &timeout) {
-					old.list.StaleReason = "owner_busy"
-				}
-				old.list.StaleSince = old.at.UTC().Format(time.RFC3339)
-				return old.list, nil
-			}
-		}
-		return apps.List{}, e
+		// The owner's answer is the answer. When the owner cannot answer in
+		// time, every frontend gives the same typed error (OwnerTimeout is
+		// owner_busy, anything else owner_unavailable) and never an older list
+		// of its own: a per-frontend copy would make two frontends disagree
+		// about whether the owner answered. A page keeps the last list in the
+		// browser.
+		return g.Forward.apps(ctx, a)
 	}
 	return g.appsLocal(ctx, a)
-}
-
-// AppsStaleTTL is how long a frontend keeps the last apps list of a person to
-// answer with while the owner does not.
-const AppsStaleTTL = 10 * time.Minute
-
-const appsCacheMax = 256
-
-type cachedApps struct {
-	list apps.List
-	at   time.Time
-}
-
-// appsCache holds the last good list per person. It is a per-process
-// convenience for the busy owner, never a source of truth: it is only read
-// when the owner cannot answer, and it expires.
-type appsCache struct {
-	mu      sync.Mutex
-	entries map[string]cachedApps
-	now     func() time.Time
-}
-
-func cacheKey(a contract.Actor) string { return a.Mode + "\x00" + a.UserID }
-
-func (c *appsCache) clock() time.Time {
-	if c.now != nil {
-		return c.now()
-	}
-	return time.Now()
-}
-
-func (c *appsCache) put(a contract.Actor, list apps.List) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.entries == nil {
-		c.entries = map[string]cachedApps{}
-	}
-	if _, ok := c.entries[cacheKey(a)]; !ok && len(c.entries) >= appsCacheMax {
-		oldest, when := "", time.Time{}
-		for k, v := range c.entries {
-			if oldest == "" || v.at.Before(when) {
-				oldest, when = k, v.at
-			}
-		}
-		delete(c.entries, oldest)
-	}
-	list.Stale, list.StaleReason, list.StaleSince = false, "", ""
-	c.entries[cacheKey(a)] = cachedApps{list: list, at: c.clock()}
-}
-
-func (c *appsCache) get(a contract.Actor) (cachedApps, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	e, ok := c.entries[cacheKey(a)]
-	if !ok || c.clock().Sub(e.at) > AppsStaleTTL {
-		delete(c.entries, cacheKey(a))
-		return cachedApps{}, false
-	}
-	// The apps slice is shared with later readers: hand out a copy of it.
-	e.list.Apps = slices.Clone(e.list.Apps)
-	return e, true
 }
 
 func (g *Gateway) appsLocal(ctx context.Context, a contract.Actor) (apps.List, error) {
