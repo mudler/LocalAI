@@ -378,6 +378,16 @@ definitions:
         description: |-
           Network is the network policy the add-on declares, present only while
           the host draws its network-policy control (see contract.EntitledControls).
+      oauth:
+        allOf:
+        - $ref: '#/definitions/apps.OAuthView'
+        description: |-
+          OAuth is present when the credential slot is of kind oauth2: the host
+          logs the person in to the service. It names the scopes, so the person
+          can choose the optional ones when they connect, and tells the
+          administrator's Settings tab to draw the form that approves the login.
+          The addresses of the login are not here: an administrator reads them
+          with the OAuth client.
       operation:
         allOf:
         - $ref: '#/definitions/apps.Operation'
@@ -573,6 +583,21 @@ definitions:
           add-on''s.'
         example: Example provider
         type: string
+    type: object
+  apps.OAuthView:
+    properties:
+      optionalScopes:
+        example:
+        - write
+        items:
+          type: string
+        type: array
+      requiredScopes:
+        example:
+        - read
+        items:
+          type: string
+        type: array
     type: object
   apps.Operation:
     properties:

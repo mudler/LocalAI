@@ -210,6 +210,29 @@ var _ = Describe("apps list", func() {
 		notes.Receipt.Digest = "sha256:" + strings.Repeat("a", 64)
 		Expect(Build([]Snapshot{notes}, false)[0].UI.Controls).To(BeNil())
 	})
+	It("names the scopes of an OAuth login, and nothing of a token slot", func() {
+		creds := func(id string, slot contract.CredentialSlot) Snapshot {
+			s := snapshot(id, true, "running", nil, "q")
+			s.Receipt.Manifest.Capabilities.Credentials = []contract.CredentialSlot{slot}
+			return s
+		}
+		login := contract.CredentialSlot{ID: "login", Title: "Login", Kind: contract.CredentialKindOAuth2, OAuth: &contract.OAuthDescriptor{
+			AuthorizeURL: "https://auth.example.test/authorize", TokenURL: "https://auth.example.test/token", Hosts: []string{"auth.example.test"},
+			Scopes: contract.OAuthScopes{Required: []string{"read"}, Optional: []string{"write", "admin"}}, PKCE: contract.OAuthPKCES256, ClientAuth: contract.OAuthClientAuthBasic}}
+		bare := login
+		bare.OAuth = &contract.OAuthDescriptor{AuthorizeURL: login.OAuth.AuthorizeURL, TokenURL: login.OAuth.TokenURL, Hosts: login.OAuth.Hosts, PKCE: contract.OAuthPKCES256, ClientAuth: contract.OAuthClientAuthNone}
+		byID := map[string]App{}
+		for _, a := range Build([]Snapshot{creds("providera", login), creds("bare", bare), creds("tokens", contract.CredentialSlot{ID: "token", Title: "Token", Kind: contract.CredentialKindToken})}, false) {
+			byID[a.ID] = a
+		}
+		Expect(byID["providera"].OAuth).To(Equal(&OAuthView{RequiredScopes: []string{"read"}, OptionalScopes: []string{"write", "admin"}}))
+		Expect(byID["tokens"].OAuth).To(BeNil())
+		Expect(byID["tokens"].Credentialed).To(BeTrue())
+		b, err := json.Marshal(byID["bare"])
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(b)).To(ContainSubstring(`"oauth":{"requiredScopes":[],"optionalScopes":[]}`))
+		Expect(string(b)).NotTo(ContainSubstring("example.test"), "the addresses of the login are for the administrator's client read")
+	})
 	It("draws the network policy for a declared capability, with the declared title, and for no other add-on", func() {
 		declared := func(id, title string, grants ...string) Snapshot {
 			ui := page("home")

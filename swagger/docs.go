@@ -16414,6 +16414,14 @@ const docTemplate = `{
                         }
                     ]
                 },
+                "oauth": {
+                    "description": "OAuth is present when the credential slot is of kind oauth2: the host\nlogs the person in to the service. It names the scopes, so the person\ncan choose the optional ones when they connect, and tells the\nadministrator's Settings tab to draw the form that approves the login.\nThe addresses of the login are not here: an administrator reads them\nwith the OAuth client.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/apps.OAuthView"
+                        }
+                    ]
+                },
                 "operation": {
                     "description": "Operation is the lifecycle operation that runs on the add-on now (an\nupgrade, say). It is absent when none runs. The observation is\nseparate from State: the process can run on while the owner stages\nthe next generation.",
                     "allOf": [
@@ -16634,6 +16642,29 @@ const docTemplate = `{
                     "description": "Title names the network in text: the declared title, else the add-on's.",
                     "type": "string",
                     "example": "Example provider"
+                }
+            }
+        },
+        "apps.OAuthView": {
+            "type": "object",
+            "properties": {
+                "optionalScopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "write"
+                    ]
+                },
+                "requiredScopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "read"
+                    ]
                 }
             }
         },

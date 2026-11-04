@@ -202,6 +202,13 @@ type App struct {
 	// work with a secret that the person keeps in a connector binding. A
 	// connector chat holds its write tools to contract.ToolPermission.
 	Credentialed bool `json:"credentialed,omitempty"`
+	// OAuth is present when the credential slot is of kind oauth2: the host
+	// logs the person in to the service. It names the scopes, so the person
+	// can choose the optional ones when they connect, and tells the
+	// administrator's Settings tab to draw the form that approves the login.
+	// The addresses of the login are not here: an administrator reads them
+	// with the OAuth client.
+	OAuth *OAuthView `json:"oauth,omitempty"`
 	// ResourceArgument and ResourceLabel come from the credential slot: the
 	// argument that names the resource of a call, and the word for it in the
 	// lines that say which connection acted. They are not part of the apps API.
@@ -230,6 +237,13 @@ type App struct {
 	Network *NetworkView `json:"network,omitempty"`
 	// Admin is present only for administrators.
 	Admin *AdminView `json:"admin,omitempty"`
+}
+
+// OAuthView is the OAuth login of an add-on as a person sees it: the scopes
+// the host always asks for and the ones the person may add.
+type OAuthView struct {
+	RequiredScopes []string `json:"requiredScopes" example:"read"`
+	OptionalScopes []string `json:"optionalScopes" example:"write"`
 }
 
 // NetworkView is the network of the commands an add-on runs, as the host
@@ -363,7 +377,11 @@ func build(s Snapshot, admin bool) App {
 	}
 	a.Credentialed = len(m.Capabilities.Credentials) > 0
 	if a.Credentialed {
-		a.ResourceArgument, a.ResourceLabel = m.Capabilities.Credentials[0].ResourceArgument, m.Capabilities.Credentials[0].ResourceLabel
+		slot := m.Capabilities.Credentials[0]
+		a.ResourceArgument, a.ResourceLabel = slot.ResourceArgument, slot.ResourceLabel
+		if slot.Kind == contract.CredentialKindOAuth2 && slot.OAuth != nil {
+			a.OAuth = &OAuthView{RequiredScopes: nonNil(slot.OAuth.Scopes.Required), OptionalScopes: nonNil(slot.OAuth.Scopes.Optional)}
+		}
 	}
 	a.Resources = resourceTools(m)
 	a.Skills = slices.Clone(m.Capabilities.SkillDefinitions)
@@ -531,4 +549,12 @@ func resourceTools(m contract.Manifest) *contract.ResourceTools {
 		r.List = &l
 	}
 	return &r
+}
+
+// nonNil is a copy of the list that is never nil, so the JSON has [].
+func nonNil(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return slices.Clone(in)
 }

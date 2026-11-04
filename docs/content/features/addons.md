@@ -597,6 +597,13 @@ parameter lists, or on whitespace. An administrator approves the add-on for
 that digest, and a change of the descriptor, for example in an upgrade, voids
 the approval.
 
+The apps list (`GET /api/addons/apps`) gives an add-on with an `oauth2` slot an
+`oauth` object with `requiredScopes` and `optionalScopes`, so the Connectors
+page can offer the optional scopes when a person connects, and the add-on's
+Settings tab shows the administrator the form that approves the login. The
+addresses of the login are not in the list; an administrator reads them with
+the OAuth client (see [the login routes](#the-login-routes)).
+
 A request also carries `Request.GrantedScopes`, the scopes the host holds for
 the person's login. The host sets it; it is not a secret, and the host drops it
 from any request a client sends.
