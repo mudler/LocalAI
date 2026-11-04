@@ -249,6 +249,7 @@ func processStream(
 // include_usage trailer reported zeros whenever `tools` was in play.
 func processStreamWithTools(
 	noAction string,
+	strictMode bool,
 	prompt string,
 	req *schema.OpenAIRequest,
 	cfg *config.ModelConfig,
@@ -337,6 +338,12 @@ func processStreamWithTools(
 				Object: "chat.completion.chunk",
 			}
 			sentReasoning = true
+		}
+
+		// Strict grammar output may put arguments before the function name.
+		// Classify the complete response before publishing content or partial calls.
+		if strictMode {
+			return true
 		}
 
 		// Stream content deltas (cleaned of reasoning tags) while no tool calls
@@ -467,6 +474,12 @@ func processStreamWithTools(
 	// Try using pre-parsed tool calls from C++ autoparser (chat deltas)
 	var functionResults []functions.FuncCallResults
 	var reasoning string
+	finalContent := extractor.CleanedContent()
+	if strictMode {
+		if content := functions.ContentFromChatDeltas(chatDeltas); content != "" {
+			finalContent = content
+		}
+	}
 
 	if deltaToolCalls := functions.ToolCallsFromChatDeltas(chatDeltas); len(deltaToolCalls) > 0 {
 		xlog.Debug("[ChatDeltas] Using pre-parsed tool calls from C++ autoparser", "count", len(deltaToolCalls))
@@ -485,10 +498,14 @@ func processStreamWithTools(
 		// #9985 enabled use_tokenizer_template: a streaming tool-call JSON
 		// would leak as a trailing reasoning chunk via the deferred flush.
 		reasoning = chooseDeferredReasoning(preferAutoparser, chatDeltas, extractor)
-		cleanedResult := extractor.CleanedContent()
+		cleanedResult := finalContent
 		*textContentToReturn = functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
 		cleanedResult = functions.CleanupLLMResult(cleanedResult, cfg.FunctionsConfig)
 		functionResults = functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+		if strictMode && hasRealCall(functionResults, noAction) {
+			// Content-only autoparser fallback can still carry the raw tool JSON.
+			*textContentToReturn = ""
+		}
 	}
 	xlog.Debug("[ChatDeltas] final tool call decision", "tool_calls", len(functionResults), "text_content", *textContentToReturn)
 	// noAction is a sentinel "just answer" pseudo-function: not a real
@@ -507,7 +524,7 @@ func processStreamWithTools(
 		var result string
 		if !sentInitialRole {
 			var hqErr error
-			result, hqErr = handleQuestion(cfg, functionResults, extractor.CleanedContent(), prompt)
+			result, hqErr = handleQuestion(cfg, functionResults, finalContent, prompt)
 			if hqErr != nil {
 				xlog.Error("error handling question", "error", hqErr)
 				return finalUsage, hqErr

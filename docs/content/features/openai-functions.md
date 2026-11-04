@@ -109,6 +109,8 @@ The gallery importer will still append `tool_parser:` and `reasoning_parser:` en
 Supported parser families: `hermes`/`json_tools`, `mistral`, `gemma4`, `glm47`, `kimi_k2`, `longcat`, `minimax_m2`, `pythonic`, `qwen3_coder`, `function_gemma`.
 
 
+When streaming with `strict: true`, LocalAI buffers candidate content until tool-call parsing completes. Recognized tool calls are returned in `delta.tool_calls`, with no raw tool JSON in `delta.content`. Reasoning is delivered separately; genuine non-tool text is returned as content after classification.
+
 ## Usage example
 
 You can configure a model manually with a YAML config file in the models directory, for example:
