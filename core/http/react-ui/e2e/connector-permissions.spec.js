@@ -319,13 +319,41 @@ test.describe('Connector permissions', () => {
     await shot(page, 'perm-5-access')
   })
 
-  test('trigger approval says it applies only while triggers are allowed', async ({ page }) => {
-    await api(page, [SET]).install()
+  test('the approval of proposed triggers sits under Propose triggers, shows its choice in the row and is greyed while the permission is off', async ({ page }) => {
+    const a = api(page, [{ ...LEGACY, caps: ['memory.write'], approval: { mode: 'auto_readonly' } }])
+    await a.install()
     await page.goto(PAGE)
     await page.getByRole('button', { name: 'Edit' }).click()
-    await expect(page.getByTestId('connector-approval-off')).toBeVisible()
-    await page.getByTestId('connector-cap-switch-triggers.propose').click()
-    await expect(page.getByTestId('connector-approval-off')).toHaveCount(0)
+    const row = page.getByTestId('connector-cap-triggers.propose')
+    // One place only: nothing at the bottom of the page.
+    await expect(page.getByTestId('connector-approval')).toHaveCount(1)
+    await expect(row.getByTestId('connector-approval')).toBeVisible()
+    await expect(row.getByTestId('connector-cap-effect-triggers.propose')).toHaveText('Proposals: at once if read-only')
+    // Permission off: greyed, with the reason, and the radios cannot be used.
+    await expect(row.getByTestId('connector-approval-off')).toHaveText('Turn on Propose triggers to use this.')
+    await expect(row.getByRole('radio').first()).toBeDisabled()
+    await expect(row.getByTestId('connector-approval')).toHaveAccessibleDescription('Turn on Propose triggers to use this.')
+    await shot(page, 'perm-9-approval-greyed')
+    await row.getByTestId('connector-cap-switch-triggers.propose').click()
+    await expect(row.getByTestId('connector-approval-off')).toHaveCount(0)
+    await expect(row.getByRole('radio', { name: /Ask me/ })).toBeEnabled()
+    // The three modes change the line of the row.
+    await row.getByRole('radio', { name: /Ask me/ }).check()
+    await expect(row.getByTestId('connector-cap-effect-triggers.propose')).toHaveText('Proposals: asks first')
+    await shot(page, 'perm-10-approval-ask')
+    await row.getByRole('radio', { name: /Set it up at once/ }).check()
+    await expect(row.getByTestId('connector-cap-effect-triggers.propose')).toHaveText('Proposals: set up at once')
+    await shot(page, 'perm-11-approval-auto')
+    await row.getByRole('radio', { name: /At once when the runs only read/ }).check()
+    await expect(row.getByTestId('connector-cap-effect-triggers.propose')).toHaveText('Proposals: at once if read-only')
+    await shot(page, 'perm-12-approval-readonly')
+    // The limits are in a closed disclosure and are sent as before.
+    const limits = row.getByTestId('connector-approval-limits')
+    await expect(limits).not.toHaveAttribute('open', '')
+    await limits.getByText('Limits', { exact: true }).click()
+    await limits.getByTestId('connector-approval-max_pending').fill('3')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => a.s.calls.find(c => c.method === 'PUT')?.body.approval).toEqual({ mode: 'auto_readonly', max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
   })
 
   test('an older host that sends no capability list shows no permission section', async ({ page }) => {

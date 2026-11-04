@@ -199,3 +199,11 @@ fieldset.cn-group {
 .cn-confirm__list { margin: 0; padding-left: var(--dk-space-5); font-size: var(--fs-small); line-height: var(--lh-small); }
 .cn-cap__lacks { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-muted); }
 .cn-cap[data-lacks="true"] .cn-cap__title { color: var(--color-text-muted); }
+
+/* The approval of proposed triggers, nested under the permission Propose triggers. */
+.cn-cap__effect { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-secondary); }
+.cn-option { margin: var(--dk-space-2) 0 0 var(--dk-space-3); padding: 0 0 0 var(--dk-space-3); border: 0; border-left: 2px solid var(--color-border-subtle); min-width: 0; display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-option[data-off="true"] { opacity: 0.6; }
+.cn-option__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.cn-option__limits summary { cursor: pointer; font-size: var(--fs-small); color: var(--color-text-secondary); }
+.cn-option__limits[open] summary { margin-bottom: var(--dk-space-2); }

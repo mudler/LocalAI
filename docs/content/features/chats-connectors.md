@@ -666,7 +666,9 @@ trigger stays in Studio. Nothing runs before the owner confirms.
 ### Approval modes
 
 The owner chooses, per binding, what happens to a proposal. The choice is on the settings
-page of the connector add-on, or in the `approval` field of the binding
+page of the connector add-on, nested under the permission **Propose triggers** (greyed while
+that permission is off, with its limits in a closed **Limits** list, and the current mode in
+the line of the row), or in the `approval` field of the binding
 (`PUT /api/chats/connectors/{id}`), and is the same for every connector.
 
 | `mode` | Behavior |

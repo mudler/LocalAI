@@ -10,6 +10,7 @@ import { Field, Hint, Notice, Switch, TextInput } from './controls'
 import Icon from '../../host-compat/src/components/Icon'
 import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, agentHas, agentHeld, channelsProblem, copyFromAgent, grantableFor, hasNoCaps, presetBlock, roleHas, setCap, setGrant, unpairedSensitive, usualFor, withAddedCaps, withCopiedCaps } from './connector'
 import PairingFields from './PairingFields'
+import ApprovalOptions from './ApprovalFields'
 
 export const PERMISSION_TEXT = {
   'perm.title': 'What senders may do',
@@ -68,14 +69,14 @@ export const PERMISSION_TEXT = {
   'perm.channelProblem.label': 'A name has at most {{max}} characters.',
   'perm.channelProblem.repeat': 'A channel is listed twice.',
   'perm.channelProblem.count': 'At most {{max}} channels.',
-  'perm.triggersNeed': 'These settings apply only while "Propose triggers" is on above.',
+  'perm.triggersNeed': 'Turn on Propose triggers to use this.',
 }
 
 export function permissionT(t) {
   return (key, opts = {}) => t(key, { defaultValue: PERMISSION_TEXT[key], ...opts })
 }
 
-function Cap({ cap, on, onChange, s, lacks }) {
+function Cap({ cap, on, onChange, s, lacks, children, effect }) {
   // A permission the agent does not have cannot be switched on; one that is
   // already on can still be switched off.
   const blocked = lacks && !on
@@ -86,6 +87,8 @@ function Cap({ cap, on, onChange, s, lacks }) {
         {cap.sensitive && <span className="cn-badge cn-badge--warn" data-testid={`connector-cap-sensitive-${cap.name}`}>{s('perm.sensitive')}</span>}
       </Switch>
       <Hint more={s('more')} less={s('less')}>{cap.description}{cap.sensitive ? ` ${s('perm.sensitiveHelp')}` : ''}</Hint>
+      {effect && <p className="cn-cap__effect" data-testid={`connector-cap-effect-${cap.name}`}>{effect}</p>}
+      {children}
       {lacks && <p className="cn-cap__lacks" id={`cn-lacks-${cap.name}`} data-testid={`connector-cap-lacks-${cap.name}`}>{s('perm.agentLacks')}</p>}
     </li>
   )
@@ -303,7 +306,10 @@ export default function PermissionFields({ form, setForm, kind, capabilities, s,
       )}
       <Presets key={`${form.id || 'new'}:${form.agent_id || ''}`} form={form} setForm={setForm} capabilities={caps} agent={agent} s={s} />
       <ul className="cn-caps" aria-label={s('perm.capsLegend')}>
-        {caps.map((c) => <Cap key={c.name} cap={c} on={on(c.name)} s={s} lacks={Boolean(form.agent_id) && held !== null && !agentHas(held, c.name)} onChange={(v) => setForm(setCap(form, c.name, v))} />)}
+        {caps.map((c) => <Cap key={c.name} cap={c} on={on(c.name)} s={s}
+          effect={c.name === 'triggers.propose' && form.approval ? s('approval.effect', { mode: s(`approval.short.${form.approval.mode || 'ask'}`) }) : undefined} lacks={Boolean(form.agent_id) && held !== null && !agentHas(held, c.name)} onChange={(v) => setForm(setCap(form, c.name, v))}>
+            {c.name === 'triggers.propose' && form.approval && <ApprovalOptions form={form} setForm={setForm} s={s} off={!on(c.name)} />}
+          </Cap>)}
       </ul>
       <Roles form={form} setForm={setForm} kind={kind} capabilities={caps} s={s} />
       <Channels form={form} setForm={setForm} s={s} />

@@ -1,7 +1,9 @@
 /* eslint-disable no-unused-vars -- components used only inside JSX look unused to this config, which has no eslint-plugin-react */
-// How the triggers that the agent proposes in a chat are approved. The same on
-// every platform, so the words live here as defaults, like the other shared
+// How the triggers that the agent proposes in a chat are approved. It is shown
+// under the permission "Propose triggers" (see PermissionFields), as an option
+// of it. The same on every platform, so the words live here as defaults, like the other shared
 // fields. The server enforces the limits; the page only bounds what is typed.
+import { useId } from 'react'
 import { Field, RadioCards, TextInput } from './controls'
 import { APPROVAL_LIMITS, APPROVAL_MODES, approvalProblem } from './connector'
 
@@ -19,24 +21,33 @@ export const APPROVAL_TEXT = {
   'approval.invalid': 'Use a whole number from 1 to {{max}}, or leave it empty.',
   'approval.default': 'Default: {{value}}.',
   'approval.summary': 'Triggers: {{mode}}',
+  'approval.effect': 'Proposals: {{mode}}',
+  'approval.limits': 'Limits',
   'approval.short.ask': 'asks first',
   'approval.short.auto': 'set up at once',
   'approval.short.auto_readonly': 'at once if read-only',
 }
 
-export default function ApprovalFields({ form, setForm, s, triggersOff = false }) {
+/**
+ * The approval mode and its limits, as an option under "Propose triggers".
+ * With off set (the permission is not ticked) the choice is greyed, with the
+ * reason, and nothing can be changed. The limits sit in a closed disclosure.
+ */
+export default function ApprovalOptions({ form, setForm, s, off = false }) {
   const a = form.approval
+  const reasonId = useId()
   const set = (patch) => setForm({ ...form, approval: { ...a, ...patch } })
-  const auto = a.mode !== 'ask'
   const bad = approvalProblem(a)
   return (
-    <fieldset className="cn-group" data-testid="connector-approval">
-      <legend>{s('approval.title')}</legend>
+    <fieldset className="cn-option" data-testid="connector-approval" data-off={off ? 'true' : undefined} disabled={off} aria-describedby={off ? reasonId : undefined}>
+      <legend className="cn-vh">{s('approval.title')}</legend>
+      <p className="cn-option__title">{s('approval.title')}</p>
       <p className="dk-hint">{s('approval.help')}</p>
-      {triggersOff && <p className="cn-muted" data-testid="connector-approval-off">{s('perm.triggersNeed')}</p>}
+      {off && <p className="cn-muted" id={reasonId} data-testid="connector-approval-off">{s('perm.triggersNeed')}</p>}
       <RadioCards name="approval" legend={s('approval.title')} value={a.mode} onChange={(mode) => set({ mode })}
         options={APPROVAL_MODES.map((m) => ({ value: m, label: s(`approval.mode.${m}`) }))} />
-      {auto && (<>
+      <details className="cn-option__limits" data-testid="connector-approval-limits" open={bad ? true : undefined}>
+        <summary>{s('approval.limits')}</summary>
         <p className="dk-hint">{s('approval.limitsHelp')}</p>
         {APPROVAL_LIMITS.map(({ key, max, fallback }) => (
           <Field key={key} label={s(`approval.${key}`)} hint={s('approval.default', { value: fallback })} error={bad === key ? s('approval.invalid', { max }) : undefined}>
@@ -44,7 +55,7 @@ export default function ApprovalFields({ form, setForm, s, triggersOff = false }
               value={a[key]} onChange={(e) => set({ [key]: e.target.value })} />}
           </Field>
         ))}
-      </>)}
+      </details>
     </fieldset>
   )
 }

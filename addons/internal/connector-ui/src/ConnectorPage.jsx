@@ -10,7 +10,7 @@ import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
 import AnswerFields, { answerSummary, answerT } from './AnswerFields'
 import AccessView from './AccessView'
-import ApprovalFields from './ApprovalFields'
+import ApprovalOptions from './ApprovalFields'
 import FilesFields from './FilesFields'
 import { Check, Field, Notice, RadioCards, Select, Switch, TextInput } from './controls'
 import NameList from './NameList'
@@ -259,7 +259,8 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
             <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} agent={agents.find((a) => a.id === form.agent_id)} channelsOnly={channelOnly(form, lists)} />
-            <ApprovalFields form={form} setForm={setForm} s={s} triggersOff={capabilities.length > 0 && !(form.caps || []).includes('triggers.propose')} />
+            {/* The approval of proposed triggers sits under the permission Propose triggers; an older host with no capability list has no such row, so it shows here. */}
+            {capabilities.length === 0 && <ApprovalOptions form={form} setForm={setForm} s={s} />}
             {capabilities.length > 0 && <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />}
             </>)}
             <div className="cn-actions">
