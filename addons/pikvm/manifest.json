@@ -289,8 +289,38 @@
         }
       ],
       "icon": "ui/icon.png",
-      "title": "PiKVM",
-      "description": "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time."
+      "title": {
+        "en": "PiKVM",
+        "it": "PiKVM",
+        "de": "PiKVM",
+        "es": "PiKVM",
+        "fr": "PiKVM",
+        "pt-BR": "PiKVM",
+        "zh-CN": "PiKVM",
+        "ko": "PiKVM",
+        "id": "PiKVM"
+      },
+      "description": {
+        "en": "Let your chats and agents check a PiKVM and, if you allow it, press power buttons and type on the machine it controls, with a confirmation every time.",
+        "it": "Lascia che le tue chat e i tuoi agenti controllino un PiKVM e, se lo permetti, premano i pulsanti di accensione e scrivano sulla macchina che governa, con una conferma ogni volta.",
+        "de": "Lassen Sie Ihre Chats und Agenten einen PiKVM prüfen und, wenn Sie es erlauben, Einschalttasten drücken und auf dem gesteuerten Rechner tippen, jedes Mal mit einer Bestätigung.",
+        "es": "Permite que tus chats y agentes revisen un PiKVM y, si lo autorizas, pulsen los botones de encendido y escriban en la máquina que controla, con una confirmación cada vez.",
+        "fr": "Laissez vos conversations et vos agents consulter un PiKVM et, si vous l'autorisez, appuyer sur les boutons d'alimentation et taper sur la machine qu'il pilote, avec une confirmation à chaque fois.",
+        "pt-BR": "Deixe seus chats e agentes verificarem um PiKVM e, se você permitir, pressionarem os botões de energia e digitarem na máquina que ele controla, com uma confirmação a cada vez.",
+        "zh-CN": "让你的聊天和智能体查看 PiKVM，并在你允许时按下电源按钮、在它所控制的机器上输入内容，每次都需要确认。",
+        "ko": "채팅과 에이전트가 PiKVM을 확인하고, 허용하면 전원 버튼을 누르고 PiKVM이 제어하는 기기에 입력할 수 있게 합니다. 매번 확인을 거칩니다.",
+        "id": "Izinkan obrolan dan agen Anda memeriksa PiKVM dan, jika Anda mengizinkan, menekan tombol daya dan mengetik di mesin yang dikendalikannya, dengan konfirmasi setiap kali."
+      }
     }
+  },
+  "i18n": {
+    "it": {"kinds": {"pikvm": {"title": "PiKVM", "description": "Lascia che le tue chat e i tuoi agenti leggano un PiKVM e, se lo permetti, premano i suoi pulsanti di accensione e usino la sua tastiera, con un utente e una password dedicati."}}},
+    "de": {"kinds": {"pikvm": {"title": "PiKVM", "description": "Lassen Sie Ihre Chats und Agenten einen PiKVM auslesen und, wenn Sie es erlauben, dessen Einschalttasten drücken und dessen Tastatur benutzen, mit einem eigenen Benutzer und Passwort."}}},
+    "es": {"kinds": {"pikvm": {"title": "PiKVM", "description": "Permite que tus chats y agentes lean un PiKVM y, si lo autorizas, pulsen sus botones de encendido y usen su teclado, con un usuario y una contraseña dedicados."}}},
+    "fr": {"kinds": {"pikvm": {"title": "PiKVM", "description": "Laissez vos conversations et vos agents lire un PiKVM et, si vous l'autorisez, appuyer sur ses boutons d'alimentation et utiliser son clavier, avec un utilisateur et un mot de passe dédiés."}}},
+    "pt-BR": {"kinds": {"pikvm": {"title": "PiKVM", "description": "Deixe seus chats e agentes lerem um PiKVM e, se você permitir, pressionarem seus botões de energia e usarem seu teclado, com um usuário e uma senha dedicados."}}},
+    "zh-CN": {"kinds": {"pikvm": {"title": "PiKVM", "description": "让你的聊天和智能体读取 PiKVM，并在你允许时按下它的电源按钮并使用它的键盘，使用专用的用户名和密码。"}}},
+    "ko": {"kinds": {"pikvm": {"title": "PiKVM", "description": "채팅과 에이전트가 PiKVM을 읽고, 허용하면 전원 버튼을 누르고 키보드를 사용할 수 있게 합니다. 전용 사용자와 비밀번호를 사용합니다."}}},
+    "id": {"kinds": {"pikvm": {"title": "PiKVM", "description": "Izinkan obrolan dan agen Anda membaca PiKVM dan, jika Anda mengizinkan, menekan tombol dayanya dan menggunakan papan ketik, dengan pengguna dan kata sandi khusus."}}}
   }
 }
