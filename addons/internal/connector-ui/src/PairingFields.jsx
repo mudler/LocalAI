@@ -60,7 +60,7 @@ export default function PairingFields({ binding, s, onPaired }) {
           setPaired(list)
           setCode(null)
           setDone(fresh.sender_id)
-          onPaired?.()
+          onPaired?.(list)
           stop()
         }
       } catch (_e) { /* the next tick tries again */ }
@@ -88,7 +88,7 @@ export default function PairingFields({ binding, s, onPaired }) {
       const list = b?.paired || paired.filter((p) => p.sender_id !== sender)
       known.current = new Set(list.map((p) => p.sender_id))
       setPaired(list)
-      onPaired?.()
+      onPaired?.(list)
     } catch (e) { setError(e?.message || '') }
   }
   const full = paired.length >= MAX_PAIRED

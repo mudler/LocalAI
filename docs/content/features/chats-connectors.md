@@ -594,7 +594,17 @@ capability, with a description and a mark on the sensitive ones; the role matrix
 paired senders, with a button that shows a new code once; the approved channels for
 talk-back; and the access view with the latest decisions. A binding with no capability
 shows a notice that says why the features are off. The button "Allow the usual" turns
-on the everyday capabilities that stay inside LocalAI and are not sensitive. The
+on the everyday capabilities that stay inside LocalAI and are not sensitive. In the
+form, **Allow the usual set** ticks only the usual ones that the agent of the binding
+holds, and says what it did. **Same as the agent** copies, once, every capability that
+the agent holds and that has a binding capability, the sensitive ones too after a
+confirmation that lists them; it does not follow later changes to the agent. A
+capability the agent does not hold cannot be switched on. Both buttons only fill the form
+and are off, with the reason, when the binding has no agent or the permissions of the
+agent cannot be read. A link with `?binding=<id>` opens that binding at its permissions.
+When capabilities are ticked but nobody is paired and no role holds them, the form says that
+no sender can use them yet and points to pairing: the host lets a sender use a capability only
+with a pairing or a role that holds it. A new binding still starts with no capability. The
 kind list also returns `capabilities`, the closed list with a title, a description
 and the `sensitive` and `usual` flags of each, so a page needs no list of its own.
 

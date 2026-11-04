@@ -191,3 +191,11 @@ fieldset.cn-group {
 .cn-access__no summary { cursor: pointer; color: var(--color-text-muted); }
 .cn-access__no ul { margin: var(--dk-space-1) 0 0; padding-left: var(--dk-space-5); }
 .cn-row:has(.cn-nocaps) { align-items: flex-start; }
+
+/* The presets of the permissions: fill the form from the agent of the binding. */
+.cn-presets { display: flex; flex-direction: column; gap: var(--dk-space-2); margin-block: var(--dk-space-2); }
+.cn-presets__row { display: flex; flex-wrap: wrap; gap: var(--dk-space-2); }
+.cn-presets__done { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-primary); }
+.cn-confirm__list { margin: 0; padding-left: var(--dk-space-5); font-size: var(--fs-small); line-height: var(--lh-small); }
+.cn-cap__lacks { margin: 2px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--color-text-muted); }
+.cn-cap[data-lacks="true"] .cn-cap__title { color: var(--color-text-muted); }

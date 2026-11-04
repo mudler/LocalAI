@@ -70,6 +70,82 @@ export function usualCaps(capabilities) {
   return (capabilities || []).filter((c) => c.usual && !c.sensitive).map((c) => c.name)
 }
 
+// The binding capabilities that are also grants of a saved agent. A sender can
+// only use one of them when the agent holds the grant too, so the presets only
+// tick what the agent holds. proposals.confirm and tools.write are not grants:
+// they belong to the binding alone.
+export const AGENT_GRANT_CAPS = [
+  'memory.write', 'profile.write', 'skills.write', 'pages.write', 'dashboard.write',
+  'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel',
+]
+
+// What an agent without a grant list holds for its messaging connections (the
+// server rule is core/services/studio/connectorgrants.go). As soon as the list
+// names any grant, only the named ones count.
+export const DEFAULT_CONNECTOR_GRANTS = ['triggers.propose', 'triggers.run', 'talkback.channels', 'files.upload']
+
+// The grants the agent holds for a connection, or null when its permissions
+// cannot be read (no agent, an agent that is not in the list, a host that does
+// not send them).
+export function agentHeld(agent) {
+  if (!agent || !Array.isArray(agent.builtins)) return null
+  return agent.builtins.length > 0 ? agent.builtins : DEFAULT_CONNECTOR_GRANTS
+}
+
+// Whether the agent lets a capability be switched on: a capability that is not
+// a grant of the agent is not gated. held is agentHeld(agent); null gates nothing.
+export const agentHas = (held, name) => held === null || !AGENT_GRANT_CAPS.includes(name) || held.includes(name)
+
+// Why a preset cannot be used: 'noAgent', 'unreadable', 'nothing' or ''.
+export function presetBlock(agentId, held, capabilities) {
+  if (!agentId) return 'noAgent'
+  if (held === null) return 'unreadable'
+  if (!(capabilities || []).some((c) => AGENT_GRANT_CAPS.includes(c.name) && held.includes(c.name))) return 'nothing'
+  return ''
+}
+
+// "Allow the usual set": the caps the host marks usual (never a sensitive one)
+// that the agent holds. skipped are the usual ones the agent does not hold.
+export function usualFor(capabilities, held) {
+  const usual = usualCaps(capabilities)
+  return { caps: usual.filter((n) => agentHas(held, n)), skipped: usual.filter((n) => !agentHas(held, n)) }
+}
+
+// "Same as the agent": every cap the agent holds that is a capability of the
+// host's list, sensitive ones too. sensitive names the ones that are.
+export function copyFromAgent(capabilities, held) {
+  const list = (capabilities || []).filter((c) => AGENT_GRANT_CAPS.includes(c.name) && (held || []).includes(c.name))
+  return { caps: list.map((c) => c.name), sensitive: list.filter((c) => c.sensitive).map((c) => c.name) }
+}
+
+// The form after the caps of the agent were copied in. The caps that are not
+// grants of an agent stay as they were; the others become exactly the copy, and
+// a role never keeps a cap the ceiling lost.
+export function withCopiedCaps(form, caps) {
+  const keep = (form.caps || []).filter((n) => !AGENT_GRANT_CAPS.includes(n))
+  const next = [...new Set([...keep, ...caps])]
+  const grants = (form.grants || []).map((g) => ({ ...g, caps: g.caps.filter((x) => next.includes(x)) })).filter((g) => g.caps.length > 0)
+  return { ...form, caps: next, grants }
+}
+
+// The form with these caps added to the ones it has.
+export function withAddedCaps(form, caps) {
+  return { ...form, caps: [...new Set([...(form.caps || []), ...caps])] }
+}
+
+// The ticked caps that no sender can use yet. The host lets a sender use a cap
+// only when the sender is paired, or has a role the owner granted the cap to
+// (a sensitive cap needs a pairing always; see Authorize in
+// core/services/studio/connectoraccess.go). So with nobody paired, a ticked
+// cap that no role holds is dead, however it is ticked.
+export function unusableCaps(form, paired, now = Date.now()) {
+  const caps = form?.caps || []
+  const active = (paired || []).some((p) => !p.expires_at || new Date(p.expires_at).getTime() > now)
+  if (caps.length === 0 || active) return []
+  const granted = new Set((form.grants || []).flatMap((g) => g.caps || []))
+  return caps.filter((c) => !granted.has(c))
+}
+
 // The form after cap name was turned on or off. Turning one off also takes it
 // from every role grant, so a role never holds more than the ceiling.
 export function setCap(form, name, on) {

@@ -5,9 +5,10 @@
 // approved channels for talk-back, and the paired senders. A binding that was
 // saved before the host enforced permissions has none switched on, so it denies
 // everything gated; the notice and the preset below say so and fix it in a click.
+import { useCallback, useState } from 'react'
 import { Field, Hint, Notice, Switch, TextInput } from './controls'
 import Icon from '../../host-compat/src/components/Icon'
-import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, channelsProblem, grantableFor, hasNoCaps, roleHas, setCap, setGrant, usualCaps } from './connector'
+import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, agentHas, agentHeld, channelsProblem, copyFromAgent, grantableFor, hasNoCaps, presetBlock, roleHas, setCap, setGrant, unusableCaps, usualFor, withAddedCaps, withCopiedCaps } from './connector'
 import PairingFields from './PairingFields'
 
 export const PERMISSION_TEXT = {
@@ -19,6 +20,25 @@ export const PERMISSION_TEXT = {
   'perm.usualHelp': 'Switches on the everyday permissions that stay inside LocalAI: {{names}}. Sensitive ones are never included.',
   'perm.usualDone': 'The usual permissions are on. Save to keep them.',
   'perm.usualSaved': 'The usual permissions are saved for {{name}}.',
+  'perm.usualSet': 'Allow the usual set',
+  'perm.usualSetHelp': 'Ticks the everyday permissions that stay inside LocalAI, for what the agent has. Sensitive ones are never included.',
+  'perm.sameAs': 'Same as the agent',
+  'perm.sameAsHelp': 'Copies the permissions the agent has now, sensitive ones too. It is a copy of today and does not follow later changes to the agent.',
+  'perm.block.noAgent': 'Choose an agent first.',
+  'perm.block.unreadable': 'The permissions of this agent could not be read.',
+  'perm.block.nothing': 'This agent has no permission that a connection can use.',
+  'perm.usualTicked': 'Ticked {{count}}: {{names}}. Save to keep them.',
+  'perm.usualNone': 'Nothing new to tick: the usual permissions the agent has are already on.',
+  'perm.usualSkipped': 'Not ticked, because the agent does not have them: {{names}}.',
+  'perm.sameTicked': 'Copied {{count}} permissions of {{agent}}: {{names}}. This is a copy of today and does not follow later changes to the agent. Save to keep them.',
+  'perm.agentLacks': 'The agent does not have this.',
+  'perm.confirmTitle': 'Copy the sensitive permissions too?',
+  'perm.confirmText': 'The agent has these sensitive permissions. Once they are on, a sender you paired could use them through this bot:',
+  'perm.confirmYes': 'Copy them too',
+  'perm.confirmNo': 'Cancel',
+  'perm.stuckTitle': 'You ticked these, but no sender can use them yet',
+  'perm.stuckText': 'A sender can use a permission only when you paired them with this bot, or when a role that you gave the permission to applies. Nobody is paired yet and no role has these: {{names}}.',
+  'perm.stuckPair': 'Pair your account',
   'perm.sensitive': 'Paired senders only',
   'perm.sensitiveHelp': 'Sensitive. Never given to a role. Only a sender you paired can use it, and every use is recorded.',
   'perm.capsLegend': 'Permissions of this bot',
@@ -52,14 +72,18 @@ export function permissionT(t) {
   return (key, opts = {}) => t(key, { defaultValue: PERMISSION_TEXT[key], ...opts })
 }
 
-function Cap({ cap, on, onChange, s }) {
+function Cap({ cap, on, onChange, s, lacks }) {
+  // A permission the agent does not have cannot be switched on; one that is
+  // already on can still be switched off.
+  const blocked = lacks && !on
   return (
-    <li className="cn-cap" data-testid={`connector-cap-${cap.name}`}>
-      <Switch checked={on} onChange={onChange} testId={`connector-cap-switch-${cap.name}`}>
+    <li className="cn-cap" data-testid={`connector-cap-${cap.name}`} data-lacks={lacks ? 'true' : undefined}>
+      <Switch checked={on} onChange={onChange} disabled={blocked} describedBy={lacks ? `cn-lacks-${cap.name}` : undefined} testId={`connector-cap-switch-${cap.name}`}>
         <span className="cn-cap__title">{cap.title}</span>
         {cap.sensitive && <span className="cn-badge cn-badge--warn" data-testid={`connector-cap-sensitive-${cap.name}`}>{s('perm.sensitive')}</span>}
       </Switch>
       <Hint more={s('more')} less={s('less')}>{cap.description}{cap.sensitive ? ` ${s('perm.sensitiveHelp')}` : ''}</Hint>
+      {lacks && <p className="cn-cap__lacks" id={`cn-lacks-${cap.name}`} data-testid={`connector-cap-lacks-${cap.name}`}>{s('perm.agentLacks')}</p>}
     </li>
   )
 }
@@ -152,46 +176,128 @@ function Channels({ form, setForm, s }) {
  * It stands alone so the list of bindings can show it too.
  */
 export function NoCapsNotice({ capabilities, onUsual, busy, s, name }) {
+  // Inside the form the presets below do the same job, limited to the agent.
   const usual = (capabilities || []).filter((c) => c.usual && !c.sensitive)
   return (
     <Notice tone="warn" role="note" testId="connector-nocaps" className="cn-nocaps">
       <p className="cn-notice__title">{s('perm.noCapsTitle')}</p>
       <p className="cn-notice__text">{s('perm.noCapsText')}</p>
       {usual.length > 0 && <p className="cn-notice__text">{s('perm.usualHelp', { names: usual.map((c) => c.title).join(', ') })}</p>}
-      <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" data-testid="connector-usual" disabled={busy || usual.length === 0}
-        aria-label={name ? `${s('perm.usual')}: ${name}` : undefined} onClick={onUsual}>{s('perm.usual')}</button>
+      {onUsual && (
+        <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" data-testid="connector-usual" disabled={busy || usual.length === 0}
+          aria-label={name ? `${s('perm.usual')}: ${name}` : undefined} onClick={onUsual}>{s('perm.usual')}</button>
+      )}
     </Notice>
+  )
+}
+
+
+/**
+ * Two buttons that fill the permissions of the form from the agent of the
+ * binding: the usual set (what the agent has), and a copy of everything the
+ * agent has. They only change the form; the owner saves as for any change.
+ */
+function Presets({ form, setForm, capabilities, agent, s }) {
+  const [done, setDone] = useState(null)
+  const [pending, setPending] = useState(null)
+  const held = agentHeld(agent)
+  const block = presetBlock(form.agent_id, held, capabilities)
+  const title = (name) => capabilities.find((c) => c.name === name)?.title || name
+  const names = (list) => list.map(title).join(', ')
+  const reasonId = 'cn-preset-reason'
+
+  const usual = () => {
+    const { caps, skipped } = usualFor(capabilities, held)
+    const fresh = caps.filter((n) => !(form.caps || []).includes(n))
+    setPending(null)
+    setForm(withAddedCaps(form, caps))
+    setDone({ kind: 'usual', text: [fresh.length ? s('perm.usualTicked', { count: fresh.length, names: names(fresh) }) : s('perm.usualNone'), skipped.length ? s('perm.usualSkipped', { names: names(skipped) }) : ''].filter(Boolean).join(' ') })
+  }
+  const copy = (caps) => {
+    setPending(null)
+    setForm(withCopiedCaps(form, caps))
+    setDone({ kind: 'same', text: s('perm.sameTicked', { count: caps.length, agent: agent?.name || '', names: names(caps) }) })
+  }
+  const same = () => {
+    const { caps, sensitive } = copyFromAgent(capabilities, held)
+    if (sensitive.length > 0) { setDone(null); setPending({ caps, sensitive }); return }
+    copy(caps)
+  }
+
+  return (
+    <div className="cn-presets" data-testid="connector-presets">
+      <div className="cn-presets__row">
+        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-usual" disabled={Boolean(block)}
+          aria-describedby={block ? reasonId : undefined} onClick={usual}>{s('perm.usualSet')}</button>
+        <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-same" disabled={Boolean(block)}
+          aria-describedby={block ? reasonId : undefined} onClick={same}>{s('perm.sameAs')}</button>
+      </div>
+      {block ? <p className="dk-hint" id={reasonId} data-testid="connector-preset-reason">{s(`perm.block.${block}`)}</p>
+        : <p className="dk-hint">{s('perm.usualSetHelp')} {s('perm.sameAsHelp')}</p>}
+      {pending && (
+        <Notice tone="warn" role="alertdialog" testId="connector-same-confirm">
+          <p className="cn-notice__title">{s('perm.confirmTitle')}</p>
+          <p className="cn-notice__text">{s('perm.confirmText')}</p>
+          <ul className="cn-confirm__list">
+            {pending.sensitive.map((n) => <li key={n}><strong>{title(n)}</strong>: {capabilities.find((c) => c.name === n)?.description}</li>)}
+          </ul>
+          <div className="cn-presets__row">
+            <button type="button" className="dk-btn dk-btn--primary dk-btn--sm" data-testid="connector-same-yes" onClick={() => copy(pending.caps)}>{s('perm.confirmYes')}</button>
+            <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-same-no" onClick={() => setPending(null)}>{s('perm.confirmNo')}</button>
+          </div>
+        </Notice>
+      )}
+      {done && <p className="cn-presets__done" role="status" data-testid={`connector-preset-done-${done.kind}`}>{done.text}</p>}
+    </div>
   )
 }
 
 /**
  * @param {object} props
  * @param {object} props.form       the form of the binding
+ * @param {object} props.agent      the saved agent of the binding, when it is known
  * @param {Function} props.setForm
  * @param {object} props.kind       the kind from the kinds call (roles, permissions)
  * @param {Array} props.capabilities the closed list from the kinds call
  * @param {Function} props.s        the translation function with the defaults
  * @param {Function} props.onPaired called when pairing changed the binding
  */
-export default function PermissionFields({ form, setForm, kind, capabilities, s, onPaired }) {
+export default function PermissionFields({ form, setForm, kind, capabilities, s, onPaired, agent }) {
   const caps = capabilities || []
   if (caps.length === 0) return null
   const on = (name) => (form.caps || []).includes(name)
-  const usual = usualCaps(caps)
+  const held = agentHeld(agent)
+  // What the pairing list is now: the saved one, and what pairing here changes.
+  const [paired, setPaired] = useState(form.paired || [])
+  const pairedHere = useCallback((list) => { if (Array.isArray(list)) setPaired(list); onPaired?.() }, [onPaired])
+  const stuck = unusableCaps(form, paired)
+  const title = (name) => caps.find((c) => c.name === name)?.title || name
+  const toPairing = () => {
+    const el = document.querySelector('[data-testid="connector-pair-start"]') || document.querySelector('[data-testid="connector-pairing"]')
+    el?.scrollIntoView?.({ block: 'center' })
+    el?.focus?.()
+  }
   return (
     <fieldset className="cn-group" data-testid="connector-permissions">
       <legend>{s('perm.title')}</legend>
       <p className="dk-hint">{s('perm.help')}</p>
       {hasNoCaps(form) && (
-        <NoCapsNotice capabilities={caps} s={s}
-          onUsual={() => setForm({ ...form, caps: [...new Set([...(form.caps || []), ...usual])] })} />
+        <NoCapsNotice capabilities={caps} s={s} />
       )}
+      {stuck.length > 0 && (
+        <Notice tone="warn" role="note" testId="connector-stuck">
+          <p className="cn-notice__title">{s('perm.stuckTitle')}</p>
+          <p className="cn-notice__text">{s('perm.stuckText', { names: stuck.map(title).join(', ') })}</p>
+          <button type="button" className="dk-btn dk-btn--secondary dk-btn--sm" data-testid="connector-stuck-pair" onClick={toPairing}>{s('perm.stuckPair')}</button>
+        </Notice>
+      )}
+      <Presets key={`${form.id || 'new'}:${form.agent_id || ''}`} form={form} setForm={setForm} capabilities={caps} agent={agent} s={s} />
       <ul className="cn-caps" aria-label={s('perm.capsLegend')}>
-        {caps.map((c) => <Cap key={c.name} cap={c} on={on(c.name)} s={s} onChange={(v) => setForm(setCap(form, c.name, v))} />)}
+        {caps.map((c) => <Cap key={c.name} cap={c} on={on(c.name)} s={s} lacks={Boolean(form.agent_id) && held !== null && !agentHas(held, c.name)} onChange={(v) => setForm(setCap(form, c.name, v))} />)}
       </ul>
       <Roles form={form} setForm={setForm} kind={kind} capabilities={caps} s={s} />
       <Channels form={form} setForm={setForm} s={s} />
-      <PairingFields binding={form} s={s} onPaired={onPaired} />
+      <PairingFields binding={form} s={s} onPaired={pairedHere} />
     </fieldset>
   )
 }

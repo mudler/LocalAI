@@ -3,8 +3,9 @@
 // the sender log in memory.
 
 export const AGENTS = [
-  { id: 'a1', name: 'Support', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [] },
-  { id: 'a2', name: 'No model', model: '', mcp_servers: [], addons: [], collections: [], skills: [] },
+  { id: 'a1', name: 'Support', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [], builtins: ['memory.write', 'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel', 'profile.write'] },
+  { id: 'a2', name: 'No model', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins: [] },
+  { id: 'a3', name: 'Careful', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [], builtins: ['memory.write', 'files.upload'] },
 ]
 
 const NEWCOMER = { id: '42', name: 'Newcomer', count: 2, allowed: false, first: '2026-10-27T08:00:00Z', last: '2026-10-27T08:05:00Z' }

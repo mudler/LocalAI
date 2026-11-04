@@ -4,7 +4,7 @@
 // log live in core; this page edits them through the core API. An add-on
 // gives its own words (an i18n namespace), the fields of its token, and its
 // allowlists; the rest is the same for every platform.
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import ConfirmDialog from '../../host-compat/src/components/ConfirmDialog'
 import Icon from '../../host-compat/src/components/Icon'
@@ -126,6 +126,20 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
   }, [kind])
   useEffect(() => { agentsApi.list().then((r) => setAgents(r.agents || [])).catch(() => {}) }, [])
 
+  // A link with ?binding=<id> (from the Tools list of an agent) opens that
+  // binding and brings its permissions into view, once.
+  const linked = useRef(false)
+  useEffect(() => {
+    if (linked.current || items.length === 0) return
+    const id = new URLSearchParams(window.location.search).get('binding')
+    const c = id && items.find((x) => x.id === id)
+    if (!c) return
+    linked.current = true
+    open({ ...connectorForm(c), ...(extraForm ? extraForm(c) : {}) })
+    setTimeout(() => document.querySelector('[data-testid="connector-permissions"]')?.scrollIntoView?.({ block: 'start' }), 50)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items])
+
   const agentName = (id) => agents.find((a) => a.id === id)?.name || id
   const open = (c) => { setForm(c); setConfirmed(Boolean(c.accept_any)); setNote('') }
   const extra = (form) => ({ ...(messaging ? {} : { enabled: false, accept_any: false }), ...(extraBody ? extraBody(form) : {}) })
@@ -244,7 +258,7 @@ export default function ConnectorPage({ kind, ns, testId, TokenFields = SingleTo
             </Field>
             <AnswerFields form={form} setForm={setForm} t={t} kindInfo={kindInfo} />
             <FilesFields form={form} setForm={setForm} kind={kindFiles} saved={form.files} s={answerT(t)} />
-            <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} />
+            <PermissionFields form={form} setForm={setForm} kind={kindInfo} capabilities={capabilities} s={s} onPaired={pairedChanged} agent={agents.find((a) => a.id === form.agent_id)} />
             <ApprovalFields form={form} setForm={setForm} s={s} triggersOff={capabilities.length > 0 && !(form.caps || []).includes('triggers.propose')} />
             {capabilities.length > 0 && <AccessView binding={form} capabilities={capabilities} s={s} version={accessVersion} />}
             </>)}

@@ -72,11 +72,11 @@ export function Select({ children, className = '', ...rest }) {
 
 // A switch for an on/off setting. `label` names it for assistive technology;
 // when `children` is set, it is drawn as the visible label next to the switch.
-export function Switch({ checked, onChange, label, children, testId, disabled }) {
+export function Switch({ checked, onChange, label, children, testId, disabled, describedBy }) {
   const id = useId()
   const button = (
     <button type="button" role="switch" className="dk-switch" aria-checked={checked ? 'true' : 'false'}
-      aria-label={children ? undefined : label} aria-labelledby={children ? id : undefined}
+      aria-label={children ? undefined : label} aria-labelledby={children ? id : undefined} aria-describedby={describedBy}
       data-testid={testId} disabled={disabled} onClick={() => onChange(!checked)} />
   )
   if (!children) return button
