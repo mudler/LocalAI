@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // grantRow is the grant of a binding. Sealed is the only secret column.
@@ -98,6 +99,21 @@ func (s *gormStore) GetGrant(ctx context.Context, binding string) (Grant, error)
 func (s *gormStore) PutGrant(ctx context.Context, g Grant) (int64, error) {
 	var version int64
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// The binding row is read with a share lock, and DeleteBinding removes
+		// it before its grant: a login that finishes while its binding is
+		// deleted either writes first and is deleted with it, or finds no
+		// binding. SQLite runs one writing transaction at a time anyway.
+		q := tx.Model(&bindingRow{}).Where("id = ?", g.Binding)
+		if tx.Dialector.Name() != "sqlite" {
+			q = q.Clauses(clause.Locking{Strength: "SHARE"})
+		}
+		var ids []string
+		if err := q.Limit(1).Pluck("id", &ids).Error; err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return ErrNotFound
+		}
 		var old []int64
 		if err := tx.Model(&grantRow{}).Where("binding = ?", g.Binding).Pluck("version", &old).Error; err != nil {
 			return err

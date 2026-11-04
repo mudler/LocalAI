@@ -707,6 +707,32 @@ var _ = Describe("OAuth connections", func() {
 					Expect(err).To(MatchError(connectors.ErrNotFound))
 				})
 
+				It("revokes the login when the binding is deleted, and the grant goes with the binding", func() {
+					b := r.connect()
+					Expect(r.conns.DeleteConnector(ctx, alice, b.ID)).To(Succeed())
+					Expect(r.srv.Revokes.Load()).To(BeEquivalentTo(1))
+					_, err := r.st.GetGrant(ctx, b.ID)
+					Expect(err).To(MatchError(connectors.ErrNotFound))
+				})
+
+				It("leaves no grant when the binding is deleted while its callback trades the code", func() {
+					r.approve()
+					b := r.binding()
+					ls, state := r.start(b)
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Delay = 500 * time.Millisecond })
+					done := make(chan studio.LoginResult, 1)
+					go func() {
+						res, _ := r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
+						done <- res
+					}()
+					Eventually(r.srv.Tokens.Load).Should(BeEquivalentTo(1), "the exchange is at the service")
+					Expect(r.st.DeleteBinding(ctx, b.ID)).To(Succeed())
+					res := <-done
+					Expect(res.Outcome).NotTo(Equal(studio.LoginOK))
+					_, err := r.st.GetGrant(ctx, b.ID)
+					Expect(err).To(MatchError(connectors.ErrNotFound), "an orphan grant with live tokens")
+				})
+
 				It("does not tell a service without a revocation endpoint", func() {
 					r.setDescriptor(func(d *contract.OAuthDescriptor) { d.RevokeURL = "" })
 					b := r.connect()

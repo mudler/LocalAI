@@ -578,6 +578,23 @@ var _ = Describe("OAuth routes of the connections", func() {
 		Expect(binding(s, "alice", id)["oauth"].(map[string]any)["state"]).To(Equal("not_connected"), "removed here in any case")
 	})
 
+	It("revokes the login at the service when the connection is deleted, and deletes it when the service does not answer", func() {
+		approveClient(s)
+		id := createOAuthBinding(s, "alice")
+		l := startLogin(s, "alice", id, nil)
+		location(callback(s, "alice", url.Values{"state": {l.state}, "code": {"c"}}, l.cookie))
+		Expect(oauthDo(s, "alice", http.MethodDelete, "/api/chats/connectors/"+id, nil, nil).Code).To(Equal(http.StatusNoContent))
+		Expect(env.srv.Revokes.Load()).To(BeEquivalentTo(1))
+		Expect(env.srv.Forms()[len(env.srv.Forms())-1].Get("token_type_hint")).To(Equal("refresh_token"))
+
+		id = createOAuthBinding(s, "alice")
+		l = startLogin(s, "alice", id, nil)
+		location(callback(s, "alice", url.Values{"state": {l.state}, "code": {"c"}}, l.cookie))
+		env.srv.Set(func(s *oauthtokentest.Server) { s.RevokeStatus = 503 })
+		Expect(oauthDo(s, "alice", http.MethodDelete, "/api/chats/connectors/"+id, nil, nil).Code).To(Equal(http.StatusNoContent))
+		Expect(oauthDo(s, "alice", http.MethodGet, "/api/chats/connectors/"+id, nil, nil).Code).To(Equal(http.StatusNotFound))
+	})
+
 	It("answers unavailable when no add-on gateway runs", func() {
 		studioConnectorOptions = env.connectorOptions(true)
 		studioRouteOptions = func(*studioServer) []studioendpoint.Option {
@@ -751,5 +768,14 @@ var _ = Describe("OAuth routes on two frontends", func() {
 		rec := oauthDo(b, "alice", http.MethodPost, "/api/chats/connectors/"+id+"/oauth/disconnect", nil, nil)
 		Expect(decodeJSON(rec)).To(Equal(map[string]any{"revoked": true}))
 		Expect(binding(a, "alice", id)["oauth"].(map[string]any)["state"]).To(Equal("not_connected"))
+
+		// Deleting the connection on the frontend revokes its login on the
+		// owner first.
+		l = startLogin(b, "alice", id, nil)
+		location(callback(b, "alice", url.Values{"state": {l.state}, "code": {"c"}}, l.cookie))
+		revokes := env.srv.Revokes.Load()
+		Expect(oauthDo(b, "alice", http.MethodDelete, "/api/chats/connectors/"+id, nil, nil).Code).To(Equal(http.StatusNoContent))
+		Expect(env.srv.Revokes.Load()).To(Equal(revokes + 1))
+		Expect(oauthDo(a, "alice", http.MethodGet, "/api/chats/connectors/"+id, nil, nil).Code).To(Equal(http.StatusNotFound))
 	})
 })

@@ -556,8 +556,20 @@ func (c *Connectors) ListConnectors(ctx context.Context, user string) ([]Connect
 }
 
 // DeleteConnector removes a binding of the user with its offset, senders and chats.
-// The chats it made stay.
+// The chats it made stay. The login of an OAuth binding is revoked at the
+// service first when this process can read the add-on's descriptor, as
+// Disconnect does; the grant is deleted with the binding in any case.
 func (c *Connectors) DeleteConnector(ctx context.Context, user, id string) error {
+	b, err := c.owned(ctx, user, id)
+	if err != nil {
+		return err
+	}
+	if b.UsesOAuth() {
+		// Outside the write lock: the revocation asks the service.
+		if g, err := c.o.Store.GetGrant(ctx, b.ID); err == nil {
+			c.revoke(ctx, b, g)
+		}
+	}
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	if _, err := c.owned(ctx, user, id); err != nil {

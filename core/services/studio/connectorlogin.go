@@ -326,6 +326,11 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 		return fail(LoginUnavailable)
 	}
 	if _, err := c.o.Store.PutGrant(ctx, g); err != nil {
+		if errors.Is(err, connectors.ErrNotFound) {
+			// The binding was deleted while the code was traded. The
+			// tokens are dropped; nothing can reach or revoke them here.
+			return fail(LoginInvalidState)
+		}
 		res.Outcome = LoginUnavailable
 		return res, err
 	}

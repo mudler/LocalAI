@@ -1179,6 +1179,10 @@ name:
 When a chat uses a connection whose login stopped working, the chat's **Tools**
 menu names the connection and links to the Connectors page.
 
+Deleting a connection that logs in also asks the service to revoke the login
+first, as **Disconnect** does. The connection is deleted even when the service
+does not answer.
+
 ### Approve the login of an add-on (administrators)
 
 Open the add-on on the **Add-ons** page and select the **Settings** tab. The

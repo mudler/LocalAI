@@ -320,6 +320,23 @@ func (h *Handlers) DisconnectConnectorOAuth(c echo.Context) error {
 	return c.JSON(http.StatusOK, schema.ChatsConnectorOAuthDisconnected{Revoked: r.Revoked})
 }
 
+// revokeBeforeDelete asks the add-on owner to disconnect an OAuth binding of
+// the person before it is deleted: only the owner reads the descriptor that
+// names the revocation endpoint, and a frontend's own service cannot. It is
+// best effort; the delete follows whatever the answer.
+func (h *Handlers) revokeBeforeDelete(c echo.Context, host *studiosvc.Connectors) {
+	ctx := c.Request().Context()
+	i, err := host.GetConnector(ctx, userID(c), c.Param("id"))
+	if err != nil || !i.UsesOAuth() || i.OAuth == nil || i.OAuth.State == studiosvc.OAuthNotConnected {
+		return
+	}
+	a, d, err := h.oauthActor(c)
+	if err != nil {
+		return
+	}
+	_, _ = d.OAuth(ctx, a, gateway.OAuthCall{Op: gateway.OAuthDisconnect, BindingID: i.ID})
+}
+
 // GetOAuthClient reads the OAuth client of an add-on.
 // @Summary Read the OAuth client of an add-on (administrator).
 // @Description The client ID, whether a secret is stored (never the secret), the approval and the login the add-on declares, with the callback address to register with the service. No MCP tool reads or writes it.

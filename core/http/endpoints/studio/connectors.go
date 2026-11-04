@@ -287,7 +287,7 @@ func (h *Handlers) UpdateConnector(c echo.Context) error {
 
 // DeleteConnector deletes a binding.
 // @Summary Delete a connector binding.
-// @Description Its offset, sender log and sender-to-chat map go; the chats it made stay.
+// @Description Its offset, sender log and sender-to-chat map go; the chats it made stay. A connection that logs in with OAuth asks the service to revoke its login first, as a disconnect does, and is deleted even when the service does not answer.
 // @Tags chats
 // @Param id path string true "the binding's id"
 // @Success 204 "Deleted"
@@ -297,6 +297,7 @@ func (h *Handlers) DeleteConnector(c echo.Context) error {
 	if !ok {
 		return nil
 	}
+	h.revokeBeforeDelete(c, host)
 	if err := host.DeleteConnector(c.Request().Context(), userID(c), c.Param("id")); err != nil {
 		return failConnector(c, err)
 	}

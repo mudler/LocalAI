@@ -154,7 +154,10 @@ type OAuthStore interface {
 	GetGrant(ctx context.Context, binding string) (Grant, error)
 	// PutGrant stores the grant of a new login and replaces any earlier one.
 	// The version becomes one more than the one it replaced (1 for a new
-	// grant) and the lease ends. It returns the new version.
+	// grant) and the lease ends. It returns the new version. It refuses with
+	// ErrNotFound, and stores nothing, when the binding does not exist: the
+	// check and the write are one step, so a login that finishes while its
+	// binding is deleted leaves no grant behind.
 	PutGrant(ctx context.Context, g Grant) (int64, error)
 	// UpdateGrant writes g only while the stored grant has the given version,
 	// as one step. The version becomes version+1 and the lease ends. It

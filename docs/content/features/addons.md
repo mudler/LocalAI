@@ -700,7 +700,12 @@ Every credentialed call reads the grant:
 Disconnect revokes the refresh token (or the access token when there is no
 refresh token) at `revokeUrl` when the descriptor has one, with a 10 s limit,
 and then deletes the grant even when the revocation failed. The answer says
-whether the service was told.
+whether the service was told. Deleting the connection revokes the same way
+first; a person's delete asks the add-on owner, so it works on any frontend,
+while an administrator's delete revokes only on a process that runs the
+add-ons. A login whose callback finishes after its connection was deleted
+stores nothing: the store writes a grant only while its binding exists, in the
+same step.
 
 The token client follows no redirect, reaches public addresses only, waits at
 most 30 s and reads at most 64 KiB. It accepts bearer tokens only, an access

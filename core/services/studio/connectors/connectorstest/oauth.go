@@ -20,6 +20,12 @@ func grant(bindingID string) connectors.Grant {
 		State: connectors.GrantConnected, DescriptorDigest: "d1", Updated: t0}
 }
 
+// bindFor stores a binding of u1 for a grant: a store keeps a grant only for
+// a binding that exists.
+func bindFor(s connectors.Store, id string) {
+	ExpectWithOffset(1, s.PutBinding(context.Background(), binding(id, "u1", "Bot "+id))).To(Succeed())
+}
+
 // runOAuth registers the specs of the OAuth records: the binding's auth kind,
 // the grant of a binding, the client of an add-on and the login state.
 func runOAuth(newStore NewStore) {
@@ -43,6 +49,7 @@ func runOAuth(newStore NewStore) {
 
 	It("stores one grant per binding and bumps its version on every write", func() {
 		s := newStore()
+		bindFor(s, "b1")
 		_, err := s.GetGrant(ctx, "b1")
 		Expect(errors.Is(err, connectors.ErrNotFound)).To(BeTrue())
 		v, err := s.PutGrant(ctx, grant("b1"))
@@ -67,6 +74,7 @@ func runOAuth(newStore NewStore) {
 
 	It("writes a grant back only at the version it read", func() {
 		s := newStore()
+		bindFor(s, "b1")
 		_, _ = s.PutGrant(ctx, grant("b1"))
 		next := grant("b1")
 		next.Sealed, next.ExpiresAt, next.Scopes = []byte("rotated"), t0.Add(2*time.Hour), []string{"read"}
@@ -87,6 +95,7 @@ func runOAuth(newStore NewStore) {
 
 	It("leases a grant to one refresher until the lease ends or the grant is written", func() {
 		s := newStore()
+		bindFor(s, "b1")
 		_, _ = s.PutGrant(ctx, grant("b1"))
 		ok, err := s.LeaseGrant(ctx, "b1", 1, "front-a", t0, 30*time.Second)
 		Expect(err).NotTo(HaveOccurred())
@@ -110,6 +119,7 @@ func runOAuth(newStore NewStore) {
 
 	It("releases a lease only for its owner and version", func() {
 		s := newStore()
+		bindFor(s, "b1")
 		_, _ = s.PutGrant(ctx, grant("b1"))
 		ok, _ := s.LeaseGrant(ctx, "b1", 1, "front-a", t0, time.Minute)
 		Expect(ok).To(BeTrue())
@@ -127,6 +137,7 @@ func runOAuth(newStore NewStore) {
 
 	It("lets only one of many racing refreshers lease a grant", func() {
 		s := newStore()
+		bindFor(s, "race")
 		_, _ = s.PutGrant(ctx, grant("race"))
 		var wg sync.WaitGroup
 		var mu sync.Mutex
@@ -149,8 +160,25 @@ func runOAuth(newStore NewStore) {
 		Expect(wins).To(Equal(1))
 	})
 
+	It("keeps a grant only for a binding that exists, so a login that finishes after a delete leaves nothing", func() {
+		s := newStore()
+		_, err := s.PutGrant(ctx, grant("gone"))
+		Expect(errors.Is(err, connectors.ErrNotFound)).To(BeTrue(), "%v", err)
+		_, err = s.GetGrant(ctx, "gone")
+		Expect(errors.Is(err, connectors.ErrNotFound)).To(BeTrue())
+		bindFor(s, "gone")
+		_, err = s.PutGrant(ctx, grant("gone"))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(s.DeleteBinding(ctx, "gone")).To(Succeed())
+		_, err = s.PutGrant(ctx, grant("gone"))
+		Expect(errors.Is(err, connectors.ErrNotFound)).To(BeTrue(), "%v", err)
+		_, err = s.GetGrant(ctx, "gone")
+		Expect(errors.Is(err, connectors.ErrNotFound)).To(BeTrue())
+	})
+
 	It("deletes a grant, alone or with its binding", func() {
 		s := newStore()
+		bindFor(s, "b2")
 		_ = s.PutBinding(ctx, binding("b1", "u1", "Bot"))
 		_, _ = s.PutGrant(ctx, grant("b1"))
 		_, _ = s.PutGrant(ctx, grant("b2"))

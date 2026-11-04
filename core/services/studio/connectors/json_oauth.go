@@ -32,6 +32,9 @@ func (s *jsonStore) GetGrant(_ context.Context, binding string) (Grant, error) {
 func (s *jsonStore) PutGrant(_ context.Context, g Grant) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if _, ok := s.d.Bindings[g.Binding]; !ok {
+		return 0, ErrNotFound
+	}
 	g = g.clone()
 	g.Version = s.d.Grants[g.Binding].Version + 1
 	g.LeaseOwner, g.LeaseUntil = "", time.Time{}

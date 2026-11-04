@@ -224,12 +224,17 @@ func (s *gormStore) EnabledBindings(ctx context.Context) ([]Binding, error) {
 
 func (s *gormStore) DeleteBinding(ctx context.Context, id string) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// The binding goes first, so a PutGrant that waits on its lock finds
+		// it gone, and one that wrote before is removed below.
+		if err := tx.Where("id = ?", id).Delete(&bindingRow{}).Error; err != nil {
+			return err
+		}
 		for _, m := range []any{&stateRow{}, &senderRow{}, &chatRow{}, &pairingRow{}, &grantRow{}, &loginStateRow{}} {
 			if err := tx.Where("binding = ?", id).Delete(m).Error; err != nil {
 				return err
 			}
 		}
-		return tx.Where("id = ?", id).Delete(&bindingRow{}).Error
+		return nil
 	})
 }
 

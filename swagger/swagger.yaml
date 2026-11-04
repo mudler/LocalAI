@@ -17472,7 +17472,9 @@ paths:
   /api/chats/connectors/{id}:
     delete:
       description: Its offset, sender log and sender-to-chat map go; the chats it
-        made stay.
+        made stay. A connection that logs in with OAuth asks the service to revoke
+        its login first, as a disconnect does, and is deleted even when the service
+        does not answer.
       parameters:
       - description: the binding's id
         in: path
