@@ -5,6 +5,7 @@
 export const AGENTS = [
   { id: 'a1', name: 'Support', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [], builtins: ['memory.write', 'files.upload', 'triggers.propose', 'triggers.run', 'talkback.channels', 'talkback.new_channel', 'profile.write'] },
   { id: 'a2', name: 'No model', model: '', mcp_servers: [], addons: [], collections: [], skills: [], builtins: [] },
+  { id: 'a4', name: 'Builder', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [], builtins: ['memory.write', 'triggers.propose', 'act.files', 'act.addons'] },
   { id: 'a3', name: 'Careful', model: 'qwen3-8b', mcp_servers: [], addons: [], collections: [], skills: [], builtins: ['memory.write', 'files.upload'] },
 ]
 

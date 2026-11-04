@@ -142,14 +142,14 @@ test('chat connectors: a saved limit reads back to the same number of bytes', ()
 
 test('chat connectors: the approval of chat triggers asks by default and sends its limits as numbers', () => {
   const base = { ...emptyConnector(), name: 'B', agent_id: 'a' }
-  assert.deepEqual(connectorPayload(base, 'telegram').approval, { mode: 'ask', max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
+  assert.deepEqual(connectorPayload(base, 'telegram').approval, { mode: 'ask', acts: [], max_pending: 0, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
   const auto = connectorPayload({ ...base, approval: { mode: 'auto', max_pending: '3', min_gap_minutes: '', max_runs_per_day: ' 8 ', max_lifetime_days: '14' } }, 'telegram')
-  assert.deepEqual(auto.approval, { mode: 'auto', max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 8, max_lifetime_days: 14 })
+  assert.deepEqual(auto.approval, { mode: 'auto', acts: [], max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 8, max_lifetime_days: 14 })
   assert.equal(connectorPayload({ ...base, approval: { mode: 'sometimes' } }, 'telegram').approval.mode, 'ask', 'an unknown mode falls back to ask')
 })
 
 test('chat connectors: a saved approval reads back, with a zero limit shown as empty', () => {
-  assert.deepEqual(approvalForm({ mode: 'auto_readonly', max_pending: 4, min_gap_minutes: 0 }), { mode: 'auto_readonly', max_pending: '4', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' })
+  assert.deepEqual(approvalForm({ mode: 'auto_readonly', max_pending: 4, min_gap_minutes: 0 }), { mode: 'auto_readonly', acts: [], max_pending: '4', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' })
   assert.equal(connectorForm({ id: 'b' }).approval.mode, 'ask')
 })
 
@@ -162,4 +162,25 @@ test('chat connectors: an approval limit is a whole number within its bound, or 
   const ok = { ...emptyConnector(), name: 'B', agent_id: 'a', token: '1:x' }
   assert.equal(canSave({ ...ok, approval: { mode: 'auto', max_pending: '500' } }, false), false)
   assert.equal(canSave(ok, false), true)
+})
+
+test('chat connectors: approval acts round trip, are sent with the mode and limits, and an empty list is sent as []', () => {
+  const saved = { mode: 'auto', acts: ['act.spend', 'act.files'], max_pending: 3 }
+  const form = approvalForm(saved)
+  assert.deepEqual(form.acts, ['act.spend', 'act.files'])
+  const out = approvalPayload(form)
+  assert.deepEqual(out, { mode: 'auto', acts: ['act.files', 'act.spend'], max_pending: 3, min_gap_minutes: 0, max_runs_per_day: 0, max_lifetime_days: 0 })
+  assert.deepEqual(approvalPayload({ ...form, acts: [] }).acts, [])
+  assert.deepEqual(approvalPayload({ mode: 'ask' }).acts, [])
+  assert.deepEqual(approvalForm({ mode: 'ask' }).acts, [])
+})
+
+test('chat connectors: approval acts replace the whole object, so a mode change keeps them, and only the four names are valid', () => {
+  const base = { ...connectorForm({ id: 'b', approval: { mode: 'ask', acts: ['act.addons'] } }) }
+  const changed = connectorPayload({ ...base, approval: { ...base.approval, mode: 'auto' } }, 'telegram')
+  assert.equal(changed.approval.mode, 'auto')
+  assert.deepEqual(changed.approval.acts, ['act.addons'])
+  assert.deepEqual(approvalPayload({ mode: 'ask', acts: ['act.files', 'act.bogus'] }).acts, ['act.files'])
+  assert.equal(approvalProblem({ mode: 'ask', acts: ['act.send'] }), '')
+  assert.equal(approvalProblem({ mode: 'ask', acts: ['act.bogus'] }), 'acts')
 })

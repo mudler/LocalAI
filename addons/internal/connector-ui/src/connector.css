@@ -207,3 +207,10 @@ fieldset.cn-group {
 .cn-option__title { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
 .cn-option__limits summary { cursor: pointer; font-size: var(--fs-small); color: var(--color-text-secondary); }
 .cn-option__limits[open] summary { margin-bottom: var(--dk-space-2); }
+.cn-acts { display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-acts__list { list-style: none; margin: 0; padding: 0 0 0 var(--dk-space-3); display: flex; flex-direction: column; gap: var(--dk-space-2); }
+.cn-acts__item { display: flex; flex-direction: column; gap: 2px; }
+.cn-acts__label { display: flex; align-items: flex-start; gap: var(--dk-space-2); }
+.cn-acts__label .dk-check { flex: none; margin-top: 2px; }
+.cn-acts__text { display: flex; align-items: center; flex-wrap: wrap; gap: 2px var(--dk-space-2); min-width: 0; }
+.cn-acts__item[data-lacks="true"] .cn-acts__label { opacity: 0.7; }

@@ -704,6 +704,8 @@ the network). The default is an empty list. Any other name is refused with `400`
 present `approval` object replaces the whole object, so send `acts` again when you change
 the mode or a limit.
 
+On the settings page of the connector add-on, **Runs may act** is a switch under the approval mode of the permission **Propose triggers** (greyed while that permission is off). It is off by default. When it is on, four checkboxes name the acts in plain words: write files in the agent's folders, use the actions of the agent's add-ons, send messages beyond where it reports, and use paid or external tools and the network. All four are marked sensitive. A box is disabled with "The agent does not have this." when the agent lacks the matching grant; a box that is already ticked stays ticked and can be unticked. The line of the permission shows the choice, for example "Proposals: set up at once, runs may: write files, use add-ons". The page always sends the mode, the limits and `acts` together.
+
 The list is a ceiling, not a grant. The acts of a proposal are what the model asks for in
 `acts`, limited to this list, limited to what the agent holds:
 

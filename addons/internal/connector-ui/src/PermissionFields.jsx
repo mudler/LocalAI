@@ -10,7 +10,7 @@ import { Field, Hint, Notice, Switch, TextInput } from './controls'
 import Icon from '../../host-compat/src/components/Icon'
 import { MAX_CHANNELS, MAX_CHANNEL_ID, MAX_CHANNEL_LABEL, agentHas, agentHeld, channelsProblem, copyFromAgent, grantableFor, hasNoCaps, presetBlock, roleHas, setCap, setGrant, unpairedSensitive, usualFor, withAddedCaps, withCopiedCaps } from './connector'
 import PairingFields from './PairingFields'
-import ApprovalOptions from './ApprovalFields'
+import ApprovalOptions, { approvalEffect } from './ApprovalFields'
 
 export const PERMISSION_TEXT = {
   'perm.title': 'What senders may do',
@@ -307,8 +307,8 @@ export default function PermissionFields({ form, setForm, kind, capabilities, s,
       <Presets key={`${form.id || 'new'}:${form.agent_id || ''}`} form={form} setForm={setForm} capabilities={caps} agent={agent} s={s} />
       <ul className="cn-caps" aria-label={s('perm.capsLegend')}>
         {caps.map((c) => <Cap key={c.name} cap={c} on={on(c.name)} s={s}
-          effect={c.name === 'triggers.propose' && form.approval ? s('approval.effect', { mode: s(`approval.short.${form.approval.mode || 'ask'}`) }) : undefined} lacks={Boolean(form.agent_id) && held !== null && !agentHas(held, c.name)} onChange={(v) => setForm(setCap(form, c.name, v))}>
-            {c.name === 'triggers.propose' && form.approval && <ApprovalOptions form={form} setForm={setForm} s={s} off={!on(c.name)} />}
+          effect={c.name === 'triggers.propose' && form.approval ? approvalEffect(form.approval, s) : undefined} lacks={Boolean(form.agent_id) && held !== null && !agentHas(held, c.name)} onChange={(v) => setForm(setCap(form, c.name, v))}>
+            {c.name === 'triggers.propose' && form.approval && <ApprovalOptions form={form} setForm={setForm} s={s} off={!on(c.name)} held={held} />}
           </Cap>)}
       </ul>
       <Roles form={form} setForm={setForm} kind={kind} capabilities={caps} s={s} />

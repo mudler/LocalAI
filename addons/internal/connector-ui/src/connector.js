@@ -17,14 +17,23 @@ export const APPROVAL_LIMITS = [
   { key: 'max_lifetime_days', max: 365, fallback: 30 },
 ]
 
+// The acts a run of a trigger proposed from a chat may be allowed to do. The
+// names are also the grants of the agent, which must hold the same one. Every
+// one is sensitive.
+export const APPROVAL_ACTS = ['act.files', 'act.addons', 'act.send', 'act.spend']
+
 export function emptyApproval() {
-  return { mode: 'ask', max_pending: '', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' }
+  return { mode: 'ask', acts: [], max_pending: '', min_gap_minutes: '', max_runs_per_day: '', max_lifetime_days: '' }
 }
+
+// Whether the agent holds the grant behind an act. held is agentHeld(agent);
+// null (permissions unreadable) gates nothing.
+export const agentHoldsAct = (held, act) => held === null || held === undefined || held.includes(act)
 
 // The approval of a saved binding as a form: a limit of zero is the default
 // and shows empty.
 export function approvalForm(a) {
-  const f = { ...emptyApproval(), mode: a?.mode || 'ask' }
+  const f = { ...emptyApproval(), mode: a?.mode || 'ask', acts: Array.isArray(a?.acts) ? [...a.acts] : [] }
   for (const { key } of APPROVAL_LIMITS) f[key] = a?.[key] > 0 ? String(a[key]) : ''
   return f
 }
@@ -34,6 +43,7 @@ export function approvalForm(a) {
 export function approvalProblem(a) {
   if (!a) return ''
   if (!APPROVAL_MODES.includes(a.mode)) return 'mode'
+  if ((a.acts || []).some((n) => !APPROVAL_ACTS.includes(n))) return 'acts'
   for (const { key, max } of APPROVAL_LIMITS) {
     const v = String(a[key] ?? '').trim()
     if (v === '') continue
@@ -44,7 +54,9 @@ export function approvalProblem(a) {
 }
 
 export function approvalPayload(a) {
-  const body = { mode: APPROVAL_MODES.includes(a?.mode) ? a.mode : 'ask' }
+  // The whole approval is sent each time (the server replaces it), acts too;
+  // an empty list means runs only read.
+  const body = { mode: APPROVAL_MODES.includes(a?.mode) ? a.mode : 'ask', acts: APPROVAL_ACTS.filter((n) => (a?.acts || []).includes(n)) }
   for (const { key } of APPROVAL_LIMITS) body[key] = Number(String(a?.[key] ?? '').trim()) || 0
   return body
 }
