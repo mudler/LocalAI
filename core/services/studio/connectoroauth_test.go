@@ -104,8 +104,13 @@ func newOAuthRig(st connectors.Store) *oauthRig {
 // instance is another connector service on the same store and token
 // endpoint, as a second frontend would run it.
 func (r *oauthRig) instance(name string) *studio.Connectors {
+	return r.instanceOn(name, r.st)
+}
+
+// instanceOn is an instance that reaches the store through st.
+func (r *oauthRig) instanceOn(name string, st connectors.Store) *studio.Connectors {
 	c, err := studio.NewConnectors(r.svc, studio.ConnectorOptions{
-		Store: r.st, Transport: r.tr, Clock: r.sh.clock.Now, InstanceID: name, TokenClient: r.srv.Client(),
+		Store: st, Transport: r.tr, Clock: r.sh.clock.Now, InstanceID: name, TokenClient: r.srv.Client(),
 		OAuthDescriptor: func(context.Context, string) (contract.OAuthDescriptor, error) {
 			r.dmu.Lock()
 			defer r.dmu.Unlock()
@@ -166,6 +171,31 @@ func (r *oauthRig) grant(id string) connectors.Grant {
 	g, err := r.st.GetGrant(context.Background(), id)
 	Expect(err).NotTo(HaveOccurred())
 	return g
+}
+
+// faultyStore is a store that fails the read of the sealing key, or every
+// write of a grant, while the flag is set: an outage that starts after a
+// refresh took its lease.
+type faultyStore struct {
+	connectors.Store
+	keyDown    atomic.Bool
+	writesDown atomic.Bool
+}
+
+var errStoreDown = errors.New("store unavailable")
+
+func (f *faultyStore) EnsureKey(ctx context.Context, generate func() ([]byte, error)) ([]byte, error) {
+	if f.keyDown.Load() {
+		return nil, errStoreDown
+	}
+	return f.Store.EnsureKey(ctx, generate)
+}
+
+func (f *faultyStore) UpdateGrant(ctx context.Context, g connectors.Grant, version int64) (bool, error) {
+	if f.writesDown.Load() {
+		return false, errStoreDown
+	}
+	return f.Store.UpdateGrant(ctx, g, version)
 }
 
 func sqliteConnStore() connectors.Store {
@@ -612,6 +642,84 @@ var _ = Describe("OAuth connections", func() {
 					r.srv.Set(func(s *oauthtokentest.Server) { s.Fail = "" })
 					_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 					Expect(err).NotTo(HaveOccurred())
+				})
+
+				// notBlocked shows that a refresh which failed on front-b left
+				// the lease free: front-a refreshes at once instead of waiting
+				// for the lease and then answering unavailable.
+				notBlocked := func(b connectors.Binding) (studio.CredentialGrant, error) {
+					Expect(r.grant(b.ID).LeaseOwner).To(BeEmpty(), "a failed refresh frees the lease")
+					began := time.Now()
+					got, err := r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(time.Since(began)).To(BeNumerically("<", 5*time.Second), "front-a waited for the lease")
+					return got, err
+				}
+
+				It("frees the lease when the sealer is not available to the refresh", func() {
+					// A public client has no secret, so the approval does not
+					// need the sealer and the refresh is the first to ask for it.
+					r.setDescriptor(func(d *contract.OAuthDescriptor) { *d = r.srv.Descriptor(contract.OAuthClientAuthNone) })
+					_, err := r.conns.SetClient(ctx, oauthAddon, studio.OAuthClientInput{Digest: r.digest(), ClientID: "public-1", ApprovedBy: "admin"})
+					Expect(err).NotTo(HaveOccurred())
+					b := r.binding()
+					ls, state := r.start(b)
+					res, err := r.conns.CompleteLogin(ctx, alice, ls.Nonce, state, oauthCode, "")
+					Expect(err).NotTo(HaveOccurred())
+					Expect(res.Outcome).To(Equal(studio.LoginOK))
+					faulty := &faultyStore{Store: r.st}
+					faulty.keyDown.Store(true)
+					other := r.instanceOn("front-b", faulty)
+					r.sh.clock.Advance(time.Hour)
+					_, err = other.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).To(MatchError(studio.ErrCredentialUnavailable))
+					Expect(r.grant(b.ID).Version).To(BeEquivalentTo(1))
+					got, err := notBlocked(b)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(got.Version).To(BeEquivalentTo(2))
+				})
+
+				It("frees the lease when the store cannot write a refreshed token", func() {
+					b := r.connect()
+					faulty := &faultyStore{Store: r.st}
+					faulty.writesDown.Store(true)
+					other := r.instanceOn("front-b", faulty)
+					r.sh.clock.Advance(time.Hour)
+					_, err := other.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).To(MatchError(studio.ErrCredentialUnavailable))
+					got, err := notBlocked(b)
+					Expect(err).NotTo(HaveOccurred())
+					Expect(got.Version).To(BeEquivalentTo(2))
+				})
+
+				It("frees the lease when the store cannot write an ended grant", func() {
+					b := r.connect()
+					faulty := &faultyStore{Store: r.st}
+					faulty.writesDown.Store(true)
+					other := r.instanceOn("front-b", faulty)
+					r.sh.clock.Advance(time.Hour)
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Fail = "invalid_grant" })
+					_, err := other.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+					Expect(r.grant(b.ID).State).To(Equal(connectors.GrantConnected), "the write failed")
+					_, err = notBlocked(b)
+					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+					Expect(r.grant(b.ID).Reason).To(Equal(studio.ReasonRevoked))
+				})
+
+				It("keeps the lease when a rotated refresh token could not be written back", func() {
+					r.srv.Set(func(s *oauthtokentest.Server) { s.Rotate = true })
+					b := r.connect()
+					faulty := &faultyStore{Store: r.st}
+					faulty.writesDown.Store(true)
+					other := r.instanceOn("front-b", faulty)
+					r.sh.clock.Advance(time.Hour)
+					_, err := other.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
+					Expect(err).To(MatchError(studio.ErrReconnectNeeded))
+					// The stored refresh token may be dead now: until the lease
+					// ends, no frontend sends it again.
+					g := r.grant(b.ID)
+					Expect(g.LeaseOwner).To(Equal("front-b"))
+					Expect(g.Version).To(BeEquivalentTo(1))
 				})
 
 				DescribeTable("holds a login whose descriptor changed until an administrator approves it again",

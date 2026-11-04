@@ -455,8 +455,21 @@ func (c *Connectors) refreshShared(ctx context.Context, b connectors.Binding, se
 
 // refreshHeld refreshes the grant g, whose lease this process holds. The new
 // token is written back before it is returned.
+//
+// The lease is freed on every way out, failed writes of the store or the
+// sealer included, so the other callers do not wait for its end and then
+// answer unavailable. It is kept in one case only: the service rotated the
+// refresh token and the new one was not written back. The stored token may
+// be dead then, and no frontend may send it again before the lease ends.
 func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g connectors.Grant) (oauthAccess, error) {
-	release := func() { _ = c.o.Store.ReleaseGrant(ctx, b.ID, g.Version, c.instance) }
+	keepLease := false
+	defer func() {
+		if !keepLease {
+			// After a write of the grant this does nothing: the write moved
+			// the grant to a new version, which has no lease.
+			_ = c.o.Store.ReleaseGrant(ctx, b.ID, g.Version, c.instance)
+		}
+	}()
 	sec, err := c.openGrant(ctx, b, g)
 	if err != nil {
 		return oauthAccess{}, err
@@ -466,7 +479,6 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	}
 	a, err := c.approval(ctx, b.AddonID)
 	if err != nil {
-		release()
 		if errors.Is(err, ErrOAuthUnavailable) {
 			return oauthAccess{}, ErrCredentialUnavailable
 		}
@@ -480,7 +492,6 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 		// The approval changed since the grant was read; the next call
 		// carries it over. The refresh token goes only to the endpoint of
 		// the grant.
-		release()
 		return oauthAccess{}, ErrCredentialUnavailable
 	}
 	tok, err := c.tokenClient().Refresh(ctx, d, a.cred, sec.Refresh)
@@ -488,7 +499,6 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	switch {
 	case err == nil:
 	case errors.As(err, &limited):
-		release()
 		return oauthAccess{}, limited
 	case errors.Is(err, oauthtoken.ErrInvalidGrant):
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonRevoked)
@@ -499,10 +509,11 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	case errors.Is(err, oauthtoken.ErrRefused), errors.Is(err, oauthtoken.ErrBadResponse):
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonRefused)
 	default:
-		release()
 		return oauthAccess{}, ErrCredentialUnavailable
 	}
 	rotated := tok.Refresh != "" && tok.Refresh != sec.Refresh
+	// From here a failure loses the rotated refresh token.
+	keepLease = rotated
 	next := g
 	next.Updated = c.o.Clock().UTC()
 	next.ExpiresAt = time.Time{}
@@ -547,7 +558,6 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 		// The old refresh token may be dead now and the new one is lost.
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonWriteFailed)
 	}
-	release()
 	// err is nil when the grant moved under the lease; only an outage is
 	// logged.
 	if err != nil {
