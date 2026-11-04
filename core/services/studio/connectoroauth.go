@@ -44,35 +44,35 @@ const (
 // words them, and none carries text of the service.
 const (
 	// ReasonRevoked: the service answered invalid_grant.
-	ReasonRevoked = "revoked"
+	ReasonRevoked = "revoked" // #nosec G101 -- a failure reason, not a credential
 	// ReasonClientRejected: the service refused the client of the add-on.
-	ReasonClientRejected = "client_rejected"
+	ReasonClientRejected = "client_rejected" // #nosec G101 -- a failure reason, not a credential
 	// ReasonRefused: the service refused the refresh in another way, or gave
 	// an answer the host cannot use.
-	ReasonRefused = "refused"
+	ReasonRefused = "refused" // #nosec G101 -- a failure reason, not a credential
 	// ReasonNeedsApproval: the descriptor of the add-on changed, or its
 	// client was removed, so an administrator must approve it again. The
 	// grant is held (connectors.GrantNeedsApproval) with its tokens.
-	ReasonNeedsApproval = "needs_approval"
+	ReasonNeedsApproval = "needs_approval" // #nosec G101 -- a failure reason, not a credential
 	// ReasonCredentialRejected: the add-on rejected a fresh token too.
-	ReasonCredentialRejected = "credential_rejected"
+	ReasonCredentialRejected = "credential_rejected" // #nosec G101 -- a failure reason, not a credential
 	// ReasonExpired: the access token ended and there is no refresh token.
-	ReasonExpired = "expired"
+	ReasonExpired = "expired" // #nosec G101 -- a failure reason, not a credential
 	// ReasonWriteFailed: the service rotated the refresh token and the host
 	// could not store the new one.
-	ReasonWriteFailed = "write_failed"
+	ReasonWriteFailed = "write_failed" // #nosec G101 -- a failure reason, not a credential
 	// ReasonUnreadable: the sealed tokens do not open.
-	ReasonUnreadable = "unreadable"
+	ReasonUnreadable = "unreadable" // #nosec G101 -- a failure reason, not a credential
 	// ReasonScopesMissing: a refresh granted fewer than the required scopes,
 	// or a newly approved descriptor requires a scope the login lacks.
-	ReasonScopesMissing = "scopes_missing"
+	ReasonScopesMissing = "scopes_missing" // #nosec G101 -- a failure reason, not a credential
 	// ReasonTokenTooLarge: a refresh gave an access token larger than a
 	// request carries.
-	ReasonTokenTooLarge = "token_too_large"
+	ReasonTokenTooLarge = "token_too_large" // #nosec G101 -- a failure reason, not a credential
 	// ReasonEndpointChanged: the approved descriptor of the add-on sends the
 	// refresh token to another token or revocation endpoint than the one the
 	// login used. The token is never sent there.
-	ReasonEndpointChanged = "endpoint_changed"
+	ReasonEndpointChanged = "endpoint_changed" // #nosec G101 -- a failure reason, not a credential
 )
 
 // Errors of the OAuth credentials.
