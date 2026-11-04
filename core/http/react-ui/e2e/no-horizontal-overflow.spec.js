@@ -16,8 +16,9 @@ import { mockLedger, GALLERY } from './ledger-fixtures.js'
 
 const WIDTHS = [390, 768]
 // Boxes that scroll on their own, by selector.
-// The strips are one row of tabs or chips that scroll on a phone by design.
-const SCROLLS_INSIDE = ['pre', 'code', 'table', '.ag-pre', '.wk-shortcuts__chips', '.st-groups']
+// The strips are one row of tabs or chips that scroll on a phone by design
+// (the Settings tabs outgrow 390 px with a wider font).
+const SCROLLS_INSIDE = ['pre', 'code', 'table', '.ag-pre', '.wk-shortcuts__chips', '.st-groups', '.dk-hubtabs']
 
 const join = (n, s) => Array.from({ length: n }, (_, i) => `${s}${i}`).join('_')
 const WORD = join(9, 'unbroken_name_segment')

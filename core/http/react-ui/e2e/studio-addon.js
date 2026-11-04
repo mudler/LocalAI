@@ -38,14 +38,20 @@ function build(id) {
   return built.get(id)
 }
 
+// The text of a manifest field: a plain string, or a language map. The apps
+// list sends the English text in title and description, and the whole map in
+// titles and descriptions.
+const english = v => (v && typeof v === 'object' ? v.en : v)
+const languages = v => (v && typeof v === 'object' ? v : undefined)
+
 export function packagedApp(id, over = {}) {
   const manifest = JSON.parse(fs.readFileSync(path.join(addons, id, 'manifest.json'), 'utf8'))
   const ui = manifest.capabilities.ui
   const base = `/api/addons/${id}/assets/${DIGEST}`
   return app({
-    id, name: id, title: ui.title, description: ui.description, icon: undefined, generation: 1, version: manifest.version,
+    id, name: id, title: english(ui.title), description: english(ui.description), titles: languages(ui.title), descriptions: languages(ui.description), icon: undefined, generation: 1, version: manifest.version,
     mainPage: `/app/addons/${id}/${ui.mainPage}`, tools: [], toolCount: 0,
-    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions, homeCommands: ui.homeCommands?.map(c => ({ ...c, page: c.page || ui.mainPage, label: c.label || ui.title, icon: c.icon || 'puzzle' })) },
+    ui: { entry: `${base}/${ui.entry}`, css: ui.css.map(c => `${base}/${c}`), sdk: ui.sdk, pages: ui.pages, navigation: ui.navigation, modelActions: ui.modelActions, homeCommands: ui.homeCommands?.map(c => ({ ...c, page: c.page || ui.mainPage, label: c.label || english(ui.title), icon: c.icon || 'puzzle' })) },
     ...over,
   })
 }
