@@ -62,8 +62,9 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 	defs := []contract.ToolDefinition{
 		{Name: "read-file", Kind: "read", Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{"repo":{"type":"string"}},"required":["repo"],"additionalProperties":false}`)},
 		{Name: "whoami", Kind: "read", Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
+		{Name: "page-settings", Kind: "read", UIOnly: true, Description: "x", InputSchema: json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`)},
 	}
-	source := credCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"read-file", "whoami"}}}, defs: defs}}
+	source := credCaps{capSet{toolSet: toolSet{gen: 1, tools: map[string][]string{"sample": {"read-file", "whoami", "page-settings"}}}, defs: defs}}
 	var (
 		g      *Gateway
 		client *envClient
@@ -111,6 +112,16 @@ var _ = Describe("a read of an add-on that declares credentials", Label("tools")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(client.seen[0].Credential).To(Equal("secret"))
 		Expect(client.seen[0].ResourceKey).To(BeEmpty())
+	})
+
+	It("gives a tool of the add-on's own page no credential and asks the source for none", func() {
+		creds.err = errors.New("store down")
+		_, err := read(g, contract.Request{Arguments: json.RawMessage(`{"tool":"page-settings"}`), Credential: "stolen"})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(client.seen).To(HaveLen(1))
+		Expect(client.seen[0].Credential).To(BeEmpty())
+		Expect(client.seen[0].ResourceKey).To(BeEmpty())
+		Expect(creds.calls).To(BeEmpty())
 	})
 
 	It("drops a credential, a key or a resource that the caller put in the request", func() {

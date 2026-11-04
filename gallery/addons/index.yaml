@@ -402,6 +402,130 @@
     - "edit-issue"
     - "add-labels"
     - "review-comment-pr"
+- id: "home-assistant"
+  name: Home Assistant
+  description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:home-assistant-development"
+  mutable: true
+  os: "darwin"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Home Assistant"
+    description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "get-config"
+    - "list-areas"
+    - "search-entities"
+    - "get-state"
+    - "get-history"
+    - "get-logbook"
+    - "list-services"
+    - "call-service"
+    - "call-physical-service"
+    - "get-policy"
+    - "set-policy"
+- id: "home-assistant"
+  name: Home Assistant
+  description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:home-assistant-development"
+  mutable: true
+  os: "darwin"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Home Assistant"
+    description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "get-config"
+    - "list-areas"
+    - "search-entities"
+    - "get-state"
+    - "get-history"
+    - "get-logbook"
+    - "list-services"
+    - "call-service"
+    - "call-physical-service"
+    - "get-policy"
+    - "set-policy"
+- id: "home-assistant"
+  name: Home Assistant
+  description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:home-assistant-development"
+  mutable: true
+  os: "linux"
+  arch: "amd64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Home Assistant"
+    description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "get-config"
+    - "list-areas"
+    - "search-entities"
+    - "get-state"
+    - "get-history"
+    - "get-logbook"
+    - "list-services"
+    - "call-service"
+    - "call-physical-service"
+    - "get-policy"
+    - "set-policy"
+- id: "home-assistant"
+  name: Home Assistant
+  description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+  version: "0.0.0-development"
+  channel: "development"
+  artifact: "oci://quay.io/go-skynet/local-ai-addons:home-assistant-development"
+  mutable: true
+  os: "linux"
+  arch: "arm64"
+  policy:
+    requireSignature: true
+    issuer: "https://token.actions.githubusercontent.com"
+    identity: "https://github.com/mudler/LocalAI/.github/workflows/addons-package.yml@refs/heads/master"
+  ui:
+    title: "Home Assistant"
+    description: "Let your chats and agents read your smart home and, if you allow it, switch lights and other things, with limits you set."
+    mainPage: "apps"
+    icon: "ui/icon.png"
+  toolCount: 11
+  tools:
+    - "get-config"
+    - "list-areas"
+    - "search-entities"
+    - "get-state"
+    - "get-history"
+    - "get-logbook"
+    - "list-services"
+    - "call-service"
+    - "call-physical-service"
+    - "get-policy"
+    - "set-policy"
 - id: "jellyfin"
   name: Jellyfin
   description: "Let your agents search your Jellyfin library, see what is playing, and remote control players if you allow it."

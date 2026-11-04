@@ -113,6 +113,7 @@ var allowed = []entry{
 	{"pkg/xsysinfo/gpu.go", `memory`, "a GPU memory counter"},
 	{"core/http/auth/usage.go", `web`, "usage source of a request from the web UI session"},
 	{"core/services/studio/builtins/builtins.go", `web`, "the id of the built-in Web tool group of chats"},
+	{ui + "pages/Home.jsx", `data-testid="home-assistant"`, "test id of the LocalAI assistant button on the Home page: the built-in assistant, not the add-on"},
 	{"core/services/studio/webtools.go", "Web search", "the label of the built-in web search tool"},
 	{"core/services/studio/webtools.go", "Web:", "the built-in Web tool group, the web as a noun"},
 	{"pkg/web/search/brave.go", `web`, "the kind of search of the Brave API"},

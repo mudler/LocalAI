@@ -423,6 +423,7 @@ The generic binary selects no policy automatically.
 | Office | `workspace.export`, `workspace.import` | None |
 | Sandbox | `workspace.changes`, `workspace.commit`, `workspace.materialize` | `egress.audit`, `egress.check`, `workspace.admin` |
 | Web | None | `workspace.admin` |
+| Home Assistant | None | `workspace.admin` |
 | Face, Slack, Studio, Tables, Talk, Telegram, Voice | None; omit `hostOperations` | None |
 
 Fine-tuning and Quantization include operation names passed through mutation and undo wrappers.
@@ -436,7 +437,7 @@ Telegram's historical `connector.` deployment grant does not imply a hostclient 
 
 Sandbox's proxy uses the optional egress operations when configured connections need policy decisions.
 Missing grants do not authorize connections; the proxy cannot obtain an allow verdict.
-Sandbox's settings and Web's provider settings use `workspace.admin` to check administrators.
+Sandbox's settings, Web's provider settings and the limits of the Home Assistant add-on use `workspace.admin` to check administrators.
 Without that optional operation, these settings refuse changes; ordinary tools can remain available.
 The shipped deployment policy covers every official required operation.
 The package tests compare all twelve manifests with this source audit and the host's registered vocabulary.
@@ -535,6 +536,7 @@ a call may reach. The model never sees or sets either.
 - A manifest with `credentials` must accept `api` 2, declare a connector kind and
   declare read tools only: a change under a credential needs a write mode, which
   this version does not have. Tools of such an add-on name no `resourceId`.
+- A tool with `uiOnly: true` (see the `uiOnly` field of a tool definition) gets no credential and no resource, even in an add-on that declares a slot. It is for the add-on's own page, which has no chat to name a connection, so it works with no connection or with several. The Home Assistant add-on keeps the limits for all its connections this way.
 - An add-on that is rate limited returns `contract.ErrRateLimited{RetryAfter}`.
   The runtime answers HTTP 429 with `Retry-After`; the model gets the code
   `rate_limited`, `retryAfter` in seconds and a note not to retry before then.

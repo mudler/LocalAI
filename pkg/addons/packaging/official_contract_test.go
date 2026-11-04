@@ -27,6 +27,8 @@ var officialRequests = map[string]contract.HostOperations{
 	"office":       {Required: strings.Fields("workspace.export workspace.import")},
 	"sandbox":      {Required: strings.Fields("workspace.changes workspace.commit workspace.materialize"), Optional: strings.Fields("egress.audit egress.check workspace.admin")},
 	"web":          {Optional: []string{"workspace.admin"}},
+	// The policy of the add-on can be changed by an administrator only; the host answers who is one.
+	"home-assistant": {Optional: []string{"workspace.admin"}},
 	// A connector moves files only when the person turns files on, so both
 	// file operations are optional. Delivery is pull, so neither add-on calls
 	// connector.inbound.
