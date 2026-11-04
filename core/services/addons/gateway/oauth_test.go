@@ -77,7 +77,7 @@ var _ = Describe("OAuth calls in a split deployment", func() {
 		Expect(errors.Is(err, ErrUnavailable)).To(BeTrue())
 		var ue *UnavailableError
 		Expect(errors.As(err, &ue)).To(BeTrue())
-		Expect(ue.Reason).To(Equal(ReasonOAuthUnsupported))
+		Expect(ue.Reason).To(Equal(reasonOAuthUnsupported))
 		Expect(local.calls).To(BeEmpty())
 	})
 
@@ -136,7 +136,7 @@ var _ = Describe("OAuth calls in a split deployment", func() {
 				case "/addons/audience":
 					_, _ = w.Write([]byte(`{"audience":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}`))
 				case "/addons/capabilities":
-					_ = json.NewEncoder(w).Encode(Capabilities{Protocol: 2, Calls: []string{CallOAuth}})
+					_ = json.NewEncoder(w).Encode(Capabilities{Protocol: 2, Calls: []string{callOAuth}})
 				default:
 					_, _ = w.Write([]byte(`not json`))
 				}

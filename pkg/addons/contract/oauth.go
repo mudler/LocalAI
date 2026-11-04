@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -104,7 +105,7 @@ var OAuthAuthorizeParams = []OAuthParamSpec{
 }
 
 var (
-	oauthParamValue = regexp.MustCompile(`^[A-Za-z0-9._:/-]{1,128}$`)
+	oauthParamValue = regexp.MustCompile(`^[A-Za-z0-9._:/-]{1,` + strconv.Itoa(MaxOAuthParamValue) + `}$`)
 	oauthLabel      = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)
 	oauthTopLabel   = regexp.MustCompile(`^([a-z]{2,63}|xn--[a-z0-9-]{1,59})$`)
 )

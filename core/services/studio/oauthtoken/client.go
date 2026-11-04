@@ -31,18 +31,18 @@ import (
 const (
 	// Timeout bounds a code exchange or a refresh.
 	Timeout = 30 * time.Second
-	// RevokeTimeout bounds a revocation.
-	RevokeTimeout = 10 * time.Second
-	// MaxBody is the largest answer read.
-	MaxBody = 64 << 10
-	// MinExpiry and MaxExpiry bound the lifetime the service gives a token.
-	MinExpiry = time.Minute
-	MaxExpiry = 24 * time.Hour
-	// MaxRefreshBytes bounds a refresh token.
-	MaxRefreshBytes = 8192
-	// MaxScopes bounds the granted scopes kept from an answer: as many as a
+	// revokeTimeout bounds a revocation.
+	revokeTimeout = 10 * time.Second
+	// maxBody is the largest answer read.
+	maxBody = 64 << 10
+	// minExpiry and maxExpiry bound the lifetime the service gives a token.
+	minExpiry = time.Minute
+	maxExpiry = 24 * time.Hour
+	// maxRefreshBytes bounds a refresh token.
+	maxRefreshBytes = 8192
+	// maxScopes bounds the granted scopes kept from an answer: as many as a
 	// request may carry.
-	MaxScopes = contract.MaxGrantedScopes
+	maxScopes = contract.MaxGrantedScopes
 	// defaultRetryAfter is the wait of a 429 that says none.
 	defaultRetryAfter = 30
 )
@@ -80,8 +80,8 @@ type Credentials struct{ ID, Secret string }
 // Tokens is a usable token answer.
 type Tokens struct {
 	Access, Refresh, TokenType string
-	// ExpiresIn is the lifetime of the access token, clamped to MinExpiry
-	// through MaxExpiry. Zero means the service did not say.
+	// ExpiresIn is the lifetime of the access token, clamped to minExpiry
+	// through maxExpiry. Zero means the service did not say.
 	ExpiresIn time.Duration
 	// Scopes are the granted scopes when ScopeSet; otherwise the service did
 	// not list them and the requested ones apply.
@@ -123,7 +123,7 @@ func (c *Client) Revoke(ctx context.Context, d contract.OAuthDescriptor, cred Cr
 	if d.RevokeURL == "" {
 		return ErrNoRevocation
 	}
-	ctx, cancel := context.WithTimeout(ctx, RevokeTimeout)
+	ctx, cancel := context.WithTimeout(ctx, revokeTimeout)
 	defer cancel()
 	form := url.Values{"token": {token}}
 	if hint != "" {
@@ -134,7 +134,7 @@ func (c *Client) Revoke(ctx context.Context, d contract.OAuthDescriptor, cred Cr
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, MaxBody))
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxBody))
 	switch {
 	case resp.StatusCode == http.StatusOK:
 		return nil
@@ -201,7 +201,7 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 		return Tokens{}, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, MaxBody+1))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBody+1))
 	if err != nil {
 		return Tokens{}, ErrUnavailable
 	}
@@ -221,7 +221,7 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 		}
 		return Tokens{}, ErrRefused
 	}
-	if len(body) > MaxBody {
+	if len(body) > maxBody {
 		return Tokens{}, ErrBadResponse
 	}
 	var a tokenAnswer
@@ -232,7 +232,7 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 		return Tokens{}, ErrTokenTooLarge
 	}
 	if a.AccessToken == "" || !headerSafe(a.AccessToken) ||
-		!strings.EqualFold(a.TokenType, "bearer") || len(a.RefreshToken) > MaxRefreshBytes {
+		!strings.EqualFold(a.TokenType, "bearer") || len(a.RefreshToken) > maxRefreshBytes {
 		return Tokens{}, ErrBadResponse
 	}
 	out := Tokens{Access: a.AccessToken, Refresh: a.RefreshToken, TokenType: "Bearer"}
@@ -259,7 +259,7 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 			seen[s] = true
 			out.Scopes = append(out.Scopes, s)
 		}
-		if len(out.Scopes) > MaxScopes {
+		if len(out.Scopes) > maxScopes {
 			return Tokens{}, ErrBadResponse
 		}
 	}
@@ -268,10 +268,10 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 
 func clampExpiry(secs int64) time.Duration {
 	switch {
-	case secs < int64(MinExpiry/time.Second):
-		return MinExpiry
-	case secs > int64(MaxExpiry/time.Second):
-		return MaxExpiry
+	case secs < int64(minExpiry/time.Second):
+		return minExpiry
+	case secs > int64(maxExpiry/time.Second):
+		return maxExpiry
 	}
 	return time.Duration(secs) * time.Second
 }

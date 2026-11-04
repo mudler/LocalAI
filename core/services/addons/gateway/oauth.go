@@ -22,11 +22,11 @@ import (
 // client secret travel as typed fields of the call over the pinned carrier,
 // never as headers, and no text form of a call shows them.
 
-// CallOAuth is the capability of an owner that serves the OAuth calls.
-const CallOAuth = "oauth"
+// callOAuth is the capability of an owner that serves the OAuth calls.
+const callOAuth = "oauth"
 
-// ReasonOAuthUnsupported is the 503 reason of an owner without the calls.
-const ReasonOAuthUnsupported = "the add-on owner does not support OAuth logins; upgrade the owner"
+// reasonOAuthUnsupported is the 503 reason of an owner without the calls.
+const reasonOAuthUnsupported = "the add-on owner does not support OAuth logins; upgrade the owner"
 
 // The operations of an OAuth call.
 const (
@@ -227,8 +227,8 @@ func (c *Carrier) OAuth(ctx context.Context, a contract.Actor, call OAuthCall) (
 	if e != nil {
 		return OAuthReply{}, e
 	}
-	if !caps.Supports(CallOAuth) {
-		return OAuthReply{}, &UnavailableError{Reason: ReasonOAuthUnsupported}
+	if !caps.Supports(callOAuth) {
+		return OAuthReply{}, &UnavailableError{Reason: reasonOAuthUnsupported}
 	}
 	id, e := newResourceOperationID()
 	if e != nil {
