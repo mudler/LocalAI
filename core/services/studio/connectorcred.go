@@ -89,7 +89,7 @@ func (c *Connectors) Connections(ctx context.Context, user, addonID string) ([]C
 			if err != nil && !errors.Is(err, connectors.ErrNotFound) {
 				return nil, err
 			}
-			if err == nil && g.Owner == b.Owner && g.AddonID == b.AddonID {
+			if err == nil && g.BelongsTo(b) {
 				mine = append(mine, b)
 				switch g.State {
 				case connectors.GrantConnected:

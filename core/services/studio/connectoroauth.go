@@ -124,35 +124,54 @@ func (c *Connectors) tokenClient() *oauthtoken.Client {
 	return c.defaultToken
 }
 
-// approvedClient returns the client of the add-on when its approval holds for
-// the current descriptor d. ok is false when there is none or it is for
-// another digest; err is an outage of the store.
-func (c *Connectors) approvedClient(ctx context.Context, addonID string, d contract.OAuthDescriptor) (connectors.OAuthClient, oauthtoken.Credentials, bool, error) {
+// oauthApproval is the current descriptor of an add-on and, when an
+// administrator approved it, the client to use with it.
+type oauthApproval struct {
+	d contract.OAuthDescriptor
+	// digest is d.Digest(), computed once.
+	digest string
+	client connectors.OAuthClient
+	cred   oauthtoken.Credentials
+	// ok is true when the stored approval holds for d and its secret opens.
+	ok bool
+}
+
+// approval reads the current descriptor of an add-on and its approved
+// client. The error is the one of oauthDescriptor, or an outage of the store
+// or the sealer; each caller maps it to its own outcome.
+func (c *Connectors) approval(ctx context.Context, addonID string) (oauthApproval, error) {
+	d, err := c.oauthDescriptor(ctx, addonID)
+	if err != nil {
+		return oauthApproval{}, err
+	}
+	a := oauthApproval{d: d, digest: d.Digest()}
 	cl, err := c.o.Store.GetOAuthClient(ctx, addonID)
 	if errors.Is(err, connectors.ErrNotFound) {
-		return cl, oauthtoken.Credentials{}, false, nil
+		return a, nil
 	}
 	if err != nil {
-		return cl, oauthtoken.Credentials{}, false, err
+		return a, err
 	}
-	if cl.DescriptorDigest != d.Digest() {
-		return cl, oauthtoken.Credentials{}, false, nil
+	a.client = cl
+	if cl.DescriptorDigest != a.digest {
+		return a, nil
 	}
-	cred := oauthtoken.Credentials{ID: cl.ClientID}
+	a.cred = oauthtoken.Credentials{ID: cl.ClientID}
 	if len(cl.Secret) > 0 {
 		s, err := c.sealerFor(ctx)
 		if err != nil {
-			return cl, cred, false, err
+			return a, err
 		}
 		plain, err := s.Open(connectors.OAuthClientAAD(addonID), cl.Secret)
 		if err != nil {
 			// A secret that does not open is no approval: the administrator
 			// saves it again.
-			return cl, cred, false, nil
+			return a, nil
 		}
-		cred.Secret = string(plain)
+		a.cred.Secret = string(plain)
 	}
-	return cl, cred, true, nil
+	a.ok = true
+	return a, nil
 }
 
 // hasGrant reports whether an OAuth binding has a grant in any state: a
@@ -166,7 +185,7 @@ func (c *Connectors) hasGrant(ctx context.Context, b connectors.Binding) (bool, 
 	if err != nil {
 		return false, err
 	}
-	return g.Owner == b.Owner && g.AddonID == b.AddonID, nil
+	return g.BelongsTo(b), nil
 }
 
 // accessTokenFor returns the secret a call of the binding's add-on carries.
@@ -220,25 +239,21 @@ func (c *Connectors) readGrant(ctx context.Context, b connectors.Binding) (conne
 	if err != nil {
 		return g, ErrCredentialUnavailable
 	}
-	if g.Owner != b.Owner || g.AddonID != b.AddonID {
+	if !g.BelongsTo(b) {
 		return g, connectors.ErrNoCredential
 	}
 	if g.State != connectors.GrantConnected && g.State != connectors.GrantNeedsApproval {
 		return g, ErrReconnectNeeded
 	}
-	d, err := c.oauthDescriptor(ctx, b.AddonID)
+	a, err := c.approval(ctx, b.AddonID)
 	if err != nil {
 		return g, ErrCredentialUnavailable
 	}
-	_, _, ok, err := c.approvedClient(ctx, b.AddonID, d)
-	if err != nil {
-		return g, ErrCredentialUnavailable
-	}
-	if !ok {
+	if !a.ok {
 		return g, c.holdGrant(ctx, b, g)
 	}
-	if g.State != connectors.GrantConnected || g.DescriptorDigest != d.Digest() {
-		return c.carryOver(ctx, b, g, d)
+	if g.State != connectors.GrantConnected || g.DescriptorDigest != a.digest {
+		return c.carryOver(ctx, b, g, a.d, a.digest)
 	}
 	return g, nil
 }
@@ -264,8 +279,8 @@ func (c *Connectors) holdGrant(ctx context.Context, b connectors.Binding, g conn
 // token and revocation endpoints; otherwise it ends (ReasonEndpointChanged)
 // and the person logs in again. A grant without a scope that d requires ends
 // too (ReasonScopesMissing), and the scopes that d no longer names are
-// dropped.
-func (c *Connectors) carryOver(ctx context.Context, b connectors.Binding, g connectors.Grant, d contract.OAuthDescriptor) (connectors.Grant, error) {
+// dropped. digest is d.Digest().
+func (c *Connectors) carryOver(ctx context.Context, b connectors.Binding, g connectors.Grant, d contract.OAuthDescriptor, digest string) (connectors.Grant, error) {
 	if g.TokenURL != d.TokenURL || g.RevokeURL != d.RevokeURL {
 		return g, c.endGrant(ctx, b, g, ReasonEndpointChanged)
 	}
@@ -275,7 +290,7 @@ func (c *Connectors) carryOver(ctx context.Context, b connectors.Binding, g conn
 		}
 	}
 	next := g
-	next.DescriptorDigest, next.State, next.Reason = d.Digest(), connectors.GrantConnected, ""
+	next.DescriptorDigest, next.State, next.Reason = digest, connectors.GrantConnected, ""
 	if next.Scopes != nil {
 		next.Scopes = slices.DeleteFunc(slices.Clone(g.Scopes), func(s string) bool {
 			return !slices.Contains(d.Scopes.Required, s) && !slices.Contains(d.Scopes.Optional, s)
@@ -299,16 +314,17 @@ func (c *Connectors) approveGrants(ctx context.Context, addonID string, d contra
 	if err != nil {
 		return
 	}
+	digest := d.Digest()
 	for _, b := range all {
 		if b.AddonID != addonID || !b.UsesOAuth() {
 			continue
 		}
 		g, err := c.o.Store.GetGrant(ctx, b.ID)
-		if err != nil || g.Owner != b.Owner || g.AddonID != b.AddonID {
+		if err != nil || !g.BelongsTo(b) {
 			continue
 		}
-		if g.State == connectors.GrantNeedsApproval || (g.State == connectors.GrantConnected && g.DescriptorDigest != d.Digest()) {
-			_, _ = c.carryOver(ctx, b, g, d)
+		if g.State == connectors.GrantNeedsApproval || (g.State == connectors.GrantConnected && g.DescriptorDigest != digest) {
+			_, _ = c.carryOver(ctx, b, g, d, digest)
 		}
 	}
 	c.Notify()
@@ -416,27 +432,23 @@ func (c *Connectors) refreshHeld(ctx context.Context, b connectors.Binding, g co
 	if sec.Refresh == "" {
 		return oauthAccess{}, c.endGrant(ctx, b, g, ReasonExpired)
 	}
-	d, err := c.oauthDescriptor(ctx, b.AddonID)
+	a, err := c.approval(ctx, b.AddonID)
 	if err != nil {
 		release()
 		return oauthAccess{}, ErrCredentialUnavailable
 	}
-	_, cred, ok, err := c.approvedClient(ctx, b.AddonID, d)
-	if err != nil {
-		release()
-		return oauthAccess{}, ErrCredentialUnavailable
-	}
-	if !ok {
+	if !a.ok {
 		return oauthAccess{}, c.holdGrant(ctx, b, g)
 	}
-	if g.DescriptorDigest != d.Digest() || g.TokenURL != d.TokenURL {
+	d := a.d
+	if g.DescriptorDigest != a.digest || g.TokenURL != d.TokenURL {
 		// The approval changed since the grant was read; the next call
 		// carries it over. The refresh token goes only to the endpoint of
 		// the grant.
 		release()
 		return oauthAccess{}, ErrCredentialUnavailable
 	}
-	tok, err := c.tokenClient().Refresh(ctx, d, cred, sec.Refresh)
+	tok, err := c.tokenClient().Refresh(ctx, d, a.cred, sec.Refresh)
 	var limited *contract.ErrRateLimited
 	switch {
 	case err == nil:
@@ -538,35 +550,4 @@ func (c *Connectors) RenewCredential(ctx context.Context, user, addonID, binding
 	}
 	c.log.Info("studio: connector credential audit", "binding", b.ID, "kind", b.Kind, "addon", b.AddonID, "resource", entry.Key, "renewed", true)
 	return CredentialGrant{Secret: acc.secret, Scopes: acc.scopes, Version: acc.version, Resource: entry, WriteMode: b.Writes(), BindingID: b.ID, BindingName: b.Name}, nil
-}
-
-// OAuthConnection is the state of the login of an OAuth binding, without any
-// secret.
-type OAuthConnection struct {
-	// State is "" when the binding has no login, else connectors.GrantConnected,
-	// connectors.GrantNeedsApproval or connectors.GrantReconnectNeeded.
-	State        string
-	Reason       string
-	AccountLabel string
-	Scopes       []string
-	ExpiresAt    time.Time
-}
-
-// ConnectionState reports the login of a binding of the user.
-func (c *Connectors) ConnectionState(ctx context.Context, user, bindingID string) (OAuthConnection, error) {
-	b, err := c.owned(ctx, user, bindingID)
-	if err != nil {
-		return OAuthConnection{}, err
-	}
-	if !b.UsesOAuth() {
-		return OAuthConnection{}, connectorBad("this connection does not use a login")
-	}
-	g, err := c.o.Store.GetGrant(ctx, b.ID)
-	if errors.Is(err, connectors.ErrNotFound) {
-		return OAuthConnection{}, nil
-	}
-	if err != nil {
-		return OAuthConnection{}, err
-	}
-	return OAuthConnection{State: g.State, Reason: g.Reason, AccountLabel: g.AccountLabel, Scopes: g.Scopes, ExpiresAt: g.ExpiresAt}, nil
 }

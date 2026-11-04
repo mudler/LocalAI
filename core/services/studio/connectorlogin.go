@@ -183,17 +183,14 @@ func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, opt
 	if !validReturnTo(returnTo) {
 		return LoginStart{}, connectorBad("the return path must be a path on this host")
 	}
-	d, err := c.oauthDescriptor(ctx, b.AddonID)
+	a, err := c.approval(ctx, b.AddonID)
 	if err != nil {
 		return LoginStart{}, err
 	}
-	cl, _, ok, err := c.approvedClient(ctx, b.AddonID, d)
-	if err != nil {
-		return LoginStart{}, err
-	}
-	if !ok {
+	if !a.ok {
 		return LoginStart{}, ErrNeedsApproval
 	}
+	d := a.d
 	scopes := slices.Clone(d.Scopes.Required)
 	for _, s := range optional {
 		if !slices.Contains(d.Scopes.Optional, s) {
@@ -226,7 +223,7 @@ func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, opt
 	}
 	now := c.o.Clock().UTC()
 	expires := now.Add(connectors.LoginStateTTL)
-	st := connectors.LoginState{Hash: hash, Binding: b.ID, Owner: b.Owner, AddonID: b.AddonID, DescriptorDigest: d.Digest(), Verifier: sealed,
+	st := connectors.LoginState{Hash: hash, Binding: b.ID, Owner: b.Owner, AddonID: b.AddonID, DescriptorDigest: a.digest, Verifier: sealed,
 		RedirectURI: redirectURI, Scopes: scopes, ReturnTo: returnTo, NonceHash: hashHex(nonce), Expires: expires}
 	if err := c.o.Store.PutLoginState(ctx, st, now); err != nil {
 		return LoginStart{}, err
@@ -237,7 +234,7 @@ func (c *Connectors) StartLogin(ctx context.Context, user, bindingID string, opt
 		q.Set(p.Name, p.Value)
 	}
 	q.Set("response_type", "code")
-	q.Set("client_id", cl.ClientID)
+	q.Set("client_id", a.client.ClientID)
 	q.Set("redirect_uri", redirectURI)
 	q.Set("scope", strings.Join(scopes, " "))
 	q.Set("state", state)
@@ -284,17 +281,14 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 	if code == "" {
 		return fail(LoginProviderError)
 	}
-	d, err := c.oauthDescriptor(ctx, b.AddonID)
+	a, err := c.approval(ctx, b.AddonID)
 	if err != nil {
 		return fail(LoginUnavailable)
 	}
-	_, cred, approved, err := c.approvedClient(ctx, b.AddonID, d)
-	if err != nil {
-		return fail(LoginUnavailable)
-	}
-	if !approved || d.Digest() != st.DescriptorDigest {
+	if !a.ok || a.digest != st.DescriptorDigest {
 		return fail(LoginExchangeFailed)
 	}
+	d := a.d
 	sealer, err := c.sealerFor(ctx)
 	if err != nil {
 		return fail(LoginUnavailable)
@@ -303,7 +297,7 @@ func (c *Connectors) CompleteLogin(ctx context.Context, user, nonce, state, code
 	if err != nil {
 		return fail(LoginInvalidState)
 	}
-	tok, err := c.tokenClient().Exchange(ctx, d, cred, code, string(verifier), st.RedirectURI)
+	tok, err := c.tokenClient().Exchange(ctx, d, a.cred, code, string(verifier), st.RedirectURI)
 	var limited *contract.ErrRateLimited
 	switch {
 	case err == nil:
@@ -444,17 +438,14 @@ func (c *Connectors) Disconnect(ctx context.Context, user, bindingID string) (to
 }
 
 func (c *Connectors) revoke(ctx context.Context, b connectors.Binding, g connectors.Grant) bool {
-	if len(g.Sealed) == 0 || g.Owner != b.Owner || g.AddonID != b.AddonID {
+	if len(g.Sealed) == 0 || !g.BelongsTo(b) {
 		return false
 	}
-	d, err := c.oauthDescriptor(ctx, b.AddonID)
-	if err != nil || d.RevokeURL == "" || d.Digest() != g.DescriptorDigest {
+	a, err := c.approval(ctx, b.AddonID)
+	if err != nil || !a.ok || a.d.RevokeURL == "" || a.digest != g.DescriptorDigest {
 		return false
 	}
-	_, cred, ok, err := c.approvedClient(ctx, b.AddonID, d)
-	if err != nil || !ok {
-		return false
-	}
+	d := a.d
 	s, err := c.sealerFor(ctx)
 	if err != nil {
 		return false
@@ -467,7 +458,7 @@ func (c *Connectors) revoke(ctx context.Context, b connectors.Binding, g connect
 	if token == "" {
 		token, hint = sec.Access, "access_token"
 	}
-	return c.tokenClient().Revoke(ctx, d, cred, token, hint) == nil
+	return c.tokenClient().Revoke(ctx, d, a.cred, token, hint) == nil
 }
 
 // OAuthClientInput is what an administrator saves for an add-on. Saving it is
@@ -508,7 +499,8 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 	if err != nil {
 		return OAuthClientStatus{}, err
 	}
-	if in.Digest != d.Digest() {
+	digest := d.Digest()
+	if in.Digest != digest {
 		return OAuthClientStatus{}, ErrApprovalStale
 	}
 	id := strings.TrimSpace(in.ClientID)
@@ -525,7 +517,7 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 	if err != nil && !errors.Is(err, connectors.ErrNotFound) {
 		return OAuthClientStatus{}, err
 	}
-	next := connectors.OAuthClient{AddonID: addonID, DescriptorDigest: d.Digest(), ClientID: id, ApprovedBy: in.ApprovedBy, ApprovedAt: c.o.Clock().UTC()}
+	next := connectors.OAuthClient{AddonID: addonID, DescriptorDigest: digest, ClientID: id, ApprovedBy: in.ApprovedBy, ApprovedAt: c.o.Clock().UTC()}
 	switch {
 	case d.ClientAuth == contract.OAuthClientAuthNone:
 		if in.Secret != nil && *in.Secret != "" {
@@ -553,7 +545,7 @@ func (c *Connectors) SetClient(ctx context.Context, addonID string, in OAuthClie
 		return OAuthClientStatus{}, err
 	}
 	c.approveGrants(ctx, addonID, d)
-	return clientStatus(next, d, true), nil
+	return clientStatus(next, d), nil
 }
 
 // GetClientStatus reports the client of an add-on, never its secret.
@@ -569,12 +561,15 @@ func (c *Connectors) GetClientStatus(ctx context.Context, addonID string) (OAuth
 	if err != nil {
 		return OAuthClientStatus{}, err
 	}
-	return clientStatus(cl, d, true), nil
+	return clientStatus(cl, d), nil
 }
 
-func clientStatus(cl connectors.OAuthClient, d contract.OAuthDescriptor, configured bool) OAuthClientStatus {
-	return OAuthClientStatus{Configured: configured, ClientID: cl.ClientID, HasSecret: len(cl.Secret) > 0, Approved: cl.DescriptorDigest == d.Digest(),
-		ApprovedDigest: cl.DescriptorDigest, CurrentDigest: d.Digest(), ApprovedBy: cl.ApprovedBy, ApprovedAt: cl.ApprovedAt, Descriptor: d}
+// clientStatus is the status of a stored client cl for the current
+// descriptor d.
+func clientStatus(cl connectors.OAuthClient, d contract.OAuthDescriptor) OAuthClientStatus {
+	digest := d.Digest()
+	return OAuthClientStatus{Configured: true, ClientID: cl.ClientID, HasSecret: len(cl.Secret) > 0, Approved: cl.DescriptorDigest == digest,
+		ApprovedDigest: cl.DescriptorDigest, CurrentDigest: digest, ApprovedBy: cl.ApprovedBy, ApprovedAt: cl.ApprovedAt, Descriptor: d}
 }
 
 // visibleASCII is the VSCHAR of RFC 6749 (appendix A): visible ASCII and the

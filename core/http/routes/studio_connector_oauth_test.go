@@ -743,9 +743,11 @@ var _ = Describe("OAuth routes with authentication off", func() {
 		Expect(cb(l.state, &http.Cookie{Name: l.cookie.Name, Value: "other"}).Get("class")).To(Equal("invalid_state"), "another browser")
 		l = start()
 		Expect(cb(l.state, l.cookie).Get("oauth")).To(Equal("ok"))
-		g, err := s.conns.ConnectionState(ctx, "", b.ID)
+		list, err := s.conns.Connections(ctx, "", oauthAddonID)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(g.State).To(Equal(connectors.GrantConnected))
+		Expect(list).To(HaveLen(1))
+		Expect(list[0].ID).To(Equal(b.ID))
+		Expect(list[0].State).To(Equal(studio.OAuthConnected))
 	})
 })
 

@@ -102,6 +102,10 @@ type Grant struct {
 	Updated    time.Time
 }
 
+// BelongsTo reports whether g is the grant of b: a grant row of another owner
+// or add-on under the same binding ID is not used.
+func (g Grant) BelongsTo(b Binding) bool { return g.Owner == b.Owner && g.AddonID == b.AddonID }
+
 func (g Grant) clone() Grant {
 	g.Sealed = slices.Clone(g.Sealed)
 	g.Scopes = slices.Clone(g.Scopes)

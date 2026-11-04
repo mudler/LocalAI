@@ -153,7 +153,7 @@ func (c *Connectors) oauthView(ctx context.Context, b connectors.Binding) *OAuth
 	}
 	g, err := c.o.Store.GetGrant(ctx, b.ID)
 	switch {
-	case err != nil || g.Owner != b.Owner || g.AddonID != b.AddonID:
+	case err != nil || !g.BelongsTo(b):
 		v.State = OAuthNotConnected
 		if !v.HasClient {
 			v.State = OAuthNeedsApproval

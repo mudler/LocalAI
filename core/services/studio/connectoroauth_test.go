@@ -379,11 +379,9 @@ var _ = Describe("OAuth connections", func() {
 					r.tr.label = "\u202eevil\u200b\x00 user\n\t\u2066name\u2069  " + strings.Repeat("é", 300)
 					r.tr.mu.Unlock()
 					b := r.connect()
-					st, err := r.conns.ConnectionState(ctx, alice, b.ID)
-					Expect(err).NotTo(HaveOccurred())
-					Expect(st.AccountLabel).To(HavePrefix("evil user name "))
-					Expect([]rune(st.AccountLabel)).To(HaveLen(studio.MaxAccountLabelRunes))
-					Expect(r.grant(b.ID).AccountLabel).To(Equal(st.AccountLabel), "the stored label is the clean one")
+					label := r.grant(b.ID).AccountLabel
+					Expect(label).To(HavePrefix("evil user name "), "the stored label is the clean one")
+					Expect([]rune(label)).To(HaveLen(studio.MaxAccountLabelRunes))
 				})
 
 				It("fails when the service refuses the new token at the connector's me, or the descriptor changed since the start", func() {
@@ -582,8 +580,7 @@ var _ = Describe("OAuth connections", func() {
 						Expect(r.srv.Tokens.Load()).To(Equal(calls), "an ended grant is not refreshed again")
 						list, _ := r.conns.Connections(ctx, alice, oauthAddon)
 						Expect(list).To(HaveLen(1), "the connection stays, so a call is told to reconnect")
-						st, err := r.conns.ConnectionState(ctx, alice, b.ID)
-						Expect(err).NotTo(HaveOccurred())
+						st := r.grant(b.ID)
 						Expect(st.State).To(Equal(connectors.GrantReconnectNeeded))
 						Expect(st.Reason).To(Equal(reason))
 					},
@@ -628,8 +625,6 @@ var _ = Describe("OAuth connections", func() {
 						held := r.grant(b.ID)
 						Expect(held.State).To(Equal(connectors.GrantNeedsApproval))
 						Expect(held.Sealed).NotTo(BeEmpty(), "the tokens stay")
-						st, _ := r.conns.ConnectionState(ctx, alice, b.ID)
-						Expect(st.State).To(Equal(connectors.GrantNeedsApproval))
 						_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 						Expect(err).To(MatchError(studio.ErrReconnectNeeded))
 						Expect(r.grant(b.ID).Sealed).NotTo(BeEmpty(), "still held, not wiped, on later calls")
@@ -902,8 +897,6 @@ var _ = Describe("OAuth connections", func() {
 					_, err = r.conns.CredentialFor(ctx, alice, oauthAddon, b.ID, "")
 					add(err)
 				}
-				st, err := r.conns.ConnectionState(ctx, alice, b.ID)
-				add(st, err)
 				cs, err := r.conns.GetClientStatus(ctx, oauthAddon)
 				add(cs, err)
 				told, err := r.conns.Disconnect(ctx, alice, b.ID)
