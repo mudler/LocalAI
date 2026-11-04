@@ -8,7 +8,7 @@ import Icon from '../../host-compat/src/components/Icon'
 import { basePath } from '../../host-compat/src/utils/basePath.js'
 import { FixNotice, Select } from './controls'
 import { connectorsApi } from './api'
-import { THEN_CHECK, fixAction, fixLabelKey, pickSubject, previewBody, previewId, previewKey, senderOptions } from './access'
+import { fixAction, remainingChecks, sentenceCase, fixLabelKey, pickSubject, previewBody, previewId, previewKey, senderOptions } from './access'
 
 export const CAN_TEXT = {
   'can.title': 'What this bot can do',
@@ -152,8 +152,8 @@ function Row({ d, title, s, ctx }) {
         <span className="cn-can__title">{title(d.capability)}</span>
         {d.allowed ? (via && <span className="cn-muted">{via}</span>) : (<>
           <span className="cn-can__why" data-testid="connector-can-why">{d.message || d.reason || s('can.noMessage')}</span>
-          {(d.then_check || []).length > 0 && (
-            <span className="cn-muted cn-can__then">{s('can.then', { list: d.then_check.filter((x) => THEN_CHECK.includes(x)).map((x) => s(`can.then.${x}`)).join(', ') })}</span>
+          {remainingChecks(d.then_check).length > 0 && (
+            <span className="cn-muted cn-can__then">{s('can.then', { list: remainingChecks(d.then_check).map((x) => s(`can.then.${x}`)).join(', ') })}</span>
           )}
         </>)}
       </div>
@@ -166,7 +166,7 @@ export default function CapabilitiesPanel({ form, kindInfo, capabilities, lists,
   const options = senderOptions(form, kindInfo, lists)
   const [choice, setChoice] = useState('listed')
   const selected = options.some((o) => o.id === choice) ? choice : options[0].id
-  const title = (name) => (capabilities || []).find((c) => c.name === name)?.title || name
+  const title = (name) => sentenceCase((capabilities || []).find((c) => c.name === name)?.title || name)
   const label = (o) => (o.key === 'role' ? s('can.sender.role', { title: o.title }) : s(`can.sender.${o.key}`))
   const subject = pickSubject(preview.view, selected)
   const decisions = subject?.decisions || []

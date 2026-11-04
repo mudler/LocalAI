@@ -325,14 +325,17 @@ test.describe('Connector permissions', () => {
     // The agent lacks the permission: the first blocker is the agent, and the fix opens the agent in a new tab.
     const trig = can.getByTestId('connector-can-triggers.propose')
     await expect(trig).toHaveAttribute('data-allowed', 'false')
-    await expect(trig.getByTestId('connector-can-why')).toContainText('does not have permission')
+    await expect(trig.getByTestId('connector-can-why')).toContainText('has not been given permission')
     await expect(trig.getByTestId('connector-fix')).toHaveAttribute('href', '/app/agents/a3/edit')
     await expect(trig.getByTestId('connector-fix')).toHaveAttribute('target', '_blank')
     await expect(trig.getByTestId('connector-fix')).toHaveCount(1)
     // Not ticked: the fix scrolls to the switch and focuses it.
     const files = can.getByTestId('connector-can-files.upload')
     await expect(files.getByTestId('connector-can-why')).toContainText('does not allow')
-    await expect(files).toContainText('Not checked yet')
+    // The sender is known (the selector), so only the other links are listed; none remain here.
+    await expect(files).not.toContainText('Not checked yet')
+    await expect(trig).toContainText('Not checked yet: the permissions of this connection.')
+    await expect(trig).not.toContainText('who is sending')
     await files.getByRole('button', { name: 'Show the setting' }).click()
     await expect(page.getByTestId('connector-cap-switch-files.upload')).toBeFocused()
     await shot(page, 'can-1-listed')
@@ -357,7 +360,7 @@ test.describe('Connector permissions', () => {
     await expect(page.getByTestId('connector-pair-start')).toBeFocused()
     // A member of the listed channel is not trusted one by one: add the person.
     await can.getByTestId('connector-can-sender').selectOption('channel_member')
-    await expect(can.getByTestId('connector-can-memory.write').getByTestId('connector-can-why')).toContainText('not trusted one by one')
+    await expect(can.getByTestId('connector-can-memory.write').getByTestId('connector-can-why')).toContainText('not trusted for saving to memory')
     await can.getByTestId('connector-can-memory.write').getByRole('button', { name: 'Add a person' }).click()
     await expect(page.getByTestId('connector-allow').getByRole('textbox')).toBeFocused()
   })
@@ -483,7 +486,7 @@ test.describe('Connector permissions', () => {
     // The agent lacks Propose triggers: the row shows the host sentence and a link to the agent.
     const trig = ready.getByTestId('connector-ready-triggers')
     await expect(trig).toHaveAttribute('data-state', 'attention')
-    await expect(trig).toContainText('does not have permission')
+    await expect(trig).toContainText('has not been given permission')
     await expect(trig.getByTestId('connector-fix')).toHaveAttribute('href', '/app/agents/a3/edit')
     // Choosing an agent that has it changes the row without a save; the row then works after a save.
     await page.getByLabel('Agent', { exact: true }).selectOption('a1')

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  changedFields, fixAction, isProblem, pickSubject, previewBody, previewId, readinessRows, reachable, senderOptions, unusable, visibleRows,
+  changedFields, fixAction, remainingChecks, sentenceCase, isProblem, pickSubject, previewBody, previewId, readinessRows, reachable, senderOptions, unusable, visibleRows,
 } from '../../../internal/connector-ui/src/access.js'
 import { connectorForm, emptyConnector } from '../../../internal/connector-ui/src/connector.js'
 
@@ -189,4 +189,17 @@ test('access: changed fields compare the form with the saved binding', () => {
   assert.deepEqual([...changedFields({ ...saved, allow: ['U2', 'U1'], caps: ['b', 'a'] }, saved)], [], 'order does not count')
   assert.deepEqual([...changedFields({ ...saved, agent_id: 'a2', notify_chat: '1' }, saved)].sort(), ['agent_id', 'notify_chat'])
   assert.ok(changedFields(saved, null).has('caps'))
+})
+
+test('access: the unchecked links never list the sender, which the selector already names', () => {
+  assert.deepEqual(remainingChecks(['connection', 'sender']), ['connection'])
+  assert.deepEqual(remainingChecks(['sender']), [])
+  assert.deepEqual(remainingChecks(['sender', 'approval']), ['approval'])
+  assert.deepEqual(remainingChecks(undefined), [])
+})
+
+test('access: a title is a sentence with the product name right', () => {
+  assert.equal(sentenceCase('change things outside localai'), 'Change things outside LocalAI')
+  assert.equal(sentenceCase('Post to approved channels'), 'Post to approved channels')
+  assert.equal(sentenceCase(''), '')
 })

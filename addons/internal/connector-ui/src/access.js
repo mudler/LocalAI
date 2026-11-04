@@ -156,6 +156,16 @@ export function fixLabelKey(fix) {
   return `fix.${fix.kind}`
 }
 
+// A title as a sentence, with the product name right.
+export function sentenceCase(text) {
+  const t = String(text || '').replace(/\blocalai\b/gi, 'LocalAI')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+// The links still to check for a blocked row. The sender is known (it is the
+// one chosen in the selector), so "sender" is never shown as unchecked.
+export const remainingChecks = (thenCheck) => (thenCheck || []).filter((x) => x !== 'sender' && THEN_CHECK.includes(x))
+
 // The links after the first problem that the check did not look at, as the
 // words of the page.
 export const THEN_CHECK = ['server', 'tools', 'agent', 'connection', 'sender', 'approval']
@@ -233,7 +243,7 @@ export function readinessRows(ctx) {
   const on = (n) => caps.includes(n)
   const view = preview.status === 'ready' ? preview.view : null
   const pending = preview.status === 'loading' || preview.status === undefined ? 'checking' : preview.status === 'error' ? 'unknown' : ''
-  const titleOf = (n) => capabilities.find((c) => c.name === n)?.title || n
+  const titleOf = (n) => sentenceCase(capabilities.find((c) => c.name === n)?.title || n)
   const afterSave = (row, ...fields) => (row.state === 'ok' && fields.some((f) => changed.has(f)) ? { ...row, state: 'after_save', fix: { kind: 'save', label: 'fix.save' } } : row)
   const rows = []
 
