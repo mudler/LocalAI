@@ -752,6 +752,7 @@
           "keeps provider and Home dispatch independent of official addon IDs",
           "keeps official add-on IDs out of auth, connectors and egress presets",
           "keeps service names and hosts, unreviewed authorize parameters and OAuth libraries out of the host",
+          "finds the OAuth files by pattern, the application wiring and the Connectors page included, and fails on a pattern that matches nothing",
           "fails on a service named in code, a locale or the UI, an unreviewed parameter and an OAuth library"
         ]
       }

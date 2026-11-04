@@ -186,26 +186,54 @@ var _ = Describe("provider-neutral host code", func() {
 var quotedString = regexp.MustCompile(`"([^"\\]*)"`)
 
 // The OAuth logins of add-ons must work for any service, so nothing in the
-// host or the contract may name one: only the add-on's manifest does. These
-// are the files of the OAuth surface. A file that is moved or renamed must be
-// moved here too: a missing file fails the guard.
-var oauthGoFiles = []string{
-	"pkg/addons/contract/oauth.go",
-	"core/services/studio/oauthtoken/client.go",
-	"core/services/studio/connectoroauth.go",
-	"core/services/studio/connectorlogin.go",
-	"core/services/studio/connectoroauthowner.go",
-	"core/services/studio/connectors/oauth.go",
-	"core/services/studio/connectors/gorm_oauth.go",
-	"core/services/studio/connectors/json_oauth.go",
-	"core/services/addons/gateway/oauth.go",
-	"core/http/endpoints/studio/connectoroauth.go",
+// host or the contract may name one: only the add-on's manifest does. The
+// files of the OAuth surface are found by these patterns, so a new OAuth file
+// next to the others is checked without a change here. Each pattern must
+// match a file: a pattern that matches none fails the guard, so a move is
+// noticed. Test files are skipped.
+var oauthGoGlobs = []string{
+	"pkg/addons/contract/*oauth*.go",
+	"core/services/studio/*oauth*.go",
+	"core/services/studio/connectorlogin*.go",
+	"core/services/studio/connectorcred*.go",
+	"core/services/studio/*/*oauth*.go",
+	"core/services/studio/oauthtoken/*.go",
+	"core/services/addons/gateway/*oauth*.go",
+	"core/http/endpoints/studio/*oauth*.go",
+	// The application wiring that reads the descriptor and answers calls.
+	"core/application/studio_connectors*.go",
+	"core/application/addon_gateway*.go",
 }
 
-var oauthUIFiles = []string{
-	"core/http/react-ui/src/components/connectors/OAuthConnection.jsx",
-	"core/http/react-ui/src/components/hostcontrols/OAuthClientSettings.jsx",
-	"core/http/react-ui/src/utils/connectorOAuth.js",
+var oauthUIGlobs = []string{
+	"core/http/react-ui/src/*/*OAuth*.js",
+	"core/http/react-ui/src/*/*/*OAuth*.jsx",
+	"core/http/react-ui/src/components/connectors/*.jsx",
+	"core/http/react-ui/src/pages/ChatConnectors*.jsx",
+}
+
+// oauthSurface lists the files the patterns match, without tests. A pattern
+// that matches nothing is returned in missing.
+func oauthSurface(globs []string) (files, missing []string) {
+	seen := map[string]bool{}
+	for _, g := range globs {
+		matches, err := filepath.Glob(g)
+		n := 0
+		for _, m := range matches {
+			if strings.HasSuffix(m, "_test.go") || strings.HasSuffix(m, ".test.mjs") {
+				continue
+			}
+			n++
+			if !seen[m] {
+				seen[m] = true
+				files = append(files, m)
+			}
+		}
+		if err != nil || n == 0 {
+			missing = append(missing, g)
+		}
+	}
+	return files, missing
 }
 
 // oauthLocaleFiles are the namespaces whose OAuth strings are checked, in
@@ -425,10 +453,15 @@ func oauthSurfaceViolations() []string {
 		}
 		out = append(out, check(path, src)...)
 	}
-	for _, path := range oauthGoFiles {
+	goFiles, missing := oauthSurface(oauthGoGlobs)
+	uiFiles, missingUI := oauthSurface(oauthUIGlobs)
+	for _, g := range append(missing, missingUI...) {
+		out = append(out, g+": matches no file of the OAuth surface")
+	}
+	for _, path := range goFiles {
 		read(path, oauthGoViolations)
 	}
-	for _, path := range oauthUIFiles {
+	for _, path := range uiFiles {
 		read(path, oauthUIViolations)
 	}
 	locales, err := os.ReadDir("core/http/react-ui/public/locales")
@@ -460,6 +493,20 @@ var _ = Describe("OAuth logins that name no service", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(len(texts)).To(BeNumerically(">=", 10), "the guard finds the OAuth strings of %s", ns)
 		}
+	})
+
+	It("finds the OAuth files by pattern, the application wiring and the Connectors page included, and fails on a pattern that matches nothing", func() {
+		goFiles, missing := oauthSurface(oauthGoGlobs)
+		Expect(missing).To(BeEmpty())
+		Expect(goFiles).To(ContainElements("core/application/studio_connectors.go", "core/application/addon_gateway.go",
+			"core/services/studio/connectorlogin.go", "core/services/studio/connectors/gorm_oauth.go", "pkg/addons/contract/oauth.go"))
+		Expect(goFiles).NotTo(ContainElement(HaveSuffix("_test.go")))
+		uiFiles, missing := oauthSurface(oauthUIGlobs)
+		Expect(missing).To(BeEmpty())
+		Expect(uiFiles).To(ContainElements("core/http/react-ui/src/pages/ChatConnectors.jsx", "core/http/react-ui/src/utils/connectorOAuth.js",
+			"core/http/react-ui/src/components/connectors/OAuthConnection.jsx", "core/http/react-ui/src/components/hostcontrols/OAuthClientSettings.jsx"))
+		_, missing = oauthSurface([]string{"core/services/studio/moved_oauth_*.go"})
+		Expect(missing).To(ConsistOf("core/services/studio/moved_oauth_*.go"))
 	})
 
 	It("fails on a service named in code, a locale or the UI, an unreviewed parameter and an OAuth library", func() {

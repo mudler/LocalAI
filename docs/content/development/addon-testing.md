@@ -10,10 +10,13 @@ For typed extensions, run `contracts`, `apps`, `runtime`, `gateway`, and `host-s
 The `contracts` suite includes all official package manifests and generic architecture guards. It runs `./pkg/addons/contract`,
 `./pkg/addons/packaging`, and the root architecture suite, each with an exact
 Ginkgo report inventory (including twelve official manifest audits, two policy
-packaging checks, and five architecture guards). The OAuth guard parses the
+packaging checks, and six architecture guards). The OAuth guard parses the
 files of the OAuth logins (the contract descriptor, the token client, the
-connector service and stores, the gateway and the routes), their React sources
-and their locale strings. It fails on a string that names an identity or cloud
+connector service and stores, the gateway, the routes and the application
+wiring), their React sources (the Connectors page included) and their locale
+strings. It finds the files by name patterns, so a new OAuth file next to the
+others is checked without a change to the guard, and a pattern that matches
+no file fails it, so a move is noticed. It fails on a string that names an identity or cloud
 service or one of its hosts, from a deny list kept in the test; on an authorize
 parameter in the contract registry that is not on the reviewed list of the
 test; and on an import of an OAuth library or a service SDK. A second case
