@@ -869,7 +869,6 @@
     "lockedNoAuth": "Die Anmeldung ist ausgeschaltet, daher könnte jeder, der diesen Server erreicht, dies ändern; der Administrator legt es in der Richtliniendatei fest.",
     "newOptional": "Die neue Version fordert auch {{ops}} an. Diese sind optional und nicht erlaubt.",
     "noLongerRequested": "Diese Version fordert es nicht mehr an. Du kannst es ausschalten.",
-    "notOfficial": "Dieses Add-on stammt aus {{library}}, nicht aus der offiziellen Bibliothek.",
     "notOfficialWarning": "Dieses Add-on stammt aus {{library}}, nicht aus der offiziellen Bibliothek. Es läuft als vertrauenswürdiger Code auf diesem Server und kann die Zugangsdaten nutzen, die es erhält. Installiere es nur, wenn du seinem Autor vertraust.",
     "op": {
       "alreadyAllowed": "Bereits erlaubt",

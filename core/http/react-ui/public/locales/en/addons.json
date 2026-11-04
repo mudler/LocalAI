@@ -869,7 +869,6 @@
     "lockedNoAuth": "Sign-in is off, so anyone who can reach this server could change these; they are set by the administrator in the policy file.",
     "newOptional": "The new version also asks for {{ops}}. These are optional and not allowed.",
     "noLongerRequested": "This version no longer asks for it. You can turn it off.",
-    "notOfficial": "This add-on comes from {{library}}, not the official library.",
     "notOfficialWarning": "This add-on comes from {{library}}, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.",
     "op": {
       "alreadyAllowed": "Already allowed",

@@ -869,7 +869,6 @@
     "lockedNoAuth": "O login está desativado, então qualquer pessoa que alcance este servidor poderia alterar isto; o administrador define no arquivo de política.",
     "newOptional": "A nova versão também pede {{ops}}. São opcionais e não permitidas.",
     "noLongerRequested": "Esta versão não pede mais. Você pode desligar.",
-    "notOfficial": "Este add-on vem de {{library}}, não da biblioteca oficial.",
     "notOfficialWarning": "Este add-on vem de {{library}}, não da biblioteca oficial. Ele roda como código confiável neste servidor e pode usar as credenciais que recebe. Instale-o só se você confiar no autor.",
     "op": {
       "alreadyAllowed": "Já permitido",

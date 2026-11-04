@@ -869,7 +869,6 @@
     "lockedNoAuth": "登录已关闭，任何能访问此服务器的人都可能修改这些设置；它们由管理员在策略文件中设定。",
     "newOptional": "新版本还请求 {{ops}}。这些是可选的，且未被允许。",
     "noLongerRequested": "此版本不再请求它。你可以将其关闭。",
-    "notOfficial": "此插件来自 {{library}}，不是官方库。",
     "notOfficialWarning": "此插件来自 {{library}}，不是官方库。它在此服务器上作为受信任的代码运行，并可以使用交给它的凭据。只有在你信任其作者时才安装。",
     "op": {
       "alreadyAllowed": "已允许",

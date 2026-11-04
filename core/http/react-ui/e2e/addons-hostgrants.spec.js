@@ -137,7 +137,7 @@ test.describe('Host access: install dialog', () => {
     await expect(row('quantize.start').getByRole('switch')).toBeDisabled()
     await expect(row('quantize.start')).toContainText('Blocked by the administrator policy')
     await expect(step).not.toContainText('denied_by_admin')
-    await expect(step.getByTestId('hostaccess-not-official')).toHaveCount(0)
+    await expect(page.getByTestId('install-dialog').getByTestId('untrusted-source')).toHaveCount(0)
     await shoot(page, 'install-dialog')
     await row('egress.check').getByRole('switch').click()
     await dialog.getByTestId('install-confirm').click()
@@ -155,8 +155,12 @@ test.describe('Host access: install dialog', () => {
     await open(page, { installed: [], releases: [release('notes', { name: 'Notes' })], hostgrants: { preview: { ...PREVIEW, official: false } } })
     await page.goto('/app/addons?tab=browse')
     await page.locator('.cat-item', { hasText: 'Notes' }).getByRole('button', { name: /^Install / }).click()
-    await expect(page.getByTestId('hostaccess-not-official')).toContainText('not the official library')
-    await expect(page.getByTestId('install-dialog').getByTestId('untrusted-source')).toContainText('runs as trusted code on this server')
+    const dialog = page.getByTestId('install-dialog')
+    await expect(dialog.getByTestId('install-host-access')).toBeVisible()
+    // One warning: the callout, with no quieter line that repeats its first sentence.
+    await expect(dialog.getByTestId('untrusted-source')).toContainText('runs as trusted code on this server')
+    await expect(dialog.getByText('not the official library')).toHaveCount(1)
+    await shoot(page, 'install-host-access-not-official')
   })
 
   test('warns in the first step of an add-on from another library that asks for no host operation', async ({ page }) => {

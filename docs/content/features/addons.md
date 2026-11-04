@@ -6064,7 +6064,7 @@ When the manifest of an add-on declares host operations, the install dialog show
 - An operation that the deployment already allows says so and needs no choice.
 - An operation that this LocalAI does not support says "Not supported by this LocalAI".
 
-For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the dialog also says which library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
+For add-ons of the official library the required operations are already on and you still click **Install and turn on**. For an add-on of another library the warning below names the library it comes from. The list is read from the package that the owner verifies, not from the library listing, and the owner checks it again when it installs.
 
 ### Add-ons from another library
 
@@ -6072,7 +6072,7 @@ An add-on runs as trusted code on this server, whatever library it comes from. T
 
 > This add-on comes from *library*, not the official library. It runs as trusted code on this server and can use the credentials it is given. Install it only if you trust its author.
 
-The same warning shows above the approval form of a held upgrade when the package is not from the official library. The dialog warns unless the library entry is marked `official` and the owner's preview agrees (the preview also checks the signature). A host that sends no answer gets the warning. The line about the library in the Host access step stays.
+The same warning shows above the approval form of a held upgrade when the package is not from the official library. The dialog warns unless the library entry is marked `official` and the owner's preview agrees (the preview also checks the signature). A host that sends no answer gets the warning. The Host access step does not repeat it.
 
 An agent that installs an add-on through the dispatch route carries no approval. If the add-on needs a host operation that is not held, the owner answers `approval_required`.
 

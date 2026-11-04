@@ -157,9 +157,6 @@ export default function InstallDialog({ entry, flow, actions, onClose, installed
                 <section className="ad-hostaccess" aria-labelledby="install-host-title" data-testid="install-host-access">
                   <h3 id="install-host-title" className="ad-hostaccess__title">{t('hostAccess.stepTitle')}</h3>
                   <p>{t('hostAccess.stepIntro', { name: entry.title })}</p>
-                  {!local && host.preview.official === false && (
-                    <p className="ad-quiet" data-testid="hostaccess-not-official">{t('hostAccess.notOfficial', { library: entry.sourceId })}</p>
-                  )}
                   <HostAccessList ops={host.preview.ops} ticked={host.ticked} onTick={host.setTick} locked={host.preview.locked} />
                   {host.preview.locked && <Callout tone="info" testId="hostaccess-locked">{t(host.preview.lockedReason === 'no_auth' ? 'hostAccess.lockedNoAuth' : 'hostAccess.locked')}</Callout>}
                   {block && (
