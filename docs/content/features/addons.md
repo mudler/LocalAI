@@ -700,7 +700,9 @@ whether the service was told.
 The token client follows no redirect, reaches public addresses only, waits at
 most 30 s and reads at most 64 KiB. It accepts bearer tokens only, an access
 token must fit in 4096 bytes, and `expires_in` is clamped to one minute through
-one day. Its errors are fixed classes: no token, code, verifier, state, client
+one day. A granted `scope` must be RFC 6749 scope tokens of at most 128 bytes,
+the rule `Request.GrantedScopes` is checked with, so an answer with any other
+scope fails the login or the refresh instead of every later call. Its errors are fixed classes: no token, code, verifier, state, client
 secret or answer of the service goes into a log, an error or a tool result.
 
 Uninstalling an add-on does not touch its grants or its client yet: the

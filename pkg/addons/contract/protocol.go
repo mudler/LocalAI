@@ -143,7 +143,7 @@ func (v Envelope) Validate(now time.Time, l Limits) error {
 	if (r.ResourceKey != "" && !validResourceKey(r.ResourceKey)) || len(r.Credential) > MaxCredentialBytes {
 		return fmt.Errorf("invalid request resource key or credential")
 	}
-	if !validGrantedScopes(r.GrantedScopes) {
+	if !ValidGrantedScopes(r.GrantedScopes) {
 		return fmt.Errorf("invalid granted scopes")
 	}
 	// Principal identifiers are opaque authentication-system IDs, not filesystem paths.
@@ -270,14 +270,14 @@ func (v *Receipt) UnmarshalJSON(b []byte) error {
 // name, required and optional together.
 const MaxGrantedScopes = 2 * MaxOAuthScopes
 
-// validGrantedScopes reports a list the host could have made from a granted
-// scope response: bounded, each a scope token, no repeat.
-func validGrantedScopes(scopes []string) bool {
+// ValidGrantedScopes reports a list the host could have made from a granted
+// scope response: bounded, each a scope token (ValidScopeToken), no repeat.
+func ValidGrantedScopes(scopes []string) bool {
 	if len(scopes) > MaxGrantedScopes {
 		return false
 	}
 	for i, s := range scopes {
-		if !validScopeToken(s) || slices.Contains(scopes[:i], s) {
+		if !ValidScopeToken(s) || slices.Contains(scopes[:i], s) {
 			return false
 		}
 	}

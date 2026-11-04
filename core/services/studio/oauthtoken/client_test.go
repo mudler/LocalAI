@@ -110,7 +110,22 @@ var _ = Describe("the token client", func() {
 		}, oauthtoken.ErrBadResponse),
 		Entry("no access token", func(s *oauthtokentest.Server) { s.Body = `{"token_type":"bearer"}` }, oauthtoken.ErrBadResponse),
 		Entry("not JSON", func(s *oauthtokentest.Server) { s.Body = `refresh-sentinel` }, oauthtoken.ErrBadResponse),
+		// A request refuses these granted scopes (contract.ValidScopeToken), so
+		// a grant that held them would fail every call of the binding.
+		Entry("a granted scope with a double quote", func(s *oauthtokentest.Server) { s.Scope = `read "x` }, oauthtoken.ErrBadResponse),
+		Entry("a granted scope with a backslash", func(s *oauthtokentest.Server) { s.Scope = `read a\b` }, oauthtoken.ErrBadResponse),
+		Entry("a granted scope that is too long", func(s *oauthtokentest.Server) {
+			s.Scope = "read " + strings.Repeat("a", contract.MaxOAuthScopeBytes+1)
+		}, oauthtoken.ErrBadResponse),
 	)
+
+	It("keeps only granted scopes that a request accepts", func() {
+		srv.Set(func(s *oauthtokentest.Server) { s.Scope = "read write read https://scope.example.test/x" })
+		got, err := c.Refresh(ctx, srv.Descriptor(contract.OAuthClientAuthBasic), creds, srv.Issue())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(got.Scopes).To(Equal([]string{"read", "write", "https://scope.example.test/x"}))
+		Expect(contract.ValidGrantedScopes(got.Scopes)).To(BeTrue(), "the request check refuses what the client kept")
+	})
 
 	It("reports a 429 as rate limited with the wait the service asked for", func() {
 		srv.Set(func(s *oauthtokentest.Server) { s.Fail, s.FailStatus, s.RetryAfter = "slow_down", 429, "17" })

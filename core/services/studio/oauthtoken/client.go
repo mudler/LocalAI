@@ -39,8 +39,9 @@ const (
 	MaxExpiry = 24 * time.Hour
 	// MaxRefreshBytes bounds a refresh token.
 	MaxRefreshBytes = 8192
-	// MaxScopes bounds the granted scopes kept from an answer.
-	MaxScopes = 32
+	// MaxScopes bounds the granted scopes kept from an answer: as many as a
+	// request may carry.
+	MaxScopes = contract.MaxGrantedScopes
 	// defaultRetryAfter is the wait of a 429 that says none.
 	defaultRetryAfter = 30
 )
@@ -238,7 +239,13 @@ func (c *Client) token(ctx context.Context, d contract.OAuthDescriptor, cred Cre
 		out.ScopeSet = true
 		seen := map[string]bool{}
 		for _, s := range strings.Fields(*a.Scope) {
-			if seen[s] || len(s) > contract.MaxOAuthScopeBytes || !headerSafe(s) {
+			// A scope that Request.Validate refuses would fail every call of
+			// the grant as an outage; refusing the answer here makes it a
+			// failed login or refresh instead.
+			if !contract.ValidScopeToken(s) {
+				return Tokens{}, ErrBadResponse
+			}
+			if seen[s] {
 				continue
 			}
 			seen[s] = true

@@ -239,7 +239,7 @@ func (s OAuthScopes) validate() error {
 	seen := map[string]bool{}
 	for _, list := range [][]string{s.Required, s.Optional} {
 		for _, sc := range list {
-			if !validScopeToken(sc) || seen[sc] {
+			if !ValidScopeToken(sc) || seen[sc] {
 				return fmt.Errorf("oauth: invalid, repeated or overlapping scope")
 			}
 			seen[sc] = true
@@ -248,9 +248,12 @@ func (s OAuthScopes) validate() error {
 	return nil
 }
 
-// validScopeToken is a scope-token of RFC 6749 section 3.3: printable ASCII
-// without space, double quote or backslash.
-func validScopeToken(s string) bool {
+// ValidScopeToken reports a scope-token of RFC 6749 section 3.3 of at most
+// MaxOAuthScopeBytes: printable ASCII without space, double quote or
+// backslash. The descriptor, the host's token client and Request.Validate use
+// this one rule, so a scope the service grants is either refused when the
+// token arrives or accepted on every call.
+func ValidScopeToken(s string) bool {
 	if s == "" || len(s) > MaxOAuthScopeBytes {
 		return false
 	}
