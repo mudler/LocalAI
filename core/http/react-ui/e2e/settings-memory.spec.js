@@ -144,7 +144,9 @@ test('Delete asks first, then moves the file to the Trash', async ({ page }) => 
   await f.getByTestId('memory-delete-yes').click()
   await expect(group(page, 'notes-user:').getByTestId('memory-file')).toHaveCount(2)
   expect(s.removed).toEqual(['Memory/job.md'])
-  await expect(page.getByRole('status').filter({ hasText: 'Moved job.md to the Trash.' })).toHaveCount(1)
+  // The page's own live region and the toast both announce the move.
+  await expect(page.locator('.sr-only[role="status"]').filter({ hasText: 'Moved job.md to the Trash.' })).toHaveCount(1)
+  await expect(page.getByRole('status').filter({ hasText: 'Moved job.md to the Trash.' })).toHaveCount(2)
 })
 
 test('Clear all asks to confirm, then removes every file', async ({ page }) => {
