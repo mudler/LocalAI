@@ -13,7 +13,7 @@ import (
 // scans them, the newest chat first, until chatsearch.ScanBudget is spent.
 // Result.Searched and Total say how many chats it read.
 func (s *jsonStore) SearchText(ctx context.Context, q chatsearch.Query) (chatsearch.Result, error) {
-	res := chatsearch.Result{Engine: "memory"}
+	res := chatsearch.Result{Engine: engineScan}
 	terms := q.Terms()
 	if len(terms) == 0 {
 		return res, nil

@@ -120,7 +120,7 @@ type Progress struct {
 // Result is the answer of a search.
 type Result struct {
 	Hits []Hit
-	// Engine is how the store searched: fts5, pg_trgm, scan or memory.
+	// Engine is how the store searched: fts5, pg_trgm or scan.
 	Engine string
 	// Partial is true when a time budget ended the search before every chat
 	// was read (a store without an index).

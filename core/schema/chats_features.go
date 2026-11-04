@@ -71,7 +71,7 @@ type ChatsChatHit struct {
 // ChatsChatSearchResponse is the response of the chat search.
 type ChatsChatSearchResponse struct {
 	Hits []ChatsChatHit `json:"hits"`
-	// Engine is how the server searched: fts5, pg_trgm, scan or memory.
+	// Engine is how the server searched: fts5, pg_trgm or scan.
 	Engine string `json:"engine,omitempty"`
 	// Indexing is true while the server still adds earlier chats to its
 	// search index, so older chats may be missing from the hits.
