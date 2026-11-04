@@ -1153,7 +1153,54 @@ exists. Fix the cause and switch it on.
 ## Connections that log in with OAuth
 
 A connector add-on can declare that its connection logs you in to the service
-with OAuth 2.0 instead of taking a token. Create the binding with
+with OAuth 2.0 instead of taking a token. You then connect the binding to your
+own account at the service, and LocalAI keeps the login and renews it.
+
+### Connect an account
+
+On the **Connectors** page, a binding that logs in shows one state under its
+name:
+
+- **Not connected yet.** Tick any extra access the add-on offers under **Also
+  allow**, then select **Connect**. Your browser goes to the service, where you
+  sign in and agree. The service sends you back to the Connectors page, which
+  says whether it worked. If you decline at the service, nothing changes.
+- **Connected as** *account*, with the access the service granted and when the
+  current token expires. LocalAI renews the token before it expires. Select
+  **Disconnect** to end the login: LocalAI asks the service to revoke it and
+  then forgets it. If the service does not confirm the revocation, the page
+  says so; remove the access in your account at the service too.
+- **Connect again.** The login stopped working, for example because the access
+  was revoked at the service. The warning says why. Select **Reconnect**.
+- **An administrator must approve this add-on first.** Nobody can connect until
+  an administrator approves the login of the add-on. An administrator sees a
+  **Review and approve** link to the form instead.
+
+When a chat uses a connection whose login stopped working, the chat's **Tools**
+menu names the connection and links to the Connectors page.
+
+### Approve the login of an add-on (administrators)
+
+Open the add-on on the **Add-ons** page and select the **Settings** tab. The
+**Account login** form shows, in plain words, where people sign in, the hosts
+the login may use, the access that is always requested and the access people
+may add. Before anyone can connect:
+
+1. Register the **Callback address** with the service as the redirect address
+   of a new client. If the form says the server does not know its public
+   address, set the external base URL of the server first (see [OAuth 2.0
+   credentials]({{% relref "features/addons" %}}#oauth-20-credentials)).
+2. Enter the **Client ID** and **Client secret** that the service gives you. The
+   secret is write-only: the form never shows it again, and an empty field
+   keeps the stored one. A login that uses no secret has no secret field.
+3. Select **Approve and save**. Saving approves the login that the form shows.
+   If the add-on's login changed while the form was open, nothing is saved;
+   select **Show the new login**, review it and save again. An upgrade that
+   changes the login also needs a new approval.
+
+### With the API
+
+Create the binding with
 `"auth_kind": "oauth2"` and no token, then connect it:
 
 ```bash
