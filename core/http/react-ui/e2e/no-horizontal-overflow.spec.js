@@ -1,6 +1,6 @@
 import { test, expect } from './coverage-fixtures.js'
 import { mockChat } from './chat-fixtures.js'
-import { installAgents, AGENTS, SKILLS } from './agents-fixtures.js'
+import { installAgents, AGENTS, SKILLS, DRAFT_TOOLS } from './agents-fixtures.js'
 import { mockHome, seedChats, sampleChats } from './home-fixtures.js'
 import { mockSettings } from './settings-fixtures.js'
 import { mockLibrary } from './library-fixtures.js'
@@ -176,4 +176,49 @@ for (const width of WIDTHS) {
       }
     }
   })
+}
+
+// The agent editor with the data of a plain saved agent: short names, no
+// long text, one add-on, builtin switches, and two messaging connections,
+// one of which lacks a permission (so a warning shows under a switch). The
+// desktop widths are where a sidebar and a scrollbar take room.
+const plainBase = { description: '', instructions: '', collections: [], mcp_servers: [], addons: ['sandbox'], skills: ['citations'], network: 'off', created: '2026-10-01T10:00:00Z', updated: '2026-10-02T10:00:00Z' }
+const plainAgents = [
+  { ...plainBase, id: 'a1', name: 'daily-assistant-x', model: 'qwen3-8b', builtins: ['triggers.propose', 'memory.write', 'talkback.channels', 'files.upload', 'act.files'], builtins_on: ['saved_agents'] },
+  { ...plainBase, id: 'a2', name: 'support-triage-agent', model: 'qwen3-8b', builtins: ['triggers.propose', 'triggers.run', 'memory.write', 'talkback.channels', 'files.upload', 'act.send'], builtins_on: [] },
+]
+const plainCaps = ['triggers.propose', 'triggers.run', 'memory.write', 'talkback.channels', 'files.upload']
+const plainBindings = [
+  { id: 'b1', name: 'Team', kind: 'slack', agent_id: 'a1', enabled: true, caps: plainCaps },
+  { id: 'b2', name: 'Personal', kind: 'telegram', agent_id: 'a2', enabled: true, caps: plainCaps.filter(c => c !== 'triggers.run') },
+]
+
+for (const width of [1280, 1100, 390]) {
+  for (const collapsed of [false, true]) {
+    test.describe(`plain agent editor at ${width}px, sidebar ${collapsed ? 'collapsed' : 'open'}`, () => {
+      test.use({ viewport: { width, height: 900 } })
+      for (const aid of ['a1', 'a2']) {
+        test(`${aid} with every fold open does not scroll sideways`, async ({ page }) => {
+          await page.addInitScript((c) => localStorage.setItem('localai_sidebar_collapsed', String(c)), collapsed)
+          await installAgents(page, { agents: plainAgents, bindings: plainBindings, skills: SKILLS })
+          await page.route('**/api/chats/draft/tools*', route => route.fulfill({
+            json: {
+              ...DRAFT_TOOLS, servers: [], off: [],
+              addons: [{ id: 'sandbox', tools: 3, off: false, title: 'Sandbox', description: 'Run commands in an isolated box.' }, { id: 'office', tools: 2, off: false, title: 'Office', description: 'Read and write documents.' }],
+              connectors: [{ id: 'm1', name: 'Docs', off: false, usable: true }],
+            },
+          }))
+          await page.route(/\/api\/chats\/connectors\/kinds$/, r => r.fulfill({ json: { kinds: [{ kind: 'slack', addon: 'slack', title: 'Slack' }, { kind: 'telegram', addon: 'telegram', title: 'Telegram' }], capabilities: [] } }))
+          await page.goto(`/app/agents/${aid}/edit`)
+          await page.locator('[data-testid=agent-edit]').waitFor()
+          for (const b of await page.locator('.ag-fold__button').all()) await b.click()
+          await page.waitForTimeout(300)
+          const r = await overflow(page)
+          expect(r.bad, `elements past the right edge (document ${r.scrollWidth} in ${r.clientWidth})`).toEqual([])
+          expect(r.scrollWidth, 'document width').toBeLessThanOrEqual(r.clientWidth + 1)
+          expect(r.scrollers, 'boxes that scroll sideways and are not allowed').toEqual([])
+        })
+      }
+    })
+  }
 }
