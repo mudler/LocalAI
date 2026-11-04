@@ -213,6 +213,8 @@ func operationCauseMessage(code string) string {
 		return "The uploaded file is gone: it expired, or another user uploaded it. Upload it again. Nothing was installed"
 	case managerpkg.CauseVersionNotNewer:
 		return "This version of the add-on is installed already. Nothing was installed"
+	case managerpkg.CauseInstalledIncompatible:
+		return "This version of the add-on is not compatible with this server, so it cannot be turned on. Upgrade it to a newer version, then turn it on. Nothing was changed"
 	case managerpkg.CauseDowngradeRefused:
 		return "The file holds an older version than the installed one. Confirm the downgrade to install it. Nothing was installed"
 	}

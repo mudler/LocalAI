@@ -4731,6 +4731,9 @@ operations.
 
 **Check for updates** in the bar of the list reads the library of every installed add-on
 again; it applies nothing, and an add-on that cannot be checked does not stop the others.
+Add-ons that share a library are all checked, whether they are turned on or off, and every
+one with a newer build is listed together. An installed version that this server can no longer
+run cannot be turned on: the server says so and you upgrade it first.
 
 An upgrade started from the list, the details, **Find add-ons** or **Upgrade all** keeps
 running when you leave the page. It appears in the Activity page under the **Add-ons**

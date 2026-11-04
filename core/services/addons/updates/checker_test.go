@@ -508,6 +508,43 @@ var _ = Describe("Update detection", func() {
 			Expect(r.lib.refreshes.Load()).To(Equal(int32(2)))
 			Expect(st.Throttled).To(BeFalse())
 		})
+		It("reports every add-on of one library that has an update when they are checked in a row", func() {
+			// Several development add-ons share one library. The first check
+			// fetches the library; the others must still resolve their own
+			// tag, or only the first one would ever report an update.
+			ids := []string{"alpha", "beta", "gamma"}
+			dev := func(id string) catalog.Release {
+				r := rel("0.0.0-development", "development", "")
+				r.ID, r.Name, r.Mutable = id, id, true
+				r.Artifact = "oci://registry.example/addons:" + id + "-development"
+				return r
+			}
+			now := time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
+			lib := &library{now: func() time.Time { return now }, state: catalog.RefreshState{CheckedAt: now, LastSuccess: now}, hasState: true}
+			inst := &installs{in: map[string]updates.Installation{}}
+			for _, id := range ids {
+				lib.cached = append(lib.cached, dev(id))
+				in := installed("0.0.0-dev.2cadf319a0e1", "0.0.0-development", "development", digestA)
+				in.AddonID = id
+				inst.in[id] = in
+			}
+			lib.remote = lib.cached
+			checker := updates.New(updates.Config{Host: host, TTL: time.Hour, MaxEntries: 8, MinRefresh: time.Minute, Now: func() time.Time { return now },
+				Lookup: func(context.Context, string, string) (string, error) { return digestB, nil }}, lib, inst)
+			for _, id := range ids {
+				st, e := checker.Check(context.Background(), id, true)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(st.State).To(Equal(updates.UpdateAvailable), id)
+				Expect(st.CandidateDigest).To(Equal(digestB), id)
+			}
+			Expect(lib.refreshes.Load()).To(Equal(int32(1)), "the library is still fetched once")
+			// A status read afterwards answers the same for all of them.
+			for _, id := range ids {
+				st, e := checker.Check(context.Background(), id, false)
+				Expect(e).NotTo(HaveOccurred())
+				Expect(st.State).To(Equal(updates.UpdateAvailable), id)
+			}
+		})
 		It("shares one check among concurrent callers", func() {
 			r := newRig(installed("1.0.0", "development", "development", digestA), rel("1.0.0", "development", digestA))
 			r.lib.delay = make(chan struct{})

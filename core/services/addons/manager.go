@@ -85,6 +85,10 @@ const (
 	// CauseDowngradeRefused: the file holds an older version and the request
 	// did not confirm the downgrade.
 	CauseDowngradeRefused = "downgrade_refused"
+	// CauseInstalledIncompatible: the installed package was built for an API,
+	// protocol or data format this host no longer runs. It cannot be turned
+	// on; an upgrade to a compatible release can.
+	CauseInstalledIncompatible = "installed_incompatible"
 )
 
 // FailureCause is the typed cause of a failed operation. Its text is fixed and
@@ -775,6 +779,13 @@ func (m *Manager) submit(ctx context.Context, actor contract.Actor, cmd Lifecycl
 		// Data that needs recovery is not served: it is restored or purged first.
 		if m.dataBlocked(cmd.AddonID) {
 			return fail()
+		}
+		// A package the host cannot run would only fail to start and leave
+		// the add-on off with no reason. Say so, and keep the upgrade open.
+		if r, ok := currentReceipt(m.journal.Addons[cmd.AddonID]); ok && m.installer != nil {
+			if contract.ValidateManifest(r.Manifest, m.installer.Host) != nil {
+				return fail(&FailureCause{Code: CauseInstalledIncompatible})
+			}
 		}
 		next.DesiredEnabled = true
 	case "disable":
