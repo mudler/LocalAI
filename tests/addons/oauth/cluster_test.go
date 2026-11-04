@@ -35,7 +35,6 @@ import (
 	"github.com/mudler/LocalAI/core/services/studio/oauthtoken/oauthtest"
 	"github.com/mudler/LocalAI/pkg/addons/contract"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/mudler/xlog"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gorm.io/gorm"
@@ -226,7 +225,8 @@ type cluster struct {
 	providers map[string]*oauthtest.Provider
 	library   *library
 	admin     contract.Actor
-	logs      *syncBuffer
+	// logStart is where the log lines of this cluster begin in suiteLogs.
+	logStart int
 	// startingFrontend is set while a frontend is built.
 	startingFrontend bool
 }
@@ -248,6 +248,23 @@ func (s *syncBuffer) String() string {
 	defer s.mu.Unlock()
 	return s.b.String()
 }
+
+func (s *syncBuffer) Len() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.b.Len()
+}
+
+// suiteLogs holds every log line of the servers of the suite, so a spec can
+// check that none carries a secret. The global logger is set once: servers
+// of an ended spec may still be logging while the next one starts.
+var (
+	suiteLogs       = &syncBuffer{}
+	suiteLogHandler = slog.NewTextHandler(suiteLogs, &slog.HandlerOptions{Level: slog.LevelDebug})
+)
+
+// logText is what the servers logged since the cluster started.
+func (c *cluster) logText() string { return suiteLogs.String()[c.logStart:] }
 
 // realTempDir returns a new temporary directory whose path has no symbolic
 // link: the owner refuses one in its root. The owner leaves directories it
@@ -288,12 +305,7 @@ func newCluster() *cluster {
 		c.network.Add(s.AuthorizeHost, p)
 		c.network.Add(s.MovedTokenHost, p)
 	}
-	// Every log line of the servers lands in c.logs, so a spec can check that
-	// none carries a secret.
-	c.logs = &syncBuffer{}
-	handler := slog.NewTextHandler(c.logs, &slog.HandlerOptions{Level: slog.LevelDebug})
-	xlog.SetLogger(xlog.NewLoggerWithHandler(handler, xlog.LogLevelDebug))
-	DeferCleanup(func() { xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text")) })
+	c.logStart = suiteLogs.Len()
 	DeferCleanup(application.UseConnectorOptionsForTests(func(o *studio.ConnectorOptions) {
 		o.TokenClient = c.network.TokenClient()
 		if c.startingFrontend {
@@ -302,7 +314,7 @@ func newCluster() *cluster {
 			o.TokenClient = oauthtest.NewNetwork().TokenClient()
 		}
 		o.Clock = c.clock.Now
-		o.Logger = slog.New(handler)
+		o.Logger = slog.New(suiteLogHandler)
 	}))
 
 	c.keys = filepath.Join(c.dir, "keys")

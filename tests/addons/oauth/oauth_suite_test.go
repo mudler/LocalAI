@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mudler/xlog"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -28,6 +30,7 @@ func TestOAuthConformance(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	xlog.SetLogger(xlog.NewLoggerWithHandler(suiteLogHandler, xlog.LogLevelDebug))
 	dir, err := os.MkdirTemp("", "oauth-fixture-")
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(func() { _ = os.RemoveAll(dir) })

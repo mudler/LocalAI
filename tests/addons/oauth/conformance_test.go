@@ -407,11 +407,11 @@ var _ = Describe("OAuth logins of add-ons, the same for every service", func() {
 		Expect(u.oauth(c.owner)["state"]).To(Equal("not_connected"))
 		Expect(u.call(c.owner).result.Code).To(Equal(tools.CodeNoCredential))
 
-		Expect(c.logs.String()).To(ContainSubstring("an OAuth connection needs a reconnect"), "the spec saw the logs")
+		Expect(c.logText()).To(ContainSubstring("an OAuth connection needs a reconnect"), "the spec saw the logs")
 
 		By("having authenticated the client the way the descriptor says on every call")
 		u.expectClientAuth()
-		for _, t := range append(u.texts, c.logs.String()) {
+		for _, t := range append(u.texts, c.logText()) {
 			u.expectNoSecret(t)
 		}
 	}, entries("login"))
@@ -456,7 +456,7 @@ var _ = Describe("OAuth logins of add-ons, the same for every service", func() {
 		u.p.Set(func(p *oauthtest.Provider) { p.Fail, p.FailStatus, p.RetryAfter = "", 0, "" })
 		u.expectServed(u.call(c.owner), s.Required)
 		u.expectClientAuth()
-		for _, t := range append(u.texts, c.logs.String()) {
+		for _, t := range append(u.texts, c.logText()) {
 			u.expectNoSecret(t)
 		}
 	}, entries("failures"))
@@ -564,7 +564,7 @@ var _ = Describe("OAuth logins of add-ons, the same for every service", func() {
 		Expect(decode(rec)["revoked"]).To(BeTrue())
 		Expect(u.oauth(c.owner)["state"]).To(Equal("not_connected"))
 		u.expectClientAuth()
-		for _, t := range append(u.texts, c.logs.String()) {
+		for _, t := range append(u.texts, c.logText()) {
 			u.expectNoSecret(t)
 		}
 	}, entries("two frontends"))
