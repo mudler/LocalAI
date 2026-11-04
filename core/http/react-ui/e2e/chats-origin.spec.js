@@ -119,11 +119,11 @@ test.describe('Chats that no person started', () => {
     await page.getByTestId('chats-trigger').click()
     const menu = page.getByTestId('chats-menu')
     await expect(menu.getByTestId('chats-row')).toHaveCount(8)
-    await menu.getByRole('combobox').fill('alice')
+    await menu.getByRole('combobox', { name: 'Search conversations...' }).fill('alice')
     const row = menu.getByTestId('chats-row')
     await expect(row).toHaveCount(1)
     await expect(row.getByTestId('chats-origin-badge')).toHaveText('Team assistant')
-    await menu.getByRole('combobox').fill('Plan')
+    await menu.getByRole('combobox', { name: 'Search conversations...' }).fill('Plan')
     await expect(menu.getByTestId('chats-row').getByTestId('chats-origin-badge')).toHaveCount(0)
   })
 

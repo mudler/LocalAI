@@ -113,6 +113,50 @@
       "job": "作业",
       "page": "页面",
       "other": "自动"
+    },
+    "keys": {
+      "clear": "清除"
+    },
+    "find": {
+      "searching": "正在搜索…",
+      "count_one": "{{count}} 条结果",
+      "count_other": "{{count}} 条结果",
+      "more_one": "此对话中还有 {{count}} 处匹配",
+      "more_other": "此对话中还有 {{count}} 处匹配",
+      "indexing": "较早的对话仍在建立索引，结果可能不完整。",
+      "partial": "已搜索 {{total}} 个对话中最新的 {{searched}} 个。",
+      "failed": "搜索失败。",
+      "retry": "重试",
+      "noMatchFor": "没有与“{{query}}”匹配的对话。",
+      "noMatchFiltered": "在这些筛选条件下，没有与“{{query}}”匹配的对话。",
+      "inTitle": "匹配标题",
+      "you": "你",
+      "assistant": "助手",
+      "filters": "搜索筛选",
+      "agent": "智能体",
+      "anyAgent": "所有智能体",
+      "origin": "来源",
+      "anyOrigin": "任何来源",
+      "originName": {
+        "person": "我的对话",
+        "automated": "附加组件和自动化",
+        "trigger": "触发器",
+        "connector": "消息应用",
+        "job": "作业",
+        "page": "页面"
+      },
+      "when": "时间",
+      "anyTime": "不限时间",
+      "range": {
+        "day": "最近 24 小时",
+        "week": "最近 7 天",
+        "month": "最近 30 天",
+        "year": "最近一年",
+        "custom": "选择日期…"
+      },
+      "from": "从",
+      "to": "到",
+      "reset": "重置筛选"
     }
   },
   "message": {

@@ -79,6 +79,7 @@ import { useAuth } from '../context/AuthContext'
 import { useOperations } from '../hooks/useOperations'
 import { useLoadedModels } from '../hooks/useLoadedModels'
 import { copyToClipboard } from '../utils/clipboard'
+import { chatAddress, seqOfSearch } from '../utils/chatSearch'
 import Icon from '../components/Icon'
 // eslint-disable-next-line no-unused-vars
 import WorkspaceChangeNote from '../components/wellknown/WorkspaceChangeNote'
@@ -426,6 +427,29 @@ function ChatPage() {
       }
     })
   }, [find.index, find.count, find.query])
+
+  // A link from the chat search names a message (?seq=14): scroll to it once
+  // the transcript has it, and flash it so the eye finds it. location.key
+  // makes a second click on the same hit jump again.
+  const wantSeq = seqOfSearch(location.search)
+  const jumpedRef = useRef('')
+  useEffect(() => {
+    if (!wantSeq || !activeId || routeId !== activeId) return undefined
+    const mark = `${location.key}:${activeId}:${wantSeq}`
+    if (jumpedRef.current === mark) return undefined
+    const el = messagesRef.current?.querySelector(`[data-testid="chat-message"][data-index="${wantSeq}"]`)
+    if (!el) return undefined
+    jumpedRef.current = mark
+    el.scrollIntoView({ block: 'center' })
+    el.focus({ preventScroll: true })
+    // on, then off (the colour fades by a transition), then gone. Not cleared
+    // by the cleanup: a new message in the transcript re-runs this effect and
+    // must not cut the flash short.
+    el.setAttribute('data-flash', 'on')
+    setTimeout(() => el.setAttribute('data-flash', 'off'), 1400)
+    setTimeout(() => el.removeAttribute('data-flash'), 2800)
+    return undefined
+  }, [wantSeq, activeId, routeId, messages, location.key])
 
   // Highlight code blocks and add per-block Copy and Download buttons, and
   // Open preview on a block that is a result (a page, an SVG, a long block, a
@@ -1036,14 +1060,14 @@ function ChatPage() {
               ref={chatsMenuRef}
               chats={visibleChats}
               activeChatId={activeId}
-              onSelect={(id) => navigate(`/app/chats/${id}`)}
+              onSelect={(id, opts) => navigate(chatAddress(id, opts))}
               onNew={() => navigate('/app')}
               onDelete={requestDelete}
               onDeleteAll={promptDeleteAll}
               onRename={(id, name) => chat.rename(id, name)}
               onExport={(c) => exportChat(c.id)}
               onCopyChat={(c) => copyChat(c.id)}
-              onSearch={(text) => chatsApi.search(text, 50)}
+              onSearch={(text, params) => chatsApi.search(text, 50, params)}
               originTitle={originTitle}
             />
           )}

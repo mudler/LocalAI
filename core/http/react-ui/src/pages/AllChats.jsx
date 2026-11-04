@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { chatNotificationsApi, chatsApi } from '../utils/api'
 import { chatFromExport, chatMarkdown, downloadFrom, menuChats } from '../utils/chatThread'
 import { copyToClipboard } from '../utils/clipboard'
+import { chatAddress } from '../utils/chatSearch'
 import { CAP_CHAT } from '../utils/capabilities'
 import { useModels } from '../hooks/useModels'
 import { CHAT_UNDO_MS, useChatDelete } from '../hooks/useChatDelete'
@@ -203,14 +204,14 @@ export default function AllChats() {
           <ChatsList
             chats={visibleChats}
             idPrefix="all-chats"
-            onSelect={(id) => navigate(`/app/chats/${encodeURIComponent(id)}`)}
+            onSelect={(id, opts) => navigate(chatAddress(id, opts))}
             onNew={() => navigate('/app')}
             onDelete={(c) => deletes.request({ id: c.id, name: c.name || tc('list.untitled') })}
             onDeleteAll={promptDeleteAll}
             onRename={rename}
             onExport={(c) => downloadFrom(chatsApi.exportUrl(c.id, 'markdown'))}
             onCopyChat={copyChat}
-            onSearch={(text) => chatsApi.search(text, 50)}
+            onSearch={(text, params) => chatsApi.search(text, 50, params)}
           />
         </div>
       )}

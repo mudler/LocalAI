@@ -62,7 +62,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
       return
     }
     if (e.key !== 'Tab') return
-    const focusable = Array.from(dialogRef.current?.querySelectorAll('button, input, [href]') || []).filter(el => !el.disabled && el.offsetParent !== null)
+    const focusable = Array.from(dialogRef.current?.querySelectorAll('button, input, select, [href]') || []).filter(el => !el.disabled && el.offsetParent !== null)
     if (focusable.length === 0) return
     const first = focusable[0]
     const last = focusable[focusable.length - 1]
@@ -102,7 +102,7 @@ const ChatsMenu = forwardRef(function ChatsMenu({
             <ChatsList
               chats={chats}
               activeChatId={activeChatId}
-              onSelect={(id) => { onSelect?.(id); close() }}
+              onSelect={(id, opts) => { onSelect?.(id, opts); close() }}
               onNew={() => { onNew?.(); close() }}
               onDelete={onDelete}
               onDeleteAll={onDeleteAll ? () => { onDeleteAll(); close() } : undefined}

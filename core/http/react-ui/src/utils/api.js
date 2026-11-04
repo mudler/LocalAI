@@ -156,7 +156,9 @@ export const chatsApi = {
   fork: (id, fromSeq, title) => postJSON(`${API_CONFIG.endpoints.chat(id)}/fork`, {
     ...(fromSeq ? { from_seq: Number(fromSeq) } : {}), ...(title ? { title } : {}),
   }),
-  search: (text, limit) => fetchJSON(`${API_CONFIG.endpoints.chats}/search${q({ q: text, limit })}`),
+  // Search all chats: params are the filters of GET /api/chats/search (agent,
+  // origin, role, since, until, group).
+  search: (text, limit, params = {}) => fetchJSON(`${API_CONFIG.endpoints.chats}/search${q({ q: text, limit, ...params })}`),
   exportUrl: (id, format) => apiUrl(`${API_CONFIG.endpoints.chat(id)}/export${q({ format })}`),
   // chat is the JSON export (GET .../export?format=json); model replaces its model.
   importChat: (chat, model) => postJSON(`${API_CONFIG.endpoints.chats}/import`, { chat, ...(model ? { model } : {}) }),
