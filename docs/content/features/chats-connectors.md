@@ -7,7 +7,7 @@ url = "/features/chats-connectors/"
 
 The Connectors page of the [chats](/features/chats/) (`/app/chats/connectors`, under **Agents** in the sidebar) lists the messaging bindings you made, and the MCP servers have a page of their own (**MCP connectors** in the sidebar, `/app/mcp-connectors`):
 
-- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack) (the [GitHub add-on](#github) holds a token for your agents instead of carrying messages). This is the first half of this page.
+- A **messaging connector** binds a bot of a platform to one of your agents, so a person can talk to it from that platform. The platform comes from a **connector add-on**: the [Telegram add-on](#telegram) or the [Slack add-on](#slack) (the [GitHub add-on](#github) and the [Jellyfin add-on](#jellyfin) hold a token for your agents instead of carrying messages). This is the first half of this page.
 - An **MCP server** gives your chats and agents more tools. See [MCP servers](#mcp-servers).
 
 ## Connector add-ons
@@ -165,6 +165,30 @@ Everything the agent writes is public to everyone who can see the repository. Th
 Over the API the connection has a `write_mode` field: `off`, `propose` or `auto`. Absent means off for a new connection and unchanged for an update.
 
 This version does not listen for mentions.
+
+## Jellyfin
+
+The Jellyfin add-on lets your [saved agents](/features/chats-agents/) and your chats look into a [Jellyfin](https://jellyfin.org) media server: search the library by title, browse a library, read the details of a film, a show or an album, see what was added lately, what a user can resume and which episode is next, see which players are active and what they play, and read the server version. If you allow it, they can also remote control a player (play an item, pause, resume, stop, seek, set the volume), mark an item watched or not watched, set a favourite and add items to a playlist. It cannot delete anything, scan or edit the library, or manage users. It needs Jellyfin 10.9 or later.
+
+1. Install the **Jellyfin** add-on from the add-on gallery.
+2. In the Jellyfin dashboard, as an administrator, open **Advanced**, then **API Keys**, choose the plus button, name the key (for example `LocalAI`) and copy it. A Jellyfin API key works for the whole server and not for one user; the write mode below is what limits the agent. Deleting the key in the dashboard cuts the access at once.
+3. On the add-on page, choose **New Jellyfin connection**. Paste the key and write the **server address** as you open it in a browser, with the port, for example `http://192.168.1.10:8096` or `https://media.example/jellyfin`. Press **Test**: the row says whether the server answers, which version it runs and whether it accepts the key.
+
+One connection holds one key and one server. To use a second server, add a second connection; when several are enabled in a chat the model names the connection in each call (see [The connections of an add-on](/features/chats/#the-connections-of-an-add-on)). The agent field is optional, as for GitHub: a connection without an agent holds credentials only.
+
+**The address is the access list.** The server address is the one entry that the connection lists, and LocalAI checks it before the add-on is called, like a repository of a GitHub connection. The add-on talks to that address and to no other: only `http` and `https` are accepted, an address with a user name, a password or a query is refused, the key goes only in the `Authorization` header and never in an address, the paths are built by the add-on, and a redirect is not followed. A plain `http` address sends the key unencrypted; the page says so. Use it only on a network you trust.
+
+**Self-signed certificates.** The add-on checks the certificate of an `https` server as a browser does. If your server uses a self-signed certificate, type its SHA-256 fingerprint in the **Certificate fingerprint** box (from the certificate view of your browser; colons and capitals are fine). The connection then accepts that one certificate and no other, and a different certificate is refused. Checks are never switched off. The fingerprint is stored with the address as `https://host:8920#sha256=<hex>`; this is what a model must copy as `server`, and the tool descriptions tell it to copy the address from the page.
+
+### What the agent sees
+
+Results are short and bounded: at most 50 items a page with a `next` index, overviews cut at 240 characters in a list and 1500 in the details of one item, 20 people per item. They hold names, years, ratings, runtimes, the watched state of the named user and the playback state of a session. They hold no file path, no stream address, no image address and never the key. Titles, overviews, names of people, user names and device names are written by other people, so every result is marked as untrusted data for the model and the add-on's skill says the same. The user of user-specific lists is chosen by name (`list-users` gives the names) and the add-on turns it into an ID; with one user on the server the name can be left out.
+
+### Changing things on Jellyfin
+
+The write mode of the connection works as for GitHub: **Read only** (the default), **Asks you first** and **Acts without asking**, stored with the connection and enforced by LocalAI before the add-on is called. With **Asks you first** each change is a proposal with a card that names the player, its user and what it plays now (for playback), or the item, the user or the playlist, and you confirm it in the approvals. A proposal expires after five minutes. The add-on reads the target again when you confirm: if another item plays on that player now, or the playlist changed, nothing is sent and the card says so. **Acts without asking** lets a chat of yours act at once, which includes pausing or stopping a screen other people are watching; a run without you present still leaves a proposal. The write tools are `control-playback`, `mark-played`, `set-favorite` and `add-to-playlist`.
+
+The connection has a `write_mode` field over the API: `off`, `propose` or `auto`.
 
 ## Slack
 

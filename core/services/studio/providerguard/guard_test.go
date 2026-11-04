@@ -173,7 +173,7 @@ var _ = Describe("the names of the shipped add-ons in core", func() {
 			role[a.ID] = a.Role
 		}
 		Expect(len(addons)).To(BeNumerically(">=", 10))
-		for _, id := range []string{"sandbox", "office", "web", "slack", "telegram", "github", "tables", "memory"} {
+		for _, id := range []string{"sandbox", "office", "web", "slack", "telegram", "github", "jellyfin", "tables", "memory"} {
 			Expect(role).To(HaveKeyWithValue(id, true), "%s gives the host something to act on", id)
 		}
 		for _, id := range []string{"face", "voice", "talk", "studio", "fine-tuning", "quantization"} {

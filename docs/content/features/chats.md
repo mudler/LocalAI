@@ -1067,7 +1067,8 @@ curl -s localhost:8080/api/chats/$ID/addons
 ### The connections of an add-on
 
 Some add-ons run their tools with a token that you keep in a connection (for
-example the [GitHub add-on](/features/chats-connectors/#github)). Any add-on
+example the [GitHub add-on](/features/chats-connectors/#github) or the
+[Jellyfin add-on](/features/chats-connectors/#jellyfin)). Any add-on
 that declares a credential in its manifest works this way. LocalAI never
 chooses the connections for you, and a chat can use more than one for the same
 add-on:
