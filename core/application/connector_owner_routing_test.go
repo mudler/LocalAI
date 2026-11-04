@@ -385,7 +385,7 @@ var _ = Describe("connector owner routing", func() {
 		b, e := bindings.GetBinding(ctx, original.ID)
 		Expect(e).NotTo(HaveOccurred())
 		scope := studio.BindingConnectorScope(b)
-		for _, op := range []string{contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft} {
+		for _, op := range []string{contract.ConnectorOpSend, contract.ConnectorOpEdit, contract.ConnectorOpTyping, contract.ConnectorOpDraft, contract.ConnectorOpHistory} {
 			req := contract.ConnectorRequest{Op: op, Kind: "slack", Chat: "chat", Thread: "thread", Text: "private text", MessageID: "working", DraftID: 7, Media: "ref"}
 			before = len(source.requests())
 			_, e = tr.Call(ctx, scope, req)

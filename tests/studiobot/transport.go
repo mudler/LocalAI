@@ -148,6 +148,19 @@ func (b *BotTransport) EnableTransfers(t *hostops.Transfers) (stop func()) {
 	}
 }
 
+// UseAuthority makes every call go through the real gateway with the given
+// authority, as in the application. Without it a transport that moves no file
+// calls the add-on directly and checks no scope.
+func (b *BotTransport) UseAuthority(a gateway.ConnectorAuthority) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.gateway == nil {
+		b.gateway = &gateway.Gateway{Connectors: gatewaySource{b}, ConnectorAuthority: a}
+		return
+	}
+	b.gateway.ConnectorAuthority = a
+}
+
 type allowAll struct{}
 
 func (allowAll) AuthorizeConnector(_ context.Context, _ studio.ConnectorCallScope, r contract.ConnectorRequest) (contract.ConnectorRequest, error) {
