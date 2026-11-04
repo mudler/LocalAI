@@ -146,3 +146,57 @@ var _ = Describe("Responses stream item consistency", func() {
 		Entry("reasoning and automatic fallback tool call", []string{"<think>", "Let me think.", "</think>", `<tool_call>{"name":"get_weather","arguments":{"city":"Rome"}}</tool_call>`}, nil, "Let me think.", "", true),
 	)
 })
+
+var _ = Describe("Responses stream namespace tools", func() {
+	It("returns a call to a namespace member with its namespace", func() {
+		originalInference := backend.ModelInferenceFunc
+		DeferCleanup(func() { backend.ModelInferenceFunc = originalInference })
+		call := `<tool_call>{"name":"ns_mcp__docs___search","arguments":{"q":"x"}}</tool_call>`
+		backend.ModelInferenceFunc = func(
+			ctx context.Context, prompt string, messages schema.Messages,
+			images, videos, audios []string, loader *model.ModelLoader,
+			cfg *config.ModelConfig, cl *config.ModelConfigLoader, app *config.ApplicationConfig,
+			tokenCallback func(string, backend.TokenUsage) bool, tools, toolChoice string,
+			logprobs, topLogprobs *int, logitBias map[string]float64, metadata map[string]string,
+		) (func() (backend.LLMResponse, error), error) {
+			return func() (backend.LLMResponse, error) {
+				tokenCallback(call, backend.TokenUsage{})
+				return backend.LLMResponse{Response: call}, nil
+			}, nil
+		}
+		cfg := &config.ModelConfig{}
+		cfg.FunctionsConfig.AutomaticToolParsingFallback = true
+		cfg.FunctionsConfig.JSONRegexMatch = []string{`(?s)<tool_call>(.*?)</tool_call>`}
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest("POST", "/v1/responses", nil)
+		c := echo.New().NewContext(request, recorder)
+		input := &schema.OpenResponsesRequest{Model: "test-model", Input: "hello", Stream: true}
+		err := handleOpenResponsesStream(c, "resp_test", 1, input, cfg, nil, nil, config.NewApplicationConfig(), "hello", &schema.OpenAIRequest{Context: request.Context()}, nil, false, false, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		var calls []schema.ORItemField
+		for _, line := range strings.Split(recorder.Body.String(), "\n") {
+			if !strings.HasPrefix(line, "data: ") || line == "data: [DONE]" {
+				continue
+			}
+			var event schema.ORStreamEvent
+			Expect(json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &event)).To(Succeed())
+			if event.Item != nil && event.Item.Type == "function_call" {
+				calls = append(calls, *event.Item)
+			}
+			if event.Type == "response.completed" {
+				for _, item := range event.Response.Output {
+					if item.Type == "function_call" {
+						calls = append(calls, item)
+					}
+				}
+			}
+		}
+		Expect(calls).To(HaveLen(3), "output_item.added, output_item.done and response.completed")
+		for _, item := range calls {
+			Expect(item.Namespace).To(Equal("mcp__docs"))
+			Expect(item.Name).To(Equal("search"))
+			Expect(item.Arguments).To(MatchJSON(`{"q":"x"}`))
+		}
+	})
+})
