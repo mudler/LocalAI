@@ -194,6 +194,12 @@ var _ = Describe("permissions in the turns of a connector chat", func() {
 		Expect(req(studio.CapabilityRequest{Capability: contract.CapProposalsConfirm, Sender: "11", Sensitive: true})).To(BeFalse(), "neither does the allowlist")
 		Expect(req(studio.CapabilityRequest{Capability: contract.CapProposalsConfirm, Sender: "12", Sensitive: true})).To(BeTrue(), "a pairing does")
 		Expect(req(studio.CapabilityRequest{Capability: contract.CapProposalsConfirm, Sender: "12"})).To(BeTrue(), "paired")
+		// The gate behind the auto start of a trigger that acts asks about a
+		// capability that is not sensitive, with the Sensitive mark: the
+		// allowlist must not pass it, only a pairing.
+		Expect(req(studio.CapabilityRequest{Capability: contract.CapTriggersPropose, Sender: "11"})).To(BeTrue(), "the allowlist holds a capability that is not sensitive")
+		Expect(req(studio.CapabilityRequest{Capability: contract.CapTriggersPropose, Sender: "11", Sensitive: true})).To(BeFalse(), "but not when the request is marked sensitive")
+		Expect(req(studio.CapabilityRequest{Capability: contract.CapTriggersPropose, Sender: "12", Sensitive: true})).To(BeTrue(), "a pairing passes")
 		Expect(gate.Allow(ctx, studio.CapabilityRequest{Capability: contract.CapProposalsConfirm, Binding: "nope", Sender: "12"})).To(BeFalse())
 		Expect(gate.Allow(ctx, studio.CapabilityRequest{Capability: contract.CapProposalsConfirm, Binding: b.ID, Owner: "mallory", Sender: "12"})).To(BeFalse())
 	})
