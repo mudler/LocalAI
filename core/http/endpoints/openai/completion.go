@@ -275,6 +275,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				return err
 			}
 
+			totalTokenUsage.Prompt += tokenUsage.Prompt
+			totalTokenUsage.Completion += tokenUsage.Completion
 			totalTokenUsage.TimingTokenGeneration += tokenUsage.TimingTokenGeneration
 			totalTokenUsage.TimingPromptProcessing += tokenUsage.TimingPromptProcessing
 
