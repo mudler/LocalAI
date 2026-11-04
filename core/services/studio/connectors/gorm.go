@@ -296,6 +296,10 @@ func (s *gormStore) SetChat(ctx context.Context, binding, senderID, chatID strin
 	return s.db.WithContext(ctx).Save(&chatRow{Binding: binding, Sender: senderID, ChatID: chatID}).Error
 }
 
+func (s *gormStore) ClearChat(ctx context.Context, binding, senderID string) error {
+	return s.db.WithContext(ctx).Where("binding = ? AND sender = ?", binding, senderID).Delete(&chatRow{}).Error
+}
+
 func (s *gormStore) EnsureKey(ctx context.Context, generate func() ([]byte, error)) ([]byte, error) {
 	read := func() ([]byte, bool, error) {
 		var r keyRow

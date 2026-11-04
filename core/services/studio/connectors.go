@@ -752,6 +752,11 @@ func (c *Connectors) handle(ctx context.Context, b connectors.Binding, token str
 			return
 		}
 	}
+	// The new chat command is decided here too, and the model never reads it.
+	if isNewCommand(m) {
+		c.newChat(ctx, b, m, say)
+		return
+	}
 	// "confirm 7K2Q" or "cancel 7K2Q" answers a proposal that this binding made;
 	// it is decided here, before any model turn, and the model never reads it.
 	if len(m.Media) == 0 && c.answerPhrase(ctx, b, m, say) {

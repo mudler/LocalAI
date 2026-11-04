@@ -19,6 +19,7 @@ export const ANSWER_TEXT = {
   'answer.reply.stream': 'Live: the answer as it is written',
   'answer.replyHelp': 'Progress and Live show one working message, and the answer replaces it. On a platform with drafts, Live shows a private chat a draft instead, and the answer follows it. A long answer goes on in new messages.',
   'answer.conversationLabel': 'Conversations',
+  'answer.conversationHelp': 'Send /new (or !new) in the app to start a new chat.',
   'answer.conversation.sender': 'One chat per person',
   'answer.conversation.chat': 'One chat per group or channel',
   'answer.conversation.window': 'Per person, new after a quiet time',
@@ -75,7 +76,7 @@ export default function AnswerFields({ form, setForm, t, kindInfo }) {
           </Select>
         )}
       </Field>
-      <Field label={s('answer.conversationLabel')}>
+      <Field label={s('answer.conversationLabel')} hint={s('answer.conversationHelp')}>
         {(p) => (
           <Select {...p} data-testid="connector-conversation" value={form.conversation || 'sender'}
             onChange={(e) => setForm({ ...form, conversation: e.target.value })}>

@@ -397,6 +397,36 @@ that part.
 | `window` | As `sender`, but a message that comes `window_minutes` (1 to 10,080) or more after the same person's previous message starts a new chat. A thread keeps its chat. |
 | `thread` | Each message starts a new chat. A reply to an answer of the bot, or to the message that started a chat, goes on in that chat; on Slack, so does a thread under either one. |
 
+#### Start a new chat with `/new`
+
+A person can ask for a new chat at any time. The person sends `/new` as a message to the
+bot. Slack takes a message that begins with a slash for its own commands, so there the
+person sends `!new`. The host reads the command before any model turn: the agent never
+sees it, and the logs record only that a new chat started, with the ids, never the text.
+
+The command is the whole message. The case does not matter, and white space around it is
+ignored. Telegram's `/new@BotName` works when it names the bot. A message such as
+`/new please summarise` is plain text and goes to the agent. A message with a file is
+never a command. Only a person who may talk to the bot can use it; any other person gets
+nothing, as for any message.
+
+| Mode | What `/new` does |
+|---|---|
+| `sender`, `window` | The next message of the person starts a new chat. The old chat stays in Studio, with all its messages. |
+| `chat` | The next message of anyone in the group starts a new chat, for everyone. Only a sender that the owner paired with the bot may do this. Anyone else gets a short refusal. |
+| `thread` | Nothing to reset: the bot says that every message already starts a new chat. |
+
+In a thread of the platform (a Slack thread, a Telegram forum topic) the command resets
+only the chat of that thread. The people in a thread share its chat, so in a group a
+paired sender must send it. In a private chat the person can always send it.
+
+If the bot is still answering in that chat, it asks the person to send the command again
+when it is done, so a running turn never loses its chat. The old chat is not deleted, and
+memory and files stay as they are. A trigger whose delivery target is the origin chat
+still points at the old chat. The command needs no support from the add-on: it works for
+every connector, and with several frontends, because the link from a person to a chat is
+in the shared store.
+
 Some add-ons add settings of their own to a binding (for example Slack's **Threads the
 bot follows**). They appear under **How it answers**, and in the API as `options`, a
 map from the option id to a value. The add-on declares the allowed values, and an

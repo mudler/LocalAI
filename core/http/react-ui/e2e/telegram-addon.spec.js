@@ -120,6 +120,7 @@ test.describe('Telegram add-on', () => {
     // A new binding shows progress, one chat per person, and sends files.
     await expect(page.getByTestId('connector-reply')).toHaveValue('progress')
     await expect(page.getByTestId('connector-conversation')).toHaveValue('sender')
+    await expect(page.getByText('Send /new (or !new) in the app to start a new chat.')).toBeVisible()
     await expect(page.getByTestId('connector-files')).toBeChecked()
     await expect(page.getByTestId('connector-window')).toHaveCount(0)
     await page.getByLabel('Name', { exact: true }).fill('Live bot')

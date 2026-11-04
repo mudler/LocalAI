@@ -100,6 +100,26 @@ var _ = Describe("the Bot API client", func() {
 		Expect(strings.Count(p, "/")).To(Equal(2))
 	})
 
+	It("reads a command that names the bot as addressed to it, and keeps the text", func() {
+		f := newFakeBot()
+		f.reply["getMe"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":{"id":123456,"username":"helper_bot"}}`
+		}
+		f.reply["getUpdates"] = func(map[string]any) (int, string) {
+			return 200, `{"ok":true,"result":[
+ {"update_id":30,"message":{"message_id":601,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new@Helper_Bot","entities":[{"type":"bot_command","offset":0,"length":15}]}},
+ {"update_id":31,"message":{"message_id":602,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new@other_bot","entities":[{"type":"bot_command","offset":0,"length":14}]}},
+ {"update_id":32,"message":{"message_id":603,"chat":{"id":-300,"type":"supergroup"},"from":{"id":7,"first_name":"Bo"},"text":"/new","entities":[{"type":"bot_command","offset":0,"length":4}]}}]}`
+		}
+		ups, err := f.client().Updates(ctx, secretToken, 30, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(ups).To(HaveLen(3))
+		Expect(ups[0].Mention).To(BeTrue())
+		Expect(ups[0].Text).To(Equal("/new@Helper_Bot"))
+		Expect(ups[1].Mention).To(BeFalse(), "another bot is named")
+		Expect(ups[2].Mention).To(BeFalse(), "a bare command in a group is not addressed")
+	})
+
 	It("reads the ID of a message, its reply, its topic and a mention of the bot in a group", func() {
 		f := newFakeBot()
 		f.reply["getMe"] = func(map[string]any) (int, string) {

@@ -217,6 +217,17 @@ func (s *jsonStore) SetChat(_ context.Context, binding, senderID, chatID string)
 	return s.save()
 }
 
+func (s *jsonStore) ClearChat(_ context.Context, binding, senderID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	k := binding + "\x00" + senderID
+	if _, ok := s.d.Chats[k]; !ok {
+		return nil
+	}
+	delete(s.d.Chats, k)
+	return s.save()
+}
+
 func (s *jsonStore) EnsureKey(_ context.Context, generate func() ([]byte, error)) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

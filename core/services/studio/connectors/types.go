@@ -282,6 +282,10 @@ type Store interface {
 	// ChatOf is the chat of a sender of a binding.
 	ChatOf(ctx context.Context, binding, senderID string) (string, bool, error)
 	SetChat(ctx context.Context, binding, senderID, chatID string) error
+	// ClearChat drops the mapping of a sender of a binding to its chat, so
+	// that the next message makes a new chat. The chat itself is not touched.
+	// It is not an error when there is no mapping.
+	ClearChat(ctx context.Context, binding, senderID string) error
 
 	// EnsureKey returns the sealing key. The first call stores what generate
 	// makes; every call after it, on any frontend, returns that key.
