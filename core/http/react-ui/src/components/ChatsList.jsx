@@ -188,7 +188,7 @@ export default function ChatsList({
   }
 
   const listId = `${idPrefix}-menu-list`
-  const showFilters = Boolean(onSearch) && search.trim().length > 0
+  const showFilters = searching || (Boolean(onSearch) && filtersActive(filters) && search.trim().length > 0)
   const meta = searching && found.status === 'ready' ? found.meta : null
 
   // The words under the list while a search runs or ends.
