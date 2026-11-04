@@ -611,7 +611,10 @@ from any request a client sends.
 When the service refuses the access token, the add-on answers HTTP 401 with the
 reason `credential_rejected`. It does so only when the service refused the token
 and nothing changed. The host then decides whether to refresh the token or to
-ask the person to reconnect; a 401 with another reason is an outage. When the
+ask the person to reconnect; a 401 with another reason is an outage. An add-on
+built on the Go protocol package of this repository returns
+`contract.ErrCredentialRejected` (wrapped or not) from a handler, and the
+package sends this answer. When the
 connection has expired or was revoked, the model gets the code
 `reconnect_needed` and a note to tell the person to reconnect on the Connectors
 page. The model is told not to repeat the call and not to report an outage.
