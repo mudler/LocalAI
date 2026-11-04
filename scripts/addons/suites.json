@@ -470,7 +470,39 @@
           "refuses a resource key with a control character or too long, and a huge credential",
           "is found through wrapping and keeps its wait in bounds",
           "accepts agentOptional and keeps it through a JSON round trip",
-          "accepts a thread history"
+          "accepts a thread history",
+          "English in the header stops the search",
+          "English is the empty tag",
+          "a bare language finds its only regional entry",
+          "a lower quality is used when the first is missing",
+          "a malformed explicit language is English",
+          "a malformed header is English",
+          "a region falls back to the language",
+          "a wildcard is English",
+          "accepts translated connector kinds and keeps them through a JSON round trip",
+          "an explicit language wins over the header",
+          "an overlong header is English",
+          "an unknown explicit language is English, not the header",
+          "bounds each string like its English field and refuses markup and control characters",
+          "bounds the total text of all translations",
+          "case does not matter",
+          "is optional: an absent field writes nothing",
+          "is part of the manifest bytes, so a changed translation changes them",
+          "limits the number of languages",
+          "lists no language when none is available",
+          "lists the languages other than English in order",
+          "nothing asked is English",
+          "q=0 refuses a language",
+          "quality values order the header",
+          "refuses an empty translation and an empty entry",
+          "refuses an unknown field inside a translation, as a host that does not know the field does",
+          "refuses bad language tags, English and a repeated tag",
+          "refuses duplicate keys and a translation that is not an object",
+          "returns the text of the language and says whether it found one",
+          "the header is used without an explicit language",
+          "translates only a kind that the manifest declares",
+          "translates only a text that the English kind has",
+          "zh finds zh-CN"
         ]
       },
       {
@@ -670,7 +702,47 @@
           "audits actual host calls and strict package contract for pikvm",
           "lists every release platform with its runner",
           "enables a platform exactly when its native check is recorded",
-          "has a catalog template"
+          "has a catalog template",
+          "changes the package digest when a translation changes, and the package still verifies",
+          "gives every translated connector kind of discord the fields of its English kind, and no others",
+          "gives every translated connector kind of face the fields of its English kind, and no others",
+          "gives every translated connector kind of fine-tuning the fields of its English kind, and no others",
+          "gives every translated connector kind of github the fields of its English kind, and no others",
+          "gives every translated connector kind of home-assistant the fields of its English kind, and no others",
+          "gives every translated connector kind of jellyfin the fields of its English kind, and no others",
+          "gives every translated connector kind of memory the fields of its English kind, and no others",
+          "gives every translated connector kind of office the fields of its English kind, and no others",
+          "gives every translated connector kind of pikvm the fields of its English kind, and no others",
+          "gives every translated connector kind of quantization the fields of its English kind, and no others",
+          "gives every translated connector kind of sandbox the fields of its English kind, and no others",
+          "gives every translated connector kind of slack the fields of its English kind, and no others",
+          "gives every translated connector kind of studio the fields of its English kind, and no others",
+          "gives every translated connector kind of tables the fields of its English kind, and no others",
+          "gives every translated connector kind of talk the fields of its English kind, and no others",
+          "gives every translated connector kind of telegram the fields of its English kind, and no others",
+          "gives every translated connector kind of voice the fields of its English kind, and no others",
+          "gives every translated connector kind of web the fields of its English kind, and no others",
+          "lists every add-on directory that has a manifest",
+          "refuses to build a package whose translation the host would refuse",
+          "renders the translated title and description of every add-on into its library entry",
+          "translates the title and the description of discord in every main language",
+          "translates the title and the description of face in every main language",
+          "translates the title and the description of fine-tuning in every main language",
+          "translates the title and the description of github in every main language",
+          "translates the title and the description of home-assistant in every main language",
+          "translates the title and the description of jellyfin in every main language",
+          "translates the title and the description of memory in every main language",
+          "translates the title and the description of office in every main language",
+          "translates the title and the description of pikvm in every main language",
+          "translates the title and the description of quantization in every main language",
+          "translates the title and the description of sandbox in every main language",
+          "translates the title and the description of slack in every main language",
+          "translates the title and the description of studio in every main language",
+          "translates the title and the description of tables in every main language",
+          "translates the title and the description of talk in every main language",
+          "translates the title and the description of telegram in every main language",
+          "translates the title and the description of voice in every main language",
+          "translates the title and the description of web in every main language"
         ]
       },
       {
@@ -786,7 +858,11 @@
       "does not add the default again after the admin removed it",
       "seeds only once per instance",
       "refuses an entry two of your sources list, and excludes disabled sources",
-      "reports the id of a skipped entry"
+      "reports the id of a skipped entry",
+      "carries the translated title and description of an entry through the library",
+      "finds an entry by its translated text as well as by the English text",
+      "keeps a plain entry free of translation fields on the wire",
+      "rejects translations that the manifest would refuse"
     ],
     "report": ".cache/addons/logs/catalog.json"
   },
@@ -1609,7 +1685,8 @@
           "lets administrators stage a file and keeps it from everyone else",
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
-          "tells the pins routes apart too"
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       },
       {
@@ -2304,7 +2381,8 @@
           "lets administrators stage a file and keeps it from everyone else",
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
-          "tells the pins routes apart too"
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       }
     ]
@@ -2782,7 +2860,8 @@
           "lets administrators stage a file and keeps it from everyone else",
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
-          "tells the pins routes apart too"
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       }
     ]
@@ -2856,7 +2935,12 @@
           "carries the declaration of any add-on, whatever its id",
           "carries nothing for an add-on that declares no resources",
           "does not alias the manifest",
-          "leaves an add-on with a mapping and no declaration without a listing"
+          "leaves an add-on with a mapping and no declaration without a listing",
+          "adds nothing for an app without translations, and writes none of the new fields then",
+          "changes no existing field and adds the resolved text beside them",
+          "does not share a map with the original",
+          "falls back to English for each field on its own",
+          "takes the explicit language before the header, and the header before English"
         ]
       },
       {
@@ -3226,7 +3310,8 @@
           "lets administrators stage a file and keeps it from everyone else",
           "is a typed owner_busy 503 when the owner timed out",
           "keeps the plain unavailable answer for an owner that cannot be reached",
-          "tells the pins routes apart too"
+          "tells the pins routes apart too",
+          "adds the text in the negotiated language beside the English fields and changes none of them"
         ]
       }
     ]
@@ -3316,7 +3401,16 @@
       "hub: under the legacy switch the Add-ons tab appears only for an account that holds the feature",
       "unit: addons: a busy owner is its own kind of answer, and the list read carries the stale mark",
       "unit: addons: an error is never an empty list, and the page names what the owner is upgrading",
-      "unit: addons: the last list of a tab stands in for a page loaded while the owner is busy"
+      "unit: addons: the last list of a tab stands in for a page loaded while the owner is busy",
+      "unit: translations: a library entry shows its title and description in the user language and falls back to English per field",
+      "unit: translations: an installed record is named in the user language in dialogs and keeps the English text",
+      "unit: translations: the library adapter carries the languages of the entry",
+      "unit: translations: the installed list is searched by the translated and by the English name",
+      "unit: translations: the lists are in the alphabetical order of the user language",
+      "library: the cards show the title and description in the user language, and English per field where a language has none",
+      "library: English and an unlisted language keep the English text",
+      "library: the install dialog names the add-on in the user language",
+      "installed list: tiles show the translated name and a search finds it by the translated or the English name"
     ]
   },
   "esm-ui": {
