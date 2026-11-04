@@ -3,7 +3,8 @@ import { useCallback, useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Callout, LoadError, SkeletonRows } from '../ui'
 import { chatOAuthClientsApi } from '../../utils/api'
-import { canSaveClient, clientBody, clientStatus, formatWhen, needsSecret, oauthErrorKey, staleDigest } from '../../utils/connectorOAuth'
+import { canSaveClient, clientBody, clientStatus, formatWhen, needsSecret, oauthErrorText, staleDigest } from '../../utils/connectorOAuth'
+import { copyToClipboard } from '../../utils/clipboard'
 import { UntrustedNotice } from '../addons/AddonBits'
 import { untrustedSource } from '../addons/addonState'
 
@@ -42,6 +43,12 @@ export default function OAuthClientSettings({ app, api = chatOAuthClientsApi }) 
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    if (!copied) return undefined
+    const id = setTimeout(() => setCopied(false), 1500)
+    return () => clearTimeout(id)
+  }, [copied])
+
   if (loadError) return <LoadError title={t('oauthClient.loadFailed')} error={loadError} onRetry={() => load()} />
   if (!client) return <SkeletonRows rows={3} />
 
@@ -65,21 +72,16 @@ export default function OAuthClientSettings({ app, api = chatOAuthClientsApi }) 
       setSaved(true)
     } catch (err) {
       if (staleDigest(err)) setStale(true)
-      else {
-        const key = oauthErrorKey(err)
-        setError(key ? t(`oauthClient.errors.${key}`) : (err?.message || t('oauthClient.errors.save')))
-      }
+      else setError(oauthErrorText(t, err, 'oauthClient.errors') || err?.message || t('oauthClient.errors.save'))
     } finally {
       setSaving(false)
     }
   }
 
+  // copyToClipboard also works on plain http, where navigator.clipboard is
+  // not defined. On a failure the address stays selectable.
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(client.callback_url)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch (_) { /* the address stays selectable */ }
+    if (await copyToClipboard(client.callback_url)) setCopied(true)
   }
 
   const scopes = (list) => (list && list.length ? list.join(', ') : t('oauthClient.none'))

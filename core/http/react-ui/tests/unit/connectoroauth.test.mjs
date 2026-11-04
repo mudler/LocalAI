@@ -9,7 +9,7 @@ import ts from 'typescript'
 import React, { useState } from 'react'
 import { renderToString } from 'react-dom/server'
 import {
-  canSaveClient, clientBody, clientStatus, formatWhen, hostOf, isOAuthBinding, needsSecret, oauthErrorKey, oauthRowState,
+  canSaveClient, clientBody, clientStatus, formatWhen, isOAuthBinding, needsSecret, oauthErrorKey, oauthErrorText, oauthRowState,
   readOAuthReturn, reasonKey, reconnectConnections, returnPath, scopeChoices, staleDigest, startBody, newConnectionBody, canAddConnection,
 } from '../../src/utils/connectorOAuth.js'
 import { hasAddonSettings, hasOAuthLogin } from '../../src/addons/hostControls.js'
@@ -79,6 +79,9 @@ test('oauth: the typed refusals have their own text', () => {
   assert.equal(oauthErrorKey(httpError(429, { error: { type: 'too_many_logins' } })), 'tooManyLogins')
   assert.equal(oauthErrorKey(httpError(400, { error: { type: 'invalid_request' } })), '')
   assert.equal(oauthErrorKey(new Error('offline')), '')
+  const t = (key) => `t:${key}`
+  assert.equal(oauthErrorText(t, httpError(409, { error: { type: 'needs_approval' } }), 'oauthClient.errors'), 't:oauthClient.errors.needsApproval')
+  assert.equal(oauthErrorText(t, new Error('offline'), 'oauthClient.errors'), '', 'an untyped error keeps the page fallback')
   assert.equal(staleDigest(httpError(409, { error: { type: 'approval_stale' }, current_digest: 'sha256:new' })), 'sha256:new')
   assert.equal(staleDigest(httpError(409, { error: { type: 'needs_approval' } })), '')
 })
@@ -100,8 +103,6 @@ test('oauth: the administrator form says where the client stands and sends the d
   assert.equal(canSaveClient({ ...fresh, descriptor: { client_auth: 'none' } }, { clientId: 'id', secret: '' }), true, 'a public client has none')
   assert.equal(canSaveClient(fresh, { clientId: '  ', secret: 's' }), false)
   assert.equal(canSaveClient({ ...fresh, current_digest: '' }, { clientId: 'id', secret: 's' }), false)
-  assert.equal(hostOf('https://auth.example.test/authorize'), 'auth.example.test')
-  assert.equal(hostOf('not an address'), '')
   assert.match(formatWhen('2026-11-04T10:00:00Z', 'en'), /2026/)
   assert.equal(formatWhen('', 'en'), '')
   assert.equal(formatWhen('nope', 'en'), '')

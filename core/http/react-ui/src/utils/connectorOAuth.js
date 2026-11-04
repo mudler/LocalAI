@@ -3,10 +3,6 @@
 // locale by a fixed key, or from the server (the add-on's scopes, the account
 // label); nothing here knows a service.
 
-// The states of the login of an oauth2 binding (the oauth object of the
-// binding JSON).
-export const OAUTH_STATES = Object.freeze(['connected', 'reconnect_needed', 'not_connected', 'needs_approval'])
-
 // The fixed reasons of a reconnect. An unknown one (a newer server) gets the
 // generic text.
 const REASONS = new Set(['revoked', 'client_rejected', 'refused', 'needs_approval', 'credential_rejected', 'expired', 'write_failed', 'unreadable', 'scopes_missing', 'endpoint_changed', 'token_too_large'])
@@ -118,6 +114,13 @@ export function oauthErrorKey(e) {
   return ''
 }
 
+// The text of a typed error under the locale subtree prefix (each page words
+// the errors for its own reader), or '' when the error is not a typed one.
+export function oauthErrorText(t, e, prefix) {
+  const key = oauthErrorKey(e)
+  return key ? t(`${prefix}.${key}`) : ''
+}
+
 // The current digest of a stale save (409 approval_stale), or ''.
 export function staleDigest(e) {
   if (e?.status !== 409 || e?.body?.error?.type !== 'approval_stale') return ''
@@ -154,12 +157,6 @@ export function canSaveClient(client, { clientId, secret }) {
   if (!client?.current_digest || !(clientId || '').trim()) return false
   if (needsSecret(client) && !client.has_secret && !secret) return false
   return true
-}
-
-// The host of an address, for the plain-words view of the login. '' when it
-// does not parse.
-export function hostOf(address) {
-  try { return new URL(address).host } catch { return '' }
 }
 
 // A date and time in the page language, or '' for none.

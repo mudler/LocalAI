@@ -11,7 +11,7 @@ import { useAuth } from '../context/AuthContext'
 import { useListedAddons } from '../addons/useAddonRegistry'
 import { chatAgentsApi, chatConnectorsApi } from '../utils/api'
 import { acceptsOf, groupConnectors } from '../utils/chatConnectors'
-import { isOAuthBinding, oauthErrorKey, readOAuthReturn, returnPath, startBody } from '../utils/connectorOAuth'
+import { isOAuthBinding, oauthErrorText, readOAuthReturn, returnPath, startBody } from '../utils/connectorOAuth'
 import './connectors.css'
 
 // The messaging connectors of the user. A platform comes from a connector
@@ -81,8 +81,8 @@ export default function ChatConnectors() {
   const loading = kinds === null && !off && !loadError
 
   const oauthFail = (e) => {
-    const key = oauthErrorKey(e)
-    if (key) setError(t(`connectorsPage.oauth.errors.${key}`))
+    const text = oauthErrorText(t, e, 'connectorsPage.oauth.errors')
+    if (text) setError(text)
     else fail(e)
   }
   // The browser leaves for the service; the button keeps spinning until it does.
